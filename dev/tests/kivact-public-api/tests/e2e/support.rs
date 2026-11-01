@@ -1,23 +1,7 @@
-//! Role: Shared support and utilities for end-to-end tests.
+//! Role: Fixtures shared by the end-to-end tests: mounting and the random driver.
 //! Mounting helpers and the deterministic random driver of the model tests.
 
+mod mount;
 pub(crate) mod random;
 
-use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, render_with_handle};
-
-/// Render the view `f` returns and hand back the screen and what `f`
-/// handed out (handles of its setup), located at the call.
-#[track_caller]
-pub(crate) fn mount<H: 'static, V: IntoView>(f: impl FnOnce() -> (H, V) + 'static) -> (Screen, H) {
-    mount_with(RenderOptions::from_env(), f)
-}
-
-/// [`mount`] with explicit [`RenderOptions`].
-#[track_caller]
-pub(crate) fn mount_with<H: 'static, V: IntoView>(
-    opts: RenderOptions,
-    f: impl FnOnce() -> (H, V) + 'static,
-) -> (Screen, H) {
-    render_with_handle(opts, f)
-}
+pub(crate) use mount::{mount, mount_with};

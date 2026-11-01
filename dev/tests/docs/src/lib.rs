@@ -12,18 +12,8 @@
 //! the `cfg(test)` module would not even be compiled; a unit test of this
 //! crate rejects such blocks.
 
-/// Includes the modules the build script generated.
-macro_rules! generated_guides {
-    () => {
-        include!(concat!(env!("OUT_DIR"), "/guides.rs"));
-    };
-}
-
 /// One module per guide, mirroring the paths under `docs/`.
-pub mod guides {
-    //! Role: Generated doctest modules, one per Markdown guide.
-    generated_guides!();
-}
+pub mod guides;
 
 #[cfg(test)]
 mod tests;
