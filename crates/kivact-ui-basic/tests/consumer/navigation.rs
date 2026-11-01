@@ -1,6 +1,6 @@
 //! Role: Menu component tests: dropdown, context menu, menu bar and navigation menu.
 
-use super::assert_clean;
+use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::{RenderOptions, Screen};

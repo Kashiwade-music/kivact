@@ -86,19 +86,17 @@ pub enum Selection<K: Clone + PartialEq + 'static> {
 ///
 /// The type of the value decides the component's behavior; it is
 /// implemented for exactly those four types (the trait is sealed).
-pub trait SelectionValue<K: Clone + PartialEq + 'static>: sealed::SealedSelection<K> {
+pub trait SelectionValue<K: Clone + PartialEq + 'static>:
+    crate::sealed::SelectionValueSeal<K>
+{
     #[doc(hidden)]
     fn into_selection(self) -> Selection<K>;
 }
-mod sealed {
-    //! Role: Seal of `SelectionValue` to the four selection forms.
-    pub trait SealedSelection<K> {}
-}
 
-impl<K: Clone + PartialEq + 'static> sealed::SealedSelection<K> for Binding<Vec<K>> {}
-impl<K: Clone + PartialEq + 'static> sealed::SealedSelection<K> for Signal<Vec<K>> {}
-impl<K: Clone + PartialEq + 'static> sealed::SealedSelection<K> for Binding<Option<K>> {}
-impl<K: Clone + PartialEq + 'static> sealed::SealedSelection<K> for Signal<Option<K>> {}
+impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Binding<Vec<K>> {}
+impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Signal<Vec<K>> {}
+impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Binding<Option<K>> {}
+impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Signal<Option<K>> {}
 
 impl<K: Clone + PartialEq + 'static> SelectionValue<K> for Binding<Vec<K>> {
     fn into_selection(self) -> Selection<K> {

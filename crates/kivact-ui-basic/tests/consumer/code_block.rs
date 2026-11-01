@@ -1,6 +1,6 @@
 //! Role: Code block tests: copy button, highlight colors, selection, copy and long code.
 
-use super::assert_clean;
+use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact_ui_basic as basic;
@@ -23,7 +23,7 @@ const LINE: f32 = 23.0;
 
 #[test]
 fn code_block_reports_copy_requests_and_shows_copied_for_two_seconds() {
-    let (screen, copies) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, copies) = kivact::test::render_with_handle(crate::support::options(), || {
         let copies = signal(0usize);
         (
             copies,

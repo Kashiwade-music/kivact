@@ -1,6 +1,6 @@
 //! Role: Chart and data table tests: colors, tooltips, filtering, sorting, paging.
 
-use super::{assert_clean, distance};
+use crate::support::{assert_clean, distance};
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::RenderOptions;
