@@ -42,11 +42,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
         lg: 16.0,
         xl: 24.0,
     };
-    let radius = Radii {
-        sm: 0.0,
-        md: 0.0,
-        lg: 0.0,
-    };
+    let radius = Radii::new(0.0, 0.0, 0.0);
     let text = Typography {
         size: 12.0,
         size_small: 12.0,

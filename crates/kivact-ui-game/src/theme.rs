@@ -68,11 +68,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
     } else {
         colors.surface
     };
-    let radius = Radii {
-        sm: 0.,
-        md: 0.,
-        lg: 0.,
-    };
+    let radius = Radii::new(0., 0., 0.);
     let space = Spacing {
         xs: 3.,
         sm: 6.,
