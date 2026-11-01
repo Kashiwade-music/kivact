@@ -1,4 +1,4 @@
-//! Role: The Model aggregate: every passive state group, its construction and basic reads.
+//! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
 use crate::mutation::Writes;

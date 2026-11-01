@@ -1,4 +1,4 @@
-//! Role: The ranges a scalar accepts, and the write-back when a range change leaves the value outside.
+//! Role: The ranges a scalar accepts, and the write-back when one leaves the value out.
 
 use crate::policy::scalar::ScalarRange;
 use kivact_core::diagnostics::ErrorKind;

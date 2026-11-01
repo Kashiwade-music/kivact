@@ -1,4 +1,4 @@
-//! Role: Start the engine's native window loop and report its errors as platform diagnostics.
+//! Role: Start the engine's native window loop; report its errors as diagnostics.
 
 use kivact_engine::bridge::Client;
 use kivact_reactive::{ErrorKind, UiError};

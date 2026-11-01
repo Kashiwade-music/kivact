@@ -1,4 +1,4 @@
-//! Role: Rebuild the paint list by walking the tree in paint order, culled to the viewport.
+//! Role: Rebuild the paint list by walking the tree in paint order within the view.
 
 use super::ink::{grow, ink, local_transform, overlaps, placed, reach};
 use crate::model::Model;

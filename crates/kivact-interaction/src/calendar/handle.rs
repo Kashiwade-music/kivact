@@ -1,4 +1,4 @@
-//! Role: The `CalendarGrid` handle: grid, rows, paging buttons and day cells with their state.
+//! Role: The `CalendarGrid` handle: grid, rows, paging buttons and day cells.
 
 use super::policy::{CalendarPolicy, CalendarSelection};
 use super::state;

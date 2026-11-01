@@ -1,6 +1,5 @@
 //! Role: Gradients placed by the filled box: linear, radial and conic.
 
-use super::layer::Paint;
 use crate::color::Color;
 use crate::length::Length;
 use crate::theme::value::ThemeColor;
@@ -191,20 +190,5 @@ impl Gradient {
             GradientKind::Linear { .. } => {}
         }
         self
-    }
-
-    /// As a [`Paint`] of tiles of this size ([`Paint::size`]).
-    pub fn size(self, width: impl Into<Length>, height: impl Into<Length>) -> Paint {
-        Paint::from(self).size(width, height)
-    }
-
-    /// As a [`Paint`] whose first tile is here ([`Paint::position`]).
-    pub fn position(self, x: impl Into<Length>, y: impl Into<Length>) -> Paint {
-        Paint::from(self).position(x, y)
-    }
-
-    /// As a [`Paint`] of one tile ([`Paint::no_repeat`]).
-    pub fn no_repeat(self) -> Paint {
-        Paint::from(self).no_repeat()
     }
 }

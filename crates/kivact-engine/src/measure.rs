@@ -6,6 +6,6 @@ pub(crate) mod input;
 pub(crate) mod leaf;
 pub(crate) mod state;
 
-pub(crate) use inherited_text::{computed_text, input_style};
 #[cfg(any(debug_assertions, feature = "testing"))]
 pub(crate) use inherited_text::text_props;
+pub(crate) use inherited_text::{computed_text, input_style};

@@ -1,4 +1,4 @@
-//! Role: The `TextEdit` handle: native editing options and the control part over a string binding.
+//! Role: The `TextEdit` handle: native editing options and the control part.
 
 use super::policy::text_edit_policy;
 use kivact_core::diagnostics::ErrorKind;

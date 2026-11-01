@@ -1,4 +1,4 @@
-//! Role: Editor behavior hooks: the routed request, its context over laid-out lines and the outcome.
+//! Role: Editor behavior hooks: the routed request, its context and the outcome.
 
 use crate::edit_state::EditState;
 use kivact_types::{Key, Modifiers, Rect};

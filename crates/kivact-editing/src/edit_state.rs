@@ -1,4 +1,4 @@
-//! Role: `EditState`: a text, its revision and session, changed only by recorded replacements.
+//! Role: `EditState`: a text, its revision and session, changed by recorded edits.
 
 use crate::change::{Damage, TextChange};
 use crate::session::TextSession;

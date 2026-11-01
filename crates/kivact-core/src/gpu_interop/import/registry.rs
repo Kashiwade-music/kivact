@@ -1,4 +1,4 @@
-//! Role: The App's record of its imports and the adapter signal, kept in step with the host's answers.
+//! Role: The App's record of its imports and the adapter signal.
 
 use kivact_reactive::Signal;
 use kivact_reactive::{ErrorKind, UiError};

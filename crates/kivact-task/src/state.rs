@@ -6,16 +6,41 @@
 //! host that runs the App's turns.
 
 use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
 
 use super::executor::Executor;
-use crate::time::TimeState;
 use crate::worker_pool::{self, Pool};
 use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owned, Runtime};
+
+/// The pending host-clock timers of an App, by deadline and arrival.
+#[derive(Default)]
+pub(crate) struct TimeState {
+    pub(crate) timers: BTreeMap<(u64, u64), Waker>,
+    pub(crate) next_id: u64,
+}
+
+impl TimeState {
+    pub(crate) fn next_deadline(&self) -> Option<u64> {
+        self.timers.keys().next().map(|k| k.0)
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.timers.len()
+    }
+
+    /// Remove and return wakers of timers due at `now` (ns).
+    pub(crate) fn take_due(&mut self, now: u64) -> Vec<Waker> {
+        let due: Vec<(u64, u64)> = self.timers.range(..(now + 1, 0)).map(|(k, _)| *k).collect();
+        due.into_iter()
+            .filter_map(|k| self.timers.remove(&k))
+            .collect()
+    }
+}
 
 /// What a spawned task stores under its owner: its executor handle and
 /// whether its future completed.

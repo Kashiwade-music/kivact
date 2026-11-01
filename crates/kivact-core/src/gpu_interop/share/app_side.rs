@@ -1,4 +1,4 @@
-//! Role: The App's side of a shared image: status, size, renewal and the import it follows.
+//! Role: The App's side of a shared image: status, size, renewal and import.
 
 use std::cell::RefCell;
 use std::fmt;
@@ -11,8 +11,9 @@ use kivact_reactive::{Owner, Runtime};
 use kivact_wire::{GpuAdapter, SharedTextures};
 
 use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest};
+use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::inbox::Inbox;
-use crate::gpu_interop::import::{ExternalImage, ImportStatus, adapter, import_in};
+use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
 use kivact_style::draw::{GpuFrame, Pixels};
 use kivact_task::spawn_in;
 

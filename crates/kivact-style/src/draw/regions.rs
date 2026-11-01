@@ -1,42 +1,11 @@
-//! Role: Canvas hit regions: their semantics, declaration and transformed geometry.
+//! Role: Canvas hit regions: their declaration and transformed geometry.
 
-use super::recorder::Draw;
+use super::recorder::{Draw, RegionSemantics};
 use crate::effect::{Shape, basic};
 use crate::geometry::{Point, Rect};
 use crate::path::Path;
 use kivact_wire as p;
-use kivact_wire::{A11yAction, RegionId, Role};
-
-/// What a node's setup declared about a canvas region (`Node::region`),
-/// resolved by node mounting and handed to the painter with
-/// [`Draw::declare_regions`] before the drawing callbacks run, so that
-/// `region`, `region_shape` and `region_path` can publish the region's
-/// accessibility leaf.
-#[derive(Clone, Debug, PartialEq)]
-pub struct RegionSemantics {
-    /// Role of the accessibility leaf.
-    pub role: Role,
-    /// Accessible name.
-    pub name: String,
-    /// Accessible description, if any.
-    pub description: Option<String>,
-    /// Accessible value text, if any.
-    pub value: Option<String>,
-    /// Actions the leaf accepts.
-    pub actions: Vec<A11yAction>,
-    /// Typed semantic properties (checked, selected, expanded, ...), if any.
-    pub properties: Option<Box<p::SemanticsProperties>>,
-    /// The region is disabled.
-    pub disabled: bool,
-    /// The region is hidden from accessibility.
-    pub hidden: bool,
-    /// The region can take the focus.
-    pub focusable: bool,
-    /// Position in the focus order among the node's regions.
-    pub focus_order: u32,
-    /// Where a press moves the focus, if not onto the region itself.
-    pub focus_on_press: Option<p::FocusTarget>,
-}
+use kivact_wire::RegionId;
 
 impl Draw {
     /// Supply the node's declared regions before the drawing callbacks run;

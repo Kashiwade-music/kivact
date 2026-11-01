@@ -1,4 +1,4 @@
-//! Role: Boxes a text is checked against: ancestors, visual parent, padding boxes and clips.
+//! Role: Boxes a text is checked against: ancestors, parent, padding and clips.
 
 use crate::model::Model;
 use crate::model::interact::visual;

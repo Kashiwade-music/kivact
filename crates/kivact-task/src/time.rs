@@ -1,13 +1,12 @@
-//! Role: Host-clock timers: `sleep`, `timeout` and the App's store of pending timers.
+//! Role: Host-clock timers (`sleep`, `timeout`).
 //!
 //! In tests the clock is virtual and only moves with `advance`.
 
-use std::collections::BTreeMap;
 use std::future::Future;
 use std::panic::Location;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
-use std::task::{Context, Poll, Waker};
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use kivact_reactive::Runtime;
@@ -121,30 +120,5 @@ pub fn timeout<F: Future>(d: Duration, fut: F) -> impl Future<Output = Result<F:
     Timeout {
         fut: Box::pin(fut),
         sleep: Box::pin(sleep),
-    }
-}
-
-/// The pending host-clock timers of an App, by deadline and arrival.
-#[derive(Default)]
-pub(crate) struct TimeState {
-    pub(crate) timers: BTreeMap<(u64, u64), Waker>,
-    pub(crate) next_id: u64,
-}
-
-impl TimeState {
-    pub(crate) fn next_deadline(&self) -> Option<u64> {
-        self.timers.keys().next().map(|k| k.0)
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.timers.len()
-    }
-
-    /// Remove and return wakers of timers due at `now` (ns).
-    pub(crate) fn take_due(&mut self, now: u64) -> Vec<Waker> {
-        let due: Vec<(u64, u64)> = self.timers.range(..(now + 1, 0)).map(|(k, _)| *k).collect();
-        due.into_iter()
-            .filter_map(|k| self.timers.remove(&k))
-            .collect()
     }
 }

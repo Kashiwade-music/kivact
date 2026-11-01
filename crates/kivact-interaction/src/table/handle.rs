@@ -1,4 +1,4 @@
-//! Role: The `Table` handle: options, sort and widths, and grid, header, row, cell and resize parts.
+//! Role: The `Table` handle: options, sort, widths, and its grid, row and cell parts.
 
 use super::data::{TableCellState, TableFocus, TableHeaderState, TableRowState};
 use super::model::ColumnDef;

@@ -1,4 +1,4 @@
-//! Role: Per-node layout columns: results, measure records, child cursors and geometry changes.
+//! Role: Per-node layout columns: results, measure records, cursors and geometry changes.
 
 use crate::calcs::Calcs;
 use crate::style::node::NodeStyle;

@@ -90,6 +90,5 @@ pub use kivact_wire::Stroke;
 pub use kivact_wire::TextMetrics;
 
 pub(crate) use local_paint::LocalPaint;
-pub use recorder::{Draw, Recording};
-pub use regions::RegionSemantics;
+pub use recorder::{Draw, Recording, RegionSemantics};
 pub use text_run::{TextBaseline, TextRun, TextStyle};

@@ -1,4 +1,4 @@
-//! Role: Apply the layout rules to a text, or every text of a subtree, and collect findings.
+//! Role: Apply the layout rules to a text or a subtree and collect findings.
 
 use super::boxes::{Axes, ancestors, clips, padding_box, reach, visual_parent};
 use super::shaped_lines::shape;
