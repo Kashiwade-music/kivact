@@ -24,6 +24,8 @@ jobs:
         with:
           cache-targets: false
       - run: cargo fmt --all -- --check
+      # xtask resolves features with --offline, so the registry must be filled first.
+      - run: cargo fetch --locked
       - run: cargo xtask check
       - name: Architecture diagrams are up to date
         run: test -z "$(git status --porcelain architecture)"
