@@ -132,3 +132,14 @@ impl Context<'_> {
         }
     }
 }
+
+/// The zoom images are rasterized for under transforms enlarging them by
+/// `z`: `z` rounded up to a quarter step of powers of two (exactly 1
+/// without a transform), so a zooming subtree rasterizes its SVGs again
+/// only every 19 %, never blurrier than drawn.
+pub fn raster_zoom(z: f32) -> f32 {
+    if z == 1.0 || !z.is_finite() || z <= 0.0 {
+        return 1.0;
+    }
+    ((z.log2() * 4.0).ceil() / 4.0).exp2()
+}
