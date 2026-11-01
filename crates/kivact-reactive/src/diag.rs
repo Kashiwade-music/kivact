@@ -18,7 +18,7 @@ use std::panic::Location;
 
 use crate::data::{Diag, EffectKind, Kind, Runtime};
 use crate::data::{TraceRun, TraceWrite, TurnRecord};
-use crate::error::{ErrorKind, UiError};
+use crate::error::UiError;
 
 const RING: usize = 256;
 const PER_TURN: usize = 64;
@@ -48,9 +48,6 @@ impl Diag {
     /// An error that reached the default sink.
     pub(crate) fn record_error(&mut self, err: UiError) {
         self.total_errors += 1;
-        if self.first_unhandled_panic.is_none() && err.kind() == &ErrorKind::Panic {
-            self.first_unhandled_panic = Some(err.clone());
-        }
         if self.errors.len() == RING {
             self.errors.pop_front();
         }
@@ -203,13 +200,6 @@ impl Runtime {
     /// Errors that reached the default sink, oldest first (bounded ring).
     pub fn errors(&self) -> Vec<UiError> {
         self.diag.borrow().errors.iter().cloned().collect()
-    }
-
-    /// The first panic that reached the default sink, retained independently
-    /// of the error ring. Panics recovered by an owner boundary are excluded.
-    /// Reading this diagnostic takes constant time.
-    pub fn first_unhandled_panic(&self) -> Option<UiError> {
-        self.diag.borrow().first_unhandled_panic.clone()
     }
 
     /// Recent turn records, oldest first (bounded ring).

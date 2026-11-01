@@ -13,8 +13,7 @@
 //!   ([`Runtime::run_mounts_acked`]), in queue order.
 //! - A callback whose owner was disposed meanwhile never runs; it is
 //!   dropped when its token is acknowledged (or with the runtime).
-//! - Each callback runs in a handler frame of its owner and at a boundary:
-//!   a panic is reported to the owner.
+//! - Each callback runs in a handler frame of its owner; a panic propagates.
 
 use crate::arena::Key;
 use crate::data::Runtime;
@@ -55,7 +54,7 @@ impl Runtime {
         for (owner, f) in due {
             if self.owner_alive(owner) {
                 let _g = self.handler_frame(Some(owner));
-                self.guarded(Some(owner), f);
+                f();
             }
         }
     }

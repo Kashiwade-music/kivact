@@ -5,18 +5,16 @@
 //! `Handled`), so `?` infers [`UiError`] without an annotation.
 //!
 //! A misuse (a setup-only call outside setup, a disposed handle, a write in
-//! a pure computation, ...) is thrown as a `MisusePanic(UiError)` located at
-//! the caller. The boundary that catches it (setup, handler, effect, task)
-//! walks up the owner tree to the nearest `error_boundary` (its `on_error`,
-//! then its fallback) or, without one, to the App's default sink
-//! (`tracing::error!` and the diagnostics ring; see `report`). The panic
-//! hook stays silent for these payloads.
+//! a pure computation, ...) is a bug in the caller, not an error value: it
+//! panics at the caller with a located message, `kivact misuse: UiError(..)`,
+//! and nothing catches it. The panic ends the App (or fails the test) with
+//! Rust's usual message. Only `Err` values travel the error path: they go to
+//! the nearest `error_boundary`'s `on_error`, or without one to the App's
+//! default sink (`tracing::error!` and the diagnostics ring; see `report`).
 
-use crate::AppId;
-use std::any::Any;
 use std::fmt;
 use std::panic::Location;
-use std::sync::{Arc, Once};
+use std::sync::Arc;
 
 /// What went wrong. Misuse kinds carry the data listed in the design's misuse
 /// table; the source position is available through [`UiError::location`].
@@ -53,8 +51,6 @@ pub enum ErrorKind {
     },
     /// A handle from another App (or an App that no longer exists).
     WrongApp,
-    /// A panic caught at a boundary (setup, handler, effect, task).
-    Panic,
     /// An error made from a message ([`UiError::msg`]).
     Message,
     /// Converted from a `std::error::Error`.
@@ -166,28 +162,6 @@ impl UiError {
     pub fn source_error(&self) -> Option<&(dyn std::error::Error + Send + Sync + 'static)> {
         self.0.source.as_deref()
     }
-
-    /// The error for a panic `payload` caught at a boundary: a misuse panic
-    /// carries its own located error; any other panic becomes
-    /// [`ErrorKind::Panic`] located at `at`.
-    pub fn from_panic(
-        payload: Box<dyn Any + Send>,
-        at: Option<&'static Location<'static>>,
-    ) -> Self {
-        match payload.downcast::<MisusePanic>() {
-            Ok(m) => m.0,
-            Err(payload) => {
-                let text = if let Some(s) = payload.downcast_ref::<&str>() {
-                    (*s).to_string()
-                } else if let Some(s) = payload.downcast_ref::<String>() {
-                    s.clone()
-                } else {
-                    "panic".to_string()
-                };
-                Self::new(ErrorKind::Panic, format!("panicked: {text}"), at)
-            }
-        }
-    }
 }
 
 /// A located error of `kind` (the crate-internal constructor of [`UiError`]).
@@ -197,15 +171,6 @@ pub(crate) fn new_error(
     at: Option<&'static Location<'static>>,
 ) -> UiError {
     UiError::new(kind, message, at)
-}
-
-/// The error for a caught panic `payload`; a misuse panic carries its own
-/// located error, any other panic becomes `ErrorKind::Panic` at `at`.
-pub(crate) fn error_from_panic(
-    payload: Box<dyn Any + Send>,
-    at: Option<&'static Location<'static>>,
-) -> UiError {
-    UiError::from_panic(payload, at)
 }
 
 impl<E: std::error::Error + Send + Sync + 'static> From<E> for UiError {
@@ -246,13 +211,10 @@ impl fmt::Debug for UiError {
 /// `std::result::Result` with [`UiError`].
 pub type Result<T, E = UiError> = std::result::Result<T, E>;
 
-/// Panic payload for detected misuse. Caught at boundaries and reported.
-pub(crate) struct MisusePanic(pub(crate) UiError);
-
 /// Raise a located error of `kind`: a misuse diagnostic of a component or
-/// a layer. Inside an App the nearest boundary (setup, handler, effect,
-/// task) catches it and reports it, and the panic hook stays quiet; outside
-/// every App it is a panic with a readable message.
+/// a layer. It always panics at the caller with a readable message
+/// (`kivact misuse: UiError(..)`); nothing catches it, so it ends the App
+/// (or fails the test).
 pub fn raise(kind: ErrorKind, message: impl Into<String>, at: &'static Location<'static>) -> ! {
     misuse_at(kind, message, at)
 }
@@ -262,33 +224,12 @@ pub(crate) fn misuse_at(
     message: impl Into<String>,
     at: &'static Location<'static>,
 ) -> ! {
-    resume(UiError::new(kind, message, Some(at)))
+    misuse(UiError::new(kind, message, Some(at)))
 }
 
-/// Raise `err`. Inside an App (a boundary will catch it) the payload is the
-/// structured error and the panic hook stays quiet; outside every App no
-/// boundary exists, so the payload is a readable `String` that the default
-/// hook prints.
-pub(crate) fn resume(err: UiError) -> ! {
-    install_quiet_hook();
-    if crate::execution::executing_app() == AppId::NONE {
-        std::panic::panic_any(format!("kivact misuse: {err:?}"))
-    }
-    std::panic::panic_any(MisusePanic(err))
-}
-
-/// Misuse panics are reported through the error sink, not the panic hook.
-/// Other panics keep the previously installed hook's behaviour.
-pub(crate) fn install_quiet_hook() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let previous = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            if info.payload().downcast_ref::<MisusePanic>().is_none() {
-                previous(info);
-            }
-        }));
-    });
+/// Panic with `err`: a detected misuse is a bug, never an error value.
+pub(crate) fn misuse(err: UiError) -> ! {
+    panic!("kivact misuse: {err:?}")
 }
 
 pub(crate) mod sealed {

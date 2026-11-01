@@ -35,7 +35,7 @@ use crate::NodeId;
 use crate::arena::Key;
 use crate::data::{Color, Compute, EffectCell, MemoCell, RNode, Runtime};
 use crate::data::{EffectKind, Kind, NodeInfo, SourceCell};
-use crate::error::{ErrorKind, UiError, error_from_panic, misuse_at, new_error, resume};
+use crate::error::{ErrorKind, misuse_at, new_error};
 
 impl<T: 'static> Compute for MemoCell<T> {
     fn run(&self) -> bool {
@@ -53,14 +53,7 @@ impl<T: 'static> Compute for MemoCell<T> {
         }
         *slot = Some(new);
         drop(slot);
-        *self.error.borrow_mut() = None;
         true
-    }
-
-    fn set_error(&self, err: UiError) {
-        if self.value.borrow().is_none() {
-            *self.error.borrow_mut() = Some(err);
-        }
     }
 
     fn busy(&self) -> bool {
@@ -150,7 +143,6 @@ impl Runtime {
     ) -> Key {
         let cell = Rc::new(MemoCell {
             value: RefCell::new(None),
-            error: RefCell::new(None),
             f,
             eq,
         });
@@ -413,26 +405,17 @@ impl Runtime {
             self.run_node_cleanups(key, owner);
         }
         let pure = matches!(kind, Kind::Memo | Kind::Effect(EffectKind::Render));
-        let result = {
+        let changed = {
             let guard = self.tracking_frame(key, owner, pure, is_effect);
-            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| compute.run()));
+            let changed = compute.run();
             let deps = guard.take_deps();
             drop(guard);
             self.set_deps(key, deps);
-            r
+            changed
         };
         if let Some(prev) = writer {
             self.writer.set(prev);
         }
-        let changed = match result {
-            Ok(c) => c,
-            Err(p) => {
-                let err = error_from_panic(p, None);
-                compute.set_error(err.clone());
-                self.route(Some(owner), err);
-                false
-            }
-        };
         let subs = {
             let mut g = self.graph.borrow_mut();
             let Some(n) = g.get_mut(key) else { return };
@@ -505,7 +488,7 @@ impl Runtime {
         }
         let _g = self.handler_frame(Some(owner));
         for c in cleanups.into_iter().rev() {
-            self.guarded(Some(owner), c);
+            c();
         }
     }
 
@@ -573,8 +556,8 @@ impl Runtime {
         )
     }
 
-    /// Current value of a memo, computing it if needed; panics with the
-    /// memo's error if it has never produced a value.
+    /// Current value of a memo, computing it if needed; a memo that has no
+    /// value yet (it reads itself) is a `Cycle` misuse.
     pub(crate) fn memo_value<T: 'static, R>(
         &self,
         cell: &Rc<dyn Any>,
@@ -588,18 +571,14 @@ impl Runtime {
         match v.as_ref() {
             Some(v) => f(v),
             None => {
-                let err = memo.error.borrow().clone();
                 drop(v);
-                match err {
-                    Some(e) => resume(e),
-                    None => misuse_at(
-                        ErrorKind::Cycle {
-                            path: self.frame_path(),
-                        },
-                        "memo value unavailable (cycle)",
-                        at,
-                    ),
-                }
+                misuse_at(
+                    ErrorKind::Cycle {
+                        path: self.frame_path(),
+                    },
+                    "memo value unavailable (cycle)",
+                    at,
+                )
             }
         }
     }

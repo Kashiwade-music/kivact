@@ -112,8 +112,6 @@ pub enum Kind {
 /// Erased computation of a memo or effect. Returns whether the value changed.
 pub(crate) trait Compute {
     fn run(&self) -> bool;
-    /// Remember the error of a failed first computation (memos).
-    fn set_error(&self, _err: UiError) {}
     /// The value is borrowed (a `with` closure is running), so it cannot be
     /// recomputed now (memos).
     fn busy(&self) -> bool {
@@ -129,7 +127,6 @@ pub(crate) struct SourceCell<T> {
 
 pub(crate) struct MemoCell<T> {
     pub(crate) value: RefCell<Option<T>>,
-    pub(crate) error: RefCell<Option<UiError>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
@@ -295,7 +292,6 @@ pub struct TurnRecord {
 #[derive(Default)]
 pub(crate) struct Diag {
     pub(crate) errors: VecDeque<UiError>,
-    pub(crate) first_unhandled_panic: Option<UiError>,
     pub(crate) diagnostics: VecDeque<UiError>,
     pub(crate) turns: VecDeque<TurnRecord>,
     pub(crate) current: TurnRecord,

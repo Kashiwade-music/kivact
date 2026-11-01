@@ -229,7 +229,7 @@ pub fn context<T: Clone + 'static>() -> T {
     let (rt, owner) = owner_scope("context", at);
     lookup_context::<T>(&rt, owner).unwrap_or_else(|| {
         misuse_at(
-            ErrorKind::Panic,
+            ErrorKind::Message,
             format!(
                 "`context::<{}>()` requires a provided value",
                 type_name::<T>()

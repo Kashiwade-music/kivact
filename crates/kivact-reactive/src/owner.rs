@@ -124,7 +124,7 @@ impl Runtime {
 
     /// Run `f` when `owner` is disposed (LIFO with its other cleanups). On
     /// an owner that is being disposed or is gone, `f` runs at once, in a
-    /// handler frame of the owner and at a boundary.
+    /// handler frame of the owner.
     pub(crate) fn add_cleanup(&self, owner: Key, f: Box<dyn FnOnce()>) {
         let f = match self.owners.borrow_mut().get_mut(owner) {
             Some(o) if !o.disposing => {
@@ -134,7 +134,7 @@ impl Runtime {
             _ => f,
         };
         let _g = self.handler_frame(Some(owner));
-        self.guarded(Some(owner), f);
+        f();
     }
 
     pub(crate) fn add_effect_cleanup(&self, effect: Key, f: Box<dyn FnOnce()>) {
@@ -216,7 +216,7 @@ impl Runtime {
             }
         }
         self.detach_owner(root);
-        // Disposal runs user cleanups: untracked, never pure, a boundary.
+        // Disposal runs user cleanups: untracked, never pure.
         let _g = self.handler_frame(Some(root));
         for key in order {
             self.dispose_one(key);
@@ -254,7 +254,7 @@ impl Runtime {
         if !cleanups.is_empty() {
             let _g = self.handler_frame(Some(key));
             for c in cleanups.into_iter().rev() {
-                self.guarded(Some(key), c);
+                c();
             }
         }
         let mut graveyard: Vec<Box<dyn Any>> = Vec::new();
@@ -338,7 +338,7 @@ impl Runtime {
         };
         if let Some(mut obj) = removed {
             if let Some(f) = obj.on_dispose.take() {
-                self.guarded(Some(owner), || f(self));
+                f(self);
             }
             drop(obj);
         }
@@ -373,7 +373,7 @@ impl Runtime {
             if let Some(cleanups) = cleanups.filter(|c| !c.is_empty()) {
                 let _g = self.handler_frame(Some(key));
                 for c in cleanups.into_iter().rev() {
-                    self.guarded(Some(key), c);
+                    c();
                 }
             }
             if let Some(node) = self.remove_node(n, Some(created_at)) {
@@ -391,7 +391,7 @@ impl Runtime {
             );
             if let Some(mut obj) = removed {
                 if let Some(f) = obj.on_dispose.take() {
-                    self.guarded(Some(key), || f(self));
+                    f(self);
                 }
                 graveyard.push(Box::new(obj.data));
             }

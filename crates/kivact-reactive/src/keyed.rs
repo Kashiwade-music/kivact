@@ -12,16 +12,15 @@
 //! - Same keys in the same order is the fast path ([`Diff::Values`]): no
 //!   key is hashed.
 //! - A row's setup ([`Row::setup`]) runs in a setup frame of the row's own
-//!   owner; a panic there is reported to that owner.
+//!   owner; a panic there propagates.
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use std::panic::{AssertUnwindSafe, Location, catch_unwind};
+use std::panic::Location;
 use std::rc::Rc;
 
 use crate::data::SourceCell;
-use crate::error::error_from_panic;
 use crate::registry::runtime;
 use crate::{Owner, Signal, Value};
 
@@ -103,22 +102,11 @@ impl<K, T: 'static> Row<K, T> {
     }
 
     /// Run `make` with the row's item as setup of the row's owner (untracked
-    /// as every setup). A panic in it is reported to the row's owner,
-    /// located at `at`, and gives `None`.
-    pub fn setup<R>(
-        &self,
-        at: &'static Location<'static>,
-        make: impl FnOnce(Value<T>) -> R,
-    ) -> Option<R> {
+    /// as every setup). A panic in it propagates.
+    pub fn setup<R>(&self, at: &'static Location<'static>, make: impl FnOnce(Value<T>) -> R) -> R {
         let rt = runtime(self.owner.app, at);
         let _setup = rt.setup_frame(self.owner.key);
-        match catch_unwind(AssertUnwindSafe(|| make(Value::from(self.item)))) {
-            Ok(value) => Some(value),
-            Err(panic) => {
-                rt.route(Some(self.owner.key), error_from_panic(panic, Some(at)));
-                None
-            }
-        }
+        make(Value::from(self.item))
     }
 
     fn differs(&self, item: &T) -> bool

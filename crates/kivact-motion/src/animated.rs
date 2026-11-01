@@ -366,7 +366,11 @@ impl<T: Animatable> Animated<T> {
                 if seen.replace(n) == n {
                     return;
                 }
-                owner.run_handler(|| owner.guarded(|| f().into_result()));
+                owner.run_handler(|| {
+                    if let Err(err) = f().into_result() {
+                        owner.report(err);
+                    }
+                });
             },
             at,
         );
