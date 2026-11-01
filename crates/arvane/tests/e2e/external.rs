@@ -10,9 +10,8 @@
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{ErrorKind, Renderer, RendererChange, Window as _};
 use gpu_interop_producer::{Producer, pattern};
-use kivact_types::{
-    DrawCommand, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference,
-};
+use kivact_types::protocol::DrawCommand;
+use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference};
 
 use crate::support::{options, rect, show};
 

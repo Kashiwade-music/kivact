@@ -1,8 +1,7 @@
 //! Role: Color matrices (CSS filter functions as 4×5 matrices).
-//! Plain data usable
-//! on any thread.
+//! Plain data usable on any thread.
 
-use crate::Rgba;
+use crate::style::Rgba;
 
 /// A 4×5 color matrix over straight-alpha colors with components in
 /// `0.0..=1.0`: each output component is a row times `(r, g, b, a, 1)`,
@@ -14,12 +13,13 @@ use crate::Rgba;
 /// them as a CSS `filter` list does.
 ///
 /// Arvane applies one to the pixels of an image
-/// ([`crate::DrawCommand::Image`]) and to the colors a backdrop replays
-/// ([`crate::Backdrop`]); a host applies one to the colors of what it
-/// draws ([`ColorMatrix::apply`], [`crate::Paint::filtered`]).
+/// ([`crate::protocol::DrawCommand::Image`]) and to the colors a backdrop replays
+/// ([`crate::protocol::Backdrop`]); a host applies one to the colors of what it
+/// draws ([`ColorMatrix::apply`], [`crate::protocol::Paint::filtered`]).
 ///
 /// ```
-/// use kivact_types::{ColorMatrix, Rgba};
+/// use kivact_types::Rgba;
+/// use kivact_types::protocol::ColorMatrix;
 /// let red = Rgba { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
 /// let gray = ColorMatrix::grayscale(1.0).apply(red);
 /// assert!((gray.r - 0.2126).abs() < 1e-4 && gray.r == gray.g && gray.g == gray.b);

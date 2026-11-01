@@ -4,7 +4,7 @@
 //! families are known and registered, unknown families fall back, white
 //! space alone never wraps, and bad input is classified.
 
-use kivact_types::{TextStyle, TextWrap};
+use kivact_types::protocol::{TextStyle, TextWrap};
 
 use crate::support::engine;
 

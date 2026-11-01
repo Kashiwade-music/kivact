@@ -3,7 +3,7 @@
 //! Win32 uses the host GUI thread; X11 owns a joined connection thread.
 //! Other operating systems report Unsupported without constructing a handler.
 use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
-use kivact_types::ParentWindow;
+use kivact_types::protocol::ParentWindow;
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os = "linux")]

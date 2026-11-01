@@ -1,15 +1,15 @@
-//! Role: Portable editable text runs and selection snapshots.
+//! Role: Portable editable text runs, carets and selection snapshots.
 
 use std::sync::Arc;
 
-use crate::{NodeId, Rect, TextCaret};
+use crate::geometry::{NodeId, Rect};
 
 /// Editable text and its active selection as published to assistive technology.
 ///
 /// Rectangles use the owner's unscrolled content coordinates, like
-/// [`crate::SemanticsNode::bounds`], and inherit its transform. Protected text
+/// `SemanticsNode::bounds`, and inherit its transform. Protected text
 /// must omit this snapshot. The runs become platform text children and do not
-/// appear as ordinary nodes in [`crate::SemanticsTree::nodes`].
+/// appear as ordinary nodes in `SemanticsTree::nodes`.
 ///
 /// The runs may be a part of a long text, in a row from `start`: the
 /// lines around what is shown and the caret (as an editor in a browser
@@ -67,4 +67,17 @@ pub struct SemanticsTextRun {
     pub bounds: Rect,
     /// Run-local scalar offsets and content-space caret rectangles.
     pub carets: Vec<TextCaret>,
+}
+
+/// A cursor position in shaped text; usable on any thread.
+///
+/// Combining marks and ligatures can share a cluster and therefore a rectangle.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TextCaret {
+    /// Unicode scalar offset after [`crate::TextTransform`], including the
+    /// final boundary. This is neither a UTF-8 byte nor a grapheme index;
+    /// case conversion can change the number of scalars.
+    pub offset: u32,
+    /// Logical caret bounds relative to the text layout origin.
+    pub rect: Rect,
 }

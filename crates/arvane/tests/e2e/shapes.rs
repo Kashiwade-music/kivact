@@ -4,7 +4,8 @@
 //! their fill rule, what is drawn agreeing with `Shape::contains`, and
 //! stroke caps, joins, dashes and dots.
 
-use kivact_types::{DrawCommand, FillRule, LineCap, LineJoin, PathCmd, Shape, Stroke};
+use kivact_types::protocol::{DrawCommand, PathCmd, Shape};
+use kivact_types::{FillRule, LineCap, LineJoin, Stroke};
 
 use crate::support::{gray, open, pixel, pt, show, solid};
 

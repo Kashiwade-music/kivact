@@ -96,7 +96,7 @@ pub enum SceneCmd {
     /// drawn exactly as shaped: its glyph runs and decorations at `origin`
     /// in `color`, with no shaping again.
     Paragraph {
-        shaped: std::sync::Arc<kivact_types::ShapedText>,
+        shaped: std::sync::Arc<kivact_types::protocol::ShapedText>,
         origin: Point,
         color: Rgba,
     },

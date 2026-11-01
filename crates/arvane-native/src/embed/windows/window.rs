@@ -38,15 +38,15 @@ impl Drop for BusyGuard<'_> {
         self.0.set(false);
     }
 }
-pub(super) fn environment(state: &State) -> kivact_types::Environment {
+pub(super) fn environment(state: &State) -> kivact_types::protocol::Environment {
     let scale = state.shared.scale();
     let mouse = crate::native_input::state::MouseSettings::read();
-    kivact_types::Environment {
+    kivact_types::protocol::Environment {
         scale,
         frame_period_ns: frame_period(state.native.hwnd()),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
-        mouse: kivact_types::MouseSettings {
+        mouse: kivact_types::protocol::MouseSettings {
             double_click_ns: u64::from(mouse.double_click_ms) * 1_000_000,
             double_click_distance: (
                 mouse.double_click_px.0 as f32 / scale,
@@ -142,7 +142,7 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::SemanticsTree,
+        tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), AccessibilityError> {
         let result = self
             .0
@@ -159,7 +159,7 @@ impl ShellWindow for Window {
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::SemanticsUpdate,
+        update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
         let result = self
             .0
@@ -223,7 +223,7 @@ impl ShellWindow for Window {
     fn reduced_motion(&self) -> bool {
         self.environment().reduced_motion
     }
-    fn environment(&self) -> kivact_types::Environment {
+    fn environment(&self) -> kivact_types::protocol::Environment {
         environment(&self.0)
     }
     fn set_fullscreen(&self, _: bool) -> Result<(), ShellError> {
@@ -343,7 +343,7 @@ impl State {
             pending_surrogate: Cell::new(None),
             mouse: Cell::new(Mouse::default()),
             clicks: RefCell::new(ClickCounter::default()),
-            environment: RefCell::new(kivact_types::Environment::default()),
+            environment: RefCell::new(kivact_types::protocol::Environment::default()),
             explicit_scale: Cell::new(explicit_scale),
             pixels: RefCell::new(Vec::new()),
             scratch: RefCell::new(Vec::new()),

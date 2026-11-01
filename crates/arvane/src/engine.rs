@@ -2,7 +2,8 @@
 
 use crate::asset;
 use crate::error::{self, Error};
-use kivact_types::{RichText, ShapedText, Size, TextMetrics, TextStyle};
+use kivact_types::protocol::{RichText, ShapedText, TextStyle};
+use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;

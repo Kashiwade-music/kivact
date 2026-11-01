@@ -127,7 +127,7 @@ impl EditLines {
         text: &str,
         i: usize,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shaped.clone().flatten()
     }
@@ -366,7 +366,7 @@ impl EditLines {
         i: usize,
         color: kivact_types::Rgba,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         let content = self.content(i)?;
         let mut style = self.key().style.clone();
         style.color = color;
@@ -380,19 +380,19 @@ impl EditLines {
         let shown = display(&text[content], false);
         let shaped = shape_long(&shown, |r| {
             // The spans of the piece `r`, from its start.
-            let spans: Vec<kivact_types::TextSpan> = colored
+            let spans: Vec<kivact_types::protocol::TextSpan> = colored
                 .spans
                 .iter()
                 .filter(|(range, _)| range.start < r.end && range.end > r.start)
-                .map(|(range, color)| kivact_types::TextSpan {
+                .map(|(range, color)| kivact_types::protocol::TextSpan {
                     range: range.start.max(r.start) - r.start..range.end.min(r.end) - r.start,
-                    style: kivact_types::SpanStyle {
+                    style: kivact_types::protocol::SpanStyle {
                         color: Some(kivact_lower::sanitize::color(*color)),
                         ..Default::default()
                     },
                 })
                 .collect();
-            let rich = kivact_types::RichText {
+            let rich = kivact_types::protocol::RichText {
                 text: &shown[r],
                 spans: &spans,
             };

@@ -3,7 +3,8 @@
 use super::error::AccessibilityError;
 use super::shared::PlatformTree;
 use crate::events::ShellEvent;
-use kivact_types::{A11yAction, SemanticsTree, SemanticsUpdate};
+use kivact_types::A11yAction;
+use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
 
 /// A window's validated semantics, updated transactionally and safe to share
 /// between application and backend threads. Backend conversion uses the same

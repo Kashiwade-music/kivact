@@ -16,14 +16,14 @@ impl Model {
     pub(crate) fn build_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> Option<kivact_types::SemanticsTree> {
+    ) -> Option<kivact_types::protocol::SemanticsTree> {
         self.build_semantics_for(engine, true)
     }
 
     pub(crate) fn build_dirty_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> Option<kivact_types::SemanticsTree> {
+    ) -> Option<kivact_types::protocol::SemanticsTree> {
         self.build_semantics_for(engine, self.a11y.full)
     }
 
@@ -31,7 +31,7 @@ impl Model {
         &mut self,
         engine: &mut a::Engine,
         full: bool,
-    ) -> Option<kivact_types::SemanticsTree> {
+    ) -> Option<kivact_types::protocol::SemanticsTree> {
         let Some(root) = self.tree().root() else {
             let id = match self.a11y.empty_root {
                 Some(id) => id,
@@ -51,7 +51,7 @@ impl Model {
                     height: self.viewport.height,
                 },
                 kivact_types::Point::default(),
-                kivact_types::Transform::IDENTITY,
+                kivact_types::protocol::Transform::IDENTITY,
                 false,
             );
             self.a11y.prepared = Some(crate::a11y::state::Metadata {
@@ -62,7 +62,7 @@ impl Model {
             {
                 self.a11y.constructed += 1;
             }
-            return Some(kivact_types::SemanticsTree {
+            return Some(kivact_types::protocol::SemanticsTree {
                 root: kivact_types::NodeId(id),
                 focus: None,
                 nodes: vec![node],
@@ -239,7 +239,7 @@ impl Model {
         }
         let focus = self.semantics_focus(&metadata.clipped);
         self.a11y.prepared = Some(metadata);
-        Some(kivact_types::SemanticsTree {
+        Some(kivact_types::protocol::SemanticsTree {
             root: kivact_types::NodeId(root.0),
             focus,
             nodes,

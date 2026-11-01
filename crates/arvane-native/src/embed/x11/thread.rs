@@ -76,7 +76,7 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
 }
 
 pub(in crate::embed) fn open(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::protocol::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
@@ -131,14 +131,14 @@ pub(in crate::embed) fn open(
 }
 
 fn run(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::protocol::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
     shared: Arc<Shared>,
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::ParentWindow::X11(parent) = parent else {
+    let kivact_types::protocol::ParentWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) =

@@ -3,7 +3,7 @@ use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
 use crate::shape::BoxShape;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{DrawingShape, Fill, Point, Rect, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
@@ -27,7 +27,7 @@ impl Context<'_> {
             SceneCmd::Shape(painted) => {
                 let shape = crate::scene_shape::shape(&painted.shape);
                 // Before lowering arcs and before any paint resource.
-                if let kivact_types::Shape::Path { cmds, .. } = &shape
+                if let kivact_types::protocol::Shape::Path { cmds, .. } = &shape
                     && !sanitize::path(cmds)
                 {
                     self.drop_command();
@@ -71,7 +71,9 @@ impl Context<'_> {
                     })
                 };
                 match &painted.paint {
-                    Fill::Solid(color) => push(kivact_types::Paint::Solid(tint.color(*color))),
+                    Fill::Solid(color) => {
+                        push(kivact_types::protocol::Paint::Solid(tint.color(*color)))
+                    }
                     Fill::Layers(layers) => {
                         for layer in layers.iter().rev() {
                             match self.layer_paint(layer, area, origin_point) {
@@ -94,7 +96,7 @@ impl Context<'_> {
                     // As before fills had layers.
                     state.out.commands.push(D::Rect {
                         rect: r,
-                        fill: kivact_types::Paint::Solid(tint.color(*color)),
+                        fill: kivact_types::protocol::Paint::Solid(tint.color(*color)),
                     });
                 } else {
                     self.fill(state.out, &BoxShape::Rect(r), fill, tint, origin_point);

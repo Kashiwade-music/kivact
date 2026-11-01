@@ -44,14 +44,14 @@ pub(crate) fn line_height(p: Option<wire::LineHeight>) -> kivact_types::LineHeig
         _ => kivact_types::LineHeight::Normal,
     }
 }
-pub(crate) fn text(p: &wire::ComputedText) -> kivact_types::TextStyle {
+pub(crate) fn text(p: &wire::ComputedText) -> kivact_types::protocol::TextStyle {
     let positive = |v: f32| v.is_finite() && v > 0.0;
     let font_size = if positive(p.font_size) {
         p.font_size
     } else {
-        kivact_types::TextStyle::default().font_size
+        kivact_types::protocol::TextStyle::default().font_size
     };
-    let mut style = kivact_types::TextStyle {
+    let mut style = kivact_types::protocol::TextStyle {
         font_size,
         weight: p.weight,
         color: color(p.color),
@@ -60,7 +60,7 @@ pub(crate) fn text(p: &wire::ComputedText) -> kivact_types::TextStyle {
         align: p.align,
         family: p.family.clone(),
         italic: p.italic,
-        ..kivact_types::TextStyle::default()
+        ..kivact_types::protocol::TextStyle::default()
     };
     if let Some(m) = p.more.as_deref() {
         style.letter_spacing = finite(m.letter_spacing.px(font_size));
@@ -81,8 +81,11 @@ fn finite(v: f32) -> f32 {
 }
 
 /// A decoration of text of `font_size` (its em lengths resolved).
-pub(crate) fn decoration(d: wire::TextDecoration, font_size: f32) -> kivact_types::TextDecoration {
-    kivact_types::TextDecoration {
+pub(crate) fn decoration(
+    d: wire::TextDecoration,
+    font_size: f32,
+) -> kivact_types::protocol::TextDecoration {
+    kivact_types::protocol::TextDecoration {
         lines: d.lines,
         color: d.color.map(color),
         thickness: d
@@ -101,7 +104,7 @@ pub fn spans(
     font_size: f32,
     tint: impl Fn(wire::Rgba) -> kivact_types::Rgba,
     mut family: impl FnMut(&str) -> Option<String>,
-) -> Vec<kivact_types::TextSpan> {
+) -> Vec<kivact_types::protocol::TextSpan> {
     spans
         .iter()
         .map(|span| {
@@ -110,9 +113,9 @@ pub fn spans(
                 .font_size
                 .filter(|v| v.is_finite() && *v > 0.0)
                 .unwrap_or(font_size);
-            kivact_types::TextSpan {
+            kivact_types::protocol::TextSpan {
                 range: span.range.clone(),
-                style: kivact_types::SpanStyle {
+                style: kivact_types::protocol::SpanStyle {
                     font_size: s.font_size.map(|_| size),
                     weight: s.weight,
                     color: s.color.map(&tint),
@@ -124,7 +127,7 @@ pub fn spans(
                     features: s.features.clone(),
                     decoration: s.decoration.map(|d| {
                         let color = d.color.map(&tint);
-                        kivact_types::TextDecoration {
+                        kivact_types::protocol::TextDecoration {
                             color,
                             ..decoration(d, size)
                         }

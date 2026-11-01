@@ -9,9 +9,8 @@
 //! cancellation flags cannot be injected and remain unchecked on devices.
 
 use crate::native_input::state::ContactNote;
-use kivact_types::{
-    MouseButton, Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase,
-};
+use kivact_types::protocol::PointerInput;
+use kivact_types::{MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase};
 use winit::event::{Touch, TouchPhase};
 
 /// Map physical native coordinates and cancellation metadata before normalization.

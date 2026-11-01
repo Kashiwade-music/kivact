@@ -6,9 +6,8 @@ use crate::derived::Derived;
 use crate::gradient;
 use crate::paint::{self, Brush, PatternFill};
 use crate::{convert, text};
-use kivact_types::{
-    ColorMatrix, DrawCommand, Mask, Paint, Rect as LogicalRect, Rgba, Scene, Shape, Size, Transform,
-};
+use kivact_types::protocol::{ColorMatrix, DrawCommand, Mask, Paint, Scene, Shape, Transform};
+use kivact_types::{Rect as LogicalRect, Rgba, Size};
 use std::collections::HashMap;
 use std::sync::Arc;
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
@@ -473,13 +472,15 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// The raster filter of a layer's.
-    fn filter(&self, filter: kivact_types::LayerFilter) -> Filter {
+    fn filter(&self, filter: kivact_types::protocol::LayerFilter) -> Filter {
         Filter::from_primitive(match filter {
-            kivact_types::LayerFilter::Blur { std_dev } => FilterPrimitive::GaussianBlur {
-                std_deviation: std_dev,
-                edge_mode: EdgeMode::None,
-            },
-            kivact_types::LayerFilter::DropShadow {
+            kivact_types::protocol::LayerFilter::Blur { std_dev } => {
+                FilterPrimitive::GaussianBlur {
+                    std_deviation: std_dev,
+                    edge_mode: EdgeMode::None,
+                }
+            }
+            kivact_types::protocol::LayerFilter::DropShadow {
                 offset,
                 std_dev,
                 color,
@@ -596,7 +597,7 @@ impl<C: Canvas> Painter<'_, C> {
 
     fn glyphs(
         &mut self,
-        run: &kivact_types::GlyphRun,
+        run: &kivact_types::protocol::GlyphRun,
         origin: kivact_types::Point,
         color: Option<kivact_types::Rgba>,
     ) {

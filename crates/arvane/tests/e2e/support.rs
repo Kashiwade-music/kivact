@@ -2,7 +2,8 @@
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions, test_font};
 use arvane::{Engine, Presented, Window as _};
-use kivact_types::{DrawCommand, Paint, Rect, Rgba, Scene, Size};
+use kivact_types::protocol::{DrawCommand, Paint, Scene};
+use kivact_types::{Rect, Rgba, Size};
 
 /// 60 Hz.
 pub(crate) const PERIOD: u64 = 16_666_667;
@@ -224,9 +225,9 @@ pub(crate) fn ink(window: &VirtualWindow) -> Option<((u32, u32, u32, u32), usize
 /// `text` shaped at `size` with the test font, its layout's origin at
 /// `origin`, as glyph runs.
 pub(crate) fn text_runs(text: &str, size: f32, origin: kivact_types::Point) -> Vec<DrawCommand> {
-    let style = kivact_types::TextStyle {
+    let style = kivact_types::protocol::TextStyle {
         font_size: size,
-        ..kivact_types::TextStyle::default()
+        ..kivact_types::protocol::TextStyle::default()
     };
     let shaped = engine().shape(text, &style, None).expect("text shapes");
     shaped

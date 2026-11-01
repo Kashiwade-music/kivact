@@ -3,7 +3,8 @@
 use super::state::{FORMAT, Failure, GpuContext, GpuEnv};
 use crate::draw;
 use crate::error::RenderError;
-use kivact_types::{Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::Scene;
 use std::sync::{Arc, Mutex};
 use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
 

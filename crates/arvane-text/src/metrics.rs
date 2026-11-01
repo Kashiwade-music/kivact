@@ -1,7 +1,8 @@
 //! Role: Validates text metrics and resolves line heights.
 
 use crate::error::TextError;
-use kivact_types::{LineHeight, TextStyle};
+use kivact_types::LineHeight;
+use kivact_types::protocol::TextStyle;
 
 /// Validated line height in logical pixels: `Normal` is the font size times
 /// 1.3 rounded, `Scale` multiplies the font size, `Px` is the height.

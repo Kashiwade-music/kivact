@@ -17,7 +17,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use kivact_types::{SemanticsNode, SemanticsTree};
+use kivact_types::protocol::{SemanticsNode, SemanticsTree};
 
 use super::error::AccessibilityError;
 

@@ -3,7 +3,7 @@
 use crate::model::Model;
 use crate::model::interact::{text_geometry, visual};
 use kivact_lower::effects::Tint;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{NodeId, Point, Rect, Rgba};
 
 impl Model {
@@ -22,7 +22,7 @@ impl Model {
         clip: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
     ) {
         let host = &self;
         let Some(n) = host.node(id) else {
@@ -71,7 +71,7 @@ impl Model {
                 }
                 out
             };
-            let fill = kivact_types::Paint::Solid(match props.more().selection_color {
+            let fill = kivact_types::protocol::Paint::Solid(match props.more().selection_color {
                 Some(own) => tint.color(own),
                 None => tint.arvane(Rgba {
                     r: 0.2,
@@ -89,7 +89,7 @@ impl Model {
             let marked = edit.marked().map(|m| spans(m, engine));
             out.commands.push(D::Rect {
                 rect: place(lines.caret(value, edit.caret(), area.width, engine)),
-                fill: kivact_types::Paint::Solid(
+                fill: kivact_types::protocol::Paint::Solid(
                     tint.color(props.more().caret_color.unwrap_or(color)),
                 ),
             });
@@ -153,8 +153,8 @@ impl Model {
 /// Glyph runs of `shaped` at `(x, y)`, colored `color` of their shaped
 /// color.
 fn push_runs(
-    out: &mut kivact_types::Scene,
-    shaped: Option<&kivact_types::ShapedText>,
+    out: &mut kivact_types::protocol::Scene,
+    shaped: Option<&kivact_types::protocol::ShapedText>,
     x: f32,
     y: f32,
     color: impl Fn(kivact_types::Rgba) -> kivact_types::Rgba,

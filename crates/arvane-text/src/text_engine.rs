@@ -4,10 +4,8 @@ use crate::cache::{Cache, TextKey};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
-use kivact_types::{
-    Rect, RichText, ShapedText, TextAlign, TextCaret, TextDecoration, TextMetrics, TextOverflow,
-    TextStyle, TextTransform, TextWrap,
-};
+use kivact_types::protocol::{RichText, ShapedText, TextDecoration, TextStyle, TextWrap};
+use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
     Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
 };
@@ -517,8 +515,8 @@ fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [kivact_types::TextSpan]>,
-) -> std::borrow::Cow<'a, [kivact_types::TextSpan]> {
+    spans: std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]>,
+) -> std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }

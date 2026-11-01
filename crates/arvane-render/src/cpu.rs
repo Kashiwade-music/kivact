@@ -2,7 +2,8 @@
 
 use crate::error::RenderError;
 use crate::{draw, images, paint, validate};
-use kivact_types::{CpuFrame, ImageData, Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::{CpuFrame, ImageData, Scene};
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Stroke};

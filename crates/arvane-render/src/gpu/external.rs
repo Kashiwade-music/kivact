@@ -37,7 +37,9 @@ use kivact_types::ExternalFrame;
 use vello_hybrid::TextureId;
 
 #[cfg(feature = "gpu-interop")]
-use kivact_types::{DrawCommand, ExternalImageId, GpuAdapter, Scene, SharedTextures};
+use kivact_types::protocol::{DrawCommand, Scene};
+#[cfg(feature = "gpu-interop")]
+use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 #[cfg(feature = "gpu-interop")]
 use std::collections::HashMap;
 #[cfg(feature = "gpu-interop")]
@@ -322,7 +324,7 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    pub(crate) fn begin(&mut self, _: &kivact_types::Scene) -> Result<(), RenderError> {
+    pub(crate) fn begin(&mut self, _: &kivact_types::protocol::Scene) -> Result<(), RenderError> {
         Ok(())
     }
 

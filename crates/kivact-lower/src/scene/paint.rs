@@ -4,7 +4,7 @@ use super::state::State;
 use crate::context::Context;
 use crate::effects::Tint;
 use crate::scene_cache::Entry;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{ComputedText, Rect, Scene};
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ impl Context<'_> {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
     ) {
         #[cfg(feature = "gpu-interop")]
         let cacheable = !scene
@@ -48,7 +48,7 @@ impl Context<'_> {
             }
         }
         let checkpoint = self.checkpoint();
-        let mut lowered = kivact_types::Scene::default();
+        let mut lowered = kivact_types::protocol::Scene::default();
         *self.dependencies.borrow_mut() = Some(Vec::new());
         self.lower_scene(
             scene,
@@ -95,7 +95,7 @@ impl Context<'_> {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
     ) {
         let raster = self.raster.get();
         let mut state = State::new(inherited, engine, out, origin, *tint);
@@ -110,12 +110,17 @@ impl Context<'_> {
     }
 }
 
-fn append(out: &mut kivact_types::Scene, local: &kivact_types::Scene, origin: Rect) {
-    out.commands.push(D::PushTransform(kivact_types::Transform {
-        e: origin.x,
-        f: origin.y,
-        ..kivact_types::Transform::IDENTITY
-    }));
+fn append(
+    out: &mut kivact_types::protocol::Scene,
+    local: &kivact_types::protocol::Scene,
+    origin: Rect,
+) {
+    out.commands
+        .push(D::PushTransform(kivact_types::protocol::Transform {
+            e: origin.x,
+            f: origin.y,
+            ..kivact_types::protocol::Transform::IDENTITY
+        }));
     out.commands.extend(local.commands.iter().cloned());
     out.commands.push(D::PopTransform);
 }

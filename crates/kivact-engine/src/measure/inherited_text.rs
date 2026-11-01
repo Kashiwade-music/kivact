@@ -57,10 +57,10 @@ pub(crate) fn input_style(
     columns: &MeasureColumns,
     id: NodeId,
     engine: &mut arvane::Engine,
-) -> kivact_types::TextStyle {
+) -> kivact_types::protocol::TextStyle {
     let mut style = kivact_lower::assets::text_style(engine, &computed_text(tree, columns, id));
-    style.wrap = kivact_types::TextWrap::NoWrap;
-    style.decoration = kivact_types::TextDecoration::default();
+    style.wrap = kivact_types::protocol::TextWrap::NoWrap;
+    style.decoration = kivact_types::protocol::TextDecoration::default();
     style.overflow = kivact_types::TextOverflow::Clip;
     style.max_lines = None;
     style.transform = kivact_types::TextTransform::None;

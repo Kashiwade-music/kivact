@@ -4,7 +4,8 @@
 //! reflected gradients with hard stops, and patterns tiling an image or a
 //! gradient tile in a constant number of commands.
 
-use kivact_types::{DrawCommand, Extend, Gradient, GradientShape, Paint, Rgba, Shape};
+use kivact_types::protocol::{DrawCommand, Gradient, GradientShape, Paint, Shape};
+use kivact_types::{Extend, Rgba};
 
 use crate::support::{BLUE, RED, assert_near, color, open, pixel, pt, rect, show};
 

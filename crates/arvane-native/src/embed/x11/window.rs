@@ -5,7 +5,8 @@ use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::embed::child::{Backend as _, Shared};
 use crate::embed::session::negotiate;
 use arvane_shell::{ShellError, ShellWindow};
-use kivact_types::{Capabilities, Cursor, Environment, Rect, Size};
+use kivact_types::protocol::Environment;
+use kivact_types::{Capabilities, Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -161,13 +162,13 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::SemanticsTree,
+        tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.replace(tree)
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::SemanticsUpdate,
+        update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }

@@ -27,7 +27,7 @@ impl SceneCache {
         self.open = 0;
     }
 
-    pub(crate) fn prefix_depth(&mut self, out: &kivact_types::Scene) -> usize {
+    pub(crate) fn prefix_depth(&mut self, out: &kivact_types::protocol::Scene) -> usize {
         for cmd in &out.commands[self.cursor..] {
             step(cmd, &mut self.open);
         }
@@ -85,7 +85,7 @@ pub(crate) struct Entry {
     pub(crate) inherited: Option<ComputedText>,
     pub(crate) raster: u32,
     pub(crate) tint: Tint,
-    pub(crate) lowered: kivact_types::Scene,
+    pub(crate) lowered: kivact_types::protocol::Scene,
     pub(crate) max_depth: usize,
     pub(crate) dependencies: Vec<Dependency>,
 }
@@ -106,15 +106,15 @@ pub(crate) enum Dependency {
     },
 }
 
-fn step(command: &kivact_types::DrawCommand, depth: &mut usize) {
-    use kivact_types::DrawCommand as D;
+fn step(command: &kivact_types::protocol::DrawCommand, depth: &mut usize) {
+    use kivact_types::protocol::DrawCommand as D;
     match command {
         D::PushClip(_) | D::PushTransform(_) | D::PushLayer(_) => *depth += 1,
         D::PopClip | D::PopTransform | D::PopLayer => *depth = depth.saturating_sub(1),
         _ => {}
     }
 }
-pub(crate) fn payload_depth(scene: &kivact_types::Scene) -> usize {
+pub(crate) fn payload_depth(scene: &kivact_types::protocol::Scene) -> usize {
     let (mut depth, mut max) = (0, 0);
     for cmd in &scene.commands {
         step(cmd, &mut depth);

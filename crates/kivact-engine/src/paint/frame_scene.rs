@@ -8,17 +8,17 @@ use arvane::asset::{PixelSize, fit_image};
 use kivact_lower::effects::Tint;
 use kivact_lower::shape::BoxShape;
 use kivact_lower::{border, effects, scene, shape};
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{HostEvent, NodeId, NodeType, PaintProps, Point, Rect, Size};
 
 impl Model {
     /// Build the frame's display list from the paint list (`list`): every
     /// listed node with its current content. Every shown image is drawn in
     /// it: a new frame of the asset store's recency.
-    pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> kivact_types::Scene {
+    pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> kivact_types::protocol::Scene {
         self.paint_list();
         self.assets.borrow_mut().begin_frame();
-        let mut out = kivact_types::Scene::default();
+        let mut out = kivact_types::protocol::Scene::default();
         self.paint.scene_cache.borrow_mut().begin_frame();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
@@ -59,7 +59,7 @@ impl Model {
     }
 
     /// The color matrix at `index` of the paint list.
-    fn matrix(&self, index: u32) -> Option<kivact_types::ColorMatrix> {
+    fn matrix(&self, index: u32) -> Option<kivact_types::protocol::ColorMatrix> {
         if index == NO_MATRIX {
             return None;
         }
@@ -93,9 +93,14 @@ impl Model {
     /// The layers `step` is composited in, outermost first: the clip path
     /// and mask over its painted box `bounds`, its group opacity, its
     /// blend mode and its layer filters.
-    fn paint_layers(&self, step: &Step, p: &PaintProps, bounds: Rect) -> Vec<kivact_types::Layer> {
+    fn paint_layers(
+        &self,
+        step: &Step,
+        p: &PaintProps,
+        bounds: Rect,
+    ) -> Vec<kivact_types::protocol::Layer> {
         let e = p.effects.as_deref();
-        let outer = kivact_types::Layer {
+        let outer = kivact_types::protocol::Layer {
             clip: e
                 .and_then(|e| e.clip_path.as_ref())
                 .map(|s| shape::clip_path(s, bounds)),
@@ -107,22 +112,30 @@ impl Model {
                     y: area.y,
                 };
                 self.layer_paint(m, area, origin)
-                    .map(|paint| kivact_types::Mask { rect: area, paint })
+                    .map(|paint| kivact_types::protocol::Mask { rect: area, paint })
             }),
-            ..kivact_types::Layer::default()
+            ..kivact_types::protocol::Layer::default()
         };
         let opacity = if step.group { p.opacity } else { 1.0 };
         let parent = self.matrix(step.parent_matrix);
         let mut layers = effects::layers(p, outer, opacity, parent.as_ref());
         // As many as the list counted (it closes as many).
-        layers.resize_with(usize::from(step.layers), kivact_types::Layer::default);
+        layers.resize_with(
+            usize::from(step.layers),
+            kivact_types::protocol::Layer::default,
+        );
         layers
     }
 
     /// Paint `step`'s node up to its children: push its transform, open
     /// its layers, draw its box (when its own paint shows), then (inside
     /// its clip when it clips) its canvas scene and its content.
-    fn paint_open(&self, step: &Step, engine: &mut arvane::Engine, out: &mut kivact_types::Scene) {
+    fn paint_open(
+        &self,
+        step: &Step,
+        engine: &mut arvane::Engine,
+        out: &mut kivact_types::protocol::Scene,
+    ) {
         let host = &self;
         let id = step.id;
         if let Some(t) = self.paint.list.transforms.get(step.transform as usize) {
@@ -158,10 +171,11 @@ impl Model {
             let padding =
                 BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
             if step.rounded {
-                out.commands.push(D::PushLayer(kivact_types::Layer {
-                    clip: Some(padding.shape()),
-                    ..kivact_types::Layer::default()
-                }));
+                out.commands
+                    .push(D::PushLayer(kivact_types::protocol::Layer {
+                        clip: Some(padding.shape()),
+                        ..kivact_types::protocol::Layer::default()
+                    }));
             } else {
                 out.commands.push(D::PushClip(padding.rect()));
             }
@@ -206,7 +220,7 @@ impl Model {
         outline: &BoxShape,
         clip_path: bool,
         tint: &Tint,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
@@ -235,7 +249,12 @@ impl Model {
 
     /// Paint `step`'s node after its children: its `DrawOver` scene, then
     /// pop its clip, its layers and its transform.
-    fn paint_close(&self, step: &Step, engine: &mut arvane::Engine, out: &mut kivact_types::Scene) {
+    fn paint_close(
+        &self,
+        step: &Step,
+        engine: &mut arvane::Engine,
+        out: &mut kivact_types::protocol::Scene,
+    ) {
         let id = step.id;
         if step.own
             && let Some(n) = self.node(id)
@@ -262,8 +281,8 @@ impl Model {
                         height: rect.height,
                     };
                     out.commands.push(D::FillShape {
-                        shape: kivact_types::Shape::Rect(rect),
-                        paint: kivact_types::Paint::Solid(tint.color(color)),
+                        shape: kivact_types::protocol::Shape::Rect(rect),
+                        paint: kivact_types::protocol::Paint::Solid(tint.color(color)),
                     });
                 }
             }
@@ -292,7 +311,7 @@ impl Model {
         source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
     ) {
         let mut assets = self.assets.borrow_mut();
         let Some(natural) = assets.natural(source) else {

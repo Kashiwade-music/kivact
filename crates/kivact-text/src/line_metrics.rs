@@ -2,7 +2,7 @@
 
 /// Line height of `style` as Arvane's shaper lays lines out: the height of
 /// the caret of an empty text (the font size if `style` cannot be shaped).
-pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::TextStyle) -> f32 {
+pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::protocol::TextStyle) -> f32 {
     engine
         .shape("", style, None)
         .ok()

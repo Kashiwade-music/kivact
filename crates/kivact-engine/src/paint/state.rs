@@ -13,7 +13,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
-use kivact_types::ColorMatrix;
+use kivact_types::protocol::ColorMatrix;
 use kivact_wire::{Edges, NodeId, Point, Rect, Size};
 
 /// The paint group of the model: derived caches and whether a
@@ -163,7 +163,7 @@ pub(crate) struct PaintList {
     pub(super) matrices: Vec<ColorMatrix>,
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
-    pub(super) transforms: Vec<kivact_types::Transform>,
+    pub(super) transforms: Vec<kivact_types::protocol::Transform>,
     /// How far the farthest-reaching backdrop filter seen reads around its
     /// box (the viewport grows by it).
     pub(super) backdrop_reach: f32,

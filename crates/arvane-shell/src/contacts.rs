@@ -18,7 +18,8 @@
 //!   ([`Contacts::deliver`], [`Contacts::cancel`]).
 //!
 use crate::events::ShellEvent;
-use kivact_types::{Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase};
+use kivact_types::protocol::PointerInput;
+use kivact_types::{Point, PointerButtons, PointerId, PointerKind, PointerPhase};
 
 /// A contact in progress.
 #[derive(Debug)]

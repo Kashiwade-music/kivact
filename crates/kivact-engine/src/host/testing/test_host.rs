@@ -6,7 +6,8 @@ use crate::host::pump::Host;
 use crate::host::{Client, HostWaker};
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{Renderer, ShellControl, ShellError, ShellEvent, ShellImeText, Window as _};
-use kivact_types::{Cursor, Insets, Point, PointerInput, SemanticsTree};
+use kivact_types::protocol::{PointerInput, SemanticsTree};
+use kivact_types::{Cursor, Insets, Point};
 use kivact_wire::{
     HostError, HostEvent, LayoutCheck, LayoutFinding, NodeId, NodeProperties, NodeType, Rect,
     RegionId, Scene, Size, ThemeHint,

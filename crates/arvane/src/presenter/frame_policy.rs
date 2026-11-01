@@ -5,7 +5,8 @@ use crate::error::{self, Error, ErrorKind};
 use crate::presentation::{Notes, Renderer, RendererChange};
 use crate::{ShellError, ShellWaker};
 use arvane_shell::ShellWindow;
-use kivact_types::{Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::Scene;
 use std::time::{Duration, Instant};
 
 /// Surface failures in a row after which presenting is an error.

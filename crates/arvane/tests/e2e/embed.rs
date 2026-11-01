@@ -16,7 +16,7 @@ struct Seen {
     waker: Option<ShellWaker>,
     deadline: u64,
     timer: bool,
-    wheel_settings: Option<kivact_types::MouseSettings>,
+    wheel_settings: Option<kivact_types::protocol::MouseSettings>,
 }
 struct Host(Arc<Mutex<Seen>>);
 impl Handler for Host {

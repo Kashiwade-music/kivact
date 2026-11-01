@@ -3,11 +3,11 @@
 use super::Fonts;
 use crate::error::RenderError;
 use crate::limits::{MAX_BLUR, MAX_DASHES, MAX_SCENE_DEPTH};
-use kivact_types::{
+use kivact_types::protocol::{
     Backdrop, BoxShadow, ColorMatrix, DrawCommand, Gradient, GradientShape, ImageData, Layer,
-    LayerFilter, Paint, PathCmd, PatternSource, Point, Rect, Rgba, RoundedRect, Scene, Shape,
-    Stroke, Transform,
+    LayerFilter, Paint, PathCmd, PatternSource, RoundedRect, Scene, Shape, Transform,
 };
+use kivact_types::{Point, Rect, Rgba, Stroke};
 
 fn finite(values: &[f32]) -> bool {
     values.iter().all(|value| value.is_finite())

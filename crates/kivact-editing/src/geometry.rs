@@ -23,7 +23,8 @@
 
 use std::ops::Range;
 
-use kivact_types::{Point, Rect, ShapedText};
+use kivact_types::protocol::ShapedText;
+use kivact_types::{Point, Rect};
 use unicode_segmentation::UnicodeSegmentation as _;
 
 /// A shaped text and the text it was shaped from, read for geometry.

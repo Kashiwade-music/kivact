@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use arvane::Renderer;
 use arvane::test_display::{VirtualWindow, gpu_unavailable};
-use kivact_types::{DrawCommand, ImageData, Paint, Point, Size, TextStyle};
+use kivact_types::protocol::{DrawCommand, ImageData, Paint, TextStyle};
+use kivact_types::{Point, Size};
 
 use crate::support::{
     BLUE, RED, WHITE, color, color_alpha, engine, fill, gpu_against_cpu, ink, open, pixel, rect,

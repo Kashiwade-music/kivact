@@ -1,121 +1,18 @@
-//! Role: Portable display lists and shaped glyphs.
+//! Role: Portable display lists, CPU frames and external GPU frames.
 //! Frame bytes are premultiplied RGBA8.
 
+use super::color::ColorMatrix;
+use super::effect::{Backdrop, BoxShadow, Layer};
+use super::image::ImageData;
+use super::paint::Paint;
+use super::shape::{PathCmd, Shape};
+use super::shaped::GlyphRun;
+use super::transform::Transform;
+use crate::geometry::{Point, Rect};
 use crate::gpu_interop::ExternalFrame;
-use crate::image::ImageData;
-use crate::{
-    Backdrop, BoxShadow, ColorMatrix, Layer, Paint, PathCmd, Point, Rect, Rgba, Shape, Size,
-    Stroke, TextDecorationRect, TextHighlight, Transform,
-};
-use std::ops::Range;
+use crate::shape::Stroke;
+use crate::style::Rgba;
 use std::sync::Arc;
-
-/// Positioned glyph, usable on any thread.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Glyph {
-    /// Font-specific glyph identifier.
-    pub id: u32,
-    /// Horizontal baseline position.
-    pub x: f32,
-    /// Vertical baseline position.
-    pub y: f32,
-    /// Logical advance.
-    pub advance: f32,
-}
-
-/// A shaped run retaining its font bytes; usable on any thread.
-/// The shared bytes remain valid after the text engine or its caches are
-/// dropped. Glyph positions use logical pixels from the text layout origin;
-/// a scene places the immutable run with its glyph command's origin.
-#[derive(Clone, Debug, PartialEq)]
-pub struct GlyphRun {
-    /// Complete font file bytes.
-    pub font: Arc<[u8]>,
-    /// Font face index.
-    pub font_index: u32,
-    /// Logical font size.
-    pub font_size: f32,
-    /// Glyph positions relative to the run's layout origin.
-    pub glyphs: Vec<Glyph>,
-    /// Straight-alpha text color.
-    pub color: Rgba,
-    /// Normalized font variation coordinates.
-    pub normalized_coords: Vec<f32>,
-}
-
-/// Owned shaping snapshot; usable on any thread, independent of the
-/// engine's lifetime. All positions are logical pixels from its layout
-/// origin, before any scene transform or device raster scale.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ShapedText {
-    /// Logical measured extent.
-    pub size: Size,
-    /// Positioned glyph runs.
-    pub runs: Vec<Arc<GlyphRun>>,
-    /// Caret rectangles at Unicode scalar offsets, following shaped clusters.
-    pub carets: Vec<TextCaret>,
-    /// Sorted, unique shaping-cluster boundaries in Unicode scalar offsets.
-    /// Includes zero and the final scalar offset; independent of caret positions.
-    /// An empty list means every grapheme boundary is a stop.
-    pub cluster_boundaries: Vec<u32>,
-    /// The first line's baseline, from the top.
-    pub baseline: f32,
-    /// The lines drawn with the text (underlines and overlines before the
-    /// glyphs, line-throughs after them).
-    pub decorations: Vec<TextDecorationRect>,
-    /// The bands of the highlighted spans, behind the glyphs.
-    pub highlights: Vec<TextHighlight>,
-    /// The lines shown, top to bottom (empty for empty text). A line
-    /// clamp leaves out the lines it hides.
-    pub lines: Vec<TextLine>,
-}
-
-/// The geometry of one shown line of a [`ShapedText`], in logical pixels
-/// from its layout origin; usable on any thread.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TextLine {
-    /// The line's text as UTF-8 byte offsets in the string given to the
-    /// engine, before any [`crate::TextTransform`]. It includes the
-    /// trailing white space and the line break that end the line, and stays
-    /// whole when the line is cut.
-    pub range: Range<usize>,
-    /// Where the line's content lies: its advance from the aligned start,
-    /// without the trailing white space (a cut line: the kept text and the
-    /// ellipsis), and the line box's height. The line box tiles the
-    /// paragraph from top to bottom.
-    pub rect: Rect,
-    /// The baseline, from the top of the paragraph.
-    pub baseline: f32,
-    /// The distance from the baseline up to the top of the tallest font on
-    /// the line.
-    pub ascent: f32,
-    /// The distance from the baseline down to the bottom of the deepest font
-    /// on the line.
-    pub descent: f32,
-    /// The distance from the baseline up to the top of capital letters
-    /// (the largest of the line's fonts); 0 for a line without glyphs or a
-    /// font that gives none.
-    pub cap_height: f32,
-    /// The distance from the baseline up to the top of short lowercase
-    /// letters (the largest of the line's fonts); 0 for a line without
-    /// glyphs or a font that gives none.
-    pub x_height: f32,
-    /// Whether an ellipsis cut the line.
-    pub cut: bool,
-}
-
-/// A cursor position in shaped text; usable on any thread.
-///
-/// Combining marks and ligatures can share a cluster and therefore a rectangle.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct TextCaret {
-    /// Unicode scalar offset after [`crate::TextTransform`], including the
-    /// final boundary. This is neither a UTF-8 byte nor a grapheme index;
-    /// case conversion can change the number of scalars.
-    pub offset: u32,
-    /// Logical caret bounds relative to the text layout origin.
-    pub rect: Rect,
-}
 
 /// Portable drawing operation, usable on any thread.
 ///

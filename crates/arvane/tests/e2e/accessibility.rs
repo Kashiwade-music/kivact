@@ -5,9 +5,8 @@
 //! it.
 
 use arvane::{ShellEvent, Window as _};
-use kivact_types::{
-    A11yAction, NodeId, Point, Role, SemanticsNode, SemanticsTree, SemanticsUpdate, Transform,
-};
+use kivact_types::protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate, Transform};
+use kivact_types::{A11yAction, NodeId, Point, Role};
 
 use crate::support::{open, rect};
 

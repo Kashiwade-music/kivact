@@ -49,14 +49,15 @@ pub use grid::{
 /// across updates for the same run (the host gives the platform its own
 /// identity).
 pub use kivact_types::NodeId as TextRunId;
+pub use kivact_types::protocol::{PathCmd, ShapedText, TextLine};
 /// GPU texture sharing: kivact-types' vocabulary.
 pub use kivact_types::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,
     SharedHandle, SharedTextureFormat, SharedTextures,
 };
 pub use kivact_types::{Asset, ImageFit};
-pub use kivact_types::{DecorationLines, FillRule, Insets, PathCmd, Point, Rect, Size};
-pub use kivact_types::{SemanticsText, SemanticsTextRun, ShapedText, TextCaret, TextLine};
+pub use kivact_types::{DecorationLines, FillRule, Insets, Point, Rect, Size};
+pub use kivact_types::{SemanticsText, SemanticsTextRun, TextCaret};
 
 pub use host::{Capabilities, HostError, HostInfo, TurnOutput};
 pub use id_hash::{IdHasher, IdMap};
@@ -91,4 +92,4 @@ pub use text::{
 };
 pub use values::{Align, Dimension, Edges, FlexDirection, Justify, Overflow, Position, Rgba};
 
-pub use kivact_types::ParentWindow;
+pub use kivact_types::protocol::ParentWindow;

@@ -5,7 +5,7 @@ use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{ChildIndex, Entry, Look, Step};
 use crate::tree::node::HostNode;
-use kivact_types::ColorMatrix;
+use kivact_types::protocol::ColorMatrix;
 use kivact_wire::{NodeId, NodeType, Point, Rect};
 use std::collections::{HashMap, HashSet};
 
@@ -36,7 +36,7 @@ struct Walk<'a> {
     /// The listed nodes' color matrices.
     matrices: Vec<ColorMatrix>,
     /// The listed transformed nodes' transforms.
-    transforms: Vec<kivact_types::Transform>,
+    transforms: Vec<kivact_types::protocol::Transform>,
 }
 
 impl Walk<'_> {

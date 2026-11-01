@@ -44,7 +44,8 @@
 use super::state::{FORMAT, GpuContext, GpuSurface, Presentation};
 use super::texture::target_texture;
 use crate::error::RenderError;
-use kivact_types::{CpuFrame, Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::{CpuFrame, Scene};
 use std::time::{Duration, Instant};
 
 impl GpuSurface {

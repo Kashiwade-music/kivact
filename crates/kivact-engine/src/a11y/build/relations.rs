@@ -8,7 +8,7 @@ impl Model {
     pub(super) fn validate_relations(
         &self,
         source: wire::FocusTarget,
-        props: &mut kivact_types::SemanticsProperties,
+        props: &mut kivact_types::protocol::SemanticsProperties,
     ) {
         // A relation names nodes the platform tree has: one that is
         // gone, not attached or not exposed (no role) is left out. A

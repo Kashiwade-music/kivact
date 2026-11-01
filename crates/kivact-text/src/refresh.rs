@@ -63,7 +63,7 @@ impl EditLines {
     pub fn refresh(
         &mut self,
         source: Source<'_>,
-        style: kivact_types::TextStyle,
+        style: kivact_types::protocol::TextStyle,
         engine: &mut arvane::Engine,
         mode: RefreshMode,
     ) -> Result<(), RefreshError> {
@@ -94,7 +94,7 @@ impl EditLines {
     fn reconcile(
         &mut self,
         source: Source<'_>,
-        mut style: kivact_types::TextStyle,
+        mut style: kivact_types::protocol::TextStyle,
         engine: &mut arvane::Engine,
     ) {
         let shown = if source.value.is_empty() {
@@ -108,7 +108,7 @@ impl EditLines {
         // (a hover, a focus style) never shape again.
         self.align = style.align;
         style.align = kivact_types::TextAlign::Start;
-        style.color = kivact_types::TextStyle::default().color;
+        style.color = kivact_types::protocol::TextStyle::default().color;
         let key = Key {
             style,
             shown,
