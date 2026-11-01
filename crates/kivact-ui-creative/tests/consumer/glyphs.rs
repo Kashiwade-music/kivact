@@ -1,6 +1,11 @@
 //! Role: The kit's icons, label tones and key glyphs: what a consumer draws with them.
 
-use super::*;
+use crate::support::clean;
+use crate::time_support::app_dope_sheet;
+use kivact::draw::Point;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact_ui_creative as ui;
 
 /// The screenshot pixel at `(x, y)` logical px (the window is not scaled).
 fn pixel_at(screen: &Screen, x: f32, y: f32) -> u32 {
@@ -13,7 +18,7 @@ fn pixel_at(screen: &Screen, x: f32, y: f32) -> u32 {
 #[test]
 fn a_dope_sheet_key_is_drawn_with_its_glyph() {
     fn key(glyph: ui::KeyGlyph) -> Screen {
-        kivact::test::render_with_handle(crate::options(), move || {
+        kivact::test::render_with_handle(crate::support::options(), move || {
             let items = signal(vec![
                 ui::Keyframe::new(1, 0, 40.0, "Key")
                     .color(rgb(0xffd25a))

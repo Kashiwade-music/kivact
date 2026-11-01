@@ -3,7 +3,8 @@
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt};
 
-pub(super) fn work_area(bounds: super::types::WorkArea) -> Option<super::types::WorkArea> {
+/// The monitor's usable area as `(x, y, width, height)` in physical pixels.
+pub(super) fn work_area(bounds: (i32, i32, u32, u32)) -> Option<(i32, i32, u32, u32)> {
     let (connection, screen) = x11rb::connect(None).ok()?;
     let root = connection.setup().roots.get(screen)?.root;
     let atom = |name: &[u8]| {

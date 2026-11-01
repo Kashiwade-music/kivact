@@ -18,9 +18,8 @@
 
 use std::collections::HashMap;
 
-use kivact_types::{
-    FontFeature, FontKerning, SpanStyle, TextSpan, TextStyle, TextTransform, TextWrap,
-};
+use kivact_types::protocol::{FontFeature, SpanStyle, TextSpan, TextStyle, TextWrap};
+use kivact_types::{FontKerning, TextTransform};
 
 /// Layouts per generation.
 const ENTRIES: usize = 256;

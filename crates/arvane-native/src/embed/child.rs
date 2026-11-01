@@ -3,19 +3,18 @@
 //! Invariants: snapshots describe applied values, never queued requests. Host
 //! sizes advance a generation so stale accepted negotiations cannot override
 //! corrections. Backend wake only schedules work and never invokes App code.
-//! Stopping cancels new App work immediately. Alive becomes false when the
+//! Stopping cancels new App work immediately. A panic of the App is kept in
+//! the child's `PanicSlot` and stops the child like a failure; the host's next
+//! call resumes it. Alive becomes false when the
 //! native window is destroyed (WM_DESTROY on Windows; on X11 once the UI
 //! thread has destroyed its window after DestroyNotify/BadWindow or a close).
 //! Cleanup of the App may still be deferred after that while an App callback
 //! is on the stack.
-use arvane_shell::{ShellChild, ShellError};
-use std::{
-    collections::VecDeque,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
-    },
-};
+use arvane_shell::{PanicSlot, ShellChild, ShellError};
+use std::any::Any;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 pub(super) enum Command {
     SetSize {
@@ -34,9 +33,10 @@ pub(super) struct Shared {
     failed: AtomicBool,
     pub(super) alive: AtomicBool,
     stopping: AtomicBool,
+    panic: PanicSlot,
 }
 impl Shared {
-    pub(super) fn new(width: u32, height: u32, scale: f32) -> Self {
+    pub(super) fn new(width: u32, height: u32, scale: f32, panic: PanicSlot) -> Self {
         Self {
             commands: Mutex::new(VecDeque::new()),
             size: AtomicU64::new(pack(width, height)),
@@ -46,7 +46,16 @@ impl Shared {
             failed: AtomicBool::new(false),
             alive: AtomicBool::new(true),
             stopping: AtomicBool::new(false),
+            panic,
         }
+    }
+    /// Keep the payload of a panic that reached a platform boundary; the
+    /// child stops and the host resumes it (see [`PanicSlot`]).
+    pub(super) fn keep_panic(&self, payload: Box<dyn Any + Send>) {
+        self.panic.put(payload);
+    }
+    pub(super) fn panicked(&self) -> bool {
+        self.panic.is_set()
     }
     pub(super) fn request_close(&self) {
         self.stopping.store(true, Ordering::Release);
@@ -55,6 +64,7 @@ impl Shared {
         self.stopping.load(Ordering::Acquire)
             || !self.alive.load(Ordering::Acquire)
             || self.failed()
+            || self.panicked()
     }
     /// Queues a host change for the UI thread. Unnegotiated sizes and scales
     /// coalesce so that the newest host value wins; negotiated sizes keep their
@@ -63,7 +73,10 @@ impl Shared {
         if self.stopped() {
             return;
         }
-        let mut commands = self.commands.lock().unwrap_or_else(|e| e.into_inner());
+        let mut commands = self
+            .commands
+            .lock()
+            .expect("embedded child lock poisoned: a panic already happened");
         match &command {
             Command::SetSize {
                 generation: None, ..
@@ -103,7 +116,10 @@ impl Shared {
         self.set_scale_value(scale);
     }
     pub(super) fn fail(&self, error: ShellError) {
-        let mut failure = self.failure.lock().unwrap_or_else(|e| e.into_inner());
+        let mut failure = self
+            .failure
+            .lock()
+            .expect("embedded child lock poisoned: a panic already happened");
         if failure.is_none() {
             *failure = Some(error);
             self.failed.store(true, Ordering::Release);
@@ -112,7 +128,7 @@ impl Shared {
     pub(super) fn failure(&self) -> Option<ShellError> {
         self.failure
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .expect("embedded child lock poisoned: a panic already happened")
             .clone()
     }
     pub(super) fn failed(&self) -> bool {
@@ -133,6 +149,9 @@ pub(super) trait Backend: Send + Sync + 'static {
     const MAX_DIMENSION: u32;
     fn wake(&self);
     fn close(&self, shared: &Shared);
+    /// Move the panic of a UI thread that ended into `shared` (a backend
+    /// whose App runs on its own thread; the Win32 backend has none).
+    fn collect_panic(&self, shared: &Shared);
 }
 pub(super) struct Handle<B: Backend> {
     pub(super) shared: Arc<Shared>,
@@ -140,6 +159,7 @@ pub(super) struct Handle<B: Backend> {
 }
 impl<B: Backend> ShellChild for Handle<B> {
     fn set_size(&self, width: u32, height: u32) {
+        self.backend.collect_panic(&self.shared);
         if self.shared.stopped() {
             return;
         }
@@ -156,9 +176,11 @@ impl<B: Backend> ShellChild for Handle<B> {
         self.backend.wake();
     }
     fn size(&self) -> (u32, u32) {
+        self.backend.collect_panic(&self.shared);
         self.shared.size()
     }
     fn set_scale(&self, scale: f32) {
+        self.backend.collect_panic(&self.shared);
         if self.shared.stopped() {
             return;
         }
@@ -170,9 +192,11 @@ impl<B: Backend> ShellChild for Handle<B> {
         self.backend.wake();
     }
     fn scale(&self) -> f32 {
+        self.backend.collect_panic(&self.shared);
         self.shared.scale()
     }
     fn failure(&self) -> Option<ShellError> {
+        self.backend.collect_panic(&self.shared);
         self.shared.failure()
     }
 }
@@ -217,7 +241,7 @@ mod tests {
 
     #[test]
     fn newest_unnegotiated_size_wins_and_negotiated_sizes_stay() {
-        let shared = Shared::new(1, 1, 1.0);
+        let shared = Shared::new(1, 1, 1.0, PanicSlot::default());
         shared.queue(size(1, None));
         shared.queue(size(2, Some(7)));
         shared.queue(Command::SetScale(2.0));
@@ -231,7 +255,7 @@ mod tests {
 
     #[test]
     fn newest_scale_wins_and_keeps_order_of_the_rest() {
-        let shared = Shared::new(1, 1, 1.0);
+        let shared = Shared::new(1, 1, 1.0, PanicSlot::default());
         shared.queue(Command::SetScale(1.0));
         shared.queue(size(5, None));
         shared.queue(Command::SetScale(3.0));
@@ -240,14 +264,14 @@ mod tests {
 
     #[test]
     fn stopped_queue_refuses_commands() {
-        let shared = Shared::new(1, 1, 1.0);
+        let shared = Shared::new(1, 1, 1.0, PanicSlot::default());
         shared.queue(size(1, None));
         shared.request_close();
         shared.queue(size(2, None));
         shared.queue(Command::SetScale(2.0));
         assert_eq!(queued(&shared), [(1, None)]);
 
-        let failed = Shared::new(1, 1, 1.0);
+        let failed = Shared::new(1, 1, 1.0, PanicSlot::default());
         assert!(!failed.failed());
         failed.fail(ShellError::new("first"));
         failed.fail(ShellError::new("second"));

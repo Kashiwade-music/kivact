@@ -9,7 +9,6 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::async_state::{AsyncState, cancelled};
-use super::executor::catch_unwind;
 use super::state::TaskCell;
 use kivact_reactive::{
     EffectKind, IntoValue, Owned, Owner, Runtime, Signal, Trigger, UiError, require_effectful,
@@ -84,36 +83,25 @@ where
                     t.remove();
                 }
                 cell.state.update(|st| *st = AsyncState::Pending);
-                // A panic before the future exists fails this request
-                // instead of leaving the state `Pending`.
-                let fut = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| fetch(s)))
-                {
-                    Ok(fut) => fut,
-                    Err(p) => {
-                        let err = UiError::from_panic(p, Some(at));
-                        cell.state.update(move |st| *st = AsyncState::Failed(err));
-                        return;
-                    }
-                };
+                let fut = fetch(s);
                 let weak = Rc::downgrade(&cell);
                 let task = super::spawn::spawn_owned(
                     &rt,
                     owner,
                     async move {
-                        let r = catch_unwind(fut).await;
+                        let r = fut.await;
                         let Some(cell) = weak.upgrade() else { return };
                         if cell.generation.get() != generation {
                             return;
                         }
                         cell.task.set(None);
                         let next = match r {
-                            Ok(Ok(v)) => {
+                            Ok(v) => {
                                 let latest = v.clone();
                                 cell.latest.update(move |l| *l = Some(latest));
                                 AsyncState::Ready(v)
                             }
-                            Ok(Err(e)) => AsyncState::Failed(e),
-                            Err(p) => AsyncState::Failed(UiError::from_panic(p, Some(at))),
+                            Err(e) => AsyncState::Failed(e),
                         };
                         cell.state.update(move |st| *st = next);
                     },

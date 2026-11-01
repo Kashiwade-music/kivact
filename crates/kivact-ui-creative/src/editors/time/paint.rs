@@ -3,7 +3,7 @@ use super::gesture::{Drag, State, Target};
 use super::layout::{item_rect, lane_rect};
 use crate::editors::shared::metrics::{RULER, SIDEBAR};
 use crate::editors::shared::model::Lane;
-use crate::editors::shared::ruler::data::Ruler;
+use crate::editors::shared::ruler::Ruler;
 use crate::editors::shared::text::label;
 use crate::editors::time::model::TimeItem;
 use kivact::draw::{Draw, Layer, Point, Rect, Size, TextStyle};
@@ -56,6 +56,7 @@ pub(crate) fn paint_grid(
                     ..Default::default()
                 },
             )
+            .size
             .height;
         draw.layer(
             Layer::new().clip_rect(Rect::new(

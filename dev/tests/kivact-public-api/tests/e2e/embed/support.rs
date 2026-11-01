@@ -1,9 +1,9 @@
 //! Role: Shared real-host waits and fixtures for embedding contracts.
-use kivact::{prelude::*, style::Color, test::TestParent};
-use std::{
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use kivact::prelude::*;
+use kivact::style::Color;
+use kivact::test::TestParent;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 pub(super) static SERIAL: Mutex<()> = Mutex::new(());
 #[track_caller]
 pub(super) fn wait(parent: &TestParent, mut ready: impl FnMut() -> bool) {

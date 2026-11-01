@@ -110,7 +110,7 @@ impl Owner {
     }
 
     /// A new [`NodeRef`] owned by this owner (disposed with it). Unlike
-    /// [`node_ref`], it can be called outside setup, e.g. from a handler
+    /// [`node_ref`](crate::view::node_ref), it can be called outside setup, e.g. from a handler
     /// or effect that binds rows lazily.
     #[track_caller]
     pub fn node_ref(self) -> NodeRef {

@@ -184,3 +184,16 @@ fn the_app_reads_the_errors_of_its_default_sink() {
     );
     assert_eq!(screen.errors().len(), 1);
 }
+
+/// A setup-only function called from a handler is a misuse: it panics at the
+/// call and ends the test, with the kind in its message.
+#[test]
+#[should_panic(expected = "SetupOnly")]
+fn a_setup_function_in_a_handler_panics() {
+    let screen = render(|| {
+        button("Misuse").on_press(|| {
+            let _late = signal(0);
+        })
+    });
+    screen.get_by_role(Role::Button, "Misuse").click();
+}

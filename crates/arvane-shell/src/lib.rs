@@ -50,10 +50,7 @@ pub use mouse::Mouse;
 pub use services::ShellFileDialog;
 pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};
 
-/// The frame period of a display whose refresh rate is unknown (60 Hz).
-pub const DEFAULT_FRAME_PERIOD_NS: u64 = 16_666_667;
-
 pub use target::{GpuTarget, GpuWindow};
-pub use window::{ShellEventLoop, ShellHandler, ShellWindow};
+pub use window::{DEFAULT_FRAME_PERIOD_NS, ShellEventLoop, ShellHandler, ShellWindow};
 
-pub use child::{ChildOptions, MakeHandler, ShellChild};
+pub use child::{ChildOptions, MakeHandler, PanicSlot, ShellChild};

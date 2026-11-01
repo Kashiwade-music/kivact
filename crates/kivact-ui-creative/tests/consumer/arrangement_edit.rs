@@ -1,6 +1,13 @@
 //! Role: Arrangement edits transact exactly the model fields they own.
-use super::*;
+use crate::arrangement_model;
+use crate::arrangement_model::arrangement as app_arrangement;
+use crate::support::clean;
+use kivact::draw::Point;
+use kivact::prelude::*;
+use kivact::test::Screen;
 use kivact::ui::EditPhase;
+use kivact::view::{Modifiers, MouseButton};
+use kivact_ui_creative as ui;
 
 #[derive(Clone, Copy)]
 struct Model {
@@ -20,7 +27,7 @@ struct Model {
     present: Signal<bool>,
 }
 fn fixture() -> (Screen, Model) {
-    kivact::test::render_with_handle(crate::options(), || {
+    kivact::test::render_with_handle(crate::support::options(), || {
         let m = Model {
             clips: signal(vec![
                 ui::Clip::new(1, 10, 2.0, 8.0, "Clip"),
@@ -120,7 +127,7 @@ fn clip_drag_uses_one_transaction_and_snap_from_the_original_position() {
 }
 #[test]
 fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
-    let (s, (clips, step)) = kivact::test::render_with_handle(crate::options(), || {
+    let (s, (clips, step)) = kivact::test::render_with_handle(crate::support::options(), || {
         let clips = signal(vec![ui::Clip::new(1, 10, 2.0, 1.0, "Clip")]);
         let step = signal(0.5);
         (

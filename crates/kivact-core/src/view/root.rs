@@ -89,7 +89,7 @@ pub(crate) fn mount_root(
     };
     bind_style(&Mcx { rt, owner }, root, NodeType::Root, style, at);
     if let Some(build) = build {
-        let child = mount_in(rt, owner, build, at);
+        let child = mount_in(rt, owner, build);
         ViewState::tree_mut(rt).insert(root, child, None);
     }
     root

@@ -1,38 +1,52 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
-use super::{native::Native, state::State};
-use crate::embed::{
-    child::{Backend, Command, Shared},
-    session::{Session, contain, negotiate},
-};
+use super::native::Native;
+use super::state::State;
+use crate::embed::child::{Backend, Command, Shared};
+use crate::embed::session::{Session, negotiate};
 use arvane_shell::{AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
-use std::{
-    cell::{Cell, RefCell},
-    collections::VecDeque,
-    sync::Arc,
-    time::Instant,
+use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
+use windows_sys::Win32::Graphics::Gdi::{
+    DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, InvalidateRect,
+    MONITOR_DEFAULTTONEAREST, MONITORINFOEXW, MonitorFromWindow,
 };
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-    sync::atomic::Ordering,
-    time::Duration,
-};
-use windows_sys::Win32::{
-    Graphics::Gdi::*,
-    UI::{Input::KeyboardAndMouse::GetCapture, WindowsAndMessaging::*},
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetCapture;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    DestroyWindow, GetClientRect, GetCursorPos, GetParent, KillTimer, PostMessageW, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOZORDER, SetTimer, SetWindowPos, USER_TIMER_MINIMUM, WindowFromPoint,
 };
 pub(super) struct Window(pub(super) Rc<State>);
-pub(super) fn environment(state: &State) -> kivact_types::Environment {
+
+/// Marks the App busy while its code runs; clears the mark on unwind too, so
+/// the window procedure can stop the child after it caught a panic.
+struct BusyGuard<'a>(&'a Cell<bool>);
+impl<'a> BusyGuard<'a> {
+    fn new(busy: &'a Cell<bool>) -> Self {
+        busy.set(true);
+        Self(busy)
+    }
+}
+impl Drop for BusyGuard<'_> {
+    fn drop(&mut self) {
+        self.0.set(false);
+    }
+}
+pub(super) fn environment(state: &State) -> kivact_types::protocol::Environment {
     let scale = state.shared.scale();
     let mouse = crate::native_input::state::MouseSettings::read();
-    kivact_types::Environment {
+    kivact_types::protocol::Environment {
         scale,
         frame_period_ns: frame_period(state.native.hwnd()),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
-        mouse: kivact_types::MouseSettings {
+        mouse: kivact_types::protocol::MouseSettings {
             double_click_ns: u64::from(mouse.double_click_ms) * 1_000_000,
             double_click_distance: (
                 mouse.double_click_px.0 as f32 / scale,
@@ -128,7 +142,7 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::SemanticsTree,
+        tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), AccessibilityError> {
         let result = self
             .0
@@ -145,7 +159,7 @@ impl ShellWindow for Window {
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::SemanticsUpdate,
+        update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
         let result = self
             .0
@@ -209,7 +223,7 @@ impl ShellWindow for Window {
     fn reduced_motion(&self) -> bool {
         self.environment().reduced_motion
     }
-    fn environment(&self) -> kivact_types::Environment {
+    fn environment(&self) -> kivact_types::protocol::Environment {
         environment(&self.0)
     }
     fn set_fullscreen(&self, _: bool) -> Result<(), ShellError> {
@@ -329,7 +343,7 @@ impl State {
             pending_surrogate: Cell::new(None),
             mouse: Cell::new(Mouse::default()),
             clicks: RefCell::new(ClickCounter::default()),
-            environment: RefCell::new(kivact_types::Environment::default()),
+            environment: RefCell::new(kivact_types::protocol::Environment::default()),
             explicit_scale: Cell::new(explicit_scale),
             pixels: RefCell::new(Vec::new()),
             scratch: RefCell::new(Vec::new()),
@@ -359,11 +373,12 @@ impl State {
         })
     }
     pub(super) fn start(self: &Rc<Self>, make: MakeHandler) {
-        self.busy.set(true);
-        self.session
-            .borrow_mut()
-            .start(make, &mut Window(self.clone()), self.waker());
-        self.busy.set(false);
+        {
+            let _busy = BusyGuard::new(&self.busy);
+            self.session
+                .borrow_mut()
+                .start(make, &mut Window(self.clone()), self.waker());
+        }
         if self.closing.get() {
             self.dispose();
         }
@@ -408,13 +423,15 @@ impl State {
         self.commands();
     }
     fn invoke(self: &Rc<Self>, event: ShellEvent) {
-        if self.busy.replace(true) {
+        if self.busy.get() {
             return;
         }
-        self.session
-            .borrow_mut()
-            .deliver(event, &mut Window(self.clone()));
-        self.busy.set(false);
+        {
+            let _busy = BusyGuard::new(&self.busy);
+            self.session
+                .borrow_mut()
+                .deliver(event, &mut Window(self.clone()));
+        }
         if self.closing.get() {
             self.dispose();
         }
@@ -460,7 +477,7 @@ impl State {
                 .shared
                 .commands
                 .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .expect("embedded child lock poisoned: a panic already happened")
                 .pop_front();
             match command {
                 Some(Command::SetSize {
@@ -530,12 +547,7 @@ impl State {
         // through WM_DESTROY. Both paths disconnect before adapter destruction.
         super::a11y::disconnect(self);
         let a11y = self.a11y.borrow_mut().take();
-        if let Err(error) = contain(|| drop(a11y), "embedded accessibility destruction panicked") {
-            self.shared.fail(error);
-            tracing::warn!(target: "kivact", "embedded accessibility destruction panicked; leaking remaining native resources");
-            self.leak_resources();
-            return;
-        }
+        drop(a11y);
         // SAFETY: this child owns the HWND-scoped timer; cleanup runs on its UI thread.
         unsafe {
             KillTimer(self.native.hwnd(), super::native::TIMER);

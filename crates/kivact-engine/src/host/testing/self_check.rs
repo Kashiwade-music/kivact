@@ -41,7 +41,7 @@ impl ArvaneTestHost {
             return errors;
         }
         let published = self.window.accessibility().tree();
-        // Keep the independent full build disposable even if shaping unwinds.
+        // The independent build works on copies; the originals are put back after it.
         let independent = model.a11y.clone();
         let state = std::mem::replace(&mut model.a11y, independent);
         let lines: Vec<_> = model
@@ -54,9 +54,7 @@ impl ArvaneTestHost {
                 Some((slot, std::mem::replace(node.lines.get_mut(), independent)))
             })
             .collect();
-        let rebuilt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            model.build_semantics(&mut engine)
-        }));
+        let rebuilt = model.build_semantics(&mut engine);
         model.a11y = state;
         for (slot, original) in lines {
             *model.editors[slot]
@@ -65,10 +63,6 @@ impl ArvaneTestHost {
                 .lines
                 .get_mut() = original;
         }
-        let rebuilt = match rebuilt {
-            Ok(tree) => tree,
-            Err(payload) => std::panic::resume_unwind(payload),
-        };
         if published != rebuilt {
             match (&published, &rebuilt) {
                 (Some(published), Some(rebuilt)) => {

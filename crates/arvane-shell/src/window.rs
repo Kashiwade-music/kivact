@@ -10,6 +10,9 @@ use crate::ime::ShellImeText;
 use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
+/// The frame period of a display whose refresh rate is unknown (60 Hz).
+pub const DEFAULT_FRAME_PERIOD_NS: u64 = 16_666_667;
+
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
 pub trait ShellWindow {
@@ -69,13 +72,13 @@ pub trait ShellWindow {
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::SemanticsTree,
+        tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::SemanticsUpdate,
+        update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Whether assistive technology currently requests this window's accepted semantics.
@@ -112,7 +115,7 @@ pub trait ShellWindow {
     fn reduced_motion(&self) -> bool;
 
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
-    fn environment(&self) -> kivact_types::Environment;
+    fn environment(&self) -> kivact_types::protocol::Environment;
 
     /// Request a logical content size.
     fn request_size(&mut self, size: Size) -> Result<(), ShellError>;
@@ -193,6 +196,8 @@ pub trait ShellHandler {
 /// A UI-thread event loop consumed by one synchronous run.
 pub trait ShellEventLoop {
     /// Borrow the handler until exit, reporting backend or callback failures.
-    /// The backend must contain callback panics at its platform boundary.
+    /// A callback panic propagates out of `run`; a backend whose callbacks
+    /// run under foreign frames carries it across them and resumes it after
+    /// the loop.
     fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError>;
 }

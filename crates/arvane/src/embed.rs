@@ -2,23 +2,46 @@
 
 use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
+pub use arvane_shell::PanicSlot;
 use arvane_shell::{ChildOptions, ShellChild};
-use kivact_types::{GpuPreference, ParentWindow, Size};
+use kivact_types::protocol::ParentWindow;
+use kivact_types::{GpuPreference, Size};
 
-/// Initial embedded window settings. Coordinates are logical pixels.
+/// Initial embedded window settings. Coordinates are logical pixels. The
+/// host's window is passed to [`open`] beside the options.
+///
+/// The default is 960 by 720, the OS scale, no resize request, GPU
+/// rendering preferred and the default GPU preference.
 pub struct EmbedOptions {
-    /// The host's window.
-    pub parent: ParentWindow,
-    /// Initial logical size.
+    /// Initial logical size (default 960 by 720).
     pub size: Size,
     /// Host-decided scale, or the OS scale.
     pub scale: Option<f32>,
     /// Ask the host for a physical content size.
     pub on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
-    /// Prefer GPU rendering, as `Shell::prefer_gpu` does (normally true).
+    /// Prefer GPU rendering, as `Shell::prefer_gpu` does (default true).
     pub prefer_gpu: bool,
     /// GPU device preference.
     pub gpu_preference: GpuPreference,
+    /// Where a panic of the child's App is kept for the embedder to resume
+    /// (see [`PanicSlot`]).
+    pub panic: PanicSlot,
+}
+
+impl Default for EmbedOptions {
+    fn default() -> Self {
+        Self {
+            size: Size {
+                width: 960.0,
+                height: 720.0,
+            },
+            scale: None,
+            on_resize_request: None,
+            prefer_gpu: true,
+            gpu_preference: GpuPreference::default(),
+            panic: PanicSlot::default(),
+        }
+    }
 }
 
 /// Handler and optional renderer observer constructed on the UI thread.
@@ -42,18 +65,23 @@ impl<H: Handler> Embedder<H> {
     }
 }
 
-/// Open a child, building its handler once on the UI thread.
-pub fn open<H, F>(options: EmbedOptions, make: F) -> Result<Embedded, ShellError>
+/// Open a child of the host window `parent`, building its handler once on the
+/// UI thread.
+pub fn open<H, F>(
+    parent: ParentWindow,
+    options: EmbedOptions,
+    make: F,
+) -> Result<Embedded, ShellError>
 where
     H: Handler + 'static,
     F: FnOnce() -> Embedder<H> + Send + 'static,
 {
     let child = ChildOptions {
-        parent: options.parent,
         width: options.size.width,
         height: options.size.height,
         scale: options.scale,
         on_resize_request: options.on_resize_request,
+        panic: options.panic,
     };
     let make = Box::new(move || {
         let embedder = make();
@@ -65,7 +93,7 @@ where
             true,
         )) as Box<dyn arvane_shell::ShellHandler>
     });
-    arvane_native::embed::open(child, make).map(Embedded)
+    arvane_native::embed::open(parent, child, make).map(Embedded)
 }
 
 /// A running child window. `Send` and `Sync`.

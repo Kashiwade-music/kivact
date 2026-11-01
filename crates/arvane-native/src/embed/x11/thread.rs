@@ -1,21 +1,19 @@
 //! Role: Starts, runs and closes an embedded X11 UI thread.
 
-use super::{
-    conn::Native,
-    event::Input,
-    keyboard::Keyboard,
-    notifier::{MAX_DIMENSION, Notifier},
-    poll::Waiter,
-    window::Window,
-};
-use crate::embed::{
-    child::{Backend as ChildBackend, Command, Handle, Shared},
-    session::{Session, contain},
-};
+use super::conn::Native;
+use super::event::Input;
+use super::keyboard::Keyboard;
+use super::notifier::{MAX_DIMENSION, Notifier};
+use super::poll::Waiter;
+use super::window::Window;
+use crate::embed::child::{Backend as ChildBackend, Command, Handle, Shared};
+use crate::embed::session::Session;
 use arvane_shell::{
     ChildOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker, ShellWindow,
 };
-use std::sync::{Arc, atomic::Ordering, mpsc};
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, mpsc};
+use std::thread::JoinHandle;
 use x11rb::connection::Connection;
 
 impl ChildBackend for Arc<Notifier> {
@@ -28,25 +26,43 @@ impl ChildBackend for Arc<Notifier> {
         if shared.alive.load(Ordering::Acquire) {
             self.wake();
         }
-        let thread = self.thread.lock().unwrap_or_else(|e| e.into_inner()).take();
+        let thread = self.thread.lock().expect(LOCK_POISONED).take();
         if let Some(thread) = thread {
             // The callback must return before its own event loop can close.
             if thread.thread().id() == std::thread::current().id() {
-                crate::DETACHED.store(true, Ordering::Release);
+                crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::retain_module();
                 return;
             }
             if crate::wait::until(&mut || thread.is_finished(), crate::wait::SHUTDOWN_WAIT) {
                 if let Err(payload) = thread.join() {
-                    std::mem::forget(payload);
-                    shared.fail(super::error::platform("UI thread panicked"));
+                    shared.keep_panic(payload);
                 }
             } else {
-                crate::DETACHED.store(true, Ordering::Release);
+                crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::retain_module();
                 tracing::warn!(target: "kivact", "embedded X11 UI thread did not stop within two seconds; detaching");
             }
         }
+    }
+    fn collect_panic(&self, shared: &Shared) {
+        let mut slot = self.thread.lock().expect(LOCK_POISONED);
+        if slot.as_ref().is_some_and(JoinHandle::is_finished)
+            && let Some(thread) = slot.take()
+            && let Err(payload) = thread.join()
+        {
+            shared.keep_panic(payload);
+        }
+    }
+}
+const LOCK_POISONED: &str = "embedded child lock poisoned: a panic already happened";
+
+/// Marks the UI thread dead when it ends, by return or by unwind, so the
+/// host sees a stopped child before it joins the thread.
+struct UiThreadExit(Arc<Shared>);
+impl Drop for UiThreadExit {
+    fn drop(&mut self) {
+        self.0.alive.store(false, Ordering::Release);
     }
 }
 pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
@@ -59,11 +75,12 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
     })
 }
 
-pub(super) fn open(
+pub(in crate::embed) fn open(
+    parent: kivact_types::protocol::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let shared = Arc::new(Shared::new(0, 0, 1.0));
+    let shared = Arc::new(Shared::new(0, 0, 1.0, options.panic.clone()));
     let backend = Arc::new(Notifier {
         wake: super::poll::eventfd()?,
         thread: std::sync::Mutex::new(None),
@@ -74,42 +91,54 @@ pub(super) fn open(
     let thread = std::thread::Builder::new()
         .name("arvane-embed".into())
         .spawn(move || {
-            let result = contain(
-                || run(options, make, ui_shared.clone(), ui_backend, &sender),
-                "panic in X11 UI thread",
+            let exit = UiThreadExit(ui_shared.clone());
+            let result = run(
+                parent,
+                options,
+                make,
+                ui_shared.clone(),
+                ui_backend,
+                &sender,
             );
-            let error = match result {
-                Ok(Ok(())) => None,
-                Ok(Err(error)) => Some(error),
-                Err(error) => Some(error),
-            };
-            ui_shared.alive.store(false, Ordering::Release);
-            if let Some(error) = error {
+            drop(exit);
+            if let Err(error) = result {
                 ui_shared.fail(error.clone());
                 let _ = sender.try_send(Err(error));
             }
         })
         .map_err(super::error::platform)?;
-    *backend.thread.lock().unwrap_or_else(|e| e.into_inner()) = Some(thread);
+    *backend.thread.lock().expect(LOCK_POISONED) = Some(thread);
     let child = Handle { shared, backend };
     match receiver.recv() {
         Ok(Ok(())) => Ok(Box::new(child)),
         Ok(Err(error)) => Err(error),
-        Err(_) => Err(child
-            .shared
-            .failure()
-            .unwrap_or_else(|| super::error::platform("UI thread stopped during startup"))),
+        Err(_) => {
+            // The UI thread ended without answering: it failed (see below) or
+            // it panicked, and its payload is kept for the host to resume.
+            let thread = child.backend.thread.lock().expect(LOCK_POISONED).take();
+            if let Some(thread) = thread
+                && let Err(payload) = thread.join()
+            {
+                child.shared.keep_panic(payload);
+                return Err(ShellError::new("the embedded App panicked while opening"));
+            }
+            Err(child
+                .shared
+                .failure()
+                .unwrap_or_else(|| super::error::platform("UI thread stopped during startup")))
+        }
     }
 }
 
 fn run(
+    parent: kivact_types::protocol::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
     shared: Arc<Shared>,
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::ParentWindow::X11(parent) = options.parent else {
+    let kivact_types::protocol::ParentWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) =
@@ -136,25 +165,14 @@ fn run(
     } else if ready.send(Ok(())).is_err() {
         Ok(())
     } else {
-        contain(
-            || event_loop(&mut session, &mut window, Input::new(keyboard), waiter),
-            "panic in X11 event loop",
-        )
-        .and_then(|result| result)
+        event_loop(&mut session, &mut window, Input::new(keyboard), waiter)
     };
     if let Err(error) = &result {
         shared.fail(error.clone());
     }
     shared.request_close();
     if session.close(&mut window) {
-        if let Err(error) = contain(
-            || drop(window),
-            "embedded native resource destruction panicked",
-        ) {
-            shared.fail(error);
-            crate::module::retain_module();
-            tracing::warn!(target: "kivact", "embedded native resource destruction panicked");
-        }
+        drop(window);
     } else {
         std::mem::forget(window);
     }
@@ -234,7 +252,7 @@ fn event_loop(
             .shared
             .commands
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .expect(LOCK_POISONED)
             .drain(..)
             .collect();
         for command in commands {

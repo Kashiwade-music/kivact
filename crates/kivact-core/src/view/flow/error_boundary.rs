@@ -1,13 +1,13 @@
 //! Role: Error boundary for catching child errors.
 //!
-//! `error_boundary`: an owner boundary around a
-//! child that catches the errors raised in it (setup panics, handler
-//! `Err`s and panics, effect panics, misuse, task panics).
+//! `error_boundary`: an owner boundary around a child that receives the
+//! errors reported in it: handler and task `Err`s, `Owner::report`, failed
+//! platform requests, lifecycle `Err`s. A panic is not an error: it is not
+//! caught here and ends the App.
 //!
 //! What happens to an error raised under the boundary while the child is
 //! shown:
-//! - neither handler set: it goes on to the parent's handler (a setup panic
-//!   still leaves the child an empty fragment);
+//! - neither handler set: it goes on to the parent's handler;
 //! - `.on_error(f)`: `f(err)` runs and the child stays;
 //! - `.fallback(f)`: the child is disposed and `f(err, reset)` is shown;
 //!   calling `reset()` remounts a fresh child;
@@ -15,9 +15,7 @@
 //!
 //! While the fallback is shown, errors (from the fallback, or late ones
 //! from the child) go to the parent's handler instead of being dropped.
-//! A panic in `on_error` itself is reported to the parent's handler too;
-//! without a fallback, the original error follows it there, so it is never
-//! lost (like `Runtime::report` does for a panicking handler).
+//! `on_error` runs as a handler of the boundary; a panic in it propagates.
 
 use std::cell::RefCell;
 use std::panic::Location;
@@ -106,17 +104,7 @@ impl IntoView for ErrorBoundary {
                         return;
                     }
                     if let Some(f) = &on_error {
-                        let r =
-                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(e.clone())));
-                        if let Err(p) = r {
-                            rt.report(Some(parent), UiError::from_panic(p, Some(at)));
-                            // Without a fallback nothing else shows the
-                            // error: hand it to the parent too.
-                            if error.is_none() {
-                                rt.report(Some(parent), e);
-                                return;
-                            }
-                        }
+                        f(e.clone());
                     }
                     if let Some(s) = error {
                         s.set(Some(e));

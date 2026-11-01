@@ -56,7 +56,7 @@ impl TextMeasurer {
         &self,
         run: &TextRun,
         max_width: Option<f32>,
-    ) -> Option<Arc<kivact_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         let engine = self.engine.try_borrow_mut();
         debug_assert!(
             engine.is_ok(),
@@ -76,7 +76,7 @@ impl TextShaper for TextMeasurer {
         &self,
         run: &TextRun,
         max_width: Option<f32>,
-    ) -> Option<Arc<kivact_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         TextMeasurer::shape(self, run, max_width)
     }
 }

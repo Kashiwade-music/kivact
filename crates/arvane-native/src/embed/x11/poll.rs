@@ -1,10 +1,8 @@
 //! Role: Waits on the X connection, command eventfd and deadline timerfd.
 
 use arvane_shell::ShellError;
-use rustix::{
-    event::{EventfdFlags, PollFd, PollFlags},
-    time::{Itimerspec, TimerfdClockId, TimerfdFlags, TimerfdTimerFlags, Timespec},
-};
+use rustix::event::{EventfdFlags, PollFd, PollFlags};
+use rustix::time::{Itimerspec, TimerfdClockId, TimerfdFlags, TimerfdTimerFlags, Timespec};
 use std::os::fd::{AsFd, OwnedFd};
 
 pub(super) fn eventfd() -> Result<OwnedFd, ShellError> {

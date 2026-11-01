@@ -16,10 +16,6 @@ pub struct ChannelState {
 impl ChannelState {
     /// A gain of 0, centered, neither muted nor soloed. Setup only.
     #[track_caller]
-    #[allow(
-        clippy::new_without_default,
-        reason = "creation makes signals under the current setup owner; a `Default` impl would hide that"
-    )]
     pub fn new() -> Self {
         Self {
             gain: signal(0.0).into(),
@@ -27,5 +23,13 @@ impl ChannelState {
             mute: signal(false).into(),
             solo: signal(false).into(),
         }
+    }
+}
+
+impl Default for ChannelState {
+    /// Same as [`ChannelState::new`]. Setup only.
+    #[track_caller]
+    fn default() -> Self {
+        Self::new()
     }
 }

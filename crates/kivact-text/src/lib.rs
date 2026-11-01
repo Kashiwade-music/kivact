@@ -99,167 +99,18 @@
 
 #![forbid(unsafe_code)]
 
-use kivact_editing::{Damage, LineColors};
-use records::{Before, Chunk, Key};
-use std::ops::Range;
-use std::sync::Arc;
-
 mod chunks;
+mod edit_lines;
 mod excerpt;
 #[cfg(debug_assertions)]
 mod integrity;
+mod line_metrics;
 mod pieces;
 mod records;
 mod refresh;
 mod shaping;
 
-/// Line height of `style` as Arvane's shaper lays lines out: the height of
-/// the caret of an empty text (the font size if `style` cannot be shaped).
-pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::TextStyle) -> f32 {
-    engine
-        .shape("", style, None)
-        .ok()
-        .and_then(|s| s.carets.first().map(|c| c.rect.height))
-        .unwrap_or(style.font_size)
-}
-
-/// How far below the top of a content box `height` high a single-line
-/// input's line of `line` height starts: the line is centered, and a box
-/// lower than the line (negative `height - line`) overflows it evenly on
-/// both sides. Callers can share this value for content-box placement and
-/// measured baseline positioning.
-pub fn line_offset(height: f32, line: f32) -> f32 {
-    (height - line) / 2.0
-}
-
-/// What a text input shows, to lay its lines out from.
-#[derive(Clone, Copy)]
-pub struct Source<'a> {
-    /// Borrowed original UTF-8 value; all source byte offsets refer to it.
-    pub value: &'a str,
-    /// Revision of the value and compatible damage history.
-    pub revision: u64,
-    /// Optional UTF-8 byte replacement since the previously refreshed revision.
-    pub damage: Option<Damage>,
-    /// Borrowed UTF-8 display text used only while the value is empty.
-    pub placeholder: &'a str,
-    /// Visually mask non-LF scalars with bullets; LF keeps display spacing.
-    /// This does not redact excerpts or published raw run text. Callers must
-    /// suppress/protect surrounding IME text and accessible publication.
-    pub password: bool,
-    /// Split at LF hard breaks; an unmasked single line shows LF/CR as spaces.
-    pub multiline: bool,
-}
-
-/// Cost and diagnostic assurance requested for one source reconciliation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum RefreshMode {
-    /// Reconcile incrementally without a complete representation scan.
-    #[default]
-    Incremental,
-    /// In debug builds, independently verify retained line metadata afterward.
-    /// This expensive checkpoint is useful after a source batch or adoption.
-    /// In release builds it performs ordinary reconciliation only; no integrity
-    /// scan, reference allocation or diagnostic assurance is provided.
-    Verify,
-}
-
-/// Discrepancies found at an explicitly requested debug integrity checkpoint.
-/// The source and retained cache are left intact for diagnosis, never healed
-/// from the independent reference. No private representation is exposed.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RefreshError {
-    /// Located descriptions of retained/reference metadata differences.
-    pub discrepancies: Vec<String>,
-}
-
-impl std::fmt::Display for RefreshError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.discrepancies.join("; "))
-    }
-}
-impl std::error::Error for RefreshError {}
-
-/// Bytes of text on each side of the caret the IME is given, at most
-/// (the lines around it while they fit).
-const IME_CONTEXT: usize = 2048;
-
-/// Lines per chunk: a chunk holds at most twice as many.
-const CHUNK: usize = 256;
-
-/// The text measured for an input's natural width: the lines starting in
-/// its first this many bytes (at least its first line).
-const MEASURED: usize = 16 * 1024;
-
-/// Lines published around the caret and the lines drawn, on each side,
-/// and the step the published lines start and end at.
-const PUBLISHED_MARGIN: usize = 32;
-const PUBLISHED_STEP: usize = 32;
-
-/// The lines of a text input (see the module invariants).
-#[derive(Clone, Debug)]
-pub struct EditLines {
-    key: Option<Key>,
-    align: kivact_types::TextAlign,
-    revision: u64,
-    height: f32,
-    /// The baseline of a line without text (a space's, in the style).
-    blank: f32,
-    chunks: Vec<Chunk>,
-    /// What comes before each chunk, then in all.
-    before: Vec<Before>,
-    /// The widest shaped line's width.
-    width: f32,
-    /// The colors the lines were colored with.
-    colors: Option<LineColors>,
-    colored: usize,
-    /// The lines last drawn.
-    drawn: Range<usize>,
-}
-
-impl Default for EditLines {
-    /// No lines yet, with what comes before them all (nothing): `before`
-    /// always ends with the totals.
-    fn default() -> Self {
-        Self {
-            key: None,
-            align: kivact_types::TextAlign::default(),
-            revision: 0,
-            height: 0.0,
-            blank: 0.0,
-            chunks: Vec::new(),
-            before: vec![Before::default()],
-            width: 0.0,
-            colors: None,
-            colored: 0,
-            drawn: 0..0,
-        }
-    }
-}
-
-/// The text runs published of a text input's lines: from scalar `start`
-/// of its text to scalar `end`.
-pub struct Published {
-    /// First Unicode scalar covered by the returned runs.
-    pub start: u32,
-    /// Exclusive final Unicode scalar covered by the returned runs.
-    pub end: u32,
-    /// Owned shared runs, retaining their font-independent geometry and values.
-    /// Allocation identity is not a publication equality contract.
-    pub runs: Arc<[Arc<kivact_types::SemanticsTextRun>]>,
-}
-
-/// An input's lines as a behavior reads them, shaping the lines it asks
-/// about.
-pub struct Shaping<'a> {
-    lines: std::cell::RefCell<(&'a mut EditLines, &'a mut arvane::Engine)>,
-    revision: u64,
-}
-
-impl EditLines {
-    fn key(&self) -> &Key {
-        self.key
-            .as_ref()
-            .expect("invariant: refreshed lines have a key")
-    }
-}
+pub use edit_lines::EditLines;
+pub use line_metrics::{line_height, line_offset};
+pub use refresh::{RefreshError, RefreshMode, Source};
+pub use shaping::{Published, Shaping};

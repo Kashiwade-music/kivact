@@ -343,8 +343,8 @@ result. You `await` it inside a resource, an action or a spawned task.
   capture a `Signal`, `Value` or any other UI handle. The compiler tells you
   so. Read the value *outside* the closure and move the plain value in
   (`limit` above), then write the result back after the `await`.
-- **A panic in the closure** becomes a `UiError` in the resource or action
-  that awaited it.
+- **A panic in the closure** is resumed on the UI thread by the task that awaits
+  it; it ends the App.
 - **Cancellation is cooperative.** When the future is dropped (a newer request
   replaced it, or its component was disposed) the closure is not killed. Its
   `CancelToken` turns true, and long work should check it now and then and

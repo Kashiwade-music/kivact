@@ -3,7 +3,7 @@
 //! Layers: group opacity, clips to any shape, blend modes, blur and drop
 //! shadow filters, gradient masks, and how groups must nest.
 
-use kivact_types::{DrawCommand, Layer, LayerFilter, Paint};
+use kivact_types::protocol::{DrawCommand, Layer, LayerFilter, Paint};
 
 use crate::support::{
     RED, WHITE, assert_near, color, color_alpha, fill, gray, open, pixel, pt, rect, show,

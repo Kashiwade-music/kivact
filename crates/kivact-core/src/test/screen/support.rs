@@ -5,7 +5,7 @@
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
 use crate::Binding;
-use crate::prelude::*;
+use crate::prelude::{IntoText, IntoValue, Node, NodeBuilder, Role, node, text};
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
@@ -28,7 +28,7 @@ pub(super) struct Rng(u64);
 
 impl Rng {
     pub(super) fn new(seed: u64) -> Self {
-        Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1)
+        Rng(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1)
     }
     fn next(&mut self) -> u64 {
         let mut x = self.0;

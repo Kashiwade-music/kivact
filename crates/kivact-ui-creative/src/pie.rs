@@ -2,17 +2,17 @@
 use kivact::ui::button;
 use kivact::view::HandlerResult;
 
-use kivact::Binding;
-use kivact::binding;
 use kivact::draw::{Point, Rect};
 use kivact::i18n::message;
 use kivact::interaction::use_popup;
-use kivact::prelude::*;
+use kivact::prelude::{
+    ColorToken, IntoValue, IntoView, Key, Node, NodeBuilder, Role, column, node, style, text,
+};
 use kivact::primitive::NodeExt;
-use kivact::style::Icon;
-use kivact::style::Position;
+use kivact::style::{Icon, Position};
 use kivact::view::Handled;
 use kivact::view::{MouseButton, Placement, PointerPhase, callback, overlay_at};
+use kivact::{Binding, binding};
 
 /// A directional command, in clockwise degrees from the positive horizontal axis.
 #[derive(Clone, Debug, PartialEq)]

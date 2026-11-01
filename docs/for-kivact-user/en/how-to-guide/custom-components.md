@@ -691,8 +691,8 @@ focusable element inside your root, here the text box, as the second test shows.
 ## Report misuse of your component
 
 When a component gets an argument it cannot honor, fail where the caller can see the
-cause. `kivact::primitive::raise` raises a located error that the nearest
-`error_boundary` or the default sink reports, exactly like Kivact's own misuse errors:
+cause. `kivact::primitive::raise` panics at the caller with a located message,
+exactly like Kivact's own misuse; it ends the App or fails the test:
 
 ```rust,no_run
 use std::panic::Location;

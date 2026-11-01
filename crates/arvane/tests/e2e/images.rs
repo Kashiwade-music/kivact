@@ -6,11 +6,12 @@
 
 use std::sync::Arc;
 
-use kivact_types::{
-    Backdrop, BlendMode, BoxShadow, ColorMatrix, DrawCommand, Extend, FillRule, Gradient,
-    GradientShape, ImageData, Layer, LayerFilter, LineCap, Mask, Paint, PathCmd, Pattern,
-    PatternSource, Radius, RoundedRect, Shape, Stroke, Transform,
+use kivact_types::protocol::{
+    Backdrop, BoxShadow, ColorMatrix, DrawCommand, Gradient, GradientShape, ImageData, Layer,
+    LayerFilter, Mask, Paint, PathCmd, Pattern, PatternSource, Radius, RoundedRect, Shape,
+    Transform,
 };
+use kivact_types::{BlendMode, Extend, FillRule, LineCap, Stroke};
 
 use crate::support::{
     BLUE, RED, WHITE, color, color_alpha, fill, gpu_against_cpu, pt, rect, solid, text_runs,

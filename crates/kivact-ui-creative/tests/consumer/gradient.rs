@@ -1,6 +1,11 @@
 //! Role: Stable gradient stop editing, transforms and exact cancellation.
-use super::*;
+use crate::support::clean;
+use kivact::prelude::*;
 use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::{A11yAction, Modifiers};
+use kivact_ui_creative as ui;
+use std::cell::RefCell;
+use std::rc::Rc;
 fn stops() -> Vec<ui::GradientStop> {
     vec![
         ui::GradientStop::new(0.25, rgb(0x804020)),
@@ -13,7 +18,7 @@ fn gradient_keys_actions_selection_and_position_reorder_keep_storage_order() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let seen = log.clone();
     let (screen, (data, selected)) =
-        kivact::test::render_with_handle(crate::options(), move || {
+        kivact::test::render_with_handle(crate::support::options(), move || {
             let data = signal(stops());
             let selected = signal(None);
             (

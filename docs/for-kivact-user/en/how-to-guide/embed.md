@@ -197,10 +197,9 @@ wrapper's job.
 - **Keys.** The editor receives the keys the host's window gives it. Keys the editor does
   not handle are not returned to the host, and Kivact has no workaround for a host that
   steals keys such as Space before the editor sees them.
-- **Panics stop the editor.** In a desktop app an unhandled panic is reported and the
-  window continues. In an embedded editor an unhandled panic ends the App at the end of
-  the turn, destroys its window and is reported through `Embedded::error`. Handle
-  failures that you expect with an `error_boundary` (see
+- **Panics stop the editor.** A panic ends the editor and resumes in your wrapper's
+  next call on `Embedded`; don't let it reach the host. Handle failures that you
+  expect with an `error_boundary` (see
   [Find out why something failed or updated](diagnostics.md)).
 
 ## Open the editor (wrapper author)
@@ -264,7 +263,7 @@ The contract of `embed`:
   it runs on the App's UI thread. It runs once, and `embed` returns after it finished.
 - **Errors.** Invalid sizes or scale return `ErrorKind::Message`. An invalid or
   null parent, a missing OS resource or an unsupported OS return `ErrorKind::Platform`.
-  A panic in the root returns its original diagnostic. A failed open leaves no window.
+  A panic in the root is resumed from `embed`. A failed open leaves no window.
 - **The handle.** `Embedded` is `Send + Sync`. Keep it for as long as the editor is
   open; keep it behind an `Arc` if several threads call its setters.
 
@@ -310,7 +309,7 @@ impl OpenEditor {
         }
     }
 
-    /// Why the editor stopped (a panic in the UI or a platform failure), if it did.
+    /// Why the editor stopped (a platform failure), if it did.
     pub fn failure(&self) -> Option<kivact::UiError> {
         self.embedded.as_ref().and_then(Embedded::error)
     }
@@ -375,8 +374,9 @@ the current turn finishes, cleanup follows, and no later input is delivered. Que
 actions are not drained.
 
 If the host destroys the parent window first, the editor stops safely and `error()`
-stays `None`. A panic or a platform failure stops the App, destroys its window and makes
-`error()` return the reason. You still drop the handle later. Long-running `blocking`
+stays `None`. A platform failure stops the App, destroys its window and makes
+`error()` return the reason. A panic stops it the same way, and the next call on
+`Embedded` resumes it instead. You still drop the handle later. Long-running `blocking`
 work should check its `CancelToken` regularly so that closing does not wait for it.
 
 ### Test the wrapper
@@ -431,6 +431,6 @@ real DAW and screen readers inside a plugin window have not been verified.
 - [Build controls with your own look](custom-controls.md) for `EditPhase` and the
   controls that report gestures.
 - [Run async work from a component](async-and-tasks.md) for `spawn` and `blocking`.
-- [Find out why something failed or updated](diagnostics.md) for how a panic in the
-  UI is reported.
+- [Find out why something failed or updated](diagnostics.md) for how panics end the
+  App.
 - `cargo doc -p kivact --features embed --open`: `kivact::embed`.

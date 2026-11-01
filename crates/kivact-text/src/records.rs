@@ -19,7 +19,7 @@ pub(crate) enum Shown {
 /// show and whether they break at line feeds.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Key {
-    pub(crate) style: kivact_types::TextStyle,
+    pub(crate) style: kivact_types::protocol::TextStyle,
     pub(crate) shown: Shown,
     pub(crate) multiline: bool,
 }
@@ -38,7 +38,7 @@ pub(crate) struct Kept {
     pub(crate) colors: Option<Colored>,
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
-    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::ShapedText>)>,
+    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::protocol::ShapedText>)>,
     /// Its text run's identity (0: none yet).
     pub(crate) run_id: u64,
     /// Its text run and where it was placed.
@@ -58,7 +58,7 @@ pub(crate) struct Line {
     pub(crate) chars: u32,
     pub(crate) units: u32,
     /// Its text, shaped (`None`: not yet; `Some(None)`: it cannot be).
-    pub(crate) shaped: Option<Option<Arc<kivact_types::ShapedText>>>,
+    pub(crate) shaped: Option<Option<Arc<kivact_types::protocol::ShapedText>>>,
     /// Its shaped width (0 until shaped).
     pub(crate) width: f32,
     pub(crate) kept: Option<Box<Kept>>,

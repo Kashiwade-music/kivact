@@ -95,24 +95,16 @@ impl Handled {
     }
 }
 
-mod sealed {
-    //! Role: Sealed supertraits that keep SealedKey from being implemented outside the crate.
-    //!
-    /// Seal of [`KeyHandlerResult`](super::KeyHandlerResult): implemented
-    /// exactly for `()`, `Handled` and `Result<Handled, UiError>`.
-    pub trait SealedKey {}
-}
-
-impl sealed::SealedKey for () {}
-impl sealed::SealedKey for Handled {}
-impl sealed::SealedKey for Result<Handled> {}
+impl crate::sealed::KeyHandlerResultSeal for () {}
+impl crate::sealed::KeyHandlerResultSeal for Handled {}
+impl crate::sealed::KeyHandlerResultSeal for Result<Handled> {}
 
 /// Return type of `on_key`/`on_pointer`/`on_wheel` handlers: `()` (not
 /// handled), [`Handled`] or `Result<Handled, UiError>`.
 #[diagnostic::on_unimplemented(
     message = "a key handler must return `()`, `Handled` or `Result<Handled, UiError>`"
 )]
-pub trait KeyHandlerResult: sealed::SealedKey {
+pub trait KeyHandlerResult: crate::sealed::KeyHandlerResultSeal {
     #[doc(hidden)]
     fn into_handled(self) -> Result<Handled>;
 }

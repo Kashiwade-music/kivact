@@ -25,10 +25,6 @@ impl ArrangementState {
     /// Nothing selected, the playhead at 0, a cycling loop over beats 0 to
     /// 16, 26 pixels per beat, no scroll and the select tool. Setup only.
     #[track_caller]
-    #[allow(
-        clippy::new_without_default,
-        reason = "creation makes signals under the current setup owner; a `Default` impl would hide that"
-    )]
     pub fn new() -> Self {
         Self {
             selection: signal(Vec::new()).into(),
@@ -39,5 +35,13 @@ impl ArrangementState {
             pan: signal(Point::new(0.0, 0.0)).into(),
             tool: signal(TimelineTool::Select).into(),
         }
+    }
+}
+
+impl Default for ArrangementState {
+    /// Same as [`ArrangementState::new`]. Setup only.
+    #[track_caller]
+    fn default() -> Self {
+        Self::new()
     }
 }

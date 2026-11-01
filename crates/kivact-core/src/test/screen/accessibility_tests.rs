@@ -21,7 +21,6 @@ fn empty_real_empty_and_replaced_roots_publish_without_stale_nodes() {
         Client::new(
             move |_, _, writer| {
                 *setup.borrow_mut() = Some(writer);
-                None
             },
             |_, _, _| TurnOutput::default(),
         ),

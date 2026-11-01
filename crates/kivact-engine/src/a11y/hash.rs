@@ -1,5 +1,6 @@
 //! Role: Complete payload fingerprints; never an authority for accepting actions.
-use kivact_types::{Rect, SemanticsNode, SemanticsProperties, SemanticsText, Transform};
+use kivact_types::protocol::{SemanticsNode, SemanticsProperties, Transform};
+use kivact_types::{Rect, SemanticsText};
 use std::hash::{DefaultHasher, Hash, Hasher};
 fn rect(r: Rect, h: &mut DefaultHasher) {
     [r.x, r.y, r.width, r.height].map(f32::to_bits).hash(h);

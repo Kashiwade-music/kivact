@@ -1,7 +1,8 @@
 //! Role: The calendar, the date input and the date range input.
 
-use super::*;
 use kivact::i18n::CalendarDate;
+use kivact::prelude::*;
+use kivact_ui_pop as ui;
 
 fn date(year: i32, month: u8, day: u8) -> CalendarDate {
     CalendarDate::new(year, month, day)
@@ -9,7 +10,7 @@ fn date(year: i32, month: u8, day: u8) -> CalendarDate {
 
 #[test]
 fn the_date_picker_writes_the_binding_and_closes() {
-    let (screen, date_value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, date_value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(date(2026, 10, 3));
         (value, ui::date_input("Date", value, date(2026, 10, 3)))
     });

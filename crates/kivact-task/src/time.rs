@@ -1,6 +1,6 @@
 //! Role: Host-clock timers (`sleep`, `timeout`).
-//! In tests the clock is virtual and
-//! only moves with `advance`.
+//!
+//! In tests the clock is virtual and only moves with `advance`.
 
 use std::future::Future;
 use std::panic::Location;

@@ -40,7 +40,9 @@ impl<S> Inbox<S> {
     }
 
     fn lock(&self) -> MutexGuard<'_, Locked<S>> {
-        self.locked.lock().unwrap_or_else(|e| e.into_inner())
+        self.locked
+            .lock()
+            .expect("gpu interop inbox lock poisoned: a panic already happened")
     }
 
     /// Change the state with `f`, from any thread, and wake the UI task
@@ -84,7 +86,7 @@ impl<S> Inbox<S> {
             locked = self
                 .changed
                 .wait_timeout(locked, left)
-                .unwrap_or_else(|e| e.into_inner())
+                .expect("gpu interop inbox lock poisoned: a panic already happened")
                 .0;
         }
     }

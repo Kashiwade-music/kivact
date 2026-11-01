@@ -1,6 +1,10 @@
 //! Role: The search picker: filtering, keys, pick and cancel, the preview, focus.
 
-use super::*;
+use crate::support::clean;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact::view::A11yAction;
+use kivact_ui_creative as ui;
 
 type Items = Vec<ui::PickerItem<&'static str>>;
 
@@ -56,7 +60,7 @@ impl Log {
 }
 
 fn mount_attached() -> (Screen, Log) {
-    kivact::test::render_with_handle(crate::options(), || {
+    kivact::test::render_with_handle(crate::support::options(), || {
         let log = Log::new();
         let picker = log.picker(ui::search_picker(items()));
         (

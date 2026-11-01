@@ -1,0 +1,166 @@
+//! Role: The level Meter: segmented, oriented, multi-channel level bars.
+
+use kivact::control::{Node, NodeBuilder, node};
+use kivact::draw::Rect;
+use kivact::primitive::NodeExt;
+use kivact::style::{Color, ColorToken, style};
+use kivact::view::{IntoText, IntoValue, IntoView, Orientation, Role, View};
+use kivact::{Value, effect, memo, signal};
+
+/// An audio meter with clip hold and accessible numeric level.
+pub struct Meter {
+    root: Node,
+    level: Value<f64>,
+    horizontal: Value<bool>,
+    channels: usize,
+    segmented: Value<bool>,
+}
+
+/// An audio meter receiving normalized linear amplitude (0..1, >1 clips).
+#[track_caller]
+pub fn meter(label: impl IntoText, level: impl IntoValue<f64>) -> Meter {
+    Meter {
+        root: node()
+            .role(Role::Meter)
+            .name(label)
+            .value_min(0.0)
+            .value_max(1.0)
+            .style(
+                style()
+                    .size(30, 180)
+                    .background(crate::Color::Canvas)
+                    .radius(5),
+            ),
+        level: level.into_value(),
+        horizontal: false.into_value(),
+        channels: 2,
+        segmented: false.into_value(),
+    }
+}
+
+impl Meter {
+    /// Choose separated LED cells rather than the source's continuous bar
+    /// while true (constant or reactive).
+    #[track_caller]
+    pub fn segmented(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.segmented = enabled.into_value();
+        self
+    }
+    /// Lay the channels out as a horizontal strip
+    /// ([`Orientation::Horizontal`]) rather than the default vertical channel
+    /// meter (constant or reactive).
+    #[track_caller]
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        let orientation = orientation.into_value();
+        let enabled = memo(move || orientation.get() == Orientation::Horizontal);
+        self.horizontal = enabled;
+        self.root = self.root.style(move || {
+            if enabled.get() {
+                style().size(240, 18)
+            } else {
+                style().size(30, 180)
+            }
+        });
+        self
+    }
+    /// Display one to eight channels.
+    pub fn channels(mut self, channels: usize) -> Self {
+        self.channels = channels.clamp(1, 8);
+        self
+    }
+}
+
+impl NodeBuilder for Meter {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+
+impl IntoView for Meter {
+    fn into_view(self) -> View {
+        let Self {
+            root,
+            level,
+            horizontal,
+            channels,
+            segmented,
+        } = self;
+        let clipped = signal(false);
+        effect(move || {
+            if level.get() > 1.0 {
+                clipped.set(true);
+            }
+        });
+        root.value_now(move || level.get().clamp(0.0, 1.0))
+            .value_text(move || format!("{:.1} dB", 20.0 * level.get().max(0.001).log10()))
+            .orientation(move || {
+                if horizontal.get() {
+                    Orientation::Horizontal
+                } else {
+                    Orientation::Vertical
+                }
+            })
+            .on_press(move || clipped.set(false))
+            .draw(move |d, size| {
+                let (horizontal, segmented) = (horizontal.get(), segmented.get());
+                let p = d.theme().get::<crate::tokens::Tokens>();
+                let v = level.get().clamp(0.0, 1.0) as f32;
+                let extent = if horizontal {
+                    size.width - 10.0
+                } else {
+                    size.height - 12.0
+                };
+                let width = if horizontal {
+                    (size.height - 4.0) / channels as f32
+                } else {
+                    (size.width - 4.0) / channels as f32
+                };
+                for ch in 0..channels {
+                    let amp = v;
+                    for i in 0..40 {
+                        let n = i as f32 / 40.0;
+                        let color = if n >= amp {
+                            Color::token(ColorToken::Raised)
+                        } else if n > 0.9 {
+                            p.x
+                        } else if n > 0.75 {
+                            p.warning
+                        } else {
+                            p.success
+                        };
+                        let r = if horizontal {
+                            Rect::new(
+                                2.0 + extent * n,
+                                2.0 + ch as f32 * width,
+                                (extent / 40.0 - if segmented { 1.0 } else { 0.0 }).max(1.0),
+                                width - 1.0,
+                            )
+                        } else {
+                            Rect::new(
+                                2.0 + ch as f32 * width,
+                                size.height - 2.0 - extent * (n + 0.025),
+                                width - 1.0,
+                                (extent / 40.0 - if segmented { 1.0 } else { 0.0 }).max(1.0),
+                            )
+                        };
+                        d.fill_rect(r, color);
+                    }
+                }
+                let clip = if horizontal {
+                    Rect::new(size.width - 6.0, 2.0, 4.0, size.height - 4.0)
+                } else {
+                    Rect::new(2.0, 2.0, size.width - 4.0, 4.0)
+                };
+                d.rounded_rect(
+                    clip,
+                    2.0,
+                    if clipped.get() {
+                        p.x
+                    } else {
+                        p.x.with_alpha(0.17)
+                    },
+                );
+            })
+            .into_view()
+    }
+}

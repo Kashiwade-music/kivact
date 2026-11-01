@@ -2,8 +2,8 @@
 use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
-use kivact_types::DrawCommand as D;
-use kivact_wire::*;
+use kivact_types::protocol::DrawCommand as D;
+use kivact_wire::{Rect, SceneCmd, Size};
 impl Context<'_> {
     pub(super) fn paint_raster(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
@@ -23,7 +23,7 @@ impl Context<'_> {
                 pixelated,
             } => {
                 state.out.commands.push(D::ImageSampled {
-                    image: kivact_types::ImageData {
+                    image: kivact_types::protocol::ImageData {
                         width: image.width,
                         height: image.height,
                         rgba: image.rgba.clone(),
@@ -131,4 +131,15 @@ impl Context<'_> {
             _ => false,
         }
     }
+}
+
+/// The zoom images are rasterized for under transforms enlarging them by
+/// `z`: `z` rounded up to a quarter step of powers of two (exactly 1
+/// without a transform), so a zooming subtree rasterizes its SVGs again
+/// only every 19 %, never blurrier than drawn.
+pub fn raster_zoom(z: f32) -> f32 {
+    if z == 1.0 || !z.is_finite() || z <= 0.0 {
+        return 1.0;
+    }
+    ((z.log2() * 4.0).ceil() / 4.0).exp2()
 }

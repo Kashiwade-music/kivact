@@ -1,12 +1,17 @@
 //! Role: Public Bezier control edits, cancellation and read-only curve previews.
-use super::*;
+use crate::support::clean;
+use kivact::prelude::*;
 use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::{A11yAction, Modifiers};
+use kivact_ui_creative as ui;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[test]
 fn bezier_keys_and_advertised_actions_make_single_edits() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let seen = log.clone();
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), move || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), move || {
         let value = signal(ui::CubicBezier::default());
         (
             value,

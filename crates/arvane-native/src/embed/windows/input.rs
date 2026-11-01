@@ -4,14 +4,25 @@ use crate::key_code;
 use arvane_shell::ShellEvent;
 use kivact_types::{Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
 use std::rc::Rc;
+use windows_sys::Win32::Foundation::{LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
 use windows_sys::Win32::System::SystemServices::{
     MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
 };
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
-use windows_sys::Win32::{
-    Foundation::*,
-    Graphics::Gdi::ScreenToClient,
-    UI::{Input::KeyboardAndMouse::*, WindowsAndMessaging::*},
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    GetCapture, GetKeyState, GetKeyboardLayout, GetKeyboardState, ReleaseCapture, SetCapture,
+    SetFocus, TME_LEAVE, TRACKMOUSEEVENT, ToUnicodeEx, TrackMouseEvent, VK_APPS, VK_BACK,
+    VK_CONTROL, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_F24, VK_HOME, VK_LCONTROL,
+    VK_LEFT, VK_LMENU, VK_LWIN, VK_MENU, VK_NEXT, VK_PRIOR, VK_RCONTROL, VK_RETURN, VK_RIGHT,
+    VK_RMENU, VK_RWIN, VK_SHIFT, VK_SPACE, VK_TAB, VK_UP,
+};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_NO, IDC_SIZEALL, IDC_SIZENS, IDC_SIZEWE,
+    LoadCursorW, PM_REMOVE, PeekMessageW, SetCursor, WM_CAPTURECHANGED, WM_CHAR, WM_DEADCHAR,
+    WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
+    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
+    WM_SYSKEYUP, WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1,
 };
 
 pub(super) fn cursor(cursor: Cursor) {
@@ -250,7 +261,8 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
     }
 }
 fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
-    use winit::{keyboard::PhysicalKey, platform::scancode::PhysicalKeyExtScancode};
+    use winit::keyboard::PhysicalKey;
+    use winit::platform::scancode::PhysicalKeyExtScancode;
     let scan = ((l as u32 >> 16) & 0xff) | if l & (1 << 24) != 0 { 0xe000 } else { 0 };
     let code = key_code::physical_code(PhysicalKey::from_scancode(scan));
     let modifiers = modifiers();

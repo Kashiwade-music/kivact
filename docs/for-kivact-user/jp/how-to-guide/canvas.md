@@ -127,7 +127,7 @@ fn pill(draw: &mut Draw, label: &str, at: Point) {
         ..TextStyle::default()
     };
     let metrics = draw.measure_text(label, &style);
-    let rect = Rect::new(at.x, at.y, metrics.width + 12.0, metrics.height + 8.0);
+    let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
     draw.rounded_rect(rect, rect.height / 2.0, ColorToken::Accent);
     draw.text(label, Point::new(at.x + 6.0, at.y + 4.0), style);
 }
@@ -151,7 +151,7 @@ fn labels() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Labels").run(labels) }
 ```
 
-`TextMetrics` は `width`・`height` と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextStyle` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
+`TextMetrics` は `size`（`size.width`・`size.height`）と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextStyle` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
 
 ## グループを変形・クリップ・半透明にする
 

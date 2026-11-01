@@ -76,8 +76,6 @@ pub(crate) struct AppClient {
     /// `None`: the App speaks the host's locale.
     locale: Option<Locale>,
     messages: Messages,
-    #[cfg(feature = "embed")]
-    embed_failure: Option<Arc<std::sync::Mutex<Option<UiError>>>>,
     /// Set by `Embedded::drop`: the turn in progress finishes, but the rest
     /// of its event batch is not delivered.
     #[cfg(feature = "embed")]
@@ -122,19 +120,12 @@ impl AppClient {
             messages: Messages::new(),
             fonts: Vec::new(),
             #[cfg(feature = "embed")]
-            embed_failure: None,
-            #[cfg(feature = "embed")]
             embed_closed: None,
         }
     }
 
     #[cfg(feature = "embed")]
-    pub(crate) fn with_embed_failure(
-        mut self,
-        failure: Arc<std::sync::Mutex<Option<UiError>>>,
-        closed: Arc<std::sync::atomic::AtomicBool>,
-    ) -> Self {
-        self.embed_failure = Some(failure);
+    pub(crate) fn with_embed_closed(mut self, closed: Arc<std::sync::atomic::AtomicBool>) -> Self {
         self.embed_closed = Some(closed);
         self
     }
@@ -145,19 +136,6 @@ impl AppClient {
             return closed.load(std::sync::atomic::Ordering::Acquire);
         }
         false
-    }
-
-    /// Record an embedded failure only after startup or the whole turn settled.
-    fn embed_stop(&self) -> Option<String> {
-        #[cfg(feature = "embed")]
-        if let Some(failure) = &self.embed_failure
-            && let Some(error) = self.rt.first_unhandled_panic()
-        {
-            let mut failure = failure.lock().unwrap_or_else(|e| e.into_inner());
-            let original = failure.get_or_insert(error);
-            return Some(original.to_string());
-        }
-        None
     }
 
     /// Start the App with `locale` (`None`: the host's) and `messages`
@@ -251,7 +229,7 @@ impl AppClient {
 }
 
 impl AppClient {
-    fn start(&mut self, info: &HostInfo, waker: HostWaker, tree: Writer) -> Option<String> {
+    fn start(&mut self, info: &HostInfo, waker: HostWaker, tree: Writer) {
         let rt = self.rt.clone();
         let ready = waker.clone();
         TaskState::of(&rt).set_waker(Arc::new(move || ready.wake()));
@@ -296,7 +274,6 @@ impl AppClient {
         if pending {
             rt.request_turn();
         }
-        self.embed_stop()
     }
 
     /// One turn (design §4「turn」): every queued event, then everything
@@ -380,7 +357,7 @@ impl AppClient {
             settle_async(&rt, &turn);
         }
 
-        let mut output = self.output(&rt);
+        let output = self.output(&rt);
         let took = started.elapsed().as_nanos() as u64;
         turn.finish(writes, took);
         // Requests made during the turn woke nobody (`HostLink`): ask again
@@ -394,7 +371,6 @@ impl AppClient {
         if pending {
             rt.request_turn();
         }
-        output.stop = self.embed_stop();
         output
     }
 
@@ -429,33 +405,36 @@ impl AppClient {
         .into_iter()
         .flatten()
         .min();
-        TurnOutput {
-            next_wake_ns,
-            exit,
-            stop: None,
-        }
+        TurnOutput { next_wake_ns, exit }
     }
 }
 
 impl Drop for AppClient {
     fn drop(&mut self) {
-        if let Some(root) = self.rt.root() {
-            root.dispose();
-        }
         let tasks = TaskState::of(&self.rt);
-        tasks.abandon_all_queues();
-        // async-task schedules cancellation when its handle is dropped.
-        // Release those futures on the UI thread before the executor stops;
-        // their channel wakers can otherwise retain its queue and receivers.
-        if tasks.has_ready() {
-            tasks.poll_tasks(&self.rt);
+        // A propagating panic ends the App: run no more App code. Only the
+        // worker threads are stopped.
+        if !std::thread::panicking() {
+            if let Some(root) = self.rt.root() {
+                root.dispose();
+            }
+            tasks.abandon_all_queues();
+            // async-task schedules cancellation when its handle is dropped.
+            // Release those futures on the UI thread before the executor
+            // stops; their channel wakers can otherwise retain its queue and
+            // receivers.
+            if tasks.has_ready() {
+                tasks.poll_tasks(&self.rt);
+            }
         }
         tasks.shutdown();
-        self.rt.shutdown();
+        if !std::thread::panicking() {
+            self.rt.shutdown();
+        }
         // Opening may fail before an Embedded is returned, or its drop may
         // precede deferred callback cleanup. Record task retention here too.
         #[cfg(feature = "embed")]
-        if self.embed_failure.is_some() && kivact_task::detached_threads() {
+        if self.embed_closed.is_some() && kivact_task::detached_threads() {
             kivact_engine::embed::retain_module();
         }
     }

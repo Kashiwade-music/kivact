@@ -18,7 +18,7 @@
 //!   so culling never drops a shadow's pixels.
 
 use crate::effects::Tint;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{ComputedText, Rect, TextMetrics, TextRun, TextShadow};
 use kivact_wire::{Point, Rgba};
 
@@ -33,8 +33,8 @@ pub struct Colors {
 /// `shaped` at `origin`: its shadows, decorations and glyphs in paint
 /// order (see the module invariants), colored by `colors`.
 pub fn push_text(
-    out: &mut kivact_types::Scene,
-    shaped: &kivact_types::ShapedText,
+    out: &mut kivact_types::protocol::Scene,
+    shaped: &kivact_types::protocol::ShapedText,
     origin: Point,
     colors: &Colors,
     shadows: &[TextShadow],
@@ -52,12 +52,13 @@ pub fn push_text(
         };
         let blurred = shadow.blur.is_finite() && shadow.blur > 0.0;
         if blurred {
-            out.commands.push(D::PushLayer(kivact_types::Layer {
-                filter: Some(kivact_types::LayerFilter::Blur {
-                    std_dev: shadow.blur / 2.0,
-                }),
-                ..kivact_types::Layer::default()
-            }));
+            out.commands
+                .push(D::PushLayer(kivact_types::protocol::Layer {
+                    filter: Some(kivact_types::protocol::LayerFilter::Blur {
+                        std_dev: shadow.blur / 2.0,
+                    }),
+                    ..kivact_types::protocol::Layer::default()
+                }));
         }
         let all = Colors {
             glyphs: Some(color),
@@ -77,8 +78,8 @@ pub fn push_text(
 
 /// The glyph runs of `shaped` at `origin`, in `color` when given.
 fn glyphs(
-    out: &mut kivact_types::Scene,
-    shaped: &kivact_types::ShapedText,
+    out: &mut kivact_types::protocol::Scene,
+    shaped: &kivact_types::protocol::ShapedText,
     origin: Point,
     color: Option<Rgba>,
 ) {
@@ -96,8 +97,8 @@ fn glyphs(
 /// and thickness on whole `device` pixels (crisp, like the baselines the
 /// renderers align).
 fn lines(
-    out: &mut kivact_types::Scene,
-    shaped: &kivact_types::ShapedText,
+    out: &mut kivact_types::protocol::Scene,
+    shaped: &kivact_types::protocol::ShapedText,
     origin: Point,
     colors: &Colors,
     through: bool,
@@ -119,7 +120,7 @@ fn lines(
                 width: line.rect.width,
                 height: (line.rect.height * device).round().max(1.0) / device,
             },
-            fill: kivact_types::Paint::Solid(colors.decorations.unwrap_or(line.color)),
+            fill: kivact_types::protocol::Paint::Solid(colors.decorations.unwrap_or(line.color)),
         });
     }
 }
@@ -129,7 +130,9 @@ fn lines(
 pub fn text_reach(font_size: f32, shadows: &[TextShadow]) -> f32 {
     let shadows = shadows
         .iter()
-        .map(|s| s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * kivact_types::SHADOW_REACH)
+        .map(|s| {
+            s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * kivact_types::protocol::SHADOW_REACH
+        })
         .fold(0.0f32, f32::max);
     font_size + shadows
 }
@@ -147,14 +150,14 @@ pub(crate) fn run_style(
     engine: &mut arvane::Engine,
     run: &TextRun,
     inherited: Option<&ComputedText>,
-) -> kivact_types::TextStyle {
+) -> kivact_types::protocol::TextStyle {
     let c = crate::sanitize::color;
     let family = run
         .family
         .as_deref()
         .or(inherited.and_then(|t| t.family.as_deref()));
     let line_height = run.line_height.or(inherited.and_then(|t| t.line_height));
-    kivact_types::TextStyle {
+    kivact_types::protocol::TextStyle {
         font_size: run.font_size,
         weight: run.weight,
         color: c(run.color),
@@ -194,11 +197,6 @@ pub fn measure_run(
     }
     engine
         .text_metrics(run.text.as_str(), &style, None)
-        .map(|m| TextMetrics {
-            width: m.size.width,
-            height: m.size.height,
-            baseline: m.baseline,
-        })
         .unwrap_or_default()
 }
 
@@ -213,7 +211,7 @@ pub fn shape_run(
     run: &TextRun,
     inherited: Option<&ComputedText>,
     max_width: Option<f32>,
-) -> Option<std::sync::Arc<kivact_types::ShapedText>> {
+) -> Option<std::sync::Arc<kivact_types::protocol::ShapedText>> {
     let style = run_style(engine, run, inherited);
     if !(style.font_size.is_finite() && style.font_size > 0.0) {
         return None;

@@ -167,7 +167,7 @@ impl<'a> Context<'a> {
         &self,
         asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
-    ) -> Option<(kivact_types::ImageData, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::protocol::ImageData, arvane::asset::Region)> {
         self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None)
     }
 
@@ -177,7 +177,7 @@ impl<'a> Context<'a> {
         size: arvane::asset::PixelSize,
         region: arvane::asset::Region,
         tint: Option<kivact_types::Rgba>,
-    ) -> Option<(kivact_types::ImageData, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::protocol::ImageData, arvane::asset::Region)> {
         if size.is_empty() {
             return None;
         }

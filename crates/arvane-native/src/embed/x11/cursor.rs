@@ -3,11 +3,10 @@
 use super::conn::Native;
 use arvane_shell::ShellError;
 use kivact_types::Cursor;
-use std::{cell::RefCell, collections::HashMap};
-use x11rb::{
-    connection::Connection,
-    protocol::xproto::{ChangeWindowAttributesAux, ConnectionExt, CreateGCAux, Rectangle},
-};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use x11rb::connection::Connection;
+use x11rb::protocol::xproto::{ChangeWindowAttributesAux, ConnectionExt, CreateGCAux, Rectangle};
 
 #[derive(Default)]
 pub(super) struct Cursors {

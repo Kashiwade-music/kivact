@@ -13,7 +13,8 @@ use kivact_core::primitive::NodeExt;
 use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_core::{Binding, Value};
 use kivact_interaction::{ToggleState, use_checkbox, use_switch};
-use std::{cell::Cell, rc::Rc};
+use std::cell::Cell;
+use std::rc::Rc;
 macro_rules! toggle_builder {
     ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $text:expr) => {
         $(#[$doc])*

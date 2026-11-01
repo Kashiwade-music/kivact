@@ -1,6 +1,7 @@
 //! Role: CPU image output independent of windows, using the window rasterizer.
 use crate::Error;
-use kivact_types::{CpuFrame, Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::{CpuFrame, Scene};
 
 /// Reusable CPU rasterizer for fixed-resolution, transparent image output.
 /// Its caches belong to this value and are released when it is dropped.

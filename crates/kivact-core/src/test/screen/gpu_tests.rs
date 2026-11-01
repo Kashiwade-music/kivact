@@ -26,7 +26,7 @@ use super::results::Screenshot;
 use super::support::button_box;
 use crate::control::canvas;
 use crate::draw::{Point, Rect};
-use crate::prelude::*;
+use crate::prelude::{IntoView, NodeBuilder, column, node, row, style, text};
 use crate::test::{RenderOptions, WindowMode};
 use kivact_style::{Align, Color, Justify, pct, rgba};
 

@@ -2,26 +2,22 @@
 
 use super::conn::Native;
 use arvane_shell::ShellError;
-use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
+use kivact_types::protocol::{CpuFrame, ParentWindow};
+use kivact_types::{KeyCode, MouseButton};
+use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
-use std::{
-    cell::{Cell, RefCell},
-    sync::{Arc, atomic::Ordering},
-    time::{Duration, Instant},
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
+use x11rb::connection::Connection;
+use x11rb::errors::ReplyError;
+use x11rb::properties::{WmHints, WmHintsState, WmSizeHints, WmSizeHintsSpecification};
+use x11rb::protocol::ErrorKind;
+use x11rb::protocol::xproto::{
+    self, ButtonPressEvent, ConnectionExt, EventMask, ImageFormat, ImageOrder, KeyButMask,
+    KeyPressEvent, MotionNotifyEvent,
 };
-use x11rb::{
-    connection::Connection,
-    errors::ReplyError,
-    properties::{WmHints, WmHintsState, WmSizeHints, WmSizeHintsSpecification},
-    protocol::{
-        ErrorKind,
-        xproto::{
-            self, ButtonPressEvent, ConnectionExt, EventMask, ImageFormat, ImageOrder, KeyButMask,
-            KeyPressEvent, MotionNotifyEvent,
-        },
-    },
-    wrapper::ConnectionExt as _,
-};
+use x11rb::wrapper::ConnectionExt as _;
 
 /// A top-level X11 host on a separate connection from its embedded child.
 pub struct TestParent {

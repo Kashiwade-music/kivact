@@ -7,6 +7,6 @@ pub(super) fn external_imported(rt: &Runtime, image: ExternalImageId, result: &E
     crate::gpu_interop::imported(rt, image, result);
 }
 
-pub(super) fn adapter_changed(rt: &Runtime, adapter: &Option<GpuAdapter>) {
+pub(super) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
     crate::gpu_interop::adapter_changed(rt, adapter);
 }

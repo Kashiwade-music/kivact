@@ -8,7 +8,7 @@ use kivact_wire::NodeId;
 use super::model::Screen;
 use super::support::button_box;
 use super::support::{Rng, seeds};
-use crate::prelude::*;
+use crate::prelude::{NodeBuilder, Role, Signal, column, for_each, node, style, text};
 use crate::test::render;
 use kivact_reactive::signal;
 

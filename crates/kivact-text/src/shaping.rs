@@ -1,13 +1,42 @@
 //! Role: Lazy shaping, editing geometry, coloring and bounded run publication.
 
+use crate::EditLines;
 use crate::pieces::{floor, shape_long};
 use crate::records::{Colored, Shown};
-use crate::{EditLines, MEASURED, PUBLISHED_MARGIN, PUBLISHED_STEP, Published, Shaping};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
 use kivact_types::{Point, Rect};
 use std::borrow::Cow;
 use std::ops::Range;
 use std::sync::Arc;
+
+/// The text measured for an input's natural width: the lines starting in
+/// its first this many bytes (at least its first line).
+const MEASURED: usize = 16 * 1024;
+
+/// Lines published around the caret and the lines drawn, on each side,
+/// and the step the published lines start and end at.
+const PUBLISHED_MARGIN: usize = 32;
+
+const PUBLISHED_STEP: usize = 32;
+
+/// The text runs published of a text input's lines: from scalar `start`
+/// of its text to scalar `end`.
+pub struct Published {
+    /// First Unicode scalar covered by the returned runs.
+    pub start: u32,
+    /// Exclusive final Unicode scalar covered by the returned runs.
+    pub end: u32,
+    /// Owned shared runs, retaining their font-independent geometry and values.
+    /// Allocation identity is not a publication equality contract.
+    pub runs: Arc<[Arc<kivact_types::SemanticsTextRun>]>,
+}
+
+/// An input's lines as a behavior reads them, shaping the lines it asks
+/// about.
+pub struct Shaping<'a> {
+    lines: std::cell::RefCell<(&'a mut EditLines, &'a mut arvane::Engine)>,
+    revision: u64,
+}
 
 /// The text a line shows: bullets for masked text, spaces for line
 /// breaks and CRs (one byte each, so offsets stay).
@@ -98,7 +127,7 @@ impl EditLines {
         text: &str,
         i: usize,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shaped.clone().flatten()
     }
@@ -337,7 +366,7 @@ impl EditLines {
         i: usize,
         color: kivact_types::Rgba,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         let content = self.content(i)?;
         let mut style = self.key().style.clone();
         style.color = color;
@@ -351,19 +380,19 @@ impl EditLines {
         let shown = display(&text[content], false);
         let shaped = shape_long(&shown, |r| {
             // The spans of the piece `r`, from its start.
-            let spans: Vec<kivact_types::TextSpan> = colored
+            let spans: Vec<kivact_types::protocol::TextSpan> = colored
                 .spans
                 .iter()
                 .filter(|(range, _)| range.start < r.end && range.end > r.start)
-                .map(|(range, color)| kivact_types::TextSpan {
+                .map(|(range, color)| kivact_types::protocol::TextSpan {
                     range: range.start.max(r.start) - r.start..range.end.min(r.end) - r.start,
-                    style: kivact_types::SpanStyle {
+                    style: kivact_types::protocol::SpanStyle {
                         color: Some(kivact_lower::sanitize::color(*color)),
                         ..Default::default()
                     },
                 })
                 .collect();
-            let rich = kivact_types::RichText {
+            let rich = kivact_types::protocol::RichText {
                 text: &shown[r],
                 spans: &spans,
             };

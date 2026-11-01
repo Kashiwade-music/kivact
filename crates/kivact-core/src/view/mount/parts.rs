@@ -185,7 +185,9 @@ pub(super) fn bind_hooks(owner: Owner, bindings: &[PartBinding], constraints: Co
             eligible: constraints.eligible,
         };
         for hook in &binding.hooks {
-            owner.guarded(|| hook(mount));
+            if let Err(err) = hook(mount) {
+                owner.report(err);
+            }
         }
     }
 }

@@ -3,9 +3,11 @@
 //! The standard split, property rows and state buttons, windows an application opens
 //! and closes, and panels with a header of their own.
 
-use super::*;
+use crate::support::{clean, near};
 use kivact::draw::Rect;
-use kivact::test::Element;
+use kivact::prelude::*;
+use kivact::test::{Element, Screen};
+use kivact_ui_creative as ui;
 
 fn width(element: &Element<'_>) -> f32 {
     element.rect().expect("laid out").width
@@ -20,7 +22,7 @@ fn row_of(screen: &Screen, label: &str) -> Rect {
 
 #[test]
 fn a_property_row_lays_out_label_leading_value_and_trailing_in_order() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), || {
         (
             (),
             column((

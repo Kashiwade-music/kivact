@@ -10,7 +10,7 @@ use super::measure::LeafMeasure;
 use super::semantics::{A11yAction, Role, SemanticsProperties};
 use super::style::{LayoutProps, PaintProps, StateStyles};
 use super::text::{TextProps, TextSpan};
-use super::{Point, Size};
+use super::{Placement, Point, Size};
 use kivact_types::Key;
 use kivact_types::{Asset, ImageFit};
 
@@ -26,6 +26,7 @@ pub enum NodeType {
     Image,
     Overlay,
 }
+
 /// The payload corresponding to one node type.
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeKind {
@@ -35,6 +36,7 @@ pub enum NodeKind {
     Image(ImageData),
     Overlay(Option<OverlayProps>),
 }
+
 /// A node's typed props: its kind's payload, the input flags, and the
 /// rest boxed, so only the nodes that have them allocate them (a setter
 /// compares before it allocates a box).
@@ -59,6 +61,7 @@ pub struct NodeProperties {
     /// Optional accessible node properties.
     pub semantics: Option<Box<NodeSemantics>>,
 }
+
 /// What a focusable node that edits its own text (not a native editor) shows
 /// the platform's input method: the text around its caret, the selection and
 /// where the caret is. The engine allows the IME while the node has the
@@ -98,6 +101,7 @@ pub struct NodeInput {
     /// lies behind (CSS `pointer-events: none`); `None` is `true`.
     pub hit_testable: Option<bool>,
 }
+
 /// Accessible identity, state and actions attached to a node.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct NodeSemantics {
@@ -124,6 +128,7 @@ pub struct NodeSemantics {
     /// Stable identifier used by public screen queries.
     pub test_id: Option<String>,
 }
+
 /// Measurement callback for a childless box; absent means ordinary layout.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct BoxData {
@@ -132,6 +137,7 @@ pub struct BoxData {
     /// Pure measurement callback for a leaf box.
     pub measure: Option<LeafMeasure>,
 }
+
 /// Owned text content and optional per-span styling.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct TextData {
@@ -140,6 +146,7 @@ pub struct TextData {
     /// Per-range overrides over the node text.
     pub spans: Option<Vec<TextSpan>>,
 }
+
 /// Native text-editing behavior, coloring and constraints for a node.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct EditingData {
@@ -166,6 +173,7 @@ pub struct EditingData {
     /// Request selection and composition-session events.
     pub report_session: Option<bool>,
 }
+
 /// Image content, fitting policy and optional intrinsic sizing.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ImageData {
@@ -186,6 +194,7 @@ impl NodeType {
         matches!(self, Self::Root | Self::Box | Self::Overlay)
     }
 }
+
 impl NodeKind {
     /// Return the tag corresponding to this payload.
     pub fn node_type(&self) -> NodeType {
@@ -208,6 +217,7 @@ impl NodeKind {
         }
     }
 }
+
 impl NodeProperties {
     /// Build properties containing this payload and no optional overrides.
     pub fn new(kind: NodeKind) -> Self {
@@ -223,17 +233,6 @@ impl NodeProperties {
             semantics: None,
         }
     }
-}
-/// Side of the anchor an overlay asks for. The engine flips it to the
-/// opposite side when it does not fit and clamps it into the window
-/// according to the host's placement policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Placement {
-    Below,
-    Above,
-    Start,
-    End,
-    Center,
 }
 
 /// Where an overlay sits along its anchor's side: its start, centre or

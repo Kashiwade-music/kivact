@@ -19,7 +19,7 @@ use kivact_reactive::{Owner, Value};
 use kivact_wire::{LineHeight, Rgba};
 use std::any::{Any, TypeId};
 use std::fmt;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 /// A value a component library adds to a [`Theme`]: its own colors, sizes
 /// and fonts beside the core's palette and scales (tokens), or a table of
@@ -514,7 +514,9 @@ impl<T: ThemeColor> Themed for T {
 static THEMED: Mutex<Vec<&'static dyn Themed>> = Mutex::new(Vec::new());
 
 fn themed_index<T: ThemeColor>(value: T) -> u32 {
-    let mut table = THEMED.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut table = THEMED
+        .lock()
+        .expect("THEMED lock poisoned: a panic already happened");
     let known = table
         .iter()
         .position(|v| v.value().downcast_ref::<T>() == Some(&value));
@@ -525,7 +527,9 @@ fn themed_index<T: ThemeColor>(value: T) -> u32 {
 }
 
 fn themed_value(index: u32) -> &'static dyn Themed {
-    let table = THEMED.lock().unwrap_or_else(PoisonError::into_inner);
+    let table = THEMED
+        .lock()
+        .expect("THEMED lock poisoned: a panic already happened");
     table[index as usize]
 }
 

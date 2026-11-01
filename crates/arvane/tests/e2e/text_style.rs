@@ -14,9 +14,10 @@
 use std::sync::Arc;
 
 use arvane::Engine;
-use kivact_types::{
-    DecorationLines, Rgba, RichText, ShapedText, SpanStyle, TextDecoration, TextSpan, TextStyle,
+use kivact_types::protocol::{
+    RichText, ShapedText, SpanStyle, TextDecoration, TextSpan, TextStyle,
 };
+use kivact_types::{DecorationLines, Rgba};
 
 use crate::support::engine;
 

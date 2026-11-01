@@ -13,7 +13,7 @@ use kivact_reactive::{ErrorKind, UiError};
 use kivact_style::asset::Asset;
 
 use super::model::Screen;
-use crate::prelude::*;
+use crate::prelude::{IntoView, NodeBuilder, column, style, text};
 use crate::test::{RenderOptions, TestFonts};
 use kivact_style::Align;
 

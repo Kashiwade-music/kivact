@@ -4,8 +4,11 @@
 //! Colors are clamped before lowering. These adaptations do not certify a
 //! complete scene: Arvane rendering validation is the final boundary.
 
-use kivact_types::DrawCommand as D;
-use kivact_wire::*;
+use kivact_types::protocol::DrawCommand as D;
+use kivact_wire::{
+    ClipShape, CoordinateShape, Corners, Fill, FillImage, FillLayer, FillSize, GradientKind, Len,
+    PaintProps, Point, RadialExtent, Rect, Rgba,
+};
 
 /// A fraction in `[0, 1]`, or `fallback` when not finite.
 pub fn unit(value: f32, fallback: f32) -> f32 {
@@ -200,16 +203,18 @@ fn stops(stops: &[(f32, Rgba)]) -> bool {
 }
 /// A gradient Arvane draws: valid stops and finite geometry (a conic one
 /// sweeps forward).
-fn gradient(value: &kivact_types::Gradient) -> bool {
+fn gradient(value: &kivact_types::protocol::Gradient) -> bool {
     stops(&value.stops)
         && match value.shape {
-            kivact_types::GradientShape::Linear { start, end } => point(start) && point(end),
-            kivact_types::GradientShape::Radial {
+            kivact_types::protocol::GradientShape::Linear { start, end } => {
+                point(start) && point(end)
+            }
+            kivact_types::protocol::GradientShape::Radial {
                 center,
                 radius_x,
                 radius_y,
             } => point(center) && length(radius_x) && length(radius_y),
-            kivact_types::GradientShape::RadialTwoCircle {
+            kivact_types::protocol::GradientShape::RadialTwoCircle {
                 start_center,
                 start_radius,
                 end_center,
@@ -220,50 +225,52 @@ fn gradient(value: &kivact_types::Gradient) -> bool {
                     && length(start_radius)
                     && length(end_radius)
             }
-            kivact_types::GradientShape::Conic {
+            kivact_types::protocol::GradientShape::Conic {
                 center,
                 start_deg,
                 end_deg,
             } => point(center) && finite(&[start_deg, end_deg]) && end_deg > start_deg,
         }
 }
-pub(crate) fn fill(value: &kivact_types::Paint) -> bool {
+pub(crate) fn fill(value: &kivact_types::protocol::Paint) -> bool {
     match value {
-        kivact_types::Paint::Solid(_) => true,
-        kivact_types::Paint::Pattern(p) => {
+        kivact_types::protocol::Paint::Solid(_) => true,
+        kivact_types::protocol::Paint::Pattern(p) => {
             (match &p.source {
-                kivact_types::PatternSource::Gradient(g) => gradient(g),
-                kivact_types::PatternSource::Image { .. } => true,
+                kivact_types::protocol::PatternSource::Gradient(g) => gradient(g),
+                kivact_types::protocol::PatternSource::Image { .. } => true,
             }) && rect(p.tile)
                 && p.tile.width > 0.0
                 && p.tile.height > 0.0
         }
-        kivact_types::Paint::LinearGradient {
+        kivact_types::protocol::Paint::LinearGradient {
             angle_deg,
             stops: s,
         } => angle_deg.is_finite() && stops(s),
-        kivact_types::Paint::Gradient(g) => gradient(g),
+        kivact_types::protocol::Paint::Gradient(g) => gradient(g),
     }
 }
 /// Whether the commands form contours with finite points and arcs.
-pub(crate) fn path(cmds: &[kivact_types::PathCmd]) -> bool {
+pub(crate) fn path(cmds: &[kivact_types::protocol::PathCmd]) -> bool {
     let mut open = false;
     cmds.iter().all(|cmd| match cmd {
-        kivact_types::PathCmd::MoveTo(p) => {
+        kivact_types::protocol::PathCmd::MoveTo(p) => {
             open = true;
             point(*p)
         }
-        kivact_types::PathCmd::LineTo(p) => open && point(*p),
-        kivact_types::PathCmd::QuadTo(p, q) => open && point(*p) && point(*q),
-        kivact_types::PathCmd::CubicTo(p, q, r) => open && point(*p) && point(*q) && point(*r),
-        kivact_types::PathCmd::ArcTo {
+        kivact_types::protocol::PathCmd::LineTo(p) => open && point(*p),
+        kivact_types::protocol::PathCmd::QuadTo(p, q) => open && point(*p) && point(*q),
+        kivact_types::protocol::PathCmd::CubicTo(p, q, r) => {
+            open && point(*p) && point(*q) && point(*r)
+        }
+        kivact_types::protocol::PathCmd::ArcTo {
             to,
             rx,
             ry,
             x_rotation_deg,
             ..
         } => open && point(*to) && finite(&[*rx, *ry, *x_rotation_deg]),
-        kivact_types::PathCmd::Arc {
+        kivact_types::protocol::PathCmd::Arc {
             center,
             rx,
             ry,
@@ -274,7 +281,7 @@ pub(crate) fn path(cmds: &[kivact_types::PathCmd]) -> bool {
             open = true;
             point(*center) && finite(&[*rx, *ry, *x_rotation_deg, *start_deg, *sweep_deg])
         }
-        kivact_types::PathCmd::Close => std::mem::replace(&mut open, false),
+        kivact_types::protocol::PathCmd::Close => std::mem::replace(&mut open, false),
     })
 }
 

@@ -1,4 +1,4 @@
-//! Role: Adapter-neutral color values (text styles are in `text`).
+//! Role: Adapter-neutral color values (text styles are in `protocol::text`).
 //! This module contains plain data usable on any thread.
 
 /// Straight-alpha color, components in `0.0..=1.0`.

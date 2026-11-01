@@ -6,11 +6,10 @@
 
 use arvane_shell::{ShellError, ShellEvent};
 use kivact_types::{Key, KeyCode, Modifiers};
-use std::{collections::HashSet, ptr};
-use x11rb::{
-    protocol::xkb::{ConnectionExt as _, EventType, ID, MapPart, SelectEventsAux},
-    xcb_ffi::XCBConnection,
-};
+use std::collections::HashSet;
+use std::ptr;
+use x11rb::protocol::xkb::{ConnectionExt as _, EventType, ID, MapPart, SelectEventsAux};
+use x11rb::xcb_ffi::XCBConnection;
 use xkbcommon_dl::{self as xkb, x11};
 
 pub(super) struct Keyboard {

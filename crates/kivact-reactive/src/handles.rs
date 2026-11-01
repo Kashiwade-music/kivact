@@ -12,7 +12,7 @@ use super::graph::{is_memo, source_cell};
 use crate::arena::Key;
 use crate::data::{Binding, Callback, Signal, Value, Var};
 use crate::data::{BindingRepr, CallbackFn, Runtime, ValueRepr};
-use crate::error::{ErrorKind, UiError, error_from_panic, misuse_at, new_error};
+use crate::error::{ErrorKind, UiError, misuse, misuse_at, new_error};
 use crate::registry::{runtime, try_runtime};
 
 // ---------------------------------------------------------------------------
@@ -254,7 +254,7 @@ impl<T: Clone + PartialEq + 'static> Signal<Vec<T>> {
         };
         let Some(first) = this.with_untracked(&find) else {
             misuse_at(
-                ErrorKind::Panic,
+                ErrorKind::Message,
                 "`Signal::item` requires an item with the given key",
                 at,
             )
@@ -532,12 +532,7 @@ impl<E: 'static> Callback<E> {
         }
     }
 
-    fn invoke(
-        rt: &Runtime,
-        cb: &CallbackFn<E>,
-        e: E,
-        at: &'static Location<'static>,
-    ) -> Result<(), UiError> {
+    fn invoke(rt: &Runtime, cb: &CallbackFn<E>, e: E) -> Result<(), UiError> {
         // Called from outside every App (tests, main): the call itself is the
         // boundary. Inside an App the callback runs for its own owner
         // wherever it is called from (`spawn`, `context` and the
@@ -549,22 +544,18 @@ impl<E: 'static> Callback<E> {
         } else {
             rt.callback_frame(cb.owner)
         };
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (cb.f)(e)));
-        match r {
-            Ok(r) => r,
-            Err(p) => Err(error_from_panic(p, Some(at))),
-        }
+        (cb.f)(e)
     }
 
-    /// Call; `Err` and panics go to the nearest `on_error`.
+    /// Call; an `Err` goes to the nearest `on_error`.
     #[track_caller]
     pub fn call(&self, e: E) {
         let at = Location::caller();
         let (rt, cb) = match self.lookup(at) {
             Ok(x) => x,
-            Err(err) => crate::error::resume(err),
+            Err(err) => misuse(err),
         };
-        if let Err(err) = Self::invoke(&rt, &cb, e, at) {
+        if let Err(err) = Self::invoke(&rt, &cb, e) {
             rt.route(Some(cb.owner), err);
         }
     }
@@ -575,7 +566,7 @@ impl<E: 'static> Callback<E> {
     pub fn try_call(&self, e: E) -> Result<(), UiError> {
         let at = Location::caller();
         let (rt, cb) = self.lookup(at)?;
-        Self::invoke(&rt, &cb, e, at)
+        Self::invoke(&rt, &cb, e)
     }
 
     /// A `Callback<()>` that calls this one with `e` (setup only).
@@ -740,25 +731,21 @@ impl<T: Clone + PartialEq + 'static> From<Signal<T>> for Binding<T> {
     }
 }
 
-mod number {
-    //! Role: Explain a signal of another type given where an `f64` is bound.
-
-    /// Never implemented: a signal of `T` binds an `f64` only when `T` is
-    /// `f64`, and this bound names the mistake instead of a missing `From`.
-    #[diagnostic::on_unimplemented(
-        message = "a `Signal<{Self}>` cannot be bound where an `f64` is edited",
-        label = "this signal holds `{Self}` values",
-        note = "a number literal takes its type from its form: `signal(50)` holds an `i32`; write `signal(50.0)` for an `f64`"
-    )]
-    pub trait F64Signal: Sized + 'static {
-        /// What the impl below would do; no type has it.
-        fn bind(signal: crate::data::Signal<Self>) -> crate::data::Binding<f64>;
-    }
+/// Never implemented: a signal of `T` binds an `f64` only when `T` is
+/// `f64`, and this bound names the mistake instead of a missing `From`.
+#[diagnostic::on_unimplemented(
+    message = "a `Signal<{Self}>` cannot be bound where an `f64` is edited",
+    label = "this signal holds `{Self}` values",
+    note = "a number literal takes its type from its form: `signal(50)` holds an `i32`; write `signal(50.0)` for an `f64`"
+)]
+pub trait F64Signal: Sized + 'static {
+    /// What the impl below would do; no type has it.
+    fn bind(signal: Signal<Self>) -> Binding<f64>;
 }
 
 /// A signal of another type where an `f64` is bound: never usable (see
-/// `number::F64Signal`); it only makes the error say why.
-impl<T: number::F64Signal> From<Signal<T>> for Binding<f64> {
+/// `F64Signal`); it only makes the error say why.
+impl<T: F64Signal> From<Signal<T>> for Binding<f64> {
     fn from(signal: Signal<T>) -> Self {
         T::bind(signal)
     }

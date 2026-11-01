@@ -1,0 +1,126 @@
+//! Role: Chooses the first window's monitor and centers the window in its work area.
+
+/// Physical desktop bounds of a monitor's usable work area.
+pub(super) type WorkArea = (i32, i32, u32, u32);
+
+/// The monitor and work area selected before creating the first window.
+pub(crate) struct InitialPlacement {
+    monitor: winit::monitor::MonitorHandle,
+    work: WorkArea,
+}
+
+/// Center the complete window in physical desktop coordinates.
+fn centered_window_origin(work: WorkArea, logical: (f64, f64), scale: f64) -> (i32, i32) {
+    let (x, y, width, height) = work;
+    let offset = |available: u32, requested: f64| {
+        ((f64::from(available) - (requested * scale).round()).max(0.0) / 2.0).floor() as i64
+    };
+    let axis = |origin: i32, offset: i64| {
+        (i64::from(origin) + offset).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+    };
+    (
+        axis(x, offset(width, logical.0)),
+        axis(y, offset(height, logical.1)),
+    )
+}
+
+fn target_monitor_area(
+    event_loop: &winit::event_loop::ActiveEventLoop,
+) -> Option<(winit::monitor::MonitorHandle, WorkArea)> {
+    #[cfg(target_os = "linux")]
+    {
+        use winit::platform::wayland::ActiveEventLoopExtWayland;
+        if event_loop.is_wayland() {
+            return None;
+        }
+    }
+    let monitor = event_loop
+        .primary_monitor()
+        .or_else(|| event_loop.available_monitors().next())?;
+    let position = monitor.position();
+    let size = monitor.size();
+    let bounds = (position.x, position.y, size.width, size.height);
+    #[cfg(windows)]
+    let work = super::windows::work_area(&monitor).unwrap_or(bounds);
+    #[cfg(target_os = "linux")]
+    let work = super::x11::work_area(bounds).unwrap_or(bounds);
+    #[cfg(not(any(windows, target_os = "linux")))]
+    let work = bounds;
+    Some((monitor, work))
+}
+
+/// Choose a creation position on the target monitor so its DPI resolves the size.
+/// `center_window` then corrects decoration extents on that same monitor.
+pub(crate) fn initial_window_position(
+    event_loop: &winit::event_loop::ActiveEventLoop,
+    logical: (f64, f64),
+) -> Option<(winit::dpi::PhysicalPosition<i32>, InitialPlacement)> {
+    let (monitor, work) = target_monitor_area(event_loop)?;
+    let (x, y) = centered_window_origin(work, logical, monitor.scale_factor());
+    Some((
+        winit::dpi::PhysicalPosition::new(x, y),
+        InitialPlacement { monitor, work },
+    ))
+}
+
+/// Correct the first hidden window's outer bounds before it is shown.
+/// Creation must use `initial_window_position` so its size already uses the
+/// target monitor's DPI. Wayland owns placement and receives no position.
+pub(crate) fn center_window(
+    placement: &InitialPlacement,
+    window: &winit::window::Window,
+    logical: (f64, f64),
+) {
+    let scale = placement.monitor.scale_factor();
+    let outer = window.outer_size();
+    let logical = if outer.width > 0 && outer.height > 0 {
+        (
+            f64::from(outer.width) / scale,
+            f64::from(outer.height) / scale,
+        )
+    } else {
+        logical
+    };
+    let (x, y) = centered_window_origin(placement.work, logical, scale);
+    window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests for startup placement in physical monitor work areas.
+    use super::centered_window_origin;
+
+    #[test]
+    fn scale_and_negative_origins_use_physical_coordinates() {
+        for (scale, expected) in [
+            (1.0, (-1280, 320)),
+            (1.5, (-1440, 230)),
+            (2.0, (-1600, 140)),
+        ] {
+            assert_eq!(
+                centered_window_origin((-1920, -40, 1920, 1080), (640.0, 360.0), scale),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn oversized_windows_start_at_the_work_area_edge_per_axis() {
+        assert_eq!(
+            centered_window_origin((20, 40, 300, 200), (400.0, 100.0), 1.0),
+            (20, 90)
+        );
+        assert_eq!(
+            centered_window_origin((20, 40, 300, 200), (400.0, 300.0), 1.0),
+            (20, 40)
+        );
+    }
+
+    #[test]
+    fn monitor_bounds_fallback_centers_without_reserved_space() {
+        assert_eq!(
+            centered_window_origin((0, 0, 1920, 1080), (800.0, 600.0), 1.0),
+            (560, 240)
+        );
+    }
+}

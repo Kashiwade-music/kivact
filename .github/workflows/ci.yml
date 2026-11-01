@@ -1,5 +1,7 @@
-# Fast checks only. The full gate in CONTRIBUTING.md (clippy, tests, the
-# window-opening suites and the architecture diagrams) runs locally before merge.
+# Repository rules only. `cargo xtask check` includes the Google style checks,
+# which run rustfmt and the selected Clippy lints over the workspace. The full
+# gate in CONTRIBUTING.md (clippy -D warnings, tests, the window-opening suites
+# and the architecture diagrams) runs locally before merge.
 name: CI
 
 on:
@@ -13,16 +15,16 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # A cold style check compiles the whole workspace for Clippy.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
       # rustup installs the toolchain pinned in rust-toolchain.toml.
       - run: rustup show active-toolchain || rustup toolchain install
+      # Cache target/ too: the style checks' Clippy build is most of the run.
       - uses: Swatinem/rust-cache@v2
-        with:
-          cache-targets: false
       - run: cargo fmt --all -- --check
       # xtask resolves features with --offline, so the registry must be filled first.
       - run: cargo fetch --locked

@@ -44,7 +44,8 @@
 use super::state::{FORMAT, GpuContext, GpuSurface, Presentation};
 use super::texture::target_texture;
 use crate::error::RenderError;
-use kivact_types::{CpuFrame, Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::{CpuFrame, Scene};
 use std::time::{Duration, Instant};
 
 impl GpuSurface {
@@ -439,4 +440,61 @@ fn surface_config(
         alpha_mode,
         view_formats: vec![],
     })
+}
+
+impl GpuContext {
+    /// A surface presenting to the window `target` (any window handle that
+    /// keeps its window alive on any thread) with this context's device.
+    /// Call it on the thread that runs the window's event loop (windowing
+    /// systems hand out window handles there only), or through
+    /// [`GpuContext::surface_maker`].
+    pub fn surface<T>(&self, target: T) -> Result<GpuSurface, RenderError>
+    where
+        T: raw_window_handle::HasWindowHandle
+            + raw_window_handle::HasDisplayHandle
+            + Send
+            + Sync
+            + 'static,
+    {
+        make_surface(&self.instance, &self.adapter, target)
+    }
+
+    /// [`GpuContext::surface`] for another thread: a window's own thread
+    /// makes the surface and hands it back.
+    pub fn surface_maker<T>(
+        &self,
+    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static + use<T>
+    where
+        T: raw_window_handle::HasWindowHandle
+            + raw_window_handle::HasDisplayHandle
+            + Send
+            + Sync
+            + 'static,
+    {
+        let (instance, adapter) = (self.instance.clone(), self.adapter.clone());
+        move |target| make_surface(&instance, &adapter, target)
+    }
+}
+
+fn make_surface<T>(
+    instance: &wgpu::Instance,
+    adapter: &wgpu::Adapter,
+    target: T,
+) -> Result<GpuSurface, RenderError>
+where
+    T: raw_window_handle::HasWindowHandle
+        + raw_window_handle::HasDisplayHandle
+        + Send
+        + Sync
+        + 'static,
+{
+    let surface = instance
+        .create_surface(target)
+        .map_err(|e| RenderError::Surface(e.to_string()))?;
+    if !adapter.is_surface_supported(&surface) {
+        return Err(RenderError::Surface(
+            "the GPU adapter cannot present to this window".into(),
+        ));
+    }
+    Ok(GpuSurface::new(surface))
 }

@@ -2,7 +2,7 @@
 
 use crate::editors::graph::model::{Curve, CurveKey, GraphRequest, GraphView, KeyMove};
 use crate::editors::shared::model::EditorContext;
-use crate::editors::shared::ruler::data::Ruler;
+use crate::editors::shared::ruler::Ruler;
 use crate::editors::shared::targets::Scene;
 use kivact::draw::{Point, RegionId, Size};
 use kivact::interaction::{Drag, EditSession, List};

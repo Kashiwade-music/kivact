@@ -17,14 +17,14 @@
 //! # }
 //! ```
 
-use crate::{App, IntoView, Result, UiError, check_window_sizes};
+use crate::app::check_window_sizes;
+use crate::view::IntoView;
+use crate::{App, Result, UiError};
 use kivact_reactive::ErrorKind;
 use kivact_wire::ParentWindow;
-use std::{
-    ffi::c_void,
-    num::{NonZeroIsize, NonZeroU32},
-    panic::Location,
-};
+use std::ffi::c_void;
+use std::num::{NonZeroIsize, NonZeroU32};
+use std::panic::Location;
 
 /// A host window and optional host-decided scale. Constructors only store raw
 /// values and never dereference them. `App::embed` validates the parent.
@@ -96,14 +96,18 @@ impl Parent {
 /// the host may unload the plugin. Inside an App callback, the turn in progress
 /// finishes and cleanup follows it; no later turn or input runs. Queued actions
 /// are not drained.
-/// After an unhandled panic or a platform failure the App stops and
-/// its window is destroyed; `error` says why. Keep plugin state outside the App.
+/// After a platform failure the App stops, its window is destroyed and
+/// `error` says why. A panic stops it the same way without running more App
+/// code. It is not an error: the next call on `Embedded` (any method, or its
+/// drop unless the thread is already panicking) resumes it on the calling
+/// thread with its original payload. Do not let it unwind into a C-ABI host;
+/// Rust aborts there. Keep plugin state outside the App.
 /// If a thread exceeds its shutdown wait, or a native library needs its code
 /// after closure, Kivact keeps its code module mapped until process exit. The
 /// host may unload the plugin after closing the editor.
 pub struct Embedded {
     host: Option<kivact_engine::embed::EmbeddedHost>,
-    failure: std::sync::Arc<std::sync::Mutex<Option<UiError>>>,
+    panic: kivact_engine::embed::PanicSlot,
     closed: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 impl Embedded {
@@ -116,10 +120,13 @@ impl Embedded {
     /// platform-oversized dimension is ignored with a warning.
     pub fn set_size(&self, width: u32, height: u32) {
         self.host().set_size(width, height);
+        self.panic.resume();
     }
     /// Last applied physical size (CLAP `get_size`, VST3 `getSize`).
     pub fn size(&self) -> (u32, u32) {
-        self.host().size()
+        let size = self.host().size();
+        self.panic.resume();
+        size
     }
     /// Set physical pixels per logical pixel, keeping physical size until the
     /// host resizes it. To retain logical size, request logical size times scale
@@ -127,22 +134,22 @@ impl Embedded {
     /// nonpositive scale is ignored with a warning.
     pub fn set_scale(&self, scale: f64) {
         self.host().set_scale(scale as f32);
+        self.panic.resume();
     }
     /// Last applied scale.
     pub fn scale(&self) -> f64 {
-        f64::from(self.host().scale())
+        let scale = f64::from(self.host().scale());
+        self.panic.resume();
+        scale
     }
-    /// Why the App stopped (callback panic or platform failure), or `None`.
+    /// Why the App stopped (a platform failure), or `None`.
     pub fn error(&self) -> Option<UiError> {
-        self.failure
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
-            .or_else(|| {
-                self.host()
-                    .failure()
-                    .map(|e| UiError::new(ErrorKind::Platform, e.message, None))
-            })
+        let error = self
+            .host()
+            .failure()
+            .map(|e| UiError::new(ErrorKind::Platform, e.message, None));
+        self.panic.resume();
+        error
     }
 }
 impl Drop for Embedded {
@@ -153,6 +160,9 @@ impl Drop for Embedded {
         drop(self.host.take());
         if kivact_task::detached_threads() || kivact_engine::embed::detached_threads() {
             kivact_engine::embed::retain_module();
+        }
+        if !std::thread::panicking() {
+            self.panic.resume();
         }
     }
 }
@@ -165,11 +175,12 @@ impl App {
     /// 960 by 720 logical pixels). Invalid sizes or scale return
     /// `ErrorKind::Message`; an invalid parent, unavailable OS resources or an
     /// unsupported OS return `ErrorKind::Platform`. A failed open either creates
-    /// no window or cleans up a child already created. An unhandled panic in
-    /// `root` returns its original diagnostic. Startup failure normally waits for cleanup, with the same two-second limit per owned
-    /// thread as drop; unfinished cleanup may continue under module retention
-    /// after `Err` is returned. An unhandled panic later
-    /// stops the App at the end of that turn. Title and fullscreen have no effect.
+    /// no window or cleans up a child already created. A panic in `root` or
+    /// while opening is resumed from `embed`; a later panic stops the App at
+    /// once (see [`Embedded`]). Startup failure normally waits for cleanup, with
+    /// the same two-second limit per owned thread as drop; unfinished cleanup
+    /// may continue under module retention after `Err` is returned. Title and
+    /// fullscreen have no effect.
     /// `min_window_size` clamps `platform::request_window_size`, not the host.
     #[track_caller]
     pub fn embed<V: IntoView>(
@@ -196,8 +207,8 @@ impl App {
                 Some(at),
             )
         })?;
+        let panic = kivact_engine::embed::PanicSlot::default();
         let options = kivact_engine::embed::EmbedOptions {
-            parent: window,
             window_size: self.window_size,
             scale: parent.scale,
             on_resize_request: parent.on_resize_request,
@@ -205,30 +216,31 @@ impl App {
             gpu_preference: self.gpu_preference,
             #[cfg(not(feature = "gpu-interop"))]
             gpu_preference: Default::default(),
+            panic: panic.clone(),
         };
-        let failure = std::sync::Arc::new(std::sync::Mutex::new(None));
-        let report = failure.clone();
         let closed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let ui_closed = closed.clone();
-        kivact_engine::embed::embed_native(
-            move || {
-                self.app_client(root, at)
-                    .with_embed_failure(report, ui_closed)
-                    .into_client(None)
-            },
-            options,
-        )
-        .map(|host| Embedded {
-            host: Some(host),
-            failure: failure.clone(),
-            closed,
-        })
-        .map_err(|e| {
-            failure
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone()
-                .unwrap_or_else(|| UiError::new(ErrorKind::Platform, e.message, None))
-        })
+        let opened = kivact_engine::embed::embed_native(window, options, move || {
+            self.app_client(root, at)
+                .with_embed_closed(ui_closed)
+                .into_client(None)
+        });
+        match opened {
+            Ok(host) => {
+                let embedded = Embedded {
+                    host: Some(host),
+                    panic: panic.clone(),
+                    closed,
+                };
+                // A pending payload unwinds from here; dropping `embedded`
+                // closes the host first.
+                panic.resume();
+                Ok(embedded)
+            }
+            Err(e) => {
+                panic.resume();
+                Err(UiError::new(ErrorKind::Platform, e.message, None))
+            }
+        }
     }
 }
