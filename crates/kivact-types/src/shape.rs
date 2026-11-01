@@ -124,3 +124,12 @@ impl From<f64> for Stroke {
         Self::new(width)
     }
 }
+
+/// How a border's line is drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BorderStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+}

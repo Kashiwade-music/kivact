@@ -5,8 +5,8 @@
 //! shapes. Lengths that depend on the box are [`Len`]s the engine resolves
 //! at paint time, so the core never needs the layout.
 
-use super::Point;
 use super::values::{Edges, Rgba};
+use super::{BorderStyle, Point};
 use kivact_types::Asset;
 
 /// A length resolved against a reference length at paint time:
@@ -171,15 +171,6 @@ pub enum RadialExtent {
     /// Explicit radii, x against the box width and y against its height (a
     /// circle uses x).
     Radii(Len, Len),
-}
-
-/// How a border's line is drawn.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum BorderStyle {
-    #[default]
-    Solid,
-    Dashed,
-    Dotted,
 }
 
 /// A border inside the border box, per side.

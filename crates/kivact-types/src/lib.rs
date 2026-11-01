@@ -61,6 +61,8 @@ mod geometry;
 mod gpu_interop;
 mod image;
 mod input;
+mod layout;
+mod motion;
 mod paint;
 mod platform;
 pub mod protocol;
@@ -73,18 +75,22 @@ mod text;
 pub use asset::Asset;
 pub use cursor::Cursor;
 pub use effect::BlendMode;
-pub use geometry::{IntrinsicSize, NodeId, Point, Rect, Size};
+pub use geometry::{IntrinsicSize, NodeId, Point, Rect, RegionId, Size};
 pub use gpu_interop::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,
     SharedHandle, SharedTextureFormat, SharedTextures,
 };
 pub use image::ImageFit;
-pub use input::{FilePhase, Key, KeyCode, Modifiers, MouseButton};
+pub use input::{FilePhase, ImeEvent, Key, KeyCode, Modifiers, MouseButton};
+pub use layout::{Align, FlexDirection, Justify, Overflow, Placement, Position};
+pub use motion::{Easing, Spring, StepPosition};
 pub use paint::Extend;
-pub use platform::{Capabilities, Insets, PointerButtons, PointerId, PointerKind, PointerPhase};
+pub use platform::{
+    Capabilities, Insets, LifecycleEvent, PointerButtons, PointerId, PointerKind, PointerPhase,
+};
 pub use semantics::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
 pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
-pub use shape::{FillRule, LineCap, LineJoin, Stroke};
+pub use shape::{BorderStyle, FillRule, LineCap, LineJoin, Stroke};
 pub use style::Rgba;
 pub use text::{
     DecorationLines, FontKerning, LineHeight, TextAlign, TextMetrics, TextOverflow, TextTransform,

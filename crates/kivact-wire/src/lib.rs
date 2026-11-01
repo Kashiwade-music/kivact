@@ -14,6 +14,9 @@
 //! scene/event variants of GPU texture sharing are always part of the protocol;
 //! a host or client built without its own `gpu-interop` never sends them and
 //! ignores them when it receives them.
+//!
+//! Invariant: defines no value the kivact facade re-exports; facade-visible
+//! values are `kivact-types` vocabulary re-exported here.
 #![forbid(unsafe_code)]
 
 mod check;
@@ -39,8 +42,8 @@ pub use drawing::{DrawingLayer, DrawingShape, LineCap, LineJoin, Pixels, ShapePa
 /// GPU texture sharing: how the window answered an import.
 pub use events::ExternalImport;
 pub use events::{
-    FilePhase, HostEnv, HostEvent, ImeEvent, Key, KeyCode, LifecycleEvent, Modifiers, MouseButton,
-    PlatformResult, PointerButtons, PointerEvent, PointerId, PointerKind, PointerPhase, ThemeHint,
+    FilePhase, HostEnv, HostEvent, Key, KeyCode, Modifiers, MouseButton, PlatformResult,
+    PointerButtons, PointerEvent, PointerId, PointerKind, PointerPhase, ThemeHint,
 };
 pub use grid::{
     Breadth, GridContainer, GridFlow, GridLine, GridPos, GridProps, GridTrack, Repeat, TrackSize,
@@ -55,13 +58,17 @@ pub use kivact_types::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,
     SharedHandle, SharedTextureFormat, SharedTextures,
 };
+pub use kivact_types::{
+    Align, BorderStyle, FlexDirection, ImeEvent, Justify, LifecycleEvent, Overflow, Placement,
+    Position, RegionId,
+};
 pub use kivact_types::{Asset, ImageFit};
 pub use kivact_types::{DecorationLines, FillRule, Insets, Point, Rect, Size};
 pub use kivact_types::{SemanticsText, SemanticsTextRun, TextCaret};
 
 pub use host::{Capabilities, HostError, HostInfo, TurnOutput};
 pub use id_hash::{IdHasher, IdMap};
-pub use ids::{FocusTarget, NodeId, RegionId, RequestId, Revision};
+pub use ids::{FocusTarget, NodeId, RequestId, Revision};
 pub use measure::{
     AvailableSpace, Baseline, LeafMeasure, LeafSize, LeafTextMeasurer, MeasureRequest, TextMetrics,
     TextShaper,
@@ -69,12 +76,12 @@ pub use measure::{
 pub use motion::MotionClock;
 pub use node::{
     BoxData, EditingData, FileDialogRequest, ImageData, ImeSession, IntrinsicSize, NodeInput,
-    NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayProps, Placement, PlacementAlign,
+    NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayProps, PlacementAlign,
     PlatformRequest, SceneLayer, TextData,
 };
 pub use paint::{
-    BlendMode, Border, BorderStyle, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius,
-    Corners, Effects, Fill, FillImage, FillLayer, FillSize, FilterOp, Gradient, GradientExtend,
+    BlendMode, Border, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners,
+    Effects, Fill, FillImage, FillLayer, FillSize, FilterOp, Gradient, GradientExtend,
     GradientKind, GradientStop, Len, RadialExtent, Ring,
 };
 pub use paint_vec::PaintVec;
@@ -90,6 +97,6 @@ pub use text::{
     ComputedText, FontFeature, FontKerning, LineHeight, SpanProps, TextAlign, TextDecoration,
     TextLen, TextMore, TextOverflow, TextProps, TextShadow, TextSpan, TextTransform, TextWrap,
 };
-pub use values::{Align, Dimension, Edges, FlexDirection, Justify, Overflow, Position, Rgba};
+pub use values::{Dimension, Edges, Rgba};
 
 pub use kivact_types::protocol::ParentWindow;

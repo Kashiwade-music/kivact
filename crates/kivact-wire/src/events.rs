@@ -1,16 +1,15 @@
-//! Role: Shared input values and events from the engine to the client.
+//! Role: Events and results from the engine to the client.
 //! Events arrive in production order through one queue, handed to each
 //! turn. Kivact publicly re-exports the input keys, modifier state, mouse
 //! buttons, pointer phases and kinds, and file drag phases.
 
-use std::ops::Range;
 use std::path::PathBuf;
 
 use super::check::LayoutRule;
-use super::ids::{NodeId, RegionId, RequestId, Revision};
+use super::ids::{NodeId, RequestId, Revision};
 use super::motion::MotionClock;
 use super::semantics::A11yAction;
-use super::{Point, Rect, Size};
+use super::{ImeEvent, LifecycleEvent, Point, Rect, RegionId, Size};
 
 pub use kivact_types::{FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerId, PointerKind};
 
@@ -103,37 +102,6 @@ pub enum PlatformResult {
     Unsupported,
     /// The family names of a registered font file (`RegisterFont`).
     Fonts(Vec<String>),
-}
-
-/// What the platform's input method (IME) does with a node that has an IME
-/// session (`NodeProperties::ime`). Offsets are UTF-8 byte offsets.
-#[derive(Clone, Debug, PartialEq)]
-pub enum ImeEvent {
-    /// The composition (preedit) is now `text`; `selection` is the part of
-    /// it the IME marks (its caret), if it says.
-    Preedit {
-        text: String,
-        selection: Option<Range<usize>>,
-    },
-    /// The IME committed `text`; any composition ended with it.
-    Commit(String),
-    /// The IME took this range of the session's text for reconversion: the
-    /// next composition replaces it.
-    Selection(Range<usize>),
-    /// The IME session ended without a commit: the composition is gone.
-    End,
-}
-
-/// An actual application lifecycle transition or platform memory warning.
-/// Surface availability and visibility remain current state in [`HostEnv`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LifecycleEvent {
-    /// Application execution has been suspended by the shell.
-    Suspended,
-    /// The shell resumed application execution, possibly without a surface yet.
-    Resumed,
-    /// The platform asks the application to release rebuildable resources.
-    MemoryWarning,
 }
 
 /// What the engine tells the client. Every kind goes into one ordered

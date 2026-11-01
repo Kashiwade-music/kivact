@@ -147,3 +147,15 @@ pub struct Capabilities {
     /// only.
     pub gpu: bool,
 }
+
+/// An actual application lifecycle transition or platform memory warning.
+/// Surface availability and visibility remain current state in the host's environment (`HostEnv`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LifecycleEvent {
+    /// Application execution has been suspended by the shell.
+    Suspended,
+    /// The shell resumed application execution, possibly without a surface yet.
+    Resumed,
+    /// The platform asks the application to release rebuildable resources.
+    MemoryWarning,
+}
