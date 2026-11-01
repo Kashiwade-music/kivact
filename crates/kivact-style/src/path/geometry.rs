@@ -3,12 +3,21 @@
 //! Curve geometry of a [`Path`]: arcs become cubics once, and everything
 //! else (transforming, measuring, bounding) works on the curves themselves.
 //! kurbo stays behind this module; none of its types is public.
-use super::{Path, PathContour};
-use crate::geometry::{Rect, Size};
+use super::Path;
+use crate::geometry::{Point, Rect, Size};
 use crate::transform::Transform;
 use kivact_wire::{PathCmd, Point as WirePoint};
 use kurbo::{Arc, BezPath, ParamCurve, ParamCurveExtrema, PathEl, Point as KPoint, SvgArc, Vec2};
 use std::f64::consts::TAU;
+
+/// One flattened contour, with closure represented separately from its points.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PathContour {
+    /// The contour's points, without a repeated start point for closure.
+    pub points: Vec<Point>,
+    /// Whether the last point connects back to the first.
+    pub closed: bool,
+}
 
 /// The largest distance, in px, between an arc and its cubics (more for a
 /// huge radius, so the count of cubics stays bounded).
