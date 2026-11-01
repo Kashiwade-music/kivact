@@ -1,5 +1,5 @@
 //! Role: Stable gradient stop editing, transforms and exact cancellation.
-use super::clean;
+use crate::support::clean;
 use kivact::prelude::*;
 use kivact::ui::EditPhase::{Begin, Commit};
 use kivact::view::{A11yAction, Modifiers};
@@ -18,7 +18,7 @@ fn gradient_keys_actions_selection_and_position_reorder_keep_storage_order() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let seen = log.clone();
     let (screen, (data, selected)) =
-        kivact::test::render_with_handle(crate::options(), move || {
+        kivact::test::render_with_handle(crate::support::options(), move || {
             let data = signal(stops());
             let selected = signal(None);
             (

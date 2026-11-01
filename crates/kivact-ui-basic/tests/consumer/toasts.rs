@@ -1,6 +1,6 @@
 //! Role: Toast tests: variants, actions, timing and the stack that opens on hover.
 
-use super::assert_clean;
+use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::Screen;
@@ -22,7 +22,7 @@ fn page(child: impl IntoView) -> Node {
 
 /// Mount a page with a toaster and a button that pushes `make()`.
 fn toast_page(make: fn() -> kivact::ui::Toast) -> (Screen, ()) {
-    kivact::test::render_with_handle(crate::options(), move || {
+    kivact::test::render_with_handle(crate::support::options(), move || {
         (
             (),
             page((

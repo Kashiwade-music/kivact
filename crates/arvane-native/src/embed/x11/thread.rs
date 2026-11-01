@@ -30,7 +30,7 @@ impl ChildBackend for Arc<Notifier> {
         if let Some(thread) = thread {
             // The callback must return before its own event loop can close.
             if thread.thread().id() == std::thread::current().id() {
-                crate::DETACHED.store(true, Ordering::Release);
+                crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::retain_module();
                 return;
             }
@@ -39,7 +39,7 @@ impl ChildBackend for Arc<Notifier> {
                     shared.keep_panic(payload);
                 }
             } else {
-                crate::DETACHED.store(true, Ordering::Release);
+                crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::retain_module();
                 tracing::warn!(target: "kivact", "embedded X11 UI thread did not stop within two seconds; detaching");
             }
@@ -75,7 +75,7 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
     })
 }
 
-pub(super) fn open(
+pub(in crate::embed) fn open(
     parent: kivact_types::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,

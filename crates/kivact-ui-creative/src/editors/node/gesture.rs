@@ -1,6 +1,5 @@
-//! Role: Passive node editor gesture, semantic and edit session state.
-pub(crate) mod target;
-use crate::editors::node::gesture::target::Target;
+//! Role: Passive node editor targets, gesture, semantic and edit session state.
+
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
 use kivact::draw::{Point, RegionId};
@@ -8,18 +7,58 @@ use kivact::interaction::{Drag as Gesture, EditSession, List, ViewTransform};
 use kivact::view::{NodeRef, Role};
 use kivact::{Binding, Callback, Signal, UiError, Value, Var};
 use std::rc::Rc;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ControlKind {
+    Number,
+    Choice,
+    Toggle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Target {
+    Item(u64),
+    Socket(u64, bool, usize),
+    Control(u64, usize, ControlKind),
+    Link(u64, usize, u64, usize),
+}
+
+impl Target {
+    pub(crate) fn control(node: &NodeData, index: usize) -> Self {
+        let kind = match node.controls[index].value {
+            NodeControlValue::Number { .. } => ControlKind::Number,
+            NodeControlValue::Choice { .. } => ControlKind::Choice,
+            NodeControlValue::Toggle(_) => ControlKind::Toggle,
+        };
+        Self::Control(node.id, index, kind)
+    }
+    pub(crate) fn link(link: NodeLink) -> Self {
+        Self::Link(link.from, link.output, link.to, link.input)
+    }
+    pub(crate) fn as_link(self) -> Option<NodeLink> {
+        if let Self::Link(a, b, c, d) = self {
+            Some(NodeLink::new(a, b, c, d))
+        } else {
+            None
+        }
+    }
+}
+
 pub(crate) type ConnectGuard = Value<Rc<dyn Fn(&NodeLink) -> bool>>;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Domain {
     Positions,
     Control(u64, usize),
 }
+
 #[derive(Clone)]
 pub(crate) enum Snapshot {
     Positions(Vec<(u64, Point)>),
     Control(u64, usize, NodeControlValue),
     Empty,
 }
+
 #[derive(Clone, PartialEq)]
 pub(crate) struct Info {
     pub(crate) id: RegionId,
@@ -31,6 +70,7 @@ pub(crate) struct Info {
     pub(crate) selected: bool,
     pub(crate) range: Option<(f64, f64, f64)>,
 }
+
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {
     Items,
@@ -38,6 +78,7 @@ pub(crate) enum Drag {
     Link(u64, usize, Point),
     Marquee(Point, Point),
 }
+
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) on_edit: Option<

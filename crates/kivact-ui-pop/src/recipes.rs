@@ -9,8 +9,8 @@
 
 use crate::Tokens;
 use crate::button::{ButtonTone, Slant, button_style};
-use crate::choice::appearance::{draw_check_indicator, draw_switch_indicator};
 use crate::choice::check_style;
+use crate::choice::{draw_check_indicator, draw_switch_indicator};
 use crate::form::input_style;
 use kivact::draw::{Draw, Size};
 use kivact::draw::{Layer, Transform};

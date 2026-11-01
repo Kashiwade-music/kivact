@@ -1,8 +1,9 @@
 //! Role: Foundation tests: theme, standard recipes, icons and primitives.
 
-use super::{assert_clean, distance, pixel, pixel_in};
+use crate::support::{assert_clean, distance, pixel};
 use kivact::prelude::*;
 use kivact::style::Align;
+use kivact::test::Screen;
 use kivact::ui::ControlSize;
 use kivact_ui_basic as basic;
 
@@ -21,7 +22,7 @@ fn page(child: impl IntoView) -> Node {
 #[test]
 fn theme_switch_restyles_mounted_components_and_keeps_their_state() {
     let (screen, (dark, checked, name)) =
-        kivact::test::render_with_handle(crate::options(), || {
+        kivact::test::render_with_handle(crate::support::options(), || {
             let dark = signal(false);
             let checked = signal(true);
             let name = signal(String::from("Ada"));
@@ -84,19 +85,20 @@ fn check_box_fill(screen: &kivact::test::Screen, name: &str) -> u32 {
 
 #[test]
 fn checkbox_and_switch_toggle_with_pointer_and_keyboard() {
-    let (screen, (checked, on)) = kivact::test::render_with_handle(crate::options(), || {
-        let checked = signal(false);
-        let on = signal(false);
-        (
-            (checked, on),
-            page((
-                kivact::ui::checkbox("Accept terms", checked),
-                kivact::ui::switch("Airplane mode", on).test_id("switch"),
-                kivact::ui::checkbox("Partial", signal(false)).indeterminate(true),
-                kivact::ui::checkbox("Locked", signal(false)).disabled(true),
-            )),
-        )
-    });
+    let (screen, (checked, on)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let checked = signal(false);
+            let on = signal(false);
+            (
+                (checked, on),
+                page((
+                    kivact::ui::checkbox("Accept terms", checked),
+                    kivact::ui::switch("Airplane mode", on).test_id("switch"),
+                    kivact::ui::checkbox("Partial", signal(false)).indeterminate(true),
+                    kivact::ui::checkbox("Locked", signal(false)).disabled(true),
+                )),
+            )
+        });
     assert!(distance(check_box_fill(&screen, "Accept terms"), 0xffffff) <= 2);
     let check = screen.get_by_role(Role::CheckBox, "Accept terms");
     check.click();
@@ -127,22 +129,23 @@ fn checkbox_and_switch_toggle_with_pointer_and_keyboard() {
 
 #[test]
 fn text_input_edits_its_binding_and_rings_on_focus() {
-    let (screen, (name, notes)) = kivact::test::render_with_handle(crate::options(), || {
-        let name = signal(String::new());
-        let notes = signal(String::new());
-        (
-            (name, notes),
-            page((
-                kivact::ui::text_input("Name", name)
-                    .placeholder("Your name")
-                    .test_id("name"),
-                kivact::ui::text_input("Code", signal(String::new()))
-                    .size(ControlSize::Small)
-                    .test_id("code"),
-                kivact::ui::text_area("Notes", notes).test_id("notes"),
-            )),
-        )
-    });
+    let (screen, (name, notes)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let name = signal(String::new());
+            let notes = signal(String::new());
+            (
+                (name, notes),
+                page((
+                    kivact::ui::text_input("Name", name)
+                        .placeholder("Your name")
+                        .test_id("name"),
+                    kivact::ui::text_input("Code", signal(String::new()))
+                        .size(ControlSize::Small)
+                        .test_id("code"),
+                    kivact::ui::text_area("Notes", notes).test_id("notes"),
+                )),
+            )
+        });
     let rect = |id: &str| screen.get_by_test_id(id).rect().expect("laid out");
     assert_eq!(rect("name").height, 32.0);
     assert_eq!(rect("code").height, 28.0);
@@ -166,4 +169,10 @@ fn text_input_edits_its_binding_and_rings_on_focus() {
     area.type_text("Line");
     assert_eq!(notes.get_untracked(), "Line");
     assert_clean(&screen);
+}
+
+/// The color `inset` logical pixels inside the left edge of `id`, at mid height.
+fn pixel_in(screen: &Screen, id: &str, inset: f32) -> u32 {
+    let rect = screen.get_by_test_id(id).rect().expect("laid out");
+    pixel(screen, rect.x + inset, rect.y + rect.height / 2.0)
 }

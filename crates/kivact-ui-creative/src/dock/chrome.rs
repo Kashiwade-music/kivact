@@ -20,8 +20,9 @@ use kivact::view::{
 };
 use kivact::{Callback, Value, binding, memo, var};
 
-use super::data::{DockCx, Item, MenuInput, TabDrag, Texts};
+use super::data::{DockCx, MenuInput, TabDrag, Texts};
 use super::geometry::{STRIP, drop_target};
+use super::items::Item;
 use super::model::{DockLayout, DockPlacement, DockSide, DockTab, DockTabs};
 
 /// Pixels a pressed tab must travel before it becomes a drag.

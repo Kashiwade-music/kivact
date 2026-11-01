@@ -1,8 +1,9 @@
 //! Role: Preserve selection and gestures across independent editor contracts.
-use super::arrangement_model::arrangement as app_arrangement;
-use super::graph_support::app_graph;
-use super::node_support::app_node_editor;
-use super::{app_dope_sheet, app_timeline, clean};
+use crate::arrangement_model::arrangement as app_arrangement;
+use crate::graph_support::app_graph;
+use crate::node_support::app_node_editor;
+use crate::support::clean;
+use crate::time_support::{app_dope_sheet, app_timeline};
 use kivact::draw::{Point, Size};
 use kivact::interaction::ViewTransform;
 use kivact::prelude::*;
@@ -93,7 +94,7 @@ fn item(screen: &Screen, model: Model, index: usize) -> kivact::test::Element<'_
     screen.get_by_role(Role::Button, &model.name(index))
 }
 fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
-    kivact::test::render_with_handle(crate::options(), move || {
+    kivact::test::render_with_handle(crate::support::options(), move || {
         let clips = signal(
             (0..3)
                 .map(|i| {
@@ -329,4 +330,34 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
         assert_eq!(model.snapshot(), before, "{kind:?}");
         clean(&screen);
     }
+}
+
+#[test]
+fn timeline_trimming_updates_consumer_clip_bounds() {
+    let (screen, data) = kivact::test::render_with_handle(crate::support::options(), || {
+        let data = signal(vec![
+            ui::Clip::new(1, 0, 30.0, 100.0, "Clip").color(rgb(0x8b7cff)),
+        ]);
+        (
+            data,
+            app_timeline(
+                data,
+                ui::TimeState {
+                    selection: (signal(vec![1])).into(),
+                    ..ui::TimeState::new()
+                },
+            )
+            .test_id("trim"),
+        )
+    });
+    screen
+        .get_by_role(Role::Button, "Clip end trim")
+        .drag(Point::new(329.0, 40.0), Point::new(359.0, 40.0));
+    assert_eq!(data.get_untracked()[0].duration, 130.0);
+    screen
+        .get_by_role(Role::Button, "Clip start trim")
+        .drag(Point::new(231.0, 40.0), Point::new(251.0, 40.0));
+    assert_eq!(data.get_untracked()[0].start, 50.0);
+    assert_eq!(data.get_untracked()[0].duration, 110.0);
+    clean(&screen);
 }

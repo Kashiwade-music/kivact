@@ -1,6 +1,6 @@
-//! Role: Passive dock state, positioned items and menu callback values.
+//! Role: Passive dock state, texts and menu callback values.
 
-use super::geometry::{Divider, DropTarget, Frame};
+use super::geometry::DropTarget;
 use super::model::{DockLayout, DockTabs};
 use kivact::draw::Rect;
 use kivact::ui::EditPhase;
@@ -68,28 +68,6 @@ impl<K: 'static> Clone for DockCx<K> {
     }
 }
 impl<K: 'static> Copy for DockCx<K> {}
-
-/// One positioned sibling of the dock root.
-#[derive(Clone, Debug, PartialEq)]
-pub(super) enum Item<K> {
-    Chrome {
-        tabs: DockTabs<K>,
-        frame: Frame,
-        shown: bool,
-        maximized: bool,
-    },
-    Content {
-        title: String,
-        frame: Frame,
-        shown: bool,
-    },
-    Divider {
-        divider: Divider,
-        leading: String,
-        trailing: String,
-        shown: bool,
-    },
-}
 
 /// Builds the menu button of one container.
 pub(super) type MenuBuilder<K> = Rc<dyn Fn(MenuInput<K>) -> View>;

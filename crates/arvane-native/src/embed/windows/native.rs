@@ -61,7 +61,7 @@ impl Backend for Arc<Native> {
                 )
             };
             if sent == 0 && shared.alive.load(Ordering::Acquire) {
-                crate::DETACHED.store(true, Ordering::Release);
+                crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::module::retain_module();
                 tracing::warn!(target: "kivact", "embedded Win32 UI thread did not stop within two seconds; detaching");
             }

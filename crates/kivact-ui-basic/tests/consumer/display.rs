@@ -1,6 +1,6 @@
 //! Role: Display and layout component tests: gallery layout and behavior checks.
 
-use super::assert_clean;
+use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::RenderOptions;

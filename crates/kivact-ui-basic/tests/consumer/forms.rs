@@ -1,6 +1,6 @@
 //! Role: Forms tests: fields, selects, choices, sliders, dates and questionnaire.
 
-use super::assert_clean;
+use crate::support::assert_clean;
 use kivact::i18n::{CalendarDate, CalendarMonth};
 use kivact::prelude::*;
 use kivact::style::Align;
@@ -22,7 +22,7 @@ fn page(child: impl IntoView) -> Node {
 
 #[test]
 fn field_shows_label_description_and_error() {
-    let (screen, error) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, error) = kivact::test::render_with_handle(crate::support::options(), || {
         let name = signal(String::new());
         let error = signal(None::<String>);
         (
@@ -48,18 +48,19 @@ fn field_shows_label_description_and_error() {
 
 #[test]
 fn input_otp_fills_slots_completes_and_backspaces() {
-    let (screen, (code, done)) = kivact::test::render_with_handle(crate::options(), || {
-        let code = signal(String::new());
-        let done = signal(None::<String>);
-        (
-            (code, done),
-            page(
-                basic::input_otp("Code", code, 6)
-                    .groups(&[3, 3])
-                    .on_complete(move |c: String| done.set(Some(c))),
-            ),
-        )
-    });
+    let (screen, (code, done)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let code = signal(String::new());
+            let done = signal(None::<String>);
+            (
+                (code, done),
+                page(
+                    basic::input_otp("Code", code, 6)
+                        .groups(&[3, 3])
+                        .on_complete(move |c: String| done.set(Some(c))),
+                ),
+            )
+        });
     screen.get_by_role(Role::TextBox, "Code").click();
     screen.type_text("12a3");
     screen.run_until_idle();
@@ -89,7 +90,7 @@ fn fruits() -> Vec<ListItem<&'static str>> {
 
 #[test]
 fn native_select_chooses_by_keyboard_and_list() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(None::<&'static str>);
         (
             value,
@@ -126,7 +127,7 @@ fn native_select_chooses_by_keyboard_and_list() {
 
 #[test]
 fn radio_group_arrows_move_and_select() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(Some("apple"));
         let mut options = fruits();
         options[0] = ListItem::new("apple", "Apple").description("Crunchy");
@@ -156,7 +157,7 @@ fn radio_group_arrows_move_and_select() {
 
 #[test]
 fn slider_keys_and_drag_change_the_binding() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(20.0);
         (
             value,
@@ -197,7 +198,7 @@ fn slider_keys_and_drag_change_the_binding() {
 
 #[test]
 fn combobox_filters_chooses_and_clears() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(None::<&'static str>);
         (
             value,
@@ -258,7 +259,7 @@ fn day(y: i32, m: u8, d: u8) -> CalendarDate {
 
 #[test]
 fn calendar_moves_with_keys_changes_month_and_skips_disabled_dates() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(Some(day(2026, 10, 14)));
         (
             value,
@@ -309,7 +310,7 @@ fn calendar_moves_with_keys_changes_month_and_skips_disabled_dates() {
 
 #[test]
 fn date_picker_opens_a_popover_picks_a_day_and_closes() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(None::<CalendarDate>);
         (
             value,

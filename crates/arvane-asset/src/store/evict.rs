@@ -140,7 +140,7 @@ impl AssetStore {
     /// The item that may go first, if any: the least recently used of the
     /// large ones, else of all (see the module invariants).
     fn oldest(&self) -> Option<Victim> {
-        let large = self.budget / super::RETAINED_SHARE;
+        let large = self.budget / super::asset_store::RETAINED_SHARE;
         let mut best: Option<((bool, Stamp), Victim)> = None;
         let mut consider = |stamp: Stamp, bytes: usize, victim: Victim| {
             let rank = (bytes <= large, stamp);

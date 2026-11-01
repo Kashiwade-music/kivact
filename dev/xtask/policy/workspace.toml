@@ -339,3 +339,21 @@ rule = "non-leaf-implementation"
 path = "crates/kivact-core/src/view/mount.rs"
 item = "mount_host"
 reason = "The stage sequence of mount_host_with without a layout fix-up; glue over the mounting stages."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/arvane-native/src/embed.rs"
+item = "open"
+reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "examples/kivact-ui-basic/src/docs.rs"
+item = "PAGES"
+reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "dev/xtask/src/main.rs"
+item = "main"
+reason = "Glue: the binary entry only wires xtask-core's run to this workspace's module-rule and impl-model checks."

@@ -94,6 +94,7 @@ mod recipes_field;
 mod recipes_menu;
 mod recipes_popup;
 mod scroll_area;
+mod sealed;
 mod sidebar;
 mod slot;
 mod table;

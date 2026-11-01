@@ -1,6 +1,7 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
-use super::graph_support::{app_graph, graph_edits};
-use super::{clean, near};
+use crate::graph_support::{app_graph, graph_edits};
+use crate::support::{clean, near};
+use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::EditPhase;
@@ -20,7 +21,7 @@ struct Model {
     present: Signal<bool>,
 }
 fn fixture() -> (Screen, Model) {
-    kivact::test::render_with_handle(crate::options(), || {
+    kivact::test::render_with_handle(crate::support::options(), || {
         let model = Model {
             curves: signal(vec![
                 ui::Curve::new(
@@ -131,5 +132,50 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     );
     let canvas = screen.get_by_role(Role::Canvas, "Graph");
     canvas.press_key(Key::Char('a'));
+    clean(&screen);
+}
+
+#[test]
+fn graph_tangents_are_draggable_and_keyboard_editable() {
+    let (screen, data) = kivact::test::render_with_handle(crate::support::options(), || {
+        let mut key = ui::CurveKey::new(1, 100.0, 198.0);
+        key.out_tangent = ui::CurveTangent::new(60.0, 0.0);
+        let data = signal(vec![
+            ui::Curve::new(1, "Frame 20", vec![key]).color(rgb(0xff5c6c)),
+        ]);
+        (
+            data,
+            app_graph(
+                data,
+                ui::GraphState {
+                    selection: (signal(vec![1])).into(),
+                    view: (signal(ui::GraphView {
+                        time: (0.0, 400.0),
+                        value: (0.0, 278.0),
+                    }))
+                    .into(),
+                    ..ui::GraphState::new()
+                },
+            )
+            .style(style().size(600, 300))
+            .test_id("graph"),
+        )
+    });
+    let handle = screen.get_by_role(Role::Button, "Frame 20 key 100 outgoing tangent");
+    let start = handle.rect().expect("tangent").center();
+    handle.drag(start, Point::new(start.x + 30.0, start.y + 20.0));
+    assert_eq!(
+        data.get_untracked()[0].keys[0].out_tangent,
+        ui::CurveTangent::new(90.0, -20.0)
+    );
+    screen.get_by_test_id("graph").press_key(Key::ArrowRight);
+    assert_eq!(data.get_untracked()[0].keys[0].out_tangent.time, 91.0);
+    assert_eq!(
+        (
+            data.get_untracked()[0].keys[0].time,
+            data.get_untracked()[0].keys[0].value
+        ),
+        (100.0, 198.0)
+    );
     clean(&screen);
 }

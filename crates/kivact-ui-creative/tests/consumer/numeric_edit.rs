@@ -1,6 +1,6 @@
 //! Role: `Numeric`'s edit phases, text parser, mixed value and reactive property state.
 
-use super::clean;
+use crate::support::clean;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::EditPhase::{self, Begin, Commit};
@@ -24,7 +24,7 @@ fn center(screen: &Screen, role: Role, name: &str) -> (f32, f32) {
 
 fn gain(log: &Log) -> (Screen, Signal<f64>) {
     let seen = log.clone();
-    kivact::test::render_with_handle(crate::options(), move || {
+    kivact::test::render_with_handle(crate::support::options(), move || {
         let value = signal(10.0);
         (
             value,
@@ -55,5 +55,47 @@ fn a_scrub_is_one_edit_from_press_to_release() {
         screen.query_by_role(Role::TextBox, "Gain").is_none(),
         "a scrub does not open the text field"
     );
+    clean(&screen);
+}
+
+#[test]
+fn numeric_arithmetic_submit_cancel_and_blur_commit() {
+    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
+        let value = signal(0.25);
+        (
+            value,
+            column((
+                ui::number("Gain", value).range(-10.0, 10.0).precision(3),
+                kivact::ui::button("Outside").variant(kivact::ui::ButtonVariant::Secondary),
+            )),
+        )
+    });
+    screen
+        .get_by_role(Role::SpinButton, "Gain")
+        .press_key(Key::Enter);
+    let editor = screen.get_by_role(Role::TextBox, "Gain");
+    editor.type_text("(2 + 3) / 4");
+    screen.press_key(Key::ArrowLeft);
+    assert_eq!(editor.text_selection(), Some((10, 10)));
+    screen.press_key(Key::Home);
+    assert_eq!(editor.text_selection(), Some((0, 0)));
+    screen.press_key(Key::ArrowRight);
+    screen.press_key(Key::End);
+    assert_eq!(editor.text_selection(), Some((11, 11)));
+    assert_eq!(value.get_untracked(), 0.25);
+    screen.press_key(Key::Enter);
+    assert_eq!(value.get_untracked(), 1.25);
+    screen
+        .get_by_role(Role::SpinButton, "Gain")
+        .press_key(Key::Enter);
+    screen.get_by_role(Role::TextBox, "Gain").type_text("1 / 0");
+    screen.press_key(Key::Escape);
+    assert_eq!(value.get_untracked(), 1.25);
+    screen
+        .get_by_role(Role::SpinButton, "Gain")
+        .press_key(Key::Enter);
+    screen.get_by_role(Role::TextBox, "Gain").type_text("3 * 2");
+    screen.get_by_role(Role::Button, "Outside").click();
+    assert_eq!(value.get_untracked(), 6.0);
     clean(&screen);
 }

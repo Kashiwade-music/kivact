@@ -54,7 +54,9 @@
 use super::external::External;
 use super::state::{AtlasImage, GpuContext, GpuImage, Images};
 use crate::draw;
+use crate::error::RenderError;
 use crate::paint::PatternFill;
+use crate::validate;
 use crate::validate::SceneInfo;
 use kivact_types::{ExternalFrame, ImageData, Scene, Size};
 use std::sync::Arc;
@@ -675,4 +677,56 @@ fn shrink(pixmap: Arc<Pixmap>, limit: u16) -> Arc<Pixmap> {
         }
     }
     Arc::new(Pixmap::from_parts(out, to_width, to_height))
+}
+
+impl GpuContext {
+    /// Validate `scene` and the frame size against the renderer's budget
+    /// and the device's texture limit, returning the pixel dimensions and
+    /// what drawing the scene needs to know.
+    pub(crate) fn dimensions(
+        &mut self,
+        scene: &Scene,
+        size: Size,
+        scale: f32,
+    ) -> Result<((u32, u32), validate::SceneInfo), RenderError> {
+        let (width, height) = validate::dimensions(size, scale)?;
+        let info = validate::scene(scene, &mut self.caches.validation)?;
+        let (width, height) = (u32::from(width), u32::from(height));
+        let max = self.device.limits().max_texture_dimension_2d;
+        if width > max || height > max {
+            return Err(RenderError::InvalidSize);
+        }
+        self.check()?;
+        Ok(((width, height), info))
+    }
+
+    /// Draw the recorded scene into `view` (a `width` × `height` texture
+    /// in [`FORMAT`]) with `encoder`.
+    pub(crate) fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        (width, height): (u32, u32),
+        view: &wgpu::TextureView,
+    ) -> Result<(), RenderError> {
+        self.renderer
+            .render(
+                &self.scene,
+                &mut self.resources,
+                &self.device,
+                &self.queue,
+                encoder,
+                &vello_hybrid::RenderSize { width, height },
+                view,
+                &self.images.bindings,
+            )
+            .map_err(|e| match e {
+                // What the scene asks of the renderer's atlases and
+                // textures, not a device failure.
+                vello_hybrid::RenderError::AtlasError(_)
+                | vello_hybrid::RenderError::MissingTextureBinding(_)
+                | vello_hybrid::RenderError::IntermediateTexture(_) => {
+                    RenderError::GpuLimit(e.to_string())
+                }
+            })
+    }
 }

@@ -1,6 +1,6 @@
 //! Role: Paint node bodies, sockets and controls using typed scene targets.
 
-use crate::editors::node::gesture::target::Target;
+use crate::editors::node::gesture::Target;
 use crate::editors::node::gesture::{Drag, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::layout::{control, rect, socket};
