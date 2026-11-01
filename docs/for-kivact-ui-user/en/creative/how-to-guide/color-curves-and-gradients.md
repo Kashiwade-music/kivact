@@ -93,6 +93,8 @@ fn history<T: Clone + PartialEq + 'static>(
             }
         }
         EditPhase::Cancel => start.set(None),
+        // Variants added later fall back to a cancelled edit.
+        _ => start.set(None),
     };
     (on_edit, steps)
 }

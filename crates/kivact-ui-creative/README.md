@@ -91,7 +91,7 @@ argument: `TimeState`, `GraphState`, `NodeState`, `ArrangementState`,
 `OutlinerState` or the mixer strip's `ChannelState`, Copy structs of bindings.
 `TimeState::new()` makes a signal at the default for each field; replace a
 field to keep that value elsewhere
-(`TimeState { playhead: frame.into(), ..TimeState::new() }`). `Lane` IDs remain stable when
+(`let mut state = TimeState::new(); state.playhead = frame.into();`). `Lane` IDs remain stable when
 rows are reordered. A `Clip` stores start and duration; a `Keyframe` stores time
 and an optional positive duration. `CurveKey` uses time/value units and relative
 `CurveTangent` offsets. Graph curves are read-only inputs; `on_edit` reports

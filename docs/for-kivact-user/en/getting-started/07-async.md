@@ -127,10 +127,6 @@ fn loading_screen(dark: Signal<bool>, attempt: Signal<u32>) -> impl IntoView {
     dynamic(
         move || saved.state(),
         move |state| match state {
-            AsyncState::Idle | AsyncState::Pending => text("Loading tasks...")
-                .role(Role::Status)
-                .style(style().padding(24))
-                .into_view(),
             AsyncState::Failed(error) => column((
                 text(format!("Error: {error}")).role(Role::Alert),
                 button("Try again").on_press(move || attempt.update(|n| *n += 1)),
@@ -138,6 +134,11 @@ fn loading_screen(dark: Signal<bool>, attempt: Signal<u32>) -> impl IntoView {
             .style(style().padding(24).gap(12))
             .into_view(),
             AsyncState::Ready(tasks) => tasks_screen(dark, tasks).into_view(),
+            // Variants added later fall back to the loading text.
+            _ => text("Loading tasks...")
+                .role(Role::Status)
+                .style(style().padding(24))
+                .into_view(),
         },
     )
 }

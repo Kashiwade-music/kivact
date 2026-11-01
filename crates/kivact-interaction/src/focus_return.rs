@@ -77,7 +77,8 @@ impl ReasonSet {
 /// An outside press and Tab keep the destination unless `on` names them. The
 /// core decides, when the request is sent, whether the target can take the
 /// focus.
-/// Built with [`FocusReturn::new`].
+/// Built with [`FocusReturn::anchor`], [`FocusReturn::opener`] or
+/// [`FocusReturn::preserve`].
 #[derive(Clone, Copy)]
 #[non_exhaustive]
 pub struct FocusReturn {

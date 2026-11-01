@@ -470,7 +470,10 @@ pub(super) fn outliner() -> impl IntoView {
             row((kivact::ui::select("Outliner mode", keyed_options([("scene", "▧"), ("kivact-file", "Kivact File")]), mode).placeholder("").name("Outliner mode").style(style().width(32).padding(0)),kivact::ui::text_input("Search Outliner", filter).placeholder("Search").style(style().grow(1)),kivact::ui::button("Outliner filter").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("filter")),kivact::ui::button("Rename selected").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("folder")).on_press(move||renaming.set(selected.with(|v|v.first().copied())))))
                 .style(style().height(40).padding_x(8).gap(6)),
             scroll(dynamic(mode,move|mode|{
-                super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, { let mut value = ui::OutlinerState::new(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] }); value.selection = selected.into(); value.renaming = renaming.into(); value }).filter(filter).test_id("creative-scene-outliner")
+                let mut state = ui::OutlinerState::new(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] });
+                state.selection = selected.into();
+                state.renaming = renaming.into();
+                super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, state).filter(filter).test_id("creative-scene-outliner")
             })).style(style().height(338).min_height(0)),
         )).style(style().gap(0).grid_column(GridPlacement::span(2)).height(380)),
         spec("Interaction","操作",col((

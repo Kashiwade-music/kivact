@@ -9,7 +9,7 @@ use kivact::interaction::ListSelection;
 use kivact::ui::TreeNode;
 
 /// A reusable file-tree entry, independent of the application's file transport.
-/// Built with [`TreeEntry::new`].
+/// Built with [`TreeEntry::file`] or [`TreeEntry::folder`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct TreeEntry {

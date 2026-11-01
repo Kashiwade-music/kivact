@@ -97,6 +97,8 @@ pub fn editor(params: Arc<dyn Params>) -> impl IntoView {
             .on_edit(move |phase| match phase {
                 EditPhase::Begin => gestures.begin_gesture(),
                 EditPhase::Commit | EditPhase::Cancel => gestures.end_gesture(),
+                // Variants added later fall back to the end of the gesture.
+                _ => gestures.end_gesture(),
             }),
         text(move || format!("Gain: {:.2}", value.get())),
     ))

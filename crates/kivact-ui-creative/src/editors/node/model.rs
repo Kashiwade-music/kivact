@@ -113,7 +113,8 @@ impl NodeData {
 }
 
 /// A node parameter with explicit placement and an accessible editable value.
-/// Built with [`NodeControl::new`].
+/// Built with [`NodeControl::number`], [`NodeControl::choice`] or
+/// [`NodeControl::toggle`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct NodeControl {

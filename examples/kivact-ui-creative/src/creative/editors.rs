@@ -283,8 +283,11 @@ pub(super) fn nodes() -> impl IntoView {
         0.85,
         Point::new(300.0, 0.0),
     ));
+    let mut node_state = ui::NodeState::new();
+    node_state.selection = selected.into();
+    node_state.transform = transform.into();
     col((node().style(style().position(Position::Relative).height(480)).child((
-        ui::node_editor(data,connections, { let mut value = ui::NodeState::new(); value.selection = selected.into(); value.transform = transform.into(); value }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
+        ui::node_editor(data,connections, node_state).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
         line((kivact::ui::select("Selection", keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).placeholder("").style(style().width(136)),kivact::ui::toggle("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
         line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>(), move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing_icon(kivact::control::icon("chevron-down")).into_node()),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform::new(0.85, Point::new(300.0,0.0)))))).style(style().position(Position::Absolute).top(8).right(8)),
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("ヘッダーをドラッグ / 出力 → 入力で接続 / Del: 選択削除 / Ctrl-wheel: zoom / Middle: pan"))).style(style().padding(12))))

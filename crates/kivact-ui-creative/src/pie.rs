@@ -34,7 +34,7 @@ impl PieEntry {
     }
 }
 /// Public state permits a surrounding application to open the same menu from a hovered editor.
-/// Built with [`PieState::new`].
+/// Built with [`PieState::open_at`] or [`PieState::default`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[non_exhaustive]
 pub struct PieState {

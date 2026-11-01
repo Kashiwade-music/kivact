@@ -44,6 +44,24 @@ impl NotificationItem {
             unread: false,
         }
     }
+
+    /// Use `icon` instead of the bell.
+    pub fn icon(mut self, icon: impl Into<kivact::style::Icon>) -> Self {
+        self.icon = icon.into();
+        self
+    }
+
+    /// Tint the icon with `hue` instead of gray.
+    pub fn hue(mut self, hue: Hue) -> Self {
+        self.hue = hue;
+        self
+    }
+
+    /// Mark the notification unread or read.
+    pub fn unread(mut self, unread: bool) -> Self {
+        self.unread = unread;
+        self
+    }
 }
 
 /// Anchored notification history. Marking read calls the owner and keeps it open.
