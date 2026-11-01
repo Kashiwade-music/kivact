@@ -126,29 +126,24 @@ impl Model {
         let Ok(shaped) = shaped else {
             return;
         };
-        let origin = Point {
-            x: area.x,
-            y: area.y,
-        };
+        let origin = Point::new(area.x, area.y);
         for band in &shaped.highlights {
             if let Some(fill) = spans
                 .get(band.span)
                 .and_then(|s| s.style.background.as_ref())
             {
-                let rect = Rect {
-                    x: band.rect.x + origin.x,
-                    y: band.rect.y + origin.y,
-                    ..band.rect
-                };
+                let rect = Rect::new(
+                    band.rect.x + origin.x,
+                    band.rect.y + origin.y,
+                    band.rect.width,
+                    band.rect.height,
+                );
                 self.fill(
                     out,
                     &BoxShape::Rect(rect),
                     fill,
                     tint,
-                    Point {
-                        x: rect.x,
-                        y: rect.y,
-                    },
+                    Point::new(rect.x, rect.y),
                 );
             }
         }

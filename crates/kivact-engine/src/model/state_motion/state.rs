@@ -63,11 +63,11 @@ impl StateAnimation {
     }
     pub(crate) fn current_color(&self) -> Rgba {
         let at = PaintVec::COMPONENTS;
-        Rgba {
-            r: self.current[at],
-            g: self.current[at + 1],
-            b: self.current[at + 2],
-            a: self.current[at + 3],
-        }
+        Rgba::new(
+            self.current[at],
+            self.current[at + 1],
+            self.current[at + 2],
+            self.current[at + 3],
+        )
     }
 }

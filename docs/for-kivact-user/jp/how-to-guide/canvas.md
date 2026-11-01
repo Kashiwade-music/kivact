@@ -244,12 +244,12 @@ fn swatches() -> impl IntoView {
             if chosen.get() == i {
                 draw.stroke_rect(rect, 3, rgb(0xffffff));
             }
-            draw.region(RegionId(i as u64), rect);
+            draw.region(RegionId::new(i as u64), rect);
         }
     });
     for (i, (name, _)) in SWATCHES.iter().enumerate() {
         board = board.region(
-            RegionId(i as u64),
+            RegionId::new(i as u64),
             part(|state| state)
                 .role(Role::Button)
                 .name(*name)

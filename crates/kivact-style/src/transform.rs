@@ -325,17 +325,11 @@ impl Transform {
     /// The element form about `origin` (x, y).
     pub(crate) fn to_wire(self, origin: [Len; 2]) -> ElementTransform {
         ElementTransform {
-            translate: WPoint {
-                x: self.translate[0],
-                y: self.translate[1],
-            },
+            translate: WPoint::new(self.translate[0], self.translate[1]),
             per_size: self.per_size,
             rotate: self.rotate,
             skew_x: self.skew,
-            scale: WPoint {
-                x: self.scale[0],
-                y: self.scale[1],
-            },
+            scale: WPoint::new(self.scale[0], self.scale[1]),
             origin,
         }
     }

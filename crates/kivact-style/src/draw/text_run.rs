@@ -164,6 +164,8 @@ impl Draw {
                 crate::TextAlign::End => m.size.width,
                 // A line drawn alone is the last of its paragraph.
                 crate::TextAlign::Start | crate::TextAlign::Justify => 0.0,
+                // Variants added later fall back to start alignment.
+                _ => 0.0,
             };
             pos.y -= match style.baseline {
                 TextBaseline::Top => 0.0,
@@ -206,7 +208,7 @@ impl Draw {
         let Some(m) = &self.measurer else {
             return TextMetrics::default();
         };
-        let origin = p::Point { x: 0.0, y: 0.0 };
+        let origin = p::Point::new(0.0, 0.0);
         let run = TextRun::from_style(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
         m.measure(run.as_wire())
     }

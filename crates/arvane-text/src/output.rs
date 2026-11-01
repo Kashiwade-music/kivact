@@ -187,10 +187,7 @@ pub(crate) fn plan(
         return Plan {
             visible: total,
             cuts: Vec::new(),
-            size: Size {
-                width: layout.width(),
-                height: layout.height(),
-            },
+            size: Size::new(layout.width(), layout.height()),
             baseline,
         };
     };
@@ -200,6 +197,8 @@ pub(crate) fn plan(
         TextAlign::Start | TextAlign::Justify => 0.0,
         TextAlign::Center => 0.5,
         TextAlign::End => 1.0,
+        // Variants added later fall back to start alignment.
+        _ => 0.0,
     };
     let mut cuts = Vec::with_capacity(visible);
     let mut width = 0.0f32;
@@ -253,7 +252,7 @@ pub(crate) fn plan(
     Plan {
         visible,
         cuts,
-        size: Size { width, height },
+        size: Size::new(width, height),
         baseline,
     }
 }
@@ -287,12 +286,12 @@ pub(crate) fn lines(
             }
             TextLine {
                 range: range(line.text_range()),
-                rect: Rect {
+                rect: Rect::new(
                     x,
-                    y: m.block_min_coord,
-                    width: width.max(0.0),
-                    height: m.block_max_coord - m.block_min_coord,
-                },
+                    m.block_min_coord,
+                    width.max(0.0),
+                    m.block_max_coord - m.block_min_coord,
+                ),
                 baseline: m.baseline,
                 ascent: m.ascent,
                 descent: m.descent,
@@ -488,12 +487,7 @@ fn decorations(
             if !decoration.lines.contains(line) {
                 continue;
             }
-            let rect = Rect {
-                x: s.x0,
-                y: top,
-                width: s.x1 - s.x0,
-                height,
-            };
+            let rect = Rect::new(s.x0, top, s.x1 - s.x0, height);
             let joins = out.iter_mut().rev().take(4).find(|d| {
                 d.line == line
                     && d.color == color
@@ -521,12 +515,12 @@ fn highlights(segments: &[Segment], spans: &[TextSpan]) -> Vec<TextHighlight> {
         else {
             continue;
         };
-        let rect = Rect {
-            x: s.x0,
-            y: s.baseline - s.metrics.ascent,
-            width: s.x1 - s.x0,
-            height: s.metrics.ascent + s.metrics.descent,
-        };
+        let rect = Rect::new(
+            s.x0,
+            s.baseline - s.metrics.ascent,
+            s.x1 - s.x0,
+            s.metrics.ascent + s.metrics.descent,
+        );
         match out
             .iter_mut()
             .find(|(line, h)| *line == s.line && h.span == span)
@@ -541,10 +535,10 @@ fn highlights(segments: &[Segment], spans: &[TextSpan]) -> Vec<TextHighlight> {
 fn union(a: Rect, b: Rect) -> Rect {
     let x = a.x.min(b.x);
     let y = a.y.min(b.y);
-    Rect {
+    Rect::new(
         x,
         y,
-        width: (a.x + a.width).max(b.x + b.width) - x,
-        height: (a.y + a.height).max(b.y + b.height) - y,
-    }
+        (a.x + a.width).max(b.x + b.width) - x,
+        (a.y + a.height).max(b.y + b.height) - y,
+    )
 }

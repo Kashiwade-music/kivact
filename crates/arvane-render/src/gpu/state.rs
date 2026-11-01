@@ -50,6 +50,8 @@ impl GpuEnv {
         self.power.unwrap_or(match self.preference.power {
             GpuPower::LowPower => wgpu::PowerPreference::LowPower,
             GpuPower::HighPerformance => wgpu::PowerPreference::HighPerformance,
+            // Variants added later fall back to the default power preference.
+            _ => wgpu::PowerPreference::default(),
         })
     }
 
@@ -57,9 +59,11 @@ impl GpuEnv {
     /// names its own.
     pub(crate) fn backends(&self) -> Option<wgpu::Backends> {
         self.backends
-            .or(self.preference.backend.map(|backend| match backend {
-                GpuBackend::Dx12 => wgpu::Backends::DX12,
-                GpuBackend::Vulkan => wgpu::Backends::VULKAN,
+            .or(self.preference.backend.and_then(|backend| match backend {
+                GpuBackend::Dx12 => Some(wgpu::Backends::DX12),
+                GpuBackend::Vulkan => Some(wgpu::Backends::VULKAN),
+                // Variants added later fall back to the environment's backends.
+                _ => None,
             }))
     }
 }

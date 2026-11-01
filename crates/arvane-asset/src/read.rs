@@ -55,6 +55,12 @@ pub(crate) fn read(asset: &Asset) -> Result<Encoded, AssetError> {
         Asset::Static(b) => Ok(Encoded::Static(b)),
         Asset::Shared(b) => Ok(Encoded::Shared(Arc::clone(b))),
         Asset::Path(p) => read_file(asset, p).map(Encoded::Shared),
+        // Variants added later fall back to an unsupported-source failure.
+        _ => Err(AssetError::new(
+            AssetErrorKind::UnsupportedFormat,
+            asset,
+            "unsupported source",
+        )),
     }
 }
 

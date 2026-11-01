@@ -40,11 +40,7 @@ fn strokes_have_caps_joins_dashes_and_dots() {
             PathCmd::LineTo(pt(x + 30.0, 100.0)),
         ])
     };
-    let style = |width: f32, cap: LineCap, join: LineJoin| Stroke {
-        cap,
-        join,
-        ..Stroke::new(width)
-    };
+    let style = |width: f32, cap: LineCap, join: LineJoin| Stroke::new(width).cap(cap).join(join);
     show(
         &mut window,
         vec![
@@ -69,11 +65,7 @@ fn strokes_have_caps_joins_dashes_and_dots() {
                     PathCmd::MoveTo(pt(60.0, 20.0)),
                     PathCmd::LineTo(pt(190.0, 20.0)),
                 ]),
-                Stroke {
-                    dash: vec![10.0, 10.0],
-                    dash_offset: 5.0,
-                    ..Stroke::new(4.0)
-                },
+                Stroke::new(4.0).dash([10.0, 10.0]).dash_offset(5.0),
             ),
             // Tabler's `h.01` dot and a zero-length one, round and square.
             stroke_shape(
@@ -107,10 +99,7 @@ fn strokes_have_caps_joins_dashes_and_dots() {
                     PathCmd::MoveTo(pt(100.0, 120.0)),
                     PathCmd::LineTo(pt(190.0, 120.0)),
                 ]),
-                Stroke {
-                    dash: vec![0.0, 10.0],
-                    ..style(4.0, LineCap::Round, LineJoin::Miter)
-                },
+                style(4.0, LineCap::Round, LineJoin::Miter).dash([0.0, 10.0]),
             ),
         ],
     );

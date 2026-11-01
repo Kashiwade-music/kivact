@@ -12,6 +12,7 @@
 
 /// A graphics API whose textures can be shared.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum GpuBackend {
     /// Direct3D 12 (Windows).
     Dx12,
@@ -21,6 +22,7 @@ pub enum GpuBackend {
 
 /// Which kind of adapter an application prefers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum GpuPower {
     /// The integrated adapter, when there is one (the default).
     #[default]
@@ -31,6 +33,7 @@ pub enum GpuPower {
 
 /// An adapter's identity, as the graphics APIs report it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum AdapterMatch {
     /// DXGI's adapter LUID (also Vulkan's `deviceLUID` on Windows), as the
     /// 8 bytes of `LowPart` then `HighPart`, little-endian.
@@ -67,7 +70,9 @@ pub struct GpuPreference {
 /// The adapter a window's GPU device is on, when the device can import
 /// shared textures. Direct3D 12 reports the LUID; Vulkan reports the device
 /// and driver UUIDs, and on Windows the LUID as well.
+/// Built with [`GpuAdapter::new`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct GpuAdapter {
     /// The graphics API of the device.
     pub backend: GpuBackend,
@@ -86,6 +91,20 @@ pub struct GpuAdapter {
 }
 
 impl GpuAdapter {
+    /// An adapter on `backend` named `name` for the device of `generation`.
+    /// The identity fields `luid`, `device_uuid` and `driver_uuid` start
+    /// `None`; assign the ones the backend reports.
+    pub fn new(backend: GpuBackend, name: String, generation: u64) -> Self {
+        GpuAdapter {
+            backend,
+            name,
+            luid: None,
+            device_uuid: None,
+            driver_uuid: None,
+            generation,
+        }
+    }
+
     /// Whether this is the adapter `identity` names.
     pub fn matches(&self, identity: &AdapterMatch) -> bool {
         match identity {
@@ -101,13 +120,24 @@ impl GpuAdapter {
 /// A window's name for an image imported into it
 /// ([`SharedTextures`]); the host chooses it. An image belongs to the
 /// window it was imported into: other windows do not know the id.
+/// Built with [`ExternalImageId::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub struct ExternalImageId(pub u64);
+
+impl ExternalImageId {
+    /// The image name with this raw id; read it back as `.0`.
+    pub const fn new(raw: u64) -> Self {
+        ExternalImageId(raw)
+    }
+}
 
 /// One frame of an imported image: the texture of the pool it is in
 /// (`slot`, an index into [`SharedTextures::textures`]) and the value the
 /// engine signaled the ready fence to once it was drawn (`value`).
+/// Built with [`ExternalFrame::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct ExternalFrame {
     /// The image.
     pub image: ExternalImageId,
@@ -117,8 +147,17 @@ pub struct ExternalFrame {
     pub value: u64,
 }
 
+impl ExternalFrame {
+    /// The frame of `image` drawn into texture `slot`, ready once the fence
+    /// reaches `value`.
+    pub const fn new(image: ExternalImageId, slot: u32, value: u64) -> Self {
+        ExternalFrame { image, slot, value }
+    }
+}
+
 /// The pixel format of shared textures.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum SharedTextureFormat {
     /// RGBA, 8-bit unsigned normalized channels, premultiplied alpha
     /// (`DXGI_FORMAT_R8G8B8A8_UNORM`, `VK_FORMAT_R8G8B8A8_UNORM`).
@@ -274,7 +313,9 @@ impl std::os::fd::AsFd for SharedHandle {
 ///
 /// After a new device ([`GpuAdapter::generation`]) every import is gone:
 /// the engine makes new textures and they are imported again.
+/// Built with [`SharedTextures::new`].
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct SharedTextures {
     /// Pixel width (at least 1).
     pub width: u32,
@@ -297,4 +338,32 @@ pub struct SharedTextures {
     pub ready: SharedHandle,
     /// The fence Arvane signals when it is done with frames.
     pub release: SharedHandle,
+}
+
+impl SharedTextures {
+    /// A pool of `textures` of `width` by `height` pixels made on `backend`
+    /// and `adapter`, with the `ready` and `release` fences. `format`
+    /// starts as [`SharedTextureFormat::default`] and `storage` as `false`;
+    /// assign them when the textures differ.
+    pub fn new(
+        backend: GpuBackend,
+        adapter: AdapterMatch,
+        width: u32,
+        height: u32,
+        textures: Vec<SharedHandle>,
+        ready: SharedHandle,
+        release: SharedHandle,
+    ) -> Self {
+        SharedTextures {
+            width,
+            height,
+            format: SharedTextureFormat::default(),
+            backend,
+            adapter,
+            storage: false,
+            textures,
+            ready,
+            release,
+        }
+    }
 }

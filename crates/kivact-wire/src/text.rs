@@ -304,12 +304,7 @@ impl Default for ComputedText {
         ComputedText {
             font_size: 14.0,
             weight: 400,
-            color: Rgba {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
+            color: Rgba::new(0.0, 0.0, 0.0, 1.0),
             line_height: None,
             wrap: TextWrap::Wrap,
             align: TextAlign::Start,

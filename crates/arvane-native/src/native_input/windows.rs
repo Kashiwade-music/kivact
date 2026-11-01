@@ -616,10 +616,10 @@ fn cursor_at(hwnd: HWND, scale: f64) -> Option<kivact_types::Point> {
     if unsafe { ScreenToClient(hwnd, &mut point) } == 0 {
         return None;
     }
-    Some(kivact_types::Point {
-        x: (f64::from(point.x) / scale) as f32,
-        y: (f64::from(point.y) / scale) as f32,
-    })
+    Some(kivact_types::Point::new(
+        (f64::from(point.x) / scale) as f32,
+        (f64::from(point.y) / scale) as f32,
+    ))
 }
 /// A window timer keeps tracking through Windows' modal OLE drag loop.
 pub(crate) fn track_files(window: &Window, tracking: bool) {

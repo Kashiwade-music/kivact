@@ -19,17 +19,13 @@ pub(super) fn reach(
     layout: &NodeLayout,
     look: &Look,
 ) -> Rect {
-    let bounds = Rect {
-        x: 0.0,
-        y: 0.0,
-        width: layout.size.width,
-        height: layout.size.height,
-    };
-    let content = Rect {
-        width: layout.content_size.width.max(layout.size.width),
-        height: layout.content_size.height.max(layout.size.height),
-        ..bounds
-    };
+    let bounds = Rect::new(0.0, 0.0, layout.size.width, layout.size.height);
+    let content = Rect::new(
+        bounds.x,
+        bounds.y,
+        layout.content_size.width.max(layout.size.width),
+        layout.content_size.height.max(layout.size.height),
+    );
     let glyphs = match n.kind() {
         _ if n.kind() == NodeType::Text
             || host.editors[n.index.0]
@@ -62,11 +58,7 @@ pub(super) fn reach(
 /// `t`, placed at the box's origin `at` in its parent's space.
 pub(super) fn placed(t: Option<&kivact_types::protocol::Transform>, r: Rect, at: Point) -> Rect {
     let r = map_rect(t, r);
-    Rect {
-        x: r.x + at.x,
-        y: r.y + at.y,
-        ..r
-    }
+    Rect::new(r.x + at.x, r.y + at.y, r.width, r.height)
 }
 
 /// The ink of `id` (its node `n`, laid out as `layout`) relative to its
@@ -98,11 +90,12 @@ pub(super) fn ink(
                 };
                 let l = host.computed_layout(child).unwrap_or_default();
                 if let Some(r) = ink(host, child, c, &l, generation) {
-                    let mut at = Rect {
-                        x: r.x - scroll.x + l.location.x,
-                        y: r.y - scroll.y + l.location.y,
-                        ..r
-                    };
+                    let mut at = Rect::new(
+                        r.x - scroll.x + l.location.x,
+                        r.y - scroll.y + l.location.y,
+                        r.width,
+                        r.height,
+                    );
                     if c.place.sticky {
                         // Wherever its scrollport may stick it.
                         at = sticky_reach(n, layout, &l, at);
@@ -139,11 +132,12 @@ fn text_reach(host: &Model, id: NodeId) -> f32 {
 fn sticky_reach(parent: &HostNode, layout: &NodeLayout, child: &NodeLayout, at: Rect) -> Rect {
     let c = layout.content_box;
     let block = if parent.scroll_axes() != (false, false) {
-        Rect {
-            width: (layout.content_size.width - (layout.size.width - c.width)).max(c.width),
-            height: (layout.content_size.height - (layout.size.height - c.height)).max(c.height),
-            ..c
-        }
+        Rect::new(
+            c.x,
+            c.y,
+            (layout.content_size.width - (layout.size.width - c.width)).max(c.width),
+            (layout.content_size.height - (layout.size.height - c.height)).max(c.height),
+        )
     } else {
         c
     };
@@ -153,12 +147,12 @@ fn sticky_reach(parent: &HostNode, layout: &NodeLayout, child: &NodeLayout, at: 
     let hi_x = (block.x + block.width - x - w).max(0.0);
     let lo_y = (block.y - y).min(0.0);
     let hi_y = (block.y + block.height - y - h).max(0.0);
-    Rect {
-        x: at.x + lo_x,
-        y: at.y + lo_y,
-        width: at.width + hi_x - lo_x,
-        height: at.height + hi_y - lo_y,
-    }
+    Rect::new(
+        at.x + lo_x,
+        at.y + lo_y,
+        at.width + hi_x - lo_x,
+        at.height + hi_y - lo_y,
+    )
 }
 
 /// Everything a canvas scene at `canvas` can draw on (`None`: nothing).
@@ -190,12 +184,7 @@ fn scene_reach(scene: &Scene, canvas: Rect) -> Option<Rect> {
             _ => {
                 if let Some(r) = plain_scene_reach(std::slice::from_ref(cmd), Rect::default()) {
                     let r = transform.bounds(grow(r, reach));
-                    let r = Rect {
-                        x: canvas.x + r.x,
-                        y: canvas.y + r.y,
-                        width: r.width,
-                        height: r.height,
-                    };
+                    let r = Rect::new(canvas.x + r.x, canvas.y + r.y, r.width, r.height);
                     out = Some(out.map_or(r, |old: Rect| old.union(r)));
                 }
             }
@@ -207,17 +196,15 @@ fn scene_reach(scene: &Scene, canvas: Rect) -> Option<Rect> {
 fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
     let mut out: Option<Rect> = None;
     let mut add = |r: Rect| out = Some(out.map_or(r, |o| o.union(r)));
-    let point = |p: Point, extent: f32| Rect {
-        x: canvas.x + p.x - extent,
-        y: canvas.y + p.y - extent,
-        width: 2.0 * extent,
-        height: 2.0 * extent,
+    let point = |p: Point, extent: f32| {
+        Rect::new(
+            canvas.x + p.x - extent,
+            canvas.y + p.y - extent,
+            2.0 * extent,
+            2.0 * extent,
+        )
     };
-    let at = |r: Rect| Rect {
-        x: canvas.x + r.x,
-        y: canvas.y + r.y,
-        ..r
-    };
+    let at = |r: Rect| Rect::new(canvas.x + r.x, canvas.y + r.y, r.width, r.height);
     for cmd in cmds {
         match cmd {
             SceneCmd::Rect { rect, .. }
@@ -241,22 +228,22 @@ fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
                 // Word spacing follows every space.
                 let spaces = run.text.chars().filter(|c| *c == ' ').count() as f32;
                 let word_spacing = run.word_spacing.max(0.0) * spaces;
-                add(Rect {
-                    x: canvas.x + run.origin.x - size,
-                    y: canvas.y + run.origin.y - 2.0 * size,
-                    width: size * (2.0 * chars + 1.0) + spacing * chars + word_spacing,
-                    height: 4.0 * size,
-                });
+                add(Rect::new(
+                    canvas.x + run.origin.x - size,
+                    canvas.y + run.origin.y - 2.0 * size,
+                    size * (2.0 * chars + 1.0) + spacing * chars + word_spacing,
+                    4.0 * size,
+                ));
             }
             SceneCmd::Paragraph { shaped, origin, .. } => {
                 // Glyphs overhang their lines by about a line.
                 let pad = shaped.size.height;
-                add(Rect {
-                    x: canvas.x + origin.x - pad,
-                    y: canvas.y + origin.y - pad,
-                    width: shaped.size.width + 2.0 * pad,
-                    height: shaped.size.height + 2.0 * pad,
-                });
+                add(Rect::new(
+                    canvas.x + origin.x - pad,
+                    canvas.y + origin.y - pad,
+                    shaped.size.width + 2.0 * pad,
+                    shaped.size.height + 2.0 * pad,
+                ));
             }
             SceneCmd::Shape(p) => add(grow(
                 at(kivact_lower::scene_shape::shape(&p.shape).bounds()),
@@ -275,12 +262,7 @@ fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
 }
 
 pub(super) fn grow(r: Rect, by: f32) -> Rect {
-    Rect {
-        x: r.x - by,
-        y: r.y - by,
-        width: r.width + 2.0 * by,
-        height: r.height + 2.0 * by,
-    }
+    Rect::new(r.x - by, r.y - by, r.width + 2.0 * by, r.height + 2.0 * by)
 }
 
 /// Whether `a` and `b` share area. A non-finite extent (an unsanitized

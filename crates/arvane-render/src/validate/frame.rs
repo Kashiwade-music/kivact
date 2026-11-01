@@ -64,8 +64,5 @@ fn raster_size(width: u32, height: u32, scale: f32) -> Size {
         }
         logical
     };
-    Size {
-        width: extent(width),
-        height: extent(height),
-    }
+    Size::new(extent(width), extent(height))
 }

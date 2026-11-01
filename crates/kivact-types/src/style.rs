@@ -4,6 +4,8 @@
 /// Straight-alpha color, components in `0.0..=1.0`.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 /// Rgba.
+/// Built with [`Rgba::new`].
+#[non_exhaustive]
 pub struct Rgba {
     /// R.
     pub r: f32,
@@ -16,6 +18,11 @@ pub struct Rgba {
 }
 
 impl Rgba {
+    /// A color from straight-alpha components in `0.0..=1.0`.
+    pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r, g, b, a }
+    }
+
     /// Fully transparent black.
     pub const TRANSPARENT: Self = Self {
         r: 0.0,

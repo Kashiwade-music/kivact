@@ -167,16 +167,16 @@ impl ShellWindow for VirtualShell {
         self.now
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities {
-            touch: true,
-            pen: true,
-            soft_keyboard: true,
-            safe_area: true,
-            memory_warnings: true,
-            ime_reconversion: true,
-            native_accessibility: self.real.is_some(),
-            gpu: self.gpu,
-        }
+        let mut capabilities = Capabilities::default();
+        capabilities.touch = true;
+        capabilities.pen = true;
+        capabilities.soft_keyboard = true;
+        capabilities.safe_area = true;
+        capabilities.memory_warnings = true;
+        capabilities.ime_reconversion = true;
+        capabilities.native_accessibility = self.real.is_some();
+        capabilities.gpu = self.gpu;
+        capabilities
     }
     fn surface_generation(&self) -> Option<u64> {
         self.surface.0

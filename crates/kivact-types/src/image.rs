@@ -2,6 +2,7 @@
 
 /// How an image fills its box.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ImageFit {
     /// Scale to fit inside the box, keeping the aspect ratio.
     #[default]

@@ -127,6 +127,8 @@ fn bit(button: MouseButton) -> u8 {
         MouseButton::Middle => 4,
         MouseButton::Back => 8,
         MouseButton::Forward => 16,
+        // Variants added later fall back to no button bit.
+        _ => 0,
     }
 }
 

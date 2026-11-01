@@ -44,12 +44,7 @@ impl Model {
             let node = structural(
                 wire::NodeId(id),
                 Vec::new(),
-                kivact_types::Rect {
-                    x: 0.0,
-                    y: 0.0,
-                    width: self.viewport.width,
-                    height: self.viewport.height,
-                },
+                kivact_types::Rect::new(0.0, 0.0, self.viewport.width, self.viewport.height),
                 kivact_types::Point::default(),
                 kivact_types::protocol::Transform::IDENTITY,
                 false,
@@ -63,7 +58,7 @@ impl Model {
                 self.a11y.constructed += 1;
             }
             return Some(kivact_types::protocol::SemanticsTree {
-                root: kivact_types::NodeId(id),
+                root: kivact_types::NodeId::new(id),
                 focus: None,
                 nodes: vec![node],
             });
@@ -221,10 +216,7 @@ impl Model {
             }
             if let Some(n) = self.node(id) {
                 let s = n.scroll();
-                let below = wire::Point {
-                    x: offset.x + s.x,
-                    y: offset.y + s.y,
-                };
+                let below = wire::Point::new(offset.x + s.x, offset.y + s.y);
                 stack.extend(
                     self.tree()
                         .children_ids(n)
@@ -240,7 +232,7 @@ impl Model {
         let focus = self.semantics_focus(&metadata.clipped);
         self.a11y.prepared = Some(metadata);
         Some(kivact_types::protocol::SemanticsTree {
-            root: kivact_types::NodeId(root.0),
+            root: kivact_types::NodeId::new(root.0),
             focus,
             nodes,
         })

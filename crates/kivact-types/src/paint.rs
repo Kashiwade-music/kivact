@@ -2,6 +2,7 @@
 
 /// How a gradient continues beyond its first and last stop.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Extend {
     /// The end colors continue.
     #[default]

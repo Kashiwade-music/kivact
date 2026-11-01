@@ -63,10 +63,7 @@ impl Screen {
         self.send(ShellEvent::File {
             phase,
             files,
-            position: kivact_engine::testing::Point {
-                x: point.x,
-                y: point.y,
-            },
+            position: kivact_engine::testing::Point::new(point.x, point.y),
         });
         self.run_until_idle();
     }

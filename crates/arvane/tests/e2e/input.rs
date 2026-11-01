@@ -54,7 +54,7 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
                      button: MouseButton| {
         at += after_ms * MS;
         window.set_now(at);
-        mouse_event(window, PointerPhase::Move, Some(Point { x, y }), None);
+        mouse_event(window, PointerPhase::Move, Some(Point::new(x, y)), None);
         let down = clicks(&press(window, button));
         let up = clicks(&release(window, button));
         assert_eq!(up, down, "a release carries its press's count");
@@ -81,10 +81,10 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
 
 fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f32) -> PointerInput {
     PointerInput {
-        id: PointerId(id),
+        id: PointerId::new(id),
         kind,
         phase,
-        position: Point { x, y: 10.0 },
+        position: Point::new(x, 10.0),
         buttons: PointerButtons::NONE.with(
             MouseButton::Primary,
             matches!(phase, PointerPhase::Down | PointerPhase::Move),
@@ -115,7 +115,7 @@ fn contacts_get_pointer_ids_and_kinds_of_their_own() {
     let down = pointer(window.contact(contact(7, Touch, Down, 1.0)));
     assert_eq!(
         (down.id, down.kind, down.phase),
-        (PointerId(2), Touch, Down)
+        (PointerId::new(2), Touch, Down)
     );
     assert_eq!(
         (down.position.x, down.position.y, down.pressure),
@@ -124,25 +124,25 @@ fn contacts_get_pointer_ids_and_kinds_of_their_own() {
     let moved = pointer(window.contact(contact(7, Pen, Move, 2.0)));
     assert_eq!(
         (moved.id, moved.kind, moved.phase, moved.position.x),
-        (PointerId(2), Touch, Move, 2.0),
+        (PointerId::new(2), Touch, Move, 2.0),
         "the kind is the one of the contact's Down"
     );
     // A pen meanwhile is another pointer.
     let pen = pointer(window.contact(contact(8, Pen, Down, 3.0)));
-    assert_eq!((pen.id, pen.kind), (PointerId(3), Pen));
+    assert_eq!((pen.id, pen.kind), (PointerId::new(3), Pen));
     let up = pointer(window.contact(contact(7, Touch, Up, 2.0)));
-    assert_eq!((up.id, up.phase), (PointerId(2), Up));
+    assert_eq!((up.id, up.phase), (PointerId::new(2), Up));
     let canceled = pointer(window.contact(contact(8, Pen, Cancel, 3.0)));
     assert_eq!(
         (canceled.id, canceled.kind, canceled.phase),
-        (PointerId(3), Pen, Cancel)
+        (PointerId::new(3), Pen, Cancel)
     );
     // The platform reuses id 7: a new contact, a new pointer.
     let again = pointer(window.contact(contact(7, Touch, Down, 4.0)));
-    assert_eq!(again.id, PointerId(4));
+    assert_eq!(again.id, PointerId::new(4));
     // A contact is never the mouse.
     let mouse = pointer(window.contact(contact(9, Mouse, Down, 5.0)));
-    assert_eq!((mouse.id, mouse.kind), (PointerId(5), Touch));
+    assert_eq!((mouse.id, mouse.kind), (PointerId::new(5), Touch));
     // Nothing is reported for a contact that never began (a hovering pen).
     assert_eq!(window.contact(contact(40, Pen, Move, 1.0)), []);
     assert_eq!(window.contact(contact(41, Touch, Up, 1.0)), []);

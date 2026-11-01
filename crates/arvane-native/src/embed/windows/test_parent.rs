@@ -308,6 +308,8 @@ impl TestParent {
             MouseButton::Middle => (WM_MBUTTONDOWN, WM_MBUTTONUP, MK_MBUTTON, 0),
             MouseButton::Back => (WM_XBUTTONDOWN, WM_XBUTTONUP, MK_XBUTTON1, XBUTTON1),
             MouseButton::Forward => (WM_XBUTTONDOWN, WM_XBUTTONUP, MK_XBUTTON2, XBUTTON2),
+            // Variants added later are not posted.
+            _ => return Ok(()),
         };
         let held = if down {
             self.buttons.get() | mask as usize

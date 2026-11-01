@@ -83,11 +83,12 @@ impl Index {
                                         transform.apply(kivact_types::Point::default()),
                                     );
                                     b.union(
-                                        Rect {
-                                            x: b.x + o.x - z.x,
-                                            y: b.y + o.y - z.y,
-                                            ..b
-                                        }
+                                        Rect::new(
+                                            b.x + o.x - z.x,
+                                            b.y + o.y - z.y,
+                                            b.width,
+                                            b.height,
+                                        )
                                         .inflate(r, r),
                                     )
                                 }
@@ -126,12 +127,7 @@ fn add(stack: &mut [Open], bounds: Option<Rect>) {
 pub(crate) fn intersect(a: Rect, b: Rect) -> Option<Rect> {
     let (x0, y0) = (a.x.max(b.x), a.y.max(b.y));
     let (x1, y1) = (a.right().min(b.right()), a.bottom().min(b.bottom()));
-    (x1 >= x0 && y1 >= y0).then_some(Rect {
-        x: x0,
-        y: y0,
-        width: x1 - x0,
-        height: y1 - y0,
-    })
+    (x1 >= x0 && y1 >= y0).then_some(Rect::new(x0, y0, x1 - x0, y1 - y0))
 }
 
 /// Where a drawing command can draw, in its own coordinates (generous
@@ -209,12 +205,12 @@ fn glyphs(glyphs: &[Glyph], size: f32) -> Option<Rect> {
             b.3.max(g.y),
         );
     }
-    Some(Rect {
-        x: b.0 - size,
-        y: b.1 - 1.5 * size,
-        width: b.2 - b.0 + 2.0 * size,
-        height: b.3 - b.1 + 2.5 * size,
-    })
+    Some(Rect::new(
+        b.0 - size,
+        b.1 - 1.5 * size,
+        b.2 - b.0 + 2.0 * size,
+        b.3 - b.1 + 2.5 * size,
+    ))
 }
 
 fn box_shadow(shadow: &BoxShadow) -> Rect {
@@ -223,11 +219,12 @@ fn box_shadow(shadow: &BoxShadow) -> Rect {
         return rect;
     }
     let r = SHADOW_REACH * shadow.std_dev + shadow.spread.max(0.0);
-    let cast = Rect {
-        x: rect.x + shadow.offset.x,
-        y: rect.y + shadow.offset.y,
-        ..rect
-    }
+    let cast = Rect::new(
+        rect.x + shadow.offset.x,
+        rect.y + shadow.offset.y,
+        rect.width,
+        rect.height,
+    )
     .inflate(r, r);
     rect.union(cast)
 }

@@ -3,6 +3,7 @@
 /// How a layer's pixels combine with what is beneath them (CSS
 /// `mix-blend-mode`; [`BlendMode::PlusLighter`] is canvas `lighter`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BlendMode {
     /// Source over.
     #[default]

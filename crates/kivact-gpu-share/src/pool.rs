@@ -76,11 +76,7 @@ pub struct FrameReady {
 impl FrameReady {
     /// This frame of the image the window imported the pool as.
     pub fn frame(self, image: ExternalImageId) -> ExternalFrame {
-        ExternalFrame {
-            image,
-            slot: self.slot,
-            value: self.value,
-        }
+        ExternalFrame::new(image, self.slot, self.value)
     }
 }
 

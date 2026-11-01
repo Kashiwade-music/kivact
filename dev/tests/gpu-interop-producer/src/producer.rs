@@ -114,6 +114,8 @@ impl Producer {
             }
             #[cfg(not(any(windows, target_os = "linux")))]
             GpuBackend::Vulkan => return Err("no Vulkan engine on this platform".into()),
+            // Variants added later fall back to an error.
+            _ => return Err("unsupported graphics API".into()),
         };
         Ok(Self {
             image,

@@ -153,6 +153,8 @@ impl EditLines {
             kivact_types::TextAlign::Center => free / 2.0,
             kivact_types::TextAlign::End => free,
             kivact_types::TextAlign::Start | kivact_types::TextAlign::Justify => 0.0,
+            // Variants added later fall back to start alignment.
+            _ => 0.0,
         }
     }
 
@@ -193,12 +195,7 @@ impl EditLines {
         engine: &mut arvane::Engine,
     ) -> Rect {
         if !self.shows_value() {
-            return Rect {
-                x: self.aligned(0.0, width),
-                y: 0.0,
-                width: 1.0,
-                height: self.height,
-            };
+            return Rect::new(self.aligned(0.0, width), 0.0, 1.0, self.height);
         }
         let i = self.line_of(at);
         let y = i as f32 * self.height;
@@ -210,18 +207,9 @@ impl EditLines {
         {
             Some(shaped) => {
                 let c = caret_at(&shaped, scalar);
-                Rect {
-                    x: x + c.x,
-                    y: y + c.y,
-                    ..c
-                }
+                Rect::new(x + c.x, y + c.y, c.width, c.height)
             }
-            None => Rect {
-                x,
-                y,
-                width: 1.0,
-                height: self.height,
-            },
+            None => Rect::new(x, y, 1.0, self.height),
         }
     }
 
@@ -248,11 +236,7 @@ impl EditLines {
         TextGeometry::new(&shaped, &shown)
             .rects_scalar(a..b)
             .into_iter()
-            .map(|r| Rect {
-                x: x + r.x,
-                y: y + r.y,
-                ..r
-            })
+            .map(|r| Rect::new(x + r.x, y + r.y, r.width, r.height))
             .collect()
     }
 
@@ -280,7 +264,7 @@ impl EditLines {
             .first()
             .map_or_else(Rect::default, |line| line.rect);
         let scalar = TextGeometry::new(&shaped, line).hit_scalar_in_line(
-            Point { x, y: bounds.y },
+            Point::new(x, bounds.y),
             0..line.len(),
             bounds,
         );
@@ -478,10 +462,10 @@ impl EditLines {
         ids: &mut dyn FnMut() -> u64,
         engine: &mut arvane::Engine,
     ) -> Arc<kivact_types::SemanticsTextRun> {
-        let origin = Point {
-            x: at.x + self.offset(text, i, width, engine),
-            y: at.y + i as f32 * self.height,
-        };
+        let origin = Point::new(
+            at.x + self.offset(text, i, width, engine),
+            at.y + i as f32 * self.height,
+        );
         let height = self.height;
         let id = self.run_id(i, ids);
         let shaped = self.shaped(text, i, engine);
@@ -495,35 +479,25 @@ impl EditLines {
         {
             return run.clone();
         }
-        let shift = |r: Rect| Rect {
-            x: r.x + origin.x,
-            y: r.y + origin.y,
-            ..r
-        };
-        let empty = Rect {
-            height,
-            ..Rect::default()
-        };
+        let shift = |r: Rect| Rect::new(r.x + origin.x, r.y + origin.y, r.width, r.height);
+        let empty = Rect::new(0.0, 0.0, 0.0, height);
         let (bounds, carets) = match &shaped {
             Some(shaped) => (
                 shift(shaped.lines.first().map_or(empty, |l| l.rect)),
                 shaped
                     .carets
                     .iter()
-                    .map(|c| kivact_types::TextCaret {
-                        offset: c.offset,
-                        rect: shift(c.rect),
-                    })
+                    .map(|c| kivact_types::TextCaret::new(c.offset, shift(c.rect)))
                     .collect(),
             ),
             None => (shift(empty), Vec::new()),
         };
-        let run = Arc::new(kivact_types::SemanticsTextRun {
-            id: kivact_types::NodeId(id),
-            value: text[range].to_string(),
+        let run = Arc::new(kivact_types::SemanticsTextRun::new(
+            kivact_types::NodeId::new(id),
+            text[range].to_string(),
             bounds,
             carets,
-        });
+        ));
         kept.run = Some((origin, run.clone()));
         run
     }

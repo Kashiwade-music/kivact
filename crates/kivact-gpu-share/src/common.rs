@@ -83,6 +83,8 @@ fn backend_name(backend: GpuBackend) -> &'static str {
     match backend {
         GpuBackend::Dx12 => "Direct3D 12",
         GpuBackend::Vulkan => "Vulkan",
+        // Variants added later fall back to a generic name.
+        _ => "an unsupported graphics API",
     }
 }
 

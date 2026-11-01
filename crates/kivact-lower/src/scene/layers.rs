@@ -7,16 +7,8 @@ use kivact_wire::{Effects, PaintProps, Point, Rect, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_layers(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
-        let rect = |r: Rect| Rect {
-            x: origin.x + r.x,
-            y: origin.y + r.y,
-            width: r.width,
-            height: r.height,
-        };
-        let origin_point = Point {
-            x: origin.x,
-            y: origin.y,
-        };
+        let rect = |r: Rect| Rect::new(origin.x + r.x, origin.y + r.y, r.width, r.height);
+        let origin_point = Point::new(origin.x, origin.y);
         let tint = &state.current_tint;
         let command = match cmd {
             SceneCmd::PushLayer(layer) => {
@@ -25,10 +17,7 @@ impl Context<'_> {
                     clip: layer.clip.as_ref().map(|shape| {
                         crate::path::shifted(
                             crate::scene_shape::shape(shape),
-                            Point {
-                                x: origin.x,
-                                y: origin.y,
-                            },
+                            Point::new(origin.x, origin.y),
                         )
                     }),
                     mask: layer
@@ -81,11 +70,8 @@ impl Context<'_> {
             }
             SceneCmd::PushTransform(m) => {
                 let [a, b, c, d, e, f] = *m;
-                let transform =
-                    kivact_types::protocol::Transform { a, b, c, d, e, f }.about(Point {
-                        x: origin.x,
-                        y: origin.y,
-                    });
+                let transform = kivact_types::protocol::Transform { a, b, c, d, e, f }
+                    .about(Point::new(origin.x, origin.y));
                 state.transforms += 1;
                 state.raster_stack.push(self.raster.get());
                 self.raster

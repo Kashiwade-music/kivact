@@ -56,7 +56,7 @@ impl<T: Eq + Hash + Clone> TargetTable<T> {
             let id = match self.scene.ids.get(&target) {
                 Some(id) => *id,
                 None => {
-                    let id = RegionId(self.next);
+                    let id = RegionId::new(self.next);
                     self.next = self
                         .next
                         .checked_add(1)

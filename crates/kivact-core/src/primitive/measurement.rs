@@ -66,7 +66,7 @@ impl Constraints<'_> {
     /// # let _ = chip;
     /// ```
     pub fn measure_text(&self, text: &str, style: &TextStyle) -> TextMetrics {
-        let origin = wire::Point { x: 0.0, y: 0.0 };
+        let origin = wire::Point::new(0.0, 0.0);
         let run = TextRun::from_style(text, origin, style, 1.0, wire::Rgba::TRANSPARENT, None);
         self.text.measure(run.as_wire())
     }
@@ -100,7 +100,7 @@ impl Constraints<'_> {
         style: &TextStyle,
         max_width: Option<f32>,
     ) -> TextParagraph {
-        let origin = wire::Point { x: 0.0, y: 0.0 };
+        let origin = wire::Point::new(0.0, 0.0);
         let run = TextRun::from_style(text, origin, style, 1.0, wire::Rgba::TRANSPARENT, None);
         let shaped = self
             .text
@@ -199,10 +199,7 @@ impl From<Size> for Measurement {
 pub(super) fn sanitize(m: Measurement) -> wire::LeafSize {
     let clean = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
     wire::LeafSize {
-        size: wire::Size {
-            width: clean(m.size.width),
-            height: clean(m.size.height),
-        },
+        size: wire::Size::new(clean(m.size.width), clean(m.size.height)),
         baseline: m
             .baseline
             .filter(|y| y.is_finite())

@@ -46,10 +46,7 @@ pub fn push_text(
         if color.a <= 0.0 || !(shadow.x.is_finite() && shadow.y.is_finite()) {
             continue;
         }
-        let at = Point {
-            x: origin.x + shadow.x,
-            y: origin.y + shadow.y,
-        };
+        let at = Point::new(origin.x + shadow.x, origin.y + shadow.y);
         let blurred = shadow.blur.is_finite() && shadow.blur > 0.0;
         if blurred {
             out.commands
@@ -114,12 +111,12 @@ fn lines(
             continue;
         }
         out.commands.push(D::Rect {
-            rect: Rect {
-                x: line.rect.x + origin.x,
-                y: ((line.rect.y + origin.y) * device).round() / device,
-                width: line.rect.width,
-                height: (line.rect.height * device).round().max(1.0) / device,
-            },
+            rect: Rect::new(
+                line.rect.x + origin.x,
+                ((line.rect.y + origin.y) * device).round() / device,
+                line.rect.width,
+                (line.rect.height * device).round().max(1.0) / device,
+            ),
             fill: kivact_types::protocol::Paint::Solid(colors.decorations.unwrap_or(line.color)),
         });
     }

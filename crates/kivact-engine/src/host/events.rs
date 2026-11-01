@@ -277,7 +277,7 @@ impl Host {
             ShellEvent::Wheel { x, y } => {
                 self.model
                     .borrow_mut()
-                    .wheel(Point { x, y }, &mut self.engine.borrow_mut());
+                    .wheel(Point::new(x, y), &mut self.engine.borrow_mut());
                 // A native scroll is reported (`ScrollChanged`) by the
                 // layout pass: run it now, so the client's turn is due at
                 // once instead of waiting for the next paint.

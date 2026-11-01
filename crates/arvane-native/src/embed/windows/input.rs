@@ -59,10 +59,10 @@ pub(super) fn cancel(state: &Rc<State>) {
 }
 fn position(state: &State, l: LPARAM) -> Point {
     let scale = state.shared.scale();
-    Point {
-        x: (l as u16 as i16) as f32 / scale,
-        y: ((l as u32 >> 16) as u16 as i16) as f32 / scale,
-    }
+    Point::new(
+        (l as u16 as i16) as f32 / scale,
+        ((l as u32 >> 16) as u16 as i16) as f32 / scale,
+    )
 }
 fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM, button: Option<MouseButton>) {
     let mut mouse = state.mouse.get();
@@ -200,10 +200,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             let previous = mouse.position();
             let event = mouse.event(
                 PointerPhase::Move,
-                Some(Point {
-                    x: point.x as f32 / scale,
-                    y: point.y as f32 / scale,
-                }),
+                Some(Point::new(point.x as f32 / scale, point.y as f32 / scale)),
                 None,
             );
             state.mouse.set(mouse);

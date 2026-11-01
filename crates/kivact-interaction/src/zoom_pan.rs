@@ -504,6 +504,8 @@ impl ZoomPan {
                 Some(Handled::Yes)
             }
             PointerPhase::Enter | PointerPhase::Leave => None,
+            // Variants added later fall back to being unhandled.
+            _ => None,
         }
     }
 }

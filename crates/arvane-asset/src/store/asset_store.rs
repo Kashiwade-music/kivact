@@ -277,6 +277,8 @@ impl AssetStore {
         let retained = match asset {
             Asset::Shared(b) => b.len(),
             Asset::Path(_) | Asset::Static(_) => 0,
+            // Variants added later fall back to retaining no bytes.
+            _ => 0,
         };
         self.make_room(ENTRY_BYTES + retained);
         let generation = self.next_generation;
@@ -423,10 +425,7 @@ impl AssetStore {
             ));
         }
         self.make_room(bitmap.bytes());
-        let natural = Size {
-            width: bitmap.width as f32,
-            height: bitmap.height as f32,
-        };
+        let natural = Size::new(bitmap.width as f32, bitmap.height as f32);
         let drawn = self.stamp();
         State::Raster {
             natural,

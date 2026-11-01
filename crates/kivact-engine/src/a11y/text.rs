@@ -43,10 +43,10 @@ impl Model {
     ) -> SemanticsText {
         let caret = shifted(caret_rect(self, id, engine), offset.x, offset.y);
         let line = text_line(self, id, engine);
-        let at = Point {
-            x: line.x - input_scroll(self, id) + offset.x,
-            y: line.y + offset.y,
-        };
+        let at = Point::new(
+            line.x - input_scroll(self, id) + offset.x,
+            line.y + offset.y,
+        );
         // A new line's run takes its identity from the group's counter.
         let (tree, a11y) = (&self.tree, &mut self.a11y);
         let edit = tree
@@ -67,23 +67,18 @@ impl Model {
             (published.runs, published.start, published.end)
         } else {
             // An empty text: one empty run at the caret.
-            let run = Arc::new(SemanticsTextRun {
-                id: kivact_types::NodeId(lines.run_id(0, &mut ids)),
-                value: String::new(),
-                bounds: caret,
-                carets: Vec::new(),
-            });
+            let run = Arc::new(SemanticsTextRun::new(
+                kivact_types::NodeId::new(lines.run_id(0, &mut ids)),
+                String::new(),
+                caret,
+                Vec::new(),
+            ));
             (Arc::from([run]), 0, 0)
         };
         // The selection is cut to the runs published.
         let char_of = |at: usize| lines.char_of_byte(value, at).clamp(start, end);
         let selection = (char_of(edit.anchor()), char_of(edit.caret()));
-        SemanticsText {
-            runs,
-            start,
-            selection,
-            caret,
-        }
+        SemanticsText::new(runs, start, selection, caret)
     }
 }
 
@@ -111,35 +106,27 @@ impl Model {
                     None => self.a11y.next_identity(&self.tree),
                 };
                 self.a11y.authored.insert(key, native);
-                let shown = SemanticsTextRun {
-                    id: kivact_types::NodeId(native),
-                    value: run.value.clone(),
-                    bounds: shifted(run.bounds, dx, dy),
-                    carets: run
-                        .carets
+                let shown = SemanticsTextRun::new(
+                    kivact_types::NodeId::new(native),
+                    run.value.clone(),
+                    shifted(run.bounds, dx, dy),
+                    run.carets
                         .iter()
-                        .map(|c| kivact_types::TextCaret {
-                            offset: c.offset,
-                            rect: shifted(c.rect, dx, dy),
-                        })
+                        .map(|c| kivact_types::TextCaret::new(c.offset, shifted(c.rect, dx, dy)))
                         .collect(),
-                };
+                );
                 Arc::new(shown)
             })
             .collect();
-        Some(SemanticsText {
-            runs: runs.into(),
-            start: authored.start,
-            selection: authored.selection,
-            caret: shifted(authored.caret, dx, dy),
-        })
+        Some(SemanticsText::new(
+            runs.into(),
+            authored.start,
+            authored.selection,
+            shifted(authored.caret, dx, dy),
+        ))
     }
 }
 
 fn shifted(rect: Rect, x: f32, y: f32) -> Rect {
-    Rect {
-        x: rect.x + x,
-        y: rect.y + y,
-        ..rect
-    }
+    Rect::new(rect.x + x, rect.y + y, rect.width, rect.height)
 }

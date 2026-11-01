@@ -176,10 +176,10 @@ impl ShellWindow for Window {
         self.accessibility.tree.active()
     }
     fn size(&self) -> Size {
-        Size {
-            width: self.width as f32 / self.scale,
-            height: self.height as f32 / self.scale,
-        }
+        Size::new(
+            self.width as f32 / self.scale,
+            self.height as f32 / self.scale,
+        )
     }
     fn physical_size(&self) -> (u32, u32) {
         (self.width, self.height)
@@ -191,10 +191,9 @@ impl ShellWindow for Window {
         self.started.elapsed().as_nanos().min(u64::MAX.into()) as u64
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities {
-            native_accessibility: true,
-            ..Capabilities::default()
-        }
+        let mut capabilities = Capabilities::default();
+        capabilities.native_accessibility = true;
+        capabilities
     }
     fn surface_generation(&self) -> Option<u64> {
         Some(self.generation)

@@ -19,10 +19,7 @@ use crate::view::View;
 #[test]
 fn the_minimum_window_size_reaches_the_window() {
     let at = Location::caller();
-    let min = Size {
-        width: 320.0,
-        height: 240.0,
-    };
+    let min = Size::new(320.0, 240.0);
     let root: Box<dyn FnOnce() -> View> = Box::new(|| text("min").into_view());
     let client = AppClient::new("min".into(), Theme::default(), Some(2), root, at)
         .with_min_window_size(Some(min));
@@ -41,10 +38,7 @@ fn the_minimum_window_size_reaches_the_window() {
 #[test]
 fn resize_requests_are_clamped_to_the_apps_single_minimum() {
     let at = Location::caller();
-    let min = Size {
-        width: 320.0,
-        height: 240.0,
-    };
+    let min = Size::new(320.0, 240.0);
     let root: Box<dyn FnOnce() -> View> = Box::new(|| {
         spawn(crate::platform::request_window_size(100, 300));
         text("resize").into_view()
@@ -55,10 +49,7 @@ fn resize_requests_are_clamped_to_the_apps_single_minimum() {
     screen.run_until_idle();
     assert_eq!(
         screen.with_host(|h| h.requested_sizes().to_vec()),
-        vec![Size {
-            width: 320.0,
-            height: 300.0
-        }]
+        vec![Size::new(320.0, 300.0)]
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

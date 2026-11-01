@@ -78,12 +78,12 @@ impl Region {
 
     /// Where this part of an image drawn at `rect` goes.
     pub fn place(self, rect: Rect) -> Rect {
-        Rect {
-            x: rect.x + self.x * rect.width,
-            y: rect.y + self.y * rect.height,
-            width: self.width * rect.width,
-            height: self.height * rect.height,
-        }
+        Rect::new(
+            rect.x + self.x * rect.width,
+            rect.y + self.y * rect.height,
+            self.width * rect.width,
+            self.height * rect.height,
+        )
     }
 }
 
@@ -102,11 +102,13 @@ impl FitRect {
 /// Places an image of `natural` size in `bounds` by `fit` (see the module
 /// invariants).
 pub fn fit_image(fit: ImageFit, natural: Size, bounds: Rect) -> FitRect {
-    let center = |width: f32, height: f32| Rect {
-        x: bounds.x + (bounds.width - width) / 2.0,
-        y: bounds.y + (bounds.height - height) / 2.0,
-        width,
-        height,
+    let center = |width: f32, height: f32| {
+        Rect::new(
+            bounds.x + (bounds.width - width) / 2.0,
+            bounds.y + (bounds.height - height) / 2.0,
+            width,
+            height,
+        )
     };
     let usable = |v: f32| v.is_finite() && v > 0.0;
     if !usable(natural.width)
@@ -131,6 +133,13 @@ pub fn fit_image(fit: ImageFit, natural: Size, bounds: Rect) -> FitRect {
         ImageFit::Cover => (bounds.width / natural.width).max(bounds.height / natural.height),
         ImageFit::None => 1.0,
         ImageFit::ScaleDown => contain.min(1.0),
+        // Variants added later fall back to Fill.
+        _ => {
+            return FitRect {
+                rect: bounds,
+                clip: false,
+            };
+        }
     };
     let rect = center(natural.width * scale, natural.height * scale);
     // A rounding hair over the box is not an overflow.

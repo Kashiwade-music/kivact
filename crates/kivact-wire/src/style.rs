@@ -143,11 +143,11 @@ pub struct ElementTransform {
 impl ElementTransform {
     /// No transform (origin at the centre).
     pub const NONE: ElementTransform = ElementTransform {
-        translate: Point { x: 0.0, y: 0.0 },
+        translate: Point::new(0.0, 0.0),
         per_size: [0.0; 4],
         rotate: 0.0,
         skew_x: 0.0,
-        scale: Point { x: 1.0, y: 1.0 },
+        scale: Point::new(1.0, 1.0),
         origin: [Len::pct(50.0), Len::pct(50.0)],
     };
 
@@ -157,7 +157,7 @@ impl ElementTransform {
             && self.per_size == [0.0; 4]
             && self.rotate == 0.0
             && self.skew_x == 0.0
-            && self.scale == Point { x: 1.0, y: 1.0 }
+            && self.scale == Point::new(1.0, 1.0)
     }
 }
 
@@ -303,18 +303,8 @@ impl Default for ScrollbarProps {
     fn default() -> Self {
         Self {
             width: 6.0,
-            thumb: Rgba {
-                r: 0.45,
-                g: 0.48,
-                b: 0.52,
-                a: 0.65,
-            },
-            track: Rgba {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.0,
-            },
+            thumb: Rgba::new(0.45, 0.48, 0.52, 0.65),
+            track: Rgba::new(0.0, 0.0, 0.0, 0.0),
         }
     }
 }

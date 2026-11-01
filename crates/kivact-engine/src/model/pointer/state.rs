@@ -185,6 +185,8 @@ impl MouseButtons {
             MouseButton::Middle => 4,
             MouseButton::Back => 8,
             MouseButton::Forward => 16,
+            // Variants added later fall back to no button bit.
+            _ => 0,
         };
         if pressed {
             self.0 |= bit;

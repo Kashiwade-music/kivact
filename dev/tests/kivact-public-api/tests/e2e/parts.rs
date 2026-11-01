@@ -72,13 +72,13 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
             });
         let second = b.state();
         let view = canvas(|draw, _| {
-            draw.region(RegionId(1), Rect::new(0.0, 0.0, 80.0, 40.0));
-            draw.region(RegionId(2), Rect::new(100.0, 0.0, 80.0, 40.0));
+            draw.region(RegionId::new(1), Rect::new(0.0, 0.0, 80.0, 40.0));
+            draw.region(RegionId::new(2), Rect::new(100.0, 0.0, 80.0, 40.0));
         })
         .role(Role::Canvas)
         .name("Drag canvas")
-        .region(RegionId(1), a)
-        .region(RegionId(2), b)
+        .region(RegionId::new(1), a)
+        .region(RegionId::new(2), b)
         .on_pointer(move |_| {
             if consume.get() {
                 Handled::Yes
@@ -111,7 +111,7 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
     assert!(!first.get().pressed && !second.get().pressed);
     assert!(calls.borrow().iter().any(|(id, phase, region)| *id == 1
         && *phase == PointerPhase::Up
-        && *region == Some(RegionId(1))));
+        && *region == Some(RegionId::new(1))));
     assert!(
         !calls.borrow().iter().any(
             |(id, phase, _)| *id == 2 && matches!(phase, PointerPhase::Down | PointerPhase::Up)
@@ -219,14 +219,14 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
             let second_ref = second.node_ref();
             let root = canvas(move |draw, _| {
                 if visible.get() {
-                    draw.region(RegionId(2), Rect::new(100.0, 0.0, 80.0, 40.0));
+                    draw.region(RegionId::new(2), Rect::new(100.0, 0.0, 80.0, 40.0));
                 }
-                draw.region(RegionId(1), Rect::new(0.0, 0.0, 80.0, 40.0));
+                draw.region(RegionId::new(1), Rect::new(0.0, 0.0, 80.0, 40.0));
             })
-            .region(RegionId(1), first)
-            .region(RegionId(2), second)
+            .region(RegionId::new(1), first)
+            .region(RegionId::new(2), second)
             .region(
-                RegionId(3),
+                RegionId::new(3),
                 part(|state| state)
                     .role(Role::Button)
                     .name("Undrawn")

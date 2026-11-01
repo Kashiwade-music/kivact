@@ -95,10 +95,13 @@ impl<C: Canvas> Painter<'_, C> {
             return;
         }
         let shape = shadow.shape;
-        let moved = |r: LogicalRect| LogicalRect {
-            x: r.x + shadow.offset.x,
-            y: r.y + shadow.offset.y,
-            ..r
+        let moved = |r: LogicalRect| {
+            LogicalRect::new(
+                r.x + shadow.offset.x,
+                r.y + shadow.offset.y,
+                r.width,
+                r.height,
+            )
         };
         if shadow.inset {
             let hole = Rounded {
@@ -113,17 +116,7 @@ impl<C: Canvas> Painter<'_, C> {
             self.canvas
                 .set_paint(PaintType::Solid(convert::color(color)));
             self.canvas.fill_rect(&convert::rect(shape.rect));
-            self.blurred(
-                &hole,
-                shadow.std_dev,
-                Rgba {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 1.0,
-                },
-                true,
-            );
+            self.blurred(&hole, shadow.std_dev, Rgba::new(0.0, 0.0, 0.0, 1.0), true);
             self.canvas.pop_layer();
             return;
         }
@@ -297,12 +290,7 @@ impl<C: Canvas> Painter<'_, C> {
                 if (about_x.is_none() && about_y.is_none()) || x1 <= x0 || y1 <= y0 {
                     continue;
                 }
-                let part = LogicalRect {
-                    x: x0,
-                    y: y0,
-                    width: x1 - x0,
-                    height: y1 - y0,
-                };
+                let part = LogicalRect::new(x0, y0, x1 - x0, y1 - y0);
                 // x' = 2 * about - x on each reflected axis.
                 let reflect = Transform {
                     a: if about_x.is_some() { -1.0 } else { 1.0 },

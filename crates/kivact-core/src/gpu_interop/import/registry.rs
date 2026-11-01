@@ -59,7 +59,7 @@ impl State {
     ) -> ExternalImageId {
         let mut imports = self.imports.borrow_mut();
         imports.last += 1;
-        let id = ExternalImageId(imports.last);
+        let id = ExternalImageId::new(imports.last);
         imports.images.insert(
             id,
             Import {

@@ -9,9 +9,7 @@ use crate::d3d12_contract::HAND_OFF_STATE;
 use crate::d3d12_contract::luid_bytes;
 use crate::d3d12_contract::resource_flags as flags;
 use crate::pool::{DROP_WAIT, FrameReady, PoolConfig, Slots};
-use kivact_types::{
-    AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
-};
+use kivact_types::{AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextures};
 use std::os::windows::io::{FromRawHandle, OwnedHandle};
 use std::time::Duration;
 use windows::Win32::Foundation::GENERIC_ALL;
@@ -185,17 +183,17 @@ impl Pool {
             .iter()
             .map(|texture| self.handle(texture))
             .collect::<Result<_, _>>()?;
-        Ok(SharedTextures {
-            width: self.width,
-            height: self.height,
-            format: SharedTextureFormat::Rgba8UnormPremultiplied,
-            backend: GpuBackend::Dx12,
-            adapter: AdapterMatch::Luid(luid),
-            storage: self.storage,
+        let mut shared = SharedTextures::new(
+            GpuBackend::Dx12,
+            AdapterMatch::Luid(luid),
+            self.width,
+            self.height,
             textures,
-            ready: self.handle(&self.ready)?,
-            release: self.handle(&self.release)?,
-        })
+            self.handle(&self.ready)?,
+            self.handle(&self.release)?,
+        );
+        shared.storage = self.storage;
+        Ok(shared)
     }
 
     /// The texture of the next frame, once its last frame signaled

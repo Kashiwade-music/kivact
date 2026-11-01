@@ -27,10 +27,7 @@ pub(super) fn kp(p: WirePoint) -> KPoint {
 }
 
 pub(super) fn wire(p: KPoint) -> WirePoint {
-    WirePoint {
-        x: p.x as f32,
-        y: p.y as f32,
-    }
+    WirePoint::new(p.x as f32, p.y as f32)
 }
 
 /// The cubics of `arc` after `current`, which they move on.

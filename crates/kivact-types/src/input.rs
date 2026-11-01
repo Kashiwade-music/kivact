@@ -6,6 +6,7 @@ use std::ops::Range;
 /// current layout, like the Web's `KeyboardEvent.key`. The physical position
 /// (`KeyboardEvent.code`) is [`KeyCode`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Key {
     /// Printable scalar.
     Char(char),
@@ -60,6 +61,7 @@ pub struct Modifiers {
 
 /// Mouse button.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum MouseButton {
     /// Primary button.
     Primary,
@@ -76,6 +78,7 @@ pub enum MouseButton {
 /// Physical keyboard position, independent of the keyboard layout, like the
 /// Web's `KeyboardEvent.code`. The meaning in the layout is [`Key`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum KeyCode {
     /// KeyA physical position.
     KeyA,
@@ -314,6 +317,7 @@ pub enum KeyCode {
 
 /// Phase of an OS file drag.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum FilePhase {
     /// Entered a target.
     Enter,
@@ -328,6 +332,7 @@ pub enum FilePhase {
 /// What the platform's input method (IME) does with a node that has an IME
 /// session (`NodeProperties::ime`). Offsets are UTF-8 byte offsets.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ImeEvent {
     /// The composition (preedit) is now `text`; `selection` is the part of
     /// it the IME marks (its caret), if it says.

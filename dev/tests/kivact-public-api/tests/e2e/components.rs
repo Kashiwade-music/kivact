@@ -177,14 +177,14 @@ fn disabled_nodes_offer_no_actions_and_lose_the_focus() {
                 .style(style().size(40, 20))
                 .on_press(|| {})
                 .region(
-                    RegionId(1),
+                    RegionId::new(1),
                     kivact::primitive::part(|state| state)
                         .role(Role::Button)
                         .name("bar")
                         .on_press(|| {}),
                 )
                 .draw(|d: &mut Draw, size: Size| {
-                    d.region(RegionId(1), size.to_rect());
+                    d.region(RegionId::new(1), size.to_rect());
                 }),
             text("Visual").name("ignored"),
             kivact::control::node()

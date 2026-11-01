@@ -18,7 +18,7 @@ fn reads_back_the_pattern(backend: GpuBackend) -> Result<(), String> {
         .next()
         .ok_or_else(|| format!("no {backend:?} hardware adapter"))?;
     let mut producer =
-        Producer::new(&adapter, ExternalImageId(1), W, H).expect("the engine starts");
+        Producer::new(&adapter, ExternalImageId::new(1), W, H).expect("the engine starts");
     // One frame per texture: without a window nothing releases a frame,
     // so a texture is not written twice.
     for number in 0..POOL as u64 {
@@ -62,7 +62,7 @@ fn reads_back_the_pattern_with_wgpu(backend: GpuBackend) -> Result<(), String> {
         .next()
         .ok_or_else(|| format!("no {backend:?} hardware adapter"))?;
     let mut producer =
-        Producer::with_wgpu(&adapter, ExternalImageId(1), W, H).expect("the engine starts");
+        Producer::with_wgpu(&adapter, ExternalImageId::new(1), W, H).expect("the engine starts");
     for number in 0..POOL as u64 {
         producer.draw(number).expect("the engine draws");
     }
@@ -108,6 +108,8 @@ fn reads_back_a_texture_of_its_own(backend: GpuBackend) -> Result<(), String> {
         backends: match backend {
             GpuBackend::Dx12 => wgpu::Backends::DX12,
             GpuBackend::Vulkan => wgpu::Backends::VULKAN,
+            // Variants added later fall back to every backend.
+            _ => wgpu::Backends::all(),
         },
         flags: wgpu::InstanceFlags::empty().with_env(),
         ..wgpu::InstanceDescriptor::new_without_display_handle()

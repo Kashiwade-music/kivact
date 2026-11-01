@@ -55,10 +55,7 @@ pub(in crate::embed) fn open(
         .scale
         .unwrap_or_else(|| super::dpi::scale(parent.get()));
     let (width, height) = crate::embed::geometry::physical_size(
-        kivact_types::Size {
-            width: options.width,
-            height: options.height,
-        },
+        kivact_types::Size::new(options.width, options.height),
         scale,
         MAX_DIMENSION,
     )?;
@@ -118,10 +115,7 @@ pub(in crate::embed) fn open(
         if actual != scale {
             shared.set_scale_value(actual);
             let (width, height) = crate::embed::geometry::physical_size(
-                kivact_types::Size {
-                    width: options.width,
-                    height: options.height,
-                },
+                kivact_types::Size::new(options.width, options.height),
                 actual,
                 MAX_DIMENSION,
             )?;

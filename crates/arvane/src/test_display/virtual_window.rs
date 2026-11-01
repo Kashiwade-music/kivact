@@ -73,10 +73,7 @@ impl Default for VirtualWindowOptions {
     fn default() -> Self {
         Self {
             title: String::new(),
-            size: Size {
-                width: 800.0,
-                height: 600.0,
-            },
+            size: Size::new(800.0, 600.0),
             scale: 1.0,
             frame_period_ns: 16_666_667,
             reduced_motion: false,

@@ -220,12 +220,7 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
         cmds: vec![
             SceneCmd::Rect {
                 rect: Rect::new(0., 0., 160., 60.),
-                fill: Fill::Solid(Rgba {
-                    r: 1.,
-                    g: 1.,
-                    b: 1.,
-                    a: 1.,
-                }),
+                fill: Fill::Solid(Rgba::new(1., 1., 1., 1.)),
             },
             SceneCmd::Image {
                 source: Asset::from(SVG),
@@ -284,12 +279,7 @@ fn a_depth_fallback_reports_a_dropped_local_command_only_once() {
     use kivact_wire::{Fill, Rgba, Scene, SceneCmd};
     use std::sync::Arc;
     let mut cmds = vec![SceneCmd::PushTransform([1., 0., 0., 1., 0., 0.]); 256];
-    let red = Fill::Solid(Rgba {
-        r: 1.,
-        g: 0.,
-        b: 0.,
-        a: 1.,
-    });
+    let red = Fill::Solid(Rgba::new(1., 0., 0., 1.));
     cmds.push(SceneCmd::Rect {
         rect: Rect::new(f32::NAN, 0., 2., 2.),
         fill: red.clone(),

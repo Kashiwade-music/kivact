@@ -33,15 +33,15 @@ pub fn image_content_size(
     let reference = hint.or(natural).unwrap_or_default();
     let ratio = natural.or(hint).filter(|r| r.width > 0.0 && r.height > 0.0);
     match (width, height) {
-        (Some(width), Some(height)) => Size { width, height },
-        (Some(width), None) => Size {
+        (Some(width), Some(height)) => Size::new(width, height),
+        (Some(width), None) => Size::new(
             width,
-            height: ratio.map_or(reference.height, |r| width * r.height / r.width),
-        },
-        (None, Some(height)) => Size {
-            width: ratio.map_or(reference.width, |r| height * r.width / r.height),
+            ratio.map_or(reference.height, |r| width * r.height / r.width),
+        ),
+        (None, Some(height)) => Size::new(
+            ratio.map_or(reference.width, |r| height * r.width / r.height),
             height,
-        },
+        ),
         (None, None) => reference,
     }
 }

@@ -70,11 +70,13 @@ impl Contacts {
                 if let Some(at) = at {
                     events.push(cancel(self.live.remove(at)));
                 }
-                let id = PointerId(self.next);
+                let id = PointerId::new(self.next);
                 self.next += 1;
                 let kind = match platform.kind {
                     PointerKind::Pen => PointerKind::Pen,
                     PointerKind::Touch | PointerKind::Mouse => PointerKind::Touch,
+                    // Variants added later fall back to a touch contact.
+                    _ => PointerKind::Touch,
                 };
                 self.live.push(Live {
                     platform: platform.id.0,
@@ -99,6 +101,8 @@ impl Contacts {
             | (PointerPhase::Move | PointerPhase::Up | PointerPhase::Cancel, None) => {
                 return events;
             }
+            // Variants added later are ignored.
+            _ => return events,
         };
         events.push(ShellEvent::Pointer(PointerInput {
             id,

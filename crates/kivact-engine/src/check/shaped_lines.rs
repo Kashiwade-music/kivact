@@ -65,10 +65,7 @@ pub(super) fn shape(
             let (mut lines, text) = host.edit_lines(id, engine)?;
             (
                 lines.shaped(text, 0, engine)?,
-                Point {
-                    x: area.x + lines.offset(text, 0, area.width, engine),
-                    y: line.y,
-                },
+                Point::new(area.x + lines.offset(text, 0, area.width, engine), line.y),
             )
         }
         NodeType::Text
@@ -93,13 +90,7 @@ pub(super) fn shape(
                 };
                 engine.shape_glyphs(text, &style, width)
             };
-            (
-                shaped.ok()?,
-                Point {
-                    x: area.x,
-                    y: area.y,
-                },
-            )
+            (shaped.ok()?, Point::new(area.x, area.y))
         }
         _ => return None,
     };
@@ -115,12 +106,7 @@ pub(super) fn shape(
                 d(*a).total_cmp(&d(*b))
             });
             if let Some(i) = nearest {
-                let b = Rect {
-                    x: origin.x + b.x,
-                    y: origin.y + b.y,
-                    width: b.width,
-                    height: b.height,
-                };
+                let b = Rect::new(origin.x + b.x, origin.y + b.y, b.width, b.height);
                 inks[i] = Some(inks[i].map_or(b, |a| a.union(b)));
             }
         }
@@ -138,18 +124,14 @@ pub(super) fn shape(
             } else {
                 l.ascent
             };
-            let metrics = Rect {
+            let metrics = Rect::new(
                 x,
-                y: origin.y + l.baseline - top,
-                width: l.rect.width,
-                height: top + l.descent,
-            };
+                origin.y + l.baseline - top,
+                l.rect.width,
+                top + l.descent,
+            );
             // The advance across, the ink down.
-            let ink = ink.map_or(metrics, |i| Rect {
-                x,
-                width: l.rect.width,
-                ..i
-            });
+            let ink = ink.map_or(metrics, |i| Rect::new(x, i.y, l.rect.width, i.height));
             Line {
                 ink,
                 baseline: origin.y + l.baseline,

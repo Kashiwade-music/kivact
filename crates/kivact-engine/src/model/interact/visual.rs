@@ -31,21 +31,22 @@ pub(crate) fn text_box(host: &Model, id: NodeId) -> Rect {
 
 /// A content box (relative to its node) placed at the box `bounds`.
 pub(crate) fn content_at(bounds: Rect, content: Rect) -> Rect {
-    Rect {
-        x: bounds.x + content.x,
-        y: bounds.y + content.y,
-        ..content
-    }
+    Rect::new(
+        bounds.x + content.x,
+        bounds.y + content.y,
+        content.width,
+        content.height,
+    )
 }
 
 /// `bounds` without its visible border: where canvas scenes are placed
 /// and the content of a clipping node is clipped (before its inner radii).
 pub(crate) fn padding_box(bounds: Rect, paint: &PaintProps) -> Rect {
     let b = kivact_lower::shape::border_widths(paint.border.as_ref());
-    Rect {
-        x: bounds.x + b.left,
-        y: bounds.y + b.top,
-        width: (bounds.width - b.left - b.right).max(0.0),
-        height: (bounds.height - b.top - b.bottom).max(0.0),
-    }
+    Rect::new(
+        bounds.x + b.left,
+        bounds.y + b.top,
+        (bounds.width - b.left - b.right).max(0.0),
+        (bounds.height - b.top - b.bottom).max(0.0),
+    )
 }

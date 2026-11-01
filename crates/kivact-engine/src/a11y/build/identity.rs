@@ -11,14 +11,14 @@ impl Model {
     ) -> Option<kivact_types::NodeId> {
         self.node(target.node)?;
         match target.region {
-            None => Some(kivact_types::NodeId(target.node.0)),
+            None => Some(kivact_types::NodeId::new(target.node.0)),
             Some(region) => {
                 self.node(target.node)?.region(region)?;
                 self.a11y
                     .region_ids
                     .get(&(target.node, region))
                     .copied()
-                    .map(kivact_types::NodeId)
+                    .map(kivact_types::NodeId::new)
             }
         }
     }
