@@ -10,7 +10,16 @@
 
 ## コード
 
-規則の多くは root の `[workspace.lints]`（全 crate が `[lints] workspace = true` で参加）と `cargo xtask check` が強制します。道具が確かめない規則は次のとおりです。
+規則の多くは root の `[workspace.lints]`（全 crate が `[lints] workspace = true` で参加）と `cargo xtask check` が強制します。`cargo xtask check` は [Google Rust Style Guide](https://google.github.io/styleguide/rustguide.html) の機械的に確かめられる 20 の規則（`vendor/xtask-core/README.md` の「Style checks」）もすべて検査します。主なものは次のとおりです。
+
+- 子 module を持つ module は、`mod` の宣言と再公開だけを置きます。実装は役割を一つに絞った葉の module に置きます。
+- `kivact` facade と公式キットから届く公開 enum と、field を公開した struct には `#[non_exhaustive]` を付けます。公開 item にはすべて rustdoc を書きます。
+- panic は不具合です。`catch_unwind` で隔離せず、毒された lock の中身にも触れません。
+- glob import は使いません（例・雛形・利用者側の E2E での `kivact::prelude::*` は除きます）。
+
+規則を外す場合は、Google の指針自体が認める場合（意図した prelude、外部の frame との境界での defense in depth、FRU で組み立てる option の束、変わらない enum など）だけ、`dev/xtask/policy/workspace.toml` の `[[style.exceptions]]` に設計上の理由を書きます。違反の件数を減らすための例外や、規則を逃れるためだけの module 分けはしません（style の規則が選んだ lint は source の `#[allow]` より優先されるので、`#[allow]` では外せません）。
+
+道具が確かめない規則は次のとおりです。
 
 - コードのコメントと rustdoc は英語で書きます。すべての crate root と module（inline の `mod {}` を含む）の先頭に `//! Role: <英語の 1 文>` を置きます（xtask が図に表示します）。
 - `unsafe` は `#[allow(unsafe_code, reason = "…")]` を明示した module だけで使い、ブロックごとに `// SAFETY:` で前提を書きます。
@@ -54,7 +63,7 @@ dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --no-default-f
 dev/tools/check-features.sh
 ```
 
-`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向きを検査し、`architecture/` の図を生成します。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
+`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
 
 ## commit と PR
 
