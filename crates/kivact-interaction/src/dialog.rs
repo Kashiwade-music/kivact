@@ -269,6 +269,8 @@ impl DialogApi {
                 rules.outside
             }
             DismissReason::Accessibility => true,
+            // Variants added later fall back to an accessibility dismissal.
+            _ => true,
         };
         let surface = if self.popover() {
             self.popup.content_with(allowed)

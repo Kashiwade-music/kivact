@@ -19,6 +19,7 @@ use kivact_task::spawn_in;
 
 /// Where a [`SharedImage`] stands, tracked ([`SharedImage::status`]).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ShareStatus {
     /// A [`ShareMode::Gpu`] request was issued; the engine has not
     /// provided textures for it yet.

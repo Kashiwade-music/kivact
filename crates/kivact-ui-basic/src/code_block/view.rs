@@ -202,7 +202,7 @@ fn line_colors(
         if let Some(color) = tone_color(colors, span.tone)
             && !range.is_empty()
         {
-            out.push(TextHighlight { range, color });
+            out.push(TextHighlight::new(range, color));
         }
     }
     (out, index + 1)

@@ -303,6 +303,8 @@ impl Popup {
                 DismissReason::Escape => PopupCloseReason::Escape,
                 DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
                 DismissReason::Accessibility => PopupCloseReason::Accessibility,
+                // Variants added later fall back to an accessibility dismissal.
+                _ => PopupCloseReason::Accessibility,
             });
         })
         .on_bind(move |_| self.watch(at))

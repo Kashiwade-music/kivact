@@ -49,6 +49,7 @@ use kivact_wire::Role;
 
 /// Row height policy of a virtual list.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum RowHeight {
     /// Every row has this height (logical px).
     Fixed(f32),

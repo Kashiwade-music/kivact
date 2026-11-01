@@ -11,7 +11,9 @@ use std::path::Path;
 
 /// Pixels of a frame the host presented (0x00RRGGBB, row by row, in
 /// physical pixels), or of a part of it.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Screenshot {
     /// Width in physical pixels.
     pub width: u32,
@@ -66,7 +68,9 @@ impl Screenshot {
 
 /// What the host answers the platform IME about the focused text input
 /// ([`super::model::Screen::ime_text`]). Ranges are in chars of `text`.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ImeText {
     /// The text around the caret the IME is given, an open composition
     /// included: the input's value when it is short, else the lines around
@@ -224,7 +228,9 @@ impl From<p::LayoutRule> for LayoutRule {
 }
 
 /// A layout defect of one text.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct LayoutViolation {
     /// What is wrong.
     pub rule: LayoutRule,
@@ -292,7 +298,9 @@ impl fmt::Display for LayoutViolation {
 }
 
 /// Semantic snapshot of a node.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct SemanticNode {
     pub role: Option<Role>,
     pub name: String,

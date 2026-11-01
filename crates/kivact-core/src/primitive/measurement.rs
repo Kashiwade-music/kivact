@@ -5,6 +5,7 @@ use kivact_wire::{self as wire};
 
 /// Space available to a primitive along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum AvailableSpace {
     /// A definite number of logical pixels.
     Definite(f32),
@@ -159,7 +160,9 @@ pub(super) fn constraints(
 /// (`align(Align::Baseline)`) lines this baseline up with its siblings'
 /// (a text's, a text field's). Without one, the primitive's baseline is
 /// the bottom of its box.
+/// Built with [`Measurement::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Measurement {
     /// The primitive's size.
     pub size: Size,
