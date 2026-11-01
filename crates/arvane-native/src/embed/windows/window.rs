@@ -12,8 +12,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use windows_sys::Win32::Graphics::Gdi::{
     DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, InvalidateRect,
     MONITOR_DEFAULTTONEAREST, MONITORINFOEXW, MonitorFromWindow,

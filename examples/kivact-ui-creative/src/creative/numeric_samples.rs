@@ -2,8 +2,7 @@
 use crate::creative::audio_values::TransportState;
 
 use super::common::{bind, col, note, spec, specs};
-use super::controls::num;
-use super::controls::slide;
+use super::controls::{num, slide};
 use kivact::Binding;
 use kivact::prelude::{IntoView, NodeBuilder, Signal, column, rgb, row, signal};
 use kivact::style::{pct, style};

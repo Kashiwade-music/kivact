@@ -5,8 +5,7 @@ use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::EditPhase;
-use kivact::view::Modifiers;
-use kivact::view::MouseButton;
+use kivact::view::{Modifiers, MouseButton};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Copy)]

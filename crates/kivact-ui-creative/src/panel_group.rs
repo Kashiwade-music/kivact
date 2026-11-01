@@ -1,8 +1,6 @@
 //! Role: Inspector panel groups with peer collapse and reordering.
 
 use crate::Color;
-use kivact::Binding;
-use kivact::binding;
 use kivact::control::icon;
 use kivact::draw::Rect;
 use kivact::i18n::{message, message_with};
@@ -12,10 +10,10 @@ use kivact::prelude::{
     row, signal, style, text, var,
 };
 use kivact::primitive::NodeExt;
-use kivact::style::Align;
-use kivact::style::current_theme;
+use kivact::style::{Align, current_theme};
 use kivact::view::{A11yAction, Handled};
 use kivact::view::{MouseButton, PointerPhase, for_each};
+use kivact::{Binding, binding};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

@@ -37,8 +37,7 @@
 //! loop per process, and this display holds it.
 
 use crate::a11y::native::NativeAccessibility;
-use arvane_shell::Accessibility;
-use arvane_shell::PlatformTree;
+use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
 use kivact_types::{NodeId, Point, Rect, Role, SemanticsNode, SemanticsTree, Transform};
 use std::collections::HashMap;

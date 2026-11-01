@@ -1,8 +1,7 @@
 //! Role: Outliner of the Creative kit: a consumer-owned hierarchy tree view.
 pub(crate) mod view_state;
 
-use crate::Color;
-use crate::LabelTone;
+use crate::{Color, LabelTone};
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::draw::Point;
 use kivact::i18n::message;

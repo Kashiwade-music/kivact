@@ -6,8 +6,7 @@
 use super::{clean, near};
 use kivact::draw::Rect;
 use kivact::prelude::*;
-use kivact::test::Element;
-use kivact::test::Screen;
+use kivact::test::{Element, Screen};
 use kivact_ui_creative as ui;
 
 fn width(element: &Element<'_>) -> f32 {

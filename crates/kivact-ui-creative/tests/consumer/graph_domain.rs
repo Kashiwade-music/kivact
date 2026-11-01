@@ -1,6 +1,5 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
-use super::graph_support::app_graph;
-use super::graph_support::graph_edits;
+use super::graph_support::{app_graph, graph_edits};
 use super::{clean, near};
 use kivact::prelude::*;
 use kivact::test::Screen;

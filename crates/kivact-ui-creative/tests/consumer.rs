@@ -4,8 +4,7 @@ use kivact::draw::{Point, Size};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 use kivact::ui::{MenuEntry, toaster};
-use kivact::view::A11yAction;
-use kivact::view::callback;
+use kivact::view::{A11yAction, callback};
 use kivact_ui_creative as ui;
 
 fn choice_options(

@@ -2,16 +2,11 @@
 
 use super::arrangement_model::arrangement as app_arrangement;
 use super::clean;
-use super::table_rows::line;
-use super::table_rows::lines;
+use super::table_rows::{line, lines};
 use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::primitive::NodeExt;
-use kivact::view::A11yAction;
-use kivact::view::Handled;
-use kivact::view::KeyCode;
-use kivact::view::Modifiers;
-use kivact::view::MouseButton;
+use kivact::view::{A11yAction, Handled, KeyCode, Modifiers, MouseButton};
 use kivact_ui_creative as ui;
 use std::time::Duration;
 
