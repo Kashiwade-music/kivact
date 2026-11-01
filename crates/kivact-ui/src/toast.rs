@@ -141,6 +141,8 @@ fn tone_icon(tone: Tone) -> Option<&'static str> {
         Tone::Warning => "toast-warning",
         Tone::Danger => "toast-danger",
         Tone::Accent => "toast-accent",
+        // Variants added later fall back to the neutral tone.
+        _ => return None,
     };
     kivact_core::style::current_theme()
         .icons()

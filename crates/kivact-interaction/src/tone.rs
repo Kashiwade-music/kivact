@@ -25,6 +25,7 @@
 /// assert!(!Tone::Success.is_urgent());
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Tone {
     /// No particular meaning: plain text and no icon.
     #[default]

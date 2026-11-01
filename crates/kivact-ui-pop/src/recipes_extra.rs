@@ -377,6 +377,8 @@ fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
         Tone::Warning => Hue::Yellow,
         Tone::Danger => Hue::Red,
         Tone::Accent => Hue::Pink,
+        // Variants added later fall back to the neutral tone.
+        _ => Hue::Gray,
     };
     chrome(t)
         .direction(Direction::Row)

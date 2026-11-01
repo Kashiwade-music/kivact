@@ -41,11 +41,21 @@ use super::disclosure::{Disclosure, use_disclosure};
 use super::focus_return::{FocusReturn, PopupCloseReason};
 
 /// The open state and actual input state of a popup's trigger or surface.
+/// Built with [`PopupState::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct PopupState {
     pub input: PartState,
     /// The application's open state.
     pub open: bool,
+}
+
+impl PopupState {
+    /// The state of a popup whose part is in `input` and which is `open`
+    /// or closed.
+    pub const fn new(input: PartState, open: bool) -> Self {
+        PopupState { input, open }
+    }
 }
 
 /// Copy handle for a popup: a disclosure whose content floats in an overlay.

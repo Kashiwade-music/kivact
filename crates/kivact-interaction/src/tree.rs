@@ -93,7 +93,9 @@ impl<K> TreeNode<K> {
 ///
 /// Key `for_each` rows by `(key, has_children)` so a parent/leaf transition
 /// rebuilds the row Part and its accessibility action set.
+/// Produced by the framework; read its fields.
 #[derive(Clone, PartialEq, Debug)]
+#[non_exhaustive]
 pub struct TreeRow<K> {
     pub key: K,
     /// The depth, counted from 1 for a root.
@@ -278,7 +280,9 @@ struct Shared<K: Clone + Eq + Hash + 'static> {
 }
 
 /// Actual input, selection and reactive metadata of an attached tree row.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TreeItemState {
     pub input: PartState,
     pub selected: bool,

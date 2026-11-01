@@ -57,6 +57,7 @@ pub enum Side {
 
 /// What a [`DialogApi`] is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DialogKind {
     /// A modal dialog in the middle of the window (`Role::Dialog`).
     Modal,

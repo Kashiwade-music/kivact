@@ -439,10 +439,10 @@ fn viewport_surface_forwards_application_image_coordinates() {
         (
             position,
             ui::viewport_surface(None)
-                .transform(signal(kivact::interaction::ViewTransform {
-                    offset: Point::new(10.0, 20.0),
-                    scale: 2.0,
-                }))
+                .transform(signal(kivact::interaction::ViewTransform::new(
+                    2.0,
+                    Point::new(10.0, 20.0),
+                )))
                 .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
                 .style(style().size(300, 200))
                 .test_id("viewport"),

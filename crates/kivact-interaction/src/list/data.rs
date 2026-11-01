@@ -108,6 +108,7 @@ impl<K> ListItem<K> {
 
 /// What happens at the first and last available choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ListBoundary {
     #[default]
     Wrap,
@@ -116,6 +117,7 @@ pub enum ListBoundary {
 
 /// Whether keyboard navigation also writes the selected key.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ListActivation {
     #[default]
     Automatic,
@@ -124,6 +126,7 @@ pub enum ListActivation {
 
 /// How an inclusive range changes the existing selection.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ListRangeMode {
     /// Replace the selection with the visible range.
     #[default]
@@ -134,6 +137,7 @@ pub enum ListRangeMode {
 
 /// An explicit selection request, independent of pointer or keyboard input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ListGesture {
     /// Select only the target and establish a new anchor.
     Replace,
@@ -172,6 +176,7 @@ impl ListGesture {
 
 /// Fallback when the anchor no longer appears in the selectable visible order.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ListMissingAnchor {
     /// Start at the target, producing a one-item range.
     #[default]
@@ -182,6 +187,7 @@ pub enum ListMissingAnchor {
 
 /// Which application command modifier toggles or adds to a selection.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ListCommandModifier {
     Control,
     Meta,
@@ -210,6 +216,7 @@ impl Default for ListRangePolicy {
 }
 
 /// The authoritative caller selection, with no internal selection mirror.
+#[non_exhaustive]
 pub enum ListSelection<K: Clone + PartialEq + 'static> {
     Single(Binding<Option<K>>),
     Multiple(Binding<Vec<K>>),
@@ -285,9 +292,23 @@ impl ListPolicy {
 }
 
 /// Selection, active candidate and actual input state for an attached item.
+/// Built with [`ListItemState::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ListItemState {
     pub input: PartState,
     pub selected: bool,
     pub active: bool,
+}
+
+impl ListItemState {
+    /// The state of an item whose part is in `input`, which is `selected`
+    /// or not and is the `active` candidate or not.
+    pub const fn new(input: PartState, selected: bool, active: bool) -> Self {
+        ListItemState {
+            input,
+            selected,
+            active,
+        }
+    }
 }

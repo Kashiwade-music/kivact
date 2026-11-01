@@ -71,6 +71,7 @@ use kivact_core::{Callback, UiError, Var, on_cleanup, var};
 /// # let _ = view;
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EditPhase {
     /// The edit starts; no write has happened yet.
     Begin,

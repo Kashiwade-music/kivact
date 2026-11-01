@@ -809,6 +809,8 @@ fn tone_color(t: &Theme, tone: Tone) -> Color {
         Tone::Warning => t.colors().warning,
         Tone::Danger => t.colors().danger,
         Tone::Accent => t.get::<Tokens>().yellow,
+        // Variants added later fall back to the neutral tone.
+        _ => t.colors().accent,
     }
 }
 /// A stack at the window's bottom right, above the page.

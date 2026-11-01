@@ -31,6 +31,8 @@ impl ToneExt for Tone {
             Self::Warning => p.warning,
             Self::Danger => p.x,
             Self::Accent => p.accent_high,
+            // Variants added later fall back to the neutral tone.
+            _ => p.muted,
         }
     }
 }

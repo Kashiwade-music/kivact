@@ -701,6 +701,8 @@ impl IntoView for Alert {
             Tone::Warning => Hue::Yellow,
             Tone::Danger => Hue::Red,
             Tone::Accent => Hue::Pink,
+            // Variants added later fall back to the neutral tone.
+            _ => Hue::Gray,
         };
         self.root
             .child((

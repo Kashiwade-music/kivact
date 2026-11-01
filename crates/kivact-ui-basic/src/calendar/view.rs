@@ -169,6 +169,8 @@ impl IntoView for Calendar {
         let anchor = match selection {
             CalendarSelection::Single(value) => value.get_untracked(),
             CalendarSelection::Range(value) => value.get_untracked().map(|r| r.start()),
+            // Variants added later fall back to no anchor.
+            _ => None,
         };
         let focus_day = anchor.unwrap_or(today);
         let month: Binding<CalendarMonth> = signal(month.unwrap_or(focus_day.month_of())).into();

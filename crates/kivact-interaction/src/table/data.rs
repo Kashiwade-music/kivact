@@ -18,6 +18,7 @@ pub(super) struct Header<C> {
 
 /// Which elements of a [`Table`](crate::Table) take the keyboard focus.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TableFocus {
     /// A data grid: one cell is the tab stop and the grid keys move between
     /// cells. Use it when cells hold data a user reads or edits one by one.
@@ -30,7 +31,9 @@ pub enum TableFocus {
 }
 
 /// The sort state and actual input state of a column header.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TableHeaderState {
     pub input: PartState,
     pub sort: SortDirection,
@@ -38,7 +41,9 @@ pub struct TableHeaderState {
 }
 
 /// The selection, roving focus and actual input state of a row.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TableRowState {
     pub input: PartState,
     pub selected: bool,
@@ -48,11 +53,25 @@ pub struct TableRowState {
 }
 
 /// The row selection, roving focus and actual input state of a cell.
+/// Built with [`TableCellState::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TableCellState {
     pub input: PartState,
     /// The cell's row is selected.
     pub selected: bool,
     /// The cell holds the tab stop; always false with [`TableFocus::Rows`].
     pub active: bool,
+}
+
+impl TableCellState {
+    /// The state of a cell whose part is in `input`, whose row is `selected`
+    /// or not and which holds the tab stop (`active`) or not.
+    pub const fn new(input: PartState, selected: bool, active: bool) -> Self {
+        TableCellState {
+            input,
+            selected,
+            active,
+        }
+    }
 }

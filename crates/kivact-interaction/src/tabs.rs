@@ -31,7 +31,9 @@ struct Refs<K> {
 }
 
 /// The selected state and actual input state of a tab or panel.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TabState {
     pub input: PartState,
     pub selected: bool,
@@ -41,7 +43,9 @@ pub struct TabState {
 }
 
 /// The actual input state and the orientation of a tab list.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TabListState {
     pub input: PartState,
     /// How the tabs are laid out ([`TabsApi::orientation`]).

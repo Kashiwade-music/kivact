@@ -148,6 +148,8 @@ impl IntoView for Alert {
                             kivact::ui::Tone::Success => kivact::style::ColorToken::Success.into(),
                             kivact::ui::Tone::Warning => kivact::style::ColorToken::Warning.into(),
                             kivact::ui::Tone::Danger => p.destructive,
+                            // Variants added later fall back to the neutral tone.
+                            _ => p.card_foreground,
                         },
                         AlertVariant::Destructive => p.destructive,
                     })

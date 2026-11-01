@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 /// How a day lies in the selection.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CalendarSpan {
     /// The first day of a range of several days.
     Start,
@@ -27,7 +28,9 @@ pub enum CalendarSpan {
 }
 
 /// The reactive drawing state of a [`cell`](CalendarGrid::cell).
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CalendarDayState {
     pub input: PartState,
     /// The day is chosen or inside the chosen range; it is published as

@@ -93,6 +93,8 @@ fn level<K: Clone + Eq + Hash + 'static>(m: MenuApi<K>) -> Node {
                     row.into_view()
                 }
             }
+            // Variants added later fall back to an empty row.
+            _ => ().into_view(),
         },
     );
     column(rows).style(style().min_width(160).padding(4))

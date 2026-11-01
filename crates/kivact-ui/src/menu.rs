@@ -434,6 +434,8 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
                     )
                     .into_view()
                 }
+                // Variants added later fall back to an empty row.
+                _ => ().into_view(),
             },
         );
         let content = with_recipe_style(

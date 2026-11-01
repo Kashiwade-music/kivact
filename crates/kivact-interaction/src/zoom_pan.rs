@@ -32,7 +32,9 @@ use kivact_core::{Binding, Value, Var, effect, var};
 
 /// Content-to-view coordinates: `view = content * scale + offset`.
 /// Invalid (non-positive or non-finite) scales are treated as 1 by operations.
+/// Built with [`ViewTransform::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ViewTransform {
     pub offset: Point,
     pub scale: f64,
@@ -47,6 +49,12 @@ impl Default for ViewTransform {
     }
 }
 impl ViewTransform {
+    /// A transform that scales content by `scale` and then moves it by
+    /// `offset`.
+    pub const fn new(scale: f64, offset: Point) -> Self {
+        ViewTransform { offset, scale }
+    }
+
     /// Map a surface-local point into content coordinates.
     pub fn to_content(&self, view: Point) -> Point {
         let scale = valid_scale(self.scale);
