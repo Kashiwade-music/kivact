@@ -1,6 +1,6 @@
 # Third-party notices and provenance
 
-Kivact is Copyright (c) 2026 Kashiwade <kashiwade@outlook.com> and is licensed under `MIT OR Apache-2.0` ([LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE)). The materials below keep their own licenses and copyright notices, which must be retained.
+Kivact is Copyright (c) 2026 Kashiwade <kashiwade@outlook.com> and is licensed under `MIT OR Apache-2.0` ([LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE)). The third-party materials below keep their own licenses and copyright notices, which must be retained.
 
 | Material | Local license / provenance record |
 |---|---|
@@ -10,7 +10,7 @@ Kivact is Copyright (c) 2026 Kashiwade <kashiwade@outlook.com> and is licensed u
 | Tabler icons in Pop/Game/Creative | [Pop license](crates/kivact-ui-pop/assets/LICENSE-tabler-icons.txt), [Game license](crates/kivact-ui-game/assets/LICENSE-tabler-icons.txt), [Creative license](crates/kivact-ui-creative/LICENSE-tabler-icons.txt): supplied MIT terms and Paweł Kuna copyright notice |
 | Lucide icons in Basic | [Basic license](crates/kivact-ui-basic/assets/LICENSE-lucide.txt): ISC terms of lucide-static 0.468.0 with the Lucide Contributors and Feather (Cole Bemis, MIT) copyright notices; the SVG files keep their `@license` comments |
 | Catalog font families | Each catalog's font asset directory retains original OFL.txt notices, SOURCE.md and SHA256SUMS.txt. Inter, Barlow, Barlow Condensed, JetBrains Mono, Geist, Geist Mono and Noto Sans JP were sourced from the Google Fonts repository according to the supplied record. Checksums identify bytes; they do not replace license notices |
-| Image/SVG/PNG/JPEG/GIF test fixtures | Required regression assets remain in their test packages. A complete creator/generator/provenance record has not been established. Identical copies do not establish authorship or permission |
+| Project-made images | The image fixtures of the tests (PNG, JPEG, GIF, SVG), the example images (`examples/kivact-ui-basic/assets/images`, the music player covers), the documentation logo and icons, and the icons of the workbench and the external-component fixture are simple shapes and gradients made for Kivact. They are part of Kivact and fall under its license |
 
 The fixture/font cross-package references are test inputs, not permission to expose internal crates through the public facade. License and provenance records must move with assets.
 

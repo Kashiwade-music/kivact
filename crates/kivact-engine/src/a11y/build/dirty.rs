@@ -14,14 +14,14 @@ impl Model {
     pub(crate) fn build_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> Option<ui_types::SemanticsTree> {
+    ) -> Option<kivact_types::SemanticsTree> {
         self.build_semantics_for(engine, true)
     }
 
     pub(crate) fn build_dirty_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> Option<ui_types::SemanticsTree> {
+    ) -> Option<kivact_types::SemanticsTree> {
         self.build_semantics_for(engine, self.a11y.full)
     }
 
@@ -29,7 +29,7 @@ impl Model {
         &mut self,
         engine: &mut a::Engine,
         full: bool,
-    ) -> Option<ui_types::SemanticsTree> {
+    ) -> Option<kivact_types::SemanticsTree> {
         let Some(root) = self.tree().root() else {
             let id = match self.a11y.empty_root {
                 Some(id) => id,
@@ -42,14 +42,14 @@ impl Model {
             let node = structural(
                 wire::NodeId(id),
                 Vec::new(),
-                ui_types::Rect {
+                kivact_types::Rect {
                     x: 0.0,
                     y: 0.0,
                     width: self.viewport.width,
                     height: self.viewport.height,
                 },
-                ui_types::Point::default(),
-                ui_types::Transform::IDENTITY,
+                kivact_types::Point::default(),
+                kivact_types::Transform::IDENTITY,
                 false,
             );
             self.a11y.prepared = Some(crate::a11y::state::Metadata {
@@ -60,8 +60,8 @@ impl Model {
             {
                 self.a11y.constructed += 1;
             }
-            return Some(ui_types::SemanticsTree {
-                root: ui_types::NodeId(id),
+            return Some(kivact_types::SemanticsTree {
+                root: kivact_types::NodeId(id),
                 focus: None,
                 nodes: vec![node],
             });
@@ -237,8 +237,8 @@ impl Model {
         }
         let focus = self.semantics_focus(&metadata.clipped);
         self.a11y.prepared = Some(metadata);
-        Some(ui_types::SemanticsTree {
-            root: ui_types::NodeId(root.0),
+        Some(kivact_types::SemanticsTree {
+            root: kivact_types::NodeId(root.0),
             focus,
             nodes,
         })

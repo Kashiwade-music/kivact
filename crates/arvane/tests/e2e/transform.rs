@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use arvane::Presented;
-use ui_types::{DrawCommand, ImageData, Point, Shape, Transform};
+use kivact_types::{DrawCommand, ImageData, Point, Shape, Transform};
 
 use crate::support::{
     BLUE, RED, WHITE, assert_near, fill, ink, open, pixel, present, pt, rect, show, solid,
@@ -181,7 +181,7 @@ fn paints_follow_the_transform() {
             DrawCommand::PushTransform(Transform::rotate_deg(180.0).about(pt(40.0, 20.0))),
             DrawCommand::FillShape {
                 shape: Shape::Rect(rect(0.0, 0.0, 80.0, 40.0)),
-                paint: ui_types::Paint::LinearGradient {
+                paint: kivact_types::Paint::LinearGradient {
                     angle_deg: 0.0,
                     stops: vec![
                         (0.0, crate::support::color(RED)),

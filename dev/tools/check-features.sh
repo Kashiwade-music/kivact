@@ -29,9 +29,9 @@ entries=(
   arvane/gpu
   arvane/gpu-interop
   arvane/testing
-  gpu-share/export
-  gpu-share/import
-  gpu-share/wgpu
+  kivact-gpu-share/export
+  kivact-gpu-share/import
+  kivact-gpu-share/wgpu
   kivact-core/gpu
   kivact-core/gpu-interop
   kivact-core/test

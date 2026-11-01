@@ -14,7 +14,7 @@
 #                    an existing clone there is fetched and checked out again
 #   --repo URL       repository (default: https://github.com/Kashiwade-music/kivact.git;
 #                    use the SSH URL when HTTPS needs credentials)
-#   --branch NAME    branch to verify (default: feat/kashiwade/gpu-interop)
+#   --branch NAME    branch to verify (default: main)
 #   --install-deps   install the runtime packages (Vulkan loader and Mesa
 #                    driver, vulkan-tools, the validation layer, fonts) with
 #                    sudo through apt, dnf or pacman first
@@ -42,7 +42,7 @@ set -uo pipefail
 
 dir="$HOME/kivact-gpu-interop-check"
 repo="https://github.com/Kashiwade-music/kivact.git"
-branch="feat/kashiwade/gpu-interop"
+branch="main"
 install_deps=0
 x11=0
 validation=1

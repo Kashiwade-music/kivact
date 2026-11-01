@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Headless UI behavior and semantics built on public Kivact core contracts"
 
 [dependencies]
-kivact-core = { path = "../kivact-core", default-features = false }
+kivact-core = { path = "../kivact-core", version = "0.1.0", default-features = false }
 
 [lints]
 workspace = true

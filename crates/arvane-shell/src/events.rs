@@ -1,6 +1,6 @@
 //! Role: Platform-independent input vocabulary; pointer coordinates are logical pixels.
 
-use ui_types::{FilePhase, Key, KeyCode, Modifiers};
+use kivact_types::{FilePhase, Key, KeyCode, Modifiers};
 
 /// Ordered shell events delivered on the UI thread.
 #[derive(Clone, Debug, PartialEq)]
@@ -40,7 +40,7 @@ pub enum ShellEvent {
     /// A platform's mouse emulation of touch is not reported as the mouse
     /// as well; a pen hovering without contact is not reported. The wheel
     /// is [`ShellEvent::Wheel`].
-    Pointer(ui_types::PointerInput),
+    Pointer(kivact_types::PointerInput),
     /// Wheel delta in logical pixels (positive scrolls content forward).
     Wheel {
         /// Horizontal logical delta.
@@ -77,7 +77,7 @@ pub enum ShellEvent {
         /// Paths supplied by the operating system.
         files: Vec<std::path::PathBuf>,
         /// Window logical coordinates.
-        position: ui_types::Point,
+        position: kivact_types::Point,
     },
     /// Keyboard modifier state changed.
     Modifiers(Modifiers),
@@ -113,7 +113,7 @@ pub enum ShellEvent {
         node: u64,
         /// Requested portable action; a native click arrives as `Activate` and
         /// is resolved against the node's declared actions by the receiver.
-        action: ui_types::A11yAction,
+        action: kivact_types::A11yAction,
         /// Optional requested text value.
         value: Option<String>,
     },

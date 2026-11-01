@@ -2,7 +2,7 @@
 
 use super::state::AcceptedTree;
 use crate::events::ShellEvent;
-use ui_types::{A11yAction, NodeId};
+use kivact_types::{A11yAction, NodeId};
 
 fn normalized(action: A11yAction) -> A11yAction {
     match action {

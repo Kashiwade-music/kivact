@@ -1,11 +1,11 @@
 //! Role: Bounded text snapshots and font queries owned by one text engine.
 //! Snapshot keys preserve text, style, width and caret distinctions.
 
-use std::{collections::HashMap, hash::Hash};
-use ui_types::{
+use kivact_types::{
     DecorationLines, FontFeature, FontKerning, LineHeight, Rgba, RichText, TextAlign,
     TextDecoration, TextOverflow, TextStyle, TextTransform, TextWrap,
 };
+use std::{collections::HashMap, hash::Hash};
 
 /// Two-generation map bounded by entry count.
 ///
@@ -231,8 +231,8 @@ const MEASURED_ENTRIES: usize = 4096;
 /// All snapshots and font queries owned by one text engine.
 pub(crate) struct Cache {
     pub(crate) shaped:
-        Generations<TextKey, Result<std::sync::Arc<ui_types::ShapedText>, crate::TextError>>,
-    pub(crate) measured: Generations<TextKey, Result<ui_types::TextMetrics, crate::TextError>>,
+        Generations<TextKey, Result<std::sync::Arc<kivact_types::ShapedText>, crate::TextError>>,
+    pub(crate) measured: Generations<TextKey, Result<kivact_types::TextMetrics, crate::TextError>>,
     pub(crate) families: HashMap<String, bool>,
     pub(crate) font_names: Option<Vec<String>>,
 }

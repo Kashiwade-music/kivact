@@ -43,7 +43,7 @@ pub(super) fn open(
     options: ChildOptions,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let ui_types::ParentWindow::Win32(parent) = options.parent else {
+    let kivact_types::ParentWindow::Win32(parent) = options.parent else {
         return Err(ShellError::unsupported(
             "Windows embedding needs a Win32 parent",
         ));
@@ -77,7 +77,7 @@ pub(super) fn open(
     let instance = module()?;
     let scale = options.scale.unwrap_or_else(|| dpi::scale(parent.get()));
     let (width, height) = super::geometry::physical_size(
-        ui_types::Size {
+        kivact_types::Size {
             width: options.width,
             height: options.height,
         },
@@ -137,7 +137,7 @@ pub(super) fn open(
         if actual != scale {
             shared.set_scale_value(actual);
             let (width, height) = match super::geometry::physical_size(
-                ui_types::Size {
+                kivact_types::Size {
                     width: options.width,
                     height: options.height,
                 },

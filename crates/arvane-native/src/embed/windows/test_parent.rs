@@ -1,5 +1,6 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
 use arvane_shell::ShellError;
+use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
 use std::{
     cell::Cell,
     marker::PhantomData,
@@ -7,7 +8,6 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-use ui_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
 use windows_sys::Win32::{
     Foundation::*,
     Graphics::Gdi::*,

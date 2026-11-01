@@ -46,7 +46,7 @@ mod dirty;
 impl Model {
     /// The focus the tree reports: the focused node when it is exposed,
     /// shown and focusable.
-    fn semantics_focus(&self, clipped: &BTreeSet<wire::NodeId>) -> Option<ui_types::NodeId> {
+    fn semantics_focus(&self, clipped: &BTreeSet<wire::NodeId>) -> Option<kivact_types::NodeId> {
         let f = self.focused()?;
         self.exposed(f.node)?;
         if self.hidden(f.node, clipped) || !self.is_focus_target(f) || !self.in_scope(f.node) {
@@ -58,8 +58,8 @@ impl Model {
                 .region_ids
                 .get(&(f.node, region))
                 .copied()
-                .map(ui_types::NodeId),
-            None => Some(ui_types::NodeId(f.node.0)),
+                .map(kivact_types::NodeId),
+            None => Some(kivact_types::NodeId(f.node.0)),
         }
     }
 
@@ -96,7 +96,7 @@ impl Model {
         id: wire::NodeId,
         offset: wire::Point,
         clipped: &BTreeSet<wire::NodeId>,
-        out: &mut Vec<ui_types::SemanticsNode>,
+        out: &mut Vec<kivact_types::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
         engine: &mut a::Engine,
     ) {
@@ -115,12 +115,12 @@ impl Model {
         let transform = if n.place.transformed || n.is_layer() {
             self.a11y_transform(id, n.is_layer(), bounds, offset)
         } else {
-            ui_types::Transform::IDENTITY
+            kivact_types::Transform::IDENTITY
         };
-        let children: Vec<ui_types::NodeId> = self
+        let children: Vec<kivact_types::NodeId> = self
             .tree()
             .children_ids(n)
-            .map(|id| ui_types::NodeId(id.0))
+            .map(|id| kivact_types::NodeId(id.0))
             .collect();
         // The model's exposure (role, name, actions). A node without a
         // role is not exposed: it stays a bare structural node (a
@@ -133,10 +133,10 @@ impl Model {
         };
         let disabled = n.disabled();
         let focusable = self.focusable(id, hidden);
-        let mut actions: Vec<ui_types::A11yAction> =
+        let mut actions: Vec<kivact_types::A11yAction> =
             if hidden { Vec::new() } else { exposed.actions };
-        if focusable && !actions.contains(&ui_types::A11yAction::Focus) {
-            actions.push(ui_types::A11yAction::Focus);
+        if focusable && !actions.contains(&kivact_types::A11yAction::Focus) {
+            actions.push(kivact_types::A11yAction::Focus);
         }
         let scene_regions: BTreeMap<_, _> = n
             .scenes()
@@ -172,9 +172,9 @@ impl Model {
             .semantics()
             .and_then(|s| s.accessibility.as_deref())
             .and_then(|props| props.text.clone());
-        let mut output = ui_types::SemanticsNode {
+        let mut output = kivact_types::SemanticsNode {
             properties: extras,
-            id: ui_types::NodeId(id.0),
+            id: kivact_types::NodeId(id.0),
             role: exposed.role,
             children,
             label: exposed.name,
@@ -226,7 +226,7 @@ impl Model {
             let expanded = state.and_then(|s| s.expanded);
             let native_id = self.region_identity(id, region_id);
             regions.insert(native_id);
-            output.children.push(ui_types::NodeId(native_id));
+            output.children.push(kivact_types::NodeId(native_id));
             let offered = if hidden {
                 Vec::new()
             } else {
@@ -238,7 +238,7 @@ impl Model {
                 && !region.disabled
                 && region.focusable
                 && self.in_scope(id);
-            leaves.push(ui_types::SemanticsNode {
+            leaves.push(kivact_types::SemanticsNode {
                 properties: region
                     .properties
                     .as_deref()
@@ -254,20 +254,20 @@ impl Model {
                         props
                     })
                     .map(Box::new),
-                id: ui_types::NodeId(native_id),
+                id: kivact_types::NodeId(native_id),
                 role: region.role,
                 children: Vec::new(),
                 label: region.name,
                 description: region.description.unwrap_or_default(),
                 value: region.value,
-                bounds: ui_types::Rect {
+                bounds: kivact_types::Rect {
                     x: bounds.x + region.rect.x,
                     y: bounds.y + region.rect.y,
                     width: region.rect.width,
                     height: region.rect.height,
                 },
-                scroll: ui_types::Point::default(),
-                transform: ui_types::Transform::IDENTITY,
+                scroll: kivact_types::Point::default(),
+                transform: kivact_types::Transform::IDENTITY,
                 disabled: disabled || region.disabled,
                 hidden: hidden || region.hidden,
                 focusable: region_focusable,
@@ -295,21 +295,21 @@ impl Model {
         layer: bool,
         bounds: wire::Rect,
         offset: wire::Point,
-    ) -> ui_types::Transform {
+    ) -> kivact_types::Transform {
         let host = &self;
         let own = host.transform_at(id, bounds);
         if !layer {
-            return own.unwrap_or(ui_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Transform::IDENTITY);
         }
         let ancestors: Vec<wire::NodeId> =
             host.tree().chain(Some(id)).into_iter().skip(1).collect();
         let transformed = |x: &wire::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
         if !ancestors.iter().any(transformed) {
-            return own.unwrap_or(ui_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Transform::IDENTITY);
         }
         // What the platform maps it by: each ancestor's scroll, then
         // transform, nearest first.
-        let mut around = ui_types::Transform::IDENTITY;
+        let mut around = kivact_types::Transform::IDENTITY;
         for x in &ancestors {
             let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
             let above = self.scroll_above(*x);
@@ -319,14 +319,14 @@ impl Model {
                 y: r.y + above.y,
                 ..r
             };
-            around = around.then(ui_types::Transform::translate(-s.x, -s.y));
+            around = around.then(kivact_types::Transform::translate(-s.x, -s.y));
             if let Some(t) = host.transform_at(*x, content) {
                 around = around.then(t);
             }
         }
         // Where it is shown: its content box moved back by the scrolls
         // above it, then its own transform at its placed origin.
-        let mut shown = ui_types::Transform::translate(-offset.x, -offset.y);
+        let mut shown = kivact_types::Transform::translate(-offset.x, -offset.y);
         if let Some(r) = host.rect(id)
             && let Some(t) = host.transform_at(id, r)
         {
@@ -334,7 +334,7 @@ impl Model {
         }
         match around.invert() {
             Some(back) => shown.then(back),
-            None => ui_types::Transform::IDENTITY,
+            None => kivact_types::Transform::IDENTITY,
         }
     }
 
@@ -400,7 +400,7 @@ impl Model {
     fn validate_relations(
         &self,
         source: wire::FocusTarget,
-        props: &mut ui_types::SemanticsProperties,
+        props: &mut kivact_types::SemanticsProperties,
     ) {
         // A relation names nodes the platform tree has: one that is
         // gone, not attached or not exposed (no role) is left out. A
@@ -448,22 +448,22 @@ impl Model {
     }
 
     /// Resolve existing focus identities into the platform accessibility tree.
-    fn semantic_target(&self, target: wire::FocusTarget) -> Option<ui_types::NodeId> {
+    fn semantic_target(&self, target: wire::FocusTarget) -> Option<kivact_types::NodeId> {
         self.node(target.node)?;
         match target.region {
-            None => Some(ui_types::NodeId(target.node.0)),
+            None => Some(kivact_types::NodeId(target.node.0)),
             Some(region) => {
                 self.node(target.node)?.region(region)?;
                 self.a11y
                     .region_ids
                     .get(&(target.node, region))
                     .copied()
-                    .map(ui_types::NodeId)
+                    .map(kivact_types::NodeId)
             }
         }
     }
 
-    fn semantic_identity(&self, target: ui_types::NodeId) -> Option<wire::FocusTarget> {
+    fn semantic_identity(&self, target: kivact_types::NodeId) -> Option<wire::FocusTarget> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
             Some(wire::FocusTarget {
@@ -479,7 +479,7 @@ impl Model {
         }
     }
 
-    fn semantic_owner(&self, target: ui_types::NodeId) -> Option<wire::NodeId> {
+    fn semantic_owner(&self, target: kivact_types::NodeId) -> Option<wire::NodeId> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
             Some(*node)
@@ -532,16 +532,16 @@ fn is_clipping_list(n: &crate::tree::node::HostNode, editor_present: bool) -> bo
 /// visibility.
 fn structural(
     id: wire::NodeId,
-    children: Vec<ui_types::NodeId>,
-    bounds: ui_types::Rect,
-    scroll: ui_types::Point,
-    transform: ui_types::Transform,
+    children: Vec<kivact_types::NodeId>,
+    bounds: kivact_types::Rect,
+    scroll: kivact_types::Point,
+    transform: kivact_types::Transform,
     hidden: bool,
-) -> ui_types::SemanticsNode {
-    ui_types::SemanticsNode {
+) -> kivact_types::SemanticsNode {
+    kivact_types::SemanticsNode {
         properties: None,
-        id: ui_types::NodeId(id.0),
-        role: ui_types::Role::Generic,
+        id: kivact_types::NodeId(id.0),
+        role: kivact_types::Role::Generic,
         children,
         label: String::new(),
         description: String::new(),

@@ -115,7 +115,7 @@ mod shaping;
 
 /// Line height of `style` as Arvane's shaper lays lines out: the height of
 /// the caret of an empty text (the font size if `style` cannot be shaped).
-pub fn line_height(engine: &mut arvane::Engine, style: &ui_types::TextStyle) -> f32 {
+pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::TextStyle) -> f32 {
     engine
         .shape("", style, None)
         .ok()
@@ -200,7 +200,7 @@ const PUBLISHED_STEP: usize = 32;
 #[derive(Clone, Debug)]
 pub struct EditLines {
     key: Option<Key>,
-    align: ui_types::TextAlign,
+    align: kivact_types::TextAlign,
     revision: u64,
     height: f32,
     /// The baseline of a line without text (a space's, in the style).
@@ -223,7 +223,7 @@ impl Default for EditLines {
     fn default() -> Self {
         Self {
             key: None,
-            align: ui_types::TextAlign::default(),
+            align: kivact_types::TextAlign::default(),
             revision: 0,
             height: 0.0,
             blank: 0.0,
@@ -246,7 +246,7 @@ pub struct Published {
     pub end: u32,
     /// Owned shared runs, retaining their font-independent geometry and values.
     /// Allocation identity is not a publication equality contract.
-    pub runs: Arc<[Arc<ui_types::SemanticsTextRun>]>,
+    pub runs: Arc<[Arc<kivact_types::SemanticsTextRun>]>,
 }
 
 /// An input's lines as a behavior reads them, shaping the lines it asks

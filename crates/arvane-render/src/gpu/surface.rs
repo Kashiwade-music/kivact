@@ -44,8 +44,8 @@
 use super::state::{FORMAT, GpuContext, GpuSurface, Presentation};
 use super::texture::target_texture;
 use crate::error::RenderError;
+use kivact_types::{CpuFrame, Scene, Size};
 use std::time::{Duration, Instant};
-use ui_types::{CpuFrame, Scene, Size};
 
 impl GpuSurface {
     pub(super) fn new(surface: wgpu::Surface<'static>) -> Self {

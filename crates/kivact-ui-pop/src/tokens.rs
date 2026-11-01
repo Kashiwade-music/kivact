@@ -1,4 +1,4 @@
-//! Role: Public Halo tokens; no renderer or engine values appear in this API.
+//! Role: Public Pop tokens; no renderer or engine values appear in this API.
 
 use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 

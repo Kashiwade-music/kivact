@@ -38,12 +38,12 @@ kivact-text = ["kivact-engine"]
 kivact-layout = ["kivact-engine"]
 
 # ----- Arvane: 窓口の arvane は engine と lower が使う。adapter 同士は
-# arvane-shell の語彙と入力正規化、ui-types の値を共有する。
+# arvane-shell の語彙と入力正規化、kivact-types の値を共有する。
 arvane = ["kivact-lower", "kivact-text", "kivact-engine"]
-# GPU texture 共有の中立な gpu-share は UI を知らず、import と export の契約を共有する
+# GPU texture 共有の中立な kivact-gpu-share は UI を知らず、import と export の契約を共有する
 # （visible_to は書かない。誰でも依存できる）。
-ui-types = [
-    "arvane*", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-engine", "kivact-reactive", "gpu-share", "gpu-interop-producer",
+kivact-types = [
+    "arvane*", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-engine", "kivact-reactive", "kivact-gpu-share", "gpu-interop-producer",
 ]
 arvane-shell = ["arvane", "arvane-native"]
 # Linux embedded native services own XCB/XIM, AT-SPI and desktop services;

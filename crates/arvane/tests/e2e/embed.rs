@@ -5,11 +5,11 @@ use arvane::{
     embed::{self, EmbedOptions, Embedder},
     test_display::TestParent,
 };
+use kivact_types::Size;
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use ui_types::Size;
 static SERIAL: Mutex<()> = Mutex::new(());
 #[derive(Default)]
 struct Seen {
@@ -18,7 +18,7 @@ struct Seen {
     waker: Option<ShellWaker>,
     deadline: u64,
     timer: bool,
-    wheel_settings: Option<ui_types::MouseSettings>,
+    wheel_settings: Option<kivact_types::MouseSettings>,
 }
 struct Host(Arc<Mutex<Seen>>);
 impl Handler for Host {
@@ -177,7 +177,7 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     parent.move_to(23., 31.).unwrap();
     wait(&parent, || {
         seen.lock().unwrap().events.iter().any(|event| matches!(event,
-        ShellEvent::Pointer(pointer) if pointer.position == ui_types::Point { x: 23., y: 31. }
+        ShellEvent::Pointer(pointer) if pointer.position == kivact_types::Point { x: 23., y: 31. }
     ))
     });
     seen.lock().unwrap().events.clear();
@@ -218,7 +218,7 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     );
     assert!(
         !seen.events.iter().any(|event| matches!(event,
-            ShellEvent::Pointer(pointer) if pointer.phase == ui_types::PointerPhase::Move
+            ShellEvent::Pointer(pointer) if pointer.phase == kivact_types::PointerPhase::Move
         )),
         "wheel at the existing mouse point must not duplicate pointer movement"
     );

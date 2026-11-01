@@ -96,7 +96,7 @@ pub(crate) fn reduced_motion() -> bool {
 }
 
 /// Current file drag position; Windows queries it even during OLE capture.
-pub(crate) fn file_position(window: &winit::window::Window) -> Option<ui_types::Point> {
+pub(crate) fn file_position(window: &winit::window::Window) -> Option<kivact_types::Point> {
     #[cfg(windows)]
     {
         windows::file_position(window)

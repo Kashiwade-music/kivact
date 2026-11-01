@@ -109,7 +109,7 @@ fn run(
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let ui_types::ParentWindow::X11(parent) = options.parent else {
+    let kivact_types::ParentWindow::X11(parent) = options.parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) =

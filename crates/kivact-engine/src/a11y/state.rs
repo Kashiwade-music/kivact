@@ -25,9 +25,9 @@ pub(crate) struct A11yState {
     pub(super) next_semantics_id: u64,
     pub(super) authored: BTreeMap<(NodeId, u64), u64>,
     pub(super) hashes: BTreeMap<u64, u64>,
-    pub(super) root: Option<ui_types::NodeId>,
+    pub(super) root: Option<kivact_types::NodeId>,
     pub(super) empty_root: Option<u64>,
-    pub(super) focus: Option<ui_types::NodeId>,
+    pub(super) focus: Option<kivact_types::NodeId>,
     pub(super) pending: bool,
     pub(super) full: bool,
     /// Consumed by the builder: unclassified dirt requires current metadata.

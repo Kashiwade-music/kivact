@@ -63,7 +63,7 @@ pub(super) fn allowed(state: &State, allowed: bool) {
         )
     };
 }
-pub(super) fn area(state: &State, area: ui_types::Rect) {
+pub(super) fn area(state: &State, area: kivact_types::Rect) {
     let context = Context::new(state.native.hwnd());
     if context.handle == 0 {
         return;

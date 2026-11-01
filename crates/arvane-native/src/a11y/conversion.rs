@@ -13,7 +13,7 @@
 //!   moves back by its scroll and is then mapped by its transform, which
 //!   become AccessKit's node transform; its own bounds are moved forward by
 //!   the scroll, so they stay where it is laid out
-//!   (`ui_types::SemanticsTree::window_bounds` composes the same way).
+//!   (`kivact_types::SemanticsTree::window_bounds` composes the same way).
 //! - Its relations (`described_by`, `controls`, `labelled_by`, in order)
 //!   and `active_descendant` become AccessKit's relations of those names.
 //! - Its `level`, `set_size` and `pos_in_set` become `set_level`,
@@ -31,7 +31,7 @@
 //!   the first), so a run of mixed bidi text is not split by direction;
 //!   no word boundaries (AccessKit's word starts) are given.
 
-use ui_types::{A11yAction, NodeId, Role, SemanticsNode};
+use kivact_types::{A11yAction, NodeId, Role, SemanticsNode};
 
 /// The id of the one custom action, `Dismiss`.
 const DISMISS: i32 = 1;
@@ -224,29 +224,29 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
         }
         if let Some(live) = props.live_region {
             node.set_live(match live {
-                ui_types::LiveRegion::Off => accesskit::Live::Off,
-                ui_types::LiveRegion::Polite => accesskit::Live::Polite,
-                ui_types::LiveRegion::Assertive => accesskit::Live::Assertive,
+                kivact_types::LiveRegion::Off => accesskit::Live::Off,
+                kivact_types::LiveRegion::Polite => accesskit::Live::Polite,
+                kivact_types::LiveRegion::Assertive => accesskit::Live::Assertive,
             });
         }
         match props.sort {
-            ui_types::SortDirection::None => {}
-            ui_types::SortDirection::Ascending => {
+            kivact_types::SortDirection::None => {}
+            kivact_types::SortDirection::Ascending => {
                 node.set_sort_direction(accesskit::SortDirection::Ascending)
             }
-            ui_types::SortDirection::Descending => {
+            kivact_types::SortDirection::Descending => {
                 node.set_sort_direction(accesskit::SortDirection::Descending)
             }
-            ui_types::SortDirection::Other => {
+            kivact_types::SortDirection::Other => {
                 node.set_sort_direction(accesskit::SortDirection::Other)
             }
         }
         match props.orientation {
-            ui_types::Orientation::Unspecified => {}
-            ui_types::Orientation::Horizontal => {
+            kivact_types::Orientation::Unspecified => {}
+            kivact_types::Orientation::Horizontal => {
                 node.set_orientation(accesskit::Orientation::Horizontal)
             }
-            ui_types::Orientation::Vertical => {
+            kivact_types::Orientation::Vertical => {
                 node.set_orientation(accesskit::Orientation::Vertical)
             }
         }
@@ -358,7 +358,7 @@ fn role(source: Role) -> accesskit::Role {
 /// the complete text, in its runs), in one pass over its runs (each run
 /// starts where the one before ends, the first at the text's start).
 fn text_positions<const N: usize>(
-    text: &ui_types::SemanticsText,
+    text: &kivact_types::SemanticsText,
     offsets: [u32; N],
 ) -> [accesskit::TextPosition; N] {
     let first = text
@@ -420,7 +420,9 @@ fn text_units(value: &str) -> Vec<(u32, u32, u8, bool)> {
 }
 
 /// The platform node of a text run.
-pub(super) fn text_run(run: &ui_types::SemanticsTextRun) -> (accesskit::NodeId, accesskit::Node) {
+pub(super) fn text_run(
+    run: &kivact_types::SemanticsTextRun,
+) -> (accesskit::NodeId, accesskit::Node) {
     let mut node = accesskit::Node::new(accesskit::Role::TextRun);
     node.set_value(run.value.clone());
     node.set_bounds(accesskit::Rect {

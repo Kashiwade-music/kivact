@@ -2,11 +2,11 @@
 
 use super::external::External;
 use crate::{draw, images::ImageCache};
+use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
-use ui_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
 use vello_common::paint::ImageId;
 use vello_hybrid::{Renderer, Resources, TextureBindings, TextureId};
 

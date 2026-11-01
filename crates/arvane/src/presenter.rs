@@ -50,10 +50,10 @@ use crate::error::{self, Error, ErrorKind};
 use crate::presentation::{Notes, Renderer, RendererChange};
 use crate::{ShellError, ShellWaker};
 use arvane_shell::ShellWindow;
-use std::time::{Duration, Instant};
 #[cfg(feature = "testing")]
-use ui_types::CpuFrame;
-use ui_types::{Scene, Size};
+use kivact_types::CpuFrame;
+use kivact_types::{Scene, Size};
+use std::time::{Duration, Instant};
 
 /// Surface failures in a row after which presenting is an error.
 const LOSSES: u8 = 3;
@@ -210,7 +210,7 @@ impl Presenter {
     /// The adapter of the GPU device drawing the window `key`'s frames,
     /// when it can import shared textures (see [`crate::Window::gpu_adapter`]).
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn gpu_adapter(&self, key: u64) -> Option<ui_types::GpuAdapter> {
+    pub(crate) fn gpu_adapter(&self, key: u64) -> Option<kivact_types::GpuAdapter> {
         self.gpu.adapter(key)
     }
 
@@ -220,8 +220,8 @@ impl Presenter {
     pub(crate) fn import_external(
         &mut self,
         key: u64,
-        id: ui_types::ExternalImageId,
-        textures: ui_types::SharedTextures,
+        id: kivact_types::ExternalImageId,
+        textures: kivact_types::SharedTextures,
     ) -> Result<(), Error> {
         if self.gpu.adapter(key).is_none() {
             return Err(Error::with(
@@ -248,7 +248,7 @@ impl Presenter {
     /// Drop the image `id` of the window (see
     /// [`crate::Window::drop_external_image`]).
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn drop_external(&mut self, id: ui_types::ExternalImageId) {
+    pub(crate) fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
         if let Some(context) = self.gpu.ready_context() {
             context.drop_external(id);
         }
@@ -683,7 +683,7 @@ fn make_surface(
 /// The 0x00RRGGBB pixels of a `width` × `height` window showing `frame`,
 /// enlarging a frame drawn at a reduced scale by nearest neighbor.
 #[cfg(feature = "testing")]
-pub(crate) fn surface_pixels(frame: &ui_types::CpuFrame, width: u32, height: u32) -> Vec<u32> {
+pub(crate) fn surface_pixels(frame: &kivact_types::CpuFrame, width: u32, height: u32) -> Vec<u32> {
     let pixels = frame.to_softbuffer();
     if (frame.width, frame.height) == (width, height) || frame.width == 0 || frame.height == 0 {
         return pixels;

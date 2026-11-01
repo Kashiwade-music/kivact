@@ -1,7 +1,7 @@
 //! Role: Arvane text: shaping, line breaking and cursor geometry over parley.
 //!
 //! Responsibility: the only crate that names parley. Shaped text leaves this
-//! crate as `ui-types` glyph runs (font bytes, glyph ids, positions), so
+//! crate as `kivact-types` glyph runs (font bytes, glyph ids, positions), so
 //! the render crate never needs parley.
 //!
 //! Parley does the system font fallback, shaping, bidi and line breaking
@@ -47,12 +47,12 @@ mod transform;
 
 use std::{collections::HashMap, sync::Arc};
 
-use parley::{
-    Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
-};
-use ui_types::{
+use kivact_types::{
     Rect, RichText, ShapedText, TextAlign, TextCaret, TextDecoration, TextMetrics, TextOverflow,
     TextStyle, TextTransform, TextWrap,
+};
+use parley::{
+    Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
 };
 
 /// Reusable font database and shaping scratch space, used on its owner's UI thread.
@@ -558,8 +558,8 @@ fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [ui_types::TextSpan]>,
-) -> std::borrow::Cow<'a, [ui_types::TextSpan]> {
+    spans: std::borrow::Cow<'a, [kivact_types::TextSpan]>,
+) -> std::borrow::Cow<'a, [kivact_types::TextSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }

@@ -2,7 +2,7 @@
 
 use crate::measure::input::RefreshedLines;
 use kivact_text::{EditLines, RefreshMode, Source};
-use ui_types::Point;
+use kivact_types::Point;
 
 fn equal<T: PartialEq + std::fmt::Debug>(out: &mut Vec<String>, label: &str, a: T, b: T) {
     if a != b {
@@ -218,7 +218,7 @@ pub(super) fn compare(
         // Compare all raw values strictly, but never put document text into
         // failure evidence (password masking is only a display transform).
         let first = before.iter().zip(&after).position(|(a, b)| a != b);
-        let describe = |runs: &[std::sync::Arc<ui_types::SemanticsTextRun>]| {
+        let describe = |runs: &[std::sync::Arc<kivact_types::SemanticsTextRun>]| {
             first
                 .and_then(|i| runs.get(i))
                 .map(|r| (r.value.len(), r.bounds, r.carets.len()))

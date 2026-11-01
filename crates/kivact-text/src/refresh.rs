@@ -13,7 +13,7 @@ impl EditLines {
     pub fn refresh(
         &mut self,
         source: Source<'_>,
-        style: ui_types::TextStyle,
+        style: kivact_types::TextStyle,
         engine: &mut arvane::Engine,
         mode: RefreshMode,
     ) -> Result<(), RefreshError> {
@@ -44,7 +44,7 @@ impl EditLines {
     fn reconcile(
         &mut self,
         source: Source<'_>,
-        mut style: ui_types::TextStyle,
+        mut style: kivact_types::TextStyle,
         engine: &mut arvane::Engine,
     ) {
         let shown = if source.value.is_empty() {
@@ -57,8 +57,8 @@ impl EditLines {
         // Shaped start aligned and without a color: aligning and coloring
         // (a hover, a focus style) never shape again.
         self.align = style.align;
-        style.align = ui_types::TextAlign::Start;
-        style.color = ui_types::TextStyle::default().color;
+        style.align = kivact_types::TextAlign::Start;
+        style.color = kivact_types::TextStyle::default().color;
         let key = Key {
             style,
             shown,

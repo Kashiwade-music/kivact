@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 
-use ui_types::{
+use kivact_types::{
     Backdrop, BlendMode, BoxShadow, ColorMatrix, DrawCommand, Extend, FillRule, Gradient,
     GradientShape, ImageData, Layer, LayerFilter, LineCap, Mask, Paint, PathCmd, Pattern,
     PatternSource, Radius, RoundedRect, Shape, Stroke, Transform,
@@ -19,7 +19,11 @@ use crate::support::{
     pt, rect, show, solid, text_runs,
 };
 
-fn image(rect: ui_types::Rect, image: ImageData, color_matrix: Option<ColorMatrix>) -> DrawCommand {
+fn image(
+    rect: kivact_types::Rect,
+    image: ImageData,
+    color_matrix: Option<ColorMatrix>,
+) -> DrawCommand {
     DrawCommand::Image {
         image,
         rect,

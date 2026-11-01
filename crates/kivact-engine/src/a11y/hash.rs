@@ -1,6 +1,6 @@
 //! Role: Complete payload fingerprints; never an authority for accepting actions.
+use kivact_types::{Rect, SemanticsNode, SemanticsProperties, SemanticsText, Transform};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use ui_types::{Rect, SemanticsNode, SemanticsProperties, SemanticsText, Transform};
 fn rect(r: Rect, h: &mut DefaultHasher) {
     [r.x, r.y, r.width, r.height].map(f32::to_bits).hash(h);
 }
@@ -16,7 +16,7 @@ fn text(t: &SemanticsText, h: &mut DefaultHasher) {
     rect(*caret, h);
     runs.len().hash(h);
     for r in runs.iter() {
-        let ui_types::SemanticsTextRun {
+        let kivact_types::SemanticsTextRun {
             id,
             value,
             bounds,
@@ -27,7 +27,7 @@ fn text(t: &SemanticsText, h: &mut DefaultHasher) {
         rect(*bounds, h);
         carets.len().hash(h);
         for c in carets {
-            let ui_types::TextCaret {
+            let kivact_types::TextCaret {
                 offset,
                 rect: bounds,
             } = c;

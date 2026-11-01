@@ -9,7 +9,7 @@
 //! its matching pop ([`Index`]). A replay costs the commands that reach
 //! the backdrop's area plus the siblings it walks past.
 
-use ui_types::{
+use kivact_types::{
     BoxShadow, DrawCommand, Glyph, LayerFilter, LineJoin, Rect, SHADOW_REACH, Scene, Shape,
     Transform,
 };
@@ -80,7 +80,7 @@ impl Index {
                                     // The offset in root coordinates.
                                     let (o, z) = (
                                         transform.apply(offset),
-                                        transform.apply(ui_types::Point::default()),
+                                        transform.apply(kivact_types::Point::default()),
                                     );
                                     b.union(
                                         Rect {
@@ -169,7 +169,7 @@ fn local_bounds(command: &DrawCommand) -> Option<Rect> {
             bounds
         }
         DrawCommand::FillShape { shape, .. }
-        | DrawCommand::Backdrop(ui_types::Backdrop { shape, .. }) => shape.bounds(),
+        | DrawCommand::Backdrop(kivact_types::Backdrop { shape, .. }) => shape.bounds(),
         DrawCommand::StrokeShape { shape, stroke, .. } => {
             let joints = if stroke.join == LineJoin::Miter {
                 stroke.miter_limit.max(1.5)
@@ -189,7 +189,7 @@ fn local_bounds(command: &DrawCommand) -> Option<Rect> {
     })
 }
 
-fn points(points: &[ui_types::Point]) -> Rect {
+fn points(points: &[kivact_types::Point]) -> Rect {
     Shape::Polygon {
         points: points.to_vec(),
         rule: Default::default(),

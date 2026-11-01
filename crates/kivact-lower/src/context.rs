@@ -139,7 +139,7 @@ impl<'a> Context<'a> {
     }
 
     /// Why `asset` has no pixels now.
-    fn unavailable(&self, asset: &ui_types::Asset) {
+    fn unavailable(&self, asset: &kivact_types::Asset) {
         match self.assets.borrow().status(asset) {
             Some(arvane::asset::ImageState::Failed(error)) => self.fail(error),
             Some(arvane::asset::ImageState::Pending) => self.fail("image resource is not ready"),
@@ -148,7 +148,7 @@ impl<'a> Context<'a> {
     }
 
     /// The natural size of `asset` (`None`: not loaded; a failure is kept).
-    pub(crate) fn natural(&self, asset: &ui_types::Asset) -> Option<Size> {
+    pub(crate) fn natural(&self, asset: &kivact_types::Asset) -> Option<Size> {
         let size = self.assets.borrow_mut().natural(asset);
         if let Some(size) = size {
             self.record(Dependency::Natural {
@@ -165,19 +165,19 @@ impl<'a> Context<'a> {
     /// draw; a failure is kept unless `size` is empty).
     pub(crate) fn pixels(
         &self,
-        asset: &ui_types::Asset,
+        asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
-    ) -> Option<(ui_types::ImageData, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::ImageData, arvane::asset::Region)> {
         self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None)
     }
 
     fn pixels_in(
         &self,
-        asset: &ui_types::Asset,
+        asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
         region: arvane::asset::Region,
-        tint: Option<ui_types::Rgba>,
-    ) -> Option<(ui_types::ImageData, arvane::asset::Region)> {
+        tint: Option<kivact_types::Rgba>,
+    ) -> Option<(kivact_types::ImageData, arvane::asset::Region)> {
         if size.is_empty() {
             return None;
         }

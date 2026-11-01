@@ -137,7 +137,7 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// The standard components of `kivact::ui` take the Halo look from the recipes
+/// The standard components of `kivact::ui` take the Pop look from the recipes
 /// the kit's theme installs: its control height and its colors, not the
 /// core's defaults (28 px, `#2563eb`).
 #[test]

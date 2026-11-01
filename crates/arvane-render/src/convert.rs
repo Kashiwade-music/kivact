@@ -3,7 +3,7 @@
 //! Convert portable scene vocabulary to private rasterizer types without leaking dependencies.
 //!
 //! Shapes reach the rasterizers as their one outline
-//! (`ui_types::Shape::outline`, arcs as cubics), the outline hit tests
+//! (`kivact_types::Shape::outline`, arcs as cubics), the outline hit tests
 //! use too. A zero-length contour, or a zero-length dash, with round or
 //! square caps draws a dot: kurbo's stroker draws nothing for a
 //! zero-length segment, so it becomes a segment of `DOT` (0.001) along x
@@ -14,7 +14,7 @@
 //! Limits: a zero-length dash that starts exactly where the line ends
 //! draws no dot (kurbo's dashing cuts it to nothing there).
 
-use ui_types::{
+use kivact_types::{
     BlendMode, FillRule, LineCap, LineJoin, PathCmd, Point, Rect, Rgba, Shape, Stroke, Transform,
 };
 use vello_cpu::{
@@ -98,7 +98,7 @@ fn snap(center: f32, width: f32, scale: f32) -> f32 {
 /// The blur parameter of vello's and vello_cpu's blurred rounded
 /// rectangles for a gaussian of standard deviation `std_dev`: they fade by
 /// erf(d / s), so s is √2 deviations. Both cut the blur off at 2.5 s (3.54
-/// deviations, within `ui_types::SHADOW_REACH`).
+/// deviations, within `kivact_types::SHADOW_REACH`).
 pub(crate) fn blur_param(std_dev: f32) -> f64 {
     f64::from(std_dev) * std::f64::consts::SQRT_2
 }
@@ -134,7 +134,7 @@ pub(crate) fn shadow_quarters(rect: Rect, radii: [f32; 4], std_dev: f32) -> Shad
     ])
 }
 
-/// A path's segments, arcs as cubics (`ui_types`'s, the outline hit
+/// A path's segments, arcs as cubics (`kivact_types`'s, the outline hit
 /// tests use too).
 pub(crate) fn path(cmds: &[PathCmd]) -> BezPath {
     let has_arcs = cmds

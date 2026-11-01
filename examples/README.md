@@ -7,7 +7,7 @@
 | kit | カタログ | 実行 |
 |---|---|---|
 | Basic | [shadcn/ui Lyra 風の文書型カタログ](kivact-ui-basic/README.md) | `cargo run -p kivact-ui-basic-catalog` |
-| Pop | [Halo 風の業務アプリ UI](kivact-ui-pop/README.md) | `cargo run -p kivact-ui-pop-catalog` |
+| Pop | [落ち着いた配色の業務アプリ UI](kivact-ui-pop/README.md) | `cargo run -p kivact-ui-pop-catalog` |
 | Game | [ゲーム UI](kivact-ui-game/README.md) | `cargo run -p kivact-ui-game-catalog` |
 | Creative | [制作ツール UI](kivact-ui-creative/README.md) | `cargo run -p kivact-ui-creative-catalog` |
 

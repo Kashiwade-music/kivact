@@ -163,7 +163,7 @@ pub(super) fn dropped(state: &Rc<super::state::State>, drop: isize) {
     state.event(arvane_shell::ShellEvent::File {
         phase: arvane_shell::FilePhase::Drop,
         files,
-        position: ui_types::Point {
+        position: kivact_types::Point {
             x: point.x as f32 / scale,
             y: point.y as f32 / scale,
         },

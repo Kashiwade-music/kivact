@@ -5,10 +5,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Halo-inspired official Kivact components built solely on the public kivact API"
+description = "Calm, compact official Kivact components for desktop work apps, built solely on the public kivact API"
 
 [dependencies]
-kivact = { path = "../kivact", default-features = false }
+kivact = { path = "../kivact", version = "0.1.0", default-features = false }
 
 [dev-dependencies]
 kivact = { path = "../kivact", default-features = false, features = ["test"] }

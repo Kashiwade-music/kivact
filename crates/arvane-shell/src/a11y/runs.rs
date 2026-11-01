@@ -15,7 +15,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use ui_types::{NodeId, SemanticsNode, SemanticsText, SemanticsTextRun};
+use kivact_types::{NodeId, SemanticsNode, SemanticsText, SemanticsTextRun};
 
 use super::error::AccessibilityError;
 use super::validation::{check_run, check_selection, check_text_node};

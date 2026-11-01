@@ -15,7 +15,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use ui_types::{Rgba, Size};
+use kivact_types::{Rgba, Size};
 
 use crate::fit::Region;
 

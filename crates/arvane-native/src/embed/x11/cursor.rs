@@ -2,8 +2,8 @@
 
 use super::conn::Native;
 use arvane_shell::ShellError;
+use kivact_types::Cursor;
 use std::{cell::RefCell, collections::HashMap};
-use ui_types::Cursor;
 use x11rb::{
     connection::Connection,
     protocol::xproto::{ChangeWindowAttributesAux, ConnectionExt, CreateGCAux, Rectangle},

@@ -4,10 +4,10 @@ use crate::pieces::{floor, shape_long};
 use crate::records::{Colored, Shown};
 use crate::{EditLines, MEASURED, PUBLISHED_MARGIN, PUBLISHED_STEP, Published, Shaping};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
+use kivact_types::{Point, Rect};
 use std::borrow::Cow;
 use std::ops::Range;
 use std::sync::Arc;
-use ui_types::{Point, Rect};
 
 /// The text a line shows: bullets for masked text, spaces for line
 /// breaks and CRs (one byte each, so offsets stay).
@@ -98,7 +98,7 @@ impl EditLines {
         text: &str,
         i: usize,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<ui_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::ShapedText>> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shaped.clone().flatten()
     }
@@ -109,7 +109,7 @@ impl EditLines {
     pub fn offset(&mut self, text: &str, i: usize, width: f32, engine: &mut arvane::Engine) -> f32 {
         if matches!(
             self.align,
-            ui_types::TextAlign::Start | ui_types::TextAlign::Justify
+            kivact_types::TextAlign::Start | kivact_types::TextAlign::Justify
         ) {
             return 0.0;
         }
@@ -121,9 +121,9 @@ impl EditLines {
     pub(crate) fn aligned(&self, line: f32, width: f32) -> f32 {
         let free = (width - line).max(0.0);
         match self.align {
-            ui_types::TextAlign::Center => free / 2.0,
-            ui_types::TextAlign::End => free,
-            ui_types::TextAlign::Start | ui_types::TextAlign::Justify => 0.0,
+            kivact_types::TextAlign::Center => free / 2.0,
+            kivact_types::TextAlign::End => free,
+            kivact_types::TextAlign::Start | kivact_types::TextAlign::Justify => 0.0,
         }
     }
 
@@ -335,9 +335,9 @@ impl EditLines {
         &mut self,
         text: &str,
         i: usize,
-        color: ui_types::Rgba,
+        color: kivact_types::Rgba,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<ui_types::ShapedText>> {
+    ) -> Option<Arc<kivact_types::ShapedText>> {
         let content = self.content(i)?;
         let mut style = self.key().style.clone();
         style.color = color;
@@ -351,19 +351,19 @@ impl EditLines {
         let shown = display(&text[content], false);
         let shaped = shape_long(&shown, |r| {
             // The spans of the piece `r`, from its start.
-            let spans: Vec<ui_types::TextSpan> = colored
+            let spans: Vec<kivact_types::TextSpan> = colored
                 .spans
                 .iter()
                 .filter(|(range, _)| range.start < r.end && range.end > r.start)
-                .map(|(range, color)| ui_types::TextSpan {
+                .map(|(range, color)| kivact_types::TextSpan {
                     range: range.start.max(r.start) - r.start..range.end.min(r.end) - r.start,
-                    style: ui_types::SpanStyle {
+                    style: kivact_types::SpanStyle {
                         color: Some(kivact_lower::sanitize::color(*color)),
                         ..Default::default()
                     },
                 })
                 .collect();
-            let rich = ui_types::RichText {
+            let rich = kivact_types::RichText {
                 text: &shown[r],
                 spans: &spans,
             };
@@ -448,7 +448,7 @@ impl EditLines {
         width: f32,
         ids: &mut dyn FnMut() -> u64,
         engine: &mut arvane::Engine,
-    ) -> Arc<ui_types::SemanticsTextRun> {
+    ) -> Arc<kivact_types::SemanticsTextRun> {
         let origin = Point {
             x: at.x + self.offset(text, i, width, engine),
             y: at.y + i as f32 * self.height,
@@ -481,7 +481,7 @@ impl EditLines {
                 shaped
                     .carets
                     .iter()
-                    .map(|c| ui_types::TextCaret {
+                    .map(|c| kivact_types::TextCaret {
                         offset: c.offset,
                         rect: shift(c.rect),
                     })
@@ -489,8 +489,8 @@ impl EditLines {
             ),
             None => (shift(empty), Vec::new()),
         };
-        let run = Arc::new(ui_types::SemanticsTextRun {
-            id: ui_types::NodeId(id),
+        let run = Arc::new(kivact_types::SemanticsTextRun {
+            id: kivact_types::NodeId(id),
             value: text[range].to_string(),
             bounds,
             carets,

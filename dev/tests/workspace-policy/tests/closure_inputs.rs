@@ -300,7 +300,7 @@ fn public_callbacks_accept_closures_and_renderers_accept_into_view() {
                     | "kivact-text"
                     | "kivact-reactive"
                     | "kivact-task"
-                    | "ui-types"
+                    | "kivact-types"
             )
     };
     let mut errors = Vec::new();

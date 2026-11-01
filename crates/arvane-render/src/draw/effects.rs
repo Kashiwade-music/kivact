@@ -53,7 +53,7 @@
 
 use super::{Area, Canvas, Group, Painter};
 use crate::convert;
-use ui_types::{
+use kivact_types::{
     Backdrop, BoxShadow, DrawCommand, Mask, Radius, Rect as LogicalRect, Rgba,
     RoundedRect as Rounded, SHADOW_REACH, Shape, Transform,
 };
@@ -272,7 +272,7 @@ impl<C: Canvas> Painter<'_, C> {
         &mut self,
         at: usize,
         region: LogicalRect,
-        matrix: Option<ui_types::ColorMatrix>,
+        matrix: Option<kivact_types::ColorMatrix>,
     ) {
         let frame = self.frame;
         // The parts of one axis: before the frame (reflected about its
@@ -320,7 +320,12 @@ impl<C: Canvas> Painter<'_, C> {
     /// Draw again the commands before `at` that reach `region` (root
     /// coordinates), skipping groups that do not, with colors through
     /// `matrix`. Starts and ends at the root transform.
-    fn replay(&mut self, at: usize, region: LogicalRect, matrix: Option<ui_types::ColorMatrix>) {
+    fn replay(
+        &mut self,
+        at: usize,
+        region: LogicalRect,
+        matrix: Option<kivact_types::ColorMatrix>,
+    ) {
         let Some(index) = self.index else {
             return;
         };

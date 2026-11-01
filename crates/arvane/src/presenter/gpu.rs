@@ -41,12 +41,12 @@
 use crate::error::{self, Error};
 use crate::presentation::{Notes, RendererChange};
 use arvane_render::{GpuContext, GpuEnv, GpuSurface, Presentation, RenderError};
+#[cfg(feature = "testing")]
+use kivact_types::CpuFrame;
+use kivact_types::{Scene, Size};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-#[cfg(feature = "testing")]
-use ui_types::CpuFrame;
-use ui_types::{Scene, Size};
 
 /// Device restarts allowed per session.
 const RESTARTS: u8 = 1;
@@ -470,7 +470,7 @@ impl Gpu {
     /// The adapter of the device drawing the window `key`'s frames, when
     /// it can import shared textures.
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn adapter(&self, key: u64) -> Option<ui_types::GpuAdapter> {
+    pub(crate) fn adapter(&self, key: u64) -> Option<kivact_types::GpuAdapter> {
         match &self.state {
             State::Ready(context) if !self.cpu_windows.contains(&key) => context.interop_adapter(),
             _ => None,
@@ -498,7 +498,7 @@ impl Gpu {
     }
 
     /// The external frames the last frames did not draw (each once).
-    pub(crate) fn take_missed(&mut self) -> Vec<ui_types::ExternalFrame> {
+    pub(crate) fn take_missed(&mut self) -> Vec<kivact_types::ExternalFrame> {
         match &mut self.state {
             State::Ready(context) => context.take_missed_external(),
             _ => Vec::new(),

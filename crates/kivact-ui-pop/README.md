@@ -1,7 +1,7 @@
 # kivact-ui-pop
 
-Halo's calm slate surfaces, narrow blue gradients, yellow accents and occasional
-Blue Archive shapes as reusable Kivact components.
+Calm slate surfaces, narrow blue gradients and yellow accents as reusable Kivact
+components for compact desktop work apps.
 
 The only normal and development dependency is the public `kivact` crate;
 there are no build dependencies.
@@ -36,7 +36,7 @@ Sans JP through Kivact's public font API. The theme's `IconSet` holds the kit's
 Tabler icons, so `kivact::control::icon("name")` draws them; the kit has no
 icon function of its own.
 
-The kit's theme gives the standard components of `kivact::ui` the Halo look:
+The kit's theme gives the standard components of `kivact::ui` the Pop look:
 buttons, checkboxes, switches, selects, menus, dialogs, tooltips, tabs, radio
 groups (`kivact::ui::radio_group`), sliders (`kivact::ui::slider`) and the toast
 region (`kivact::ui::toast_region`) are the standard ones. The toggle
@@ -127,4 +127,4 @@ access. Tag removals report indices, chip additions report `()`, and tag additio
 report strings (`kivact::ui::tag_input(label, tags, on_add, on_remove)`). Table export is application-owned, including
 the choice of columns, rows, TSV formatting and clipboard I/O.
 
-Optional presentation is configured by builders: `stat_card(title, value)` has `trend`, `icon`, `points`, and `tone`; `list_item(title)` has `subtitle`, `icon`, `tone`, and mount-once `trailing`. Text and samples default empty, icons absent, and hues gray. `thread(initials, title)` has `preview`, `unread` (zero), and `selected` (false). `message(content)` and `message_group(content)` have `timestamp`, `mine` (false), and `initials`. `timeline_item(title)` has `detail`, `timestamp`, `icon`, and `tone`; `agenda_item(time, title)` has `description` and `tone`. Date range inputs group endpoint pairs: `date_range_input((start_label, end_label), (start, end), today)`. Component lists, step notes and file filters accept reactive values. The decorative Halo loader belongs to the private catalog.
+Optional presentation is configured by builders: `stat_card(title, value)` has `trend`, `icon`, `points`, and `tone`; `list_item(title)` has `subtitle`, `icon`, `tone`, and mount-once `trailing`. Text and samples default empty, icons absent, and hues gray. `thread(initials, title)` has `preview`, `unread` (zero), and `selected` (false). `message(content)` and `message_group(content)` have `timestamp`, `mine` (false), and `initials`. `timeline_item(title)` has `detail`, `timestamp`, `icon`, and `tone`; `agenda_item(time, title)` has `description` and `tone`. Date range inputs group endpoint pairs: `date_range_input((start_label, end_label), (start, end), today)`. Component lists, step notes and file filters accept reactive values. The decorative Pop loader belongs to the private catalog.

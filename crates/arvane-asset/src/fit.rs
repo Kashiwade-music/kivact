@@ -14,9 +14,9 @@
 //!   `None` image would otherwise be rasterized whole, up to the raster
 //!   limits, and drawn blurry).
 
-use ui_types::{Rect, Size};
+use kivact_types::{Rect, Size};
 
-pub use ui_types::ImageFit;
+pub use kivact_types::ImageFit;
 
 /// The destination of an image in its box.
 #[derive(Clone, Copy, Debug, PartialEq)]

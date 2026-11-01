@@ -1,0 +1,13 @@
+[package]
+name = "kivact-types"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Neutral UI vocabulary shared by Kivact and its backends: geometry, ids, events and draw commands (no external dependencies)"
+
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,7 +1,7 @@
 //! Role: Defines renderer choices and presentation change notifications.
 
+use kivact_types::{ExternalFrame, GpuAdapter};
 use std::{fmt, time::Duration};
-use ui_types::{ExternalFrame, GpuAdapter};
 
 /// The rasterizer behind a frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

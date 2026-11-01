@@ -60,8 +60,8 @@ use arvane::asset::{PixelSize, fit_image};
 use kivact_lower::effects::Tint;
 use kivact_lower::shape::BoxShape;
 use kivact_lower::{border, effects, scene, shape};
+use kivact_types::DrawCommand as D;
 use kivact_wire::*;
-use ui_types::DrawCommand as D;
 
 use state::{Entry, Step};
 
@@ -69,10 +69,10 @@ impl Model {
     /// Build the frame's display list from the paint list (`list`): every
     /// listed node with its current content. Every shown image is drawn in
     /// it: a new frame of the asset store's recency.
-    pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> ui_types::Scene {
+    pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> kivact_types::Scene {
         self.paint_list();
         self.assets.borrow_mut().begin_frame();
-        let mut out = ui_types::Scene::default();
+        let mut out = kivact_types::Scene::default();
         self.paint.scene_cache.borrow_mut().begin_frame();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
@@ -113,7 +113,7 @@ impl Model {
     }
 
     /// The color matrix at `index` of the paint list.
-    fn matrix(&self, index: u32) -> Option<ui_types::ColorMatrix> {
+    fn matrix(&self, index: u32) -> Option<kivact_types::ColorMatrix> {
         if index == NO_MATRIX {
             return None;
         }
@@ -147,9 +147,9 @@ impl Model {
     /// The layers `step` is composited in, outermost first: the clip path
     /// and mask over its painted box `bounds`, its group opacity, its
     /// blend mode and its layer filters.
-    fn paint_layers(&self, step: &Step, p: &PaintProps, bounds: Rect) -> Vec<ui_types::Layer> {
+    fn paint_layers(&self, step: &Step, p: &PaintProps, bounds: Rect) -> Vec<kivact_types::Layer> {
         let e = p.effects.as_deref();
-        let outer = ui_types::Layer {
+        let outer = kivact_types::Layer {
             clip: e
                 .and_then(|e| e.clip_path.as_ref())
                 .map(|s| shape::clip_path(s, bounds)),
@@ -161,22 +161,22 @@ impl Model {
                     y: area.y,
                 };
                 self.layer_paint(m, area, origin)
-                    .map(|paint| ui_types::Mask { rect: area, paint })
+                    .map(|paint| kivact_types::Mask { rect: area, paint })
             }),
-            ..ui_types::Layer::default()
+            ..kivact_types::Layer::default()
         };
         let opacity = if step.group { p.opacity } else { 1.0 };
         let parent = self.matrix(step.parent_matrix);
         let mut layers = effects::layers(p, outer, opacity, parent.as_ref());
         // As many as the list counted (it closes as many).
-        layers.resize_with(usize::from(step.layers), ui_types::Layer::default);
+        layers.resize_with(usize::from(step.layers), kivact_types::Layer::default);
         layers
     }
 
     /// Paint `step`'s node up to its children: push its transform, open
     /// its layers, draw its box (when its own paint shows), then (inside
     /// its clip when it clips) its canvas scene and its content.
-    fn paint_open(&self, step: &Step, engine: &mut arvane::Engine, out: &mut ui_types::Scene) {
+    fn paint_open(&self, step: &Step, engine: &mut arvane::Engine, out: &mut kivact_types::Scene) {
         let host = &self;
         let id = step.id;
         if let Some(t) = self.paint.list.transforms.get(step.transform as usize) {
@@ -212,9 +212,9 @@ impl Model {
             let padding =
                 BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
             if step.rounded {
-                out.commands.push(D::PushLayer(ui_types::Layer {
+                out.commands.push(D::PushLayer(kivact_types::Layer {
                     clip: Some(padding.shape()),
-                    ..ui_types::Layer::default()
+                    ..kivact_types::Layer::default()
                 }));
             } else {
                 out.commands.push(D::PushClip(padding.rect()));
@@ -260,7 +260,7 @@ impl Model {
         outline: &BoxShape,
         clip_path: bool,
         tint: &Tint,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
@@ -289,7 +289,7 @@ impl Model {
 
     /// Paint `step`'s node after its children: its `DrawOver` scene, then
     /// pop its clip, its layers and its transform.
-    fn paint_close(&self, step: &Step, engine: &mut arvane::Engine, out: &mut ui_types::Scene) {
+    fn paint_close(&self, step: &Step, engine: &mut arvane::Engine, out: &mut kivact_types::Scene) {
         let id = step.id;
         if step.own
             && let Some(n) = self.node(id)
@@ -316,8 +316,8 @@ impl Model {
                         height: rect.height,
                     };
                     out.commands.push(D::FillShape {
-                        shape: ui_types::Shape::Rect(rect),
-                        paint: ui_types::Paint::Solid(tint.color(color)),
+                        shape: kivact_types::Shape::Rect(rect),
+                        paint: kivact_types::Paint::Solid(tint.color(color)),
                     });
                 }
             }
@@ -343,10 +343,10 @@ impl Model {
         &self,
         id: NodeId,
         n: &crate::tree::node::HostNode,
-        source: &ui_types::Asset,
+        source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         let mut assets = self.assets.borrow_mut();
         let Some(natural) = assets.natural(source) else {
@@ -401,7 +401,7 @@ impl Model {
         clip: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         let host = &self;
         let Some(n) = host.node(id) else {
@@ -450,7 +450,7 @@ impl Model {
                 }
                 out
             };
-            let fill = ui_types::Paint::Solid(match props.more().selection_color {
+            let fill = kivact_types::Paint::Solid(match props.more().selection_color {
                 Some(own) => tint.color(own),
                 None => tint.arvane(Rgba {
                     r: 0.2,
@@ -468,7 +468,9 @@ impl Model {
             let marked = edit.marked().map(|m| spans(m, engine));
             out.commands.push(D::Rect {
                 rect: place(lines.caret(value, edit.caret(), area.width, engine)),
-                fill: ui_types::Paint::Solid(tint.color(props.more().caret_color.unwrap_or(color))),
+                fill: kivact_types::Paint::Solid(
+                    tint.color(props.more().caret_color.unwrap_or(color)),
+                ),
             });
             if let Some(marked) = marked {
                 for band in marked {
@@ -530,11 +532,11 @@ impl Model {
 /// Glyph runs of `shaped` at `(x, y)`, colored `color` of their shaped
 /// color.
 fn push_runs(
-    out: &mut ui_types::Scene,
-    shaped: Option<&ui_types::ShapedText>,
+    out: &mut kivact_types::Scene,
+    shaped: Option<&kivact_types::ShapedText>,
     x: f32,
     y: f32,
-    color: impl Fn(ui_types::Rgba) -> ui_types::Rgba,
+    color: impl Fn(kivact_types::Rgba) -> kivact_types::Rgba,
 ) {
     for run in shaped.iter().flat_map(|shaped| &shaped.runs) {
         out.commands.push(D::Glyphs {

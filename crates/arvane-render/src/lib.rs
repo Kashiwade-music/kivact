@@ -1,4 +1,4 @@
-//! Role: Arvane render: rasterises `ui-types` draw commands.
+//! Role: Arvane render: rasterises `kivact-types` draw commands.
 //!
 //! Responsibility: scene rasterization with private vello_cpu and
 //! vello_hybrid backends, which share every stage but the last (`draw.rs`).
@@ -16,7 +16,7 @@
 //! is indexed by where its commands draw (`backdrop`). With the feature
 //! `gpu-interop`, the GPU path also draws the textures an application's
 //! render engine shares (`DrawCommand::External`, `gpu/external.rs`),
-//! imported through `gpu-share`, which holds the `unsafe` below
+//! imported through `kivact-gpu-share`, which holds the `unsafe` below
 //! wgpu that needs; the CPU path never draws them.
 //!
 //! Dependencies: vello_hybrid 0.2 uses the same vello_common 0.2 and
@@ -60,8 +60,8 @@ pub use validate::{dimensions, raster_plan};
 
 pub use limits::MAX_SCENE_DEPTH;
 
+use kivact_types::{CpuFrame, ImageData, Scene, Size};
 use std::sync::Arc;
-use ui_types::{CpuFrame, ImageData, Scene, Size};
 use vello_common::filter_effects::Filter;
 use vello_cpu::{
     Glyph, Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources,
@@ -341,11 +341,11 @@ impl draw::Canvas for CpuCanvas<'_> {
     }
 
     /// The CPU renderer has no external frames: nothing is drawn.
-    fn external_size(&self, _: &ui_types::ExternalFrame) -> Option<(u32, u32)> {
+    fn external_size(&self, _: &kivact_types::ExternalFrame) -> Option<(u32, u32)> {
         None
     }
 
-    fn draw_external(&mut self, _: &ui_types::ExternalFrame, _: Rect, _: bool) {}
+    fn draw_external(&mut self, _: &kivact_types::ExternalFrame, _: Rect, _: bool) {}
 
     fn fill_pattern(&mut self, path: &BezPath, pattern: &paint::PatternFill, _visible: Rect) {
         let source = self.source(&pattern.image);

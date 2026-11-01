@@ -9,13 +9,13 @@ use crate::embed::{
     session::negotiate,
 };
 use arvane_shell::{ShellError, ShellWindow};
+use kivact_types::{Capabilities, Cursor, Environment, Rect, Size};
 use std::{
     cell::{Cell, RefCell},
     num::NonZeroU32,
     sync::Arc,
     time::{Duration, Instant},
 };
-use ui_types::{Capabilities, Cursor, Environment, Rect, Size};
 use x11rb::{
     connection::Connection,
     protocol::xproto::{ConfigureWindowAux, ConnectionExt},
@@ -169,13 +169,13 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &ui_types::SemanticsTree,
+        tree: &kivact_types::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.replace(tree)
     }
     fn update_accessibility(
         &mut self,
-        update: &ui_types::SemanticsUpdate,
+        update: &kivact_types::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }

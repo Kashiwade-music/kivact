@@ -32,8 +32,8 @@
 use super::state::{PointerSource, ScrollDrag};
 use crate::PointerSpace;
 use crate::model::Model;
+use kivact_types::PointerInput;
 use kivact_wire::{FilePhase, HostEvent, MouseButton, Point, PointerId, PointerKind, PointerPhase};
-use ui_types::PointerInput;
 
 impl Model {
     /// One pointer event of the window: the mouse's go to the mouse's
@@ -367,11 +367,11 @@ impl Model {
     /// on, and the one it left is told.
     pub(crate) fn file(
         &mut self,
-        phase: ui_types::FilePhase,
+        phase: kivact_types::FilePhase,
         files: Vec<std::path::PathBuf>,
         point: Point,
     ) {
-        let hit = if phase == ui_types::FilePhase::Leave {
+        let hit = if phase == kivact_types::FilePhase::Leave {
             None
         } else {
             self.hit(point).and_then(|hit| {
@@ -406,7 +406,7 @@ impl Model {
         }
         if let Some(node) = hit {
             let pos = self.to_local(node, point);
-            let phase = if phase == ui_types::FilePhase::Drop {
+            let phase = if phase == kivact_types::FilePhase::Drop {
                 FilePhase::Drop
             } else {
                 FilePhase::Over
@@ -419,7 +419,7 @@ impl Model {
                 window_pos: point,
             });
         }
-        self.pointer.file_target = if phase == ui_types::FilePhase::Drop {
+        self.pointer.file_target = if phase == kivact_types::FilePhase::Drop {
             None
         } else {
             hit

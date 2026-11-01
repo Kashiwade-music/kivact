@@ -1,6 +1,6 @@
-//! Role: Halo styling for standard UI components.
+//! Role: Pop styling for standard UI components.
 //!
-//! The Halo look of the standard components of `kivact::ui`: what
+//! The Pop look of the standard components of `kivact::ui`: what
 //! [`theme`](crate::theme) installs so that `kivact::ui::button`,
 //! `toggle`, `checkbox`, `switch`, `text_input`, `select`, `menu`, `dialog`,
 //! `tooltip`, `tabs`, `radio_group`, `slider`, `toast_region`, `progress` and

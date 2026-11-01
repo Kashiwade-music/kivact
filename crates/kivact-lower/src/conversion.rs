@@ -1,6 +1,6 @@
 //! Role: Semantic conversion of wire values to neutral text and geometry.
 //!
-//! Shared ui-types values pass through unchanged. Only contracts whose
+//! Shared kivact-types values pass through unchanged. Only contracts whose
 //! representations differ are resolved here: safe areas, text lengths,
 //! shaping styles and spans. Tree layout and input admission stay with callers.
 //!
@@ -24,7 +24,7 @@ use crate::sanitize::color;
 use kivact_wire as wire;
 
 /// Insets (a safe area); non-finite or negative ones become zero.
-pub fn insets(a: ui_types::Insets) -> wire::Insets {
+pub fn insets(a: kivact_types::Insets) -> wire::Insets {
     let side = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
     wire::Insets {
         top: side(a.top),
@@ -36,22 +36,22 @@ pub fn insets(a: ui_types::Insets) -> wire::Insets {
 
 /// Arvane's line height for a protocol one: unset and invalid values
 /// (not finite, not above zero) are `Normal`.
-pub(crate) fn line_height(p: Option<wire::LineHeight>) -> ui_types::LineHeight {
+pub(crate) fn line_height(p: Option<wire::LineHeight>) -> kivact_types::LineHeight {
     let positive = |v: f32| v.is_finite() && v > 0.0;
     match p {
-        Some(wire::LineHeight::Scale(v)) if positive(v) => ui_types::LineHeight::Scale(v),
-        Some(wire::LineHeight::Px(v)) if positive(v) => ui_types::LineHeight::Px(v),
-        _ => ui_types::LineHeight::Normal,
+        Some(wire::LineHeight::Scale(v)) if positive(v) => kivact_types::LineHeight::Scale(v),
+        Some(wire::LineHeight::Px(v)) if positive(v) => kivact_types::LineHeight::Px(v),
+        _ => kivact_types::LineHeight::Normal,
     }
 }
-pub(crate) fn text(p: &wire::ComputedText) -> ui_types::TextStyle {
+pub(crate) fn text(p: &wire::ComputedText) -> kivact_types::TextStyle {
     let positive = |v: f32| v.is_finite() && v > 0.0;
     let font_size = if positive(p.font_size) {
         p.font_size
     } else {
-        ui_types::TextStyle::default().font_size
+        kivact_types::TextStyle::default().font_size
     };
-    let mut style = ui_types::TextStyle {
+    let mut style = kivact_types::TextStyle {
         font_size,
         weight: p.weight,
         color: color(p.color),
@@ -60,7 +60,7 @@ pub(crate) fn text(p: &wire::ComputedText) -> ui_types::TextStyle {
         align: p.align,
         family: p.family.clone(),
         italic: p.italic,
-        ..ui_types::TextStyle::default()
+        ..kivact_types::TextStyle::default()
     };
     if let Some(m) = p.more.as_deref() {
         style.letter_spacing = finite(m.letter_spacing.px(font_size));
@@ -81,8 +81,8 @@ fn finite(v: f32) -> f32 {
 }
 
 /// A decoration of text of `font_size` (its em lengths resolved).
-pub(crate) fn decoration(d: wire::TextDecoration, font_size: f32) -> ui_types::TextDecoration {
-    ui_types::TextDecoration {
+pub(crate) fn decoration(d: wire::TextDecoration, font_size: f32) -> kivact_types::TextDecoration {
+    kivact_types::TextDecoration {
         lines: d.lines,
         color: d.color.map(color),
         thickness: d
@@ -99,9 +99,9 @@ pub(crate) fn decoration(d: wire::TextDecoration, font_size: f32) -> ui_types::T
 pub fn spans(
     spans: &[wire::TextSpan],
     font_size: f32,
-    tint: impl Fn(wire::Rgba) -> ui_types::Rgba,
+    tint: impl Fn(wire::Rgba) -> kivact_types::Rgba,
     mut family: impl FnMut(&str) -> Option<String>,
-) -> Vec<ui_types::TextSpan> {
+) -> Vec<kivact_types::TextSpan> {
     spans
         .iter()
         .map(|span| {
@@ -110,9 +110,9 @@ pub fn spans(
                 .font_size
                 .filter(|v| v.is_finite() && *v > 0.0)
                 .unwrap_or(font_size);
-            ui_types::TextSpan {
+            kivact_types::TextSpan {
                 range: span.range.clone(),
-                style: ui_types::SpanStyle {
+                style: kivact_types::SpanStyle {
                     font_size: s.font_size.map(|_| size),
                     weight: s.weight,
                     color: s.color.map(&tint),
@@ -124,7 +124,7 @@ pub fn spans(
                     features: s.features.clone(),
                     decoration: s.decoration.map(|d| {
                         let color = d.color.map(&tint);
-                        ui_types::TextDecoration {
+                        kivact_types::TextDecoration {
                             color,
                             ..decoration(d, size)
                         }

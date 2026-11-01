@@ -1,8 +1,8 @@
 //! Role: The test engine on Kivact's wgpu, drawing into a shared pool.
 //!
 //! Its own `wgpu::Instance` of the window's graphics API and a device of
-//! `gpu_share::wgpu::request_device` on the adapter the
-//! window reported; the pool (`gpu_share::wgpu::Pool`)
+//! `kivact_gpu_share::wgpu::request_device` on the adapter the
+//! window reported; the pool (`kivact_gpu_share::wgpu::Pool`)
 //! makes the shared textures as `wgpu::Texture`s. A frame: the CPU's
 //! pixels written into a texture of the engine's own
 //! (`Queue::write_texture`), copied into the pool's texture, a render
@@ -15,10 +15,10 @@
 )]
 
 use crate::engine::{Engine, POOL, WAIT};
-use gpu_share::wgpu::{FORMAT, Pool, request_device};
-use gpu_share::{FrameReady, PoolConfig};
+use kivact_gpu_share::wgpu::{FORMAT, Pool, request_device};
+use kivact_gpu_share::{FrameReady, PoolConfig};
+use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
 use std::time::Duration;
-use ui_types::{GpuAdapter, GpuBackend, SharedTextures};
 
 pub(crate) struct Wgpu {
     /// Dropped first: it waits for the last frame.

@@ -1,14 +1,15 @@
 [package]
 name = "arvane-shell"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Portable Arvane shell vocabulary, input normalization and the backend SPI"
 
 [dependencies]
 raw-window-handle = { workspace = true }
-ui-types = { path = "../ui-types" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 
 [lints]
 workspace = true

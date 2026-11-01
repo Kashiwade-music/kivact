@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Standard Kivact UI components built from public core and interaction contracts"
 
 [dependencies]
-kivact-core = { path = "../kivact-core", default-features = false }
-kivact-interaction = { path = "../kivact-interaction" }
+kivact-core = { path = "../kivact-core", version = "0.1.0", default-features = false }
+kivact-interaction = { path = "../kivact-interaction", version = "0.1.0" }
 
 [dev-dependencies]
 kivact = { path = "../kivact" }

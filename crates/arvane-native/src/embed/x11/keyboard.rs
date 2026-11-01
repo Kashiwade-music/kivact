@@ -5,8 +5,8 @@
 )]
 
 use arvane_shell::{ShellError, ShellEvent};
+use kivact_types::{Key, KeyCode, Modifiers};
 use std::{collections::HashSet, ptr};
-use ui_types::{Key, KeyCode, Modifiers};
 use x11rb::{
     protocol::xkb::{ConnectionExt as _, EventType, ID, MapPart, SelectEventsAux},
     xcb_ffi::XCBConnection,

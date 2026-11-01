@@ -1,11 +1,11 @@
-//! Role: Halo-inspired components for calm, compact desktop interfaces.
+//! Role: Pop components for calm, compact desktop interfaces.
 //!
 //! The only dependency is the public `kivact` facade. Components use its
 //! normal style, input, drawing, theme and overlay contracts. Every
 //! builder accepts the public [`kivact::control::NodeBuilder`] modifiers.
 //! Install [`theme`] or add [`Tokens`] to an existing Kivact theme.
 //!
-//! The kit's theme gives the standard components of `kivact::ui` the Halo
+//! The kit's theme gives the standard components of `kivact::ui` the Pop
 //! look, so tabs, radio groups, sliders and the toast region are
 //! `kivact::ui::tabs`, `radio_group`, `slider` and `toast_region`; the kit
 //! adds what they do not have ([`tab_label`] for a tab's count badge,

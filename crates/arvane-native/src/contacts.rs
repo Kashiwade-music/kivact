@@ -9,7 +9,7 @@
 //! cancellation flags cannot be injected and remain unchecked on devices.
 
 use crate::native_input::state::ContactNote;
-use ui_types::{
+use kivact_types::{
     MouseButton, Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase,
 };
 use winit::event::{Touch, TouchPhase};

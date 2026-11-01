@@ -1,7 +1,7 @@
 //! Role: Converts gradient paints without renderer cache state.
 
 use crate::convert;
-use ui_types::{ColorMatrix, Extend, Gradient, GradientShape, Rgba};
+use kivact_types::{ColorMatrix, Extend, Gradient, GradientShape, Rgba};
 use vello_cpu::{
     PaintType,
     kurbo::Affine,
