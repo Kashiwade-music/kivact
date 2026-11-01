@@ -33,7 +33,11 @@
 use super::Writer;
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
-use kivact_wire::*;
+use kivact_wire::{
+    A11yAction, Asset, EditingData, FocusTarget, ImageData, ImageFit, ImeSession, IntrinsicSize,
+    Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties, NodeSemantics, OverlayProps,
+    PaintProps, Role, SemanticsProperties, StateStyles, TextData, TextProps, TextSpan,
+};
 
 fn semantics(p: &mut NodeProperties) -> &mut NodeSemantics {
     p.semantics.get_or_insert_default()

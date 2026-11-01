@@ -3,7 +3,7 @@ use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
 use kivact_types::DrawCommand as D;
-use kivact_wire::*;
+use kivact_wire::{Rect, SceneCmd, Size};
 impl Context<'_> {
     pub(super) fn paint_raster(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
