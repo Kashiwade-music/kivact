@@ -14,9 +14,15 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
-use windows_sys::Win32::Graphics::Gdi::*;
+use windows_sys::Win32::Graphics::Gdi::{
+    DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, InvalidateRect,
+    MONITOR_DEFAULTTONEAREST, MONITORINFOEXW, MonitorFromWindow,
+};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetCapture;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    DestroyWindow, GetClientRect, GetCursorPos, GetParent, KillTimer, PostMessageW, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOZORDER, SetTimer, SetWindowPos, USER_TIMER_MINIMUM, WindowFromPoint,
+};
 pub(super) struct Window(pub(super) Rc<State>);
 pub(super) fn environment(state: &State) -> kivact_types::Environment {
     let scale = state.shared.scale();

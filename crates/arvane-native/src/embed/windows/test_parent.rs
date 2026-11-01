@@ -6,12 +6,33 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use windows_sys::Win32::Foundation::*;
-use windows_sys::Win32::Graphics::Gdi::*;
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BeginPaint, BitBlt, ClientToScreen, CreateCompatibleDC,
+    CreateDIBSection, CreateSolidBrush, DIB_RGB_COLORS, DeleteDC, DeleteObject, EndPaint, FillRect,
+    GetDC, HBITMAP, HDC, HGDIOBJ, ReleaseDC, SRCCOPY, SelectObject,
+};
 use windows_sys::Win32::Storage::Xps::PrintWindow;
-use windows_sys::Win32::System::LibraryLoader::*;
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::System::LibraryLoader::{
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    GetModuleHandleExW,
+};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    MAPVK_VK_TO_VSC_EX, MapVirtualKeyW, VK_BACK, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1,
+    VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_HOME,
+    VK_LEFT, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SPACE, VK_TAB, VK_UP,
+};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    AdjustWindowRectEx, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
+    DispatchMessageW, FindWindowExW, GWLP_HINSTANCE, GWLP_ID, GWLP_USERDATA, GetClientRect,
+    GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, IsWindow, PM_REMOVE,
+    PW_RENDERFULLCONTENT, PeekMessageW, PostMessageW, RegisterClassW, SC_CLOSE, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, TranslateMessage, UnregisterClassW,
+    WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
+    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_SYSCOMMAND, WM_XBUTTONDOWN, WM_XBUTTONUP, WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN,
+    WS_CLIPSIBLINGS, WS_OVERLAPPEDWINDOW, WS_VISIBLE, XBUTTON1, XBUTTON2,
+};
 const NAME: &[u16] = &[
     65, 114, 118, 97, 110, 101, 69, 109, 98, 101, 100, 84, 101, 115, 116, 80, 97, 114, 101, 110,
     116, 0,
@@ -275,7 +296,9 @@ impl TestParent {
         self.button(button, x, y, false)
     }
     fn button(&self, button: MouseButton, x: f32, y: f32, down: bool) -> Result<(), ShellError> {
-        use windows_sys::Win32::System::SystemServices::*;
+        use windows_sys::Win32::System::SystemServices::{
+            MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
+        };
         let (press, release, mask, high) = match button {
             MouseButton::Primary => (WM_LBUTTONDOWN, WM_LBUTTONUP, MK_LBUTTON, 0),
             MouseButton::Secondary => (WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON, 0),

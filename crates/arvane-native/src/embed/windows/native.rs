@@ -4,7 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::thread::ThreadId;
 use windows_sys::Win32::Foundation::HWND;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    PostMessageW, SMTO_NORMAL, SendMessageTimeoutW, SendMessageW, WM_APP,
+};
 pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
 pub(super) const TIMER: usize = 1;

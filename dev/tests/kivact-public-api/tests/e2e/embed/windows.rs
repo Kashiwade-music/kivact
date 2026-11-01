@@ -9,9 +9,12 @@ use kivact::test::TestParent;
 use kivact::view::MouseButton;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_F4;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    FindWindowExW, GW_CHILD, GetWindow, HTCLIENT, PostMessageW, SendMessageW, WM_NCHITTEST,
+    WM_SYSKEYDOWN, WM_SYSKEYUP,
+};
 /// The system STATIC subclass must answer Win32 native hit testing.
 #[test]
 fn embedded_surface_receives_native_mouse_hit_tests() {

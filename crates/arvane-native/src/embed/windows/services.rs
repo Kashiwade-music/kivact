@@ -11,8 +11,11 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::rc::Rc;
 use windows_sys::Win32::Foundation::POINT;
-use windows_sys::Win32::UI::Shell::*;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::Shell::{DragFinish, DragQueryFileW, DragQueryPoint};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, GA_ROOT, GetAncestor, MSG, MWMO_INPUTAVAILABLE, MsgWaitForMultipleObjectsEx,
+    PM_REMOVE, PeekMessageW, PostQuitMessage, QS_ALLINPUT, TranslateMessage, WM_QUIT,
+};
 
 pub(super) struct Parent(isize);
 impl Parent {

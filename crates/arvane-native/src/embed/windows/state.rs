@@ -7,7 +7,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::WNDPROC;
 
 pub(super) struct State {
     pub(super) shared: Arc<Shared>,
