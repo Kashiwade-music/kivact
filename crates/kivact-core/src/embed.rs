@@ -195,7 +195,6 @@ impl App {
             )
         })?;
         let options = kivact_engine::embed::EmbedOptions {
-            parent: window,
             window_size: self.window_size,
             scale: parent.scale,
             on_resize_request: parent.on_resize_request,
@@ -208,14 +207,11 @@ impl App {
         let report = failure.clone();
         let closed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let ui_closed = closed.clone();
-        kivact_engine::embed::embed_native(
-            move || {
-                self.app_client(root, at)
-                    .with_embed_failure(report, ui_closed)
-                    .into_client(None)
-            },
-            options,
-        )
+        kivact_engine::embed::embed_native(window, options, move || {
+            self.app_client(root, at)
+                .with_embed_failure(report, ui_closed)
+                .into_client(None)
+        })
         .map(|host| Embedded {
             host: Some(host),
             failure: failure.clone(),

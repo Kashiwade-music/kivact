@@ -57,6 +57,7 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
 }
 
 pub(super) fn open(
+    parent: kivact_types::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
@@ -72,7 +73,16 @@ pub(super) fn open(
         .name("arvane-embed".into())
         .spawn(move || {
             let result = contain(
-                || run(options, make, ui_shared.clone(), ui_backend, &sender),
+                || {
+                    run(
+                        parent,
+                        options,
+                        make,
+                        ui_shared.clone(),
+                        ui_backend,
+                        &sender,
+                    )
+                },
                 "panic in X11 UI thread",
             );
             let error = match result {
@@ -100,13 +110,14 @@ pub(super) fn open(
 }
 
 fn run(
+    parent: kivact_types::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
     shared: Arc<Shared>,
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::ParentWindow::X11(parent) = options.parent else {
+    let kivact_types::ParentWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) =

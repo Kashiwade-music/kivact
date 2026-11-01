@@ -11,10 +11,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Initial embedded host settings.
+/// Initial embedded host settings. The host's parent window is passed to
+/// [`embed_native`] beside the options.
+#[derive(Default)]
 pub struct EmbedOptions {
-    /// The host's parent window.
-    pub parent: ParentWindow,
     /// Initial logical size, defaulting to 960 by 720.
     pub window_size: Option<Size>,
     /// Host-decided scale, or the OS scale.
@@ -62,8 +62,9 @@ impl EmbeddedHost {
 
 /// Start a client inside a host window; build the client on its UI thread.
 pub fn embed_native(
-    client: impl FnOnce() -> Client + Send + 'static,
+    parent: ParentWindow,
     options: EmbedOptions,
+    client: impl FnOnce() -> Client + Send + 'static,
 ) -> Result<EmbeddedHost, HostError> {
     let size = options.window_size.unwrap_or(Size {
         width: 960.0,
@@ -72,8 +73,8 @@ pub fn embed_native(
     let closing = Arc::new(AtomicBool::new(false));
     let ui_closing = closing.clone();
     arvane::embed::open(
+        parent,
         arvane::embed::EmbedOptions {
-            parent: options.parent,
             size,
             scale: options.scale,
             on_resize_request: options.on_resize_request,

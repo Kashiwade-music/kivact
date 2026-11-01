@@ -106,6 +106,10 @@ pub enum WindowMode {
 }
 
 /// Options of [`VirtualWindow::open`].
+///
+/// The default is an untitled 800 by 600 window at scale 1 on a 60 Hz
+/// display, with the system's preferences off, mirrored to a real window
+/// when one can be opened ([`WindowMode::Auto`]) and drawn on the CPU.
 #[derive(Clone, Debug)]
 pub struct VirtualWindowOptions {
     /// Title of the real window.
@@ -137,6 +141,27 @@ pub struct VirtualWindowOptions {
     /// ([`crate::Shell::gpu_preference`]; `WGPU_BACKEND` and
     /// `WGPU_POWER_PREF` override it).
     pub gpu_preference: GpuPreference,
+}
+
+impl Default for VirtualWindowOptions {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            size: Size {
+                width: 800.0,
+                height: 600.0,
+            },
+            scale: 1.0,
+            frame_period_ns: 16_666_667,
+            reduced_motion: false,
+            dark: false,
+            locale: None,
+            mode: WindowMode::Auto,
+            gpu: false,
+            renderer: None,
+            gpu_preference: GpuPreference::default(),
+        }
+    }
 }
 
 /// A test's window: what a native window does, in memory (see the module

@@ -2,14 +2,16 @@
 
 use crate::{ShellError, ShellHandler};
 
-/// The parent, first logical size, and optional host-decided scale.
+/// The first logical size and optional host-decided scale of a child window.
+/// The host's window is passed beside the options, not inside them.
+///
+/// The default is 960 by 720 logical pixels, the OS scale and no resize
+/// request.
 #[derive(Clone)]
 pub struct ChildOptions {
-    /// The host's window.
-    pub parent: kivact_types::ParentWindow,
-    /// Initial width in logical pixels.
+    /// Initial width in logical pixels (default 960).
     pub width: f32,
-    /// Initial height in logical pixels.
+    /// Initial height in logical pixels (default 720).
     pub height: f32,
     /// Physical pixels per logical pixel, or the OS scale.
     pub scale: Option<f32>,
@@ -20,12 +22,22 @@ pub struct ChildOptions {
 impl std::fmt::Debug for ChildOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChildOptions")
-            .field("parent", &self.parent)
             .field("width", &self.width)
             .field("height", &self.height)
             .field("scale", &self.scale)
             .field("on_resize_request", &self.on_resize_request.is_some())
             .finish()
+    }
+}
+
+impl Default for ChildOptions {
+    fn default() -> Self {
+        Self {
+            width: 960.0,
+            height: 720.0,
+            scale: None,
+            on_resize_request: None,
+        }
     }
 }
 
