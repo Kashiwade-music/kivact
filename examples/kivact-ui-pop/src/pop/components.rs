@@ -28,7 +28,7 @@ struct UploadEntry {
 
 pub(super) fn tokens(notify: Callback<(ui::Hue, String, String)>) -> Node {
     let swatches = [
-        ("Halo Blue", 0x2b8bd8),
+        ("Pop Blue", 0x2b8bd8),
         ("Deep Blue", 0x1a66a8),
         ("Sky Cyan", 0x5cbde8),
         ("Signal Yellow", 0xffdc3c),

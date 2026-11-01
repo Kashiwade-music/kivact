@@ -13,7 +13,7 @@ pub(super) type ImeSource = (
     (u64, TextSession),
     Rect,
     f32,
-    Option<ui_types::Transform>,
+    Option<kivact_types::Transform>,
     (bool, bool),
 );
 
@@ -24,7 +24,7 @@ pub(super) type SessionSource = (
     NodeId,
     kivact_wire::ImeSession,
     Option<Rect>,
-    Option<ui_types::Transform>,
+    Option<kivact_types::Transform>,
 );
 
 /// The text inputs with an editing state, and the IME's last text.

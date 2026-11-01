@@ -33,7 +33,7 @@
 //!   (`contacts.rs`); losing the focus cancels every contact in progress
 //!   and, with a mouse button held, the mouse's gesture (one `Cancel`).
 //!
-//! Sizes, minimum sizes and IME areas are `ui-types` logical sizes and
+//! Sizes, minimum sizes and IME areas are `kivact-types` logical sizes and
 //! rectangles. A panic in a callback is caught here and ends the loop with
 //! a [`ShellError`].
 //!
@@ -52,15 +52,15 @@ use crate::services::Services;
 use arvane_shell::ShellImeText;
 use arvane_shell::{ShellControl, ShellError, ShellOptions, ShellWaker};
 use arvane_shell::{ShellEvent, ShellEventLoop, ShellHandler, ShellWindow};
+use kivact_types::{
+    Cursor as ShellCursor, Key as ShellKey, Modifiers as ShellModifiers, MouseButton as ShellButton,
+};
+use kivact_types::{Point, PointerPhase, Rect, Size};
 use std::num::NonZeroU32;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use ui_types::{
-    Cursor as ShellCursor, Key as ShellKey, Modifiers as ShellModifiers, MouseButton as ShellButton,
-};
-use ui_types::{Point, PointerPhase, Rect, Size};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::{ElementState, Ime, MouseScrollDelta, StartCause, WindowEvent};
@@ -194,7 +194,7 @@ impl ShellWindow for WinitWindow {
     /// rejected tree keeps the accepted one.
     fn replace_accessibility(
         &mut self,
-        tree: &ui_types::SemanticsTree,
+        tree: &kivact_types::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.replace(tree)
     }
@@ -206,7 +206,7 @@ impl ShellWindow for WinitWindow {
     /// tree.
     fn update_accessibility(
         &mut self,
-        update: &ui_types::SemanticsUpdate,
+        update: &kivact_types::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.update(update)
     }
@@ -251,9 +251,9 @@ impl ShellWindow for WinitWindow {
     /// and iOS; winit reports no safe area anywhere; the IME's
     /// reconversion is answered on Windows (the subclass); AccessKit
     /// reaches assistive technology on desktops.
-    fn capabilities(&self) -> ui_types::Capabilities {
+    fn capabilities(&self) -> kivact_types::Capabilities {
         let mobile = cfg!(any(target_os = "android", target_os = "ios"));
-        ui_types::Capabilities {
+        kivact_types::Capabilities {
             touch: !cfg!(target_os = "macos"),
             pen: cfg!(windows) && self.input.subclassed.get(),
             soft_keyboard: SOFT_KEYBOARD,
@@ -295,16 +295,16 @@ impl ShellWindow for WinitWindow {
     /// mouse settings and the system's locale. A change arrives as
     /// [`ShellEvent::EnvironmentChanged`] (the scale's as
     /// [`ShellEvent::Resized`]).
-    fn environment(&self) -> ui_types::Environment {
+    fn environment(&self) -> kivact_types::Environment {
         let (double_click_ns, double_click_distance) = self.double_click();
         let mouse = self.input.mouse.get();
-        ui_types::Environment {
+        kivact_types::Environment {
             scale: self.scale(),
             frame_period_ns: self.frame_period_ns,
             reduced_motion: self.reduced_motion(),
             dark: self.window.theme() == Some(winit::window::Theme::Dark),
-            safe_area: ui_types::Insets::default(),
-            mouse: ui_types::MouseSettings {
+            safe_area: kivact_types::Insets::default(),
+            mouse: kivact_types::MouseSettings {
                 double_click_ns,
                 double_click_distance,
                 wheel_lines: mouse.wheel_lines,
@@ -495,7 +495,7 @@ struct Runner<'a> {
     contacts: arvane_shell::Contacts,
 }
 impl Runner<'_> {
-    fn file_position(&self) -> ui_types::Point {
+    fn file_position(&self) -> kivact_types::Point {
         self.window
             .as_ref()
             .and_then(|w| crate::native_input::file_position(&w.window))
@@ -505,7 +505,7 @@ impl Runner<'_> {
                     .window
                     .as_ref()
                     .map_or(1.0, |w| w.window.scale_factor());
-                ui_types::Point {
+                kivact_types::Point {
                     x: (x / scale) as f32,
                     y: (y / scale) as f32,
                 }
@@ -821,7 +821,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                 Some(ShellEvent::File {
                     phase: arvane_shell::FilePhase::Over,
                     files: self.file_paths.clone(),
-                    position: ui_types::Point {
+                    position: kivact_types::Point {
                         x: (position.x / scale) as f32,
                         y: (position.y / scale) as f32,
                     },

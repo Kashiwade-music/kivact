@@ -1,14 +1,15 @@
 [package]
 name = "kivact-task"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Kivact internal crate: UI-thread executor, resources, actions, blocking pool and timers (use the `kivact` facade)"
 
 [dependencies]
 tracing = { workspace = true }
-kivact-reactive = { path = "../kivact-reactive" }
+kivact-reactive = { path = "../kivact-reactive", version = "0.1.0" }
 # The UI thread's executor (kivact::task).
 async-task = "4.7.1"
 

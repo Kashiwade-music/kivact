@@ -61,11 +61,11 @@ use texture::target_texture;
 
 use crate::error::RenderError;
 use crate::{draw, validate};
+use kivact_types::{CpuFrame, Scene, Size};
 use std::{
     sync::{Arc, Mutex, PoisonError, mpsc},
     time::Duration,
 };
-use ui_types::{CpuFrame, Scene, Size};
 use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
 
 /// Glyph atlas pages at most (added as needed, `encode.rs`).
@@ -200,7 +200,7 @@ impl GpuContext {
     /// The adapter, when the device can import textures an external
     /// render engine shares (feature `gpu-interop`, Direct3D 12 or Vulkan
     /// on Windows and Linux).
-    pub fn interop_adapter(&self) -> Option<ui_types::GpuAdapter> {
+    pub fn interop_adapter(&self) -> Option<kivact_types::GpuAdapter> {
         self.interop.clone()
     }
 
@@ -212,8 +212,8 @@ impl GpuContext {
     #[cfg(feature = "gpu-interop")]
     pub fn import_external(
         &mut self,
-        id: ui_types::ExternalImageId,
-        shared: ui_types::SharedTextures,
+        id: kivact_types::ExternalImageId,
+        shared: kivact_types::SharedTextures,
     ) -> Result<(), RenderError> {
         self.check()?;
         let Some(adapter) = &self.interop else {
@@ -230,14 +230,14 @@ impl GpuContext {
     /// draw nothing from now on, and its release fence is signaled past
     /// every frame of it.
     #[cfg(feature = "gpu-interop")]
-    pub fn drop_external(&mut self, id: ui_types::ExternalImageId) {
+    pub fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
         self.external.drop_image(id);
     }
 
     /// The external frames scenes named that were not drawn since the last
     /// call: not ready within the frame's wait, or no longer held (each
     /// noted once).
-    pub fn take_missed_external(&mut self) -> Vec<ui_types::ExternalFrame> {
+    pub fn take_missed_external(&mut self) -> Vec<kivact_types::ExternalFrame> {
         self.external.take_missed()
     }
 
@@ -481,7 +481,7 @@ fn adapter(
             .into_iter()
             .filter(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
             .find(|adapter| {
-                gpu_share::import::identity(adapter)
+                kivact_gpu_share::import::identity(adapter)
                     .is_some_and(|identity| gpu_adapter(adapter, identity, 0).matches(&wanted))
             });
         if let Some(adapter) = named {
@@ -502,14 +502,14 @@ fn adapter(
 fn open_device(
     adapter: &wgpu::Adapter,
     desc: &wgpu::DeviceDescriptor<'_>,
-) -> Result<(wgpu::Device, wgpu::Queue, Option<ui_types::GpuAdapter>), String> {
+) -> Result<(wgpu::Device, wgpu::Queue, Option<kivact_types::GpuAdapter>), String> {
     #[cfg(feature = "gpu-interop")]
     {
-        let opened =
-            gpu_share::import::request_device(adapter, desc).map_err(|error| error.to_string())?;
+        let opened = kivact_gpu_share::import::request_device(adapter, desc)
+            .map_err(|error| error.to_string())?;
         let interop = opened
             .interop
-            .then(|| gpu_share::import::identity(adapter))
+            .then(|| kivact_gpu_share::import::identity(adapter))
             .flatten()
             .map(|identity| gpu_adapter(adapter, identity, next_generation()));
         Ok((opened.device, opened.queue, interop))
@@ -526,10 +526,10 @@ fn open_device(
 #[cfg(feature = "gpu-interop")]
 fn gpu_adapter(
     adapter: &wgpu::Adapter,
-    identity: gpu_share::Identity,
+    identity: kivact_gpu_share::Identity,
     generation: u64,
-) -> ui_types::GpuAdapter {
-    ui_types::GpuAdapter {
+) -> kivact_types::GpuAdapter {
+    kivact_types::GpuAdapter {
         backend: identity.backend,
         name: adapter.get_info().name,
         luid: identity.luid,

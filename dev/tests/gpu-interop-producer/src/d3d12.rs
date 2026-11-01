@@ -2,7 +2,7 @@
 //!
 //! An independent device (see the crate documentation) on the adapter
 //! whose LUID the window reported; the pool
-//! (`gpu_share::d3d12::Pool`) makes the shared textures
+//! (`kivact_gpu_share::d3d12::Pool`) makes the shared textures
 //! and fences and their NT handles. A frame: the CPU's pixels into the
 //! slot's upload buffer, the pool's transition to `COPY_DEST`, a copy into
 //! the texture, the pool's transition back and submission (the queue
@@ -14,10 +14,10 @@
 )]
 
 use crate::engine::{Engine, POOL, WAIT};
-use gpu_share::d3d12::{self as interop, Pool};
-use gpu_share::{FrameReady, PoolConfig};
+use kivact_gpu_share::d3d12::{self as interop, Pool};
+use kivact_gpu_share::{FrameReady, PoolConfig};
+use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
 use std::time::Duration;
-use ui_types::{GpuAdapter, GpuBackend, SharedTextures};
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::*;
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC};

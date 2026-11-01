@@ -45,7 +45,7 @@ impl MeasureColumns {
 }
 #[derive(Clone, Debug)]
 pub(crate) struct TextExtents {
-    pub(crate) style: ui_types::TextStyle,
-    pub(crate) single: Option<ui_types::TextMetrics>,
-    pub(crate) wrapped: Vec<(f32, Option<ui_types::TextMetrics>)>,
+    pub(crate) style: kivact_types::TextStyle,
+    pub(crate) single: Option<kivact_types::TextMetrics>,
+    pub(crate) wrapped: Vec<(f32, Option<kivact_types::TextMetrics>)>,
 }

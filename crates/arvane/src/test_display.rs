@@ -53,17 +53,17 @@ use crate::{
 };
 use arvane_native::test_display::{TestDisplay, TestWindow, TestWindowOptions};
 use arvane_shell::ShellWindow;
+use kivact_types::{
+    Capabilities, Cursor, Environment, GpuPreference, Insets, Rect, Scene, SemanticsTree,
+    SemanticsUpdate, Size,
+};
+#[cfg(feature = "gpu-interop")]
+use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 use shell::physical;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
-use ui_types::{
-    Capabilities, Cursor, Environment, GpuPreference, Insets, Rect, Scene, SemanticsTree,
-    SemanticsUpdate, Size,
-};
-#[cfg(feature = "gpu-interop")]
-use ui_types::{ExternalImageId, GpuAdapter, SharedTextures};
 
 pub use arvane_native::test_display::TestDisplayStats;
 
@@ -253,9 +253,9 @@ impl VirtualWindow {
     /// through [`Self::input`], which counts its clicks.
     pub fn mouse(
         &mut self,
-        phase: ui_types::PointerPhase,
-        position: Option<ui_types::Point>,
-        button: Option<ui_types::MouseButton>,
+        phase: kivact_types::PointerPhase,
+        position: Option<kivact_types::Point>,
+        button: Option<kivact_types::MouseButton>,
     ) -> crate::ShellEvent {
         crate::ShellEvent::Pointer(self.shell.mouse.event(phase, position, button))
     }
@@ -269,7 +269,7 @@ impl VirtualWindow {
     /// end of a contact that never began), and a `Cancel` of the old
     /// contact first for a `Down` of a platform id still in contact. Taps
     /// are counted (`clicks`) as [`Self::input`] counts presses.
-    pub fn contact(&mut self, contact: ui_types::PointerInput) -> Vec<crate::ShellEvent> {
+    pub fn contact(&mut self, contact: kivact_types::PointerInput) -> Vec<crate::ShellEvent> {
         let mut events = self.shell.contacts.deliver(contact);
         for event in &mut events {
             *event = self.input(event.clone());
@@ -307,7 +307,7 @@ impl VirtualWindow {
     pub fn accessibility_action(
         &self,
         node: u64,
-        action: ui_types::A11yAction,
+        action: kivact_types::A11yAction,
         value: Option<&str>,
     ) -> Option<crate::ShellEvent> {
         self.accessibility().request_action(node, action, value)

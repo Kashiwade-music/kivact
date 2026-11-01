@@ -2,7 +2,7 @@
 use crate::tokens::Tokens;
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{Color, LineHeight, Theme, ThemeMode, rgba};
-/// Install the complete public theme and its typed Halo token table.
+/// Install the complete public theme and its typed Pop token table.
 pub fn theme(mode: ThemeMode) -> Theme {
     let p = Tokens::new(mode);
     let base = Theme::light();

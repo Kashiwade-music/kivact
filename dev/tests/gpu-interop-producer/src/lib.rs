@@ -2,10 +2,10 @@
 //!
 //! The engine an application would bring, for the GPU texture sharing
 //! tests (`crates/arvane/tests/e2e/external.rs`): a device of its own (not
-//! wgpu) on the adapter a window reports ([`ui_types::GpuAdapter`]),
+//! wgpu) on the adapter a window reports ([`kivact_types::GpuAdapter`]),
 //! Direct3D 12 or Vulkan, with a pool of [`POOL`] textures and two
-//! timeline fences from `gpu-share`, which keeps the
-//! engine's side of the contract ([`ui_types::SharedTextures`]): the
+//! timeline fences from `kivact-gpu-share`, which keeps the
+//! engine's side of the contract ([`kivact_types::SharedTextures`]): the
 //! hand-off barriers, the `ready` values, a GPU-side wait for `release`
 //! before a texture is written again and a bounded CPU wait ([`WAIT`]) for
 //! the texture's last frame, so a release that never arrives is an error,
@@ -18,7 +18,7 @@
 //! wgpu has). On Vulkan it is a device of its own instance.
 //!
 //! With the feature `wgpu`, [`Producer::with_wgpu`] is the same engine
-//! written with Kivact's wgpu (`gpu_share::wgpu`): its own
+//! written with Kivact's wgpu (`kivact_gpu_share::wgpu`): its own
 //! `wgpu::Instance` and device on the adapter (on Direct3D 12, the
 //! process's singleton device, as the window's wgpu has), the picture
 //! written to a texture of its own and copied into the pool's texture.
@@ -34,8 +34,8 @@ mod wgpu_engine;
 
 use engine::Engine;
 pub use engine::{POOL, WAIT};
+use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, SharedTextures};
 use std::time::Duration;
-use ui_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, SharedTextures};
 
 /// This machine's hardware adapters of `backend` that a window could
 /// report (generation 1), for tests without a window; none where the
@@ -109,7 +109,7 @@ impl Producer {
     }
 
     /// As [`Producer::new`], the engine written with Kivact's wgpu
-    /// (`gpu_share::wgpu`) on a device of its own.
+    /// (`kivact_gpu_share::wgpu`) on a device of its own.
     #[cfg(all(feature = "wgpu", any(windows, target_os = "linux")))]
     pub fn with_wgpu(
         adapter: &GpuAdapter,

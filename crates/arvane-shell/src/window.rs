@@ -8,7 +8,7 @@
 use crate::events::ShellEvent;
 use crate::ime::ShellImeText;
 use crate::types::{ShellControl, ShellError, ShellWaker};
-use ui_types::{Cursor as ShellCursor, Rect, Size};
+use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
@@ -69,13 +69,13 @@ pub trait ShellWindow {
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &ui_types::SemanticsTree,
+        tree: &kivact_types::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &ui_types::SemanticsUpdate,
+        update: &kivact_types::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Whether assistive technology currently requests this window's accepted semantics.
@@ -94,7 +94,7 @@ pub trait ShellWindow {
     fn now_ns(&self) -> u64;
 
     /// Backend-supported input, environment and service capabilities for this window.
-    fn capabilities(&self) -> ui_types::Capabilities;
+    fn capabilities(&self) -> kivact_types::Capabilities;
 
     /// Current surface generation, or `None` while unavailable. Re-creation uses a new generation.
     fn surface_generation(&self) -> Option<u64>;
@@ -112,7 +112,7 @@ pub trait ShellWindow {
     fn reduced_motion(&self) -> bool;
 
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
-    fn environment(&self) -> ui_types::Environment;
+    fn environment(&self) -> kivact_types::Environment;
 
     /// Request a logical content size.
     fn request_size(&mut self, size: Size) -> Result<(), ShellError>;

@@ -26,8 +26,8 @@ pub(crate) mod nesting;
 
 use std::io::Read;
 
+use kivact_types::Size;
 use resvg::{tiny_skia, usvg};
-use ui_types::Size;
 
 use crate::pixels::{Bitmap, Crop, PixelSize};
 

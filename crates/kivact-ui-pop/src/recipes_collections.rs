@@ -1,4 +1,4 @@
-//! Role: Halo recipes for the standard list and data table.
+//! Role: Pop recipes for the standard list and data table.
 //!
 //! A rounded surface with 40 px headers, 52 px rows and 160 px columns that
 //! scroll sideways, muted on hover and selection, drawn by

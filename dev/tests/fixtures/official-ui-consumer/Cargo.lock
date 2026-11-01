@@ -245,8 +245,8 @@ dependencies = [
  "arvane-render",
  "arvane-shell",
  "arvane-text",
+ "kivact-types",
  "tracing",
- "ui-types",
 ]
 
 [[package]]
@@ -255,10 +255,10 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "image",
+ "kivact-types",
  "resvg",
  "skrifa",
  "tracing",
- "ui-types",
 ]
 
 [[package]]
@@ -271,6 +271,7 @@ dependencies = [
  "accesskit_winit",
  "arboard",
  "arvane-shell",
+ "kivact-types",
  "libc",
  "raw-window-handle",
  "rfd",
@@ -278,7 +279,6 @@ dependencies = [
  "softbuffer",
  "sys-locale",
  "tracing",
- "ui-types",
  "windows-sys 0.52.0",
  "winit",
  "x11rb",
@@ -292,10 +292,10 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "glifo",
+ "kivact-types",
  "pollster",
  "raw-window-handle",
  "skrifa",
- "ui-types",
  "vello_common",
  "vello_cpu",
  "vello_hybrid",
@@ -306,8 +306,8 @@ dependencies = [
 name = "arvane-shell"
 version = "0.1.0"
 dependencies = [
+ "kivact-types",
  "raw-window-handle",
- "ui-types",
 ]
 
 [[package]]
@@ -315,8 +315,8 @@ name = "arvane-text"
 version = "0.1.0"
 dependencies = [
  "fontique",
+ "kivact-types",
  "parley",
- "ui-types",
 ]
 
 [[package]]
@@ -1804,7 +1804,7 @@ dependencies = [
 name = "kivact-editing"
 version = "0.1.0"
 dependencies = [
- "ui-types",
+ "kivact-types",
  "unicode-segmentation",
 ]
 
@@ -1817,9 +1817,9 @@ dependencies = [
  "kivact-layout",
  "kivact-lower",
  "kivact-text",
+ "kivact-types",
  "kivact-wire",
  "png 0.18.1",
- "ui-types",
 ]
 
 [[package]]
@@ -1849,8 +1849,8 @@ name = "kivact-lower"
 version = "0.1.0"
 dependencies = [
  "arvane",
+ "kivact-types",
  "kivact-wire",
- "ui-types",
 ]
 
 [[package]]
@@ -1865,8 +1865,8 @@ dependencies = [
 name = "kivact-reactive"
 version = "0.1.0"
 dependencies = [
+ "kivact-types",
  "tracing",
- "ui-types",
 ]
 
 [[package]]
@@ -1896,9 +1896,13 @@ dependencies = [
  "arvane",
  "kivact-editing",
  "kivact-lower",
- "ui-types",
+ "kivact-types",
  "unicode-segmentation",
 ]
+
+[[package]]
+name = "kivact-types"
+version = "0.1.0"
 
 [[package]]
 name = "kivact-ui"
@@ -1934,7 +1938,7 @@ name = "kivact-wire"
 version = "0.1.0"
 dependencies = [
  "kivact-editing",
- "ui-types",
+ "kivact-types",
 ]
 
 [[package]]
@@ -3810,10 +3814,6 @@ dependencies = [
  "tempfile",
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "ui-types"
-version = "0.1.0"
 
 [[package]]
 name = "unicode-ident"

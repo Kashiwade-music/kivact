@@ -97,7 +97,7 @@ impl Native {
             return Err(super::error::platform("invalid scale"));
         }
         let (width, height) = super::super::geometry::physical_size(
-            ui_types::Size {
+            kivact_types::Size {
                 width: logical_width,
                 height: logical_height,
             },

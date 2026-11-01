@@ -1,18 +1,19 @@
 [package]
 name = "arvane"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Arvane: the window, text, rendering, accessibility and asset layer behind kivact-engine (public facade)"
 
 [dependencies]
-arvane-shell = { path = "../arvane-shell" }
-ui-types = { path = "../ui-types" }
-arvane-native = { path = "../arvane-native" }
-arvane-text = { path = "../arvane-text" }
-arvane-render = { path = "../arvane-render" }
-arvane-asset = { path = "../arvane-asset" }
+arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-native = { path = "../arvane-native", version = "0.1.0" }
+arvane-text = { path = "../arvane-text", version = "0.1.0" }
+arvane-render = { path = "../arvane-render", version = "0.1.0" }
+arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
 tracing = "0.1.41"
 
 [features]

@@ -14,7 +14,7 @@
 //! - `WGPU_BACKEND`, `WGPU_POWER_PREF` and the instance flags wgpu reads
 //!   (`WGPU_VALIDATION`, `WGPU_DEBUG` ..): how GPU devices are made
 //!   (feature `gpu`; read by `arvane-render`, which alone knows wgpu). The
-//!   first two override the host's [`ui_types::GpuPreference`].
+//!   first two override the host's [`kivact_types::GpuPreference`].
 
 use crate::presentation::Renderer;
 
@@ -42,7 +42,7 @@ pub(crate) struct Env {
 impl Env {
     /// Read the environment now, for GPU devices made as `preference`
     /// wishes where the environment does not say otherwise.
-    pub(crate) fn read(preference: ui_types::GpuPreference) -> Self {
+    pub(crate) fn read(preference: kivact_types::GpuPreference) -> Self {
         #[cfg(not(feature = "gpu"))]
         let _ = preference;
         Self {

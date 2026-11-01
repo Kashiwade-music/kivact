@@ -1,7 +1,7 @@
 //! Role: Defines the observable state of a loaded image.
 
 use crate::error::AssetError;
-use ui_types::Size;
+use kivact_types::Size;
 
 /// What a store knows about an image.
 #[derive(Clone, Debug, PartialEq)]

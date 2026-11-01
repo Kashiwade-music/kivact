@@ -6,6 +6,7 @@ use crate::embed::{
 };
 use arvane_shell::{AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, ShellEvent, ShellWaker};
+use kivact_types::{Cursor, Rect, Size};
 use std::{
     cell::{Cell, RefCell},
     collections::VecDeque,
@@ -18,21 +19,20 @@ use std::{
     sync::atomic::Ordering,
     time::Duration,
 };
-use ui_types::{Cursor, Rect, Size};
 use windows_sys::Win32::{
     Graphics::Gdi::*,
     UI::{Input::KeyboardAndMouse::GetCapture, WindowsAndMessaging::*},
 };
 pub(super) struct Window(pub(super) Rc<State>);
-pub(super) fn environment(state: &State) -> ui_types::Environment {
+pub(super) fn environment(state: &State) -> kivact_types::Environment {
     let scale = state.shared.scale();
     let mouse = crate::native_input::state::MouseSettings::read();
-    ui_types::Environment {
+    kivact_types::Environment {
         scale,
         frame_period_ns: frame_period(state.native.hwnd()),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
-        mouse: ui_types::MouseSettings {
+        mouse: kivact_types::MouseSettings {
             double_click_ns: u64::from(mouse.double_click_ms) * 1_000_000,
             double_click_distance: (
                 mouse.double_click_px.0 as f32 / scale,
@@ -128,7 +128,7 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &ui_types::SemanticsTree,
+        tree: &kivact_types::SemanticsTree,
     ) -> Result<(), AccessibilityError> {
         let result = self
             .0
@@ -145,7 +145,7 @@ impl ShellWindow for Window {
     }
     fn update_accessibility(
         &mut self,
-        update: &ui_types::SemanticsUpdate,
+        update: &kivact_types::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
         let result = self
             .0
@@ -186,8 +186,8 @@ impl ShellWindow for Window {
     fn now_ns(&self) -> u64 {
         self.0.now()
     }
-    fn capabilities(&self) -> ui_types::Capabilities {
-        ui_types::Capabilities {
+    fn capabilities(&self) -> kivact_types::Capabilities {
+        kivact_types::Capabilities {
             native_accessibility: true,
             ime_reconversion: true,
             ..Default::default()
@@ -209,7 +209,7 @@ impl ShellWindow for Window {
     fn reduced_motion(&self) -> bool {
         self.environment().reduced_motion
     }
-    fn environment(&self) -> ui_types::Environment {
+    fn environment(&self) -> kivact_types::Environment {
         environment(&self.0)
     }
     fn set_fullscreen(&self, _: bool) -> Result<(), ShellError> {
@@ -325,11 +325,11 @@ impl State {
             resources_leaked: Cell::new(false),
             opening: Cell::new(true),
             original_proc: Cell::new(None),
-            cursor: Cell::new(ui_types::Cursor::Auto),
+            cursor: Cell::new(kivact_types::Cursor::Auto),
             pending_surrogate: Cell::new(None),
             mouse: Cell::new(Mouse::default()),
             clicks: RefCell::new(ClickCounter::default()),
-            environment: RefCell::new(ui_types::Environment::default()),
+            environment: RefCell::new(kivact_types::Environment::default()),
             explicit_scale: Cell::new(explicit_scale),
             pixels: RefCell::new(Vec::new()),
             scratch: RefCell::new(Vec::new()),

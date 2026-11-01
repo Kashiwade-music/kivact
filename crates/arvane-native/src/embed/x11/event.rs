@@ -2,7 +2,7 @@
 
 use super::{keyboard::Keyboard, window::Window};
 use arvane_shell::{ClickCounter, Mouse, ShellError, ShellEvent, ShellWindow};
-use ui_types::{MouseButton, Point, PointerPhase};
+use kivact_types::{MouseButton, Point, PointerPhase};
 use x11rb::{
     connection::Connection,
     protocol::{
@@ -92,7 +92,7 @@ impl Input {
                     if event.position != previous {
                         out.push(ShellEvent::Pointer(event));
                     }
-                    let settings = ui_types::MouseSettings::default();
+                    let settings = kivact_types::MouseSettings::default();
                     let (x, y) = crate::wheel::lines(
                         x,
                         y,
@@ -198,7 +198,7 @@ impl Input {
             out.push(ShellEvent::Pointer(cancel));
         }
         self.keyboard.focus_lost();
-        out.push(ShellEvent::Modifiers(ui_types::Modifiers::default()));
+        out.push(ShellEvent::Modifiers(kivact_types::Modifiers::default()));
         out.push(ShellEvent::Focused(false));
     }
 }

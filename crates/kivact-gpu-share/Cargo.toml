@@ -1,0 +1,28 @@
+[package]
+name = "kivact-gpu-share"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Neutral contracts and native helpers for GPU texture sharing"
+
+[features]
+default = []
+export = []
+import = ["dep:wgpu", "dep:pollster"]
+wgpu = ["export", "dep:wgpu", "dep:pollster"]
+
+[dependencies]
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
+wgpu = { workspace = true, optional = true }
+pollster = { workspace = true, optional = true }
+
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+ash = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = ["Win32_Security", "Win32_System_Threading", "Win32_Graphics_Direct3D"] }
+
+[lints]
+workspace = true

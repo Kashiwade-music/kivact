@@ -2,8 +2,8 @@
 use super::state::State;
 use crate::key_code;
 use arvane_shell::ShellEvent;
+use kivact_types::{Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
 use std::rc::Rc;
-use ui_types::{Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
 use windows_sys::Win32::System::SystemServices::{
     MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
 };
@@ -346,32 +346,32 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
         String::new()
     };
     let physical = match code {
-        ui_types::KeyCode::KeyA => Some('a'),
-        ui_types::KeyCode::KeyB => Some('b'),
-        ui_types::KeyCode::KeyC => Some('c'),
-        ui_types::KeyCode::KeyD => Some('d'),
-        ui_types::KeyCode::KeyE => Some('e'),
-        ui_types::KeyCode::KeyF => Some('f'),
-        ui_types::KeyCode::KeyG => Some('g'),
-        ui_types::KeyCode::KeyH => Some('h'),
-        ui_types::KeyCode::KeyI => Some('i'),
-        ui_types::KeyCode::KeyJ => Some('j'),
-        ui_types::KeyCode::KeyK => Some('k'),
-        ui_types::KeyCode::KeyL => Some('l'),
-        ui_types::KeyCode::KeyM => Some('m'),
-        ui_types::KeyCode::KeyN => Some('n'),
-        ui_types::KeyCode::KeyO => Some('o'),
-        ui_types::KeyCode::KeyP => Some('p'),
-        ui_types::KeyCode::KeyQ => Some('q'),
-        ui_types::KeyCode::KeyR => Some('r'),
-        ui_types::KeyCode::KeyS => Some('s'),
-        ui_types::KeyCode::KeyT => Some('t'),
-        ui_types::KeyCode::KeyU => Some('u'),
-        ui_types::KeyCode::KeyV => Some('v'),
-        ui_types::KeyCode::KeyW => Some('w'),
-        ui_types::KeyCode::KeyX => Some('x'),
-        ui_types::KeyCode::KeyY => Some('y'),
-        ui_types::KeyCode::KeyZ => Some('z'),
+        kivact_types::KeyCode::KeyA => Some('a'),
+        kivact_types::KeyCode::KeyB => Some('b'),
+        kivact_types::KeyCode::KeyC => Some('c'),
+        kivact_types::KeyCode::KeyD => Some('d'),
+        kivact_types::KeyCode::KeyE => Some('e'),
+        kivact_types::KeyCode::KeyF => Some('f'),
+        kivact_types::KeyCode::KeyG => Some('g'),
+        kivact_types::KeyCode::KeyH => Some('h'),
+        kivact_types::KeyCode::KeyI => Some('i'),
+        kivact_types::KeyCode::KeyJ => Some('j'),
+        kivact_types::KeyCode::KeyK => Some('k'),
+        kivact_types::KeyCode::KeyL => Some('l'),
+        kivact_types::KeyCode::KeyM => Some('m'),
+        kivact_types::KeyCode::KeyN => Some('n'),
+        kivact_types::KeyCode::KeyO => Some('o'),
+        kivact_types::KeyCode::KeyP => Some('p'),
+        kivact_types::KeyCode::KeyQ => Some('q'),
+        kivact_types::KeyCode::KeyR => Some('r'),
+        kivact_types::KeyCode::KeyS => Some('s'),
+        kivact_types::KeyCode::KeyT => Some('t'),
+        kivact_types::KeyCode::KeyU => Some('u'),
+        kivact_types::KeyCode::KeyV => Some('v'),
+        kivact_types::KeyCode::KeyW => Some('w'),
+        kivact_types::KeyCode::KeyX => Some('x'),
+        kivact_types::KeyCode::KeyY => Some('y'),
+        kivact_types::KeyCode::KeyZ => Some('z'),
         _ => None,
     };
     state.event(ShellEvent::Key {

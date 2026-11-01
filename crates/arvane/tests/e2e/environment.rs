@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{ShellFileDialog, Window as _};
-use ui_types::{Cursor, Environment, Insets, MouseSettings, Size};
+use kivact_types::{Cursor, Environment, Insets, MouseSettings, Size};
 
 use crate::support::{PERIOD, open, options, rect};
 

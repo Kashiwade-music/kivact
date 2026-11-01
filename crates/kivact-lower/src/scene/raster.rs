@@ -2,8 +2,8 @@
 use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
+use kivact_types::DrawCommand as D;
 use kivact_wire::*;
-use ui_types::DrawCommand as D;
 impl Context<'_> {
     pub(super) fn paint_raster(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
@@ -23,7 +23,7 @@ impl Context<'_> {
                 pixelated,
             } => {
                 state.out.commands.push(D::ImageSampled {
-                    image: ui_types::ImageData {
+                    image: kivact_types::ImageData {
                         width: image.width,
                         height: image.height,
                         rgba: image.rgba.clone(),

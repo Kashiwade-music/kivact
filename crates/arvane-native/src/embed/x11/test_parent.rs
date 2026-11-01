@@ -2,13 +2,13 @@
 
 use super::conn::Native;
 use arvane_shell::ShellError;
+use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
 use std::path::PathBuf;
 use std::{
     cell::{Cell, RefCell},
     sync::{Arc, atomic::Ordering},
     time::{Duration, Instant},
 };
-use ui_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
 use x11rb::{
     connection::Connection,
     errors::ReplyError,

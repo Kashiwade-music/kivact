@@ -7,7 +7,7 @@
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions, gpu_unavailable};
 use arvane::{ErrorKind, Presented, Renderer, Window as _};
-use ui_types::Size;
+use kivact_types::Size;
 
 use crate::support::{BLUE, PERIOD, RED, fill, open, options, pixel, present, show};
 

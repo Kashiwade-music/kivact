@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Hard-edged operation-console components using only Kivact's public API"
 
 [dependencies]
-kivact = { path = "../kivact", default-features = false }
+kivact = { path = "../kivact", version = "0.1.0", default-features = false }
 
 [dev-dependencies]
 kivact = { path = "../kivact", default-features = false, features = ["test"] }

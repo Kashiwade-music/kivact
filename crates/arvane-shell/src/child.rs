@@ -6,7 +6,7 @@ use crate::{ShellError, ShellHandler};
 #[derive(Clone)]
 pub struct ChildOptions {
     /// The host's window.
-    pub parent: ui_types::ParentWindow,
+    pub parent: kivact_types::ParentWindow,
     /// Initial width in logical pixels.
     pub width: f32,
     /// Initial height in logical pixels.

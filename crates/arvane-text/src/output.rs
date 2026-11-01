@@ -19,11 +19,11 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use parley::{Layout, PositionedLayoutItem};
-use ui_types::{
+use kivact_types::{
     DecorationLines, Glyph, GlyphRun, Rect, Size, TextAlign, TextDecoration, TextDecorationRect,
     TextHighlight, TextLine, TextOverflow, TextSpan, TextStyle,
 };
+use parley::{Layout, PositionedLayoutItem};
 
 /// Slack for comparing positions that sum float advances.
 const EPSILON: f32 = 0.01;
@@ -311,7 +311,7 @@ struct Segment {
     x1: f32,
     baseline: f32,
     font_size: f32,
-    color: ui_types::Rgba,
+    color: kivact_types::Rgba,
     metrics: Metrics,
 }
 

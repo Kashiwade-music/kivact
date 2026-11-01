@@ -7,7 +7,7 @@
 
 use arvane::test_display::VirtualWindow;
 use arvane::{ShellEvent, Window as _};
-use ui_types::{
+use kivact_types::{
     Key, MouseButton, Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase,
 };
 

@@ -1,4 +1,4 @@
-//! Role: Halo recipes for the standard command palette.
+//! Role: Pop recipes for the standard command palette.
 //!
 //! A wide panel with a borderless search field over a ruled list, rows with an
 //! optional icon, and the hint on the right.
@@ -53,7 +53,7 @@ fn search(_: &Theme, _: &Look<PartState>) -> Style {
         .border_bottom(1, ColorToken::Border)
 }
 
-/// Halo shows no magnifier.
+/// Pop shows no magnifier.
 fn hidden(_: &Theme, _: &Look<PartState>) -> Style {
     style().size(0, 0)
 }

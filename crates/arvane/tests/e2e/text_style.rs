@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use arvane::{Engine, ErrorKind};
-use ui_types::{
+use kivact_types::{
     DecorationLines, FontFeature, FontKerning, Rgba, RichText, ShapedText, SpanStyle,
     TextDecoration, TextOverflow, TextSpan, TextStyle, TextTransform, TextWrap,
 };
@@ -196,7 +196,7 @@ fn justified_lines_span_the_width_except_the_last() {
     let mut engine = engine();
     let text = "Justified text fills each line of the paragraph to its width but the last one";
     let justified = TextStyle {
-        align: ui_types::TextAlign::Justify,
+        align: kivact_types::TextAlign::Justify,
         ..style(14.0)
     };
     let width = 180.0;
@@ -404,7 +404,7 @@ fn an_ellipsis_ends_a_line_cut_to_fit() {
         &mut engine,
         text,
         &TextStyle {
-            align: ui_types::TextAlign::Center,
+            align: kivact_types::TextAlign::Center,
             ..one_line.clone()
         },
         Some(120.0),

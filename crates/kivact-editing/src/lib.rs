@@ -46,7 +46,7 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use ui_types::{Key, Modifiers, Rect, Rgba};
+use kivact_types::{Key, Modifiers, Rect, Rgba};
 use unicode_segmentation::UnicodeSegmentation as _;
 
 /// The revision of a new text: unique for the process.

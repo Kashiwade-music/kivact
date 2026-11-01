@@ -12,7 +12,7 @@ pub const WAIT: Duration = Duration::from_secs(5);
 pub(crate) trait Engine {
     /// Copy `rgba` (rows `pitch` apart) into the pool's next texture and
     /// signal `ready`: the texture and the value.
-    fn draw(&mut self, rgba: &[u8]) -> Result<gpu_share::FrameReady, String>;
+    fn draw(&mut self, rgba: &[u8]) -> Result<kivact_gpu_share::FrameReady, String>;
     /// The row pitch [`Engine::draw`] takes.
     fn pitch(&self) -> usize;
     /// The release fence's value now.

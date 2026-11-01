@@ -5,7 +5,7 @@
 //! is a complete [`PointerInput`]. Hit testing and capture stay with the
 //! host.
 
-use ui_types::{
+use kivact_types::{
     MouseButton, Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase,
 };
 

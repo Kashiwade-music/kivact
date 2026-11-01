@@ -4,7 +4,7 @@
 //! shadow filters, gradient masks, and how groups must nest.
 
 use arvane::{ErrorKind, Presented};
-use ui_types::{
+use kivact_types::{
     BlendMode, DrawCommand, Extend, FillRule, Gradient, GradientShape, Layer, LayerFilter, Mask,
     Paint, RoundedRect, Shape, Transform,
 };

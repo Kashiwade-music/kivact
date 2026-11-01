@@ -11,7 +11,7 @@
 use std::fmt;
 use std::path::Path;
 
-use ui_types::Asset;
+use kivact_types::Asset;
 
 /// Why an asset failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

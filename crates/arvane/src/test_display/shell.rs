@@ -7,14 +7,14 @@ use arvane_native::test_display::TestWindow;
 use arvane_shell::{
     Accessibility, AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow,
 };
+use kivact_types::{
+    Capabilities, Cursor, Environment, Insets, MouseSettings, Rect, SemanticsTree, SemanticsUpdate,
+    Size,
+};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use ui_types::{
-    Capabilities, Cursor, Environment, Insets, MouseSettings, Rect, SemanticsTree, SemanticsUpdate,
-    Size,
-};
 
 pub(super) struct VirtualShell {
     pub(super) now: u64,

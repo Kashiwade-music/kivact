@@ -5,7 +5,7 @@
 //! it.
 
 use arvane::{AccessibilityError, ShellEvent, Window as _};
-use ui_types::{
+use kivact_types::{
     A11yAction, NodeId, Point, Role, SemanticsNode, SemanticsProperties, SemanticsTree,
     SemanticsUpdate, Transform,
 };
@@ -259,7 +259,7 @@ fn an_invalid_tree_or_update_leaves_the_accepted_tree_as_it_was() {
             update(
                 Some(3),
                 vec![SemanticsNode {
-                    properties: Some(Box::new(ui_types::SemanticsProperties {
+                    properties: Some(Box::new(kivact_types::SemanticsProperties {
                         value_now: Some(f64::NAN),
                         ..Default::default()
                     })),
@@ -272,7 +272,7 @@ fn an_invalid_tree_or_update_leaves_the_accepted_tree_as_it_was() {
             update(
                 Some(3),
                 vec![SemanticsNode {
-                    properties: Some(Box::new(ui_types::SemanticsProperties {
+                    properties: Some(Box::new(kivact_types::SemanticsProperties {
                         active_descendant: Some(NodeId(3)),
                         ..Default::default()
                     })),
@@ -286,7 +286,7 @@ fn an_invalid_tree_or_update_leaves_the_accepted_tree_as_it_was() {
             update(
                 Some(3),
                 vec![SemanticsNode {
-                    properties: Some(Box::new(ui_types::SemanticsProperties {
+                    properties: Some(Box::new(kivact_types::SemanticsProperties {
                         active_descendant: Some(NodeId(99)),
                         ..Default::default()
                     })),
@@ -300,7 +300,7 @@ fn an_invalid_tree_or_update_leaves_the_accepted_tree_as_it_was() {
             update(
                 Some(3),
                 vec![SemanticsNode {
-                    properties: Some(Box::new(ui_types::SemanticsProperties {
+                    properties: Some(Box::new(kivact_types::SemanticsProperties {
                         active_descendant: Some(NodeId(5)),
                         controls: vec![NodeId(2)],
                         ..Default::default()
@@ -554,8 +554,8 @@ fn an_active_descendant_may_live_inside_a_node_the_node_controls() {
 
 /// `text`'s runs, changed by `f` (new runs where it changed them).
 fn edit_runs(
-    text: &mut ui_types::SemanticsText,
-    f: impl FnOnce(&mut Vec<ui_types::SemanticsTextRun>),
+    text: &mut kivact_types::SemanticsText,
+    f: impl FnOnce(&mut Vec<kivact_types::SemanticsTextRun>),
 ) {
     let mut runs: Vec<_> = text.runs.iter().map(|r| (**r).clone()).collect();
     f(&mut runs);
@@ -564,8 +564,8 @@ fn edit_runs(
 
 #[test]
 fn editable_text_snapshots_validate_complete_and_partial_updates_transactionally() {
+    use kivact_types::{SemanticsText, SemanticsTextRun, TextCaret};
     use std::sync::Arc;
-    use ui_types::{SemanticsText, SemanticsTextRun, TextCaret};
     let mut window = open(100., 100.);
     let mut editor = node(2, Role::TextBox, &[]);
     editor.properties = Some(Box::new(SemanticsProperties {

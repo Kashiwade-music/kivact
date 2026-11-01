@@ -1,6 +1,6 @@
 //! Role: Defines the surrounding text and geometry supplied to platform IMEs.
 
-use ui_types::Rect;
+use kivact_types::Rect;
 
 /// What the focused text input shows the IME: the text around its caret,
 /// its selection and composition, and where its characters are, for the

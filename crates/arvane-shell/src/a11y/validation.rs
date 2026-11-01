@@ -17,7 +17,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ui_types::{SemanticsNode, SemanticsTree};
+use kivact_types::{SemanticsNode, SemanticsTree};
 
 use super::error::AccessibilityError;
 
@@ -151,7 +151,7 @@ pub(crate) fn check_values(node: &SemanticsNode) -> Result<(), AccessibilityErro
 /// unique among all nodes and runs, and every selection inside its text.
 pub(super) fn check_text<'a>(
     nodes: impl Iterator<Item = &'a SemanticsNode>,
-    is_node: impl Fn(ui_types::NodeId) -> bool,
+    is_node: impl Fn(kivact_types::NodeId) -> bool,
 ) -> Result<(), AccessibilityError> {
     let mut seen_runs = HashSet::new();
     for node in nodes {
@@ -194,8 +194,8 @@ pub(super) fn check_text_node(node: &SemanticsNode) -> Result<(), AccessibilityE
 /// A run of `owner`'s text: finite bounds and carets, the carets inside
 /// it. Returns its length in scalars.
 pub(super) fn check_run(
-    owner: ui_types::NodeId,
-    run: &ui_types::SemanticsTextRun,
+    owner: kivact_types::NodeId,
+    run: &kivact_types::SemanticsTextRun,
 ) -> Result<u32, AccessibilityError> {
     let count = u32::try_from(run.value.chars().count())
         .map_err(|_| AccessibilityError::InvalidProperties(owner))?;
@@ -211,8 +211,8 @@ pub(super) fn check_run(
 /// The selection of `owner`'s text, whose runs are `len` scalars long from
 /// its start, lies in the runs.
 pub(super) fn check_selection(
-    owner: ui_types::NodeId,
-    text: &ui_types::SemanticsText,
+    owner: kivact_types::NodeId,
+    text: &kivact_types::SemanticsText,
     len: u32,
 ) -> Result<(), AccessibilityError> {
     let end = text
@@ -226,7 +226,7 @@ pub(super) fn check_selection(
     Ok(())
 }
 
-fn text_bounds(rect: ui_types::Rect) -> bool {
+fn text_bounds(rect: kivact_types::Rect) -> bool {
     [
         rect.x,
         rect.y,

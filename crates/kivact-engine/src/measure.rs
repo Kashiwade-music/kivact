@@ -61,12 +61,12 @@ pub(crate) fn input_style(
     columns: &MeasureColumns,
     id: NodeId,
     engine: &mut arvane::Engine,
-) -> ui_types::TextStyle {
+) -> kivact_types::TextStyle {
     let mut style = kivact_lower::assets::text_style(engine, &computed_text(tree, columns, id));
-    style.wrap = ui_types::TextWrap::NoWrap;
-    style.decoration = ui_types::TextDecoration::default();
-    style.overflow = ui_types::TextOverflow::Clip;
+    style.wrap = kivact_types::TextWrap::NoWrap;
+    style.decoration = kivact_types::TextDecoration::default();
+    style.overflow = kivact_types::TextOverflow::Clip;
     style.max_lines = None;
-    style.transform = ui_types::TextTransform::None;
+    style.transform = kivact_types::TextTransform::None;
     style
 }

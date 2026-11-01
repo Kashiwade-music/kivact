@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use arvane::asset::{Asset, AssetErrorKind, AssetStore, ImageState, PixelSize, Pixels};
 
-use ui_types::{DrawCommand, ImageData, Size};
+use kivact_types::{DrawCommand, ImageData, Size};
 
 use crate::support::{RED, assert_near, open, pixel, rect, show};
 

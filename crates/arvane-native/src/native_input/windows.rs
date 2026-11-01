@@ -80,7 +80,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
 use super::state::{ContactNote, MouseSettings, NativeInput};
 use arvane_shell::ShellImeText;
-use ui_types::PointerKind;
+use kivact_types::PointerKind;
 
 /// The subclass id (one subclass per window).
 const ID: usize = 0x4172_7661;
@@ -591,13 +591,13 @@ pub(crate) fn mouse_settings() -> MouseSettings {
 
 const FILE_TIMER: usize = 0x41525646;
 /// Query the cursor in logical client pixels, on the window thread.
-pub(crate) fn file_position(window: &Window) -> Option<ui_types::Point> {
+pub(crate) fn file_position(window: &Window) -> Option<kivact_types::Point> {
     let RawWindowHandle::Win32(handle) = window.window_handle().ok()?.as_raw() else {
         return None;
     };
     cursor_at(handle.hwnd.get(), window.scale_factor())
 }
-fn cursor_at(hwnd: HWND, scale: f64) -> Option<ui_types::Point> {
+fn cursor_at(hwnd: HWND, scale: f64) -> Option<kivact_types::Point> {
     let mut point = POINT { x: 0, y: 0 };
     // SAFETY: point is a writable POINT for this synchronous system query.
     if unsafe { GetCursorPos(&mut point) } == 0 {
@@ -607,7 +607,7 @@ fn cursor_at(hwnd: HWND, scale: f64) -> Option<ui_types::Point> {
     if unsafe { ScreenToClient(hwnd, &mut point) } == 0 {
         return None;
     }
-    Some(ui_types::Point {
+    Some(kivact_types::Point {
         x: (f64::from(point.x) / scale) as f32,
         y: (f64::from(point.y) / scale) as f32,
     })

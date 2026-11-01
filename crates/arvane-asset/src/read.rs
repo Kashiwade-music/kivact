@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::source::is_url;
-use ui_types::Asset;
+use kivact_types::Asset;
 
 use crate::error::{AssetError, AssetErrorKind};
 use crate::limits::MAX_ENCODED_BYTES;

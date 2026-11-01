@@ -1,13 +1,14 @@
 [package]
 name = "kivact-editing"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Document, session and native-host contracts for text editing"
 
 [dependencies]
-ui-types = { path = "../ui-types" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 unicode-segmentation = { workspace = true }
 
 [lib]

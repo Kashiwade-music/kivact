@@ -1,6 +1,6 @@
-//! Role: Halo catalogue of the Pop kit with thirteen sections.
+//! Role: Catalogue of the Pop kit with thirteen sections.
 //!
-//! A full thirteen-section Halo catalogue, retaining the source shell and component density.
+//! A full thirteen-section Pop catalogue, retaining the source shell and component density.
 
 use self::common::{columns, tone_of, wrap};
 use self::components::buttons;
@@ -295,7 +295,7 @@ pub(super) fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoV
                     );
                 }),
             column((
-                text("HALO UI").style(
+                text("POP UI").style(
                     style()
                         .font_family("Barlow")
                         .italic(true)
@@ -390,7 +390,7 @@ pub(super) fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoV
     ]);
     let topbar = row((
         ui::breadcrumb(
-            ["Halo UI".to_string()]
+            ["Pop UI".to_string()]
                 .into_iter()
                 .map(|item| item.to_string())
                 .collect::<Vec<_>>(),
@@ -442,7 +442,7 @@ pub(super) fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoV
     let content = column((
         section_views,
         row((
-            text("Halo UI prototype · 2026-10-03").style(style().grow(1)),
+            text("Pop UI catalog").style(style().grow(1)),
             text("Icons: Tabler Icons (MIT)"),
         ))
         .style(

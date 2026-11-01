@@ -7,7 +7,7 @@
 //! adapter of that graphics API.
 
 use gpu_interop_producer::{POOL, Producer, pattern};
-use ui_types::{ExternalImageId, GpuBackend};
+use kivact_types::{ExternalImageId, GpuBackend};
 
 const W: u32 = 256;
 const H: u32 = 128;
@@ -99,7 +99,7 @@ fn reads_back_the_pattern_with_wgpu_on_vulkan() {
 
 #[cfg(feature = "wgpu")]
 fn reads_back_a_texture_of_its_own(backend: GpuBackend) -> Result<(), String> {
-    use gpu_share::wgpu::{FORMAT, read_back, request_device};
+    use kivact_gpu_share::wgpu::{FORMAT, read_back, request_device};
     let adapter = gpu_interop_producer::adapters(backend)
         .into_iter()
         .next()

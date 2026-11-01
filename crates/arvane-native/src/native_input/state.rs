@@ -41,7 +41,7 @@ pub(crate) struct NativeInput {
     /// The client position (physical pixels) of the last button or wheel
     /// message, not taken yet.
     pub(crate) pointer: Cell<Option<(f64, f64)>>,
-    pub(crate) file_pointer: Cell<Option<ui_types::Point>>,
+    pub(crate) file_pointer: Cell<Option<kivact_types::Point>>,
     /// The subclass is installed (it removes itself when the window is
     /// destroyed).
     pub(crate) subclassed: Cell<bool>,
@@ -71,7 +71,7 @@ pub(crate) struct ContactNote {
     /// The platform's pointer id (winit's touch id).
     pub(crate) id: u64,
     /// Touch or pen.
-    pub(crate) kind: ui_types::PointerKind,
+    pub(crate) kind: kivact_types::PointerKind,
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
     /// The pen's tilt (degrees along x and y), when reported.

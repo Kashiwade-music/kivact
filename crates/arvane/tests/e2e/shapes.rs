@@ -4,7 +4,7 @@
 //! their fill rule, what is drawn agreeing with `Shape::contains`, and
 //! stroke caps, joins, dashes and dots.
 
-use ui_types::{
+use kivact_types::{
     DrawCommand, FillRule, LineCap, LineJoin, PathCmd, Radius, RoundedRect, Shape, Stroke,
 };
 

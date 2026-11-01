@@ -1,6 +1,6 @@
 //! Role: Defines accessibility validation errors.
 
-use ui_types::NodeId;
+use kivact_types::NodeId;
 
 /// Malformed semantics input, safe to send between threads.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -3,11 +3,11 @@
 //! Independent of the rasterizers (it reads the font file only), and not
 //! cached: a caller asks when it needs the box.
 
+use kivact_types::{GlyphRun, Rect};
 use skrifa::{
     FontRef, MetadataProvider,
     instance::{LocationRef, NormalizedCoord, Size},
 };
-use ui_types::{GlyphRun, Rect};
 
 /// The smallest rectangle holding the outlines of `run`'s glyphs, in the
 /// run's own coordinates (logical pixels from its layout origin, y down).

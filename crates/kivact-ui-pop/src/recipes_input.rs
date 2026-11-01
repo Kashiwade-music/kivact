@@ -1,4 +1,4 @@
-//! Role: Halo recipes for the standard tag input and number input.
+//! Role: Pop recipes for the standard tag input and number input.
 
 use crate::{Hue, Tokens};
 use kivact::draw::Shadow;

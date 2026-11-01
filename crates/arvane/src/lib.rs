@@ -2,13 +2,13 @@
 //!
 //! Responsibility: the only crate outside Arvane may depend on (via
 //! `kivact-engine`). It wires the adapter crates together; the
-//! adapters share `ui-types` values and portable `arvane-shell` contracts. Text is the [`Engine`]'s; windows ([`Window`]: the native
+//! adapters share `kivact-types` values and portable `arvane-shell` contracts. Text is the [`Engine`]'s; windows ([`Window`]: the native
 //! [`NativeWindow`] run by [`Shell`], and the test windows) present scenes
 //! through their own presenters, which own the renderers, the GPU life
 //! cycle and the frame policy (`presenter.rs`).
 //!
 //! Invariants:
-//! - Public signatures use Arvane contracts, neutral `ui-types` values and
+//! - Public signatures use Arvane contracts, neutral `kivact-types` values and
 //!   standard library types.
 //!   No type from winit, taffy, parley, vello_cpu, vello_hybrid, wgpu,
 //!   softbuffer, accesskit, image, resvg or skrifa is reachable from it.
@@ -20,7 +20,7 @@
 //!   (feature `gpu-interop`) are imported into that window's own GPU device
 //!   ([`Window::import_external_image`]): an image belongs to one window,
 //!   and another window's scene that names it draws nothing. The `unsafe`
-//!   this needs is in `gpu-share`, below `arvane-render`.
+//!   this needs is in `kivact-gpu-share`, below `arvane-render`.
 //! - What a value means where it crosses (logical coordinates,
 //!   straight-alpha input pixels, premultiplied frames, a text's scalar and
 //!   glyph positions and its edit byte offsets, `Arc` identity) is written
@@ -32,7 +32,7 @@
 //! normalization and validated accessibility trees live in `arvane-shell`;
 //! native decoding stays in the backend. Inside each, the values shared by
 //! several modules (this crate's renderer values in `presentation.rs`,
-//! `ui-types`' image data, text's errors and metrics, assets' limits and
+//! `kivact-types`' image data, text's errors and metrics, assets' limits and
 //! image state, render's errors, gradients, GPU state and texture making,
 //! the shell's values, native input state and the shared accessibility
 //! tree) sit in modules of their own, which the modules doing the work
@@ -54,8 +54,8 @@ mod shutdown;
 pub mod test_display;
 mod window;
 
+use kivact_types::{RichText, ShapedText, Size, TextMetrics, TextStyle};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc};
-use ui_types::{RichText, ShapedText, Size, TextMetrics, TextStyle};
 
 /// Images, SVG and font files: loading, decoding, the image cache and its
 /// worker, fit geometry and font family resolution.

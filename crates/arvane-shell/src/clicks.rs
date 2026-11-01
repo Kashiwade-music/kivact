@@ -15,7 +15,7 @@
 //! contact's later events carry the count of its `Down`.
 
 use crate::events::ShellEvent;
-use ui_types::{MouseButton, Point, PointerId, PointerKind, PointerPhase};
+use kivact_types::{MouseButton, Point, PointerId, PointerKind, PointerPhase};
 
 /// Windows' default double-click time (ns, `GetDoubleClickTime`) and
 /// distance (pixels per axis, `SM_CXDOUBLECLK` / `SM_CYDOUBLECLK`): what a

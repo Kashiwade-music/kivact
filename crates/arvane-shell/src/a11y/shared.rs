@@ -1,8 +1,8 @@
 //! Role: Stores the accessibility tree shared with native callbacks.
 
 use super::{error::AccessibilityError, state, validation};
+use kivact_types::{NodeId, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
 use std::sync::{Arc, Mutex, MutexGuard};
-use ui_types::{NodeId, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
 
 /// What the platform has not been handed yet.
 #[derive(Default)]
@@ -135,7 +135,7 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
-    nodes: Vec<&'a ui_types::SemanticsNode>,
+    nodes: Vec<&'a kivact_types::SemanticsNode>,
     runs: &'a [Arc<SemanticsTextRun>],
     all_runs: bool,
     scale: f64,
@@ -148,7 +148,7 @@ impl PlatformUpdate<'_> {
     }
 
     /// The current nodes the platform needs, in delivery order.
-    pub fn nodes(&self) -> impl Iterator<Item = &ui_types::SemanticsNode> {
+    pub fn nodes(&self) -> impl Iterator<Item = &kivact_types::SemanticsNode> {
         self.nodes.iter().copied()
     }
 
@@ -327,7 +327,7 @@ impl PlatformTree {
     pub fn request_action(
         &self,
         node: u64,
-        action: ui_types::A11yAction,
+        action: kivact_types::A11yAction,
         value: Option<&str>,
     ) -> Option<crate::events::ShellEvent> {
         let shared = lock(&self.shared);
@@ -339,7 +339,7 @@ impl PlatformTree {
     pub fn queue_action(
         &self,
         node: u64,
-        action: ui_types::A11yAction,
+        action: kivact_types::A11yAction,
         value: Option<&str>,
     ) -> bool {
         let mut shared = lock(&self.shared);

@@ -390,7 +390,11 @@ impl Ime {
         }
     }
     // Never fails, like `allow`.
-    pub(super) fn cursor(&mut self, area: ui_types::Rect, scale: f32) -> Result<(), ShellError> {
+    pub(super) fn cursor(
+        &mut self,
+        area: kivact_types::Rect,
+        scale: f32,
+    ) -> Result<(), ShellError> {
         let spot = xim::Point {
             x: (area.x * scale).clamp(i16::MIN as f32, i16::MAX as f32) as i16,
             y: ((area.y + area.height) * scale).clamp(i16::MIN as f32, i16::MAX as f32) as i16,

@@ -45,10 +45,10 @@ pub use clicks::{ClickCounter, DEFAULT_DOUBLE_CLICK};
 pub use contacts::Contacts;
 pub use events::ShellEvent;
 pub use ime::ShellImeText;
+pub use kivact_types::FilePhase;
 pub use mouse::Mouse;
 pub use services::ShellFileDialog;
 pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};
-pub use ui_types::FilePhase;
 
 /// The frame period of a display whose refresh rate is unknown (60 Hz).
 pub const DEFAULT_FRAME_PERIOD_NS: u64 = 16_666_667;

@@ -2,8 +2,8 @@
 use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
+use kivact_types::DrawCommand as D;
 use kivact_wire::*;
-use ui_types::DrawCommand as D;
 impl Context<'_> {
     pub(super) fn paint_layers(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
@@ -21,7 +21,7 @@ impl Context<'_> {
         let command = match cmd {
             SceneCmd::PushLayer(layer) => {
                 let area = rect(layer.area);
-                let outer = ui_types::Layer {
+                let outer = kivact_types::Layer {
                     clip: layer.clip.as_ref().map(|shape| {
                         crate::path::shifted(
                             crate::scene_shape::shape(shape),
@@ -42,8 +42,8 @@ impl Context<'_> {
                             }
                             valid
                         })
-                        .map(|paint| ui_types::Mask { rect: area, paint }),
-                    ..ui_types::Layer::default()
+                        .map(|paint| kivact_types::Mask { rect: area, paint }),
+                    ..kivact_types::Layer::default()
                 };
                 let props = PaintProps {
                     effects: Some(Box::new(Effects {
@@ -81,7 +81,7 @@ impl Context<'_> {
             }
             SceneCmd::PushTransform(m) => {
                 let [a, b, c, d, e, f] = *m;
-                let transform = ui_types::Transform { a, b, c, d, e, f }.about(Point {
+                let transform = kivact_types::Transform { a, b, c, d, e, f }.about(Point {
                     x: origin.x,
                     y: origin.y,
                 });

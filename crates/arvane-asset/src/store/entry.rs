@@ -17,9 +17,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use ui_types::Size;
+use kivact_types::Size;
 
-use ui_types::Asset;
+use kivact_types::Asset;
 
 use crate::error::{AssetError, AssetErrorKind};
 use crate::pixels::{Crop, PixelSize, Pixels, Tint};

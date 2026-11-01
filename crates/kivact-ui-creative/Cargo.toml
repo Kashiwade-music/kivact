@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Dense creative-tool components using only Kivact's public API"
 
 [dependencies]
-kivact = { path = "../kivact", default-features = false }
+kivact = { path = "../kivact", version = "0.1.0", default-features = false }
 
 [features]
 # Experimental: `viewport_surface(..).gpu_frame(..)`, which shows a frame an

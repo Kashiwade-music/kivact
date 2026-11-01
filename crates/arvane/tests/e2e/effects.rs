@@ -4,7 +4,7 @@
 //! backdrops (what lies behind a shape, blurred and color-filtered, drawn
 //! again without reading pixels back).
 
-use ui_types::{
+use kivact_types::{
     Backdrop, BoxShadow, ColorMatrix, DrawCommand, Radius, RoundedRect, Shape, Transform,
 };
 
@@ -190,7 +190,7 @@ fn a_backdrop_filters_colors_and_follows_its_groups() {
         // Glass over it.
         DrawCommand::Rect {
             rect: rect(20.0, 10.0, 60.0, 40.0),
-            fill: ui_types::Paint::Solid(color_alpha(WHITE, 0.0)),
+            fill: kivact_types::Paint::Solid(color_alpha(WHITE, 0.0)),
         },
         DrawCommand::PopClip,
         DrawCommand::PopTransform,

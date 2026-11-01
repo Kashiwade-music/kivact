@@ -42,13 +42,13 @@ members = [
     "dev/apps/interaction-starter",
     "dev/apps/embed-host",
     "crates/arvane",
-    "crates/ui-types",
+    "crates/kivact-types",
     "crates/arvane-native",
     "crates/arvane-shell",
     "crates/arvane-text",
     "crates/arvane-render",
     "crates/arvane-asset",
-    "crates/gpu-share",
+    "crates/kivact-gpu-share",
     "dev/tests/gpu-interop-producer",
     "dev/xtask",
 ]
@@ -151,13 +151,13 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.kivact-editing]
 opt-level = 3
-[profile.dev.package.ui-types]
+[profile.dev.package.kivact-types]
 opt-level = 3
 [profile.dev.package.arvane]
 opt-level = 3
 [profile.dev.package.arvane-asset]
 opt-level = 3
-[profile.dev.package.gpu-share]
+[profile.dev.package.kivact-gpu-share]
 opt-level = 3
 [profile.dev.package.arvane-render]
 opt-level = 3

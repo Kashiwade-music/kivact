@@ -40,13 +40,13 @@ use crate::{
     ShellEvent, ShellFileDialog, ShellImeText, ShellOptions, ShellWaker,
 };
 use arvane_shell::{ShellEventLoop, ShellHandler, ShellWindow};
-use std::path::{Path, PathBuf};
-use ui_types::GpuPreference;
-use ui_types::{
+use kivact_types::GpuPreference;
+use kivact_types::{
     Capabilities, Cursor, Environment, Rect, Scene, SemanticsTree, SemanticsUpdate, Size,
 };
 #[cfg(feature = "gpu-interop")]
-use ui_types::{ExternalImageId, GpuAdapter, SharedTextures};
+use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
+use std::path::{Path, PathBuf};
 
 /// A window a host draws into and takes its environment from.
 pub trait Window {
@@ -94,7 +94,7 @@ pub trait Window {
     /// Show (an editable text input took the focus) or hide the software
     /// keyboard; the platform keeps the IME area
     /// ([`Window::set_ime_cursor_area`]) in view above it. A backend
-    /// without one (desktops; [`ui_types::Capabilities::soft_keyboard`])
+    /// without one (desktops; [`kivact_types::Capabilities::soft_keyboard`])
     /// ignores the request.
     fn set_soft_keyboard(&self, shown: bool);
     /// Show `cursor` over the window's content.
@@ -158,7 +158,7 @@ pub trait Window {
     /// Import the pool of textures an external render engine shares
     /// (`textures`, made as [`SharedTextures`] says) as the image `id` of
     /// this window, replacing the image `id` imported before; scenes then
-    /// draw its frames with [`ui_types::DrawCommand::External`]. The image
+    /// draw its frames with [`kivact_types::DrawCommand::External`]. The image
     /// belongs to this window's device: another window's scene that names
     /// `id` draws nothing. It lasts until [`Window::drop_external_image`],
     /// the window's close, or a new device (a new

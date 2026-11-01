@@ -51,7 +51,7 @@ impl Model {
     pub(crate) fn accessibility_action(
         &mut self,
         native: u64,
-        action: ui_types::A11yAction,
+        action: kivact_types::A11yAction,
         value: Option<String>,
     ) {
         use wire::A11yAction as A;
@@ -148,8 +148,8 @@ impl Model {
 /// they are.
 pub(crate) fn properties(
     p: &wire::SemanticsProperties,
-    resolve: impl Fn(wire::FocusTarget) -> Option<ui_types::NodeId>,
-) -> ui_types::SemanticsProperties {
+    resolve: impl Fn(wire::FocusTarget) -> Option<kivact_types::NodeId>,
+) -> kivact_types::SemanticsProperties {
     // Level and position are counted from 1, so 0 means "not set". A position
     // past the set's size is not a valid pair: the size is published, the
     // position is not.
@@ -157,7 +157,7 @@ pub(crate) fn properties(
     let pos_in_set = p
         .pos_in_set
         .filter(|&v| v != 0 && p.set_size.is_none_or(|size| v <= size));
-    ui_types::SemanticsProperties {
+    kivact_types::SemanticsProperties {
         text: None,
         indeterminate: p.indeterminate,
         value_min: p.value_min,
@@ -231,7 +231,7 @@ impl Model {
         if !self.a11y.pending && self.a11y.root.is_some() {
             return;
         }
-        if self.tree().root().map(|id| ui_types::NodeId(id.0)) != self.a11y.root {
+        if self.tree().root().map(|id| kivact_types::NodeId(id.0)) != self.a11y.root {
             self.a11y.full = true;
         }
         let Some(mut candidate) = self.build_dirty_semantics(engine) else {
@@ -260,7 +260,7 @@ impl Model {
             } else if replace {
                 window.replace_accessibility(&candidate)
             } else {
-                window.update_accessibility(&ui_types::SemanticsUpdate {
+                window.update_accessibility(&kivact_types::SemanticsUpdate {
                     root,
                     focus,
                     nodes: candidate.nodes,

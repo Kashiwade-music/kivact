@@ -2,7 +2,7 @@
 //!
 //! Its own instance and device (Vulkan 1.2, the pool's device extensions)
 //! on the physical device whose UUIDs the window reported; the pool
-//! (`gpu_share::vulkan::Pool`) makes, exports and hands
+//! (`kivact_gpu_share::vulkan::Pool`) makes, exports and hands
 //! over the images and semaphores. A frame: the CPU's pixels into the
 //! slot's staging buffer, the pool's acquire barrier to
 //! `TRANSFER_DST_OPTIMAL`, a copy into the image, the pool's release
@@ -15,10 +15,10 @@
 
 use crate::engine::{Engine, POOL, WAIT};
 use ash::vk;
-use gpu_share::vulkan::{self as interop, Pool};
-use gpu_share::{FrameReady, PoolConfig};
+use kivact_gpu_share::vulkan::{self as interop, Pool};
+use kivact_gpu_share::{FrameReady, PoolConfig};
+use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
 use std::time::Duration;
-use ui_types::{GpuAdapter, GpuBackend, SharedTextures};
 
 fn failed(what: &'static str) -> impl Fn(vk::Result) -> String {
     move |e| format!("{what} failed: {e}")

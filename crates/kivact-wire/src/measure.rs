@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use super::Size;
 use super::scene::TextRun;
-use ui_types::ShapedText;
+use kivact_types::ShapedText;
 
 /// Space available to a node along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
