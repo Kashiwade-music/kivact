@@ -53,18 +53,21 @@
 
 use super::external::External;
 use super::state::{AtlasImage, GpuContext, GpuImage, Images};
-use crate::{draw, paint::PatternFill, validate::SceneInfo};
+use crate::draw;
+use crate::paint::PatternFill;
+use crate::validate::SceneInfo;
 use kivact_types::{ExternalFrame, ImageData, Scene, Size};
 use std::sync::Arc;
-use vello_common::{filter_effects::Filter, geometry::RectU16, paint::ImageId};
-use vello_cpu::{
-    Glyph, Image, ImageSource, PaintType, Pixmap,
-    color::{PremulRgba8, palette::css::WHITE},
-    kurbo::{Affine, BezPath, Rect, Shape, Stroke},
-    peniko::{
-        self, BlendMode, Blob, Extend, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler,
-    },
+use vello_common::filter_effects::Filter;
+use vello_common::geometry::RectU16;
+use vello_common::paint::ImageId;
+use vello_cpu::color::PremulRgba8;
+use vello_cpu::color::palette::css::WHITE;
+use vello_cpu::kurbo::{Affine, BezPath, Rect, Shape, Stroke};
+use vello_cpu::peniko::{
+    self, BlendMode, Blob, Extend, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler,
 };
+use vello_cpu::{Glyph, Image, ImageSource, PaintType, Pixmap};
 use vello_hybrid::{Renderer, Resources, SampleRect, TextureBindings, TextureId};
 
 /// The side of a glyph atlas page, in pixels (1 MiB each): a page holds

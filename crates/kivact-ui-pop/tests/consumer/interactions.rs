@@ -1,6 +1,9 @@
 //! Role: Tests for component interactions.
 
-use super::*;
+use kivact::prelude::*;
+use kivact::ui::ListItem;
+use kivact_ui_pop as ui;
+use std::time::Duration;
 
 #[test]
 fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {

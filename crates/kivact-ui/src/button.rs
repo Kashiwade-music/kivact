@@ -26,10 +26,8 @@ use kivact_core::style::style;
 use kivact_core::view::{IntoText, IntoValue, IntoView, View, show};
 use kivact_core::{Value, signal};
 use kivact_interaction::use_button;
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 pub struct Button {
     root: Node,
     label: Value<String>,

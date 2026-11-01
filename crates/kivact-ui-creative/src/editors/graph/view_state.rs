@@ -16,15 +16,19 @@ impl GraphState {
     /// The default [`GraphView`], nothing selected and the playhead at 0.
     /// Setup only.
     #[track_caller]
-    #[allow(
-        clippy::new_without_default,
-        reason = "creation makes signals under the current setup owner; a `Default` impl would hide that"
-    )]
     pub fn new() -> Self {
         Self {
             view: signal(GraphView::default()).into(),
             selection: signal(Vec::new()).into(),
             playhead: signal(0.0).into(),
         }
+    }
+}
+
+impl Default for GraphState {
+    /// Same as [`GraphState::new`]. Setup only.
+    #[track_caller]
+    fn default() -> Self {
+        Self::new()
     }
 }

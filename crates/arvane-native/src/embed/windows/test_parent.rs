@@ -1,19 +1,37 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
 use arvane_shell::ShellError;
 use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
-use std::{
-    cell::Cell,
-    marker::PhantomData,
-    rc::Rc,
-    sync::Mutex,
-    time::{Duration, Instant},
+use std::cell::Cell;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BeginPaint, BitBlt, ClientToScreen, CreateCompatibleDC,
+    CreateDIBSection, CreateSolidBrush, DIB_RGB_COLORS, DeleteDC, DeleteObject, EndPaint, FillRect,
+    GetDC, HBITMAP, HDC, HGDIOBJ, ReleaseDC, SRCCOPY, SelectObject,
 };
-use windows_sys::Win32::{
-    Foundation::*,
-    Graphics::Gdi::*,
-    Storage::Xps::PrintWindow,
-    System::LibraryLoader::*,
-    UI::{Input::KeyboardAndMouse::*, WindowsAndMessaging::*},
+use windows_sys::Win32::Storage::Xps::PrintWindow;
+use windows_sys::Win32::System::LibraryLoader::{
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    GetModuleHandleExW,
+};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    MAPVK_VK_TO_VSC_EX, MapVirtualKeyW, VK_BACK, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1,
+    VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_HOME,
+    VK_LEFT, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SPACE, VK_TAB, VK_UP,
+};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    AdjustWindowRectEx, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
+    DispatchMessageW, FindWindowExW, GWLP_HINSTANCE, GWLP_ID, GWLP_USERDATA, GetClientRect,
+    GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, IsWindow, PM_REMOVE,
+    PW_RENDERFULLCONTENT, PeekMessageW, PostMessageW, RegisterClassW, SC_CLOSE, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, TranslateMessage, UnregisterClassW,
+    WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
+    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_SYSCOMMAND, WM_XBUTTONDOWN, WM_XBUTTONUP, WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN,
+    WS_CLIPSIBLINGS, WS_OVERLAPPEDWINDOW, WS_VISIBLE, XBUTTON1, XBUTTON2,
 };
 const NAME: &[u16] = &[
     65, 114, 118, 97, 110, 101, 69, 109, 98, 101, 100, 84, 101, 115, 116, 80, 97, 114, 101, 110,
@@ -28,6 +46,14 @@ pub struct TestParent {
     owner: std::thread::ThreadId,
     _ui: PhantomData<Rc<()>>,
 }
+/// The window procedure of the test host and its cover windows.
+///
+/// # Safety
+///
+/// Only Windows may call this, as the window procedure of a window of this
+/// module's classes, on the thread that created `hwnd`, with the arguments
+/// of the message it is delivering. The window's `GWLP_USERDATA` slot is an
+/// integer counter and `GWLP_ID` a color; neither may hold a pointer.
 unsafe extern "system" fn parent_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     if msg == WM_SYSCOMMAND && w & 0xfff0 == SC_CLOSE as usize {
         // SAFETY: this test host uses its own USERDATA as an integer counter.
@@ -189,7 +215,7 @@ impl TestParent {
             _ui: PhantomData,
         })
     }
-    /// Portable parent handle for ChildOptions.
+    /// Portable parent handle to pass to `embed::open`.
     pub fn parent(&self) -> ParentWindow {
         ParentWindow::Win32(std::num::NonZeroIsize::new(self.hwnd).expect("live native handle"))
     }
@@ -270,7 +296,9 @@ impl TestParent {
         self.button(button, x, y, false)
     }
     fn button(&self, button: MouseButton, x: f32, y: f32, down: bool) -> Result<(), ShellError> {
-        use windows_sys::Win32::System::SystemServices::*;
+        use windows_sys::Win32::System::SystemServices::{
+            MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
+        };
         let (press, release, mask, high) = match button {
             MouseButton::Primary => (WM_LBUTTONDOWN, WM_LBUTTONUP, MK_LBUTTON, 0),
             MouseButton::Secondary => (WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON, 0),

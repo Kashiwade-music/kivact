@@ -3,16 +3,14 @@
 use super::conn::Native;
 use arvane_shell::{ShellError, ShellEvent};
 use kivact_types::{FilePhase, Point};
-use std::{ffi::OsString, os::unix::ffi::OsStringExt, path::PathBuf};
-use x11rb::{
-    connection::Connection,
-    errors::ReplyError,
-    protocol::{
-        Event,
-        xproto::{AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, PropMode},
-    },
-    wrapper::ConnectionExt as _,
-};
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
+use std::path::PathBuf;
+use x11rb::connection::Connection;
+use x11rb::errors::ReplyError;
+use x11rb::protocol::Event;
+use x11rb::protocol::xproto::{AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, PropMode};
+use x11rb::wrapper::ConnectionExt as _;
 
 pub(super) struct Dnd {
     aware: u32,

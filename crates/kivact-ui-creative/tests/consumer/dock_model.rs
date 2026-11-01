@@ -1,6 +1,6 @@
 //! Role: The dock's layout model: normalization and every operation's rules.
 
-use super::*;
+use kivact_ui_creative as ui;
 use ui::{DockAxis, DockLayout, DockNode, DockTab};
 
 pub(super) type Layout = DockLayout<&'static str>;

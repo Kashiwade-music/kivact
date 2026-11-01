@@ -1,21 +1,18 @@
 //! Role: Starts, runs and closes an embedded X11 UI thread.
 
-use super::{
-    conn::Native,
-    event::Input,
-    keyboard::Keyboard,
-    notifier::{MAX_DIMENSION, Notifier},
-    poll::Waiter,
-    window::Window,
-};
-use crate::embed::{
-    child::{Backend as ChildBackend, Command, Handle, Shared},
-    session::{Session, contain},
-};
+use super::conn::Native;
+use super::event::Input;
+use super::keyboard::Keyboard;
+use super::notifier::{MAX_DIMENSION, Notifier};
+use super::poll::Waiter;
+use super::window::Window;
+use crate::embed::child::{Backend as ChildBackend, Command, Handle, Shared};
+use crate::embed::session::{Session, contain};
 use arvane_shell::{
     ChildOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker, ShellWindow,
 };
-use std::sync::{Arc, atomic::Ordering, mpsc};
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, mpsc};
 use x11rb::connection::Connection;
 
 impl ChildBackend for Arc<Notifier> {
@@ -60,6 +57,7 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
 }
 
 pub(super) fn open(
+    parent: kivact_types::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
@@ -75,7 +73,16 @@ pub(super) fn open(
         .name("arvane-embed".into())
         .spawn(move || {
             let result = contain(
-                || run(options, make, ui_shared.clone(), ui_backend, &sender),
+                || {
+                    run(
+                        parent,
+                        options,
+                        make,
+                        ui_shared.clone(),
+                        ui_backend,
+                        &sender,
+                    )
+                },
                 "panic in X11 UI thread",
             );
             let error = match result {
@@ -103,13 +110,14 @@ pub(super) fn open(
 }
 
 fn run(
+    parent: kivact_types::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
     shared: Arc<Shared>,
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::ParentWindow::X11(parent) = options.parent else {
+    let kivact_types::ParentWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) =

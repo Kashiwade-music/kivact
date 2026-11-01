@@ -58,7 +58,9 @@ use kivact_types::{
     RoundedRect as Rounded, SHADOW_REACH, Shape, Transform,
 };
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
-use vello_cpu::{PaintType, color::palette::css::BLACK, kurbo::Shape as _};
+use vello_cpu::PaintType;
+use vello_cpu::color::palette::css::BLACK;
+use vello_cpu::kurbo::Shape as _;
 
 impl<C: Canvas> Painter<'_, C> {
     /// The frame in the current coordinates (bounds of it).

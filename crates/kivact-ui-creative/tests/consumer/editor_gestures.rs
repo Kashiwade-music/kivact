@@ -1,6 +1,13 @@
 //! Role: Preserve selection and gestures across independent editor contracts.
-use super::*;
+use super::arrangement_model::arrangement as app_arrangement;
+use super::graph_support::app_graph;
+use super::node_support::app_node_editor;
+use super::{app_dope_sheet, app_timeline, clean};
+use kivact::draw::{Point, Size};
 use kivact::interaction::ViewTransform;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact_ui_creative as ui;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
     Timeline,

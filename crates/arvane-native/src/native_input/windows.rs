@@ -146,6 +146,15 @@ fn release(hwnd: HWND, data: *const NativeInput) {
     drop(unsafe { Rc::from_raw(data) });
 }
 
+/// The window subclass procedure (`SUBCLASSPROC`) installed by `install`.
+///
+/// # Safety
+///
+/// Only Windows may call this, as the subclass procedure that `install`
+/// registered, on the thread that owns `hwnd`, with the arguments of the
+/// message it is delivering. `data` must be the `NativeInput` pointer that
+/// `install` gave the subclass, which holds a strong count of it until the
+/// subclass is removed.
 unsafe extern "system" fn subclass(
     hwnd: HWND,
     message: u32,
@@ -253,7 +262,7 @@ unsafe extern "system" fn subclass(
 /// The extra info of a mouse message Windows synthesized from a touch or
 /// pen contact (`MI_WP_SIGNATURE`, under the mask `0xFFFFFF00`). Compared
 /// as the low 32 bits: as an `isize` it would overflow on 32-bit targets.
-const FROM_CONTACT: u32 = 0xFF51_5700;
+const FROM_CONTACT: u32 = 0xff51_5700;
 
 /// Whether the mouse message being handled was synthesized from a touch
 /// or pen contact.
@@ -261,7 +270,7 @@ fn from_contact() -> bool {
     // SAFETY: a plain query of the current message's extra info, on the
     // thread handling it.
     let extra = unsafe { GetMessageExtraInfo() };
-    extra as u32 & 0xFFFF_FF00 == FROM_CONTACT
+    extra as u32 & 0xffff_ff00 == FROM_CONTACT
 }
 
 /// What the platform says about every touch or pen pointer of the frame

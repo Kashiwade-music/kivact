@@ -4,14 +4,16 @@
     reason = "queries and input target only owned Win32 test windows"
 )]
 use super::support::{SERIAL, wait};
-use kivact::{prelude::*, test::TestParent, view::MouseButton};
-use std::{
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
-use windows_sys::Win32::{
-    Foundation::*,
-    UI::{Input::KeyboardAndMouse::VK_F4, WindowsAndMessaging::*},
+use kivact::prelude::*;
+use kivact::test::TestParent;
+use kivact::view::MouseButton;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use windows_sys::Win32::Foundation::HWND;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_F4;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    FindWindowExW, GW_CHILD, GetWindow, HTCLIENT, PostMessageW, SendMessageW, WM_NCHITTEST,
+    WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 /// The system STATIC subclass must answer Win32 native hit testing.
 #[test]
@@ -46,17 +48,15 @@ mod uia {
         reason = "UI Automation's COM client API is unsafe; confined to this real-window test"
     )]
     use super::*;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::Com::{
+        CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx,
+        CoUninitialize,
+    };
     use windows::Win32::System::Variant::VARIANT;
-    use windows::Win32::{
-        Foundation::HWND,
-        System::Com::{
-            CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx,
-            CoUninitialize,
-        },
-        UI::Accessibility::{
-            CUIAutomation, IUIAutomation, TreeScope_Descendants, UIA_ButtonControlTypeId,
-            UIA_NamePropertyId,
-        },
+    use windows::Win32::UI::Accessibility::{
+        CUIAutomation, IUIAutomation, TreeScope_Descendants, UIA_ButtonControlTypeId,
+        UIA_NamePropertyId,
     };
     fn query(hwnd: isize) -> windows::core::Result<bool> {
         // SAFETY: this dedicated client thread initializes its own COM apartment.

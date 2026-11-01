@@ -1,6 +1,11 @@
 //! Role: Stable gradient stop editing, transforms and exact cancellation.
-use super::*;
+use super::clean;
+use kivact::prelude::*;
 use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::{A11yAction, Modifiers};
+use kivact_ui_creative as ui;
+use std::cell::RefCell;
+use std::rc::Rc;
 fn stops() -> Vec<ui::GradientStop> {
     vec![
         ui::GradientStop::new(0.25, rgb(0x804020)),

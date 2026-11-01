@@ -9,7 +9,7 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::prelude::*;
+use crate::prelude::{column, effect, show, text};
 use crate::task::spawn;
 use crate::test::render;
 use kivact_reactive::{Owner, on_cleanup, signal};

@@ -1,7 +1,11 @@
 //! Role: CPU present through a cache DC clipped below higher siblings.
 use super::state::State;
 use arvane_shell::ShellError;
-use windows_sys::Win32::{Foundation::*, Graphics::Gdi::*};
+use windows_sys::Win32::Foundation::RECT;
+use windows_sys::Win32::Graphics::Gdi::{
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, DCX_CACHE, DCX_CLIPSIBLINGS, DIB_RGB_COLORS, ERROR,
+    GetClipBox, GetDCEx, NULLREGION, ReleaseDC, SetDIBitsToDevice,
+};
 
 pub(super) fn present(state: &State) -> Result<(), ShellError> {
     let (width, height) = state.pixel_size.get();

@@ -1,10 +1,10 @@
 //! Role: Embedded cleanup and callback-contained drop contract helpers.
 use super::super::support::wait;
-use kivact::{App, prelude::*, test::TestParent};
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
-};
+use kivact::App;
+use kivact::prelude::*;
+use kivact::test::TestParent;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub(super) fn external_drop_joins_cleanup_after_parent_destruction() {
     let parent = TestParent::open(320, 240).expect("parent opens");

@@ -33,7 +33,9 @@
 use super::{Draw, Size};
 use crate::{Result, UiError};
 use kivact_reactive::ErrorKind;
-use kivact_style::{Theme, asset::Asset, draw::Recording};
+use kivact_style::Theme;
+use kivact_style::asset::Asset;
+use kivact_style::draw::Recording;
 use std::panic::Location;
 
 /// A tightly packed image, top row first, in sRGB with straight

@@ -1,8 +1,10 @@
 //! Role: Node region targets and accessible semantic descriptions.
-use super::gesture::{Info, target::Target};
+use super::gesture::Info;
+use super::gesture::target::Target;
 use super::model::{NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
-use kivact::{UiError, view::Role};
+use kivact::UiError;
+use kivact::view::Role;
 use std::collections::HashSet;
 pub(crate) fn targets(nodes: &[NodeData], links: &[NodeLink]) -> Result<Vec<Target>, UiError> {
     let mut ids = HashSet::new();

@@ -155,7 +155,7 @@ impl<R, C: Clone> ColumnDef<R, C> {
 /// closure is equal to a clone of itself).
 impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
     fn eq(&self, other: &Self) -> bool {
-        fn same<T: ?Sized>(a: &Option<Rc<T>>, b: &Option<Rc<T>>) -> bool {
+        fn same<T: ?Sized>(a: Option<&Rc<T>>, b: Option<&Rc<T>>) -> bool {
             match (a, b) {
                 (Some(a), Some(b)) => Rc::ptr_eq(a, b),
                 (None, None) => true,
@@ -166,8 +166,8 @@ impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
             && self.label == other.label
             && self.width == other.width
             && self.visible == other.visible
-            && same(&self.compare, &other.compare)
-            && same(&self.matches, &other.matches)
+            && same(self.compare.as_ref(), other.compare.as_ref())
+            && same(self.matches.as_ref(), other.matches.as_ref())
     }
 }
 

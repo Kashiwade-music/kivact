@@ -61,7 +61,7 @@ use kivact_lower::effects::Tint;
 use kivact_lower::shape::BoxShape;
 use kivact_lower::{border, effects, scene, shape};
 use kivact_types::DrawCommand as D;
-use kivact_wire::*;
+use kivact_wire::{HostEvent, NodeId, NodeType, PaintProps, Point, Rect, Rgba, Size};
 
 use state::{Entry, Step};
 

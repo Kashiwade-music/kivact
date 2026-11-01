@@ -63,12 +63,12 @@ pub use limits::MAX_SCENE_DEPTH;
 use kivact_types::{CpuFrame, ImageData, Scene, Size};
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
+use vello_cpu::kurbo::{Affine, BezPath, Rect, Stroke};
+use vello_cpu::peniko::{
+    self, BlendMode, Blob, Extend, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler,
+};
 use vello_cpu::{
     Glyph, Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources,
-    kurbo::{Affine, BezPath, Rect, Stroke},
-    peniko::{
-        self, BlendMode, Blob, Extend, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler,
-    },
 };
 
 /// CPU renderer, used serially on the thread which owns it.

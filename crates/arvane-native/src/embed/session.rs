@@ -7,10 +7,8 @@ use super::child::{Command, Shared};
 use arvane_shell::{
     MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler, ShellWaker, ShellWindow,
 };
-use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::Arc,
-};
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
 
 pub(super) struct Session {
     handler: Option<Box<dyn ShellHandler>>,

@@ -15,8 +15,9 @@
 use std::sync::Arc;
 
 use kivact_types::Asset;
+use skrifa::MetadataProvider;
 use skrifa::raw::FileRef;
-use skrifa::{MetadataProvider, string::StringId};
+use skrifa::string::StringId;
 
 use crate::error::{AssetError, AssetErrorKind};
 use crate::read::{self, Encoded};

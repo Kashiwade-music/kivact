@@ -1,6 +1,12 @@
 //! Role: Arrangement edits transact exactly the model fields they own.
-use super::*;
+use super::arrangement_model::arrangement as app_arrangement;
+use super::{arrangement_model, clean};
+use kivact::draw::Point;
+use kivact::prelude::*;
+use kivact::test::Screen;
 use kivact::ui::EditPhase;
+use kivact::view::{Modifiers, MouseButton};
+use kivact_ui_creative as ui;
 
 #[derive(Clone, Copy)]
 struct Model {

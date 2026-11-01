@@ -19,7 +19,7 @@ static NOTO: &[u8] = include_bytes!(
     "../../../../../examples/kivact-ui-pop/assets/fonts/notosansjp/NotoSansJP[wght].ttf"
 );
 
-const GRAY: u32 = 0xDDDDDD;
+const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
     RenderOptions {

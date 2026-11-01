@@ -1,6 +1,7 @@
 //! Role: Stores the accessibility tree shared with native callbacks.
 
-use super::{error::AccessibilityError, state, validation};
+use super::error::AccessibilityError;
+use super::{state, validation};
 use kivact_types::{NodeId, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
 use std::sync::{Arc, Mutex, MutexGuard};
 

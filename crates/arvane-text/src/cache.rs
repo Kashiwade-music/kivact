@@ -5,7 +5,8 @@ use kivact_types::{
     DecorationLines, FontFeature, FontKerning, LineHeight, Rgba, RichText, TextAlign,
     TextDecoration, TextOverflow, TextStyle, TextTransform, TextWrap,
 };
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
+use std::hash::Hash;
 
 /// Two-generation map bounded by entry count.
 ///

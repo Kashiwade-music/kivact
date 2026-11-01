@@ -2,14 +2,10 @@
 
 use kivact::draw::{Point, Size};
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 use kivact::test::{RenderOptions, Screen};
 use kivact::ui::{MenuEntry, toaster};
-use kivact::view::A11yAction;
-use kivact::view::MouseButton;
-use kivact::view::{KeyCode, Modifiers, callback};
+use kivact::view::{A11yAction, callback};
 use kivact_ui_creative as ui;
-use ui::ThemeOptions;
 
 fn choice_options(
     entries: &[(&'static str, &'static str)],
@@ -19,13 +15,10 @@ fn choice_options(
         .map(|(key, label)| kivact::ui::ListItem::new(*key, *label))
         .collect()
 }
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time::Duration;
 
 #[path = "consumer/table_rows.rs"]
 mod table_rows;
-use table_rows::{line, lines};
 
 fn apply_clips(items: &mut Vec<ui::Clip>, request: &ui::TimeRequest) {
     match request {
@@ -682,10 +675,9 @@ use node_support::app_node_editor;
 
 #[path = "consumer/graph_support.rs"]
 mod graph_support;
-use graph_support::{app_graph, graph_edits};
+use graph_support::app_graph;
 #[path = "consumer/arrangement_model.rs"]
 mod arrangement_model;
-use arrangement_model::arrangement as app_arrangement;
 
 fn options() -> RenderOptions {
     RenderOptions {

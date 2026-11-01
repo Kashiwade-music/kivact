@@ -37,8 +37,7 @@
 //! loop per process, and this display holds it.
 
 use crate::a11y::native::NativeAccessibility;
-use arvane_shell::Accessibility;
-use arvane_shell::PlatformTree;
+use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
 use kivact_types::{NodeId, Point, Rect, Role, SemanticsNode, SemanticsTree, Transform};
 use std::collections::HashMap;
@@ -64,6 +63,8 @@ const OPEN_TIMEOUT: Duration = Duration::from_secs(120);
 const BLANK: u32 = 0x0080_8080;
 
 /// Options of [`TestDisplay::open`].
+///
+/// The default is an untitled 800 by 600 window at scale 1.
 #[derive(Clone, Debug)]
 pub struct TestWindowOptions {
     /// Window title.
@@ -75,6 +76,17 @@ pub struct TestWindowOptions {
     /// Physical pixels per logical pixel of the frames: accessibility
     /// bounds (logical) are mapped to the window's pixels with it.
     pub scale: f64,
+}
+
+impl Default for TestWindowOptions {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            width: 800,
+            height: 600,
+            scale: 1.0,
+        }
+    }
 }
 
 /// Counters of a [`TestDisplay`] since the process started.

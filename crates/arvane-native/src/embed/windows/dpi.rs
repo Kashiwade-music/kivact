@@ -1,5 +1,6 @@
 //! Role: Thread-scoped parent DPI awareness, never process-wide settings.
-use windows_sys::Win32::{Foundation::HWND, System::LibraryLoader::*};
+use windows_sys::Win32::Foundation::HWND;
+use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 type Proc = unsafe extern "system" fn() -> isize;
 type SetContext = unsafe extern "system" fn(isize) -> isize;
 type GetContext = unsafe extern "system" fn(HWND) -> isize;

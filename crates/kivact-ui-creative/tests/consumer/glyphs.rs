@@ -1,6 +1,10 @@
 //! Role: The kit's icons, label tones and key glyphs: what a consumer draws with them.
 
-use super::*;
+use super::{app_dope_sheet, clean};
+use kivact::draw::Point;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact_ui_creative as ui;
 
 /// The screenshot pixel at `(x, y)` logical px (the window is not scaled).
 fn pixel_at(screen: &Screen, x: f32, y: f32) -> u32 {

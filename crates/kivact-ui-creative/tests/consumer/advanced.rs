@@ -1,7 +1,14 @@
 //! Role: Tests for the advanced Creative controls through the public API.
 
-use super::*;
-use kivact::view::Handled;
+use super::arrangement_model::arrangement as app_arrangement;
+use super::clean;
+use super::table_rows::{line, lines};
+use kivact::draw::Point;
+use kivact::prelude::*;
+use kivact::primitive::NodeExt;
+use kivact::view::{A11yAction, Handled, KeyCode, Modifiers, MouseButton};
+use kivact_ui_creative as ui;
+use std::time::Duration;
 
 #[test]
 fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models() {

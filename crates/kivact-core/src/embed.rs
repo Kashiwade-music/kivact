@@ -20,11 +20,9 @@
 use crate::{App, IntoView, Result, UiError, check_window_sizes};
 use kivact_reactive::ErrorKind;
 use kivact_wire::ParentWindow;
-use std::{
-    ffi::c_void,
-    num::{NonZeroIsize, NonZeroU32},
-    panic::Location,
-};
+use std::ffi::c_void;
+use std::num::{NonZeroIsize, NonZeroU32};
+use std::panic::Location;
 
 /// A host window and optional host-decided scale. Constructors only store raw
 /// values and never dereference them. `App::embed` validates the parent.
@@ -197,7 +195,6 @@ impl App {
             )
         })?;
         let options = kivact_engine::embed::EmbedOptions {
-            parent: window,
             window_size: self.window_size,
             scale: parent.scale,
             on_resize_request: parent.on_resize_request,
@@ -210,14 +207,11 @@ impl App {
         let report = failure.clone();
         let closed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let ui_closed = closed.clone();
-        kivact_engine::embed::embed_native(
-            move || {
-                self.app_client(root, at)
-                    .with_embed_failure(report, ui_closed)
-                    .into_client(None)
-            },
-            options,
-        )
+        kivact_engine::embed::embed_native(window, options, move || {
+            self.app_client(root, at)
+                .with_embed_failure(report, ui_closed)
+                .into_client(None)
+        })
         .map(|host| Embedded {
             host: Some(host),
             failure: failure.clone(),

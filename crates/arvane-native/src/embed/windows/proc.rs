@@ -1,13 +1,29 @@
 //! Role: Win32 dispatch with an independently retained Rc on every entry.
 use super::state::State;
 use arvane_shell::{ShellError, ShellEvent};
-use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    rc::Rc,
-    sync::atomic::Ordering,
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::rc::Rc;
+use std::sync::atomic::Ordering;
+use windows_sys::Win32::Foundation::{GetLastError, HWND, LPARAM, LRESULT, SetLastError, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{BeginPaint, EndPaint};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    CallWindowProcW, DLGC_WANTALLKEYS, DLGC_WANTCHARS, DefWindowProcW, GWLP_USERDATA, GWLP_WNDPROC,
+    GetWindowLongPtrW, HTCLIENT, KillTimer, SetWindowLongPtrW, WM_DESTROY,
+    WM_DPICHANGED_AFTERPARENT, WM_DROPFILES, WM_ERASEBKGND, WM_GETDLGCODE, WM_GETOBJECT,
+    WM_IME_COMPOSITION, WM_IME_ENDCOMPOSITION, WM_IME_REQUEST, WM_IME_SETCONTEXT,
+    WM_IME_STARTCOMPOSITION, WM_KILLFOCUS, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_MBUTTONDBLCLK,
+    WM_MBUTTONDOWN, WM_NCDESTROY, WM_NCHITTEST, WM_PAINT, WM_RBUTTONDBLCLK, WM_RBUTTONDOWN,
+    WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WM_TIMER, WM_XBUTTONDBLCLK, WM_XBUTTONDOWN, WNDPROC,
 };
-use windows_sys::Win32::{Foundation::*, Graphics::Gdi::*, UI::WindowsAndMessaging::*};
 
+/// The window procedure of the embedded child window.
+///
+/// # Safety
+///
+/// Only Windows may call this, as the window procedure that `attach`
+/// installed on a child window, on the thread that created `hwnd`, with the
+/// arguments of the message it is delivering. The window's `GWLP_USERDATA`
+/// slot must be zero or hold the `State` pointer that `attach` stored there.
 pub(super) unsafe extern "system" fn wndproc(
     hwnd: HWND,
     message: u32,

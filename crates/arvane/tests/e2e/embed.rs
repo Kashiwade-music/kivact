@@ -1,15 +1,13 @@
 //! Role: Arvane's embedded host contract, without Kivact or a virtual window.
 #![cfg(any(windows, target_os = "linux"))]
+use arvane::embed::{self, EmbedOptions, Embedder};
+use arvane::test_display::TestParent;
 use arvane::{
     Handler, NativeWindow, ShellControl, ShellError, ShellEvent, ShellWaker, Window as _,
-    embed::{self, EmbedOptions, Embedder},
-    test_display::TestParent,
 };
 use kivact_types::Size;
-use std::{
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 static SERIAL: Mutex<()> = Mutex::new(());
 #[derive(Default)]
 struct Seen {
@@ -99,16 +97,15 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     let seen = Arc::new(Mutex::new(Seen::default()));
     let output = seen.clone();
     let child = embed::open(
+        parent.parent(),
         EmbedOptions {
-            parent: parent.parent(),
             size: Size {
                 width: 160.,
                 height: 100.,
             },
             scale: Some(1.),
             prefer_gpu: false,
-            gpu_preference: Default::default(),
-            on_resize_request: None,
+            ..Default::default()
         },
         move || Embedder::new(Host(output)),
     )
@@ -159,16 +156,15 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     let seen = Arc::new(Mutex::new(Seen::default()));
     let output = seen.clone();
     let child = embed::open(
+        parent.parent(),
         EmbedOptions {
-            parent: parent.parent(),
             size: Size {
                 width: 160.,
                 height: 100.,
             },
             scale: Some(1.),
             prefer_gpu: false,
-            gpu_preference: Default::default(),
-            on_resize_request: None,
+            ..Default::default()
         },
         move || Embedder::new(Host(output)),
     )

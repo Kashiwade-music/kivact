@@ -7,7 +7,12 @@
 
 #[cfg(any(feature = "export", feature = "import"))]
 use std::mem::ManuallyDrop;
-use windows::Win32::Graphics::Direct3D12::*;
+use windows::Win32::Graphics::Direct3D12::{
+    D3D12_RESOURCE_BARRIER, D3D12_RESOURCE_BARRIER_0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+    D3D12_RESOURCE_BARRIER_FLAG_NONE, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+    D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+    D3D12_RESOURCE_FLAGS, D3D12_RESOURCE_STATES, D3D12_RESOURCE_TRANSITION_BARRIER, ID3D12Resource,
+};
 
 /// The resource flags required for a shared texture.
 pub fn resource_flags(storage: bool) -> D3D12_RESOURCE_FLAGS {

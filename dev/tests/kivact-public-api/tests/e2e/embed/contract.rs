@@ -1,17 +1,16 @@
 //! Role: OS-independent real-window embedding contracts.
 use super::support::{SERIAL, painted, panel, wait};
 mod lifetime;
-use kivact::{
-    App, embed::Embedded, platform, prelude::*, style::Color, test::TestParent, view::KeyCode,
-};
+use kivact::embed::Embedded;
+use kivact::prelude::*;
+use kivact::style::Color;
+use kivact::test::TestParent;
+use kivact::view::KeyCode;
+use kivact::{App, platform};
 use lifetime::external_drop_joins_cleanup_after_parent_destruction;
-use std::{
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
-    time::{Duration, Instant},
-};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 fn native_click_key_and_text_reach_the_editor() {
     let parent = TestParent::open(320, 240).expect("parent opens");

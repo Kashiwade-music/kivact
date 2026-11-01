@@ -1,6 +1,7 @@
 //! Role: Defines portable shell configuration, errors and wake handles.
 
-use std::{fmt, sync::Arc};
+use std::fmt;
+use std::sync::Arc;
 
 /// Environmental error or panic crossing a shell callback boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]

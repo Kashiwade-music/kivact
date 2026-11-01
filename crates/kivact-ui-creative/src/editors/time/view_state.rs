@@ -19,10 +19,6 @@ impl TimeState {
     /// Nothing selected, the playhead at 0, a scale of 1 and no scroll.
     /// Setup only.
     #[track_caller]
-    #[allow(
-        clippy::new_without_default,
-        reason = "creation makes signals under the current setup owner; a `Default` impl would hide that"
-    )]
     pub fn new() -> Self {
         Self {
             selection: signal(Vec::new()).into(),
@@ -30,5 +26,13 @@ impl TimeState {
             zoom: signal(1.0).into(),
             pan: signal(Point::new(0.0, 0.0)).into(),
         }
+    }
+}
+
+impl Default for TimeState {
+    /// Same as [`TimeState::new`]. Setup only.
+    #[track_caller]
+    fn default() -> Self {
+        Self::new()
     }
 }

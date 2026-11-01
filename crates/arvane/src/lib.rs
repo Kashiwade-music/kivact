@@ -55,7 +55,10 @@ pub mod test_display;
 mod window;
 
 use kivact_types::{RichText, ShapedText, Size, TextMetrics, TextStyle};
-use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc};
+use std::cell::RefCell;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Images, SVG and font files: loading, decoding, the image cache and its
 /// worker, fit geometry and font family resolution.

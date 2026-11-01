@@ -32,18 +32,21 @@ use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
 use native::{COMMAND, MAX_DIMENSION, Native};
 use state::State;
 use std::rc::Rc;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use windows_sys::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    CreateWindowExW, GetWindowThreadProcessId, IsWindow, PostMessageW, SW_SHOWNOACTIVATE,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, ShowWindow, WS_CHILD, WS_CLIPCHILDREN,
+    WS_CLIPSIBLINGS,
+};
 
 pub(super) fn open(
+    parent: kivact_types::ParentWindow,
     options: ChildOptions,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let kivact_types::ParentWindow::Win32(parent) = options.parent else {
+    let kivact_types::ParentWindow::Win32(parent) = parent else {
         return Err(ShellError::unsupported(
             "Windows embedding needs a Win32 parent",
         ));
@@ -195,7 +198,10 @@ pub(super) fn open(
 }
 
 fn module() -> Result<isize, ShellError> {
-    use windows_sys::Win32::System::LibraryLoader::*;
+    use windows_sys::Win32::System::LibraryLoader::{
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        GetModuleHandleExW,
+    };
     let mut module = 0;
     // SAFETY: FROM_ADDRESS identifies our module without extending its lifetime.
     let found = unsafe {

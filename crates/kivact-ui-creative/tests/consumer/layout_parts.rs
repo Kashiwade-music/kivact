@@ -3,9 +3,11 @@
 //! The standard split, property rows and state buttons, windows an application opens
 //! and closes, and panels with a header of their own.
 
-use super::*;
+use super::{clean, near};
 use kivact::draw::Rect;
-use kivact::test::Element;
+use kivact::prelude::*;
+use kivact::test::{Element, Screen};
+use kivact_ui_creative as ui;
 
 fn width(element: &Element<'_>) -> f32 {
     element.rect().expect("laid out").width

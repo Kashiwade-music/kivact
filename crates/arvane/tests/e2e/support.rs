@@ -1,6 +1,6 @@
 //! Role: What every module uses: test windows, scenes and pixels.
 
-use arvane::test_display::{VirtualWindow, VirtualWindowOptions, WindowMode, test_font};
+use arvane::test_display::{VirtualWindow, VirtualWindowOptions, test_font};
 use arvane::{Engine, Presented, Window as _};
 use kivact_types::{DrawCommand, Paint, Rect, Rgba, Scene, Size};
 
@@ -21,15 +21,8 @@ pub(crate) fn options(width: f32, height: f32) -> VirtualWindowOptions {
             .unwrap_or("arvane e2e")
             .to_owned(),
         size: Size { width, height },
-        scale: 1.0,
         frame_period_ns: PERIOD,
-        reduced_motion: false,
-        dark: false,
-        locale: None,
-        mode: WindowMode::Auto,
-        gpu: false,
-        renderer: None,
-        gpu_preference: Default::default(),
+        ..Default::default()
     }
 }
 

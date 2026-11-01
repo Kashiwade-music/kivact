@@ -1,6 +1,8 @@
 //! Role: Opaque mounted node identity and component focus queries.
 
-use crate::view::{NodeRef, focus, owner::Owner, requests, state::ViewState};
+use crate::view::owner::Owner;
+use crate::view::state::ViewState;
+use crate::view::{NodeRef, focus, requests};
 use kivact_engine::bridge::PropValue;
 use kivact_reactive::{AppId, Runtime, require_effectful};
 use kivact_wire::FocusTarget;

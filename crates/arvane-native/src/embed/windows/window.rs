@@ -1,27 +1,26 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
-use super::{native::Native, state::State};
-use crate::embed::{
-    child::{Backend, Command, Shared},
-    session::{Session, contain, negotiate},
-};
+use super::native::Native;
+use super::state::State;
+use crate::embed::child::{Backend, Command, Shared};
+use crate::embed::session::{Session, contain, negotiate};
 use arvane_shell::{AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
-use std::{
-    cell::{Cell, RefCell},
-    collections::VecDeque,
-    sync::Arc,
-    time::Instant,
+use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
+use windows_sys::Win32::Graphics::Gdi::{
+    DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, InvalidateRect,
+    MONITOR_DEFAULTTONEAREST, MONITORINFOEXW, MonitorFromWindow,
 };
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-    sync::atomic::Ordering,
-    time::Duration,
-};
-use windows_sys::Win32::{
-    Graphics::Gdi::*,
-    UI::{Input::KeyboardAndMouse::GetCapture, WindowsAndMessaging::*},
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetCapture;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    DestroyWindow, GetClientRect, GetCursorPos, GetParent, KillTimer, PostMessageW, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOZORDER, SetTimer, SetWindowPos, USER_TIMER_MINIMUM, WindowFromPoint,
 };
 pub(super) struct Window(pub(super) Rc<State>);
 pub(super) fn environment(state: &State) -> kivact_types::Environment {

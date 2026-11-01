@@ -1,6 +1,10 @@
 //! Role: Tests for the interactions of Creative controls through the public API.
 
-use super::*;
+use super::{choice_options, clean};
+use kivact::draw::Point;
+use kivact::prelude::*;
+use kivact_ui_creative as ui;
+use kivact_ui_creative::ThemeOptions;
 
 #[test]
 fn creative_segments_and_numeric_semantics_survive_a_theme_change() {

@@ -5,7 +5,10 @@
 //! complete scene: Arvane rendering validation is the final boundary.
 
 use kivact_types::DrawCommand as D;
-use kivact_wire::*;
+use kivact_wire::{
+    ClipShape, CoordinateShape, Corners, Fill, FillImage, FillLayer, FillSize, GradientKind, Len,
+    PaintProps, Point, RadialExtent, Rect, Rgba,
+};
 
 /// A fraction in `[0, 1]`, or `fallback` when not finite.
 pub fn unit(value: f32, fallback: f32) -> f32 {

@@ -1,7 +1,7 @@
 //! Role: Lowering of local scene text commands.
 use super::state::State;
 use crate::context::Context;
-use kivact_wire::*;
+use kivact_wire::{Point, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_text(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;

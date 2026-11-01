@@ -16,15 +16,19 @@ pub struct NodeState {
 impl NodeState {
     /// Nothing selected and the identity transform. Setup only.
     #[track_caller]
-    #[allow(
-        clippy::new_without_default,
-        reason = "creation makes signals under the current setup owner; a `Default` impl would hide that"
-    )]
     pub fn new() -> Self {
         Self {
             selection: signal(Vec::new()).into(),
             link: signal(None).into(),
             transform: signal(ViewTransform::default()).into(),
         }
+    }
+}
+
+impl Default for NodeState {
+    /// Same as [`NodeState::new`]. Setup only.
+    #[track_caller]
+    fn default() -> Self {
+        Self::new()
     }
 }

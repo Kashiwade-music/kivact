@@ -4,10 +4,15 @@
 //! drags and container menus. The layout rules are in `dock_model`.
 
 use super::dock_model::{Layout, container_of, editor_layout, weights};
-use super::*;
-use kivact::draw::Rect;
-use kivact::test::Element;
+use super::{clean, near};
+use kivact::draw::{Point, Rect};
+use kivact::prelude::*;
+use kivact::test::{Element, Screen};
+use kivact::ui::MenuEntry;
+use kivact::view::{A11yAction, MouseButton};
+use kivact_ui_creative as ui;
 use std::cell::Cell;
+use std::rc::Rc;
 use ui::{DockAxis, DockNode};
 
 struct Probe {

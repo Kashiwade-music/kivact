@@ -49,25 +49,21 @@
 
 mod effects;
 
+use crate::backdrop::Index;
+use crate::derived::Derived;
 use crate::gradient;
-use crate::{
-    backdrop::Index,
-    convert,
-    derived::Derived,
-    paint::{self, Brush, PatternFill},
-    text,
-};
+use crate::paint::{self, Brush, PatternFill};
+use crate::{convert, text};
 use kivact_types::{
     ColorMatrix, DrawCommand, ExternalFrame, ImageData, Mask, Paint, Rect as LogicalRect, Rgba,
     Scene, Shape, Size, Transform,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
-use vello_cpu::{
-    Glyph, PaintType,
-    kurbo::{self, Affine, BezPath, Rect, RoundedRect, Shape as _, Stroke},
-    peniko::{self, BlendMode, Blob, FontData},
-};
+use vello_cpu::kurbo::{self, Affine, BezPath, Rect, RoundedRect, Shape as _, Stroke};
+use vello_cpu::peniko::{self, BlendMode, Blob, FontData};
+use vello_cpu::{Glyph, PaintType};
 
 /// What [`draw`] records into: a rasterizer's scene.
 pub(crate) trait Canvas {

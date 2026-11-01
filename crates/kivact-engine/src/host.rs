@@ -78,7 +78,9 @@ use crate::model::Model;
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, RendererChange, Shell, ShellControl, ShellError, ShellOptions, Window};
 pub use client::{Boundary, Client, HostWaker};
-use kivact_wire::*;
+use kivact_wire::{
+    ExternalImport, FileDialogRequest, HostError, HostEvent, PlatformRequest, PlatformResult, Size,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;

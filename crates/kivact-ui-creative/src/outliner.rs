@@ -1,8 +1,7 @@
 //! Role: Outliner of the Creative kit: a consumer-owned hierarchy tree view.
 pub(crate) mod view_state;
 
-use crate::Color;
-use crate::LabelTone;
+use crate::{Color, LabelTone};
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::draw::Point;
 use kivact::i18n::message;
@@ -19,11 +18,9 @@ use kivact::view::{
     callback, for_each, node_ref, show,
 };
 use kivact::{Callback, Value, memo, signal};
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    rc::Rc,
-};
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 #[path = "outliner_controls.rs"]
 mod controls;
