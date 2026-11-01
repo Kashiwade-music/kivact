@@ -1,4 +1,4 @@
-//! Role: Modal menus, command search, toasts, tooltips and dialogs through the public API.
+//! Role: Modal menus, command search, toasts, tooltips and dialogs via the public API.
 
 use kivact::control::{rich_text, span};
 use kivact::prelude::*;

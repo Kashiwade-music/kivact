@@ -2,7 +2,7 @@
 use super::common::{line, meta};
 use super::controls::{buttons, inputs, navigation, selection};
 use super::data::{display, records, table};
-use super::specimens::foundations;
+use super::foundations::foundations;
 use super::state::Demo;
 use super::system::{create_dialog, delete_dialog, drawer_body, feedback, layout, overlays};
 use kivact::control::{Node, column, node, row, scroll};
