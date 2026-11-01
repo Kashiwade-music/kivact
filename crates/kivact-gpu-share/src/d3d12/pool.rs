@@ -64,7 +64,9 @@ impl Target {
 
 /// The fences an engine's own submission of a frame waits for and
 /// signals ([`Pool::finish`]).
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Submission {
     /// `ID3D12CommandQueue::Wait` for `release` to reach this value before
     /// the frame's command lists (`None`: the texture was never drawn).

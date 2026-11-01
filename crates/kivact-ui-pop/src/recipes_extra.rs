@@ -76,8 +76,9 @@ fn select_trigger(t: &Theme, s: &Look<kivact::ui::SelectTriggerState>) -> Style 
     let height = match s.size {
         kivact::ui::ControlSize::ExtraSmall => 26,
         kivact::ui::ControlSize::Small => 32,
-        kivact::ui::ControlSize::Medium => 36,
         kivact::ui::ControlSize::Large => 40,
+        // Variants added later fall back to Medium.
+        _ => 36,
     };
     style()
         .direction(Direction::Row)

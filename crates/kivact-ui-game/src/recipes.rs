@@ -165,12 +165,6 @@ pub(crate) fn button_style(
             p.sidebar_alt,
             kivact::style::rgb(0x000000),
         ),
-        (None, ButtonVariant::Primary) => (
-            t.colors().accent,
-            t.colors().accent_text,
-            p.primary_hover,
-            p.primary_strong,
-        ),
         (None, ButtonVariant::Secondary | ButtonVariant::Outline) => (
             t.colors().surface,
             t.colors().accent,
@@ -188,6 +182,13 @@ pub(crate) fn button_style(
             t.colors().accent_text,
             t.colors().danger,
             t.colors().danger,
+        ),
+        // Variants added later fall back to Primary.
+        _ => (
+            t.colors().accent,
+            t.colors().accent_text,
+            p.primary_hover,
+            p.primary_strong,
         ),
     };
     let mut s = style()
@@ -211,8 +212,9 @@ pub(crate) fn button_style(
     s = s.merge(&match size {
         ControlSize::ExtraSmall => style().height(h - 12.).padding_x(8).font_size(11),
         ControlSize::Small => style().height(h - 6.).padding_x(12).font_size(12),
-        ControlSize::Medium => style().height(h).padding_x(18).font_size(13),
         ControlSize::Large => style().height(h + 8.).padding_x(28).font_size(14),
+        // Variants added later fall back to Medium.
+        _ => style().height(h).padding_x(18).font_size(13),
     });
     if loading {
         s = s.disabled(style().opacity(1.));
@@ -389,8 +391,9 @@ fn select_trigger(t: &Theme, s: &Look<kivact::ui::SelectTriggerState>) -> Style 
     trigger(t).height(match s.size {
         ControlSize::ExtraSmall => h - 12.,
         ControlSize::Small => h - 6.,
-        ControlSize::Medium => h,
         ControlSize::Large => h + 8.,
+        // Variants added later fall back to Medium.
+        _ => h,
     })
 }
 fn menu_trigger(t: &Theme, _: &Look<PopupState>) -> Style {

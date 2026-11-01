@@ -59,7 +59,9 @@ impl Target {
 
 /// The timeline semaphores an engine's own submission of a frame waits
 /// for and signals ([`Pool::finish`]).
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Submission {
     /// Wait (`VkTimelineSemaphoreSubmitInfo`) for `release` to reach this
     /// value before the frame's first command touching the image (`None`:

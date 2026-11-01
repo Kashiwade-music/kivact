@@ -18,7 +18,9 @@ use std::time::Duration;
 /// An engine's image to read back ([`read_back`]): a 2D image of
 /// `vulkan::FORMAT` (premultiplied alpha), 1 mip level, 1 layer, created with
 /// `TRANSFER_SRC` usage.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ReadImage {
     /// The image.
     pub image: vk::Image,
