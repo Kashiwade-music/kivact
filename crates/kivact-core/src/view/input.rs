@@ -26,7 +26,6 @@ use kivact_style::draw::{Point, RegionId};
 /// The input that requested dismissal. Unmounting an overlay does not
 /// produce a dismissal event; applications close it explicitly themselves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum DismissReason {
     /// A pointer button was pressed outside the overlay and its anchor.
     OutsidePress,
@@ -39,9 +38,7 @@ pub enum DismissReason {
 /// An assistive-technology action delivered to a node or one of its drawn
 /// regions. Regions preserve the identity declared by `Draw::region`, so
 /// externally authored editors can operate the requested clip, key or item.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct A11yEvent {
     /// The offered action requested by assistive technology.
     pub action: crate::view::A11yAction,
@@ -73,7 +70,6 @@ pub struct A11yEvent {
 /// shortcut must still see it, for example a pan surface that tracks a
 /// held Space without activating the focused control.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Handled {
     /// Consumed: later callbacks and ancestors do not see the event, and
     /// no default action runs.
@@ -279,9 +275,7 @@ pub(crate) fn wheel_event(
 }
 
 /// OS file drag in node-local and window logical pixels.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct FileEvent {
     /// Drag phase.
     pub phase: FilePhase,

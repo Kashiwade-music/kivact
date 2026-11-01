@@ -13,7 +13,6 @@ use kivact::view::{IntoView, Role, View, callback};
 
 /// The colors of a [`Bubble`] (bubble.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum BubbleVariant {
     /// Solid primary: the sender's own text.
     #[default]
@@ -34,7 +33,6 @@ pub enum BubbleVariant {
 
 /// The side a [`Bubble`] or [`Message`] sticks to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum BubbleAlign {
     /// The leading side.
     #[default]
@@ -45,7 +43,6 @@ pub enum BubbleAlign {
 
 /// The edge of a [`Bubble`] its reactions overlap.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum BubbleReactionsSide {
     /// Over the top edge.
     Top,
@@ -56,7 +53,6 @@ pub enum BubbleReactionsSide {
 
 /// The side a [`Message`] sticks to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum MessageAlign {
     /// The leading side: received messages.
     #[default]

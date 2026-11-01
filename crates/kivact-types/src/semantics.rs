@@ -3,7 +3,6 @@
 /// Accessibility role of a node or scene region.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 /// Role.
-#[non_exhaustive]
 pub enum Role {
     /// Generic.
     Generic,
@@ -109,7 +108,6 @@ pub enum Role {
 
 /// Portable actions requested by assistive technology for a semantics node.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum A11yAction {
     /// Native default activation (UIA Invoke or Android ACTION_CLICK).
     /// `Toggle` and `Select` declarations also accept this default action;

@@ -121,7 +121,12 @@ impl Tiles {
         let (x, nx) = axis(ox, tw, area.x, area.width, layer.repeat_x);
         let (y, ny) = axis(oy, th, area.y, area.height, layer.repeat_y);
         Some(Tiles {
-            first: Rect::new(x, y, tw, th),
+            first: Rect {
+                x,
+                y,
+                width: tw,
+                height: th,
+            },
             nx,
             ny,
         })
@@ -142,13 +147,10 @@ impl Tiles {
 
     fn each(&self) -> impl Iterator<Item = Rect> + '_ {
         (0..self.ny).flat_map(move |j| {
-            (0..self.nx).map(move |i| {
-                Rect::new(
-                    self.first.x + i as f32 * self.first.width,
-                    self.first.y + j as f32 * self.first.height,
-                    self.first.width,
-                    self.first.height,
-                )
+            (0..self.nx).map(move |i| Rect {
+                x: self.first.x + i as f32 * self.first.width,
+                y: self.first.y + j as f32 * self.first.height,
+                ..self.first
             })
         })
     }
@@ -283,7 +285,11 @@ impl Context<'_> {
                         gradient(g, copy).map(|p| tint.paint(p))
                     });
                 } else {
-                    let local = Rect::new(0.0, 0.0, tiles.first.width, tiles.first.height);
+                    let local = Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        ..tiles.first
+                    };
                     if let Some(kivact_types::protocol::Paint::Gradient(g)) = gradient(g, local) {
                         let paint = tiles.pattern(layer, PatternSource::Gradient(g));
                         self.put(out, shape, tint.paint(paint));
@@ -295,7 +301,10 @@ impl Context<'_> {
             FillImage::Image(asset) => {
                 let source = asset;
                 let device = arvane::asset::PixelSize::of(
-                    Size::new(tiles.first.width, tiles.first.height),
+                    Size {
+                        width: tiles.first.width,
+                        height: tiles.first.height,
+                    },
                     self.raster.get(),
                 );
                 let pixels = self.pixels(source, device);
@@ -356,8 +365,8 @@ impl Context<'_> {
                     // A solid tile is a one-stop gradient tile.
                     let g = kivact_types::protocol::Gradient {
                         shape: GradientShape::Linear {
-                            start: Point::new(0.0, 0.0),
-                            end: Point::new(1.0, 0.0),
+                            start: Point { x: 0.0, y: 0.0 },
+                            end: Point { x: 1.0, y: 0.0 },
                         },
                         stops: vec![(0.0, crate::sanitize::color(*color))],
                         extend: Extend::Pad,
@@ -369,7 +378,11 @@ impl Context<'_> {
                 if tiles.covers(area) {
                     return gradient(g, tiles.first);
                 }
-                let local = Rect::new(0.0, 0.0, tiles.first.width, tiles.first.height);
+                let local = Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    ..tiles.first
+                };
                 match gradient(g, local)? {
                     kivact_types::protocol::Paint::Gradient(g) => {
                         Some(tiles.pattern(layer, PatternSource::Gradient(g)))
@@ -380,7 +393,10 @@ impl Context<'_> {
             FillImage::Coordinate(_) => None,
             FillImage::Image(asset) => {
                 let device = arvane::asset::PixelSize::of(
-                    Size::new(tiles.first.width, tiles.first.height),
+                    Size {
+                        width: tiles.first.width,
+                        height: tiles.first.height,
+                    },
                     self.raster.get(),
                 );
                 let (image, _) = self.pixels(asset, device)?;
@@ -481,7 +497,12 @@ fn color_at(stops: &[(f32, Rgba)], t: f32) -> Rgba {
                     x + (y - x) * k
                 }
             };
-            return Rgba::new(mix(c0.r, c1.r), mix(c0.g, c1.g), mix(c0.b, c1.b), a);
+            return Rgba {
+                r: mix(c0.r, c1.r),
+                g: mix(c0.g, c1.g),
+                b: mix(c0.b, c1.b),
+                a,
+            };
         }
     }
     stops.last().map_or(first.1, |l| l.1)
@@ -519,8 +540,10 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
     if g.stops.is_empty() {
         return None;
     }
-    let lerp =
-        |a: Point, b: Point, t: f32| Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+    let lerp = |a: Point, b: Point, t: f32| Point {
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+    };
     let solid = |stops: &[(f32, Rgba)]| {
         Some(kivact_types::protocol::Paint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
@@ -622,7 +645,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
             };
             (
                 GradientShape::Radial {
-                    center: Point::new(cx, cy),
+                    center: Point { x: cx, y: cy },
                     radius_x: rx * scale,
                     radius_y: ry * scale,
                 },
@@ -649,7 +672,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
             };
             (
                 GradientShape::Conic {
-                    center: Point::new(cx, cy),
+                    center: Point { x: cx, y: cy },
                     start_deg: from + lo * 360.0,
                     end_deg: from + hi * 360.0,
                 },
@@ -675,7 +698,10 @@ pub(crate) fn coordinate(
     g: &CoordinateGradient,
     origin: Point,
 ) -> Option<kivact_types::protocol::Paint> {
-    let at = |p: kivact_wire::Point| Point::new(origin.x + p.x, origin.y + p.y);
+    let at = |p: kivact_wire::Point| Point {
+        x: origin.x + p.x,
+        y: origin.y + p.y,
+    };
     let stops = g
         .stops
         .iter()

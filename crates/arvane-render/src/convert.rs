@@ -201,8 +201,6 @@ pub(crate) fn stroke(style: &Stroke) -> kurbo::Stroke {
         LineJoin::Miter => kurbo::Join::Miter,
         LineJoin::Round => kurbo::Join::Round,
         LineJoin::Bevel => kurbo::Join::Bevel,
-        // Variants added later fall back to a miter join.
-        _ => kurbo::Join::Miter,
     };
     let mut out = kurbo::Stroke::new(f64::from(style.width))
         .with_caps(cap)
@@ -286,8 +284,6 @@ pub(crate) fn blend(mode: BlendMode) -> Option<peniko::BlendMode> {
         BlendMode::Saturation => Mix::Saturation,
         BlendMode::Color => Mix::Color,
         BlendMode::Luminosity => Mix::Luminosity,
-        // Variants added later fall back to Normal.
-        _ => return None,
     };
     Some(peniko::BlendMode::new(mix, Compose::SrcOver))
 }

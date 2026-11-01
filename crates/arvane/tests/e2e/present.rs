@@ -80,7 +80,7 @@ fn draw_text(window: &mut VirtualWindow, text: &str, origin: Point) -> (Size, f3
 
 #[test]
 fn a_glyph_run_inks_inside_its_shaped_box_on_its_baseline() {
-    let origin = Point::new(10.0, 6.0);
+    let origin = Point { x: 10.0, y: 6.0 };
     let mut window = open(160.0, 48.0);
     let (size, baseline) = draw_text(&mut window, "HILT", origin);
     let ((left, top, right, bottom), count) = ink(&window).expect("the text inks");
@@ -165,7 +165,7 @@ fn representative() -> Vec<DrawCommand> {
     ];
     commands.extend(shaped.runs.iter().map(|run| DrawCommand::Glyphs {
         run: std::sync::Arc::clone(run),
-        origin: Point::new(120.0, 110.0),
+        origin: Point { x: 120.0, y: 110.0 },
         color: None,
     }));
     commands

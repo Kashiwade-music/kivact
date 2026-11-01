@@ -40,7 +40,11 @@ impl Model {
         let view = clip.intersect(&area);
         let rows = lines.rows(view.y - line.y, view.bottom() - line.y);
         lines.drawn(rows.clone());
-        let place = |r: Rect| Rect::new(left + r.x, line.y + r.y, r.width, r.height);
+        let place = |r: Rect| Rect {
+            x: left + r.x,
+            y: line.y + r.y,
+            ..r
+        };
         out.commands.push(D::PushClip(area));
         if host.focused()
             == Some(kivact_wire::FocusTarget {
@@ -69,7 +73,12 @@ impl Model {
             };
             let fill = kivact_types::protocol::Paint::Solid(match props.more().selection_color {
                 Some(own) => tint.color(own),
-                None => tint.arvane(Rgba::new(0.2, 0.45, 0.85, 0.3)),
+                None => tint.arvane(Rgba {
+                    r: 0.2,
+                    g: 0.45,
+                    b: 0.85,
+                    a: 0.3,
+                }),
             });
             for rect in spans(edit.selection(), engine) {
                 out.commands.push(D::Rect {
@@ -87,8 +96,14 @@ impl Model {
             if let Some(marked) = marked {
                 for band in marked {
                     out.commands.push(D::Line {
-                        from: Point::new(band.x, band.bottom()),
-                        to: Point::new(band.right(), band.bottom()),
+                        from: Point {
+                            x: band.x,
+                            y: band.bottom(),
+                        },
+                        to: Point {
+                            x: band.right(),
+                            y: band.bottom(),
+                        },
                         width: 1.0,
                         color: tint.color(color),
                     });
@@ -147,7 +162,7 @@ fn push_runs(
     for run in shaped.iter().flat_map(|shaped| &shaped.runs) {
         out.commands.push(D::Glyphs {
             run: std::sync::Arc::clone(run),
-            origin: Point::new(x, y),
+            origin: Point { x, y },
             color: Some(color(run.color)),
         });
     }

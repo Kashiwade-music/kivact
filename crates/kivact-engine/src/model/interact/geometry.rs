@@ -134,7 +134,12 @@ impl Model {
                 None => break,
             }
         }
-        Some(Rect::new(x, y, size.width, size.height))
+        Some(Rect {
+            x,
+            y,
+            width: size.width,
+            height: size.height,
+        })
     }
 
     /// Where node `n`'s box is in its parent's content
@@ -146,7 +151,10 @@ impl Model {
             .map(|l| l.location)
             .unwrap_or_default();
         if n.place.sticky {
-            Point::new(loc.x + n.shift.x, loc.y + n.shift.y)
+            Point {
+                x: loc.x + n.shift.x,
+                y: loc.y + n.shift.y,
+            }
         } else {
             loc
         }
@@ -160,7 +168,12 @@ impl Model {
             return Point::default();
         };
         let anchor = match o.point {
-            Some(p) => Some(Rect::new(p.x, p.y, 0.0, 0.0)),
+            Some(p) => Some(Rect {
+                x: p.x,
+                y: p.y,
+                width: 0.0,
+                height: 0.0,
+            }),
             None => o
                 .anchor
                 .filter(|a| !self.placed_by(*a, id))
@@ -294,7 +307,12 @@ impl Model {
             return None;
         }
         let size = self.computed_layout(id)?.size;
-        let r = Rect::new(origin.x, origin.y, size.width, size.height);
+        let r = Rect {
+            x: origin.x,
+            y: origin.y,
+            width: size.width,
+            height: size.height,
+        };
         // Into its own space (a flattening transform hits nothing).
         let p = match n.place.transformed {
             true => match self.transform_at(id, r) {
@@ -313,7 +331,13 @@ impl Model {
             return inside.then_some(id);
         }
         if self
-            .scrollbar_at(id, Point::new(p.x - origin.x, p.y - origin.y))
+            .scrollbar_at(
+                id,
+                Point {
+                    x: p.x - origin.x,
+                    y: p.y - origin.y,
+                },
+            )
             .is_some()
         {
             return Some(id);
@@ -323,7 +347,10 @@ impl Model {
                 continue;
             };
             let loc = self.location(cn);
-            let o = Point::new(origin.x - n.scroll.x + loc.x, origin.y - n.scroll.y + loc.y);
+            let o = Point {
+                x: origin.x - n.scroll.x + loc.x,
+                y: origin.y - n.scroll.y + loc.y,
+            };
             if let Some(h) = self.hit_node(c, o, p) {
                 return Some(h);
             }
@@ -357,10 +384,10 @@ impl Model {
         let (ax, ay) = n.scroll_axes();
         let max_x = (l.content_size.width - l.size.width).max(0.0);
         let max_y = (l.content_size.height - l.size.height).max(0.0);
-        Some(Point::new(
-            if ax { offset.x.clamp(0.0, max_x) } else { 0.0 },
-            if ay { offset.y.clamp(0.0, max_y) } else { 0.0 },
-        ))
+        Some(Point {
+            x: if ax { offset.x.clamp(0.0, max_x) } else { 0.0 },
+            y: if ay { offset.y.clamp(0.0, max_y) } else { 0.0 },
+        })
     }
 
     /// Scroll the nearest container at or above `from` that can still move
@@ -394,7 +421,10 @@ impl Model {
                 continue;
             }
             let s = n.scroll;
-            let target = Point::new(s.x + delta.x, s.y + delta.y);
+            let target = Point {
+                x: s.x + delta.x,
+                y: s.y + delta.y,
+            };
             if let Some(target) = self.clamped_scroll(id, target)
                 && target != s
             {

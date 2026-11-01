@@ -42,7 +42,6 @@ use std::sync::Arc;
 /// App::new("Editor").font(include_bytes!("../assets/Inter-Regular.ttf"));
 /// ```
 #[derive(Clone)]
-#[non_exhaustive]
 pub enum Asset {
     /// A file read at run time. A relative path resolves against the current
     /// directory, as in `std`.

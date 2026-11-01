@@ -84,12 +84,11 @@ impl Reader {
         self.prepare_geometry_read();
         let model = self.model.borrow();
         let bounds = model.rect(id)?;
-        let own = kivact_wire::Rect::new(
-            bounds.x + rect.x,
-            bounds.y + rect.y,
-            rect.width,
-            rect.height,
-        );
+        let own = kivact_wire::Rect {
+            x: bounds.x + rect.x,
+            y: bounds.y + rect.y,
+            ..rect
+        };
         let transform = model.transform_between(id, None);
         Some(crate::model::transform::map_rect(transform.as_ref(), own))
     }

@@ -14,9 +14,7 @@ use kivact::style::{Align, ColorToken, Justify, Position, pct, style};
 use kivact::view::{IntoValue, IntoView, Placement, Role, callback, for_each, overlay, show};
 
 /// One notification; its identifier survives read-state updates.
-/// Built with [`NotificationItem::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct NotificationItem {
     pub id: u64,
     pub title: String,
@@ -43,24 +41,6 @@ impl NotificationItem {
             hue: Hue::Gray,
             unread: false,
         }
-    }
-
-    /// Use `icon` instead of the bell.
-    pub fn icon(mut self, icon: impl Into<kivact::style::Icon>) -> Self {
-        self.icon = icon.into();
-        self
-    }
-
-    /// Tint the icon with `hue` instead of gray.
-    pub fn hue(mut self, hue: Hue) -> Self {
-        self.hue = hue;
-        self
-    }
-
-    /// Mark the notification unread or read.
-    pub fn unread(mut self, unread: bool) -> Self {
-        self.unread = unread;
-        self
     }
 }
 

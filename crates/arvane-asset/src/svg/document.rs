@@ -66,7 +66,10 @@ impl Svg {
     /// The natural size in logical px.
     pub(crate) fn natural(&self) -> Size {
         let size = self.tree.size();
-        Size::new(size.width(), size.height())
+        Size {
+            width: size.width(),
+            height: size.height(),
+        }
     }
 
     /// The drawing scaled to exactly `size` device pixels (both edges

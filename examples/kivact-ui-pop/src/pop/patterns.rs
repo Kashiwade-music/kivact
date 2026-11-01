@@ -418,8 +418,9 @@ pub(super) fn schedule() -> Node {
                     .events(
                         SCHEDULE_EVENTS
                             .into_iter()
-                            .map(|(day, _, _, _, color, _)| {
-                                ui::CalendarEvent::new(CalendarDate::new(2026, 10, day), rgb(color))
+                            .map(|(day, _, _, _, color, _)| ui::CalendarEvent {
+                                date: CalendarDate::new(2026, 10, day),
+                                color: rgb(color),
                             })
                             .collect::<Vec<_>>(),
                     )

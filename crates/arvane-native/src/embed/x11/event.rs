@@ -35,7 +35,12 @@ impl Input {
         }
 
         let scale = window.scale;
-        let point = |x: i16, y: i16| Some(Point::new(x as f32 / scale, y as f32 / scale));
+        let point = |x: i16, y: i16| {
+            Some(Point {
+                x: x as f32 / scale,
+                y: y as f32 / scale,
+            })
+        };
         match event {
             Event::Expose(_) => window.redraw.set(true),
             Event::ConfigureNotify(e) if e.window == window.native.id.get() => {

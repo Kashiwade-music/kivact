@@ -139,7 +139,5 @@ fn command_held(modifiers: Modifiers) -> bool {
         ListCommandModifier::Control => modifiers.ctrl,
         ListCommandModifier::Meta => modifiers.meta,
         ListCommandModifier::ControlOrMeta => modifiers.ctrl || modifiers.meta,
-        // Variants added later fall back to control or meta.
-        _ => modifiers.ctrl || modifiers.meta,
     }
 }

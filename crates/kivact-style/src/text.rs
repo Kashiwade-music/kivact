@@ -73,7 +73,6 @@ use super::theme::value::Theme;
 /// font size of the text it applies to ([`em`]: CSS `0.08em` is
 /// `em(0.08)`).
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum TextLength {
     /// Logical px.
     Px(f32),
@@ -349,9 +348,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme
 /// unset one is the paragraph's. A span's decoration lines and features
 /// replace the paragraph's. The `Span` builders of `kivact::control` fill
 /// it, and [`SpanStyle::compile`] turns it into the engine's form.
-/// Built with [`SpanStyle::default`]; assign the fields you need.
 #[derive(Clone, Debug, PartialEq, Default)]
-#[non_exhaustive]
 pub struct SpanStyle {
     /// Font size in logical px.
     pub font_size: Option<f32>,
@@ -386,8 +383,6 @@ pub struct SpanStyle {
 }
 
 /// A [`SpanStyle`] in the engine's form, made by [`SpanStyle::compile`].
-/// Produced by the framework; read its fields.
-#[non_exhaustive]
 pub struct CompiledSpanStyle {
     /// The properties the span sets (an unset one stays unset).
     pub props: p::SpanProps,

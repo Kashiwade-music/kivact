@@ -20,7 +20,10 @@ impl Screen {
             .borrow()
             .requested_sizes()
             .iter()
-            .map(|s| crate::draw::Size::new(s.width, s.height))
+            .map(|s| crate::draw::Size {
+                width: s.width,
+                height: s.height,
+            })
             .collect()
     }
 

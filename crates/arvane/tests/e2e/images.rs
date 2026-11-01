@@ -153,7 +153,11 @@ fn vocabulary() -> Vec<DrawCommand> {
         },
         DrawCommand::StrokeShape {
             shape: Shape::RoundedRect(RoundedRect::new(rect(180.0, 80.0, 50.0, 30.0), 8.0)),
-            stroke: Stroke::new(3.0).cap(LineCap::Round).dash([6.0, 4.0]),
+            stroke: Stroke {
+                cap: LineCap::Round,
+                dash: vec![6.0, 4.0],
+                ..Stroke::new(3.0)
+            },
             paint: solid(0x102030),
         },
         DrawCommand::StrokeShape {
@@ -173,7 +177,10 @@ fn vocabulary() -> Vec<DrawCommand> {
                 ],
                 rule: FillRule::NonZero,
             },
-            stroke: Stroke::new(4.0).cap(LineCap::Round),
+            stroke: Stroke {
+                cap: LineCap::Round,
+                ..Stroke::new(4.0)
+            },
             paint: solid(0x000000),
         },
         DrawCommand::BoxShadow(BoxShadow {
@@ -217,7 +224,10 @@ fn vocabulary() -> Vec<DrawCommand> {
                 ],
                 rule: FillRule::NonZero,
             },
-            stroke: Stroke::new(5.0).cap(LineCap::Square),
+            stroke: Stroke {
+                cap: LineCap::Square,
+                ..Stroke::new(5.0)
+            },
             paint: Paint::Pattern(Pattern {
                 source: PatternSource::Image {
                     image: checker.clone(),

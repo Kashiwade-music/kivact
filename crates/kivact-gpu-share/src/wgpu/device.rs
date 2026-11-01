@@ -28,8 +28,6 @@ pub fn request_device(
     let backends = match adapter.backend {
         GpuBackend::Dx12 => ::wgpu::Backends::DX12,
         GpuBackend::Vulkan => ::wgpu::Backends::VULKAN,
-        // Variants added later have no device here.
-        _ => return Err(Error::Mismatch("unsupported graphics API".into())),
     };
     for found in pollster::block_on(instance.enumerate_adapters(backends)) {
         match adapter.backend {

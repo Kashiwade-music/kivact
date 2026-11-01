@@ -64,9 +64,7 @@ impl PoolConfig {
 /// A frame the engine has submitted: the texture it is in and the value
 /// the ready fence reaches once it is drawn. The UI names it in a scene
 /// ([`FrameReady::frame`]).
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub struct FrameReady {
     /// The texture of the pool ([`kivact_types::SharedTextures::textures`]'s
     /// index).
@@ -78,7 +76,11 @@ pub struct FrameReady {
 impl FrameReady {
     /// This frame of the image the window imported the pool as.
     pub fn frame(self, image: ExternalImageId) -> ExternalFrame {
-        ExternalFrame::new(image, self.slot, self.value)
+        ExternalFrame {
+            image,
+            slot: self.slot,
+            value: self.value,
+        }
     }
 }
 

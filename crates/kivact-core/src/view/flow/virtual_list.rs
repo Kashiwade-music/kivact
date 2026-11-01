@@ -49,7 +49,6 @@ use kivact_wire::Role;
 
 /// Row height policy of a virtual list.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum RowHeight {
     /// Every row has this height (logical px).
     Fixed(f32),
@@ -554,7 +553,7 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seek<K, T> {
         self.issued.set(Some((offset, target)));
         ViewState::tree(rt)
             .engine()
-            .scroll(self.outer, Point::new(0.0, target), false, false);
+            .scroll(self.outer, Point { x: 0.0, y: target }, false, false);
         rt.request_turn();
     }
 

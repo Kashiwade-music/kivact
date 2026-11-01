@@ -193,8 +193,6 @@ fn scene_outliner() -> impl IntoView {
                             ui::RestrictionFlag::Visible => item.visible = change.value,
                             ui::RestrictionFlag::Selectable => item.selectable = change.value,
                             ui::RestrictionFlag::Rendered => item.rendered = change.value,
-                            // Variants added later fall back to being ignored.
-                            _ => {}
                         }
                     }
                 }),
@@ -204,8 +202,6 @@ fn scene_outliner() -> impl IntoView {
                         items.set(before);
                     }
                 }
-                // Variants added later fall back to being ignored.
-                _ => {}
             }),
     ))
     .style(style().gap(6).padding(8).width(280))

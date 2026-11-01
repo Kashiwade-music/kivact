@@ -17,9 +17,7 @@ pub use kivact_editing::{TextChange, TextSession};
 /// changes to a copy of the text keeps the copy equal to the editor's,
 /// preedit included. A composition that ends without changing the text
 /// has no changes. Caret-only moves produce no event.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct TextEditEvent {
     /// The range replacements, in order.
     pub changes: Vec<TextChange>,
@@ -51,21 +49,12 @@ impl TextEditEvent {
 
 /// One colored byte range of a line of a native editor
 /// ([`TextEditing::highlight`]).
-/// Built with [`TextHighlight::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct TextHighlight {
     /// The UTF-8 byte range in the line, which excludes its line feed.
     pub range: Range<usize>,
     /// The glyphs' color.
     pub color: kivact_style::Color,
-}
-
-impl TextHighlight {
-    /// Color the bytes `range` of a line with `color`.
-    pub fn new(range: Range<usize>, color: kivact_style::Color) -> Self {
-        TextHighlight { range, color }
-    }
 }
 
 /// What a behavior attached with [`TextEditing::behavior`] runs.

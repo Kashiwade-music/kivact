@@ -72,8 +72,7 @@ fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
     // `pr` likewise beside a trailing icon.
     let edge = match state.size {
         ControlSize::ExtraSmall | ControlSize::Small => 6.0,
-        // Variants added later fall back to Medium.
-        _ => 8.0,
+        ControlSize::Medium | ControlSize::Large => 8.0,
     };
     let s = if state.leading_icon {
         s.padding_left(edge)
@@ -151,8 +150,7 @@ const THUMB_SM: f32 = 12.0;
 fn switch_metrics(size: ControlSize) -> ((f32, f32), f32) {
     match size {
         ControlSize::ExtraSmall | ControlSize::Small => (TRACK_SM, THUMB_SM),
-        // Variants added later fall back to Medium.
-        _ => (TRACK, THUMB),
+        ControlSize::Medium | ControlSize::Large => (TRACK, THUMB),
     }
 }
 /// Room left of the drawn part so its 1 px focus ring is not cut.
@@ -332,9 +330,8 @@ fn text_input(t: &Theme, state: &kivact::ui::Look<TextInputState>) -> Style {
         .height(match state.size {
             ControlSize::ExtraSmall => 24,
             ControlSize::Small => 28,
+            ControlSize::Medium => 32,
             ControlSize::Large => 36,
-            // Variants added later fall back to Medium.
-            _ => 32,
         })
         .padding_y(4)
 }

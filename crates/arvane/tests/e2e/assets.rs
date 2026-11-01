@@ -67,7 +67,7 @@ fn pixels(
 }
 
 fn size(width: f32, height: f32) -> Size {
-    Size::new(width, height)
+    Size { width, height }
 }
 
 /// The straight RGBA of pixel `(x, y)`.

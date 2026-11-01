@@ -190,10 +190,10 @@ impl Dnd {
                         }
                         Err(error) => return Err(super::error::platform(error)),
                     };
-                    self.point = Point::new(
-                        f32::from(translated.dst_x) / scale,
-                        f32::from(translated.dst_y) / scale,
-                    );
+                    self.point = Point {
+                        x: f32::from(translated.dst_x) / scale,
+                        y: f32::from(translated.dst_y) / scale,
+                    };
                     self.send(
                         native,
                         self.status,

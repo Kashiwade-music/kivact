@@ -24,8 +24,8 @@ impl Model {
                 .region_ids
                 .get(&(f.node, region))
                 .copied()
-                .map(kivact_types::NodeId::new),
-            None => Some(kivact_types::NodeId::new(f.node.0)),
+                .map(kivact_types::NodeId),
+            None => Some(kivact_types::NodeId(f.node.0)),
         }
     }
 
@@ -71,12 +71,11 @@ impl Model {
         };
         let hidden = self.hidden(id, clipped);
         let rect = self.rect(id).unwrap_or_default();
-        let bounds = wire::Rect::new(
-            rect.x + offset.x,
-            rect.y + offset.y,
-            rect.width,
-            rect.height,
-        );
+        let bounds = wire::Rect {
+            x: rect.x + offset.x,
+            y: rect.y + offset.y,
+            ..rect
+        };
         let scroll = n.scroll();
 
         let transform = if n.place.transformed || n.is_layer() {
@@ -87,7 +86,7 @@ impl Model {
         let children: Vec<kivact_types::NodeId> = self
             .tree()
             .children_ids(n)
-            .map(|id| kivact_types::NodeId::new(id.0))
+            .map(|id| kivact_types::NodeId(id.0))
             .collect();
         // The model's exposure (role, name, actions). A node without a
         // role is not exposed: it stays a bare structural node (a
@@ -141,7 +140,7 @@ impl Model {
             .and_then(|props| props.text.clone());
         let mut output = kivact_types::protocol::SemanticsNode {
             properties: extras,
-            id: kivact_types::NodeId::new(id.0),
+            id: kivact_types::NodeId(id.0),
             role: exposed.role,
             children,
             label: exposed.name,
@@ -193,7 +192,7 @@ impl Model {
             let expanded = state.and_then(|s| s.expanded);
             let native_id = self.region_identity(id, region_id);
             regions.insert(native_id);
-            output.children.push(kivact_types::NodeId::new(native_id));
+            output.children.push(kivact_types::NodeId(native_id));
             let offered = if hidden {
                 Vec::new()
             } else {
@@ -221,18 +220,18 @@ impl Model {
                         props
                     })
                     .map(Box::new),
-                id: kivact_types::NodeId::new(native_id),
+                id: kivact_types::NodeId(native_id),
                 role: region.role,
                 children: Vec::new(),
                 label: region.name,
                 description: region.description.unwrap_or_default(),
                 value: region.value,
-                bounds: kivact_types::Rect::new(
-                    bounds.x + region.rect.x,
-                    bounds.y + region.rect.y,
-                    region.rect.width,
-                    region.rect.height,
-                ),
+                bounds: kivact_types::Rect {
+                    x: bounds.x + region.rect.x,
+                    y: bounds.y + region.rect.y,
+                    width: region.rect.width,
+                    height: region.rect.height,
+                },
                 scroll: kivact_types::Point::default(),
                 transform: kivact_types::protocol::Transform::IDENTITY,
                 disabled: disabled || region.disabled,
@@ -281,7 +280,11 @@ impl Model {
             let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
             let above = self.scroll_above(*x);
             let r = host.rect(*x).unwrap_or_default();
-            let content = wire::Rect::new(r.x + above.x, r.y + above.y, r.width, r.height);
+            let content = wire::Rect {
+                x: r.x + above.x,
+                y: r.y + above.y,
+                ..r
+            };
             around = around.then(kivact_types::protocol::Transform::translate(-s.x, -s.y));
             if let Some(t) = host.transform_at(*x, content) {
                 around = around.then(t);
@@ -426,7 +429,7 @@ pub(super) fn structural(
 ) -> kivact_types::protocol::SemanticsNode {
     kivact_types::protocol::SemanticsNode {
         properties: None,
-        id: kivact_types::NodeId::new(id.0),
+        id: kivact_types::NodeId(id.0),
         role: kivact_types::Role::Generic,
         children,
         label: String::new(),

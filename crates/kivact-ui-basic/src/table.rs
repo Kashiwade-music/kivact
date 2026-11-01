@@ -10,7 +10,6 @@ use kivact::view::{IntoText, IntoValue, IntoView, Role, View};
 
 /// The horizontal alignment of a [`TableCell`]'s content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum TableAlign {
     /// Against the leading edge.
     #[default]

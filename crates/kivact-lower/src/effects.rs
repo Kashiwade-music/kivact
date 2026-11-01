@@ -46,7 +46,10 @@ impl Tint {
             Some(m) => m.apply(color),
             None => color,
         };
-        Rgba::new(color.r, color.g, color.b, color.a * self.alpha)
+        Rgba {
+            a: color.a * self.alpha,
+            ..color
+        }
     }
 
     /// A paint as drawn (every stop, a pattern's image through the matrix).
@@ -177,7 +180,10 @@ pub fn layers(
                     };
                     let finite = |v: f32| if v.is_finite() { v } else { 0.0 };
                     filters.push(LayerFilter::DropShadow {
-                        offset: Point::new(finite(offset.x), finite(offset.y)),
+                        offset: Point {
+                            x: finite(offset.x),
+                            y: finite(offset.y),
+                        },
                         std_dev: blur(b) / 2.0,
                         color: tint.color(color),
                     });

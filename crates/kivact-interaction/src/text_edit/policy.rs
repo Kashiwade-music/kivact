@@ -32,8 +32,6 @@ pub fn text_edit_policy(
             state.replace(state.selection(), &text);
             return EditOutcome::Done { changed: true };
         }
-        // Variants added later fall back to leaving the request to routing.
-        _ => return EditOutcome::NotEditing,
     };
     if let Key::Char(c) = key
         && (modifiers.ctrl || modifiers.meta)

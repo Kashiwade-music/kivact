@@ -35,7 +35,10 @@ fn fixture() -> (Screen, Model) {
                 ui::Curve::new(20, "Opacity", vec![ui::CurveKey::new(3, 5.0, 0.5)]),
             ]),
             selection: signal(Vec::new()),
-            view: signal(ui::GraphView::new((0.0, 10.0), (-2.0, 3.0))),
+            view: signal(ui::GraphView {
+                time: (0.0, 10.0),
+                value: (-2.0, 3.0),
+            }),
             frame: signal(0.0),
             lanes: signal(vec![
                 ui::Lane::new(10, "Position"),
@@ -51,13 +54,14 @@ fn fixture() -> (Screen, Model) {
             model,
             column((
                 show(model.present, move || {
-                    app_graph(model.curves, {
-                        let mut value = ui::GraphState::new();
-                        value.view = model.view.into();
-                        value.selection = model.selection.into();
-                        value.playhead = model.frame.into();
-                        value
-                    })
+                    app_graph(
+                        model.curves,
+                        ui::GraphState {
+                            view: model.view.into(),
+                            selection: model.selection.into(),
+                            playhead: model.frame.into(),
+                        },
+                    )
                     .lanes(model.lanes)
                     .snap(model.snap)
                     .step(0.5, 0.25)
@@ -141,12 +145,18 @@ fn graph_tangents_are_draggable_and_keyboard_editable() {
         ]);
         (
             data,
-            app_graph(data, {
-                let mut value = ui::GraphState::new();
-                value.selection = (signal(vec![1])).into();
-                value.view = (signal(ui::GraphView::new((0.0, 400.0), (0.0, 278.0)))).into();
-                value
-            })
+            app_graph(
+                data,
+                ui::GraphState {
+                    selection: (signal(vec![1])).into(),
+                    view: (signal(ui::GraphView {
+                        time: (0.0, 400.0),
+                        value: (0.0, 278.0),
+                    }))
+                    .into(),
+                    ..ui::GraphState::new()
+                },
+            )
             .style(style().size(600, 300))
             .test_id("graph"),
         )

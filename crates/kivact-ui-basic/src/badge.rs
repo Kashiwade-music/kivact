@@ -13,7 +13,6 @@ use kivact::{Callback, Value};
 
 /// The look of a [`Badge`] (badge.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum BadgeVariant {
     /// Solid primary.
     #[default]

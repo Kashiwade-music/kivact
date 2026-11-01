@@ -64,8 +64,17 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     window.set_locale(Some("fr-CA"));
     assert_eq!(window.environment().locale.as_deref(), Some("fr-CA"));
     // A resize and a scale change move the frame's plan.
-    window.resize(Size::new(60.0, 40.0));
-    assert_eq!(window.size(), Size::new(60.0, 40.0));
+    window.resize(Size {
+        width: 60.0,
+        height: 40.0,
+    });
+    assert_eq!(
+        window.size(),
+        Size {
+            width: 60.0,
+            height: 40.0
+        }
+    );
     let plan = window.frame_plan();
     assert_eq!((plan.size, plan.scale), (window.size(), 1.5));
 }
@@ -90,7 +99,10 @@ fn the_software_keyboard_and_the_ime_follow_the_host() {
     window.set_title("Arvane");
     assert_eq!(window.title(), "Arvane");
     assert_eq!(window.min_size(), None);
-    let min = Size::new(60.0, 40.0);
+    let min = Size {
+        width: 60.0,
+        height: 40.0,
+    };
     window.set_min_size(Some(min));
     assert_eq!(window.min_size(), Some(min));
     window.set_min_size(None);

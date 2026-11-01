@@ -22,7 +22,12 @@ pub fn unit(value: f32, fallback: f32) -> f32 {
 /// Components are clamped to `[0, 1]`; non-finite components become zero.
 pub fn color(p: Rgba) -> kivact_types::Rgba {
     let unit = |v| unit(v, 0.0);
-    kivact_types::Rgba::new(unit(p.r), unit(p.g), unit(p.b), unit(p.a))
+    kivact_types::Rgba {
+        r: unit(p.r),
+        g: unit(p.g),
+        b: unit(p.b),
+        a: unit(p.a),
+    }
 }
 
 /// A non-negative length; non-finite and negative values become zero.

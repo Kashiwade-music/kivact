@@ -123,7 +123,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                         p.text,
                     );
                     if let Some(id) = regions.id(Target::Track(track.id, tag)) {
-                        d.region(RegionId::new(id), Rect::new(x, y + 29.0, 20.0, 18.0));
+                        d.region(RegionId(id), Rect::new(x, y + 29.0, 20.0, 18.0));
                     }
                 }
                 for clip in data.iter().filter(|c| c.lane == track.id && drawable(c)) {
@@ -142,7 +142,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                         selected.contains(&clip.id),
                     );
                     if let Some(id) = regions.id(Target::Item(clip.id)) {
-                        d.region(RegionId::new(id), r);
+                        d.region(RegionId(id), r);
                     }
                     if selected.contains(&clip.id) {
                         for (right, x) in [(false, r.x), (true, r.x + r.width - 6.0)] {
@@ -151,10 +151,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                                     Rect::new(x, r.y + 15.0, 6.0, r.height - 15.0),
                                     p.text_high.with_alpha(0.4),
                                 );
-                                d.region(
-                                    RegionId::new(id),
-                                    Rect::new(x - 3.0, r.y, 12.0, r.height),
-                                );
+                                d.region(RegionId(id), Rect::new(x - 3.0, r.y, 12.0, r.height));
                             }
                         }
                     }
@@ -188,7 +185,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                         );
                         if let Some(id) = regions.id(Target::Automation(track.id, knot.id)) {
                             d.region(
-                                RegionId::new(id),
+                                RegionId(id),
                                 Rect::new(point.x - 7.0, point.y - 7.0, 14.0, 14.0),
                             );
                         }
@@ -209,7 +206,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     let x = LEFT + state.frame.get() as f32 * scale + pan.x;
     label(d, "+", LEFT - 22.0, 16.0, p.text);
     if let Some(id) = regions.id(Target::AddTrack) {
-        d.region(RegionId::new(id), Rect::new(LEFT - 30.0, 8.0, 24.0, 24.0));
+        d.region(RegionId(id), Rect::new(LEFT - 30.0, 8.0, 24.0, 24.0));
     }
     d.line(
         Point::new(x, LOOP_RULER),
@@ -219,7 +216,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     );
     if let Some(id) = regions.id(Target::Playhead) {
         d.region(
-            RegionId::new(id),
+            RegionId(id),
             Rect::new(
                 LEFT,
                 LOOP_RULER,
@@ -246,10 +243,7 @@ fn ruler_region(d: &mut Draw, id: Option<u64>, left: f32, right: f32, width: f32
         let left = left.max(LEFT);
         let right = right.min(width);
         if right > left {
-            d.region(
-                RegionId::new(id),
-                Rect::new(left, 0.0, right - left, LOOP_RULER),
-            );
+            d.region(RegionId(id), Rect::new(left, 0.0, right - left, LOOP_RULER));
         }
     }
 }

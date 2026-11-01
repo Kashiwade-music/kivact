@@ -39,8 +39,6 @@ fn apply(clips: &mut Vec<ui::Clip>, request: ui::TimeRequest) {
             }
         }
         ui::TimeRequest::Delete(ids) => clips.retain(|c| !ids.contains(&c.id)),
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }
 
@@ -54,8 +52,10 @@ fn timeline_panel() -> impl IntoView {
 
     // View state the app owns: the playhead is the app's time.
     let playhead = signal(0.0);
-    let mut state = ui::TimeState::new();
-    state.playhead = playhead.into();
+    let state = ui::TimeState {
+        playhead: playhead.into(),
+        ..ui::TimeState::new()
+    };
 
     // One undo step per gesture.
     let snapshot = signal(None::<Vec<ui::Clip>>);
@@ -73,8 +73,6 @@ fn timeline_panel() -> impl IntoView {
                 clips.set(before);
             }
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     };
 
     column((
@@ -133,7 +131,7 @@ fn start_clock(playing: Signal<bool>, playhead: Signal<f64>) {
 }
 ```
 
-Call `start_clock` once from a component's setup. The task ends with the component that started it. `TimeState` also holds `selection`, `zoom` and `pan`; replace any field with your own signal to share it with other parts of the app (`let mut state = ui::TimeState::new(); state.selection = picked.into();`). The time unit is yours: a frame number, a tick or a second. `time_format` only controls how the ruler and the playhead print it.
+Call `start_clock` once from a component's setup. The task ends with the component that started it. `TimeState` also holds `selection`, `zoom` and `pan`; replace any field with your own signal to share it with other parts of the app (`TimeState { selection: picked.into(), ..ui::TimeState::new() }`). The time unit is yours: a frame number, a tick or a second. `time_format` only controls how the ruler and the playhead print it.
 
 ### Other builder options
 
@@ -172,8 +170,6 @@ fn keys_panel() -> impl IntoView {
                     }
                 }
                 ui::TimeRequest::Delete(ids) => all.retain(|k| !ids.contains(&k.id)),
-                // Variants added later fall back to being ignored.
-                _ => {}
             });
         }
     })
@@ -278,8 +274,6 @@ fn apply(
                     ui::TrackFlag::Solo => t.solo = value,
                     ui::TrackFlag::Arm => t.armed = value,
                     ui::TrackFlag::AutomationRead => t.automation_read = value,
-                    // Variants added later fall back to being ignored.
-                    _ => {}
                 }
             }
         }

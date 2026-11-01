@@ -3,22 +3,11 @@
 
 /// Stable host-assigned accessibility node identity; usable on any thread.
 /// Arvane treats it as an opaque key with no knowledge of the host's tree.
-/// Built with [`NodeId::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[non_exhaustive]
 pub struct NodeId(pub u64);
 
-impl NodeId {
-    /// The node with this raw id; read it back as `.0`.
-    pub const fn new(raw: u64) -> Self {
-        NodeId(raw)
-    }
-}
-
 /// Position in logical pixels; usable on any thread.
-/// Built with [`Point::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct Point {
     /// Horizontal position.
     pub x: f32,
@@ -27,9 +16,7 @@ pub struct Point {
 }
 
 /// Extent in logical pixels; usable on any thread.
-/// Built with [`Size::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct Size {
     /// Horizontal extent.
     pub width: f32,
@@ -40,9 +27,7 @@ pub struct Size {
 /// Half-open axis-aligned bounds in logical pixels; usable on any thread.
 /// Operations using a rectangle specify its coordinate origin; image
 /// source rectangles explicitly interpret its units as source pixels.
-/// Built with [`Rect::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct Rect {
     /// Left edge.
     pub x: f32,
@@ -108,14 +93,12 @@ impl Rect {
 }
 
 impl Point {
-    /// The point at `x` and `y`.
     pub const fn new(x: f32, y: f32) -> Self {
         Point { x, y }
     }
 }
 
 impl Size {
-    /// The size `width` by `height`.
     pub const fn new(width: f32, height: f32) -> Self {
         Size { width, height }
     }
@@ -127,8 +110,6 @@ impl Size {
 }
 
 impl Rect {
-    /// The rectangle whose top-left corner is `x`, `y`, `width` wide and
-    /// `height` tall.
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
         Rect {
             x,
@@ -179,14 +160,5 @@ pub struct IntrinsicSize {
 
 /// Identity of a hit/semantics region inside one node's scene. Unique within
 /// that node only.
-/// Built with [`RegionId::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[non_exhaustive]
 pub struct RegionId(pub u64);
-
-impl RegionId {
-    /// The region with this raw id; read it back as `.0`.
-    pub const fn new(raw: u64) -> Self {
-        RegionId(raw)
-    }
-}

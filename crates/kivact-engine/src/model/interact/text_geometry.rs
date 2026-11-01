@@ -69,10 +69,15 @@ fn caret_local(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
         .map_or(0, |e| e.caret());
     match host.edit_lines(id, engine) {
         Some((mut lines, text)) => lines.caret(text, caret, width, engine),
-        None => Rect::new(0.0, 0.0, 1.0, {
-            let style = host.input_style(id, engine);
-            line_height(engine, &style)
-        }),
+        None => Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: {
+                let style = host.input_style(id, engine);
+                line_height(engine, &style)
+            },
+        },
     }
 }
 
@@ -86,12 +91,11 @@ pub(crate) fn line_box(host: &Model, id: NodeId, engine: &mut arvane::Engine, ar
     }
     let style = host.input_style(id, engine);
     let height = line_height(engine, &style);
-    Rect::new(
-        area.x,
-        area.y + line_offset(area.height, height),
-        area.width,
+    Rect {
+        y: area.y + line_offset(area.height, height),
         height,
-    )
+        ..area
+    }
 }
 
 /// Where the text of the text input `id` starts in its own space
@@ -110,12 +114,11 @@ pub(crate) fn caret_rect(host: &Model, id: NodeId, engine: &mut arvane::Engine) 
 /// (`line_box`).
 pub(crate) fn caret_in(host: &Model, id: NodeId, engine: &mut arvane::Engine, line: Rect) -> Rect {
     let local = caret_local(host, id, engine);
-    Rect::new(
-        line.x + local.x - input_scroll(host, id),
-        line.y + local.y,
-        local.width,
-        local.height,
-    )
+    Rect {
+        x: line.x + local.x - input_scroll(host, id),
+        y: line.y + local.y,
+        ..local
+    }
 }
 
 /// The byte offset in the value of the text input `id` nearest the window
@@ -163,18 +166,22 @@ pub(crate) fn ime_text(
         .map_or((edit.caret(), edit.caret()), |m| (m.start, m.end));
     let mut place = |at: usize| {
         let r = lines.caret(value, at, area.width, engine);
-        Rect::new(left + r.x, line.y + r.y, r.width, r.height)
+        Rect {
+            x: left + r.x,
+            y: line.y + r.y,
+            ..r
+        }
     };
     let mut rects = Vec::new();
     let mut at = from;
     for c in value[from..to].chars() {
         let (start, end) = (place(at), place(at + c.len_utf8()));
-        let rect = Rect::new(
-            start.x.min(end.x),
-            start.y,
-            (end.x - start.x).abs().max(start.width),
-            start.height,
-        );
+        let rect = Rect {
+            x: start.x.min(end.x),
+            y: start.y,
+            width: (end.x - start.x).abs().max(start.width),
+            height: start.height,
+        };
         rects.extend(std::iter::repeat_n(rect, c.len_utf16()));
         at += c.len_utf8();
     }
@@ -286,9 +293,17 @@ pub(crate) fn text_layout(
     let mapped = |rect: Rect| map_rect(transform.as_ref(), rect);
     let caret = map_rect(transform.as_ref(), caret_rect(host, id, engine));
     let (mut lines, _) = host.edit_lines(id, engine)?;
-    let mut out = TextLayout::new(caret, 0, Vec::new(), Vec::new());
+    let mut out = TextLayout {
+        caret,
+        line_count: 0,
+        lines: Vec::new(),
+        carets: Vec::new(),
+    };
     if !lines.shows_value() {
-        out.carets.push(EditCaret::new(0, caret));
+        out.carets.push(EditCaret {
+            offset: 0,
+            rect: caret,
+        });
         return Some(out);
     }
     out.line_count = lines.len();
@@ -297,31 +312,54 @@ pub(crate) fn text_layout(
     for i in rows {
         let x = origin.x - scroll + lines.offset(value, i, origin.width, engine);
         let y = origin.y + i as f32 * lines.height();
-        let shift = |r: Rect| mapped(Rect::new(x + r.x, y + r.y, r.width, r.height));
+        let shift = |r: Rect| {
+            mapped(Rect {
+                x: x + r.x,
+                y: y + r.y,
+                ..r
+            })
+        };
         let range = lines.range(i);
         let chars = value[range.clone()].chars().count() as u32;
         let shaped = lines.shaped(value, i, engine);
-        let rect = shaped
-            .as_ref()
-            .and_then(|s| s.lines.first())
-            .map_or(Rect::new(0.0, 0.0, 0.0, lines.height()), |l| l.rect);
-        out.lines.push(EditLine::new(
-            range.clone(),
-            shift(rect),
-            mapped(Rect::new(x, y + lines.baseline(value, i, engine), 0.0, 0.0)).y,
-        ));
+        let rect = shaped.as_ref().and_then(|s| s.lines.first()).map_or(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 0.0,
+                height: lines.height(),
+            },
+            |l| l.rect,
+        );
+        out.lines.push(EditLine {
+            range: range.clone(),
+            rect: shift(rect),
+            baseline: mapped(Rect {
+                x,
+                y: y + lines.baseline(value, i, engine),
+                width: 0.0,
+                height: 0.0,
+            })
+            .y,
+        });
         if let Some(shaped) = shaped {
             let mut end = None;
             for c in &shaped.carets {
                 let rect = shift(c.rect);
                 end = Some(rect);
-                out.carets.push(EditCaret::new(offset + c.offset, rect));
+                out.carets.push(EditCaret {
+                    offset: offset + c.offset,
+                    rect,
+                });
             }
             let content = shaped.carets.len().saturating_sub(1) as u32;
             if lines.crlf(i)
                 && let Some(rect) = end
             {
-                out.carets.push(EditCaret::new(offset + content + 1, rect));
+                out.carets.push(EditCaret {
+                    offset: offset + content + 1,
+                    rect,
+                });
             }
         }
         offset += chars;

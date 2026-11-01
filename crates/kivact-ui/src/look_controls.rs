@@ -140,8 +140,6 @@ pub(super) fn toast(t: &Theme, state: &ToastState) -> Style {
         Tone::Warning => ColorToken::Warning.into(),
         Tone::Danger => ColorToken::Danger.into(),
         Tone::Accent => ColorToken::Accent.into(),
-        // Variants added later fall back to the neutral tone.
-        _ => ColorToken::Border.into(),
     };
     style()
         .direction(Direction::Row)
@@ -163,8 +161,6 @@ pub(super) fn toast_icon(_: &Theme, state: &ToastState) -> Style {
         Tone::Success => ColorToken::Success.into(),
         Tone::Warning => ColorToken::Warning.into(),
         Tone::Danger => ColorToken::Danger.into(),
-        // Variants added later fall back to the neutral tone.
-        _ => ColorToken::TextMuted.into(),
     };
     style().size(16, 16).shrink(0).color(color)
 }

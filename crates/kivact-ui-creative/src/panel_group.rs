@@ -19,9 +19,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// A retained inspector panel. Identities must be unique within its group.
-/// Built with [`InspectorPanel::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct InspectorPanel {
     pub id: u64,
     pub title: String,

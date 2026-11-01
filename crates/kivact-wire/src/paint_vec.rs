@@ -37,7 +37,12 @@ fn rgba(c: Rgba) -> [f32; 4] {
 }
 
 fn color(v: &[f32]) -> Rgba {
-    Rgba::new(v[0], v[1], v[2], v[3].clamp(0.0, 1.0))
+    Rgba {
+        r: v[0],
+        g: v[1],
+        b: v[2],
+        a: v[3].clamp(0.0, 1.0),
+    }
 }
 
 /// The filter of `p` as amounts in the canonical order (a function given
@@ -88,7 +93,7 @@ fn filter_of(v: &[f32]) -> Vec<FilterOp> {
     push(8, FilterOp::Blur);
     if v[15] > 1e-3 {
         out.push(FilterOp::DropShadow {
-            offset: Point::new(v[9], v[10]),
+            offset: Point { x: v[9], y: v[10] },
             blur: v[11].max(0.0),
             color: color(&v[12..16]),
         });
@@ -155,11 +160,17 @@ impl PaintVec {
         let parts: [f32; 10] = std::array::from_fn(|i| v[TRANSFORM + i]);
         let o = &v[TRANSFORM + 10..SHADOW];
         p.transform = crate::ElementTransform {
-            translate: Point::new(parts[0], parts[1]),
+            translate: Point {
+                x: parts[0],
+                y: parts[1],
+            },
             per_size: [parts[2], parts[3], parts[4], parts[5]],
             rotate: parts[6],
             skew_x: parts[7],
-            scale: Point::new(parts[8], parts[9]),
+            scale: Point {
+                x: parts[8],
+                y: parts[9],
+            },
             origin: [
                 Len {
                     px: o[0],
@@ -178,7 +189,10 @@ impl PaintVec {
                 p.shadows.push(Shadow::default());
             }
             if let Some(s) = p.shadows.get_mut(i) {
-                s.offset = Point::new(v[at], v[at + 1]);
+                s.offset = Point {
+                    x: v[at],
+                    y: v[at + 1],
+                };
                 s.blur = v[at + 2].max(0.0);
                 s.spread = v[at + 3];
                 s.color = c;

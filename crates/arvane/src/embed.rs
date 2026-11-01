@@ -31,7 +31,10 @@ pub struct EmbedOptions {
 impl Default for EmbedOptions {
     fn default() -> Self {
         Self {
-            size: Size::new(960.0, 720.0),
+            size: Size {
+                width: 960.0,
+                height: 720.0,
+            },
             scale: None,
             on_resize_request: None,
             prefer_gpu: true,

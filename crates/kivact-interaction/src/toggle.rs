@@ -101,9 +101,7 @@ impl CheckedState {
 }
 
 /// Reactive drawing state from the actual attached input target.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct ToggleState {
     pub input: PartState,
     pub checked: CheckedState,

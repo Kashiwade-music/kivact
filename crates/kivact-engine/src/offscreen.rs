@@ -131,7 +131,12 @@ impl Offscreen {
         context.paint_scene(
             scene,
             Some(inherited),
-            Rect::new(0.0, 0.0, size.0 as f32, size.1 as f32),
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: size.0 as f32,
+                height: size.1 as f32,
+            },
             &Tint {
                 alpha: 1.0,
                 matrix: None,

@@ -81,7 +81,11 @@ pub(super) fn shape_long(
             .flat_map(|r| r.glyphs.iter())
             .map(|g| g.x + g.advance)
             .fold(piece.size.width, f32::max);
-        let at = |r: Rect| Rect::new(r.x + x, r.y + dy, r.width, r.height);
+        let at = |r: Rect| Rect {
+            x: r.x + x,
+            y: r.y + dy,
+            ..r
+        };
         for run in piece.runs {
             let mut run = (*run).clone();
             for g in &mut run.glyphs {
@@ -97,7 +101,10 @@ pub(super) fn shape_long(
                 .carets
                 .iter()
                 .skip(skip)
-                .map(|c| kivact_types::TextCaret::new(c.offset + scalars, at(c.rect))),
+                .map(|c| kivact_types::TextCaret {
+                    offset: c.offset + scalars,
+                    rect: at(c.rect),
+                }),
         );
         out.cluster_boundaries.extend(
             piece

@@ -99,7 +99,10 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     let child = embed::open(
         parent.parent(),
         EmbedOptions {
-            size: Size::new(160., 100.),
+            size: Size {
+                width: 160.,
+                height: 100.,
+            },
             scale: Some(1.),
             prefer_gpu: false,
             ..Default::default()
@@ -121,11 +124,14 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     child.set_scale(2.);
     child.set_size(320, 200);
     wait(&parent, || {
-        seen.lock()
-            .unwrap()
-            .sizes
-            .iter()
-            .any(|(size, scale)| *size == Size::new(160., 100.) && *scale == 2.)
+        seen.lock().unwrap().sizes.iter().any(|(size, scale)| {
+            *size
+                == Size {
+                    width: 160.,
+                    height: 100.,
+                }
+                && *scale == 2.
+        })
     });
     wait(&parent, || {
         child.size() == (320, 200) && child.scale() == 2.
@@ -152,7 +158,10 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     let child = embed::open(
         parent.parent(),
         EmbedOptions {
-            size: Size::new(160., 100.),
+            size: Size {
+                width: 160.,
+                height: 100.,
+            },
             scale: Some(1.),
             prefer_gpu: false,
             ..Default::default()
@@ -164,7 +173,7 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     parent.move_to(23., 31.).unwrap();
     wait(&parent, || {
         seen.lock().unwrap().events.iter().any(|event| matches!(event,
-        ShellEvent::Pointer(pointer) if pointer.position == kivact_types::Point::new(23., 31.)
+        ShellEvent::Pointer(pointer) if pointer.position == kivact_types::Point { x: 23., y: 31. }
     ))
     });
     seen.lock().unwrap().events.clear();

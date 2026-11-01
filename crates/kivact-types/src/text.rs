@@ -7,7 +7,6 @@ use std::ops::{BitOr, BitOrAssign};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 /// Textalign.
-#[non_exhaustive]
 pub enum TextAlign {
     #[default]
     /// Start.
@@ -24,7 +23,6 @@ pub enum TextAlign {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 /// Pair kerning (CSS `font-kerning`).
-#[non_exhaustive]
 pub enum FontKerning {
     #[default]
     /// The font's default.
@@ -76,7 +74,6 @@ impl BitOrAssign for DecorationLines {
 
 /// What text that does not fit shows (CSS `text-overflow`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-#[non_exhaustive]
 pub enum TextOverflow {
     /// It overflows (the default).
     #[default]
@@ -87,7 +84,6 @@ pub enum TextOverflow {
 
 /// Case conversion applied when text is shaped (CSS `text-transform`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-#[non_exhaustive]
 pub enum TextTransform {
     /// The text as it is.
     #[default]
@@ -104,7 +100,6 @@ pub enum TextTransform {
 /// The distance between the baselines of a paragraph's lines (CSS
 /// `line-height`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
-#[non_exhaustive]
 pub enum LineHeight {
     /// `round(font_size * 1.3)` (the default).
     #[default]
@@ -149,21 +144,11 @@ impl From<f64> for LineHeight {
 /// What measuring text answers (`Draw::measure_text`,
 /// `Constraints::measure_text`): its extent and where its first baseline
 /// lies, in logical pixels. Empty text measures `TextMetrics::default()`.
-/// Built with [`TextMetrics::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct TextMetrics {
     /// The width and height of the measured text.
     pub size: Size,
     /// The first line's baseline, from the top of the text (`0` for empty
     /// text). Place the text at `y - baseline` to put the baseline at `y`.
     pub baseline: f32,
-}
-
-impl TextMetrics {
-    /// Metrics of text of extent `size` whose first baseline is `baseline`
-    /// below its top.
-    pub const fn new(size: Size, baseline: f32) -> Self {
-        TextMetrics { size, baseline }
-    }
 }

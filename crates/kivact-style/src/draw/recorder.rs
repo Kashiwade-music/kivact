@@ -60,8 +60,6 @@ pub struct Draw {
 }
 
 /// What one [`Draw::record`] made.
-/// Produced by the framework; read its fields.
-#[non_exhaustive]
 pub struct Recording {
     /// The commands and the regions, in drawing order.
     pub scene: Scene,
@@ -149,9 +147,7 @@ impl Draw {
 /// [`Draw::declare_regions`] before the drawing callbacks run, so that
 /// `region`, `region_shape` and `region_path` can publish the region's
 /// accessibility leaf.
-/// Built with [`RegionSemantics::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct RegionSemantics {
     /// Role of the accessibility leaf.
     pub role: Role,
@@ -175,25 +171,4 @@ pub struct RegionSemantics {
     pub focus_order: u32,
     /// Where a press moves the focus, if not onto the region itself.
     pub focus_on_press: Option<p::FocusTarget>,
-}
-
-impl RegionSemantics {
-    /// A leaf with `role` and accessible `name`. It has no description, value,
-    /// actions or properties, is enabled, visible and not focusable, and
-    /// has focus order `0` and no focus redirect; assign the fields it needs.
-    pub fn new(role: Role, name: String) -> Self {
-        RegionSemantics {
-            role,
-            name,
-            description: None,
-            value: None,
-            actions: Vec::new(),
-            properties: None,
-            disabled: false,
-            hidden: false,
-            focusable: false,
-            focus_order: 0,
-            focus_on_press: None,
-        }
-    }
 }

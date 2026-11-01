@@ -143,7 +143,6 @@ pub use kivact_wire::Overflow;
 
 /// Property group animated by `Style::transition`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum TransitionProp {
     /// Paint: opacity, a solid background color, border colors, the
     /// transform (its translate, rotate, skew and scale parts and its
@@ -1054,7 +1053,6 @@ kivact_reactive::constant_value!(Style);
 
 /// Overlay scrollbar width.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub enum ScrollbarWidth {
     /// Thin default (6 logical pixels).
     #[default]

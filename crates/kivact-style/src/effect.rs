@@ -24,9 +24,7 @@ use super::theme::value::{Theme, ThemeColor};
 ///     .shadow(Shadow::new(0, 1, 0, rgba(0xffffff, 0.35)).inset());
 /// # let _ = s;
 /// ```
-/// Built with [`Shadow::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Shadow {
     pub offset: Point,
     /// Blur radius (CSS: a gaussian of standard deviation `blur / 2`).

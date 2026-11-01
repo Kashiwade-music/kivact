@@ -28,7 +28,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     let screen = render(move || {
         let disabled = signal(false);
         disabled_slot.set(Some(disabled));
-        canvas(|draw, _| draw.region(RegionId::new(1), Rect::new(0., 0., 100., 60.)))
+        canvas(|draw, _| draw.region(RegionId(1), Rect::new(0., 0., 100., 60.)))
             .role(Role::Canvas)
             .name("gesture canvas")
             .style(style().size(120, 80))
@@ -43,7 +43,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
                     }),
             )
             .region(
-                RegionId::new(1),
+                RegionId(1),
                 part(|state| state)
                     .role(Role::Button)
                     .name("action")
@@ -57,9 +57,9 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
         let is_primary = id != 22;
         screen.host.borrow_mut().inject(HostEvent::Pointer {
             node,
-            region: Some(kivact_wire::RegionId::new(1)),
+            region: Some(kivact_wire::RegionId(1)),
             event: PointerEvent {
-                id: kivact_wire::PointerId::new(id),
+                id: kivact_wire::PointerId(id),
                 phase,
                 pos: Point::new(20., 20.),
                 window_pos: Point::new(20., 20.),
@@ -83,8 +83,8 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     dispatch(22, PointerPhase::Up);
     screen.host.borrow_mut().inject(HostEvent::Activate {
         node,
-        region: Some(kivact_wire::RegionId::new(1)),
-        pointer: Some(kivact_wire::PointerId::new(22)),
+        region: Some(kivact_wire::RegionId(1)),
+        pointer: Some(kivact_wire::PointerId(22)),
     });
     screen.run_until_idle();
     assert_eq!(presses.get(), 1, "the next pointer activation is not stale");
@@ -96,8 +96,8 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     screen.run_until_idle();
     screen.host.borrow_mut().inject(HostEvent::Activate {
         node,
-        region: Some(kivact_wire::RegionId::new(1)),
-        pointer: Some(kivact_wire::PointerId::new(33)),
+        region: Some(kivact_wire::RegionId(1)),
+        pointer: Some(kivact_wire::PointerId(33)),
     });
     assert_eq!(presses.get(), 2, "registry cancellation clears its gesture");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -115,7 +115,7 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     let downs = Rc::new(Cell::new(0));
     let observed = downs.clone();
     let screen = render(move || {
-        canvas(|draw, _| draw.region(RegionId::new(1), Rect::new(0., 0., 100., 60.)))
+        canvas(|draw, _| draw.region(RegionId(1), Rect::new(0., 0., 100., 60.)))
             .role(Role::Canvas)
             .name("gesture canvas")
             .style(style().size(120, 80))
@@ -136,7 +136,7 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
                     }),
             )
             .region(
-                RegionId::new(1),
+                RegionId(1),
                 part(|state| state)
                     .role(Role::Button)
                     .name("action")
@@ -147,9 +147,9 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     // The mouse (pointer 1) starts a gesture whose Up never arrives.
     screen.host.borrow_mut().inject(HostEvent::Pointer {
         node,
-        region: Some(kivact_wire::RegionId::new(1)),
+        region: Some(kivact_wire::RegionId(1)),
         event: PointerEvent {
-            id: kivact_wire::PointerId::new(1),
+            id: kivact_wire::PointerId(1),
             phase: PointerPhase::Down,
             pos: Point::new(20., 20.),
             window_pos: Point::new(20., 20.),

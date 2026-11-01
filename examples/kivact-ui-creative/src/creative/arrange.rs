@@ -102,31 +102,34 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
             }),
         ))
         .style(style().height(38).padding_x(10)),
-        ui::arrangement(clips, tracks, {
-            let mut value = ui::ArrangementState::new();
-            value.selection = selected.into();
-            value.zoom = zoom.into();
-            value.tool = tool.into();
-            value.playhead = bind(
-                move || state.get().frame / 12.0,
-                move |v| state.update(|s| s.frame = v * 12.0),
-            );
-            value.loop_range = bind(
-                move || loop_range.get(),
-                move |v| {
-                    loop_range.set(v);
-                    state.update(|s| {
-                        s.loop_start = v.0 * 12.0;
-                        s.loop_end = v.1 * 12.0;
-                    });
-                },
-            );
-            value.cycling = bind(
-                move || state.get().cycling,
-                move |v| state.update(|s| s.cycling = v),
-            );
-            value
-        })
+        ui::arrangement(
+            clips,
+            tracks,
+            ui::ArrangementState {
+                selection: selected.into(),
+                zoom: zoom.into(),
+                tool: tool.into(),
+                playhead: bind(
+                    move || state.get().frame / 12.0,
+                    move |v| state.update(|s| s.frame = v * 12.0),
+                ),
+                loop_range: bind(
+                    move || loop_range.get(),
+                    move |v| {
+                        loop_range.set(v);
+                        state.update(|s| {
+                            s.loop_start = v.0 * 12.0;
+                            s.loop_end = v.1 * 12.0;
+                        });
+                    },
+                ),
+                cycling: bind(
+                    move || state.get().cycling,
+                    move |v| state.update(|s| s.cycling = v),
+                ),
+                ..ui::ArrangementState::new()
+            },
+        )
         .length(64.0)
         .on_edit(super::arrangement_model::edits(clips, tracks, |_| {}))
         .snap(snap)

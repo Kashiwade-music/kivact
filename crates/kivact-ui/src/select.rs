@@ -153,7 +153,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
         let state = trigger.state();
         let (options, selected, size) = (self.options, self.selected.into_value(), self.size);
         self.state.set(Some(kivact_core::memo(move || {
-            let PopupState { input, open, .. } = state.get();
+            let PopupState { input, open } = state.get();
             let placeholder = selected.with(|key| {
                 key.as_ref()
                     .is_none_or(|key| options.with(|rows| rows.iter().all(|row| row.key() != key)))

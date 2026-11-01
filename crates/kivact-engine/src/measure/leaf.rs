@@ -185,7 +185,10 @@ const WRAPPED_PER_NODE: usize = 4;
 /// paint, which shapes at that box, never wraps a line the layout measured
 /// as one.
 fn slack(size: Size) -> Size {
-    Size::new(size.width.ceil() + 0.5, size.height)
+    Size {
+        width: size.width.ceil() + 0.5,
+        height: size.height,
+    }
 }
 
 /// A text's size with slack and its first baseline from the top of its
@@ -239,8 +242,14 @@ impl Measure<'_> {
                     None => (1, 0.0, 0.0),
                 };
                 let lines = if n.multiline() { count.max(3) } else { 1 };
-                let min = Size::new(120.0, lines as f32 * line);
-                let size = slack(Size::new(width, count as f32 * line));
+                let min = Size {
+                    width: 120.0,
+                    height: lines as f32 * line,
+                };
+                let size = slack(Size {
+                    width,
+                    height: count as f32 * line,
+                });
                 // A single-line input's line sits `line_offset` into its
                 // content box (as `text_geometry::line_box` places it), so
                 // its baseline is measured from the box's center: the
@@ -252,7 +261,10 @@ impl Measure<'_> {
                     Baseline::FromCenter(line_offset(0.0, line) + first)
                 };
                 LeafSize {
-                    size: Size::new(size.width.max(min.width), size.height.max(min.height)),
+                    size: Size {
+                        width: size.width.max(min.width),
+                        height: size.height.max(min.height),
+                    },
                     baseline: Some(baseline),
                 }
             }

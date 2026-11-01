@@ -183,17 +183,22 @@ impl<'a> TextGeometry<'a> {
                         *end = end.max(right);
                         continue;
                     }
-                    bands.push(Rect::new(
-                        *start,
-                        line.rect.y,
-                        *end - *start,
-                        line.rect.height,
-                    ));
+                    bands.push(Rect {
+                        x: *start,
+                        y: line.rect.y,
+                        width: *end - *start,
+                        height: line.rect.height,
+                    });
                 }
                 merged = Some((left, right));
             }
             if let Some((left, right)) = merged {
-                bands.push(Rect::new(left, line.rect.y, right - left, line.rect.height));
+                bands.push(Rect {
+                    x: left,
+                    y: line.rect.y,
+                    width: right - left,
+                    height: line.rect.height,
+                });
             }
         }
         bands

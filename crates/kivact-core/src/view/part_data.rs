@@ -12,9 +12,7 @@ use crate::view::NodeRef;
 ///
 /// The hook receiving this value runs under the mounted element's setup owner.
 /// Cleanup registered there follows that mounted element's lifetime.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub struct PartMount {
     /// The part reference, already bound to its actual target.
     pub node: NodeRef,

@@ -27,16 +27,18 @@ pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {
         .map(|(i, (name, color, gain))| {
             let gain = signal(gain);
             let mute = signal(false);
-            ui::mixer_strip(name, rgb(color), {
-                let mut value = ui::ChannelState::new();
-                value.gain = gain.into();
-                value.mute = mute.into();
-                value.pan = (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])).into();
-                value.solo = binding((move || solo.with(|s| s[i])).into_value(), move |v| {
-                    solo.update(|s| s[i] = v)
-                });
-                value
-            })
+            ui::mixer_strip(
+                name,
+                rgb(color),
+                ui::ChannelState {
+                    gain: gain.into(),
+                    mute: mute.into(),
+                    pan: (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])).into(),
+                    solo: binding((move || solo.with(|s| s[i])).into_value(), move |v| {
+                        solo.update(|s| s[i] = v)
+                    }),
+                },
+            )
             .gain_range(-60.0, 6.0)
             .routes(
                 ["Drum Bus", "In 1-2", "Main Out 1-2", "No Input"]

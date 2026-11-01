@@ -11,7 +11,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// The window's first size in logical pixels by default.
-const WINDOW: Size = Size::new(960.0, 720.0);
+const WINDOW: Size = Size {
+    width: 960.0,
+    height: 720.0,
+};
 
 /// Run the client on the application's main thread until its native window exits.
 ///

@@ -306,7 +306,7 @@ impl Screen {
     /// platform's contact to a pointer of its own (`VirtualWindow::contact`).
     fn send_contact(&self, phase: PointerPhase, contact: Contact, at: Point) {
         self.host.borrow_mut().contact(PointerInput {
-            id: PointerId::new(contact.id),
+            id: PointerId(contact.id),
             kind: contact.kind,
             phase,
             position: at,
@@ -376,9 +376,12 @@ impl<'a> Element<'a> {
         let host = self.screen.host.borrow();
         let r = match self.region {
             Some(region) => host.region_local(self.node, region),
-            None => host
-                .size(self.node)
-                .map(|s| p::Rect::new(0.0, 0.0, s.width, s.height)),
+            None => host.size(self.node).map(|s| p::Rect {
+                x: 0.0,
+                y: 0.0,
+                width: s.width,
+                height: s.height,
+            }),
         }
         .unwrap_or_default();
         Point::new(r.x + r.width / 2.0, r.y + r.height / 2.0)

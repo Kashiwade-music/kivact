@@ -73,10 +73,9 @@ pub fn tag_input<R: HandlerResult, S: HandlerResult>(
             .base_style(style().grid_template_columns((Track::minmax(0, Track::fr(1)), auto()))),
         |r| r.tag_input_recipes().root_recipe(),
         &variants,
-        move || {
-            let mut state = PartState::default();
-            state.focused = within.get();
-            state
+        move || PartState {
+            focused: within.get(),
+            ..PartState::default()
         },
     );
     TagInput {

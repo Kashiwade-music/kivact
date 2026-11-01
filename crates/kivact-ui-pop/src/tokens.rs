@@ -4,7 +4,6 @@ use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 
 /// Semantic colors shared by badges, alerts, avatars and patterns.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Hue {
     #[default]
     Blue,
@@ -16,9 +15,7 @@ pub enum Hue {
 }
 
 /// Typed tokens corresponding to the original CSS custom properties.
-/// Built with [`Tokens::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Tokens {
     pub mode: ThemeMode,
     pub background: Color,

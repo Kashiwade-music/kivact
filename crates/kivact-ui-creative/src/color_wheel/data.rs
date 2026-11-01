@@ -1,7 +1,6 @@
 //! Role: Public color field model value.
 /// The channels displayed below a color wheel. Model selection is UI state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum ColorModel {
     /// Normalized red, green and blue channels.
     #[default]

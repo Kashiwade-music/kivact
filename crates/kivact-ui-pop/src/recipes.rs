@@ -84,9 +84,8 @@ fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
     let side = match state.size {
         ControlSize::ExtraSmall => 26,
         ControlSize::Small => 32,
+        ControlSize::Medium => 36,
         ControlSize::Large => 40,
-        // Variants added later fall back to Medium.
-        _ => 36,
     };
     let s = s.width(side).padding_x(0).radius(8);
     if hue.is_none() && matches!(variant, ButtonVariant::Ghost | ButtonVariant::Link) {
@@ -152,8 +151,7 @@ fn text_input(theme: &Theme, state: &Look<TextInputState>) -> Style {
     match size {
         ControlSize::ExtraSmall => s.height(26),
         ControlSize::Small => s.height(32),
-        // Variants added later fall back to Medium.
-        _ => s,
+        ControlSize::Medium | ControlSize::Large => s,
     }
 }
 

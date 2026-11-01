@@ -3,9 +3,7 @@ use kivact::draw::Point;
 use kivact::{Binding, signal};
 /// The view state of a [`timeline`](crate::timeline) or a
 /// [`dope_sheet`](crate::dope_sheet).
-/// Built with [`TimeState::new`].
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub struct TimeState {
     /// The selected item IDs.
     pub selection: Binding<Vec<u64>>,

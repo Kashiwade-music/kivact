@@ -51,10 +51,9 @@ fn app() -> impl IntoView {
         dynamic(
             move || user.state(),
             |state| match state {
+                AsyncState::Idle | AsyncState::Pending => text("Loading…"),
                 AsyncState::Failed(error) => text(format!("Error: {error}")),
                 AsyncState::Ready(name) => text(name),
-                // Variants added later fall back to the loading text.
-                _ => text("Loading…"),
             },
         ),
     ))
@@ -155,11 +154,10 @@ fn save_form() -> impl IntoView {
             .disabled(move || save.state().is_pending())
             .on_press(move || save.run(name.get())),
         dynamic(move || save.state(), |state| match state {
+            AsyncState::Idle => text(""),
             AsyncState::Pending => text("Saving…"),
             AsyncState::Ready(name) => text(format!("Saved {name}")),
             AsyncState::Failed(error) => text(format!("Failed: {error}")).role(Role::Alert),
-            // Variants added later fall back to the empty text.
-            _ => text(""),
         }),
     ))
     .style(style().gap(8).padding(12))

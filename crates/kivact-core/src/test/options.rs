@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 /// The fonts text is shaped with ([`RenderOptions::fonts`]).
 #[derive(Clone, Debug, Default)]
-#[non_exhaustive]
 pub enum TestFonts {
     /// Only the bundled test font (Tuffy, no CJK glyphs): the same layout
     /// and pixels on every machine.
@@ -20,7 +19,6 @@ pub enum TestFonts {
 
 /// Whether the screen is shown in a real window ([`RenderOptions::window`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum WindowMode {
     /// A real window when one can be opened, else headless. The
     /// environment variable `ARVANE_TEST_HEADLESS=1` makes it headless.

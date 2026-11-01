@@ -1,9 +1,7 @@
 //! Role: Passive models shared by creative editor domains.
 use kivact::style::{Color, rgb};
 /// A visible time-editor row, identified independently of its display order.
-/// Built with [`Lane::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Lane {
     pub id: u64,
     pub label: String,
@@ -18,9 +16,7 @@ impl Lane {
 }
 
 /// A snapshot of the domain location that requested an editor context menu.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct EditorContext {
     pub item: Option<u64>,
     pub lane: Option<u64>,
@@ -28,9 +24,7 @@ pub struct EditorContext {
 }
 
 /// An application clip in its own time units.
-/// Built with [`Clip::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Clip {
     pub id: u64,
     pub lane: u64,
@@ -63,9 +57,7 @@ pub(crate) fn drawable(clip: &Clip) -> bool {
 }
 
 /// The time and length an editor proposes for one item.
-/// Built with [`ItemTime::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct ItemTime {
     /// The application item ID.
     pub id: u64,
@@ -73,13 +65,6 @@ pub struct ItemTime {
     pub time: f64,
     /// The proposed duration.
     pub duration: f64,
-}
-
-impl ItemTime {
-    /// The start `time` and `duration` of item `id`.
-    pub const fn new(id: u64, time: f64, duration: f64) -> Self {
-        ItemTime { id, time, duration }
-    }
 }
 
 use kivact::Callback;
@@ -99,7 +84,6 @@ pub(crate) fn observed<T: Clone + 'static>(
 
 /// One report from an editor surface. The editor never writes the application's items.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum EditorEvent<R> {
     /// A gesture starts. Requests until `Commit` or `Cancel` belong to one Undo step.
     Begin,

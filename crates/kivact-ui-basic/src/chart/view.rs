@@ -242,8 +242,6 @@ impl IntoView for Chart {
                         }
                         PointerPhase::Leave | PointerPhase::Cancel => hit.set(None),
                         PointerPhase::Up => {}
-                        // Variants added later fall back to being ignored.
-                        _ => {}
                     }
                 }
             });

@@ -45,9 +45,8 @@ fn select_trigger(t: &Theme, s: &kivact::ui::Look<kivact::ui::SelectTriggerState
         .height(match s.size {
             ControlSize::ExtraSmall => 24,
             ControlSize::Small => 28,
+            ControlSize::Medium => 32,
             ControlSize::Large => 36,
-            // Variants added later fall back to Medium.
-            _ => 32,
         })
         .padding_left(10)
         .padding_right(8)

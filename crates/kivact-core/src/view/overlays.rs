@@ -88,7 +88,6 @@ pub use kivact_wire::Placement;
 /// edge up with the anchor's. A start or end that would overflow the window
 /// flips to the other one when that fits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum OverlayAlign {
     /// At the anchor's start edge.
     #[default]

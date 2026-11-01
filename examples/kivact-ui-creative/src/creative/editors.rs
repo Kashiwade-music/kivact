@@ -93,7 +93,10 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
     let initial_keys = signal(None);
     let channels = [signal(true), signal(true), signal(true)];
     let zoom = signal(6.8);
-    let graph_view = signal(ui::GraphView::new((-20.0, 200.0), (-2.0, 3.0)));
+    let graph_view = signal(ui::GraphView {
+        time: (-20.0, 200.0),
+        value: (-2.0, 3.0),
+    });
     col((
         line((
             text("Dope Sheet").style(style().weight(600)),
@@ -127,14 +130,15 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                 }),
         ))
         .style(style().height(38).padding_x(10)),
-        ui::dope_sheet(keys, {
-            let mut value = ui::TimeState::new();
-            value.pan = (signal(Point::new(12.0, 0.0))).into();
-            value.selection = selected;
-            value.playhead = playhead(state);
-            value.zoom = zoom.into();
-            value
-        })
+        ui::dope_sheet(
+            keys,
+            ui::TimeState {
+                pan: (signal(Point::new(12.0, 0.0))).into(),
+                selection: selected,
+                playhead: playhead(state),
+                zoom: zoom.into(),
+            },
+        )
         .on_edit(move |event| match event {
             ui::EditorEvent::Begin => initial_keys.set(Some(keys.get())),
             ui::EditorEvent::Request(request) => {
@@ -149,8 +153,6 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                 }
                 initial_keys.set(None);
             }
-            // Variants added later fall back to being ignored.
-            _ => {}
         })
         .zoom_range(0.25, 10.0)
         .lanes(
@@ -190,8 +192,6 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                                         ui::Interpolation::Constant => "constant",
                                         ui::Interpolation::Linear => "linear",
                                         ui::Interpolation::Bezier => "bezier",
-                                        // Variants added later fall back to bezier.
-                                        _ => "bezier",
                                     })
                                     .to_owned(),
                             )
@@ -227,18 +227,24 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
             kivact::ui::toggle("Z", channels[2]),
             kivact::ui::button("Frame All  Home")
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .on_press(move || graph_view.set(ui::GraphView::new((-20.0, 200.0), (-2.0, 3.0)))),
+                .on_press(move || {
+                    graph_view.set(ui::GraphView {
+                        time: (-20.0, 200.0),
+                        value: (-2.0, 3.0),
+                    })
+                }),
             spacer(),
             note("Z Location · f 40 · 1.200 · bezier"),
         ))
         .style(style().height(38).padding_x(10)),
-        ui::graph_editor(graph, {
-            let mut value = ui::GraphState::new();
-            value.view = graph_view.into();
-            value.selection = graph_selected.into();
-            value.playhead = playhead(state);
-            value
-        })
+        ui::graph_editor(
+            graph,
+            ui::GraphState {
+                view: graph_view.into(),
+                selection: graph_selected.into(),
+                playhead: playhead(state),
+            },
+        )
         .on_edit(super::animation_model::graph_edits(graph))
         .lanes(move || {
             channels
@@ -279,17 +285,14 @@ pub(super) fn nodes() -> impl IntoView {
         ui::NodeLink::new(6, 0, 8, 0),
     ]);
     let selected = signal(Vec::<u64>::new());
-    let transform = signal(kivact::interaction::ViewTransform::new(
-        0.85,
-        Point::new(300.0, 0.0),
-    ));
-    let mut node_state = ui::NodeState::new();
-    node_state.selection = selected.into();
-    node_state.transform = transform.into();
+    let transform = signal(kivact::interaction::ViewTransform {
+        offset: Point::new(300.0, 0.0),
+        scale: 0.85,
+    });
     col((node().style(style().position(Position::Relative).height(480)).child((
-        ui::node_editor(data,connections, node_state).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
+        ui::node_editor(data,connections, ui::NodeState { selection: selected.into(), transform: transform.into(), ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
         line((kivact::ui::select("Selection", keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).placeholder("").style(style().width(136)),kivact::ui::toggle("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
-        line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>(), move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing_icon(kivact::control::icon("chevron-down")).into_node()),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform::new(0.85, Point::new(300.0,0.0)))))).style(style().position(Position::Absolute).top(8).right(8)),
+        line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>(), move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing_icon(kivact::control::icon("chevron-down")).into_node()),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("ヘッダーをドラッグ / 出力 → 入力で接続 / Del: 選択削除 / Ctrl-wheel: zoom / Middle: pan"))).style(style().padding(12))))
 }
 
@@ -811,7 +814,5 @@ fn apply_time(keys: &mut Vec<ui::Keyframe>, request: &ui::TimeRequest) {
             }
         }
         ui::TimeRequest::Delete(ids) => keys.retain(|key| !ids.contains(&key.id)),
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }

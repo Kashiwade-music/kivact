@@ -45,5 +45,8 @@ impl Rasterizer {
 /// `u32` sides above 2^24 round when converted, which only makes them larger
 /// than the budget's limit of 16,384.
 fn size(width: u32, height: u32) -> Size {
-    Size::new(width as f32, height as f32)
+    Size {
+        width: width as f32,
+        height: height as f32,
+    }
 }

@@ -14,9 +14,7 @@ use crate::error::UiError;
 use crate::{AppId, NodeId, Owner, OwnerId};
 
 /// What a runtime has queued, as one snapshot ([`Runtime::pending`]).
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct Pending {
     /// User effects wait for [`Runtime::run_user_effects`].
     pub user: bool,

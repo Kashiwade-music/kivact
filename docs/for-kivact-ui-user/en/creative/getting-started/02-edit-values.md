@@ -27,8 +27,6 @@ fn inspector() -> impl IntoView {
             history.update(|steps| steps.push((started.get_untracked(), x.get_untracked())));
         }
         EditPhase::Cancel => {}
-        // Variants added later fall back to being ignored.
-        _ => {}
     };
     let undo = move || {
         if let Some((before, _)) = history.update(|steps| steps.pop()) {

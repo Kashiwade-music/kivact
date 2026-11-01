@@ -12,7 +12,6 @@ use kivact::view::{IntoText, IntoView, Role, View};
 
 /// The diameter of an [`Avatar`] (avatar.tsx `size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum AvatarSize {
     /// 32 px.
     #[default]

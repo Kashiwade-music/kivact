@@ -68,12 +68,11 @@ impl Indexed {
         match self.extent {
             Extent::Nothing => None,
             Extent::Anywhere => Some(None),
-            Extent::Within(r) => Some(Some(Rect::new(
-                r.x + self.location.x,
-                r.y + self.location.y,
-                r.width,
-                r.height,
-            ))),
+            Extent::Within(r) => Some(Some(Rect {
+                x: r.x + self.location.x,
+                y: r.y + self.location.y,
+                ..r
+            })),
         }
     }
 }

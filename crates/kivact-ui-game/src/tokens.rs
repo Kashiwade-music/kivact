@@ -3,7 +3,6 @@ use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 
 /// Comfortable or compact prototype metrics.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Density {
     #[default]
     Comfortable,
@@ -13,9 +12,7 @@ pub enum Density {
 /// Additional operation-console tokens. [`theme`](crate::theme) installs
 /// them; components read them with `theme.get::<Tokens>()`, and a theme
 /// without them reads the comfortable values of its [`ThemeMode`].
-/// Built with [`Tokens::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Tokens {
     pub display_family: String,
     pub mono_family: String,

@@ -125,8 +125,6 @@ impl IntoView for NodeEditor {
                         EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
                         EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
                         EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                        // Variants added later fall back to a cancelled edit.
-                        _ => crate::editors::shared::model::EditorEvent::Cancel,
                     });
                 }
             })),
@@ -245,16 +243,12 @@ impl IntoView for NodeEditor {
                     state.fitting.set(false);
                     state.pan_active.set(false);
                 }
-                // Variants added later fall back to being ignored.
-                _ => {}
             }
             if let Some(observer) = observer {
                 observer.call(match phase {
                     EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
                     EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
                     EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                    // Variants added later fall back to a cancelled edit.
-                    _ => crate::editors::shared::model::EditorEvent::Cancel,
                 });
             }
         });

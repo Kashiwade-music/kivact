@@ -108,8 +108,6 @@ pub(super) fn feedback(scene: Demo) -> Node {
                                 Tone::Warning => "Warning",
                                 Tone::Danger => "Error",
                                 Tone::Info | Tone::Neutral | Tone::Accent => "Info",
-                                // Variants added later fall back to the info label.
-                                _ => "Info",
                             };
                             kivact::ui::button(label)
                                 .variant(kivact_ui_game::Slant)

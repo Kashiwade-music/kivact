@@ -195,7 +195,10 @@ impl App {
 /// (checked by `App::run`).
 fn size(width: f64, height: f64) -> Size {
     // A value beyond f32 becomes infinite and is refused by the check.
-    Size::new(width as f32, height as f32)
+    Size {
+        width: width as f32,
+        height: height as f32,
+    }
 }
 
 /// Refuse a window size or minimum size that is not finite and positive,
@@ -255,7 +258,13 @@ mod window_size_tests {
             .min_window_size(640u16, 480.5);
         let ok = check_window_sizes(app.window_size, app.min_window_size, Location::caller());
         assert!(ok.is_ok(), "integer and float literals are taken");
-        assert_eq!(app.window_size, Some(Size::new(1280.0, 800.0)));
+        assert_eq!(
+            app.window_size,
+            Some(Size {
+                width: 1280.0,
+                height: 800.0
+            })
+        );
     }
 
     #[test]

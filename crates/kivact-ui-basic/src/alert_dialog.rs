@@ -35,7 +35,6 @@
 /// }
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum AlertDialogSize {
     /// 384 px wide; the media sits beside the text and the footer is right-aligned.
     #[default]

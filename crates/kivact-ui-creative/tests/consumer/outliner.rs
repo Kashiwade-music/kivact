@@ -32,11 +32,13 @@ fn the_rows_follow_the_tree_view_keys_and_are_one_tab_stop() {
                 (data, selected),
                 column((
                     kivact::ui::button("before").variant(kivact::ui::ButtonVariant::Secondary),
-                    app_outliner(data, {
-                        let mut value = ui::OutlinerState::new(ids(data));
-                        value.selection = selected.into();
-                        value
-                    }),
+                    app_outliner(
+                        data,
+                        ui::OutlinerState {
+                            selection: selected.into(),
+                            ..ui::OutlinerState::new(ids(data))
+                        },
+                    ),
                 )),
             )
         });
@@ -115,11 +117,13 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
             let rename = signal(None::<u64>);
             (
                 (data, rename),
-                app_outliner(data, {
-                    let mut value = ui::OutlinerState::new(ids(data));
-                    value.renaming = rename.into();
-                    value
-                }),
+                app_outliner(
+                    data,
+                    ui::OutlinerState {
+                        renaming: rename.into(),
+                        ..ui::OutlinerState::new(ids(data))
+                    },
+                ),
             )
         });
     item(&screen, "Cube").double_click();
@@ -189,14 +193,10 @@ fn app_outliner(items: Signal<Vec<ui::TreeItem>>, state: ui::OutlinerState) -> u
                         ui::RestrictionFlag::Visible => item.visible = request.value,
                         ui::RestrictionFlag::Selectable => item.selectable = request.value,
                         ui::RestrictionFlag::Rendered => item.rendered = request.value,
-                        // Variants added later fall back to being ignored.
-                        _ => {}
                     }
                 }
             }),
             ui::EditorEvent::Cancel => items.set(initial.get_untracked()),
             ui::EditorEvent::Commit => {}
-            // Variants added later fall back to being ignored.
-            _ => {}
         })
 }

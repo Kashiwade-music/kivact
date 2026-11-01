@@ -88,8 +88,6 @@ pub(super) fn apply(
                 }
             }
         }),
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }
 pub(super) fn edits(
@@ -110,8 +108,6 @@ pub(super) fn edits(
             }
             snapshot.set(None);
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }
 

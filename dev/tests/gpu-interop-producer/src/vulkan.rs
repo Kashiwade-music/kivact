@@ -82,15 +82,17 @@ pub(crate) fn adapters() -> Vec<GpuAdapter> {
         {
             continue;
         }
-        let name = base
-            .device_name_as_c_str()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let mut adapter = GpuAdapter::new(GpuBackend::Vulkan, name, 1);
-        adapter.luid = (id.device_luid_valid == vk::TRUE).then_some(id.device_luid);
-        adapter.device_uuid = Some(id.device_uuid);
-        adapter.driver_uuid = Some(id.driver_uuid);
-        found.push(adapter);
+        found.push(GpuAdapter {
+            backend: GpuBackend::Vulkan,
+            name: base
+                .device_name_as_c_str()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            luid: (id.device_luid_valid == vk::TRUE).then_some(id.device_luid),
+            device_uuid: Some(id.device_uuid),
+            driver_uuid: Some(id.driver_uuid),
+            generation: 1,
+        });
     }
     // SAFETY: the instance made no device.
     unsafe { instance.destroy_instance(None) };

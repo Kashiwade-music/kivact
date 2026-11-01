@@ -81,8 +81,6 @@ fn describe(asset: &Asset) -> String {
         }
         Asset::Static(b) => format!("embedded bytes ({} bytes)", b.len()),
         Asset::Shared(b) => format!("bytes ({} bytes)", b.len()),
-        // Variants added later fall back to a generic description.
-        _ => "an unsupported source".to_owned(),
     }
 }
 

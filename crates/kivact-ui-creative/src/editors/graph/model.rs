@@ -1,9 +1,7 @@
 //! Role: Graph curves, interpolation, view ranges and edit requests.
 use kivact::style::{Color, rgb};
 /// A handle offset in the same time and value units as its curve key.
-/// Built with [`CurveTangent::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct CurveTangent {
     pub time: f64,
     pub value: f64,
@@ -15,9 +13,7 @@ impl CurveTangent {
 }
 
 /// A curve key with relative incoming and outgoing handles.
-/// Built with [`CurveKey::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct CurveKey {
     pub id: u64,
     pub time: f64,
@@ -40,9 +36,7 @@ impl CurveKey {
 }
 
 /// A named channel with keys whose IDs are unique across the graph.
-/// Built with [`Curve::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Curve {
     pub id: u64,
     pub label: String,
@@ -65,20 +59,11 @@ impl Curve {
 }
 
 /// The visible logical time and value intervals of a graph.
-/// Built with [`GraphView::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct GraphView {
     pub time: (f64, f64),
     pub value: (f64, f64),
 }
-impl GraphView {
-    /// A view of the `time` range and the `value` range, each `(from, to)`.
-    pub const fn new(time: (f64, f64), value: (f64, f64)) -> Self {
-        Self { time, value }
-    }
-}
-
 impl Default for GraphView {
     fn default() -> Self {
         Self {
@@ -89,9 +74,7 @@ impl Default for GraphView {
 }
 kivact::view::constant_value!(GraphView);
 /// An absolute proposed position and tangents for one graph key.
-/// Built with [`KeyMove::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct KeyMove {
     pub id: u64,
     pub time: f64,
@@ -99,28 +82,8 @@ pub struct KeyMove {
     pub in_tangent: CurveTangent,
     pub out_tangent: CurveTangent,
 }
-
-impl KeyMove {
-    /// A move of key `id` to `time` and `value` with the given tangents.
-    pub const fn new(
-        id: u64,
-        time: f64,
-        value: f64,
-        in_tangent: CurveTangent,
-        out_tangent: CurveTangent,
-    ) -> Self {
-        KeyMove {
-            id,
-            time,
-            value,
-            in_tangent,
-            out_tangent,
-        }
-    }
-}
 /// A graph edit for the application to accept, constrain or ignore.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum GraphRequest {
     /// Absolute positions and relative tangents for all keys in the edit.
     Move(Vec<KeyMove>),
@@ -131,7 +94,6 @@ pub enum GraphRequest {
 }
 /// The interpolation used from one graph point to its next point.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Interpolation {
     Constant,
     Linear,

@@ -70,7 +70,10 @@ pub fn embed_native(
     options: EmbedOptions,
     client: impl FnOnce() -> Client + Send + 'static,
 ) -> Result<EmbeddedHost, HostError> {
-    let size = options.window_size.unwrap_or(Size::new(960.0, 720.0));
+    let size = options.window_size.unwrap_or(Size {
+        width: 960.0,
+        height: 720.0,
+    });
     let closing = Arc::new(AtomicBool::new(false));
     let ui_closing = closing.clone();
     arvane::embed::open(

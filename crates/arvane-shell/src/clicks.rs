@@ -34,17 +34,14 @@ pub struct ClickCounter {
     tap: Option<(PointerId, Point, u64, u8)>,
 }
 
-/// The index of `button` in [`ClickCounter::pressed`]; `None` for a button
-/// this counter does not track.
-fn slot(button: MouseButton) -> Option<usize> {
+/// The index of `button` in [`ClickCounter::pressed`].
+fn slot(button: MouseButton) -> usize {
     match button {
-        MouseButton::Primary => Some(0),
-        MouseButton::Secondary => Some(1),
-        MouseButton::Middle => Some(2),
-        MouseButton::Back => Some(3),
-        MouseButton::Forward => Some(4),
-        // Variants added later are not counted.
-        _ => None,
+        MouseButton::Primary => 0,
+        MouseButton::Secondary => 1,
+        MouseButton::Middle => 2,
+        MouseButton::Back => 3,
+        MouseButton::Forward => 4,
     }
 }
 
@@ -108,14 +105,11 @@ impl ClickCounter {
                     })
                     .map_or(1, |last| last.3.saturating_add(1));
                 self.last = Some((button, input.position, now, count));
-                if let Some(slot) = slot(button) {
-                    self.pressed[slot] = count;
-                }
+                self.pressed[slot(button)] = count;
                 input.clicks = count;
             }
             (PointerPhase::Up, Some(button)) => {
-                input.clicks =
-                    slot(button).map_or(1, |slot| std::mem::take(&mut self.pressed[slot]).max(1));
+                input.clicks = std::mem::take(&mut self.pressed[slot(button)]).max(1);
             }
             (PointerPhase::Cancel, _) => {
                 self.pressed = [0; 5];

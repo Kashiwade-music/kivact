@@ -23,9 +23,7 @@ use kivact_core::view::{A11yAction, IntoValue, NodeRef, Role, node_ref};
 use kivact_core::{Binding, Signal, Value, Var, effect, on_cleanup, signal, var};
 
 /// The shown state and actual input state of a disclosure's trigger or content.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct DisclosureState {
     pub input: PartState,
     /// The content is shown (after the delay, when there is one).

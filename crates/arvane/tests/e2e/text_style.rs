@@ -34,7 +34,12 @@ fn style(font_size: f32) -> TextStyle {
     }
 }
 
-const RED: Rgba = Rgba::new(1.0, 0.0, 0.0, 1.0);
+const RED: Rgba = Rgba {
+    r: 1.0,
+    g: 0.0,
+    b: 0.0,
+    a: 1.0,
+};
 
 /// Measuring gives what shaping draws (glyphs and carets alike).
 #[track_caller]
@@ -124,7 +129,7 @@ fn spans_style_their_ranges_and_highlight_across_lines() {
     let recolored = [
         TextSpan {
             style: SpanStyle {
-                color: Some(Rgba::new(0.0, RED.g, RED.b, RED.a)),
+                color: Some(Rgba { r: 0.0, ..RED }),
                 ..spans[0].style.clone()
             },
             ..spans[0].clone()

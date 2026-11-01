@@ -1,9 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
 use kivact::{Binding, signal};
 /// The view state of an [`outliner`](crate::outliner).
-/// Built with [`OutlinerState::new`].
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub struct OutlinerState {
     /// The IDs of the open items.
     pub expanded: Binding<Vec<u64>>,

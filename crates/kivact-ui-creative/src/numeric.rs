@@ -23,7 +23,6 @@ type TextParser = Rc<dyn Fn(&str, f64) -> Result<f64, String>>;
 
 /// Numeric geometry, with identical binding and keyboard behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum NumericKind {
     Number,
     Slider,
@@ -32,7 +31,6 @@ pub enum NumericKind {
 }
 /// Animation-state tint used by the source inspector.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum PropertyState {
     #[default]
     Plain,

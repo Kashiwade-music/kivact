@@ -71,10 +71,7 @@ use crate::view::{
 use crate::{Signal, Value, memo, on_cleanup, signal};
 
 /// Actual input and availability state of an attached node or canvas region.
-/// Produced by the framework; read its fields. A component that mirrors a
-/// state builds one with [`PartState::default`] and assigns the fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct PartState {
     /// A primary pointer or focused activation key is held down.
     pub pressed: bool,

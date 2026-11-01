@@ -45,10 +45,9 @@ fn app() -> impl IntoView {
         dynamic(
             move || user.state(),
             |state| match state {
+                AsyncState::Idle | AsyncState::Pending => text("読み込み中…"),
                 AsyncState::Failed(error) => text(format!("エラー: {error}")),
                 AsyncState::Ready(name) => text(name),
-                // 今後追加される variant は 読み込み中の表示 として扱います。
-                _ => text("読み込み中…"),
             },
         ),
     ))
@@ -130,11 +129,10 @@ fn save_form() -> impl IntoView {
             .disabled(move || save.state().is_pending())
             .on_press(move || save.run(name.get())),
         dynamic(move || save.state(), |state| match state {
+            AsyncState::Idle => text(""),
             AsyncState::Pending => text("保存中…"),
             AsyncState::Ready(name) => text(format!("{name} を保存しました")),
             AsyncState::Failed(error) => text(format!("失敗: {error}")).role(Role::Alert),
-            // 今後追加される variant は 空の表示 として扱います。
-            _ => text(""),
         }),
     ))
     .style(style().gap(8).padding(12))

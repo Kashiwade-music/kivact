@@ -574,7 +574,7 @@ impl Display {
 
 /// The tree of a pooled window: a window with nothing in it.
 fn idle_tree() -> SemanticsTree {
-    let root = NodeId::new(0);
+    let root = NodeId(0);
     SemanticsTree {
         root,
         focus: None,

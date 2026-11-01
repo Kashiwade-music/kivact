@@ -19,7 +19,7 @@ use crate::support::{options, rect, show};
 const W: u32 = 256;
 const H: u32 = 128;
 const FRAMES: u64 = 60;
-const IMAGE: ExternalImageId = ExternalImageId::new(1);
+const IMAGE: ExternalImageId = ExternalImageId(1);
 
 /// A GPU test window of `backend` that can import, and its adapter; why
 /// not when there is none here (the test is skipped).

@@ -179,9 +179,7 @@ pub fn filter_commands<K>(query: &str, command: &Command<K>) -> bool {
 
 /// A run of neighbouring shown commands with the same group, which the
 /// caller renders below one heading.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct CommandGroup<K> {
     /// The position of the run; key the caller's `for_each` by it (with
     /// whether it has a heading) so its rows stay while the list changes.

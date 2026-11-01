@@ -10,7 +10,6 @@ use kivact_core::view::NodeRef;
 
 /// Why an application closes a popup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum PopupCloseReason {
     Escape,
     Selection,
@@ -26,7 +25,6 @@ pub enum PopupCloseReason {
 
 /// Where the focus goes when a surface closes.
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub enum FocusReturnTarget {
     /// The node that had the focus when the surface mounted. When nothing had
     /// it, the popup's anchor.
@@ -77,10 +75,7 @@ impl ReasonSet {
 /// An outside press and Tab keep the destination unless `on` names them. The
 /// core decides, when the request is sent, whether the target can take the
 /// focus.
-/// Built with [`FocusReturn::anchor`], [`FocusReturn::opener`] or
-/// [`FocusReturn::preserve`].
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub struct FocusReturn {
     /// Where the focus is restored to.
     pub target: FocusReturnTarget,

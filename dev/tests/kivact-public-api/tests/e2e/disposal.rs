@@ -85,7 +85,7 @@ struct ReadsTreeOnDrop {
 
 impl Drop for ReadsTreeOnDrop {
     fn drop(&mut self) {
-        let _ = self.target.hit_test(Point::new(1.0, 1.0));
+        let _ = self.target.hit_test(Point { x: 1.0, y: 1.0 });
         self.dropped.set(true);
     }
 }

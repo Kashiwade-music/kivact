@@ -143,7 +143,10 @@ fn wrapper(
     variants: &Variants,
     pick: fn(&UiRecipes) -> &Recipe<DialogState>,
 ) -> Node {
-    let part = kivact_core::primitive::part(move |input| PopupState::new(input, open.get()));
+    let part = kivact_core::primitive::part(move |input| PopupState {
+        input,
+        open: open.get(),
+    });
     themed(root, part, shape, variants, pick)
 }
 impl Dialog {

@@ -303,7 +303,11 @@ where
     let (node, state) = if grid.focus == TableFocus::Rows {
         let state = memo(move || {
             let row = row.get();
-            TableCellState::new(row.input, row.selected, false)
+            TableCellState {
+                input: row.input,
+                selected: row.selected,
+                active: false,
+            }
         });
         (node().role(Role::GridCell), state)
     } else {

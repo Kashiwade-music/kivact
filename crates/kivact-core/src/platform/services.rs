@@ -108,7 +108,10 @@ pub fn request_window_size(
         .into_iter()
         .all(|v| v.is_finite() && v > 0.0 && (v as f32).is_finite() && (v as f32) > 0.0);
     let result = if valid {
-        let mut size = kivact_wire::Size::new(width as f32, height as f32);
+        let mut size = kivact_wire::Size {
+            width: width as f32,
+            height: height as f32,
+        };
         if let Some(min) = crate::view::state::ViewState::of(&owner.runtime()).min_window_size() {
             size.width = size.width.max(min.width);
             size.height = size.height.max(min.height);

@@ -48,7 +48,11 @@ impl ExternalImage {
     /// the imported textures ([`GpuFrame::width`], [`GpuFrame::height`]).
     pub fn frame(&self, slot: u32, value: u64) -> GpuFrame {
         GpuFrame::new(
-            ExternalFrame::new(self.id, slot, value),
+            ExternalFrame {
+                image: self.id,
+                slot,
+                value,
+            },
             self.size.0,
             self.size.1,
         )
@@ -193,7 +197,11 @@ pub(crate) fn import_in(
             loop {
                 let (slot, value) = inbox.next(|p| p.newest.take()).await;
                 latest.set(Some(GpuFrame::new(
-                    ExternalFrame::new(id, slot, value),
+                    ExternalFrame {
+                        image: id,
+                        slot,
+                        value,
+                    },
                     size.0,
                     size.1,
                 )));

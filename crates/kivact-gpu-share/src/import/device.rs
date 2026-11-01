@@ -3,8 +3,6 @@
 use crate::common::{Error, Identity, api};
 
 /// A device opened with the shared-texture extensions when available.
-/// Produced by the framework; read its fields.
-#[non_exhaustive]
 pub struct Opened {
     /// The device.
     pub device: ::wgpu::Device,

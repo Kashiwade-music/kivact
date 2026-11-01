@@ -153,7 +153,10 @@ impl Writer {
         let Some(n) = m.node(id) else { return };
         let start = n.scroll();
         let target = if relative {
-            Point::new(start.x + point.x, start.y + point.y)
+            Point {
+                x: start.x + point.x,
+                y: start.y + point.y,
+            }
         } else {
             point
         };
@@ -164,8 +167,8 @@ impl Writer {
         let Some(layout) = m.computed_layout(id) else {
             return;
         };
-        let target = Point::new(
-            if axes.0 {
+        let target = Point {
+            x: if axes.0 {
                 target.x.clamp(
                     0.0,
                     (layout.content_size.width - layout.size.width).max(0.0),
@@ -173,7 +176,7 @@ impl Writer {
             } else {
                 0.0
             },
-            if axes.1 {
+            y: if axes.1 {
                 target.y.clamp(
                     0.0,
                     (layout.content_size.height - layout.size.height).max(0.0),
@@ -181,7 +184,7 @@ impl Writer {
             } else {
                 0.0
             },
-        );
+        };
         m.scroll_smoothly(id, start, target, smooth);
     }
     /// Select every character of a text input.

@@ -7,9 +7,7 @@ use kivact::style::Color;
 ///
 /// Without a color, series `i` uses chart color `i % 5` of the theme's
 /// [`Tokens`] (`--chart-1` to `--chart-5`), so a live theme switch recolors it.
-/// Built with [`ChartSeries::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct ChartSeries {
     /// An identifier for the series, such as `"desktop"`.
     pub key: String,
@@ -37,9 +35,7 @@ impl ChartSeries {
 }
 
 /// The series of a chart (chart.tsx `ChartConfig`).
-/// Built with [`ChartConfig::new`].
 #[derive(Clone, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct ChartConfig {
     /// The series in drawing order; [`ChartRow::values`] holds one value per series.
     pub series: Vec<ChartSeries>,
@@ -55,9 +51,7 @@ impl ChartConfig {
 }
 
 /// One category of a chart: its label and one value for each series.
-/// Built with [`ChartRow::new`].
 #[derive(Clone, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct ChartRow {
     /// The category: the x axis label and the tooltip title.
     pub label: String,
@@ -82,7 +76,6 @@ impl ChartRow {
 /// by the sum of its values over all rows. A radar chart draws one polygon
 /// per series with one axis per row.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum ChartKind {
     /// Bars side by side for each row.
     #[default]

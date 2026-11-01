@@ -39,7 +39,11 @@ pub fn theme(mode: ThemeMode) -> Theme {
         line_height: LineHeight::Scale(1.4),
         ..base.text().clone()
     };
-    let radius = Radii::new(5.0, 7.0, 12.0);
+    let radius = Radii {
+        sm: 5.0,
+        md: 7.0,
+        lg: 12.0,
+    };
     let t = base
         .with_colors(colors)
         .with_text(text)

@@ -41,9 +41,8 @@ fn app() -> impl IntoView {
             button("ダークモードを切り替え").on_press(move || {
                 theme.update(|t| {
                     *t = match t.mode() {
+                        ThemeMode::Light => Theme::dark(),
                         ThemeMode::Dark => Theme::light(),
-                        // 今後追加される variant は Light として扱います。
-                        _ => Theme::dark(),
                     }
                 })
             }),

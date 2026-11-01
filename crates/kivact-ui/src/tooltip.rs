@@ -155,8 +155,6 @@ fn arrow_state(
         Placement::Start => Side::Left,
         Placement::End => Side::Right,
         Placement::Above | Placement::Center => Side::Top,
-        // Variants added later fall back to below the anchor.
-        _ => Side::Bottom,
     };
     let (Some(a), Some(s)) = (anchor, placed) else {
         return TooltipArrowState {

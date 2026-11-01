@@ -26,7 +26,6 @@ pub enum LineCap {
 
 /// How two segments of a line meet.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum LineJoin {
     /// Extended edges meeting at a point, beveled beyond the miter limit.
     #[default]
@@ -42,12 +41,14 @@ pub enum LineJoin {
 /// ```
 /// use kivact_types::{LineCap, Stroke};
 /// // A dotted line: zero-length dashes with round caps make dots.
-/// let dotted = Stroke::new(2.0).cap(LineCap::Round).dash([0.0, 4.0]);
+/// let dotted = Stroke {
+///     cap: LineCap::Round,
+///     dash: vec![0.0, 4.0],
+///     ..Stroke::new(2.0)
+/// };
 /// assert_eq!(dotted.width, 2.0);
 /// ```
-/// Built with [`Stroke::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Stroke {
     /// Line width.
     pub width: f32,
@@ -126,7 +127,6 @@ impl From<f64> for Stroke {
 
 /// How a border's line is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum BorderStyle {
     #[default]
     Solid,

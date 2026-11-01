@@ -40,7 +40,12 @@ pub(super) fn halo_loader() -> Node {
                 p.cyan.mix_in(p.yellow, phase, draw.theme()),
             );
             draw.rounded_rect(
-                Rect::new(14.0 + phase * 3.0, 30.0, 20.0 - phase * 6.0, 8.0),
+                Rect {
+                    x: 14.0 + phase * 3.0,
+                    y: 30.0,
+                    width: 20.0 - phase * 6.0,
+                    height: 8.0,
+                },
                 4.0,
                 p.blue
                     .mix_in(Color::TRANSPARENT, 0.78 + phase * 0.11, draw.theme()),

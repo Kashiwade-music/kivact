@@ -39,7 +39,7 @@ fn sides<T: Copy>(e: &Edges<T>) -> [T; 4] {
 /// The trapezoid of side `i` (top, right, bottom, left) between the
 /// border box `o` and the padding box `p`.
 fn trapezoid(i: usize, o: Rect, p: Rect) -> Shape {
-    let pt = |x, y| Point::new(x, y);
+    let pt = |x, y| Point { x, y };
     let (ol, ot, or, ob) = (o.x, o.y, o.right(), o.bottom());
     let (pl, ptop, pr, pb) = (p.x, p.y, p.right(), p.bottom());
     let points = match i {
@@ -74,12 +74,12 @@ fn push_stroke(
     color: Rgba,
 ) {
     let half = width / 2.0;
-    let rect = Rect::new(
-        rect.x + half,
-        rect.y + half,
-        (rect.width - width).max(0.0),
-        (rect.height - width).max(0.0),
-    );
+    let rect = Rect {
+        x: rect.x + half,
+        y: rect.y + half,
+        width: (rect.width - width).max(0.0),
+        height: (rect.height - width).max(0.0),
+    };
     let radii = radii.map(|radius| (radius - half).max(0.0));
     if radii.iter().all(|radius| *radius == radii[0]) {
         out.commands.push(D::StrokeRect {
@@ -120,12 +120,15 @@ fn stroke_band(
     let middle = shape.inset(Edges::all(width / 2.0));
     let stroke = match style {
         BorderStyle::Solid => Stroke::new(width),
-        BorderStyle::Dashed => Stroke::new(width).dash([3.0 * width, 3.0 * width]),
-        BorderStyle::Dotted => Stroke::new(width)
-            .cap(LineCap::Round)
-            .dash([0.0, 2.0 * width]),
-        // Variants added later fall back to a solid border.
-        _ => Stroke::new(width),
+        BorderStyle::Dashed => Stroke {
+            dash: vec![3.0 * width, 3.0 * width],
+            ..Stroke::new(width)
+        },
+        BorderStyle::Dotted => Stroke {
+            cap: LineCap::Round,
+            dash: vec![0.0, 2.0 * width],
+            ..Stroke::new(width)
+        },
     };
     out.commands.push(D::StrokeShape {
         shape: middle.shape(),

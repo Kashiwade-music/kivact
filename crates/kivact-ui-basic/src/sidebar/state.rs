@@ -22,7 +22,6 @@ pub enum SidebarSide {
 
 /// How a sidebar is framed (`variant` of sidebar.tsx).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum SidebarVariant {
     /// A full-height panel with a border on the inner edge.
     #[default]
@@ -36,7 +35,6 @@ pub enum SidebarVariant {
 
 /// What a closed sidebar does (`collapsible` of sidebar.tsx).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum SidebarCollapsible {
     /// It slides out of view completely.
     #[default]

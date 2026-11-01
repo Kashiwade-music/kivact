@@ -25,7 +25,7 @@ impl Model {
         if !self.a11y.pending && self.a11y.root.is_some() {
             return;
         }
-        if self.tree().root().map(|id| kivact_types::NodeId::new(id.0)) != self.a11y.root {
+        if self.tree().root().map(|id| kivact_types::NodeId(id.0)) != self.a11y.root {
             self.a11y.full = true;
         }
         let Some(mut candidate) = self.build_dirty_semantics(engine) else {

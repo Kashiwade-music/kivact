@@ -9,7 +9,6 @@ use std::panic::Location;
 /// A cancelled request or run is `Failed` with an error whose
 /// [`UiError::is_cancelled`] is true.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum AsyncState<T> {
     /// Nothing has started yet.
     Idle,

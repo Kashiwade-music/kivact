@@ -118,8 +118,6 @@ impl Model {
             PointerPhase::Down | PointerPhase::Enter => true,
             PointerPhase::Move => buttons.is_empty(),
             PointerPhase::Up | PointerPhase::Cancel | PointerPhase::Leave => false,
-            // Variants added later fall back to not starting a gesture.
-            _ => false,
         };
         if starts && !(continuing && phase == PointerPhase::Down) && !self.in_scope(node) {
             return false;

@@ -71,8 +71,6 @@ pub(crate) fn gradient(g: &Gradient, matrix: Option<&ColorMatrix>) -> (PaintType
         Extend::Pad => peniko::Extend::Pad,
         Extend::Repeat => peniko::Extend::Repeat,
         Extend::Reflect => peniko::Extend::Reflect,
-        // Variants added later fall back to Pad.
-        _ => peniko::Extend::Pad,
     };
     (
         PaintType::Gradient(

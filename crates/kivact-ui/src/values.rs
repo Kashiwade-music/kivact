@@ -37,7 +37,6 @@ use kivact_interaction::{CheckedState, DialogKind};
 /// [`Look::variant`](super::Look::variant) (a button without a
 /// `ButtonVariant` is the default, `Primary`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum ButtonVariant {
     /// The main action of its area, filled with the accent.
     #[default]
@@ -65,7 +64,6 @@ impl Variant for ButtonVariant {}
 /// groups and sliders take one with `.size(..)` and pass it to their
 /// recipes in their state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum ControlSize {
     /// The most compact size, for dense toolbars and inline actions.
     ExtraSmall,
@@ -80,9 +78,7 @@ pub enum ControlSize {
 
 /// What a button's recipes know of it: its root, its content row, its
 /// icon boxes and its busy indicator get the same state.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct ButtonState {
     /// The root's actual input state. Hover, press and focus looks are
     /// `style().hover(..)`, `.pressed(..)` and `.focus_visible(..)` in the
@@ -130,9 +126,7 @@ impl ButtonState {
 }
 
 /// The state of a [`toggle`](super::toggle) for its recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct ToggleButtonState {
     /// The actual input state of the toggle.
     pub input: PartState,
@@ -150,9 +144,7 @@ pub struct ToggleButtonState {
 
 /// The state of a [`progress`](super::progress) bar for the recipes of its
 /// track and fill.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
 pub struct ProgressState {
     /// The completed fraction from 0 to 1 (a value outside it is clamped),
     /// or `None` while the bar is indeterminate.
@@ -197,9 +189,7 @@ impl PartialEq for ProgressState {
 }
 
 /// The state of a text input or a text area for its recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct TextInputState {
     pub input: PartState,
     pub size: ControlSize,
@@ -208,18 +198,14 @@ pub struct TextInputState {
 }
 
 /// The state of a [`field`](super::field) for the recipes of its parts.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct FieldState {
     /// Whether the field shows an error message (`Field::error` is `Some`).
     pub invalid: bool,
 }
 
 /// The state of a check box, a switch or a radio item for its recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
 pub struct CheckState {
     /// The actual input state of the control.
     pub input: PartState,
@@ -247,9 +233,7 @@ impl PartialEq for CheckState {
     }
 }
 
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct DialogState {
     pub input: PartState,
     pub open: bool,
@@ -260,9 +244,7 @@ pub struct DialogState {
 }
 
 /// Where a tooltip's arrow points, for the tooltip's arrow recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct TooltipArrowState {
     /// The side of the trigger the tooltip shows on (base-ui's
     /// `data-side`): `Top` when it is above the trigger, so the arrow sits
@@ -276,9 +258,7 @@ pub struct TooltipArrowState {
 }
 
 /// The state of a select's trigger for its recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct SelectTriggerState {
     /// The actual input state of the trigger.
     pub input: PartState,
@@ -293,9 +273,7 @@ pub struct SelectTriggerState {
 
 /// The state of a part laid along an axis, for its recipe: a slider's
 /// track, range and thumb, and a splitter's handle.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct AxisState {
     /// The actual input state of the part (the thumb's and the handle's
     /// own; the track's and the range's are the track's).
@@ -311,9 +289,7 @@ pub struct AxisState {
 
 /// The state of one live region's column of toasts in a
 /// [`toast_region`](super::toast_region), for its recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct ToastGroupState {
     /// The actual input state of the column.
     pub input: PartState,
@@ -329,9 +305,7 @@ pub struct ToastGroupState {
 
 /// The state of a main row of a [`data_table`](super::data_table) for its
 /// recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct DataTableRowState {
     /// The actual state of the row's attached table part: its input state,
     /// whether it is selected and whether it holds the tab stop.
@@ -347,9 +321,7 @@ pub struct DataTableRowState {
 
 /// The state of a cell of a [`data_table`](super::data_table) for its
 /// recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct DataTableCellState {
     /// The actual state of the cell's attached table part.
     pub interaction: kivact_interaction::TableCellState,
@@ -359,9 +331,7 @@ pub struct DataTableCellState {
 
 /// The state of the box around a check box of a
 /// [`data_table`](super::data_table), for its recipe.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct DataTableCheckState {
     /// The box is in the header and checks the rows of the page.
     pub header: bool,
@@ -372,9 +342,7 @@ pub struct DataTableCheckState {
 
 /// The page a [`data_table`](super::data_table) shows, for the recipe of its
 /// pager.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct DataTablePageState {
     /// The page shown, from 0.
     pub index: usize,

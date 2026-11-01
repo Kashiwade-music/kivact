@@ -29,8 +29,6 @@ fn app() -> impl IntoView {
                 AsyncState::Idle | AsyncState::Pending => text("Loading…"),
                 AsyncState::Failed(error) => text(format!("Error: {error}")),
                 AsyncState::Ready(name) => text(name),
-                // Variants added later fall back to the loading text.
-                _ => text("Loading…"),
             },
         ),
     ))

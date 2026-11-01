@@ -24,9 +24,7 @@ struct Frames {
 }
 
 /// Counts of what the motion subsystem holds now ([`MotionState::stats`]).
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct MotionStats {
     /// Live frame loops.
     pub loops: usize,

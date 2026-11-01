@@ -47,15 +47,11 @@ pub(super) fn outliner(items: Signal<Vec<ui::TreeItem>>, state: ui::OutlinerStat
                         ui::RestrictionFlag::Visible => item.visible = request.value,
                         ui::RestrictionFlag::Selectable => item.selectable = request.value,
                         ui::RestrictionFlag::Rendered => item.rendered = request.value,
-                        // Variants added later fall back to being ignored.
-                        _ => {}
                     }
                 }
             }),
             ui::EditorEvent::Cancel => items.set(initial.get()),
             ui::EditorEvent::Commit => {}
-            // Variants added later fall back to being ignored.
-            _ => {}
         })
 }
 

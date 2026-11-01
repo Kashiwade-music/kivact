@@ -29,12 +29,15 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
             let tool = signal(ui::TimelineTool::Select);
             (
                 (clips, tracks, range, tool),
-                app_arrangement(clips, tracks, {
-                    let mut value = ui::ArrangementState::new();
-                    value.loop_range = range.into();
-                    value.tool = tool.into();
-                    value
-                })
+                app_arrangement(
+                    clips,
+                    tracks,
+                    ui::ArrangementState {
+                        loop_range: range.into(),
+                        tool: tool.into(),
+                        ..ui::ArrangementState::new()
+                    },
+                )
                 .test_id("arrangement"),
             )
         });
@@ -436,10 +439,10 @@ fn viewport_surface_forwards_application_image_coordinates() {
         (
             position,
             ui::viewport_surface(None)
-                .transform(signal(kivact::interaction::ViewTransform::new(
-                    2.0,
-                    Point::new(10.0, 20.0),
-                )))
+                .transform(signal(kivact::interaction::ViewTransform {
+                    offset: Point::new(10.0, 20.0),
+                    scale: 2.0,
+                }))
                 .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
                 .style(style().size(300, 200))
                 .test_id("viewport"),

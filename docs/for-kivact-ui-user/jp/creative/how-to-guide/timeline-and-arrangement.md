@@ -39,8 +39,6 @@ fn apply(clips: &mut Vec<ui::Clip>, request: ui::TimeRequest) {
             }
         }
         ui::TimeRequest::Delete(ids) => clips.retain(|c| !ids.contains(&c.id)),
-        // 今後追加される variant は無視します。
-        _ => {}
     }
 }
 
@@ -54,8 +52,10 @@ fn timeline_panel() -> impl IntoView {
 
     // アプリが持つ表示状態: 再生ヘッドはアプリの時間。
     let playhead = signal(0.0);
-    let mut state = ui::TimeState::new();
-    state.playhead = playhead.into();
+    let state = ui::TimeState {
+        playhead: playhead.into(),
+        ..ui::TimeState::new()
+    };
 
     // ジェスチャー 1 回につき元に戻す手順を 1 つ記録する。
     let snapshot = signal(None::<Vec<ui::Clip>>);
@@ -73,8 +73,6 @@ fn timeline_panel() -> impl IntoView {
                 clips.set(before);
             }
         }
-        // 今後追加される variant は無視します。
-        _ => {}
     };
 
     column((
@@ -133,7 +131,7 @@ fn start_clock(playing: Signal<bool>, playhead: Signal<f64>) {
 }
 ```
 
-`start_clock` は、コンポーネントのセットアップで 1 回だけ呼びます。このタスクは、起動したコンポーネントとともに終わります。`TimeState` には `selection`・`zoom`・`pan` もあります。どのフィールドも自分のシグナルに差し替えて、アプリのほかの部分と共有できます（`let mut state = ui::TimeState::new(); state.selection = picked.into();`）。時間の単位は自由で、フレーム番号でも、ティックでも、秒でもかまいません。`time_format` は、ルーラーと再生ヘッドの表示の書式だけを決めます。
+`start_clock` は、コンポーネントのセットアップで 1 回だけ呼びます。このタスクは、起動したコンポーネントとともに終わります。`TimeState` には `selection`・`zoom`・`pan` もあります。どのフィールドも自分のシグナルに差し替えて、アプリのほかの部分と共有できます（`TimeState { selection: picked.into(), ..ui::TimeState::new() }`）。時間の単位は自由で、フレーム番号でも、ティックでも、秒でもかまいません。`time_format` は、ルーラーと再生ヘッドの表示の書式だけを決めます。
 
 ### そのほかのビルダーのオプション
 
@@ -172,8 +170,6 @@ fn keys_panel() -> impl IntoView {
                     }
                 }
                 ui::TimeRequest::Delete(ids) => all.retain(|k| !ids.contains(&k.id)),
-                // 今後追加される variant は無視します。
-                _ => {}
             });
         }
     })
@@ -278,8 +274,6 @@ fn apply(
                     ui::TrackFlag::Solo => t.solo = value,
                     ui::TrackFlag::Arm => t.armed = value,
                     ui::TrackFlag::AutomationRead => t.automation_read = value,
-                    // 今後追加される variant は無視します。
-                    _ => {}
                 }
             }
         }

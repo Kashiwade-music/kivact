@@ -163,8 +163,6 @@ pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphReques
                 }
             }
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }
 pub(super) fn graph_edits(
@@ -181,7 +179,5 @@ pub(super) fn graph_edits(
             }
             initial.set(None);
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }

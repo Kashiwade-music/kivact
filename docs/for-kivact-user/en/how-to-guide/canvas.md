@@ -291,12 +291,12 @@ fn swatches() -> impl IntoView {
             if chosen.get() == i {
                 draw.stroke_rect(rect, 3, rgb(0xffffff));
             }
-            draw.region(RegionId::new(i as u64), rect);
+            draw.region(RegionId(i as u64), rect);
         }
     });
     for (i, (name, _)) in SWATCHES.iter().enumerate() {
         board = board.region(
-            RegionId::new(i as u64),
+            RegionId(i as u64),
             part(|state| state)
                 .role(Role::Button)
                 .name(*name)
@@ -491,11 +491,10 @@ fn exporter() -> impl IntoView {
     column((
         button("Export 1920 × 1080").on_press(move || export.run((1920, 1080))),
         dynamic(move || export.state(), |state| match state {
+            AsyncState::Idle => text(""),
             AsyncState::Pending => text("Exporting…"),
             AsyncState::Ready(bytes) => text(format!("Rendered {bytes} bytes")),
             AsyncState::Failed(error) => text(format!("Failed: {error}")),
-            // Variants added later fall back to the empty text.
-            _ => text(""),
         }),
     ))
 }

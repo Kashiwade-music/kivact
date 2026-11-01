@@ -207,9 +207,10 @@ impl Window for NativeWindow<'_> {
         self.shell.environment()
     }
     fn capabilities(&self) -> Capabilities {
-        let mut capabilities = self.shell.capabilities();
-        capabilities.gpu = cfg!(feature = "gpu");
-        capabilities
+        Capabilities {
+            gpu: cfg!(feature = "gpu"),
+            ..self.shell.capabilities()
+        }
     }
     fn surface_generation(&self) -> Option<u64> {
         self.shell.surface_generation()

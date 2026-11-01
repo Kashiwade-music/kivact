@@ -138,6 +138,10 @@ fn loading_screen(dark: Signal<bool>, attempt: Signal<u32>) -> impl IntoView {
     dynamic(
         move || saved.state(),
         move |state| match state {
+            AsyncState::Idle | AsyncState::Pending => text("タスクを読み込み中...")
+                .role(Role::Status)
+                .style(style().padding(24))
+                .into_view(),
             AsyncState::Failed(error) => column((
                 text(format!("エラー: {error}")).role(Role::Alert),
                 button("もう一度試す").on_press(move || attempt.update(|n| *n += 1)),
@@ -145,11 +149,6 @@ fn loading_screen(dark: Signal<bool>, attempt: Signal<u32>) -> impl IntoView {
             .style(style().padding(24).gap(12))
             .into_view(),
             AsyncState::Ready(tasks) => tasks_screen(dark, tasks).into_view(),
-            // 今後追加される variant は 読み込み中の表示 として扱います。
-            _ => text("タスクを読み込み中...")
-                .role(Role::Status)
-                .style(style().padding(24))
-                .into_view(),
         },
     )
 }

@@ -17,9 +17,7 @@ use kivact_reactive::{NodeId as GraphNode, Runtime};
 const DEPTH: usize = 8;
 
 /// Why a node looks the way it does.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Why {
     /// Host node id of the explained node.
     pub node: u64,
@@ -30,9 +28,7 @@ pub struct Why {
 }
 
 /// A dynamic prop and the effect that last set it.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct WhyProp {
     /// name (`Content`, `Paint`, `Disabled`, ...).
     pub prop: String,
@@ -43,9 +39,7 @@ pub struct WhyProp {
 }
 
 /// A dependency: a signal (with its last write) or a memo (with its reads).
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct WhyDep {
     /// `"signal"` or `"memo"`.
     pub kind: &'static str,

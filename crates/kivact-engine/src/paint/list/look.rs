@@ -77,12 +77,12 @@ impl Look {
     /// Its canvas: `bounds` inside its border.
     pub(super) fn inside(&self, bounds: Rect) -> Rect {
         let b = self.border;
-        Rect::new(
-            bounds.x + b.left,
-            bounds.y + b.top,
-            (bounds.width - b.left - b.right).max(0.0),
-            (bounds.height - b.top - b.bottom).max(0.0),
-        )
+        Rect {
+            x: bounds.x + b.left,
+            y: bounds.y + b.top,
+            width: (bounds.width - b.left - b.right).max(0.0),
+            height: (bounds.height - b.top - b.bottom).max(0.0),
+        }
     }
 
     /// The look of `id` now: its base paint's, or with state styles its

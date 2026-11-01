@@ -4,9 +4,7 @@ use std::ops::Range;
 
 /// One change of a text: the byte range `range` of the text before it was
 /// replaced with `text`.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct TextChange {
     /// The replaced UTF-8 byte range of the text before the change.
     pub range: Range<usize>,
@@ -31,9 +29,7 @@ impl TextChange {
 /// What changed in a text since the revision `base`: the bytes
 /// `start..old_end` of the text at `base` became `start..new_end` of the
 /// text now.
-/// Built with [`Damage::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct Damage {
     /// Revision whose original byte range is replaced.
     pub base: u64,
@@ -46,17 +42,6 @@ pub struct Damage {
 }
 
 impl Damage {
-    /// The damage since revision `base`: the bytes `start..old_end` of that
-    /// revision became `start..new_end` of the current text.
-    pub const fn new(base: u64, start: usize, old_end: usize, new_end: usize) -> Self {
-        Damage {
-            base,
-            start,
-            old_end,
-            new_end,
-        }
-    }
-
     /// This damage, then `range` (of the text it leaves) replaced by
     /// `len` bytes.
     pub(crate) fn then(self, range: Range<usize>, len: usize) -> Self {

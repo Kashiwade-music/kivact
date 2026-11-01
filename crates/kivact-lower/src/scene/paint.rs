@@ -53,7 +53,11 @@ impl Context<'_> {
         self.lower_scene(
             scene,
             inherited,
-            Rect::new(0.0, 0.0, origin.width, origin.height),
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                ..origin
+            },
             tint,
             engine,
             &mut lowered,

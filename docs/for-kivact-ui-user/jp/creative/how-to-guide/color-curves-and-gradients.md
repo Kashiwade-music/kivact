@@ -93,8 +93,6 @@ fn history<T: Clone + PartialEq + 'static>(
             }
         }
         EditPhase::Cancel => start.set(None),
-        // 今後追加される variant は キャンセルされた編集 として扱います。
-        _ => start.set(None),
     };
     (on_edit, steps)
 }

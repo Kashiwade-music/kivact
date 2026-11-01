@@ -21,7 +21,7 @@ pub(crate) fn options(width: f32, height: f32) -> VirtualWindowOptions {
             .name()
             .unwrap_or("arvane e2e")
             .to_owned(),
-        size: Size::new(width, height),
+        size: Size { width, height },
         frame_period_ns: PERIOD,
         ..Default::default()
     }
@@ -39,7 +39,12 @@ pub(crate) fn engine() -> Engine {
 }
 
 pub(crate) fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
-    Rect::new(x, y, width, height)
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
 }
 
 /// An opaque color from 0x00RRGGBB.
@@ -50,7 +55,12 @@ pub(crate) fn color(rgb: u32) -> Rgba {
 /// A straight-alpha color from 0x00RRGGBB and an alpha.
 pub(crate) fn color_alpha(rgb: u32, a: f32) -> Rgba {
     let channel = |shift: u32| ((rgb >> shift) & 0xff) as f32 / 255.0;
-    Rgba::new(channel(16), channel(8), channel(0), a)
+    Rgba {
+        r: channel(16),
+        g: channel(8),
+        b: channel(0),
+        a,
+    }
 }
 
 pub(crate) fn fill(x: f32, y: f32, width: f32, height: f32, rgb: u32) -> DrawCommand {
@@ -115,7 +125,7 @@ pub(crate) fn solid(rgb: u32) -> Paint {
 }
 
 pub(crate) fn pt(x: f32, y: f32) -> kivact_types::Point {
-    kivact_types::Point::new(x, y)
+    kivact_types::Point { x, y }
 }
 
 /// How the GPU's frame differs from the CPU's.

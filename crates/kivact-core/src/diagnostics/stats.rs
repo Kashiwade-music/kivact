@@ -21,9 +21,7 @@
 /// function calls and `creates` are different measures, and hostbench's
 /// update-to-frame and redraw work are separate metrics: compare under the
 /// same conditions.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct Stats {
     /// Revisions committed (each one batch of writes).
     pub batches: u64,

@@ -26,7 +26,10 @@ fn surface() -> Node {
 fn wheel_keeps_the_point_under_the_pointer_and_reports_a_whole_edit() {
     let log = Log::default();
     let seen = log.clone();
-    let initial = ViewTransform::new(2., Point::new(10., 20.));
+    let initial = ViewTransform {
+        offset: Point::new(10., 20.),
+        scale: 2.,
+    };
     let (screen, transform) = mount(move || {
         let transform = signal(initial);
         (

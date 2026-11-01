@@ -7,7 +7,6 @@ use kivact::style::Color;
 /// [`Keyframe::glyph`](crate::Keyframe) selects it for a dope sheet's
 /// keys; an application painting its own markers calls [`KeyGlyph::paint`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum KeyGlyph {
     /// A diamond, the ordinary keyframe.
     #[default]

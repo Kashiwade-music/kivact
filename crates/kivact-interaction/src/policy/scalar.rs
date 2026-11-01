@@ -4,7 +4,6 @@ use std::fmt;
 
 /// Invalid bounds or quantization for [`ScalarRange`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ScalarRangeError {
     /// Both endpoints must be finite.
     NonFiniteBounds,

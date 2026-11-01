@@ -100,8 +100,6 @@ fn create(native: &Native, cursor: Cursor) -> Result<u32, ShellError> {
             Cursor::Move => 52,
             Cursor::NotAllowed => 0,
             Cursor::None => unreachable!(),
-            // Variants added later fall back to the default arrow.
-            _ => 68,
         };
         let result = connection
             .create_glyph_cursor(

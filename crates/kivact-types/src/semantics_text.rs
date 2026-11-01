@@ -21,9 +21,7 @@ use crate::geometry::{NodeId, Rect};
 /// touch and gives them again (and the whole list while none changed),
 /// and two snapshots compare their runs by identity first, so an update of
 /// a long text hands the platform only the runs that changed.
-/// Built with [`SemanticsText::new`].
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct SemanticsText {
     /// Text runs in reading order; even empty text has one empty run. A
     /// run starts at the scalar offset where the run before it ends, the
@@ -37,24 +35,6 @@ pub struct SemanticsText {
     pub selection: (u32, u32),
     /// The active selection end, using the editor's painted caret geometry.
     pub caret: Rect,
-}
-
-impl SemanticsText {
-    /// Text made of `runs` starting at scalar offset `start`, with the
-    /// selection `(anchor, caret)` and the active end's `caret` bounds.
-    pub fn new(
-        runs: Arc<[Arc<SemanticsTextRun>]>,
-        start: u32,
-        selection: (u32, u32),
-        caret: Rect,
-    ) -> Self {
-        SemanticsText {
-            runs,
-            start,
-            selection,
-            caret,
-        }
-    }
 }
 
 impl PartialEq for SemanticsText {
@@ -77,9 +57,7 @@ impl PartialEq for SemanticsText {
 /// A hard line break belongs to the end of its run. The native adapter treats
 /// CRLF as one selectable unit when converting scalar offsets to platform
 /// text positions. Missing character geometry falls back to the run's bounds.
-/// Built with [`SemanticsTextRun::new`].
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct SemanticsTextRun {
     /// Stable platform child identity, unique among all nodes and text runs.
     pub id: NodeId,
@@ -91,25 +69,10 @@ pub struct SemanticsTextRun {
     pub carets: Vec<TextCaret>,
 }
 
-impl SemanticsTextRun {
-    /// A run with identity `id` holding `value` within `bounds`, with the
-    /// caret rectangles of its characters.
-    pub fn new(id: NodeId, value: String, bounds: Rect, carets: Vec<TextCaret>) -> Self {
-        SemanticsTextRun {
-            id,
-            value,
-            bounds,
-            carets,
-        }
-    }
-}
-
 /// A cursor position in shaped text; usable on any thread.
 ///
 /// Combining marks and ligatures can share a cluster and therefore a rectangle.
-/// Built with [`TextCaret::new`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub struct TextCaret {
     /// Unicode scalar offset after `TextTransform`, including the
     /// final boundary. This is neither a UTF-8 byte nor a grapheme index;
@@ -117,11 +80,4 @@ pub struct TextCaret {
     pub offset: u32,
     /// Logical caret bounds relative to the text layout origin.
     pub rect: Rect,
-}
-
-impl TextCaret {
-    /// A caret at scalar `offset` occupying `rect`.
-    pub const fn new(offset: u32, rect: Rect) -> Self {
-        TextCaret { offset, rect }
-    }
 }

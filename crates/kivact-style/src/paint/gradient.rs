@@ -7,7 +7,6 @@ use crate::theme::value::ThemeColor;
 /// The shape of a radial gradient's end, when no radius is given (CSS
 /// `closest-side` .. `farthest-corner`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum RadialExtent {
     ClosestSide,
     ClosestCorner,

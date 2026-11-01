@@ -76,7 +76,12 @@ impl Draw {
             transform: self.transform.m,
             local_rect: rect,
             id,
-            rect: p::Rect::new(x0, y0, x1 - x0, y1 - y0),
+            rect: p::Rect {
+                x: x0,
+                y: y0,
+                width: x1 - x0,
+                height: y1 - y0,
+            },
             properties: semantics.properties,
             description: semantics.description,
             disabled: semantics.disabled,

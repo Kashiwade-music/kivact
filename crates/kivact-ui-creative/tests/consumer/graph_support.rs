@@ -27,8 +27,6 @@ pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphReques
                 }
             }
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }
 pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
@@ -66,14 +64,12 @@ pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
                     .iter()
                     .flat_map(|curve| &curve.keys)
                     .filter(|key| ids.contains(&key.id))
-                    .map(|key| {
-                        ui::KeyMove::new(
-                            key.id,
-                            key.time,
-                            key.value,
-                            key.in_tangent,
-                            key.out_tangent,
-                        )
+                    .map(|key| ui::KeyMove {
+                        id: key.id,
+                        time: key.time,
+                        value: key.value,
+                        in_tangent: key.in_tangent,
+                        out_tangent: key.out_tangent,
                     })
                     .collect();
                 let mut next = curves.get_untracked();
@@ -83,8 +79,6 @@ pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
             initial.set(None);
             observer.call(EditPhase::Cancel);
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }
 pub(super) fn app_graph(

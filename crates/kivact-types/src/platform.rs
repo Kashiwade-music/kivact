@@ -16,17 +16,10 @@ use crate::input::MouseButton;
 /// Identifies one pointer: the mouse ([`PointerId::MOUSE`]), or one touch
 /// or pen contact for as long as it lasts (from its `Down` to its `Up` or
 /// `Cancel`). A new contact gets a new id; a window never reuses one.
-/// Built with [`PointerId::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub struct PointerId(pub u64);
 
 impl PointerId {
-    /// The pointer with this raw id; read it back as `.0`.
-    pub const fn new(raw: u64) -> Self {
-        PointerId(raw)
-    }
-
     /// The mouse (and anything the platform reports as one, such as a
     /// touchpad).
     pub const MOUSE: PointerId = PointerId(1);
@@ -34,7 +27,6 @@ impl PointerId {
 
 /// What kind of device a pointer is.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum PointerKind {
     /// A mouse or touchpad: it hovers, has buttons and a wheel.
     #[default]
@@ -49,7 +41,6 @@ pub enum PointerKind {
 /// `pointerleave`), shared by the window's input and the events a node's
 /// listener receives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum PointerPhase {
     /// A button was pressed, or a touch or pen contact began.
     Down,
@@ -133,9 +124,7 @@ pub struct Insets {
 /// a test window stands for a platform that can do everything, but the GPU
 /// when it is not asked for and native accessibility without a real
 /// window.
-/// Built with [`Capabilities::default`]; assign the fields you need.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct Capabilities {
     /// Touch contacts arrive as touch pointers.
     pub touch: bool,
@@ -162,7 +151,6 @@ pub struct Capabilities {
 /// An actual application lifecycle transition or platform memory warning.
 /// Surface availability and visibility remain current state in the host's environment (`HostEnv`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum LifecycleEvent {
     /// Application execution has been suspended by the shell.
     Suspended,

@@ -9,19 +9,10 @@ pub use kivact_wire::{IntrinsicSize, Point, Rect, Size};
 /// horizontal, vertical). Percentages are against the box's width
 /// (horizontal) and height (vertical), so `pct(50)` rounds a box into an
 /// ellipse.
-/// Built with [`CornerRadius::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct CornerRadius {
     pub x: Length,
     pub y: Length,
-}
-
-impl CornerRadius {
-    /// A corner rounded by `x` horizontally and `y` vertically.
-    pub const fn new(x: Length, y: Length) -> Self {
-        CornerRadius { x, y }
-    }
 }
 
 impl From<Length> for CornerRadius {

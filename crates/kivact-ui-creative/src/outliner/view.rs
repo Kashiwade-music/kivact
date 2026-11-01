@@ -298,8 +298,6 @@ impl IntoView for Outliner {
                         EditPhase::Begin => EditorEvent::Begin,
                         EditPhase::Commit => EditorEvent::Commit,
                         EditPhase::Cancel => EditorEvent::Cancel,
-                        // Variants added later fall back to a cancelled edit.
-                        _ => EditorEvent::Cancel,
                     });
                 })
             }),

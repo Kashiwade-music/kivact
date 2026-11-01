@@ -207,7 +207,7 @@ impl IntoView for Range {
         if interval.is_some() {
             let info = kivact::memo(move || {
                 RegionInfo::new(
-                    RegionId::new(3),
+                    RegionId(3),
                     Kind::RangeBody,
                     interpolate(&interval_template.get(), &[("label", &label.get())]),
                 )
@@ -215,7 +215,7 @@ impl IntoView for Range {
             let select = callback(move |_| active.set(2));
             let body = region_parts::attachment(Kind::RangeBody, info, select).with(ends.body());
             follow_press(pressed(body.state()), 2);
-            root = root.region(RegionId::new(3), body);
+            root = root.region(RegionId(3), body);
         }
         for (side, endpoint) in endpoints.into_iter().enumerate() {
             let template = if side == 0 {
@@ -232,7 +232,7 @@ impl IntoView for Range {
                 .on_a11y(A11yAction::Select, move || active.set(side));
             let state = control.state();
             follow_press(memo(move || state.get().input.pressed), side);
-            root = root.region(RegionId::new(side as u64 + 1), control);
+            root = root.region(RegionId(side as u64 + 1), control);
         }
         root.part(track)
             .value_text(move || format!("{} – {}", value.get().0, value.get().1))
@@ -249,7 +249,7 @@ impl IntoView for Range {
                     d.rounded_rect(r, 3.0, color.get().with_alpha(0.35));
                     d.stroke_rect(r, 1.0, color.get().with_alpha(0.7));
                     if movable.get() {
-                        d.region(RegionId::new(3), r);
+                        d.region(RegionId(3), r);
                     }
                 } else {
                     d.rounded_rect(
@@ -272,7 +272,7 @@ impl IntoView for Range {
                         );
                     }
                     d.region(
-                        RegionId::new(side as u64 + 1),
+                        RegionId(side as u64 + 1),
                         Rect::new(x(v) - THUMB / 2.0, y - THUMB / 2.0, THUMB, THUMB),
                     );
                 }

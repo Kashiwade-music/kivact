@@ -17,7 +17,7 @@ pub(super) fn accept(
     action: A11yAction,
     value: Option<&str>,
 ) -> Option<ShellEvent> {
-    let id = NodeId::new(node);
+    let id = NodeId(node);
     let target = tree.node(id)?;
     let action = normalized(action);
     let supported = (action == A11yAction::Focus && target.focusable)

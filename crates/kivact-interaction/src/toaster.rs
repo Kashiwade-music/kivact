@@ -73,9 +73,7 @@ pub struct ToastId(u64);
 ///     .duration(Some(Duration::from_secs(3)));
 /// assert_eq!(saved.title, "Saved");
 /// ```
-/// Built with [`Toast::new`].
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct Toast {
     /// What the toast says. It names the toast for assistive technology.
     pub title: String,
@@ -333,9 +331,7 @@ impl Toaster {
 }
 
 /// The tone and actual input state of a toast.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct ToastState {
     pub input: PartState,
     /// The toast's tone; [`Tone::Neutral`] once it is gone.

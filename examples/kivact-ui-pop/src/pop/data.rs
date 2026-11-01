@@ -195,7 +195,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                         kivact::ui::progress(Some(0.6))
                             .name("絆ランク")
                             .variant(ui::Hue::Pink)
-                            .variant(ui::Segments::new(10)),
+                            .variant(ui::Segments(10)),
                     ))
                     .style(style().gap(8)),
                     columns(

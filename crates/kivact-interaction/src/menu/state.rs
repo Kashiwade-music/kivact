@@ -10,7 +10,6 @@ use kivact_core::{Callback, Signal, Value, Var};
 
 /// Where an open menu was asked to appear.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum MenuOrigin {
     /// At this window point: the pointer of a right click.
     Pointer(Point),
@@ -20,9 +19,7 @@ pub enum MenuOrigin {
 }
 
 /// The state of a menu item for the caller's drawing.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct MenuItemState {
     pub input: PartState,
     /// The checked state of a check or radio item; `None` for other items.
@@ -373,7 +370,6 @@ impl<K> MenuEntry<K> {
 /// Separators and headings have no key and are counted instead. The rows of
 /// a group follow its heading in the level.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum MenuRow<K> {
     /// An item, a submenu item (`submenu`), a check item (`check`) or a
     /// radio item (`check` and `radio`).

@@ -76,24 +76,32 @@ impl Model {
             let offset = if vertical { n.scroll().y } else { n.scroll().x };
             let shift = travel * offset.clamp(0.0, range) / range;
             let track = if vertical {
-                Rect::new(
-                    (size.width - width).max(0.0),
-                    0.0,
-                    width.min(size.width),
-                    length,
-                )
+                Rect {
+                    x: (size.width - width).max(0.0),
+                    y: 0.0,
+                    width: width.min(size.width),
+                    height: length,
+                }
             } else {
-                Rect::new(
-                    0.0,
-                    (size.height - width).max(0.0),
-                    length,
-                    width.min(size.height),
-                )
+                Rect {
+                    x: 0.0,
+                    y: (size.height - width).max(0.0),
+                    width: length,
+                    height: width.min(size.height),
+                }
             };
             let thumb = if vertical {
-                Rect::new(track.x, shift, track.width, thumb_len)
+                Rect {
+                    y: shift,
+                    height: thumb_len,
+                    ..track
+                }
             } else {
-                Rect::new(shift, track.y, thumb_len, track.height)
+                Rect {
+                    x: shift,
+                    width: thumb_len,
+                    ..track
+                }
             };
             Some(Bar {
                 track,

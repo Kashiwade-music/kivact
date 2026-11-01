@@ -10,7 +10,7 @@ use crate::theme_access::{field_fill, tokens};
 use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Combobox as Behavior, use_combobox as behavior};
+use kivact::interaction::{Combobox as Behavior, ListItemState, use_combobox as behavior};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::ui::{ButtonVariant, ListItem};
@@ -179,8 +179,10 @@ fn popup<K: Clone + Eq + Hash + 'static>(
                 node()
                     .part(part)
                     .style(move || {
-                        let mut st = state.get();
-                        st.selected = is_chosen(&key);
+                        let st = ListItemState {
+                            selected: is_chosen(&key),
+                            ..state.get()
+                        };
                         row_style(&tokens(), &st)
                     })
                     .child(text(label))

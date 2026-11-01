@@ -16,14 +16,14 @@ use crate::style::Rgba;
 /// ```
 /// use kivact_types::{Extend, Point, Rgba};
 /// use kivact_types::protocol::{Gradient, GradientShape, Paint};
-/// let black = Rgba::new(0.0, 0.0, 0.0, 1.0);
-/// let clear = Rgba::new(0.0, 0.0, 0.0, 0.0);
+/// let black = Rgba { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
+/// let clear = Rgba { a: 0.0, ..black };
 /// // CSS `repeating-linear-gradient(90deg, black 0 1px, transparent 1px 24px)`
 /// // from x = 0: a 1 px line every 24 px, two stops at 1/24 making a hard edge.
 /// let lines = Paint::Gradient(Gradient {
 ///     shape: GradientShape::Linear {
-///         start: Point::new(0.0, 0.0),
-///         end: Point::new(24.0, 0.0),
+///         start: Point { x: 0.0, y: 0.0 },
+///         end: Point { x: 24.0, y: 0.0 },
 ///     },
 ///     stops: vec![(0.0, black), (1.0 / 24.0, black), (1.0 / 24.0, clear), (1.0, clear)],
 ///     extend: Extend::Repeat,

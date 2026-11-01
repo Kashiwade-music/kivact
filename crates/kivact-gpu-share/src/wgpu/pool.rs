@@ -190,8 +190,6 @@ impl Pool {
                     super::vulkan::Raw::new(device, adapter, config, &desc)?;
                 (Raw::Vulkan(Box::new(raw)), textures, shared)
             }
-            // Variants added later have no pool here.
-            _ => return Err(Error::Mismatch("unsupported graphics API".into())),
         };
         let pool = Self {
             raw,

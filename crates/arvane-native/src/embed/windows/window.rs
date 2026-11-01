@@ -186,7 +186,10 @@ impl ShellWindow for Window {
     }
     fn size(&self) -> Size {
         let (w, h) = self.physical_size();
-        Size::new(w as f32 / self.scale(), h as f32 / self.scale())
+        Size {
+            width: w as f32 / self.scale(),
+            height: h as f32 / self.scale(),
+        }
     }
     fn physical_size(&self) -> (u32, u32) {
         self.0.shared.size()
@@ -198,10 +201,11 @@ impl ShellWindow for Window {
         self.0.now()
     }
     fn capabilities(&self) -> kivact_types::Capabilities {
-        let mut capabilities = kivact_types::Capabilities::default();
-        capabilities.native_accessibility = true;
-        capabilities.ime_reconversion = true;
-        capabilities
+        kivact_types::Capabilities {
+            native_accessibility: true,
+            ime_reconversion: true,
+            ..Default::default()
+        }
     }
     fn surface_generation(&self) -> Option<u64> {
         Some(1)

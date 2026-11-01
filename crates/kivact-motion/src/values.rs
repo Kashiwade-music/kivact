@@ -100,7 +100,6 @@ impl Animatable for Rect {
 
 /// Target rate of a frame loop.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum FrameRate {
     /// A fixed rate (finite, positive).
     Hz(f64),
@@ -109,9 +108,7 @@ pub enum FrameRate {
 }
 
 /// Passed to frame callbacks.
-/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct FrameInfo {
     /// Host clock time of this tick.
     pub now: Duration,

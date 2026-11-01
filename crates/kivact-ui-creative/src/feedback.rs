@@ -31,8 +31,6 @@ impl ToneExt for Tone {
             Self::Warning => p.warning,
             Self::Danger => p.x,
             Self::Accent => p.accent_high,
-            // Variants added later fall back to the neutral tone.
-            _ => p.muted,
         }
     }
 }
@@ -228,7 +226,6 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for SplitButton<K> {
 
 /// Initial placement of a floating tool window in window coordinates.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[non_exhaustive]
 pub enum WindowPosition {
     #[default]
     Center,

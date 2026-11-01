@@ -143,7 +143,10 @@ pub(crate) fn resolve(
         e: t.translate.x + p[0] * w + p[1] * h,
         f: t.translate.y + p[2] * w + p[3] * h,
     };
-    let origin = Point::new(t.origin[0].of(w), t.origin[1].of(h));
+    let origin = Point {
+        x: t.origin[0].of(w),
+        y: t.origin[1].of(h),
+    };
     let m = m.about(origin);
     let finite = [m.a, m.b, m.c, m.d, m.e, m.f].iter().all(|v| v.is_finite());
     (finite && !m.is_identity()).then_some(m)
@@ -225,9 +228,18 @@ impl Model {
         id: NodeId,
         rect: Rect,
     ) -> Option<kivact_types::protocol::Transform> {
-        let size = Size::new(rect.width, rect.height);
+        let size = Size {
+            width: rect.width,
+            height: rect.height,
+        };
         let t = self.local_transform(id, size)?;
-        Some(placed(t, Point::new(rect.x, rect.y)))
+        Some(placed(
+            t,
+            Point {
+                x: rect.x,
+                y: rect.y,
+            },
+        ))
     }
 
     /// The transform from the own space of `id` to the own space of its
@@ -284,7 +296,10 @@ impl Model {
     pub(crate) fn to_local(&self, id: NodeId, at: Point) -> Point {
         let r = self.rect(id).unwrap_or_default();
         let own = self.to_own(id, at).unwrap_or(at);
-        Point::new(own.x - r.x, own.y - r.y)
+        Point {
+            x: own.x - r.x,
+            y: own.y - r.y,
+        }
     }
 
     /// The window point of `local`, relative to `id`'s untransformed box
@@ -292,7 +307,10 @@ impl Model {
     #[cfg(feature = "testing")]
     pub(crate) fn local_to_window(&self, id: NodeId, local: Point) -> Point {
         let r = self.rect(id).unwrap_or_default();
-        let own = Point::new(r.x + local.x, r.y + local.y);
+        let own = Point {
+            x: r.x + local.x,
+            y: r.y + local.y,
+        };
         match self.transform_between(id, None) {
             None => own,
             Some(t) => t.apply(own),

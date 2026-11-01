@@ -2,7 +2,6 @@
 
 /// Where a discrete easing step jumps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum StepPosition {
     Start,
     End,
@@ -10,7 +9,6 @@ pub enum StepPosition {
 
 /// Mapping from normalized elapsed time to animation progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum Easing {
     Linear,
     EaseIn,
@@ -87,9 +85,7 @@ fn bezier(x: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
 }
 
 /// Spring parameters.
-/// Built with [`Spring::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct Spring {
     /// Spring force per unit displacement.
     pub stiffness: f32,
@@ -100,15 +96,6 @@ pub struct Spring {
 }
 
 impl Spring {
-    /// A spring with the given stiffness, damping and mass.
-    pub const fn new(stiffness: f32, damping: f32, mass: f32) -> Self {
-        Spring {
-            stiffness,
-            damping,
-            mass,
-        }
-    }
-
     pub const GENTLE: Spring = Spring {
         stiffness: 120.0,
         damping: 14.0,

@@ -11,7 +11,6 @@ fn text(t: &SemanticsText, h: &mut DefaultHasher) {
         start,
         selection,
         caret,
-        ..
     } = t;
     start.hash(h);
     selection.hash(h);
@@ -23,7 +22,6 @@ fn text(t: &SemanticsText, h: &mut DefaultHasher) {
             value,
             bounds,
             carets,
-            ..
         } = r.as_ref();
         id.hash(h);
         value.hash(h);
@@ -33,7 +31,6 @@ fn text(t: &SemanticsText, h: &mut DefaultHasher) {
             let kivact_types::TextCaret {
                 offset,
                 rect: bounds,
-                ..
             } = c;
             offset.hash(h);
             rect(*bounds, h);

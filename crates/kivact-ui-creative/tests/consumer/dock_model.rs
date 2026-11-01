@@ -68,7 +68,5 @@ pub(super) fn weights(node: &DockNode<&'static str>) -> Vec<f64> {
     match node {
         DockNode::Split { children, .. } => children.iter().map(|child| child.weight).collect(),
         DockNode::Tabs(_) => Vec::new(),
-        // Variants added later fall back to no weights.
-        _ => Vec::new(),
     }
 }

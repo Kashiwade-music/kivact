@@ -9,7 +9,6 @@ use kivact::view::{IntoText, IntoView, Role, View};
 
 /// The look of a [`FieldSet`] legend.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum FieldLegendVariant {
     /// `text-sm`.
     #[default]

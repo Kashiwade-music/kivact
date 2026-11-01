@@ -55,7 +55,7 @@ impl Model {
         }
         self.a11y.prepared = None;
         kivact_types::protocol::SemanticsTree {
-            root: kivact_types::NodeId::new(root.0),
+            root: kivact_types::NodeId(root.0),
             focus: self.semantics_focus(&metadata.clipped),
             nodes,
         }

@@ -2,7 +2,6 @@
 
 /// Main-axis direction and ordering of children in a flex container.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum FlexDirection {
     Row,
     #[default]
@@ -13,7 +12,6 @@ pub enum FlexDirection {
 
 /// Cross-axis alignment of a box or its children.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum Align {
     Start,
     Center,
@@ -26,7 +24,6 @@ pub enum Align {
 /// How content is distributed along an axis (CSS `justify-content`,
 /// `align-content`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum Justify {
     #[default]
     Start,
@@ -42,7 +39,6 @@ pub enum Justify {
 
 /// How a box is positioned (CSS `position`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum Position {
     #[default]
     Relative,
@@ -59,7 +55,6 @@ pub enum Position {
 
 /// Whether overflowing content remains visible, is clipped or scrolls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum Overflow {
     #[default]
     Visible,
@@ -71,7 +66,6 @@ pub enum Overflow {
 /// opposite side when it does not fit and clamps it into the window
 /// according to the host's placement policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Placement {
     Below,
     Above,

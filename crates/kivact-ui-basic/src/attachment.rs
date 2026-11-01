@@ -16,7 +16,6 @@ use kivact::{Callback, Value};
 
 /// The size of an [`Attachment`] (attachment.tsx `size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum AttachmentSize {
     /// 40 px media, 8 px gap.
     #[default]
@@ -29,7 +28,6 @@ pub enum AttachmentSize {
 
 /// The progress of an [`Attachment`] (attachment.tsx `state`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum AttachmentState {
     /// Added and complete.
     #[default]
@@ -44,7 +42,6 @@ pub enum AttachmentState {
 
 /// The frame of the media of an [`Attachment`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum AttachmentMediaVariant {
     /// An icon on a muted square.
     #[default]

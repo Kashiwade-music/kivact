@@ -8,9 +8,20 @@ use kivact_wire::{DrawingShape, Fill, Point, Rect, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
-        let point = |p: Point| Point::new(origin.x + p.x, origin.y + p.y);
-        let rect = |r: Rect| Rect::new(origin.x + r.x, origin.y + r.y, r.width, r.height);
-        let origin_point = Point::new(origin.x, origin.y);
+        let point = |p: Point| Point {
+            x: origin.x + p.x,
+            y: origin.y + p.y,
+        };
+        let rect = |r: Rect| Rect {
+            x: origin.x + r.x,
+            y: origin.y + r.y,
+            width: r.width,
+            height: r.height,
+        };
+        let origin_point = Point {
+            x: origin.x,
+            y: origin.y,
+        };
         let tint = &state.current_tint;
         let command = match cmd {
             SceneCmd::Shape(painted) => {
@@ -22,7 +33,13 @@ impl Context<'_> {
                     self.drop_command();
                     return true;
                 }
-                let shape = crate::path::shifted(shape, Point::new(origin.x, origin.y));
+                let shape = crate::path::shifted(
+                    shape,
+                    Point {
+                        x: origin.x,
+                        y: origin.y,
+                    },
+                );
                 let mut area = match &painted.shape {
                     DrawingShape::Basic { rect: bounds, .. }
                     | DrawingShape::Rounded { rect: bounds, .. } => rect(*bounds),

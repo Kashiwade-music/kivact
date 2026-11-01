@@ -7,7 +7,6 @@ use std::rc::Rc;
 
 /// The editing behavior's result, interpreted by the native host.
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum EditOutcome {
     /// Leave this request for normal event routing.
     NotEditing,
@@ -127,9 +126,7 @@ pub trait Lines {
 
 /// The lines an [`EditContext`] reads, the revision of the text they are
 /// of and the width of the box they are aligned in.
-/// Built with [`EditLayout::new`].
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub struct EditLayout<'a> {
     /// Host line geometry provider for this snapshot.
     pub lines: &'a (dyn Lines + 'a),
@@ -139,19 +136,7 @@ pub struct EditLayout<'a> {
     pub width: f32,
 }
 
-impl<'a> EditLayout<'a> {
-    /// The `lines` of the text at `revision`, aligned in a box `width` wide.
-    pub const fn new(lines: &'a (dyn Lines + 'a), revision: u64, width: f32) -> Self {
-        EditLayout {
-            lines,
-            revision,
-            width,
-        }
-    }
-}
-
 /// A routed key or clipboard text for the attached editing behavior.
-#[non_exhaustive]
 pub enum EditRequest<'a> {
     /// A key after native composition and focus routing.
     Key {

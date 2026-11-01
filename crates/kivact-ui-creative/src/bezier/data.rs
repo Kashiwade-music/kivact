@@ -2,9 +2,7 @@
 use kivact::draw::Point;
 /// A cubic easing curve with fixed endpoints (0, 0) and (1, 1).
 /// X controls are clamped to 0..=1; finite Y controls may overshoot that range.
-/// Built with [`CubicBezier::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct CubicBezier {
     /// First control point horizontal coordinate, normalized to 0..=1.
     pub x1: f64,

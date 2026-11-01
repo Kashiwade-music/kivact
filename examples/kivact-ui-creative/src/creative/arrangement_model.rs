@@ -34,8 +34,6 @@ pub(super) fn edits(
                 point.set(None);
                 observe(EditPhase::Cancel);
             }
-            // Variants added later fall back to being ignored.
-            _ => {}
         }
     }
 }
@@ -93,8 +91,6 @@ fn apply(
                     ui::TrackFlag::Solo => t.solo = *value,
                     ui::TrackFlag::Arm => t.armed = *value,
                     ui::TrackFlag::AutomationRead => t.automation_read = *value,
-                    // Variants added later fall back to being ignored.
-                    _ => {}
                 }
             }
         }
@@ -134,7 +130,5 @@ fn apply(
                 t.automation.retain(|p| p.id != *id);
             }
         }
-        // Variants added later fall back to being ignored.
-        _ => {}
     }
 }

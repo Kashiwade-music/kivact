@@ -151,10 +151,14 @@ pub(crate) fn adapters() -> Vec<GpuAdapter> {
         luid[..4].copy_from_slice(&desc.AdapterLuid.LowPart.to_le_bytes());
         luid[4..].copy_from_slice(&desc.AdapterLuid.HighPart.to_le_bytes());
         let name = String::from_utf16_lossy(&desc.Description);
-        let mut adapter =
-            GpuAdapter::new(GpuBackend::Dx12, name.trim_end_matches('\0').to_owned(), 1);
-        adapter.luid = Some(luid);
-        found.push(adapter);
+        found.push(GpuAdapter {
+            backend: GpuBackend::Dx12,
+            name: name.trim_end_matches('\0').to_owned(),
+            luid: Some(luid),
+            device_uuid: None,
+            driver_uuid: None,
+            generation: 1,
+        });
     }
     found
 }

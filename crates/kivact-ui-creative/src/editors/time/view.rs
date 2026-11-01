@@ -159,8 +159,6 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                         EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
                         EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
                         EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                        // Variants added later fall back to a cancelled edit.
-                        _ => crate::editors::shared::model::EditorEvent::Cancel,
                     })
                 })
             }),

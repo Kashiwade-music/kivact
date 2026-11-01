@@ -57,7 +57,6 @@ pub enum Side {
 
 /// What a [`DialogApi`] is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum DialogKind {
     /// A modal dialog in the middle of the window (`Role::Dialog`).
     Modal,
@@ -270,8 +269,6 @@ impl DialogApi {
                 rules.outside
             }
             DismissReason::Accessibility => true,
-            // Variants added later fall back to an accessibility dismissal.
-            _ => true,
         };
         let surface = if self.popover() {
             self.popup.content_with(allowed)

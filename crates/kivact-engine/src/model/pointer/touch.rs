@@ -57,17 +57,23 @@ impl Model {
             self.cancel_pointer_input(pointer, &space);
             return false;
         }
-        let mut delta = Point::new(touch.last.x - at.x, touch.last.y - at.y);
+        let mut delta = Point {
+            x: touch.last.x - at.x,
+            y: touch.last.y - at.y,
+        };
         if touch.vertical.is_none() {
-            delta = Point::new(touch.start.x - at.x, touch.start.y - at.y);
+            delta = Point {
+                x: touch.start.x - at.x,
+                y: touch.start.y - at.y,
+            };
             if delta.x.hypot(delta.y) <= 8.0 {
                 return false;
             }
             let vertical = delta.y.abs() >= delta.x.abs();
             let initial = if vertical {
-                Point::new(0.0, delta.y)
+                Point { x: 0.0, y: delta.y }
             } else {
-                Point::new(delta.x, 0.0)
+                Point { x: delta.x, y: 0.0 }
             };
             let Some((target, offset)) = self.scroll_target(touch.from, initial, None) else {
                 return false;

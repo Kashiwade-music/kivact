@@ -21,7 +21,7 @@ fn key(host: &Model, id: NodeId, check: &LayoutCheck) -> Option<BoxKey> {
             y += loc.y;
             cur = host.tree().parent_id(host.node(cur)?)?;
         }
-        Some((v, l.size, l.content_box, Point::new(x, y)))
+        Some((v, l.size, l.content_box, Point { x, y }))
     });
     Some(BoxKey {
         size: own.size,

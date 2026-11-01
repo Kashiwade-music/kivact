@@ -22,7 +22,6 @@ struct Logged {
 
 /// How a state taken from kivact changed the editor's text
 /// ([`Editor::take`](crate::Editor::take)).
-#[non_exhaustive]
 pub enum Taken {
     /// The same text: only the session is taken, and the text keeps its
     /// revision (a state of the same text from another revision changes

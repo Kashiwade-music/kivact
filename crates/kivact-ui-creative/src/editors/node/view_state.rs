@@ -3,9 +3,7 @@ use crate::editors::node::model::NodeLink;
 use kivact::interaction::ViewTransform;
 use kivact::{Binding, signal};
 /// The view state of a [`node_editor`](crate::editors::node).
-/// Built with [`NodeState::new`].
 #[derive(Clone, Copy)]
-#[non_exhaustive]
 pub struct NodeState {
     /// The selected node IDs.
     pub selection: Binding<Vec<u64>>,

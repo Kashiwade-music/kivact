@@ -66,7 +66,10 @@ impl ArvaneTestHost {
         .map_err(|e| error(&e))?;
         let mut window = VirtualWindow::open(VirtualWindowOptions {
             title: options.title.clone(),
-            size: Size::new(options.width, options.height),
+            size: Size {
+                width: options.width,
+                height: options.height,
+            },
             scale: options.scale,
             frame_period_ns: options.frame_period_ns,
             reduced_motion: options.reduced_motion,
@@ -81,7 +84,10 @@ impl ArvaneTestHost {
         let counts = Rc::new(Counts::default());
         let mut host = crate::host::new(
             counted(client, counts.clone()),
-            Size::new(options.width, options.height),
+            Size {
+                width: options.width,
+                height: options.height,
+            },
             engine,
             Rc::new(RefCell::new(crate::FrameLog::disabled())),
         );
@@ -258,7 +264,7 @@ impl ArvaneTestHost {
 
     /// Resize the content to `width` × `height` logical pixels.
     pub fn resize(&mut self, width: f32, height: f32) {
-        self.window.resize(Size::new(width, height));
+        self.window.resize(Size { width, height });
         self.send(ShellEvent::Resized);
     }
 
@@ -477,7 +483,11 @@ impl ArvaneTestHost {
         let r = self.region_local(id, region)?;
         let model = self.host.model.borrow();
         let bounds = model.rect(id)?;
-        let own = Rect::new(bounds.x + r.x, bounds.y + r.y, r.width, r.height);
+        let own = Rect {
+            x: bounds.x + r.x,
+            y: bounds.y + r.y,
+            ..r
+        };
         let t = model.transform_between(id, None);
         Some(crate::model::transform::map_rect(t.as_ref(), own))
     }
@@ -490,7 +500,7 @@ impl ArvaneTestHost {
 
     /// The node hit at a logical window point.
     pub fn hit(&self, x: f32, y: f32) -> Option<NodeId> {
-        self.host.model.borrow().hit(Point::new(x, y))
+        self.host.model.borrow().hit(Point { x, y })
     }
 
     /// The node with the keyboard focus.

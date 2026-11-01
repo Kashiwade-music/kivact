@@ -53,7 +53,11 @@ impl Model {
         let t = self.transform_between(id, None);
         map_rect(
             t.as_ref(),
-            Rect::new(at.x + rect.x, at.y + rect.y, rect.width, rect.height),
+            Rect {
+                x: at.x + rect.x,
+                y: at.y + rect.y,
+                ..rect
+            },
         )
     }
 

@@ -343,18 +343,24 @@ impl NodeLayoutColumns {
         let x = l.border.left + l.padding.left;
         let y = l.border.top + l.padding.top;
         Some(NodeLayout {
-            location: Point::new(l.location.x, l.location.y),
-            size: Size::new(l.size.width, l.size.height),
-            content_size: Size::new(
-                l.size.width + l.scroll_width(),
-                l.size.height + l.scroll_height(),
-            ),
-            content_box: Rect::new(
+            location: Point {
+                x: l.location.x,
+                y: l.location.y,
+            },
+            size: Size {
+                width: l.size.width,
+                height: l.size.height,
+            },
+            content_size: Size {
+                width: l.size.width + l.scroll_width(),
+                height: l.size.height + l.scroll_height(),
+            },
+            content_box: Rect {
                 x,
                 y,
-                (l.size.width - x - l.border.right - l.padding.right).max(0.0),
-                (l.size.height - y - l.border.bottom - l.padding.bottom).max(0.0),
-            ),
+                width: (l.size.width - x - l.border.right - l.padding.right).max(0.0),
+                height: (l.size.height - y - l.border.bottom - l.padding.bottom).max(0.0),
+            },
         })
     }
     /// Resolve a logical identity, then read its rounded layout.

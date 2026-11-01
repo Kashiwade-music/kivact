@@ -104,8 +104,6 @@ impl State {
             EditPhase::Cancel => {
                 self.edit.cancel();
             }
-            // Variants added later fall back to being ignored.
-            _ => {}
         }
     }
 }

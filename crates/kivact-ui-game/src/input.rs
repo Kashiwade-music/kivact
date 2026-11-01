@@ -171,8 +171,6 @@ impl kivact::view::IntoView for Dropzone {
                         over.set(false);
                         drop_callback(e.files)?;
                     }
-                    // Variants added later fall back to being ignored.
-                    _ => {}
                 }
                 Ok(Handled::Yes)
             })
