@@ -1,4 +1,4 @@
-//! Role: Surface, data and feedback components from the Halo prototype.
+//! Role: Surface, data and feedback components of the Pop kit.
 
 use crate::{Hue, Tokens};
 use kivact::Value;

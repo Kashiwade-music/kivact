@@ -1,6 +1,6 @@
 //! Role: Pop recipes for the standard toggle, progress bar and disclosure.
 //!
-//! The Halo look of `kivact::ui::toggle` (filled in the variant's [`Hue`]
+//! The Pop look of `kivact::ui::toggle` (filled in the variant's [`Hue`]
 //! while pressed), `progress` (a gradient fill, optionally striped or cut into
 //! [`Segments`]) and `disclosure` (a ruled row with a turning chevron).
 
