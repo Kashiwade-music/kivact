@@ -2,8 +2,10 @@
 //!
 //! Accepted ID metadata is an immutable UI-thread Rc snapshot. A local build
 //! takes only a thin clone; even an unwind cannot displace the accepted state.
-use super::{Model, a, wire};
 use crate::a11y::state::Metadata;
+use crate::model::Model;
+use arvane as a;
+use kivact_wire as wire;
 use std::collections::BTreeSet;
 
 impl Model {

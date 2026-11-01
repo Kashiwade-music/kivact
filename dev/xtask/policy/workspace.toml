@@ -212,9 +212,9 @@ target = []
 [module_rules.kivact-engine]
 except = [
     # Model owns passive state; these leaves import no Model or processing code.
-    "model -> paint::state",
-    "model -> a11y::state",
-    "model -> check::lint::state",
+    "model::aggregate -> paint::state",
+    "model::aggregate -> a11y::state",
+    "model::aggregate -> check::lint::state",
     # Sync derives Look values directly and calls PaintState's narrow invalidator.
     "model::interact::sync -> paint::state",
 ]

@@ -38,7 +38,7 @@
 //! - `MemoryWarning` releases unused asset and text engine caches
 //!   (`Engine::release_caches`: registered fonts and owned runs already
 //!   returned are kept) and is reported to the client.
-use super::Host;
+use super::pump::Host;
 use crate::KeyResult;
 use crate::host::HostWaker;
 use arvane::Window;

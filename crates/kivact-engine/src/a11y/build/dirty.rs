@@ -2,11 +2,13 @@
 //!
 //! The O(N) enumeration stores IDs/hashes only. Payload construction remains
 //! proportional to the expanded dirt; no accepted payload is retained here.
-use super::{Model, a, drawable, semantic_role, structural, wire};
+use super::node::{drawable, structural};
+use crate::model::Model;
+use crate::semantic_role;
+use arvane as a;
+use kivact_wire as wire;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
-
-mod local;
 
 impl Model {
     /// Independent full reference; callers isolate mutable identities and caches.
