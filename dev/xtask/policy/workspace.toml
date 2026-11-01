@@ -269,7 +269,6 @@ extra_rules = [
     "glob-imports",
     "non-leaf-implementation",
     "rustfmt-skip",
-    "non-exhaustive",
     "catch-unwind",
     "poison-access",
     "options-default",
@@ -277,6 +276,9 @@ extra_rules = [
 # 公開 API はまだ大きく変わるので、公開 item の rustdoc の有無（missing-docs）は今は検査しない。
 # API が落ち着いたら外す。
 disabled_rules = ["missing-docs"]
+# non-exhaustive（extra_rules に入れていない）も同じ理由で今は検査しない。互換を残さない初期開発版では
+# semver の利点がなく、workspace の中の match から網羅性の検査を奪うだけになる。API が落ち着いたら
+# extra_rules に戻す。下の api_packages はそのときの対象。
 # 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-wire と kivact_types::protocol は workspace 内の protocol。
 # facade（kivact）から届く crate と、四つの公式キット。
 api_packages = [
@@ -291,12 +293,18 @@ options_structs = [
     "arvane-native::test_display::TestWindowOptions",
     "arvane-shell::ChildOptions",
     "arvane-shell::ShellOptions",
+    "kivact-core::platform::FileDialog",
     "kivact-core::test::RenderOptions",
     "kivact-engine::HostOptions",
     "kivact-engine::embed::EmbedOptions",
     "kivact-engine::testing::TestHostOptions",
+    "kivact-interaction::Dismiss",
+    "kivact-interaction::ListPolicy",
+    "kivact-interaction::ListRangePolicy",
     "kivact-interaction::TooltipConfig",
     "kivact-style::draw::ImageOptions",
+    "kivact-style::draw::TextStyle",
+    "kivact-types::GpuPreference",
     "kivact-types::protocol::MouseSettings",
     "kivact-ui-basic::ChartConfig",
     "kivact-ui-creative::WindowOptions",
