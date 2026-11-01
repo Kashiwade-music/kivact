@@ -212,9 +212,9 @@ target = []
 [module_rules.kivact-engine]
 except = [
     # Model owns passive state; these leaves import no Model or processing code.
-    "model -> paint::state",
-    "model -> a11y::state",
-    "model -> check::lint::state",
+    "model::aggregate -> paint::state",
+    "model::aggregate -> a11y::state",
+    "model::aggregate -> check::lint::state",
     # Sync derives Look values directly and calls PaintState's narrow invalidator.
     "model::interact::sync -> paint::state",
 ]
@@ -313,8 +313,7 @@ reason = "Kit E2E tests are written from the user's side and import `kivact::pre
 
 [[style.exceptions]]
 rule = "glob-imports"
-path = "crates/kivact/src/lib.rs"
-item = "prelude"
+path = "crates/kivact/src/prelude.rs"
 reason = "The facade prelude is kivact_core's prelude plus the standard UI functions."
 
 [[style.exceptions]]
@@ -322,3 +321,21 @@ rule = "catch-unwind"
 path = "crates/arvane-native/src/embed/windows/proc.rs"
 item = "wndproc"
 reason = "Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The payload is kept in the child's PanicSlot, the App stops without running more App code, and the host's next call on Embedded resumes it (resume_unwind); it is never swallowed."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-core/src/client/dispatch.rs"
+item = "dispatch"
+reason = "Glue that ties the event modules together: it routes each HostEvent variant to the child module of its kind and implements no event handling itself."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-core/src/view/mount.rs"
+item = "mount_host_with"
+reason = "Glue that ties the mounting stages together: it runs the child modules' stages in the one order mounting requires and implements none of them."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-core/src/view/mount.rs"
+item = "mount_host"
+reason = "The stage sequence of mount_host_with without a layout fix-up; glue over the mounting stages."

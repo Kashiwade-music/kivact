@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
-use super::state::pool::{Job, Pool, lock};
+use crate::worker_pool::{Job, Pool, lock};
 
 struct Slot<R> {
     outcome: Outcome<R>,
@@ -188,15 +188,6 @@ where
     start(move |cancel| f.run(cancel))
 }
 
-mod sealed {
-    //! Role: Seal of `BlockingWork` and its two argument forms.
-    pub trait Sealed<M> {}
-    /// The form of a closure without an argument.
-    pub struct Nullary;
-    /// The form of a closure that takes the `CancelToken`.
-    pub struct Unary;
-}
-
 /// The closure of [`blocking`]: `FnOnce() -> R` or `FnOnce(CancelToken) -> R`,
 /// `Send + 'static`. `M` only tells the two forms apart and is inferred; the
 /// trait is sealed. It runs on another thread, so it cannot capture a
@@ -208,24 +199,29 @@ mod sealed {
     label = "runs on a blocking thread: every capture must be `Send`",
     note = "`Signal`, `Value` and the other handles stay on the UI thread: read the value outside `blocking` and move the plain value in"
 )]
-pub trait BlockingWork<R, M>: sealed::Sealed<M> + Send + 'static {
+pub trait BlockingWork<R, M>: crate::sealed::BlockingWorkSeal<M> + Send + 'static {
     #[doc(hidden)]
     fn run(self, cancel: CancelToken) -> R;
 }
 
-impl<F: FnOnce() -> R, R> sealed::Sealed<sealed::Nullary> for F {}
+impl<F: FnOnce() -> R, R> crate::sealed::BlockingWorkSeal<crate::sealed::Nullary> for F {}
 
 #[diagnostic::do_not_recommend]
-impl<F: FnOnce() -> R + Send + 'static, R> BlockingWork<R, sealed::Nullary> for F {
+impl<F: FnOnce() -> R + Send + 'static, R> BlockingWork<R, crate::sealed::Nullary> for F {
     fn run(self, _: CancelToken) -> R {
         self()
     }
 }
 
-impl<F: FnOnce(CancelToken) -> R, R> sealed::Sealed<sealed::Unary> for F {}
+impl<F: FnOnce(CancelToken) -> R, R>
+    crate::sealed::BlockingWorkSeal<crate::sealed::Unary<CancelToken>> for F
+{
+}
 
 #[diagnostic::do_not_recommend]
-impl<F: FnOnce(CancelToken) -> R + Send + 'static, R> BlockingWork<R, sealed::Unary> for F {
+impl<F: FnOnce(CancelToken) -> R + Send + 'static, R>
+    BlockingWork<R, crate::sealed::Unary<CancelToken>> for F
+{
     fn run(self, cancel: CancelToken) -> R {
         self(cancel)
     }

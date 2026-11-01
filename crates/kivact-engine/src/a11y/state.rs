@@ -106,3 +106,20 @@ impl A11yState {
         self.region_ids.get(&(node, region)).copied()
     }
 }
+
+impl A11yState {
+    /// A new native identity: no node of `tree`, no scene region, and
+    /// never given before.
+    pub(super) fn next_identity(&mut self, tree: &crate::tree::NodeTree) -> u64 {
+        loop {
+            let candidate = self.next_semantics_id;
+            self.next_semantics_id = candidate.checked_sub(1).expect(
+                "invariant: native semantics identity space cannot exhaust in a process lifetime",
+            );
+            // The counter only decreases, so this candidate cannot be an earlier synthetic ID.
+            if !tree.contains(NodeId(candidate)) && !self.native_regions.contains_key(&candidate) {
+                return candidate;
+            }
+        }
+    }
+}

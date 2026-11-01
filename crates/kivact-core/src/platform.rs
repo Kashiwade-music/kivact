@@ -16,9 +16,7 @@ pub(crate) mod lifecycle;
 #[doc(inline)]
 pub use lifecycle::{LifecycleEvent, on_lifecycle};
 mod services;
-
-use kivact_engine::bridge::Client;
-use kivact_reactive::{ErrorKind, UiError};
+mod window_loop;
 
 pub(crate) use env::missing_capabilities;
 #[doc(inline)]
@@ -31,13 +29,7 @@ pub use services::{
     FileDialog, copy_text, open_path, pick_file, pick_files, pick_folder, read_text,
     request_window_size, reveal_path, save_file, set_fullscreen,
 };
-
-/// Run the client in a window of the engine. Its errors become Kivact
-/// platform diagnostics.
-pub(crate) fn run_native(client: Client, options: kivact_engine::HostOptions) -> crate::Result<()> {
-    kivact_engine::run_native(client, options)
-        .map_err(|e| UiError::new(ErrorKind::Platform, e.message, None))
-}
+pub(crate) use window_loop::run_native;
 
 #[doc(inline)]
 pub use env::{Capabilities, Insets};

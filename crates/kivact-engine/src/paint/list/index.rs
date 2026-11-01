@@ -25,7 +25,7 @@ use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
 use kivact_wire::{NodeId, Rect};
 
-use super::{grow, ink, overlaps};
+use super::ink::{grow, ink, overlaps};
 
 /// Logical pixels an entry is grown by: the index computes a child's reach
 /// relative to its location, the walk in window space, and the two may

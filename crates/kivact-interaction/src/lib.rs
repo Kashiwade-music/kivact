@@ -46,6 +46,7 @@ mod popup;
 mod range_scalar;
 mod roving;
 mod scalar;
+mod sealed;
 mod select;
 mod splitter;
 mod table;

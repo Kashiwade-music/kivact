@@ -129,11 +129,13 @@ impl InputState {
     }
 }
 
-/// Create one setup-owned behavior attachment and derive its exposed state.
+/// Create a setup-owned semantic and input attachment for one target.
+///
+/// Read [`Part::state`](crate::primitive::Part::state) before consuming the attachment
+/// with an element's `with` modifier or a canvas node's `region` declaration.
+/// The closure receives the exact target's input, focus and availability state.
 #[track_caller]
-pub(crate) fn create<S: Clone + PartialEq + 'static>(
-    state: impl Fn(PartState) -> S + 'static,
-) -> Part<S> {
+pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'static) -> Part<S> {
     Owner::current("part");
     let node = node_ref();
     let focused = node.focused();

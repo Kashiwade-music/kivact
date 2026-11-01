@@ -206,7 +206,7 @@ pub trait IntoValue<T: 'static> {
     note = "pass a `&str`, a `String`, a `Signal`/`Value`/`Binding` of a `String`, or a closure `move || ..` returning a `&str` or `String`",
     note = "format a number first: `move || count.get().to_string()`"
 )]
-pub trait IntoText: sealed::Sealed {
+pub trait IntoText: crate::sealed::IntoTextSeal {
     /// This input as a [`Prop`], without creating a graph node.
     fn into_text(self) -> Prop<String>;
 
@@ -240,22 +240,14 @@ pub trait IntoText: sealed::Sealed {
     }
 }
 
-mod sealed {
-    //! Role: Sealed supertrait that keeps IntoText from being implemented outside the crate.
-    //!
-    /// Seal of [`IntoText`](super::IntoText): implemented exactly for the text
-    /// inputs it lists.
-    pub trait Sealed {}
-}
-
-impl sealed::Sealed for &str {}
-impl sealed::Sealed for String {}
-impl sealed::Sealed for Rc<str> {}
-impl sealed::Sealed for Signal<String> {}
-impl sealed::Sealed for Value<String> {}
-impl sealed::Sealed for Binding<String> {}
-impl sealed::Sealed for Reactive<String> {}
-impl<R: Into<String>, F: Fn() -> R + 'static> sealed::Sealed for F {}
+impl crate::sealed::IntoTextSeal for &str {}
+impl crate::sealed::IntoTextSeal for String {}
+impl crate::sealed::IntoTextSeal for Rc<str> {}
+impl crate::sealed::IntoTextSeal for Signal<String> {}
+impl crate::sealed::IntoTextSeal for Value<String> {}
+impl crate::sealed::IntoTextSeal for Binding<String> {}
+impl crate::sealed::IntoTextSeal for Reactive<String> {}
+impl<R: Into<String>, F: Fn() -> R + 'static> crate::sealed::IntoTextSeal for F {}
 
 impl IntoText for &str {
     fn into_text(self) -> Prop<String> {

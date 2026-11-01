@@ -232,12 +232,6 @@ pub(crate) fn misuse(err: UiError) -> ! {
     panic!("kivact misuse: {err:?}")
 }
 
-pub(crate) mod sealed {
-    //! Role: Sealed supertraits that keep `HandlerResult` implementable only here.
-    /// Implemented for `()` and `Result<(), UiError>` only.
-    pub trait Sealed {}
-}
-
 /// Return type of handlers and callbacks: `()` or `Result<(), UiError>`.
 /// Handlers and callbacks run untracked: a `get` in one subscribes nothing.
 /// Sealed with exactly these two impls so that `?` infers `UiError`.
@@ -245,7 +239,7 @@ pub(crate) mod sealed {
     message = "a handler must return `()` or `Result<(), UiError>`",
     note = "use `?` on other errors; they convert to `UiError`"
 )]
-pub trait HandlerResult: sealed::Sealed {
+pub trait HandlerResult: crate::sealed::HandlerResultSeal {
     /// The result as `Result<(), UiError>`.
     fn into_result(self) -> Result<()>;
 }
@@ -262,5 +256,5 @@ impl HandlerResult for Result<()> {
     }
 }
 
-impl sealed::Sealed for () {}
-impl sealed::Sealed for Result<(), UiError> {}
+impl crate::sealed::HandlerResultSeal for () {}
+impl crate::sealed::HandlerResultSeal for Result<(), UiError> {}

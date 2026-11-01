@@ -1,10 +1,13 @@
 //! Role: Hard-line splits, chunk reconciliation and byte/scalar/UTF16 lookup.
 
+use crate::EditLines;
 use crate::pieces::floor;
 use crate::records::{Before, Chunk, Line, Shown};
-use crate::{CHUNK, EditLines};
 use kivact_editing::Damage;
 use std::ops::Range;
+
+/// Lines per chunk: a chunk holds at most twice as many.
+const CHUNK: usize = 256;
 
 /// The lines of `text[from..to]` as `(start, content, end)`: a whole text
 /// is one line unless `multiline`; `to` is the text's end or follows a
