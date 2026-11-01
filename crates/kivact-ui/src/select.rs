@@ -11,7 +11,9 @@ use kivact_core::view::{
 };
 use kivact_core::{Binding, Callback, Value};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
-use std::{cell::Cell, hash::Hash, rc::Rc};
+use std::cell::Cell;
+use std::hash::Hash;
+use std::rc::Rc;
 
 /// What an option row shows, from its item and its state.
 type OptionContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<ListItemState>) -> View>;

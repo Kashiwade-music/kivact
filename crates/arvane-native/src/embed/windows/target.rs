@@ -3,7 +3,8 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, Win32WindowHandle, WindowHandle, WindowsDisplayHandle,
 };
-use std::{num::NonZeroIsize, sync::Arc};
+use std::num::NonZeroIsize;
+use std::sync::Arc;
 pub(super) struct Target {
     pub(super) instance: isize,
     pub(super) native: Arc<super::native::Native>,

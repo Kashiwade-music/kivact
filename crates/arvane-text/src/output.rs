@@ -17,7 +17,8 @@
 //! - Decorations and bands follow the glyphs drawn: a dropped glyph has
 //!   none, the ellipsis has the paragraph's decoration.
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use kivact_types::{
     DecorationLines, Glyph, GlyphRun, Rect, Size, TextAlign, TextDecoration, TextDecorationRect,

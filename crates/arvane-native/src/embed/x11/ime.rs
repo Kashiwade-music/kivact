@@ -13,25 +13,19 @@
 
 use super::conn::Native;
 use arvane_shell::{ShellError, ShellEvent};
-use std::{
-    cell::RefCell,
-    collections::VecDeque,
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use x11rb::{
-    connection::Connection,
-    protocol::{
-        Event,
-        xproto::{AtomEnum, ConnectionExt, KeyPressEvent},
-    },
-    x11_utils::X11Error,
-    xcb_ffi::XCBConnection,
-};
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use x11rb::connection::Connection;
+use x11rb::protocol::Event;
+use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, KeyPressEvent};
+use x11rb::x11_utils::X11Error;
+use x11rb::xcb_ffi::XCBConnection;
+use xim::x11rb::{HasConnection, X11rbClient};
 use xim::{
     AttributeName, Client, ClientCore, ClientError, ClientHandler, ForwardEventFlag, InputStyle,
-    x11rb::{HasConnection, X11rbClient},
 };
 
 type ClientConnection = X11rbClient<Arc<XCBConnection>>;

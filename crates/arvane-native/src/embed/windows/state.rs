@@ -1,13 +1,12 @@
 //! Role: UI-only callback state, separate from synchronous wndproc answers.
 use super::native::Native;
-use crate::embed::{child::Shared, session::Session};
+use crate::embed::child::Shared;
+use crate::embed::session::Session;
 use arvane_shell::{ClickCounter, Mouse, ShellEvent};
-use std::{
-    cell::{Cell, RefCell},
-    collections::VecDeque,
-    sync::Arc,
-    time::Instant,
-};
+use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::Instant;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 pub(super) struct State {

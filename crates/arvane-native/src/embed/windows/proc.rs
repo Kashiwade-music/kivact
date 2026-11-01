@@ -1,12 +1,12 @@
 //! Role: Win32 dispatch with an independently retained Rc on every entry.
 use super::state::State;
 use arvane_shell::{ShellError, ShellEvent};
-use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    rc::Rc,
-    sync::atomic::Ordering,
-};
-use windows_sys::Win32::{Foundation::*, Graphics::Gdi::*, UI::WindowsAndMessaging::*};
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::rc::Rc;
+use std::sync::atomic::Ordering;
+use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Graphics::Gdi::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 pub(super) unsafe extern "system" fn wndproc(
     hwnd: HWND,

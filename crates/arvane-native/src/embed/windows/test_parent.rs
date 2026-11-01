@@ -1,20 +1,17 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
 use arvane_shell::ShellError;
 use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
-use std::{
-    cell::Cell,
-    marker::PhantomData,
-    rc::Rc,
-    sync::Mutex,
-    time::{Duration, Instant},
-};
-use windows_sys::Win32::{
-    Foundation::*,
-    Graphics::Gdi::*,
-    Storage::Xps::PrintWindow,
-    System::LibraryLoader::*,
-    UI::{Input::KeyboardAndMouse::*, WindowsAndMessaging::*},
-};
+use std::cell::Cell;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Graphics::Gdi::*;
+use windows_sys::Win32::Storage::Xps::PrintWindow;
+use windows_sys::Win32::System::LibraryLoader::*;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
 const NAME: &[u16] = &[
     65, 114, 118, 97, 110, 101, 69, 109, 98, 101, 100, 84, 101, 115, 116, 80, 97, 114, 101, 110,
     116, 0,

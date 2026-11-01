@@ -45,7 +45,8 @@ mod layouts;
 mod output;
 mod transform;
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use kivact_types::{
     Rect, RichText, ShapedText, TextAlign, TextCaret, TextDecoration, TextMetrics, TextOverflow,

@@ -4,15 +4,14 @@ use crate::key_code;
 use arvane_shell::ShellEvent;
 use kivact_types::{Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
 use std::rc::Rc;
+use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
 use windows_sys::Win32::System::SystemServices::{
     MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
 };
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
-use windows_sys::Win32::{
-    Foundation::*,
-    Graphics::Gdi::ScreenToClient,
-    UI::{Input::KeyboardAndMouse::*, WindowsAndMessaging::*},
-};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 pub(super) fn cursor(cursor: Cursor) {
     let id = match cursor {
@@ -250,7 +249,8 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
     }
 }
 fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
-    use winit::{keyboard::PhysicalKey, platform::scancode::PhysicalKeyExtScancode};
+    use winit::keyboard::PhysicalKey;
+    use winit::platform::scancode::PhysicalKeyExtScancode;
     let scan = ((l as u32 >> 16) & 0xff) | if l & (1 << 24) != 0 { 0xe000 } else { 0 };
     let code = key_code::physical_code(PhysicalKey::from_scancode(scan));
     let modifiers = modifiers();

@@ -9,13 +9,9 @@
 //! Cleanup of the App may still be deferred after that while an App callback
 //! is on the stack.
 use arvane_shell::{ShellChild, ShellError};
-use std::{
-    collections::VecDeque,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
-    },
-};
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 pub(super) enum Command {
     SetSize {

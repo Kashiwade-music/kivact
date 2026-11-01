@@ -19,11 +19,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use kivact_types::{ColorMatrix, Extend, Gradient, GradientShape, ImageData, Rect};
-use vello_cpu::{
-    Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources,
-    kurbo::{Affine, Rect as RasterRect},
-    peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler},
-};
+use vello_cpu::kurbo::{Affine, Rect as RasterRect};
+use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};
+use vello_cpu::{Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources};
 
 use crate::gradient;
 

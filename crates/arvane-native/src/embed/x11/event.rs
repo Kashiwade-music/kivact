@@ -1,15 +1,12 @@
 //! Role: Normalizes X11 input, focus, geometry and XEmbed notifications.
 
-use super::{keyboard::Keyboard, window::Window};
+use super::keyboard::Keyboard;
+use super::window::Window;
 use arvane_shell::{ClickCounter, Mouse, ShellError, ShellEvent, ShellWindow};
 use kivact_types::{MouseButton, Point, PointerPhase};
-use x11rb::{
-    connection::Connection,
-    protocol::{
-        Event,
-        xproto::{ConnectionExt, InputFocus},
-    },
-};
+use x11rb::connection::Connection;
+use x11rb::protocol::Event;
+use x11rb::protocol::xproto::{ConnectionExt, InputFocus};
 
 pub(super) struct Input {
     mouse: Mouse,

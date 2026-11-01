@@ -1,12 +1,11 @@
 //! Role: Stores GPU context, surface and image cache state.
 
 use super::external::External;
-use crate::{draw, images::ImageCache};
+use crate::draw;
+use crate::images::ImageCache;
 use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use vello_common::paint::ImageId;
 use vello_hybrid::{Renderer, Resources, TextureBindings, TextureId};
 

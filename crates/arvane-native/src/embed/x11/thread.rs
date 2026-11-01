@@ -1,21 +1,18 @@
 //! Role: Starts, runs and closes an embedded X11 UI thread.
 
-use super::{
-    conn::Native,
-    event::Input,
-    keyboard::Keyboard,
-    notifier::{MAX_DIMENSION, Notifier},
-    poll::Waiter,
-    window::Window,
-};
-use crate::embed::{
-    child::{Backend as ChildBackend, Command, Handle, Shared},
-    session::{Session, contain},
-};
+use super::conn::Native;
+use super::event::Input;
+use super::keyboard::Keyboard;
+use super::notifier::{MAX_DIMENSION, Notifier};
+use super::poll::Waiter;
+use super::window::Window;
+use crate::embed::child::{Backend as ChildBackend, Command, Handle, Shared};
+use crate::embed::session::{Session, contain};
 use arvane_shell::{
     ChildOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker, ShellWindow,
 };
-use std::sync::{Arc, atomic::Ordering, mpsc};
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, mpsc};
 use x11rb::connection::Connection;
 
 impl ChildBackend for Arc<Notifier> {

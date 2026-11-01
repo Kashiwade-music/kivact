@@ -17,11 +17,11 @@
 use kivact_types::{
     BlendMode, FillRule, LineCap, LineJoin, PathCmd, Point, Rect, Rgba, Shape, Stroke, Transform,
 };
-use vello_cpu::{
-    color::{AlphaColor, Srgb},
-    kurbo::{self, Affine, BezPath, Point as RasterPoint, Rect as RasterRect, Shape as _},
-    peniko::{self, Compose, Mix},
+use vello_cpu::color::{AlphaColor, Srgb};
+use vello_cpu::kurbo::{
+    self, Affine, BezPath, Point as RasterPoint, Rect as RasterRect, Shape as _,
 };
+use vello_cpu::peniko::{self, Compose, Mix};
 
 pub(crate) fn point(point: Point) -> RasterPoint {
     RasterPoint::new(f64::from(point.x), f64::from(point.y))

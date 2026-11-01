@@ -1,25 +1,17 @@
 //! Role: Implements embedded X11 window services and synchronous presentation.
 
-use super::{
-    conn::Native,
-    notifier::{MAX_DIMENSION, Notifier},
-};
-use crate::embed::{
-    child::{Backend as _, Shared},
-    session::negotiate,
-};
+use super::conn::Native;
+use super::notifier::{MAX_DIMENSION, Notifier};
+use crate::embed::child::{Backend as _, Shared};
+use crate::embed::session::negotiate;
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::{Capabilities, Cursor, Environment, Rect, Size};
-use std::{
-    cell::{Cell, RefCell},
-    num::NonZeroU32,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use x11rb::{
-    connection::Connection,
-    protocol::xproto::{ConfigureWindowAux, ConnectionExt},
-};
+use std::cell::{Cell, RefCell};
+use std::num::NonZeroU32;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use x11rb::connection::Connection;
+use x11rb::protocol::xproto::{ConfigureWindowAux, ConnectionExt};
 
 pub(super) struct Window {
     pub(super) shared: Arc<Shared>,

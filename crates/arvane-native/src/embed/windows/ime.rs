@@ -9,10 +9,9 @@
 use super::state::State;
 use arvane_shell::ShellEvent;
 use std::rc::Rc;
-use windows_sys::Win32::{
-    Foundation::{POINT, RECT},
-    UI::{Input::Ime::*, WindowsAndMessaging::*},
-};
+use windows_sys::Win32::Foundation::{POINT, RECT};
+use windows_sys::Win32::UI::Input::Ime::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 struct Context {
     hwnd: isize,

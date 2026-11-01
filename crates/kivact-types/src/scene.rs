@@ -7,7 +7,8 @@ use crate::{
     Backdrop, BoxShadow, ColorMatrix, Layer, Paint, PathCmd, Point, Rect, Rgba, Shape, Size,
     Stroke, TextDecorationRect, TextHighlight, Transform,
 };
-use std::{ops::Range, sync::Arc};
+use std::ops::Range;
+use std::sync::Arc;
 
 /// Positioned glyph, usable on any thread.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

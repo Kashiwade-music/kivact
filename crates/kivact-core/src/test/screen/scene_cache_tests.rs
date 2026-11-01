@@ -9,11 +9,9 @@ use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
 use kivact_reactive::Runtime;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextStyle};
-use std::{
-    panic::Location,
-    rc::Rc,
-    time::{Duration, Instant},
-};
+use std::panic::Location;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 fn host(
     root: impl FnOnce() -> View + 'static,

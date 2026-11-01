@@ -19,11 +19,9 @@ use kivact::view::{
     callback, for_each, node_ref, show,
 };
 use kivact::{Callback, Value, memo, signal};
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    rc::Rc,
-};
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 #[path = "outliner_controls.rs"]
 mod controls;

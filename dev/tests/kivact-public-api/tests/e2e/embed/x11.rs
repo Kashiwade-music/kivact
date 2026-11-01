@@ -1,6 +1,8 @@
 //! Role: X11-specific embedding services and native protocol checks.
 use super::support::{SERIAL, wait};
-use kivact::{platform, prelude::*, test::TestParent};
+use kivact::platform;
+use kivact::prelude::*;
+use kivact::test::TestParent;
 use std::sync::{Arc, Mutex};
 /// XIM is optional on X11; native keyboard input must remain usable.
 // This does not force either case: it runs with whatever XMODIFIERS the environment has.

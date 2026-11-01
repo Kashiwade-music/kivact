@@ -62,10 +62,8 @@ use texture::target_texture;
 use crate::error::RenderError;
 use crate::{draw, validate};
 use kivact_types::{CpuFrame, Scene, Size};
-use std::{
-    sync::{Arc, Mutex, PoisonError, mpsc},
-    time::Duration,
-};
+use std::sync::{Arc, Mutex, PoisonError, mpsc};
+use std::time::Duration;
 use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
 
 /// Glyph atlas pages at most (added as needed, `encode.rs`).

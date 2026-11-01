@@ -11,7 +11,9 @@ use kivact::style::style;
 use kivact::view::MouseButton;
 use kivact::view::{A11yAction, Handled, NodeRef, PointerPhase};
 use kivact::{Binding, Callback, Value};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// A row that is mounted: its node, its rect, and which mount it is (a row
 /// that is built again under the same id replaces it).

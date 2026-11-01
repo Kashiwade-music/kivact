@@ -20,11 +20,9 @@
 use crate::{App, IntoView, Result, UiError, check_window_sizes};
 use kivact_reactive::ErrorKind;
 use kivact_wire::ParentWindow;
-use std::{
-    ffi::c_void,
-    num::{NonZeroIsize, NonZeroU32},
-    panic::Location,
-};
+use std::ffi::c_void;
+use std::num::{NonZeroIsize, NonZeroU32};
+use std::panic::Location;
 
 /// A host window and optional host-decided scale. Constructors only store raw
 /// values and never dereference them. `App::embed` validates the parent.

@@ -5,7 +5,8 @@ use kivact::interaction::{ViewTransform, use_zoom_pan};
 use kivact::prelude::*;
 use kivact::ui::EditPhase;
 use kivact::view::MouseButton;
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 type Log = Rc<RefCell<Vec<(EditPhase, ViewTransform)>>>;
 fn close(a: Point, b: Point) {
     assert!(

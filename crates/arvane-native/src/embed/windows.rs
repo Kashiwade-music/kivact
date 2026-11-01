@@ -32,10 +32,8 @@ use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
 use native::{COMMAND, MAX_DIMENSION, Native};
 use state::State;
 use std::rc::Rc;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use windows_sys::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 

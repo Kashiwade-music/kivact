@@ -6,14 +6,10 @@ use arvane::embed::{Embedded, Embedder};
 pub use arvane::{detached_threads, retain_module};
 use kivact_types::{GpuPreference, ParentWindow};
 use kivact_wire::{HostError, Size};
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Initial embedded host settings.
 pub struct EmbedOptions {

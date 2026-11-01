@@ -13,7 +13,9 @@ use kivact::style::Align;
 use kivact::style::current_theme;
 use kivact::view::{A11yAction, Handled};
 use kivact::view::{MouseButton, PointerPhase, for_each};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// A retained inspector panel. Identities must be unique within its group.
 #[derive(Clone, Debug, PartialEq)]

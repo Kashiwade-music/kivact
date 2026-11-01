@@ -22,13 +22,13 @@
 //! sampling) and the GPU (each copy sampled apart, clamped at its edges)
 //! differ slightly at the tiles' seams.
 
-use crate::{
-    convert,
-    derived::Derived,
-    gradient::{color, gradient, stops_of},
-};
+use crate::convert;
+use crate::derived::Derived;
+use crate::gradient::{color, gradient, stops_of};
 use kivact_types::{ColorMatrix, ImageData, Paint, PatternSource, Rect};
-use vello_cpu::{PaintType, kurbo::Affine, peniko::Gradient as RasterGradient};
+use vello_cpu::PaintType;
+use vello_cpu::kurbo::Affine;
+use vello_cpu::peniko::Gradient as RasterGradient;
 
 /// A paint ready to fill with.
 pub(crate) enum Brush {

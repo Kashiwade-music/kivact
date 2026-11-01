@@ -12,24 +12,18 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle, XcbDisplayHandle, XcbWindowHandle,
 };
-use std::{
-    num::NonZeroU32,
-    ptr::NonNull,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread::ThreadId,
+use std::num::NonZeroU32;
+use std::ptr::NonNull;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::ThreadId;
+use x11rb::connection::Connection;
+use x11rb::errors::ReplyError;
+use x11rb::protocol::xproto::{
+    AtomEnum, ConnectionExt, CreateWindowAux, EventMask, PropMode, WindowClass,
 };
-use x11rb::{
-    connection::Connection,
-    errors::ReplyError,
-    protocol::xproto::{
-        AtomEnum, ConnectionExt, CreateWindowAux, EventMask, PropMode, WindowClass,
-    },
-    wrapper::ConnectionExt as _,
-    xcb_ffi::XCBConnection,
-};
+use x11rb::wrapper::ConnectionExt as _;
+use x11rb::xcb_ffi::XCBConnection;
 
 pub(super) struct Native {
     pub(super) connection: Arc<XCBConnection>,

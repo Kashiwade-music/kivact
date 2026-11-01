@@ -17,7 +17,9 @@ use kivact_core::view::{IntoText, IntoValue, IntoView, Orientation, View, dynami
 use kivact_core::{Binding, Value};
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
 use kivact_interaction::{TabListState, TabState};
-use std::{cell::Cell, hash::Hash, rc::Rc};
+use std::cell::Cell;
+use std::hash::Hash;
+use std::rc::Rc;
 
 /// What a tab shows, from its item and its state.
 type TabContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<TabState>) -> View>;
