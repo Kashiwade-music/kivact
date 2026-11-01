@@ -4,7 +4,7 @@ use super::client::{Boundary, Client};
 use crate::model::Model;
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
-use kivact_wire::{ExternalImport, FileDialogRequest, HostEvent, PlatformRequest, PlatformResult};
+use kivact_wire::{FileDialogRequest, HostEvent, PlatformRequest, PlatformResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -139,6 +139,7 @@ impl Host {
     #[cfg(feature = "gpu-interop")]
     pub(super) fn externals<W: Window>(&mut self, window: &mut W) {
         use crate::model::ExternalWrite;
+        use kivact_wire::ExternalImport;
         let writes = std::mem::take(&mut self.model.borrow_mut().external_writes);
         for write in writes {
             match write {
