@@ -28,6 +28,7 @@ pub fn panel(content: impl IntoView) -> Node {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BadgeVariant {
     #[default]
     Soft,

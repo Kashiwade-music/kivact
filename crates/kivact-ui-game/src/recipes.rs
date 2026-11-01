@@ -23,6 +23,7 @@ use std::sync::OnceLock;
 /// `kivact::ui::button(..).variant(ButtonTone::Dark)`. Another theme
 /// draws the button's plain variant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ButtonTone {
     /// The navy console button.
     Dark,

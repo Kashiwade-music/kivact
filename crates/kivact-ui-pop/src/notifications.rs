@@ -14,7 +14,9 @@ use kivact::style::{Align, ColorToken, Justify, Position, pct, style};
 use kivact::view::{IntoValue, IntoView, Placement, Role, callback, for_each, overlay, show};
 
 /// One notification; its identifier survives read-state updates.
+/// Built with [`NotificationItem::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct NotificationItem {
     pub id: u64,
     pub title: String,

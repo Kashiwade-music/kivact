@@ -22,10 +22,19 @@ pub struct Striped;
 impl Variant for Striped {}
 
 /// Cut a standard progress bar into this many segments:
-/// `kivact::ui::progress(..).variant(Segments(10))`. Another theme draws the
+/// `kivact::ui::progress(..).variant(Segments::new(10))`. Another theme draws the
 /// plain bar.
+/// Built with [`Segments::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Segments(pub u16);
+
+impl Segments {
+    /// A bar of `count` segments.
+    pub const fn new(count: u16) -> Self {
+        Segments(count)
+    }
+}
 
 impl Variant for Segments {}
 

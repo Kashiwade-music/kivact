@@ -75,6 +75,7 @@ pub fn badge(label: impl IntoText, tone: Tone) -> Node {
 
 /// Status, version and environment badge treatments.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BadgeVariant {
     #[default]
     Dot,

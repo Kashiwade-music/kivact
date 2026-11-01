@@ -8,6 +8,7 @@ use kivact::ui::{ButtonVariant, ControlSize};
 /// `kivact::ui::button(..).variant(ButtonTone::Pink)`. Another theme
 /// draws the button's plain variant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ButtonTone {
     /// The yellow highlight.
     Accent,
