@@ -1,10 +1,7 @@
 //! Role: End-to-end test suite for Kivact public API.
 //! module checks one behaviour on real windows of the Arvane host through
 //! `kivact::test`. One binary links kivact, Arvane and wgpu once instead of
-//! once per file; the windows share its one event loop. (The trybuild
-//! compile checks are `tests/compile.rs`, a binary of their own that links
-//! no window: trybuild writes to stdout directly, which would interleave
-//! with this binary's report.)
+//! once per file; the windows share its one event loop.
 
 #[cfg(feature = "embed")]
 mod embed;

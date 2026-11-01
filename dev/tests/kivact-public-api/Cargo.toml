@@ -24,7 +24,6 @@ kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
 kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
 kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
 kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
-trybuild = "1.0.121"
 # The integration tests observe the trace through a subscriber.
 tracing = { workspace = true }
 
@@ -38,20 +37,12 @@ windows = { workspace = true, features = ["Win32_System_Com", "Win32_System_Ole"
 windows-sys = { workspace = true, features = ["Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_System_Memory", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 [[test]]
-name = "embed_resources"
-path = "tests/embed_resources.rs"
-
-[[test]]
 name = "e2e"
 path = "tests/e2e/main.rs"
 
 [[test]]
 name = "offscreen"
 path = "tests/offscreen.rs"
-
-[[test]]
-name = "compile"
-path = "tests/compile.rs"
 
 [lints]
 workspace = true

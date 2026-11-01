@@ -113,9 +113,7 @@
 //!   not rebuilt. Debug builds check that only a Box carries `Measure`, and
 //!   that a node with it has no children.
 //!
-//! An example is `page_dots` in `kivact-external-component` (measured by
-//! its page count, drawing a hit and accessibility region per page); the
-//! E2E test is `dev/tests/kivact-public-api/tests/e2e/primitive.rs`.
+//! The E2E test is `dev/tests/kivact-public-api/tests/e2e/primitive.rs`.
 //!
 //! ```no_run
 //! # use kivact_core as kivact;
