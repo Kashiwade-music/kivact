@@ -322,3 +322,21 @@ rule = "catch-unwind"
 path = "crates/arvane-native/src/embed/windows/proc.rs"
 item = "wndproc"
 reason = "Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The payload is kept in the child's PanicSlot, the App stops without running more App code, and the host's next call on Embedded resumes it (resume_unwind); it is never swallowed."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/arvane-native/src/embed.rs"
+item = "embed::open"
+reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "examples/kivact-ui-basic/src/docs.rs"
+item = "docs::PAGES"
+reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "dev/xtask/src/main.rs"
+item = "main"
+reason = "Glue: the binary entry only wires xtask-core's run to this workspace's module-rule and impl-model checks."
