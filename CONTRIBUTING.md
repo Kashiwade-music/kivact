@@ -13,7 +13,7 @@
 規則の多くは root の `[workspace.lints]`（全 crate が `[lints] workspace = true` で参加）と `cargo xtask check` が強制します。`cargo xtask check` は [Google Rust Style Guide](https://google.github.io/styleguide/rustguide.html) の機械的に確かめられる 20 の規則（`vendor/xtask-core/README.md` の「Style checks」）もすべて検査します。主なものは次のとおりです。
 
 - 子 module を持つ module は、`mod` の宣言と再公開だけを置きます。実装は役割を一つに絞った葉の module に置きます。
-- `kivact` facade と公式キットから届く公開 enum と、field を公開した struct には `#[non_exhaustive]` を付けます。
+- `kivact` facade と公式キットから届く公開 enum と、field を公開した struct には `#[non_exhaustive]` を付けます。利用者は struct 式で作れなくなるので、struct には `new`（または `Default`）を用意し、rustdoc に作り方を一文で書きます。
 - 公開 API がまだ大きく変わるため、公開 item の rustdoc の有無（`missing-docs`）は今は検査しません（policy の `disabled_rules`）。
 - panic は不具合です。`catch_unwind` で隔離せず、毒された lock の中身にも触れません。
 - glob import は使いません（例・雛形・利用者側の E2E での `kivact::prelude::*` は除きます）。

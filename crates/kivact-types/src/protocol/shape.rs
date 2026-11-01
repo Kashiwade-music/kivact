@@ -88,10 +88,10 @@ impl Radius {
 /// use kivact_types::{Point, Rect};
 /// use kivact_types::protocol::{Radius, RoundedRect};
 /// // `border-radius: 50%` on a 100 × 40 box: an ellipse.
-/// let ellipse = RoundedRect::ellipse(Rect { x: 0.0, y: 0.0, width: 100.0, height: 40.0 });
+/// let ellipse = RoundedRect::ellipse(Rect::new(0.0, 0.0, 100.0, 40.0));
 /// assert_eq!(ellipse.radii[0], Radius { x: 50.0, y: 20.0 });
-/// assert!(ellipse.contains(Point { x: 50.0, y: 20.0 }));
-/// assert!(!ellipse.contains(Point { x: 2.0, y: 2.0 }));
+/// assert!(ellipse.contains(Point::new(50.0, 20.0)));
+/// assert!(!ellipse.contains(Point::new(2.0, 2.0)));
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct RoundedRect {
