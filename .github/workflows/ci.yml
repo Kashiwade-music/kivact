@@ -1,5 +1,5 @@
-# Fast checks only. The full gate in CONTRIBUTING.md (clippy, tests and the
-# window-opening suites) runs locally before merge.
+# Fast checks only. The full gate in CONTRIBUTING.md (clippy, tests, the
+# window-opening suites and the architecture diagrams) runs locally before merge.
 name: CI
 
 on:
@@ -26,6 +26,6 @@ jobs:
       - run: cargo fmt --all -- --check
       # xtask resolves features with --offline, so the registry must be filled first.
       - run: cargo fetch --locked
-      - run: cargo xtask check
-      - name: Architecture diagrams are up to date
-        run: test -z "$(git status --porcelain architecture)"
+      # --no-write checks every rule and the diagram structure without
+      # rendering SVGs (no Node); the diagrams are regenerated locally.
+      - run: cargo xtask check --no-write
