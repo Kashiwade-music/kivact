@@ -12,6 +12,7 @@ use kivact::{Binding, Callback, Value, binding, memo};
 
 /// The characters an [`InputOtp`] accepts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum OtpPattern {
     /// `0-9` only.
     #[default]

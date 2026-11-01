@@ -11,6 +11,7 @@ use kivact::view::{IntoText, IntoValue, IntoView, View};
 
 /// The spacing of a [`Card`] (card.tsx `size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CardSize {
     /// 16 px spacing.
     #[default]

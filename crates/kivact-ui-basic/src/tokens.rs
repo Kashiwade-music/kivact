@@ -9,7 +9,9 @@ use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 /// name a color with [`Color`](crate::Color), so a live theme switch restyles
 /// mounted components. A theme without them reads the values of its
 /// [`ThemeMode`].
+/// Built with [`Tokens::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Tokens {
     /// The scheme these values belong to; `dark:` variants follow it.
     pub mode: ThemeMode,
@@ -76,7 +78,9 @@ pub struct Tokens {
 /// The defaults are GitHub's light and dark themes, the ones shadcn/ui's
 /// documentation highlights its code blocks with; plain text and
 /// punctuation keep the block's foreground.
+/// Built with [`CodeColors::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct CodeColors {
     /// Keywords (`fn`, `let`, `pub`).
     pub keyword: Color,

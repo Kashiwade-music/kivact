@@ -14,6 +14,7 @@ use kivact::{Callback, Value};
 
 /// The frame of an [`Item`] (item.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ItemVariant {
     /// Transparent border.
     #[default]
@@ -26,6 +27,7 @@ pub enum ItemVariant {
 
 /// The density of an [`Item`] (item.tsx `size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ItemSize {
     /// 12 px / 10 px padding.
     #[default]
@@ -36,6 +38,7 @@ pub enum ItemSize {
 
 /// The frame of the media slot of an [`Item`] (item.tsx media `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ItemMediaVariant {
     /// Bare content.
     #[default]

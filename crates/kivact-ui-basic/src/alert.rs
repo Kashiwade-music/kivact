@@ -9,6 +9,7 @@ use kivact::view::{IntoText, IntoView, Role, View};
 
 /// The colors of an [`Alert`] (alert.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum AlertVariant {
     /// Card colors.
     #[default]

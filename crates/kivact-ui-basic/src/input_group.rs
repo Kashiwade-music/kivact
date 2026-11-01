@@ -14,6 +14,7 @@ use std::any::Any;
 
 /// The sizes of an [`input_group_button`] (`InputGroupButton`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum InputGroupButtonSize {
     /// `h-6 px-1.5` with a 14 px icon.
     #[default]

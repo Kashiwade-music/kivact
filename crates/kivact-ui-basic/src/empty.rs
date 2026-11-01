@@ -10,6 +10,7 @@ use kivact::view::{IntoText, IntoView, View};
 
 /// The frame of an [`EmptyState`] media slot (empty.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum EmptyMediaVariant {
     /// Bare media.
     #[default]

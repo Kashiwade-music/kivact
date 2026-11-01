@@ -14,6 +14,7 @@ use std::hash::Hash;
 /// The two looks of a toggle: the variant of a `kivact::ui::toggle` and of
 /// a [`ToggleGroup`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ToggleVariant {
     /// Transparent.
     #[default]

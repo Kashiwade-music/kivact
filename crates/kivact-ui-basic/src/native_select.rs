@@ -15,6 +15,7 @@ use std::hash::Hash;
 
 /// The heights of a [`NativeSelect`] (`data-size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum NativeSelectSize {
     /// `h-8`.
     #[default]

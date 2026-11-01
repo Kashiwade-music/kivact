@@ -6,6 +6,7 @@ use kivact::{Binding, Value};
 
 /// How the title of each month is shown.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CalendarCaption {
     /// A text such as `October 2026`.
     #[default]
