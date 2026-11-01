@@ -60,7 +60,7 @@ pub use kivact_types::{
 };
 pub use kivact_types::{
     Align, BorderStyle, FlexDirection, ImeEvent, Justify, LifecycleEvent, Overflow, Placement,
-    Position, RegionId,
+    Position, RegionId, TextMetrics,
 };
 pub use kivact_types::{Asset, ImageFit};
 pub use kivact_types::{DecorationLines, FillRule, Insets, Point, Rect, Size};
@@ -70,8 +70,7 @@ pub use host::{Capabilities, HostError, HostInfo, TurnOutput};
 pub use id_hash::{IdHasher, IdMap};
 pub use ids::{FocusTarget, NodeId, RequestId, Revision};
 pub use measure::{
-    AvailableSpace, Baseline, LeafMeasure, LeafSize, LeafTextMeasurer, MeasureRequest, TextMetrics,
-    TextShaper,
+    AvailableSpace, Baseline, LeafMeasure, LeafSize, LeafTextMeasurer, MeasureRequest, TextShaper,
 };
 pub use motion::MotionClock;
 pub use node::{

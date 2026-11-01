@@ -140,7 +140,7 @@ impl Ruler {
             align: TextAlign::Center,
             ..TextStyle::default()
         };
-        let width = (d.measure_text(&text, &style).width + 8.0).max(14.0);
+        let width = (d.measure_text(&text, &style).size.width + 8.0).max(14.0);
         d.rounded_rect(
             Rect::new(x - width / 2.0, 0.0, width, 17.0),
             6.0,

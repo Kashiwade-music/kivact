@@ -197,11 +197,6 @@ pub fn measure_run(
     }
     engine
         .text_metrics(run.text.as_str(), &style, None)
-        .map(|m| TextMetrics {
-            width: m.size.width,
-            height: m.size.height,
-            baseline: m.baseline,
-        })
         .unwrap_or_default()
 }
 

@@ -95,7 +95,7 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
     assert_eq!(px(&image, 104, 44), [255, 0, 0, 255]);
     assert_eq!(px(&image, 90, 44), [255, 255, 255, 255]);
     let metrics = measured.unwrap();
-    assert!(metrics.width > 0.0 && metrics.height > 0.0);
+    assert!(metrics.size.width > 0.0 && metrics.size.height > 0.0);
     let mut inked = 0;
     for y in 0..60 {
         for x in 0..90 {
@@ -103,9 +103,9 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
                 inked += 1;
                 assert!(
                     (x as f32) >= 9.0
-                        && (x as f32) <= 10.0 + metrics.width + 1.0
+                        && (x as f32) <= 10.0 + metrics.size.width + 1.0
                         && (y as f32) >= 9.0
-                        && (y as f32) <= 10.0 + metrics.height + 1.0,
+                        && (y as f32) <= 10.0 + metrics.size.height + 1.0,
                     "ink at {x},{y} outside the measured {metrics:?}"
                 );
             }

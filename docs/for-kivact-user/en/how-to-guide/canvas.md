@@ -155,7 +155,7 @@ fn pill(draw: &mut Draw, label: &str, at: Point) {
         ..TextStyle::default()
     };
     let metrics = draw.measure_text(label, &style);
-    let rect = Rect::new(at.x, at.y, metrics.width + 12.0, metrics.height + 8.0);
+    let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
     draw.rounded_rect(rect, rect.height / 2.0, ColorToken::Accent);
     draw.text(label, Point::new(at.x + 6.0, at.y + 4.0), style);
 }
@@ -179,8 +179,8 @@ fn labels() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Labels").run(labels) }
 ```
 
-`TextMetrics` gives `width`, `height` and the `baseline` offset in logical
-pixels. For wrapped text use `draw.layout_paragraph(text, &style, Some(max_width))`
+`TextMetrics` gives the text's `size` (`size.width`, `size.height`) and the
+`baseline` offset in logical pixels. For wrapped text use `draw.layout_paragraph(text, &style, Some(max_width))`
 and draw the result with `draw.paragraph(&paragraph, origin, color)`.
 `TextStyle` has the same vocabulary as element text: `family`, `weight`,
 `italic`, `letter_spacing`, `decoration` and so on.

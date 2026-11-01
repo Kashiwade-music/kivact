@@ -141,11 +141,14 @@ impl From<f64> for LineHeight {
     }
 }
 
-/// The extent of measured text.
+/// What measuring text answers (`Draw::measure_text`,
+/// `Constraints::measure_text`): its extent and where its first baseline
+/// lies, in logical pixels. Empty text measures `TextMetrics::default()`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TextMetrics {
-    /// Its width and height.
+    /// The width and height of the measured text.
     pub size: Size,
-    /// Its first line's baseline, from the top (`0` for empty text).
+    /// The first line's baseline, from the top of the text (`0` for empty
+    /// text). Place the text at `y - baseline` to put the baseline at `y`.
     pub baseline: f32,
 }
