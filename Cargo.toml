@@ -1,0 +1,195 @@
+[workspace]
+members = [
+    "crates/kivact",
+    "crates/kivact-core",
+    "dev/tests/kivact-public-api",
+    "crates/kivact-reactive",
+    "crates/kivact-i18n",
+    "crates/kivact-task",
+    "crates/kivact-motion",
+    "crates/kivact-style",
+    "crates/kivact-interaction",
+    "crates/kivact-ui",
+    "crates/kivact-ui-basic",
+    "crates/kivact-ui-pop",
+    "crates/kivact-ui-game",
+    "crates/kivact-ui-creative",
+    "crates/kivact-engine",
+    "crates/kivact-editing",
+    "crates/kivact-wire",
+    "crates/kivact-lower",
+    "crates/kivact-text",
+    "crates/kivact-layout",
+    "dev/tests/docs",
+    "dev/tests/workspace-policy",
+    "templates/basic",
+    "examples/kivact/counter",
+    "examples/kivact/form",
+    "examples/kivact/list",
+    "examples/kivact/async",
+    "examples/kivact/component",
+    "dev/apps/task-board",
+    "dev/apps/mini-postman",
+    "dev/apps/music-player",
+    "dev/tests/fixtures/external-component",
+    "dev/apps/ext-apps",
+    "dev/apps/workbench",
+    "dev/benchmarks/hostbench",
+    "examples/kivact-ui-basic",
+    "examples/kivact-ui-pop",
+    "examples/kivact-ui-game",
+    "examples/kivact-ui-creative",
+    "dev/apps/interaction-starter",
+    "dev/apps/embed-host",
+    "crates/arvane",
+    "crates/ui-types",
+    "crates/arvane-native",
+    "crates/arvane-shell",
+    "crates/arvane-text",
+    "crates/arvane-render",
+    "crates/arvane-asset",
+    "crates/gpu-share",
+    "dev/tests/gpu-interop-producer",
+    "dev/xtask",
+]
+exclude = ["vendor"]
+resolver = "2"
+
+[workspace.package]
+authors = ["Kashiwade <kashiwade@outlook.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Kashiwade-music/kivact"
+version = "0.1.0"
+
+[workspace.dependencies]
+accesskit = "=0.24.1"
+accesskit_winit = "=0.33.1"
+ash = "0.38"
+async-channel = "2.5.0"
+fontique = { version = "0.11.1", default-features = false, features = ["fontconfig-dlopen"] }
+kurbo = "=0.13.1"
+parley = { version = "0.11.1", features = ["complex-scripts"] }
+png = "0.18.1"
+pollster = "0.4.0"
+raw-window-handle = "0.6.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.151"
+skrifa = { version = "0.44.0", default-features = false }
+taffy = { version = "0.14.0", default-features = false, features = ["std", "flexbox", "grid", "calc", "content_size"] }
+tracing = { version = "0.1.44", default-features = false, features = ["std"] }
+unicode-segmentation = "1.13.3"
+vello_common = { version = "0.2.0", default-features = false }
+vello_cpu = { version = "0.2.0", default-features = false, features = ["std", "text", "u8_pipeline"] }
+vello_hybrid = { version = "0.2.0", default-features = false, features = ["wgpu", "text"] }
+wgpu = { version = "=29.0.4", default-features = false, features = ["std", "wgsl", "parking_lot", "vulkan", "dx12", "metal"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Direct3D12", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common"] }
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_Ime", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Input_Pointer", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+
+# Every member opts in with `[lints] workspace = true` (docs/for-kivact-developer/coding-rules.md).
+[workspace.lints.rust]
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+mod_module_files = "deny"
+allow_attributes_without_reason = "deny"
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+unwrap_used = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+# xtask-core requires an inner `//! Role:` line in every inline module, which
+# usually also carries outer attributes such as `#[cfg(test)]`.
+mixed_attributes_style = "allow"
+
+# The Arvane CPU rasterizer is unusable unoptimized (over a second per window
+# frame), so debug builds optimize its hot dependencies (and, further down,
+# the engine and Arvane).
+[profile.dev.package.vello_cpu]
+opt-level = 3
+[profile.dev.package.vello_common]
+opt-level = 3
+[profile.dev.package.vello_hybrid]
+opt-level = 3
+[profile.dev.package.fearless_simd]
+opt-level = 3
+[profile.dev.package.glifo]
+opt-level = 3
+[profile.dev.package.kurbo]
+opt-level = 3
+[profile.dev.package.peniko]
+opt-level = 3
+[profile.dev.package.skrifa]
+opt-level = 3
+[profile.dev.package.read-fonts]
+opt-level = 3
+[profile.dev.package.font-types]
+opt-level = 3
+# Taffy recomputes nested containers many times per pass (its few cached
+# sizes per node keep being replaced), which unoptimized costs tens of ms
+# per layout of a small window.
+[profile.dev.package.taffy]
+opt-level = 3
+# The engine and Arvane do the work of every frame (layout, the paint list,
+# accessibility, rasterizing, the GPU and accessibility adapters), and
+# unoptimized they make a drag or a hover of a debug build miss frames
+# (Taffy's generic callers also need optimization, so the taffy entry
+# alone is insufficient): debug builds optimize the layout crate and engine
+# integration too. The App's code,
+# the core and the kits stay debuggable. To step through the engine, build
+# with `--config 'profile.dev.package.kivact-engine.opt-level=0'`. To step
+# through layout, use `--config 'profile.dev.package.kivact-layout.opt-level=0'`.
+# Generic layout may materialize in both kivact-layout and its engine caller;
+# keep both package overrides in this workspace and independent consumers.
+[profile.dev.package.kivact-engine]
+opt-level = 3
+[profile.dev.package.kivact-editing]
+opt-level = 3
+[profile.dev.package.ui-types]
+opt-level = 3
+[profile.dev.package.arvane]
+opt-level = 3
+[profile.dev.package.arvane-asset]
+opt-level = 3
+[profile.dev.package.gpu-share]
+opt-level = 3
+[profile.dev.package.arvane-render]
+opt-level = 3
+[profile.dev.package.arvane-text]
+opt-level = 3
+[profile.dev.package.arvane-native]
+opt-level = 3
+[profile.dev.package.arvane-shell]
+opt-level = 3
+[profile.dev.package.parley]
+opt-level = 3
+[profile.dev.package.wgpu]
+opt-level = 3
+[profile.dev.package.wgpu-core]
+opt-level = 3
+[profile.dev.package.wgpu-hal]
+opt-level = 3
+[profile.dev.package.accesskit]
+opt-level = 3
+[profile.dev.package.accesskit_consumer]
+opt-level = 3
+[profile.dev.package.accesskit_windows]
+opt-level = 3
+
+[profile.dev.package.kivact-wire]
+opt-level = 3
+
+[profile.dev.package.kivact-lower]
+opt-level = 3
+
+[profile.dev.package.kivact-text]
+opt-level = 3
+
+[profile.dev.package.kivact-layout]
+opt-level = 3

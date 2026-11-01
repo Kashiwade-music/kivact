@@ -1,0 +1,29 @@
+# Fast checks only. The full gate in CONTRIBUTING.md (clippy, tests and the
+# window-opening suites) runs locally before merge.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      # rustup installs the toolchain pinned in rust-toolchain.toml.
+      - run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      - run: cargo fmt --all -- --check
+      - run: cargo xtask check
+      - name: Architecture diagrams are up to date
+        run: test -z "$(git status --porcelain architecture)"

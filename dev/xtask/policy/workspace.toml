@@ -1,0 +1,245 @@
+# `cargo xtask check`（xtask-core）が読む workspace の規則（docs/for-kivact-developer/coding-rules.md）。
+
+output = "architecture"
+
+[limits]
+# 1ファイルの code 行の上限。空行・comment だけの行・文字列 literal の中だけの行は数えない。
+max_code_lines = 1000
+
+[diagrams]
+targets = "lib-bin"
+
+[visible_to]
+
+# ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
+# kivact facade だけに依存する。
+kivact-reactive = ["kivact-task", "kivact-i18n", "kivact-motion", "kivact-style", "kivact-core"]
+kivact-i18n = ["kivact-core"]
+kivact-task = ["kivact-core"]
+kivact-motion = ["kivact-style", "kivact-core"]
+kivact-style = ["kivact-core"]
+kivact-core = ["kivact", "kivact-interaction", "kivact-ui"]
+kivact-interaction = ["kivact", "kivact-ui"]
+kivact-ui = ["kivact"]
+
+# ----- Core/engine boundary: only kivact-core consumes the engine.
+# App::run, Offscreen and the test driver share this bridge.
+# Embedded handles are Send + Sync. Only embedded clients return a diagnostic
+# through Client::start / TurnOutput::stop at startup or the end of a turn;
+# Runtime::first_unhandled_panic retains the original default-sink panic.
+# Detach facts flow task -> core and asset/native -> arvane -> engine/embed.
+# Only arvane-native retains the code module; task and asset contain no unsafe.
+# Shared values belong to kivact-wire; pure layout belongs to kivact-layout.
+kivact-engine = ["kivact-core"]
+kivact-editing = ["kivact-style", "kivact-wire", "kivact-text", "kivact-engine", "kivact-core"]
+kivact-wire = ["kivact-lower", "kivact-layout", "kivact-engine", "kivact-motion", "kivact-style", "kivact-core"]
+kivact-lower = ["kivact-text", "kivact-engine"]
+kivact-text = ["kivact-engine"]
+kivact-layout = ["kivact-engine"]
+
+# ----- Arvane: 窓口の arvane は engine と lower が使う。adapter 同士は
+# arvane-shell の語彙と入力正規化、ui-types の値を共有する。
+arvane = ["kivact-lower", "kivact-text", "kivact-engine"]
+# GPU texture 共有の中立な gpu-share は UI を知らず、import と export の契約を共有する
+# （visible_to は書かない。誰でも依存できる）。
+ui-types = [
+    "arvane*", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-engine", "kivact-reactive", "gpu-share", "gpu-interop-producer",
+]
+arvane-shell = ["arvane", "arvane-native"]
+# Linux embedded native services own XCB/XIM, AT-SPI and desktop services;
+# callbacks queue through arvane-shell and never depend back on the engine.
+arvane-native = ["arvane"]
+arvane-text = ["arvane"]
+arvane-render = ["arvane"]
+arvane-asset = ["arvane"]
+# 試験だけの engine（自前の device で frame を描いて共有する）。Arvane の契約の試験と、公開 API の試験・
+# creative kit の GPU frame の試験（dev-dependency）だけが使う。
+gpu-interop-producer = ["arvane", "kivact-public-api-tests", "kivact-ui-creative"]
+
+# ----- アプリ・例・雛形・ツール: 誰も依存しない。
+kivact-template-basic = []
+kivact-example-counter = []
+kivact-example-form = []
+kivact-example-list = []
+kivact-example-async = []
+kivact-example-component = []
+kivact-example-task-board = []
+kivact-example-mini-postman = []
+kivact-music-player = []
+kivact-workbench = []
+kivact-hostbench = []
+kivact-ui-basic-catalog = []
+kivact-ui-pop-catalog = []
+kivact-ui-game-catalog = []
+kivact-ui-creative-catalog = []
+kivact-interaction-starter = []
+kivact-embed-host = []
+kivact-ext-apps = []
+kivact-docs = []
+# Public API tests consume all four official kits for theme conformance.
+kivact-public-api-tests = []
+kivact-workspace-policy-tests = []
+xtask = []
+
+# xtask-core は、外部 crate の glob import（`use kivact::prelude::*` など）がある module で、
+# macro と derive の提供元を決められない。標準の macro と derive は glob で上書きされない前提で信頼する。
+# 全 crate の循環と未解決 local path は error とし、移行中の警告扱いは設けない。
+[analysis]
+all_features = true
+trusted_macros = [
+    "assert", "assert_eq", "assert_ne", "cfg", "debug_assert", "debug_assert_eq",
+    "debug_assert_ne", "eprintln", "format", "include_bytes", "include_str", "line",
+    "concat", "matches", "panic", "println", "unreachable", "vec", "write", "writeln", "env", "file",
+    "thread_local", "tracing::debug", "tracing::error", "tracing::info", "tracing::trace",
+    "tracing::warn",
+    # workspace の macro_rules と、それを呼ぶ path は dev/xtask（macros.rs）が自動で足す。
+    # item を生成する macro は、呼んだ module を解析の外に置く。
+]
+trusted_derives = [
+    "Clone", "Copy", "Debug", "Default", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd",
+    "Deserialize", "Serialize",
+]
+
+# ----- crate 内の module の依存の向き（dev/xtask の module_rules.rs）。design.md §2「依存の向きと
+# visible_to」の `kivact-reactive ◀ task, motion, i18n ◀ style ◀ view, draw ◀ control ◀
+# primitive ◀ prelude ◀ test` と `{task, motion, style, view} ◀ platform, diagnostics, gpu_interop ◀
+# client ◀ prelude` を書く。`uses` の key の module（子孫を含む）は、自分の部分木、crate root、
+# 値に挙げた module、`uses` に無い module だけを参照してよい。`except` は上向きの例外
+# "from -> to"（`crate::` を省く。from はその module だけ、to はその module と子孫）。どの参照にも
+# 使われない例外も error にする。
+[module_rules.kivact-core.uses]
+task = []
+motion = []
+style = []
+view = ["task", "motion", "style"]
+draw = ["task", "motion", "style"]
+control = ["task", "motion", "style", "view"]
+# env・service の要求・`why`・GPU の取り込みは、公開 module が実装を持つ（view の state と requests の上に立つ）。
+platform = ["task", "motion", "style", "view"]
+# Embedded App setup uses the same root client factory.
+embed = ["view"]
+diagnostics = ["task", "motion", "style", "view"]
+# 実験 feature `gpu-interop`。per-App の状態は client が runtime の extension に入れる。
+gpu_interop = ["task", "motion", "style", "view"]
+client = ["task", "motion", "style", "view", "platform", "gpu_interop"]
+primitive = ["task", "motion", "style", "view", "draw", "control"]
+# 再公開だけの入口。中核の module からは参照させない（test だけが使う）。
+prelude = [
+    "task", "motion", "style", "view", "draw", "control", "platform",
+    "diagnostics", "client", "primitive",
+]
+test = [
+    "task", "motion", "style", "view", "draw", "control", "platform",
+    "diagnostics", "gpu_interop", "client", "primitive", "prelude", "embed",
+]
+
+# kivact-i18n の module。`context` は locale と messages の値を読む。
+[module_rules.kivact-i18n.uses]
+date = ["locale"]
+locale = []
+messages = []
+context = ["locale", "messages"]
+
+# kivact-motion の module。`values` は補間する値と frame の型、`state` は frame loop と animation を
+# App ごとに束ねる。`animated` と `frame_loop` は `state` の上に立つ。
+[module_rules.kivact-motion.uses]
+values = []
+state = ["values"]
+transition = ["values"]
+frame_loop = ["state", "values"]
+animated = ["state", "transition", "values"]
+
+# kivact-style の module。値（`asset`・`length`・`geometry`・`color`・`transform`・`path`・`grid`・`icon`）を
+# 下に、それを使う `theme`・`effect`・`paint`・`text` をその上に、`Draw` の `draw`、`Style` の `sheet`、
+# `Style` 全体の `resolve` をさらに上に置く。
+[module_rules.kivact-style.uses]
+asset = []
+length = []
+geometry = ["length"]
+color = []
+transform = ["geometry", "length"]
+path = ["geometry", "transform"]
+grid = ["length"]
+icon = ["asset"]
+theme = ["color", "icon"]
+effect = ["color", "geometry", "length", "path", "theme"]
+paint = ["asset", "color", "geometry", "length", "theme"]
+text = ["color", "effect", "paint", "theme"]
+draw = ["asset", "color", "effect", "geometry", "paint", "path", "text", "theme", "transform"]
+sheet = ["color", "draw", "effect", "geometry", "grid", "length", "paint", "text", "theme", "transform"]
+resolve = [
+    "color", "draw", "effect", "geometry", "grid", "length", "paint", "sheet", "text", "theme",
+    "transform",
+]
+
+# kivact-interaction は部品ごとに、組み合わせてよい下位の部品を書く。純粋な計算の `policy` と、
+# `disclosure`・`list`・`drag`・`edit` などの部品の上に、`popup`・`menu`・`select`・`table`・
+# `palette` を組む。表に無い部品を参照するときは、ここに足してから使う。
+[module_rules.kivact-interaction.uses]
+policy = []
+disclosure = []
+edit = []
+focus_return = []
+roving = []
+drag = ["edit"]
+list = ["roving"]
+text_edit = []
+toaster = []
+toggle = []
+popup = ["disclosure", "focus_return"]
+scalar = ["drag", "edit", "focus_return", "policy"]
+range_scalar = ["drag", "edit", "policy", "scalar"]
+dialog = ["focus_return", "popup"]
+tooltip = ["disclosure", "popup"]
+combobox = ["list"]
+tabs = ["list"]
+tree = ["list"]
+select = ["focus_return", "list", "popup"]
+menu = ["disclosure", "focus_return", "list", "popup"]
+zoom_pan = ["edit"]
+splitter = ["drag", "edit", "policy", "scalar"]
+table = ["list", "policy", "roving", "splitter"]
+palette = ["combobox", "dialog", "list", "popup"]
+
+# Portable shell vocabulary and input normalization never depend on a backend.
+[module_rules.arvane-shell.uses]
+a11y = ["events"]
+types = []
+events = []
+clicks = ["events"]
+contacts = ["events"]
+mouse = []
+ime = []
+services = []
+# The window SPI uses the neutral vocabulary and the GPU target leaf.
+window = ["events", "ime", "types", "services", "a11y", "target"]
+target = []
+
+
+# B7: topology below measurement, Model processing, presentation,
+# diagnostics and host. model::interact belongs to the Model processing tier.
+[module_rules.kivact-engine]
+except = [
+    # Model owns passive state; these leaves import no Model or processing code.
+    "model -> paint::state",
+    "model -> a11y::state",
+    "model -> check::lint::state",
+    # Sync derives Look values directly and calls PaintState's narrow invalidator.
+    "model::interact::sync -> paint::state",
+]
+[module_rules.kivact-engine.uses]
+tree = []
+mutation = []
+frame_log = []
+measure = ["tree"]
+model = ["tree", "measure", "mutation"]
+layout = ["tree"]
+text_measure = ["tree", "measure", "model"]
+paint = ["tree", "measure", "mutation", "model", "text_measure"]
+a11y = ["tree", "measure", "mutation", "model"]
+check = ["tree", "measure", "mutation", "model", "paint", "a11y"]
+host = ["tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log"]
+offscreen = ["text_measure"]
+# The facade exposes the immutable WriteStats DTO from this passive leaf.
+bridge = ["host", "offscreen", "text_measure", "mutation"]
+native = ["host", "offscreen", "bridge"]

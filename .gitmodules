@@ -1,0 +1,3 @@
+[submodule "vendor/xtask-core"]
+	path = vendor/xtask-core
+	url = https://github.com/Kashiwade-music/xtask-core

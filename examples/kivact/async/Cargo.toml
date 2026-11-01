@@ -1,0 +1,16 @@
+[package]
+name = "kivact-example-async"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Load a record by id with a resource and render loading, error and ready."
+
+[dependencies]
+kivact = { path = "../../../crates/kivact" }
+
+[dev-dependencies]
+kivact = { path = "../../../crates/kivact", features = ["test"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "kivact-ui"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Standard Kivact UI components built from public core and interaction contracts"
+
+[dependencies]
+kivact-core = { path = "../kivact-core", default-features = false }
+kivact-interaction = { path = "../kivact-interaction" }
+
+[dev-dependencies]
+kivact = { path = "../kivact" }
+
+[lints]
+workspace = true

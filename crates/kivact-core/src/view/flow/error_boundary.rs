@@ -1,0 +1,165 @@
+//! Role: Error boundary for catching child errors.
+//!
+//! `error_boundary`: an owner boundary around a
+//! child that catches the errors raised in it (setup panics, handler
+//! `Err`s and panics, effect panics, misuse, task panics).
+//!
+//! What happens to an error raised under the boundary while the child is
+//! shown:
+//! - neither handler set: it goes on to the parent's handler (a setup panic
+//!   still leaves the child an empty fragment);
+//! - `.on_error(f)`: `f(err)` runs and the child stays;
+//! - `.fallback(f)`: the child is disposed and `f(err, reset)` is shown;
+//!   calling `reset()` remounts a fresh child;
+//! - both: `on_error` runs first, then the fallback replaces the child.
+//!
+//! While the fallback is shown, errors (from the fallback, or late ones
+//! from the child) go to the parent's handler instead of being dropped.
+//! A panic in `on_error` itself is reported to the parent's handler too;
+//! without a fallback, the original error follows it there, so it is never
+//! lost (like `Runtime::report` does for a panicking handler).
+
+use std::cell::RefCell;
+use std::panic::Location;
+use std::rc::Rc;
+
+use crate::view::descriptor::Mcx;
+use crate::view::descriptor::{IntoView, View, view_fn};
+use kivact_reactive::EffectKind;
+use kivact_reactive::Signal;
+use kivact_reactive::UiError;
+
+use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};
+
+type FallbackFn = Rc<dyn Fn(UiError, Rc<dyn Fn()>) -> View>;
+
+/// A boundary catching the errors of its child. Built by
+/// [`error_boundary`]; see the module documentation for the semantics.
+pub struct ErrorBoundary {
+    child: Build,
+    fallback: Option<FallbackFn>,
+    on_error: Option<Rc<dyn Fn(UiError)>>,
+    at: &'static Location<'static>,
+}
+
+/// Catch the errors raised in `child()`'s subtree; choose what happens with
+/// [`ErrorBoundary::fallback`] and [`ErrorBoundary::on_error`].
+///
+/// ```ignore
+/// error_boundary(editor)
+///     .on_error(move |e| log.push(e))
+///     .fallback(|e, reset| column((text(e.to_string()), button("Retry").on_press(move || reset()))))
+/// ```
+#[track_caller]
+pub fn error_boundary<V: IntoView>(child: impl Fn() -> V + 'static) -> ErrorBoundary {
+    ErrorBoundary {
+        child: build(child),
+        fallback: None,
+        on_error: None,
+        at: Location::caller(),
+    }
+}
+
+impl ErrorBoundary {
+    /// On the first error, replace the child with `f(err, reset)`;
+    /// calling `reset()` mounts a fresh child again.
+    pub fn fallback<V: IntoView>(
+        mut self,
+        f: impl Fn(UiError, Rc<dyn Fn()>) -> V + 'static,
+    ) -> Self {
+        self.fallback = Some(Rc::new(move |e, reset| f(e, reset).into_view()));
+        self
+    }
+
+    /// Receive each error raised under the boundary while the child is
+    /// shown; the child keeps being shown (unless a fallback is also set).
+    pub fn on_error(mut self, f: impl Fn(UiError) + 'static) -> Self {
+        self.on_error = Some(Rc::new(f));
+        self
+    }
+}
+
+impl IntoView for ErrorBoundary {
+    fn into_view(self) -> View {
+        let ErrorBoundary {
+            child,
+            fallback,
+            on_error,
+            at,
+        } = self;
+        view_fn(move |cx| {
+            let frag = cx.fragment();
+            let rt = cx.rt.clone();
+            let parent = cx.owner;
+            let boundary = parent.child(at);
+            // The error shown by the fallback (only with a fallback).
+            let error: Option<Signal<Option<UiError>>> = fallback
+                .as_ref()
+                .map(|_| boundary.signal(None::<UiError>, at));
+            if fallback.is_some() || on_error.is_some() {
+                let weak_rt = Rc::downgrade(&rt);
+                boundary.on_error(move |e: UiError| {
+                    let Some(rt) = weak_rt.upgrade() else { return };
+                    let child_shown = error.is_none_or(|s| s.try_get() == Some(None));
+                    if !child_shown {
+                        rt.report(Some(parent), e);
+                        return;
+                    }
+                    if let Some(f) = &on_error {
+                        let r =
+                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(e.clone())));
+                        if let Err(p) = r {
+                            rt.report(Some(parent), UiError::from_panic(p, Some(at)));
+                            // Without a fallback nothing else shows the
+                            // error: hand it to the parent too.
+                            if error.is_none() {
+                                rt.report(Some(parent), e);
+                                return;
+                            }
+                        }
+                    }
+                    if let Some(s) = error {
+                        s.set(Some(e));
+                    }
+                });
+            }
+            let (Some(fallback), Some(error)) = (fallback, error) else {
+                // No fallback: the child is mounted once and stays.
+                mount_branch(&rt, boundary, frag, None, &*child, at);
+                return frag;
+            };
+            let weak = Rc::downgrade(&rt);
+            let current: RefCell<Option<Branch>> = RefCell::new(None);
+            let inner = Mcx {
+                rt: &rt,
+                owner: boundary,
+            };
+            inner.effect(EffectKind::Internal, at, move || {
+                let err = error.get();
+                let Some(rt) = weak.upgrade() else { return };
+                if let Some(b) = current.borrow_mut().take() {
+                    unmount_branch(&rt, b);
+                }
+                let b = match err {
+                    None => mount_branch(&rt, boundary, frag, None, &*child, at),
+                    Some(e) => {
+                        let fallback = fallback.clone();
+                        mount_branch(
+                            &rt,
+                            boundary,
+                            frag,
+                            None,
+                            &move || {
+                                let reset: Rc<dyn Fn()> = Rc::new(move || error.set(None));
+                                fallback(e.clone(), reset)
+                            },
+                            at,
+                        )
+                    }
+                };
+                *current.borrow_mut() = Some(b);
+            });
+            frag
+        })
+    }
+}

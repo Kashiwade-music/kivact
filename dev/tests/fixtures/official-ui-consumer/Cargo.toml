@@ -1,0 +1,49 @@
+[package]
+name = "official-ui-external-consumer"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Deliberately outside the repository workspace. No workspace dependency or
+# lint inheritance can accidentally grant access to an implementation crate.
+[workspace]
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../../../crates/kivact", default-features = false }
+kivact-ui-pop = { path = "../../../../crates/kivact-ui-pop" }
+kivact-ui-game = { path = "../../../../crates/kivact-ui-game" }
+kivact-ui-creative = { path = "../../../../crates/kivact-ui-creative" }
+
+[dev-dependencies]
+kivact = { path = "../../../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+# Native editor operations remain optimized across this independent boundary.
+[profile.dev.package.kivact-editing]
+opt-level = 3
+
+# Keep shared protocol calculations optimized across this independent boundary.
+[profile.dev.package.kivact-wire]
+opt-level = 3
+
+# Optimize value lowering across this independent consumer boundary.
+[profile.dev.package.kivact-lower]
+opt-level = 3
+
+# Keep retained text operations optimized at this independent boundary.
+[profile.dev.package.kivact-text]
+opt-level = 3
+
+# Optimize engine integration and layout computation in this independent build.
+[profile.dev.package.kivact-engine]
+opt-level = 3
+
+# Optimize engine integration and layout computation in this independent build.
+[profile.dev.package.kivact-layout]
+opt-level = 3

@@ -1,0 +1,16 @@
+[package]
+name = "kivact-example-form"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Validate a sign-up form with memos and show messages with show_some."
+
+[dependencies]
+kivact = { path = "../../../crates/kivact" }
+
+[dev-dependencies]
+kivact = { path = "../../../crates/kivact", features = ["test"] }
+
+[lints]
+workspace = true

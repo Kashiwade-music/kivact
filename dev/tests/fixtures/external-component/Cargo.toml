@@ -1,0 +1,17 @@
+[package]
+name = "kivact-external-component"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Generic components built only from the Kivact public API: search box, range timeline, lazy list, icon button and skins"
+
+# A third-party component library using only the public Kivact primitives.
+[dependencies]
+kivact = { path = "../../../../crates/kivact", default-features = false }
+
+[dev-dependencies]
+kivact = { path = "../../../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,58 @@
+//! Role: The Pop content of a tab or segment: icon, label and count badge.
+
+use kivact::control::{row, text};
+use kivact::interaction::TabState;
+use kivact::prelude::NodeBuilder;
+use kivact::style::{Align, style};
+use kivact::ui::ListItem;
+use kivact::view::{IntoView, View, dynamic, show};
+use kivact::{Value, memo};
+
+/// What a Pop tab shows: the item's icon, its label and, while it has a
+/// [`description`](ListItem::description), that text as a count badge.
+///
+/// The slot of [`kivact::ui::tabs`] in Pop's look; the kit's theme
+/// gives the tabs their underline. The default radio-group slot draws segments.
+///
+/// ```no_run
+/// use kivact::prelude::*;
+/// use kivact_ui_pop as ui;
+///
+/// fn sections() -> impl IntoView {
+///     let selected = signal("skills");
+///     tabs(
+///         "Profile sections",
+///         vec![
+///             ListItem::new("overview", "Overview").icon("home"),
+///             ListItem::new("skills", "Skills").description("4"),
+///         ],
+///         selected,
+///     )
+///     .item(ui::tab_label)
+///     .content(|key| text(format!("{key} panel")))
+/// }
+/// ```
+pub fn tab_label<K: Clone + 'static>(item: Value<ListItem<K>>, _state: Value<TabState>) -> View {
+    item_label(item)
+}
+
+/// The icon, label and count badge of `item`.
+pub(crate) fn item_label<K: Clone + 'static>(item: Value<ListItem<K>>) -> View {
+    let count = memo(move || item.with(ListItem::description_value));
+    row((
+        dynamic(
+            move || item.with(|item| item.icon_value().cloned()),
+            |icon| icon.map(kivact::control::icon),
+        ),
+        text(move || item.with(ListItem::label)),
+        show(
+            move || count.get().is_some(),
+            move || {
+                crate::badge(move || count.get().unwrap_or_default())
+                    .variant(crate::BadgeVariant::Count)
+            },
+        ),
+    ))
+    .style(style().gap(6).align_items(Align::Center))
+    .into_view()
+}

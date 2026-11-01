@@ -1,0 +1,234 @@
+//! Role: Public embedded App configuration and lifetime.
+//!
+//! Build a [`Parent`] from CLAP `clap_window.win32` or `clap_window.x11`,
+//! VST3 `"HWND"` or `"X11EmbedWindowID"`, or nih-plug
+//! `ParentWindowHandle::Win32Hwnd` or `ParentWindowHandle::X11Window`.
+//! The App's initial `window_size` uses logical pixels; the host's `set_size`
+//! and `size` use physical pixels. Scale is physical pixels per logical pixel.
+//! Dropping [`Embedded`] requests closure without draining queued actions.
+//! Keep plugin state outside the App so it survives closing and reopening.
+//!
+//! ```no_run
+//! use kivact_core::{App, embed::Parent, prelude::*};
+//! # fn open(hwnd: *mut std::ffi::c_void) -> kivact_core::Result<()> {
+//! let editor = App::new("Editor").window_size(640, 480)
+//!     .embed(Parent::win32(hwnd).scale(1.0), || text("Editor"))?;
+//! # Ok(())
+//! # }
+//! ```
+
+use crate::{App, IntoView, Result, UiError, check_window_sizes};
+use kivact_reactive::ErrorKind;
+use kivact_wire::ParentWindow;
+use std::{
+    ffi::c_void,
+    num::{NonZeroIsize, NonZeroU32},
+    panic::Location,
+};
+
+/// A host window and optional host-decided scale. Constructors only store raw
+/// values and never dereference them. `App::embed` validates the parent.
+/// If the parent dies first, the child stops safely without undefined behavior.
+#[derive(Clone)]
+pub struct Parent {
+    window: Option<ParentWindow>,
+    scale: Option<f32>,
+    on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
+}
+impl std::fmt::Debug for Parent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Parent")
+            .field("window", &self.window)
+            .field("scale", &self.scale)
+            .field("on_resize_request", &self.on_resize_request.is_some())
+            .finish()
+    }
+}
+impl Parent {
+    /// A Win32 `HWND`: CLAP `clap_window.win32`, VST3 `"HWND"`,
+    /// or nih-plug `ParentWindowHandle::Win32Hwnd`. Null is refused by `embed`.
+    pub fn win32(hwnd: *mut c_void) -> Parent {
+        Self {
+            window: NonZeroIsize::new(hwnd as isize).map(ParentWindow::Win32),
+            scale: None,
+            on_resize_request: None,
+        }
+    }
+    /// An X11 id: CLAP `clap_window.x11`, VST3 `"X11EmbedWindowID"`,
+    /// or nih-plug `ParentWindowHandle::X11Window`.
+    pub fn x11(window: u32) -> Parent {
+        Self {
+            window: NonZeroU32::new(window).map(ParentWindow::X11),
+            scale: None,
+            on_resize_request: None,
+        }
+    }
+    /// Forward `platform::request_window_size` to the host, in physical pixels.
+    /// Runs on the App UI thread and must not wait for the host GUI thread. Return
+    /// true when the host accepted; Kivact then resizes the window unless the host
+    /// called `Embedded::set_size` meanwhile, which wins. Without this callback,
+    /// requests fail as `Unsupported`.
+    pub fn on_resize_request(
+        mut self,
+        f: impl Fn(u32, u32) -> bool + Send + Sync + 'static,
+    ) -> Parent {
+        self.on_resize_request = Some(std::sync::Arc::new(f));
+        self
+    }
+    /// Host-decided scale (CLAP `set_scale`, VST3 `setContentScaleFactor`).
+    /// Without it the OS scale is used. Nonfinite or nonpositive values,
+    /// including values outside positive finite f32 range, are refused by `embed`.
+    pub fn scale(mut self, scale: f64) -> Parent {
+        self.scale = Some(scale as f32);
+        self
+    }
+}
+
+/// An App running inside a host window. `Send` and `Sync`.
+/// Setters queue the change for the App UI thread and return at once; getters
+/// return the last applied value. Sizes are physical pixels; scale is physical
+/// pixels per logical pixel. A zero or oversized size, or a nonfinite or
+/// nonpositive scale, is ignored with a warning. Prefer dropping on the host
+/// GUI thread. Outside an App callback, dropping normally waits for cleanup of
+/// the App and its native window. Each owned thread, including a thread running
+/// UI callbacks, is waited for at most two seconds. After that limit, unfinished
+/// cleanup may continue after drop returns; Kivact retains its code module so
+/// the host may unload the plugin. Inside an App callback, the turn in progress
+/// finishes and cleanup follows it; no later turn or input runs. Queued actions
+/// are not drained.
+/// After an unhandled panic or a platform failure the App stops and
+/// its window is destroyed; `error` says why. Keep plugin state outside the App.
+/// If a thread exceeds its shutdown wait, or a native library needs its code
+/// after closure, Kivact keeps its code module mapped until process exit. The
+/// host may unload the plugin after closing the editor.
+pub struct Embedded {
+    host: Option<kivact_engine::embed::EmbeddedHost>,
+    failure: std::sync::Arc<std::sync::Mutex<Option<UiError>>>,
+    closed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+impl Embedded {
+    fn host(&self) -> &kivact_engine::embed::EmbeddedHost {
+        self.host
+            .as_ref()
+            .expect("invariant: host is present until Embedded::drop")
+    }
+    /// Set physical size (CLAP `set_size`, VST3 `onSize`). A zero or
+    /// platform-oversized dimension is ignored with a warning.
+    pub fn set_size(&self, width: u32, height: u32) {
+        self.host().set_size(width, height);
+    }
+    /// Last applied physical size (CLAP `get_size`, VST3 `getSize`).
+    pub fn size(&self) -> (u32, u32) {
+        self.host().size()
+    }
+    /// Set physical pixels per logical pixel, keeping physical size until the
+    /// host resizes it. To retain logical size, request logical size times scale
+    /// from the host (CLAP `request_resize`, VST3 `resizeView`). A nonfinite or
+    /// nonpositive scale is ignored with a warning.
+    pub fn set_scale(&self, scale: f64) {
+        self.host().set_scale(scale as f32);
+    }
+    /// Last applied scale.
+    pub fn scale(&self) -> f64 {
+        f64::from(self.host().scale())
+    }
+    /// Why the App stopped (callback panic or platform failure), or `None`.
+    pub fn error(&self) -> Option<UiError> {
+        self.failure
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+            .or_else(|| {
+                self.host()
+                    .failure()
+                    .map(|e| UiError::new(ErrorKind::Platform, e.message, None))
+            })
+    }
+}
+impl Drop for Embedded {
+    fn drop(&mut self) {
+        // Inside an App callback, stop the rest of the current event batch.
+        self.closed
+            .store(true, std::sync::atomic::Ordering::Release);
+        drop(self.host.take());
+        if kivact_task::detached_threads() || kivact_engine::embed::detached_threads() {
+            kivact_engine::embed::retain_module();
+        }
+    }
+}
+
+impl App {
+    /// Run `root` inside `parent` and return once it is built (feature `embed`).
+    /// Call on the host GUI thread. `root` and every App callback run on the App
+    /// UI thread, which may be another thread; they must not wait for the host GUI
+    /// thread. The initial physical size is `window_size` times the scale (default
+    /// 960 by 720 logical pixels). Invalid sizes or scale return
+    /// `ErrorKind::Message`; an invalid parent, unavailable OS resources or an
+    /// unsupported OS return `ErrorKind::Platform`. A failed open either creates
+    /// no window or cleans up a child already created. An unhandled panic in
+    /// `root` returns its original diagnostic. Startup failure normally waits for cleanup, with the same two-second limit per owned
+    /// thread as drop; unfinished cleanup may continue under module retention
+    /// after `Err` is returned. An unhandled panic later
+    /// stops the App at the end of that turn. Title and fullscreen have no effect.
+    /// `min_window_size` clamps `platform::request_window_size`, not the host.
+    #[track_caller]
+    pub fn embed<V: IntoView>(
+        self,
+        parent: Parent,
+        root: impl FnOnce() -> V + Send + 'static,
+    ) -> Result<Embedded> {
+        let at = Location::caller();
+        check_window_sizes(self.window_size, self.min_window_size, at)?;
+        if parent
+            .scale
+            .is_some_and(|scale| !scale.is_finite() || scale <= 0.0)
+        {
+            return Err(UiError::new(
+                ErrorKind::Message,
+                "Parent::scale must be finite and positive in f32",
+                Some(at),
+            ));
+        }
+        let window = parent.window.ok_or_else(|| {
+            UiError::new(
+                ErrorKind::Platform,
+                "the parent window handle is null",
+                Some(at),
+            )
+        })?;
+        let options = kivact_engine::embed::EmbedOptions {
+            parent: window,
+            window_size: self.window_size,
+            scale: parent.scale,
+            on_resize_request: parent.on_resize_request,
+            #[cfg(feature = "gpu-interop")]
+            gpu_preference: self.gpu_preference,
+            #[cfg(not(feature = "gpu-interop"))]
+            gpu_preference: Default::default(),
+        };
+        let failure = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let report = failure.clone();
+        let closed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let ui_closed = closed.clone();
+        kivact_engine::embed::embed_native(
+            move || {
+                self.app_client(root, at)
+                    .with_embed_failure(report, ui_closed)
+                    .into_client(None)
+            },
+            options,
+        )
+        .map(|host| Embedded {
+            host: Some(host),
+            failure: failure.clone(),
+            closed,
+        })
+        .map_err(|e| {
+            failure
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+                .unwrap_or_else(|| UiError::new(ErrorKind::Platform, e.message, None))
+        })
+    }
+}

@@ -1,0 +1,121 @@
+//! Role: Node parameter popups forwarding edits to the editor session.
+use crate::Color;
+use crate::editors::node::gesture::{Domain, Snapshot, State};
+use crate::editors::node::model::{NodeControlValue, NodeRequest};
+use kivact::binding;
+use kivact::control::{NodeBuilder, column, node};
+use kivact::primitive::NodeExt;
+use kivact::style::{ColorToken, style};
+use kivact::view::{IntoValue, IntoView, Placement, Role, overlay_at};
+
+pub(super) fn popup(state: State) -> impl IntoView {
+    let data = state.data();
+    let visible = binding(
+        (move || state.popup.get().is_some() && !state.blocked.get()).into_value(),
+        move |visible: bool| {
+            if !visible {
+                state.popup.set(None);
+            }
+        },
+    );
+    let popup = kivact::interaction::use_popup(visible);
+    kivact::view::show(popup.shown(), move || {
+        let (id, index, point) = state
+            .popup
+            .get_untracked()
+            .expect("invariant: shown node popup has a control");
+        let control = state.control(id, index);
+        let content = match control.map(|c| (c.label, c.value)) {
+            Some((label, NodeControlValue::Number { min, max, step, .. })) => crate::number(
+                label,
+                binding(
+                    (move || {
+                        data.with(|nodes| {
+                            nodes
+                                .iter()
+                                .find(|n| n.id == id)
+                                .and_then(|n| n.controls.get(index))
+                                .map_or(0.0, |c| {
+                                    if let NodeControlValue::Number { value, .. } = c.value {
+                                        value
+                                    } else {
+                                        0.0
+                                    }
+                                })
+                        })
+                    })
+                    .into_value(),
+                    move |value| {
+                        if !state.blocked.get()
+                            && state.domain.get() == Some(Domain::Control(id, index))
+                            && state.edit.is_active()
+                        {
+                            state.change_raw(id, index, Some(value), 0.0);
+                        }
+                    },
+                ),
+            )
+            .range(min, max)
+            .step(step)
+            .precision(3)
+            .on_edit(move |phase| state.control_phase(id, index, phase))
+            .disabled(state.blocked)
+            .style(style().width(190))
+            .into_view(),
+            Some((_, NodeControlValue::Choice { options, selected })) => column(
+                options
+                    .into_iter()
+                    .enumerate()
+                    .map(|(choice, label)| {
+                        kivact::ui::button(label)
+                            .variant(kivact::ui::ButtonVariant::Secondary)
+                            .role(Role::Option)
+                            .selected(choice == selected)
+                            .disabled(state.blocked)
+                            .on_press(move || {
+                                if state.busy() {
+                                    return;
+                                }
+                                if let Some(control) = state.slot(id, index) {
+                                    state.edit.once(
+                                        Snapshot::Control(id, index, control.value.clone()),
+                                        || {
+                                            if let NodeControlValue::Choice { options, .. } =
+                                                control.value.clone()
+                                            {
+                                                state.request(NodeRequest::Control {
+                                                    node: id,
+                                                    index,
+                                                    value: NodeControlValue::Choice {
+                                                        options,
+                                                        selected: choice,
+                                                    },
+                                                });
+                                            }
+                                        },
+                                    );
+                                }
+                                state.popup.set(None);
+                            })
+                            .into_view()
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .into_view(),
+            _ => node().into_view(),
+        };
+        overlay_at(
+            point,
+            Placement::Below,
+            node()
+                .child(content)
+                .style(style().padding(8).radius(8).min_width(180))
+                .style(
+                    style()
+                        .background(ColorToken::Raised)
+                        .border(1, Color::HairStrong),
+                ),
+        )
+        .part(popup.content())
+    })
+}

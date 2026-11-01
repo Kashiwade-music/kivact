@@ -1,0 +1,51 @@
+[package]
+name = "kivact-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Kivact internal engine: retained UI state, interaction, scene generation and the Arvane window bridge"
+
+[dependencies]
+kivact-text = { path = "../kivact-text" }
+kivact-layout = { path = "../kivact-layout" }
+kivact-lower = { path = "../kivact-lower" }
+kivact-wire = { path = "../kivact-wire" }
+kivact-editing = { path = "../kivact-editing" }
+ui-types = { path = "../ui-types" }
+arvane = { path = "../arvane" }
+# Screenshots of the test driver (feature `testing`).
+png = { workspace = true, optional = true }
+
+[lib]
+doctest = false
+
+[features]
+embed = ["arvane/embed"]
+default = []
+# The GPU renderer (kivact's default `gpu` feature turns it on).
+gpu = ["arvane/gpu"]
+# Drawing textures an application's render engine shares (experimental;
+# kivact's `gpu-interop` turns it on): the writes that import and drop them,
+# the scene's external frames and the adapter the window reports.
+gpu-interop = ["kivact-lower/gpu-interop", "gpu", "arvane/gpu-interop"]
+# The in-process test driver on real windows (`testing`).
+testing = ["arvane/testing", "dep:png"]
+
+[[test]]
+name = "host_locale"
+required-features = ["testing"]
+
+[[test]]
+name = "restack"
+required-features = ["testing"]
+
+[[test]]
+name = "thread_join"
+required-features = ["testing"]
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading"] }
+
+[lints]
+workspace = true

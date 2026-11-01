@@ -1,0 +1,152 @@
+//! Role: Pop recipes for the standard toggle, progress bar and disclosure.
+//!
+//! The Halo look of `kivact::ui::toggle` (filled in the variant's [`Hue`]
+//! while pressed), `progress` (a gradient fill, optionally striped or cut into
+//! [`Segments`]) and `disclosure` (a ruled row with a turning chevron).
+
+use crate::choice::check_style;
+use crate::tokens::{Hue, Tokens};
+use kivact::draw::{Path, Point, Rect, linear_gradient};
+use kivact::interaction::DisclosureState;
+use kivact::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
+use kivact::ui::{
+    DisclosureRecipes, Look, ProgressRecipes, ProgressState, ToggleButtonState, Variant,
+};
+
+/// Draw a standard progress bar with diagonal stripes on its fill:
+/// `kivact::ui::progress(..).variant(Striped)`. Another theme draws the
+/// plain bar.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Striped;
+
+impl Variant for Striped {}
+
+/// Cut a standard progress bar into this many segments:
+/// `kivact::ui::progress(..).variant(Segments(10))`. Another theme draws the
+/// plain bar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Segments(pub u16);
+
+impl Variant for Segments {}
+
+impl Variant for Hue {}
+
+/// A toggle: the outline row, filled in the variant's hue while pressed
+/// (default [`Hue::Blue`]).
+pub(crate) fn toggle(t: &Theme, look: &Look<ToggleButtonState>) -> Style {
+    let p = t.get::<Tokens>();
+    let (fill, text) = p.hue(look.variant::<Hue>().copied().unwrap_or_default());
+    let s = check_style(t)
+        .justify_content(Justify::Center)
+        .gap(8)
+        .height(32)
+        .padding_x(12)
+        .radius(8)
+        .border(1, p.line)
+        .font_size(13)
+        .weight(500)
+        .hover(style().background(p.surface_active));
+    if look.pressed {
+        s.background(fill).color(text)
+    } else {
+        s
+    }
+}
+
+pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
+    r.track(|_| progress_track).fill(|_| progress_fill)
+}
+
+fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
+    style()
+        .width(pct(100))
+        .height(8)
+        .min_width(0)
+        .radius(999)
+        .clip(true)
+        .background(t.get::<Tokens>().surface_active)
+}
+
+/// The fill: a gradient from the hue's accent, with stripes and segment
+/// gaps over it; an indeterminate bar's segment moves.
+fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
+    let hue = look.variant::<Hue>().copied().unwrap_or_default();
+    let striped = look.variant::<Striped>().is_some();
+    let segments = look.variant::<Segments>().map_or(0, |s| s.0);
+    let state = **look;
+    let p = t.get::<Tokens>();
+    let accent = p.accent(hue);
+    let end = if hue == Hue::Blue { p.cyan } else { accent };
+    let surface = p.surface;
+    style()
+        .width(pct(100))
+        .height(pct(100))
+        .paint(move |d, size| {
+            let (x, width) = if state.value.is_some() {
+                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f32)
+            } else {
+                let (start, length) = state.sweep();
+                (size.width * start, size.width * length)
+            };
+            d.rounded_rect(
+                Rect::new(x, 0.0, width, size.height),
+                size.height / 2.0,
+                linear_gradient(90).colors([accent, end]),
+            );
+            if striped && state.value.is_some() {
+                for i in 0..((width / 16.0) as usize + 1) {
+                    let x = i as f32 * 16.0;
+                    d.fill_path(
+                        &Path::new()
+                            .move_to(Point::new(x, 0.0))
+                            .line_to(Point::new(x + 8.0, 0.0))
+                            .line_to(Point::new(x, size.height))
+                            .line_to(Point::new(x - 8.0, size.height))
+                            .close(),
+                        kivact::style::rgba(0xffffff, 0.3),
+                    );
+                }
+            }
+            for i in 1..segments {
+                let x = size.width * f32::from(i) / f32::from(segments);
+                d.fill_rect(Rect::new(x - 1.0, 0.0, 2.0, size.height), surface);
+            }
+        })
+}
+
+pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
+    r.root(|_| disclosure_root)
+        .trigger(|_| disclosure_trigger)
+        .indicator(|_| disclosure_indicator)
+        .content(|_| disclosure_content)
+}
+
+fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
+    style()
+        .direction(Direction::Column)
+        .border_bottom(1, ColorToken::Border)
+}
+
+fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .justify_content(Justify::SpaceBetween)
+        .gap(12)
+        .padding_y(14)
+        .weight(500)
+}
+
+fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
+    style()
+        .size(16, 16)
+        .shrink(0)
+        .rotate(if state.open { 180 } else { 0 })
+}
+
+fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
+    style()
+        .direction(Direction::Column)
+        .padding_bottom(14)
+        .color(ColorToken::TextMuted)
+}

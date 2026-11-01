@@ -1,0 +1,21 @@
+# Minimal Kivact app authored directly from public primitives.
+# Inside this repository it is a workspace member so CI builds and tests it.
+[package]
+name = "kivact-template-basic"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+default = ["gpu"]
+# Applications choose the renderer; component libraries leave it to their consumer.
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../crates/kivact", default-features = false }
+
+[dev-dependencies]
+kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

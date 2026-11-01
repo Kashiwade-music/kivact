@@ -1,0 +1,21 @@
+[package]
+name = "kivact-lower"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Value lowering, resource resolution and local scene adaptation"
+
+[dependencies]
+kivact-wire = { path = "../kivact-wire" }
+ui-types = { path = "../ui-types" }
+arvane = { path = "../arvane" }
+
+[features]
+gpu-interop = ["arvane/gpu-interop"]
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true

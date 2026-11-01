@@ -1,0 +1,16 @@
+[package]
+name = "kivact-embed-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false, features = ["embed", "test"] }
+
+[lints]
+workspace = true

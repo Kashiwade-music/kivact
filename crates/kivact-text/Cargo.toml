@@ -1,0 +1,20 @@
+[package]
+name = "kivact-text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Retained hard-line text, lazy shaping and explicit reconciliation checkpoints"
+
+[dependencies]
+kivact-editing = { path = "../kivact-editing" }
+kivact-lower = { path = "../kivact-lower" }
+ui-types = { path = "../ui-types" }
+arvane = { path = "../arvane" }
+unicode-segmentation.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true

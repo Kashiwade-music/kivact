@@ -1,0 +1,470 @@
+//! Role: Toast notifications with dismissal control.
+//!
+//! Unstyled behavior and semantics of toast notifications: a queue for the
+//! whole App, timed dismissal that waits for the pointer and the keyboard
+//! focus, and live-region announcements.
+//!
+//! [`toaster`] returns the App's shared queue, operated with `push`,
+//! `dismiss`, `toasts` and `max_visible`. A [`Toast`] carries its id, [`Tone`],
+//! duration, action and icon. The action is a closure the toast owns (an
+//! `Rc`, not an arena `Callback`), so a toast with an action can be built
+//! outside setup, in a press handler say, and the closure is dropped with
+//! the toast; its error or panic (a write to a signal of a component that is
+//! gone) is reported by the action button's press handler. The caller mounts
+//! the polite and the assertive region from the start, renders each
+//! region's `visible(assertive)` ids with `item(id)` on each card, and reads
+//! the data with `toast(id)`. A region is a `Role::Group`, a warning or error
+//! item a `Role::Alert` and any other a `Role::Status`, named by the title.
+//! The countdown is a task timer that stops while the toast is really
+//! hovered or holds the focus and resumes with what is left; a toast with no
+//! duration is never dismissed by time and uses no frame loop.
+//! [`Toaster::hold_while`] lets a kit that stacks the toasts stop every
+//! countdown at once (the true holds add up and end with their owner).
+//! Placement is the caller's layout: there is no placement type or region
+//! component here. A kit keeps only the card, the placement and its
+//! defaults for the duration and `max_visible`, and does not implement the
+//! queue or the timers again.
+
+use std::cell::Cell;
+use std::rc::Rc;
+use std::time::Duration;
+
+use kivact_core::UiError;
+use kivact_core::primitive::{Part, PartState, app_state, part};
+
+use kivact_core::task::{sleep, spawn};
+use kivact_core::view::{
+    Handled, HandlerResult, IntoValue, IntoView, Key, KeyEvent, LiveRegion, Modifiers, Role, View,
+};
+use kivact_core::{Signal, Value, effect, memo, on_cleanup, signal};
+
+use super::Tone;
+
+/// How long a toast stays when [`Toast::duration`] is not set.
+const DEFAULT_DURATION: Duration = Duration::from_secs(5);
+
+/// How many toasts are shown at once when [`Toaster::max_visible`] is not set.
+const DEFAULT_MAX_VISIBLE: usize = 3;
+
+type Entries = Vec<(ToastId, Toast)>;
+
+/// The identity of a pushed toast, to [`dismiss`](Toaster::dismiss) it or to
+/// tell the toasts a kit draws apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ToastId(u64);
+
+/// The content of one notification: what it says, how urgent it is, how long
+/// it stays and an optional action.
+///
+/// A toast is plain data built before [`Toaster::push`]; it does not change
+/// afterwards. Its fields are what the caller's drawing of a toast reads.
+///
+/// ```no_run
+/// # mod kivact {
+/// #     //! Role: Supply facade paths for this documentation example.
+/// #     pub extern crate kivact_interaction as interaction;
+/// # }
+/// use std::time::Duration;
+/// use kivact::interaction::{Toast, Tone};
+///
+/// let saved = Toast::new("Saved")
+///     .body("The document was written to disk.")
+///     .tone(Tone::Success)
+///     .duration(Some(Duration::from_secs(3)));
+/// assert_eq!(saved.title, "Saved");
+/// ```
+#[derive(Clone)]
+pub struct Toast {
+    /// What the toast says. It names the toast for assistive technology.
+    pub title: String,
+    /// The second line, if there is one.
+    pub body: Option<String>,
+    /// The tone.
+    pub tone: Tone,
+    /// How long it stays; `None` until it is dismissed.
+    pub duration: Option<Duration>,
+    /// The label and the function of the action, if there is one: owned by
+    /// the toast, run when its action button is pressed.
+    #[allow(
+        clippy::type_complexity,
+        reason = "a plain owned closure, named where it is read"
+    )]
+    pub action: Option<(String, Rc<dyn Fn() -> Result<(), UiError>>)>,
+    /// A view a kit draws as the toast's icon instead of the icon of its
+    /// tone, if there is one. It is called once, when the toast is shown.
+    pub icon: Option<Rc<dyn Fn() -> View>>,
+}
+
+impl Toast {
+    /// A toast that says `title`, [`Tone::Neutral`], gone after 5 seconds.
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            body: None,
+            tone: Tone::Neutral,
+            duration: Some(DEFAULT_DURATION),
+            action: None,
+            icon: None,
+        }
+    }
+
+    /// A second line below the title.
+    pub fn body(mut self, text: impl Into<String>) -> Self {
+        self.body = Some(text.into());
+        self
+    }
+
+    /// The tone, which decides the announcement. The default is
+    /// [`Tone::Neutral`].
+    pub fn tone(mut self, tone: Tone) -> Self {
+        self.tone = tone;
+        self
+    }
+
+    /// How long the toast stays once it is shown, not counting the time the
+    /// pointer is over it, the keyboard focus is in it or the toaster is held
+    /// ([`Toaster::hold_while`]). `None` keeps it
+    /// until it is dismissed. The default is 5 seconds.
+    pub fn duration(mut self, duration: Option<Duration>) -> Self {
+        self.duration = duration;
+        self
+    }
+
+    /// One action button, such as "Undo", that calls `on` when it is pressed.
+    /// The kit draws the button; the toast goes away after `on` has run. A
+    /// second call replaces the first. `on` belongs to the toast and is
+    /// dropped with it, so a toast can be made anywhere, a press handler
+    /// included. `on` may return `()` or `Result<(), UiError>`; an error, or
+    /// a panic such as writing a signal whose component is gone, is
+    /// reported where the action button's press is.
+    pub fn action<R: HandlerResult>(
+        mut self,
+        label: impl Into<String>,
+        on: impl Fn() -> R + 'static,
+    ) -> Self {
+        self.action = Some((label.into(), Rc::new(move || on().into_result())));
+        self
+    }
+
+    /// An icon for this toast, which a kit draws instead of the icon of its
+    /// tone. `icon` is called once, when the toast is shown, in the toast's
+    /// owner.
+    pub fn icon<V: IntoView>(mut self, icon: impl Fn() -> V + 'static) -> Self {
+        self.icon = Some(Rc::new(move || icon().into_view()));
+        self
+    }
+
+    /// Dismiss the toast `id`, then run the action, if any: what the action
+    /// button a kit draws does when it is pressed. Return it from the press
+    /// handler, which reports the action's error. Call it from a handler.
+    pub fn activate(&self, id: ToastId) -> Result<(), UiError> {
+        toaster().dismiss(id);
+        match &self.action {
+            Some((_, on)) => on(),
+            None => Ok(()),
+        }
+    }
+}
+
+/// The App-wide queue of notifications.
+///
+/// [`toaster`] returns the App's toaster, which the first call makes
+/// under the App's root owner and which lives as long as the App; an App that
+/// never calls it has none. The handle is `Copy` and can be used from setup,
+/// handlers, tasks and effects.
+///
+/// [`push`](Self::push) adds a [`Toast`]. At most
+/// [`max_visible`](Self::max_visible) (3 by default) are shown at once; the
+/// rest wait in the queue, in the order they were pushed, and are shown as
+/// the ones before them go. A waiting toast has not started its time.
+///
+/// The caller draws the shown toasts and places them in the window: two
+/// [`region`](Self::region) parts (polite and assertive) that hold the rows
+/// of [`visible`](Self::visible), each row with the [`item`](Self::item) part,
+/// drawn from [`toast`](Self::toast). [`toasts`](Self::toasts) reads what is
+/// shown without rendering it.
+///
+/// ```no_run
+/// # mod kivact {
+/// #     //! Role: Supply facade paths for this documentation example.
+/// #     pub use kivact_core::prelude;
+/// #     pub extern crate kivact_interaction as interaction;
+/// # }
+/// use kivact::interaction::{Toast, Tone, toaster};
+/// use kivact::prelude::*;
+/// use kivact_core::style::Position;
+/// use kivact_core::view::LiveRegion;
+///
+/// fn app() -> impl IntoView {
+///     let toaster = toaster();
+///     let group = move |assertive: bool, live: LiveRegion| {
+///         column(for_each(toaster.visible(assertive), |id| *id, move |id, _| {
+///             let title = toaster.toast(id).map(|toast| toast.title).unwrap_or_default();
+///             node().part(toaster.item(id)).child(text(title))
+///         }))
+///         .part(toaster.region(live))
+///     };
+///     column((
+///         node()
+///             .role(Role::Button)
+///             .name("Save")
+///             .focusable(true)
+///             .on_press(move || {
+///                 toaster.push(Toast::new("Saved").tone(Tone::Success));
+///             })
+///             .child(text("Save")),
+///         column((group(false, LiveRegion::Polite), group(true, LiveRegion::Assertive)))
+///             .style(style().position(Position::Fixed).right(16).bottom(16)),
+///     ))
+/// }
+/// ```
+#[derive(Clone, Copy)]
+pub struct Toaster {
+    /// Every toast not yet gone, shown or waiting, oldest first.
+    queue: Signal<Entries>,
+    /// The first `limit` of `queue`.
+    visible: Signal<Entries>,
+    next: Signal<u64>,
+    limit: Signal<usize>,
+    /// How many [`hold_while`](Self::hold_while) values are true now.
+    holds: Signal<usize>,
+}
+
+/// The App's toaster, made on the first call. It works wherever the App
+/// runs code (setup, a handler, a task, an effect), whether or not the
+/// caller still has an owner; it needs no component to be alive, since
+/// the toaster belongs to the App. Outside a running App it raises a
+/// located `WrongApp` error.
+///
+/// Unlike the `use_*` functions, which are for setup only, this is the
+/// application's own name for the shared queue: call it from a handler
+/// whenever a toast is due.
+#[track_caller]
+pub fn toaster() -> Toaster {
+    app_state("toaster", || Toaster {
+        queue: signal(Entries::new()),
+        visible: signal(Entries::new()),
+        next: signal(0u64),
+        limit: signal(DEFAULT_MAX_VISIBLE),
+        holds: signal(0usize),
+    })
+}
+
+impl Toaster {
+    /// Queue `toast`. It is shown at once when fewer than
+    /// [`max_visible`](Self::max_visible) are shown, and when the ones before
+    /// it have gone otherwise.
+    pub fn push(self, toast: Toast) -> ToastId {
+        let id = ToastId(self.next.get_untracked());
+        self.next.set(id.0 + 1);
+        self.queue.update(|queue| queue.push((id, toast)));
+        self.sync();
+        id
+    }
+
+    /// Remove a toast, shown or waiting. Nothing happens when it is already
+    /// gone.
+    pub fn dismiss(self, id: ToastId) {
+        let queued = self
+            .queue
+            .with_untracked(|queue| queue.iter().any(|(queued, _)| *queued == id));
+        if queued {
+            self.queue
+                .update(|queue| queue.retain(|(queued, _)| *queued != id));
+            self.sync();
+        }
+    }
+
+    /// The toasts shown now, oldest first.
+    pub fn toasts(self) -> Value<Vec<(ToastId, Toast)>> {
+        self.visible.into_value()
+    }
+
+    /// How many toasts are shown at once; the rest wait. The default is 3 and
+    /// at least 1 is kept.
+    pub fn max_visible(self, n: usize) -> Self {
+        self.limit.set(n.max(1));
+        self.sync();
+        self
+    }
+
+    /// Stop the countdown of every shown toast while `held` is true, on top
+    /// of the pointer and focus rules of [`item`](Self::item): a kit that
+    /// draws the toasts as one stack, which opens while the pointer is over
+    /// any part of it, holds them all then. What each toast has left resumes
+    /// when no hold and no toast pointer or focus remains. Several holds add
+    /// up. The hold ends with the owner it was made in. Setup only.
+    #[track_caller]
+    pub fn hold_while(self, held: impl IntoValue<bool>) {
+        let held = held.into_value();
+        effect(move || {
+            if held.get() {
+                self.holds.set(self.holds.get_untracked() + 1);
+                on_cleanup(move || self.holds.set(self.holds.get_untracked().saturating_sub(1)));
+            }
+        });
+    }
+
+    /// Make `visible` the first `limit` toasts of the queue.
+    fn sync(self) {
+        let limit = self.limit.get_untracked();
+        let shown: Entries = self
+            .queue
+            .with_untracked(|queue| queue.iter().take(limit).cloned().collect());
+        let same = self.visible.with_untracked(|visible| {
+            visible.len() == shown.len() && visible.iter().zip(&shown).all(|(a, b)| a.0 == b.0)
+        });
+        if !same {
+            self.visible.update(|visible| *visible = shown);
+        }
+    }
+
+    /// The toast `id` if it is shown now.
+    fn shown(self, id: ToastId) -> Option<Toast> {
+        self.visible.with_untracked(|visible| {
+            visible
+                .iter()
+                .find(|(shown, _)| *shown == id)
+                .map(|(_, toast)| toast.clone())
+        })
+    }
+}
+
+/// The tone and actual input state of a toast.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ToastState {
+    pub input: PartState,
+    /// The toast's tone; [`Tone::Neutral`] once it is gone.
+    pub tone: Tone,
+    /// The pointer is over the toast or the keyboard focus is in it, or a
+    /// [`Toaster::hold_while`] is true, which stops its countdown.
+    pub engaged: bool,
+    /// How many newer toasts are shown in the same live region: 0 for the
+    /// newest, which a stacked look draws in front of the others.
+    pub depth: usize,
+}
+
+impl Toaster {
+    /// The toast `id` while it is shown, for drawing it.
+    pub fn toast(self, id: ToastId) -> Option<Toast> {
+        self.shown(id)
+    }
+
+    /// The ids of the toasts shown now whose tone is announced assertively
+    /// (`true`: [`Warning`](Tone::Warning) and [`Danger`](Tone::Danger))
+    /// or politely (`false`), oldest first, for the caller's `for_each` in
+    /// the matching [`region`](Self::region). Setup only.
+    #[track_caller]
+    pub fn visible(self, assertive: bool) -> Value<Vec<ToastId>> {
+        let shown = self.visible.into_value();
+        memo(move || shown.with(|shown| ids(shown, assertive)))
+    }
+
+    /// A live region for the toasts of one urgency: a `Role::Group` that
+    /// announces [`LiveRegion::Polite`] or [`LiveRegion::Assertive`]
+    /// additions. Mount both regions from the start, so that assistive
+    /// technology knows them before the first toast appears, and render the
+    /// toasts of [`visible`](Self::visible) inside. Placement in the window
+    /// is the caller's layout.
+    #[track_caller]
+    pub fn region(self, live: LiveRegion) -> Part<PartState> {
+        part(|input| input).role(Role::Group).live_region(live)
+    }
+
+    /// One shown toast: a `Role::Status` (polite) or `Role::Alert`
+    /// (assertive) named by its title.
+    ///
+    /// Its time is counted with a task timer, not by frames, from when it is
+    /// mounted. It stops while the pointer is over the toast and while the
+    /// keyboard focus is on the toast or inside it, and what is left resumes
+    /// when both end. Escape, while the focus is in the toast, dismisses it.
+    /// A toast with a `duration` of `None` stays until it is dismissed. The
+    /// caller draws a close button with [`dismiss`](Self::dismiss) and the
+    /// action, if any, with [`Toast::activate`]. Setup only, in the toast's
+    /// row.
+    #[track_caller]
+    pub fn item(self, id: ToastId) -> Part<ToastState> {
+        let toast = self.shown(id);
+        let tone = toast.as_ref().map_or(Tone::Neutral, |toast| toast.tone);
+        let duration = toast.as_ref().and_then(|toast| toast.duration);
+        let title = toast.map(|toast| toast.title).unwrap_or_default();
+        let engaged = signal(false);
+        let shown = self.visible;
+        let depth = memo(move || {
+            shown.with(|shown| {
+                let same = ids(shown, tone.is_urgent());
+                same.iter()
+                    .position(|other| *other == id)
+                    .map_or(0, |at| same.len() - 1 - at)
+            })
+        });
+        let attachment = part(move |input| ToastState {
+            input,
+            tone,
+            engaged: engaged.get(),
+            depth: depth.get(),
+        });
+        let anchor = attachment.node_ref();
+        attachment
+            .role(if tone.is_urgent() {
+                Role::Alert
+            } else {
+                Role::Status
+            })
+            .name(title)
+            .on_key(move |event: KeyEvent| {
+                if event.key == Key::Escape && event.modifiers == Modifiers::default() {
+                    self.dismiss(id);
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+            .on_bind(move |_| {
+                let hover = anchor.hovered();
+                let focus = anchor.focus_within();
+                let within = memo(move || hover.get() || focus.get());
+                let stopped = memo(move || within.get() || self.holds.get() > 0);
+                effect(move || engaged.set(stopped.get()));
+                count_down(self, id, duration, stopped);
+            })
+    }
+}
+
+/// The ids among `shown` whose tone is (not) assertive.
+fn ids(shown: &[(ToastId, Toast)], assertive: bool) -> Vec<ToastId> {
+    shown
+        .iter()
+        .filter(|(_, toast)| toast.tone.is_urgent() == assertive)
+        .map(|(id, _)| *id)
+        .collect()
+}
+
+/// Dismiss `id` after `duration` of time not `engaged`. The time already
+/// counted is kept while it is engaged and the rest resumes after it.
+fn count_down(toaster: Toaster, id: ToastId, duration: Option<Duration>, engaged: Value<bool>) {
+    let Some(duration) = duration else { return };
+    let left = Rc::new(Cell::new(
+        duration.as_nanos().min(u128::from(u64::MAX)) as u64
+    ));
+    effect(move || {
+        if engaged.get() {
+            return;
+        }
+        let started = now_ns();
+        let wait = Duration::from_nanos(left.get());
+        let task = spawn(async move {
+            sleep(wait).await;
+            toaster.dismiss(id);
+        });
+        let left = left.clone();
+        on_cleanup(move || {
+            task.cancel();
+            left.set(left.get().saturating_sub(now_ns().saturating_sub(started)));
+        });
+    });
+}
+
+fn now_ns() -> u64 {
+    kivact_core::primitive::clock_now()
+}

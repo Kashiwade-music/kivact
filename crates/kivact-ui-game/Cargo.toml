@@ -1,0 +1,17 @@
+[package]
+name = "kivact-ui-game"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hard-edged operation-console components using only Kivact's public API"
+
+[dependencies]
+kivact = { path = "../kivact", default-features = false }
+
+[dev-dependencies]
+kivact = { path = "../kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

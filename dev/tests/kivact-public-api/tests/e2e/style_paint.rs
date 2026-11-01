@@ -1,0 +1,247 @@
+//! Role: Local style painting follows layout and preserves drawing layers.
+
+use std::cell::Cell;
+use std::rc::Rc;
+
+use super::paint::{BLUE, GREEN, RED, WHITE, at, canvas_of, expect};
+use super::support::mount;
+use kivact::draw::Rect;
+use kivact::prelude::*;
+use kivact::primitive::NodeExt;
+use kivact::view::provide_theme;
+
+#[test]
+fn styled_text_leaves_do_not_publish_canvas_scenes() {
+    let (screen, paint) = mount(|| {
+        let paint = signal(false);
+        let content = signal(String::from("Value"));
+        let leaf_style = move || {
+            let base = style().width(100).height(30);
+            if paint.get() {
+                base.paint(|draw, size| {
+                    draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(RED));
+                })
+            } else {
+                base
+            }
+        };
+        (
+            paint,
+            column((
+                text("Label").style(leaf_style),
+                kivact::control::node()
+                    .name(content)
+                    .part(
+                        kivact::interaction::use_text_edit(kivact::signal(String::new())).control(),
+                    )
+                    .style(leaf_style),
+            )),
+        )
+    });
+    assert!(screen.errors().is_empty());
+    paint.set(true);
+    screen.run_until_idle();
+    assert_eq!(screen.errors().len(), 2);
+    assert!(
+        screen
+            .errors()
+            .iter()
+            .all(|error| { error.kind() == &kivact::diagnostics::ErrorKind::Unsupported })
+    );
+    paint.set(false);
+    screen.run_until_idle();
+    assert_eq!(screen.errors().len(), 2);
+}
+
+#[test]
+fn state_style_callbacks_are_reported_and_ignored() {
+    let (screen, disabled) = mount(|| {
+        let disabled = signal(false);
+        let invalid = || {
+            style().paint(|draw, _| {
+                draw.fill_rect(Rect::new(0.0, 0.0, 40.0, 30.0), rgb(RED));
+            })
+        };
+        (
+            disabled,
+            canvas_of(
+                node().disabled(disabled).selected(true).style(
+                    at(0, 0, 40, 30)
+                        .paint(|draw, _| {
+                            draw.fill_rect(Rect::new(0.0, 0.0, 40.0, 30.0), rgb(BLUE));
+                        })
+                        .hover(invalid())
+                        .pressed(invalid())
+                        .focus(invalid())
+                        .disabled(invalid())
+                        .selected(invalid()),
+                ),
+            ),
+        )
+    });
+    expect(&screen.screenshot(), 10, 10, BLUE, 0, "base paint retained");
+    assert_eq!(screen.errors().len(), 1);
+    assert_eq!(
+        screen.errors()[0].kind(),
+        &kivact::diagnostics::ErrorKind::Unsupported
+    );
+    disabled.set(true);
+    screen.run_until_idle();
+    expect(
+        &screen.screenshot(),
+        10,
+        10,
+        BLUE,
+        0,
+        "disabled paint ignored",
+    );
+    assert_eq!(screen.errors().len(), 1, "reported once per node");
+}
+
+#[test]
+fn paint_only_style_tracks_size_signals_theme_and_removal() {
+    let evaluations = Rc::new(Cell::new(0));
+    let count = evaluations.clone();
+    let (screen, (width, color, enabled, theme)) = mount(move || {
+        let width = signal(40.0_f32);
+        let color = signal(false);
+        let enabled = signal(false);
+        let theme = signal(Theme::light());
+        let painted = node().style(move || {
+            count.set(count.get() + 1);
+            let base = at(0, 0, 40, 30).width(width.get());
+            if enabled.get() {
+                base.paint(move |draw, size| {
+                    draw.fill_rect(
+                        Rect::new(0.0, 0.0, size.width, size.height),
+                        if color.get() {
+                            ColorToken::Accent.into()
+                        } else {
+                            rgb(RED)
+                        },
+                    );
+                })
+            } else {
+                base
+            }
+        });
+        (
+            (width, color, enabled, theme),
+            provide_theme(theme, move || canvas_of(painted)),
+        )
+    });
+    expect(
+        &screen.screenshot(),
+        30,
+        10,
+        WHITE,
+        0,
+        "style initially has no paint",
+    );
+    enabled.set(true);
+    screen.run_until_idle();
+    expect(&screen.screenshot(), 30, 10, RED, 0, "paint-only node");
+    expect(&screen.screenshot(), 60, 10, WHITE, 0, "initial bounds");
+    width.set(80.0);
+    screen.run_until_idle();
+    expect(&screen.screenshot(), 60, 10, RED, 0, "resized paint");
+    let accent_theme = |accent| {
+        let colors = kivact::style::theme::Palette {
+            accent,
+            ..Theme::light().colors().clone()
+        };
+        Theme::light().with_colors(colors)
+    };
+    theme.set(accent_theme(rgb(BLUE)));
+    screen.run_until_idle();
+    let before = evaluations.get();
+    color.set(true);
+    screen.run_until_idle();
+    expect(
+        &screen.screenshot(),
+        60,
+        10,
+        BLUE,
+        0,
+        "paint signal dependency",
+    );
+    assert_eq!(
+        evaluations.get(),
+        before,
+        "paint does not evaluate style again"
+    );
+    theme.set(accent_theme(rgb(GREEN)));
+    screen.run_until_idle();
+    expect(&screen.screenshot(), 60, 10, GREEN, 0, "theme dependency");
+    enabled.set(false);
+    screen.run_until_idle();
+    expect(
+        &screen.screenshot(),
+        60,
+        10,
+        WHITE,
+        0,
+        "old commands removed",
+    );
+    enabled.set(true);
+    screen.run_until_idle();
+    expect(&screen.screenshot(), 60, 10, GREEN, 0, "paint returns");
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn merged_paint_runs_between_caller_draw_and_children_and_clears_independently() {
+    let (screen, enabled) = mount(|| {
+        let enabled = signal(true);
+        let painted = node()
+            .style(at(0, 0, 100, 30))
+            .style(move || {
+                if enabled.get() {
+                    style()
+                        .paint(|draw, _| {
+                            draw.fill_rect(Rect::new(0.0, 0.0, 100.0, 30.0), rgb(GREEN));
+                        })
+                        .merge(&style().paint(|draw, _| {
+                            draw.fill_rect(Rect::new(0.0, 0.0, 80.0, 30.0), rgb(BLUE));
+                        }))
+                        .merge(&style().height(30))
+                } else {
+                    style()
+                }
+            })
+            .draw(|draw, _| {
+                draw.fill_rect(Rect::new(0.0, 0.0, 100.0, 30.0), rgb(RED));
+            })
+            .child(node().style(at(0, 0, 20, 30).background(rgb(GREEN))))
+            .draw_over(|draw, _| {
+                draw.fill_rect(Rect::new(20.0, 0.0, 20.0, 30.0), rgb(WHITE));
+            });
+        (enabled, canvas_of(painted))
+    });
+    let shot = screen.screenshot();
+    expect(&shot, 10, 10, GREEN, 0, "child over style paint");
+    expect(&shot, 30, 10, WHITE, 0, "draw_over over style paint");
+    expect(
+        &shot,
+        60,
+        10,
+        BLUE,
+        0,
+        "last explicit paint over caller draw",
+    );
+    expect(
+        &shot,
+        90,
+        10,
+        RED,
+        0,
+        "earlier paint replaced, caller draw retained",
+    );
+    enabled.set(false);
+    screen.run_until_idle();
+    let shot = screen.screenshot();
+    expect(&shot, 10, 10, GREEN, 0, "child retained");
+    expect(&shot, 30, 10, WHITE, 0, "draw_over retained");
+    expect(&shot, 60, 10, RED, 0, "only stale style commands cleared");
+    assert!(screen.errors().is_empty());
+}

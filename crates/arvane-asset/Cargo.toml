@@ -1,0 +1,25 @@
+[package]
+name = "arvane-asset"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Arvane assets: image loading, format detection, raster and SVG decoding, tint, fit, the image cache and worker, font files"
+
+[dependencies]
+tracing = { workspace = true }
+ui-types = { path = "../ui-types" }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+# No `text`: SVG `<text>` is not drawn, and fontdb, rustybuzz and ttf-parser
+# stay out of builds that do not already have them.
+resvg = { version = "0.46.0", default-features = false }
+# SVGZ is decompressed here, within a limit, before usvg sees it (usvg's
+# own decompression reads to the end). The version and backend usvg uses.
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+skrifa = { workspace = true, features = ["std"] }
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true

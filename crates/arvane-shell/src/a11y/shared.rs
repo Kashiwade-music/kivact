@@ -1,0 +1,361 @@
+//! Role: Stores the accessibility tree shared with native callbacks.
+
+use super::{error::AccessibilityError, state, validation};
+use std::sync::{Arc, Mutex, MutexGuard};
+use ui_types::{NodeId, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
+
+/// What the platform has not been handed yet.
+#[derive(Default)]
+pub(crate) enum Unsent {
+    /// Nothing.
+    #[default]
+    Nothing,
+    /// The focus and these nodes (in the order they changed; a node
+    /// changed by several updates repeats), with the text runs they added.
+    Changed {
+        nodes: Vec<NodeId>,
+        runs: Vec<Arc<SemanticsTextRun>>,
+        /// More than one update's nodes: they may repeat, and a later
+        /// update may have dropped a run an earlier one added.
+        merged: bool,
+    },
+    /// The whole tree.
+    Tree,
+}
+
+/// The tree and what its window's platform side shares with it.
+pub(crate) struct Shared {
+    pub(crate) tree: Option<state::AcceptedTree>,
+    pub(crate) unsent: Unsent,
+    /// The scale the root maps logical bounds to the window's pixels with.
+    pub(crate) scale: f64,
+    /// Assistive technology asked for the tree and has not let go of it:
+    /// meanwhile the application keeps it up to date and the platform is
+    /// handed every change.
+    pub(crate) active: bool,
+    /// Actions assistive technology asked for, not taken yet.
+    pub(crate) actions: Vec<crate::events::ShellEvent>,
+}
+
+impl Shared {
+    pub(crate) fn new(scale: f64) -> Self {
+        Shared {
+            tree: None,
+            unsent: Unsent::Nothing,
+            scale,
+            active: false,
+            actions: Vec::new(),
+        }
+    }
+
+    /// Validates a complete tree and replaces the accepted one with it.
+    pub(crate) fn replace(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
+        let tree = validation::canonicalize(tree)?;
+        self.tree = Some(state::AcceptedTree::new(&tree));
+        if self.active {
+            self.unsent = Unsent::Tree;
+        }
+        Ok(())
+    }
+
+    /// Validates the nodes that may have changed and applies them; whether
+    /// anything changed. Without an accepted tree, or with a new root, the
+    /// update must hold the complete tree.
+    pub(crate) fn update(&mut self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
+        let Some(tree) = self.tree.as_mut().filter(|t| t.root() == update.root) else {
+            self.replace(&SemanticsTree {
+                root: update.root,
+                focus: update.focus,
+                nodes: update.nodes.clone(),
+            })?;
+            return Ok(true);
+        };
+        let Some(changed) = tree.apply(update)? else {
+            return Ok(false);
+        };
+        if !self.active {
+            // No one reads the tree: activation hands over all of it.
+            return Ok(true);
+        }
+        self.unsent = match std::mem::take(&mut self.unsent) {
+            Unsent::Nothing => Unsent::Changed {
+                nodes: changed.nodes,
+                runs: changed.runs,
+                merged: false,
+            },
+            Unsent::Changed {
+                mut nodes,
+                mut runs,
+                ..
+            } => {
+                nodes.extend(changed.nodes);
+                runs.extend(changed.runs);
+                Unsent::Changed {
+                    nodes,
+                    runs,
+                    merged: true,
+                }
+            }
+            Unsent::Tree => Unsent::Tree,
+        };
+        Ok(true)
+    }
+}
+
+// Locks contain only validation, assignment, conversion and queue insertion.
+// Recovering a poisoned lock keeps the last accepted tree (a panic inside a
+// change leaves it as it was) and keeps OS callbacks alive.
+pub(crate) fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
+    shared
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// A backend's synchronized handle to one window's accepted semantics tree.
+///
+/// Updates validate transactionally. While a platform reader is active, this
+/// handle tracks unpublished changes. Activation converts the complete current
+/// tree; deactivation drops pending changes. Conversion closures run under the
+/// tree lock and must only convert borrowed data: they must not call this handle,
+/// application callbacks, wakers or the platform adapter. Acquire an adapter's
+/// publication lock first, then call [`Self::pending_with`] inside its callback.
+/// This prevents an older update from following a newer activation snapshot.
+///
+/// A conversion panic preserves pending data; poisoned locks are recovered on
+/// the next operation. Only successful conversion consumes unpublished changes.
+#[derive(Clone)]
+pub struct PlatformTree {
+    shared: Arc<Mutex<Shared>>,
+}
+
+/// The current semantics selected for one platform update, borrowed under lock.
+///
+/// Node references come from the current accepted tree, never an earlier update.
+/// A merged update includes all text runs on its selected nodes; an unmerged
+/// update separately carries only the text runs that changed.
+pub struct PlatformUpdate<'a> {
+    tree: &'a state::AcceptedTree,
+    nodes: Vec<&'a ui_types::SemanticsNode>,
+    runs: &'a [Arc<SemanticsTextRun>],
+    all_runs: bool,
+    scale: f64,
+}
+
+impl PlatformUpdate<'_> {
+    /// The current accepted hierarchy, including root and focus identities.
+    pub fn tree(&self) -> &state::AcceptedTree {
+        self.tree
+    }
+
+    /// The current nodes the platform needs, in delivery order.
+    pub fn nodes(&self) -> impl Iterator<Item = &ui_types::SemanticsNode> {
+        self.nodes.iter().copied()
+    }
+
+    /// Whether conversion must include every text run of each selected node.
+    pub fn all_runs(&self) -> bool {
+        self.all_runs
+    }
+
+    /// Additional changed text runs, used when [`Self::all_runs`] is false.
+    pub fn changed_runs(&self) -> impl Iterator<Item = &SemanticsTextRun> {
+        self.runs.iter().map(AsRef::as_ref)
+    }
+
+    /// Logical-to-physical scale, applied after the root's own transform.
+    pub fn scale(&self) -> f64 {
+        self.scale
+    }
+}
+
+impl PlatformTree {
+    /// An empty, inactive tree whose root bounds map to pixels with `scale`.
+    /// The backend supplies the same positive finite scale as its window.
+    pub fn new(scale: f64) -> Self {
+        Self {
+            shared: Arc::new(Mutex::new(Shared::new(scale))),
+        }
+    }
+
+    /// Validate and replace the complete hierarchy, marking it for publication
+    /// when active. A rejected tree leaves all accepted state unchanged.
+    /// Publish or notify the window only after this method returns.
+    pub fn replace(&self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
+        lock(&self.shared).replace(tree)
+    }
+
+    /// Validate and apply a partial update; return whether anything changed.
+    /// A new root requires a complete hierarchy. Rejection leaves the accepted
+    /// tree unchanged. Publish or notify the window after this method returns.
+    pub fn update(&self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
+        lock(&self.shared).update(update)
+    }
+
+    /// A complete copy of the accepted tree in parent-before-child order.
+    pub fn tree(&self) -> Option<SemanticsTree> {
+        lock(&self.shared)
+            .tree
+            .as_ref()
+            .map(state::AcceptedTree::tree)
+    }
+
+    /// Whether a platform reader has activated the tree and not deactivated it.
+    pub fn active(&self) -> bool {
+        lock(&self.shared).active
+    }
+
+    /// Stop publication and discard pending changes; the accepted tree remains.
+    pub fn deactivate(&self) {
+        let mut shared = lock(&self.shared);
+        shared.active = false;
+        shared.unsent = Unsent::Nothing;
+    }
+
+    /// Activate a reader and convert its complete current tree under lock.
+    /// `None` means no tree has been accepted yet. Wake the application after
+    /// return so it can refresh semantics. A panic leaves a full update pending.
+    pub fn activate_with<R>(&self, convert: impl FnOnce(PlatformUpdate<'_>) -> R) -> Option<R> {
+        let mut shared = lock(&self.shared);
+        shared.active = true;
+        shared.tree.as_ref()?;
+        shared.unsent = Unsent::Tree;
+        let tree = shared.tree.as_ref()?;
+        let result = convert(PlatformUpdate {
+            tree,
+            nodes: tree.nodes(),
+            runs: &[],
+            all_runs: true,
+            scale: shared.scale,
+        });
+        shared.unsent = Unsent::Nothing;
+        Some(result)
+    }
+
+    /// Whether a publication may be needed, optionally forcing the root for a
+    /// scale change. This is a hint only: activation can consume changes before
+    /// the adapter enters its publication callback. Never hold this lock while
+    /// acquiring the adapter's lock; call [`Self::pending_with`] inside it.
+    pub fn has_pending(&self, include_root: bool) -> bool {
+        let shared = lock(&self.shared);
+        shared.tree.is_some() && (include_root || !matches!(shared.unsent, Unsent::Nothing))
+    }
+
+    /// Convert what the platform still lacks from the current accepted tree.
+    /// Call inside the adapter's publication callback, after its own lock is
+    /// acquired. The closure runs under the shell lock; pending state is cleared
+    /// only after it returns. If activation already consumed the changes, the
+    /// selection may contain only current focus (and the root when requested).
+    /// `None` means no accepted tree, or the reader has deactivated.
+    pub fn pending_with<R>(
+        &self,
+        include_root: bool,
+        convert: impl FnOnce(PlatformUpdate<'_>) -> R,
+    ) -> Option<R> {
+        let mut shared = lock(&self.shared);
+        if !shared.active {
+            return None;
+        }
+        let tree = shared.tree.as_ref()?;
+        let root = tree.root();
+        let (mut nodes, runs, all_runs) = match &shared.unsent {
+            Unsent::Tree => (tree.nodes(), &[][..], true),
+            Unsent::Nothing => (Vec::new(), &[][..], false),
+            Unsent::Changed {
+                nodes,
+                runs,
+                merged,
+            } => {
+                let mut seen = std::collections::HashSet::new();
+                let current = nodes
+                    .iter()
+                    .filter(|id| !*merged || seen.insert(**id))
+                    .filter_map(|id| tree.node(*id))
+                    .collect();
+                (current, if *merged { &[][..] } else { &runs[..] }, *merged)
+            }
+        };
+        if include_root && !nodes.iter().any(|node| node.id == root) {
+            nodes.extend(tree.node(root));
+        }
+        let result = convert(PlatformUpdate {
+            tree,
+            nodes,
+            runs,
+            all_runs,
+            scale: shared.scale,
+        });
+        shared.unsent = Unsent::Nothing;
+        Some(result)
+    }
+
+    /// Map subsequent root bounds with `scale`. An active tree retains its root
+    /// as pending so a conversion panic cannot lose the scale change.
+    pub fn rescale(&self, scale: f64) {
+        let mut shared = lock(&self.shared);
+        shared.scale = scale;
+        if shared.active
+            && let Some(root) = shared.tree.as_ref().map(state::AcceptedTree::root)
+        {
+            match &mut shared.unsent {
+                Unsent::Nothing => {
+                    shared.unsent = Unsent::Changed {
+                        nodes: vec![root],
+                        runs: Vec::new(),
+                        merged: false,
+                    }
+                }
+                Unsent::Changed { nodes, .. } if !nodes.contains(&root) => nodes.push(root),
+                _ => {}
+            }
+        }
+    }
+
+    /// Forget a pooled window's accepted hierarchy and pending publication.
+    /// Call only between the backend's publication/activation operations.
+    /// Its reader state, scale and queued actions are unchanged.
+    pub fn forget(&self) {
+        let mut shared = lock(&self.shared);
+        shared.tree = None;
+        shared.unsent = Unsent::Nothing;
+    }
+
+    /// Check a request against the current hierarchy, without queueing it.
+    /// Hidden or disabled targets/ancestors and undeclared actions are rejected.
+    /// `Activate`, `Toggle` and `Select` share the default action and are delivered
+    /// as `Activate`; a focusable node declares `Focus` even without an explicit
+    /// entry in its action list. Other actions require an exact declaration.
+    pub fn request_action(
+        &self,
+        node: u64,
+        action: ui_types::A11yAction,
+        value: Option<&str>,
+    ) -> Option<crate::events::ShellEvent> {
+        let shared = lock(&self.shared);
+        super::action::accept(shared.tree.as_ref()?, node, action, value)
+    }
+
+    /// Atomically validate and queue a native request using the same contract as
+    /// [`Self::request_action`]. Wake the UI thread only after this returns true.
+    pub fn queue_action(
+        &self,
+        node: u64,
+        action: ui_types::A11yAction,
+        value: Option<&str>,
+    ) -> bool {
+        let mut shared = lock(&self.shared);
+        let Some(event) = shared
+            .tree
+            .as_ref()
+            .and_then(|tree| super::action::accept(tree, node, action, value))
+        else {
+            return false;
+        };
+        shared.actions.push(event);
+        true
+    }
+
+    /// Take all accepted native requests in arrival order for UI-thread delivery.
+    pub fn drain_actions(&self) -> Vec<crate::events::ShellEvent> {
+        std::mem::take(&mut lock(&self.shared).actions)
+    }
+}

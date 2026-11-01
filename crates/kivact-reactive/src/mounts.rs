@@ -1,0 +1,71 @@
+//! Role: `on_mount` callback scheduling and deferred execution.
+//!
+//! `on_mount` callbacks, deferred until the driver of the runtime (the
+//! client) acknowledges what the setup created. The runtime does not know
+//! what is acknowledged or by whom: the driver hands it opaque tokens that
+//! only grow (the client uses the revision of the batch that carries the
+//! new nodes, acknowledged when the host applied it).
+//!
+//! Invariants:
+//! - A queued callback waits without a token until the driver stamps the
+//!   waiting callbacks with the next token ([`Runtime::defer_mounts_until`]);
+//!   it runs once a token at least as large is acknowledged
+//!   ([`Runtime::run_mounts_acked`]), in queue order.
+//! - A callback whose owner was disposed meanwhile never runs; it is
+//!   dropped when its token is acknowledged (or with the runtime).
+//! - Each callback runs in a handler frame of its owner and at a boundary:
+//!   a panic is reported to the owner.
+
+use crate::arena::Key;
+use crate::data::Runtime;
+
+impl Runtime {
+    /// Queue `f` to run for `owner` once the next token the driver stamps is
+    /// acknowledged.
+    pub(crate) fn push_mount(&self, owner: Key, f: Box<dyn FnOnce()>) {
+        self.mounts.borrow_mut().push((owner, None, f));
+    }
+
+    /// Make every queued callback without a token wait for `token`; returns
+    /// whether any did.
+    pub(crate) fn defer_mounts_until(&self, token: u64) -> bool {
+        let mut stamped = false;
+        for m in self.mounts.borrow_mut().iter_mut() {
+            if m.1.is_none() {
+                m.1 = Some(token);
+                stamped = true;
+            }
+        }
+        stamped
+    }
+
+    /// The driver acknowledged every token up to `token`: run the callbacks
+    /// waiting for one of them, in queue order, for owners that are still
+    /// alive.
+    pub(crate) fn run_mounts_acked(&self, token: u64) {
+        let due: Vec<(Key, Box<dyn FnOnce()>)> = {
+            let mut mounts = self.mounts.borrow_mut();
+            let all = std::mem::take(&mut *mounts);
+            let (due, keep): (Vec<_>, Vec<_>) = all
+                .into_iter()
+                .partition(|(_, t, _)| t.is_some_and(|t| t <= token));
+            *mounts = keep;
+            due.into_iter().map(|(o, _, f)| (o, f)).collect()
+        };
+        for (owner, f) in due {
+            if self.owner_alive(owner) {
+                let _g = self.handler_frame(Some(owner));
+                self.guarded(Some(owner), f);
+            }
+        }
+    }
+
+    /// Whether a queued callback waits for a token up to `token` (it runs
+    /// in the next [`Runtime::run_mounts_acked`] with `token`).
+    pub(crate) fn mounts_due(&self, token: u64) -> bool {
+        self.mounts
+            .borrow()
+            .iter()
+            .any(|(_, t, _)| t.is_some_and(|t| t <= token))
+    }
+}

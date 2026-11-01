@@ -1,0 +1,35 @@
+[package]
+name = "kivact-core-only-consumer"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace]
+
+[dependencies]
+kivact = { path = "../../../../crates/kivact", default-features = false }
+
+# Native editor operations remain optimized across this independent boundary.
+[profile.dev.package.kivact-editing]
+opt-level = 3
+
+# Keep shared protocol calculations optimized across this independent boundary.
+[profile.dev.package.kivact-wire]
+opt-level = 3
+
+# Optimize value lowering across this independent consumer boundary.
+[profile.dev.package.kivact-lower]
+opt-level = 3
+
+# Keep retained text operations optimized at this independent boundary.
+[profile.dev.package.kivact-text]
+opt-level = 3
+
+# Optimize engine integration and layout computation in this independent build.
+[profile.dev.package.kivact-engine]
+opt-level = 3
+
+# Optimize engine integration and layout computation in this independent build.
+[profile.dev.package.kivact-layout]
+opt-level = 3

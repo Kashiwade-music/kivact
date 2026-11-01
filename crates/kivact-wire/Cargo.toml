@@ -1,0 +1,17 @@
+[package]
+name = "kivact-wire"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Independent node, event, scene, measurement and motion protocol"
+
+[dependencies]
+ui-types = { path = "../ui-types" }
+kivact-editing = { path = "../kivact-editing" }
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true

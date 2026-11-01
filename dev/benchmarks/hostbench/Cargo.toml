@@ -1,0 +1,22 @@
+[package]
+name = "kivact-hostbench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Host benchmark: self-driving scenarios on the Arvane host, on the GPU or (ARVANE_RENDERER=cpu) the CPU (dev/tools/gui-harness/hostbench.ps1)"
+
+[features]
+default = ["gpu"]
+# Applications choose the renderer; component libraries leave it to their consumer.
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false }
+
+[[bin]]
+name = "hostbench"
+path = "src/main.rs"
+
+[lints]
+workspace = true

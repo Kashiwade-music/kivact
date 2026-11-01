@@ -1,0 +1,14 @@
+[package]
+name = "kivact-workspace-policy-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Workspace policy tests: complete direct-dependency allowlists and the golden list of public names"
+
+[dev-dependencies]
+serde_json = { workspace = true }
+syn = { version = "=2.0.119", features = ["full"] }
+
+[lints]
+workspace = true

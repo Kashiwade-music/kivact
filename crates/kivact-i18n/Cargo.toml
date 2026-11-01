@@ -1,0 +1,18 @@
+[package]
+name = "kivact-i18n"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Kivact internal crate: locale and messages (use the `kivact` facade)"
+
+[dependencies]
+kivact-reactive = { path = "../kivact-reactive" }
+
+[dev-dependencies]
+# Doctests show what users write (`use kivact::prelude::*`). Dev-dependency
+# cycles are allowed by Cargo; nothing but the doctests uses the facade.
+kivact = { path = "../kivact" }
+
+[lints]
+workspace = true

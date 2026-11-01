@@ -1,0 +1,105 @@
+//! Role: Catalog page of Drawer: a modal panel that is swiped away with its handle.
+
+use crate::model::{Example, Page, PreviewAlign};
+use kivact::prelude::*;
+use kivact::ui::ControlSize;
+use kivact::ui::Side;
+use kivact_ui_basic as basic;
+
+pub(crate) fn page() -> Page {
+    Page {
+        slug: "drawer",
+        name: "Drawer",
+        description: "端に付くモーダルのパネルで、取っ手をつかんで端へスワイプして閉じます。パネルの高さ（横向きなら幅）の 30 % を越えるか、素早くはじくと閉じ、それ以外は元の位置へ戻ります。",
+        usage: "use kivact::ui::Side;\nuse kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
+        source: include_str!("drawer.rs"),
+        align: PreviewAlign::Center,
+        examples: vec![
+            Example::new(
+                "default",
+                "Default",
+                "既定は下端です。取っ手を下へ引くか、Escape や背景の押下で閉じます。",
+                default,
+            ),
+            Example::new(
+                "side",
+                "Side",
+                "side（kivact::ui::Side）で付ける端と、スワイプで閉じる向きを選びます。",
+                side,
+            ),
+        ],
+    }
+}
+
+// example: default
+fn default() -> impl IntoView {
+    let open = signal(false);
+    let goal = signal(350);
+    column((
+        button("Open Drawer")
+            .variant(ButtonVariant::Outline)
+            .on_press(move || open.set(true)),
+        basic::drawer(open, "Move Goal")
+            .description("Set your daily activity goal.")
+            .content(move || {
+                row((
+                    button("Decrease")
+                        .variant(ButtonVariant::Outline)
+                        .hide_label(true)
+                        .icon(icon("minus"))
+                        .size(ControlSize::Small)
+                        .on_press(move || goal.update(|goal| *goal -= 10)),
+                    column((
+                        text(move || goal.get().to_string())
+                            .style(style().font_size(36).weight(800)),
+                        basic::muted("Calories/day"),
+                    ))
+                    .style(style().align_items(Align::Center).min_width(120)),
+                    button("Increase")
+                        .variant(ButtonVariant::Outline)
+                        .hide_label(true)
+                        .icon(icon("plus"))
+                        .size(ControlSize::Small)
+                        .on_press(move || goal.update(|goal| *goal += 10)),
+                ))
+                .style(
+                    style()
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center),
+                )
+            })
+            .footer(move || {
+                (
+                    button("Submit").on_press(move || open.set(false)),
+                    button("Cancel")
+                        .variant(ButtonVariant::Outline)
+                        .on_press(move || open.set(false)),
+                )
+            }),
+    ))
+}
+// end example
+
+// example: side
+fn side() -> impl IntoView {
+    let edges = [
+        ("Top", Side::Top),
+        ("Right", Side::Right),
+        ("Bottom", Side::Bottom),
+        ("Left", Side::Left),
+    ];
+    row(Vec::from(edges.map(|(label, side)| {
+        let open = signal(false);
+        column((
+            button(label)
+                .variant(ButtonVariant::Outline)
+                .on_press(move || open.set(true)),
+            basic::drawer(open, format!("{label} drawer"))
+                .side(side)
+                .description("Swipe the handle toward the edge to dismiss it.")
+                .content(|| basic::muted("Anything can go here.")),
+        ))
+    })))
+    .style(style().gap(8).align_items(Align::Start))
+}
+// end example
