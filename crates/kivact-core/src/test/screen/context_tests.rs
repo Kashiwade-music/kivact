@@ -1,5 +1,5 @@
 //! Role: Real-window regressions for layer context entry and unwind restoration.
-use crate::prelude::*;
+use crate::prelude::{Value, memo, signal, text};
 use crate::test::{RenderOptions, WindowMode, render_with_handle};
 use kivact_reactive::{ErrorKind, Owner, UiError, pure, untrack};
 use std::cell::Cell;

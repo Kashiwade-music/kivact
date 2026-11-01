@@ -3,7 +3,7 @@
 //! These cases use the same AppClient and production test host directly,
 //! with existing normal host operations, to exercise later resource changes.
 use crate::client::AppClient;
-use crate::prelude::*;
+use crate::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
 use crate::view::View;
 use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
 use kivact_reactive::Runtime;

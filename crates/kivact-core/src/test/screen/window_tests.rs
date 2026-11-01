@@ -12,7 +12,7 @@ use kivact_wire::Size;
 
 use super::model::Screen;
 use crate::client::AppClient;
-use crate::prelude::*;
+use crate::prelude::{IntoView, Theme, spawn, text};
 use crate::test::RenderOptions;
 use crate::view::View;
 

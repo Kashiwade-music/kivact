@@ -22,7 +22,7 @@ use super::artifacts::failure_dir;
 use super::model::Screen;
 use super::support::button_box;
 use crate::motion::FrameRate;
-use crate::prelude::*;
+use crate::prelude::{IntoView, NodeBuilder, Role, column, node, node_ref, row, show, style, text};
 use crate::test::{RenderOptions, WindowMode, render, render_with};
 
 fn counter() -> impl IntoView {

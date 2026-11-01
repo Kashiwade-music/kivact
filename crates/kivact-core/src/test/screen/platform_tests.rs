@@ -14,7 +14,7 @@ use kivact_reactive::{ErrorKind, UiError};
 
 use super::support::button_box;
 use crate::platform;
-use crate::prelude::*;
+use crate::prelude::{NodeBuilder, Role};
 use crate::task::spawn;
 use crate::test::render;
 

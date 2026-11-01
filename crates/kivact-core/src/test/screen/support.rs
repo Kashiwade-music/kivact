@@ -5,7 +5,7 @@
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
 use crate::Binding;
-use crate::prelude::*;
+use crate::prelude::{IntoText, IntoValue, Node, NodeBuilder, Role, node, text};
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
