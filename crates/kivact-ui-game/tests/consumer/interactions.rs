@@ -1,6 +1,8 @@
 //! Role: Game UI interaction tests.
 
-use super::*;
+use kivact::prelude::*;
+use kivact::view::A11yAction;
+use kivact_ui_game as g;
 
 #[test]
 fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {

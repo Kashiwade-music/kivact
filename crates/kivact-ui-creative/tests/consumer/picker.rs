@@ -1,6 +1,10 @@
 //! Role: The search picker: filtering, keys, pick and cancel, the preview, focus.
 
-use super::*;
+use super::clean;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact::view::A11yAction;
+use kivact_ui_creative as ui;
 
 type Items = Vec<ui::PickerItem<&'static str>>;
 

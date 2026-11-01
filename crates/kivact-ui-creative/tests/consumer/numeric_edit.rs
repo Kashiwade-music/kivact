@@ -1,7 +1,13 @@
 //! Role: `Numeric`'s edit phases, text parser, mixed value and reactive property state.
 
-use super::*;
+use super::clean;
+use kivact::prelude::*;
+use kivact::test::Screen;
 use kivact::ui::EditPhase::{self, Begin, Commit};
+use kivact::view::MouseButton;
+use kivact_ui_creative as ui;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// The phases an observer saw, each with the value in the binding at that time.
 type Log = Rc<RefCell<Vec<(EditPhase, f64)>>>;

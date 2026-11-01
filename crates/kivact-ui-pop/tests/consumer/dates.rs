@@ -1,7 +1,8 @@
 //! Role: The calendar, the date input and the date range input.
 
-use super::*;
 use kivact::i18n::CalendarDate;
+use kivact::prelude::*;
+use kivact_ui_pop as ui;
 
 fn date(year: i32, month: u8, day: u8) -> CalendarDate {
     CalendarDate::new(year, month, day)

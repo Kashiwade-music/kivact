@@ -3,7 +3,10 @@
 //! The outliner on the core `Tree`: keys, rename, activation, drops, the
 //! active item, trailing cells and filtering, through the public input only.
 
-use super::*;
+use super::clean;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact_ui_creative as ui;
 
 fn scene() -> Vec<ui::TreeItem> {
     vec![

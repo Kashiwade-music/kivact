@@ -3,7 +3,7 @@
 use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
-use kivact::ui::{Command, ListItem, MenuEntry, toaster};
+use kivact::ui::{Command, MenuEntry, toaster};
 use kivact::view::A11yAction;
 use kivact::view::LiveRegion;
 use kivact_ui_pop as ui;

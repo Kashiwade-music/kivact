@@ -1,6 +1,12 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
-use super::*;
+use super::graph_support::app_graph;
+use super::graph_support::graph_edits;
+use super::{clean, near};
+use kivact::prelude::*;
+use kivact::test::Screen;
 use kivact::ui::EditPhase;
+use kivact::view::A11yAction;
+use kivact_ui_creative as ui;
 #[derive(Clone, Copy)]
 struct Model {
     curves: Signal<Vec<ui::Curve>>,
