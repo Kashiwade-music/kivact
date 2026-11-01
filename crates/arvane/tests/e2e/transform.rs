@@ -4,7 +4,8 @@
 //! is mapped (rects, clips, images, glyphs), nested transforms compose,
 //! and a transform that flattens everything draws nothing.
 
-use kivact_types::{DrawCommand, Point, Transform};
+use kivact_types::Point;
+use kivact_types::protocol::{DrawCommand, Transform};
 
 use crate::support::{BLUE, RED, WHITE, fill, open, pixel, pt, show};
 

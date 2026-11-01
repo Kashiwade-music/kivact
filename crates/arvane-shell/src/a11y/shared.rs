@@ -2,7 +2,8 @@
 
 use super::error::AccessibilityError;
 use super::{state, validation};
-use kivact_types::{NodeId, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
+use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
+use kivact_types::{NodeId, SemanticsTextRun};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// What the platform has not been handed yet.
@@ -136,7 +137,7 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
-    nodes: Vec<&'a kivact_types::SemanticsNode>,
+    nodes: Vec<&'a kivact_types::protocol::SemanticsNode>,
     runs: &'a [Arc<SemanticsTextRun>],
     all_runs: bool,
     scale: f64,
@@ -149,7 +150,7 @@ impl PlatformUpdate<'_> {
     }
 
     /// The current nodes the platform needs, in delivery order.
-    pub fn nodes(&self) -> impl Iterator<Item = &kivact_types::SemanticsNode> {
+    pub fn nodes(&self) -> impl Iterator<Item = &kivact_types::protocol::SemanticsNode> {
         self.nodes.iter().copied()
     }
 

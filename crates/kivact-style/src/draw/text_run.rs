@@ -160,16 +160,16 @@ impl Draw {
         if style.align != crate::TextAlign::Start || style.baseline != TextBaseline::Top {
             let m = self.measure_text(text, &style);
             pos.x -= match style.align {
-                crate::TextAlign::Center => m.width / 2.0,
-                crate::TextAlign::End => m.width,
+                crate::TextAlign::Center => m.size.width / 2.0,
+                crate::TextAlign::End => m.size.width,
                 // A line drawn alone is the last of its paragraph.
                 crate::TextAlign::Start | crate::TextAlign::Justify => 0.0,
             };
             pos.y -= match style.baseline {
                 TextBaseline::Top => 0.0,
-                TextBaseline::Middle => m.height / 2.0,
+                TextBaseline::Middle => m.size.height / 2.0,
                 TextBaseline::Alphabetic => m.baseline,
-                TextBaseline::Bottom => m.height,
+                TextBaseline::Bottom => m.size.height,
             };
         }
         let run = TextRun::from_style(
@@ -185,7 +185,7 @@ impl Draw {
 
     /// The extent `text(text, pos, style)` draws `text` with, before the
     /// layer transforms (in this painter's coordinates): size a label's
-    /// pill, center a label (`(size.height - m.height) / 2`), place a
+    /// pill, center a label (`(size.height - m.size.height) / 2`), place a
     /// baseline. The same shaping as the drawing, so they agree; zero
     /// where there is no engine to measure with.
     ///
@@ -197,7 +197,7 @@ impl Draw {
     /// fn pill(d: &mut Draw, label: &str, at: Point) {
     ///     let style = TextStyle { size: 11.0, ..TextStyle::default() };
     ///     let m = d.measure_text(label, &style);
-    ///     d.rounded_rect(Rect::new(at.x, at.y, m.width + 12.0, m.height + 4.0), 4.0, ColorToken::Accent);
+    ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, ColorToken::Accent);
     ///     d.text(label, Point::new(at.x + 6.0, at.y + 2.0), style);
     /// }
     /// # let _ = pill;

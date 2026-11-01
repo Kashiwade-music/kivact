@@ -7,9 +7,8 @@
 
 use arvane::test_display::VirtualWindow;
 use arvane::{ShellEvent, Window as _};
-use kivact_types::{
-    Key, MouseButton, Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase,
-};
+use kivact_types::protocol::PointerInput;
+use kivact_types::{Key, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase};
 
 use crate::support::open;
 

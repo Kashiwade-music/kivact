@@ -22,7 +22,7 @@
 //!   pixel the clip lets through partially is never lost): its box, the
 //!   extent of its content (taffy's, text overflowing a short box
 //!   included), its shadows (an outer one reaches its offset plus its
-//!   spread plus `kivact_types::SHADOW_REACH` × blur / 2) and focus ring, a
+//!   spread plus `kivact_types::protocol::SHADOW_REACH` × blur / 2) and focus ring, a
 //!   text's glyph overhang (one font size) and text shadows, and its
 //!   canvas scenes' commands (a scene text run counted at two font sizes
 //!   and its letter spacing per character, a stroke at its width × its

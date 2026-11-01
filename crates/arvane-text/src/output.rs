@@ -20,10 +20,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_types::{
-    DecorationLines, Glyph, GlyphRun, Rect, Size, TextAlign, TextDecoration, TextDecorationRect,
-    TextHighlight, TextLine, TextOverflow, TextSpan, TextStyle,
+use kivact_types::protocol::{
+    Glyph, GlyphRun, TextDecoration, TextDecorationRect, TextHighlight, TextLine, TextSpan,
+    TextStyle,
 };
+use kivact_types::{DecorationLines, Rect, Size, TextAlign, TextOverflow};
 use parley::{Layout, PositionedLayoutItem};
 
 /// Slack for comparing positions that sum float advances.

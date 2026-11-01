@@ -235,6 +235,31 @@ offscreen = ["text_measure"]
 bridge = ["host", "offscreen", "text_measure", "mutation"]
 native = ["host", "offscreen", "bridge"]
 
+# kivact-types: 語彙（root の module）は host と Arvane の protocol に依存しない。`protocol` を key にして
+# 語彙の全 module を許すのは、protocol から語彙への向きだけを許す（`protocol` が key でないと、語彙から
+# protocol への参照は検査されない）ため。
+[module_rules.kivact-types.uses]
+asset = []
+cursor = []
+effect = []
+geometry = []
+gpu_interop = []
+image = []
+input = []
+layout = []
+motion = []
+paint = []
+platform = ["input"]
+semantics = []
+semantics_text = ["geometry"]
+shape = []
+style = []
+text = ["geometry"]
+protocol = [
+    "asset", "cursor", "effect", "geometry", "gpu_interop", "image", "input", "layout", "motion",
+    "paint", "platform", "semantics", "semantics_text", "shape", "style", "text",
+]
+
 # ----- Google Rust Style Guide の機械的に検査できる部分（vendor/xtask-core の README「Style checks」）。
 # 例外は Google の指針自体が認める場合（意図した prelude、FFI の境界の defense in depth など）だけに書き、
 # reason にその設計上の事実を書く。件数を減らすための例外は書かない。
@@ -252,6 +277,7 @@ extra_rules = [
 # 公開 API はまだ大きく変わるので、公開 item の rustdoc の有無（missing-docs）は今は検査しない。
 # API が落ち着いたら外す。
 disabled_rules = ["missing-docs"]
+# 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-wire と kivact_types::protocol は workspace 内の protocol。
 # facade（kivact）から届く crate と、四つの公式キット。
 api_packages = [
     "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
@@ -271,7 +297,7 @@ options_structs = [
     "kivact-engine::testing::TestHostOptions",
     "kivact-interaction::TooltipConfig",
     "kivact-style::draw::ImageOptions",
-    "kivact-types::MouseSettings",
+    "kivact-types::protocol::MouseSettings",
     "kivact-ui-basic::ChartConfig",
     "kivact-ui-creative::WindowOptions",
 ]

@@ -1,17 +1,18 @@
 //! Role: 2D affine transforms in logical pixels.
 //! Plain data usable on any thread.
 
-use crate::{Point, Rect};
+use crate::geometry::{Point, Rect};
 
 /// A 2D affine transform, CSS `matrix(a, b, c, d, e, f)`:
 /// `x' = a·x + c·y + e`, `y' = b·x + d·y + f` (y grows downwards, so a
 /// positive rotation turns clockwise on screen).
 ///
-/// [`crate::DrawCommand::PushTransform`] applies one to every command until
-/// the matching [`crate::DrawCommand::PopTransform`].
+/// [`crate::protocol::DrawCommand::PushTransform`] applies one to every command until
+/// the matching [`crate::protocol::DrawCommand::PopTransform`].
 ///
 /// ```
-/// use kivact_types::{Point, Transform};
+/// use kivact_types::Point;
+/// use kivact_types::protocol::Transform;
 /// // Rotate 90° about (10, 10): the point right of the origin goes below it.
 /// let t = Transform::rotate_deg(90.0).about(Point { x: 10.0, y: 10.0 });
 /// let p = t.apply(Point { x: 20.0, y: 10.0 });

@@ -25,7 +25,8 @@
 use crate::convert;
 use crate::derived::Derived;
 use crate::gradient::{color, gradient, stops_of};
-use kivact_types::{ColorMatrix, ImageData, Paint, PatternSource, Rect};
+use kivact_types::Rect;
+use kivact_types::protocol::{ColorMatrix, ImageData, Paint, PatternSource};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
 use vello_cpu::peniko::Gradient as RasterGradient;

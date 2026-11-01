@@ -40,7 +40,7 @@ pub enum ShellEvent {
     /// A platform's mouse emulation of touch is not reported as the mouse
     /// as well; a pen hovering without contact is not reported. The wheel
     /// is [`ShellEvent::Wheel`].
-    Pointer(kivact_types::PointerInput),
+    Pointer(kivact_types::protocol::PointerInput),
     /// Wheel delta in logical pixels (positive scrolls content forward).
     Wheel {
         /// Horizontal logical delta.

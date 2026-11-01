@@ -60,7 +60,7 @@ impl Constraints<'_> {
     ///     primitive().measure(label, |label: &String, c: Constraints| {
     ///         let m = c.measure_text(label, &TextStyle::default());
     ///         // The label sits 4 px below the top.
-    ///         Measurement::new(Size::new(m.width + 16.0, m.height + 8.0)).baseline(m.baseline + 4.0)
+    ///         Measurement::new(Size::new(m.size.width + 16.0, m.size.height + 8.0)).baseline(m.baseline + 4.0)
     ///     })
     /// }
     /// # let _ = chip;

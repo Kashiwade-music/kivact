@@ -194,7 +194,7 @@ impl ShellWindow for WinitWindow {
     /// rejected tree keeps the accepted one.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::SemanticsTree,
+        tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.replace(tree)
     }
@@ -206,7 +206,7 @@ impl ShellWindow for WinitWindow {
     /// tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::SemanticsUpdate,
+        update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.update(update)
     }
@@ -295,16 +295,16 @@ impl ShellWindow for WinitWindow {
     /// mouse settings and the system's locale. A change arrives as
     /// [`ShellEvent::EnvironmentChanged`] (the scale's as
     /// [`ShellEvent::Resized`]).
-    fn environment(&self) -> kivact_types::Environment {
+    fn environment(&self) -> kivact_types::protocol::Environment {
         let (double_click_ns, double_click_distance) = self.double_click();
         let mouse = self.input.mouse.get();
-        kivact_types::Environment {
+        kivact_types::protocol::Environment {
             scale: self.scale(),
             frame_period_ns: self.frame_period_ns,
             reduced_motion: self.reduced_motion(),
             dark: self.window.theme() == Some(winit::window::Theme::Dark),
             safe_area: kivact_types::Insets::default(),
-            mouse: kivact_types::MouseSettings {
+            mouse: kivact_types::protocol::MouseSettings {
                 double_click_ns,
                 double_click_distance,
                 wheel_lines: mouse.wheel_lines,

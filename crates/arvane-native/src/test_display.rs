@@ -39,7 +39,8 @@
 use crate::a11y::native::NativeAccessibility;
 use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
-use kivact_types::{NodeId, Point, Rect, Role, SemanticsNode, SemanticsTree, Transform};
+use kivact_types::protocol::{SemanticsNode, SemanticsTree, Transform};
+use kivact_types::{NodeId, Point, Rect, Role};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU64, Ordering};

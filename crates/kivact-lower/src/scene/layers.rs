@@ -2,7 +2,7 @@
 use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{Effects, PaintProps, Point, Rect, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_layers(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
@@ -21,7 +21,7 @@ impl Context<'_> {
         let command = match cmd {
             SceneCmd::PushLayer(layer) => {
                 let area = rect(layer.area);
-                let outer = kivact_types::Layer {
+                let outer = kivact_types::protocol::Layer {
                     clip: layer.clip.as_ref().map(|shape| {
                         crate::path::shifted(
                             crate::scene_shape::shape(shape),
@@ -42,8 +42,8 @@ impl Context<'_> {
                             }
                             valid
                         })
-                        .map(|paint| kivact_types::Mask { rect: area, paint }),
-                    ..kivact_types::Layer::default()
+                        .map(|paint| kivact_types::protocol::Mask { rect: area, paint }),
+                    ..kivact_types::protocol::Layer::default()
                 };
                 let props = PaintProps {
                     effects: Some(Box::new(Effects {
@@ -81,10 +81,11 @@ impl Context<'_> {
             }
             SceneCmd::PushTransform(m) => {
                 let [a, b, c, d, e, f] = *m;
-                let transform = kivact_types::Transform { a, b, c, d, e, f }.about(Point {
-                    x: origin.x,
-                    y: origin.y,
-                });
+                let transform =
+                    kivact_types::protocol::Transform { a, b, c, d, e, f }.about(Point {
+                        x: origin.x,
+                        y: origin.y,
+                    });
                 state.transforms += 1;
                 state.raster_stack.push(self.raster.get());
                 self.raster

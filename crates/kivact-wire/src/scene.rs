@@ -5,7 +5,7 @@
 //! The rarer commands keep their values in a box (`Shape`, `PushLayer`), so
 //! they do not grow the command a scene of plain rects is made of.
 
-use super::ids::RegionId;
+use super::RegionId;
 use super::paint::Fill;
 use super::semantics::{A11yAction, Role};
 use super::text::{FontFeature, LineHeight, TextDecoration};
@@ -96,7 +96,7 @@ pub enum SceneCmd {
     /// drawn exactly as shaped: its glyph runs and decorations at `origin`
     /// in `color`, with no shaping again.
     Paragraph {
-        shaped: std::sync::Arc<kivact_types::ShapedText>,
+        shaped: std::sync::Arc<kivact_types::protocol::ShapedText>,
         origin: Point,
         color: Rgba,
     },

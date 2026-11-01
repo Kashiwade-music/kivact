@@ -1,7 +1,8 @@
 //! Role: Canvas: the calls both rasterizers receive, and the glyph runs they draw.
 
 use crate::paint::PatternFill;
-use kivact_types::{ExternalFrame, ImageData};
+use kivact_types::ExternalFrame;
+use kivact_types::protocol::ImageData;
 use vello_common::filter_effects::Filter;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Stroke};
 use vello_cpu::peniko::{self, BlendMode, FontData};

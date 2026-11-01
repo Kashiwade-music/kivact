@@ -1,6 +1,7 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
 use arvane_shell::ShellError;
-use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
+use kivact_types::protocol::{CpuFrame, ParentWindow};
+use kivact_types::{KeyCode, MouseButton};
 use std::cell::Cell;
 use std::marker::PhantomData;
 use std::rc::Rc;

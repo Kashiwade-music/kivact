@@ -5,9 +5,8 @@
 //! is a complete [`PointerInput`]. Hit testing and capture stay with the
 //! host.
 
-use kivact_types::{
-    MouseButton, Point, PointerButtons, PointerId, PointerInput, PointerKind, PointerPhase,
-};
+use kivact_types::protocol::PointerInput;
+use kivact_types::{MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase};
 
 /// One window's mouse: where it last was (logical pixels) and the buttons
 /// held. Leaving the window keeps both, so a button released outside is

@@ -62,7 +62,7 @@ impl Model {
         id: wire::NodeId,
         offset: wire::Point,
         clipped: &BTreeSet<wire::NodeId>,
-        out: &mut Vec<kivact_types::SemanticsNode>,
+        out: &mut Vec<kivact_types::protocol::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
         engine: &mut a::Engine,
     ) {
@@ -81,7 +81,7 @@ impl Model {
         let transform = if n.place.transformed || n.is_layer() {
             self.a11y_transform(id, n.is_layer(), bounds, offset)
         } else {
-            kivact_types::Transform::IDENTITY
+            kivact_types::protocol::Transform::IDENTITY
         };
         let children: Vec<kivact_types::NodeId> = self
             .tree()
@@ -138,7 +138,7 @@ impl Model {
             .semantics()
             .and_then(|s| s.accessibility.as_deref())
             .and_then(|props| props.text.clone());
-        let mut output = kivact_types::SemanticsNode {
+        let mut output = kivact_types::protocol::SemanticsNode {
             properties: extras,
             id: kivact_types::NodeId(id.0),
             role: exposed.role,
@@ -204,7 +204,7 @@ impl Model {
                 && !region.disabled
                 && region.focusable
                 && self.in_scope(id);
-            leaves.push(kivact_types::SemanticsNode {
+            leaves.push(kivact_types::protocol::SemanticsNode {
                 properties: region
                     .properties
                     .as_deref()
@@ -233,7 +233,7 @@ impl Model {
                     height: region.rect.height,
                 },
                 scroll: kivact_types::Point::default(),
-                transform: kivact_types::Transform::IDENTITY,
+                transform: kivact_types::protocol::Transform::IDENTITY,
                 disabled: disabled || region.disabled,
                 hidden: hidden || region.hidden,
                 focusable: region_focusable,
@@ -261,21 +261,21 @@ impl Model {
         layer: bool,
         bounds: wire::Rect,
         offset: wire::Point,
-    ) -> kivact_types::Transform {
+    ) -> kivact_types::protocol::Transform {
         let host = &self;
         let own = host.transform_at(id, bounds);
         if !layer {
-            return own.unwrap_or(kivact_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::protocol::Transform::IDENTITY);
         }
         let ancestors: Vec<wire::NodeId> =
             host.tree().chain(Some(id)).into_iter().skip(1).collect();
         let transformed = |x: &wire::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
         if !ancestors.iter().any(transformed) {
-            return own.unwrap_or(kivact_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::protocol::Transform::IDENTITY);
         }
         // What the platform maps it by: each ancestor's scroll, then
         // transform, nearest first.
-        let mut around = kivact_types::Transform::IDENTITY;
+        let mut around = kivact_types::protocol::Transform::IDENTITY;
         for x in &ancestors {
             let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
             let above = self.scroll_above(*x);
@@ -285,14 +285,14 @@ impl Model {
                 y: r.y + above.y,
                 ..r
             };
-            around = around.then(kivact_types::Transform::translate(-s.x, -s.y));
+            around = around.then(kivact_types::protocol::Transform::translate(-s.x, -s.y));
             if let Some(t) = host.transform_at(*x, content) {
                 around = around.then(t);
             }
         }
         // Where it is shown: its content box moved back by the scrolls
         // above it, then its own transform at its placed origin.
-        let mut shown = kivact_types::Transform::translate(-offset.x, -offset.y);
+        let mut shown = kivact_types::protocol::Transform::translate(-offset.x, -offset.y);
         if let Some(r) = host.rect(id)
             && let Some(t) = host.transform_at(id, r)
         {
@@ -300,7 +300,7 @@ impl Model {
         }
         match around.invert() {
             Some(back) => shown.then(back),
-            None => kivact_types::Transform::IDENTITY,
+            None => kivact_types::protocol::Transform::IDENTITY,
         }
     }
 
@@ -375,7 +375,7 @@ impl Model {
 pub(super) fn properties(
     p: &wire::SemanticsProperties,
     resolve: impl Fn(wire::FocusTarget) -> Option<kivact_types::NodeId>,
-) -> kivact_types::SemanticsProperties {
+) -> kivact_types::protocol::SemanticsProperties {
     // Level and position are counted from 1, so 0 means "not set". A position
     // past the set's size is not a valid pair: the size is published, the
     // position is not.
@@ -383,7 +383,7 @@ pub(super) fn properties(
     let pos_in_set = p
         .pos_in_set
         .filter(|&v| v != 0 && p.set_size.is_none_or(|size| v <= size));
-    kivact_types::SemanticsProperties {
+    kivact_types::protocol::SemanticsProperties {
         text: None,
         indeterminate: p.indeterminate,
         value_min: p.value_min,
@@ -424,10 +424,10 @@ pub(super) fn structural(
     children: Vec<kivact_types::NodeId>,
     bounds: kivact_types::Rect,
     scroll: kivact_types::Point,
-    transform: kivact_types::Transform,
+    transform: kivact_types::protocol::Transform,
     hidden: bool,
-) -> kivact_types::SemanticsNode {
-    kivact_types::SemanticsNode {
+) -> kivact_types::protocol::SemanticsNode {
+    kivact_types::protocol::SemanticsNode {
         properties: None,
         id: kivact_types::NodeId(id.0),
         role: kivact_types::Role::Generic,

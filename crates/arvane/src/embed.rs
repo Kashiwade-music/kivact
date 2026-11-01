@@ -4,7 +4,8 @@ use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
 pub use arvane_shell::PanicSlot;
 use arvane_shell::{ChildOptions, ShellChild};
-use kivact_types::{GpuPreference, ParentWindow, Size};
+use kivact_types::protocol::ParentWindow;
+use kivact_types::{GpuPreference, Size};
 
 /// Initial embedded window settings. Coordinates are logical pixels. The
 /// host's window is passed to [`open`] beside the options.

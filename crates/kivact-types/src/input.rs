@@ -1,4 +1,6 @@
-//! Role: Portable keyboard, modifier, button and file drag values.
+//! Role: Portable keyboard, modifier, button, file drag and IME values.
+
+use std::ops::Range;
 
 /// Logical key independent of platform scan codes: what the key means in the
 /// current layout, like the Web's `KeyboardEvent.key`. The physical position
@@ -321,4 +323,23 @@ pub enum FilePhase {
     Leave,
     /// Files were dropped.
     Drop,
+}
+
+/// What the platform's input method (IME) does with a node that has an IME
+/// session (`NodeProperties::ime`). Offsets are UTF-8 byte offsets.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ImeEvent {
+    /// The composition (preedit) is now `text`; `selection` is the part of
+    /// it the IME marks (its caret), if it says.
+    Preedit {
+        text: String,
+        selection: Option<Range<usize>>,
+    },
+    /// The IME committed `text`; any composition ended with it.
+    Commit(String),
+    /// The IME took this range of the session's text for reconversion: the
+    /// next composition replaces it.
+    Selection(Range<usize>),
+    /// The IME session ended without a commit: the composition is gone.
+    End,
 }

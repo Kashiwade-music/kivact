@@ -6,7 +6,8 @@
 
 use arvane::Window as _;
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
-use kivact_types::{Cursor, Environment, Insets, MouseSettings, Size};
+use kivact_types::protocol::{Environment, MouseSettings};
+use kivact_types::{Cursor, Insets, Size};
 
 use crate::support::{PERIOD, open, options, rect};
 

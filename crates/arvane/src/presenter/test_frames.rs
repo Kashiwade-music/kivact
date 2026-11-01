@@ -7,8 +7,9 @@ use super::frame_policy::{Drawn, Presenter};
 use crate::error::{self, Error, ErrorKind};
 use crate::presentation::Renderer;
 use arvane_shell::ShellWindow;
-use kivact_types::CpuFrame;
-use kivact_types::{Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::CpuFrame;
+use kivact_types::protocol::Scene;
 use std::time::{Duration, Instant};
 
 impl Presenter {
@@ -178,7 +179,11 @@ impl Presenter {
 
 /// The 0x00RRGGBB pixels of a `width` × `height` window showing `frame`,
 /// enlarging a frame drawn at a reduced scale by nearest neighbor.
-pub(crate) fn surface_pixels(frame: &kivact_types::CpuFrame, width: u32, height: u32) -> Vec<u32> {
+pub(crate) fn surface_pixels(
+    frame: &kivact_types::protocol::CpuFrame,
+    width: u32,
+    height: u32,
+) -> Vec<u32> {
     let pixels = frame.to_softbuffer();
     if (frame.width, frame.height) == (width, height) || frame.width == 0 || frame.height == 0 {
         return pixels;

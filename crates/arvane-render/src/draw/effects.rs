@@ -54,10 +54,11 @@
 use super::canvas::Canvas;
 use super::painter::{Area, Group, Painter};
 use crate::convert;
-use kivact_types::{
-    Backdrop, BoxShadow, DrawCommand, Mask, Radius, Rect as LogicalRect, Rgba,
-    RoundedRect as Rounded, SHADOW_REACH, Shape, Transform,
+use kivact_types::protocol::{
+    Backdrop, BoxShadow, DrawCommand, Mask, Radius, RoundedRect as Rounded, SHADOW_REACH, Shape,
+    Transform,
 };
+use kivact_types::{Rect as LogicalRect, Rgba};
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::PaintType;
 use vello_cpu::color::palette::css::BLACK;
@@ -275,7 +276,7 @@ impl<C: Canvas> Painter<'_, C> {
         &mut self,
         at: usize,
         region: LogicalRect,
-        matrix: Option<kivact_types::ColorMatrix>,
+        matrix: Option<kivact_types::protocol::ColorMatrix>,
     ) {
         let frame = self.frame;
         // The parts of one axis: before the frame (reflected about its
@@ -327,7 +328,7 @@ impl<C: Canvas> Painter<'_, C> {
         &mut self,
         at: usize,
         region: LogicalRect,
-        matrix: Option<kivact_types::ColorMatrix>,
+        matrix: Option<kivact_types::protocol::ColorMatrix>,
     ) {
         let Some(index) = self.index else {
             return;

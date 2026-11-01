@@ -71,7 +71,7 @@ pub(crate) fn new(
         next_wake: None,
         exit: false,
         embedded_closing: None,
-        environment: kivact_types::Environment::default(),
+        environment: kivact_types::protocol::Environment::default(),
         suspended: false,
         soft_keyboard: false,
         frame_log,

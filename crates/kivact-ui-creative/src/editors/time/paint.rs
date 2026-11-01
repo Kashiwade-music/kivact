@@ -56,6 +56,7 @@ pub(crate) fn paint_grid(
                     ..Default::default()
                 },
             )
+            .size
             .height;
         draw.layer(
             Layer::new().clip_rect(Rect::new(

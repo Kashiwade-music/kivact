@@ -9,10 +9,10 @@
 //! its matching pop ([`Index`]). A replay costs the commands that reach
 //! the backdrop's area plus the siblings it walks past.
 
-use kivact_types::{
-    BoxShadow, DrawCommand, Glyph, LayerFilter, LineJoin, Rect, SHADOW_REACH, Scene, Shape,
-    Transform,
+use kivact_types::protocol::{
+    BoxShadow, DrawCommand, Glyph, LayerFilter, SHADOW_REACH, Scene, Shape, Transform,
 };
+use kivact_types::{LineJoin, Rect};
 
 /// Each command's bounds in the scene's root coordinates (logical pixels)
 /// and each group's extent.
@@ -169,7 +169,7 @@ fn local_bounds(command: &DrawCommand) -> Option<Rect> {
             bounds
         }
         DrawCommand::FillShape { shape, .. }
-        | DrawCommand::Backdrop(kivact_types::Backdrop { shape, .. }) => shape.bounds(),
+        | DrawCommand::Backdrop(kivact_types::protocol::Backdrop { shape, .. }) => shape.bounds(),
         DrawCommand::StrokeShape { shape, stroke, .. } => {
             let joints = if stroke.join == LineJoin::Miter {
                 stroke.miter_limit.max(1.5)

@@ -11,7 +11,7 @@ use std::ops::Range;
 use super::paint::Fill;
 use super::values::Rgba;
 
-pub use kivact_types::TextWrap;
+pub use kivact_types::protocol::TextWrap;
 
 pub use kivact_types::TextAlign;
 
@@ -47,7 +47,7 @@ impl TextLen {
 pub use kivact_types::LineHeight;
 
 /// An OpenType feature setting: a four byte tag and its value.
-pub use kivact_types::FontFeature;
+pub use kivact_types::protocol::FontFeature;
 
 /// Lines drawn with text (CSS `text-decoration`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]

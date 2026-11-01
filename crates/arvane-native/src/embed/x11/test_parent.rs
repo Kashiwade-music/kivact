@@ -2,7 +2,8 @@
 
 use super::conn::Native;
 use arvane_shell::ShellError;
-use kivact_types::{CpuFrame, KeyCode, MouseButton, ParentWindow};
+use kivact_types::protocol::{CpuFrame, ParentWindow};
+use kivact_types::{KeyCode, MouseButton};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -3,7 +3,8 @@
 use super::state::GpuContext;
 use super::texture::target_texture;
 use crate::error::RenderError;
-use kivact_types::{CpuFrame, Scene, Size};
+use kivact_types::Size;
+use kivact_types::protocol::{CpuFrame, Scene};
 use std::sync::mpsc;
 use std::time::Duration;
 

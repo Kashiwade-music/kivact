@@ -37,7 +37,7 @@ pub(crate) struct Host {
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
-    pub(super) environment: kivact_types::Environment,
+    pub(super) environment: kivact_types::protocol::Environment,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes.
     pub(super) suspended: bool,

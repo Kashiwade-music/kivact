@@ -7,7 +7,8 @@
 //! word spacing are parley's: added to each cluster's (each space's)
 //! advance.
 
-use kivact_types::{FontFeature, FontKerning, TextSpan, TextStyle, TextWrap};
+use kivact_types::FontKerning;
+use kivact_types::protocol::{FontFeature, TextSpan, TextStyle, TextWrap};
 use parley::{
     FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, GenericFamily, LayoutContext,
     LineHeight, StyleProperty,

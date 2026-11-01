@@ -60,7 +60,7 @@ pub(super) fn reach(
 
 /// `r` (relative to a box's top-left corner) mapped by the box's transform
 /// `t`, placed at the box's origin `at` in its parent's space.
-pub(super) fn placed(t: Option<&kivact_types::Transform>, r: Rect, at: Point) -> Rect {
+pub(super) fn placed(t: Option<&kivact_types::protocol::Transform>, r: Rect, at: Point) -> Rect {
     let r = map_rect(t, r);
     Rect {
         x: r.x + at.x,
@@ -170,7 +170,7 @@ fn scene_reach(scene: &Scene, canvas: Rect) -> Option<Rect> {
     {
         return plain_scene_reach(&scene.cmds, canvas);
     }
-    let mut transform = kivact_types::Transform::IDENTITY;
+    let mut transform = kivact_types::protocol::Transform::IDENTITY;
     let mut transforms = Vec::new();
     let mut reach = 0.0;
     let mut layers = Vec::new();
@@ -301,7 +301,7 @@ pub(super) fn local_transform(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-) -> Option<kivact_types::Transform> {
+) -> Option<kivact_types::protocol::Transform> {
     if n.place.transformed {
         host.local_transform(id, layout.size)
     } else {

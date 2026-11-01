@@ -3,7 +3,8 @@
 //! Independent of the rasterizers (it reads the font file only), and not
 //! cached: a caller asks when it needs the box.
 
-use kivact_types::{GlyphRun, Rect};
+use kivact_types::Rect;
+use kivact_types::protocol::GlyphRun;
 use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::{FontRef, MetadataProvider};
 

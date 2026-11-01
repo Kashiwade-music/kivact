@@ -1,4 +1,4 @@
-//! Role: Size measurement protocol.
+//! Role: Size measurement protocol for leaves and the text they measure with.
 //!
 //! A leaf measures itself from available space and optional fixed dimensions.
 //! Hosts may cache equal requests and may re-evaluate them for validation;
@@ -14,9 +14,9 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::Size;
 use super::scene::TextRun;
-use kivact_types::ShapedText;
+use super::{Size, TextMetrics};
+use kivact_types::protocol::ShapedText;
 
 /// Space available to a node along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -52,24 +52,6 @@ impl MeasureRequest {
             available_width: AvailableSpace::Definite(width),
             available_height: AvailableSpace::MaxContent,
         }
-    }
-}
-
-/// The extent of measured text.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct TextMetrics {
-    /// Logical width of the measured text.
-    pub width: f32,
-    /// Logical height of the measured text.
-    pub height: f32,
-    /// The first line's baseline, from the top.
-    pub baseline: f32,
-}
-
-impl TextMetrics {
-    /// The width and height.
-    pub fn size(&self) -> Size {
-        Size::new(self.width, self.height)
     }
 }
 

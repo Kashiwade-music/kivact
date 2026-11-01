@@ -56,22 +56,22 @@ fn fragments(text: &str) -> Vec<Range<usize>> {
 /// end on one baseline into one line.
 pub(super) fn shape_long(
     text: &str,
-    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::ShapedText>>,
-) -> Option<Arc<kivact_types::ShapedText>> {
+    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::protocol::ShapedText>>,
+) -> Option<Arc<kivact_types::protocol::ShapedText>> {
     let pieces = fragments(text);
     if pieces.len() == 1 {
         return shape(0..text.len());
     }
-    let shaped: Vec<(Range<usize>, kivact_types::ShapedText)> = pieces
+    let shaped: Vec<(Range<usize>, kivact_types::protocol::ShapedText)> = pieces
         .into_iter()
         .map(|range| Some((range.clone(), Arc::unwrap_or_clone(shape(range)?))))
         .collect::<Option<_>>()?;
     let baseline = shaped.iter().map(|(_, s)| s.baseline).fold(0.0, f32::max);
-    let mut out = kivact_types::ShapedText {
+    let mut out = kivact_types::protocol::ShapedText {
         baseline,
         ..Default::default()
     };
-    let mut line: Option<kivact_types::TextLine> = None;
+    let mut line: Option<kivact_types::protocol::TextLine> = None;
     let (mut x, mut scalars) = (0.0f32, 0u32);
     for (i, (range, piece)) in shaped.into_iter().enumerate() {
         let dy = baseline - piece.baseline;
@@ -120,7 +120,7 @@ pub(super) fn shape_long(
         if let Some(first) = piece.lines.first() {
             let rect = at(first.rect);
             line = Some(match line.take() {
-                None => kivact_types::TextLine {
+                None => kivact_types::protocol::TextLine {
                     range: 0..text.len(),
                     rect,
                     baseline,

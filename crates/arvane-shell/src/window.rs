@@ -72,13 +72,13 @@ pub trait ShellWindow {
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::SemanticsTree,
+        tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::SemanticsUpdate,
+        update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Whether assistive technology currently requests this window's accepted semantics.
@@ -115,7 +115,7 @@ pub trait ShellWindow {
     fn reduced_motion(&self) -> bool;
 
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
-    fn environment(&self) -> kivact_types::Environment;
+    fn environment(&self) -> kivact_types::protocol::Environment;
 
     /// Request a logical content size.
     fn request_size(&mut self, size: Size) -> Result<(), ShellError>;

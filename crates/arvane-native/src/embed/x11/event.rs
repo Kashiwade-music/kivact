@@ -89,7 +89,7 @@ impl Input {
                     if event.position != previous {
                         out.push(ShellEvent::Pointer(event));
                     }
-                    let settings = kivact_types::MouseSettings::default();
+                    let settings = kivact_types::protocol::MouseSettings::default();
                     let (x, y) = crate::wheel::lines(
                         x,
                         y,

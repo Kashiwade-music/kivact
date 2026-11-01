@@ -1,11 +1,11 @@
 //! Role: Balanced stacks and dependencies for one local scene lowering.
 use crate::effects::Tint;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{ComputedText, Rect};
 pub(super) struct State<'a> {
     pub(super) inherited: Option<&'a ComputedText>,
     pub(super) engine: &'a mut arvane::Engine,
-    pub(super) out: &'a mut kivact_types::Scene,
+    pub(super) out: &'a mut kivact_types::protocol::Scene,
     pub(super) origin: Rect,
     pub(super) clips: usize,
     pub(super) transforms: usize,
@@ -17,7 +17,7 @@ impl<'a> State<'a> {
     pub(super) fn new(
         inherited: Option<&'a ComputedText>,
         engine: &'a mut arvane::Engine,
-        out: &'a mut kivact_types::Scene,
+        out: &'a mut kivact_types::protocol::Scene,
         origin: Rect,
         tint: Tint,
     ) -> Self {

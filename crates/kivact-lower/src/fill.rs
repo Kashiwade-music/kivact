@@ -37,21 +37,26 @@
 use super::context::Context;
 use crate::effects::Tint;
 use crate::shape::BoxShape;
-use kivact_types::DrawCommand as D;
+use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{
     CoordinateGradient, CoordinateShape, Fill, FillImage, FillLayer, FillSize, Gradient,
     GradientExtend, GradientKind, RadialExtent,
 };
 use kivact_wire::{Rgba, Size};
 
-use kivact_types::{Extend, GradientShape, Pattern, PatternSource, Point, Rect};
+use kivact_types::protocol::{GradientShape, Pattern, PatternSource};
+use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
 const FEW: u32 = 4;
 
 impl BoxShape {
     /// Fill the outline with `paint`.
-    pub(crate) fn fill(&self, out: &mut kivact_types::Scene, paint: kivact_types::Paint) {
+    pub(crate) fn fill(
+        &self,
+        out: &mut kivact_types::protocol::Scene,
+        paint: kivact_types::protocol::Paint,
+    ) {
         match *self {
             BoxShape::Rect(rect) => out.commands.push(D::RoundedRect {
                 rect,
@@ -151,8 +156,8 @@ impl Tiles {
     }
 
     /// The pattern repeating `source` from the first copy.
-    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> kivact_types::Paint {
-        kivact_types::Paint::Pattern(Pattern {
+    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> kivact_types::protocol::Paint {
+        kivact_types::protocol::Paint::Pattern(Pattern {
             source,
             tile: self.first,
             repeat_x: layer.repeat_x,
@@ -166,14 +171,17 @@ impl Context<'_> {
     /// `origin` is what coordinate gradients' points are against.
     pub fn fill(
         &self,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
         shape: &BoxShape,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
     ) {
         match fill {
-            Fill::Solid(color) => shape.fill(out, kivact_types::Paint::Solid(tint.color(*color))),
+            Fill::Solid(color) => shape.fill(
+                out,
+                kivact_types::protocol::Paint::Solid(tint.color(*color)),
+            ),
             Fill::Layers(layers) => {
                 for layer in layers.iter().rev() {
                     self.fill_layer(out, shape, layer, tint, origin);
@@ -184,7 +192,12 @@ impl Context<'_> {
 
     /// Fill `shape` with `paint`, or drop it (counted) when Arvane would
     /// reject it: one rejected command fails the whole frame.
-    fn put(&self, out: &mut kivact_types::Scene, shape: &BoxShape, paint: kivact_types::Paint) {
+    fn put(
+        &self,
+        out: &mut kivact_types::protocol::Scene,
+        shape: &BoxShape,
+        paint: kivact_types::protocol::Paint,
+    ) {
         if crate::sanitize::fill(&paint) {
             shape.fill(out, paint);
         } else {
@@ -234,7 +247,7 @@ impl Context<'_> {
     /// One background layer over `shape`.
     fn fill_layer(
         &self,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
         shape: &BoxShape,
         layer: &FillLayer,
         tint: &Tint,
@@ -255,7 +268,7 @@ impl Context<'_> {
         };
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = kivact_types::Paint::Solid(tint.color(*color));
+                let paint = kivact_types::protocol::Paint::Solid(tint.color(*color));
                 if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
                     self.put(out, shape, paint);
                 } else {
@@ -277,7 +290,7 @@ impl Context<'_> {
                         y: 0.0,
                         ..tiles.first
                     };
-                    if let Some(kivact_types::Paint::Gradient(g)) = gradient(g, local) {
+                    if let Some(kivact_types::protocol::Paint::Gradient(g)) = gradient(g, local) {
                         let paint = tiles.pattern(layer, PatternSource::Gradient(g));
                         self.put(out, shape, tint.paint(paint));
                     }
@@ -312,10 +325,10 @@ impl Context<'_> {
     /// Each copy of a tile, clipped to it, filled with its own paint.
     fn fill_copies(
         &self,
-        out: &mut kivact_types::Scene,
+        out: &mut kivact_types::protocol::Scene,
         shape: &BoxShape,
         tiles: &Tiles,
-        paint: impl Fn(Rect) -> Option<kivact_types::Paint>,
+        paint: impl Fn(Rect) -> Option<kivact_types::protocol::Paint>,
     ) {
         let area = shape.rect();
         for copy in tiles.each().take(FEW as usize) {
@@ -337,7 +350,7 @@ impl Context<'_> {
         layer: &FillLayer,
         area: Rect,
         origin: Point,
-    ) -> Option<kivact_types::Paint> {
+    ) -> Option<kivact_types::protocol::Paint> {
         if let FillImage::Coordinate(g) = &layer.image {
             return coordinate(g, origin);
         }
@@ -345,12 +358,12 @@ impl Context<'_> {
         let tiles = Tiles::of(layer, area, size)?;
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = kivact_types::Paint::Solid(crate::sanitize::color(*color));
+                let paint = kivact_types::protocol::Paint::Solid(crate::sanitize::color(*color));
                 if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
                     Some(paint)
                 } else {
                     // A solid tile is a one-stop gradient tile.
-                    let g = kivact_types::Gradient {
+                    let g = kivact_types::protocol::Gradient {
                         shape: GradientShape::Linear {
                             start: Point { x: 0.0, y: 0.0 },
                             end: Point { x: 1.0, y: 0.0 },
@@ -371,7 +384,7 @@ impl Context<'_> {
                     ..tiles.first
                 };
                 match gradient(g, local)? {
-                    kivact_types::Paint::Gradient(g) => {
+                    kivact_types::protocol::Paint::Gradient(g) => {
                         Some(tiles.pattern(layer, PatternSource::Gradient(g)))
                     }
                     other => Some(other),
@@ -523,7 +536,7 @@ fn rotated(period: &[(f32, Rgba)], phase: f32) -> Vec<(f32, Rgba)> {
 
 /// A CSS gradient over the box `rect` as an Arvane paint (`None`: no
 /// stops).
-pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::Paint> {
+pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protocol::Paint> {
     if g.stops.is_empty() {
         return None;
     }
@@ -532,7 +545,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::Paint> 
         y: a.y + (b.y - a.y) * t,
     };
     let solid = |stops: &[(f32, Rgba)]| {
-        Some(kivact_types::Paint::Solid(
+        Some(kivact_types::protocol::Paint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
         ))
     };
@@ -668,18 +681,23 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::Paint> 
             )
         }
     };
-    Some(kivact_types::Paint::Gradient(kivact_types::Gradient {
-        shape,
-        stops,
-        extend,
-    }))
+    Some(kivact_types::protocol::Paint::Gradient(
+        kivact_types::protocol::Gradient {
+            shape,
+            stops,
+            extend,
+        },
+    ))
 }
 
 /// A gradient by coordinates as an Arvane paint, its points moved by `origin`
 /// (`None`: what `sanitize::fill` rejects: no stop, offsets that are not
 /// finite, outside `0..=1` or out of order, a point or angle that is not
 /// finite, a negative radius).
-pub(crate) fn coordinate(g: &CoordinateGradient, origin: Point) -> Option<kivact_types::Paint> {
+pub(crate) fn coordinate(
+    g: &CoordinateGradient,
+    origin: Point,
+) -> Option<kivact_types::protocol::Paint> {
     let at = |p: kivact_wire::Point| Point {
         x: origin.x + p.x,
         y: origin.y + p.y,
@@ -721,7 +739,7 @@ pub(crate) fn coordinate(g: &CoordinateGradient, origin: Point) -> Option<kivact
             GradientExtend::Repeat,
         ),
     };
-    let paint = kivact_types::Paint::Gradient(kivact_types::Gradient {
+    let paint = kivact_types::protocol::Paint::Gradient(kivact_types::protocol::Gradient {
         shape,
         stops,
         extend,
