@@ -17,7 +17,9 @@
 //! # }
 //! ```
 
-use crate::{App, IntoView, Result, UiError, check_window_sizes};
+use crate::app::check_window_sizes;
+use crate::view::IntoView;
+use crate::{App, Result, UiError};
 use kivact_reactive::ErrorKind;
 use kivact_wire::ParentWindow;
 use std::ffi::c_void;

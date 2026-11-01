@@ -221,3 +221,9 @@ tuple_into_view!(A, B, C, D, E, F, G, H, I, J, K, L, M);
 tuple_into_view!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 tuple_into_view!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuple_into_view!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+
+/// Whether the view is explicitly empty, including `()`.
+#[track_caller]
+pub fn view_is_empty(view: &View) -> bool {
+    view.is_empty()
+}
