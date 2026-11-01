@@ -7,7 +7,9 @@ use kivact::binding;
 use kivact::draw::{Point, Rect};
 use kivact::i18n::message;
 use kivact::interaction::use_popup;
-use kivact::prelude::*;
+use kivact::prelude::{
+    ColorToken, IntoValue, IntoView, Key, Node, NodeBuilder, Role, column, node, style, text,
+};
 use kivact::primitive::NodeExt;
 use kivact::style::Icon;
 use kivact::style::Position;
