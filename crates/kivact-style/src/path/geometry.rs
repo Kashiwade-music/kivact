@@ -11,7 +11,9 @@ use kurbo::{Arc, BezPath, ParamCurve, ParamCurveExtrema, PathEl, Point as KPoint
 use std::f64::consts::TAU;
 
 /// One flattened contour, with closure represented separately from its points.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct PathContour {
     /// The contour's points, without a repeated start point for closure.
     pub points: Vec<Point>,

@@ -23,6 +23,7 @@ use std::ops::{Add, Sub};
 /// assert_eq!(Length::from(4) + 6, Length::Px(10.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[non_exhaustive]
 pub enum Length {
     #[default]
     Auto,

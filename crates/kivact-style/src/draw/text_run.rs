@@ -146,6 +146,7 @@ impl TextRun {
 
 /// A canvas text anchor's vertical alignment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TextBaseline {
     #[default]
     Top,

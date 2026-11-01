@@ -155,6 +155,7 @@ impl Extensions {
 /// the values of a theme's mode. Which mode to show (the system's, a
 /// setting) is the application's choice.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ThemeMode {
     #[default]
     Light,

@@ -4,6 +4,7 @@ use kivact_wire::Rgba;
 
 /// Semantic color slots of a [`Theme`](super::theme::value::Theme).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ColorToken {
     Surface,
     SurfaceAlt,

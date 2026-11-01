@@ -129,12 +129,11 @@ pub(crate) fn bind_style(
         let resolved = kivact_reactive::pure(|| {
             theme_sig.with(|theme| {
                 let s = merge_layers(&layers);
-                let state = Interactive {
-                    focusable,
-                    disabled: disabled.as_ref().is_some_and(|f| f()),
-                    selected: selected.as_ref().is_some_and(|f| f()),
-                    root: kind == NodeType::Root,
-                };
+                let mut state = Interactive::default();
+                state.focusable = focusable;
+                state.disabled = disabled.as_ref().is_some_and(|f| f());
+                state.selected = selected.as_ref().is_some_and(|f| f());
+                state.root = kind == NodeType::Root;
                 s.compile(theme, state)
             })
         });
