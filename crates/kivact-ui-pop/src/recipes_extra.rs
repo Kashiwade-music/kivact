@@ -1,5 +1,5 @@
 //! Role: Pop recipes for compound standard controls and button decoration.
-use crate::choice::{Segmented, appearance};
+use crate::choice::{Segmented, choice_list, choice_option, select_list, select_option};
 use crate::tokens::Hue;
 use crate::tokens::Tokens;
 use kivact::draw::{LineCap, LineJoin, Path, Point, Shadow, Stroke, Transform};
@@ -66,8 +66,8 @@ fn chrome(t: &Theme) -> Style {
 }
 pub(crate) fn select(r: SelectRecipes) -> SelectRecipes {
     r.trigger(|_| select_trigger)
-        .surface(|_| |t: &Theme, _: &Look<PopupState>| appearance::select_list(t).max_height(250))
-        .option(|_| |t: &Theme, _: &Look<ListItemState>| appearance::select_option(t))
+        .surface(|_| |t: &Theme, _: &Look<PopupState>| select_list(t).max_height(250))
+        .option(|_| |t: &Theme, _: &Look<ListItemState>| select_option(t))
         .indicator(|_| select_indicator)
 }
 fn select_trigger(t: &Theme, s: &Look<kivact::ui::SelectTriggerState>) -> Style {
@@ -225,13 +225,9 @@ pub(crate) fn tooltip(t: &Theme, _: &Look<PopupState>) -> Style {
         .radius(6)
 }
 pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {
-    r.list(|_| {
-        |t: &Theme, _: &Look<TabListState>| {
-            appearance::choice_list(t, false).direction(Direction::Row)
-        }
-    })
-    .tab(|_| |t: &Theme, _: &Look<TabState>| appearance::choice_option(t, false))
-    .panel(|_| |_: &Theme, _: &Look<TabState>| style().padding_top(16))
+    r.list(|_| |t: &Theme, _: &Look<TabListState>| choice_list(t, false).direction(Direction::Row))
+        .tab(|_| |t: &Theme, _: &Look<TabState>| choice_option(t, false))
+        .panel(|_| |_: &Theme, _: &Look<TabState>| style().padding_top(16))
 }
 
 fn menu_trigger(t: &Theme, _: &Look<PopupState>) -> Style {
@@ -272,7 +268,7 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
     if orientation.variant::<Segmented>().is_some() {
-        return appearance::choice_list(t, true).direction(Direction::Row);
+        return choice_list(t, true).direction(Direction::Row);
     }
     let s = style().gap(12);
     match **orientation {
@@ -283,7 +279,7 @@ fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
 /// A radio row: the indicator beside the label.
 fn radio_item(t: &Theme, s: &Look<CheckState>) -> Style {
     if s.variant::<Segmented>().is_some() {
-        return appearance::choice_option(t, true);
+        return choice_option(t, true);
     }
     crate::choice::check_style(t).weight(500)
 }
