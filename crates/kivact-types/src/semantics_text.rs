@@ -74,7 +74,7 @@ pub struct SemanticsTextRun {
 /// Combining marks and ligatures can share a cluster and therefore a rectangle.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TextCaret {
-    /// Unicode scalar offset after [`crate::TextTransform`], including the
+    /// Unicode scalar offset after `TextTransform`, including the
     /// final boundary. This is neither a UTF-8 byte nor a grapheme index;
     /// case conversion can change the number of scalars.
     pub offset: u32,
