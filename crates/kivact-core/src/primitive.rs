@@ -96,11 +96,8 @@
 //!   content, an unmount) drops no user value. A content is dropped by the
 //!   render effect writing the next one or by the owner's cleanup, both
 //!   inside a turn. The layout record keeps only sizes.
-//! - A panic in the function is caught and sizes the leaf 0 × 0; it is
-//!   reported once per content, at the start of the next turn
-//!   (`Runtime::report_later`), to the nearest `error_boundary`, whose
-//!   `on_error` and fallback may change the tree like any handler. Only a
-//!   finite, non-negative size and a finite baseline are taken. Without a
+//! - A panic in the function propagates through the layout and ends the
+//!   App. Only a finite, non-negative size and a finite baseline are taken. Without a
 //!   measure the size comes from the style and `intrinsic_size`, and with
 //!   both the measure wins.
 //! - Drawing is the usual draw layers: a render effect that depends on the
@@ -909,12 +906,9 @@ impl Primitive {
     ///
     /// `f` runs inside the layout: it must be a plain function of its
     /// arguments (nothing that waits). It runs pure and untracked: a signal
-    /// write in it is rejected (`WriteInPureContext`, reported like a
-    /// panic) and a signal read subscribes nothing. A panic
-    /// in it sizes the primitive 0 × 0 and is reported once per content
-    /// to the nearest `error_boundary` (else the App's default sink), on
-    /// the turn after the layout, so the boundary's handlers may do
-    /// anything a handler does. A later call replaces an earlier one.
+    /// write in it is rejected (a `WriteInPureContext` misuse panic) and a
+    /// signal read subscribes nothing. A panic in it propagates through the
+    /// layout and ends the App. A later call replaces an earlier one.
     pub fn measure<T, F, R>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
         T: Clone + PartialEq + 'static,
@@ -948,14 +942,11 @@ impl Primitive {
 /// effect that skips a content equal to the last.
 ///
 /// The engine calls the function inside its layout, with its tree
-/// borrowed: a panic there is caught and reported on the next turn
-/// ([`Runtime::report_later`]), where the error's handlers may read and
-/// write the tree. The current content lives in the owner (until a new
+/// borrowed: a panic there propagates and ends the App. The current
+/// content lives in the owner (until a new
 /// content or its cleanup) and is always the one the engine holds when it
 /// lays out: a new content is written in the turn that replaced it, and
 /// the engine lays out only between turns.
-///
-/// [`Runtime::report_later`]: kivact_reactive::Runtime::report_later
 fn bind_measure<T, F, R>(
     cx: &Mcx<'_>,
     id: NodeId,
@@ -971,10 +962,9 @@ fn bind_measure<T, F, R>(
     let current: Current<T, Rc<F>> = Rc::new(RefCell::new(None));
     let held = current.clone();
     owner.on_cleanup(move || drop(held.borrow_mut().take()));
-    let weak_rt = cx.weak();
     let now = current.clone();
     let leaf = move |content: T| {
-        let (hook, hooked) = SyncHook::new(weak_rt.clone(), owner, at, content, f.clone());
+        let (hook, hooked) = SyncHook::new(owner, content, f.clone());
         *current.borrow_mut() = Some(hooked);
         LeafMeasure::new(move |request, text| {
             hook.call(|content, f| f(content, constraints(request, text)))

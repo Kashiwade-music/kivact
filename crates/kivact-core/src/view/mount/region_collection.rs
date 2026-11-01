@@ -82,9 +82,11 @@ pub(crate) fn declaration<T: Clone + PartialEq + 'static>(
                                 let Some(value) = keyed::Row::new(parent, key, item, at) else {
                                     continue;
                                 };
-                                let template = value.setup(at, |item| make(key, item));
-                                let entry = template
-                                    .map(|template| registry.entry(key, template, value.owner()));
+                                let entry = Some(registry.entry(
+                                    key,
+                                    value.setup(at, |item| make(key, item)),
+                                    value.owner(),
+                                ));
                                 next.push(Row { value, entry });
                             }
                         }

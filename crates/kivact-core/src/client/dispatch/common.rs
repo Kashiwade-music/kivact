@@ -56,21 +56,17 @@ pub(super) fn drop_outside_modal(rt: &Runtime, what: &str, id: NodeId) {
     ));
 }
 
-/// Run a handler untracked; `Err` and panics go to the node owner's sink.
-/// `None` means failure, so input routes stop rather than falling through.
+/// Run a handler untracked; an `Err` goes to the node owner's sink. `None`
+/// means failure, so input routes stop rather than falling through.
 pub(super) fn run_handler<R>(
     rt: &Runtime,
     owner: Option<Owner>,
     f: impl FnOnce() -> Result<R, UiError>,
 ) -> Option<R> {
-    let run = || match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-        Ok(Ok(r)) => Some(r),
-        Ok(Err(e)) => {
+    let run = || match f() {
+        Ok(r) => Some(r),
+        Err(e) => {
             rt.report(owner, e);
-            None
-        }
-        Err(p) => {
-            rt.report(owner, UiError::from_panic(p, None));
             None
         }
     };

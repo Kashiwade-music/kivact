@@ -46,7 +46,7 @@ pub(crate) fn mount_branch(
     at: &'static Location<'static>,
 ) -> Branch {
     let owner = parent.child(at);
-    let node = mount_in(rt, owner, build, at);
+    let node = mount_in(rt, owner, build);
     ViewState::tree_mut(rt).insert(frag, node, index);
     Branch { owner, node }
 }
