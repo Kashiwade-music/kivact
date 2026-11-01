@@ -42,9 +42,8 @@ use arvane_shell::{ShellError, ShellWaker};
 use kivact_types::{NodeId, Point, Rect, Role, SemanticsNode, SemanticsTree, Transform};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, mpsc};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc};
 use std::time::Duration;
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -130,9 +129,9 @@ struct Frame {
 
 type Slot = Arc<Mutex<Pending>>;
 
-// The lock only guards plain assignments; a poisoned one is still consistent.
 fn lock(slot: &Mutex<Pending>) -> MutexGuard<'_, Pending> {
-    slot.lock().unwrap_or_else(PoisonError::into_inner)
+    slot.lock()
+        .expect("test display lock poisoned: a panic already happened")
 }
 
 enum Command {
@@ -216,7 +215,7 @@ impl TestDisplay {
     fn send(&self, command: Command) -> Result<(), ShellError> {
         self.proxy
             .lock()
-            .unwrap_or_else(PoisonError::into_inner)
+            .expect("test display lock poisoned: a panic already happened")
             .send_event(command)
             .map_err(|_| ShellError::new("the test UI thread has stopped"))
     }
@@ -643,23 +642,22 @@ impl ApplicationHandler<Command> for Display {
     }
 
     fn user_event(&mut self, el: &ActiveEventLoop, command: Command) {
-        // A panic here would end every later test's window; the command is
-        // dropped instead (an `Open` caller sees its reply channel close).
-        let _ = catch_unwind(AssertUnwindSafe(|| self.command(el, command)));
+        // A display bug ends the test UI thread: winit resumes the panic after
+        // its loop, and later `send` calls fail with "the test UI thread has
+        // stopped".
+        self.command(el, command);
     }
 
     fn window_event(&mut self, _: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
         let Some(entry) = self.windows.get_mut(&id) else {
             return;
         };
-        let _ = catch_unwind(AssertUnwindSafe(|| {
-            entry.accessibility.process_event(&entry.window, &event);
-            if matches!(
-                event,
-                WindowEvent::RedrawRequested | WindowEvent::Resized(_)
-            ) {
-                blit(entry);
-            }
-        }));
+        entry.accessibility.process_event(&entry.window, &event);
+        if matches!(
+            event,
+            WindowEvent::RedrawRequested | WindowEvent::Resized(_)
+        ) {
+            blit(entry);
+        }
     }
 }

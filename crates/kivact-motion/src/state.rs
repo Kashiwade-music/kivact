@@ -193,7 +193,11 @@ impl MotionState {
                 present: Duration::from_nanos(present),
             };
             let f = l.f.clone();
-            l.owner.run_handler(|| l.owner.guarded(|| f(info)));
+            l.owner.run_handler(|| {
+                if let Err(err) = f(info) {
+                    l.owner.report(err);
+                }
+            });
         }
         // Animation steps run no user code.
         rt.enter(|| {

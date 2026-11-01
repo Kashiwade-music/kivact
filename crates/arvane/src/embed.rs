@@ -2,6 +2,7 @@
 
 use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
+pub use arvane_shell::PanicSlot;
 use arvane_shell::{ChildOptions, ShellChild};
 use kivact_types::{GpuPreference, ParentWindow, Size};
 
@@ -21,6 +22,9 @@ pub struct EmbedOptions {
     pub prefer_gpu: bool,
     /// GPU device preference.
     pub gpu_preference: GpuPreference,
+    /// Where a panic of the child's App is kept for the embedder to resume
+    /// (see [`PanicSlot`]).
+    pub panic: PanicSlot,
 }
 
 impl Default for EmbedOptions {
@@ -34,6 +38,7 @@ impl Default for EmbedOptions {
             on_resize_request: None,
             prefer_gpu: true,
             gpu_preference: GpuPreference::default(),
+            panic: PanicSlot::default(),
         }
     }
 }
@@ -75,6 +80,7 @@ where
         height: options.size.height,
         scale: options.scale,
         on_resize_request: options.on_resize_request,
+        panic: options.panic,
     };
     let make = Box::new(move || {
         let embedder = make();

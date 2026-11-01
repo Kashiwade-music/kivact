@@ -43,6 +43,11 @@
 //!   and child order, and that the core keeps no record the root cannot
 //!   reach (`structure`; props live only in the engine's tree, so they are
 //!   not compared).
+//! - Panics: a panic in App code (a handler, effect, memo, setup, task,
+//!   `blocking` job or a detected misuse) is not caught. It comes out of the
+//!   [`Screen`] call that drove the turn with its original payload, and the
+//!   failure artifacts are written. Test a detected misuse with
+//!   `#[should_panic(expected = "..")]`.
 //! - Layout check: [`Screen::check_layout`], `check_layout_with` and
 //!   `Element::check_layout` turn the engine's findings into
 //!   [`LayoutViolation`]s; `assert_layout` fails with all of them and keeps

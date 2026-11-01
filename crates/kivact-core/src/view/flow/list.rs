@@ -10,7 +10,7 @@
 //! - Items and keys are read in a pure section; rows are mounted, moved
 //!   and disposed outside it.
 //! - Each row is set up in a `Setup` frame of its own owner (untracked); a
-//!   panic there reports to the row owner and mounts an empty fragment.
+//!   panic there propagates.
 //! - Creates are emitted in id order, inserts right to left (hosts rely on
 //!   increasing ids).
 //! - `for_each` updates rows by `PartialEq` alone while the keys keep their
@@ -213,7 +213,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
                     continue;
                 };
                 let item = keyed.item();
-                let node = mount_in(rt, keyed.owner(), || row(k, item.into_value()), at);
+                let node = mount_in(rt, keyed.owner(), || row(k, item.into_value()));
                 if let Some(nd) = ViewState::tree_mut(rt).get_mut(node) {
                     nd.parent = Some(frag);
                 }

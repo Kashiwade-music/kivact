@@ -75,9 +75,10 @@ impl<T> Worker<T> {
 
     fn join(&mut self) {
         if let Some(thread) = self.thread.take()
-            && thread.join().is_err()
+            && let Err(payload) = thread.join()
+            && !std::thread::panicking()
         {
-            tracing::warn!(target: "kivact", worker = self.name, "GPU worker panicked");
+            std::panic::resume_unwind(payload);
         }
     }
 

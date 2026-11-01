@@ -204,6 +204,35 @@ mod tests {
 
 `screen.assert_layout()` はレイアウトも検査します。たとえば、枠からあふれた文字を見つけます。見つけた違反をすべて示して失敗し、そのときのフレームを残します。`check_layout()` は違反を値として返すので、自分で検証することもできます。意図的に切り取っているものは、`assert_layout_with(&LayoutCheck::default().ignore_test_id("clipped"))` で除外できます。
 
+アプリのコード (ハンドラー、effect、memo、setup 関数、タスク、`blocking` のジョブ、Kivact が検出した誤用) でのパニックはバグであり、テストライブラリは捕まえません。パニックはターンを進めた `Screen` の呼び出しから元のメッセージのまま出てきて、失敗時の成果物が書き出され、テストは失敗します。Kivact が誤用を検出することをテストするには、パニックを期待します。
+
+```rust,test_harness
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("Misuse").on_press(|| {
+        // ハンドラーの中の setup 関数はバグです。
+        let _late = signal(0);
+    })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Misuse").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "SetupOnly")]
+    fn a_setup_function_in_a_handler_panics() {
+        let screen = kivact::test::render(app);
+        screen.get_by_role(Role::Button, "Misuse").click();
+    }
+}
+```
+
 ## コンポーネント単体とアプリ全体をテストする
 
 コンポーネントは関数なので、必要な引数を渡して、それだけを描画してテストできます。コンポーネントが使うシグナルをテストが読んだり変えたりしたいときは、それをセットアップの中で作り、`render_with_handle` で受け取ります。

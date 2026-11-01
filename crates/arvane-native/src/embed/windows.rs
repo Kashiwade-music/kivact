@@ -87,7 +87,7 @@ pub(super) fn open(
         scale,
         MAX_DIMENSION,
     )?;
-    let shared = Arc::new(Shared::new(width, height, scale));
+    let shared = Arc::new(Shared::new(width, height, scale, options.panic));
     let native = Arc::new(Native {
         hwnd: 0.into(),
         ui_thread: std::thread::current().id(),
@@ -128,6 +128,9 @@ pub(super) fn open(
         state.destroy();
         return Err(error);
     }
+    // From here on any early return, and a panic of the App while it starts,
+    // detaches the window procedure and destroys the child.
+    let opening = window::Opening::new(state.clone(), hwnd);
     // SAFETY: opt in only our newly created child to shell drop messages.
     unsafe { windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd, 1) };
     state.a11y.replace(Some(bridge::Bridge::new(
@@ -139,20 +142,14 @@ pub(super) fn open(
         let actual = dpi::scale(hwnd);
         if actual != scale {
             shared.set_scale_value(actual);
-            let (width, height) = match super::geometry::physical_size(
+            let (width, height) = super::geometry::physical_size(
                 kivact_types::Size {
                     width: options.width,
                     height: options.height,
                 },
                 actual,
                 MAX_DIMENSION,
-            ) {
-                Ok(size) => size,
-                Err(error) => {
-                    state.destroy();
-                    return Err(error);
-                }
-            };
+            )?;
             // SAFETY: this child belongs to the opening GUI thread; only its
             // physical extent changes to match the actual child DPI.
             unsafe {
@@ -173,8 +170,10 @@ pub(super) fn open(
     state.start(make);
     let failure = shared.failure();
     if let Some(error) = failure {
-        state.destroy();
         return Err(error);
+    }
+    if shared.panicked() {
+        return Err(ShellError::new("the embedded App panicked while opening"));
     }
     // The host may destroy the parent (and with it this child) while the App starts.
     if !shared.alive.load(Ordering::Acquire) || state.closing.get() {
@@ -191,6 +190,7 @@ pub(super) fn open(
     unsafe {
         PostMessageW(hwnd, COMMAND, 0, 0);
     }
+    opening.disarm();
     Ok(Box::new(Handle {
         shared,
         backend: native,

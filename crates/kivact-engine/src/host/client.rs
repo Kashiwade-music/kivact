@@ -47,7 +47,7 @@ pub struct Boundary {
     pub revision: Revision,
 }
 
-type StartCallback = dyn FnMut(&HostInfo, HostWaker, Writer) -> Option<String>;
+type StartCallback = dyn FnMut(&HostInfo, HostWaker, Writer);
 type TurnCallback = dyn FnMut(&[HostEvent], &[Boundary], u64) -> TurnOutput;
 
 /// Concrete callbacks for the engine's synchronous client boundary.
@@ -67,9 +67,8 @@ pub struct Client {
 impl Client {
     /// Supply the startup and the turn callbacks. A turn gets every queued
     /// event, the commit boundaries among them and the host clock.
-    /// Startup returns `Some(diagnostic)` when an unhandled failure stopped the App.
     pub fn new(
-        start: impl FnMut(&HostInfo, HostWaker, Writer) -> Option<String> + 'static,
+        start: impl FnMut(&HostInfo, HostWaker, Writer) + 'static,
         turn: impl FnMut(&[HostEvent], &[Boundary], u64) -> TurnOutput + 'static,
     ) -> Self {
         Self {
@@ -78,13 +77,8 @@ impl Client {
         }
     }
 
-    pub(crate) fn start(
-        &mut self,
-        info: &HostInfo,
-        waker: HostWaker,
-        writer: Writer,
-    ) -> Option<String> {
-        (self.start)(info, waker, writer)
+    pub(crate) fn start(&mut self, info: &HostInfo, waker: HostWaker, writer: Writer) {
+        (self.start)(info, waker, writer);
     }
 
     pub(crate) fn turn(

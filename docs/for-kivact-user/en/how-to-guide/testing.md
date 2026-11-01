@@ -235,6 +235,39 @@ for example. It fails with every violation it finds and keeps the frame.
 `assert_layout_with(&LayoutCheck::default().ignore_test_id("clipped"))` skips
 things that are meant to be clipped.
 
+A panic in your app's code (a handler, an effect, a memo, a setup function, a
+task, a `blocking` job, or a misuse Kivact detects) is a bug, and the test
+library does not catch it. It comes out of the `Screen` call that drove the turn
+with its original message, the failure artifacts are written, and the test
+fails. To test that Kivact detects a misuse, expect the panic:
+
+```rust,test_harness
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("Misuse").on_press(|| {
+        // A setup function in a handler is a bug.
+        let _late = signal(0);
+    })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Misuse").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "SetupOnly")]
+    fn a_setup_function_in_a_handler_panics() {
+        let screen = kivact::test::render(app);
+        screen.get_by_role(Role::Button, "Misuse").click();
+    }
+}
+```
+
 ## Test one component or the whole app
 
 A component is a function, so a test can render one on its own with the

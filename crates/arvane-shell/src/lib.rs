@@ -56,4 +56,4 @@ pub const DEFAULT_FRAME_PERIOD_NS: u64 = 16_666_667;
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{ShellEventLoop, ShellHandler, ShellWindow};
 
-pub use child::{ChildOptions, MakeHandler, ShellChild};
+pub use child::{ChildOptions, MakeHandler, PanicSlot, ShellChild};

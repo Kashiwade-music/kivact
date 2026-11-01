@@ -643,7 +643,7 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
                         }));
                     }
                 }
-                let content = mount_in(rt, owner, || row(k.clone(), sig.into_value()), at);
+                let content = mount_in(rt, owner, || row(k.clone(), sig.into_value()));
                 cx.append(wrapper, content);
                 if let Some(n) = ViewState::tree_mut(rt).get_mut(wrapper) {
                     n.parent = Some(spacer);

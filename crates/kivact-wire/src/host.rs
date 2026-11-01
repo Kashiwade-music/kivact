@@ -33,8 +33,6 @@ pub struct TurnOutput {
     pub next_wake_ns: Option<u64>,
     /// The App finished (close accepted and queues drained).
     pub exit: bool,
-    /// The App stopped after an unhandled failure; the value is its diagnostic.
-    pub stop: Option<String>,
 }
 
 /// A host operation failure reported to its client.

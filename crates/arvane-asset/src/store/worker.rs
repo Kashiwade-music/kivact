@@ -51,12 +51,21 @@ pub(crate) fn run_on_job_stack(job: Job) -> Done {
             .spawn_scoped(scope, || job::run(take()));
         match helper.map(|h| h.join()) {
             Ok(Ok(done)) => done,
-            // A panic escaped the job's own catch: there is nothing to
-            // return for it, so let it reach the caller as it would inline.
+            // A panic in the job is a bug: let it reach the caller as it
+            // would inline.
             Ok(Err(panic)) => std::panic::resume_unwind(panic),
             Err(_) => job::run(take()),
         }
     })
+}
+
+/// Wakes the host when the worker thread ends, by return or by unwind, so
+/// the host polls and sees a thread that died.
+struct WakeOnExit<W: Fn()>(W);
+impl<W: Fn()> Drop for WakeOnExit<W> {
+    fn drop(&mut self) {
+        (self.0)();
+    }
 }
 
 pub(crate) struct Worker {
@@ -77,6 +86,7 @@ impl Worker {
             .name("arvane-asset".to_owned())
             .stack_size(JOB_STACK)
             .spawn(move || {
+                let wake = WakeOnExit(waker);
                 while let Ok(job) = job_rx.recv() {
                     if stopped.load(Ordering::Acquire) {
                         break;
@@ -85,7 +95,7 @@ impl Worker {
                     if stopped.load(Ordering::Acquire) || done_tx.send(done).is_err() {
                         break;
                     }
-                    waker();
+                    (wake.0)();
                 }
             })?;
         Ok(Worker {
@@ -98,16 +108,26 @@ impl Worker {
 
     pub(crate) fn submit(&self, job: Job) {
         if let Some(jobs) = &self.jobs {
-            // The thread only ends after `Drop` (or a panic outside the
-            // jobs' own catch); a job sent then is simply never answered.
+            // The thread only ends after `Drop` (or a panic in a job, which
+            // `try_recv` resumes); a job sent then is simply never answered.
             let _ = jobs.send(job);
         }
     }
 
-    /// The next finished job, if any.
-    pub(crate) fn try_recv(&self) -> Option<Done> {
-        // Disconnected only after the thread ended; nothing more comes then.
-        self.done.try_recv().ok()
+    /// The next finished job, if any. A worker thread that ended on a panic
+    /// resumes it here, on the host thread.
+    pub(crate) fn try_recv(&mut self) -> Option<Done> {
+        match self.done.try_recv() {
+            Ok(done) => Some(done),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                // The thread ended; only a panic in a job ends it before `Drop`.
+                match self.thread.take().map(JoinHandle::join) {
+                    Some(Err(payload)) => std::panic::resume_unwind(payload),
+                    _ => panic!("invariant: the asset worker only stops when dropped"),
+                }
+            }
+        }
     }
 }
 
@@ -122,7 +142,11 @@ impl Drop for Worker {
                 std::thread::sleep(Duration::from_millis(1));
             }
             if thread.is_finished() {
-                let _ = thread.join();
+                if let Err(payload) = thread.join()
+                    && !std::thread::panicking()
+                {
+                    std::panic::resume_unwind(payload);
+                }
             } else {
                 crate::detached::DETACHED.store(true, Ordering::Release);
                 tracing::warn!(target: "kivact", "asset job still running after the host closed; its thread is detached");

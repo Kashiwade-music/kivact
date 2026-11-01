@@ -189,7 +189,6 @@ fn retained_reporting_host(
                 writer.insert(NodeId(1), NodeId(2), None);
                 writer.set_scene(NodeId(2), SceneLayer::Draw, scene.clone());
                 writer.commit();
-                None
             },
             move |events, _, _| {
                 for event in events {

@@ -224,8 +224,7 @@ impl Owner {
 
     /// Make this owner an error boundary: errors reported to it or to an
     /// owner below it (without a nearer boundary) go to `f`. It runs in a
-    /// handler of this owner; a panic in it and the original error both go
-    /// to the App's default sink.
+    /// handler of this owner; a panic in it propagates.
     #[track_caller]
     pub fn on_error(self, f: impl Fn(UiError) + 'static) {
         self.rt(Location::caller())
@@ -247,19 +246,6 @@ impl Owner {
         let rt = self.rt(Location::caller());
         let _handler = rt.handler_frame(Some(self.key));
         f()
-    }
-
-    /// Run `f` at a boundary: an `Err` it returns or a panic it raises is
-    /// reported to this owner (its error boundary, else the App's sink).
-    /// It pushes no frame; combine with [`Owner::run_handler`] to run `f`
-    /// as a handler.
-    #[track_caller]
-    pub fn guarded(self, f: impl FnOnce() -> Result<(), UiError>) {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => self.report(err),
-            Err(panic) => self.report(UiError::from_panic(panic, None)),
-        }
     }
 }
 

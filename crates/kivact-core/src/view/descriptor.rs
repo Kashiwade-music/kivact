@@ -7,7 +7,7 @@ use std::rc::{Rc, Weak};
 
 use kivact_engine::bridge::PropValue;
 use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{EffectKind, NodeId as EffectId, Owner, Runtime, UiError, Value};
+use kivact_reactive::{EffectKind, NodeId as EffectId, Owner, Runtime, Value};
 use kivact_wire::{NodeId, NodeType};
 
 use super::state::ViewState;
@@ -84,17 +84,7 @@ impl Mcx<'_> {
 
     /// Mount `view` in a fresh setup frame of this context's owner.
     pub(crate) fn mount_child(&self, view: View) -> NodeId {
-        let r = self.owner.with_setup(|| {
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| mount(view, self)))
-        });
-        match r {
-            Ok(id) => id,
-            Err(p) => {
-                self.rt
-                    .report(Some(self.owner), UiError::from_panic(p, None));
-                self.fragment()
-            }
-        }
+        self.owner.with_setup(|| mount(view, self))
     }
 
     /// The theme visible from this owner.

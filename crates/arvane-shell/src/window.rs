@@ -193,6 +193,8 @@ pub trait ShellHandler {
 /// A UI-thread event loop consumed by one synchronous run.
 pub trait ShellEventLoop {
     /// Borrow the handler until exit, reporting backend or callback failures.
-    /// The backend must contain callback panics at its platform boundary.
+    /// A callback panic propagates out of `run`; a backend whose callbacks
+    /// run under foreign frames carries it across them and resumes it after
+    /// the loop.
     fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError>;
 }

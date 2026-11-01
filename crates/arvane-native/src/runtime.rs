@@ -1,4 +1,4 @@
-//! Role: Main-thread event loop, lifetime-bound CPU surface and callback panic boundary.
+//! Role: Main-thread event loop and lifetime-bound CPU surface.
 //!
 //! The window outlives its surface; every callback runs on the creator thread.
 //! The CPU surface (softbuffer) is created by the first CPU presentation, so
@@ -34,8 +34,9 @@
 //!   and, with a mouse button held, the mouse's gesture (one `Cancel`).
 //!
 //! Sizes, minimum sizes and IME areas are `kivact-types` logical sizes and
-//! rectangles. A panic in a callback is caught here and ends the loop with
-//! a [`ShellError`].
+//! rectangles. A panic in a callback propagates out of `run`: winit carries it
+//! across its window procedure (Win32, macOS) and resumes it after the loop,
+//! and the X11 and Wayland dispatch frames are all Rust.
 //!
 //! Limits:
 //! - A precision touchpad scrolls by winit's wheel lines: no pixel deltas
@@ -57,7 +58,6 @@ use kivact_types::{
 };
 use kivact_types::{Point, PointerPhase, Rect, Size};
 use std::num::NonZeroU32;
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -526,12 +526,12 @@ impl Runner<'_> {
         let Some(window) = self.window.as_mut() else {
             return;
         };
-        let result = catch_unwind(AssertUnwindSafe(|| match event {
+        let result = match event {
             Some(event) => self.handler.event(event, window),
             None => self.handler.start(window, self.waker.clone()),
-        }));
+        };
         match result {
-            Ok(Ok(control)) => {
+            Ok(control) => {
                 self.control = control;
                 if control.exit {
                     el.exit();
@@ -550,19 +550,8 @@ impl Runner<'_> {
                     }
                 }
             }
-            Ok(Err(error)) => {
+            Err(error) => {
                 self.failure = Some(error);
-                el.exit();
-            }
-            Err(payload) => {
-                let message = payload
-                    .downcast_ref::<String>()
-                    .map(String::as_str)
-                    .or_else(|| payload.downcast_ref::<&str>().copied())
-                    .unwrap_or("non-string panic");
-                self.failure = Some(ShellError::new(format!(
-                    "shell callback panicked: {message}"
-                )));
                 el.exit();
             }
         }
@@ -1076,15 +1065,8 @@ impl ShellEventLoop for Shell {
             contacts: arvane_shell::Contacts::default(),
         };
         let result = self.event_loop.run_app(&mut app);
-        if let Some(window) = app.window.as_mut()
-            && std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                app.handler.close(window);
-            }))
-            .is_err()
-        {
-            app.failure.get_or_insert_with(|| {
-                ShellError::new("a callback panicked while closing the window")
-            });
+        if let Some(window) = app.window.as_mut() {
+            app.handler.close(window);
         }
         result.map_err(|e| ShellError::new(e.to_string()))?;
         app.failure.map_or(Ok(()), Err)

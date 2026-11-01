@@ -285,7 +285,7 @@ impl AssetStore {
     pub fn poll(&mut self) -> bool {
         let mut changed = false;
         loop {
-            let done = match &self.runner {
+            let done = match &mut self.runner {
                 Runner::Worker(worker) => worker.try_recv(),
                 Runner::Inline => None,
             };

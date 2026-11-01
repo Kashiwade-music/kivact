@@ -5,7 +5,6 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use crate::support::mount;
-use kivact::diagnostics::ErrorKind;
 use kivact::prelude::*;
 use kivact::task::spawn;
 use kivact::task::{CancelToken, sleep};
@@ -135,8 +134,9 @@ fn resource_accepts_only_the_latest_request() {
 }
 
 #[test]
-fn resource_errors_and_blocking_panics_become_ui_errors() {
-    let (screen, res) = mount(|| {
+#[should_panic(expected = "worker exploded")]
+fn a_blocking_panic_resumes_on_the_ui_thread() {
+    let (screen, _res) = mount(|| {
         let n = signal(0u32);
         let res = resource(
             move || n.get(),
@@ -156,11 +156,7 @@ fn resource_errors_and_blocking_panics_become_ui_errors() {
             show_some(move || res.error(), |e| text(move || e.get().to_string())),
         )
     });
-    screen.find_by_text("panicked: worker exploded");
-    assert!(matches!(
-        res.error().map(|e| e.kind().clone()),
-        Some(ErrorKind::Panic)
-    ));
+    screen.run_until_idle();
 }
 
 #[test]

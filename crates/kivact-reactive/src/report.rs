@@ -5,11 +5,8 @@
 //! (`tracing` and the diagnostics ring).
 //!
 //! Invariants:
-//! - The handler runs in a handler frame of its boundary owner and at a
-//!   boundary of its own: if it panics, that panic and the original error
-//!   both go to the default sink (an error is never lost).
-//! - [`Runtime::guarded`] is the boundary user code runs in (cleanups,
-//!   `on_mount`, `on_done` handlers): a panic becomes a reported error.
+//! - The handler runs in a handler frame of its boundary owner; a panic in
+//!   it propagates. Only `Err` values are routed here, never panics.
 //! - An error raised where no handler may run (code the engine calls while
 //!   its tree is borrowed, as a primitive's measure function in its
 //!   layout) is kept by [`Runtime::report_later`] and routed at the start
@@ -18,7 +15,7 @@
 
 use crate::arena::Key;
 use crate::data::Runtime;
-use crate::error::{UiError, error_from_panic};
+use crate::error::UiError;
 
 impl Runtime {
     /// Route an error to the nearest `on_error` handler of `owner`'s chain,
@@ -40,12 +37,7 @@ impl Runtime {
         match handler {
             Some(h) => {
                 let _g = self.handler_frame(cur);
-                let result =
-                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| h(err.clone())));
-                if let Err(p) = result {
-                    self.default_sink(error_from_panic(p, None));
-                    self.default_sink(err);
-                }
+                h(err);
             }
             None => self.default_sink(err),
         }
@@ -77,16 +69,5 @@ impl Runtime {
     pub(crate) fn default_sink(&self, err: UiError) {
         tracing::error!(target: "kivact", kind = ?err.kind(), at = ?err.location(), "{}", err);
         self.diag.borrow_mut().record_error(err);
-    }
-
-    /// Run user code at a boundary; panics become reported errors.
-    pub(crate) fn guarded<R>(&self, owner: Option<Key>, f: impl FnOnce() -> R) -> Option<R> {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-            Ok(r) => Some(r),
-            Err(p) => {
-                self.route(owner, error_from_panic(p, None));
-                None
-            }
-        }
     }
 }

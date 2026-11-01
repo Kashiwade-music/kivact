@@ -171,7 +171,7 @@ impl Mounts<'_> {
 
     /// The host acknowledged every token up to `token`: run the callbacks
     /// waiting for one of them, in queue order, for owners that are still
-    /// there. Each runs in a handler of its owner; a panic is reported to it.
+    /// there. Each runs in a handler of its owner; a panic propagates.
     pub fn run_acked(&self, token: u64) {
         self.rt.run_mounts_acked(token);
     }

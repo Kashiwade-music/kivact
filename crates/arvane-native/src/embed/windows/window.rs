@@ -2,7 +2,7 @@
 use super::native::Native;
 use super::state::State;
 use crate::embed::child::{Backend, Command, Shared};
-use crate::embed::session::{Session, contain, negotiate};
+use crate::embed::session::{Session, negotiate};
 use arvane_shell::{AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
@@ -23,6 +23,51 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SWP_NOMOVE, SWP_NOZORDER, SetTimer, SetWindowPos, USER_TIMER_MINIMUM, WindowFromPoint,
 };
 pub(super) struct Window(pub(super) Rc<State>);
+
+/// Destroys a child whose opening did not finish: on an `Err` return and on
+/// unwind. The window procedure is detached first, so no App code runs again.
+pub(super) struct Opening {
+    state: Rc<State>,
+    hwnd: isize,
+    armed: bool,
+}
+impl Opening {
+    pub(super) fn new(state: Rc<State>, hwnd: isize) -> Self {
+        Self {
+            state,
+            hwnd,
+            armed: true,
+        }
+    }
+    pub(super) fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+impl Drop for Opening {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        super::a11y::disconnect(&self.state);
+        super::proc::detach(&self.state, self.hwnd);
+        self.state.destroy();
+    }
+}
+
+/// Marks the App busy while its code runs; clears the mark on unwind too, so
+/// the window procedure can stop the child after it caught a panic.
+struct BusyGuard<'a>(&'a Cell<bool>);
+impl<'a> BusyGuard<'a> {
+    fn new(busy: &'a Cell<bool>) -> Self {
+        busy.set(true);
+        Self(busy)
+    }
+}
+impl Drop for BusyGuard<'_> {
+    fn drop(&mut self) {
+        self.0.set(false);
+    }
+}
 pub(super) fn environment(state: &State) -> kivact_types::Environment {
     let scale = state.shared.scale();
     let mouse = crate::native_input::state::MouseSettings::read();
@@ -358,11 +403,12 @@ impl State {
         })
     }
     pub(super) fn start(self: &Rc<Self>, make: MakeHandler) {
-        self.busy.set(true);
-        self.session
-            .borrow_mut()
-            .start(make, &mut Window(self.clone()), self.waker());
-        self.busy.set(false);
+        {
+            let _busy = BusyGuard::new(&self.busy);
+            self.session
+                .borrow_mut()
+                .start(make, &mut Window(self.clone()), self.waker());
+        }
         if self.closing.get() {
             self.dispose();
         }
@@ -407,13 +453,15 @@ impl State {
         self.commands();
     }
     fn invoke(self: &Rc<Self>, event: ShellEvent) {
-        if self.busy.replace(true) {
+        if self.busy.get() {
             return;
         }
-        self.session
-            .borrow_mut()
-            .deliver(event, &mut Window(self.clone()));
-        self.busy.set(false);
+        {
+            let _busy = BusyGuard::new(&self.busy);
+            self.session
+                .borrow_mut()
+                .deliver(event, &mut Window(self.clone()));
+        }
         if self.closing.get() {
             self.dispose();
         }
@@ -459,7 +507,7 @@ impl State {
                 .shared
                 .commands
                 .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .expect("embedded child lock poisoned: a panic already happened")
                 .pop_front();
             match command {
                 Some(Command::SetSize {
@@ -529,12 +577,7 @@ impl State {
         // through WM_DESTROY. Both paths disconnect before adapter destruction.
         super::a11y::disconnect(self);
         let a11y = self.a11y.borrow_mut().take();
-        if let Err(error) = contain(|| drop(a11y), "embedded accessibility destruction panicked") {
-            self.shared.fail(error);
-            tracing::warn!(target: "kivact", "embedded accessibility destruction panicked; leaking remaining native resources");
-            self.leak_resources();
-            return;
-        }
+        drop(a11y);
         // SAFETY: this child owns the HWND-scoped timer; cleanup runs on its UI thread.
         unsafe {
             KillTimer(self.native.hwnd(), super::native::TIMER);

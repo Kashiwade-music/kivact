@@ -30,6 +30,9 @@ impl Backend for Arc<Native> {
             PostMessageW(self.hwnd(), COMMAND, 0, 0);
         }
     }
+    fn collect_panic(&self, _: &Shared) {
+        // The App runs on the host GUI thread; its panic is kept by `wndproc`.
+    }
     fn close(&self, shared: &Shared) {
         if !shared.alive.load(Ordering::Acquire) {
             return;

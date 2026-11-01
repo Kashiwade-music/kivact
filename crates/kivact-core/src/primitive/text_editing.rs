@@ -33,11 +33,9 @@
 //!   prop while its model is borrowed drops no user value.
 //! - The behavior runs synchronously while the engine model is borrowed,
 //!   through a `SyncHook`: pure and untracked, it reaches no node query or
-//!   engine tree and its signal writes are rejected. Core catches its
-//!   panic, turns the request into `NotEditing` and reports the panic once
-//!   per behavior to the owner (after the engine lets go of its model); the
-//!   engine takes back the text changes the request did not report, so
-//!   nothing from before the panic stays either.
+//!   engine tree and its signal writes are rejected (a `WriteInPureContext`
+//!   misuse panic). A panic in it propagates through the engine and ends the
+//!   App.
 //! - Without a behavior no key command edits by default and keys take the
 //!   usual event route; there is no paste. IME and plain text input, pointer
 //!   selection, shaping, caret drawing and reveal, clipboard IO and the
@@ -45,7 +43,7 @@
 //!   policy is built on this contract alone by `interaction::use_text_edit`
 //!   and `interaction::text_edit_policy`.
 //! - A new `content` or theme makes the line-color effect write a new
-//!   function; a panic in it is reported once per content.
+//!   function; a panic in it propagates and ends the App.
 //!
 //! [`NodeRefExt::text_layout`]: crate::primitive::NodeRefExt::text_layout
 
@@ -86,8 +84,8 @@ impl TextEditing {
     /// engine holds its tree. It changes the supplied [`EditState`] and may
     /// read and write state it captured (`Cell`, `RefCell`); it must not
     /// query nodes or wait, and it runs pure and untracked: a signal write
-    /// is rejected (`WriteInPureContext`, reported like a panic, and the
-    /// request is not handled) and a signal read subscribes nothing. The [`EditContext`]
+    /// is rejected (a `WriteInPureContext` misuse panic) and a signal read
+    /// subscribes nothing. The [`EditContext`]
     /// holds the editor's constraints and reads its laid-out lines (the
     /// line of an offset, the `x` of a caret, the offset nearest an `x`
     /// on a line: what moving up and down a line needs) for the text as
@@ -118,11 +116,10 @@ impl TextEditing {
     /// the state they start from changed (as far as they are drawn; the
     /// others when they are). It must be a plain function of its arguments
     /// (nothing that waits; it runs pure and untracked, so a signal write
-    /// is rejected as a panic is and a signal read subscribes nothing). A new `content`,
-    /// or a new theme for token colors, colors the lines again. A panic in
-    /// `f` draws its line without colors, passes the line's state on
-    /// unchanged and is reported once per content to the nearest
-    /// `error_boundary`. A password editor and its placeholder are not
+    /// is rejected as a `WriteInPureContext` misuse panic and a signal read
+    /// subscribes nothing). A new `content`, or a new theme for token
+    /// colors, colors the lines again. A panic in `f` propagates and ends
+    /// the App. A password editor and its placeholder are not
     /// colored. A later call replaces an earlier one.
     pub fn highlight<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
@@ -270,8 +267,7 @@ where
         if same {
             return;
         }
-        let (hook, highlighted) =
-            SyncHook::new(weak_rt.clone(), owner, at, (content, theme), f.clone());
+        let (hook, highlighted) = SyncHook::new(owner, (content, theme), f.clone());
         // The last content is dropped here, before the view tree is
         // borrowed: its `Drop` may read the tree.
         *current.borrow_mut() = Some(highlighted);

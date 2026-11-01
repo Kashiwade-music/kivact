@@ -104,12 +104,12 @@ impl Shared {
 }
 
 // Locks contain only validation, assignment, conversion and queue insertion.
-// Recovering a poisoned lock keeps the last accepted tree (a panic inside a
-// change leaves it as it was) and keeps OS callbacks alive.
+// A conversion panic propagates (it ends the App); a poisoned lock is never
+// entered, because a panic already happened.
 pub(crate) fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
     shared
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .expect("accessibility tree lock poisoned: a panic already happened")
 }
 
 /// A backend's synchronized handle to one window's accepted semantics tree.
@@ -122,8 +122,8 @@ pub(crate) fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
 /// publication lock first, then call [`Self::pending_with`] inside its callback.
 /// This prevents an older update from following a newer activation snapshot.
 ///
-/// A conversion panic preserves pending data; poisoned locks are recovered on
-/// the next operation. Only successful conversion consumes unpublished changes.
+/// A conversion panic propagates. Only successful conversion consumes
+/// unpublished changes.
 #[derive(Clone)]
 pub struct PlatformTree {
     shared: Arc<Mutex<Shared>>,
@@ -214,7 +214,7 @@ impl PlatformTree {
 
     /// Activate a reader and convert its complete current tree under lock.
     /// `None` means no tree has been accepted yet. Wake the application after
-    /// return so it can refresh semantics. A panic leaves a full update pending.
+    /// return so it can refresh semantics. A conversion panic propagates.
     pub fn activate_with<R>(&self, convert: impl FnOnce(PlatformUpdate<'_>) -> R) -> Option<R> {
         let mut shared = lock(&self.shared);
         shared.active = true;
@@ -290,7 +290,7 @@ impl PlatformTree {
     }
 
     /// Map subsequent root bounds with `scale`. An active tree retains its root
-    /// as pending so a conversion panic cannot lose the scale change.
+    /// as pending until a conversion consumes it.
     pub fn rescale(&self, scale: f64) {
         let mut shared = lock(&self.shared);
         shared.scale = scale;

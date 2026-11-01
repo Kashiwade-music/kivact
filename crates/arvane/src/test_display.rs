@@ -63,7 +63,7 @@ use shell::physical;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 pub use arvane_native::test_display::TestDisplayStats;
 
@@ -194,7 +194,7 @@ impl VirtualWindow {
             Notes::new(Some(Box::new(move |change: &RendererChange| {
                 noted
                     .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
+                    .expect("renderer change log lock poisoned: a panic already happened")
                     .push(change.clone());
             }))),
             &env,
@@ -539,7 +539,12 @@ impl VirtualWindow {
     /// external frames it could not draw, as a native window's observer
     /// ([`crate::Shell::on_renderer_change`]) gets them.
     pub fn take_renderer_changes(&self) -> Vec<RendererChange> {
-        std::mem::take(&mut *self.changes.lock().unwrap_or_else(PoisonError::into_inner))
+        std::mem::take(
+            &mut *self
+                .changes
+                .lock()
+                .expect("renderer change log lock poisoned: a panic already happened"),
+        )
     }
 
     /// The key the presenter knows the window by.
