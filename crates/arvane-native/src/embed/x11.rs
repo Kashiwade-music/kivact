@@ -19,12 +19,4 @@ pub(crate) mod test_parent;
 mod thread;
 mod window;
 
-use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
-
-pub(super) fn open(
-    parent: kivact_types::ParentWindow,
-    options: ChildOptions,
-    make: MakeHandler,
-) -> Result<Box<dyn ShellChild>, ShellError> {
-    thread::open(parent, options, make)
-}
+pub(super) use thread::open;

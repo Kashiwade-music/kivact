@@ -59,6 +59,7 @@ pub mod embed;
 
 mod a11y;
 mod contacts;
+mod detached;
 mod display;
 mod key_code;
 mod module;
@@ -71,12 +72,6 @@ pub mod test_display;
 mod wait;
 mod wheel;
 
+pub use detached::detached_threads;
 pub use module::retain_module;
 pub use runtime::{Shell, WinitWindow};
-
-static DETACHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-/// Whether this crate has ever detached a thread that may still execute its code.
-pub fn detached_threads() -> bool {
-    DETACHED.load(std::sync::atomic::Ordering::Acquire)
-}

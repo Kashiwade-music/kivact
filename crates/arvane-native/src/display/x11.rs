@@ -3,7 +3,7 @@
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt};
 
-pub(super) fn work_area(bounds: super::types::WorkArea) -> Option<super::types::WorkArea> {
+pub(super) fn work_area(bounds: super::placement::WorkArea) -> Option<super::placement::WorkArea> {
     let (connection, screen) = x11rb::connect(None).ok()?;
     let root = connection.setup().roots.get(screen)?.root;
     let atom = |name: &[u8]| {
