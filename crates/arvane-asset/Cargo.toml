@@ -1,14 +1,15 @@
 [package]
 name = "arvane-asset"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Arvane assets: image loading, format detection, raster and SVG decoding, tint, fit, the image cache and worker, font files"
 
 [dependencies]
 tracing = { workspace = true }
-ui-types = { path = "../ui-types" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 # No `text`: SVG `<text>` is not drawn, and fontdb, rustybuzz and ttf-parser
 # stay out of builds that do not already have them.

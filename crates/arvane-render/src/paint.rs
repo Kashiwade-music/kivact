@@ -27,7 +27,7 @@ use crate::{
     derived::Derived,
     gradient::{color, gradient, stops_of},
 };
-use ui_types::{ColorMatrix, ImageData, Paint, PatternSource, Rect};
+use kivact_types::{ColorMatrix, ImageData, Paint, PatternSource, Rect};
 use vello_cpu::{PaintType, kurbo::Affine, peniko::Gradient as RasterGradient};
 
 /// A paint ready to fill with.

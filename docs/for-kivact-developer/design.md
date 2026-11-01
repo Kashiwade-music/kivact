@@ -44,7 +44,7 @@ kivact-engine  node の木（prop の唯一の置き場）・focus・modal・poi
    │  └ kivact-wire（独立 crate：型付き node・events・scene・measure・純粋 motion）
    │
    ▼
-arvane（winit・text・render・asset）。shell の語彙と入力正規化は arvane-shell、共有の値は ui-types
+arvane（winit・text・render・asset）。shell の語彙と入力正規化は arvane-shell、共有の値は kivact-types
 ```
 
 ## 2. crate と層
@@ -62,13 +62,13 @@ arvane（winit・text・render・asset）。shell の語彙と入力正規化は
 | `kivact-style` | `Style`・`Theme`・token・色・長さ・`Asset` と、`Draw` と描画の語彙（paint・shape・stroke・filter・transform・`Path`）。`Style::compile`（`Interactive` を受けて `CompiledStyle` を返す）、`Draw::record`（`Recording`。`set_text_measurer`・`declare_regions`）、`TextRun::from_style`、`SpanStyle::compile`、`Theme::install`・`Theme::of` が host 側の入口。依存は `kivact-reactive`・`kivact-wire`・`kivact-motion`・`kivact-editing` と kurbo（`Path` の演算。型は公開しない）で、engine・core を知らない。feature `gpu-interop`（`GpuFrame`）は style 自身の振る舞いだけを足す（wire は feature を持たない）。core の `style` module が `kivact::style` の名前だけを再公開し、`kivact::draw` の語彙は core の `draw` が再公開する。doctest だけが dev-dependency で `kivact` を使う |
 | `kivact-interaction` | 見た目を持たない振る舞いと semantics（List/Tree/Drag/Popup などの controller と純粋 policy）。公開 primitive 契約で所有者・mount・focus を扱う。headless な handle は `DialogApi`・`MenuApi`・`SelectApi`・`TabsApi`・`TooltipApi`・`SplitterApi`・`ButtonApi` のように `Api` を付け、同名の `kivact::ui` の builder と区別する。app のデータ型（`ListItem`・`MenuEntry`・`Command`・`TreeNode`・`Toast`・`DialogKind`・`Side`・`Dismiss`・`EditPhase` など）は interaction が使うのでここで定義し、`kivact::ui` から再公開する（app 向けの文書と例は `kivact::ui` と prelude の path だけを使う） |
 | `kivact-layout` | `LayoutTree` と `LeafMeasure` から flex/grid を計算し、slot に対応する派生列と中立な幾何差分を持つ。木・資源・engine の意味を所有しない |
-| `kivact-text` | 借用した source/revision/damage から hard line を保ち、必要な行だけ shaping・編集幾何・IME 抜粋・bounded publication を作る。依存は editing・lower・ui-types・Arvane・unicode-segmentation。Editor と木を所有しない |
-| `kivact-lower` | wire の値・局所 scene を中立な描画・文字 style・資源へ下げる。依存は kivact-wire・ui-types・arvane だけ。木・layout cache・window loop・公開順は持たない |
-| `kivact-wire` | node・event・scene・measure と純粋 motion の独立した値の契約。依存は ui-types と kivact-editing だけ。engine と core が直接使う |
-| `kivact-editing` | EditState・EditBehavior・EditLayout と、host が所有する Editor の純粋な編集契約。依存は ui-types と unicode-segmentation だけ。engine と core が直接使う |
+| `kivact-text` | 借用した source/revision/damage から hard line を保ち、必要な行だけ shaping・編集幾何・IME 抜粋・bounded publication を作る。依存は editing・lower・kivact-types・Arvane・unicode-segmentation。Editor と木を所有しない |
+| `kivact-lower` | wire の値・局所 scene を中立な描画・文字 style・資源へ下げる。依存は kivact-wire・kivact-types・arvane だけ。木・layout cache・window loop・公開順は持たない |
+| `kivact-wire` | node・event・scene・measure と純粋 motion の独立した値の契約。依存は kivact-types と kivact-editing だけ。engine と core が直接使う |
+| `kivact-editing` | EditState・EditBehavior・EditLayout と、host が所有する Editor の純粋な編集契約。依存は kivact-types と unicode-segmentation だけ。engine と core が直接使う |
 | `kivact-engine` | `bridge`（6章）と、型付き node の木の上の layout・入力・描画・accessibility と Arvane の window の loop（7章）。実験的な `embed` は `arvane/embed` へ転送する |
-| `ui-types` | Kivact にも Arvane にも属さない中立な値の crate（8章）。外部依存を持たない |
-| `gpu-share` | UI を知らない中立な GPU texture 共有の契約と補助。既定（feature なし）は `Identity`・`Error` と Vulkan の版・extension・usage・format、Direct3D 12 の resource flag・LUID の規則を持つ。`export` は ash と Direct3D 12 の pool・timeline fence・barrier・adapter の照合・時間切れ付き待機・RGBA8 の読み戻しを公開する。`import` は `import` module に wgpu への取り込みと acquire/release を公開する。`wgpu` は `export` を含み、同じ版の wgpu（`=29.0.4`）で書いた engine に device・texture pool・submit・読み戻しを提供する。feature がなければ対応する API は存在しない。アプリの engine が直接依存でき、`kivact`・Arvane に依存しない |
+| `kivact-types` | Kivact にも Arvane にも属さない中立な値の crate（8章）。名前の `kivact-` は層ではなく project を表す（`kivact-gpu-share` も同じ）。外部依存を持たない |
+| `kivact-gpu-share` | UI を知らない中立な GPU texture 共有の契約と補助。既定（feature なし）は `Identity`・`Error` と Vulkan の版・extension・usage・format、Direct3D 12 の resource flag・LUID の規則を持つ。`export` は ash と Direct3D 12 の pool・timeline fence・barrier・adapter の照合・時間切れ付き待機・RGBA8 の読み戻しを公開する。`import` は `import` module に wgpu への取り込みと acquire/release を公開する。`wgpu` は `export` を含み、同じ版の wgpu（`=29.0.4`）で書いた engine に device・texture pool・submit・読み戻しを提供する。feature がなければ対応する API は存在しない。アプリの engine が直接依存でき、`kivact`・Arvane に依存しない |
 | `arvane*` | 8章 |
 | `kivact-public-api-tests` | 公開 API の統合試験と trybuild。公開 `kivact` と必要な公式kitの利用者であり、どの product crate も依存しない |
 | `kivact-external-component`・`kivact-ext-apps`・`kivact-workbench`・例・雛形 | 公開 API だけで作った外部部品と、それを使うアプリ |
@@ -91,7 +91,7 @@ arvane（winit・text・render・asset）。shell の語彙と入力正規化は
 | `client`（非公開） | `AppClient` が具体的な `bridge::Client` を実装する。App の組立、host の時計と waker、turn、event と mount の配送 |
 | `test`（feature `test`） | `kivact::test`。engine の試験 driver の上の、実 window の Testing Library（10章） |
 | `draw` | 描画の語彙の再公開と、window なしで固定解像度の RGBA 画像へ描く `Offscreen`（engine の `bridge::Offscreen` への入口） |
-| `gpu_interop`（feature `gpu-interop`） | **実験的。** 外部の render engine が共有した GPU texture の取り込み（低水準の `adapter`・`import`・`ExternalImage`・`FramePublisher`・`ImportStatus`・`GpuFrame`、高水準の `shared_image`・`SharedImage`・`ShareLink`・`ShareRequest`・`ShareMode`・`ShareStatus`・`ShareError`）と ui-types の語彙の再公開だけ。実装は `gpu_interop::import`（取り込み・状態・publisher）と `gpu_interop::share`（要求と再取り込み）に持ち、per-App の状態は client が runtime の extension に入れる。feature の cfg は `lib.rs`・`client`・`gpu_interop` と `kivact-style` の `draw`（`GpuFrame` と `Draw::gpu_frame`）に限る |
+| `gpu_interop`（feature `gpu-interop`） | **実験的。** 外部の render engine が共有した GPU texture の取り込み（低水準の `adapter`・`import`・`ExternalImage`・`FramePublisher`・`ImportStatus`・`GpuFrame`、高水準の `shared_image`・`SharedImage`・`ShareLink`・`ShareRequest`・`ShareMode`・`ShareStatus`・`ShareError`）と kivact-types の語彙の再公開だけ。実装は `gpu_interop::import`（取り込み・状態・publisher）と `gpu_interop::share`（要求と再取り込み）に持ち、per-App の状態は client が runtime の extension に入れる。feature の cfg は `lib.rs`・`client`・`gpu_interop` と `kivact-style` の `draw`（`GpuFrame` と `Draw::gpu_frame`）に限る |
 | `platform` | host の環境の読み取り（`platform::env`。`window_size`・`scale_factor`・`capabilities` など）と service の要求（`platform::services`。clipboard・file dialog・`open_path`・`set_fullscreen`）の実装、engine への入口 `run_native` |
 | `diagnostics` | `why` の連鎖の実装（`diagnostics::why`）、`Stats`、reactive の trace の名前の再公開 |
 | `prelude` | 再公開だけ |
@@ -132,11 +132,11 @@ kit も共有値と操作を分ける（Creative の timeline/outliner/editor �
 - **編集の契約は `kivact-editing`。** wire・text・style・engine・core に見え、core の primitive と view が従来の behavior-facing な名前を再公開する。Editor は host の所有型で、core は再公開しない。
 - **wire と layout の計算は独立 crate。** core は kivact-wire の語彙と bridge の所有型 Writer/Reader を直接使う。kivact-wire は lower・layout・engine・motion・style・core に見える。engine の `layout` は構造を借りる adapter で、`kivact-layout` が計算と派生列の型を持ち、Model がその列を所有する。
 - **`arvane` を使うのは `kivact-engine`、値変換の `kivact-lower`、文字の `kivact-text`。** Arvane の adapter（`arvane-native`・`arvane-text`・`arvane-render`・`arvane-asset`）は `arvane` だけに見え、
-  lower は text と engine に見え、Arvane の型を engine の bridge に漏らさない。adapter 同士では依存せず、`ui-types` の値と `arvane-shell` の語彙・入力正規化を共有する。
+  lower は text と engine に見え、Arvane の型を engine の bridge に漏らさない。adapter 同士では依存せず、`kivact-types` の値と `arvane-shell` の語彙・入力正規化を共有する。
   `arvane-shell` は `arvane` と `arvane-native` だけに見える。`arvane*` は Kivact の crate に依存しない。
-  GPU texture 共有の `unsafe` は中立な `gpu-share` に閉じる。`arvane-render` はその `import` feature を使い、アプリの engine と試験用の `gpu-interop-producer` は `export`（wgpu の engine は `wgpu` も）を使う。
-  `gpu-share` は visible_to を持たず、アプリの engine が直接依存できる。試験用の `gpu-interop-producer` は Arvane の契約の試験・公開 API の試験・creative kit の GPU frame の試験（dev-dependency）だけに見える。
-- **共通の値は `ui-types` に一度だけ定義する**（8章）。`kivact-engine` はこの値の crate を直接参照する。
+  GPU texture 共有の `unsafe` は中立な `kivact-gpu-share` に閉じる。`arvane-render` はその `import` feature を使い、アプリの engine と試験用の `gpu-interop-producer` は `export`（wgpu の engine は `wgpu` も）を使う。
+  `kivact-gpu-share` は visible_to を持たず、アプリの engine が直接依存できる。試験用の `gpu-interop-producer` は Arvane の契約の試験・公開 API の試験・creative kit の GPU frame の試験（dev-dependency）だけに見える。
+- **共通の値は `kivact-types` に一度だけ定義する**（8章）。`kivact-engine` はこの値の crate を直接参照する。
   `kivact-reactive` も `IntoValue` の定数実装だけに参照する（Rust の orphan rule により、別 crate の trait と共有値の両方に対する実装を core に置けないため）。
 - **アプリ・ツールには誰も依存しない**（`visible_to = []`）。
 
@@ -187,7 +187,7 @@ Windows と Linux 以外では feature を有効にしても build は通り、`
 
 `embed` は既定 off で、facade から core・engine・Arvane・native へ転送する。`testing` は有効にしない。
 `App::embed` はホストの GUI thread から呼び、`Parent` に親の raw handle と任意の倍率を渡す。
-`ui-types::ParentWindow` は `kivact-wire` が再公開し、core は wire の値を使う。
+`kivact-types::ParentWindow` は `kivact-wire` が再公開し、core は wire の値を使う。
 子 window の SPI は `arvane-shell::ShellChild`、UI thread で一度だけ handler を作る口は `MakeHandler`。
 `App::run` と `App::embed` はサイズの検査と client の組立てを共有し、`App` は設定を再利用するため Clone。
 共通契約、backend の境界、対応状況は[8章の埋め込み](#埋め込み)に置く。
@@ -282,7 +282,7 @@ root は theme の大きさ・太さ・色・family・行の高さを持つ。
 factory へ prop を move）は trybuild（`dev/tests/kivact-public-api/tests/ui`）で固定している。
 `#[diagnostic::on_unimplemented]` の note は条件で出し分けられない（stable に `on(..)` がない）ため、`IntoValue` の note は全ての `T` に正しい文にする。
 公開 authoring 型（theme を含む style・draw builder・handler の region を持つ event）と、解決済み wire 値は責務が異なる。
-同じ意味の値は `ui-types` の単一定義を再公開し、同義型の往復変換をしない。公開 path は `kivact::draw`・`view`・`style`・`control`・`platform` に保つ。
+同じ意味の値は `kivact-types` の単一定義を再公開し、同義型の往復変換をしない。公開 path は `kivact::draw`・`view`・`style`・`control`・`platform` に保つ。
 Arvane の backend object、Taffy、engine の内部 ID と木の型は `kivact` の公開 API に出さない。
 値の検査（`LineHeight` の正で有限な値、色成分の範囲への制限、safe area の負数・非有限値）は host に残す。
 core の `FontFeature` は不正なタグを診断する authoring 型として残し、検証後の wire は共有の値型を使う。
@@ -369,7 +369,7 @@ catalog の選択付き navigation・複合部品、workbench の外部 icon but
 外部の render engine の texture を取り込む `gpu_interop::import` と、その高水準の口 `ShareLink::provide` は公開 API で二つだけの `unsafe fn` で、`# Safety` は engine の約束（`SharedTextures` の rustdoc）を守ることを求める。
 約束違反は graphics API（Vulkan と Direct3D 12）の未定義動作で、壊れた画、device の喪失、process の異常終了、resource の範囲外の GPU memory への access がありうる。Kivact と Arvane はその大部分を確かめられない。だから `unsafe fn` である。
 Kivact の crate は `unsafe` のブロックを持たず、`kivact-core` はこの二つの宣言だけを `allow(unsafe_code)` にする。
-wgpu・ash・windows の型は公開 API に出さず、語彙は ui-types の値（`GpuAdapter`・`SharedTextures`・OS の handle は std の `OwnedHandle`・`OwnedFd`）を明示的に再公開する。
+wgpu・ash・windows の型は公開 API に出さず、語彙は kivact-types の値（`GpuAdapter`・`SharedTextures`・OS の handle は std の `OwnedHandle`・`OwnedFd`）を明示的に再公開する。
 取り込んだ資源の寿命は `Pixels` と違い値ではなく owner に従い、`ExternalImage` の clone が残っていても owner の破棄で外す。
 
 API は二段にする。低水準の `import` は一つの pool を今取り込み、adapter と状態を追うのはアプリ。`ExternalImage::publisher()` が返す `FramePublisher`（`Send + Sync`）は engine の thread から frame を出し、`ExternalImage::latest_frame()`（追跡される）に届ける。
@@ -609,7 +609,7 @@ host node は作った builder の呼出し位置を持ち、snapshot と診断�
 ## 6. kivact と engine の境界（wire と bridge）
 
 `kivact-wire` は node/event/scene/measure/純粋 motion と ID 用の hasher を定義する独立 crate で、engine と core が直接使う。
-geometry・semantics・入力の語彙は ui-types で定義し、wire → core へ再公開する。bridge は共有値を再公開しない。共有値は window/renderer/Runtime に依存しない。
+geometry・semantics・入力の語彙は kivact-types で定義し、wire → core へ再公開する。bridge は共有値を再公開しない。共有値は window/renderer/Runtime に依存しない。
 `bridge` の公開は Writer・Reader・Prop・Client・HostWaker・Boundary・WriteStats・Offscreen・OffscreenError・OffscreenImage・TextMeasurer だけに絞る。
 wire は feature を持たない。外部 texture の scene/event variant と型は、どの build でも protocol の一部である。`gpu-interop` を持たない host と client は、それらを送らず、受け取っても無視する（feature はその crate の振る舞いだけを変える）。
 `Writer`/`Reader` は同じ engine を `Rc` で所有する具体型で、各 API の間だけ model を借りる。書込み単位の backend trait や遅延 batch は置かない。
@@ -818,26 +818,26 @@ layout の両方の開発時最適化を保つ。抽出前後の性能は受け�
 
 ## 8. engine と Arvane の境界
 
-Arvane facade は window・text・描画・shell の振る舞いを公開し、geometry・入力・描画命令などの値は `ui_types` から直接使う。`arvane::asset` は画像と font のサービスに必要な 11 名だけを明示的に再公開する。
+Arvane facade は window・text・描画・shell の振る舞いを公開し、geometry・入力・描画命令などの値は `kivact_types` から直接使う。`arvane::asset` は画像と font のサービスに必要な 11 名だけを明示的に再公開する。
 
-Arvane は外部依存のない値（ui-types）、中立な shell の契約、4 adapter、公開 facade に分ける。
+Arvane は外部依存のない値（kivact-types）、中立な shell の契約、4 adapter、公開 facade に分ける。
 
 | crate | 役割 |
 |---|---|
-| `ui-types` | 論理 px の幾何、semantics、描画と文字の語彙、入力の語彙、Environment と Capabilities。外部依存・I/O・thread・global 状態を持たない |
-| `arvane-shell` | shell の event・設定・error・wake・IME 周辺 text・dialog の語彙、click・contact の正規化、受理済みの accessibility の木と action 受理、window・handler・event loop と GPU の target の SPI（`ShellWindow`・`ShellHandler`・`ShellEventLoop`・`ShellChild`・`GpuTarget`）。依存は ui-types と raw-window-handle（0.6）、feature・unsafe・OS の実装を持たない。backend は native 入力を logical px の値に直して渡し、試験の window も同じ正規化を使う |
+| `kivact-types` | 論理 px の幾何、semantics、描画と文字の語彙、入力の語彙、Environment と Capabilities。外部依存・I/O・thread・global 状態を持たない |
+| `arvane-shell` | shell の event・設定・error・wake・IME 周辺 text・dialog の語彙、click・contact の正規化、受理済みの accessibility の木と action 受理、window・handler・event loop と GPU の target の SPI（`ShellWindow`・`ShellHandler`・`ShellEventLoop`・`ShellChild`・`GpuTarget`）。依存は kivact-types と raw-window-handle（0.6）、feature・unsafe・OS の実装を持たない。backend は native 入力を logical px の値に直して渡し、試験の window も同じ正規化を使う |
 | `arvane-text` | Parley による shaping・bidi・改行・font fallback と、shaped snapshot・計測・family query の cache。登録成功時の無効化と cache 解放を一元管理する |
 | `arvane-render` | CPU/GPU の描画（vello の共通の sparse strip pipeline。最後の pixel 塗りだけ vello_cpu と vello_hybrid に分ける）と scene の検証 |
 | `arvane-asset` | 画像の形式判定・decode・SVG の raster・LRU と worker・font の検査 |
 | `arvane-native` | winit の event loop と IME、softbuffer、AccessKit、clipboard、file dialog、path を開く操作、OS の設定と native 入力と accessibility の変換。arvane-shell の SPI を実装し、portable な語彙・入力正規化・受理済みの木は arvane-shell を使う。実験的な `embed` は親 window 内の子 window の入口（Windows と Linux X11 に対応） |
-| `gpu-share`（feature `import`） | 共有の契約と検査を export 側と共有し、`import::{identity, request_device, Import}` で wgpu の下の GPU texture 取り込みを行う。共有 texture と timeline fence を取り込み、wgpu の queue に acquire と release を直接出す。`arvane-render` が使い、上面の facade に wgpu・ash・windows の型を出さない |
+| `kivact-gpu-share`（feature `import`） | 共有の契約と検査を export 側と共有し、`import::{identity, request_device, Import}` で wgpu の下の GPU texture 取り込みを行う。共有 texture と timeline fence を取り込み、wgpu の queue に acquire と release を直接出す。`arvane-render` が使い、上面の facade に wgpu・ash・windows の型を出さない |
 | `arvane` | adapter へ依存する唯一の公開窓口。`Engine`（text）、`Window` trait（native と試験の window）、presenter（renderer・GPU の寿命・fallback・frame の方針）、`Rasterizer`。実験的な `embed` は `arvane-native/embed` へ転送する |
 
 - **API と SPI。** `ShellChild` はホストの loop 上の子 window の寿命と物理サイズ・倍率・失敗の口を持ち、drop で終了を要求して待機上限の下で後始末を進める。 API = `arvane` facade（engine が使う）、SPI = `arvane-shell`（backend が実装する）。二つ目の実装は headless の shell で検証する。native の backend（`arvane-native`）と、試験の window の headless な shell（`arvane` の `test_display`。実 display への mirror は任意）が同じ `ShellWindow` を実装し、facade の `NativeWindow` と presenter は具体型でなく trait を通して使う。scene・描画・readback・frame の方針は facade と render の責任で、shell は試験専用の API を持たない。`ShellEventLoop::run` は借用した `&mut dyn ShellHandler` を同期的に呼び、handler に `'static` を求めない。winit の event loop は process に一つという制約は変えず、試験の実 window の display は `arvane-native` に残す。
 - **surface を作る thread。** `ShellWindow::with_gpu_target` は owned な callback を target の UI thread で実行する（display の thread の queue を経てもよい）。GPU の worker が native の handle を取り出す getter は設けない。`GpuTarget`（`Arc<dyn GpuWindow>`）は window の寿命を保つだけで、handle に触れる許可は与えない。生成の結果は surface maker と response channel で戻す。headless の shell は native の target がないことを unsupported の error で返し、facade は従来どおり offscreen の GPU と readback を使う。CPU の提示（`present_with`）は object safe な callback が bool で commit を決め、描画の error は呼出し側が保持する。backend の error と描画の error を混ぜない。
 
-- **`unsafe`。** Arvane の `unsafe` は `arvane-native` と `gpu-share` に閉じる。`arvane-shell`・`arvane-render` と `arvane` は `forbid(unsafe_code)`。
-- **ui-types。** Kivact にも Arvane にも属さない中立な値の crate で、第二の接続層（戦略の P-10）も Arvane に依存せずに同じ語彙を使える。
+- **`unsafe`。** Arvane の `unsafe` は `arvane-native` と `kivact-gpu-share` に閉じる。`arvane-shell`・`arvane-render` と `arvane` は `forbid(unsafe_code)`。
+- **kivact-types。** Kivact にも Arvane にも属さない中立な値の crate で、第二の接続層（戦略の P-10）も Arvane に依存せずに同じ語彙を使える。
   幾何（`Point`・`Size`・`Rect`）・semantics（`Role`・`A11yAction`・`LiveRegion`）・cursor・画像 fit・描画の stroke と混色と gradient・文字の行高と装飾と折返しと省略と変換・
   platform の能力と safe area・入力の語彙（`Key`・`KeyCode`・`Modifiers`・`MouseButton`・`PointerId`・`PointerKind`・`PointerPhase`・`PointerButtons`・`PointerInput`）を一度だけ定義する。
   kivact-wire と core の公開窓口は同じ型を再公開し、一致変換を持たない。
@@ -861,7 +861,7 @@ Arvane は外部依存のない値（ui-types）、中立な shell の契約、4
   action は node と全祖先が hidden・disabled でなく、宣言したものだけを受ける。focusable は `Focus` の宣言を兼ねる。`Activate`・`Toggle`・`Select` は既定の起動の宣言として同等で、UIA Invoke や Android ACTION_CLICK を含む native の既定の action も `Activate` として届く。native は OS の語彙と payload を変換し、注入と同じ中立な受理規則を通す。
 - **GPU texture 共有（feature `gpu-interop`）。** アプリの render engine（自前の device。wgpu でなくてよい）が描いた texture を、CPU に読み戻さずに window が描く。
   対象は Windows の Direct3D 12 同士と Vulkan 同士、Linux の Vulkan 同士（OPAQUE_FD）で、API の違う組・DMA-BUF・macOS は対象外（他の OS では feature があっても何も取り込まない）。
-  語彙は `ui-types`（`GpuPreference`・`GpuAdapter`・`SharedTextures`・`ExternalFrame`・`DrawCommand::External`）にあり、OS の handle は std の `OwnedHandle`・`OwnedFd` で渡す。
+  語彙は `kivact-types`（`GpuPreference`・`GpuAdapter`・`SharedTextures`・`ExternalFrame`・`DrawCommand::External`）にあり、OS の handle は std の `OwnedHandle`・`OwnedFd` で渡す。
   adapter と backend はアプリが希望を出し（`Shell::gpu_preference`。`WGPU_BACKEND`・`WGPU_POWER_PREF` が優先）、Arvane が実際に使ったものを `RendererChange::Gpu` の `interop` と `Window::gpu_adapter` で知らせる。device を作り直すと世代が進み、取り込みはすべて無効になる。
   取り込み（`Window::import_external_image`）は window の device に属し、別の window の scene が同じ id を参照しても何も描かない。
   frame ごとに、ready fence を CPU で確かめて（最大 100 ms 待つ）、届いた frame だけを acquire して描き、submit の後で release する。release fence には、その window で最後に描いた値 − 1 を単調に signal する。
@@ -869,8 +869,8 @@ Arvane は外部依存のない値（ui-types）、中立な shell の契約、4
   共有する texture は、engine が描画先・copy・sample に使える（Direct3D 12 は `ALLOW_RENDER_TARGET`、Vulkan の usage は `TRANSFER_SRC | TRANSFER_DST | SAMPLED | COLOR_ATTACHMENT`）。`SharedTextures::storage` が真のときは storage の書込みにも使える（`ALLOW_UNORDERED_ACCESS`、`STORAGE`）。
   Vulkan では、engine は作る前に、Arvane は取り込む前に、その usage と handle の種類で `vkGetPhysicalDeviceImageFormatProperties2` を呼んで対応を確かめる（Arvane は対応がなければ `Content` で断る）。
   Direct3D 12 では、Arvane が resource の flags を `storage` と照合する。Vulkan の memory は image の usage を持たないので、usage の食い違いを Arvane は検出できない。
-  engine との約束（作成条件、受け渡しの状態、値の意味、時間切れ）は `ui_types::SharedTextures` の rustdoc、frame の手順は `arvane-render` の `gpu/external.rs`、`unsafe` の手順は `gpu_share::import` の module doc にある。
-  engine 側の約束は `gpu-share` の feature `export` が肩代わりする。release は GPU 側で待ち（engine は window より先に描ける）、CPU では、その slot の前回の ready だけを時間切れ付きで待つ。届かない release は、pool が一巡した後に時間切れの error になる。手順は同 crate の crate doc にある。
+  engine との約束（作成条件、受け渡しの状態、値の意味、時間切れ）は `kivact_types::SharedTextures` の rustdoc、frame の手順は `arvane-render` の `gpu/external.rs`、`unsafe` の手順は `kivact_gpu_share::import` の module doc にある。
+  engine 側の約束は `kivact-gpu-share` の feature `export` が肩代わりする。release は GPU 側で待ち（engine は window より先に描ける）、CPU では、その slot の前回の ready だけを時間切れ付きで待つ。届かない release は、pool が一巡した後に時間切れの error になる。手順は同 crate の crate doc にある。
   wgpu（Kivact と同じ 29.0.4）で書いた engine には、同 crate の feature `wgpu` が device の作成（Vulkan は共有の extension を足して開く）、`wgpu::Texture` の pool、1 frame の submit（生の submit による受け渡しの間に engine の command buffer を wgpu で submit し、wgpu の tracker を受け渡しの状態に戻す）を肩代わりする。生の submit は wgpu の queue に出すので、その間は queue を他の thread から使わない（`unsafe fn`）。
   同じ process の Direct3D 12 では、engine の wgpu の device も window の wgpu の device も同じ `ID3D12Device`（adapter ごとの singleton）を包み、共有はそのまま動く（試験で確認）。window の device ができた後に Direct3D 12 の debug layer を有効にすると、その device が削除される。そのため engine の `wgpu::Instance` は `InstanceFlags::DEBUG` と `VALIDATION` を付けずに作る。
 - **GPU を好み、CPU へ戻る。** 既定の `gpu` feature では window の作成と同時に worker で GPU を始め、その間と使えないときは CPU で描く。
@@ -881,7 +881,7 @@ Arvane は外部依存のない値（ui-types）、中立な shell の契約、4
   `MemoryWarning`、一つの pointer の語彙（id・`PointerKind::{Mouse, Touch, Pen}`・`PointerPhase`・圧力・傾き）。
 - **pointer は一つの event。** mouse・touch・pen は Pointer Events と同じく `ShellEvent::Pointer(PointerInput)` 一つで届き、wheel だけが別の `ShellEvent::Wheel` である。
   `PointerInput` は id・kind・phase（`Down`・`Move`・`Up`・`Cancel`・`Enter`・`Leave`）・`buttons`（event の後に押されている button の集合）・`button`（`Down`・`Up` で変わった button。他の phase では `None`）・位置・圧力・傾き・click 数を持つ。
-  phase は `ui-types` に一つだけあり、wire と core の `PointerEvent` も同じ型を使う。`Enter` は window が送らず、listener に入ったときに engine が作る。
+  phase は `kivact-types` に一つだけあり、wire と core の `PointerEvent` も同じ型を使う。`Enter` は window が送らず、listener に入ったときに engine が作る。
   backend の mouse の message（位置のない button、何も持たない leave）は `arvane_shell::Mouse` が最後の位置と押されている button で補い、どの event も完全な snapshot にする。window の外へ出ても位置と button は残り、外での離しはその位置で届く。
   focus を失ったとき、button が押されていれば mouse の `Cancel` を一つだけ送り（押されていなければ送らない）、接触はすべて `Cancel` で終わらせてから `Focused(false)` を送る。
   click 数は button ごとに押したときの数を覚え、離しはその button の数を運ぶ（chord の中でも、別の button の押下で数が変わらない）。試験の window（`VirtualWindow`）も同じ `Mouse`・`Contacts`・`ClickCounter` を通す。
@@ -924,7 +924,7 @@ DAW プラグインの editor（CLAP・VST3）は戦略の主対象。Windows �
 
 #### 層と失敗の経路
 
-依存は `kivact::embed` → `kivact-core::embed` → `kivact-engine::embed` → `arvane::embed` → `arvane-native::embed` → `arvane-shell`・`ui-types`。`ParentWindow` は wire が再公開し、core に native library や規格の型を入れない。`App::run` と `App::embed` は client の組立てとサイズ検査を共有し、engine の `Host` と Arvane の `Driver` は駆動者にかかわらず同じ経路で作る。waker は破棄後に App を生存させず、生存状態を見て無害に戻る。
+依存は `kivact::embed` → `kivact-core::embed` → `kivact-engine::embed` → `arvane::embed` → `arvane-native::embed` → `arvane-shell`・`kivact-types`。`ParentWindow` は wire が再公開し、core に native library や規格の型を入れない。`App::run` と `App::embed` は client の組立てとサイズ検査を共有し、engine の `Host` と Arvane の `Driver` は駆動者にかかわらず同じ経路で作る。waker は破棄後に App を生存させず、生存状態を見て無害に戻る。
 
 `Runtime::first_unhandled_panic` は default sink に届いた最初の `ErrorKind::Panic` を ring と独立に保持し O(1) で返す。owner 境界で回復した panic は入らない。埋め込みの client だけが start と turn の終わりで一度確認し、元の `UiError` を共有状態に保存する。start は `Option<String>`、turn は `TurnOutput::stop` で診断を返し、`Host::begin`・`handle` が `ShellError` にして backend を止める。同じ turn の残りの phase は終える。desktop の stop は常に None で、診断・回復の挙動を変えない。
 
@@ -1038,7 +1038,7 @@ Linux の accesskit_unix 0.22.1 は process に残る executor と D-Bus 接続�
 `Asset` は `Path`・`Static`・`Shared` で、内容ではなく同一性で比べる。形式は内容で判定する（PNG・JPEG・GIF・WebP・SVG・SVGZ。GIF と WebP は最初の frame だけ）。
 読込み・decode・raster 化は `arvane-asset` の store の worker thread で行い、終わると host が渡した waker が turn を起こす。
 SVG は描く device pixel の寸法で raster にし直す。
-`Asset` は ui-types の単一定義を core・wire・arvane-asset が再公開する。node と scene は同じ値を store に渡し、画像 source の写しや変換を持たない。
+`Asset` は kivact-types の単一定義を core・wire・arvane-asset が再公開する。node と scene は同じ値を store に渡し、画像 source の写しや変換を持たない。
 `TextProps::family` と `line_height` は祖先から継ぎ（root は theme の値）、`Writer::register_font` は書いたときに同期で処理する。
 読めない画像は何も描かず、見つからない family は system UI の font で描き、それぞれ1回だけ `AssetFailed` を送る。
 client は作成位置を付けた `ErrorKind::Asset` として既定の受け口だけに送り、`error_boundary` には届けない（画像1枚の失敗で部分木を置き換えないため）。
@@ -1162,7 +1162,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File dev\tools\gui-harness\hostbe
    標準の key/paste の規則は公開の behavior（`TextEditing::behavior`）を介して
    interaction の `text_edit_policy` が定義する。window・描画・shaping（`host`・`paint`・`a11y`）は model の状態を写し、別の authority を持たない。
 10. backend の実装型を library の公開 API に出さない（taffy は `kivact-layout` に、winit・vello_hybrid・wgpu などはそれぞれの crate に閉じる）。
-    共有の geometry・semantics などの値は ui-types の単一定義をそのまま公開する。
+    共有の geometry・semantics などの値は kivact-types の単一定義をそのまま公開する。
 11. platform callback の中の panic は process を止めうるので、host の境界で必ず捕捉する。
 
 ### 既知の制限・未解決
@@ -1221,7 +1221,7 @@ module に閉じる制限の詳細（vello_hybrid の glyph atlas、mask と合�
 - **event loop。** winit は1つの process に event loop を一度しか作れない。試験の実 window を使う試験 binary は `App::run`・`Shell::new` を呼べない。
   macOS では winit の event loop を main thread の外に置けないので、試験の実 window は開かず headless だけになる。
 - **資源。** GIF・WebP は動かない。読み込んだファイルの変更は監視しない。
-- **GPU texture 共有。** `gpu-share` の共通契約と `Error` を import/export が共有する。`import`・`export`・`wgpu` の機能を持たない build には、対応する取り込み・pool・wgpu の API は存在しない。
+- **GPU texture 共有。** `kivact-gpu-share` の共通契約と `Error` を import/export が共有する。`import`・`export`・`wgpu` の機能を持たない build には、対応する取り込み・pool・wgpu の API は存在しない。
   取り込んだ texture には画像のような最後の行と列の複製がないので、拡大縮小した bilinear で端の 1 texel が画像の描き方と違う（等倍なら一致）。
   ready が届かない frame は、frame ごとに CPU で最大 100 ms 待ってから諦め、その command を描かない（同じ値は二度待たない）。CPU の renderer と CPU で描く window は `DrawCommand::External` を何も描かない。
   device は window ごとにあり、取り込みはその window にだけ属する。複数 window で device を共有するのは native の複数 window に対応するときで、そのときは台帳を共有の device へ移す（公開 API は変えない見込み）。
@@ -1251,8 +1251,8 @@ module に閉じる制限の詳細（vello_hybrid の glyph atlas、mask と合�
 | vello_cpu（0.2）・vello_hybrid（0.2）・vello_common・wgpu（29）・pollster・raw-window-handle・bytemuck・glifo | arvane-render | CPU/GPU 描画（版の組合せと各 crate を使う理由は `arvane-render` の crate doc） |
 | raw-window-handle（0.6、arvane-render と同じ版） | arvane-shell | `GpuTarget` の window と display の handle の契約 |
 | accesskit | arvane-native | shell が受理した accessibility の木を native adapter へ変換 |
-| ash（0.38、wgpu-hal と同じ版）・windows（0.62、wgpu-hal と同じ版、Windows だけ） | gpu-share・gpu-interop-producer（試験） | GPU texture 共有の共通の usage・flag と、Vulkan・Direct3D 12 の import/export（wgpu-hal の型と同じ版で渡す） |
-| wgpu（`=29.0.4`、arvane-render と同じ版と features）・pollster | gpu-share（feature `import` または `wgpu`）・gpu-interop-producer（試験、feature `wgpu`） | 取り込みと wgpu の engine の補助。`as_hal`・`open_with_callback`・`create_texture_from_hal` に触れるので版を固定し、Arvane の wgpu と同時に上げる |
+| ash（0.38、wgpu-hal と同じ版）・windows（0.62、wgpu-hal と同じ版、Windows だけ） | kivact-gpu-share・gpu-interop-producer（試験） | GPU texture 共有の共通の usage・flag と、Vulkan・Direct3D 12 の import/export（wgpu-hal の型と同じ版で渡す） |
+| wgpu（`=29.0.4`、arvane-render と同じ版と features）・pollster | kivact-gpu-share（feature `import` または `wgpu`）・gpu-interop-producer（試験、feature `wgpu`） | 取り込みと wgpu の engine の補助。`as_hal`・`open_with_callback`・`create_texture_from_hal` に触れるので版を固定し、Arvane の wgpu と同時に上げる |
 | trybuild | kivact-public-api-tests（dev） | コンパイル試験 |
 | serde・serde_json・toml・rodio | 例・xtask | 保存・metadata の読込み・音声 |
 | proc-macro2 | xtask | workspace の `macro_rules!` を呼ぶ path を token で探す（`trusted_macros` の自動化） |

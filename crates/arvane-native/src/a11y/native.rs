@@ -12,7 +12,7 @@
 //! single default action, so a native click is reported as `Activate`; the
 //! receiver resolves it against the actions the node declared.
 
-use ui_types::{SemanticsTree, SemanticsUpdate};
+use kivact_types::{SemanticsTree, SemanticsUpdate};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
@@ -231,7 +231,7 @@ fn scale_root(update: &mut accesskit::TreeUpdate, scale: f64) {
 /// Decode native vocabulary only; the shell validates and queues the request.
 pub(crate) fn translate_action(
     request: &accesskit::ActionRequest,
-) -> Option<(u64, ui_types::A11yAction, Option<String>)> {
+) -> Option<(u64, kivact_types::A11yAction, Option<String>)> {
     if request.target_tree != accesskit::TreeId::ROOT {
         return None;
     }

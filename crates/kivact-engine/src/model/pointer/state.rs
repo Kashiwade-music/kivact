@@ -15,7 +15,7 @@ pub(crate) struct Pointer {
     pub(super) buttons: MouseButtons,
     pub(super) scroll_drag: Option<ScrollDrag>,
     pub(super) file_target: Option<NodeId>,
-    pub(super) shown: ui_types::Cursor,
+    pub(super) shown: kivact_types::Cursor,
 }
 
 impl Default for Pointer {
@@ -25,7 +25,7 @@ impl Default for Pointer {
             buttons: MouseButtons::default(),
             scroll_drag: None,
             file_target: None,
-            shown: ui_types::Cursor::Default,
+            shown: kivact_types::Cursor::Default,
         }
     }
 }
@@ -37,7 +37,7 @@ impl Pointer {
     }
 
     /// Note `cursor` as shown; whether it differs from the one shown.
-    pub(crate) fn show(&mut self, cursor: ui_types::Cursor) -> bool {
+    pub(crate) fn show(&mut self, cursor: kivact_types::Cursor) -> bool {
         std::mem::replace(&mut self.shown, cursor) != cursor
     }
 

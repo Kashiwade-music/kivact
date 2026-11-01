@@ -3,7 +3,7 @@
 use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
 use arvane_shell::{ChildOptions, ShellChild};
-use ui_types::{GpuPreference, ParentWindow, Size};
+use kivact_types::{GpuPreference, ParentWindow, Size};
 
 /// Initial embedded window settings. Coordinates are logical pixels.
 pub struct EmbedOptions {

@@ -52,7 +52,7 @@ pub enum SceneCmd {
     /// A frame of an image an external render engine shares, drawn like `Pixels` on the GPU of the
     /// window it was imported into; nothing elsewhere (Arvane's `DrawCommand::External`).
     External {
-        frame: ui_types::ExternalFrame,
+        frame: kivact_types::ExternalFrame,
         rect: Rect,
         source: Option<Rect>,
         opacity: f32,
@@ -96,12 +96,12 @@ pub enum SceneCmd {
     /// drawn exactly as shaped: its glyph runs and decorations at `origin`
     /// in `color`, with no shaping again.
     Paragraph {
-        shaped: std::sync::Arc<ui_types::ShapedText>,
+        shaped: std::sync::Arc<kivact_types::ShapedText>,
         origin: Point,
         color: Rgba,
     },
     Image {
-        source: ui_types::Asset,
+        source: kivact_types::Asset,
         rect: Rect,
     },
     PushClip(Rect),

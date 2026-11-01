@@ -22,7 +22,7 @@
 //!   beyond those the current frame uses: a color animation makes a new
 //!   tint every frame, and the old ones go as the new ones come.
 
-use ui_types::Asset;
+use kivact_types::Asset;
 
 use super::AssetStore;
 use super::entry::{Stamp, State, Variant, VariantKey};

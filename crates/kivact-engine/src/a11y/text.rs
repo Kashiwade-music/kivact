@@ -4,7 +4,7 @@
 //! lines the editor draws (`kivact-text`) and kept with them: an edit makes
 //! again the runs of the lines it changed (and of the lines it moved),
 //! and gives the others again as they were, so the platform is handed
-//! only those (`ui_types::SemanticsText`). Only the lines around the caret
+//! only those (`kivact_types::SemanticsText`). Only the lines around the caret
 //! and the lines drawn are published (`EditLines::published`), and the
 //! editor's value is not (assistive technology reads the runs), so a long
 //! document costs assistive technology those lines, not its text.
@@ -32,7 +32,7 @@ use crate::model::Model;
 use crate::model::interact::text_geometry::{caret_rect, input_scroll, text_line};
 use kivact_wire::{NodeId, Point, Rect};
 
-use ui_types::{SemanticsText, SemanticsTextRun};
+use kivact_types::{SemanticsText, SemanticsTextRun};
 
 impl Model {
     pub(super) fn editing_semantics(
@@ -68,7 +68,7 @@ impl Model {
         } else {
             // An empty text: one empty run at the caret.
             let run = Arc::new(SemanticsTextRun {
-                id: ui_types::NodeId(lines.run_id(0, &mut ids)),
+                id: kivact_types::NodeId(lines.run_id(0, &mut ids)),
                 value: String::new(),
                 bounds: caret,
                 carets: Vec::new(),
@@ -112,13 +112,13 @@ impl Model {
                 };
                 self.a11y.authored.insert(key, native);
                 let shown = SemanticsTextRun {
-                    id: ui_types::NodeId(native),
+                    id: kivact_types::NodeId(native),
                     value: run.value.clone(),
                     bounds: shifted(run.bounds, dx, dy),
                     carets: run
                         .carets
                         .iter()
-                        .map(|c| ui_types::TextCaret {
+                        .map(|c| kivact_types::TextCaret {
                             offset: c.offset,
                             rect: shifted(c.rect, dx, dy),
                         })

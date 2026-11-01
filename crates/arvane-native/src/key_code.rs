@@ -1,8 +1,8 @@
 //! Role: Keyboard code translation layer.
 
 use winit::keyboard::{KeyCode, PhysicalKey};
-pub(super) fn physical_code(key: PhysicalKey) -> ui_types::KeyCode {
-    use ui_types::KeyCode as C;
+pub(super) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
+    use kivact_types::KeyCode as C;
     match key {
         PhysicalKey::Code(KeyCode::KeyA) => C::KeyA,
         PhysicalKey::Code(KeyCode::KeyB) => C::KeyB,

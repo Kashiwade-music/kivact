@@ -9,7 +9,7 @@ use std::sync::Arc;
 use arvane::asset::{FamilyChoice, FamilyResolution};
 use arvane::test_display::test_font;
 use arvane::{Engine, ErrorKind};
-use ui_types::{
+use kivact_types::{
     DrawCommand, LineHeight, ShapedText, Size, TextLine, TextOverflow, TextStyle, TextWrap,
 };
 
@@ -265,7 +265,7 @@ fn resolving_a_font_family_uses_the_engine_fonts_and_platform_defaults() {
             .cloned()
             .map(|run| DrawCommand::Glyphs {
                 run,
-                origin: ui_types::Point::default(),
+                origin: kivact_types::Point::default(),
                 color: None,
             })
             .collect(),
@@ -326,7 +326,7 @@ fn releasing_text_caches_drops_unused_font_copies_and_preserves_owned_runs() {
             .cloned()
             .map(|run| DrawCommand::Glyphs {
                 run,
-                origin: ui_types::Point::default(),
+                origin: kivact_types::Point::default(),
                 color: None,
             })
             .collect(),
@@ -353,7 +353,7 @@ fn releasing_text_caches_drops_unused_font_copies_and_preserves_owned_runs() {
             .cloned()
             .map(|run| DrawCommand::Glyphs {
                 run,
-                origin: ui_types::Point::default(),
+                origin: kivact_types::Point::default(),
                 color: None,
             })
             .collect(),
@@ -661,7 +661,7 @@ fn ranges_follow_the_original_text_through_case_conversion_and_crlf() {
     let mut engine = engine();
     // "ß" becomes "SS" in upper case: the converted text is longer.
     let upper = TextStyle {
-        transform: ui_types::TextTransform::Uppercase,
+        transform: kivact_types::TextTransform::Uppercase,
         ..style(16.0)
     };
     let text = "straße straße straße";

@@ -2,7 +2,7 @@
 /// Shared initial/requested sizing rule; the backend supplies its coordinate limit.
 #[cfg(any(windows, target_os = "linux"))]
 pub(super) fn physical_size(
-    size: ui_types::Size,
+    size: kivact_types::Size,
     scale: f32,
     max: u32,
 ) -> Result<(u32, u32), arvane_shell::ShellError> {

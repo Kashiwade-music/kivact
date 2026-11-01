@@ -10,7 +10,7 @@ pub(crate) struct RefreshedLines<'a> {
     pub(crate) lines: RefMut<'a, EditLines>,
     pub(crate) source: Source<'a>,
     #[cfg(all(debug_assertions, feature = "testing"))]
-    pub(crate) style: Option<ui_types::TextStyle>,
+    pub(crate) style: Option<kivact_types::TextStyle>,
 }
 
 /// The input's incrementally reconciled lines, unless already borrowed.

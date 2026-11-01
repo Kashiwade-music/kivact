@@ -9,9 +9,9 @@ pub enum DrawingShape {
     Rounded { rect: Rect, corners: Corners },
 }
 
-pub use ui_types::LineCap;
-pub use ui_types::LineJoin;
-pub use ui_types::Stroke;
+pub use kivact_types::LineCap;
+pub use kivact_types::LineJoin;
+pub use kivact_types::Stroke;
 /// Compositing scope applied to enclosed scene commands.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawingLayer {

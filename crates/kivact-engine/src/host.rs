@@ -153,7 +153,7 @@ pub(super) fn new(
         next_wake: None,
         exit: false,
         embedded_closing: None,
-        environment: ui_types::Environment::default(),
+        environment: kivact_types::Environment::default(),
         suspended: false,
         soft_keyboard: false,
         frame_log,
@@ -188,7 +188,7 @@ pub(super) struct Host {
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
-    environment: ui_types::Environment,
+    environment: kivact_types::Environment,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes.
     suspended: bool,

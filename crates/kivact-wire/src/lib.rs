@@ -6,7 +6,7 @@
 //! events report host results. Concrete write/read handles belong to the host
 //! adapter, outside this crate.
 //!
-//! Geometry, input and semantics use the shared `ui-types` vocabulary. Editing
+//! Geometry, input and semantics use the shared `kivact-types` vocabulary. Editing
 //! payloads use `kivact-editing`; motion calculations are pure functions shared
 //! by client animations and host state transitions. [`IdMap`] and [`IdHasher`]
 //! are for monotonically allocated, never-reused node identities, not
@@ -48,15 +48,15 @@ pub use grid::{
 /// The key of a text run in a node's [`SemanticsText`]: any value, the same
 /// across updates for the same run (the host gives the platform its own
 /// identity).
-pub use ui_types::NodeId as TextRunId;
-/// GPU texture sharing: ui-types' vocabulary.
-pub use ui_types::{
+pub use kivact_types::NodeId as TextRunId;
+/// GPU texture sharing: kivact-types' vocabulary.
+pub use kivact_types::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,
     SharedHandle, SharedTextureFormat, SharedTextures,
 };
-pub use ui_types::{Asset, ImageFit};
-pub use ui_types::{DecorationLines, FillRule, Insets, PathCmd, Point, Rect, Size};
-pub use ui_types::{SemanticsText, SemanticsTextRun, ShapedText, TextCaret, TextLine};
+pub use kivact_types::{Asset, ImageFit};
+pub use kivact_types::{DecorationLines, FillRule, Insets, PathCmd, Point, Rect, Size};
+pub use kivact_types::{SemanticsText, SemanticsTextRun, ShapedText, TextCaret, TextLine};
 
 pub use host::{Capabilities, HostError, HostInfo, TurnOutput};
 pub use id_hash::{IdHasher, IdMap};
@@ -91,4 +91,4 @@ pub use text::{
 };
 pub use values::{Align, Dimension, Edges, FlexDirection, Justify, Overflow, Position, Rgba};
 
-pub use ui_types::ParentWindow;
+pub use kivact_types::ParentWindow;

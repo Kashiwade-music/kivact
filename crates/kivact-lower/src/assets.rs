@@ -122,7 +122,7 @@ impl ArvaneAssets {
     /// differs from the natural size its layout used, without starting a
     /// load (an image whose pixels were evicted keeps its size; one that
     /// left the cache is laid out as before until it is asked for again).
-    pub fn natural_changed(&self, image: Option<&ui_types::Asset>, used: Option<Size>) -> bool {
+    pub fn natural_changed(&self, image: Option<&kivact_types::Asset>, used: Option<Size>) -> bool {
         let Some(asset) = image else {
             return false;
         };
@@ -135,7 +135,7 @@ impl ArvaneAssets {
 
     /// The natural size of an `Image` node's `image`, once loaded (the
     /// layout's lookup: starts the load when needed).
-    pub fn natural_size(&mut self, image: Option<&ui_types::Asset>) -> Option<Size> {
+    pub fn natural_size(&mut self, image: Option<&kivact_types::Asset>) -> Option<Size> {
         match self.store.image(image?) {
             ImageState::Ready { natural } => Some(natural),
             ImageState::Pending | ImageState::Failed(_) => None,
@@ -144,7 +144,7 @@ impl ArvaneAssets {
 
     /// The natural size of `asset` once loaded (starts the load when
     /// needed).
-    pub fn natural(&mut self, asset: &ui_types::Asset) -> Option<Size> {
+    pub fn natural(&mut self, asset: &kivact_types::Asset) -> Option<Size> {
         match self.store.image(asset) {
             ImageState::Ready { natural } => Some(natural),
             ImageState::Pending | ImageState::Failed(_) => None,
@@ -156,11 +156,11 @@ impl ArvaneAssets {
     /// covers (`None`: nothing to draw yet). Shares the store's pixels.
     pub fn pixels(
         &mut self,
-        asset: &ui_types::Asset,
+        asset: &kivact_types::Asset,
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
-    ) -> Option<(ui_types::ImageData, Region)> {
+    ) -> Option<(kivact_types::ImageData, Region)> {
         if device.is_empty() {
             return None;
         }
@@ -168,7 +168,7 @@ impl ArvaneAssets {
         // Arvane keeps no device textures: evicted pixels need no work.
         self.store.take_evicted();
         let (pixels, region) = drawn?;
-        let image = ui_types::ImageData {
+        let image = kivact_types::ImageData {
             width: pixels.width(),
             height: pixels.height(),
             rgba: std::sync::Arc::clone(pixels.rgba()),
@@ -283,7 +283,7 @@ pub fn family(engine: &mut arvane::Engine, name: Option<&str>) -> Option<String>
 }
 
 /// The Arvane text style for `props`, its family resolved.
-pub fn text_style(engine: &mut arvane::Engine, props: &ComputedText) -> ui_types::TextStyle {
+pub fn text_style(engine: &mut arvane::Engine, props: &ComputedText) -> kivact_types::TextStyle {
     let mut style = crate::conversion::text(props);
     style.family = family(engine, props.family.as_deref());
     style

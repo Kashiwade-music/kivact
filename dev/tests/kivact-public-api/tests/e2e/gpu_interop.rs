@@ -622,7 +622,7 @@ fn shared_image_follows_requests_on_vulkan() {
 }
 
 /// `shared_image` end to end as above, the engine written with Kivact's
-/// wgpu (`gpu_share::wgpu`): on the engine's thread, the
+/// wgpu (`kivact_gpu_share::wgpu`): on the engine's thread, the
 /// request taken, a wgpu device and pool made on its adapter, the pool
 /// provided and waited for, frames drawn and published; once more after
 /// `set_size`.

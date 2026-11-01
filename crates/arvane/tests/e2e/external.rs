@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{ErrorKind, Presented, Renderer, RendererChange, Window as _};
 use gpu_interop_producer::{Producer, pattern};
-use ui_types::{
+use kivact_types::{
     AdapterMatch, DrawCommand, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend,
     GpuPreference,
 };
@@ -188,7 +188,7 @@ fn frames_match_with_a_wgpu_engine(backend: GpuBackend) -> Result<(), String> {
     Ok(())
 }
 
-/// The engine written with Kivact's wgpu (`gpu_share::wgpu`,
+/// The engine written with Kivact's wgpu (`kivact_gpu_share::wgpu`,
 /// its own wgpu device next to the window's in this process; on Direct3D
 /// 12 both wrap the process's one device of the adapter) shows every
 /// frame exactly, as an engine on the graphics API itself.
@@ -346,7 +346,7 @@ fn mismatches_are_errors(backend: GpuBackend) -> Result<(), String> {
     let (mut window, adapter) = gpu_window(backend)?;
     // A new engine each time: an engine shares its pool once (a Vulkan
     // driver refuses to import memory exported a second time).
-    let mut refused = |change: &dyn Fn(&mut ui_types::SharedTextures), what: &str| {
+    let mut refused = |change: &dyn Fn(&mut kivact_types::SharedTextures), what: &str| {
         let mut producer = Producer::new(&adapter, IMAGE, W, H).expect("the engine starts");
         let mut shared = producer
             .shared_textures()
@@ -557,7 +557,7 @@ fn a_cpu_window_draws_no_external_frame() {
     let plan = window.frame_plan();
     let presented = window
         .present(
-            &ui_types::Scene {
+            &kivact_types::Scene {
                 commands: four(frame),
             },
             plan,

@@ -18,7 +18,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ui_types::{ColorMatrix, Extend, Gradient, GradientShape, ImageData, Rect};
+use kivact_types::{ColorMatrix, Extend, Gradient, GradientShape, ImageData, Rect};
 use vello_cpu::{
     Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources,
     kurbo::{Affine, Rect as RasterRect},

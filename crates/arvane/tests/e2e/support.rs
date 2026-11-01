@@ -2,7 +2,7 @@
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions, WindowMode, test_font};
 use arvane::{Engine, Presented, Window as _};
-use ui_types::{DrawCommand, Paint, Rect, Rgba, Scene, Size};
+use kivact_types::{DrawCommand, Paint, Rect, Rgba, Scene, Size};
 
 /// 60 Hz.
 pub(crate) const PERIOD: u64 = 16_666_667;
@@ -130,8 +130,8 @@ pub(crate) fn solid(rgb: u32) -> Paint {
     Paint::Solid(color(rgb))
 }
 
-pub(crate) fn pt(x: f32, y: f32) -> ui_types::Point {
-    ui_types::Point { x, y }
+pub(crate) fn pt(x: f32, y: f32) -> kivact_types::Point {
+    kivact_types::Point { x, y }
 }
 
 /// How the GPU's frame differs from the CPU's.
@@ -230,10 +230,10 @@ pub(crate) fn ink(window: &VirtualWindow) -> Option<((u32, u32, u32, u32), usize
 
 /// `text` shaped at `size` with the test font, its layout's origin at
 /// `origin`, as glyph runs.
-pub(crate) fn text_runs(text: &str, size: f32, origin: ui_types::Point) -> Vec<DrawCommand> {
-    let style = ui_types::TextStyle {
+pub(crate) fn text_runs(text: &str, size: f32, origin: kivact_types::Point) -> Vec<DrawCommand> {
+    let style = kivact_types::TextStyle {
         font_size: size,
-        ..ui_types::TextStyle::default()
+        ..kivact_types::TextStyle::default()
     };
     let shaped = engine().shape(text, &style, None).expect("text shapes");
     shaped

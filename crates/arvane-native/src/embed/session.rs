@@ -107,7 +107,7 @@ pub(super) fn contain<T>(
     })
 }
 pub(super) fn negotiate(
-    size: ui_types::Size,
+    size: kivact_types::Size,
     scale: f32,
     maximum: u32,
     callback: Option<&(dyn Fn(u32, u32) -> bool + Send + Sync)>,

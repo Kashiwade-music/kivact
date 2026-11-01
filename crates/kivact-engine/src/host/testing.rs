@@ -76,7 +76,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use arvane::test_display::{TestDisplayStats, WindowMode};
 pub use arvane::{Renderer, ShellEvent, ShellImeText};
-pub use ui_types::{
+pub use kivact_types::{
     A11yAction, Cursor, FilePhase, Insets, Key, KeyCode, LiveRegion, Modifiers, MouseButton,
     Orientation, Point, PointerId, PointerInput, PointerKind, PointerPhase, Role, SemanticsNode,
     SemanticsProperties, SemanticsTree, SortDirection, Transform,
@@ -333,9 +333,9 @@ impl ArvaneTestHost {
     /// `button`.
     pub fn mouse(
         &mut self,
-        phase: ui_types::PointerPhase,
-        position: Option<ui_types::Point>,
-        button: Option<ui_types::MouseButton>,
+        phase: kivact_types::PointerPhase,
+        position: Option<kivact_types::Point>,
+        button: Option<kivact_types::MouseButton>,
     ) {
         let event = self.window.mouse(phase, position, button);
         self.send(event);

@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use ui_types::{
+use kivact_types::{
     DrawCommand, Extend, Gradient, GradientShape, ImageData, Paint, Pattern, PatternSource, Rgba,
     Shape,
 };
@@ -339,7 +339,7 @@ fn a_pattern_image_goes_through_its_color_matrix() {
             Paint::Pattern(Pattern {
                 source: PatternSource::Image {
                     image: checker(),
-                    color_matrix: Some(ui_types::ColorMatrix::grayscale(1.0)),
+                    color_matrix: Some(kivact_types::ColorMatrix::grayscale(1.0)),
                 },
                 tile: rect(0.0, 0.0, 8.0, 8.0),
                 repeat_x: true,

@@ -13,7 +13,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use ui_types::{NodeId, SemanticsNode, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
+use kivact_types::{NodeId, SemanticsNode, SemanticsTextRun, SemanticsTree, SemanticsUpdate};
 
 use super::error::AccessibilityError;
 use super::runs::Runs;

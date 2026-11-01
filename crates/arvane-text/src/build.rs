@@ -7,11 +7,11 @@
 //! word spacing are parley's: added to each cluster's (each space's)
 //! advance.
 
+use kivact_types::{FontFeature, FontKerning, TextSpan, TextStyle, TextWrap};
 use parley::{
     FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, GenericFamily, LayoutContext,
     LineHeight, StyleProperty,
 };
-use ui_types::{FontFeature, FontKerning, TextSpan, TextStyle, TextWrap};
 
 /// Shapes `text` (not empty, converted already) with `spans` (valid,
 /// moved onto the converted text) in `style` into a parley layout, not

@@ -11,8 +11,8 @@ use super::semantics::{A11yAction, Role, SemanticsProperties};
 use super::style::{LayoutProps, PaintProps, StateStyles};
 use super::text::{TextProps, TextSpan};
 use super::{Point, Size};
-use ui_types::Key;
-use ui_types::{Asset, ImageFit};
+use kivact_types::Key;
+use kivact_types::{Asset, ImageFit};
 
 /// The kind of a host node: these five only. Native text editing is not a
 /// kind but a payload any node can carry ([`NodeProperties::editing`]); a
@@ -270,7 +270,7 @@ pub struct OverlayProps {
     pub at_least_anchor_width: bool,
 }
 
-pub use ui_types::IntrinsicSize;
+pub use kivact_types::IntrinsicSize;
 
 /// Whether a node scene is painted below or above its children.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

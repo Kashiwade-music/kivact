@@ -48,13 +48,13 @@ const ALLOWLIST: &[(&str, &[&str])] = &[
         "kivact-ui",
         &["kivact-core", "kivact-interaction", "kivact"],
     ),
-    ("arvane-shell", &["raw-window-handle", "ui-types"]),
+    ("arvane-shell", &["raw-window-handle", "kivact-types"]),
     // Keep the native OS integration boundary explicit when adding adapters.
     (
         "arvane-native",
         &[
             "arvane-shell",
-            "ui-types",
+            "kivact-types",
             "winit",
             "softbuffer",
             "raw-window-handle",
@@ -79,15 +79,15 @@ const ALLOWLIST: &[(&str, &[&str])] = &[
         &[
             "kivact-editing",
             "kivact-lower",
-            "ui-types",
+            "kivact-types",
             "arvane",
             "unicode-segmentation",
         ],
     ),
-    ("kivact-lower", &["ui-types", "kivact-wire", "arvane"]),
+    ("kivact-lower", &["kivact-types", "kivact-wire", "arvane"]),
     ("kivact-layout", &["kivact-wire", "taffy"]),
-    ("kivact-wire", &["ui-types", "kivact-editing"]),
-    ("kivact-editing", &["ui-types", "unicode-segmentation"]),
+    ("kivact-wire", &["kivact-types", "kivact-editing"]),
+    ("kivact-editing", &["kivact-types", "unicode-segmentation"]),
     (
         "kivact-public-api-tests",
         &[
@@ -135,12 +135,12 @@ const ALLOWLIST: &[(&str, &[&str])] = &[
     // side of the sharing and the tests' engine reach the native APIs
     // through these alone.
     (
-        "gpu-share",
-        &["ui-types", "wgpu", "pollster", "ash", "windows"],
+        "kivact-gpu-share",
+        &["kivact-types", "wgpu", "pollster", "ash", "windows"],
     ),
     (
         "gpu-interop-producer",
-        &["ui-types", "gpu-share", "ash", "windows", "wgpu"],
+        &["kivact-types", "kivact-gpu-share", "ash", "windows", "wgpu"],
     ),
 ];
 

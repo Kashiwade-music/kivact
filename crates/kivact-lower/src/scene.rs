@@ -54,9 +54,9 @@ mod text;
 use crate::context::Context;
 use crate::effects::Tint;
 use crate::scene_cache::Entry;
+use kivact_types::DrawCommand as D;
 use kivact_wire::{ComputedText, Rect, Scene};
 use std::sync::Arc;
-use ui_types::DrawCommand as D;
 impl Context<'_> {
     /// Paint a local scene at its canvas origin, inheriting missing text fields.
     pub fn paint_scene(
@@ -66,7 +66,7 @@ impl Context<'_> {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         #[cfg(feature = "gpu-interop")]
         let cacheable = !scene
@@ -97,7 +97,7 @@ impl Context<'_> {
             }
         }
         let checkpoint = self.checkpoint();
-        let mut lowered = ui_types::Scene::default();
+        let mut lowered = kivact_types::Scene::default();
         *self.dependencies.borrow_mut() = Some(Vec::new());
         self.lower_scene(
             scene,
@@ -144,7 +144,7 @@ impl Context<'_> {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         let raster = self.raster.get();
         let mut state = state::State::new(inherited, engine, out, origin, *tint);
@@ -159,11 +159,11 @@ impl Context<'_> {
     }
 }
 
-fn append(out: &mut ui_types::Scene, local: &ui_types::Scene, origin: Rect) {
-    out.commands.push(D::PushTransform(ui_types::Transform {
+fn append(out: &mut kivact_types::Scene, local: &kivact_types::Scene, origin: Rect) {
+    out.commands.push(D::PushTransform(kivact_types::Transform {
         e: origin.x,
         f: origin.y,
-        ..ui_types::Transform::IDENTITY
+        ..kivact_types::Transform::IDENTITY
     }));
     out.commands.extend(local.commands.iter().cloned());
     out.commands.push(D::PopTransform);

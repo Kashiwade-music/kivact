@@ -1,7 +1,7 @@
 //! Role: Defines scalar layout, color and alignment values.
 
 /// Straight-alpha color, components in `0.0..=1.0`.
-pub use ui_types::Rgba;
+pub use kivact_types::Rgba;
 
 /// A layout length. Percentages (and a calc's) are of the containing
 /// block's size along the axis (padding, margins: its width), like CSS.

@@ -8,16 +8,16 @@ repository.workspace = true
 description = "Core view, control, reactive and platform contracts for Kivact"
 
 [dependencies]
-kivact-wire = { path = "../kivact-wire" }
-kivact-editing = { path = "../kivact-editing" }
+kivact-wire = { path = "../kivact-wire", version = "0.1.0" }
+kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
 # The engine: the retained tree, layout, input, painting and accessibility
 # in Arvane windows.
-kivact-engine = { path = "../kivact-engine" }
-kivact-reactive = { path = "../kivact-reactive" }
-kivact-i18n = { path = "../kivact-i18n" }
-kivact-task = { path = "../kivact-task" }
-kivact-motion = { path = "../kivact-motion" }
-kivact-style = { path = "../kivact-style" }
+kivact-engine = { path = "../kivact-engine", version = "0.1.0" }
+kivact-reactive = { path = "../kivact-reactive", version = "0.1.0" }
+kivact-i18n = { path = "../kivact-i18n", version = "0.1.0" }
+kivact-task = { path = "../kivact-task", version = "0.1.0" }
+kivact-motion = { path = "../kivact-motion", version = "0.1.0" }
+kivact-style = { path = "../kivact-style", version = "0.1.0" }
 # The `kivact` and `kivact::layout` tracing targets of the host side.
 tracing = { workspace = true }
 

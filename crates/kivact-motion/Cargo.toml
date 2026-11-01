@@ -1,14 +1,15 @@
 [package]
 name = "kivact-motion"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Kivact internal crate: frame loops, animated values and transitions (use the `kivact` facade)"
 
 [dependencies]
-kivact-reactive = { path = "../kivact-reactive" }
-kivact-wire = { path = "../kivact-wire" }
+kivact-reactive = { path = "../kivact-reactive", version = "0.1.0" }
+kivact-wire = { path = "../kivact-wire", version = "0.1.0" }
 
 [dev-dependencies]
 # Doctests show what users write (`use kivact::prelude::*`). Dev-dependency

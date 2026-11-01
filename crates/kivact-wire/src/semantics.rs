@@ -1,6 +1,6 @@
 //! Role: Accessibility semantics carried by nodes and scene regions.
 
-pub use ui_types::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
+pub use kivact_types::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
 /// Optional semantics used by advanced controls.
 ///
 /// A node keeps them in one box (`NodeSemantics::accessibility`) that only
@@ -67,14 +67,14 @@ pub struct SemanticsProperties {
     /// coordinates. The engine moves the rectangles into the window's and
     /// gives each run a platform identity of its own (a run's `id` is its
     /// key in this node). Dropped when [`check_text`] finds it invalid.
-    pub text: Option<ui_types::SemanticsText>,
+    pub text: Option<kivact_types::SemanticsText>,
 }
 
 /// Why `text` cannot be published as a node's text runs, if it cannot: at
 /// least one run, finite non-negative rectangles, carets inside their runs
 /// and a selection and caret inside the text.
-pub fn check_text(text: &ui_types::SemanticsText) -> Result<(), &'static str> {
-    let finite = |r: ui_types::Rect| {
+pub fn check_text(text: &kivact_types::SemanticsText) -> Result<(), &'static str> {
+    let finite = |r: kivact_types::Rect| {
         [r.x, r.y, r.width, r.height, r.x + r.width, r.y + r.height]
             .into_iter()
             .all(f32::is_finite)

@@ -23,7 +23,7 @@
 use crate::error::RenderError;
 mod fonts;
 pub(crate) use fonts::Fonts;
-use ui_types::{
+use kivact_types::{
     Backdrop, BoxShadow, ColorMatrix, DrawCommand, Gradient, GradientShape, ImageData, Layer,
     LayerFilter, Paint, PathCmd, PatternSource, Point, Rect, Rgba, RoundedRect, Scene, Shape, Size,
     Stroke, Transform,

@@ -11,12 +11,12 @@ use std::ops::Range;
 use super::paint::Fill;
 use super::values::Rgba;
 
-pub use ui_types::TextWrap;
+pub use kivact_types::TextWrap;
 
-pub use ui_types::TextAlign;
+pub use kivact_types::TextAlign;
 
 /// Pair kerning (CSS `font-kerning`).
-pub use ui_types::FontKerning;
+pub use kivact_types::FontKerning;
 
 /// A text length: px, or a multiple of the font size of the text it
 /// applies to (CSS `em`).
@@ -44,16 +44,16 @@ impl TextLen {
 
 /// The distance between the baselines of a text's lines (CSS
 /// `line-height`).
-pub use ui_types::LineHeight;
+pub use kivact_types::LineHeight;
 
 /// An OpenType feature setting: a four byte tag and its value.
-pub use ui_types::FontFeature;
+pub use kivact_types::FontFeature;
 
 /// Lines drawn with text (CSS `text-decoration`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
     /// The lines to draw.
-    pub lines: ui_types::DecorationLines,
+    pub lines: kivact_types::DecorationLines,
     /// `None`: the text's color.
     pub color: Option<Rgba>,
     /// `None`: the font's.
@@ -64,10 +64,10 @@ pub struct TextDecoration {
 }
 
 /// What text that does not fit shows (CSS `text-overflow`).
-pub use ui_types::TextOverflow;
+pub use kivact_types::TextOverflow;
 
 /// Case conversion when shaping (CSS `text-transform`).
-pub use ui_types::TextTransform;
+pub use kivact_types::TextTransform;
 
 /// A shadow of text (CSS `text-shadow`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -108,7 +108,7 @@ pub struct TextProps {
     pub features: Option<Vec<FontFeature>>,
     /// CSS `font-variant-numeric: tabular-nums`: `tnum` after the features.
     pub tabular_nums: Option<bool>,
-    pub decoration_lines: Option<ui_types::DecorationLines>,
+    pub decoration_lines: Option<kivact_types::DecorationLines>,
     pub decoration_color: Option<Rgba>,
     pub decoration_thickness: Option<TextLen>,
     pub underline_offset: Option<TextLen>,
@@ -284,7 +284,7 @@ impl TextMore {
         kerning: FontKerning::Auto,
         features: Vec::new(),
         decoration: TextDecoration {
-            lines: ui_types::DecorationLines::NONE,
+            lines: kivact_types::DecorationLines::NONE,
             color: None,
             thickness: None,
             underline_offset: TextLen::Px(0.0),

@@ -19,7 +19,7 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
-use ui_types::Asset;
+use kivact_types::Asset;
 
 use crate::error::{AssetError, AssetErrorKind};
 use crate::format::{self, Format};

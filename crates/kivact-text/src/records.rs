@@ -1,9 +1,9 @@
 //! Role: Passive line, chunk, cache-key and prefix records.
 
 use kivact_editing::LineState;
+use kivact_types::{Point, Rgba};
 use std::ops::Range;
 use std::sync::Arc;
-use ui_types::{Point, Rgba};
 
 /// What the lines show.
 #[derive(Clone, Debug, PartialEq)]
@@ -19,7 +19,7 @@ pub(crate) enum Shown {
 /// show and whether they break at line feeds.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Key {
-    pub(crate) style: ui_types::TextStyle,
+    pub(crate) style: kivact_types::TextStyle,
     pub(crate) shown: Shown,
     pub(crate) multiline: bool,
 }
@@ -38,11 +38,11 @@ pub(crate) struct Kept {
     pub(crate) colors: Option<Colored>,
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
-    pub(crate) painted: Option<(ui_types::Rgba, Arc<ui_types::ShapedText>)>,
+    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::ShapedText>)>,
     /// Its text run's identity (0: none yet).
     pub(crate) run_id: u64,
     /// Its text run and where it was placed.
-    pub(crate) run: Option<(Point, Arc<ui_types::SemanticsTextRun>)>,
+    pub(crate) run: Option<(Point, Arc<kivact_types::SemanticsTextRun>)>,
 }
 
 /// One hard line: its byte range from its chunk's start, its counts and
@@ -58,7 +58,7 @@ pub(crate) struct Line {
     pub(crate) chars: u32,
     pub(crate) units: u32,
     /// Its text, shaped (`None`: not yet; `Some(None)`: it cannot be).
-    pub(crate) shaped: Option<Option<Arc<ui_types::ShapedText>>>,
+    pub(crate) shaped: Option<Option<Arc<kivact_types::ShapedText>>>,
     /// Its shaped width (0 until shaped).
     pub(crate) width: f32,
     pub(crate) kept: Option<Box<Kept>>,

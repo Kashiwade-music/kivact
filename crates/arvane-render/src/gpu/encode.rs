@@ -54,8 +54,8 @@
 use super::external::External;
 use super::state::{AtlasImage, GpuContext, GpuImage, Images};
 use crate::{draw, paint::PatternFill, validate::SceneInfo};
+use kivact_types::{ExternalFrame, ImageData, Scene, Size};
 use std::sync::Arc;
-use ui_types::{ExternalFrame, ImageData, Scene, Size};
 use vello_common::{filter_effects::Filter, geometry::RectU16, paint::ImageId};
 use vello_cpu::{
     Glyph, Image, ImageSource, PaintType, Pixmap,

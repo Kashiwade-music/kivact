@@ -4,6 +4,7 @@ use crate::bridge::Client;
 use crate::{FrameLog, host};
 use arvane::embed::{Embedded, Embedder};
 pub use arvane::{detached_threads, retain_module};
+use kivact_types::{GpuPreference, ParentWindow};
 use kivact_wire::{HostError, Size};
 use std::{
     cell::RefCell,
@@ -13,7 +14,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use ui_types::{GpuPreference, ParentWindow};
 
 /// Initial embedded host settings.
 pub struct EmbedOptions {

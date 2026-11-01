@@ -1,13 +1,14 @@
 [package]
 name = "arvane-render"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
 description = "Arvane render adapter over vello_cpu and vello_hybrid"
 
 [dependencies]
-ui-types = { path = "../ui-types" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 vello_cpu = { workspace = true }
 # The glyph settings type vello_cpu takes but does not re-export (the
 # version vello_cpu uses).
@@ -29,14 +30,14 @@ pollster = { workspace = true, optional = true }
 raw-window-handle = { workspace = true, optional = true }
 # GPU texture sharing (feature `gpu-interop`): Arvane's unsafe GPU code
 # lives in this crate, not here.
-gpu-share = { path = "../gpu-share", optional = true, features = ["import"] }
+kivact-gpu-share = { path = "../kivact-gpu-share", version = "0.1.0", optional = true, features = ["import"] }
 
 [features]
 gpu = ["dep:vello_hybrid", "dep:wgpu", "dep:pollster", "dep:raw-window-handle"]
 # Drawing textures an application's render engine shares
 # (`DrawCommand::External`): Direct3D 12 and Vulkan on Windows, Vulkan on
 # Linux; elsewhere nothing is imported.
-gpu-interop = ["gpu", "dep:gpu-share"]
+gpu-interop = ["gpu", "dep:kivact-gpu-share"]
 
 [lints]
 workspace = true

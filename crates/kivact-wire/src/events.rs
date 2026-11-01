@@ -12,9 +12,9 @@ use super::motion::MotionClock;
 use super::semantics::A11yAction;
 use super::{Point, Rect, Size};
 
-pub use ui_types::{FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerId, PointerKind};
+pub use kivact_types::{FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerId, PointerKind};
 
-pub use ui_types::{PointerButtons, PointerPhase};
+pub use kivact_types::{PointerButtons, PointerPhase};
 
 /// Pointer event with node-local position. The host owns hit testing and
 /// capture: while a pointer holds a button (a touch or pen is in contact),
@@ -325,7 +325,7 @@ pub enum HostEvent {
     /// The window carried out `Writer::import_external` of `image` (after
     /// the turn that wrote it).
     ExternalImported {
-        image: ui_types::ExternalImageId,
+        image: kivact_types::ExternalImageId,
         result: ExternalImport,
     },
     /// The adapter of the window's GPU device that can import shared
@@ -334,7 +334,7 @@ pub enum HostEvent {
     /// before is gone) or the window draws on the CPU (`None`). The client
     /// starts with `None`; the host sends the first adapter when the
     /// device is ready.
-    GpuAdapterChanged(Option<ui_types::GpuAdapter>),
+    GpuAdapterChanged(Option<kivact_types::GpuAdapter>),
 }
 
 /// How the window answered an import of shared textures

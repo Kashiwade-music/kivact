@@ -2,8 +2,8 @@
 //!
 //! A context's imports (feature `gpu-interop`): each image is a pool of
 //! textures and two timeline fences imported into this context's device
-//! (`gpu-share`, whose crate documentation has the hand-off and
-//! `ui_types::SharedTextures` the engine's contract). An image belongs to
+//! (`kivact-gpu-share`, whose crate documentation has the hand-off and
+//! `kivact_types::SharedTextures` the engine's contract). An image belongs to
 //! the context (the window) it was imported into; a scene of another
 //! window that names its id draws nothing.
 //!
@@ -33,15 +33,15 @@
 //!   whether the frame was submitted, skipped or failed.
 
 use crate::error::RenderError;
-use ui_types::ExternalFrame;
+use kivact_types::ExternalFrame;
 use vello_hybrid::TextureId;
 
+#[cfg(feature = "gpu-interop")]
+use kivact_types::{DrawCommand, ExternalImageId, GpuAdapter, Scene, SharedTextures};
 #[cfg(feature = "gpu-interop")]
 use std::collections::HashMap;
 #[cfg(feature = "gpu-interop")]
 use std::time::{Duration, Instant};
-#[cfg(feature = "gpu-interop")]
-use ui_types::{DrawCommand, ExternalImageId, GpuAdapter, Scene, SharedTextures};
 
 /// The longest a frame waits on the CPU for the ready fences of the
 /// external frames it draws.
@@ -85,7 +85,7 @@ pub(crate) struct External {
 /// One imported image.
 #[cfg(feature = "gpu-interop")]
 struct Image {
-    import: gpu_share::import::Import,
+    import: kivact_gpu_share::import::Import,
     /// The textures' views and ids, by slot.
     views: Vec<(TextureId, wgpu::TextureView)>,
     width: u16,
@@ -257,7 +257,7 @@ impl External {
                 adapter.name
             )));
         }
-        let import = gpu_share::import::Import::new(device, queue, shared)
+        let import = kivact_gpu_share::import::Import::new(device, queue, shared)
             .map_err(|error| RenderError::External(error.to_string()))?;
         let (width, height) = import.size();
         let views = import
@@ -322,7 +322,7 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    pub(crate) fn begin(&mut self, _: &ui_types::Scene) -> Result<(), RenderError> {
+    pub(crate) fn begin(&mut self, _: &kivact_types::Scene) -> Result<(), RenderError> {
         Ok(())
     }
 

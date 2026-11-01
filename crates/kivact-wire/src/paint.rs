@@ -7,7 +7,7 @@
 
 use super::Point;
 use super::values::{Edges, Rgba};
-use ui_types::Asset;
+use kivact_types::Asset;
 
 /// A length resolved against a reference length at paint time:
 /// `px + pct / 100 × reference` (CSS `calc(pct% + px)`).
@@ -112,7 +112,7 @@ pub enum CoordinateShape {
 }
 
 /// What a [`CoordinateGradient`] paints beyond its offsets 0 and 1.
-pub use ui_types::Extend as GradientExtend;
+pub use kivact_types::Extend as GradientExtend;
 
 /// The size of one tile (CSS `background-size`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -288,7 +288,7 @@ pub enum FilterOp {
 }
 
 /// CSS `mix-blend-mode`.
-pub use ui_types::BlendMode;
+pub use kivact_types::BlendMode;
 
 /// A CSS basic shape in the border box (`clip-path`): x against the box
 /// width, y against its height.

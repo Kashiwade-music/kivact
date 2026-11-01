@@ -22,7 +22,7 @@
 //!   pixel the clip lets through partially is never lost): its box, the
 //!   extent of its content (taffy's, text overflowing a short box
 //!   included), its shadows (an outer one reaches its offset plus its
-//!   spread plus `ui_types::SHADOW_REACH` × blur / 2) and focus ring, a
+//!   spread plus `kivact_types::SHADOW_REACH` × blur / 2) and focus ring, a
 //!   text's glyph overhang (one font size) and text shadows, and its
 //!   canvas scenes' commands (a scene text run counted at two font sizes
 //!   and its letter spacing per character, a stroke at its width × its
@@ -97,8 +97,8 @@ use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
 use kivact_lower::effects;
 use kivact_lower::sanitize::{extent, offset, unit};
+use kivact_types::ColorMatrix;
 use kivact_wire::{Edges, FilterOp, NodeId, NodeType, PaintProps, Point, Rect, Scene, SceneCmd};
-use ui_types::ColorMatrix;
 
 mod index;
 
@@ -264,8 +264,8 @@ impl Look {
             .filter(|s| !s.inset)
             .map(|s| {
                 // The blur's gaussian (standard deviation blur / 2) is
-                // drawn at most ui_types::SHADOW_REACH deviations out.
-                let blur = extent(s.blur) / 2.0 * ui_types::SHADOW_REACH;
+                // drawn at most kivact_types::SHADOW_REACH deviations out.
+                let blur = extent(s.blur) / 2.0 * kivact_types::SHADOW_REACH;
                 offset(s.offset.x).abs().max(offset(s.offset.y).abs())
                     + offset(s.spread).max(0.0)
                     + blur
@@ -391,7 +391,7 @@ fn reach(host: &Model, id: NodeId, n: &HostNode, layout: &NodeLayout, look: &Loo
 
 /// `r` (relative to a box's top-left corner) mapped by the box's transform
 /// `t`, placed at the box's origin `at` in its parent's space.
-fn placed(t: Option<&ui_types::Transform>, r: Rect, at: Point) -> Rect {
+fn placed(t: Option<&kivact_types::Transform>, r: Rect, at: Point) -> Rect {
     let r = map_rect(t, r);
     Rect {
         x: r.x + at.x,
@@ -461,7 +461,7 @@ fn local_transform(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-) -> Option<ui_types::Transform> {
+) -> Option<kivact_types::Transform> {
     if n.place.transformed {
         host.local_transform(id, layout.size)
     } else {
@@ -491,7 +491,7 @@ struct Walk<'a> {
     /// The listed nodes' color matrices.
     matrices: Vec<ColorMatrix>,
     /// The listed transformed nodes' transforms.
-    transforms: Vec<ui_types::Transform>,
+    transforms: Vec<kivact_types::Transform>,
 }
 
 impl Walk<'_> {
@@ -740,7 +740,7 @@ fn scene_reach(scene: &Scene, canvas: Rect) -> Option<Rect> {
     {
         return plain_scene_reach(&scene.cmds, canvas);
     }
-    let mut transform = ui_types::Transform::IDENTITY;
+    let mut transform = kivact_types::Transform::IDENTITY;
     let mut transforms = Vec::new();
     let mut reach = 0.0;
     let mut layers = Vec::new();

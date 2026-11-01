@@ -16,7 +16,7 @@ impl Model {
 
     pub(crate) fn fill(
         &self,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
         shape: &BoxShape,
         fill: &Fill,
         tint: &Tint,
@@ -30,7 +30,7 @@ impl Model {
         layer: &FillLayer,
         area: Rect,
         origin: Point,
-    ) -> Option<ui_types::Paint> {
+    ) -> Option<kivact_types::Paint> {
         self.painting().layer_paint(layer, area, origin)
     }
 
@@ -47,7 +47,7 @@ impl Model {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         let inherited = scene
             .cmds
@@ -77,7 +77,7 @@ impl Model {
         area: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut ui_types::Scene,
+        out: &mut kivact_types::Scene,
     ) {
         let Some(n) = self.node(id) else {
             return;
@@ -92,7 +92,7 @@ impl Model {
         let width = Some(area.width.max(0.0) + 1.0);
         let (shaped, colors) = if spans.is_empty() {
             // Shaped without a color: a color change (a hover) reuses it.
-            style.color = ui_types::TextStyle::default().color;
+            style.color = kivact_types::TextStyle::default().color;
             let deco = match props.more().decoration.color {
                 Some(own) => tint.color(own),
                 None => color,
@@ -112,7 +112,7 @@ impl Model {
                 |c| tint.color(c),
                 |f| kivact_lower::assets::family(engine, Some(f)),
             );
-            let text = ui_types::RichText {
+            let text = kivact_types::RichText {
                 text: content,
                 spans: &rich,
             };

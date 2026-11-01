@@ -46,7 +46,7 @@
 //! Feature `embed` exposes experimental host-window embedding through `embed`.
 //!
 //! - The client API exposes no Taffy, Unicode segmentation or native window
-//!   implementation. Geometry and semantics share ui-types value types.
+//!   implementation. Geometry and semantics share kivact-types value types.
 //! - Mutations apply immediately. Comparisons record only changed fields;
 //!   `Model::sync` folds derived work once at a commit.
 //! - Every host event enters one FIFO. Private commit boundaries delimit

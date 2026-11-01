@@ -57,11 +57,11 @@ use crate::{
     paint::{self, Brush, PatternFill},
     text,
 };
-use std::{collections::HashMap, sync::Arc};
-use ui_types::{
+use kivact_types::{
     ColorMatrix, DrawCommand, ExternalFrame, ImageData, Mask, Paint, Rect as LogicalRect, Rgba,
     Scene, Shape, Size, Transform,
 };
+use std::{collections::HashMap, sync::Arc};
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::{
     Glyph, PaintType,
@@ -491,7 +491,7 @@ impl<C: Canvas> Painter<'_, C> {
                 {
                     let odd = clip
                         .as_ref()
-                        .is_some_and(|c| c.1 != ui_types::FillRule::NonZero);
+                        .is_some_and(|c| c.1 != kivact_types::FillRule::NonZero);
                     if odd {
                         self.canvas.set_fill_rule(peniko::Fill::EvenOdd);
                     }
@@ -607,13 +607,13 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// The raster filter of a layer's.
-    fn filter(&self, filter: ui_types::LayerFilter) -> Filter {
+    fn filter(&self, filter: kivact_types::LayerFilter) -> Filter {
         Filter::from_primitive(match filter {
-            ui_types::LayerFilter::Blur { std_dev } => FilterPrimitive::GaussianBlur {
+            kivact_types::LayerFilter::Blur { std_dev } => FilterPrimitive::GaussianBlur {
                 std_deviation: std_dev,
                 edge_mode: EdgeMode::None,
             },
-            ui_types::LayerFilter::DropShadow {
+            kivact_types::LayerFilter::DropShadow {
                 offset,
                 std_dev,
                 color,
@@ -688,9 +688,9 @@ impl<C: Canvas> Painter<'_, C> {
         self.canvas.pop_clip_path();
     }
 
-    fn stroke(&mut self, shape: &Shape, stroke: &ui_types::Stroke, paint: &Paint) {
+    fn stroke(&mut self, shape: &Shape, stroke: &kivact_types::Stroke, paint: &Paint) {
         let mut path = convert::shape(shape);
-        if stroke.cap != ui_types::LineCap::Butt {
+        if stroke.cap != kivact_types::LineCap::Butt {
             path = convert::dots(path);
         }
         let style = convert::stroke(stroke);
@@ -730,9 +730,9 @@ impl<C: Canvas> Painter<'_, C> {
 
     fn glyphs(
         &mut self,
-        run: &ui_types::GlyphRun,
-        origin: ui_types::Point,
-        color: Option<ui_types::Rgba>,
+        run: &kivact_types::GlyphRun,
+        origin: kivact_types::Point,
+        color: Option<kivact_types::Rgba>,
     ) {
         let coords: Vec<i16> = run
             .normalized_coords

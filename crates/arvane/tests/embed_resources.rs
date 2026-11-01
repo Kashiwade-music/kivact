@@ -6,11 +6,11 @@ use arvane::{
     embed::{self, EmbedOptions, Embedder},
     test_display::TestParent,
 };
+use kivact_types::{DrawCommand, Paint, Rect, Rgba, Scene, Size};
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use ui_types::{DrawCommand, Paint, Rect, Rgba, Scene, Size};
 
 #[derive(Default)]
 struct Seen {

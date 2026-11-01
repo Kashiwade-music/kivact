@@ -20,7 +20,7 @@
 use kivact_wire::Point;
 use kivact_wire::{BlendMode, FilterOp, PaintProps, Rgba};
 
-use ui_types::{ColorMatrix, Layer, LayerFilter};
+use kivact_types::{ColorMatrix, Layer, LayerFilter};
 
 /// How the colors of one node are drawn: faded by `alpha` (the opacity of
 /// the node and its ancestors that is not a group's) and through `matrix`
@@ -53,7 +53,7 @@ impl Tint {
     }
 
     /// A paint as drawn (every stop, a pattern's image through the matrix).
-    pub(crate) fn paint(&self, paint: ui_types::Paint) -> ui_types::Paint {
+    pub(crate) fn paint(&self, paint: kivact_types::Paint) -> kivact_types::Paint {
         let paint = match &self.matrix {
             Some(m) => paint.filtered(m),
             None => paint,
@@ -105,13 +105,13 @@ fn blur(px: f32) -> f32 {
 pub fn filter_reach(ops: &[FilterOp]) -> f32 {
     ops.iter()
         .map(|op| match *op {
-            FilterOp::Blur(px) => blur(px) * ui_types::SHADOW_REACH,
+            FilterOp::Blur(px) => blur(px) * kivact_types::SHADOW_REACH,
             FilterOp::DropShadow {
                 offset, blur: b, ..
             } => {
                 let offset = offset.x.abs().max(offset.y.abs());
                 (if offset.is_finite() { offset } else { 0.0 })
-                    + blur(b) / 2.0 * ui_types::SHADOW_REACH
+                    + blur(b) / 2.0 * kivact_types::SHADOW_REACH
             }
             _ => 0.0,
         })
@@ -204,9 +204,9 @@ pub fn layers(
 /// blur and its color functions, then the ancestors' matrix (`parent`).
 pub fn backdrop(
     p: &PaintProps,
-    shape: ui_types::Shape,
+    shape: kivact_types::Shape,
     parent: Option<&ColorMatrix>,
-) -> Option<ui_types::Backdrop> {
+) -> Option<kivact_types::Backdrop> {
     let ops = &p.effects.as_ref()?.backdrop;
     if ops.is_empty() {
         return None;
@@ -222,7 +222,7 @@ pub fn backdrop(
         alpha: 1.0,
         matrix: parent.copied(),
     };
-    Some(ui_types::Backdrop {
+    Some(kivact_types::Backdrop {
         shape,
         std_dev,
         color_matrix: parent.then_own(color_matrix(ops)),
@@ -236,7 +236,7 @@ pub fn backdrop_reach(p: &PaintProps) -> f32 {
         e.backdrop
             .iter()
             .map(|op| match *op {
-                FilterOp::Blur(px) => blur(px) * ui_types::SHADOW_REACH,
+                FilterOp::Blur(px) => blur(px) * kivact_types::SHADOW_REACH,
                 _ => 0.0,
             })
             .sum()

@@ -36,7 +36,7 @@ impl Model {
         &self,
         id: NodeId,
         engine: &mut arvane::Engine,
-    ) -> ui_types::TextStyle {
+    ) -> kivact_types::TextStyle {
         crate::measure::input_style(&self.tree, &self.measure, id, engine)
     }
 

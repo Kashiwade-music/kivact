@@ -281,7 +281,7 @@ impl StateStyles {
     }
 }
 
-pub use ui_types::Cursor;
+pub use kivact_types::Cursor;
 
 /// Overlay scrollbar appearance; layout space is never reserved.
 #[derive(Clone, Copy, Debug, PartialEq)]

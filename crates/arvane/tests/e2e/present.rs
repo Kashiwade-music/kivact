@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions, WindowMode, gpu_unavailable};
 use arvane::{ErrorKind, FramePlan, Presented, Renderer, Window as _};
-use ui_types::{DrawCommand, ImageData, Paint, PathCmd, Point, SHADOW_REACH, Size, TextStyle};
+use kivact_types::{DrawCommand, ImageData, Paint, PathCmd, Point, SHADOW_REACH, Size, TextStyle};
 
 use crate::support::{
     BLUE, RED, WHITE, assert_near, color, color_alpha, distance, engine, fill, gpu_against_cpu,
@@ -444,7 +444,7 @@ fn an_invalid_scene_is_dropped_as_content_and_keeps_the_picture() {
     invalid.push(vec![DrawCommand::Glyphs {
         run: Arc::clone(&run),
         origin: Point::default(),
-        color: Some(ui_types::Rgba {
+        color: Some(kivact_types::Rgba {
             r: f32::NAN,
             g: 0.0,
             b: 0.0,
@@ -561,7 +561,7 @@ fn fixed_resolution_rasterizer_preserves_premultiplied_alpha_and_matches_window(
     let mut window = open(16.0, 16.0);
     show(&mut window, vec![command.clone()]);
     let mut rasterizer = arvane::Rasterizer::new();
-    let scene = ui_types::Scene {
+    let scene = kivact_types::Scene {
         commands: vec![command],
     };
     for (width, height) in [(0, 16), (16, 0), (16_385, 1), (4097, 4096)] {

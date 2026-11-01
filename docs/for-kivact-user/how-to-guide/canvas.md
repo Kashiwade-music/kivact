@@ -83,7 +83,7 @@ fn renderer_preview() -> impl IntoView {
 
 ### 有効にする
 
-`kivact` の feature `gpu-interop` を有効にします（`viewport_surface` の `gpu_frame` を使うなら、`kivact-ui-creative` の同名の feature も）。engine 側は crate `gpu-share` の feature `export` を有効にして、Vulkan・Direct3D 12 の pool を使います。Kivact と同じ版の wgpu で書くなら、`export` を含む feature `wgpu` を有効にします。対象は Windows（Direct3D 12 と Vulkan）と Linux（Vulkan）です。それ以外の OS では build は通りますが、`kivact::gpu_interop::adapter()` は常に `None` で、`shared_image` は `Pixels` の経路になり、`import` は失敗します。
+`kivact` の feature `gpu-interop` を有効にします（`viewport_surface` の `gpu_frame` を使うなら、`kivact-ui-creative` の同名の feature も）。engine 側は crate `kivact-gpu-share` の feature `export` を有効にして、Vulkan・Direct3D 12 の pool を使います。Kivact と同じ版の wgpu で書くなら、`export` を含む feature `wgpu` を有効にします。対象は Windows（Direct3D 12 と Vulkan）と Linux（Vulkan）です。それ以外の OS では build は通りますが、`kivact::gpu_interop::adapter()` は常に `None` で、`shared_image` は `Pixels` の経路になり、`import` は失敗します。
 
 `App::gpu_preference(GpuPreference { .. })` で、使いたい GPU の種類（`power`）、graphics API（`backend`）、adapter（`adapter`）を希望します。希望であり、保証ではありません。希望の adapter や API がなければ、別のもので device が作られます。環境変数 `WGPU_BACKEND` と `WGPU_POWER_PREF` が優先されます。
 
@@ -122,7 +122,7 @@ engine の thread は、`ShareLink` に対して次の順に動きます。
 
 1. `wait_request(timeout)` で最新の要求（`ShareRequest`）を受けます。要求の `width` と `height` が pool の大きさ、`mode` が答え方です。
 2. `ShareMode::Gpu(adapter)` なら、その adapter とその graphics API で自分の device を作り、要求の大きさの pool を作ります。
-   - 例の wgpu 版では、`gpu_share::wgpu::request_device` と `Pool::new` です。
+   - 例の wgpu 版では、`kivact_gpu_share::wgpu::request_device` と `Pool::new` です。
    - `unsafe { link.provide(&request, textures) }` で pool を渡し、`wait_ready` が `Ok` を返すまで texture へ書きません。
    - frame ごとに `acquire` → 描く → `unsafe { pool.submit(..) }` → `link.publish(&request, slot, value)` と進めます。
 3. `ShareMode::Pixels` なら、window が取り込めません（CPU で描く window、GPU の起動前）。自分の texture に描いて `read_back` し、straight alpha の RGBA8 を `link.publish_pixels(Pixels::new(..))` で渡します。共有の pool は要りません。
@@ -132,13 +132,13 @@ engine の thread は、`ShareLink` に対して次の順に動きます。
 次は、Kivact と同じ版の wgpu で書いた engine の例です。frame の絵は、`clear` が色を塗るだけです。ここへ engine 自身の描画を置きます。
 
 ```rust,ignore
-// `kivact`、`wgpu`（Kivact と同じ版）、`pollster`、`gpu-share`（feature `wgpu`）が要る。
+// `kivact`、`wgpu`（Kivact と同じ版）、`pollster`、`kivact-gpu-share`（feature `wgpu`）が要る。
 use std::sync::Arc;
 use std::time::Duration;
 
 use kivact::draw::Pixels;
 use kivact::gpu_interop::{ShareLink, ShareMode, ShareRequest};
-use gpu_share::{PoolConfig, wgpu as share};
+use kivact_gpu_share::{PoolConfig, wgpu as share};
 
 const WAIT: Duration = Duration::from_secs(5);
 
@@ -199,7 +199,7 @@ fn serve(
                 share::request_device(instance, adapter, &Default::default()).ok()?;
             let config = PoolConfig::new(request.width, request.height);
             let (pool, textures) = share::Pool::new(&device, adapter, config).ok()?;
-            // SAFETY: the pool is `gpu-share`'s: it makes
+            // SAFETY: the pool is `kivact-gpu-share`'s: it makes
             // the textures and fences as `SharedTextures` says, and this
             // engine draws only between `acquire` and `submit`.
             unsafe { link.provide(&request, textures) }.ok()?;
@@ -291,7 +291,7 @@ fn clear(encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, number: u
 
 #### 生の Vulkan（ash）と Direct3D 12 の engine
 
-`gpu-share` の feature `export` で使える `gpu_share::vulkan::Pool` と `gpu_share::d3d12::Pool` は、pool と 2 本の timeline fence を作って export します。`Pool::new` が `SharedTextures` を返し、それを `link.provide` に渡します。Vulkan では `find_physical_device` で window の adapter の physical device を見つけ、`vulkan::DEVICE_EXTENSIONS` を有効にして device を作ります。Direct3D 12 では `find_adapter` で見つけた adapter の device を使います。frame ごとに、次の順に呼びます。
+`kivact-gpu-share` の feature `export` で使える `kivact_gpu_share::vulkan::Pool` と `kivact_gpu_share::d3d12::Pool` は、pool と 2 本の timeline fence を作って export します。`Pool::new` が `SharedTextures` を返し、それを `link.provide` に渡します。Vulkan では `find_physical_device` で window の adapter の physical device を見つけ、`vulkan::DEVICE_EXTENSIONS` を有効にして device を作ります。Direct3D 12 では `find_adapter` で見つけた adapter の device を使います。frame ごとに、次の順に呼びます。
 
 1. `acquire(timeout)`：次の texture を `Target` として得ます。その texture の前の frame が `ready` になるまで、CPU で時間切れ付きで待ちます。
 2. `record_acquire`：window から texture を受け取る barrier を、engine の command の最初に記録します（Vulkan は `QUEUE_FAMILY_EXTERNAL` から、Direct3D 12 は `COMMON` から、engine が使う layout と状態へ）。
@@ -300,15 +300,15 @@ fn clear(encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, number: u
 5. `submit`：command を queue に出します。window の `release` の GPU 側の待ち、command、`ready` の signal を、この順に行います。返る `FrameReady { slot, value }` を `link.publish` に渡します。
 6. engine が自分で submit するなら、`submit` の代わりに `finish` を呼びます。返る `Submission` の「待つ fence と値」を submission の先頭で待ち、「signal する fence と値」を最後に signal します。
 
-`record_acquire`、`record_release`、`submit` は `unsafe fn` です。全体の流れは [crate doc](../../../crates/gpu-share/src/lib.rs) にあります。
+`record_acquire`、`record_release`、`submit` は `unsafe fn` です。全体の流れは [crate doc](../../../crates/kivact-gpu-share/src/lib.rs) にあります。
 
 #### 違う版の wgpu の engine
 
-Kivact と違う版の wgpu で書いた engine は、`as_hal` で生の handle（Vulkan は ash の instance・physical device・device・queue family、Direct3D 12 は `ID3D12Device` と queue）を取り出し、上の `vulkan::Pool` か `d3d12::Pool` を使います。ash と `windows` の版は、`gpu-share` と同じ（0.38 と 0.62）にします。wgpu の device は `vulkan::DEVICE_EXTENSIONS` を有効にしないので、engine は device を作るときにそれを足します（wgpu の `open_with_callback`、または ash で作った device を `create_device_from_hal` で渡します）。pool の生の submit は wgpu の queue に出るので、wgpu の `submit` と同じ thread で、その間に呼びます。
+Kivact と違う版の wgpu で書いた engine は、`as_hal` で生の handle（Vulkan は ash の instance・physical device・device・queue family、Direct3D 12 は `ID3D12Device` と queue）を取り出し、上の `vulkan::Pool` か `d3d12::Pool` を使います。ash と `windows` の版は、`kivact-gpu-share` と同じ（0.38 と 0.62）にします。wgpu の device は `vulkan::DEVICE_EXTENSIONS` を有効にしないので、engine は device を作るときにそれを足します（wgpu の `open_with_callback`、または ash で作った device を `create_device_from_hal` で渡します）。pool の生の submit は wgpu の queue に出るので、wgpu の `submit` と同じ thread で、その間に呼びます。
 
 ### engine の約束
 
-engine は texture の pool と 2 本の timeline fence を `gpu_interop::SharedTextures` として渡します。作り方と順序の正確な規則は [`SharedTextures` の rustdoc](../../../crates/ui-types/src/gpu_interop.rs) にあります。`ShareLink::provide` と `import` は `unsafe fn` で、その約束を守ることを呼出元に求めます。`gpu-share` は、pool と fence の作成と export、値の計数、受け渡しの barrier、時間切れ付きの待機を肩代わりします。engine が自分で守るのは、描画を `acquire` から `submit` の間に置くことと、色の符号化、`Ready` の前に書かないことです。要約は次のとおりです。
+engine は texture の pool と 2 本の timeline fence を `gpu_interop::SharedTextures` として渡します。作り方と順序の正確な規則は [`SharedTextures` の rustdoc](../../../crates/kivact-types/src/gpu_interop.rs) にあります。`ShareLink::provide` と `import` は `unsafe fn` で、その約束を守ることを呼出元に求めます。`kivact-gpu-share` は、pool と fence の作成と export、値の計数、受け渡しの barrier、時間切れ付きの待機を肩代わりします。engine が自分で守るのは、描画を `acquire` から `submit` の間に置くことと、色の符号化、`Ready` の前に書かないことです。要約は次のとおりです。
 
 - texture の作成条件：2D、RGBA8 unorm（premultiplied）、`width` × `height`、mip・layer・sample は 1。graphics API ごとに、heap、usage、共有の flag、export の型が決まっています。
 - usage は render target を常に含みます（Direct3D 12 は `ALLOW_RENDER_TARGET`、Vulkan は `TRANSFER_SRC | TRANSFER_DST | SAMPLED | COLOR_ATTACHMENT`）。storage への書込みは選択式で、使うなら `SharedTextures::storage` を真にして、Direct3D 12 は `ALLOW_UNORDERED_ACCESS`、Vulkan は `STORAGE` を足します（`PoolConfig::storage`）。Vulkan の adapter は storage の image を export できないことがあり、そのとき `Pool::new` は `Err` を返します。

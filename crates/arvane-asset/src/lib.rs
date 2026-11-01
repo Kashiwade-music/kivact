@@ -47,7 +47,7 @@
 //!   visible part of a clipped SVG is rasterized), retained pixels within
 //!   the store's budget (256 MiB by default) except what the current and
 //!   the previous frame draw ([`AssetStore::begin_frame`]).
-//! - Depends on `ui-types` alone among Arvane crates and on no Kivact
+//! - Depends on `kivact-types` alone among Arvane crates and on no Kivact
 //!   crate; no external type (image, resvg, skrifa) appears in its API.
 //! - The store lives on its host's UI thread; only its worker thread runs
 //!   loads, decodes and rasterizations.
@@ -72,8 +72,8 @@ pub use font::{
     FamilyChoice, FamilyResolution, FontBytes, FontFile, GenericFamily, Os, load_font,
     resolve_family,
 };
+pub use kivact_types::Asset;
 pub use limits::{MAX_ENCODED_BYTES, MAX_IMAGE_EDGE, MAX_SVG_RASTER_EDGE};
 pub use pixels::{PixelSize, Pixels};
 pub use store::image_state::ImageState;
 pub use store::{AssetStore, DEFAULT_BUDGET};
-pub use ui_types::Asset;

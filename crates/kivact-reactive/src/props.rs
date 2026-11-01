@@ -14,11 +14,11 @@
 //! of a constant) counts as static: its value never changes, so
 //! [`Prop::fixed`] reads it once and no effect is created.
 
+use kivact_types::Asset;
 use std::panic::Location;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
-use ui_types::Asset;
 
 use crate::Owner;
 use crate::data::{Binding, BindingRepr, Signal, Value};
@@ -531,15 +531,15 @@ constant_value!(
 constant_value!(Rc<str>);
 
 constant_value!(
-    ui_types::Asset,
-    ui_types::Point,
-    ui_types::Size,
-    ui_types::ImageFit,
-    ui_types::LiveRegion,
-    ui_types::SortDirection,
-    ui_types::Orientation,
-    ui_types::Rect,
-    ui_types::SemanticsText,
+    kivact_types::Asset,
+    kivact_types::Point,
+    kivact_types::Size,
+    kivact_types::ImageFit,
+    kivact_types::LiveRegion,
+    kivact_types::SortDirection,
+    kivact_types::Orientation,
+    kivact_types::Rect,
+    kivact_types::SemanticsText,
     std::ops::Range<usize>
 );
 

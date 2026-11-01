@@ -56,9 +56,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use ui_types::{Rgba, Size};
+use kivact_types::{Rgba, Size};
 
-use ui_types::Asset;
+use kivact_types::Asset;
 
 use crate::error::AssetError;
 use crate::fit::Region;
