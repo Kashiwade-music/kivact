@@ -35,43 +35,43 @@
 
 ## 実アプリの要求
 
-出典がない項目は今回の再調査を根拠とし、旧 commit を推測しない。取込済みは現行実装で確認したもの。
+出典がない項目は今回の再調査を根拠とし、旧 commit を推測しない。出典の日付は、公開前の非公開の履歴にある commit の日付。取込済みは現行実装で確認したもの。
 
-| 操作 | アプリ | 出典（commit・issue） | 取込先（単位） | 状態 |
+| 操作 | アプリ | 出典 | 取込先（単位） | 状態 |
 |---|---|---|---|---|
 | DAW プラグインの editor の UI | 外部（所有者が確認） | 2026-10-31 の所有者の判断 | 埋め込みの改修（2026-10-31） | 取込済み（Windows/Linux X11 の実験。主要 DAW と両 OS の G-03 実機確認は未実施。制限は[埋め込みの手順](../../for-kivact-user/how-to-guide/embed.md)） |
-| 取消しの共通セッション | 外部 | 810457ea、9f4553e0 | C-1 | 取込済み |
-| 最後の client turn が layout だけを要求した後の host 起床 | 外部 | CODEX_REVIEW_FOLLOWUP.md Z の制御経路調査 | Z | 厳密条件は未再現。通常の `Host::turn` は `client.turn` 後に必ず `effects`・`layout` を実行する。既存 focus 試験は a11y 入力由来であり証拠に代用しない。post-layout の `on_mount` から幅を変更し、追加入力なしで反映する public E2E を追加。ただし waker/redraw と control 単独の起床を分離しないため、起床条件は変更しない |
+| 取消しの共通セッション | 外部 | 2026-10-06、2026-10-07 | C-1 | 取込済み |
+| 最後の client turn が layout だけを要求した後の host 起床 | 外部 | 内部レビュー（Z の制御経路調査） | Z | 厳密条件は未再現。通常の `Host::turn` は `client.turn` 後に必ず `effects`・`layout` を実行する。既存 focus 試験は a11y 入力由来であり証拠に代用しない。post-layout の `on_mount` から幅を変更し、追加入力なしで反映する public E2E を追加。ただし waker/redraw と control 単独の起床を分離しないため、起床条件は変更しない |
 | closure の直接指定 | 外部 | 今回の再調査（入門との不一致） | C-2 | 取込済み |
 | dialog の幅 | 業務系 | 今回の再調査（固定幅） | C-3 | 取込済み |
-| path の輪郭の読取り | モーショングラフィックス | ee54d2af | C-4 | 取込済み |
-| font family の一覧 | モーショングラフィックス | 9cde3651、1b7cabd0 | C-5 | 取込済み |
-| window の中央配置 | 業務系 | dea1f644 | C-6 | 取込済み |
-| open・reveal・folder picking の手順 | 外部 | a5f33eb4 | C-7 | 取込済み |
+| path の輪郭の読取り | モーショングラフィックス | 2026-10-07 | C-4 | 取込済み |
+| font family の一覧 | モーショングラフィックス | 2026-10-07、2026-10-08 | C-5 | 取込済み |
+| window の中央配置 | 業務系 | 2026-10-08 | C-6 | 取込済み |
+| open・reveal・folder picking の手順 | 外部 | 2026-10-09 | C-7 | 取込済み |
 | 拡大・pan・座標変換 | 外部 | 今回の再調査（editor の重複） | C-8 | 取込済み |
 | Canvas region 上の共通 pan と標準 menu | 外部 | 今回の回帰試験（Node 見出し上で middle/Space+primary/wheel が届かない、region の右クリックで標準 menu が開かない） | C-8・D-7 | 取込済み。`Part::region_events()` はユーザーが承認した中核の追加。明示した部位だけ未処理region入力を受け、kit の独自転送と menu 専用配送の二重化を避ける |
 | 拡大・pan の面で focus 中の部位を Space で起動しない | 外部 | 今回の回帰試験（node editor で node に focus を置き Space を押すと node が起動する） | C-8 | 取込済み。`Handled::PreventDefault` はユーザーが承認した中核の追加（2026-10-18）。伝播は続け、Enter/Space の activate などの既定動作だけを止める |
 | worker の frame の受渡し | 外部 | 今回の再調査（renderer の所有境界） | C-9 | 取込済み |
 | editor の操作の回帰試験 | 外部 | 今回の再調査（試験の不足） | D-1 | 取込済み（D-3で既知の再現2件も有効化し成功） |
-| 用途別 editor とアプリの絵の表示 | 外部 | 3c6948cb、8404ff22、公式 kit の境界見直し（2026-10-19） | D-2 | 項目列は読取専用。EditorEvent の要求をアプリが反映・拒否し、Cancel で項目を復元する。画像・ID・名前・接続規則・再生クロックはアプリが所有 |
-| 取消しのできる編集 | モーショングラフィックス | 810457ea、9f4553e0 | D-3 | 取込済み（全対象の取消し、D-1のignore2件を含むconsumer238件が成功） |
-| 実単位の graph | モーショングラフィックス | 14f326c0、451f3e62、0e5c4d67、5da667f0、9f4553e0 | D-4 | 取込済み |
-| 独立した color wheel | モーショングラフィックス | 3c6948cb | D-5 | 取込済み |
-| Bezier とプレビュー | モーショングラフィックス | fce90184、bb85a142 | D-6 | 取込済み |
-| gradient の編集 | モーショングラフィックス | 9cde3651 | D-6 | 取込済み |
-| outliner の tone・placeholder・セル | モーショングラフィックス | 791f0f9a、3c6948cb | D-7 | 取込済み |
-| lane セル・activation・context menu | モーショングラフィックス | 8404ff22、791f0f9a、c7279193 | D-7 | 取込済み |
-| picker の複数列 | モーショングラフィックス | c40ea401 | D-8・review K-5 | 取込済み。`forward_keys` の3 methodsはユーザーが承認した中核の追加。引数を `impl IntoValue<Vec<Key>>` に揃え、実行中の一覧変更にも対応 |
+| 用途別 editor とアプリの絵の表示 | 外部 | 2026-10-07、2026-10-09、公式 kit の境界見直し（2026-10-19） | D-2 | 項目列は読取専用。EditorEvent の要求をアプリが反映・拒否し、Cancel で項目を復元する。画像・ID・名前・接続規則・再生クロックはアプリが所有 |
+| 取消しのできる編集 | モーショングラフィックス | 2026-10-06、2026-10-07 | D-3 | 取込済み（全対象の取消し、D-1のignore2件を含むconsumer238件が成功） |
+| 実単位の graph | モーショングラフィックス | 2026-10-07、2026-10-08 | D-4 | 取込済み |
+| 独立した color wheel | モーショングラフィックス | 2026-10-09 | D-5 | 取込済み |
+| Bezier とプレビュー | モーショングラフィックス | 2026-10-06、2026-10-07 | D-6 | 取込済み |
+| gradient の編集 | モーショングラフィックス | 2026-10-07 | D-6 | 取込済み |
+| outliner の tone・placeholder・セル | モーショングラフィックス | 2026-10-09 | D-7 | 取込済み |
+| lane セル・activation・context menu | モーショングラフィックス | 2026-10-07、2026-10-09 | D-7 | 取込済み |
+| picker の複数列 | モーショングラフィックス | 2026-10-08 | D-8・review K-5 | 取込済み。`forward_keys` の3 methodsはユーザーが承認した中核の追加。引数を `impl IntoValue<Vec<Key>>` に揃え、実行中の一覧変更にも対応 |
 | creative 表の共通の振る舞い | 外部 | 今回の再調査（表の重複） | E-1 | 取込済み（既存の共通table経路を確認） |
-| セルの選択・draft・TSV・行の編集 | モーショングラフィックス | c7f90e7e | E-2 | 見送り（設計が約600行の単位を超える） |
-| calendar の年・月の選択 | 業務系 | ccf5a2ff | F-1 | 取込済み |
-| 期間入力の案内と閉じるボタン | 業務系 | ccf5a2ff | F-2 | 取込済み |
-| tabbed dock | 外部 | 46e2c18a（現行 `dock.rs` を確認） | 既存 | 取込済み |
-| outliner の drop | 外部 | 05907f55、公式 kit の境界見直し（2026-10-19） | 既存 | on_item_drop がある場合だけ drag を有効にして要求を報告。親と並び順の反映はアプリが所有 |
-| Numeric の draft | 外部 | dba09ea8（現行 `numeric.rs` を確認） | 既存 | 取込済み |
-| window の寸法 | 外部 | 345997b9（現行 `view/platform.rs` を確認） | 既存 | 取込済み |
-| 日付の途中入力の保持 | 外部 | 2e0380d2（現行 `date.rs` を確認） | 既存 | 取込済み |
-| 期間入力 | 外部 | ccf5a2ff（現行 `date.rs` を確認） | 既存 | 取込済み |
-| 右クリックメニュー | 外部 | c7279193（現行 `interaction/menu.rs` を確認） | 既存 | 取込済み |
-| 残り続ける toast | 外部 | dea1f644（現行 `interaction/toaster.rs` を確認） | 既存 | 取込済み |
-| アプリの GPU texture を読み戻さずに表示する | クリエイティブ | 2026-10-26 の要求と測定（4K で CPU 経路 49〜66 ms）、spike branch `spike/kashiwade/gpu-interop` | 実験 feature `gpu-interop`、中立な共有 crate `gpu-share`（engine は feature `export`、wgpu の engine は `wgpu`、renderer は `import`） | 取込済み（実験）。既定で有効にする条件は、次のすべて：Linux 実機での e2e が通る（2026-10-26、Surface Pro 6・Intel UHD 620・Mesa 26.2.5 で達成）、Vulkan の validation layer で受け渡しの error が 0 件（同日、Linux で達成。naga の SPIR-V による `VUID-StandaloneSpirv-None-10684` は受け渡しの外で、別に扱う）、device の喪失と release の時間切れの e2e がある、実アプリ 1 つで使われる、wgpu の版上げを 1 回乗り越える |
+| セルの選択・draft・TSV・行の編集 | モーショングラフィックス | 2026-10-08 | E-2 | 見送り（設計が約600行の単位を超える） |
+| calendar の年・月の選択 | 業務系 | 2026-10-08 | F-1 | 取込済み |
+| 期間入力の案内と閉じるボタン | 業務系 | 2026-10-08 | F-2 | 取込済み |
+| tabbed dock | 外部 | 2026-10-09（現行 `dock.rs` を確認） | 既存 | 取込済み |
+| outliner の drop | 外部 | 2026-10-07、公式 kit の境界見直し（2026-10-19） | 既存 | on_item_drop がある場合だけ drag を有効にして要求を報告。親と並び順の反映はアプリが所有 |
+| Numeric の draft | 外部 | 2026-10-09（現行 `numeric.rs` を確認） | 既存 | 取込済み |
+| window の寸法 | 外部 | 2026-10-08（現行 `view/platform.rs` を確認） | 既存 | 取込済み |
+| 日付の途中入力の保持 | 外部 | 2026-10-08（現行 `date.rs` を確認） | 既存 | 取込済み |
+| 期間入力 | 外部 | 2026-10-08（現行 `date.rs` を確認） | 既存 | 取込済み |
+| 右クリックメニュー | 外部 | 2026-10-09（現行 `interaction/menu.rs` を確認） | 既存 | 取込済み |
+| 残り続ける toast | 外部 | 2026-10-08（現行 `interaction/toaster.rs` を確認） | 既存 | 取込済み |
+| アプリの GPU texture を読み戻さずに表示する | クリエイティブ | 2026-10-26 の要求と測定（4K で CPU 経路 49〜66 ms） | 実験 feature `gpu-interop`、中立な共有 crate `kivact-gpu-share`（engine は feature `export`、wgpu の engine は `wgpu`、renderer は `import`） | 取込済み（実験）。既定で有効にする条件は、次のすべて：Linux 実機での e2e が通る（2026-10-26、Surface Pro 6・Intel UHD 620・Mesa 26.2.5 で達成）、Vulkan の validation layer で受け渡しの error が 0 件（同日、Linux で達成。naga の SPIR-V による `VUID-StandaloneSpirv-None-10684` は受け渡しの外で、別に扱う）、device の喪失と release の時間切れの e2e がある、実アプリ 1 つで使われる、wgpu の版上げを 1 回乗り越える |

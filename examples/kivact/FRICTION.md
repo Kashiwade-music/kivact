@@ -18,7 +18,7 @@ counter・form・list・async・componentを、標準UIと現在の公開APIで�
 
 listは `todos.item(|t| t.id, id).field(..)` で一行の `done` を元の一覧へ結び、呼出側で `binding`・`memo`・`callback` を組み立てません。componentの `on_close` は `impl Fn() + Copy + 'static` で受け、`button("Close").on_press(on_close)` へ渡します。`.into()`、`.call(())`、親側の `move |_| ...` は不要になりました。
 
-元のmain `9f5f4985` を同じ規則で集計すると、code行は15/32/66/39/50、componentの `move` は7でした。`53c9865f` では14/31/63/37/48、componentの `move` は6で、現在は14/31/54/34/48、listの `move` は6、asyncの `move` は5です（`Signal::item`・`Binding::field` と、signalをそのまま受ける `resource` のsourceによる）。turbofish・型注釈・明示cloneの件数は同じです。行数の減少だけで、学習負担や性能が同じ比率で改善したとは扱いません。
+2026-10-17 の main を同じ規則で集計すると、code行は15/32/66/39/50、componentの `move` は7でした。その後の版では14/31/63/37/48、componentの `move` は6で、現在は14/31/54/34/48、listの `move` は6、asyncの `move` は5です（`Signal::item`・`Binding::field` と、signalをそのまま受ける `resource` のsourceによる）。turbofish・型注釈・明示cloneの件数は同じです。行数の減少だけで、学習負担や性能が同じ比率で改善したとは扱いません。
 
 ## 初学者がまだつまずく点
 
