@@ -8,17 +8,13 @@
 //! `context` after an `.await` use the task's owner.
 //!
 //! Invariants:
-//! - Futures are wrapped in [`CatchUnwind`]: a panic in a poll becomes a
-//!   reported error, and `turn` never panics.
+//! - A panic in a poll propagates out of `poll_tasks` and the turn.
 //! - When the window is destroyed the owners are disposed, the remaining
 //!   queues stop, and cancelled runnables are collected on the UI thread.
 
-use std::any::Any;
 use std::collections::VecDeque;
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
 
 use kivact_reactive::OwnerId;
 
@@ -43,7 +39,8 @@ pub(crate) struct Executor {
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+    m.lock()
+        .expect("executor lock poisoned: a panic already happened")
 }
 
 impl Executor {
@@ -85,24 +82,4 @@ impl Executor {
     pub(crate) fn pop(&self) -> Option<Runnable> {
         lock(&self.shared.queue).pop_front()
     }
-}
-
-/// Catch panics of an inner future at every poll.
-pub(crate) struct CatchUnwind<F>(pub(crate) Pin<Box<F>>);
-
-impl<F: Future> Future for CatchUnwind<F> {
-    type Output = Result<F::Output, Box<dyn Any + Send>>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let fut = self.0.as_mut();
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || fut.poll(cx))) {
-            Ok(Poll::Pending) => Poll::Pending,
-            Ok(Poll::Ready(v)) => Poll::Ready(Ok(v)),
-            Err(p) => Poll::Ready(Err(p)),
-        }
-    }
-}
-
-pub(crate) fn catch_unwind<F: Future>(f: F) -> CatchUnwind<F> {
-    CatchUnwind(Box::pin(f))
 }

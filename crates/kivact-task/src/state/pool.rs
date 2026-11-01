@@ -1,8 +1,9 @@
 //! Role: This module manages worker threads and blocking jobs.
 
+use std::any::Any;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, ThreadId};
 use std::time::{Duration, Instant};
 
 /// Bound DLL-unload cleanup without waiting forever for uncooperative jobs.
@@ -11,7 +12,10 @@ const SHUTDOWN_WAIT: Duration = Duration::from_secs(2);
 pub(crate) type Job = Box<dyn FnOnce() + Send>;
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+    // A worker never holds a pool lock while it runs a job, so a poisoned
+    // lock means a panic already happened elsewhere.
+    m.lock()
+        .expect("blocking pool lock poisoned: a panic already happened")
 }
 
 /// Fixed pool of worker threads (default `min(4, CPUs)`).
@@ -78,6 +82,17 @@ impl Pool {
         }
     }
 
+    /// Join the dead worker thread `id` and take the payload of the panic
+    /// that ended it; `None` if the thread is not (or no longer) here.
+    pub(crate) fn take_panic(&self, id: ThreadId) -> Option<Box<dyn Any + Send>> {
+        let handle = {
+            let mut handles = lock(&self.handles);
+            let at = handles.iter().position(|h| h.thread().id() == id)?;
+            handles.swap_remove(at)
+        };
+        handle.join().err()
+    }
+
     /// Stop accepting jobs; idle workers exit.
     pub(crate) fn shutdown(&self) {
         lock(&self.tx).take();
@@ -86,6 +101,8 @@ impl Pool {
 }
 
 /// Join completed jobs and warn before detaching those beyond their deadline.
+/// A job that panicked and was never awaited resumes its panic here, unless
+/// this thread is already panicking.
 pub(crate) fn wait_for_threads(handles: Vec<JoinHandle<()>>) {
     let mut detached = 0;
     for handle in handles {
@@ -94,7 +111,11 @@ pub(crate) fn wait_for_threads(handles: Vec<JoinHandle<()>>) {
             std::thread::sleep(Duration::from_millis(1));
         }
         if handle.is_finished() {
-            let _ = handle.join();
+            if let Err(payload) = handle.join()
+                && !std::thread::panicking()
+            {
+                std::panic::resume_unwind(payload);
+            }
         } else {
             crate::detached::DETACHED.store(true, std::sync::atomic::Ordering::Release);
             detached += 1;
