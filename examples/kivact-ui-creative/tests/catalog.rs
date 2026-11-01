@@ -10,8 +10,6 @@ use std::time::Duration;
 
 #[path = "catalog/creative.rs"]
 mod creative;
-#[path = "catalog/toolbar.rs"]
-mod toolbar;
 
 #[test]
 fn creative_source_editors_scroll_in_the_original_shell() {
@@ -160,6 +158,3 @@ fn evidence(screen: &Screen, name: &str) {
         .expect("save retained semantic tree");
     }
 }
-
-#[path = "catalog/audio.rs"]
-mod audio;

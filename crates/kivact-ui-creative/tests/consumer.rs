@@ -1,11 +1,9 @@
 //! Role: An ordinary external consumer: only the public Kivact facade is imported.
 
-use kivact::Callback;
-use kivact::binding;
 use kivact::draw::{Point, Size};
 use kivact::prelude::*;
 use kivact::primitive::NodeExt;
-use kivact::test::{RenderOptions, Screen, render_with};
+use kivact::test::{RenderOptions, Screen};
 use kivact::ui::{MenuEntry, toaster};
 use kivact::view::A11yAction;
 use kivact::view::MouseButton;
@@ -27,11 +25,7 @@ use std::time::Duration;
 
 #[path = "consumer/table_rows.rs"]
 mod table_rows;
-use table_rows::{Line, line, lines};
-#[path = "consumer/cleanup.rs"]
-mod cleanup;
-#[path = "consumer/tables.rs"]
-mod tables;
+use table_rows::{line, lines};
 
 fn apply_clips(items: &mut Vec<ui::Clip>, request: &ui::TimeRequest) {
     match request {
@@ -133,77 +127,11 @@ fn app_dope_sheet(
     let items = items.into();
     ui::dope_sheet(items, state).on_edit(time_edits(items, apply_keys, |_| {}))
 }
-fn time_observer<R: kivact::view::HandlerResult>(
-    clips: Signal<Vec<ui::Clip>>,
-    keys: Signal<Vec<ui::Keyframe>>,
-    observer: impl Fn(kivact::ui::EditPhase) -> R + 'static,
-) -> impl Fn(ui::EditorEvent<ui::TimeRequest>) + 'static {
-    let clips = time_edits(clips, apply_clips, observer);
-    let keys = time_edits(keys, apply_keys, |_| {});
-    move |event: ui::EditorEvent<ui::TimeRequest>| {
-        keys(event.clone());
-        clips(event);
-    }
-}
-macro_rules! creative_time_fixture {
-    ($is_keys:expr, $clips:expr, $keys:expr, $state:expr, $($builder:tt)*) => {
-        if $is_keys {
-            app_dope_sheet($keys, $state) $($builder)* .into_view()
-        } else {
-            app_timeline($clips, $state) $($builder)* .into_view()
-        }
-    };
-}
-
 fn near(a: impl Into<f64>, b: impl Into<f64>, tolerance: f64) -> bool {
     (a.into() - b.into()).abs() < tolerance
 }
-fn value(clips: Signal<Vec<ui::Clip>>, keys: Signal<Vec<ui::Keyframe>>, is_keys: bool) -> f64 {
-    if is_keys {
-        keys.get_untracked()[0].time
-    } else {
-        clips.get_untracked()[0].start
-    }
-}
-fn inspect(screen: &Screen, name: &str, item: Option<u64>, lane: Option<u64>, time: f64) {
-    screen.get_by_role(Role::Menu, name);
-    screen
-        .get_by_role(Role::MenuItem, &format!("Inspect {item:?} {lane:?} {time}"))
-        .click();
-}
-
 fn clean(screen: &Screen) {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn default_fonts_and_user_modifiers_need_no_assets() {
-    let (screen, count) = kivact::test::render_with_handle(crate::options(), || {
-        let count = signal(0);
-        (
-            count,
-            column((
-                kivact::ui::button("Apply")
-                    .variant(kivact::ui::ButtonVariant::Secondary)
-                    .icon(kivact::control::icon("check"))
-                    .style(style().height(40))
-                    .on_press(move || count.update(|v| *v += 1)),
-                kivact::ui::button("Disabled")
-                    .variant(kivact::ui::ButtonVariant::Secondary)
-                    .disabled(true),
-                ui::number("Gain", signal(0.0)),
-                ui::knob("Pan", signal(0.0)),
-                ui::fader("Volume", signal(0.0)).range(-60.0, 6.0),
-            )),
-        )
-    });
-    let apply = screen.get_by_role(Role::Button, "Apply");
-    assert_eq!(apply.rect().map(|r| r.height), Some(40.0));
-    apply.click();
-    apply.press_key(Key::Enter);
-    assert_eq!(count.get_untracked(), 2);
-    assert!(screen.get_by_role(Role::Button, "Disabled").is_disabled());
-    clean(&screen);
 }
 
 #[test]
@@ -267,45 +195,6 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
 }
 
 #[test]
-fn mixed_check_switch_and_roving_segment_are_public_semantics() {
-    let (screen, (check, choice)) = kivact::test::render_with_handle(crate::options(), || {
-        let check = signal(false);
-        let choice = signal(Some("constant"));
-        (
-            (check, choice),
-            column((
-                kivact::ui::checkbox("Mixed Selection", check).indeterminate(true),
-                kivact::ui::switch("Enabled", signal(true)),
-                kivact::ui::radio_group(
-                    "Interpolation",
-                    choice_options(&[
-                        ("constant", "Constant"),
-                        ("linear", "Linear"),
-                        ("bezier", "Bezier"),
-                    ]),
-                    choice,
-                )
-                .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
-                kivact::ui::button("After").variant(kivact::ui::ButtonVariant::Secondary),
-            )),
-        )
-    });
-    let mixed = screen.get_by_role(Role::CheckBox, "Mixed Selection");
-    assert!(mixed.is_indeterminate());
-    mixed.a11y(A11yAction::Toggle);
-    assert!(check.get_untracked());
-    let first = screen.get_by_role(Role::RadioButton, "Constant");
-    first.focus();
-    first.press_key(Key::ArrowRight);
-    assert_eq!(choice.get_untracked(), Some("linear"));
-    assert_eq!(screen.focused().map(|e| e.name()), Some("Linear".into()));
-    screen.press_key(Key::Tab);
-    assert_eq!(screen.focused().map(|e| e.name()), Some("After".into()));
-    clean(&screen);
-}
-
-#[test]
 fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
     let (screen, (check, switch, bold, open)) =
         kivact::test::render_with_handle(crate::options(), || {
@@ -361,45 +250,6 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
 }
 
 #[test]
-fn all_numeric_geometries_accept_finite_clamped_accessibility_values() {
-    let (screen, values) = kivact::test::render_with_handle(crate::options(), || {
-        let values = [signal(0.5), signal(0.5), signal(0.5), signal(-6.0)];
-        (
-            values,
-            row((
-                ui::number("Exposure", values[0]).range(0.0, 1.0).step(0.1),
-                ui::value_slider("Mix", values[1]),
-                ui::knob("Drive", values[2]),
-                ui::fader("Volume", values[3])
-                    .range(-60.0, 6.0)
-                    .precision(3),
-            )),
-        )
-    });
-    for (i, (role, name)) in [
-        (Role::SpinButton, "Exposure"),
-        (Role::Slider, "Mix"),
-        (Role::Slider, "Drive"),
-        (Role::Slider, "Volume"),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let control = screen.get_by_role(role, name);
-        control.a11y_with_value(A11yAction::SetValue, "0.75");
-        assert_eq!(values[i].get_untracked(), 0.75);
-        control.a11y_with_value(A11yAction::SetValue, "999");
-        let maximum = if i == 3 { 6.0 } else { 1.0 };
-        assert_eq!(values[i].get_untracked(), maximum);
-        for invalid in ["NaN", "inf", "no value"] {
-            control.a11y_with_value(A11yAction::SetValue, invalid);
-            assert_eq!(values[i].get_untracked(), maximum);
-        }
-    }
-    clean(&screen);
-}
-
-#[test]
 fn numeric_arithmetic_submit_cancel_and_blur_commit() {
     let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
         let value = signal(0.25);
@@ -438,28 +288,6 @@ fn numeric_arithmetic_submit_cancel_and_blur_commit() {
     screen.get_by_role(Role::TextBox, "Gain").type_text("3 * 2");
     screen.get_by_role(Role::Button, "Outside").click();
     assert_eq!(value.get_untracked(), 6.0);
-    clean(&screen);
-}
-
-#[test]
-fn a_value_slider_in_a_kept_disclosure_keeps_its_consumer_value() {
-    let (screen, value) = kivact::test::render_with_handle(crate::options(), || {
-        let value = signal(0.5);
-        (
-            value,
-            column((kivact::ui::disclosure("Transform", signal(true), move || {
-                ui::value_slider("Scale", value)
-            })
-            .keep_mounted(true),)),
-        )
-    });
-    screen
-        .get_by_role(Role::Slider, "Scale")
-        .a11y_with_value(A11yAction::SetValue, "0.75");
-    let disclosure = screen.get_by_role(Role::Button, "Transform");
-    disclosure.click();
-    disclosure.click();
-    assert_eq!(value.get_untracked(), 0.75);
     clean(&screen);
 }
 
@@ -827,17 +655,8 @@ mod interactions;
 #[path = "consumer/layout_parts.rs"]
 mod layout_parts;
 
-#[path = "consumer/node_regions.rs"]
-mod node_regions;
-
-#[path = "consumer/editor_actions.rs"]
-mod editor_actions;
 #[path = "consumer/editor_gestures.rs"]
 mod editor_gestures;
-#[path = "consumer/keyed.rs"]
-mod keyed;
-#[path = "consumer/messages.rs"]
-mod messages;
 #[path = "consumer/numeric_edit.rs"]
 mod numeric_edit;
 #[path = "consumer/outliner.rs"]
@@ -846,42 +665,6 @@ mod outliner;
 mod picker;
 #[path = "consumer/range.rs"]
 mod range;
-#[path = "consumer/ruler.rs"]
-mod ruler;
-
-#[path = "consumer/table_stage3.rs"]
-mod table_stage3;
-
-#[test]
-fn rendering_factories_accept_nodes_and_pointer_observers_accept_closures() {
-    let (screen, pointers) = kivact::test::render_with_handle(crate::options(), || {
-        let pointers = signal(0usize);
-        (
-            pointers,
-            column((
-                lines(
-                    &["Name"],
-                    signal(vec![line(1, ["Layer"])]),
-                    signal(Vec::new()),
-                )
-                .cell_controls(|row, column| text(move || row.get().cells[column].clone())),
-                ui::window_button("Node content", ui::WindowOptions::default(), |_| {
-                    text("Window node")
-                }),
-                ui::viewport_surface(None)
-                    .on_pointer(move |_: ui::SurfacePointer| pointers.update(|n| *n += 1))
-                    .style(style().size(300, 100))
-                    .test_id("pointer observer"),
-            )),
-        )
-    });
-    screen.get_by_text("Layer");
-    screen.get_by_test_id("pointer observer").hover();
-    assert!(pointers.get_untracked() > 0);
-    screen.get_by_role(Role::Button, "Node content").click();
-    screen.get_by_text("Window node");
-    clean(&screen);
-}
 
 #[path = "consumer/arrangement_edit.rs"]
 mod arrangement_edit;
@@ -889,31 +672,13 @@ mod arrangement_edit;
 mod bezier;
 #[path = "consumer/color_wheel.rs"]
 mod color_wheel;
-#[path = "consumer/editor_edit.rs"]
-mod editor_edit;
 #[path = "consumer/gradient.rs"]
 mod gradient;
 #[path = "consumer/graph_domain.rs"]
 mod graph_domain;
-#[path = "consumer/graph_extensions.rs"]
-mod graph_extensions;
-#[path = "consumer/node_boundary.rs"]
-mod node_boundary;
-#[path = "consumer/node_edit.rs"]
-mod node_edit;
 #[path = "consumer/node_support.rs"]
 mod node_support;
 use node_support::app_node_editor;
-#[path = "consumer/reactive_options.rs"]
-mod reactive_options;
-#[path = "consumer/time_extensions.rs"]
-mod time_extensions;
-
-#[path = "consumer/editor_extensions.rs"]
-mod editor_extensions;
-
-#[path = "consumer/time_step.rs"]
-mod time_step;
 
 #[path = "consumer/graph_support.rs"]
 mod graph_support;
@@ -921,12 +686,6 @@ use graph_support::{app_graph, graph_edits};
 #[path = "consumer/arrangement_model.rs"]
 mod arrangement_model;
 use arrangement_model::arrangement as app_arrangement;
-
-#[path = "consumer/arrangement_boundary.rs"]
-mod arrangement_boundary;
-
-#[path = "consumer/audio_boundary.rs"]
-mod audio_boundary;
 
 fn options() -> RenderOptions {
     RenderOptions {

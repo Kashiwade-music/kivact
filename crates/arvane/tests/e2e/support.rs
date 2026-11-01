@@ -145,7 +145,7 @@ pub(crate) struct FrameDiff {
 }
 
 impl FrameDiff {
-    /// Within the tolerance of the GPU tests (docs/for-kivact-developer/design.md, ch. 10): the
+    /// Within the tolerance of the GPU tests: the
     /// rasterizers anti-alias edges and glyphs and approximate blurs
     /// slightly differently.
     #[track_caller]

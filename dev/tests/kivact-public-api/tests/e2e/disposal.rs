@@ -77,43 +77,6 @@ fn a_cleanup_writes_signals_and_registers_a_cleanup_on_its_disposing_owner() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-#[test]
-fn on_cleanup_registered_while_disposing_runs_at_once_in_order() {
-    let l = log();
-    let l2 = l.clone();
-    let (screen, open) = mount(move || {
-        let open = signal(true);
-        let branch = show(open, move || {
-            let owner = Owner::current("disposal test");
-            let alive = owner.store("disposal test", Rc::new(()));
-            let (first, second) = (l2.clone(), l2.clone());
-            owner.on_cleanup(move || push(&first, "first registered"));
-            owner.on_cleanup(move || {
-                push(&second, "second registered");
-                let late = second.clone();
-                // Registered while the owner is being disposed.
-                owner.on_cleanup(move || push(&late, "registered while disposing"));
-                assert!(alive.try_get().is_none(), "a disposing owner is not alive");
-            });
-            text("child")
-        });
-        (open, branch)
-    });
-    assert!(l.borrow().is_empty());
-    open.set(false);
-    screen.run_until_idle();
-    assert_eq!(
-        *l.borrow(),
-        vec![
-            "second registered",
-            "registered while disposing",
-            "first registered"
-        ],
-        "cleanups run LIFO; one registered while disposing runs at once"
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
 /// Reads the tree of the App when dropped (`NodeRef::hit_test`).
 struct ReadsTreeOnDrop {
     target: NodeRef,

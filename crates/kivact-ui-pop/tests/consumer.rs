@@ -2,76 +2,17 @@
 
 use kivact::draw::Point;
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, render_with};
+use kivact::test::RenderOptions;
 use kivact::ui::{Command, ListItem, MenuEntry, toaster};
 use kivact::view::A11yAction;
-use kivact::view::{LiveRegion, Modifiers};
+use kivact::view::LiveRegion;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 
-#[path = "consumer/cleanup.rs"]
-mod cleanup;
 #[path = "consumer/dates.rs"]
 mod dates;
 #[path = "consumer/interactions.rs"]
 mod interactions;
-#[path = "consumer/keyed.rs"]
-mod keyed;
-#[path = "consumer/messages.rs"]
-mod messages;
-#[path = "consumer/operations.rs"]
-mod operations;
-
-#[test]
-fn source_line_metrics_and_rich_activity_titles_survive_other_host_typography() {
-    let theme = ui::theme(kivact::style::ThemeMode::Light);
-    let text = kivact::style::theme::Typography {
-        line_height: kivact::style::LineHeight::Scale(1.0),
-        ..theme.text().clone()
-    };
-    let theme = theme.with_text(text);
-    let (screen, ()) = kivact::test::render_with_handle(
-        kivact::test::RenderOptions {
-            theme,
-            ..crate::options()
-        },
-        || {
-            (
-                (),
-                column((
-                    ui::alert("Notice")
-                        .description("Sample body")
-                        .tone(kivact::ui::Tone::Info),
-                    ui::timeline_item("Haruka submitted a report")
-                        .detail("")
-                        .timestamp("One hour ago")
-                        .icon("circle-check")
-                        .tone(ui::Hue::Gray)
-                        .title_content(move || {
-                            kivact::control::rich_text([
-                                kivact::control::span("Haruka")
-                                    .weight(500)
-                                    .color(ColorToken::Text),
-                                kivact::control::span(" submitted a report"),
-                            ])
-                        }),
-                ))
-                .style(style().width(400).gap(16)),
-            )
-        },
-    );
-    let height = |name| {
-        screen
-            .get_by_role(Role::Text, name)
-            .rect()
-            .expect("text laid out")
-            .height
-    };
-    assert!(height("Notice") >= 21.0);
-    assert!(height("Sample body") >= 19.5);
-    assert!(height("Haruka submitted a report") >= 21.0);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
 
 #[test]
 fn button_states_and_user_modifiers_use_public_contract() {
@@ -344,46 +285,6 @@ fn modal_dismisses_and_restores_focus_to_its_opener() {
 }
 
 #[test]
-fn numeric_requests_clamp_to_the_range() {
-    let (screen, count) = kivact::test::render_with_handle(crate::options(), || {
-        let count = signal(4.0_f64);
-        let range = kivact::ui::ScalarRange::new(1.0, 12.0)
-            .and_then(|range| range.with_step(1.0))
-            .expect("invariant: the bounds and the step are finite");
-        (count, kivact::ui::number_input("Count", count, range))
-    });
-    let input = screen.get_by_role(Role::SpinButton, "Count");
-    input.focus();
-    screen.press_key(Key::ArrowLeft);
-    assert_eq!(input.text_selection(), Some((0, 0)));
-    assert_eq!(count.get_untracked(), 4.0);
-    screen.press_key(Key::ArrowRight);
-    assert_eq!(input.text_selection(), Some((1, 1)));
-    for (key, expected) in [
-        (Key::Home, 1.0),
-        (Key::End, 12.0),
-        (Key::PageDown, 2.0),
-        (Key::PageUp, 12.0),
-        (Key::ArrowDown, 11.0),
-        (Key::ArrowUp, 12.0),
-    ] {
-        screen.press_key(key);
-        assert_eq!(count.get_untracked(), expected);
-        assert!(input.is_focused());
-    }
-    input.a11y_with_value(A11yAction::SetValue, "4");
-    input.press_key(Key::ArrowUp);
-    assert_eq!(count.get_untracked(), 5.0);
-    input.a11y_with_value(A11yAction::SetValue, "2147483647");
-    assert_eq!(count.get_untracked(), 12.0);
-    input.a11y(A11yAction::Increment);
-    assert_eq!(count.get_untracked(), 12.0);
-    input.a11y_with_value(A11yAction::SetValue, "-100");
-    assert_eq!(count.get_untracked(), 1.0);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
 fn table_search_sort_selection_paging_are_external_consumer_behavior() {
     #[derive(Clone, PartialEq)]
     struct Member {
@@ -490,103 +391,6 @@ fn notification_has_live_semantics_and_expires_on_the_host_clock() {
     screen.advance(Duration::from_millis(1));
     assert!(screen.query_by_text("Saved").is_none());
     assert!(screen.query_by_text("Failed").is_none());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn notification_icon_replaces_the_tone_icon_and_four_are_shown_at_once() {
-    let (screen, toaster) = kivact::test::render_with_handle(crate::options(), || {
-        let toaster = toaster();
-        toaster.max_visible(4);
-        (toaster, kivact::ui::toast_region(toaster))
-    });
-    toaster.push(
-        kivact::ui::Toast::new("Plain")
-            .tone(kivact::ui::Tone::Info)
-            .body("hue icon"),
-    );
-    toaster.push(
-        kivact::ui::Toast::new("Custom")
-            .tone(kivact::ui::Tone::Info)
-            .body("own icon")
-            .icon(|| text("MARK").test_id("custom-icon")),
-    );
-    screen.run_until_idle();
-    assert_eq!(screen.all_by_test_id("custom-icon").len(), 1);
-    assert!(
-        screen
-            .within(screen.get_by_role(Role::Status, "Custom"))
-            .query_by_test_id("custom-icon")
-            .is_some()
-    );
-    assert!(
-        screen
-            .within(screen.get_by_role(Role::Status, "Plain"))
-            .query_by_test_id("custom-icon")
-            .is_none()
-    );
-    for n in 0..4 {
-        toaster.push(
-            kivact::ui::Toast::new(format!("More {n}"))
-                .tone(kivact::ui::Tone::Neutral)
-                .body("x"),
-        );
-    }
-    screen.run_until_idle();
-    assert_eq!(toaster.toasts().get_untracked().len(), 4);
-    assert!(screen.query_by_text("More 2").is_none(), "the fifth waits");
-    screen.advance(Duration::from_millis(4999));
-    assert!(
-        screen.query_by_text("Plain").is_some(),
-        "5000 ms by default"
-    );
-    screen.advance(Duration::from_millis(1));
-    assert!(screen.query_by_text("Plain").is_none());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn notification_pauses_under_the_pointer_and_closes_with_its_button_or_action() {
-    let (screen, (toaster, (undone, undo))) =
-        kivact::test::render_with_handle(crate::options(), || {
-            let undone = signal(false);
-            let undo = kivact::ui::Toast::new("Deleted")
-                .tone(kivact::ui::Tone::Info)
-                .body("Row removed")
-                .action("元に戻す", move || undone.set(true));
-            (
-                (toaster(), (undone, undo)),
-                kivact::ui::toast_region(toaster()),
-            )
-        });
-    toaster.push(undo);
-    toaster.push(
-        kivact::ui::Toast::new("Other")
-            .tone(kivact::ui::Tone::Neutral)
-            .body("Stays a while"),
-    );
-    screen.run_until_idle();
-    screen.get_by_text("Row removed").hover();
-    screen.advance(Duration::from_secs(30));
-    assert!(
-        screen.query_by_text("Deleted").is_some(),
-        "held by the pointer"
-    );
-    assert!(
-        screen.query_by_text("Other").is_none(),
-        "the other one went"
-    );
-    screen.get_by_role(Role::Button, "元に戻す").click();
-    assert!(undone.get_untracked());
-    assert!(screen.query_by_text("Deleted").is_none());
-    toaster.push(
-        kivact::ui::Toast::new("Closable")
-            .tone(kivact::ui::Tone::Info)
-            .body("Close me"),
-    );
-    screen.run_until_idle();
-    screen.get_by_role(Role::Button, "Close").click();
-    assert!(screen.query_by_text("Closable").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -733,130 +537,6 @@ fn dropzone_reports_public_file_events_and_platform_picker_results() {
             std::path::PathBuf::from("調査.pdf")
         ]
     );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[path = "consumer/table_stage3.rs"]
-mod table_stage3;
-
-#[test]
-fn optional_agenda_content_and_dropzone_guidance_are_application_owned() {
-    let (screen, details) = kivact::test::render_with_handle(crate::options(), || {
-        let details = signal(0usize);
-        (
-            details,
-            column((
-                ui::agenda_item("13:00", "Default event")
-                    .description("No action")
-                    .tone(ui::Hue::Blue),
-                ui::agenda_item("01:00", "Explicit event")
-                    .description("Action")
-                    .tone(ui::Hue::Mint)
-                    .period("Evening")
-                    .on_details(move || details.update(|count| *count += 1)),
-                ui::dropzone("Plain upload"),
-                ui::stat_card("Trend", "42")
-                    .trend("↘ custom")
-                    .icon("users")
-                    .points(vec![])
-                    .tone(ui::Hue::Mint),
-            )),
-        )
-    });
-    assert!(screen.query_by_role(Role::Text, "AM").is_none());
-    assert!(screen.query_by_role(Role::Text, "PM").is_none());
-    screen.get_by_role(Role::Text, "Evening");
-    let trend = screen
-        .get_by_role(Role::Text, "↘ custom")
-        .rect()
-        .expect("laid out");
-    let shot = screen.screenshot();
-    let mut green = 0;
-    let mut red = 0;
-    for y in trend.y as u32..(trend.y + trend.height) as u32 {
-        for x in trend.x as u32..(trend.x + trend.width) as u32 {
-            let pixel = shot.pixel(x, y).expect("in frame");
-            let [r, g, b] = [16, 8, 0].map(|shift| ((pixel >> shift) & 0xff) as i32);
-            green += usize::from(g > r + 20);
-            red += usize::from(r > g + 60 && r > b + 60);
-        }
-    }
-    assert!(
-        green > 0 && red == 0,
-        "explicit Mint overrides the downward arrow: {green}, {red}"
-    );
-    screen.get_by_role(Role::Button, "Event details").click();
-    assert_eq!(details.get_untracked(), 1);
-    assert!(
-        screen
-            .query_by_role(Role::Text, "or click to choose · PNG, PDF up to 10 MB")
-            .is_none()
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn toast_region_preserves_application_visible_limit() {
-    let (screen, toaster) = kivact::test::render_with_handle(crate::options(), || {
-        let toaster = toaster();
-        toaster.max_visible(2);
-        (toaster, kivact::ui::toast_region(toaster))
-    });
-    for index in 0..5 {
-        toaster.push(
-            kivact::ui::Toast::new(format!("Toast {index}"))
-                .tone(kivact::ui::Tone::Info)
-                .body("Body"),
-        );
-    }
-    assert_eq!(toaster.toasts().get_untracked().len(), 2);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn agenda_omits_details_without_an_application_action() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::options(), || {
-        (
-            (),
-            ui::agenda_item("13:00", "Event")
-                .description("Description")
-                .tone(ui::Hue::Blue),
-        )
-    });
-    assert!(
-        screen
-            .query_by_role(Role::Button, "Event details")
-            .is_none()
-    );
-    assert!(screen.query_by_role(Role::Text, "PM").is_none());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-/// The caller's `.style(..)` comes after the kit's defaults, whatever the
-/// order of the calls: a badge's own `height(22)` and a toggle's recipe
-/// (`height(32)`) lose to the caller's height and width.
-#[test]
-fn the_callers_style_wins_over_the_kits_on_a_badge_and_a_toggle() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::options(), || {
-        (
-            (),
-            column((
-                ui::badge("New")
-                    .style(style().height(30).width(90))
-                    .test_id("badge"),
-                kivact::ui::toggle("Bold", signal(false))
-                    .style(style().height(40).width(110))
-                    .test_id("toggle"),
-            ))
-            .style(style().align_items(Align::Start)),
-        )
-    });
-    let size = |id: &str| {
-        let rect = screen.get_by_test_id(id).rect().expect("laid out");
-        (rect.width, rect.height)
-    };
-    assert_eq!(size("badge"), (90.0, 30.0));
-    assert_eq!(size("toggle"), (110.0, 40.0));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

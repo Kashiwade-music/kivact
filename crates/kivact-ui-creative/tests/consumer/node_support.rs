@@ -1,5 +1,4 @@
 //! Role: Application node graph constraints and edit reduction.
-use kivact::view::callback;
 use kivact::{Callback, Signal, signal};
 
 use kivact_ui_creative as ui;
@@ -117,8 +116,6 @@ pub(super) fn edits(
 /// Test application adapter: owns the reducer and forwards phase observations.
 pub(super) struct AppNodeEditor {
     editor: ui::NodeEditor,
-    nodes: Signal<Vec<ui::NodeData>>,
-    links: Signal<Vec<ui::NodeLink>>,
 }
 pub(super) fn app_node_editor(
     nodes: Signal<Vec<ui::NodeData>>,
@@ -129,20 +126,9 @@ pub(super) fn app_node_editor(
         editor: ui::node_editor(nodes, links, state)
             .can_connect(move |link| can_connect(&nodes.get_untracked(), link))
             .on_edit(edits(nodes, links, None)),
-        nodes,
-        links,
     }
 }
 impl AppNodeEditor {
-    pub(super) fn on_edit<R: kivact::view::HandlerResult>(
-        mut self,
-        observer: impl Fn(kivact::ui::EditPhase) -> R + 'static,
-    ) -> Self {
-        self.editor = self
-            .editor
-            .on_edit(edits(self.nodes, self.links, Some(callback(observer))));
-        self
-    }
     pub(super) fn snap(mut self, value: impl kivact::view::IntoValue<bool>) -> Self {
         self.editor = self.editor.snap(value);
         self

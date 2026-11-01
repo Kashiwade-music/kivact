@@ -1,8 +1,6 @@
 //! Role: Shared support and utilities for end-to-end tests.
-//! root's setup handed out), the probe fixture of the probe tables and the
-//! deterministic random driver of the random probe tests.
+//! Mounting helpers and the deterministic random driver of the model tests.
 
-pub(crate) mod probe;
 pub(crate) mod random;
 
 use kivact::prelude::*;

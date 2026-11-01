@@ -1851,7 +1851,6 @@ dependencies = [
  "kivact-types",
  "kivact-wire",
  "png 0.18.1",
- "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1952,7 +1951,6 @@ dependencies = [
  "kivact-ui-creative",
  "kivact-ui-game",
  "kivact-ui-pop",
- "tracing",
  "windows",
  "windows-sys 0.52.0",
 ]
