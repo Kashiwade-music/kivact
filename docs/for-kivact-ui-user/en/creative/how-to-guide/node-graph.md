@@ -144,7 +144,7 @@ A few details that matter in practice:
 - **A re-route is two requests inside one gesture.** Dragging a link end from one input to another sends `Disconnect` and `Connect` between a single `Begin` and `Commit`, so one undo step covers it.
 - **Self-connections are never reported.**
 - **`Move` positions are absolute** and computed from the positions at `Begin`, as in the timeline editors.
-- **`snap(true)`** rounds horizontal moves to multiples of 10 units. It also accepts a signal.
+- **`snap(true)`** rounds how far a drag moves the nodes to multiples of 10 units on both axes. It also accepts a signal.
 
 ## Add parameters to a node
 

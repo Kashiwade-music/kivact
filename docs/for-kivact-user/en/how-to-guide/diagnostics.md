@@ -109,8 +109,8 @@ a boundary. What happens at a boundary depends on how the code fails:
 
 A reported error goes to the nearest `error_boundary` above the failing code. It
 runs its `on_error` handler, its `fallback`, or both. With no boundary, the error
-reaches the **default sink**: a `tracing::error!` line and a ring buffer that
-tests read with `Screen::errors()`. The app does not stop.
+reaches the **default sink**: a `tracing::error!` line and a ring buffer of the
+last 256 errors. The app does not stop.
 
 ```rust,test_harness
 use kivact::diagnostics::ErrorKind;
@@ -181,6 +181,37 @@ Three details are worth knowing:
 - A failed image or font is a diagnostic, not a failure: it goes to the default
   sink (`ErrorKind::Asset`) even inside a boundary, and the node draws nothing
   while the rest of the app goes on.
+
+## Show recent errors in the running app
+
+`kivact::diagnostics::errors()` returns the errors in the default sink's ring,
+oldest first. Tests read the same ring with `Screen::errors()`. The result is a
+snapshot that subscribes to nothing, so read it when you need it, for example
+when a "Report a problem" dialog opens:
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn report_button() -> impl IntoView {
+    let summary = signal(String::new());
+    column((
+        button("Report a problem").on_press(move || {
+            let lines: Vec<String> = kivact::diagnostics::errors()
+                .iter()
+                .map(|error| format!("{:?}: {error}", error.kind()))
+                .collect();
+            summary.set(lines.join("; "));
+        }),
+        text(move || summary.get()),
+    ))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Report").run(report_button)
+}
+```
+
+Outside the App's own code (no App is running on the thread) the list is empty.
 
 ## Common errors and what to do
 

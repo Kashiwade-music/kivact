@@ -153,3 +153,34 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
             .all(|t| t.ops == 0 && t.writes.iter().all(|w| w.at.file().ends_with("focus.rs")))
     );
 }
+
+/// A running App reads the errors no boundary handled: a failing handler's
+/// error is in `diagnostics::errors`, the same ring `Screen::errors` reads.
+#[test]
+fn the_app_reads_the_errors_of_its_default_sink() {
+    let screen = render(|| {
+        let seen = signal(0_usize);
+        column((
+            button("Fail").on_press(|| -> kivact::Result<()> {
+                Err(UiError::new(
+                    kivact::diagnostics::ErrorKind::Message,
+                    "export failed",
+                    None,
+                ))
+            }),
+            button("Count").on_press(move || seen.set(kivact::diagnostics::errors().len())),
+            text(move || format!("errors: {}", seen.get())),
+        ))
+    });
+    screen.get_by_role(Role::Button, "Count").click();
+    screen.get_by_text("errors: 0");
+    screen.get_by_role(Role::Button, "Fail").click();
+    screen.get_by_role(Role::Button, "Count").click();
+    screen.get_by_text("errors: 1");
+    let errors = kivact::diagnostics::errors();
+    assert!(
+        errors.is_empty(),
+        "outside the App's code there is no current App"
+    );
+    assert_eq!(screen.errors().len(), 1);
+}

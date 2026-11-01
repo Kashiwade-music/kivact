@@ -590,10 +590,19 @@ mod tests {
         input.type_text("kivact");
         assert_eq!(input.value().as_deref(), Some("kivact"));
     }
+
+    #[test]
+    fn pressing_the_label_focuses_the_text_box() {
+        let screen = kivact::test::render(app);
+        screen.get_by_text("Site search").click();
+        assert!(screen.get_by_role(Role::TextBox, "Site search").is_focused());
+    }
 }
 ```
 
 `accessible_*` の読み出しは、呼び出し側の設定を消費せずにコピーします。そのためルートも自分の設定を保ったままです。コンポーネント全体に対して呼び出し側が設定でき、かつ内部のどれか 1 つの部品に属する情報なら、どれも同じ手順で転送できます。
+
+フォーカスは転送しなくてかまいません。field のラベルを押すと、ルートの中で最初にフォーカスを受けられる要素（ここではテキストボックス）が操作されます。2 つ目のテストがそれを確かめています。
 
 ## コンポーネントの誤用を報告する
 

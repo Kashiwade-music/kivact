@@ -671,12 +671,22 @@ mod tests {
         input.type_text("kivact");
         assert_eq!(input.value().as_deref(), Some("kivact"));
     }
+
+    #[test]
+    fn pressing_the_label_focuses_the_text_box() {
+        let screen = kivact::test::render(app);
+        screen.get_by_text("Site search").click();
+        assert!(screen.get_by_role(Role::TextBox, "Site search").is_focused());
+    }
 }
 ```
 
 The `accessible_*` readers copy what the caller set without consuming it, so the
 root keeps its own settings as well. The same pattern applies to anything a
 caller can set on the whole component and that belongs to one part inside it.
+
+Focus needs no forwarding: pressing the field's label activates the first
+focusable element inside your root, here the text box, as the second test shows.
 
 ## Report misuse of your component
 

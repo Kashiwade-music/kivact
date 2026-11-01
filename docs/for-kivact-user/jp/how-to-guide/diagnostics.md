@@ -83,7 +83,7 @@ Kivact はコンポーネントの setup、イベントハンドラー (`on_pres
 - **コードがパニックする。** パニックは捕まえられ、`ErrorKind::Panic` のエラーとして報告されます。アプリは動き続けます。Rust のパニックフックは通常どおり stderr にパニックメッセージを出します。
 - **Kivact の関数を誤用する。** ハンドラーの中で `signal` を呼ぶ、`memo` の中でシグナルに書き込む、所有者が破棄されたあとのハンドルを使う、などは位置つきのエラーになります (下の表)。この種のパニックでは panic フックは何も出さないので、エラーは tracing か境界でしか見えません。
 
-報告されたエラーは、失敗したコードより上にある一番近い `error_boundary` に渡されます。境界は `on_error`、`fallback`、またはその両方を実行します。境界がなければ、エラーは**既定の出力先**に届きます。`tracing::error!` の 1 行と、テストが `Screen::errors()` で読むリングバッファです。アプリは止まりません。
+報告されたエラーは、失敗したコードより上にある一番近い `error_boundary` に渡されます。境界は `on_error`、`fallback`、またはその両方を実行します。境界がなければ、エラーは**既定の出力先**に届きます。`tracing::error!` の 1 行と、直近 256 件のエラーを持つリングバッファです。アプリは止まりません。
 
 ```rust,test_harness
 use kivact::diagnostics::ErrorKind;
@@ -149,6 +149,35 @@ mod tests {
 - fallback の `reset` 関数は子を新しく作り直します。そのため境界の内側で作った状態は最初からやり直しになります。
 - `on_error` だけの境界は、子を画面に残したままあなたの関数を呼びます。どちらのハンドラーも持たない境界は、エラーを親の境界へ渡します。
 - 画像やフォントの失敗は障害ではなく診断です。境界の内側でも既定の出力先 (`ErrorKind::Asset`) へ行き、そのノードは何も描かず、アプリの残りは動き続けます。
+
+
+## 実行中のアプリで直近のエラーを表示する
+
+`kivact::diagnostics::errors()` は、既定の出力先のリングバッファにあるエラーを古い順に返します。テストの `Screen::errors()` も同じリングバッファを読みます。結果はその時点の写しで、何も購読しません。「問題を報告」ダイアログを開くときのように、必要になったときに読んでください。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn report_button() -> impl IntoView {
+    let summary = signal(String::new());
+    column((
+        button("問題を報告").on_press(move || {
+            let lines: Vec<String> = kivact::diagnostics::errors()
+                .iter()
+                .map(|error| format!("{:?}: {error}", error.kind()))
+                .collect();
+            summary.set(lines.join("; "));
+        }),
+        text(move || summary.get()),
+    ))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Report").run(report_button)
+}
+```
+
+アプリのコードの外 (そのスレッドで App が動いていないとき) では、一覧は空です。
 
 ## よくあるエラーと対処
 

@@ -273,10 +273,11 @@ fn item_drag_writes_consumer_positions_with_and_without_snap() {
                 },
                 "{kind:?}"
             );
-            let dy = if matches!(kind, Kind::Timeline | Kind::DopeSheet) {
-                0.0
-            } else {
-                7.0
+            // The node editor snaps both axes; the time editors snap time only.
+            let dy = match kind {
+                Kind::Timeline | Kind::DopeSheet => 0.0,
+                Kind::Nodes if snap => 10.0,
+                _ => 7.0,
             };
             assert_eq!(after[0].position.y, before[0].position.y + dy, "{kind:?}");
             assert_eq!(&after[1..], &before[1..], "{kind:?}: other items stay put");
