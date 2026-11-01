@@ -230,7 +230,9 @@ impl TaskState {
 }
 
 /// Counts of what a [`TaskState`] holds, for diagnostics and tests.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TaskStats {
     /// Pending host-clock timers.
     pub timers: usize,

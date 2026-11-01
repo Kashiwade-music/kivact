@@ -356,6 +356,8 @@ impl Model {
                 EditOutcome::Done { .. } => return KeyResult::Consumed,
                 EditOutcome::Copy { text, .. } => return KeyResult::Copy(text),
                 EditOutcome::Paste => return KeyResult::Paste(i),
+                // Variants added later fall back to not editing.
+                _ => {}
             }
             let command = modifiers.ctrl || modifiers.alt || modifiers.meta;
             if let Some(t) = text
@@ -501,10 +503,6 @@ impl Model {
 /// password)` and its `lines`, aligned in a box `width` wide.
 fn context<'a>(flags: (bool, bool, bool), lines: &'a Shaping<'_>, width: f32) -> EditContext<'a> {
     let (multiline, read_only, password) = flags;
-    let layout = EditLayout {
-        lines,
-        revision: lines.revision(),
-        width,
-    };
+    let layout = EditLayout::new(lines, lines.revision(), width);
     EditContext::new(multiline, read_only, password, Some(layout))
 }

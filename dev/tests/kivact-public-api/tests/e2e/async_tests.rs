@@ -103,6 +103,8 @@ fn action_request_cancel_retry_matches_the_model() {
                 },
                 AsyncState::Failed(e) if e.is_cancelled() => Model::Cancelled(input),
                 AsyncState::Ready(_) | AsyncState::Failed(_) => Model::Done(input),
+                // Variants added later fall back to idle.
+                _ => Model::Idle,
             };
             assert_eq!(got, model, "{ctx}");
             assert_eq!(
@@ -210,6 +212,8 @@ fn p2b_resource_source_change_refetch_cancel_matches_the_model() {
                 AsyncState::Failed(e) if e.is_cancelled() => RModel::Cancelled,
                 AsyncState::Failed(_) => RModel::Failed,
                 AsyncState::Idle => RModel::Loading(u32::MAX, 1),
+                // Variants added later fall back to loading.
+                _ => RModel::Loading(u32::MAX, 1),
             };
             assert_eq!(got, model, "{ctx}");
             assert_eq!(res.latest(), last_ok, "{ctx}: latest");

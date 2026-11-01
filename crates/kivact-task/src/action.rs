@@ -50,6 +50,7 @@ use kivact_reactive::{
 
 /// How an [`Action`] schedules a new run.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ActionPolicy {
     /// Start at once; a pending run is cancelled (latest wins). The run is
     /// cancelled when the action's owner is disposed.

@@ -286,17 +286,9 @@ pub(crate) fn text_layout(
     let mapped = |rect: Rect| map_rect(transform.as_ref(), rect);
     let caret = map_rect(transform.as_ref(), caret_rect(host, id, engine));
     let (mut lines, _) = host.edit_lines(id, engine)?;
-    let mut out = TextLayout {
-        caret,
-        line_count: 0,
-        lines: Vec::new(),
-        carets: Vec::new(),
-    };
+    let mut out = TextLayout::new(caret, 0, Vec::new(), Vec::new());
     if !lines.shows_value() {
-        out.carets.push(EditCaret {
-            offset: 0,
-            rect: caret,
-        });
+        out.carets.push(EditCaret::new(0, caret));
         return Some(out);
     }
     out.line_count = lines.len();
@@ -313,29 +305,23 @@ pub(crate) fn text_layout(
             .as_ref()
             .and_then(|s| s.lines.first())
             .map_or(Rect::new(0.0, 0.0, 0.0, lines.height()), |l| l.rect);
-        out.lines.push(EditLine {
-            range: range.clone(),
-            rect: shift(rect),
-            baseline: mapped(Rect::new(x, y + lines.baseline(value, i, engine), 0.0, 0.0)).y,
-        });
+        out.lines.push(EditLine::new(
+            range.clone(),
+            shift(rect),
+            mapped(Rect::new(x, y + lines.baseline(value, i, engine), 0.0, 0.0)).y,
+        ));
         if let Some(shaped) = shaped {
             let mut end = None;
             for c in &shaped.carets {
                 let rect = shift(c.rect);
                 end = Some(rect);
-                out.carets.push(EditCaret {
-                    offset: offset + c.offset,
-                    rect,
-                });
+                out.carets.push(EditCaret::new(offset + c.offset, rect));
             }
             let content = shaped.carets.len().saturating_sub(1) as u32;
             if lines.crlf(i)
                 && let Some(rect) = end
             {
-                out.carets.push(EditCaret {
-                    offset: offset + content + 1,
-                    rect,
-                });
+                out.carets.push(EditCaret::new(offset + content + 1, rect));
             }
         }
         offset += chars;
