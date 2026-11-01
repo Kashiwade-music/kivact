@@ -134,7 +134,9 @@ impl TestParent {
                 "test parent dimensions must be positive Win32 coordinates",
             ));
         }
-        let mut class = CLASS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut class = CLASS
+            .lock()
+            .expect("test parent class lock poisoned: a panic already happened");
         if class.0 == 0 {
             let mut module = 0;
             // SAFETY: the proc's address identifies this DLL without retaining it.
@@ -554,7 +556,9 @@ impl TestParent {
 impl Drop for TestParent {
     fn drop(&mut self) {
         self.close();
-        let mut class = CLASS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut class = CLASS
+            .lock()
+            .expect("test parent class lock poisoned: a panic already happened");
         class.0 -= 1;
         if class.0 == 0 {
             // SAFETY: the final host HWND was destroyed before unregistering its DLL class.

@@ -46,10 +46,10 @@ pub(super) unsafe extern "system" fn wndproc(
     let result = match catch_unwind(AssertUnwindSafe(|| dispatch(&state, hwnd, message, w, l))) {
         Ok(result) => result,
         Err(payload) => {
-            std::mem::forget(payload);
-            state
-                .shared
-                .fail(ShellError::new("embedded window procedure panicked"));
+            // A panic must not unwind into the host's message loop. Keep it:
+            // the child stops below without running more App code, and the
+            // host's next call on `Embedded` resumes it.
+            state.shared.keep_panic(payload);
             0
         }
     };
@@ -249,7 +249,7 @@ pub(super) fn attach(state: &Rc<State>, hwnd: HWND) -> Result<(), ShellError> {
         .set(unsafe { std::mem::transmute::<isize, WNDPROC>(old) });
     Ok(())
 }
-fn detach(state: &State, hwnd: HWND) {
+pub(super) fn detach(state: &State, hwnd: HWND) {
     // SAFETY: restore this child's saved system proc before releasing USERDATA.
     unsafe {
         SetWindowLongPtrW(

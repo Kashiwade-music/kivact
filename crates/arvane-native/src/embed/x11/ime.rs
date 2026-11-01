@@ -15,7 +15,6 @@ use super::conn::Native;
 use arvane_shell::{ShellError, ShellEvent};
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use x11rb::connection::Connection;
@@ -40,16 +39,6 @@ fn locale() -> String {
         .into_iter()
         .find_map(|name| std::env::var(name).ok().filter(|value| !value.is_empty()))
         .unwrap_or_else(|| "C".into())
-}
-
-/// Runs one call into the xim crate, which panics on some malformed server
-/// input. An error and a panic both mean the server cannot be used any more.
-fn guarded<T>(call: impl FnOnce() -> Result<T, ClientError>) -> Result<T, String> {
-    match catch_unwind(AssertUnwindSafe(call)) {
-        Ok(Ok(value)) => Ok(value),
-        Ok(Err(error)) => Err(error.to_string()),
-        Err(_) => Err("the xim client panicked".into()),
-    }
 }
 
 pub(super) struct Ime {
@@ -177,7 +166,7 @@ impl Ime {
             if Some(message.window) == self.protocol_window);
         let protocol = self.protocol;
         let handler = &mut self.handler;
-        let result = guarded(|| {
+        let mut filter = || -> Result<_, ClientError> {
             let reply = if observe {
                 sync_reply(client, protocol, event)?
             } else {
@@ -185,7 +174,8 @@ impl Ime {
             };
             let filtered = client.filter_event(event, handler)?;
             Ok((reply, filtered))
-        });
+        };
+        let result = filter().map_err(|e| e.to_string());
         let (reply, filtered) = match result {
             Ok(parts) => parts,
             Err(reason) => {
@@ -267,11 +257,12 @@ impl Ime {
                 break;
             };
             let (im, ic) = (h.im, h.ic);
-            let sent = guarded(|| {
+            let mut forward = || -> Result<(), ClientError> {
                 client.forward_event(im, ic, ForwardEventFlag::SYNCHRONOUS, &event)?;
                 client.conn().flush()?;
                 Ok(())
-            });
+            };
+            let sent = forward().map_err(|e| e.to_string());
             match sent {
                 Ok(()) => {
                     self.flight = Some(Flight {
@@ -370,7 +361,7 @@ impl Ime {
             h.events.push(ShellEvent::ImeDisabled);
         }
         let (im, ic) = (h.im, h.ic);
-        let result = guarded(|| {
+        let mut focus = || -> Result<(), ClientError> {
             if on {
                 client.set_focus(im, ic)?;
             } else {
@@ -378,7 +369,8 @@ impl Ime {
             }
             client.conn().flush()?;
             Ok(())
-        });
+        };
+        let result = focus().map_err(|e| e.to_string());
         if let Err(reason) = result {
             self.degrade(&reason);
         }
@@ -404,7 +396,7 @@ impl Ime {
         if let Some(client) = &mut self.client
             && ic != 0
         {
-            let result = guarded(|| {
+            let mut place = || -> Result<(), ClientError> {
                 let attrs = client
                     .build_ic_attributes()
                     .nested_list(AttributeName::PreeditAttributes, |b| {
@@ -414,7 +406,8 @@ impl Ime {
                 client.set_ic_values(im, ic, attrs)?;
                 client.conn().flush()?;
                 Ok(())
-            });
+            };
+            let result = place().map_err(|e| e.to_string());
             match result {
                 Ok(()) => self.handler.sent_spot = Some(key),
                 Err(reason) => self.degrade(&reason),
@@ -449,14 +442,10 @@ fn connect(native: &Native) -> Result<(Option<ClientConnection>, u32, u32), Shel
     if !present {
         return Ok((None, 0, 0));
     }
-    let init = catch_unwind(AssertUnwindSafe(|| {
-        ClientConnection::init(connection, native.screen as usize, None)
-    }));
-    let client = match init {
-        Ok(Ok(client)) => client,
-        Ok(Err(ClientError::NoXimServer)) => return Ok((None, 0, 0)),
-        Ok(Err(error)) => return Err(super::error::platform(error)),
-        Err(_) => return Err(super::error::platform("the xim client panicked")),
+    let client = match ClientConnection::init(connection, native.screen as usize, None) {
+        Ok(client) => client,
+        Err(ClientError::NoXimServer) => return Ok((None, 0, 0)),
+        Err(error) => return Err(super::error::platform(error)),
     };
     let atom = |name: &[u8]| -> Result<u32, ShellError> {
         Ok(client

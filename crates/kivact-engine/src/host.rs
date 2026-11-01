@@ -373,9 +373,6 @@ impl Host {
         }
         self.model.borrow_mut().frame.set_now(window.now_ns());
         let output = self.client.turn(events, boundaries, window.now_ns());
-        if let Some(diagnostic) = output.stop {
-            return Err(ShellError::new(diagnostic));
-        }
         if self.closing() {
             return Ok(());
         }

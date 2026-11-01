@@ -62,7 +62,7 @@ use texture::target_texture;
 use crate::error::RenderError;
 use crate::{draw, validate};
 use kivact_types::{CpuFrame, Scene, Size};
-use std::sync::{Arc, Mutex, PoisonError, mpsc};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
 
@@ -244,7 +244,7 @@ impl GpuContext {
     pub fn failure(&self) -> Option<String> {
         self.failure
             .lock()
-            .unwrap_or_else(PoisonError::into_inner)
+            .expect("GPU failure lock poisoned: a panic already happened")
             .clone()
     }
 
@@ -584,7 +584,7 @@ where
 fn record(failure: &Mutex<Option<String>>, message: String) {
     failure
         .lock()
-        .unwrap_or_else(PoisonError::into_inner)
+        .expect("GPU failure lock poisoned: a panic already happened")
         .get_or_insert(message);
 }
 

@@ -8,15 +8,14 @@
 //! - A job owns everything it reads (the asset, a shared parsed SVG), so it
 //!   can run on another thread; its result names the entry generation it
 //!   was made for, and the store drops results for entries that are gone.
-//! - A panic inside a decoder becomes a `Decode` failure of that asset and
-//!   never takes the worker thread down.
+//! - A decoder or rasterizer panic is a bug: it ends the worker thread and
+//!   the store resumes it on the host thread at its next poll.
 //! - A file's version is taken before it is read, so a file that changes
 //!   while being read is seen as changed by the next check.
 //! - A check of a failed file (`Job::Recheck`) reads its metadata here, on
 //!   the worker (an unreachable network path can block for seconds), and
 //!   loads it again only when its version changed.
 
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 use kivact_types::Asset;
@@ -121,18 +120,7 @@ pub(crate) fn run(job: Job) -> Done {
             size,
             crop,
         } => {
-            // resvg does not panic on a parsed tree; a panic here would be
-            // a resvg bug, and an empty raster draws nothing, like a failure.
-            let bitmap = catch_unwind(AssertUnwindSafe(|| svg.rasterize(size, crop)))
-                .unwrap_or_else(|_| {
-                    let (width, height) =
-                        crop.map_or((size.width, size.height), |c| (c.width, c.height));
-                    Bitmap {
-                        width,
-                        height,
-                        rgba: vec![0; width as usize * height as usize * 4].into(),
-                    }
-                });
+            let bitmap = svg.rasterize(size, crop);
             Done::Raster {
                 asset,
                 generation,
@@ -144,7 +132,7 @@ pub(crate) fn run(job: Job) -> Done {
     }
 }
 
-/// The finished load of `asset` (file `version`), a decoder panic caught.
+/// The finished load of `asset` (file `version`).
 fn load_done(
     asset: Asset,
     generation: u64,
@@ -152,14 +140,7 @@ fn load_done(
     budget: usize,
     retained: usize,
 ) -> Done {
-    let result =
-        catch_unwind(AssertUnwindSafe(|| load(&asset, budget, retained))).unwrap_or_else(|_| {
-            Err(AssetError::new(
-                AssetErrorKind::Decode,
-                &asset,
-                "the decoder panicked",
-            ))
-        });
+    let result = load(&asset, budget, retained);
     Done::Load {
         asset,
         generation,

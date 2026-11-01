@@ -386,7 +386,7 @@ impl Shell {
         self
     }
 
-    /// Run until requested exit. Panicking callbacks return a shell error.
+    /// Run until requested exit. A callback panic propagates out of `run`.
     pub fn run(self, handler: impl Handler) -> Result<(), ShellError> {
         let mut driver = driver(
             handler,

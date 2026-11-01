@@ -2,6 +2,7 @@
 
 use crate::bridge::Client;
 use crate::{FrameLog, host};
+pub use arvane::embed::PanicSlot;
 use arvane::embed::{Embedded, Embedder};
 pub use arvane::{detached_threads, retain_module};
 use kivact_types::{GpuPreference, ParentWindow};
@@ -23,6 +24,8 @@ pub struct EmbedOptions {
     pub on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     /// GPU device preference (default when interop is disabled).
     pub gpu_preference: GpuPreference,
+    /// Where a panic of the App is kept for the embedder to resume.
+    pub panic: PanicSlot,
 }
 
 /// An embedded engine host. `Send` and `Sync`. Drop requests closure and stops new turns.
@@ -80,6 +83,7 @@ pub fn embed_native(
             on_resize_request: options.on_resize_request,
             prefer_gpu: true,
             gpu_preference: options.gpu_preference,
+            panic: options.panic,
         },
         move || {
             let client = client();

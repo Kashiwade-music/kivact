@@ -104,9 +104,7 @@ impl Host {
             model.set_store(store);
         }
         let tree = super::write::Writer::new(&self.model, &self.engine);
-        if let Some(diagnostic) = self.client.start(&info, waker, tree) {
-            return Err(ShellError::new(diagnostic));
-        }
+        self.client.start(&info, waker, tree);
         self.effects(window);
         if self.closing() {
             return Ok(ShellControl::default());

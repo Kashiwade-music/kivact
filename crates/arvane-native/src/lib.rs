@@ -49,8 +49,9 @@
 //! Weston's window manager may fail an assertion and drop the XWayland
 //! connection, ending the process.
 //!
-//! A panic in a callback is caught at the shell's boundary and ends the
-//! loop with a [`arvane_shell::ShellError`] ([`arvane_shell::ShellEventLoop::run`]).
+//! A panic in a callback propagates out of the loop: winit carries it across
+//! its window procedure (Win32, macOS) and resumes it after the loop
+//! ([`arvane_shell::ShellEventLoop::run`]).
 #![deny(unsafe_code)]
 
 #[cfg(feature = "embed")]
