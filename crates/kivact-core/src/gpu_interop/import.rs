@@ -397,8 +397,8 @@ pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalIm
 
 /// The window's adapter changed (`HostEvent::GpuAdapterChanged`): the
 /// imports of another device are lost.
-pub(crate) fn adapter_changed(rt: &Runtime, adapter: &Option<GpuAdapter>) {
-    let generation = adapter.as_ref().map(|a| a.generation);
+pub(crate) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
+    let generation = adapter.map(|a| a.generation);
     let state = State::of(rt);
     let lost: Vec<Signal<ImportStatus>> = state
         .imports
@@ -415,7 +415,7 @@ pub(crate) fn adapter_changed(rt: &Runtime, adapter: &Option<GpuAdapter>) {
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
         if let Some(signal) = signal {
-            signal.set(adapter.clone());
+            signal.set(adapter.cloned());
         }
         for status in lost {
             status.set(ImportStatus::Lost);

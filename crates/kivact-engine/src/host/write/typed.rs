@@ -53,10 +53,8 @@ fn image(p: &mut NodeProperties) -> Option<&mut ImageData> {
 fn editing(p: &mut NodeProperties) -> Option<&mut EditingData> {
     p.editing.as_deref_mut()
 }
-fn read_only(value: &Option<EditingData>) -> bool {
-    value
-        .as_ref()
-        .is_some_and(|data| data.read_only == Some(true))
+fn read_only(value: Option<&EditingData>) -> bool {
+    value.is_some_and(|data| data.read_only == Some(true))
 }
 
 /// The property table: `Variant: setter(value: Type) => store, mut = ..;`
@@ -263,7 +261,7 @@ props! {
         => boxed(v, |p| Some(&mut p.editing)),
         mut = Mut::MEASURE
             .and(Mut::RESTACK)
-            .and(Mut::READ_ONLY.when(read_only(&v))),
+            .and(Mut::READ_ONLY.when(read_only(v.as_ref()))),
         then = after_editing;
     /// Update the controlled text input value, respecting an active
     /// composition. The same `Rc` given again at the text's revision it

@@ -46,7 +46,7 @@ pub(super) fn a11y(
     node: NodeId,
     region: Option<RegionId>,
     action: A11yAction,
-    value: &Option<String>,
+    value: Option<&str>,
 ) {
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "a11y", node);
@@ -63,7 +63,7 @@ pub(super) fn a11y(
         node,
         action,
         region,
-        value.clone(),
+        value.map(str::to_owned),
         (action == A11yAction::Dismiss).then_some(DismissReason::Accessibility),
     );
 }
