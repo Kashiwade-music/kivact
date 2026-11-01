@@ -105,7 +105,7 @@ pub(in crate::embed) fn open(
     }
     // From here on any early return, and a panic of the App while it starts,
     // detaches the window procedure and destroys the child.
-    let opening = super::window::Opening::new(state.clone(), hwnd);
+    let opening = Opening::new(state.clone(), hwnd);
     // SAFETY: opt in only our newly created child to shell drop messages.
     unsafe { windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd, 1) };
     state.a11y.replace(Some(super::bridge::Bridge::new(
@@ -192,5 +192,37 @@ fn module() -> Result<isize, ShellError> {
         Err(ShellError::new("GetModuleHandleExW failed"))
     } else {
         Ok(module)
+    }
+}
+
+/// Destroys a child whose opening did not finish: on an `Err` return and on
+/// unwind. The window procedure is detached first, so no App code runs again.
+struct Opening {
+    state: Rc<State>,
+    hwnd: isize,
+    armed: bool,
+}
+
+impl Opening {
+    fn new(state: Rc<State>, hwnd: isize) -> Self {
+        Self {
+            state,
+            hwnd,
+            armed: true,
+        }
+    }
+    fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for Opening {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        super::a11y::disconnect(&self.state);
+        super::proc::detach(&self.state, self.hwnd);
+        self.state.destroy();
     }
 }

@@ -24,36 +24,6 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 pub(super) struct Window(pub(super) Rc<State>);
 
-/// Destroys a child whose opening did not finish: on an `Err` return and on
-/// unwind. The window procedure is detached first, so no App code runs again.
-pub(super) struct Opening {
-    state: Rc<State>,
-    hwnd: isize,
-    armed: bool,
-}
-impl Opening {
-    pub(super) fn new(state: Rc<State>, hwnd: isize) -> Self {
-        Self {
-            state,
-            hwnd,
-            armed: true,
-        }
-    }
-    pub(super) fn disarm(mut self) {
-        self.armed = false;
-    }
-}
-impl Drop for Opening {
-    fn drop(&mut self) {
-        if !self.armed {
-            return;
-        }
-        super::a11y::disconnect(&self.state);
-        super::proc::detach(&self.state, self.hwnd);
-        self.state.destroy();
-    }
-}
-
 /// Marks the App busy while its code runs; clears the mark on unwind too, so
 /// the window procedure can stop the child after it caught a panic.
 struct BusyGuard<'a>(&'a Cell<bool>);
