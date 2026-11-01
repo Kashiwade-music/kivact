@@ -164,30 +164,21 @@ where
     message = "`{Self}` cannot be the run closure of an `action`",
     note = "pass `|| async {{ .. }}` or `|input: I| async move {{ .. }}` whose future returns `Result<T, UiError>`"
 )]
-pub trait ActionFn<T, M>: sealed::Sealed<M> + 'static {
+pub trait ActionFn<T, M>: crate::sealed::ActionFnSeal<M> + 'static {
     /// What `Action::run` takes: `()` for a closure without an argument.
     type Input: 'static;
     #[doc(hidden)]
     fn start(&self, input: &Self::Input) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>>;
 }
 
-mod sealed {
-    //! Role: Seal of `ActionFn` and its two argument forms.
-    pub trait Sealed<M> {}
-    /// The form of a run closure without an argument.
-    pub struct Nullary;
-    /// The form of a run closure with one argument.
-    pub struct Unary<I>(std::marker::PhantomData<I>);
-}
-
-impl<F, Fut, T> sealed::Sealed<sealed::Nullary> for F
+impl<F, Fut, T> crate::sealed::ActionFnSeal<crate::sealed::Nullary> for F
 where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<T, UiError>>,
 {
 }
 
-impl<F, Fut, T> ActionFn<T, sealed::Nullary> for F
+impl<F, Fut, T> ActionFn<T, crate::sealed::Nullary> for F
 where
     F: Fn() -> Fut + 'static,
     Fut: Future<Output = Result<T, UiError>> + 'static,
@@ -198,14 +189,14 @@ where
     }
 }
 
-impl<F, Fut, T, I> sealed::Sealed<sealed::Unary<I>> for F
+impl<F, Fut, T, I> crate::sealed::ActionFnSeal<crate::sealed::Unary<I>> for F
 where
     F: Fn(I) -> Fut,
     Fut: Future<Output = Result<T, UiError>>,
 {
 }
 
-impl<F, Fut, T, I> ActionFn<T, sealed::Unary<I>> for F
+impl<F, Fut, T, I> ActionFn<T, crate::sealed::Unary<I>> for F
 where
     F: Fn(I) -> Fut + 'static,
     Fut: Future<Output = Result<T, UiError>> + 'static,

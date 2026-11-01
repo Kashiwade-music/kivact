@@ -11,14 +11,11 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
 
-pub(crate) mod pool;
-mod time;
-
 use super::executor::Executor;
+use crate::time::TimeState;
+use crate::worker_pool::{self, Pool};
 use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owned, Runtime};
-use pool::Pool;
-use time::TimeState;
 
 /// What a spawned task stores under its owner: its executor handle and
 /// whether its future completed.
@@ -121,7 +118,7 @@ impl TaskState {
         if let Some(p) = pool {
             p.shutdown();
         }
-        pool::wait_for_threads(self.fallback_threads.take());
+        worker_pool::wait_for_threads(self.fallback_threads.take());
     }
 }
 

@@ -1,4 +1,4 @@
-//! Role: This module manages worker threads and blocking jobs.
+//! Role: Worker threads that run blocking jobs, and their shutdown.
 
 use std::any::Any;
 use std::sync::atomic::AtomicUsize;
