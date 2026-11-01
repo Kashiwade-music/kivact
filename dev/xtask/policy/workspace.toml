@@ -326,13 +326,13 @@ reason = "Defense in depth at a foreign frame: Win32 calls this subclassed windo
 [[style.exceptions]]
 rule = "non-leaf-implementation"
 path = "crates/arvane-native/src/embed.rs"
-item = "embed::open"
+item = "open"
 reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"
 path = "examples/kivact-ui-basic/src/docs.rs"
-item = "docs::PAGES"
+item = "PAGES"
 reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
 
 [[style.exceptions]]
