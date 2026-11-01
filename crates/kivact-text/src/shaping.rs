@@ -1,13 +1,42 @@
 //! Role: Lazy shaping, editing geometry, coloring and bounded run publication.
 
+use crate::EditLines;
 use crate::pieces::{floor, shape_long};
 use crate::records::{Colored, Shown};
-use crate::{EditLines, MEASURED, PUBLISHED_MARGIN, PUBLISHED_STEP, Published, Shaping};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
 use kivact_types::{Point, Rect};
 use std::borrow::Cow;
 use std::ops::Range;
 use std::sync::Arc;
+
+/// The text measured for an input's natural width: the lines starting in
+/// its first this many bytes (at least its first line).
+const MEASURED: usize = 16 * 1024;
+
+/// Lines published around the caret and the lines drawn, on each side,
+/// and the step the published lines start and end at.
+const PUBLISHED_MARGIN: usize = 32;
+
+const PUBLISHED_STEP: usize = 32;
+
+/// The text runs published of a text input's lines: from scalar `start`
+/// of its text to scalar `end`.
+pub struct Published {
+    /// First Unicode scalar covered by the returned runs.
+    pub start: u32,
+    /// Exclusive final Unicode scalar covered by the returned runs.
+    pub end: u32,
+    /// Owned shared runs, retaining their font-independent geometry and values.
+    /// Allocation identity is not a publication equality contract.
+    pub runs: Arc<[Arc<kivact_types::SemanticsTextRun>]>,
+}
+
+/// An input's lines as a behavior reads them, shaping the lines it asks
+/// about.
+pub struct Shaping<'a> {
+    lines: std::cell::RefCell<(&'a mut EditLines, &'a mut arvane::Engine)>,
+    revision: u64,
+}
 
 /// The text a line shows: bullets for masked text, spaces for line
 /// breaks and CRs (one byte each, so offsets stay).
