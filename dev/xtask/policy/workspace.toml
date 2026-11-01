@@ -249,6 +249,9 @@ extra_rules = [
     "poison-access",
     "options-default",
 ]
+# 公開 API はまだ大きく変わるので、公開 item の rustdoc の有無（missing-docs）は今は検査しない。
+# API が落ち着いたら外す。
+disabled_rules = ["missing-docs"]
 # facade（kivact）から届く crate と、四つの公式キット。
 api_packages = [
     "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
