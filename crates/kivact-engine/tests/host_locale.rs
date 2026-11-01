@@ -25,7 +25,6 @@ fn start(locale: Option<&str>) -> (ArvaneTestHost, Rc<RefCell<Told>>) {
                 let told = told.clone();
                 move |info, _, _| {
                     told.borrow_mut().at_start = Some(info.env.locale.clone());
-                    None
                 }
             },
             {

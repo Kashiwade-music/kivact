@@ -1,16 +1,14 @@
-//! Role: Contain embedded callbacks and share failure, shutdown and negotiation.
+//! Role: Own the embedded handler and share failure, shutdown and negotiation.
 //!
-//! Invariants: a stop request or the first failure stops event delivery. Close consumes the handler
-//! exactly once before native resources are released. Panic payloads are never
-//! dropped; teardown failure tells the backend to forget all remaining resources.
+//! Invariants: a stop request, the first failure or a panic stops event delivery. Close consumes the
+//! handler exactly once before native resources are released. Callbacks are
+//! not caught here: panic payloads are kept in the child's `PanicSlot`, and after one the handler is
+//! forgotten, never run again, and the backend forgets all remaining resources.
 use super::child::{Command, Shared};
 use arvane_shell::{
     MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler, ShellWaker, ShellWindow,
 };
-use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 pub(super) struct Session {
     handler: Option<Box<dyn ShellHandler>>,
@@ -34,19 +32,15 @@ impl Session {
         if self.shared.stopped() {
             return;
         }
-        let result = contain(
-            || {
-                self.handler = Some(make());
-                if self.shared.stopped() {
-                    return Ok(ShellControl::default());
-                }
-                self.handler
-                    .as_mut()
-                    .expect("invariant: handler was constructed")
-                    .start(window, waker)
-            },
-            "embedded App panicked while opening",
-        );
+        self.handler = Some(make());
+        let result = if self.shared.stopped() {
+            Ok(ShellControl::default())
+        } else {
+            self.handler
+                .as_mut()
+                .expect("invariant: handler was constructed")
+                .start(window, waker)
+        };
         self.accept(result);
     }
     pub(super) fn deliver(&mut self, event: ShellEvent, window: &mut dyn ShellWindow) {
@@ -56,16 +50,13 @@ impl Session {
         let Some(handler) = self.handler.as_mut() else {
             return;
         };
-        let result = contain(
-            || handler.event(event, window),
-            "embedded App callback panicked",
-        );
+        let result = handler.event(event, window);
         self.accept(result);
     }
-    fn accept(&mut self, result: Result<Result<ShellControl, ShellError>, ShellError>) {
+    fn accept(&mut self, result: Result<ShellControl, ShellError>) {
         // Closing cancels successful control output, but must not hide a real
-        // callback error or panic that occurred before the callback returned.
-        match result.and_then(|result| result) {
+        // callback error that occurred before the callback returned.
+        match result {
             Err(error) => self.shared.fail(error),
             Ok(_) if self.shared.stopped() => {}
             Ok(control) if !control.exit => self.control = control,
@@ -80,31 +71,17 @@ impl Session {
         let Some(mut handler) = self.handler.take() else {
             return true;
         };
-        if let Err(error) = contain(|| handler.close(window), "embedded App close panicked") {
-            self.shared.fail(error);
+        if self.shared.panicked() {
+            // After a panic no more App code runs: not even its close.
             // Forgotten owners can bypass every worker's shutdown/drop guard.
             crate::module::retain_module();
             std::mem::forget(handler);
-            tracing::warn!(target: "kivact", "embedded App close panicked; leaking remaining handler and native resources");
             return false;
         }
-        if let Err(error) = contain(|| drop(handler), "embedded App destruction panicked") {
-            self.shared.fail(error);
-            crate::module::retain_module();
-            tracing::warn!(target: "kivact", "embedded App destruction panicked; leaking remaining native resources");
-            return false;
-        }
+        handler.close(window);
+        drop(handler);
         true
     }
-}
-pub(super) fn contain<T>(
-    action: impl FnOnce() -> T,
-    message: &'static str,
-) -> Result<T, ShellError> {
-    catch_unwind(AssertUnwindSafe(action)).map_err(|payload| {
-        std::mem::forget(payload);
-        ShellError::new(message)
-    })
 }
 pub(super) fn negotiate(
     size: kivact_types::Size,

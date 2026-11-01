@@ -7,8 +7,8 @@ use std::rc::Rc;
 
 use super::state::{TaskCell, TaskState};
 
+use kivact_reactive::HandlerResult;
 use kivact_reactive::{AppId, Owned, Owner, Runtime, require_effectful};
-use kivact_reactive::{HandlerResult, UiError};
 
 /// A spawned future owned by a component; cancelled when the owner is disposed.
 #[derive(Clone, Copy)]
@@ -37,8 +37,8 @@ impl Task {
     }
 }
 
-/// Spawn `fut` as an object of `owner` on `rt`'s executor. Panics are
-/// reported to `owner`.
+/// Spawn `fut` as an object of `owner` on `rt`'s executor. A panic in a
+/// poll propagates out of the turn.
 pub(super) fn spawn_owned(
     rt: &Runtime,
     owner: Owner,
@@ -53,11 +53,8 @@ pub(super) fn spawn_owned(
     let weak = Rc::downgrade(&cell);
     let app = rt.id();
     let wrapped = async move {
-        let r = super::executor::catch_unwind(fut).await;
+        fut.await;
         let Some(rt) = Runtime::get(app) else { return };
-        if let Err(p) = r {
-            rt.report(Some(owner), UiError::from_panic(p, Some(at)));
-        }
         if let Some(c) = weak.upgrade() {
             c.finished.set(true);
         }
@@ -71,8 +68,8 @@ pub(super) fn spawn_owned(
 
 /// Spawn `fut` as a task of `owner`, on the executor of the owner's App:
 /// the way a host or a layer above runs a future for an owner it holds. A
-/// panic in a poll is reported to `owner`, and the future is cancelled when
-/// `owner` is disposed. `at` is the origin diagnostics name the task by (the
+/// panic in a poll propagates out of the turn, and the future is cancelled
+/// when `owner` is disposed. `at` is the origin diagnostics name the task by (the
 /// call of the user's code that led here). It adds none of the ambient and
 /// purity checks of [`spawn`].
 pub fn spawn_in(
@@ -95,16 +92,9 @@ impl TaskState {
         let mut n = 0;
         while let Some(r) = self.exec.pop() {
             {
-                // The poll runs for the task's owner.
-                // Last-resort boundary: a panic escaping a raw task (action
-                // queue worker, ...) must not leave the turn (it could cross a
-                // platform FFI boundary and abort).
                 let owner = *r.metadata();
                 let poll = || {
-                    let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| r.run()));
-                    if let Err(p) = ran {
-                        rt.report(None, UiError::from_panic(p, None));
-                    }
+                    r.run();
                 };
                 // The poll runs for the task's owner.
                 match owner {

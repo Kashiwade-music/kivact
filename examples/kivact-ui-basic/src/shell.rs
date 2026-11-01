@@ -5,6 +5,7 @@ use crate::look::tokens;
 use crate::page::page_view;
 use kivact::interaction::{ListSelection, use_list};
 use kivact::prelude::*;
+use kivact::style::ThemeMode;
 use kivact_ui_basic as basic;
 
 /// The theme text family: Inter for Latin, Noto Sans JP for Japanese.
@@ -13,14 +14,19 @@ const FAMILY: &str = "Inter, 'Noto Sans JP', sans-serif";
 const TOP_BAR_HEIGHT: f32 = 56.0;
 const LIST_WIDTH: f32 = 256.0;
 
-/// The whole catalog on the kit theme, starting in `mode`.
-pub(crate) fn catalog(mode: kivact::style::ThemeMode) -> View {
-    let dark = signal(mode == kivact::style::ThemeMode::Dark);
+/// Mount the complete catalog through public component APIs.
+pub fn catalog() -> impl IntoView {
+    catalog_with_mode(ThemeMode::Light)
+}
+
+/// The catalog with an explicit initial theme mode.
+pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
+    let dark = signal(mode == ThemeMode::Dark);
     let theme = move || {
         let theme = basic::theme(if dark.get() {
-            kivact::style::ThemeMode::Dark
+            ThemeMode::Dark
         } else {
-            kivact::style::ThemeMode::Light
+            ThemeMode::Light
         });
         let text = kivact::style::theme::Typography {
             family: Some(FAMILY.into()),

@@ -133,13 +133,13 @@ impl<'a> Measure<'a> {
     fn node_text(
         &mut self,
         node: &crate::tree::node::HostNode,
-        text: kivact_types::RichText<'_>,
-        mut style: kivact_types::TextStyle,
+        text: kivact_types::protocol::RichText<'_>,
+        mut style: kivact_types::protocol::TextStyle,
         max_width: Option<f32>,
     ) -> Option<LeafSize> {
         // Colors and decorations never change an extent.
-        style.color = kivact_types::TextStyle::default().color;
-        style.decoration = kivact_types::TextDecoration::default();
+        style.color = kivact_types::protocol::TextStyle::default().color;
+        style.decoration = kivact_types::protocol::TextDecoration::default();
         let mut extents = self.cache.extents[node.index.0].borrow_mut();
         if extents.as_ref().is_none_or(|e| e.style != style) {
             let single = self.engine.text_metrics(text, &style, None).ok();
@@ -171,8 +171,8 @@ impl<'a> Measure<'a> {
 
 /// Whether text in `style` whose one unwrapped line is `single` measures
 /// otherwise at `width`: it wraps, or is cut with an ellipsis.
-fn narrows(style: &kivact_types::TextStyle, width: f32, single: Size) -> bool {
-    (style.wrap == kivact_types::TextWrap::Wrap
+fn narrows(style: &kivact_types::protocol::TextStyle, width: f32, single: Size) -> bool {
+    (style.wrap == kivact_types::protocol::TextWrap::Wrap
         || style.overflow == kivact_types::TextOverflow::Ellipsis)
         && width < single.width
 }
@@ -288,7 +288,7 @@ impl Measure<'_> {
                         .check_family(self.engine, id, span.style.family.as_deref());
                 }
                 let spans = rich_spans(self.engine, n.spans(), &style);
-                let text = kivact_types::RichText {
+                let text = kivact_types::protocol::RichText {
                     text: n.content().unwrap_or(""),
                     spans: &spans,
                 };
@@ -352,8 +352,8 @@ impl Measure<'_> {
 pub(crate) fn rich_spans(
     engine: &mut arvane::Engine,
     spans: &[kivact_wire::TextSpan],
-    style: &kivact_types::TextStyle,
-) -> Vec<kivact_types::TextSpan> {
+    style: &kivact_types::protocol::TextStyle,
+) -> Vec<kivact_types::protocol::TextSpan> {
     if spans.is_empty() {
         return Vec::new();
     }
@@ -412,7 +412,7 @@ impl kivact_wire::TextShaper for LeafText<'_> {
         &self,
         run: &kivact_wire::TextRun,
         max_width: Option<f32>,
-    ) -> Option<std::sync::Arc<kivact_types::ShapedText>> {
+    ) -> Option<std::sync::Arc<kivact_types::protocol::ShapedText>> {
         let inherited = self.inherited(run);
         kivact_lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
     }

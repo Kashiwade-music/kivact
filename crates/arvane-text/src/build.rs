@@ -7,7 +7,8 @@
 //! word spacing are parley's: added to each cluster's (each space's)
 //! advance.
 
-use kivact_types::{FontFeature, FontKerning, TextSpan, TextStyle, TextWrap};
+use kivact_types::FontKerning;
+use kivact_types::protocol::{FontFeature, TextSpan, TextStyle, TextWrap};
 use parley::{
     FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, GenericFamily, LayoutContext,
     LineHeight, StyleProperty,
@@ -187,23 +188,23 @@ fn families(family: Option<&str>, emoji: bool) -> FontFamily<'_> {
 fn may_be_emoji(c: char) -> bool {
     matches!(
         u32::from(c),
-        0xA9 | 0xAE
-            | 0x203C
+        0xa9 | 0xae
+            | 0x203c
             | 0x2049
             | 0x2122
             | 0x2139
-            | 0x2194..=0x21FF
-            | 0x2300..=0x23FF
-            | 0x24C2
-            | 0x25A0..=0x27BF
+            | 0x2194..=0x21ff
+            | 0x2300..=0x23ff
+            | 0x24c2
+            | 0x25a0..=0x27bf
             | 0x2934..=0x2935
-            | 0x2B00..=0x2BFF
+            | 0x2b00..=0x2bff
             | 0x3030
-            | 0x303D
+            | 0x303d
             | 0x3297
             | 0x3299
-            | 0xFE0F
-            | 0x1F000..=0x1FAFF
+            | 0xfe0f
+            | 0x1f000..=0x1faff
     )
 }
 

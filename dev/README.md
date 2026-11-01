@@ -9,4 +9,4 @@
 | `tests/gpu-interop-producer/` | GPU texture 共有の試験で使う描画エンジン |
 | `tools/window-lock.sh` | ウィンドウを開くコマンドを worktree 間で一つずつ実行する lock |
 | `tools/check-features.sh` | library の非既定 feature を一つずつコンパイルする |
-| `xtask/` | `cargo xtask check`（行数の上限、`visible_to`、module の依存、`architecture/` の図） |
+| `xtask/` | `cargo xtask check`（行数の上限、`visible_to`、module の依存、Google Rust Style Guide の規則、`architecture/` の図） |

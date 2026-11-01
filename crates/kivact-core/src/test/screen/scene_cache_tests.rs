@@ -3,17 +3,15 @@
 //! These cases use the same AppClient and production test host directly,
 //! with existing normal host operations, to exercise later resource changes.
 use crate::client::AppClient;
-use crate::prelude::*;
+use crate::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
 use crate::view::View;
 use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
 use kivact_reactive::Runtime;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextStyle};
-use std::{
-    panic::Location,
-    rc::Rc,
-    time::{Duration, Instant},
-};
+use std::panic::Location;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 fn host(
     root: impl FnOnce() -> View + 'static,
@@ -191,7 +189,6 @@ fn retained_reporting_host(
                 writer.insert(NodeId(1), NodeId(2), None);
                 writer.set_scene(NodeId(2), SceneLayer::Draw, scene.clone());
                 writer.commit();
-                None
             },
             move |events, _, _| {
                 for event in events {

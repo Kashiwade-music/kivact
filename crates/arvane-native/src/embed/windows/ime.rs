@@ -9,10 +9,13 @@
 use super::state::State;
 use arvane_shell::ShellEvent;
 use std::rc::Rc;
-use windows_sys::Win32::{
-    Foundation::{POINT, RECT},
-    UI::{Input::Ime::*, WindowsAndMessaging::*},
+use windows_sys::Win32::Foundation::{POINT, RECT};
+use windows_sys::Win32::UI::Input::Ime::{
+    CANDIDATEFORM, CFS_EXCLUDE, CFS_POINT, COMPOSITIONFORM, GCS_COMPATTR, GCS_COMPSTR,
+    GCS_CURSORPOS, GCS_RESULTSTR, IACE_DEFAULT, ImmAssociateContextEx, ImmGetCompositionStringW,
+    ImmGetContext, ImmReleaseContext, ImmSetCandidateWindow, ImmSetCompositionWindow,
 };
+use windows_sys::Win32::UI::WindowsAndMessaging::{WM_IME_ENDCOMPOSITION, WM_IME_STARTCOMPOSITION};
 
 struct Context {
     hwnd: isize,

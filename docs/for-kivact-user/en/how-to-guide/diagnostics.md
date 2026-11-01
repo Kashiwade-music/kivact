@@ -99,13 +99,12 @@ a boundary. What happens at a boundary depends on how the code fails:
 - **A handler returns `Err`.** Handlers may return `()` or
   `Result<(), UiError>`, so `?` works on any `std::error::Error`. The error is
   reported with the location of the `?`.
-- **The code panics.** The panic is caught, turned into an `ErrorKind::Panic`
-  error and reported. The app keeps running and the rest of the turn continues.
-  Rust's panic hook still prints the usual panic message on stderr.
+- **The code panics.** A panic is a bug: Kivact does not catch it. It ends the
+  App (or fails the test) with Rust's usual message.
 - **A Kivact function is misused.** Calling `signal` inside a handler, writing a
   signal inside a `memo`, using a handle after its owner was disposed and so on
-  raise a located error (see the table below). The panic hook stays silent for
-  these, so the error is only visible through tracing or your boundary.
+  are bugs too. Kivact panics at the call with
+  `kivact misuse: UiError(<kind>: ... at file:line)` (see the table below).
 
 A reported error goes to the nearest `error_boundary` above the failing code. It
 runs its `on_error` handler, its `fallback`, or both. With no boundary, the error
@@ -227,10 +226,14 @@ meet most often.
 | `WrongApp` | A handle from another App, or from an App that no longer exists, was used. | Keep handles inside the App that created them. |
 | `Cycle { path }` | Effects or memos depend on each other in a loop. `path` lists their creation sites. | Break the loop: let one side read with `get_untracked`, or merge the two. |
 | `DuplicateKey` | Two rows of `for_each` returned the same key; the later row is dropped. | Return a unique key per item. |
-| `Panic` | Code panicked inside a callback. | The message holds the panic text. |
 | `Unsupported` | A setting does not apply to this kind of node or the platform. The message names it and the node is mounted without it. | Remove the setting or use the node it applies to. |
 | `Platform` | A clipboard, dialog or focus request failed. | Handle the failure in the caller; it is a normal outcome on some systems. |
 | `Asset` | An image or font could not be used. The message names the file and the reason. | Fix the path or the format. |
+
+The misuse kinds (`SetupOnly`, `WriteInPureContext`, `BorrowedWrite`,
+`Disposed`, `WrongApp` and a memo `Cycle`) appear in that panic message. The
+`try_*` functions return `Disposed` and `WrongApp` as `Err` instead. Effects that
+do not settle report `Cycle` to the sink.
 
 One case is ignored instead of failing, and appears at `debug` level only:
 `signal.set(..)` on a signal that no longer exists does nothing, and the write is

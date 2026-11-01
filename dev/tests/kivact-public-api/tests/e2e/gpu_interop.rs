@@ -568,3 +568,10 @@ fn shared_image_follows_requests_on_dx12() {
         eprintln!("SKIPPED shared_image_follows_requests_on_dx12: {reason}");
     }
 }
+
+#[test]
+fn shared_image_follows_requests_on_vulkan() {
+    if let Err(reason) = shared_image_round(GpuBackend::Vulkan, NATIVE) {
+        eprintln!("SKIPPED shared_image_follows_requests_on_vulkan: {reason}");
+    }
+}

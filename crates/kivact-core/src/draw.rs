@@ -6,9 +6,6 @@
 //! transforms also map text, images and clips.
 
 #[doc(inline)]
-pub use kivact_wire::ShapedText;
-
-#[doc(inline)]
 pub use kivact_style::effect::{BlendMode, CornerRadius, Filter, Shadow, Shape};
 #[doc(inline)]
 pub use kivact_style::paint::{

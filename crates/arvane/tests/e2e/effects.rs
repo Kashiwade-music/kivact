@@ -4,7 +4,7 @@
 //! backdrops (what lies behind a shape, blurred and color-filtered, drawn
 //! again without reading pixels back).
 
-use kivact_types::{Backdrop, DrawCommand, RoundedRect, Shape};
+use kivact_types::protocol::{Backdrop, DrawCommand, RoundedRect, Shape};
 
 use crate::support::{RED, WHITE, fill, gray, open, pixel, rect, show};
 

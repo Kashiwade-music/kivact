@@ -1,8 +1,10 @@
-//! Role: Closure-scoped canvas groups in the element style vocabulary.
-use crate::effect::{BlendMode, Filter, Shadow, Shape};
+//! Role: Closure-scoped canvas groups and the `Draw::layer` command that records them.
+use super::recorder::{Affine, Draw};
+use crate::effect::{BlendMode, Filter, Shadow, Shape, basic, filter_ops};
 use crate::geometry::Rect;
-use crate::paint::Paint;
+use crate::paint::{Paint, fill_layer};
 use crate::transform::Transform;
+use kivact_wire as p;
 
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
 /// transform, a clip, group opacity, blending, a filter, a mask and a
@@ -120,5 +122,59 @@ impl Layer {
             || self.filter != Filter::new()
             || self.mask.is_some()
             || self.shadow.is_some()
+    }
+}
+
+impl Draw {
+    /// Draw what `f` draws through `layer` (its transform, clip and group
+    /// effects), which ends with `f`.
+    pub fn layer(&mut self, layer: Layer, f: impl FnOnce(&mut Draw)) {
+        let saved = self.transform;
+        if let Some(t) = layer.transform {
+            let m = Affine {
+                m: t.matrix_for(self.size),
+            };
+            self.transform = m.then(self.transform);
+            self.cmds.push(p::SceneCmd::PushTransform(m.m));
+        }
+        if let Some(rect) = layer.clip_rect {
+            self.cmds.push(p::SceneCmd::PushClip(rect));
+        }
+        let group = layer.groups();
+        if group {
+            self.push_group(&layer);
+        }
+        f(self);
+        if group {
+            self.cmds.push(p::SceneCmd::PopLayer);
+        }
+        if layer.clip_rect.is_some() {
+            self.cmds.push(p::SceneCmd::PopClip);
+        }
+        if layer.transform.is_some() {
+            self.transform = saved;
+            self.cmds.push(p::SceneCmd::PopTransform);
+        }
+    }
+
+    pub(super) fn push_group(&mut self, layer: &Layer) {
+        let area = layer.area.unwrap_or(self.size.to_rect());
+        let mut filter = layer.filter.clone();
+        if let Some(shadow) = &layer.shadow {
+            if shadow.spread != 0.0 || shadow.inset {
+                self.unsupported += 1;
+            }
+            filter =
+                filter.drop_shadow(shadow.offset.x, shadow.offset.y, shadow.blur, shadow.color);
+        }
+        self.cmds
+            .push(p::SceneCmd::PushLayer(Box::new(p::DrawingLayer {
+                area,
+                clip: layer.clip.as_ref().map(|shape| basic(area, shape)),
+                opacity: layer.opacity,
+                blend: layer.blend,
+                filter: filter_ops(&filter, &self.theme),
+                mask: layer.mask.as_ref().map(|p| fill_layer(p, &self.theme)),
+            })));
     }
 }

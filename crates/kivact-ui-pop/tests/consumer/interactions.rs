@@ -1,11 +1,14 @@
 //! Role: Tests for component interactions.
 
-use super::*;
+use kivact::prelude::*;
+use kivact::ui::ListItem;
+use kivact_ui_pop as ui;
+use std::time::Duration;
 
 #[test]
 fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
     let (screen, (theme, selected, amount)) =
-        kivact::test::render_with_handle(crate::options(), || {
+        kivact::test::render_with_handle(crate::support::options(), || {
             let theme = signal(ui::theme(kivact::style::ThemeMode::Light));
             let selected = signal("first");
             let amount = signal(25.0);
@@ -50,7 +53,7 @@ fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
 fn tooltip_shows_on_focus_below_the_trigger_and_wraps_a_long_label() {
     let long = "Exports every page of the document with its comments and revision history \
                 as a single archive that other people can open without this application.";
-    let (screen, ()) = kivact::test::render_with_handle(crate::options(), move || {
+    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), move || {
         (
             (),
             column((
@@ -96,6 +99,40 @@ fn tooltip_shows_on_focus_below_the_trigger_and_wraps_a_long_label() {
     assert!(
         screen.query_by_role(Role::Tooltip, "Add").is_some(),
         "the next tooltip within the skip delay shows without a delay"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
+    let (screen, (dark, checked)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let dark = signal(false);
+            let checked = signal(true);
+            (
+                (dark, checked),
+                kivact::view::provide_theme(
+                    move || {
+                        ui::theme(if dark.get() {
+                            kivact::style::ThemeMode::Dark
+                        } else {
+                            kivact::style::ThemeMode::Light
+                        })
+                    },
+                    move || ui::panel(kivact::ui::checkbox("Sync", checked)),
+                ),
+            )
+        });
+    let before = screen.screenshot().hash();
+    dark.set(true);
+    screen.run_until_idle();
+    assert!(checked.get_untracked());
+    assert_ne!(screen.screenshot().hash(), before);
+    assert!(
+        screen
+            .get_by_role(Role::CheckBox, "Sync")
+            .is_checked()
+            .unwrap_or(false)
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -10,7 +10,7 @@ use kivact::draw::{
 };
 use kivact::style::{Color, ColorToken};
 
-use super::layout::*;
+use super::layout::{automation_y, clamp_pan_y, track_layout};
 pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     let tracks = state.track_data.get();
     let data = state.data.get();

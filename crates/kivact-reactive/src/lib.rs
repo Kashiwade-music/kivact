@@ -53,6 +53,7 @@ mod registry;
 mod report;
 mod runtime;
 mod scope;
+mod sealed;
 mod selector;
 mod setup;
 mod trigger;

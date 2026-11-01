@@ -12,8 +12,7 @@
 //!   context, a theme, a locale, messages) is visible to the child's subtree only, never to
 //!   siblings mounted after it.
 //! - The child's setup runs in a `Setup` frame of that owner (untracked);
-//!   a panic is caught, reported to the owner's error chain and the child
-//!   mounts as an empty fragment.
+//!   a panic propagates.
 //! - The child closure runs when the view is mounted (inside the parent's
 //!   setup or a flow's effect), never when the description is built.
 
@@ -21,30 +20,18 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::i18n::{Locale, Messages};
-use kivact_reactive::{IntoValue, Owner, Runtime, UiError};
+use kivact_reactive::{IntoValue, Owner, Runtime};
 use kivact_style::Theme;
 use kivact_wire::NodeId;
 
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
 
-/// Run `build` as the setup of `owner` (a `Setup` frame, panics caught and
-/// reported to `owner`) and mount the view it returns under `owner`.
-pub(crate) fn mount_in(
-    rt: &Rc<Runtime>,
-    owner: Owner,
-    build: impl FnOnce() -> View,
-    at: &'static Location<'static>,
-) -> NodeId {
-    let view = owner.with_setup(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(build)));
-    let cx = Mcx { rt, owner };
-    match view {
-        Ok(v) => cx.mount_child(v),
-        Err(p) => {
-            rt.report(Some(owner), UiError::from_panic(p, Some(at)));
-            cx.fragment()
-        }
-    }
+/// Run `build` as the setup of `owner` (a `Setup` frame; a panic
+/// propagates) and mount the view it returns under `owner`.
+pub(crate) fn mount_in(rt: &Rc<Runtime>, owner: Owner, build: impl FnOnce() -> View) -> NodeId {
+    let view = owner.with_setup(build);
+    Mcx { rt, owner }.mount_child(view)
 }
 
 /// Provide `value` to the subtree built by `child` (Solid's
@@ -66,7 +53,7 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         owner.provide(value);
-        mount_in(cx.rt, owner, move || child().into_view(), at)
+        mount_in(cx.rt, owner, move || child().into_view())
     })
 }
 
@@ -95,7 +82,7 @@ pub fn provide_theme<V: IntoView>(
         let owner = cx.owner.child(at);
         let value = theme.into_value(owner, at);
         Theme::install(owner, value);
-        mount_in(cx.rt, owner, move || child().into_view(), at)
+        mount_in(cx.rt, owner, move || child().into_view())
     })
 }
 
@@ -130,7 +117,7 @@ pub fn provide_locale<V: IntoView>(
         let owner = cx.owner.child(at);
         let value = locale.into_value(owner, at);
         kivact_i18n::install_locale(owner, value);
-        mount_in(cx.rt, owner, move || child().into_view(), at)
+        mount_in(cx.rt, owner, move || child().into_view())
     })
 }
 
@@ -165,7 +152,7 @@ pub fn provide_messages<V: IntoView>(
         let own = messages.into_value(owner, at);
         // Layered over the messages `owner` inherits from `cx.owner`.
         kivact_i18n::install_layered_messages(owner, own, at);
-        mount_in(cx.rt, owner, move || child().into_view(), at)
+        mount_in(cx.rt, owner, move || child().into_view())
     })
 }
 

@@ -41,9 +41,8 @@ use crate::{
 };
 use arvane_shell::{ShellEventLoop, ShellHandler, ShellWindow};
 use kivact_types::GpuPreference;
-use kivact_types::{
-    Capabilities, Cursor, Environment, Rect, Scene, SemanticsTree, SemanticsUpdate, Size,
-};
+use kivact_types::protocol::{Environment, Scene, SemanticsTree, SemanticsUpdate};
+use kivact_types::{Capabilities, Cursor, Rect, Size};
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 use std::path::{Path, PathBuf};
@@ -158,7 +157,7 @@ pub trait Window {
     /// Import the pool of textures an external render engine shares
     /// (`textures`, made as [`SharedTextures`] says) as the image `id` of
     /// this window, replacing the image `id` imported before; scenes then
-    /// draw its frames with [`kivact_types::DrawCommand::External`]. The image
+    /// draw its frames with [`kivact_types::protocol::DrawCommand::External`]. The image
     /// belongs to this window's device: another window's scene that names
     /// `id` draws nothing. It lasts until [`Window::drop_external_image`],
     /// the window's close, or a new device (a new
@@ -386,7 +385,7 @@ impl Shell {
         self
     }
 
-    /// Run until requested exit. Panicking callbacks return a shell error.
+    /// Run until requested exit. A callback panic propagates out of `run`.
     pub fn run(self, handler: impl Handler) -> Result<(), ShellError> {
         let mut driver = driver(
             handler,

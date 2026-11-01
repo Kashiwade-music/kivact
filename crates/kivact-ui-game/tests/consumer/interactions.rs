@@ -1,35 +1,38 @@
 //! Role: Game UI interaction tests.
 
-use super::*;
+use kivact::prelude::*;
+use kivact::view::A11yAction;
+use kivact_ui_game as g;
 
 #[test]
 fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
-    let (screen, selected) = kivact::test::render_with_handle(crate::options(true), || {
-        let selected = signal("b.md".to_owned());
-        (
-            selected,
-            g::tree(
-                vec![
-                    g::TreeEntry::folder(
-                        "docs",
-                        "docs",
-                        vec![
-                            g::TreeEntry::file("a.md", "a.md"),
-                            g::TreeEntry::file("b.md", "b.md").marker("M"),
-                        ],
-                    ),
-                    g::TreeEntry::folder(
-                        "src",
-                        "src",
-                        vec![g::TreeEntry::file("lib.rs", "lib.rs")],
-                    )
-                    .collapsed(),
-                ],
+    let (screen, selected) =
+        kivact::test::render_with_handle(crate::support::options(true), || {
+            let selected = signal("b.md".to_owned());
+            (
                 selected,
+                g::tree(
+                    vec![
+                        g::TreeEntry::folder(
+                            "docs",
+                            "docs",
+                            vec![
+                                g::TreeEntry::file("a.md", "a.md"),
+                                g::TreeEntry::file("b.md", "b.md").marker("M"),
+                            ],
+                        ),
+                        g::TreeEntry::folder(
+                            "src",
+                            "src",
+                            vec![g::TreeEntry::file("lib.rs", "lib.rs")],
+                        )
+                        .collapsed(),
+                    ],
+                    selected,
+                )
+                .name("Files"),
             )
-            .name("Files"),
-        )
-    });
+        });
     let item = |name: &str| screen.get_by_role(Role::TreeItem, name);
     assert!(screen.get_by_role(Role::Tree, "Files").exists());
     assert!(!screen.get_by_role(Role::Tree, "Files").is_multiselectable());
@@ -87,7 +90,7 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
 #[test]
 fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
     let (screen, (tags, number, files)) =
-        kivact::test::render_with_handle(crate::options(true), || {
+        kivact::test::render_with_handle(crate::support::options(true), || {
             let tags = signal(vec!["infra".to_owned()]);
             let number = signal(4.0_f64);
             let files = signal(Vec::new());

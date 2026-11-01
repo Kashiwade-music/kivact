@@ -19,7 +19,7 @@ static NOTO: &[u8] = include_bytes!(
     "../../../../../examples/kivact-ui-pop/assets/fonts/notosansjp/NotoSansJP[wght].ttf"
 );
 
-const GRAY: u32 = 0xDDDDDD;
+const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
     RenderOptions {
@@ -127,36 +127,43 @@ fn an_ellipsis_a_scrolling_axis_and_a_text_that_fits_are_not_violations() {
 }
 
 #[test]
-fn assert_layout_fails_listing_every_violation() {
+fn check_layout_lists_every_violation() {
     let screen = render_with(japanese(), || {
         column((
             narrow_button("保存して閉じる"),
             narrow_button("削除して戻る"),
         ))
     });
-    let expected = screen.check_layout().len();
-    assert!(expected >= 4, "{expected}");
-    let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| screen.assert_layout()))
-        .expect_err("violations fail the test");
-    let message = caught
-        .downcast_ref::<String>()
-        .cloned()
-        .or_else(|| caught.downcast_ref::<&str>().map(|s| s.to_string()))
-        .expect("a message");
+    let violations: Vec<String> = screen
+        .check_layout()
+        .iter()
+        .map(|v| v.to_string())
+        .collect();
+    assert!(violations.len() >= 4, "{violations:?}");
     assert!(
-        message.starts_with(&format!("{expected} layout violation(s):")),
-        "{message}"
+        violations.iter().all(|v| v.contains("layout_check.rs")),
+        "{violations:?}"
     );
-    assert_eq!(
-        message
-            .lines()
-            .filter(|l| l.contains("layout_check.rs"))
-            .count(),
-        expected,
-        "{message}"
+    let all = violations.join(
+        "
+",
     );
-    assert!(message.contains("保存して閉じる") && message.contains("削除して戻る"));
-    assert!(message.contains("failure artifacts"), "{message}");
+    assert!(
+        all.contains("保存して閉じる") && all.contains("削除して戻る"),
+        "{all}"
+    );
+}
+
+#[test]
+#[should_panic(expected = "layout violation(s):")]
+fn assert_layout_panics_on_violations() {
+    let screen = render_with(japanese(), || {
+        column((
+            narrow_button("保存して閉じる"),
+            narrow_button("削除して戻る"),
+        ))
+    });
+    screen.assert_layout();
 }
 
 #[test]

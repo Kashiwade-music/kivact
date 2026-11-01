@@ -32,7 +32,7 @@
 use super::state::{PointerSource, ScrollDrag};
 use crate::PointerSpace;
 use crate::model::Model;
-use kivact_types::PointerInput;
+use kivact_types::protocol::PointerInput;
 use kivact_wire::{FilePhase, HostEvent, MouseButton, Point, PointerId, PointerKind, PointerPhase};
 
 impl Model {

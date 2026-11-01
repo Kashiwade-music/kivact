@@ -7,7 +7,7 @@ use crate::support::mount;
 use kivact::diagnostics::ErrorKind;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::{Handled, KeyEvent, RowHeight, error_boundary};
+use kivact::view::{Handled, KeyEvent, RowHeight};
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -72,41 +72,6 @@ fn show_keeps_owner_while_true_and_disposes_on_false() {
     open.set(true);
     screen.run_until_idle();
     assert_eq!(take(&l), vec!["mount"]);
-}
-
-#[test]
-fn error_boundary_shows_fallback_and_reset_remounts() {
-    fn fragile(fail: Signal<bool>) -> impl IntoView {
-        if fail.get_untracked() {
-            panic!("fragile failed");
-        }
-        text("healthy")
-    }
-    let (screen, fail) = mount(|| {
-        let fail = signal(true);
-        (
-            fail,
-            error_boundary(move || fragile(fail)).fallback(|err, reset| {
-                column((
-                    text(format!("error: {err}")),
-                    {
-                        let label = ("retry").into_value();
-                        node()
-                            .role(Role::Button)
-                            .focusable(true)
-                            .name(label)
-                            .child(text(label))
-                    }
-                    .on_press(move || reset()),
-                ))
-            }),
-        )
-    });
-    screen.get_by_text("error: panicked: fragile failed");
-    assert!(screen.errors().is_empty(), "handled by the boundary");
-    fail.set(false);
-    screen.get_by_role(Role::Button, "retry").click();
-    screen.get_by_text("healthy");
 }
 
 #[derive(Clone, Debug, PartialEq)]

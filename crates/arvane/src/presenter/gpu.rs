@@ -41,9 +41,10 @@
 use crate::error::{self, Error};
 use crate::presentation::{Notes, RendererChange};
 use arvane_render::{GpuContext, GpuEnv, GpuSurface, Presentation, RenderError};
+use kivact_types::Size;
 #[cfg(feature = "testing")]
-use kivact_types::CpuFrame;
-use kivact_types::{Scene, Size};
+use kivact_types::protocol::CpuFrame;
+use kivact_types::protocol::Scene;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -75,9 +76,10 @@ impl<T> Worker<T> {
 
     fn join(&mut self) {
         if let Some(thread) = self.thread.take()
-            && thread.join().is_err()
+            && let Err(payload) = thread.join()
+            && !std::thread::panicking()
         {
-            tracing::warn!(target: "kivact", worker = self.name, "GPU worker panicked");
+            std::panic::resume_unwind(payload);
         }
     }
 

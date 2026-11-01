@@ -26,8 +26,8 @@
 //! - The run closure and every poll of its future are untracked: what they
 //!   read is not a dependency of the effect that called `run`.
 //! - Each `on_done` handler runs for the owner that registered it (`context`
-//!   and `spawn` inside it use that owner, and its panic is reported there);
-//!   the registering owner's cleanup removes it.
+//!   and `spawn` inside it use that owner); the registering owner's cleanup
+//!   removes it.
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -40,7 +40,7 @@ use std::time::Duration;
 
 use super::async_state::{AsyncState, cancelled};
 use super::drain::{CloseFuture, DEFAULT_DRAIN_NS};
-use super::executor::{RawTask, catch_unwind};
+use super::executor::RawTask;
 use super::state::Drain;
 use super::state::TaskCell;
 use kivact_reactive::{
@@ -164,30 +164,21 @@ where
     message = "`{Self}` cannot be the run closure of an `action`",
     note = "pass `|| async {{ .. }}` or `|input: I| async move {{ .. }}` whose future returns `Result<T, UiError>`"
 )]
-pub trait ActionFn<T, M>: sealed::Sealed<M> + 'static {
+pub trait ActionFn<T, M>: crate::sealed::ActionFnSeal<M> + 'static {
     /// What `Action::run` takes: `()` for a closure without an argument.
     type Input: 'static;
     #[doc(hidden)]
     fn start(&self, input: &Self::Input) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>>;
 }
 
-mod sealed {
-    //! Role: Seal of `ActionFn` and its two argument forms.
-    pub trait Sealed<M> {}
-    /// The form of a run closure without an argument.
-    pub struct Nullary;
-    /// The form of a run closure with one argument.
-    pub struct Unary<I>(std::marker::PhantomData<I>);
-}
-
-impl<F, Fut, T> sealed::Sealed<sealed::Nullary> for F
+impl<F, Fut, T> crate::sealed::ActionFnSeal<crate::sealed::Nullary> for F
 where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<T, UiError>>,
 {
 }
 
-impl<F, Fut, T> ActionFn<T, sealed::Nullary> for F
+impl<F, Fut, T> ActionFn<T, crate::sealed::Nullary> for F
 where
     F: Fn() -> Fut + 'static,
     Fut: Future<Output = Result<T, UiError>> + 'static,
@@ -198,14 +189,14 @@ where
     }
 }
 
-impl<F, Fut, T, I> sealed::Sealed<sealed::Unary<I>> for F
+impl<F, Fut, T, I> crate::sealed::ActionFnSeal<crate::sealed::Unary<I>> for F
 where
     F: Fn(I) -> Fut,
     Fut: Future<Output = Result<T, UiError>>,
 {
 }
 
-impl<F, Fut, T, I> ActionFn<T, sealed::Unary<I>> for F
+impl<F, Fut, T, I> ActionFn<T, crate::sealed::Unary<I>> for F
 where
     F: Fn(I) -> Fut + 'static,
     Fut: Future<Output = Result<T, UiError>> + 'static,
@@ -227,23 +218,8 @@ where
     Fut: Future<Output = Result<T, UiError>> + 'static,
 {
     let owner = Owner::current(api, at);
-    let run: Runner<T, I> = Rc::new(move |i| {
-        // A panic before the future exists becomes the run's result
-        // instead of leaving the state `Pending` (or, on a queue's worker,
-        // escaping the turn, where it could cross a platform FFI boundary).
-        let fut: Pin<Box<dyn Future<Output = Result<T, UiError>>>> =
-            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // The run closure is untracked, wherever `run` is called from.
-                kivact_reactive::untrack(|| f(i))
-            })) {
-                Ok(fut) => Box::pin(fut),
-                Err(p) => {
-                    let err = UiError::from_panic(p, Some(at));
-                    Box::pin(async move { Err(err) })
-                }
-            };
-        fut
-    });
+    // The run closure is untracked, wherever `run` is called from.
+    let run: Runner<T, I> = Rc::new(move |i| Box::pin(kivact_reactive::untrack(|| f(i))));
     let app = owner.app();
     let cell = Rc::new(ActionCell {
         app,
@@ -350,7 +326,11 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
             return;
         }
         for (owner, f) in handlers {
-            owner.run_handler(|| owner.guarded(|| f(&result)));
+            owner.run_handler(|| {
+                if let Err(err) = f(&result) {
+                    owner.report(err);
+                }
+            });
         }
     }
 
@@ -371,16 +351,12 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
             rt,
             self.owner,
             async move {
-                let r = catch_unwind(fut).await;
+                let result = fut.await;
                 let Some(cell) = weak.upgrade() else { return };
                 if cell.generation.get() != generation {
                     return;
                 }
                 cell.task.set(None);
-                let result = match r {
-                    Ok(r) => r,
-                    Err(p) => Err(UiError::from_panic(p, Some(at))),
-                };
                 cell.finish(result);
                 cell.wake_drained();
             },
@@ -450,15 +426,11 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
                         cell.queue_status();
                         (cell.run)(&input)
                     };
-                    let r = catch_unwind(fut).await;
+                    let result = fut.await;
                     let Some(cell) = weak.upgrade() else { return };
                     if cell.generation.get() != generation {
                         return;
                     }
-                    let result = match r {
-                        Ok(r) => r,
-                        Err(p) => Err(UiError::from_panic(p, Some(cell.at))),
-                    };
                     cell.running.set(false);
                     cell.finish(result);
                 }
@@ -608,9 +580,8 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
     /// runs with each finished run's result (not for cancelled ones). It
     /// belongs to the owner whose setup registers it (the nearest flow
     /// branch, list row, `provide` or root, not the action's owner): it runs
-    /// for that owner, so `context` and `spawn` inside it use that owner, a
-    /// panic in it is reported there, and it is removed when that owner is
-    /// disposed.
+    /// for that owner, so `context` and `spawn` inside it use that owner, and
+    /// it is removed when that owner is disposed.
     #[track_caller]
     pub fn on_done<R: HandlerResult>(&self, f: impl Fn(&Result<T, UiError>) -> R + 'static) {
         let at = Location::caller();

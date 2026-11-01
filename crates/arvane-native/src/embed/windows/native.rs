@@ -1,13 +1,12 @@
 //! Role: Keep Win32 identity, message ids and the host-facing Backend below dispatch.
 use crate::embed::child::{Backend, Shared};
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicIsize, Ordering},
-    },
-    thread::ThreadId,
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+use std::thread::ThreadId;
+use windows_sys::Win32::Foundation::HWND;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    PostMessageW, SMTO_NORMAL, SendMessageTimeoutW, SendMessageW, WM_APP,
 };
-use windows_sys::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
 pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
 pub(super) const TIMER: usize = 1;
@@ -30,6 +29,9 @@ impl Backend for Arc<Native> {
         unsafe {
             PostMessageW(self.hwnd(), COMMAND, 0, 0);
         }
+    }
+    fn collect_panic(&self, _: &Shared) {
+        // The App runs on the host GUI thread; its panic is kept by `wndproc`.
     }
     fn close(&self, shared: &Shared) {
         if !shared.alive.load(Ordering::Acquire) {
@@ -59,7 +61,7 @@ impl Backend for Arc<Native> {
                 )
             };
             if sent == 0 && shared.alive.load(Ordering::Acquire) {
-                crate::DETACHED.store(true, Ordering::Release);
+                crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::module::retain_module();
                 tracing::warn!(target: "kivact", "embedded Win32 UI thread did not stop within two seconds; detaching");
             }

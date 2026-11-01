@@ -2,8 +2,7 @@
 use crate::creative::audio_values::TransportState;
 
 use super::common::{bind, col, note, spec, specs};
-use super::controls::num;
-use super::controls::slide;
+use super::controls::{num, slide};
 use kivact::Binding;
 use kivact::prelude::{IntoView, NodeBuilder, Signal, column, rgb, row, signal};
 use kivact::style::{pct, style};
@@ -26,14 +25,14 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
         ))),
         spec("Vector (Column)", "ベクトル入力", col((
             ui::property_row("Location X", column((
-                axis_num("X",0.0," m",3,0xFF5C6C).label_visible(false),
-                axis_num("Y",1.25," m",3,0x34D399),
-                axis_num("Z",0.5," m",3,0x5AA9FF),
+                axis_num("X",0.0," m",3,0xff5c6c).label_visible(false),
+                axis_num("Y",1.25," m",3,0x34d399),
+                axis_num("Z",0.5," m",3,0x5aa9ff),
             )).style(style().gap(1))),
             ui::property_row("Rotation", row((
-                axis_num("Rotation X",90.0,"°",1,0xFF5C6C).label_visible(false).style(style().width(0).grow(1)),
-                axis_num("Rotation Y",0.0,"°",1,0x34D399).label_visible(false).style(style().width(0).grow(1)),
-                axis_num("Rotation Z",-35.0,"°",1,0x5AA9FF).label_visible(false).style(style().width(0).grow(1)),
+                axis_num("Rotation X",90.0,"°",1,0xff5c6c).label_visible(false).style(style().width(0).grow(1)),
+                axis_num("Rotation Y",0.0,"°",1,0x34d399).label_visible(false).style(style().width(0).grow(1)),
+                axis_num("Rotation Z",-35.0,"°",1,0x5aa9ff).label_visible(false).style(style().width(0).grow(1)),
             )).style(style().gap(1))),
         )).style(style().gap(3))),
         spec("Animatable Property", "キーフレーム状態", col((

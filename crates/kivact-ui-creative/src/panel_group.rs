@@ -1,19 +1,22 @@
 //! Role: Inspector panel groups with peer collapse and reordering.
 
 use crate::Color;
-use kivact::Binding;
-use kivact::binding;
 use kivact::control::icon;
 use kivact::draw::Rect;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
-use kivact::prelude::*;
+use kivact::prelude::{
+    ColorToken, IntoValue, IntoView, Node, NodeBuilder, Role, Value, column, memo, node, node_ref,
+    row, signal, style, text, var,
+};
 use kivact::primitive::NodeExt;
-use kivact::style::Align;
-use kivact::style::current_theme;
+use kivact::style::{Align, current_theme};
 use kivact::view::{A11yAction, Handled};
 use kivact::view::{MouseButton, PointerPhase, for_each};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use kivact::{Binding, binding};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// A retained inspector panel. Identities must be unique within its group.
 #[derive(Clone, Debug, PartialEq)]

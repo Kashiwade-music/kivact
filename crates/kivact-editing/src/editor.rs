@@ -1,6 +1,18 @@
 //! Role: Native editor ownership and controlled-value change bookkeeping.
 
-use super::{Damage, EditState, Editor, Taken, TextChange, TextSession};
+use crate::change::{Damage, TextChange};
+use crate::edit_state::{EditState, Taken};
+use crate::session::TextSession;
+
+/// A native host's editor, owning the behavior-facing document and its journal.
+///
+/// Behaviors receive only the state. The host controls recording, controlled
+/// values and pending damage through this owner. Cloning copies the document,
+/// journal and damage independently; no mutable editor state is shared.
+#[derive(Clone, Debug)]
+pub struct Editor {
+    state: EditState,
+}
 
 impl Editor {
     /// Own a document without resetting its revision, session or pending changes.

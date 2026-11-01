@@ -1,5 +1,5 @@
 //! Role: Node canvas pointer, keyboard and drag finalization.
-use crate::editors::node::gesture::target::Target;
+use crate::editors::node::gesture::Target;
 use crate::editors::node::gesture::{Domain, Drag, Snapshot, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControlValue, NodeLink, NodeRequest};

@@ -58,7 +58,7 @@
 
 pub(crate) mod locale;
 pub(crate) mod state;
-use state::MouseSettings;
+mod system;
 
 #[cfg(windows)]
 mod windows;
@@ -67,53 +67,4 @@ pub(crate) use windows::Subclass;
 #[cfg(all(windows, feature = "embed"))]
 pub(crate) use windows::ime_request;
 
-impl MouseSettings {
-    /// The system's settings (the defaults where the shell cannot read
-    /// them).
-    pub(crate) fn read() -> Self {
-        #[cfg(windows)]
-        {
-            windows::mouse_settings()
-        }
-        #[cfg(not(windows))]
-        {
-            MouseSettings::default()
-        }
-    }
-}
-
-/// Whether the system asks to reduce motion (Windows: the "animation
-/// effects" setting is off); `false` where the shell cannot tell.
-pub(crate) fn reduced_motion() -> bool {
-    #[cfg(windows)]
-    {
-        windows::reduced_motion().unwrap_or(false)
-    }
-    #[cfg(not(windows))]
-    {
-        false
-    }
-}
-
-/// Current file drag position; Windows queries it even during OLE capture.
-pub(crate) fn file_position(window: &winit::window::Window) -> Option<kivact_types::Point> {
-    #[cfg(windows)]
-    {
-        windows::file_position(window)
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = window;
-        None
-    }
-}
-pub(crate) fn track_files(window: &winit::window::Window, tracking: bool) {
-    #[cfg(windows)]
-    {
-        windows::track_files(window, tracking);
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (window, tracking);
-    }
-}
+pub(crate) use system::{file_position, reduced_motion, track_files};

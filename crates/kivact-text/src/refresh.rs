@@ -1,7 +1,57 @@
 //! Role: Explicit incremental reconciliation and debug integrity checkpoints.
 
+use crate::EditLines;
 use crate::records::{Key, Shown};
-use crate::{EditLines, RefreshError, RefreshMode, Source};
+use kivact_editing::Damage;
+
+/// What a text input shows, to lay its lines out from.
+#[derive(Clone, Copy)]
+pub struct Source<'a> {
+    /// Borrowed original UTF-8 value; all source byte offsets refer to it.
+    pub value: &'a str,
+    /// Revision of the value and compatible damage history.
+    pub revision: u64,
+    /// Optional UTF-8 byte replacement since the previously refreshed revision.
+    pub damage: Option<Damage>,
+    /// Borrowed UTF-8 display text used only while the value is empty.
+    pub placeholder: &'a str,
+    /// Visually mask non-LF scalars with bullets; LF keeps display spacing.
+    /// This does not redact excerpts or published raw run text. Callers must
+    /// suppress/protect surrounding IME text and accessible publication.
+    pub password: bool,
+    /// Split at LF hard breaks; an unmasked single line shows LF/CR as spaces.
+    pub multiline: bool,
+}
+
+/// Cost and diagnostic assurance requested for one source reconciliation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RefreshMode {
+    /// Reconcile incrementally without a complete representation scan.
+    #[default]
+    Incremental,
+    /// In debug builds, independently verify retained line metadata afterward.
+    /// This expensive checkpoint is useful after a source batch or adoption.
+    /// In release builds it performs ordinary reconciliation only; no integrity
+    /// scan, reference allocation or diagnostic assurance is provided.
+    Verify,
+}
+
+/// Discrepancies found at an explicitly requested debug integrity checkpoint.
+/// The source and retained cache are left intact for diagnosis, never healed
+/// from the independent reference. No private representation is exposed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RefreshError {
+    /// Located descriptions of retained/reference metadata differences.
+    pub discrepancies: Vec<String>,
+}
+
+impl std::fmt::Display for RefreshError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.discrepancies.join("; "))
+    }
+}
+
+impl std::error::Error for RefreshError {}
 
 impl EditLines {
     /// Reconcile one source/style snapshot, retaining untouched derived caches.
@@ -13,7 +63,7 @@ impl EditLines {
     pub fn refresh(
         &mut self,
         source: Source<'_>,
-        style: kivact_types::TextStyle,
+        style: kivact_types::protocol::TextStyle,
         engine: &mut arvane::Engine,
         mode: RefreshMode,
     ) -> Result<(), RefreshError> {
@@ -44,7 +94,7 @@ impl EditLines {
     fn reconcile(
         &mut self,
         source: Source<'_>,
-        mut style: kivact_types::TextStyle,
+        mut style: kivact_types::protocol::TextStyle,
         engine: &mut arvane::Engine,
     ) {
         let shown = if source.value.is_empty() {
@@ -58,7 +108,7 @@ impl EditLines {
         // (a hover, a focus style) never shape again.
         self.align = style.align;
         style.align = kivact_types::TextAlign::Start;
-        style.color = kivact_types::TextStyle::default().color;
+        style.color = kivact_types::protocol::TextStyle::default().color;
         let key = Key {
             style,
             shown,

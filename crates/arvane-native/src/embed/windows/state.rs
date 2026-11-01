@@ -1,14 +1,13 @@
 //! Role: UI-only callback state, separate from synchronous wndproc answers.
 use super::native::Native;
-use crate::embed::{child::Shared, session::Session};
+use crate::embed::child::Shared;
+use crate::embed::session::Session;
 use arvane_shell::{ClickCounter, Mouse, ShellEvent};
-use std::{
-    cell::{Cell, RefCell},
-    collections::VecDeque,
-    sync::Arc,
-    time::Instant,
-};
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::Instant;
+use windows_sys::Win32::UI::WindowsAndMessaging::WNDPROC;
 
 pub(super) struct State {
     pub(super) shared: Arc<Shared>,
@@ -26,7 +25,7 @@ pub(super) struct State {
     pub(super) pending_surrogate: Cell<Option<u16>>,
     pub(super) mouse: Cell<Mouse>,
     pub(super) clicks: RefCell<ClickCounter>,
-    pub(super) environment: RefCell<kivact_types::Environment>,
+    pub(super) environment: RefCell<kivact_types::protocol::Environment>,
     pub(super) explicit_scale: Cell<bool>,
     pub(super) pixels: RefCell<Vec<u32>>,
     pub(super) scratch: RefCell<Vec<u32>>,

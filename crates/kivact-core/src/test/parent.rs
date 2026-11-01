@@ -1,8 +1,11 @@
 //! Role: Public native parent-window driver without backend types.
 use super::Screenshot;
-use crate::{Result, UiError, embed::Parent, view::KeyCode};
+use crate::embed::Parent;
+use crate::view::KeyCode;
+use crate::{Result, UiError};
 use kivact_reactive::ErrorKind;
-use std::{ffi::c_void, time::Duration};
+use std::ffi::c_void;
+use std::time::Duration;
 
 /// A real host for testing `App::embed`. Keep it on its creating thread and
 /// pump messages while waiting for rendering or cross-thread operations.

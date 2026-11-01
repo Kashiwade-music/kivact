@@ -1,12 +1,16 @@
 //! Role: X11-specific embedding services and native protocol checks.
 use super::support::{SERIAL, wait};
-use kivact::{platform, prelude::*, test::TestParent};
+use kivact::platform;
+use kivact::prelude::*;
+use kivact::test::TestParent;
 use std::sync::{Arc, Mutex};
 /// XIM is optional on X11; native keyboard input must remain usable.
 // This does not force either case: it runs with whatever XMODIFIERS the environment has.
 #[test]
 fn x11_keyboard_input_works_whether_or_not_an_xim_server_runs() {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
     let parent = TestParent::open(320, 240).unwrap();
     let keys = Arc::new(Mutex::new(0));
     let output = keys.clone();

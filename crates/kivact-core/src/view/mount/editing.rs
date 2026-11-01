@@ -50,12 +50,9 @@ pub(super) fn bind(
     use kivact_wire::EditingData;
     // The owner keeps the author's function; the engine, which may drop
     // its copy while its tree is borrowed, calls it through a `SyncHook`
-    // (a panic leaves the request unhandled, the engine takes back what it
-    // changed, and the panic is reported once after the engine lets go of
-    // its model).
+    // (a panic propagates through the engine and ends the App).
     let behavior = editing.behavior.map(|f| {
-        let (hook, hooked) =
-            crate::view::sync_hook::SyncHook::new(Rc::downgrade(cx.rt), cx.owner, at, (), f);
+        let (hook, hooked) = crate::view::sync_hook::SyncHook::new(cx.owner, (), f);
         cx.owner.on_cleanup(move || drop(hooked));
         EditBehavior::new(move |state, request, context| {
             hook.call(|(), f| f(state, request, context))

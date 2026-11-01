@@ -1,6 +1,6 @@
 //! Role: Overlay tests: accordion, the alert, sheet and popover looks, command menus.
 
-use super::{assert_clean, distance, pixel};
+use crate::support::{assert_clean, distance, pixel};
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::LayoutCheck;
@@ -59,7 +59,7 @@ fn accordion(open: Signal<Vec<&'static str>>, multiple: bool) -> Node {
 
 #[test]
 fn accordion_in_single_mode_keeps_one_section_open() {
-    let (screen, open) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, open) = kivact::test::render_with_handle(crate::support::options(), || {
         let open = signal(vec!["one"]);
         (open, page(accordion(open, false)))
     });
@@ -99,33 +99,34 @@ fn accordion_in_single_mode_keeps_one_section_open() {
 
 #[test]
 fn alert_dialog_ignores_outside_presses_and_reports_its_buttons() {
-    let (screen, (open, confirmed)) = kivact::test::render_with_handle(crate::options(), || {
-        let open = signal(false);
-        let confirmed = signal(0);
-        (
-            (open, confirmed),
-            page((
-                kivact::ui::button("Delete").on_press(move || open.set(true)),
-                kivact::ui::dialog("Are you absolutely sure?", open)
-                    .kind(DialogKind::AlertModal)
-                    .closable(false)
-                    .description("This action cannot be undone.")
-                    .footer(move || {
-                        (
-                            kivact::ui::button("Cancel")
-                                .variant(ButtonVariant::Outline)
-                                .on_press(move || open.set(false)),
-                            kivact::ui::button("Continue")
-                                .variant(ButtonVariant::Danger)
-                                .on_press(move || {
-                                    confirmed.update(|n| *n += 1);
-                                    open.set(false);
-                                }),
-                        )
-                    }),
-            )),
-        )
-    });
+    let (screen, (open, confirmed)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let open = signal(false);
+            let confirmed = signal(0);
+            (
+                (open, confirmed),
+                page((
+                    kivact::ui::button("Delete").on_press(move || open.set(true)),
+                    kivact::ui::dialog("Are you absolutely sure?", open)
+                        .kind(DialogKind::AlertModal)
+                        .closable(false)
+                        .description("This action cannot be undone.")
+                        .footer(move || {
+                            (
+                                kivact::ui::button("Cancel")
+                                    .variant(ButtonVariant::Outline)
+                                    .on_press(move || open.set(false)),
+                                kivact::ui::button("Continue")
+                                    .variant(ButtonVariant::Danger)
+                                    .on_press(move || {
+                                        confirmed.update(|n| *n += 1);
+                                        open.set(false);
+                                    }),
+                            )
+                        }),
+                )),
+            )
+        });
     let opener = screen.get_by_role(Role::Button, "Delete");
     opener.click();
     let dialog = screen.get_by_role(Role::AlertDialog, "Are you absolutely sure?");
@@ -178,20 +179,21 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
         (Side::Top, "Top"),
         (Side::Bottom, "Bottom"),
     ] {
-        let (screen, open) = kivact::test::render_with_handle(crate::options(), move || {
-            let open = signal(false);
-            (
-                open,
-                page((
-                    kivact::ui::button("Open").on_press(move || open.set(true)),
-                    kivact::ui::dialog(name, open)
-                        .kind(DialogKind::Drawer(side))
-                        .description("Make changes here.")
-                        .content(|| text("The body"))
-                        .footer(|| kivact::ui::button("Save changes")),
-                )),
-            )
-        });
+        let (screen, open) =
+            kivact::test::render_with_handle(crate::support::options(), move || {
+                let open = signal(false);
+                (
+                    open,
+                    page((
+                        kivact::ui::button("Open").on_press(move || open.set(true)),
+                        kivact::ui::dialog(name, open)
+                            .kind(DialogKind::Drawer(side))
+                            .description("Make changes here.")
+                            .content(|| text("The body"))
+                            .footer(|| kivact::ui::button("Save changes")),
+                    )),
+                )
+            });
         let opener = screen.get_by_role(Role::Button, "Open");
         opener.click();
         let dialog = screen.get_by_role(Role::Dialog, name);
@@ -228,7 +230,7 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
 
 #[test]
 fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
-    let (screen, open) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, open) = kivact::test::render_with_handle(crate::support::options(), || {
         let open = signal(false);
         (
             open,
@@ -292,7 +294,7 @@ fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
 
 #[test]
 fn hover_card_opens_after_its_delay_and_stays_while_hovered() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), || {
         (
             (),
             page(
@@ -361,18 +363,19 @@ fn entries() -> Vec<Command<&'static str>> {
 
 #[test]
 fn command_filters_groups_and_chooses_with_the_keyboard() {
-    let (screen, (chosen, open)) = kivact::test::render_with_handle(crate::options(), || {
-        let chosen = signal(Vec::<&'static str>::new());
-        let open = signal(true);
-        (
-            (chosen, open),
-            page(command_palette(
-                open,
-                entries(),
-                move |key: &'static str| chosen.update(|keys| keys.push(key)),
-            )),
-        )
-    });
+    let (screen, (chosen, open)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let chosen = signal(Vec::<&'static str>::new());
+            let open = signal(true);
+            (
+                (chosen, open),
+                page(command_palette(
+                    open,
+                    entries(),
+                    move |key: &'static str| chosen.update(|keys| keys.push(key)),
+                )),
+            )
+        });
     let search = screen.get_by_role(Role::TextBox, "Search commands");
     screen.get_by_role(Role::Group, "Suggestions");
     screen.get_by_role(Role::Group, "Settings");

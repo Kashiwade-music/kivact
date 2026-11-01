@@ -3,7 +3,8 @@
 use super::conn::Native;
 use crate::a11y::native::{convert_update, translate_action};
 use arvane_shell::{PlatformTree, ShellError, ShellWaker};
-use x11rb::{connection::Connection, protocol::xproto::ConnectionExt};
+use x11rb::connection::Connection;
+use x11rb::protocol::xproto::ConnectionExt;
 
 struct Activation(PlatformTree, ShellWaker);
 impl accesskit::ActivationHandler for Activation {

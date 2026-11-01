@@ -8,7 +8,8 @@
 
 use std::borrow::Cow;
 
-use kivact_types::{TextSpan, TextTransform};
+use kivact_types::TextTransform;
+use kivact_types::protocol::TextSpan;
 
 /// `text` converted by `transform`, and `spans` moved onto it. Borrowed as
 /// they are when nothing changes.

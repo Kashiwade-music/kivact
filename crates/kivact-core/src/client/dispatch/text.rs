@@ -13,7 +13,7 @@ pub(super) fn text_changed(
     node: NodeId,
     changes: &[kivact_editing::TextChange],
     session: &kivact_editing::TextSession,
-    text: &Option<String>,
+    text: Option<&str>,
 ) {
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "text", node);
@@ -25,7 +25,7 @@ pub(super) fn text_changed(
         let edit = crate::primitive::TextEditEvent {
             changes: changes.to_vec(),
             session: session.clone(),
-            text: text.clone(),
+            text: text.map(str::to_owned),
         };
         run_handler(rt, node_owner(rt, node), || h(edit));
     }
@@ -62,6 +62,6 @@ pub(super) fn focus_changed(
     );
 }
 
-pub(super) fn focus_result(rt: &Runtime, request: RequestId, ok: bool, reason: &Option<String>) {
-    crate::view::requests::on_focus_result(rt, request.0, ok, reason.clone());
+pub(super) fn focus_result(rt: &Runtime, request: RequestId, ok: bool, reason: Option<&str>) {
+    crate::view::requests::on_focus_result(rt, request.0, ok, reason.map(str::to_owned));
 }

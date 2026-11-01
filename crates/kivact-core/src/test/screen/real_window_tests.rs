@@ -22,7 +22,7 @@ use super::artifacts::failure_dir;
 use super::model::Screen;
 use super::support::button_box;
 use crate::motion::FrameRate;
-use crate::prelude::*;
+use crate::prelude::{IntoView, NodeBuilder, Role, column, node, node_ref, row, show, style, text};
 use crate::test::{RenderOptions, WindowMode, render, render_with};
 
 fn counter() -> impl IntoView {
@@ -298,9 +298,8 @@ fn the_environment_and_platform_requests_are_the_tests() {
     assert!(screen.request_close(), "a close request ends the App");
 }
 
-#[test]
-fn actions_check_that_the_element_can_take_them() {
-    let screen = render(|| {
+fn modal_screen() -> Screen {
+    render(|| {
         let open = signal(true);
         column((
             button_box("disabled").disabled(true),
@@ -316,23 +315,36 @@ fn actions_check_that_the_element_can_take_them() {
                 .modal(true)
             }),
         ))
-    });
-    let message = |f: &dyn Fn()| {
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
-        r.err()
-            .and_then(|p| p.downcast_ref::<String>().cloned())
-            .unwrap_or_default()
-    };
-    let m = message(&|| screen.get_by_role(Role::Button, "behind").click());
-    assert!(m.contains("is behind the backdrop of the modal"), "{m}");
-    assert!(m.contains("failure artifacts: "), "{m}");
+    })
+}
+
+#[test]
+#[should_panic(expected = "is behind the backdrop of the modal")]
+fn clicking_behind_a_modal_fails() {
+    let screen = modal_screen();
+    screen.get_by_role(Role::Button, "behind").click();
+}
+
+#[test]
+#[should_panic(expected = "is disabled")]
+fn clicking_a_disabled_button_fails() {
+    let screen = modal_screen();
     screen.get_by_role(Role::Button, "close").click();
-    let m = message(&|| screen.get_by_role(Role::Button, "disabled").click());
-    assert!(m.contains("is disabled"), "{m}");
-    let m = message(&|| screen.get_by_test_id("empty").click());
-    assert!(m.contains("has no size"), "{m}");
-    let m = message(&|| screen.get_by_test_id("empty").focus());
-    assert!(m.contains("not exposed to assistive technology"), "{m}");
+    screen.get_by_role(Role::Button, "disabled").click();
+}
+
+#[test]
+#[should_panic(expected = "has no size")]
+fn clicking_an_element_without_size_fails() {
+    let screen = modal_screen();
+    screen.get_by_test_id("empty").click();
+}
+
+#[test]
+#[should_panic(expected = "not exposed to assistive technology")]
+fn focusing_an_element_hidden_from_assistive_technology_fails() {
+    let screen = modal_screen();
+    screen.get_by_test_id("empty").focus();
 }
 
 #[test]

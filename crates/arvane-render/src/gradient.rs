@@ -1,12 +1,11 @@
 //! Role: Converts gradient paints without renderer cache state.
 
 use crate::convert;
-use kivact_types::{ColorMatrix, Extend, Gradient, GradientShape, Rgba};
-use vello_cpu::{
-    PaintType,
-    kurbo::Affine,
-    peniko::{self, Gradient as RasterGradient},
-};
+use kivact_types::protocol::{ColorMatrix, Gradient, GradientShape};
+use kivact_types::{Extend, Rgba};
+use vello_cpu::PaintType;
+use vello_cpu::kurbo::Affine;
+use vello_cpu::peniko::{self, Gradient as RasterGradient};
 
 /// `color` through `matrix` when there is one.
 pub(crate) fn color(color: Rgba, matrix: Option<&ColorMatrix>) -> Rgba {

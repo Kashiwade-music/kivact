@@ -85,7 +85,7 @@ pub use editors::arrangement::{
 pub use editors::graph::{GraphEditor, graph_editor};
 pub use editors::node::{NodeEditor, node_editor};
 pub use editors::shared::model::EditorEvent;
-pub use editors::shared::ruler::data::RulerTicks;
+pub use editors::shared::ruler::RulerTicks;
 pub use feedback::{
     Notice, SplitButton, ToolWindow, ToolWindowBuilder, WindowOptions, WindowPosition, notice,
     popup_button, split_button, window, window_button,

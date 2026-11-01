@@ -3,7 +3,10 @@
 //! The outliner on the core `Tree`: keys, rename, activation, drops, the
 //! active item, trailing cells and filtering, through the public input only.
 
-use super::*;
+use crate::support::clean;
+use kivact::prelude::*;
+use kivact::test::Screen;
+use kivact_ui_creative as ui;
 
 fn scene() -> Vec<ui::TreeItem> {
     vec![
@@ -21,23 +24,24 @@ fn item<'a>(screen: &'a Screen, name: &str) -> kivact::test::Element<'a> {
 
 #[test]
 fn the_rows_follow_the_tree_view_keys_and_are_one_tab_stop() {
-    let (screen, (_data, selected)) = kivact::test::render_with_handle(crate::options(), || {
-        let data = signal(scene());
-        let selected = signal(Vec::new());
-        (
-            (data, selected),
-            column((
-                kivact::ui::button("before").variant(kivact::ui::ButtonVariant::Secondary),
-                app_outliner(
-                    data,
-                    ui::OutlinerState {
-                        selection: selected.into(),
-                        ..ui::OutlinerState::new(ids(data))
-                    },
-                ),
-            )),
-        )
-    });
+    let (screen, (_data, selected)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let data = signal(scene());
+            let selected = signal(Vec::new());
+            (
+                (data, selected),
+                column((
+                    kivact::ui::button("before").variant(kivact::ui::ButtonVariant::Secondary),
+                    app_outliner(
+                        data,
+                        ui::OutlinerState {
+                            selection: selected.into(),
+                            ..ui::OutlinerState::new(ids(data))
+                        },
+                    ),
+                )),
+            )
+        });
     assert!(
         screen
             .get_by_role(Role::Tree, "Outliner")
@@ -74,16 +78,17 @@ fn the_rows_follow_the_tree_view_keys_and_are_one_tab_stop() {
 
 #[test]
 fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
-    let (screen, (data, activated)) = kivact::test::render_with_handle(crate::options(), || {
-        let data = signal(scene());
-        let activated = signal(Vec::<u64>::new());
-        (
-            (data, activated),
-            app_outliner(data, ui::OutlinerState::new(ids(data))).on_item_activate(move |id| {
-                activated.update(|all| all.push(id));
-            }),
-        )
-    });
+    let (screen, (data, activated)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let data = signal(scene());
+            let activated = signal(Vec::<u64>::new());
+            (
+                (data, activated),
+                app_outliner(data, ui::OutlinerState::new(ids(data))).on_item_activate(move |id| {
+                    activated.update(|all| all.push(id));
+                }),
+            )
+        });
     // With an activation callback a double click and Enter activate.
     item(&screen, "Other").double_click();
     assert_eq!(activated.get_untracked(), [4], "once per double click");
@@ -106,20 +111,21 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
     clean(&screen);
 
     // Without one, a double click renames, and Escape keeps the name.
-    let (screen, (data, rename)) = kivact::test::render_with_handle(crate::options(), || {
-        let data = signal(scene());
-        let rename = signal(None::<u64>);
-        (
-            (data, rename),
-            app_outliner(
-                data,
-                ui::OutlinerState {
-                    renaming: rename.into(),
-                    ..ui::OutlinerState::new(ids(data))
-                },
-            ),
-        )
-    });
+    let (screen, (data, rename)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let data = signal(scene());
+            let rename = signal(None::<u64>);
+            (
+                (data, rename),
+                app_outliner(
+                    data,
+                    ui::OutlinerState {
+                        renaming: rename.into(),
+                        ..ui::OutlinerState::new(ids(data))
+                    },
+                ),
+            )
+        });
     item(&screen, "Cube").double_click();
     assert_eq!(rename.get_untracked(), Some(3));
     screen

@@ -49,8 +49,9 @@
 //! Weston's window manager may fail an assertion and drop the XWayland
 //! connection, ending the process.
 //!
-//! A panic in a callback is caught at the shell's boundary and ends the
-//! loop with a [`arvane_shell::ShellError`] ([`arvane_shell::ShellEventLoop::run`]).
+//! A panic in a callback propagates out of the loop: winit carries it across
+//! its window procedure (Win32, macOS) and resumes it after the loop
+//! ([`arvane_shell::ShellEventLoop::run`]).
 #![deny(unsafe_code)]
 
 #[cfg(feature = "embed")]
@@ -58,6 +59,7 @@ pub mod embed;
 
 mod a11y;
 mod contacts;
+mod detached;
 mod display;
 mod key_code;
 mod module;
@@ -70,12 +72,6 @@ pub mod test_display;
 mod wait;
 mod wheel;
 
+pub use detached::detached_threads;
 pub use module::retain_module;
 pub use runtime::{Shell, WinitWindow};
-
-static DETACHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-/// Whether this crate has ever detached a thread that may still execute its code.
-pub fn detached_threads() -> bool {
-    DETACHED.load(std::sync::atomic::Ordering::Acquire)
-}

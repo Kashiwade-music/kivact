@@ -1,7 +1,7 @@
 //! Role: Layout and navigation tests: resizable, carousel, tabs, scroller and sidebar.
 
 use super::navigation::{light, options, page};
-use super::{assert_clean, distance, pixel};
+use crate::support::{assert_clean, distance, pixel};
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::ButtonVariant;

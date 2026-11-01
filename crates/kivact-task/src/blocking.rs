@@ -2,25 +2,68 @@
 //!
 //! `blocking`: run a `Send` closure on the App-owned fixed thread pool and
 //! await its result on the UI thread. Dropping the future discards the
-//! result and signals the closure's `CancelToken`.
+//! result and signals the closure's `CancelToken`. A job that panics is
+//! noticed by the awaiting future, which takes the payload from the dead
+//! thread and resumes it on the UI thread.
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
-use super::state::pool::{Job, lock};
+use crate::worker_pool::{Job, Pool, lock};
 
 struct Slot<R> {
-    result: Option<std::thread::Result<R>>,
+    outcome: Outcome<R>,
     waker: Option<Waker>,
+}
+
+/// How a blocking job went.
+enum Outcome<R> {
+    /// Not finished yet.
+    Running,
+    /// Finished with its result.
+    Done(R),
+    /// The job's thread unwound out of it; the thread's id finds its payload.
+    Died(std::thread::ThreadId),
 }
 
 /// Future of a blocking job.
 pub(crate) struct BlockingFuture<R> {
     slot: Arc<Mutex<Slot<R>>>,
     cancel: CancelToken,
+    pool: Option<Arc<Pool>>,
+}
+
+/// Held by a running job: on drop, at a normal exit and on unwind alike, it
+/// settles the slot, wakes the awaiting task and stops counting the job as
+/// outstanding.
+struct Completion<R> {
+    slot: Arc<Mutex<Slot<R>>>,
+    outstanding: Option<Arc<AtomicUsize>>,
+}
+
+impl<R> Drop for Completion<R> {
+    fn drop(&mut self) {
+        let waker = {
+            let mut s = lock(&self.slot);
+            if matches!(s.outcome, Outcome::Running) {
+                s.outcome = Outcome::Died(std::thread::current().id());
+            }
+            s.waker.take()
+        };
+        // Wake (schedule the awaiting task) before the job stops counting as
+        // outstanding: a test harness that sees `outstanding == 0` then also
+        // sees the ready task, so it cannot stop before the result is
+        // consumed (this once made a history test flaky).
+        if let Some(w) = waker {
+            w.wake();
+        }
+        if let Some(o) = &self.outstanding {
+            o.fetch_sub(1, Ordering::SeqCst);
+        }
+    }
 }
 
 impl<R> Future for BlockingFuture<R> {
@@ -28,13 +71,19 @@ impl<R> Future for BlockingFuture<R> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<R> {
         let mut s = lock(&self.slot);
-        match s.result.take() {
-            Some(Ok(v)) => Poll::Ready(v),
-            Some(Err(p)) => {
+        match std::mem::replace(&mut s.outcome, Outcome::Running) {
+            Outcome::Done(v) => Poll::Ready(v),
+            Outcome::Died(thread) => {
                 drop(s);
-                std::panic::resume_unwind(p)
+                let payload = self.pool.as_ref().and_then(|pool| pool.take_panic(thread));
+                match payload {
+                    Some(payload) => std::panic::resume_unwind(payload),
+                    None => panic!(
+                        "a `blocking` job panicked on its thread; its message is printed above"
+                    ),
+                }
             }
-            None => {
+            Outcome::Running => {
                 s.waker = Some(cx.waker().clone());
                 Poll::Pending
             }
@@ -65,7 +114,7 @@ fn start<R: Send + 'static>(
     let cancel = CancelToken::default();
     let token = cancel.clone();
     let slot = Arc::new(Mutex::new(Slot {
-        result: None,
+        outcome: Outcome::Running,
         waker: None,
     }));
     let s2 = slot.clone();
@@ -77,23 +126,14 @@ fn start<R: Send + 'static>(
         o.fetch_add(1, Ordering::SeqCst);
     }
     let job: Job = Box::new(move || {
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || f(token)));
-        let waker = {
-            let mut s = lock(&s2);
-            s.result = Some(r);
-            s.waker.take()
+        let completion = Completion {
+            slot: s2,
+            outstanding,
         };
-        // Wake (schedule the awaiting task) before the job stops counting as
-        // outstanding: a test harness that sees `outstanding == 0` then also
-        // sees the ready task, so it cannot stop before the result is
-        // consumed (this once made a history test flaky).
-        if let Some(w) = waker {
-            w.wake();
-        }
-        if let Some(o) = outstanding {
-            o.fetch_sub(1, Ordering::SeqCst);
-        }
+        let r = f(token);
+        lock(&completion.slot).outcome = Outcome::Done(r);
     });
+    let awaiting_pool = pool.clone();
     match pool {
         Some(p) => p.submit(job),
         None => {
@@ -110,12 +150,18 @@ fn start<R: Send + 'static>(
             }
         }
     }
-    BlockingFuture { slot, cancel }
+    BlockingFuture {
+        slot,
+        cancel,
+        pool: awaiting_pool,
+    }
 }
 
 /// Run `f` on the App's blocking pool. Only this closure needs `Send`: read
-/// UI handles outside and pass plain values in. A panic in `f` resurfaces as
-/// a `UiError` in the resource or action that awaited it.
+/// UI handles outside and pass plain values in. A panic in `f` is resumed
+/// with its original payload on the UI thread by the task awaiting it, which
+/// ends the App (a test fails with its message). If the job's future was
+/// already dropped, the panic resumes when the App closes.
 ///
 /// `f` is `|| ..`, or `|cancel| ..` when the work wants the [`CancelToken`]
 /// that turns true when the returned future is dropped (a newer request
@@ -142,15 +188,6 @@ where
     start(move |cancel| f.run(cancel))
 }
 
-mod sealed {
-    //! Role: Seal of `BlockingWork` and its two argument forms.
-    pub trait Sealed<M> {}
-    /// The form of a closure without an argument.
-    pub struct Nullary;
-    /// The form of a closure that takes the `CancelToken`.
-    pub struct Unary;
-}
-
 /// The closure of [`blocking`]: `FnOnce() -> R` or `FnOnce(CancelToken) -> R`,
 /// `Send + 'static`. `M` only tells the two forms apart and is inferred; the
 /// trait is sealed. It runs on another thread, so it cannot capture a
@@ -162,24 +199,29 @@ mod sealed {
     label = "runs on a blocking thread: every capture must be `Send`",
     note = "`Signal`, `Value` and the other handles stay on the UI thread: read the value outside `blocking` and move the plain value in"
 )]
-pub trait BlockingWork<R, M>: sealed::Sealed<M> + Send + 'static {
+pub trait BlockingWork<R, M>: crate::sealed::BlockingWorkSeal<M> + Send + 'static {
     #[doc(hidden)]
     fn run(self, cancel: CancelToken) -> R;
 }
 
-impl<F: FnOnce() -> R, R> sealed::Sealed<sealed::Nullary> for F {}
+impl<F: FnOnce() -> R, R> crate::sealed::BlockingWorkSeal<crate::sealed::Nullary> for F {}
 
 #[diagnostic::do_not_recommend]
-impl<F: FnOnce() -> R + Send + 'static, R> BlockingWork<R, sealed::Nullary> for F {
+impl<F: FnOnce() -> R + Send + 'static, R> BlockingWork<R, crate::sealed::Nullary> for F {
     fn run(self, _: CancelToken) -> R {
         self()
     }
 }
 
-impl<F: FnOnce(CancelToken) -> R, R> sealed::Sealed<sealed::Unary> for F {}
+impl<F: FnOnce(CancelToken) -> R, R>
+    crate::sealed::BlockingWorkSeal<crate::sealed::Unary<CancelToken>> for F
+{
+}
 
 #[diagnostic::do_not_recommend]
-impl<F: FnOnce(CancelToken) -> R + Send + 'static, R> BlockingWork<R, sealed::Unary> for F {
+impl<F: FnOnce(CancelToken) -> R + Send + 'static, R>
+    BlockingWork<R, crate::sealed::Unary<CancelToken>> for F
+{
     fn run(self, cancel: CancelToken) -> R {
         self(cancel)
     }

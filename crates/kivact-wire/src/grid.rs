@@ -4,7 +4,8 @@
 //! item, its place. Boxed in [`LayoutProps::grid`](super::LayoutProps):
 //! most nodes have none.
 
-use super::values::{Align, Dimension};
+use super::Align;
+use super::values::Dimension;
 
 /// A node's grid props.
 #[derive(Clone, Debug, PartialEq, Default)]

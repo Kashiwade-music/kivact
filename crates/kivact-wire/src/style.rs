@@ -5,7 +5,8 @@
 use super::Point;
 use super::grid::GridProps;
 use super::paint::{Border, Corners, Effects, Fill, Len, Ring};
-use super::values::{Align, Dimension, Edges, FlexDirection, Justify, Overflow, Position, Rgba};
+use super::values::{Dimension, Edges, Rgba};
+use super::{Align, FlexDirection, Justify, Overflow, Position};
 
 /// Flex or grid layout of a node. Hosts own the layout algorithm.
 #[derive(Clone, Debug, PartialEq)]

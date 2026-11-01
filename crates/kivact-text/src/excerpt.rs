@@ -1,9 +1,13 @@
 //! Role: Bounded IME excerpts cut at grapheme and CRLF boundaries.
 
+use crate::EditLines;
 use crate::pieces::floor;
-use crate::{EditLines, IME_CONTEXT};
 use std::ops::Range;
 use unicode_segmentation::GraphemeCursor;
+
+/// Bytes of text on each side of the caret the IME is given, at most
+/// (the lines around it while they fit).
+const IME_CONTEXT: usize = 2048;
 
 impl EditLines {
     /// The part of the text the IME is given around `around` (byte

@@ -157,3 +157,8 @@ pub struct IntrinsicSize {
     pub preferred: Option<Size>,
     pub max: Option<Size>,
 }
+
+/// Identity of a hit/semantics region inside one node's scene. Unique within
+/// that node only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct RegionId(pub u64);

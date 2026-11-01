@@ -1,4 +1,4 @@
-//! Role: Shaped paragraphs: measured once, queried for geometry and drawn as shaped.
+//! Role: Shaped paragraphs: shaped once, queried for geometry, and drawn by `Draw`.
 //!
 //! A [`TextParagraph`] is text the host shaped in a style at a width: it
 //! knows its size, its lines and where every caret lies, so a component
@@ -30,8 +30,10 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_wire::{self as p, ShapedText, TextLine};
+use kivact_wire::{self as p, SceneCmd, ShapedText, TextLine};
 
+use super::recorder::Draw;
+use super::text_run::{TextRun, TextStyle};
 use crate::geometry::{Point, Rect, Size};
 
 /// Text shaped by the host in a style, at a width.
@@ -246,5 +248,43 @@ impl TextParagraph {
     /// The caret at scalar boundary `index`.
     fn caret_at(&self, index: usize) -> Rect {
         kivact_editing::caret_at(&self.0.shaped, index)
+    }
+}
+
+impl Draw {
+    /// Shape `text` in `style`, wrapped at `max_width` (`None`: at hard line
+    /// breaks only), with the window's text engine: the paragraph
+    /// [`Draw::paragraph`] draws, and the one `Constraints::measure_paragraph`
+    /// makes of the same inputs. Without an engine to shape with it is empty.
+    pub fn layout_paragraph(
+        &self,
+        text: &str,
+        style: &TextStyle,
+        max_width: Option<f32>,
+    ) -> TextParagraph {
+        let origin = p::Point { x: 0.0, y: 0.0 };
+        let run = TextRun::from_style(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
+        let shaped = self
+            .measurer
+            .as_ref()
+            .and_then(|shaper| shaper.shape(run.as_wire(), max_width))
+            .unwrap_or_default();
+        TextParagraph::from_shaped(text, shaped, max_width)
+    }
+
+    /// Draw `paragraph` with its top left at `origin`, in `color`: the glyphs
+    /// and decoration lines it was shaped with, not shaped again.
+    pub fn paragraph(
+        &mut self,
+        paragraph: &TextParagraph,
+        origin: Point,
+        color: impl crate::theme::value::ThemeColor,
+    ) {
+        let color = self.color(color.resolve(&self.theme));
+        self.cmds.push(SceneCmd::Paragraph {
+            shaped: paragraph.shaped(),
+            origin,
+            color,
+        });
     }
 }

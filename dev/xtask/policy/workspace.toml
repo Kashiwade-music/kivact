@@ -24,9 +24,9 @@ kivact-ui = ["kivact"]
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
 # App::run, Offscreen and the test driver share this bridge.
-# Embedded handles are Send + Sync. Only embedded clients return a diagnostic
-# through Client::start / TurnOutput::stop at startup or the end of a turn;
-# Runtime::first_unhandled_panic retains the original default-sink panic.
+# Embedded handles are Send + Sync. A panic of an embedded App is kept in a
+# PanicSlot and resumed by the embedder's next call; nothing turns it into a
+# diagnostic.
 # Detach facts flow task -> core and asset/native -> arvane -> engine/embed.
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-wire; pure layout belongs to kivact-layout.
@@ -212,9 +212,9 @@ target = []
 [module_rules.kivact-engine]
 except = [
     # Model owns passive state; these leaves import no Model or processing code.
-    "model -> paint::state",
-    "model -> a11y::state",
-    "model -> check::lint::state",
+    "model::aggregate -> paint::state",
+    "model::aggregate -> a11y::state",
+    "model::aggregate -> check::lint::state",
     # Sync derives Look values directly and calls PaintState's narrow invalidator.
     "model::interact::sync -> paint::state",
 ]
@@ -234,3 +234,163 @@ offscreen = ["text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
 bridge = ["host", "offscreen", "text_measure", "mutation"]
 native = ["host", "offscreen", "bridge"]
+
+# kivact-types: 語彙（root の module）は host と Arvane の protocol に依存しない。`protocol` を key にして
+# 語彙の全 module を許すのは、protocol から語彙への向きだけを許す（`protocol` が key でないと、語彙から
+# protocol への参照は検査されない）ため。
+[module_rules.kivact-types.uses]
+asset = []
+cursor = []
+effect = []
+geometry = []
+gpu_interop = []
+image = []
+input = []
+layout = []
+motion = []
+paint = []
+platform = ["input"]
+semantics = []
+semantics_text = ["geometry"]
+shape = []
+style = []
+text = ["geometry"]
+protocol = [
+    "asset", "cursor", "effect", "geometry", "gpu_interop", "image", "input", "layout", "motion",
+    "paint", "platform", "semantics", "semantics_text", "shape", "style", "text",
+]
+
+# ----- Google Rust Style Guide の機械的に検査できる部分（vendor/xtask-core の README「Style checks」）。
+# 例外は Google の指針自体が認める場合（意図した prelude、FFI の境界の defense in depth など）だけに書き、
+# reason にその設計上の事実を書く。件数を減らすための例外は書かない。
+[style]
+enabled = true
+extra_rules = [
+    "glob-imports",
+    "non-leaf-implementation",
+    "rustfmt-skip",
+    "catch-unwind",
+    "poison-access",
+    "options-default",
+]
+# 公開 API はまだ大きく変わるので、公開 item の rustdoc の有無（missing-docs）は今は検査しない。
+# API が落ち着いたら外す。
+disabled_rules = ["missing-docs"]
+# non-exhaustive（extra_rules に入れていない）も同じ理由で今は検査しない。互換を残さない初期開発版では
+# semver の利点がなく、workspace の中の match から網羅性の検査を奪うだけになる。API が落ち着いたら
+# extra_rules に戻す。下の api_packages はそのときの対象。
+# 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-wire と kivact_types::protocol は workspace 内の protocol。
+# facade（kivact）から届く crate と、四つの公式キット。
+api_packages = [
+    "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
+    "kivact-motion", "kivact-reactive", "kivact-style", "kivact-task", "kivact-types", "kivact-ui",
+    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-wire",
+]
+# 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
+options_structs = [
+    "arvane::embed::EmbedOptions",
+    "arvane::test_display::VirtualWindowOptions",
+    "arvane-native::test_display::TestWindowOptions",
+    "arvane-shell::ChildOptions",
+    "arvane-shell::ShellOptions",
+    "kivact-core::platform::FileDialog",
+    "kivact-core::test::RenderOptions",
+    "kivact-engine::HostOptions",
+    "kivact-engine::embed::EmbedOptions",
+    "kivact-engine::testing::TestHostOptions",
+    "kivact-interaction::Dismiss",
+    "kivact-interaction::ListPolicy",
+    "kivact-interaction::ListRangePolicy",
+    "kivact-interaction::TooltipConfig",
+    "kivact-style::draw::ImageOptions",
+    "kivact-style::draw::TextStyle",
+    "kivact-types::GpuPreference",
+    "kivact-types::protocol::MouseSettings",
+    "kivact-ui-basic::ChartConfig",
+    "kivact-ui-creative::WindowOptions",
+]
+
+# kivact::prelude は意図した公開 API（利用者が `use kivact::prelude::*;` で始める）。
+# 利用者の立場のコード（例・雛形・公開 API とキットの E2E）だけが prelude を glob で読む。
+# これらの path でも prelude 以外の glob は書かない。
+[[style.exceptions]]
+rule = "glob-imports"
+path = "examples/*"
+reason = "Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "templates/*"
+reason = "The app template starts from `use kivact::prelude::*`, as the guides teach."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "dev/tests/kivact-public-api/*"
+reason = "Public API E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-basic/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-creative/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-game/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-pop/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact/src/prelude.rs"
+reason = "The facade prelude is kivact_core's prelude plus the standard UI functions."
+
+[[style.exceptions]]
+rule = "catch-unwind"
+path = "crates/arvane-native/src/embed/windows/proc.rs"
+item = "embed::windows::proc::wndproc"
+reason = "Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The payload is kept in the child's PanicSlot, the App stops without running more App code, and the host's next call on Embedded resumes it (resume_unwind); it is never swallowed."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-core/src/client/dispatch.rs"
+item = "client::dispatch::dispatch"
+reason = "Glue that ties the event modules together: it routes each HostEvent variant to the child module of its kind and implements no event handling itself."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-core/src/view/mount.rs"
+item = "view::mount::mount_host_with"
+reason = "Glue that ties the mounting stages together: it runs the child modules' stages in the one order mounting requires and implements none of them."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-core/src/view/mount.rs"
+item = "view::mount::mount_host"
+reason = "The stage sequence of mount_host_with without a layout fix-up; glue over the mounting stages."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/arvane-native/src/embed.rs"
+item = "embed::open"
+reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "examples/kivact-ui-basic/src/docs.rs"
+item = "docs::PAGES"
+reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "dev/xtask/src/main.rs"
+item = "main"
+reason = "Glue: the binary entry only wires xtask-core's run to this workspace's module-rule and impl-model checks."

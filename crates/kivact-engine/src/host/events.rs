@@ -38,13 +38,15 @@
 //! - `MemoryWarning` releases unused asset and text engine caches
 //!   (`Engine::release_caches`: registered fonts and owned runs already
 //!   returned are kept) and is reported to the client.
-use super::Host;
+use super::pump::Host;
 use crate::KeyResult;
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_lower::conversion as c;
-use kivact_wire::*;
+use kivact_wire::{
+    HostEvent, HostInfo, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint,
+};
 impl arvane::Handler for Host {
     fn start(
         &mut self,
@@ -102,9 +104,7 @@ impl Host {
             model.set_store(store);
         }
         let tree = super::write::Writer::new(&self.model, &self.engine);
-        if let Some(diagnostic) = self.client.start(&info, waker, tree) {
-            return Err(ShellError::new(diagnostic));
-        }
+        self.client.start(&info, waker, tree);
         self.effects(window);
         if self.closing() {
             return Ok(ShellControl::default());

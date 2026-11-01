@@ -127,7 +127,7 @@ impl Offscreen {
         let raster = Cell::new(1.0);
         self.scene_cache.borrow_mut().begin_frame();
         let context = Context::new(&self.assets, &raster, &self.scene_cache);
-        let mut lowered = kivact_types::Scene::default();
+        let mut lowered = kivact_types::protocol::Scene::default();
         context.paint_scene(
             scene,
             Some(inherited),

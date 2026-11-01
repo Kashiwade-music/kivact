@@ -10,7 +10,8 @@ use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITORINFO};
 use winit::monitor::MonitorHandle;
 use winit::platform::windows::MonitorHandleExtWindows;
 
-pub(super) fn work_area(monitor: &MonitorHandle) -> Option<super::types::WorkArea> {
+/// The monitor's usable area as `(x, y, width, height)` in physical pixels.
+pub(super) fn work_area(monitor: &MonitorHandle) -> Option<(i32, i32, u32, u32)> {
     let mut info = MONITORINFO {
         cbSize: std::mem::size_of::<MONITORINFO>() as u32,
         rcMonitor: RECT {

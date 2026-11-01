@@ -5,12 +5,16 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawWindowHandle,
     Win32WindowHandle, WindowHandle,
 };
-use std::{
-    future::Future, num::NonZeroIsize, os::windows::ffi::OsStringExt, path::PathBuf, rc::Rc,
-};
-use windows_sys::Win32::{
-    Foundation::POINT,
-    UI::{Shell::*, WindowsAndMessaging::*},
+use std::future::Future;
+use std::num::NonZeroIsize;
+use std::os::windows::ffi::OsStringExt;
+use std::path::PathBuf;
+use std::rc::Rc;
+use windows_sys::Win32::Foundation::POINT;
+use windows_sys::Win32::UI::Shell::{DragFinish, DragQueryFileW, DragQueryPoint};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, GA_ROOT, GetAncestor, MSG, MWMO_INPUTAVAILABLE, MsgWaitForMultipleObjectsEx,
+    PM_REMOVE, PeekMessageW, PostQuitMessage, QS_ALLINPUT, TranslateMessage, WM_QUIT,
 };
 
 pub(super) struct Parent(isize);
