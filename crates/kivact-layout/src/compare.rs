@@ -1,7 +1,27 @@
 //! Role: Normal recorded-measurement revalidation and independent result reconciliation.
 
-use super::{Geometry, LayoutDifference, LayoutState, LayoutTree, LeafMeasure, NodeLayoutColumns};
+use crate::borrowed_tree::{LayoutTree, LeafMeasure};
+use crate::columns::NodeLayoutColumns;
+use crate::pass_state::LayoutState;
 use kivact_wire::NodeId;
+
+/// Complete neutral geometry, opaque so cache and Taffy representations stay private.
+/// Equality includes rounded/unrounded location, size, overflow rectangle,
+/// scrollbars, border, padding and margin, and excludes traversal order.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Geometry {
+    rounded: Option<taffy::Layout>,
+    unrounded: taffy::Layout,
+}
+
+/// One node-qualified difference between independently derived layout results.
+#[derive(Clone, Debug)]
+pub struct LayoutDifference {
+    /// The logical node whose derived result differs.
+    pub id: kivact_wire::NodeId,
+    /// Geometry, constraint or measurement evidence, without cache handles.
+    pub detail: String,
+}
 
 fn geometry(mut layout: taffy::Layout) -> taffy::Layout {
     layout.order = 0;
