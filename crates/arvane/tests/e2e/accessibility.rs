@@ -13,9 +13,9 @@ use crate::support::{open, rect};
 fn node(id: u64, role: Role, children: &[u64]) -> SemanticsNode {
     SemanticsNode {
         properties: None,
-        id: NodeId(id),
+        id: NodeId::new(id),
         role,
-        children: children.iter().copied().map(NodeId).collect(),
+        children: children.iter().copied().map(NodeId::new).collect(),
         label: format!("node {id}"),
         description: String::new(),
         value: None,
@@ -45,8 +45,8 @@ fn button(id: u64) -> SemanticsNode {
 /// Root 1 holds group 2 (buttons 3 and 4) and text 5.
 fn tree() -> SemanticsTree {
     SemanticsTree {
-        root: NodeId(1),
-        focus: Some(NodeId(3)),
+        root: NodeId::new(1),
+        focus: Some(NodeId::new(3)),
         nodes: vec![
             node(1, Role::Generic, &[2, 5]),
             node(2, Role::Group, &[3, 4]),
@@ -69,8 +69,8 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
     assert_eq!(window.accessibility().tree(), Some(tree()));
     // A label changes, the focus moves, a node is added under the group.
     let update = SemanticsUpdate {
-        root: NodeId(1),
-        focus: Some(NodeId(6)),
+        root: NodeId::new(1),
+        focus: Some(NodeId::new(6)),
         nodes: vec![
             SemanticsNode {
                 properties: None,
@@ -85,7 +85,7 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
         .update_accessibility(&update)
         .expect("a valid update");
     let accepted = window.accessibility().tree().expect("a tree");
-    assert_eq!(accepted.focus, Some(NodeId(6)));
+    assert_eq!(accepted.focus, Some(NodeId::new(6)));
     assert_eq!(
         ids(&accepted),
         [1, 2, 3, 4, 6, 5],
@@ -95,7 +95,7 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
     // Dropping the group from the root takes its subtree with it.
     window
         .update_accessibility(&SemanticsUpdate {
-            root: NodeId(1),
+            root: NodeId::new(1),
             focus: None,
             nodes: vec![node(1, Role::Generic, &[5])],
         })
@@ -126,7 +126,7 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
         ],
         ..node(6, Role::CheckBox, &[])
     });
-    tree.nodes[0].children.push(NodeId(6));
+    tree.nodes[0].children.push(NodeId::new(6));
     window.replace_accessibility(&tree).expect("a valid tree");
     let request = |node: u64, action: A11yAction, value: Option<&str>| {
         window.accessibility_action(node, action, value)
@@ -173,7 +173,7 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
         window.replace_accessibility(&tree).expect("a valid tree");
         window
             .update_accessibility(&SemanticsUpdate {
-                root: NodeId(1),
+                root: NodeId::new(1),
                 focus: None,
                 nodes: vec![change],
             })
@@ -195,7 +195,7 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
     // So does a disabled node itself.
     window
         .update_accessibility(&SemanticsUpdate {
-            root: NodeId(1),
+            root: NodeId::new(1),
             focus: None,
             nodes: vec![SemanticsNode {
                 properties: None,

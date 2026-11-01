@@ -145,7 +145,7 @@ impl IntoView for BezierCurve {
             draw.stroke_path(&path, &Stroke::new(2), p.accent);
             draw.circle(from, 3.0, p.text);
             draw.circle(to, 3.0, p.text);
-            for (id, point) in [(RegionId(1), first), (RegionId(2), second)] {
+            for (id, point) in [(RegionId::new(1), first), (RegionId::new(2), second)] {
                 draw.circle(point, 5.0, p.accent);
                 draw.region(id, area.hit(point));
             }
@@ -153,13 +153,13 @@ impl IntoView for BezierCurve {
         for (index, id, key, fallback) in [
             (
                 0,
-                RegionId(1),
+                RegionId::new(1),
                 "creative.bezier.control1",
                 "Control point 1",
             ),
             (
                 1,
-                RegionId(2),
+                RegionId::new(2),
                 "creative.bezier.control2",
                 "Control point 2",
             ),

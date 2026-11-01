@@ -85,6 +85,8 @@ fn apply(
                 control.value = value;
             }
         }
+        // Variants added later fall back to being ignored.
+        _ => {}
     }
 }
 
@@ -109,6 +111,8 @@ fn graph_panel() -> impl IntoView {
                 links.set(old_links);
             }
         }
+        // Variants added later fall back to being ignored.
+        _ => {}
     };
 
     ui::node_editor(nodes, links, state)
@@ -180,11 +184,9 @@ use kivact_ui_creative as ui;
 
 let transform = signal(ViewTransform::default());
 let selection = signal(Vec::<u64>::new());
-let state = ui::NodeState {
-    transform: transform.into(),
-    selection: selection.into(),
-    ..ui::NodeState::new()
-};
+let mut state = ui::NodeState::new();
+state.transform = transform.into();
+state.selection = selection.into();
 # let _ = state;
 ```
 

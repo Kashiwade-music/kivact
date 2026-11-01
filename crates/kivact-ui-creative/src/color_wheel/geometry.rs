@@ -76,9 +76,9 @@ impl Geometry {
 impl Channel {
     pub(super) fn id(self) -> kivact::draw::RegionId {
         match self {
-            Self::Hue => kivact::draw::RegionId(1),
-            Self::Sv => kivact::draw::RegionId(2),
-            Self::Alpha => kivact::draw::RegionId(3),
+            Self::Hue => kivact::draw::RegionId::new(1),
+            Self::Sv => kivact::draw::RegionId::new(2),
+            Self::Alpha => kivact::draw::RegionId::new(3),
         }
     }
 }

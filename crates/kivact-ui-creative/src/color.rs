@@ -11,6 +11,7 @@ use kivact::style::{Theme, ThemeColor};
 /// reads the values the tokens fall back to. Take a [`Tokens`] field by hand only to
 /// compute a new color from it (`with_alpha`, `mix_in`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Color {
     /// [`Tokens::canvas`].
     Canvas,

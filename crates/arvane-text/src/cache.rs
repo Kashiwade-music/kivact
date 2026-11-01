@@ -201,6 +201,8 @@ impl TextKey {
                 LineHeight::Normal => (0, 0),
                 LineHeight::Scale(v) => (1, v.to_bits()),
                 LineHeight::Px(v) => (2, v.to_bits()),
+                // Variants added later fall back to normal line height.
+                _ => (0, 0),
             },
             wrap: style.wrap == TextWrap::Wrap,
             align: match style.align {
@@ -208,6 +210,8 @@ impl TextKey {
                 TextAlign::Center => 1,
                 TextAlign::End => 2,
                 TextAlign::Justify => 3,
+                // Variants added later fall back to start alignment.
+                _ => 0,
             },
             family: style.family.clone(),
             italic: style.italic,

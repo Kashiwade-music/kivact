@@ -26,6 +26,7 @@ use kivact_style::draw::Pixels;
 
 /// How the engine shares its pictures for a [`ShareRequest`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ShareMode {
     /// Make the engine's device on this adapter (with its graphics API),
     /// a pool of textures of the request's size, and
@@ -54,6 +55,7 @@ pub struct ShareRequest {
 
 /// Why a call of a [`ShareLink`] did not do what it asked.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ShareError {
     /// The request was replaced by a newer one: drop what was made for
     /// it and take the newer one ([`ShareLink::poll_request`]).

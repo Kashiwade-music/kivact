@@ -240,10 +240,7 @@ fn record(
     };
     let frame = draw::Frame {
         scale,
-        size: Size {
-            width: f32::from(width) / scale,
-            height: f32::from(height) / scale,
-        },
+        size: Size::new(f32::from(width) / scale, f32::from(height) / scale),
         backdrops: info.backdrops,
     };
     draw::draw(&mut canvas, caches, source, &frame);

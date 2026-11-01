@@ -22,6 +22,7 @@ use std::time::Duration;
 
 /// The text size and padding of a code block (code-block.tsx `size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CodeBlockSize {
     /// 14 px code on 23 px lines with 12 px padding.
     #[default]
@@ -202,7 +203,7 @@ fn line_colors(
         if let Some(color) = tone_color(colors, span.tone)
             && !range.is_empty()
         {
-            out.push(TextHighlight { range, color });
+            out.push(TextHighlight::new(range, color));
         }
     }
     (out, index + 1)

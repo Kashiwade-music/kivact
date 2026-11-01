@@ -70,11 +70,7 @@ impl Model {
         let parent = self.tree.parent_id(n)?;
         let r = self.rect(id)?;
         // Where layout put it, with the scrolls and outer shifts of now.
-        let at = Rect {
-            x: r.x - n.shift.x,
-            y: r.y - n.shift.y,
-            ..r
-        };
+        let at = Rect::new(r.x - n.shift.x, r.y - n.shift.y, r.width, r.height);
         let (scroller, port) = self.scrollport(parent);
         let block = self.containing_block(parent, scroller == Some(parent))?;
         let len = |d: Dimension, of: f32| match d {
@@ -83,33 +79,28 @@ impl Model {
             Dimension::Calc { percent, px } => Some(of * percent / 100.0 + px),
             _ => None,
         };
-        Some(Point {
-            x: shift(
+        Some(Point::new(
+            shift(
                 (at.x, at.width),
                 (block.x, block.width),
                 (port.x, port.width),
                 len(inset.left, port.width),
                 len(inset.right, port.width),
             ),
-            y: shift(
+            shift(
                 (at.y, at.height),
                 (block.y, block.height),
                 (port.y, port.height),
                 len(inset.top, port.height),
                 len(inset.bottom, port.height),
             ),
-        })
+        ))
     }
 
     /// The scroll container whose scroll a sticky box below `from` (its
     /// parent) follows, and its window-space box (the window without one).
     fn scrollport(&self, from: NodeId) -> (Option<NodeId>, Rect) {
-        let window = Rect {
-            x: 0.0,
-            y: 0.0,
-            width: self.viewport.width,
-            height: self.viewport.height,
-        };
+        let window = Rect::new(0.0, 0.0, self.viewport.width, self.viewport.height);
         for x in self.tree.chain(Some(from)) {
             let Some(n) = self.tree.get(x) else { break };
             if n.scroll_axes() != (false, false) {
@@ -130,19 +121,15 @@ impl Model {
         let l = self.computed_layout(parent)?;
         let c = l.content_box;
         if !scrolls {
-            return Some(Rect {
-                x: r.x + c.x,
-                y: r.y + c.y,
-                ..c
-            });
+            return Some(Rect::new(r.x + c.x, r.y + c.y, c.width, c.height));
         }
         let s = self.tree.get(parent)?.scroll;
-        Some(Rect {
-            x: r.x + c.x - s.x,
-            y: r.y + c.y - s.y,
-            width: (l.content_size.width - (l.size.width - c.width)).max(c.width),
-            height: (l.content_size.height - (l.size.height - c.height)).max(c.height),
-        })
+        Some(Rect::new(
+            r.x + c.x - s.x,
+            r.y + c.y - s.y,
+            (l.content_size.width - (l.size.width - c.width)).max(c.width),
+            (l.content_size.height - (l.size.height - c.height)).max(c.height),
+        ))
     }
 }
 

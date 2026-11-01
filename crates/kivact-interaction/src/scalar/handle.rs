@@ -14,7 +14,9 @@ use kivact_core::view::{
 use kivact_core::{Binding, Value, memo};
 
 /// Reactive drawing state of an attached scalar thumb.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ScalarState {
     pub input: PartState,
     /// The caller's current value.

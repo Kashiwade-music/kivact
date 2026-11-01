@@ -70,5 +70,7 @@ pub(super) fn tone_of(hue: ui::Hue) -> kivact::ui::Tone {
         ui::Hue::Red => Tone::Danger,
         ui::Hue::Blue | ui::Hue::Pink => Tone::Info,
         ui::Hue::Gray => Tone::Neutral,
+        // Variants added later fall back to the neutral tone.
+        _ => Tone::Neutral,
     }
 }

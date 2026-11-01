@@ -20,12 +20,13 @@ pub(crate) enum Look {
 impl Look {
     pub(crate) fn of(variant: ButtonVariant) -> Self {
         match variant {
-            ButtonVariant::Primary => Look::Default,
             ButtonVariant::Outline => Look::Outline,
             ButtonVariant::Secondary => Look::Secondary,
             ButtonVariant::Ghost => Look::Ghost,
             ButtonVariant::Danger => Look::Destructive,
             ButtonVariant::Link => Look::Link,
+            // Variants added later fall back to Primary.
+            _ => Look::Default,
         }
     }
 
@@ -46,8 +47,9 @@ pub(crate) fn metrics(size: ControlSize) -> (f32, f32, f32, f32) {
     match size {
         ControlSize::ExtraSmall => (24.0, 8.0, 4.0, 12.0),
         ControlSize::Small => (28.0, 10.0, 4.0, 14.0),
-        ControlSize::Medium => (32.0, 10.0, 6.0, 16.0),
         ControlSize::Large => (36.0, 10.0, 6.0, 16.0),
+        // Variants added later fall back to Medium.
+        _ => (32.0, 10.0, 6.0, 16.0),
     }
 }
 

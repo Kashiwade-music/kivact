@@ -15,7 +15,9 @@ use std::sync::Arc;
 /// upload caches drop them after a frame that does not use them. A buffer
 /// whose length disagrees with its size draws nothing and is reported as
 /// `Unsupported`.
+/// Built with [`Pixels::new`].
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Pixels {
     pub width: u32,
     pub height: u32,

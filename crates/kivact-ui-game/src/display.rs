@@ -30,6 +30,8 @@ impl ToneExt for Tone {
             Self::Danger => t.colors().danger,
             Self::Neutral => t.get::<Tokens>().text_2,
             Self::Accent => t.get::<Tokens>().yellow,
+            // Variants added later fall back to the neutral tone.
+            _ => t.get::<Tokens>().text_2,
         }
     }
     fn weak(self, t: &Theme) -> Color {
@@ -59,6 +61,8 @@ impl ToneExt for Tone {
             }
             Self::Neutral => t.get::<Tokens>().surface_3,
             Self::Accent => t.get::<Tokens>().yellow,
+            // Variants added later fall back to the neutral tone.
+            _ => t.get::<Tokens>().surface_3,
         }
     }
 }
@@ -71,6 +75,7 @@ pub fn badge(label: impl IntoText, tone: Tone) -> Node {
 
 /// Status, version and environment badge treatments.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BadgeVariant {
     #[default]
     Dot,

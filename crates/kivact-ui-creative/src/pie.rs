@@ -15,7 +15,9 @@ use kivact::view::{MouseButton, Placement, PointerPhase, callback, overlay_at};
 use kivact::{Binding, binding};
 
 /// A directional command, in clockwise degrees from the positive horizontal axis.
+/// Built with [`PieEntry::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct PieEntry {
     pub label: String,
     pub angle: f32,
@@ -32,7 +34,9 @@ impl PieEntry {
     }
 }
 /// Public state permits a surrounding application to open the same menu from a hovered editor.
+/// Built with [`PieState::open_at`] or [`PieState::default`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub struct PieState {
     pub open: bool,
     pub held: bool,

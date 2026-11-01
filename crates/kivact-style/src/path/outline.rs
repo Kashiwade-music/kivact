@@ -51,6 +51,8 @@ impl Path {
             LineJoin::Miter => Join::Miter,
             LineJoin::Round => Join::Round,
             LineJoin::Bevel => Join::Bevel,
+            // Variants added later fall back to a miter join.
+            _ => Join::Miter,
         };
         let mut style = kurbo::Stroke::new(width)
             .with_caps(cap)

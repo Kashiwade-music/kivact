@@ -37,10 +37,5 @@ pub fn glyph_ink_bounds(run: &GlyphRun) -> Option<Rect> {
         y0 = y0.min(glyph.y - b.y_max);
         y1 = y1.max(glyph.y - b.y_min);
     }
-    (x0 < x1 && y0 < y1).then_some(Rect {
-        x: x0,
-        y: y0,
-        width: x1 - x0,
-        height: y1 - y0,
-    })
+    (x0 < x1 && y0 < y1).then_some(Rect::new(x0, y0, x1 - x0, y1 - y0))
 }

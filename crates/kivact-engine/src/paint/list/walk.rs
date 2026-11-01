@@ -59,11 +59,7 @@ impl Walk<'_> {
         if !visible {
             // Neither it nor anything in its subtree shows.
             let shows = ink(host, id, n, &layout, self.generation).is_some_and(|k| {
-                let at = Rect {
-                    x: k.x + origin.x,
-                    y: k.y + origin.y,
-                    ..k
-                };
+                let at = Rect::new(k.x + origin.x, k.y + origin.y, k.width, k.height);
                 overlaps(at, clip)
             });
             if !shows {
@@ -74,10 +70,7 @@ impl Walk<'_> {
         // its subtree is culled in its own space.
         let (transform, clip, o) = match local {
             Some(t) if t.a == 1.0 && t.b == 0.0 && t.c == 0.0 && t.d == 1.0 => {
-                let o = Point {
-                    x: origin.x + t.e,
-                    y: origin.y + t.f,
-                };
+                let o = Point::new(origin.x + t.e, origin.y + t.f);
                 (NO_TRANSFORM, clip, o)
             }
             Some(t) => {
@@ -144,22 +137,14 @@ impl Walk<'_> {
         }
         let clip = grow(clip, look.fx);
         let child_clip = if clips {
-            let padding = look.inside(Rect {
-                x: o.x,
-                y: o.y,
-                width: layout.size.width,
-                height: layout.size.height,
-            });
+            let padding = look.inside(Rect::new(o.x, o.y, layout.size.width, layout.size.height));
             clip.intersect(&grow(padding, self.margin))
         } else {
             clip
         };
         let scroll = n.scroll();
         // The children's layout locations are relative to this origin.
-        let base = Point {
-            x: o.x - scroll.x,
-            y: o.y - scroll.y,
-        };
+        let base = Point::new(o.x - scroll.x, o.y - scroll.y);
         self.children(id, n, base, alpha, own_matrix, child_clip);
         if listed
             && (clips
@@ -194,10 +179,7 @@ impl Walk<'_> {
         clip: Rect,
     ) {
         let host = self.host;
-        let place = |at: Point| Point {
-            x: base.x + at.x,
-            y: base.y + at.y,
-        };
+        let place = |at: Point| Point::new(base.x + at.x, base.y + at.y);
         if host.tree().nodes.links(n.index).children.len() < INDEXED {
             for child in host.stacked(n) {
                 let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
@@ -215,11 +197,7 @@ impl Walk<'_> {
         });
         index.refresh(host, pass, generation);
         // The clip in the index's space (the children's layout space).
-        let window = Rect {
-            x: clip.x - base.x,
-            y: clip.y - base.y,
-            ..clip
-        };
+        let window = Rect::new(clip.x - base.x, clip.y - base.y, clip.width, clip.height);
         let mut reached: Vec<(usize, NodeId, Point)> = index
             .reaching(window)
             .map(|e| (e.order, e.id, e.location))
@@ -235,10 +213,7 @@ impl Walk<'_> {
         }
         for (_, child, at) in reached {
             let at = match host.node(child).filter(|c| c.place.sticky) {
-                Some(c) => Point {
-                    x: at.x + c.shift.x,
-                    y: at.y + c.shift.y,
-                },
+                Some(c) => Point::new(at.x + c.shift.x, at.y + c.shift.y),
                 None => at,
             };
             self.node(child, place(at), alpha, matrix, clip);
@@ -262,12 +237,12 @@ impl Model {
         if list.stale || list.built_for != key {
             let margin = MARGIN.max(1.0 / self.paint.scale.max(f32::MIN_POSITIVE));
             let reach = margin + list.backdrop_reach;
-            let viewport = Rect {
-                x: -reach,
-                y: -reach,
-                width: window.width + 2.0 * reach,
-                height: window.height + 2.0 * reach,
-            };
+            let viewport = Rect::new(
+                -reach,
+                -reach,
+                window.width + 2.0 * reach,
+                window.height + 2.0 * reach,
+            );
             let mut walk = Walk {
                 host: self,
                 margin,

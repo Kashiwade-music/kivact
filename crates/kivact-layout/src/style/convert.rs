@@ -78,6 +78,8 @@ fn align(a: Align) -> AlignItems {
         Align::End => AlignItems::FLEX_END,
         Align::Stretch => AlignItems::STRETCH,
         Align::Baseline => AlignItems::BASELINE,
+        // Variants added later fall back to stretch.
+        _ => AlignItems::STRETCH,
     }
 }
 
@@ -86,6 +88,8 @@ fn overflow(o: Overflow) -> TOverflow {
         Overflow::Visible => TOverflow::Visible,
         Overflow::Hidden => TOverflow::Hidden,
         Overflow::Scroll => TOverflow::Scroll,
+        // Variants added later fall back to visible.
+        _ => TOverflow::Visible,
     }
 }
 
@@ -98,6 +102,8 @@ fn content(j: Justify) -> JustifyContent {
         Justify::SpaceAround => JustifyContent::SPACE_AROUND,
         Justify::SpaceEvenly => JustifyContent::SPACE_EVENLY,
         Justify::Stretch => JustifyContent::STRETCH,
+        // Variants added later fall back to start.
+        _ => JustifyContent::FLEX_START,
     }
 }
 
@@ -121,6 +127,8 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             FlexDirection::Column => TDir::Column,
             FlexDirection::RowReverse => TDir::RowReverse,
             FlexDirection::ColumnReverse => TDir::ColumnReverse,
+            // Variants added later fall back to row.
+            _ => TDir::Row,
         },
         flex_wrap: if l.wrap {
             FlexWrap::Wrap
@@ -172,6 +180,8 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
         position: match l.position {
             Position::Relative | Position::Sticky => TPos::Relative,
             Position::Absolute | Position::Fixed => TPos::Absolute,
+            // Variants added later fall back to relative positioning.
+            _ => TPos::Relative,
         },
         inset: if l.position == Position::Sticky {
             taffy::Rect::auto()

@@ -49,7 +49,9 @@ impl DockSide {
 /// The key identifies the panel's retained content in [`crate::dock`]. Panel
 /// kinds and single-instance policies belong to the consumer; encode them in
 /// the key type when needed.
+/// Built with [`DockTab::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct DockTab<K> {
     pub id: K,
     pub title: String,
@@ -83,7 +85,9 @@ impl<K> DockTab<K> {
 }
 
 /// A tabbed container: the leaf of a dock layout.
+/// Built with [`DockTabs::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct DockTabs<K> {
     pub tabs: Vec<DockTab<K>>,
     /// The visible tab. Normalization repairs a missing key to the first tab.
@@ -122,14 +126,24 @@ impl<K: Clone + PartialEq> DockTabs<K> {
 
 /// A child of a split with its relative size. Weights of one split need not
 /// sum to one; normalization rescales them.
+/// Built with [`DockChild::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct DockChild<K> {
     pub weight: f64,
     pub node: DockNode<K>,
 }
 
+impl<K> DockChild<K> {
+    /// A child of relative `weight` holding `node`.
+    pub fn new(weight: f64, node: DockNode<K>) -> Self {
+        DockChild { weight, node }
+    }
+}
+
 /// A node of the layout tree.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum DockNode<K> {
     Split {
         axis: DockAxis,
@@ -274,6 +288,7 @@ fn repair_weights<K>(children: &mut [DockChild<K>]) {
 /// `container` names any tab of the target container, so placements use only
 /// consumer keys and stay valid while the tree is restructured.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum DockPlacement<K> {
     /// Into the container's tab strip at `index` (counted without the moved
     /// tab), or at its end for `None`. The tab becomes active.
@@ -288,7 +303,9 @@ pub enum DockPlacement<K> {
 ///
 /// Keep it in a consumer `Binding` to persist, diff or undo it. Ids are the
 /// consumer's stable tab keys; a container is addressed through any of its tabs.
+/// Built with [`DockLayout::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct DockLayout<K> {
     pub root: DockNode<K>,
     /// A tab whose container fills the dock while the others stay retained.

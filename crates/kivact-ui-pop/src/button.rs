@@ -8,6 +8,7 @@ use kivact::ui::{ButtonVariant, ControlSize};
 /// `kivact::ui::button(..).variant(ButtonTone::Pink)`. Another theme
 /// draws the button's plain variant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ButtonTone {
     /// The yellow highlight.
     Accent,
@@ -40,8 +41,9 @@ pub(crate) fn button_style(
     let (height, pad, font) = match size {
         ControlSize::ExtraSmall => (26, 8, 12),
         ControlSize::Small => (32, 12, 13),
-        ControlSize::Medium => (36, 16, 14),
         ControlSize::Large => (40, 24, 14),
+        // Variants added later fall back to Medium.
+        _ => (36, 16, 14),
     };
     let mut s = style()
         .direction(Direction::Row)
@@ -62,25 +64,6 @@ pub(crate) fn button_style(
             Transition::tween(150, Easing::EaseOut),
         );
     match (hue, variant) {
-        (Some(ButtonTone::Accent | ButtonTone::Pink), _)
-        | (None, ButtonVariant::Primary | ButtonVariant::Danger) => {
-            let (a, b, fg) = match (hue, variant) {
-                (Some(ButtonTone::Accent), _) => (
-                    p.yellow,
-                    kivact::style::rgb(0xffe36a),
-                    kivact::style::rgb(0x3b2f00),
-                ),
-                (Some(ButtonTone::Pink), _) => (p.pink, kivact::style::rgb(0xff7cb0), Color::WHITE),
-                (_, ButtonVariant::Danger) => (p.red, kivact::style::rgb(0xf45d6f), Color::WHITE),
-                _ => (p.blue, p.blue.mix_in(p.cyan, 0.3, t), Color::WHITE),
-            };
-            s = s
-                .background(linear_gradient(90).colors([a, b]))
-                .color(fg)
-                .shadow(Shadow::new(0, 1, 2, kivact::style::rgba(0x0f172a, 0.12)))
-                .hover(style().filter(Filter::new().brightness(0.95)))
-                .pressed(style().filter(Filter::new().brightness(0.9)));
-        }
         (Some(ButtonTone::Soft), _) => {
             s = s
                 .background(p.surface_active)
@@ -114,6 +97,25 @@ pub(crate) fn button_style(
                 .border_color(kivact::style::rgba(0xffffff, 0.4))
                 .backdrop_blur(6)
                 .hover(style().background(kivact::style::rgba(0xffffff, 0.24)))
+        }
+        // Variants added later fall back to Primary.
+        (Some(ButtonTone::Accent | ButtonTone::Pink), _) | (None, _) => {
+            let (a, b, fg) = match (hue, variant) {
+                (Some(ButtonTone::Accent), _) => (
+                    p.yellow,
+                    kivact::style::rgb(0xffe36a),
+                    kivact::style::rgb(0x3b2f00),
+                ),
+                (Some(ButtonTone::Pink), _) => (p.pink, kivact::style::rgb(0xff7cb0), Color::WHITE),
+                (_, ButtonVariant::Danger) => (p.red, kivact::style::rgb(0xf45d6f), Color::WHITE),
+                _ => (p.blue, p.blue.mix_in(p.cyan, 0.3, t), Color::WHITE),
+            };
+            s = s
+                .background(linear_gradient(90).colors([a, b]))
+                .color(fg)
+                .shadow(Shadow::new(0, 1, 2, kivact::style::rgba(0x0f172a, 0.12)))
+                .hover(style().filter(Filter::new().brightness(0.95)))
+                .pressed(style().filter(Filter::new().brightness(0.9)));
         }
     }
     if slant {

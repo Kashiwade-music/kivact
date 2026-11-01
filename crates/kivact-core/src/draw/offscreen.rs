@@ -42,7 +42,9 @@ use std::panic::Location;
 /// (unassociated) alpha: exactly `width * height * 4` bytes in RGBA order,
 /// without row padding. It owns its allocation, independent of the
 /// [`Offscreen`] that drew it, and can move to another thread.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct RgbaImage {
     pub width: u32,
     pub height: u32,

@@ -12,10 +12,19 @@ use kivact::{Binding, Callback, Value, signal};
 use std::rc::Rc;
 
 /// One event dot; event contents remain in the application's scheduling model.
+/// Built with [`CalendarEvent::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct CalendarEvent {
     pub date: CalendarDate,
     pub color: Color,
+}
+
+impl CalendarEvent {
+    /// An event dot on `date` drawn in `color`.
+    pub fn new(date: CalendarDate, color: Color) -> Self {
+        CalendarEvent { date, color }
+    }
 }
 
 /// How a day cell relates to the selected date and the range.

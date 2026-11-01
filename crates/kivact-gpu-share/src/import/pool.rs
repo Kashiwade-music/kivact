@@ -44,7 +44,9 @@ impl Import {
         queue: &::wgpu::Queue,
         shared: SharedTextures,
     ) -> Result<Self, Error> {
-        let SharedTextureFormat::Rgba8UnormPremultiplied = shared.format;
+        let SharedTextureFormat::Rgba8UnormPremultiplied = shared.format else {
+            return Err(Error::Mismatch("unsupported texture format".into()));
+        };
         let (width, height) = (shared.width, shared.height);
         let max = device
             .limits()

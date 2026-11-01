@@ -265,26 +265,28 @@ impl Registry {
                     .invalid
                     .as_ref()
                     .is_some_and(kivact_reactive::Prop::get);
-                Some((
-                    entry.id,
-                    RegionSemantics {
-                        role: common.role.unwrap_or(crate::view::Role::Generic),
-                        name: common
+                Some((entry.id, {
+                    let mut semantics = RegionSemantics::new(
+                        common.role.unwrap_or(crate::view::Role::Generic),
+                        common
                             .name
                             .as_ref()
                             .map(kivact_reactive::Prop::get)
                             .unwrap_or_default(),
-                        description: common.description.as_ref().map(kivact_reactive::Prop::get),
-                        value: common.value.as_ref().map(kivact_reactive::Prop::get),
-                        actions: adopted.target.actions.actions(),
-                        properties: Some(Box::new(properties)),
-                        disabled: adopted.target.constraints.disabled.get(),
-                        hidden: adopted.target.constraints.hidden.get(),
-                        focusable: adopted.target.constraints.focusable.get(),
-                        focus_order: order.min(u32::MAX as usize) as u32,
-                        focus_on_press: common.focus_on_press.and_then(|r| r.target_value(self.at)),
-                    },
-                ))
+                    );
+                    semantics.description =
+                        common.description.as_ref().map(kivact_reactive::Prop::get);
+                    semantics.value = common.value.as_ref().map(kivact_reactive::Prop::get);
+                    semantics.actions = adopted.target.actions.actions();
+                    semantics.properties = Some(Box::new(properties));
+                    semantics.disabled = adopted.target.constraints.disabled.get();
+                    semantics.hidden = adopted.target.constraints.hidden.get();
+                    semantics.focusable = adopted.target.constraints.focusable.get();
+                    semantics.focus_order = order.min(u32::MAX as usize) as u32;
+                    semantics.focus_on_press =
+                        common.focus_on_press.and_then(|r| r.target_value(self.at));
+                    semantics
+                }))
             })
             .collect()
     }

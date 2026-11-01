@@ -85,11 +85,13 @@ impl BoxShape {
     /// The box grown (or shrunk, negative) by `by` on every side, its radii
     /// grown alike (a focus ring's outline).
     pub(crate) fn grown(&self, by: f32) -> BoxShape {
-        let grow = |r: Rect| Rect {
-            x: r.x - by,
-            y: r.y - by,
-            width: (r.width + 2.0 * by).max(0.0),
-            height: (r.height + 2.0 * by).max(0.0),
+        let grow = |r: Rect| {
+            Rect::new(
+                r.x - by,
+                r.y - by,
+                (r.width + 2.0 * by).max(0.0),
+                (r.height + 2.0 * by).max(0.0),
+            )
         };
         match *self {
             BoxShape::Rect(r) => BoxShape::Rect(grow(r)),
@@ -113,12 +115,12 @@ impl BoxShape {
             return *self;
         }
         let r = self.rect();
-        let inner = Rect {
-            x: r.x + widths.left,
-            y: r.y + widths.top,
-            width: (r.width - widths.left - widths.right).max(0.0),
-            height: (r.height - widths.top - widths.bottom).max(0.0),
-        };
+        let inner = Rect::new(
+            r.x + widths.left,
+            r.y + widths.top,
+            (r.width - widths.left - widths.right).max(0.0),
+            (r.height - widths.top - widths.bottom).max(0.0),
+        );
         if let BoxShape::Rect(_) = self {
             return BoxShape::Rect(inner);
         }
@@ -168,10 +170,7 @@ pub fn border_widths(border: Option<&Border>) -> Edges<f32> {
 
 /// The clip path `shape` in the box `rect` (CSS basic shapes).
 pub fn clip_path(shape: &ClipShape, rect: Rect) -> Shape {
-    let at = |[x, y]: [Len; 2]| Point {
-        x: rect.x + x.of(rect.width),
-        y: rect.y + y.of(rect.height),
-    };
+    let at = |[x, y]: [Len; 2]| Point::new(rect.x + x.of(rect.width), rect.y + y.of(rect.height));
     match shape {
         ClipShape::Path { cmds, even_odd } => {
             let shape = Shape::Path {
@@ -182,35 +181,27 @@ pub fn clip_path(shape: &ClipShape, rect: Rect) -> Shape {
                     FillRule::NonZero
                 },
             };
-            super::path::shifted(
-                shape,
-                Point {
-                    x: rect.x,
-                    y: rect.y,
-                },
-            )
+            super::path::shifted(shape, Point::new(rect.x, rect.y))
         }
         ClipShape::Inset { edges, radius } => {
-            let inner = Rect {
-                x: rect.x + edges.left.of(rect.width),
-                y: rect.y + edges.top.of(rect.height),
-                width: (rect.width - edges.left.of(rect.width) - edges.right.of(rect.width))
-                    .max(0.0),
-                height: (rect.height - edges.top.of(rect.height) - edges.bottom.of(rect.height))
-                    .max(0.0),
-            };
+            let inner = Rect::new(
+                rect.x + edges.left.of(rect.width),
+                rect.y + edges.top.of(rect.height),
+                (rect.width - edges.left.of(rect.width) - edges.right.of(rect.width)).max(0.0),
+                (rect.height - edges.top.of(rect.height) - edges.bottom.of(rect.height)).max(0.0),
+            );
             BoxShape::of(inner, radius).shape()
         }
         ClipShape::Circle { radius, center } => {
             let reference = (rect.width.hypot(rect.height)) / std::f32::consts::SQRT_2;
             let r = positive(radius.of(reference));
             let c = at(*center);
-            Shape::RoundedRect(RoundedRect::ellipse(Rect {
-                x: c.x - r,
-                y: c.y - r,
-                width: 2.0 * r,
-                height: 2.0 * r,
-            }))
+            Shape::RoundedRect(RoundedRect::ellipse(Rect::new(
+                c.x - r,
+                c.y - r,
+                2.0 * r,
+                2.0 * r,
+            )))
         }
         ClipShape::Ellipse {
             radius_x,
@@ -222,12 +213,12 @@ pub fn clip_path(shape: &ClipShape, rect: Rect) -> Shape {
                 positive(radius_y.of(rect.height)),
             );
             let c = at(*center);
-            Shape::RoundedRect(RoundedRect::ellipse(Rect {
-                x: c.x - rx,
-                y: c.y - ry,
-                width: 2.0 * rx,
-                height: 2.0 * ry,
-            }))
+            Shape::RoundedRect(RoundedRect::ellipse(Rect::new(
+                c.x - rx,
+                c.y - ry,
+                2.0 * rx,
+                2.0 * ry,
+            )))
         }
         ClipShape::Polygon { points, even_odd } => Shape::Polygon {
             points: points.iter().map(|p| at(*p)).collect(),

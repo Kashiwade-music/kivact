@@ -61,7 +61,7 @@ pub(super) fn bind(
             let Recording {
                 scene,
                 unsupported: issues,
-                region_errors,
+                region_errors, ..
             } = Draw::record(sz, &theme, |d| {
                 if let Some(measurer) = measurer {
                     d.set_text_measurer(measurer);

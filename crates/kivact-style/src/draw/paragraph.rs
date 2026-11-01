@@ -170,11 +170,7 @@ impl TextParagraph {
     /// `NodeExt::semantics_text`.
     pub fn semantics_text(&self, origin: Point, anchor: usize, caret: usize) -> p::SemanticsText {
         let text = self.text();
-        let at = |r: Rect| Rect {
-            x: r.x + origin.x,
-            y: r.y + origin.y,
-            ..r
-        };
+        let at = |r: Rect| Rect::new(r.x + origin.x, r.y + origin.y, r.width, r.height);
         let mut starts: Vec<usize> = self
             .lines()
             .iter()
@@ -199,35 +195,27 @@ impl TextParagraph {
                 if index == last
                     && let Some(line) = line.filter(|_| i + 1 < starts.len())
                 {
-                    rect = Rect {
-                        x: line.rect.right(),
-                        y: line.rect.y,
-                        width: rect.width,
-                        height: line.rect.height,
-                    };
+                    rect = Rect::new(line.rect.right(), line.rect.y, rect.width, line.rect.height);
                 }
-                carets.push(p::TextCaret {
-                    offset: (index - first) as u32,
-                    rect: at(rect),
-                });
+                carets.push(p::TextCaret::new((index - first) as u32, at(rect)));
             }
-            runs.push(Arc::new(p::SemanticsTextRun {
-                id: p::TextRunId(i as u64),
-                value: text[from..end].to_string(),
+            runs.push(Arc::new(p::SemanticsTextRun::new(
+                p::TextRunId::new(i as u64),
+                text[from..end].to_string(),
                 bounds,
                 carets,
-            }));
+            )));
             from = end;
         }
-        p::SemanticsText {
-            runs: runs.into(),
-            start: 0,
-            selection: (
+        p::SemanticsText::new(
+            runs.into(),
+            0,
+            (
                 self.scalar(self.floor(anchor)) as u32,
                 self.scalar(self.floor(caret)) as u32,
             ),
-            caret: at(self.caret(caret)),
-        }
+            at(self.caret(caret)),
+        )
     }
 
     /// The shaping this paragraph draws (a scene command's).
@@ -262,7 +250,7 @@ impl Draw {
         style: &TextStyle,
         max_width: Option<f32>,
     ) -> TextParagraph {
-        let origin = p::Point { x: 0.0, y: 0.0 };
+        let origin = p::Point::new(0.0, 0.0);
         let run = TextRun::from_style(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
         let shaped = self
             .measurer

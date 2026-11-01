@@ -37,7 +37,7 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
         ),
     ] {
         if let Some(id) = regions.id(target) {
-            let mut info = RegionInfo::new(RegionId(id), kind, name);
+            let mut info = RegionInfo::new(RegionId::new(id), kind, name);
             let (a, b) = bounded_range(
                 state.range.get(),
                 state.length.get(),
@@ -57,7 +57,7 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
             let checked = tag.checked(track);
             if let Some(id) = regions.id(Target::Track(track.id, tag)) {
                 let mut info = RegionInfo::new(
-                    RegionId(id),
+                    RegionId::new(id),
                     Kind::TrackSwitch,
                     state.texts.switch(tag, &track.name),
                 );
@@ -70,14 +70,14 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
                 continue;
             };
             let selected = selected.contains(&clip.id);
-            let mut info = RegionInfo::new(RegionId(id), Kind::Item, clip.label.clone());
+            let mut info = RegionInfo::new(RegionId::new(id), Kind::Item, clip.label.clone());
             info.value = state.texts.editor.selection(selected);
             result.push(info);
             if selected {
                 for right in [false, true] {
                     if let Some(id) = regions.id(Target::Trim(clip.id, right)) {
                         result.push(RegionInfo::new(
-                            RegionId(id),
+                            RegionId::new(id),
                             Kind::Trim,
                             state.texts.editor.trim(right, &clip.label),
                         ));
@@ -92,7 +92,7 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
         {
             if let Some(id) = regions.id(Target::Automation(track.id, knot.id)) {
                 let mut info = RegionInfo::new(
-                    RegionId(id),
+                    RegionId::new(id),
                     Kind::Automation,
                     state.texts.automation_point(&track.name, knot.id),
                 );

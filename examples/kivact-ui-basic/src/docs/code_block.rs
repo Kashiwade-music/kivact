@@ -57,17 +57,17 @@ fn basic() -> impl IntoView {
 fn line_numbers() -> impl IntoView {
     use basic::{CodeLine, CodeSpan, CodeTone};
     let lines = vec![
-        CodeLine(vec![
+        CodeLine::new(vec![
             CodeSpan::new("let", CodeTone::Keyword),
             CodeSpan::new(" count = ", CodeTone::Plain),
             CodeSpan::new("signal", CodeTone::Function),
             CodeSpan::new("(0);", CodeTone::Punctuation),
         ]),
-        CodeLine(vec![CodeSpan::new(
+        CodeLine::new(vec![CodeSpan::new(
             "// Increment on press.",
             CodeTone::Comment,
         )]),
-        CodeLine(vec![
+        CodeLine::new(vec![
             CodeSpan::new("count.", CodeTone::Plain),
             CodeSpan::new("update", CodeTone::Function),
             CodeSpan::new("(|n| *n += 1);", CodeTone::Punctuation),

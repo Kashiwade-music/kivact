@@ -33,40 +33,45 @@ pub fn place_overlay(
 ) -> Point {
     let Some(a) = anchor else {
         return clamp(
-            Point {
-                x: (window.width - size.width) / 2.0,
-                y: (window.height - size.height) / 2.0,
-            },
+            Point::new(
+                (window.width - size.width) / 2.0,
+                (window.height - size.height) / 2.0,
+            ),
             size,
             window,
         );
     };
     let offset = if offset.is_finite() { offset } else { 0.0 };
-    let p = match placement {
-        Placement::Below | Placement::Above => Point {
-            x: along(align, a.x, a.width, size.width, window.width),
-            y: side(
-                placement == Placement::Below,
+    let vertical = |below: bool| {
+        Point::new(
+            along(align, a.x, a.width, size.width, window.width),
+            side(
+                below,
                 a.y - offset,
                 a.y + a.height + offset,
                 size.height,
                 window.height,
             ),
-        },
-        Placement::Start | Placement::End => Point {
-            x: side(
+        )
+    };
+    let p = match placement {
+        Placement::Below | Placement::Above => vertical(placement == Placement::Below),
+        Placement::Start | Placement::End => Point::new(
+            side(
                 placement == Placement::End,
                 a.x - offset,
                 a.x + a.width + offset,
                 size.width,
                 window.width,
             ),
-            y: along(align, a.y, a.height, size.height, window.height),
-        },
-        Placement::Center => Point {
-            x: a.x + (a.width - size.width) / 2.0,
-            y: a.y + (a.height - size.height) / 2.0,
-        },
+            along(align, a.y, a.height, size.height, window.height),
+        ),
+        Placement::Center => Point::new(
+            a.x + (a.width - size.width) / 2.0,
+            a.y + (a.height - size.height) / 2.0,
+        ),
+        // Variants added later fall back to below the anchor.
+        _ => vertical(true),
     };
     clamp(p, size, window)
 }
@@ -102,8 +107,8 @@ fn along(align: PlacementAlign, start: f32, length: f32, size: f32, limit: f32) 
 }
 
 fn clamp(p: Point, size: Size, window: Size) -> Point {
-    Point {
-        x: p.x.clamp(0.0, (window.width - size.width).max(0.0)),
-        y: p.y.clamp(0.0, (window.height - size.height).max(0.0)),
-    }
+    Point::new(
+        p.x.clamp(0.0, (window.width - size.width).max(0.0)),
+        p.y.clamp(0.0, (window.height - size.height).max(0.0)),
+    )
 }

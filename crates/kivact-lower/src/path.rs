@@ -12,10 +12,7 @@ pub(crate) fn shifted(
     shape: kivact_types::protocol::Shape,
     origin: Point,
 ) -> kivact_types::protocol::Shape {
-    let at = |p: Point| Point {
-        x: p.x + origin.x,
-        y: p.y + origin.y,
-    };
+    let at = |p: Point| Point::new(p.x + origin.x, p.y + origin.y);
     let rule = shape.rule();
     kivact_types::protocol::Shape::Path {
         rule,

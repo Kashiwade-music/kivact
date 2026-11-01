@@ -11,6 +11,8 @@ pub(crate) fn line_height(style: &TextStyle, max_width: Option<f32>) -> Result<f
     let value = match style.line_height {
         LineHeight::Normal => None,
         LineHeight::Scale(v) | LineHeight::Px(v) => Some(v),
+        // Variants added later fall back to normal line height.
+        _ => None,
     };
     if !valid(style.font_size)
         || value.is_some_and(|v| !valid(v))
@@ -22,5 +24,7 @@ pub(crate) fn line_height(style: &TextStyle, max_width: Option<f32>) -> Result<f
         LineHeight::Normal => (style.font_size * 1.3).round(),
         LineHeight::Scale(v) => style.font_size * v,
         LineHeight::Px(v) => v,
+        // Variants added later fall back to normal line height.
+        _ => (style.font_size * 1.3).round(),
     })
 }

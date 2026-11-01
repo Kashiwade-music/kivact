@@ -140,6 +140,8 @@ fn settings(kerning: FontKerning, features: &[FontFeature]) -> Vec<parley::FontF
         FontKerning::Auto => None,
         FontKerning::Normal => Some(FontFeature::new(*b"kern", 1)),
         FontKerning::None => Some(FontFeature::new(*b"kern", 0)),
+        // Variants added later fall back to automatic kerning.
+        _ => None,
     };
     kern.iter()
         .chain(features)

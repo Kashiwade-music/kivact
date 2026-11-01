@@ -14,6 +14,7 @@ use std::hash::Hash;
 /// The two looks of a toggle: the variant of a `kivact::ui::toggle` and of
 /// a [`ToggleGroup`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ToggleVariant {
     /// Transparent.
     #[default]
@@ -36,8 +37,9 @@ pub(crate) fn toggle_style(
 ) -> Style {
     let (height, pad_left) = match size {
         ControlSize::ExtraSmall | ControlSize::Small => (28.0, if icon_start { 6.0 } else { 10.0 }),
-        ControlSize::Medium => (32.0, if icon_start { 8.0 } else { 10.0 }),
         ControlSize::Large => (36.0, if icon_start { 8.0 } else { 10.0 }),
+        // Variants added later fall back to Medium.
+        _ => (32.0, if icon_start { 8.0 } else { 10.0 }),
     };
     // `group-data-[spacing=0]/toggle-group:px-2` and `has-data-[icon=inline-start]:pl-1.5`.
     let (pad_left, pad_right) = if joined {

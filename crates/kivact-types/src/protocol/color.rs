@@ -20,7 +20,7 @@ use crate::style::Rgba;
 /// ```
 /// use kivact_types::Rgba;
 /// use kivact_types::protocol::ColorMatrix;
-/// let red = Rgba { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
+/// let red = Rgba::new(1.0, 0.0, 0.0, 1.0);
 /// let gray = ColorMatrix::grayscale(1.0).apply(red);
 /// assert!((gray.r - 0.2126).abs() < 1e-4 && gray.r == gray.g && gray.g == gray.b);
 /// // brightness(0.5) then invert(1): applied in that order.

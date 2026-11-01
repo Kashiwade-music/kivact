@@ -29,7 +29,7 @@ impl Regions {
         self.0.as_ref()?.id(&target).map(|id| id.0)
     }
     pub(crate) fn target(&self, id: u64) -> Option<Target> {
-        self.0.as_ref()?.target(RegionId(id)).copied()
+        self.0.as_ref()?.target(RegionId::new(id)).copied()
     }
 }
 pub(crate) fn create(

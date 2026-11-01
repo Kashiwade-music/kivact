@@ -129,8 +129,8 @@ fn schedule() -> impl IntoView {
     let today = CalendarDate::today();
     let day = signal(today);
     let events = vec![
-        pop::CalendarEvent { date: today, color: rgb(0x2b8bd8) },
-        pop::CalendarEvent { date: today.add_days(3), color: rgb(0xef4458) },
+        pop::CalendarEvent::new(today, rgb(0x2b8bd8)),
+        pop::CalendarEvent::new(today.add_days(3), rgb(0xef4458)),
     ];
     let trip = Some((today.add_days(5), today.add_days(9)));
     column((

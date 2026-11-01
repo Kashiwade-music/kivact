@@ -37,6 +37,8 @@ impl Wgpu {
         let backends = match adapter.backend {
             GpuBackend::Dx12 => wgpu::Backends::DX12,
             GpuBackend::Vulkan => wgpu::Backends::VULKAN,
+            // Variants added later fall back to an error.
+            _ => return Err("unsupported graphics API".into()),
         };
         // As the window's: no Direct3D 12 debug layer turned on after the
         // window's device exists (that removes the device).

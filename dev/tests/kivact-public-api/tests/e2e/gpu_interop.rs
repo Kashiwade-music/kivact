@@ -31,7 +31,7 @@ use kivact::draw::{ImageOptions, Rect};
 use kivact::gpu_interop::{
     self, AdapterMatch, ExternalImage, FramePublisher, GpuAdapter, GpuBackend, GpuPreference,
     ImportStatus, ShareError, ShareLink, ShareMode, ShareRequest, ShareStatus, SharedHandle,
-    SharedImage, SharedTextureFormat, SharedTextures,
+    SharedImage, SharedTextures,
 };
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, WindowMode, gpu_unavailable};
@@ -267,17 +267,15 @@ fn unread_textures() -> SharedTextures {
         let handle = SharedHandle::from(std::os::fd::OwnedFd::from(file));
         handle
     };
-    SharedTextures {
-        width: W,
-        height: H,
-        format: SharedTextureFormat::Rgba8UnormPremultiplied,
-        backend: GpuBackend::Vulkan,
-        adapter: AdapterMatch::Luid([0; 8]),
-        storage: false,
-        textures: vec![handle()],
-        ready: handle(),
-        release: handle(),
-    }
+    SharedTextures::new(
+        GpuBackend::Vulkan,
+        AdapterMatch::Luid([0; 8]),
+        W,
+        H,
+        vec![handle()],
+        handle(),
+        handle(),
+    )
 }
 
 /// The size `shared_image` asks after `set_size` in the tests.

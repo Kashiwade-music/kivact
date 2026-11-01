@@ -9,6 +9,7 @@ use kivact::ui::Tone;
 /// The console's cell looks, for a [`DataColumn::cell`](kivact::ui::DataColumn::cell)
 /// to return.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum TableCell {
     Identifier(String),
     Detail {

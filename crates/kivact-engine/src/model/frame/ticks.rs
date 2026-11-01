@@ -118,10 +118,10 @@ impl Model {
                 let eased = 1.0 - (1.0 - t).powi(3);
                 self.set_scroll(
                     *id,
-                    Point {
-                        x: scroll.start.x + (scroll.target.x - scroll.start.x) * eased,
-                        y: scroll.start.y + (scroll.target.y - scroll.start.y) * eased,
-                    },
+                    Point::new(
+                        scroll.start.x + (scroll.target.x - scroll.start.x) * eased,
+                        scroll.start.y + (scroll.target.y - scroll.start.y) * eased,
+                    ),
                 );
                 t < 1.0 && self.node(*id).is_some()
             });

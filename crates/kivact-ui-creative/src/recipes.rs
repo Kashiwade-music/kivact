@@ -136,8 +136,9 @@ fn select_trigger(t: &Theme, s: &Look<SelectTriggerState>) -> Style {
     match s.size {
         ControlSize::ExtraSmall => field.height(16).font_size(10),
         ControlSize::Small => field.height(20).font_size(11),
-        ControlSize::Medium => field,
         ControlSize::Large => field.height(30).font_size(13),
+        // Variants added later fall back to Medium.
+        _ => field,
     }
 }
 fn select_option(t: &Theme, _: &Look<ListItemState>) -> Style {
@@ -199,8 +200,9 @@ fn button(t: &Theme, s: &Look<ButtonState>) -> Style {
     let base = match s.size {
         ControlSize::ExtraSmall => base.height(16).font_size(10).radius(5).padding_x(6),
         ControlSize::Small => base.height(20).font_size(11).radius(6),
-        ControlSize::Medium => base.height(p.row),
         ControlSize::Large => base.height(30).font_size(13).radius(9).padding_x(18),
+        // Variants added later fall back to Medium.
+        _ => base.height(p.row),
     };
     // A square toolbar action: as wide as the button is high.
     if s.icon_only {

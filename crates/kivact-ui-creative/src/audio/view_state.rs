@@ -1,7 +1,9 @@
 //! Role: Application-owned bindings for this component view state.
 use kivact::{Binding, signal};
 /// The values a [`mixer_strip`](crate::mixer_strip) edits.
+/// Built with [`ChannelState::new`].
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub struct ChannelState {
     /// The fader's gain, inside the strip's gain range.
     pub gain: Binding<f64>,

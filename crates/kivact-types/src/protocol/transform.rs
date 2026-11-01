@@ -14,8 +14,8 @@ use crate::geometry::{Point, Rect};
 /// use kivact_types::Point;
 /// use kivact_types::protocol::Transform;
 /// // Rotate 90° about (10, 10): the point right of the origin goes below it.
-/// let t = Transform::rotate_deg(90.0).about(Point { x: 10.0, y: 10.0 });
-/// let p = t.apply(Point { x: 20.0, y: 10.0 });
+/// let t = Transform::rotate_deg(90.0).about(Point::new(10.0, 10.0));
+/// let p = t.apply(Point::new(20.0, 10.0));
 /// assert!((p.x - 10.0).abs() < 1e-4 && (p.y - 20.0).abs() < 1e-4);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]

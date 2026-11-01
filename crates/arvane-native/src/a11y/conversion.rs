@@ -40,8 +40,8 @@ const DISMISS: i32 = 1;
 /// The AccessKit action a node declares for `action`. AccessKit has a
 /// single default action, so `Activate`, `Toggle` and `Select` all declare
 /// `Click`.
-fn platform_action(action: A11yAction) -> accesskit::Action {
-    match action {
+fn platform_action(action: A11yAction) -> Option<accesskit::Action> {
+    Some(match action {
         A11yAction::Activate | A11yAction::Toggle | A11yAction::Select => accesskit::Action::Click,
         A11yAction::Focus => accesskit::Action::Focus,
         A11yAction::Increment => accesskit::Action::Increment,
@@ -52,7 +52,9 @@ fn platform_action(action: A11yAction) -> accesskit::Action {
         A11yAction::SetValue => accesskit::Action::SetValue,
         A11yAction::ShowMenu => accesskit::Action::ShowContextMenu,
         A11yAction::Dismiss => accesskit::Action::CustomAction,
-    }
+        // Variants added later are not offered to assistive technology.
+        _ => return None,
+    })
 }
 
 /// The action an AccessKit request asks for: the inverse of
@@ -286,7 +288,9 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
         }
     }
     for action in &source.actions {
-        node.add_action(platform_action(*action));
+        if let Some(action) = platform_action(*action) {
+            node.add_action(action);
+        }
     }
     if source.actions.contains(&A11yAction::Dismiss) {
         node.set_custom_actions(vec![accesskit::CustomAction {
@@ -352,6 +356,8 @@ fn role(source: Role) -> accesskit::Role {
         Role::GridCell => accesskit::Role::Cell,
         Role::RowGroup => accesskit::Role::RowGroup,
         Role::Navigation => accesskit::Role::Navigation,
+        // Variants added later fall back to a generic container.
+        _ => accesskit::Role::GenericContainer,
     }
 }
 

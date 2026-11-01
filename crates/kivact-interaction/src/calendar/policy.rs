@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 /// The caller's authoritative selection: one day or a range.
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub enum CalendarSelection {
     /// At most one chosen day.
     Single(Binding<Option<CalendarDate>>),

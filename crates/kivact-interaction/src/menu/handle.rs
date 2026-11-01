@@ -87,6 +87,8 @@ use std::hash::Hash;
 ///                         .child(text(move || entry.with(|(_, e)| e.label())))
 ///                         .into_view(),
 ///                     MenuRow::Separator(_) | MenuRow::Label(_) => node().role(Role::Separator).into_view(),
+///                     // Variants added later fall back to an empty row.
+///                     _ => ().into_view(),
 ///                 }
 ///             });
 ///             overlay(anchor, Placement::Below, column(rows))

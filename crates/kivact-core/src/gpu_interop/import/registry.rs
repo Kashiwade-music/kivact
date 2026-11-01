@@ -59,7 +59,7 @@ impl State {
     ) -> ExternalImageId {
         let mut imports = self.imports.borrow_mut();
         imports.last += 1;
-        let id = ExternalImageId(imports.last);
+        let id = ExternalImageId::new(imports.last);
         imports.images.insert(
             id,
             Import {
@@ -96,6 +96,7 @@ impl State {
 ///   Make new textures on the new adapter and import them again. Also what
 ///   [`ExternalImage::status`](super::ExternalImage::status) reads once the import's owner is gone.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ImportStatus {
     /// Not answered yet.
     Pending,

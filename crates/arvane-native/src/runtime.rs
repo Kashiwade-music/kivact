@@ -225,10 +225,7 @@ impl ShellWindow for WinitWindow {
             .window
             .inner_size()
             .to_logical::<f32>(self.window.scale_factor());
-        Size {
-            width: s.width,
-            height: s.height,
-        }
+        Size::new(s.width, s.height)
     }
     /// Current physical content size.
     fn physical_size(&self) -> (u32, u32) {
@@ -253,16 +250,14 @@ impl ShellWindow for WinitWindow {
     /// reaches assistive technology on desktops.
     fn capabilities(&self) -> kivact_types::Capabilities {
         let mobile = cfg!(any(target_os = "android", target_os = "ios"));
-        kivact_types::Capabilities {
-            touch: !cfg!(target_os = "macos"),
-            pen: cfg!(windows) && self.input.subclassed.get(),
-            soft_keyboard: SOFT_KEYBOARD,
-            safe_area: false,
-            memory_warnings: mobile,
-            ime_reconversion: cfg!(windows) && self.input.subclassed.get(),
-            native_accessibility: !mobile,
-            gpu: false,
-        }
+        let mut capabilities = kivact_types::Capabilities::default();
+        capabilities.touch = !cfg!(target_os = "macos");
+        capabilities.pen = cfg!(windows) && self.input.subclassed.get();
+        capabilities.soft_keyboard = SOFT_KEYBOARD;
+        capabilities.memory_warnings = mobile;
+        capabilities.ime_reconversion = cfg!(windows) && self.input.subclassed.get();
+        capabilities.native_accessibility = !mobile;
+        capabilities
     }
     /// The generation of the window's presentation surface: the count of
     /// surfaces the platform gave the window (the first is 1), or `None`
@@ -347,6 +342,8 @@ impl ShellWindow for WinitWindow {
             ShellCursor::Move => CursorIcon::Move,
             ShellCursor::NotAllowed => CursorIcon::NotAllowed,
             ShellCursor::None => CursorIcon::Default,
+            // Variants added later fall back to the default arrow.
+            _ => CursorIcon::Default,
         });
     }
     /// Enable IME when an editable control owns focus.
@@ -430,10 +427,7 @@ impl ShellWindow for WinitWindow {
 }
 /// A physical client position in logical pixels.
 fn logical((x, y): (f64, f64), scale: f64) -> Point {
-    Point {
-        x: (x / scale) as f32,
-        y: (y / scale) as f32,
-    }
+    Point::new((x / scale) as f32, (y / scale) as f32)
 }
 
 fn cpu_surface(window: &Arc<Window>) -> Result<CpuSurface, ShellError> {
@@ -505,10 +499,7 @@ impl Runner<'_> {
                     .window
                     .as_ref()
                     .map_or(1.0, |w| w.window.scale_factor());
-                kivact_types::Point {
-                    x: (x / scale) as f32,
-                    y: (y / scale) as f32,
-                }
+                kivact_types::Point::new((x / scale) as f32, (y / scale) as f32)
             })
     }
     /// Deliver a window's input event, its presses counted.
@@ -810,10 +801,10 @@ impl ApplicationHandler<()> for Runner<'_> {
                 Some(ShellEvent::File {
                     phase: arvane_shell::FilePhase::Over,
                     files: self.file_paths.clone(),
-                    position: kivact_types::Point {
-                        x: (position.x / scale) as f32,
-                        y: (position.y / scale) as f32,
-                    },
+                    position: kivact_types::Point::new(
+                        (position.x / scale) as f32,
+                        (position.y / scale) as f32,
+                    ),
                 })
             }
             WindowEvent::CursorMoved { position, .. } => {

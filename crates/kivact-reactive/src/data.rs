@@ -29,7 +29,9 @@ use crate::arena::{Arena, Key};
 use crate::error::UiError;
 
 /// Live-object counts (lifecycle leak checks).
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub struct LiveCounts {
     /// Live graph nodes (sources, memos, effects).
     pub reactive: usize,
@@ -89,6 +91,7 @@ pub(crate) enum Color {
 
 /// When an effect runs and whether it may write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EffectKind {
     /// Node prop effects: pure, run during stabilisation.
     Render,
@@ -165,6 +168,8 @@ pub(crate) struct RNode {
 
 /// Read-only snapshot of one graph node, for diagnostics (`why` chains).
 /// Values are never exposed: only kind, type name and locations.
+/// Produced by the framework; read its fields.
+#[non_exhaustive]
 pub struct NodeInfo {
     /// Source, memo or effect.
     pub kind: Kind,
@@ -245,7 +250,9 @@ pub(crate) struct Sched {
 }
 
 /// A value-changing write during a turn.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TraceWrite {
     /// Type name of the written value.
     pub ty: &'static str,
@@ -256,7 +263,9 @@ pub struct TraceWrite {
 }
 
 /// A memo or effect re-evaluated during a turn.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TraceRun {
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
     pub kind: &'static str,
@@ -265,7 +274,9 @@ pub struct TraceRun {
 }
 
 /// One turn of the structured trace.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub struct TurnRecord {
     /// Ordinary turns increase from 1; setup-only notes use 0.
     pub turn: u64,

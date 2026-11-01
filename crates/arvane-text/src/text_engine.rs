@@ -217,10 +217,7 @@ impl TextEngine {
             return Err(TextError::MissingFont);
         }
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
-        Ok(TextMetrics {
-            size: plan.size,
-            baseline: plan.baseline,
-        })
+        Ok(TextMetrics::new(plan.size, plan.baseline))
     }
 
     /// Shapes, wraps, and aligns text in logical pixels using actual font glyphs.
@@ -330,16 +327,10 @@ impl TextEngine {
                 TextAlign::Start | TextAlign::Justify => 0.0,
                 TextAlign::Center => max_width.unwrap_or(0.0) / 2.0,
                 TextAlign::End => max_width.unwrap_or(0.0),
+                // Variants added later fall back to start alignment.
+                _ => 0.0,
             };
-            let caret = TextCaret {
-                offset: 0,
-                rect: Rect {
-                    x,
-                    y: 0.0,
-                    width: 1.0,
-                    height,
-                },
-            };
+            let caret = TextCaret::new(0, Rect::new(x, 0.0, 1.0, height));
             return Ok(ShapedText {
                 carets: if with_carets { vec![caret] } else { Vec::new() },
                 cluster_boundaries: vec![0],
@@ -364,6 +355,8 @@ impl TextEngine {
             TextAlign::Center => Alignment::Center,
             TextAlign::End => Alignment::End,
             TextAlign::Justify => Alignment::Justify,
+            // Variants added later fall back to start alignment.
+            _ => Alignment::Start,
         };
         layout.align(alignment, AlignmentOptions::default());
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
@@ -447,15 +440,15 @@ fn carets(layout: &parley::Layout<u32>, text: &str) -> Vec<TextCaret> {
             let bounds =
                 parley::Cursor::from_byte_index(layout, byte, parley::Affinity::Downstream)
                     .geometry(layout, 1.0);
-            TextCaret {
-                offset: offset as u32,
-                rect: Rect {
-                    x: bounds.x0 as f32,
-                    y: bounds.y0 as f32,
-                    width: (bounds.x1 - bounds.x0) as f32,
-                    height: (bounds.y1 - bounds.y0) as f32,
-                },
-            }
+            TextCaret::new(
+                offset as u32,
+                Rect::new(
+                    bounds.x0 as f32,
+                    bounds.y0 as f32,
+                    (bounds.x1 - bounds.x0) as f32,
+                    (bounds.y1 - bounds.y0) as f32,
+                ),
+            )
         })
         .collect()
 }

@@ -2,6 +2,7 @@
 
 /// Mouse cursor appearance.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Cursor {
     #[default]
     /// Auto cursor.

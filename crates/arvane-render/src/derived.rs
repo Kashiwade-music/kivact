@@ -295,6 +295,8 @@ fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u32> {
         Extend::Pad => 0,
         Extend::Repeat => 1,
         Extend::Reflect => 2,
+        // Variants added later fall back to Pad.
+        _ => 0,
     });
     match g.shape {
         GradientShape::Linear { start, end } => {

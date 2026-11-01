@@ -144,6 +144,8 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             CalendarSpan::End => s.left(0).width(CELL / 2.0).background(p.muted),
             CalendarSpan::Middle => s.left(0).width(CELL).background(p.muted),
             CalendarSpan::None => s.width(0),
+            // Variants added later fall back to no span band.
+            _ => s.width(0),
         }
     });
     node().child(band).child(button).style(

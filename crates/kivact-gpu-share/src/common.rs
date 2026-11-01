@@ -6,7 +6,9 @@ use kivact_types::SharedTextures;
 use std::fmt;
 
 /// An adapter's identity.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Identity {
     /// The graphics API.
     pub backend: GpuBackend,
@@ -20,6 +22,7 @@ pub struct Identity {
 
 /// A sharing contract, graphics API, or bounded-wait failure.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// A bounded wait ran out: the GPU did not reach what is named (for a
     /// release, often a window that lost its device or stopped
@@ -83,6 +86,8 @@ fn backend_name(backend: GpuBackend) -> &'static str {
     match backend {
         GpuBackend::Dx12 => "Direct3D 12",
         GpuBackend::Vulkan => "Vulkan",
+        // Variants added later fall back to a generic name.
+        _ => "an unsupported graphics API",
     }
 }
 

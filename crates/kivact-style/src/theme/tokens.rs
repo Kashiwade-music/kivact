@@ -75,11 +75,20 @@ pub struct Spacing {
     pub xl: f32,
 }
 
+/// Built with [`Radii::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Radii {
     pub sm: f32,
     pub md: f32,
     pub lg: f32,
+}
+
+impl Radii {
+    /// The small, medium and large corner radii, in logical pixels.
+    pub const fn new(sm: f32, md: f32, lg: f32) -> Self {
+        Radii { sm, md, lg }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

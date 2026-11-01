@@ -3,6 +3,7 @@
 /// The syntax category of a [`CodeSpan`]; each tone but `Plain` and
 /// `Punctuation` has its own color ([`CodeColors`](crate::CodeColors)).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CodeTone {
     /// Identifiers and anything else.
     #[default]
@@ -30,7 +31,9 @@ pub enum CodeTone {
 }
 
 /// A run of code text in one tone.
+/// Built with [`CodeSpan::new`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct CodeSpan {
     /// The text, without a line break.
     pub text: String,
@@ -49,10 +52,17 @@ impl CodeSpan {
 }
 
 /// One line of a code block: its spans in order.
+/// Built with [`CodeLine::new`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct CodeLine(pub Vec<CodeSpan>);
 
 impl CodeLine {
+    /// A line of `spans`, in order.
+    pub fn new(spans: Vec<CodeSpan>) -> Self {
+        Self(spans)
+    }
+
     /// A line of unhighlighted `text`.
     pub fn plain(text: impl Into<String>) -> Self {
         Self(vec![CodeSpan::new(text, CodeTone::Plain)])

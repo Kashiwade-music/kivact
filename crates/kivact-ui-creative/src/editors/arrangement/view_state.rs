@@ -3,7 +3,9 @@ use crate::editors::arrangement::model::TimelineTool;
 use kivact::draw::Point;
 use kivact::{Binding, signal};
 /// The view state of an [`arrangement`](crate::editors::arrangement).
+/// Built with [`ArrangementState::new`].
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub struct ArrangementState {
     /// The selected clip IDs.
     pub selection: Binding<Vec<u64>>,

@@ -132,6 +132,7 @@ pub fn sidebar_menu(children: impl IntoView) -> Node {
 
 /// The height of a [`SidebarMenuButton`] (`size` of sidebar.tsx).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum SidebarMenuButtonSize {
     /// 32 px.
     #[default]

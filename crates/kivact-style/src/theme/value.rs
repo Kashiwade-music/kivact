@@ -155,6 +155,7 @@ impl Extensions {
 /// the values of a theme's mode. Which mode to show (the system's, a
 /// setting) is the application's choice.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ThemeMode {
     #[default]
     Light,
@@ -538,7 +539,7 @@ impl Color {
     /// up in `theme`, with the color's alpha applied.
     pub fn resolve(self, theme: &Theme) -> Rgba {
         match self.0 {
-            Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
+            Repr::Rgba(r, g, b, a) => Rgba::new(r, g, b, a),
             Repr::Token(t, a) => theme.colors.get(t).resolve_concrete().with_alpha_mul(a),
             Repr::Themed(i, a) => themed_value(i)
                 .resolve(theme)
@@ -549,13 +550,8 @@ impl Color {
 
     fn resolve_concrete(self) -> Rgba {
         match self.0 {
-            Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
-            Repr::Token(..) | Repr::Themed(..) => Rgba {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
+            Repr::Rgba(r, g, b, a) => Rgba::new(r, g, b, a),
+            Repr::Token(..) | Repr::Themed(..) => Rgba::new(0.0, 0.0, 0.0, 1.0),
         }
     }
 

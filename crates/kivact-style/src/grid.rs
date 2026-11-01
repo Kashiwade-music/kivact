@@ -246,6 +246,7 @@ impl<A: Into<GridPlacement>, B: Into<GridPlacement>> From<(A, B)> for GridPlacem
 
 /// CSS `grid-auto-flow`: where auto-placed items go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum GridAutoFlow {
     /// Filling each row (the default).
     Row,

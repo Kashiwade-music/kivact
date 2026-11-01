@@ -262,5 +262,7 @@ fn centers(host: &Model, parent: &HostNode, child: NodeId) -> bool {
                             || c.layout().is_some_and(|l| l.position == Position::Absolute)
                     })
         }
+        // Variants added later fall back to not centered.
+        _ => false,
     }
 }

@@ -10,6 +10,7 @@ use kivact::view::{IntoView, View};
 
 /// The decoration of a [`Marker`] (marker.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum MarkerVariant {
     /// Plain muted text.
     #[default]

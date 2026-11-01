@@ -755,6 +755,8 @@ impl TestParent {
                 MouseButton::Secondary => 3,
                 MouseButton::Back => 8,
                 MouseButton::Forward => 9,
+                // Variants added later fall back to not posting the press.
+                _ => return Ok(()),
             },
             sequence: 0,
             time: x11rb::CURRENT_TIME,

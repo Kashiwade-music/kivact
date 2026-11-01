@@ -75,6 +75,8 @@ impl Model {
                 self.pointer_move(PointerId::MOUSE, None, None, self.modifiers, &space);
                 self.sync();
             }
+            // Variants added later fall back to being ignored.
+            _ => {}
         }
     }
 
@@ -332,6 +334,8 @@ impl Model {
                 self.cancel_pointer_input(id, &space);
                 self.end_contact(id, &space);
             }
+            // Variants added later fall back to being ignored.
+            _ => {}
         }
         self.sync();
     }

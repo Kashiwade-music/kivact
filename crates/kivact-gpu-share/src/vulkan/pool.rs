@@ -8,9 +8,7 @@ use crate::common::{Error, api};
 use crate::pool::{DROP_WAIT, FrameReady, PoolConfig, Slots};
 use crate::vulkan_contract::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use ash::vk;
-use kivact_types::{
-    AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
-};
+use kivact_types::{AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextures};
 use std::time::Duration;
 
 /// One texture of the pool.
@@ -61,7 +59,9 @@ impl Target {
 
 /// The timeline semaphores an engine's own submission of a frame waits
 /// for and signals ([`Pool::finish`]).
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Submission {
     /// Wait (`VkTimelineSemaphoreSubmitInfo`) for `release` to reach this
     /// value before the frame's first command touching the image (`None`:
@@ -209,17 +209,17 @@ impl Pool {
             .collect::<Result<_, _>>()?;
         // SAFETY: the pool's physical device, of its instance.
         let (device, driver, _) = unsafe { identity(&self.instance, self.physical) };
-        Ok(SharedTextures {
-            width: self.extent.width,
-            height: self.extent.height,
-            format: SharedTextureFormat::Rgba8UnormPremultiplied,
-            backend: GpuBackend::Vulkan,
-            adapter: AdapterMatch::Uuid { device, driver },
-            storage: self.storage,
+        let mut shared = SharedTextures::new(
+            GpuBackend::Vulkan,
+            AdapterMatch::Uuid { device, driver },
+            self.extent.width,
+            self.extent.height,
             textures,
-            ready: self.export_semaphore(self.ready)?,
-            release: self.export_semaphore(self.release)?,
-        })
+            self.export_semaphore(self.ready)?,
+            self.export_semaphore(self.release)?,
+        );
+        shared.storage = self.storage;
+        Ok(shared)
     }
 
     #[cfg(windows)]

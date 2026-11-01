@@ -36,6 +36,7 @@ use kivact_core::{Callback, Signal, Value, Var, effect, signal, var};
 
 /// Coordinates used consistently for a drag's start, position and delta.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DragCoordinates {
     /// Node-local logical coordinates. Suitable for mapping within a fixed box.
     Local,
@@ -45,6 +46,7 @@ pub enum DragCoordinates {
 
 /// The operation a [`DragUpdate`] reports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DragPhase {
     /// A primary pointer began the session.
     Start,
@@ -57,7 +59,9 @@ pub enum DragPhase {
 }
 
 /// Identity, position and payload captured once at the start of a drag.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct DragStart<T> {
     /// Identity of the pointer.
     pub pointer: PointerId,
@@ -71,7 +75,9 @@ pub struct DragStart<T> {
 }
 
 /// A drag update in the session's chosen coordinate space.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct DragUpdate<T> {
     /// Accepted drag operation.
     pub phase: DragPhase,
@@ -92,7 +98,9 @@ pub struct DragUpdate<T> {
 }
 
 /// Reactive drawing state of an attached drag source.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct DragState {
     pub input: PartState,
     /// A drag that started on this source is in progress.
@@ -127,6 +135,8 @@ fn bit(button: MouseButton) -> u8 {
         MouseButton::Middle => 4,
         MouseButton::Back => 8,
         MouseButton::Forward => 16,
+        // Variants added later fall back to no button bit.
+        _ => 0,
     }
 }
 

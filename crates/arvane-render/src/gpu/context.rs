@@ -118,14 +118,7 @@ impl GpuContext {
         // the first frame of a window.
         let blank = Scene::default();
         context
-            .render(
-                &blank,
-                Size {
-                    width: 16.0,
-                    height: 16.0,
-                },
-                1.0,
-            )
+            .render(&blank, Size::new(16.0, 16.0), 1.0)
             .map_err(|e| failed(&e))?;
         context.offscreen = None;
         Ok(context)
@@ -232,14 +225,12 @@ fn gpu_adapter(
     identity: kivact_gpu_share::Identity,
     generation: u64,
 ) -> kivact_types::GpuAdapter {
-    kivact_types::GpuAdapter {
-        backend: identity.backend,
-        name: adapter.get_info().name,
-        luid: identity.luid,
-        device_uuid: identity.device_uuid,
-        driver_uuid: identity.driver_uuid,
-        generation,
-    }
+    let mut found =
+        kivact_types::GpuAdapter::new(identity.backend, adapter.get_info().name, generation);
+    found.luid = identity.luid;
+    found.device_uuid = identity.device_uuid;
+    found.driver_uuid = identity.driver_uuid;
+    found
 }
 
 /// The generation of a new interop device: 1 for the process's first.

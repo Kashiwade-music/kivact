@@ -26,6 +26,8 @@ pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
 /// The live state of a [`data_table`] that its [`toolbar`](DataTable::toolbar)
 /// and [`footer`](DataTable::footer) slots build their views from. Every
 /// handle is reactive; the context is `Copy` and holds no copy of the rows.
+/// Produced by the framework; read its fields.
+#[non_exhaustive]
 pub struct DataTableContext<R: 'static, K: 'static> {
     /// The filter, sort and page model: its counts and its filtered keys.
     pub model: TableModel<R, K, usize>,

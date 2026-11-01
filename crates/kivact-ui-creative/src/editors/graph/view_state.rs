@@ -2,7 +2,9 @@
 use crate::editors::graph::model::GraphView;
 use kivact::{Binding, signal};
 /// The view state of a [`graph_editor`](crate::editors::graph).
+/// Built with [`GraphState::new`].
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub struct GraphState {
     /// The time and value ranges the graph shows.
     pub view: Binding<GraphView>,

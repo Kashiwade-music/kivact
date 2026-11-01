@@ -101,11 +101,9 @@ use kivact_ui_pop as pop;
 
 fn bell() -> impl IntoView {
     let items = signal(vec![
-        pop::NotificationItem {
-            unread: true,
-            hue: pop::Hue::Mint,
-            ..pop::NotificationItem::new(1, "Order paid", "Order 1042 was paid.", "2 min ago")
-        },
+        pop::NotificationItem::new(1, "Order paid", "Order 1042 was paid.", "2 min ago")
+            .hue(pop::Hue::Mint)
+            .unread(true),
         pop::NotificationItem::new(2, "Report ready", "The weekly report is ready.", "Yesterday"),
     ]);
     pop::notification_menu(

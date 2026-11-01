@@ -29,6 +29,7 @@ use kivact_core::view::{Key, Modifiers};
 /// assert_eq!(GridMove::Down.apply((0, 0), 0, 4), None);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum GridMove {
     /// ArrowLeft: the previous cell in the row.
     Left,

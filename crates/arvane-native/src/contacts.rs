@@ -24,13 +24,13 @@ pub(crate) fn map(touch: Touch, scale: f64, notes: &[ContactNote]) -> PointerInp
         TouchPhase::Ended | TouchPhase::Cancelled => PointerPhase::Up,
     };
     PointerInput {
-        id: PointerId(touch.id),
+        id: PointerId::new(touch.id),
         kind: note.map_or(PointerKind::Touch, |n| n.kind),
         phase,
-        position: Point {
-            x: (touch.location.x / scale) as f32,
-            y: (touch.location.y / scale) as f32,
-        },
+        position: Point::new(
+            (touch.location.x / scale) as f32,
+            (touch.location.y / scale) as f32,
+        ),
         // A contact presses the primary button while it lasts.
         buttons: PointerButtons::NONE.with(
             MouseButton::Primary,

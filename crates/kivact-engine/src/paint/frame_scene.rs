@@ -79,12 +79,7 @@ impl Model {
     fn placed(&self, id: NodeId, o: Point) -> (PaintProps, Rect, Rect) {
         let layout = self.computed_layout(id).unwrap_or_default();
         let p = visual::paint(self, id);
-        let bounds = Rect {
-            x: o.x,
-            y: o.y,
-            width: layout.size.width,
-            height: layout.size.height,
-        };
+        let bounds = Rect::new(o.x, o.y, layout.size.width, layout.size.height);
         // Canvas scenes start inside the border.
         let canvas = visual::padding_box(bounds, &p);
         (p, bounds, canvas)
@@ -107,10 +102,7 @@ impl Model {
             mask: e.and_then(|e| e.mask.as_ref()).and_then(|m| {
                 let area = bounds;
                 // A mask still loading hides nothing yet.
-                let origin = Point {
-                    x: area.x,
-                    y: area.y,
-                };
+                let origin = Point::new(area.x, area.y);
                 self.layer_paint(m, area, origin)
                     .map(|paint| kivact_types::protocol::Mask { rect: area, paint })
             }),
@@ -230,10 +222,7 @@ impl Model {
         }
         if let Some(fill) = &p.background {
             let area = outline.rect();
-            let origin = Point {
-                x: area.x,
-                y: area.y,
-            };
+            let origin = Point::new(area.x, area.y);
             self.fill(out, outline, fill, tint, origin);
         }
         border::shadows(out, outline, &p.shadows, true, false, tint);
@@ -274,12 +263,12 @@ impl Model {
             let tint = self.tint(step);
             for bar in bars.into_iter().flatten() {
                 for (rect, color) in [(bar.track, props.track), (bar.thumb, props.thumb)] {
-                    let rect = Rect {
-                        x: step.origin.x + rect.x,
-                        y: step.origin.y + rect.y,
-                        width: rect.width,
-                        height: rect.height,
-                    };
+                    let rect = Rect::new(
+                        step.origin.x + rect.x,
+                        step.origin.y + rect.y,
+                        rect.width,
+                        rect.height,
+                    );
                     out.commands.push(D::FillShape {
                         shape: kivact_types::protocol::Shape::Rect(rect),
                         paint: kivact_types::protocol::Paint::Solid(tint.color(color)),
@@ -324,10 +313,7 @@ impl Model {
         let tint_color = monochrome.then(|| self.text_color(id));
         let placed = fit_image(fit, natural, canvas);
         let device = PixelSize::of(
-            Size {
-                width: placed.rect.width,
-                height: placed.rect.height,
-            },
+            Size::new(placed.rect.width, placed.rect.height),
             self.paint.raster.get(),
         );
         // An overflowing SVG is rasterized for the part the box shows.

@@ -34,11 +34,7 @@ pub(super) fn controls(state: Signal<TransportState>) -> Binding<ui::TransportSt
     binding(
         (move || {
             let s = state.get();
-            ui::TransportState {
-                playing: s.playing,
-                recording: s.recording,
-                cycling: s.cycling,
-            }
+            ui::TransportState::new(s.playing, s.recording, s.cycling)
         })
         .into_value(),
         move |s: ui::TransportState| {

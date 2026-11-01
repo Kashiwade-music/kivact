@@ -5,10 +5,7 @@ use kivact_wire::{Point, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_text(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
-        let point = |p: Point| Point {
-            x: origin.x + p.x,
-            y: origin.y + p.y,
-        };
+        let point = |p: Point| Point::new(origin.x + p.x, origin.y + p.y);
         let tint = &state.current_tint;
         match cmd {
             SceneCmd::Text(run) => {

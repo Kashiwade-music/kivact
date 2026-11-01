@@ -62,6 +62,8 @@ use kivact_core::{Callback, UiError, Var, on_cleanup, var};
 ///         undo.update(|steps| steps.push((started_at.get_untracked(), width.get_untracked())))
 ///     }
 ///     EditPhase::Cancel => {}
+///     // Variants added later fall back to being ignored.
+///     _ => {}
 /// };
 /// let range = ScalarRange::new(120.0, 480.0).unwrap();
 /// let handle = use_splitter(width, range, Orientation::Horizontal)
@@ -71,6 +73,7 @@ use kivact_core::{Callback, UiError, Var, on_cleanup, var};
 /// # let _ = view;
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EditPhase {
     /// The edit starts; no write has happened yet.
     Begin,

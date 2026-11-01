@@ -197,7 +197,9 @@ fn text(s: &Style, theme: &Theme) -> (TextProps, u32) {
 
 /// How a node takes part in the theme's defaults for interactive elements,
 /// the input of [`Style::compile`] next to the style and the theme.
+/// Built with [`Interactive::default`]; assign the fields you need.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Interactive {
     /// The node is a focus stop (focusable, or a native editor): it gets
     /// the theme's focus ring and disabled opacity unless its style sets

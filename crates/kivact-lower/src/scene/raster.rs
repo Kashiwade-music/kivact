@@ -7,12 +7,7 @@ use kivact_wire::{Rect, SceneCmd, Size};
 impl Context<'_> {
     pub(super) fn paint_raster(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
-        let rect = |r: Rect| Rect {
-            x: origin.x + r.x,
-            y: origin.y + r.y,
-            width: r.width,
-            height: r.height,
-        };
+        let rect = |r: Rect| Rect::new(origin.x + r.x, origin.y + r.y, r.width, r.height);
         let tint = &state.current_tint;
         match cmd {
             SceneCmd::Pixels {
@@ -71,29 +66,24 @@ impl Context<'_> {
                 let natural = self.natural(source);
                 // The source portion needs the destination's device resolution.
                 let drawn = match (crop, natural) {
-                    (Some(crop), Some(n)) if crop.width > 0.0 && crop.height > 0.0 => Size {
-                        width: r.width * n.width / crop.width,
-                        height: r.height * n.height / crop.height,
-                    },
-                    _ => Size {
-                        width: r.width,
-                        height: r.height,
-                    },
+                    (Some(crop), Some(n)) if crop.width > 0.0 && crop.height > 0.0 => Size::new(
+                        r.width * n.width / crop.width,
+                        r.height * n.height / crop.height,
+                    ),
+                    _ => Size::new(r.width, r.height),
                 };
                 let size = arvane::asset::PixelSize::of(drawn, self.raster.get());
                 let pixels = self.pixels(source, size);
                 if let Some((image, _)) = pixels {
                     let source = crop.map(|crop| {
-                        let n = natural.unwrap_or(Size {
-                            width: image.width as f32,
-                            height: image.height as f32,
-                        });
-                        Rect {
-                            x: crop.x / n.width * image.width as f32,
-                            y: crop.y / n.height * image.height as f32,
-                            width: crop.width / n.width * image.width as f32,
-                            height: crop.height / n.height * image.height as f32,
-                        }
+                        let n =
+                            natural.unwrap_or(Size::new(image.width as f32, image.height as f32));
+                        Rect::new(
+                            crop.x / n.width * image.width as f32,
+                            crop.y / n.height * image.height as f32,
+                            crop.width / n.width * image.width as f32,
+                            crop.height / n.height * image.height as f32,
+                        )
                     });
                     state.out.commands.push(D::ImageSampled {
                         image,
@@ -108,13 +98,8 @@ impl Context<'_> {
             }
             SceneCmd::Image { source, rect: r } => {
                 let r = rect(*r);
-                let device = arvane::asset::PixelSize::of(
-                    Size {
-                        width: r.width,
-                        height: r.height,
-                    },
-                    self.raster.get(),
-                );
+                let device =
+                    arvane::asset::PixelSize::of(Size::new(r.width, r.height), self.raster.get());
                 if !sanitize::drawable(&D::PushClip(r)) {
                     self.drop_command();
                 } else if let Some((image, _)) = self.pixels(source, device) {

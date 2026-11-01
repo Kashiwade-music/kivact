@@ -1,7 +1,9 @@
 //! Role: Public gradient stop data and position normalization.
 use kivact::style::Color;
 /// One application-owned gradient stop.
+/// Built with [`GradientStop::new`].
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct GradientStop {
     /// Normalized ramp position. External invalid values are only cleaned for display.
     pub position: f64,

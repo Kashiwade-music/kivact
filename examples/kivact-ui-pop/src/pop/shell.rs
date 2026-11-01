@@ -346,36 +346,30 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             .border_right(1, ui::Color::Line),
     );
     let notices = signal(vec![
-        ui::NotificationItem {
-            icon: "target".into(),
-            hue: ui::Hue::Blue,
-            unread: true,
-            ..ui::NotificationItem::new(
-                1,
-                "総力戦シーズン開始",
-                "新しい作戦目標が追加されました。",
-                "5分前",
-            )
-        },
-        ui::NotificationItem {
-            icon: "message-circle".into(),
-            unread: true,
-            ..ui::NotificationItem::new(
-                2,
-                "ミナトから新着メッセージ",
-                "「報告書、置いておきました！」",
-                "12分前",
-            )
-        },
-        ui::NotificationItem {
-            icon: "gift".into(),
-            ..ui::NotificationItem::new(
-                3,
-                "ログインボーナス",
-                "クレジット ×20,000 を受け取りました。",
-                "今日 04:00",
-            )
-        },
+        ui::NotificationItem::new(
+            1,
+            "総力戦シーズン開始",
+            "新しい作戦目標が追加されました。",
+            "5分前",
+        )
+        .icon("target")
+        .hue(ui::Hue::Blue)
+        .unread(true),
+        ui::NotificationItem::new(
+            2,
+            "ミナトから新着メッセージ",
+            "「報告書、置いておきました！」",
+            "12分前",
+        )
+        .icon("message-circle")
+        .unread(true),
+        ui::NotificationItem::new(
+            3,
+            "ログインボーナス",
+            "クレジット ×20,000 を受け取りました。",
+            "今日 04:00",
+        )
+        .icon("gift"),
     ]);
     let topbar = row((
         ui::breadcrumb(

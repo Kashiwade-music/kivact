@@ -28,6 +28,7 @@ pub fn panel(content: impl IntoView) -> Node {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BadgeVariant {
     #[default]
     Soft,
@@ -701,6 +702,8 @@ impl IntoView for Alert {
             Tone::Warning => Hue::Yellow,
             Tone::Danger => Hue::Red,
             Tone::Accent => Hue::Pink,
+            // Variants added later fall back to the neutral tone.
+            _ => Hue::Gray,
         };
         self.root
             .child((
@@ -841,12 +844,7 @@ pub fn dots_loader() -> Node {
             for (i, color) in [p.blue, p.cyan, p.yellow].into_iter().enumerate() {
                 let bounce = (phase.get() - i as f32 * 0.95).sin().max(0.0) * 6.0;
                 draw.rounded_rect(
-                    Rect {
-                        x: i as f32 * 13.0,
-                        y: 10.0 - bounce,
-                        width: 8.0,
-                        height: 8.0,
-                    },
+                    Rect::new(i as f32 * 13.0, 10.0 - bounce, 8.0, 8.0),
                     4.0,
                     color,
                 );
@@ -969,16 +967,7 @@ impl IntoView for EmptyState {
                         &Stroke::new(4.0).cap(LineCap::Round).join(LineJoin::Round),
                         p.blue,
                     );
-                    d.rounded_rect(
-                        Rect {
-                            x: 38.0,
-                            y: 42.0,
-                            width: 84.0,
-                            height: 56.0,
-                        },
-                        12.0,
-                        p.hue(Hue::Blue).0,
-                    );
+                    d.rounded_rect(Rect::new(38.0, 42.0, 84.0, 56.0), 12.0, p.hue(Hue::Blue).0);
                     d.line(
                         Point::new(38.0, 60.0),
                         Point::new(122.0, 60.0),
@@ -986,16 +975,7 @@ impl IntoView for EmptyState {
                         p.line_strong,
                     );
                     for x in [66.0, 94.0] {
-                        d.rounded_rect(
-                            Rect {
-                                x: x - 3.5,
-                                y: 74.5,
-                                width: 7.0,
-                                height: 7.0,
-                            },
-                            3.5,
-                            p.text_faint,
-                        );
+                        d.rounded_rect(Rect::new(x - 3.5, 74.5, 7.0, 7.0), 3.5, p.text_faint);
                     }
                     d.stroke_path(
                         &Path::new()

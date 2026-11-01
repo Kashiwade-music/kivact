@@ -47,7 +47,9 @@ use crate::feedback::glass_style;
 /// ];
 /// assert_eq!(items.len(), 3);
 /// ```
+/// Built with [`PickerItem::new`].
 #[derive(Clone, PartialEq)]
+#[non_exhaustive]
 pub struct PickerItem<K> {
     /// The application's identity for the item.
     pub key: K,

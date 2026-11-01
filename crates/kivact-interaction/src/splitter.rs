@@ -21,7 +21,9 @@ use kivact_core::view::{
 use kivact_core::{Binding, Value, var};
 
 /// Reactive drawing state of an attached splitter handle.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct SplitterState {
     pub input: PartState,
     /// The size of the leading pane.
