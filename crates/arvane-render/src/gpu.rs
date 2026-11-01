@@ -54,6 +54,7 @@ mod context;
 mod encode;
 pub(crate) mod external;
 mod offscreen;
+mod shared_images;
 pub(crate) mod state;
 mod surface;
 mod texture;
