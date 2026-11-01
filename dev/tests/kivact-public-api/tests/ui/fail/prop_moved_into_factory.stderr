@@ -1,0 +1,17 @@
+error[E0507]: cannot move out of `name`, a captured variable in an `Fn` closure
+ --> tests/ui/fail/prop_moved_into_factory.rs:6:30
+  |
+5 | fn greeting(name: String, shown: Signal<bool>) -> impl IntoView {
+  |             ----  ------ move occurs because `name` has type `String`, which does not implement the `Copy` trait
+  |             |
+  |             captured outer variable
+6 |     show(shown, move || text(name))
+  |                 -------      ^^^^ `name` is moved here
+  |                 |
+  |                 captured by this `Fn` closure
+  |
+help: `Fn` and `FnMut` closures require captured values to be able to be consumed multiple times, but `FnOnce` closures may consume them only once
+ --> $WORKSPACE/crates/kivact-core/src/view/flow/branch.rs
+  |
+  | pub fn show<V: IntoView>(when: impl IntoReactive<bool>, child: impl Fn() -> V + 'static) -> Show {
+  |                                                                     ^^^^^^^^^

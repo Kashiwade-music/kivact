@@ -1,0 +1,447 @@
+error[E0277]: `*const ()` cannot be sent between threads safely
+ --> tests/ui/fail/handles_not_send.rs:7:19
+  |
+7 |     assert_send::<Signal<i32>>();
+  |                   ^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+  |
+  = help: within `kivact::Signal<i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+ --> $RUST/core/src/marker.rs
+  |
+  | pub struct PhantomData<T: PointeeSized>;
+  |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+ --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+  |
+  | pub struct UiThreadOnly(PhantomData<*const ()>);
+  |            ^^^^^^^^^^^^
+  = note: required because it appears within the type `(fn() -> i32, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> i32, UiThreadOnly)>`
+ --> $RUST/core/src/marker.rs
+  |
+  | pub struct PhantomData<T: PointeeSized>;
+  |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::Signal<i32>`
+ --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+  |
+  | pub struct Signal<T: 'static> {
+  |            ^^^^^^
+note: required by a bound in `assert_send`
+ --> tests/ui/fail/handles_not_send.rs:4:19
+  |
+4 | fn assert_send<T: Send>() {}
+  |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+ --> tests/ui/fail/handles_not_send.rs:8:19
+  |
+8 |     assert_send::<Value<i32>>();
+  |                   ^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+  |
+  = help: within `kivact::Value<i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+ --> $RUST/core/src/marker.rs
+  |
+  | pub struct PhantomData<T: PointeeSized>;
+  |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+ --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+  |
+  | pub struct UiThreadOnly(PhantomData<*const ()>);
+  |            ^^^^^^^^^^^^
+  = note: required because it appears within the type `(fn() -> i32, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> i32, UiThreadOnly)>`
+ --> $RUST/core/src/marker.rs
+  |
+  | pub struct PhantomData<T: PointeeSized>;
+  |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::Value<i32>`
+ --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+  |
+  | pub struct Value<T: 'static> {
+  |            ^^^^^
+note: required by a bound in `assert_send`
+ --> tests/ui/fail/handles_not_send.rs:4:19
+  |
+4 | fn assert_send<T: Send>() {}
+  |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+ --> tests/ui/fail/handles_not_send.rs:9:19
+  |
+9 |     assert_send::<Var<i32>>();
+  |                   ^^^^^^^^ `*const ()` cannot be sent between threads safely
+  |
+  = help: within `kivact::Var<i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+ --> $RUST/core/src/marker.rs
+  |
+  | pub struct PhantomData<T: PointeeSized>;
+  |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+ --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+  |
+  | pub struct UiThreadOnly(PhantomData<*const ()>);
+  |            ^^^^^^^^^^^^
+  = note: required because it appears within the type `(fn() -> i32, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> i32, UiThreadOnly)>`
+ --> $RUST/core/src/marker.rs
+  |
+  | pub struct PhantomData<T: PointeeSized>;
+  |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::Var<i32>`
+ --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+  |
+  | pub struct Var<T: 'static> {
+  |            ^^^
+note: required by a bound in `assert_send`
+ --> tests/ui/fail/handles_not_send.rs:4:19
+  |
+4 | fn assert_send<T: Send>() {}
+  |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:10:19
+   |
+10 |     assert_send::<Callback<i32>>();
+   |                   ^^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `Callback<i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn(i32), UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn(i32), UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `Callback<i32>`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct Callback<E: 'static> {
+   |            ^^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:11:19
+   |
+11 |     assert_send::<Binding<i32>>();
+   |                   ^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `Binding<i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> i32, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> i32, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::Signal<i32>`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct Signal<T: 'static> {
+   |            ^^^^^^
+note: required because it appears within the type `kivact_reactive::data::BindingRepr<i32>`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub(crate) enum BindingRepr<T: 'static> {
+   |                 ^^^^^^^^^^^
+note: required because it appears within the type `Binding<i32>`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct Binding<T: 'static> {
+   |            ^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:12:19
+   |
+12 |     assert_send::<kivact::Selector<u64>>();
+   |                   ^^^^^^^^^^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `Selector<u64>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> u64, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> u64, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `Selector<u64>`
+  --> $WORKSPACE/crates/kivact-reactive/src/selector.rs
+   |
+   | pub struct Selector<K: 'static> {
+   |            ^^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:13:19
+   |
+13 |     assert_send::<NodeRef>();
+   |                   ^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `kivact::prelude::NodeRef`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> view::state::NodeRefState, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> view::state::NodeRefState, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::primitive::Owned<view::state::NodeRefState>`
+  --> $WORKSPACE/crates/kivact-reactive/src/owner_handle.rs
+   |
+   | pub struct Owned<T: 'static> {
+   |            ^^^^^
+note: required because it appears within the type `kivact::prelude::NodeRef`
+  --> $WORKSPACE/crates/kivact-core/src/view/node_ref.rs
+   |
+   | pub struct NodeRef {
+   |            ^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:14:19
+   |
+14 |     assert_send::<Resource<i32>>();
+   |                   ^^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `kivact::prelude::Resource<i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> kivact_task::resource::ResourceCell<i32>, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> kivact_task::resource::ResourceCell<i32>, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::primitive::Owned<kivact_task::resource::ResourceCell<i32>>`
+  --> $WORKSPACE/crates/kivact-reactive/src/owner_handle.rs
+   |
+   | pub struct Owned<T: 'static> {
+   |            ^^^^^
+note: required because it appears within the type `kivact::prelude::Resource<i32>`
+  --> $WORKSPACE/crates/kivact-task/src/resource.rs
+   |
+   | pub struct Resource<T: 'static> {
+   |            ^^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:15:19
+   |
+15 |     assert_send::<Action<i32, i32>>();
+   |                   ^^^^^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `kivact::prelude::Action<i32, i32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> kivact_task::action::ActionCell<i32, i32>, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> kivact_task::action::ActionCell<i32, i32>, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::primitive::Owned<kivact_task::action::ActionCell<i32, i32>>`
+  --> $WORKSPACE/crates/kivact-reactive/src/owner_handle.rs
+   |
+   | pub struct Owned<T: 'static> {
+   |            ^^^^^
+note: required because it appears within the type `kivact::prelude::Action<i32, i32>`
+  --> $WORKSPACE/crates/kivact-task/src/action.rs
+   |
+   | pub struct Action<T: 'static, I: 'static = ()> {
+   |            ^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:16:19
+   |
+16 |     assert_send::<Task>();
+   |                   ^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `Task`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> kivact_task::state::TaskCell, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> kivact_task::state::TaskCell, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::primitive::Owned<kivact_task::state::TaskCell>`
+  --> $WORKSPACE/crates/kivact-reactive/src/owner_handle.rs
+   |
+   | pub struct Owned<T: 'static> {
+   |            ^^^^^
+note: required because it appears within the type `Task`
+  --> $WORKSPACE/crates/kivact-task/src/spawn.rs
+   |
+   | pub struct Task {
+   |            ^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:17:19
+   |
+17 |     assert_send::<kivact::motion::FrameLoop>();
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `FrameLoop`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> kivact_motion::state::LoopCell, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> kivact_motion::state::LoopCell, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::primitive::Owned<kivact_motion::state::LoopCell>`
+  --> $WORKSPACE/crates/kivact-reactive/src/owner_handle.rs
+   |
+   | pub struct Owned<T: 'static> {
+   |            ^^^^^
+note: required because it appears within the type `FrameLoop`
+  --> $WORKSPACE/crates/kivact-motion/src/frame_loop.rs
+   |
+   | pub struct FrameLoop {
+   |            ^^^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`
+
+error[E0277]: `*const ()` cannot be sent between threads safely
+  --> tests/ui/fail/handles_not_send.rs:18:19
+   |
+18 |     assert_send::<kivact::motion::Animated<f32>>();
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `*const ()` cannot be sent between threads safely
+   |
+   = help: within `Animated<f32>`, the trait `Send` is not implemented for `*const ()`
+note: required because it appears within the type `PhantomData<*const ()>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `UiThreadOnly`
+  --> $WORKSPACE/crates/kivact-reactive/src/data.rs
+   |
+   | pub struct UiThreadOnly(PhantomData<*const ()>);
+   |            ^^^^^^^^^^^^
+   = note: required because it appears within the type `(fn() -> kivact_motion::animated::AnimCell<f32>, UiThreadOnly)`
+note: required because it appears within the type `PhantomData<(fn() -> kivact_motion::animated::AnimCell<f32>, UiThreadOnly)>`
+  --> $RUST/core/src/marker.rs
+   |
+   | pub struct PhantomData<T: PointeeSized>;
+   |            ^^^^^^^^^^^
+note: required because it appears within the type `kivact::primitive::Owned<kivact_motion::animated::AnimCell<f32>>`
+  --> $WORKSPACE/crates/kivact-reactive/src/owner_handle.rs
+   |
+   | pub struct Owned<T: 'static> {
+   |            ^^^^^
+note: required because it appears within the type `Animated<f32>`
+  --> $WORKSPACE/crates/kivact-motion/src/animated.rs
+   |
+   | pub struct Animated<T: 'static> {
+   |            ^^^^^^^^
+note: required by a bound in `assert_send`
+  --> tests/ui/fail/handles_not_send.rs:4:19
+   |
+ 4 | fn assert_send<T: Send>() {}
+   |                   ^^^^ required by this bound in `assert_send`

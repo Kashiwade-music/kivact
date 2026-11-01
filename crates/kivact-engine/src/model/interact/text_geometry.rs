@@ -1,0 +1,368 @@
+//! Role: Text input geometry shared by caret painting, IME positioning and the pointer.
+//!
+//! Text input geometry shared by caret painting, IME positioning and the
+//! pointer: where the caret is, which caret the pointer is over, and the
+//! horizontal scroll that keeps the caret inside the field. The editing
+//! itself is the model's (`kivact_editing::EditState`).
+//!
+//! Invariants:
+//! - Everything here reads the input's lines (`kivact-text`), shaped one
+//!   hard line at a time: the caret, the pointer and the IME cost the
+//!   lines they touch, not the text.
+//! - Arvane's shaping carets carry Unicode scalar offsets; the
+//!   editor's byte offsets are converted at this module's edges.
+//! - The pointer only lands on extended grapheme cluster boundaries, of
+//!   the line under it (the nearest line above or below the text).
+//! - The IME is given the text around the caret, never more than
+//!   2048 bytes (2048) on each side of the caret and
+//!   the composition, whole lines while they fit, in offsets of that text:
+//!   the selection and the composition are cut to it (a reconversion of a
+//!   larger selection sees that part), and the IME's answers are moved
+//!   back by where it starts in the value. A read-only input gives the IME
+//!   nothing, a password input no text (its caret box only).
+//! - Inputs never wrap (a multiline input breaks only at
+//!   line feeds) and scroll horizontally to keep the caret within 2 px of
+//!   the right edge, as far as the widest line shaped so far or the caret
+//!   reaches. Text that cannot be shaped keeps the caret at the start.
+//!   Only the inputs made so far are scrolled (`Edits::inputs`), no tree
+//!   walk.
+//! - An input is shaped in its inherited text style ([`Model::input_style`]):
+//!   letter spacing and font features apply, decoration lines, ellipses,
+//!   line clamps and case conversion do not (the caret is in the value as
+//!   typed).
+//! - The line height is the shaper's (the caret of an empty text), never a
+//!   copy of its formula.
+//! - A single-line input's line is centered vertically in its content box
+//!   (like a browser's `<input>`; a box lower than the line overflows it
+//!   evenly on both sides), a multiline input's starts at its top.
+//!   `line_box` is the one place that decides it: painting the text, the
+//!   selection, the caret and the placeholder, the pointer and the IME's
+//!   character boxes all start from it. The IME's text area is the content
+//!   box.
+
+use std::ops::Range;
+
+use crate::model::Model;
+use kivact_wire::{NodeId, Point, Rect};
+
+use crate::model::interact::visual;
+use crate::model::transform::map_rect;
+
+use kivact_text::{line_height, line_offset};
+
+/// The horizontal text scroll of a text input.
+pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f32 {
+    host.editor_node(id).map_or(0.0, |n| n.scroll_x)
+}
+
+/// The caret of the text input `id` relative to its unscrolled text
+/// origin (the start of its box and its first line's top).
+fn caret_local(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
+    let width = visual::text_box(host, id).width;
+    let caret = host
+        .node(id)
+        .and_then(|n| {
+            host.editors[n.index.0]
+                .as_deref()
+                .map(|editor| editor.editor.state())
+        })
+        .map_or(0, |e| e.caret());
+    match host.edit_lines(id, engine) {
+        Some((mut lines, text)) => lines.caret(text, caret, width, engine),
+        None => Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: {
+                let style = host.input_style(id, engine);
+                line_height(engine, &style)
+            },
+        },
+    }
+}
+
+/// Where the text of the text input `id` starts when its content box is
+/// drawn at `area`: `area` itself for a multiline input, else the box of one
+/// line (the shaper's line height) centered vertically in `area`. A content
+/// box lower than the line overflows it evenly on both sides.
+pub(crate) fn line_box(host: &Model, id: NodeId, engine: &mut arvane::Engine, area: Rect) -> Rect {
+    if host.node(id).is_none_or(|n| n.multiline()) {
+        return area;
+    }
+    let style = host.input_style(id, engine);
+    let height = line_height(engine, &style);
+    Rect {
+        y: area.y + line_offset(area.height, height),
+        height,
+        ..area
+    }
+}
+
+/// Where the text of the text input `id` starts in its own space
+/// (`line_box` of its content box).
+pub(crate) fn text_line(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
+    line_box(host, id, engine, visual::text_box(host, id))
+}
+
+/// The caret of the text input `id` in its own space, as painted.
+pub(crate) fn caret_rect(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
+    let line = text_line(host, id, engine);
+    caret_in(host, id, engine, line)
+}
+
+/// The caret of the text input `id` whose text starts at the `line` box
+/// (`line_box`).
+pub(crate) fn caret_in(host: &Model, id: NodeId, engine: &mut arvane::Engine, line: Rect) -> Rect {
+    let local = caret_local(host, id, engine);
+    Rect {
+        x: line.x + local.x - input_scroll(host, id),
+        y: line.y + local.y,
+        ..local
+    }
+}
+
+/// The byte offset in the value of the text input `id` nearest the window
+/// point `at` (mapped into its own space through its transforms), on a
+/// grapheme boundary (`None`: it is no text input).
+pub(crate) fn offset_at(
+    host: &Model,
+    id: NodeId,
+    at: Point,
+    engine: &mut arvane::Engine,
+) -> Option<usize> {
+    let at = host.to_own(id, at)?;
+    let bounds = text_line(host, id, engine);
+    let (mut lines, text) = host.edit_lines(id, engine)?;
+    let x = at.x - bounds.x + input_scroll(host, id);
+    Some(lines.offset_at(text, x, at.y - bounds.y, bounds.width, engine))
+}
+
+/// What the focused text input shows the IME: the text around its caret
+/// (all of it when short: `EditLines::excerpt`), the selection (cut to
+/// that text) and the composition in UTF-16 code units of it, the boxes
+/// of the composed characters (the caret's without a composition) and its
+/// text area, in window coordinates as painted: the bounds of each box
+/// mapped by the input's transforms; with the byte offset the text starts
+/// at in the value (`None`: no text input has the focus).
+pub(crate) fn ime_text(
+    host: &Model,
+    engine: &mut arvane::Engine,
+) -> Option<(arvane::ShellImeText, usize)> {
+    let id = host.focused_input()?;
+    let node = host.node(id)?;
+    if node.read_only() {
+        return None;
+    }
+    let edit = host.editors[node.index.0]
+        .as_deref()
+        .map(|editor| editor.editor.state())?;
+    let value = edit.value();
+    let area = visual::text_box(host, id);
+    let line = line_box(host, id, engine, area);
+    let left = area.x - input_scroll(host, id);
+    let (mut lines, _) = host.edit_lines(id, engine)?;
+    let (from, to) = edit
+        .marked()
+        .map_or((edit.caret(), edit.caret()), |m| (m.start, m.end));
+    let mut place = |at: usize| {
+        let r = lines.caret(value, at, area.width, engine);
+        Rect {
+            x: left + r.x,
+            y: line.y + r.y,
+            ..r
+        }
+    };
+    let mut rects = Vec::new();
+    let mut at = from;
+    for c in value[from..to].chars() {
+        let (start, end) = (place(at), place(at + c.len_utf8()));
+        let rect = Rect {
+            x: start.x.min(end.x),
+            y: start.y,
+            width: (end.x - start.x).abs().max(start.width),
+            height: start.height,
+        };
+        rects.extend(std::iter::repeat_n(rect, c.len_utf16()));
+        at += c.len_utf8();
+    }
+    rects.push(place(to));
+    // Into the window, as drawn.
+    let t = host.transform_between(id, None);
+    if let Some(t) = &t {
+        for r in &mut rects {
+            *r = t.bounds(*r);
+        }
+    }
+    let area = map_rect(t.as_ref(), area);
+    if node.password() {
+        let text = arvane::ShellImeText {
+            password: true,
+            text: String::new(),
+            text_start: 0,
+            selection: (0, 0),
+            caret: 0,
+            composition: None,
+            rects_from: 0,
+            rects: vec![*rects.last().expect("invariant: the caret was appended")],
+            area,
+        };
+        return Some((text, 0));
+    }
+    let excerpt = lines.excerpt(value, from.min(edit.caret())..to.max(edit.caret()));
+    let start = lines.utf16_of_byte(value, excerpt.start);
+    let units =
+        |byte: usize| lines.utf16_of_byte(value, byte.clamp(excerpt.start, excerpt.end)) - start;
+    let selection = edit.selection();
+    let text = arvane::ShellImeText {
+        password: false,
+        text: value[excerpt.clone()].to_string(),
+        text_start: start,
+        selection: (units(selection.start), units(selection.end)),
+        caret: units(edit.caret()),
+        composition: edit.marked().map(|m| (units(m.start), units(m.end))),
+        rects_from: units(from),
+        rects,
+        area,
+    };
+    Some((text, excerpt.start))
+}
+
+/// The byte offset of the UTF-16 offset `units` in `text` (clamped to it).
+pub(crate) fn byte_of_utf16(text: &str, units: usize) -> usize {
+    let mut seen = 0;
+    for (i, c) in text.char_indices() {
+        if seen >= units {
+            return i;
+        }
+        seen += c.len_utf16();
+    }
+    text.len()
+}
+
+impl Model {
+    /// Scroll every text input so its caret stays inside
+    /// the field: past the right edge less 2 px, or at the left edge.
+    pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane::Engine) {
+        for id in self.edits.inputs() {
+            let width = visual::text_box(self, id).width;
+            // Hidden or zero-width fields have no viewport to scroll into.
+            if width <= 0.0 {
+                continue;
+            }
+            let caret = caret_local(self, id, engine).x;
+            // Reveal or resize can fit the text again. Bound any retained
+            // offset to the remaining overflow before keeping the caret visible.
+            let extent = self
+                .edit_lines(id, engine)
+                .filter(|(lines, _)| lines.shows_value())
+                .map_or(0.0, |(lines, _)| lines.width())
+                .max(caret);
+            let max_scroll = (extent - width + 2.0).max(0.0);
+            let mut scroll = input_scroll(self, id).clamp(0.0, max_scroll);
+            if caret - scroll > width - 2.0 {
+                scroll = caret - width + 2.0;
+            } else if caret - scroll < 0.0 {
+                scroll = caret.max(0.0);
+            }
+            if let Some(x) = self.editor_node_mut(id)
+                && x.scroll_x != scroll
+            {
+                x.scroll_x = scroll;
+                self.invalidate_paint();
+            }
+        }
+        self.sync();
+    }
+}
+
+/// The text input `id`'s lines `rows` (clamped to its lines) and their
+/// carets in the window, as drawn: the lines of its value (none while it
+/// is empty) and their caret stops, one per scalar offset (the CR of a
+/// CRLF at its line's end). Only those lines are shaped and read.
+pub(crate) fn text_layout(
+    host: &Model,
+    id: NodeId,
+    rows: Range<usize>,
+    engine: &mut arvane::Engine,
+) -> Option<kivact_editing::TextLayout> {
+    use kivact_editing::{EditCaret, EditLine, TextLayout};
+    let value = host.edit(id)?.value();
+    let origin = text_line(host, id, engine);
+    let transform = host.transform_between(id, None);
+    let scroll = input_scroll(host, id);
+    let mapped = |rect: Rect| map_rect(transform.as_ref(), rect);
+    let caret = map_rect(transform.as_ref(), caret_rect(host, id, engine));
+    let (mut lines, _) = host.edit_lines(id, engine)?;
+    let mut out = TextLayout {
+        caret,
+        line_count: 0,
+        lines: Vec::new(),
+        carets: Vec::new(),
+    };
+    if !lines.shows_value() {
+        out.carets.push(EditCaret {
+            offset: 0,
+            rect: caret,
+        });
+        return Some(out);
+    }
+    out.line_count = lines.len();
+    let rows = rows.start.min(lines.len())..rows.end.min(lines.len());
+    let mut offset = lines.char_of_line(rows.start);
+    for i in rows {
+        let x = origin.x - scroll + lines.offset(value, i, origin.width, engine);
+        let y = origin.y + i as f32 * lines.height();
+        let shift = |r: Rect| {
+            mapped(Rect {
+                x: x + r.x,
+                y: y + r.y,
+                ..r
+            })
+        };
+        let range = lines.range(i);
+        let chars = value[range.clone()].chars().count() as u32;
+        let shaped = lines.shaped(value, i, engine);
+        let rect = shaped.as_ref().and_then(|s| s.lines.first()).map_or(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 0.0,
+                height: lines.height(),
+            },
+            |l| l.rect,
+        );
+        out.lines.push(EditLine {
+            range: range.clone(),
+            rect: shift(rect),
+            baseline: mapped(Rect {
+                x,
+                y: y + lines.baseline(value, i, engine),
+                width: 0.0,
+                height: 0.0,
+            })
+            .y,
+        });
+        if let Some(shaped) = shaped {
+            let mut end = None;
+            for c in &shaped.carets {
+                let rect = shift(c.rect);
+                end = Some(rect);
+                out.carets.push(EditCaret {
+                    offset: offset + c.offset,
+                    rect,
+                });
+            }
+            let content = shaped.carets.len().saturating_sub(1) as u32;
+            if lines.crlf(i)
+                && let Some(rect) = end
+            {
+                out.carets.push(EditCaret {
+                    offset: offset + content + 1,
+                    rect,
+                });
+            }
+        }
+        offset += chars;
+    }
+    Some(out)
+}

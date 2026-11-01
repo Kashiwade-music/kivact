@@ -1,0 +1,22 @@
+[package]
+name = "kivact-ui-creative-catalog"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Interactive styled component catalog for kivact-ui-creative"
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+async-channel = { workspace = true }
+kivact = { path = "../../crates/kivact", default-features = false }
+kivact-ui-creative = { path = "../../crates/kivact-ui-creative" }
+
+[dev-dependencies]
+kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

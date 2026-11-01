@@ -1,0 +1,21 @@
+[package]
+name = "kivact-ui-pop-catalog"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Interactive styled component catalog for kivact-ui-pop"
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../crates/kivact", default-features = false }
+kivact-ui-pop = { path = "../../crates/kivact-ui-pop" }
+
+[dev-dependencies]
+kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

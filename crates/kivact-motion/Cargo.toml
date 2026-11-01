@@ -1,0 +1,19 @@
+[package]
+name = "kivact-motion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Kivact internal crate: frame loops, animated values and transitions (use the `kivact` facade)"
+
+[dependencies]
+kivact-reactive = { path = "../kivact-reactive" }
+kivact-wire = { path = "../kivact-wire" }
+
+[dev-dependencies]
+# Doctests show what users write (`use kivact::prelude::*`). Dev-dependency
+# cycles are allowed by Cargo; nothing but the doctests uses the facade.
+kivact = { path = "../kivact" }
+
+[lints]
+workspace = true

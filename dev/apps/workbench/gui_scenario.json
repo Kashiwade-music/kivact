@@ -1,0 +1,75 @@
+{
+  "app": "workbench",
+  "exe": "target/debug/workbench.exe",
+  "windowTitle": "Kivact Workbench",
+  "notes": "Semantics of the plan-01 API: automation ids are test_ids (component-local; 'input' is the text field inside the SearchBox 'external-search'). Canvas regions are synthetic a11y leaves (Slider 'Selection start'/'Selection end'). Run with gui-harness/scenario-json.ps1 (SendInput + UIA).",
+  "steps": [
+    {
+      "name": "initial-external-controls",
+      "actions": [
+        { "kind": "require", "name": "^Incident investigation workbench$" },
+        { "kind": "require", "automationId": "^input$", "name": "^Search records$", "control": "Edit" },
+        { "kind": "require", "automationId": "^external-timeline$", "name": "^Record timeline$" },
+        { "kind": "require", "automationId": "^visible-count$", "name": "^100000 visible records / 100000 total$" },
+        { "kind": "require", "name": "^Record 0$", "control": "ListItem" },
+        { "kind": "require", "automationId": "^records$", "name": "^Records$" },
+        { "kind": "require", "automationId": "^record-open-0$", "name": "^Open$", "control": "Button" }
+      ],
+      "capture": true
+    },
+    {
+      "name": "physical-keyboard-search",
+      "actions": [
+        { "kind": "click", "automationId": "^input$" },
+        { "kind": "wait_focus", "automationId": "^input$" },
+        { "kind": "type", "text": "timeout" },
+        { "kind": "wait", "automationId": "^visible-count$", "name": "^12500 visible records / 100000 total$" },
+        { "kind": "assert_value", "automationId": "^input$", "value": "^timeout$" },
+        { "kind": "key", "vk": 36 },
+        { "kind": "type", "text": "Z" },
+        { "kind": "assert_value", "automationId": "^input$", "value": "^Ztimeout$" },
+        { "kind": "wait", "automationId": "^visible-count$", "name": "^0 visible records" },
+        { "kind": "key", "vk": 8 },
+        { "kind": "wait", "automationId": "^visible-count$", "name": "^12500 visible records" },
+        { "kind": "require", "name": "^Record 8$", "control": "ListItem" },
+        { "kind": "absent", "name": "^Record 1$" }
+      ],
+      "capture": true
+    },
+    {
+      "name": "row-open-and-keyed-detail",
+      "actions": [
+        { "kind": "click", "automationId": "^record-open-8$" },
+        { "kind": "wait", "automationId": "^detail-body$", "name": "^Record 8: diagnostic detail$" },
+        { "kind": "invoke", "automationId": "^record-open-16$" },
+        { "kind": "wait", "automationId": "^detail-body$", "name": "^Record 16: diagnostic detail$" },
+        { "kind": "invoke", "automationId": "^clear-selection$" },
+        { "kind": "wait_absent", "automationId": "^detail-body$" }
+      ],
+      "capture": true
+    },
+    {
+      "name": "virtual-list-wheel",
+      "actions": [
+        { "kind": "click", "automationId": "^input$" },
+        { "kind": "wait_focus", "automationId": "^input$" },
+        { "kind": "wheel", "automationId": "^records$", "delta": -1200, "repeat": 20 },
+        { "kind": "wait_absent", "name": "^Record 0$" },
+        { "kind": "require_count_max", "control": "ListItem", "max": 40 }
+      ],
+      "capture": true
+    },
+    {
+      "name": "timeline-drag-range",
+      "actions": [
+        { "kind": "drag", "automationId": "^external-timeline$", "from": 0.505, "to": 0.595 },
+        { "kind": "wait", "automationId": "^visible-count$", "name": "^1250 visible records / 100000 total$" },
+        { "kind": "require", "name": "^Selection start$", "value": "^#50000$" },
+        { "kind": "require", "name": "^Selection end$", "value": "^#59000$" },
+        { "kind": "invoke", "automationId": "^clear-range$" },
+        { "kind": "wait", "automationId": "^visible-count$", "name": "^12500 visible records" }
+      ],
+      "capture": true
+    }
+  ]
+}

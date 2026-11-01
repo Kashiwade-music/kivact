@@ -1,0 +1,16 @@
+[package]
+name = "kivact-example-list"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Keep a keyed todo list with checkboxes, removal and a remaining count."
+
+[dependencies]
+kivact = { path = "../../../crates/kivact" }
+
+[dev-dependencies]
+kivact = { path = "../../../crates/kivact", features = ["test"] }
+
+[lints]
+workspace = true

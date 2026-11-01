@@ -1,0 +1,51 @@
+[package]
+name = "arvane"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Arvane: the window, text, rendering, accessibility and asset layer behind kivact-engine (public facade)"
+
+[dependencies]
+arvane-shell = { path = "../arvane-shell" }
+ui-types = { path = "../ui-types" }
+arvane-native = { path = "../arvane-native" }
+arvane-text = { path = "../arvane-text" }
+arvane-render = { path = "../arvane-render" }
+arvane-asset = { path = "../arvane-asset" }
+tracing = "0.1.41"
+
+[features]
+embed = ["arvane-native/embed"]
+default = []
+# The GPU renderer (wgpu + vello_hybrid): presents to windows' GPU surfaces
+# and renders offscreen; the CPU renderer is the fallback. Off by default here;
+# kivact's default `gpu` feature turns it on.
+gpu = ["arvane-render/gpu"]
+# Drawing textures an application's render engine shares with a window
+# (`DrawCommand::External`, `Window::import_external_image`): Direct3D 12
+# and Vulkan on Windows, Vulkan on Linux; elsewhere no window can import.
+gpu-interop = ["gpu", "arvane-render/gpu-interop"]
+# Real windows for tests (`arvane::test_display`).
+testing = ["arvane-native/testing"]
+
+# The render engine standing in for an application's in the GPU texture
+# sharing tests (`tests/e2e/external.rs`).
+[target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
+gpu-interop-producer = { path = "../../dev/tests/gpu-interop-producer", features = ["wgpu"] }
+
+# Arvane's contract tests: the arvane facade alone, on real test windows
+# (one binary, to link once).
+[[test]]
+name = "e2e"
+path = "tests/e2e/main.rs"
+required-features = ["testing"]
+
+# Exact process FD counts must not race unrelated E2E windows, GPU work or threads.
+[[test]]
+name = "embed_resources"
+path = "tests/embed_resources.rs"
+required-features = ["embed", "testing"]
+
+[lints]
+workspace = true

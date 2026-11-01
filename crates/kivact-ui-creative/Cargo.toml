@@ -1,0 +1,32 @@
+[package]
+name = "kivact-ui-creative"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Dense creative-tool components using only Kivact's public API"
+
+[dependencies]
+kivact = { path = "../kivact", default-features = false }
+
+[features]
+# Experimental: `viewport_surface(..).gpu_frame(..)`, which shows a frame an
+# application's render engine shares with the window (`kivact::gpu_interop`).
+# Off by default. It decides only whether the API exists, by turning on
+# `kivact`'s feature of the same name (which builds the GPU renderer the sharing
+# needs); it does not choose the renderer of a window: the application does, as
+# without it, and with a window that draws on the CPU the surface shows the
+# `Pixels` given to `viewport_surface`.
+gpu-interop = ["kivact/gpu-interop"]
+
+[dev-dependencies]
+kivact = { path = "../kivact", default-features = false, features = ["test"] }
+
+# The render engine standing in for an application's in the GPU frame tests
+# (tests/consumer/gpu_interop.rs).
+[target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
+gpu-interop-producer = { path = "../../dev/tests/gpu-interop-producer" }
+
+[lints]
+workspace = true

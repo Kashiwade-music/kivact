@@ -1,0 +1,26 @@
+[package]
+name = "kivact-workbench"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "100,000-record workbench: core virtual_list plus the external SearchBox and Timeline"
+
+[features]
+default = ["gpu"]
+# Applications choose the renderer; component libraries leave it to their consumer.
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false }
+kivact-external-component = { path = "../../tests/fixtures/external-component" }
+
+[dev-dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
+
+[[bin]]
+name = "workbench"
+path = "src/main.rs"
+
+[lints]
+workspace = true

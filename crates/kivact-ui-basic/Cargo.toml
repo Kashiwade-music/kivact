@@ -1,0 +1,17 @@
+[package]
+name = "kivact-ui-basic"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "shadcn/ui (Lyra preset) inspired official Kivact components built solely on the public kivact API"
+
+[dependencies]
+kivact = { path = "../kivact", default-features = false }
+
+[dev-dependencies]
+kivact = { path = "../kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

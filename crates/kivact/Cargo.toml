@@ -1,0 +1,26 @@
+[package]
+name = "kivact"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Setup-once fine-grained reactive UI (Solid-style, no macros) over a retained native host"
+
+[dependencies]
+kivact-core = { path = "../kivact-core", default-features = false }
+kivact-interaction = { path = "../kivact-interaction" }
+kivact-ui = { path = "../kivact-ui" }
+
+[features]
+embed = ["kivact-core/embed"]
+default = ["gpu"]
+gpu = ["kivact-core/gpu"]
+# Experimental: `kivact::gpu_interop`, textures an application's own render
+# engine shares with the window, drawn without reading them back. Off by
+# default.
+gpu-interop = ["gpu", "kivact-core/gpu-interop"]
+test = ["kivact-core/test"]
+
+[lints]
+workspace = true

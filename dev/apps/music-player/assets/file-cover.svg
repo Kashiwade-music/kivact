@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200">
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="200" fill="url(#sea)"/>
+  <g fill="#a7f3d0">
+    <rect x="96" y="80" width="10" height="40" rx="5"/>
+    <rect x="114" y="60" width="10" height="80" rx="5"/>
+    <rect x="132" y="40" width="10" height="120" rx="5"/>
+    <rect x="150" y="70" width="10" height="60" rx="5"/>
+    <rect x="168" y="50" width="10" height="100" rx="5"/>
+    <rect x="186" y="85" width="10" height="30" rx="5"/>
+  </g>
+</svg>

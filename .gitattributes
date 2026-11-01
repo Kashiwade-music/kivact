@@ -1,0 +1,7 @@
+# Shell scripts run under Linux (WSL) and must keep LF line endings.
+*.sh text eol=lf
+# Font notice hashes describe the distributed bytes on every platform.
+**/assets/fonts/**/OFL.txt text eol=lf
+**/assets/fonts/SHA256SUMS.txt text eol=lf
+# Preserve upstream notice bytes, including supplied trailing spaces.
+**/assets/fonts/**/OFL.txt whitespace=-blank-at-eol

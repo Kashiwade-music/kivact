@@ -1,0 +1,24 @@
+[package]
+name = "kivact-docs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Compile checks for docs/: every ```rust block of the guides runs as a doctest"
+
+[features]
+default = ["gpu"]
+# Applications choose the renderer; component libraries leave it to their consumer.
+gpu = ["kivact/gpu"]
+
+[dependencies]
+async-channel = { workspace = true }
+kivact = { path = "../../../crates/kivact", default-features = false, features = ["test", "embed"] }
+kivact-external-component = { path = "../fixtures/external-component" }
+kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
+kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
+kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
+kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
+
+[lints]
+workspace = true

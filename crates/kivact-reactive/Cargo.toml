@@ -1,0 +1,14 @@
+[package]
+name = "kivact-reactive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Kivact internal crate: reactive runtime, handles, errors and trace ring (use the `kivact` facade)"
+
+[dependencies]
+ui-types = { path = "../ui-types" }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

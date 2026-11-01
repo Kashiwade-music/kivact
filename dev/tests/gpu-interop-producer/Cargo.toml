@@ -1,0 +1,28 @@
+[package]
+name = "gpu-interop-producer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Tests only: a render engine of its own Direct3D 12 or Vulkan device that shares its frames with an Arvane window"
+
+[features]
+# `Producer::with_wgpu`: the engine written with Kivact's wgpu, on
+# `gpu-share`'s module `wgpu`. Off by default, so a kit's
+# CPU build of its tests gets no wgpu from here.
+wgpu = ["gpu-share/wgpu", "dep:wgpu"]
+
+[dependencies]
+ui-types = { path = "../../../crates/ui-types" }
+gpu-share = { path = "../../../crates/gpu-share", features = ["export"] }
+
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+ash = { workspace = true }
+# Kivact's wgpu, as gpu-share pins it.
+wgpu = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = ["Win32_Graphics_Direct3D"] }
+
+[lints]
+workspace = true

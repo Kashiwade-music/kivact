@@ -1,0 +1,20 @@
+[package]
+name = "kivact-interaction-starter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Search, async loading, a controlled detail form, retry and file saving"
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false }
+
+[dev-dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

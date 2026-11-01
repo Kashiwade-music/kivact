@@ -1,0 +1,16 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Repository checks and architecture diagrams for kivact and Arvane (cargo xtask check), built on xtask-core"
+
+[dependencies]
+proc-macro2 = "1"
+syn = { version = "2", features = ["full"] }
+toml = "0.8"
+xtask-core = { path = "../../vendor/xtask-core/crates/xtask-core" }
+
+[lints]
+workspace = true

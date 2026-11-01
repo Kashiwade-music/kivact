@@ -1,0 +1,16 @@
+[package]
+name = "kivact-example-component"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Compose a reusable card with props, children and a close callback."
+
+[dependencies]
+kivact = { path = "../../../crates/kivact" }
+
+[dev-dependencies]
+kivact = { path = "../../../crates/kivact", features = ["test"] }
+
+[lints]
+workspace = true

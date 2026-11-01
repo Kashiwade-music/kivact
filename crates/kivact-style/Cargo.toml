@@ -1,0 +1,29 @@
+[package]
+name = "kivact-style"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Kivact internal crate: styles, themes, tokens and the drawing vocabulary (use the `kivact` facade)"
+
+[dependencies]
+kivact-editing = { path = "../kivact-editing" }
+kivact-reactive = { path = "../kivact-reactive" }
+kivact-wire = { path = "../kivact-wire" }
+kivact-motion = { path = "../kivact-motion" }
+# Curve geometry behind `Path` (bounds, length, trim, stroke outline); the same
+# version Arvane's rasterizer uses through vello. kurbo types are never public.
+kurbo = { workspace = true }
+
+[features]
+# `draw::GpuFrame` (frames of an image an external render engine shares).
+gpu-interop = []
+
+[dev-dependencies]
+# Doctests show what users write (`use kivact::prelude::*`). Dev-dependency
+# cycles are allowed by Cargo; nothing but the doctests uses the facade.
+# `gpu-interop` builds this crate's own `gpu-interop` code in the test build.
+kivact = { path = "../kivact", features = ["gpu-interop"] }
+
+[lints]
+workspace = true

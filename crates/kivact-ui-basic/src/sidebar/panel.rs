@@ -1,0 +1,351 @@
+//! Role: The sidebar panel, its rail, the page beside it and the provider.
+
+use super::state::{SidebarCollapsible, SidebarCx, SidebarSide, SidebarVariant, WIDTH, WIDTH_ICON};
+use crate::parts::pressable;
+use crate::slot::{Slot, slot};
+use crate::theme_access::tokens;
+use kivact::control::{Node, NodeBuilder, column, node, row, scroll};
+use kivact::draw::Rect;
+use kivact::draw::Shadow;
+use kivact::i18n::message;
+use kivact::primitive::NodeExt;
+use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
+use kivact::view::{Handled, IntoValue, IntoView, Key, Role, callback, show};
+use kivact::{Binding, Value};
+
+/// The panel of a sidebar (sidebar.tsx). Created by [`sidebar`].
+///
+/// The root is the box that takes the sidebar's width in the layout, so
+/// modifiers apply to it.
+pub struct Sidebar {
+    pub(super) root: Node,
+    pub(super) side: SidebarSide,
+    pub(super) variant: SidebarVariant,
+    pub(super) collapsible: SidebarCollapsible,
+    header: Option<Slot>,
+    content: Option<Slot>,
+    footer: Option<Slot>,
+    rail: Value<bool>,
+}
+
+/// A sidebar on the left, framed as `Sidebar`, that slides out when closed.
+///
+/// Pass it to [`sidebar_provider`] together with the page it sits beside.
+#[track_caller]
+pub fn sidebar() -> Sidebar {
+    Sidebar {
+        root: node(),
+        side: SidebarSide::Left,
+        variant: SidebarVariant::Sidebar,
+        collapsible: SidebarCollapsible::Offcanvas,
+        header: None,
+        content: None,
+        footer: None,
+        rail: false.into_value(),
+    }
+}
+
+impl Sidebar {
+    /// Choose the side of the window.
+    pub fn side(mut self, side: SidebarSide) -> Self {
+        self.side = side;
+        self
+    }
+
+    /// Choose the frame.
+    pub fn variant(mut self, variant: SidebarVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    /// Choose what closing does.
+    pub fn collapsible(mut self, collapsible: SidebarCollapsible) -> Self {
+        self.collapsible = collapsible;
+        self
+    }
+
+    /// The top section: a column with 8 px of padding and gap.
+    pub fn header<V: IntoView>(mut self, header: impl FnOnce() -> V + 'static) -> Self {
+        self.header = Some(slot(header));
+        self
+    }
+
+    /// The scrolling middle section: groups, menus and separators.
+    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
+        self.content = Some(slot(content));
+        self
+    }
+
+    /// The bottom section, like the header.
+    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V + 'static) -> Self {
+        self.footer = Some(slot(footer));
+        self
+    }
+
+    /// Draw the rail while true (constant or reactive): a thin strip on the
+    /// inner edge that toggles the sidebar when pressed.
+    #[track_caller]
+    pub fn rail(mut self, rail: impl IntoValue<bool>) -> Self {
+        self.rail = rail.into_value();
+        self
+    }
+}
+
+impl NodeBuilder for Sidebar {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+
+/// The room a sidebar takes in the layout for the actual state.
+fn width_of(cx: SidebarCx) -> f32 {
+    let framed = matches!(cx.variant, SidebarVariant::Floating | SidebarVariant::Inset);
+    if cx.collapsible == SidebarCollapsible::None || cx.shown.get() {
+        return WIDTH;
+    }
+    match cx.collapsible {
+        SidebarCollapsible::Icon if framed => WIDTH_ICON + 16.0,
+        SidebarCollapsible::Icon => WIDTH_ICON,
+        _ => 0.0,
+    }
+}
+
+impl Sidebar {
+    fn build(self, cx: SidebarCx) -> Node {
+        let Sidebar {
+            root,
+            side,
+            variant,
+            collapsible,
+            header,
+            content,
+            footer,
+            rail,
+        } = self;
+        let offcanvas_closed =
+            move || collapsible == SidebarCollapsible::Offcanvas && !cx.shown.get();
+        let section = |view: Option<Slot>| {
+            view.map(|view| column(view).style(style().shrink(0).gap(8).padding(8)))
+        };
+        let middle = content.map(|view| {
+            scroll(view).style(
+                style()
+                    .grow(1)
+                    .shrink(1)
+                    .min_height(0)
+                    .gap(0)
+                    .scrollbar_width(0),
+            )
+        });
+        let inner = node()
+            .hidden(offcanvas_closed)
+            .style(move || {
+                let p = tokens();
+                let s = style()
+                    .direction(Direction::Column)
+                    .width(pct(100))
+                    .height(pct(100))
+                    .min_width(0)
+                    .background(p.sidebar)
+                    .color(p.sidebar_foreground)
+                    .font_size(12);
+                match (variant, side) {
+                    (SidebarVariant::Sidebar, SidebarSide::Left) => {
+                        s.border_right(1, p.sidebar_border)
+                    }
+                    (SidebarVariant::Sidebar, SidebarSide::Right) => {
+                        s.border_left(1, p.sidebar_border)
+                    }
+                    (SidebarVariant::Floating, _) => s
+                        .radius(0)
+                        .ring(1, p.sidebar_border)
+                        .shadow(Shadow::new(0, 1, 2, Color::BLACK.with_alpha(0.05))),
+                    (SidebarVariant::Inset, _) => s,
+                }
+            })
+            .child(section(header))
+            .child(middle)
+            .child(section(footer));
+        let rail = show(
+            move || rail.get() && collapsible != SidebarCollapsible::None,
+            move || build_rail(cx),
+        );
+        let root = root.base_style(move || {
+            let framed = matches!(cx.variant, SidebarVariant::Floating | SidebarVariant::Inset);
+            let s = style()
+                .position(Position::Relative)
+                .direction(Direction::Column)
+                .shrink(0)
+                .z_index(10)
+                .height(pct(100))
+                .min_height(0)
+                .color(tokens().sidebar_foreground)
+                .width(width_of(cx));
+            if framed { s.padding(8) } else { s }
+        });
+        root.child(inner).child(rail)
+    }
+}
+
+/// The strip on the inner edge: a click toggles the sidebar, and a hover shows a thin line.
+fn build_rail(cx: SidebarCx) -> Node {
+    let (rail, state) = pressable(node(), Role::Button, Some(callback(move |()| cx.toggle())));
+    let side = cx.side;
+    rail.name(message("basic.sidebar.toggle", "Toggle Sidebar"))
+        .focusable(false)
+        .style(move || {
+            let p = tokens();
+            let closed = !cx.shown.get();
+            // The 2 px line is local paint, which a state style cannot
+            // draw, so it follows the rail's hover.
+            let line = if state.get().hovered {
+                p.sidebar_border
+            } else {
+                Color::TRANSPARENT
+            };
+            let offcanvas = cx.collapsible == SidebarCollapsible::Offcanvas;
+            let s = style()
+                .position(Position::Absolute)
+                .top(0)
+                .bottom(0)
+                .width(16)
+                .z_index(20)
+                .cursor(Cursor::EwResize);
+            let s = if offcanvas && closed {
+                s.hover(style().background(p.sidebar))
+            } else {
+                s
+            };
+            let s = match side {
+                SidebarSide::Left => s.right(-8),
+                SidebarSide::Right => s.left(-8),
+            };
+            s.paint(move |d, size| {
+                d.fill_rect(
+                    Rect::new((size.width - 2.0) / 2.0, 0.0, 2.0, size.height),
+                    line,
+                );
+            })
+        })
+}
+
+/// The page beside the sidebar (`SidebarInset`).
+fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
+    node()
+        .style(move || {
+            let p = tokens();
+            let s = style()
+                .position(Position::Relative)
+                .direction(Direction::Column)
+                .grow(1)
+                .shrink(1)
+                .min_width(0)
+                .min_height(0)
+                .align_items(Align::Stretch)
+                .background(p.background)
+                .color(p.foreground);
+            if cx.variant == SidebarVariant::Inset {
+                // `m-2` without the margin on the sidebar's side, which returns
+                // while the sidebar is closed.
+                let apart = if cx.shown.get() { 0.0 } else { 8.0 };
+                let s = s.radius(0).margin_y(8).shadow(Shadow::new(
+                    0,
+                    1,
+                    2,
+                    Color::BLACK.with_alpha(0.05),
+                ));
+                match cx.side {
+                    SidebarSide::Left => s.margin_right(8).margin_left(apart),
+                    SidebarSide::Right => s.margin_left(8).margin_right(apart),
+                }
+            } else {
+                s
+            }
+        })
+        .child(page)
+}
+
+/// A sidebar `sidebar` with the page `inset` beside it, opened and closed by `open`.
+///
+/// `open` is the application's state, so it can persist it. The trigger, the
+/// rail and Ctrl+B (Cmd+B on a Mac) write it. The shortcut is a key handler
+/// on the provider, and the public API offers window-level shortcuts only as
+/// handlers on the App's view: make the provider the root view of the App and
+/// it works wherever the focus is, also with nothing focused (shadcn listens
+/// on the window); nested deeper, it works while the focus is inside the
+/// provider. The provider fills its parent, so give the parent a size.
+/// Narrow windows do not turn the sidebar into a sheet: it always keeps its
+/// desktop layout.
+///
+/// ```no_run
+/// use kivact::control::icon;
+/// use kivact::prelude::*;
+/// use kivact_ui_basic as basic;
+///
+/// fn app() -> impl IntoView {
+///     let open = signal(true);
+///     basic::sidebar_provider(
+///         open,
+///         basic::sidebar()
+///             .collapsible(basic::SidebarCollapsible::Icon)
+///             .header(|| text("Acme"))
+///             .content(|| {
+///                 basic::sidebar_group("Application").content(|| {
+///                     basic::sidebar_menu((
+///                         basic::sidebar_menu_button("Home").icon(icon("house")).active(true),
+///                         basic::sidebar_menu_button("Inbox").icon(icon("inbox")).badge("12"),
+///                     ))
+///                 })
+///             })
+///             .rail(true),
+///         column((basic::sidebar_trigger(), text("Page"))),
+///     )
+/// }
+/// ```
+#[track_caller]
+pub fn sidebar_provider(
+    open: impl Into<Binding<bool>>,
+    sidebar: Sidebar,
+    page: impl IntoView,
+) -> Node {
+    let open = open.into();
+    let cx = SidebarCx {
+        open,
+        shown: open.into_value(),
+        side: sidebar.side,
+        variant: sidebar.variant,
+        collapsible: sidebar.collapsible,
+    };
+    let page = page.into_view();
+    let body = kivact::view::provide(cx, move || {
+        let panel = sidebar.build(cx);
+        let page = inset(cx, page);
+        match cx.side {
+            SidebarSide::Left => (panel, page),
+            SidebarSide::Right => (page, panel),
+        }
+    });
+    row(body)
+        .style(move || {
+            let s = style()
+                .width(pct(100))
+                .height(pct(100))
+                .min_width(0)
+                .min_height(0)
+                .align_items(Align::Stretch);
+            if cx.variant == SidebarVariant::Inset {
+                s.background(tokens().sidebar)
+            } else {
+                s
+            }
+        })
+        .on_key(move |event| {
+            let m = event.modifiers;
+            if (m.ctrl || m.meta) && !m.alt && !m.shift && event.key == Key::Char('b') {
+                cx.toggle();
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
+}

@@ -1,0 +1,16 @@
+error[E0599]: no method named `checked` found for struct `Checkbox` in the current scope
+ --> tests/ui/fail/checked_on_a_checkbox.rs:6:38
+  |
+6 |     checkbox("Terms", signal(false)).checked(true)
+  |                                      ^^^^^^^ method not found in `Checkbox`
+  |
+ ::: $WORKSPACE/crates/kivact-core/src/primitive.rs
+  |
+  |     fn checked(mut self, value: impl IntoValue<bool>) -> Self {
+  |        ------- the method is available for `Checkbox` here
+  |
+  = help: items from traits can only be used if the trait is in scope
+help: trait `NodeExt` which provides `checked` is implemented but not in scope; perhaps you want to import it
+  |
+3 + use kivact::primitive::NodeExt;
+  |

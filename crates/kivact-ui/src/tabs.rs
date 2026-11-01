@@ -1,0 +1,266 @@
+//! Role: Render a shared themed tab list with optional selected panel lifetime.
+//!
+//! As a plain view the builder draws only the tab list. With
+//! `.content(factory)` it also draws the panel of the selected valid key in a
+//! new owner each time the selection changes: beside the list when vertical,
+//! under it otherwise, with the recipes laying the tabs out by orientation
+//! (`TabListState` and `TabState`). With `keep_mounted(true)` each option's
+//! panel is built once and the tab panel part hides it while it is not
+//! selected. A selected key that is not among the options stays in the
+//! binding, but the factory is not called for it. A kit's domain tab bar
+//! (close, reorder, icons, counters) moves and selects with the same
+//! interaction parts and draws its ordinary parts with `UiRecipes::tabs`.
+use super::layer::with_recipe_style;
+use super::variants::{Variant, Variants};
+use kivact_core::control::{Node, NodeBuilder, column, node, row, text};
+use kivact_core::view::{IntoText, IntoValue, IntoView, Orientation, View, dynamic, for_each};
+use kivact_core::{Binding, Value};
+use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
+use kivact_interaction::{TabListState, TabState};
+use std::{cell::Cell, hash::Hash, rc::Rc};
+
+/// What a tab shows, from its item and its state.
+type TabContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<TabState>) -> View>;
+
+pub struct Tabs<K: Clone + Eq + Hash + 'static> {
+    root: Node,
+    state: Rc<Cell<Option<Value<TabListState>>>>,
+    options: Value<Vec<ListItem<K>>>,
+    binding: Binding<K>,
+    activation: ListActivation,
+    orientation: Orientation,
+    item: Option<TabContent<K>>,
+    content: Option<Rc<dyn Fn(K) -> View>>,
+    variants: Variants,
+    keep_mounted: bool,
+}
+/// A themed tab list whose selected key is `binding`; give it
+/// [`content`](Tabs::content) when the tabs also own the selected panel.
+///
+/// `label` is the tab list's accessible name; it is not drawn.
+///
+/// A tab list always has a selected tab, so the binding holds a key, not an
+/// `Option`: start it at the first tab's key.
+///
+/// Each tab shows its item's icon and label; [`item`](Tabs::item) replaces
+/// what a tab shows, keeping its keys, semantics and recipe.
+pub fn tabs<K: Clone + Eq + Hash + 'static>(
+    label: impl IntoText,
+    options: impl IntoValue<Vec<ListItem<K>>>,
+    binding: impl Into<Binding<K>>,
+) -> Tabs<K> {
+    let state = Rc::new(Cell::new(None::<Value<TabListState>>));
+    let read = state.clone();
+    let variants = Variants::default();
+    Tabs {
+        root: with_recipe_style(
+            node().name(label),
+            |r| r.tabs_recipes().list_recipe(),
+            &variants,
+            move || {
+                read.get()
+                    .expect("invariant: tab list prepared before mount")
+                    .get()
+            },
+        ),
+        state,
+        options: options.into_value(),
+        binding: binding.into(),
+        activation: ListActivation::Automatic,
+        orientation: Orientation::Horizontal,
+        item: None,
+        content: None,
+        variants,
+        keep_mounted: false,
+    }
+}
+impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
+    /// Give the component a [`Variant`]: a look beyond the meanings its
+    /// state carries, which every recipe of the component reads with
+    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// type replaces the earlier one; a theme that does not know the type
+    /// draws the plain look.
+    ///
+    /// The value is a constant: the recipes read the values given before
+    /// the component is mounted, and a value never changes afterwards. A
+    /// look that changes while the component lives is a state the recipe
+    /// reads, or a reactive `.style(..)` of the caller's.
+    pub fn variant(self, v: impl Variant) -> Self {
+        self.variants.add(v);
+        self
+    }
+}
+impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
+    pub fn activation(mut self, activation: ListActivation) -> Self {
+        self.activation = activation;
+        self
+    }
+    /// The direction the tabs are laid out in (default
+    /// [`Orientation::Horizontal`]). [`Orientation::Vertical`] lays them out
+    /// in a column (Up and Down move between them) and, with
+    /// [`content`](Self::content), beside their panel. The recipes read the
+    /// orientation from [`TabListState`] and
+    /// [`TabState`](kivact_interaction::TabState).
+    ///
+    /// A constant: the orientation is the keyboard policy of the tab list
+    /// and the shape of the layout, both fixed when the tabs are built.
+    pub fn orientation(mut self, orientation: Orientation) -> Self {
+        self.orientation = orientation;
+        self
+    }
+    /// What each tab shows, built once per tab from its item and its state
+    /// (both reactive: a renamed item or a selected tab updates the view).
+    /// The tab itself, its keys, its semantics and its recipe stay the
+    /// component's; without a slot a tab shows its icon and label.
+    ///
+    /// ```no_run
+    /// use kivact::prelude::*;
+    ///
+    /// fn inbox(unread: Signal<u32>) -> impl IntoView {
+    ///     let selected = signal("inbox");
+    ///     tabs("Mailbox", vec![ListItem::new("inbox", "Inbox"), ListItem::new("sent", "Sent")], selected)
+    ///         .item(move |item, _state| {
+    ///             row((
+    ///                 text(move || item.get().label()),
+    ///                 text(move || match item.get().key() {
+    ///                     &"inbox" => unread.get().to_string(),
+    ///                     _ => String::new(),
+    ///                 }),
+    ///             ))
+    ///             .style(style().gap(6))
+    ///         })
+    /// }
+    /// ```
+    pub fn item<V: IntoView>(
+        mut self,
+        content: impl Fn(Value<ListItem<K>>, Value<TabState>) -> V + 'static,
+    ) -> Self {
+        self.item = Some(Rc::new(move |item, state| content(item, state).into_view()));
+        self
+    }
+    fn into_list(self) -> (Node, Behavior<K>) {
+        let behavior = kivact_interaction::use_tabs(self.options, self.binding)
+            .activation(self.activation)
+            .orientation(self.orientation);
+        let part = behavior.list();
+        self.state.set(Some(part.state()));
+        let slot = self.item;
+        let variants = self.variants.clone();
+        let labels = for_each(
+            self.options,
+            |item| item.key().clone(),
+            move |key, item| {
+                let part = behavior.item(key);
+                let state = part.state();
+                let content = match &slot {
+                    Some(slot) => slot(item, state),
+                    None => (
+                        super::helpers::item_icon(move || item.get().icon_value().cloned()),
+                        text(move || item.get().label()),
+                    )
+                        .into_view(),
+                };
+                with_recipe_style(
+                    node().part(part),
+                    |r| r.tabs_recipes().tab_recipe(),
+                    &variants,
+                    move || state.get(),
+                )
+                .child(content)
+            },
+        );
+        let list = self.root.part(part).child(labels);
+        let list = if self.orientation == Orientation::Vertical {
+            list.style(kivact_core::style::style().direction(kivact_core::style::Direction::Column))
+        } else {
+            list
+        };
+        (list, behavior)
+    }
+    /// Show the panel `factory` builds for the selected key under the list
+    /// (beside it when vertical), in a fresh owner each time the selection
+    /// changes. A selected key that is not among the options builds nothing.
+    pub fn content<V: IntoView>(mut self, factory: impl Fn(K) -> V + 'static) -> Self {
+        self.content = Some(Rc::new(move |key| factory(key).into_view()));
+        self
+    }
+    /// Build each option's panel once and keep it mounted, hidden while its
+    /// tab is not selected, so the state inside a panel (a draft, a scroll
+    /// position) survives switching tabs (Radix's `forceMount`). A panel is
+    /// built when its option appears and dropped when it leaves the options.
+    ///
+    /// A constant: it chooses whether a panel's owner lives with the
+    /// selection or with the option, fixed when the tabs are built.
+    pub fn keep_mounted(mut self, keep: bool) -> Self {
+        self.keep_mounted = keep;
+        self
+    }
+    fn with_panels(mut self) -> View {
+        let Some(factory) = self.content.take() else {
+            return self.into_list().0.into_view();
+        };
+        let options = self.options;
+        let vertical = self.orientation == Orientation::Vertical;
+        let variants = self.variants.clone();
+        let keep = self.keep_mounted;
+        let (list, behavior) = self.into_list();
+        let selected = behavior.selected();
+        // One panel: the tab panel part, named by its tab, around the
+        // factory's view; the part hides it while its tab is not selected.
+        let panel = Rc::new(move |key: K, factory: &Rc<dyn Fn(K) -> View>| {
+            let named = key.clone();
+            let name = move || {
+                options.with(|options| {
+                    options
+                        .iter()
+                        .find(|item| *item.key() == named)
+                        .map(|item| item.label())
+                        .unwrap_or_default()
+                })
+            };
+            let part = behavior.panel(key.clone());
+            let state = part.state();
+            with_recipe_style(
+                node().part(part).name(name).child(factory(key)),
+                |r| r.tabs_recipes().panel_recipe(),
+                &variants,
+                move || state.get(),
+            )
+        });
+        if keep {
+            let panels = for_each(
+                options,
+                |item| item.key().clone(),
+                move |key, _| panel(key, &factory),
+            );
+            return if vertical {
+                row((list, panels)).into_view()
+            } else {
+                column((list, panels)).into_view()
+            };
+        }
+        let present = kivact_core::memo(move || {
+            let key = selected.get();
+            options
+                .with(|rows| rows.iter().any(|row| *row.key() == key))
+                .then_some(key)
+        });
+        let panels = dynamic(present, move |key| key.map(|key| panel(key, &factory)));
+        // Vertical tabs sit beside their panel, horizontal ones above it.
+        if vertical {
+            row((list, panels)).into_view()
+        } else {
+            column((list, panels)).into_view()
+        }
+    }
+}
+impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Tabs<K> {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+impl<K: Clone + Eq + Hash + 'static> IntoView for Tabs<K> {
+    fn into_view(self) -> View {
+        self.with_panels()
+    }
+}

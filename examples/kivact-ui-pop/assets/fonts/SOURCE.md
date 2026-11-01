@@ -1,0 +1,7 @@
+# Catalog font provenance
+
+Copied without byte changes from the original official catalog, retrieved 2026-10-05 from Google Fonts. Only this app's families are included. Each family retains its OFL.txt copyright and SIL Open Font License. SHA256SUMS.txt retains the original hashes and byte sizes.
+
+- https://github.com/google/fonts/tree/main/ofl/inter
+- https://github.com/google/fonts/tree/main/ofl/barlow
+- https://github.com/google/fonts/tree/main/ofl/notosansjp

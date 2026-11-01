@@ -1,0 +1,255 @@
+//! Role: Win32 dispatch with an independently retained Rc on every entry.
+use super::state::State;
+use arvane_shell::{ShellError, ShellEvent};
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    rc::Rc,
+    sync::atomic::Ordering,
+};
+use windows_sys::Win32::{Foundation::*, Graphics::Gdi::*, UI::WindowsAndMessaging::*};
+
+pub(super) unsafe extern "system" fn wndproc(
+    hwnd: HWND,
+    message: u32,
+    w: WPARAM,
+    l: LPARAM,
+) -> LRESULT {
+    // SAFETY: only this proc writes the child HWND's USERDATA slot.
+    let raw = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const State;
+    if raw.is_null() {
+        // SAFETY: messages without attached state use standard Win32 processing.
+        return unsafe { DefWindowProcW(hwnd, message, w, l) };
+    }
+    // SAFETY: USERDATA owns a live Rc on this UI thread. Retain independently of
+    // a nested destruction detaching that reference during the callback.
+    unsafe {
+        Rc::increment_strong_count(raw);
+    }
+    // SAFETY: this consumes precisely the increment performed for this entry.
+    let state = unsafe { Rc::from_raw(raw) };
+    let result = match catch_unwind(AssertUnwindSafe(|| dispatch(&state, hwnd, message, w, l))) {
+        Ok(result) => result,
+        Err(payload) => {
+            std::mem::forget(payload);
+            state
+                .shared
+                .fail(ShellError::new("embedded window procedure panicked"));
+            0
+        }
+    };
+    if state.shared.stopped() && !state.busy.get() && !state.closing.get() {
+        state.stop();
+    }
+    if message == WM_NCDESTROY {
+        state.shared.alive.store(false, Ordering::Release);
+        detach(&state, hwnd);
+        return original(&state, hwnd, message, w, l);
+    }
+    result
+}
+fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+    match message {
+        WM_GETOBJECT => super::a11y::get_object(state, w, l)
+            .unwrap_or_else(|| original(state, hwnd, message, w, l)),
+        WM_DROPFILES => {
+            super::services::dropped(state, w as isize);
+            0
+        }
+        WM_IME_SETCONTEXT => {
+            // SAFETY: let Windows manage the IME context, with composition drawn by the App.
+            unsafe {
+                CallWindowProcW(
+                    state.original_proc.get(),
+                    hwnd,
+                    message,
+                    w,
+                    l & !(windows_sys::Win32::UI::Input::Ime::ISC_SHOWUICOMPOSITIONWINDOW as isize),
+                )
+            }
+        }
+        WM_IME_REQUEST => {
+            state.input.scale.set(f64::from(state.shared.scale()));
+            let result = crate::native_input::ime_request(hwnd, &state.input, w, l);
+            if let Some((start, end)) = state.input.reconvert.take() {
+                state.event(ShellEvent::ImeSelection { start, end });
+            }
+            result.unwrap_or_else(|| original_if_alive(state, hwnd, message, w, l))
+        }
+        WM_IME_STARTCOMPOSITION | WM_IME_COMPOSITION | WM_IME_ENDCOMPOSITION => {
+            super::ime::message(state, message, l);
+            0
+        }
+        WM_ERASEBKGND => 1,
+        WM_PAINT => {
+            // SAFETY: an all-zero PAINTSTRUCT is valid writable output storage.
+            let mut paint = unsafe { std::mem::zeroed() };
+            // SAFETY: BeginPaint validates this child HWND's pending paint region.
+            unsafe {
+                BeginPaint(hwnd, &mut paint);
+            }
+            // SAFETY: paint is the output of the matching BeginPaint above.
+            unsafe {
+                EndPaint(hwnd, &paint);
+            }
+            if let Err(error) = super::cpu::present(state) {
+                state.shared.fail(error);
+            }
+            state.event(ShellEvent::Redraw);
+            0
+        }
+        WM_SIZE => {
+            if state.geometry() {
+                state.event(ShellEvent::Resized);
+            }
+            0
+        }
+        WM_DPICHANGED_AFTERPARENT => {
+            if !state.explicit_scale.get() {
+                state.shared.set_scale_value(super::dpi::scale(hwnd));
+                state.event(ShellEvent::Resized);
+            }
+            0
+        }
+        WM_TIMER if w == super::native::TIMER => {
+            // SAFETY: this is our own HWND-scoped one-shot timer.
+            unsafe {
+                KillTimer(hwnd, super::native::TIMER);
+            }
+            state.event(ShellEvent::Wake);
+            0
+        }
+        super::native::WAKE => {
+            state.native.wake_pending.store(false, Ordering::Release);
+            state.event(ShellEvent::Wake);
+            0
+        }
+        super::native::COMMAND => {
+            state.drain();
+            0
+        }
+        WM_GETDLGCODE => (DLGC_WANTALLKEYS | DLGC_WANTCHARS) as isize,
+        // The system STATIC procedure otherwise returns HTTRANSPARENT and
+        // sends real mouse input through the embedded surface to its parent.
+        WM_NCHITTEST => HTCLIENT as isize,
+        WM_SETCURSOR if l as u16 == HTCLIENT as u16 => {
+            super::input::cursor(state.cursor.get());
+            1
+        }
+        WM_SETFOCUS | WM_KILLFOCUS => {
+            let focused = message == WM_SETFOCUS;
+            if focused {
+                let environment = super::window::environment(state);
+                let changed = *state.environment.borrow() != environment;
+                state.environment.replace(environment);
+                if changed {
+                    state.event(ShellEvent::EnvironmentChanged);
+                }
+            } else {
+                super::input::cancel(state);
+            }
+            super::a11y::focus(state, focused);
+            state.event(ShellEvent::Focused(focused));
+            0
+        }
+        WM_DESTROY | WM_NCDESTROY => {
+            if message == WM_DESTROY {
+                super::a11y::disconnect(state);
+            }
+            state.closing.set(true);
+            if !state.busy.get() {
+                state.dispose();
+            }
+            state.shared.alive.store(false, Ordering::Release);
+            if message == WM_NCDESTROY {
+                0
+            } else {
+                original(state, hwnd, message, w, l)
+            }
+        }
+        _ => {
+            // The system control class can emit double-click messages. Our
+            // ClickCounter counts repeated presses itself, so retain each down.
+            let input_message = match message {
+                WM_LBUTTONDBLCLK => WM_LBUTTONDOWN,
+                WM_RBUTTONDBLCLK => WM_RBUTTONDOWN,
+                WM_MBUTTONDBLCLK => WM_MBUTTONDOWN,
+                WM_XBUTTONDBLCLK => WM_XBUTTONDOWN,
+                _ => message,
+            };
+            if let Some(result) = super::input::message(state, input_message, w, l) {
+                return result;
+            }
+            original_if_alive(state, hwnd, message, w, l)
+        }
+    }
+}
+
+/// Fall through to the system procedure after App code ran; the host may have
+/// destroyed the window meanwhile, and a dead HWND takes no further processing.
+fn original_if_alive(state: &State, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+    if state.shared.alive.load(Ordering::Acquire) {
+        original(state, hwnd, message, w, l)
+    } else {
+        0
+    }
+}
+
+fn original(state: &State, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+    // SAFETY: attach saved the system procedure for this exact HWND before dispatch.
+    unsafe { CallWindowProcW(state.original_proc.get(), hwnd, message, w, l) }
+}
+pub(super) fn attach(state: &Rc<State>, hwnd: HWND) -> Result<(), ShellError> {
+    let raw = Rc::into_raw(state.clone());
+    // SAFETY: reset only this thread's error before checking a zero-result setter.
+    unsafe {
+        SetLastError(0);
+    }
+    // SAFETY: this new STATIC's application USERDATA is unused. Store one owned
+    // Rc before installing our proc; the setter does not dispatch messages.
+    unsafe {
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, raw as isize);
+    }
+    // SAFETY: read the preceding setter's thread-local error.
+    if unsafe { GetLastError() } != 0 {
+        // SAFETY: USERDATA was unchanged; no subclass can consume this owned Rc.
+        drop(unsafe { Rc::from_raw(raw) });
+        return Err(ShellError::new("SetWindowLongPtrW USERDATA failed"));
+    }
+    // SAFETY: replace only our child procedure on its creating UI thread.
+    let old = unsafe { SetWindowLongPtrW(hwnd, GWLP_WNDPROC, wndproc as *const () as isize) };
+    if old == 0 {
+        // SAFETY: installation failed; clear our application-owned USERDATA slot.
+        unsafe {
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+        }
+        // SAFETY: no procedure was installed to consume this owned Rc.
+        drop(unsafe { Rc::from_raw(raw) });
+        return Err(ShellError::new("SetWindowLongPtrW failed"));
+    }
+    // SAFETY: GWLP_WNDPROC returned the previous procedure, retained solely for
+    // CallWindowProcW and restoration, as required by Win32 subclassing.
+    state
+        .original_proc
+        .set(unsafe { std::mem::transmute::<isize, WNDPROC>(old) });
+    Ok(())
+}
+fn detach(state: &State, hwnd: HWND) {
+    // SAFETY: restore this child's saved system proc before releasing USERDATA.
+    unsafe {
+        SetWindowLongPtrW(
+            hwnd,
+            GWLP_WNDPROC,
+            state
+                .original_proc
+                .get()
+                .map_or(0, |proc| proc as *const () as isize),
+        );
+    }
+    // SAFETY: detach the one Rc pointer owned by our child's USERDATA slot.
+    let raw = unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0) } as *const State;
+    if !raw.is_null() {
+        // SAFETY: consume exactly the detached reference. This wndproc entry's
+        // independent Rc retains State through the remaining system cleanup.
+        drop(unsafe { Rc::from_raw(raw) });
+    }
+}

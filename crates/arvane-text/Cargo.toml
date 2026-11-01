@@ -1,0 +1,21 @@
+[package]
+name = "arvane-text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Arvane text adapter over parley"
+
+[dependencies]
+ui-types = { path = "../ui-types" }
+parley = { workspace = true }
+
+# Linux finds system fonts through fontconfig. Loading libfontconfig at run
+# time instead of linking it means a build needs no fontconfig development
+# package (pkg-config, fontconfig.pc); feature unification turns this on for
+# the fontique that parley uses.
+[target.'cfg(target_os = "linux")'.dependencies]
+fontique = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,175 @@
+//! Role: Menu session operations coordinate opening, focus and closing.
+
+use std::hash::Hash;
+
+use super::order::{item_enabled, kept_levels};
+use super::state::{Edge, MenuEntry, MenuOrigin, Session, Want};
+use crate::list::typeahead::Typeahead;
+use crate::{FocusReturn, PopupCloseReason, ReasonSet, use_popup};
+use kivact_core::view::node_ref;
+use kivact_core::{Callback, Value, effect, memo, signal, var};
+
+impl<K: Clone + Eq + Hash + 'static> Session<K> {
+    /// Setup only.
+    #[track_caller]
+    pub(super) fn new(entries: Value<Vec<MenuEntry<K>>>, choose: Callback<K>) -> Self {
+        let open = signal(false);
+        let anchor = node_ref();
+        // The popup returns the focus; each opening says where to (see
+        // `open_from_button` and `open_at`).
+        let popup = use_popup(open).anchor(anchor);
+        let path = signal(Vec::<K>::new());
+        let focus_key = signal(None::<(usize, K)>);
+        let want = signal(None::<Want<K>>);
+        let origin = signal(None::<MenuOrigin>);
+        let kept = memo(move || {
+            let path = path.get();
+            let focus = focus_key.get();
+            entries.with(|entries| kept_levels(entries, &path, focus.as_ref()))
+        });
+        let this = Self {
+            entries,
+            choose,
+            popup,
+            anchor,
+            origin,
+            path,
+            focus_key,
+            kept,
+            want,
+            typed: var(Typeahead::default()),
+        };
+        // A closed menu forgets its submenus, its focus, any request and
+        // where it was asked to appear.
+        effect(move || {
+            if !open.get() {
+                path.set(Vec::new());
+                want.set(None);
+                focus_key.set(None);
+                origin.set(None);
+            }
+        });
+        // Bring the open levels in line with what the entries keep: a submenu
+        // whose item left (or was disabled) closes and focus goes back to its
+        // parent item; so does a level whose focused item left, and at the top
+        // level that closes the whole menu.
+        effect(move || {
+            let kept = kept.get();
+            if !open.get() {
+                return;
+            }
+            if kept == 0 {
+                this.close(PopupCloseReason::Escape);
+                return;
+            }
+            if kept < path.with_untracked(Vec::len) + 1 {
+                let parent = path.with_untracked(|path| path.get(kept - 1).cloned());
+                let held = parent.filter(|key| {
+                    entries.with_untracked(|entries| {
+                        path.with_untracked(|path| item_enabled(entries, &path[..kept - 1], key))
+                    })
+                });
+                path.update(|path| path.truncate(kept - 1));
+                focus_key.set(None);
+                want.set(Some(match held {
+                    Some(key) => Want::Key(kept - 1, key),
+                    None => Want::Edge(kept - 1, Edge::First),
+                }));
+            }
+        });
+        this
+    }
+
+    pub(super) fn shown(&self) -> Value<bool> {
+        self.popup.shown()
+    }
+
+    /// Close the whole menu as `reason`. After Escape, Selection and
+    /// Accessibility the focus goes back to the element that had it before a
+    /// context menu opened, or else to the trigger.
+    pub(super) fn close(&self, reason: PopupCloseReason) {
+        if !self.shown().get_untracked() {
+            return;
+        }
+        self.popup.close(reason);
+    }
+
+    /// Open from the menu button; the focus later returns to it.
+    pub(super) fn open_from_button(&self) {
+        self.popup
+            .set_focus_return(FocusReturn::anchor(self.anchor));
+        self.origin.set(Some(MenuOrigin::Anchor));
+        self.popup.open_binding().set(true);
+    }
+
+    /// Open as a context menu; the focus later returns to the element that
+    /// has it now.
+    pub(super) fn open_at(&self, origin: MenuOrigin) {
+        if !self.shown().get() {
+            self.popup
+                .set_focus_return(FocusReturn::opener(ReasonSet::DISMISS));
+        }
+        self.origin.set(Some(origin));
+        self.popup.open_binding().set(true);
+    }
+}
+
+impl<K: Clone + Eq + Hash + 'static> Session<K> {
+    /// The key of the focused item if the focus is on the level at `depth`.
+    pub(super) fn focused_at(&self, depth: usize) -> Option<K> {
+        self.focus_key.with(|focus| match focus {
+            Some((at, key)) if *at == depth => Some(key.clone()),
+            _ => None,
+        })
+    }
+
+    pub(super) fn request(&self, depth: usize, edge: Edge) {
+        self.want.set(Some(Want::Edge(depth, edge)));
+    }
+
+    /// Open the submenu of `key` (an item of the level at `depth`) without
+    /// moving focus.
+    pub(super) fn open_hover(&self, depth: usize, key: K) {
+        let same = self
+            .path
+            .with_untracked(|path| path.len() == depth + 1 && path.get(depth) == Some(&key));
+        if !same {
+            self.path.update(|path| {
+                path.truncate(depth);
+                path.push(key);
+            });
+        }
+    }
+
+    /// Open the submenu of `key` and focus its first enabled item.
+    pub(super) fn open_submenu(&self, depth: usize, key: K) {
+        self.open_hover(depth, key);
+        self.request(depth + 1, Edge::First);
+    }
+
+    /// Close every level deeper than `depth`.
+    pub(super) fn close_below(&self, depth: usize) {
+        if self.path.with_untracked(|path| path.len() > depth) {
+            self.path.update(|path| path.truncate(depth));
+        }
+    }
+
+    /// Close the level at `depth` (not the top level) and focus the item that
+    /// opened it.
+    pub(super) fn close_level(&self, depth: usize) {
+        let parent = self.path.with(|path| path.get(depth - 1).cloned());
+        self.path.update(|path| path.truncate(depth - 1));
+        if let Some(parent) = parent {
+            self.want.set(Some(Want::Key(depth - 1, parent)));
+        }
+    }
+
+    /// Escape: close the level at `depth`, or the whole menu at the top.
+    pub(super) fn leave(&self, depth: usize) {
+        if depth == 0 {
+            self.close(PopupCloseReason::Escape);
+        } else {
+            self.close_level(depth);
+        }
+    }
+}
