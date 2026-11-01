@@ -13,7 +13,7 @@ use crate::NodeId;
 
 /// An odd constant (2^64 / the golden ratio): multiplying by it maps
 /// sequential ids to distinct low bits and mixes the high bits.
-const MIX: u64 = 0x9E37_79B9_7F4A_7C15;
+const MIX: u64 = 0x9e37_79b9_7f4a_7c15;
 
 /// Hashes node identifiers for [`IdMap`].
 #[derive(Clone, Copy, Debug, Default)]

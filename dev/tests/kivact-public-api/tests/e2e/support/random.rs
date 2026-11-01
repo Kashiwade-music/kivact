@@ -13,7 +13,7 @@ pub(crate) struct Rng(u64);
 
 impl Rng {
     pub(crate) fn new(seed: u64) -> Self {
-        Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1)
+        Rng(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1)
     }
     fn next(&mut self) -> u64 {
         let mut x = self.0;
