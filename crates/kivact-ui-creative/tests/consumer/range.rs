@@ -1,13 +1,13 @@
 //! Role: The two-endpoint range on the range scalar's track, thumbs and body.
 
-use super::clean;
+use crate::support::clean;
 use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
 #[test]
 fn a_range_track_press_moves_the_nearer_end_which_the_keys_then_edit() {
-    let (screen, span) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, span) = kivact::test::render_with_handle(crate::support::options(), || {
         let span = signal((20.0, 60.0));
         (
             span,

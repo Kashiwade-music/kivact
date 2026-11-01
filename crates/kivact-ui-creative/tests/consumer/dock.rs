@@ -3,8 +3,8 @@
 //! The dock view: retained panels, tab strip, rename, maximize, splitters, tab
 //! drags and container menus. The layout rules are in `dock_model`.
 
-use super::dock_model::{Layout, container_of, editor_layout, weights};
-use super::{clean, near};
+use crate::dock_model::{Layout, container_of, editor_layout, weights};
+use crate::support::{clean, near};
 use kivact::draw::{Point, Rect};
 use kivact::prelude::*;
 use kivact::test::{Element, Screen};
@@ -22,7 +22,7 @@ struct Probe {
 }
 
 fn mount_dock() -> (Screen, Probe) {
-    kivact::test::render_with_handle(crate::options(), || {
+    kivact::test::render_with_handle(crate::support::options(), || {
         let layout = signal(editor_layout());
         let mounts = Rc::new(Cell::new(0));
         let closed = signal(Vec::new());

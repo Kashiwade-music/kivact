@@ -1,5 +1,5 @@
 //! Role: Node edit proposals and accessible operations.
-use crate::editors::node::gesture::target::Target;
+use crate::editors::node::gesture::Target;
 use crate::editors::node::gesture::{Domain, Snapshot, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest};

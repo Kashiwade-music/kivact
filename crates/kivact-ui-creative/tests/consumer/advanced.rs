@@ -1,8 +1,8 @@
 //! Role: Tests for the advanced Creative controls through the public API.
 
-use super::arrangement_model::arrangement as app_arrangement;
-use super::clean;
-use super::table_rows::{line, lines};
+use crate::arrangement_model::arrangement as app_arrangement;
+use crate::support::clean;
+use crate::table_rows::{line, lines};
 use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::primitive::NodeExt;
@@ -13,7 +13,7 @@ use std::time::Duration;
 #[test]
 fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models() {
     let (screen, (clips, tracks, range, tool)) =
-        kivact::test::render_with_handle(crate::options(), || {
+        kivact::test::render_with_handle(crate::support::options(), || {
             let clips = signal(vec![
                 ui::Clip::new(1, 0, 0.0, 16.0, "Clip").color(rgb(0x34d399)),
             ]);
@@ -85,7 +85,7 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
 
 #[test]
 fn floating_window_drags_collapses_and_restores_opener_focus() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), || {
         (
             (),
             column((
@@ -151,22 +151,23 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
 
 #[test]
 fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
-    let (screen, (selection, rows)) = kivact::test::render_with_handle(crate::options(), || {
-        let selection = signal(vec![1_u64]);
-        let rows = signal(vec![
-            line(1, ["Apple"]),
-            line(2, ["Banana"]),
-            line(3, ["Cherry"]),
-            line(4, ["Date"]),
-        ]);
-        (
-            (selection, rows),
-            column((
-                kivact::ui::button("Before").variant(kivact::ui::ButtonVariant::Secondary),
-                lines(&["Name"], rows, selection),
-            )),
-        )
-    });
+    let (screen, (selection, rows)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let selection = signal(vec![1_u64]);
+            let rows = signal(vec![
+                line(1, ["Apple"]),
+                line(2, ["Banana"]),
+                line(3, ["Cherry"]),
+                line(4, ["Date"]),
+            ]);
+            (
+                (selection, rows),
+                column((
+                    kivact::ui::button("Before").variant(kivact::ui::ButtonVariant::Secondary),
+                    lines(&["Name"], rows, selection),
+                )),
+            )
+        });
     assert!(
         screen
             .get_by_role(Role::Grid, "Data table")
@@ -242,7 +243,7 @@ fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
 
 #[test]
 fn color_popup_escape_rolls_back_while_outside_and_accessibility_dismissal_commit() {
-    let (screen, color) = kivact::test::render_with_handle(crate::options(), || {
+    let (screen, color) = kivact::test::render_with_handle(crate::support::options(), || {
         let color = signal(rgb(0x8b7cff));
         (
             color,
@@ -296,41 +297,42 @@ fn color_popup_escape_rolls_back_while_outside_and_accessibility_dismissal_commi
 
 #[test]
 fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
-    let (screen, (state, chosen)) = kivact::test::render_with_handle(crate::options(), || {
-        let state = signal(ui::PieState::default());
-        let chosen = signal(None::<usize>);
-        let entries = vec![
-            ui::PieEntry::new("Wireframe", 180.0, "box"),
-            ui::PieEntry::new("Solid", 0.0, "eye"),
-        ];
-        (
-            (state, chosen),
-            column((ui::pie_menu(entries, state, move |index| {
-                chosen.set(Some(index))
-            }),))
-            .role(Role::Group)
-            .name("Pie host")
-            .focusable(true)
-            .style(style().size(640, 480))
-            .on_key(move |event| {
-                if event.key == Key::Char('z') {
-                    state.set(ui::PieState::open_at(Point::new(300.0, 200.0), true));
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            })
-            .on_key_up(move |event| {
-                if event.key == Key::Char('z') && state.get_untracked().held {
-                    chosen.set(state.get_untracked().hot);
-                    state.set(ui::PieState::default());
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            }),
-        )
-    });
+    let (screen, (state, chosen)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let state = signal(ui::PieState::default());
+            let chosen = signal(None::<usize>);
+            let entries = vec![
+                ui::PieEntry::new("Wireframe", 180.0, "box"),
+                ui::PieEntry::new("Solid", 0.0, "eye"),
+            ];
+            (
+                (state, chosen),
+                column((ui::pie_menu(entries, state, move |index| {
+                    chosen.set(Some(index))
+                }),))
+                .role(Role::Group)
+                .name("Pie host")
+                .focusable(true)
+                .style(style().size(640, 480))
+                .on_key(move |event| {
+                    if event.key == Key::Char('z') {
+                        state.set(ui::PieState::open_at(Point::new(300.0, 200.0), true));
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+                .on_key_up(move |event| {
+                    if event.key == Key::Char('z') && state.get_untracked().held {
+                        chosen.set(state.get_untracked().hot);
+                        state.set(ui::PieState::default());
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                }),
+            )
+        });
     screen.get_by_role(Role::Group, "Pie host").focus();
     screen.key_down(Key::Char('z'), KeyCode::KeyZ, Modifiers::default());
     assert!(state.get_untracked().open);
@@ -360,19 +362,20 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
 }
 #[test]
 fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_content() {
-    let (screen, (panels, value)) = kivact::test::render_with_handle(crate::options(), || {
-        let panels = signal(vec![
-            ui::InspectorPanel::new(1, "Transform"),
-            ui::InspectorPanel::new(2, "Relations"),
-        ]);
-        let value = signal(4.0);
-        (
-            (panels, value),
-            ui::panel_group(panels, move |_| {
-                ui::number("Retained", value).range(0.0, 10.0)
-            }),
-        )
-    });
+    let (screen, (panels, value)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let panels = signal(vec![
+                ui::InspectorPanel::new(1, "Transform"),
+                ui::InspectorPanel::new(2, "Relations"),
+            ]);
+            let value = signal(4.0);
+            (
+                (panels, value),
+                ui::panel_group(panels, move |_| {
+                    ui::number("Retained", value).range(0.0, 10.0)
+                }),
+            )
+        });
     let transform = screen.get_by_role(Role::Button, "Transform");
     screen
         .get_by_role(Role::Group, "Transform panel")
@@ -426,5 +429,27 @@ fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_conten
             .get_by_role(Role::SpinButton, "Retained")
             .is_visible()
     );
+    clean(&screen);
+}
+
+#[test]
+fn viewport_surface_forwards_application_image_coordinates() {
+    let (screen, position) = kivact::test::render_with_handle(crate::support::options(), || {
+        let position = signal(Point::new(0.0, 0.0));
+        (
+            position,
+            ui::viewport_surface(None)
+                .transform(signal(kivact::interaction::ViewTransform {
+                    offset: Point::new(10.0, 20.0),
+                    scale: 2.0,
+                }))
+                .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
+                .style(style().size(300, 200))
+                .test_id("viewport"),
+        )
+    });
+    screen.get_by_test_id("viewport").hover();
+    screen.mouse_move(110.0, 120.0);
+    assert_eq!(position.get_untracked(), Point::new(50.0, 50.0));
     clean(&screen);
 }

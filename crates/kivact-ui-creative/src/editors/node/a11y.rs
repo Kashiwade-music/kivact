@@ -1,6 +1,6 @@
 //! Role: Node region targets and accessible semantic descriptions.
 use super::gesture::Info;
-use super::gesture::target::Target;
+use super::gesture::Target;
 use super::model::{NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
 use kivact::UiError;
