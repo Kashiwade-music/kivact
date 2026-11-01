@@ -731,25 +731,21 @@ impl<T: Clone + PartialEq + 'static> From<Signal<T>> for Binding<T> {
     }
 }
 
-mod number {
-    //! Role: Explain a signal of another type given where an `f64` is bound.
-
-    /// Never implemented: a signal of `T` binds an `f64` only when `T` is
-    /// `f64`, and this bound names the mistake instead of a missing `From`.
-    #[diagnostic::on_unimplemented(
-        message = "a `Signal<{Self}>` cannot be bound where an `f64` is edited",
-        label = "this signal holds `{Self}` values",
-        note = "a number literal takes its type from its form: `signal(50)` holds an `i32`; write `signal(50.0)` for an `f64`"
-    )]
-    pub trait F64Signal: Sized + 'static {
-        /// What the impl below would do; no type has it.
-        fn bind(signal: crate::data::Signal<Self>) -> crate::data::Binding<f64>;
-    }
+/// Never implemented: a signal of `T` binds an `f64` only when `T` is
+/// `f64`, and this bound names the mistake instead of a missing `From`.
+#[diagnostic::on_unimplemented(
+    message = "a `Signal<{Self}>` cannot be bound where an `f64` is edited",
+    label = "this signal holds `{Self}` values",
+    note = "a number literal takes its type from its form: `signal(50)` holds an `i32`; write `signal(50.0)` for an `f64`"
+)]
+pub trait F64Signal: Sized + 'static {
+    /// What the impl below would do; no type has it.
+    fn bind(signal: Signal<Self>) -> Binding<f64>;
 }
 
 /// A signal of another type where an `f64` is bound: never usable (see
-/// `number::F64Signal`); it only makes the error say why.
-impl<T: number::F64Signal> From<Signal<T>> for Binding<f64> {
+/// `F64Signal`); it only makes the error say why.
+impl<T: F64Signal> From<Signal<T>> for Binding<f64> {
     fn from(signal: Signal<T>) -> Self {
         T::bind(signal)
     }
