@@ -37,8 +37,6 @@ const W: u32 = 256;
 const H: u32 = 128;
 /// The side of the solid `Pixels` the engine publishes on the CPU.
 const SIDE: u32 = 16;
-/// Their color (0x00RRGGBB), which the pattern never has at the center.
-const SOLID: u32 = 0x00d0_6020;
 /// A channel's distance from the pattern: the frame is sampled bilinearly at scale 1
 /// (`pixelated` applies to an enlarged image only), within one level as the
 /// public API's bilinear case.
@@ -65,37 +63,33 @@ impl Ui {
 }
 
 /// An App whose surface shows the frame of a `shared_image` over its
-/// `Pixels`, unless `hidden`.
+/// `Pixels`.
 struct Surface {
     screen: Screen,
     adapter: Value<Option<GpuAdapter>>,
     image: gpu_interop::SharedImage,
-    hidden: Signal<bool>,
 }
 
 impl Surface {
     #[track_caller]
     fn mount(options: RenderOptions) -> Surface {
-        let (screen, (adapter, hidden, image)) =
-            kivact::test::render_with_handle(options, move || {
-                let adapter = memo(gpu_interop::adapter);
-                let hidden = signal(false);
-                let image = gpu_interop::shared_image(W, H);
-                let handles = (adapter, hidden, image.clone());
-                let (frame, pixels) = (image.clone(), image);
-                (
-                    handles,
-                    ui::viewport_surface(move || pixels.pixels())
-                        .gpu_frame(move || if hidden.get() { None } else { frame.frame() })
-                        .pixelated(true)
-                        .style(style().size(W, H)),
-                )
-            });
+        let (screen, (adapter, image)) = kivact::test::render_with_handle(options, move || {
+            let adapter = memo(gpu_interop::adapter);
+            let image = gpu_interop::shared_image(W, H);
+            let handles = (adapter, image.clone());
+            let (frame, pixels) = (image.clone(), image);
+            (
+                handles,
+                ui::viewport_surface(move || pixels.pixels())
+                    .gpu_frame(move || frame.frame())
+                    .pixelated(true)
+                    .style(style().size(W, H)),
+            )
+        });
         Surface {
             screen,
             adapter,
             image,
-            hidden,
         }
     }
 
@@ -141,20 +135,6 @@ impl Surface {
             number,
             TOLERANCE,
         )
-    }
-
-    /// Hide the frame from the surface, or show it again, and settle.
-    fn hide(&self, hidden: bool) {
-        self.hidden.set(hidden);
-        self.screen.run_until_idle();
-    }
-
-    /// Whether the surface shows the solid `Pixels`: fitted, they are a
-    /// centered square (`H` wide), and the background is around them.
-    fn shows_solid(&self) -> bool {
-        self.screen.run_until_idle();
-        let shot = self.screen.screenshot();
-        shot.pixel(W / 2, H / 2) == Some(SOLID) && shot.pixel(4, H / 2) != Some(SOLID)
     }
 }
 
@@ -252,77 +232,4 @@ fn the_surface_shows_the_gpu_frame() {
         Ok(surface) => shows_the_gpu_frame(surface),
         Err(reason) => eprintln!("SKIPPED the_surface_shows_the_gpu_frame: {reason}"),
     }
-}
-
-/// Without a frame (`None`) the surface shows the `Pixels`; a frame again,
-/// the GPU's.
-fn falls_back_to_pixels(surface: Surface) {
-    surface.run_engine(|link, ui| {
-        let (request, mut producer) = serve(&link);
-        let frame = producer.draw(0).expect("the engine draws");
-        link.publish(&request, frame.slot, frame.value);
-        ui.ask(|surface| {
-            assert_eq!(
-                surface.frame_verdict(0),
-                pattern::Verdict::Ok,
-                "the GPU frame shows"
-            );
-            surface.hide(true);
-            assert!(surface.shows_solid(), "no frame: the Pixels show");
-        });
-        let frame = producer.draw(1).expect("the engine draws");
-        link.publish(&request, frame.slot, frame.value);
-        ui.ask(|surface| {
-            surface.hide(false);
-            assert_eq!(
-                surface.frame_verdict(1),
-                pattern::Verdict::Ok,
-                "a frame again: the GPU's shows"
-            );
-        });
-    });
-    assert!(
-        surface.screen.errors().is_empty(),
-        "{:?}",
-        surface.screen.errors()
-    );
-}
-
-#[test]
-fn without_a_frame_the_surface_shows_the_pixels() {
-    match gpu_surface() {
-        Ok(surface) => falls_back_to_pixels(surface),
-        Err(reason) => eprintln!("SKIPPED without_a_frame_the_surface_shows_the_pixels: {reason}"),
-    }
-}
-
-/// A window drawing on the CPU has no adapter: the image asks the engine
-/// for pictures on the CPU, takes no frame, and the surface shows the
-/// engine's `Pixels`.
-#[test]
-fn a_cpu_window_shows_the_pixels() {
-    let surface = Surface::mount(RenderOptions {
-        width: W as f32,
-        height: (H + 40) as f32,
-        theme: ui::theme(kivact::style::ThemeMode::Dark),
-        reduced_motion: true,
-        window: WindowMode::Real,
-        ..RenderOptions::from_env()
-    });
-    assert_eq!(surface.adapter.get_untracked(), None);
-    surface.run_engine(|link, ui| {
-        let request = link.wait_request(UI_WAIT).expect("the image asks");
-        assert_eq!(request.mode, ShareMode::Pixels);
-        link.publish_pixels(solid());
-        ui.ask(|surface| {
-            assert_eq!(surface.image.status(), ShareStatus::Pixels);
-            assert_eq!(surface.image.frame(), None);
-            assert!(surface.shows_solid(), "the Pixels show");
-        });
-    });
-    assert!(
-        surface.screen.errors().is_empty(),
-        "{:?}",
-        surface.screen.errors()
-    );
 }

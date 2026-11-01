@@ -250,7 +250,6 @@ impl Model {
             list.entries = out;
             list.stale = false;
             list.built_for = key;
-            list.builds += 1;
         }
         self.paint.list = list;
     }

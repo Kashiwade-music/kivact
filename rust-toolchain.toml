@@ -1,6 +1,4 @@
 [toolchain]
 channel = "1.98.1"
 profile = "minimal"
-# rust-src: compiler errors quote the standard library's source only when it
-# is installed, and the trybuild expectations (tests/ui) include those quotes.
-components = ["clippy", "rustfmt", "rust-src"]
+components = ["clippy", "rustfmt"]

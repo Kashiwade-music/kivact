@@ -81,6 +81,8 @@ impl NodeEditor {
                 .into_value();
         self
     }
+    /// Round the distance a drag moves the selected nodes to multiples of
+    /// 10 px on both axes. Off by default.
     pub fn snap(mut self, snap: impl IntoValue<bool>) -> Self {
         self.snap = snap.into_value();
         self

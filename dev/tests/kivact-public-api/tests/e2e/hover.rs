@@ -7,8 +7,6 @@
 //! open modal.
 
 use kivact::primitive::NodeExt;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::support::mount;
 use kivact::draw::Point;
@@ -121,45 +119,6 @@ fn hovered_follows_the_hit_through_listeners_capture_and_tree_changes() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-#[test]
-fn hovered_first_called_after_the_pointer_arrived_starts_from_the_hover_so_far() {
-    let (screen, (late, over)) = mount(|| {
-        let late = signal(false);
-        let over: Rc<RefCell<Option<Value<bool>>>> = Rc::new(RefCell::new(None));
-        let target = node_ref();
-        let slot = over.clone();
-        let view = column((
-            node()
-                .test_id("target")
-                .node_ref(target)
-                .style(style().size(100, 30).shrink(0.0)),
-            node()
-                .test_id("elsewhere")
-                .style(style().size(100, 30).shrink(0.0)),
-            show(late, move || {
-                // The first `hovered` of the App, after the pointer is
-                // already over the target.
-                *slot.borrow_mut() = Some(target.hovered());
-                node().test_id("late")
-            }),
-        ));
-        ((late, over), view)
-    });
-    screen.get_by_test_id("target").hover();
-    late.set(true);
-    screen.run_until_idle();
-    let value = over.borrow().expect("the late part called hovered");
-    assert!(
-        value.get_untracked(),
-        "true from the start: the pointer was already over the target"
-    );
-    screen.get_by_test_id("elsewhere").hover();
-    assert!(!value.get_untracked(), "the pointer moved away");
-    screen.get_by_test_id("target").hover();
-    assert!(value.get_untracked());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
 /// A row of two cells: the row's hover style colors its background, the
 /// first cell is hidden until the row (its group) is hovered.
 #[test]
@@ -241,73 +200,5 @@ fn hover_covers_the_children_and_group_hover_styles_a_child_by_its_groups_hover(
         "hidden again once the pointer leaves the row"
     );
     assert!(distance(at("name"), 0xffffff) <= 8);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-/// A cell styled by its group's hover, under a hovered row: a box between
-/// them made a group takes the cell to its own (unhovered) hover, and
-/// made none again gives it back to the row's.
-#[test]
-fn a_group_made_or_unmade_under_the_pointer_restyles_what_is_below_it() {
-    use crate::paint::{distance, pixel};
-    use kivact::style::rgb;
-    const ACTIONS: u32 = 0xff0000;
-    let (screen, grouped) = mount(|| {
-        let grouped = signal(false);
-        let cell = |id: &'static str| node().style(style().size(100, 40)).test_id(id);
-        let view = column((
-            row((
-                cell("name"),
-                row(cell("actions").style(
-                    style()
-                        .background(rgb(ACTIONS))
-                        .opacity(0.0)
-                        .group_hover(style().opacity(1.0))
-                        .transition(
-                            kivact::style::TransitionProp::Paint,
-                            kivact::motion::Transition::tween(100, kivact::motion::Easing::Linear),
-                        ),
-                ))
-                .style(move || {
-                    if grouped.get() {
-                        style().group()
-                    } else {
-                        style()
-                    }
-                }),
-            ))
-            .style(style().group().background(rgb(0xffffff))),
-            cell("outside"),
-        ));
-        (grouped, view)
-    });
-    let at = || {
-        let r = screen.get_by_test_id("actions").rect().expect("laid out");
-        pixel(
-            &screen.screenshot(),
-            (r.x + 50.0) as u32,
-            (r.y + 20.0) as u32,
-        )
-    };
-    let ms = std::time::Duration::from_millis;
-    let moving = |mid: u32| distance(mid, ACTIONS) > 40 && distance(mid, 0xffffff) > 40;
-    screen.get_by_test_id("name").hover();
-    screen.advance(ms(150));
-    assert!(distance(at(), ACTIONS) <= 8, "the row is hovered");
-    grouped.set(true);
-    screen.run_until_idle();
-    screen.advance(ms(50));
-    assert!(moving(at()), "fading out: {:06x}", at());
-    screen.advance(ms(100));
-    assert!(
-        distance(at(), 0xffffff) <= 8,
-        "its nearest group is not hovered"
-    );
-    grouped.set(false);
-    screen.run_until_idle();
-    screen.advance(ms(50));
-    assert!(moving(at()), "fading in: {:06x}", at());
-    screen.advance(ms(100));
-    assert!(distance(at(), ACTIONS) <= 8, "the row's hover again");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

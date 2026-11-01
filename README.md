@@ -1,8 +1,15 @@
 # Kivact
 
-> Kivact is a native GUI framework for Rust, built from plain functions and fine-grained signals. It is in early development: APIs change without notice, and pull requests are not accepted for now. The documentation is written in Japanese.
+[日本語](README_JP.md)
 
-Kivact は、普通の Rust 関数で native GUI を作る初期開発版のフレームワークです。部品の setup は一度実行され、signal の変更は値を読む表示へ反映されます。まず `kivact` だけで画面を作れます。button・checkbox・switch・text_input などの標準部品は `kivact::ui` にあり、見た目はテーマが決めます。
+Kivact is a native GUI framework for Rust. Components are plain functions
+that run once; fine-grained signals update only the parts of the screen that
+read them. The model will be familiar to React and SolidJS developers, and
+the same codebase holds the application's Rust domain logic.
+
+> **Status: early development.** APIs and crate layout change without
+> notice and there is no release yet. Bug reports are welcome as issues;
+> pull requests are not accepted for now.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -11,8 +18,9 @@ fn counter() -> impl IntoView {
     let count = signal(0);
     column((
         text(move || format!("count: {}", count.get())),
-        button("増やす").on_press(move || count.update(|value| *value += 1)),
-    )).style(style().gap(8).padding(16))
+        button("Increment").on_press(move || count.update(|n| *n += 1)),
+    ))
+    .style(style().gap(8).padding(16))
 }
 
 fn main() -> kivact::Result<()> {
@@ -20,40 +28,111 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-リポジトリのルートで `cargo run -p kivact-example-counter` を実行してください。[入門](docs/for-kivact-user/getting-started/README.md) は Rust 初学者向けにカウンター、入力、状態、一覧、非同期へ進みます。
+## Features
 
-React・SolidJSの経験がある方は[対応ガイド](docs/for-kivact-user/getting-started/react-solid.md)から概念の違いを確認できます。
+- **Plain functions and signals.** `signal`, `memo`, `effect` and keyed
+  lists, with no virtual DOM and no re-rendering of whole components.
+- **Standard components.** Buttons, inputs, selects, dialogs, menus, tabs,
+  tables, toasts and more in `kivact::ui`, styled by the active theme.
+- **Accessibility by default.** Every component exposes role, name and state
+  to the platform's assistive technologies and works with the keyboard.
+- **Real-window testing.** `kivact::test` opens real windows from
+  `cargo test` and drives them by role and name, like Testing Library.
+- **Text and input.** CJK, combining characters, bidirectional text and IME
+  composition.
+- **Drawing.** A Canvas with an HTML Canvas–like vocabulary, frames from the
+  application's own renderer, and off-screen image export.
+- **UI kits.** Four official kits restyle the standard components and add
+  domain components, built only on the public API.
 
-標準部品の見た目をまとめて差し替えるテーマと分野固有の部品は、公式 kit の `kivact-ui-basic`、`kivact-ui-pop`、`kivact-ui-game`、`kivact-ui-creative` です。[公式 UI ガイド](docs/for-kivact-ui-user/README.md) に各キットの入門と作業別手順があります。各キットと外部部品は `kivact` の公開 API を使います。
+## Getting started
 
-[目的別ガイド](docs/for-kivact-user/how-to-guide/README.md)はフォーム、一覧・表、overlay、描画、非同期の platform 操作などを扱います。自社のデザインシステムや独自の入力部品は、[部品作者向けガイド](docs/for-component-author/README.md)の interaction と primitive から作れます。
+Kivact is not published on crates.io yet. Depend on the Git repository:
+
+```toml
+[dependencies]
+kivact = { git = "https://github.com/Kashiwade-music/kivact" }
+
+[dev-dependencies]
+kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"] }
+```
+
+The toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml).
+Start with the [tutorial](docs/for-kivact-user/en/getting-started/README.md).
+
+To run the examples, clone the repository and run from its root:
 
 ```text
+cargo run -p kivact-example-counter
 cargo run -p kivact-example-form
 cargo run -p kivact-example-list
 cargo run -p kivact-example-async
 cargo run -p kivact-example-component
 cargo run -p kivact-ui-basic-catalog
-cargo run -p kivact-ui-pop-catalog
-cargo run -p kivact-ui-game-catalog
-cargo run -p kivact-ui-creative-catalog
 ```
 
-[サンプル一覧](examples/README.md) からアプリの組合せも読めます。workspace の実行アプリは `--no-default-features` で CPU だけを build できます。通常は GPU を使い、利用できなければ CPU へ移ります。GPU を含む binary を実行時に CPU へ固定する場合は `ARVANE_RENDERER=cpu` を設定します。部品ライブラリは renderer を選びません。
+## Documentation
 
-公開 API の一覧は `cargo doc -p kivact -p kivact-ui-basic -p kivact-ui-pop -p kivact-ui-game -p kivact-ui-creative --no-deps` で生成する rustdoc を参照してください。[開発者ガイド](docs/for-kivact-developer/README.md) に設計・規則・検証、[CONTRIBUTING](CONTRIBUTING.md) に変更の手順があります。
+| Audience | English | 日本語 |
+|---|---|---|
+| Application developers | [Kivact guide](docs/for-kivact-user/en/README.md) | [Kivact ガイド](docs/for-kivact-user/jp/README.md) |
+| UI kit users | [UI kit guide](docs/for-kivact-ui-user/en/README.md) | [UI キット ガイド](docs/for-kivact-ui-user/jp/README.md) |
+| Kivact developers | — | [製品戦略](docs/for-kivact-developer/strategy.md) |
 
-初期開発版のため、API と構成は予告なく破壊的に変わります。互換 alias や以前の起動コマンドは提供しません。Linux の実 desktop・IME・screen reader と macOS の実画面には未検証の部分があります。GIF/WebP は最初の frame だけを表示し、実験的 primitive には制限があります。詳しい未解決事項は [設計](docs/for-kivact-developer/design.md) にあります。
+The API reference is the rustdoc: `cargo doc -p kivact --open`.
 
-| feature | 用途 |
+## Crates
+
+| Crate | Purpose |
 |---|---|
-| `gpu`（既定） | GPU 描画、利用できなければ CPU |
-| `test` | 実 window の公開 Testing Library |
-| `gpu-interop`（実験、既定 off） | 外部 GPU texture の共有 |
-| `embed`（実験、既定 off） | Windows・Linux X11 のホスト window に App を開く。[wrapper の手順と制限](docs/for-kivact-user/how-to-guide/embed.md) |
+| `kivact` | The framework. Applications and component libraries depend on this crate only. |
+| `kivact-ui-basic` | Neutral general-purpose kit (after the shadcn/ui "Lyra" preset). |
+| `kivact-ui-pop` | Calm business-application kit. |
+| `kivact-ui-game` | Game-style control panels and HUDs. |
+| `kivact-ui-creative` | Creative editing tools: timelines, node graphs, docks, inspectors. |
+| `kivact-gpu-share` | Engine-side half of GPU texture sharing (experimental). |
 
-## ライセンスと貢献
+The other crates under [`crates/`](crates) are implementation details of
+`kivact` (reactive core, engine, layout, text and the native host Arvane)
+and are not meant to be used directly. [`architecture/`](architecture)
+contains the generated dependency graphs.
 
-Copyright (c) 2026 Kashiwade。[MIT](LICENSE-MIT) または [Apache-2.0](LICENSE-APACHE) のどちらかを選んで利用できます。同梱する font・icon などの license は [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES.md) にあります。
+## Cargo features of `kivact`
 
-当面は作者だけが開発し、pull request は受け付けません。不具合の報告は issue へ、脆弱性は [SECURITY](SECURITY.md) の手順で連絡してください。
+| Feature | Default | Description |
+|---|---|---|
+| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time. |
+| `test` | no | The real-window testing library `kivact::test`. |
+| `embed` | no | Experimental. Open an app inside a host window, e.g. an audio plugin editor. |
+| `gpu-interop` | no | Experimental. Show GPU textures from the application's own renderer without read-back. |
+
+## Platform support
+
+| Platform | Status |
+|---|---|
+| Windows | Primary target. |
+| Linux (Wayland, X11) | Primary target. Desktop, IME and screen reader coverage is partial. |
+| macOS | Not supported yet. |
+| Android, iOS | Considered in the design; not supported. |
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `crates/` | The framework, the native host and the UI kits |
+| `examples/` | Small applications and the kit catalogs |
+| `templates/basic/` | The smallest application with a test |
+| `docs/` | User guides and the developer strategy |
+| `dev/` | Workspace checks and the public-API test suite |
+| `architecture/` | Generated crate and module dependency graphs |
+
+## Contributing
+
+Development is done by the author for now; see [CONTRIBUTING](CONTRIBUTING.md).
+Report vulnerabilities privately as described in [SECURITY](SECURITY.md).
+
+## License
+
+Copyright (c) 2026 Kashiwade. Licensed under either of [MIT](LICENSE-MIT) or
+[Apache-2.0](LICENSE-APACHE) at your option. Bundled fonts and icons keep
+their own licenses; see [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES.md).

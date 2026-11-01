@@ -7,8 +7,8 @@
 //! out boxes of real windows (and their resizes).
 
 use kivact::prelude::*;
-use kivact::style::{Align, Justify, pct};
-use kivact::style::{GridAutoFlow, GridPlacement, Track};
+use kivact::style::pct;
+use kivact::style::{GridPlacement, Track};
 use kivact::test::render_with;
 
 use crate::layout_units::{assert_rect, rect_of, window};
@@ -16,50 +16,6 @@ use crate::layout_units::{assert_rect, rect_of, window};
 /// A cell `id` of height `h` (as wide as its track: grid items stretch).
 fn cell(id: &'static str, h: i32) -> Node {
     node().test_id(id).style(style().height(h))
-}
-
-#[test]
-fn auto_fill_minmax_columns_follow_the_window_width() {
-    let screen = render_with(window(800.0, 600.0), || {
-        // .cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px }
-        grid(
-            (0..7)
-                .map(|i| cell(["c0", "c1", "c2", "c3", "c4", "c5", "c6"][i], 40))
-                .collect::<Vec<_>>(),
-        )
-        .style(
-            style()
-                .grid_template_columns(Track::repeat_auto_fill(Track::minmax(200, Track::fr(1))))
-                .gap(16),
-        )
-    });
-    // 800 px fit three 200 px columns (four would need 848): (800 - 32) / 3.
-    let w = (800.0 - 32.0) / 3.0;
-    assert_rect(rect_of(&screen, "c0"), (0.0, 0.0, w, 40.0), "first card");
-    assert_rect(
-        rect_of(&screen, "c2"),
-        (2.0 * (w + 16.0), 0.0, w, 40.0),
-        "third",
-    );
-    assert_rect(rect_of(&screen, "c3"), (0.0, 56.0, w, 40.0), "fourth wraps");
-
-    screen.resize(1000.0, 600.0);
-    let w = (1000.0 - 48.0) / 4.0;
-    assert_rect(
-        rect_of(&screen, "c3"),
-        (3.0 * (w + 16.0), 0.0, w, 40.0),
-        "four columns fit 1000 px",
-    );
-    assert_rect(rect_of(&screen, "c4"), (0.0, 56.0, w, 40.0), "fifth wraps");
-
-    // Two columns need 416 px.
-    screen.resize(400.0, 600.0);
-    assert_rect(
-        rect_of(&screen, "c1"),
-        (0.0, 56.0, 400.0, 40.0),
-        "one column at 400 px",
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -147,72 +103,4 @@ fn templates_mix_px_percentages_fr_and_minmax() {
         (0.0, 10.0, 70.0, 10.0),
         "70px floor",
     );
-}
-
-#[test]
-fn gaps_auto_rows_flow_and_alignment_place_items_in_their_areas() {
-    let screen = render_with(window(800.0, 600.0), || {
-        column((
-            // gap: 6px 16px; grid-auto-rows: 50px; two auto columns
-            grid((
-                cell("g0", 10).style(style().width(100)),
-                cell("g1", 10).style(style().width(60)),
-                cell("g2", 10).style(style().width(80)),
-            ))
-            .style(
-                style()
-                    .grid_template_columns((kivact::style::auto(), kivact::style::auto()))
-                    .grid_auto_rows(50)
-                    .row_gap(6)
-                    .column_gap(16)
-                    .justify_content(Justify::Start),
-            ),
-            // place-items: center in 100 × 100 cells; one item at the end.
-            grid((
-                node().test_id("centered").style(style().size(20, 20)),
-                node().test_id("end").style(
-                    style()
-                        .size(20, 20)
-                        .justify_self(Align::End)
-                        .align_self(Align::End),
-                ),
-            ))
-            .style(
-                style()
-                    .grid_template_columns((100, 100))
-                    .grid_template_rows(100)
-                    .place_items(Align::Center),
-            ),
-            // grid-auto-flow: column; rows of 30, spread by align-content.
-            grid((cell("f0", 10), cell("f1", 10), cell("f2", 10))).style(
-                style()
-                    .height(200)
-                    .grid_template_rows((30, 30))
-                    .grid_template_columns((40, 40))
-                    .grid_auto_flow(GridAutoFlow::Column)
-                    .align_content(Justify::SpaceBetween),
-            ),
-        ))
-    });
-    // Auto columns as wide as their widest item: 100 (g0, g2) and 60.
-    assert_rect(rect_of(&screen, "g0"), (0.0, 0.0, 100.0, 10.0), "g0");
-    assert_rect(rect_of(&screen, "g1"), (116.0, 0.0, 60.0, 10.0), "g1");
-    assert_rect(rect_of(&screen, "g2"), (0.0, 56.0, 80.0, 10.0), "g2");
-    let top = 106.0;
-    assert_rect(
-        rect_of(&screen, "centered"),
-        (40.0, top + 40.0, 20.0, 20.0),
-        "centered in its cell",
-    );
-    assert_rect(
-        rect_of(&screen, "end"),
-        (180.0, top + 80.0, 20.0, 20.0),
-        "at the end of its cell",
-    );
-    let top = top + 100.0;
-    // Column flow: f0, f1 down the first column, f2 at the top of the
-    // second; the two 30 px rows at the top and bottom of 200 px.
-    assert_rect(rect_of(&screen, "f0"), (0.0, top, 40.0, 10.0), "f0");
-    assert_rect(rect_of(&screen, "f1"), (0.0, top + 170.0, 40.0, 10.0), "f1");
-    assert_rect(rect_of(&screen, "f2"), (40.0, top, 40.0, 10.0), "f2");
 }

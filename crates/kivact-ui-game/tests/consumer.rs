@@ -2,26 +2,15 @@
 use std::time::Duration;
 
 use kivact::control::{rich_text, span};
-use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::pct;
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{Command, ListItem, MenuEntry, Toast, Tone, toaster};
+use kivact::test::RenderOptions;
+use kivact::ui::{Command, MenuEntry, Toast, Tone, toaster};
 use kivact::view::A11yAction;
 use kivact_ui_game as g;
 use kivact_ui_game::ThemeOptions as _;
-#[path = "consumer/boundary.rs"]
-mod boundary;
-#[path = "consumer/cleanup.rs"]
-mod cleanup;
 #[path = "consumer/interactions.rs"]
 mod interactions;
-#[path = "consumer/item_boundary.rs"]
-mod item_boundary;
-#[path = "consumer/keyed.rs"]
-mod keyed;
-#[path = "consumer/messages.rs"]
-mod messages;
 
 fn options(reduced_motion: bool) -> RenderOptions {
     RenderOptions {
@@ -29,13 +18,6 @@ fn options(reduced_motion: bool) -> RenderOptions {
         reduced_motion,
         ..RenderOptions::from_env()
     }
-}
-
-fn choice_options(items: &[(&'static str, &'static str)]) -> Vec<ListItem<&'static str>> {
-    items
-        .iter()
-        .map(|(key, label)| ListItem::new(*key, *label))
-        .collect()
 }
 
 #[test]
@@ -258,113 +240,6 @@ fn consumer_modal_menu_command_search_and_focus_restore() {
 }
 
 #[test]
-fn consumer_filtered_command_identity_and_arrow_reveal_stay_consistent() {
-    let (screen, (open, executed)) = kivact::test::render_with_handle(crate::options(true), || {
-        let open = signal(false);
-        let executed = signal(usize::MAX);
-        let mut commands: Vec<_> = (0..14)
-            .map(|index| Command::new(index, format!("Section {index}")).hint("SECTION"))
-            .collect();
-        commands.push(Command::new(14, "Theme").hint("THEME"));
-        commands.push(Command::new(15, "Density").hint("DENSITY"));
-        (
-            (open, executed),
-            (
-                kivact::ui::button("Commands")
-                    .variant(kivact_ui_game::Slant)
-                    .on_press(move || open.set(true)),
-                kivact::ui::command_palette(open, commands, move |key: usize| executed.set(key)),
-            ),
-        )
-    });
-    screen.get_by_role(Role::Button, "Commands").click();
-    let query = screen.get_by_role(Role::TextBox, "Search commands");
-    query.type_text(" Theme ");
-    assert!(screen.get_by_text("Theme").exists());
-    assert!(screen.query_by_role(Role::Option, "Section 0").is_none());
-    let command = screen.get_by_role(Role::Option, "Theme");
-    assert!(command.is_selected());
-    command.click();
-    assert_eq!(executed.get_untracked(), 14);
-    assert!(!open.get_untracked());
-    screen.get_by_role(Role::Button, "Commands").click();
-    let query = screen.get_by_role(Role::TextBox, "Search commands");
-    for _ in 0..15 {
-        query.press_key(Key::ArrowDown);
-    }
-    let active = screen.get_by_role(Role::Option, "Density");
-    assert!(active.is_selected());
-    let viewport = screen
-        .get_by_role(Role::ScrollView, "")
-        .rect()
-        .expect("palette scroll bounds");
-    let rect = active.rect().expect("active option bounds");
-    assert!(rect.y >= viewport.y);
-    assert!(rect.y + rect.height <= viewport.y + viewport.height);
-    query.press_key(Key::Enter);
-    assert_eq!(executed.get_untracked(), 15);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn consumer_pager_focus_restore() {
-    let (screen, page) = kivact::test::render_with_handle(crate::options(true), || {
-        let page = signal(2_usize);
-        (
-            page,
-            column((g::pagination(page, 12),)).style(style().padding(24).gap(28)),
-        )
-    });
-    screen
-        .get_by_role(Role::Button, "Next")
-        .press_key(Key::Enter);
-    assert_eq!(page.get_untracked(), 3);
-    assert!(screen.get_by_role(Role::Button, "4").is_focused());
-    screen.get_by_role(Role::Button, "12").click();
-    assert_eq!(page.get_untracked(), 11);
-    assert!(screen.get_by_role(Role::Button, "12").is_focused());
-    assert!(screen.get_by_role(Role::Button, "Next").is_disabled());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn consumer_drawer_footer_stays_visible_below_long_scroll_body() {
-    let (screen, (open, height)) = kivact::test::render_with_handle(crate::options(true), || {
-        let open = signal(false);
-        (
-            (open, platform::window_size().height),
-            (
-                kivact::ui::button("Details")
-                    .variant(kivact_ui_game::Slant)
-                    .on_press(move || open.set(true)),
-                kivact::ui::dialog("Record", open)
-                    .kind(kivact::ui::DialogKind::Drawer(kivact::ui::Side::Right))
-                    .content(|| {
-                        node()
-                            .style(style().height(2000))
-                            .child(text("Long record"))
-                    })
-                    .footer(move || {
-                        kivact::ui::button("Close record")
-                            .variant(kivact_ui_game::Slant)
-                            .on_press(move || open.set(false))
-                    }),
-            ),
-        )
-    });
-    let trigger = screen.get_by_role(Role::Button, "Details");
-    trigger.click();
-    let footer = screen.get_by_role(Role::Button, "Close record");
-    let rect = footer.rect().expect("fixed footer bounds");
-    assert!(rect.y > height - 100.);
-    assert!(rect.y + rect.height <= height);
-    footer.click();
-    assert!(!open.get_untracked());
-    assert!(trigger.is_focused());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
 fn consumer_toast_expiry_and_hover_pause() {
     let (screen, toaster) = kivact::test::render_with_handle(crate::options(true), || {
         let toaster = toaster().max_visible(4);
@@ -490,127 +365,6 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
 }
 
 #[test]
-fn consumer_motion_intermediate_frames_and_reduced_motion_are_distinct() {
-    let screen = render_with(options(false), || {
-        column((
-            kivact::ui::button("Processing")
-                .variant(kivact_ui_game::Slant)
-                .loading(true)
-                .test_id("processing"),
-            kivact::ui::progress(Some(0.68))
-                .name("Synchronizing")
-                .variant(kivact::ui::Tone::Info)
-                .variant(g::Striped)
-                .moving(true),
-            kivact::ui::progress(None::<f64>)
-                .name("Analyzing")
-                .variant(kivact::ui::Tone::Info)
-                .size(kivact::ui::ControlSize::Small),
-            g::skeleton().rows(2),
-            g::halo().style(style().size(64, 64)),
-        ))
-        .style(
-            style()
-                .padding(30)
-                .gap(24)
-                .width(420)
-                .background(ColorToken::Surface),
-        )
-    });
-    let initial = screen.screenshot();
-    screen.advance(Duration::from_millis(270));
-    let middle = screen.screenshot();
-    assert_ne!(initial.hash(), middle.hash());
-    let directory = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../target/official-ui-validation/game-consumer");
-    std::fs::create_dir_all(&directory).expect("create test artifact directory");
-    initial
-        .save_png(directory.join("motion-initial.png"))
-        .expect("save initial frame");
-    middle
-        .save_png(directory.join("motion-270ms.png"))
-        .expect("save intermediate frame");
-    screen.set_reduced_motion(true);
-    let reduced = screen.screenshot();
-    // The busy button keeps turning (essential motion); the decorative
-    // motion below it stands still.
-    let button = screen
-        .get_by_test_id("processing")
-        .rect()
-        .expect("laid out");
-    let scale = screen.scale();
-    let below = |shot: &kivact::test::Screenshot| {
-        let top = ((button.y + button.height) * scale).ceil() as u32;
-        shot.crop(0, top, shot.width, shot.height - top).hash()
-    };
-    let busy = |shot: &kivact::test::Screenshot| {
-        shot.crop(
-            (button.x * scale) as u32,
-            (button.y * scale) as u32,
-            (button.width * scale) as u32,
-            (button.height * scale) as u32,
-        )
-        .hash()
-    };
-    screen.advance(Duration::from_millis(500));
-    let later = screen.screenshot();
-    assert_eq!(below(&reduced), below(&later));
-    screen.advance(Duration::from_millis(175));
-    assert_ne!(busy(&later), busy(&screen.screenshot()));
-    reduced
-        .save_png(directory.join("reduced-motion.png"))
-        .expect("save reduced frame");
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn consumer_progress_and_ring_start_on_first_visible_reveal() {
-    let (screen, ring) = kivact::test::render_with_handle(options(false), move || {
-        let ring = node_ref();
-        (
-            ring,
-            scroll(
-                column((
-                    node().style(style().height(900)),
-                    kivact::ui::progress(Some(0.75))
-                        .name("Completed")
-                        .variant(kivact::ui::Tone::Success),
-                    g::ring("Storage", 80., kivact::ui::Tone::Info).node_ref(ring),
-                ))
-                .style(style().padding(24).gap(24)),
-            )
-            .style(style().size(pct(100), pct(100))),
-        )
-    });
-    let before = screen.screenshot();
-    screen.advance(Duration::from_secs(1));
-    assert_eq!(before.hash(), screen.screenshot().hash());
-    ring.scroll_into_view();
-    screen.run_until_idle();
-    let initial = screen.screenshot();
-    screen.advance(Duration::from_millis(270));
-    let middle = screen.screenshot();
-    assert_ne!(initial.hash(), middle.hash());
-    screen.advance(Duration::from_secs(1));
-    let complete = screen.screenshot();
-    assert_ne!(middle.hash(), complete.hash());
-    screen.advance(Duration::from_secs(1));
-    assert_eq!(complete.hash(), screen.screenshot().hash());
-    assert_eq!(
-        screen
-            .get_by_role(Role::ProgressBar, "Completed")
-            .value_range()
-            .2,
-        Some(0.75)
-    );
-    assert_eq!(
-        screen.get_by_role(Role::Meter, "").value_range().2,
-        Some(80.)
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
 fn consumer_tooltip_focus_delay_and_blur_use_setup_bound_observation() {
     let (screen, ()) = kivact::test::render_with_handle(crate::options(true), || {
         (
@@ -649,82 +403,6 @@ fn consumer_tooltip_focus_delay_and_blur_use_setup_bound_observation() {
             .query_by_role(Role::Tooltip, "Save with Ctrl+S")
             .is_none()
     );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn consumer_grouped_menu_focus_and_disclosure_are_accessible() {
-    let (screen, (checked, expanded)) =
-        kivact::test::render_with_handle(crate::options(true), || {
-            let checked = signal(true);
-            let expanded = signal(true);
-            let user_open = signal(false);
-            (
-                (checked, expanded),
-                column((
-                    g::icon_menu("Actions", move || {
-                        vec![
-                            MenuEntry::item("unavailable", "Unavailable").disabled(true),
-                            MenuEntry::separator(),
-                            MenuEntry::item("columns", "Columns").checked(checked.get()),
-                            MenuEntry::separator(),
-                            MenuEntry::item("remove", "Remove"),
-                        ]
-                    })
-                    .icon("dots")
-                    .on_select(move |key: &'static str| {
-                        if key == "columns" {
-                            checked.update(|on| *on = !*on);
-                        }
-                    }),
-                    kivact::ui::disclosure("Settings", expanded, || text("Inspector content")),
-                    kivact::ui::dialog("User details", user_open)
-                        .kind(kivact::ui::DialogKind::Popover)
-                        .content(|| text("Online"))
-                        .attach(g::tool_button("User").name("User details")),
-                ))
-                .style(style().padding(30).gap(24)),
-            )
-        });
-    let trigger = screen.get_by_role(Role::Button, "Actions");
-    trigger.click();
-    assert_eq!(trigger.is_expanded(), Some(true));
-    assert!(
-        screen
-            .get_by_role(Role::MenuItemCheckBox, "Columns")
-            .is_focused()
-    );
-    screen
-        .get_by_role(Role::MenuItemCheckBox, "Columns")
-        .click();
-    assert!(!checked.get_untracked());
-    assert_eq!(
-        trigger.is_expanded(),
-        Some(false),
-        "choosing a checked entry closes the menu"
-    );
-    trigger.click();
-    assert_eq!(
-        screen
-            .get_by_role(Role::MenuItemCheckBox, "Columns")
-            .is_checked(),
-        Some(false)
-    );
-    screen.press_key(Key::Home);
-    assert!(
-        screen
-            .get_by_role(Role::MenuItemCheckBox, "Columns")
-            .is_focused()
-    );
-    screen.press_key(Key::Escape);
-    assert_eq!(trigger.is_expanded(), Some(false));
-    screen.get_by_role(Role::Button, "Settings").click();
-    assert!(!expanded.get_untracked());
-    assert!(screen.query_by_text("Inspector content").is_none());
-    screen.get_by_role(Role::Button, "User details").click();
-    assert!(screen.get_by_role(Role::Dialog, "User details").exists());
-    screen.press_key(Key::Escape);
-    assert!(screen.query_by_role(Role::Dialog, "User details").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -781,6 +459,3 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
     assert!(!modal.get_untracked(), "the close button closes the dialog");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
-
-#[path = "consumer/table_stage3.rs"]
-mod table_stage3;

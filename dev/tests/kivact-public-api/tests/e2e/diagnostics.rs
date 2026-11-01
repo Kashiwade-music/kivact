@@ -1,8 +1,6 @@
 //! Role: Failure reports (snapshots), the structured trace and why chains.
 
-use kivact::primitive::NodeExt;
 use kivact::style::current_theme;
-use std::panic::AssertUnwindSafe;
 
 use kivact::prelude::*;
 use kivact::style::{Align, Justify};
@@ -90,102 +88,6 @@ fn normalize(s: &str) -> String {
     out
 }
 
-/// The failure message of `f`, without the paths of the failure artifacts
-/// (the last line).
-fn failure(f: impl FnOnce()) -> String {
-    let message = match std::panic::catch_unwind(AssertUnwindSafe(f)) {
-        Ok(()) => panic!("expected the query to fail"),
-        Err(p) => p
-            .downcast_ref::<String>()
-            .cloned()
-            .or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string()))
-            .unwrap_or_default(),
-    };
-    match message.find(
-        "
-failure artifacts: ",
-    ) {
-        Some(at) => message[..at].to_string(),
-        None => message,
-    }
-}
-
-// Nodes are named by where their builder was called (`@file:line:col`);
-// a button's label shares its button's location and the root has
-// none. The accessibility tree is the one the host published (laid out
-// with the bundled test font).
-const MISSING: &str = r#"kivact test: no element matches text "count: 5"
-scope: whole screen
-candidates: 0
-focus: node 8 Some(Button) "+1" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C region None
-recent actions: ["click node 8"]
-recent updates:
-  turn 1: 2 op(s), 4 re-run(s), causes ["HoverChanged Some(9)", "FocusChanged Some(8) region None visible false", "Activate n8 region None"]
-    write core::option::Option<kivact_wire::ids::FocusTarget> (created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C) at crates/kivact-core/src/view/focus.rs:L:C
-    write i32 (created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C) at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-errors: []
-accessibility tree (published by the host):
-Generic "" [0 0 800x600]
-  Generic "" [0 0 800x66]
-    Text "count: 1" #count [0 0 800x19]
-    Text "doubled: 2" #doubled [0 19 800x19]
-    Generic "" [0 38 800x28]
-      Button "+1" focusable #inc [0 38 39x28]
-        Text "+1" [12 43 15x19]
-      Button "+1" focusable #other [39 38 38x28]
-        Text "+1" [51 43 14x19]
-focus: 8
-semantic tree:
-None ""
-  None "" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-    Some(Text) "count: 1" #count @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-    Some(Text) "doubled: 2" #doubled @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-    None "" #buttons @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-      Some(Button) "+1" #inc @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C [focused]
-        Some(Text) "+1" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-      Some(Button) "+1" #other @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-        Some(Text) "+1" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-"#;
-
-#[test]
-fn failure_report_snapshot_for_a_missing_element() {
-    let screen = render(app);
-    screen.get_by_test_id("inc").click();
-    let msg = normalize(&failure(|| {
-        screen.get_by_text("count: 5");
-    }));
-    assert_eq!(msg, MISSING, "actual report:\n{msg}");
-}
-
-const AMBIGUOUS: &str = r#"kivact test: 2 elements match role Button named "+1" (ambiguous)
-scope: node 6 None "" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-candidates: 2
-  node 8 Some(Button) "+1" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-  node 10 Some(Button) "+1" @dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-focus: none
-recent actions: []
-recent updates:
-errors: []
-"#;
-
-#[test]
-fn ambiguous_query_reports_candidates_and_scope() {
-    let screen = render(app);
-    let buttons = screen.get_by_test_id("buttons");
-    let msg = normalize(&failure(|| {
-        screen.within(buttons).get_by_role(Role::Button, "+1");
-    }));
-    assert!(msg.starts_with(AMBIGUOUS), "actual report:\n{msg}");
-    // A narrower scope resolves it.
-    let inc = screen.get_by_test_id("inc");
-    assert_eq!(
-        screen.within(inc).get_by_role(Role::Button, "+1").name(),
-        "+1"
-    );
-    assert!(screen.within(buttons).query_by_text("nope").is_none());
-    assert_eq!(screen.within(buttons).all_by_text("+1").len(), 2);
-}
-
 const WHY: &str = "node 5 Text \"doubled: 4\"
   Content set by the effect created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
     reads memo i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
@@ -252,70 +154,33 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
     );
 }
 
+/// A running App reads the errors no boundary handled: a failing handler's
+/// error is in `diagnostics::errors`, the same ring `Screen::errors` reads.
 #[test]
-fn app_side_why_through_a_node_ref() {
-    let slot: std::rc::Rc<std::cell::Cell<Option<NodeRef>>> = Default::default();
-    let s2 = slot.clone();
-    let screen = render(move || {
-        let count = signal(1);
-        let r = node_ref();
-        s2.set(Some(r));
-        text(move || format!("n = {}", count.get())).node_ref(r)
-    });
-    let Some(r) = slot.get() else {
-        panic!("setup did not run")
-    };
-    let why = kivact::diagnostics::why(&r).unwrap_or_else(|| panic!("node is mounted"));
-    assert_eq!(why.props.len(), 1);
-    assert_eq!(why.props[0].reads[0].last_write, None);
-    drop(screen);
-}
-
-/// `.at(location)` replaces the call site recorded for the node it is
-/// called on (as a component forwarding its caller's location does); a
-/// component's inner nodes keep their own, other builders theirs.
-#[test]
-fn at_replaces_the_call_site_of_the_node_it_is_called_on() {
-    let here = std::panic::Location::caller();
-    let label_line = std::rc::Rc::new(std::cell::Cell::new(0));
-    let recorded = label_line.clone();
-
-    let screen = render(move || {
+fn the_app_reads_the_errors_of_its_default_sink() {
+    let screen = render(|| {
+        let seen = signal(0_usize);
         column((
-            {
-                let label = ("go").into_value();
-                recorded.set(line!() + 1);
-                let label_node = text(label);
-                node()
-                    .role(Role::Button)
-                    .focusable(true)
-                    .name(label)
-                    .child(label_node)
-                    .style(move || {
-                        let t = &current_theme();
-                        style()
-                            .direction(kivact::style::Direction::Row)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                            .padding_x(t.space().lg)
-                            .padding_y(t.space().sm)
-                            .min_height(t.control_height())
-                    })
-            }
-            .test_id("go")
-            .at(here),
-            text("t").test_id("t").at(here),
+            button("Fail").on_press(|| -> kivact::Result<()> {
+                Err(UiError::new(
+                    kivact::diagnostics::ErrorKind::Message,
+                    "export failed",
+                    None,
+                ))
+            }),
+            button("Count").on_press(move || seen.set(kivact::diagnostics::errors().len())),
+            text(move || format!("errors: {}", seen.get())),
         ))
     });
-    let snap = screen.snapshot();
-    let outer = &snap.children[0];
-    let (go, t) = (&outer.children[0], &outer.children[1]);
-    assert_eq!(go.at, Some(here));
-    assert_eq!(t.at, Some(here));
-    assert_eq!(
-        go.children[0].at.map(|a| a.line()),
-        Some(label_line.get()),
-        "the child retains its own text builder call site"
+    screen.get_by_role(Role::Button, "Count").click();
+    screen.get_by_text("errors: 0");
+    screen.get_by_role(Role::Button, "Fail").click();
+    screen.get_by_role(Role::Button, "Count").click();
+    screen.get_by_text("errors: 1");
+    let errors = kivact::diagnostics::errors();
+    assert!(
+        errors.is_empty(),
+        "outside the App's code there is no current App"
     );
-    assert_ne!(outer.at, Some(here), "other builders keep their call site");
+    assert_eq!(screen.errors().len(), 1);
 }

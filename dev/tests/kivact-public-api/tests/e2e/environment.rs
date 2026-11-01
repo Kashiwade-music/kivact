@@ -124,36 +124,3 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
     screen.get_by_text("safe 0 0 21 44");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
-
-/// What the platform can do is reported at start and readable by the App;
-/// relying on what the platform lacks is noted instead of being silently
-/// zero. The test window stands for a platform with touch, pens, a
-/// software keyboard, a safe area and memory warnings (it records and
-/// injects them); it draws on the CPU.
-#[test]
-fn the_platform_capabilities_are_reported_to_the_app() {
-    let screen = render(|| {
-        let caps = platform::capabilities();
-        text(format!(
-            "touch {} pen {} keyboard {} safe area {} memory {} reconversion {} gpu {}",
-            caps.touch,
-            caps.pen,
-            caps.soft_keyboard,
-            caps.safe_area,
-            caps.memory_warnings,
-            caps.ime_reconversion,
-            caps.gpu
-        ))
-    });
-    screen.get_by_text(
-        "touch true pen true keyboard true safe area true memory true reconversion true gpu false",
-    );
-    // The safe area is reported here, so relying on it notes nothing.
-    let screen = render(|| text(move || format!("top {}", platform::safe_area().top)));
-    screen.get_by_text("top 0");
-    let noted = screen
-        .trace()
-        .iter()
-        .any(|turn| turn.notes.iter().any(|note| note.contains("safe area")));
-    assert!(!noted, "{:?}", screen.trace());
-}

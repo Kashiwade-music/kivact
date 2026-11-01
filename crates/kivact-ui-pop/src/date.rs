@@ -262,12 +262,12 @@ fn calendar_popup(
 /// and of the day), never a text on the way such as `2026-02-3`. The start
 /// of a date is not an error until the field is left or Enter is pressed. A
 /// text that is not a date marks the field invalid and shows the message
-/// `date.error.format` (`Use YYYY-MM-DD`) or, for a whole text that is no day
-/// of the calendar, `date.error.invalid` (`This date does not exist`), which
+/// `pop.date.error.format` (`Use YYYY-MM-DD`) or, for a whole text that is no day
+/// of the calendar, `pop.date.error.invalid` (`This date does not exist`), which
 /// describes the field to assistive
 /// technology. [`valid`](DateInput::valid) tells the application, so that it
 /// can keep a form from being saved. The button that opens the calendar is
-/// named by `date.open` (`Choose a date`).
+/// named by `pop.date.open` (`Choose a date`).
 ///
 /// ```no_run
 /// use kivact::i18n::{CalendarDate, Weekday};
@@ -391,10 +391,10 @@ impl IntoView for DateInput {
 /// second one sets the end, or, when it is before the start, the start (the
 /// two are swapped). The range is drawn in the calendar, and the calendar
 /// closes after the second choice. A start after the end that is typed makes
-/// both fields invalid, shows `date.error.order` (`The end date is before the
+/// both fields invalid, shows `pop.date.error.order` (`The end date is before the
 /// start date`) and [`valid`](DateRangeInput::valid) `false`.
-/// The popup announces `date.range.pick_start` (`Pick a start date`) and
-/// `date.range.pick_end` (`Pick an end date`) politely. Its `date.range.close`
+/// The popup announces `pop.date.range.pick_start` (`Pick a start date`) and
+/// `pop.date.range.pick_end` (`Pick an end date`) politely. Its `pop.date.range.close`
 /// (`Close`) button dismisses it and returns focus to the start input.
 ///
 /// ```no_run

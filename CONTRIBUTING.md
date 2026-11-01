@@ -2,30 +2,60 @@
 
 当面は作者（Kashiwade）だけが開発し、外部からの pull request は受け付けません。不具合の報告は issue へ、脆弱性は [SECURITY](SECURITY.md) の手順で連絡してください。以下は作者が変更を入れるときの手順です。
 
-変更前に [設計](docs/for-kivact-developer/design.md) と [コーディング規則](docs/for-kivact-developer/coding-rules.md) を読みます。公開 API と依存の向きを変える場合、同じ変更で設計、`dev/xtask/policy/workspace.toml`、rustdoc、利用者向けの該当手順を更新してください。
+## 判断の基準
 
-利用者の入門は `docs/for-kivact-user/getting-started`、作業別の手順は `docs/for-kivact-user/how-to-guide`、公式部品は `docs/for-kivact-ui-user`、部品作者は `docs/for-component-author`、開発者の説明は `docs/for-kivact-developer` に置きます。API reference は公開 item の rustdoc に書きます。入門で内部 module や engine の統計を前提にしません。
+何を入れ、何を入れないかは [製品戦略](docs/for-kivact-developer/strategy.md) で判断します。現在の API と内部構造は rustdoc とコードが正です。設計の理由は PR の説明に書きます。
 
-merge の前に次の gate を通します。window を開くものは、下の規則に従って実行します。
+公開 API と依存の向きを変える場合は、同じ変更で rustdoc、`dev/xtask/policy/workspace.toml`、利用者向けのドキュメントを更新してください。初期開発版なので、互換 wrapper・alias・旧コマンドは残さず、ドキュメントを新しい使い方に揃えます。
+
+## コード
+
+規則の多くは root の `[workspace.lints]`（全 crate が `[lints] workspace = true` で参加）と `cargo xtask check` が強制します。道具が確かめない規則は次のとおりです。
+
+- コードのコメントと rustdoc は英語で書きます。すべての crate root と module（inline の `mod {}` を含む）の先頭に `//! Role: <英語の 1 文>` を置きます（xtask が図に表示します）。
+- `unsafe` は `#[allow(unsafe_code, reason = "…")]` を明示した module だけで使い、ブロックごとに `// SAFETY:` で前提を書きます。
+- feature はその crate の振る舞いだけを変えます。他の crate が match する enum の variant や、他の crate が組み立てる struct の field を feature で増減しません。
+- library では `unwrap()` を使わず、避けられない前提は `expect("invariant: …")` に書きます。lint の `allow` には必ず `reason` を書きます。
+- `xtask` は `vendor/xtask-core` の submodule を使います。clone の後に `git submodule update --init` を実行します。図の生成には Node.js が要ります。
+
+## ドキュメント
+
+| 場所 | 内容 |
+|---|---|
+| `docs/for-kivact-user/{en,jp}/` | Kivact を初めて使う開発者向け。`getting-started/` はチュートリアル、`how-to-guide/` は目的別のガイド |
+| `docs/for-kivact-ui-user/{en,jp}/<kit>/` | 各 UI キットの `getting-started/` と `how-to-guide/` |
+| `docs/for-kivact-developer/strategy.md` | 製品戦略（日本語のみ） |
+
+英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。`docs/` と README の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）の doctest としてコンパイルされます。新しいページの登録は不要です。
+
+## テスト
+
+テストは実ウィンドウの E2E（`kivact::test`）だけです。公開 API の利用者の契約を確かめるものに絞り、過去の不具合の再現だけの試験、画素や時間の厳密な比較、golden は追加しません。
+
+| 場所 | 内容 |
+|---|---|
+| `dev/tests/kivact-public-api` | 公開 API の E2E（`tests/e2e`）とウィンドウなしの画像書き出し（`tests/offscreen.rs`） |
+| `crates/kivact-ui-*/tests` | 各キットの E2E |
+| `crates/arvane/tests` | ネイティブホストの E2E |
+| `dev/tests/docs` | ドキュメントのコードブロック |
+| `dev/tests/gpu-interop-producer` | GPU texture 共有の試験で使う描画エンジン |
+
+ウィンドウを開くコマンド（`cargo test` の大半）は `dev/tools/window-lock.sh -- <command>` を通し、すべての worktree で同時に一つの process だけがウィンドウを開くようにします。同時に開くと focus を奪い合い、試験が止まることがあります。lock は時間の上限（既定 900 秒、`--timeout` で変更）も掛け、時間切れは終了コード 124 です。
+
+## merge 前の検査
 
 ```text
 cargo fmt --all -- --check
 cargo xtask check
-git status --porcelain architecture   # 空であること
+git diff --quiet -- architecture
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features
-cargo test --workspace --no-default-features
+dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --all-features
+dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --no-default-features
 dev/tools/check-features.sh
-cargo test -p kivact-workspace-policy-tests
-cargo test -p kivact-docs --doc
 ```
 
-まとめて記録する場合は `bash dev/tools/check-workspace.sh [log-directory]` と `bash dev/tools/check-consumers.sh [log-directory] [--cpu-only]` を使います。既存の出力先は上書きせず終了コード 2 で止まります。後者は独立 consumer をすべて検査し、CPU だけの確認では `--cpu-only` を指定します。各 window のコマンドが個別に lock を取るので、この二つの script 全体を window-lock で包みません。環境変数の renderer・GPU・Cargo 設定は呼出元から渡します。Linux の全体確認は[Linux の検証](docs/for-kivact-developer/tools/linux-verification.md)の Windows 側 outer lock を必ず使います。
+`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向きを検査し、`architecture/` の図を生成します。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
 
-公開 API の統合試験は `dev/tests/kivact-public-api`、Markdown の code block を検査する crate は `dev/tests/docs`、検証ツールは `dev/tools` にあります。独立 consumer の確認と Windows/Linux の検証手順は開発者ガイドを参照してください。
+## commit と PR
 
-window を開く自動試験（`kivact::test`、公開 API の e2e、kit の consumer と catalog、window を開く doctest）は `dev/tools/window-lock.sh -- <command>` を通し、すべての worktree で同時に1つの process だけが window を開くようにします（同時に開くと focus を奪い合い、試験が止まることがあります）。lock は時間の上限（既定 900 秒）も掛け、時間切れは終了コード 124 になります。実際の OS の入力を送る [GUI harness](docs/for-kivact-developer/tools/gui-harness.md) と、IME・スクリーンリーダー・ブラウザの手動確認は、対象アプリ・コマンド・操作を説明してユーザーの明示許可を得てから実行します。未実施の検証は未実施として報告します。今回の対象と操作は [手動確認一覧](docs/for-kivact-developer/manual-verification.md)にあります。
-
-Linux の埋め込みの実入力を含む試験は、同じプロセス内でもfocusを共有するため `--test-threads=1` で実行します。`dev/tools/linux/test-wslg.sh` はこの指定を含みます。FDなどのプロセス資源を比較する試験は専用のintegration binaryに分離します。
-
-commit は目的ごとに conventional commits で分けます。PR は具体的な問題、変更後の挙動、実施した検証、未実施の理由、残る制限を書きます。このプロジェクトは初期開発版なので、互換 wrapper・alias・旧コマンドの維持を追加せず、新しい利用方法へ文書を揃えてください。
+commit は目的ごとに conventional commits で分けます。PR には、具体的な問題、変更後の挙動、実施した検証、未実施の理由、残る制限を書きます。

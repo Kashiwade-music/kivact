@@ -1,4 +1,4 @@
-# `cargo xtask check`（xtask-core）が読む workspace の規則（docs/for-kivact-developer/coding-rules.md）。
+# `cargo xtask check`（xtask-core）が読む workspace の規則（CONTRIBUTING.md）。
 
 output = "architecture"
 
@@ -63,22 +63,13 @@ kivact-example-form = []
 kivact-example-list = []
 kivact-example-async = []
 kivact-example-component = []
-kivact-example-task-board = []
-kivact-example-mini-postman = []
-kivact-music-player = []
-kivact-workbench = []
-kivact-hostbench = []
 kivact-ui-basic-catalog = []
 kivact-ui-pop-catalog = []
 kivact-ui-game-catalog = []
 kivact-ui-creative-catalog = []
-kivact-interaction-starter = []
-kivact-embed-host = []
-kivact-ext-apps = []
 kivact-docs = []
 # Public API tests consume all four official kits for theme conformance.
 kivact-public-api-tests = []
-kivact-workspace-policy-tests = []
 xtask = []
 
 # xtask-core は、外部 crate の glob import（`use kivact::prelude::*` など）がある module で、
@@ -100,8 +91,8 @@ trusted_derives = [
     "Deserialize", "Serialize",
 ]
 
-# ----- crate 内の module の依存の向き（dev/xtask の module_rules.rs）。design.md §2「依存の向きと
-# visible_to」の `kivact-reactive ◀ task, motion, i18n ◀ style ◀ view, draw ◀ control ◀
+# ----- crate 内の module の依存の向き（dev/xtask の module_rules.rs）。依存の向き
+# `kivact-reactive ◀ task, motion, i18n ◀ style ◀ view, draw ◀ control ◀
 # primitive ◀ prelude ◀ test` と `{task, motion, style, view} ◀ platform, diagnostics, gpu_interop ◀
 # client ◀ prelude` を書く。`uses` の key の module（子孫を含む）は、自分の部分木、crate root、
 # 値に挙げた module、`uses` に無い module だけを参照してよい。`except` は上向きの例外

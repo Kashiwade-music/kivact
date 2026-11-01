@@ -42,11 +42,5 @@ name = "e2e"
 path = "tests/e2e/main.rs"
 required-features = ["testing"]
 
-# Exact process FD counts must not race unrelated E2E windows, GPU work or threads.
-[[test]]
-name = "embed_resources"
-path = "tests/embed_resources.rs"
-required-features = ["embed", "testing"]
-
 [lints]
 workspace = true

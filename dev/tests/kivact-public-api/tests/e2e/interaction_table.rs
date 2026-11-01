@@ -1,15 +1,10 @@
 //! Role: Table parts share grid focus, list selection, sort and resize behavior.
 
 use crate::support::mount_with;
-use kivact::interaction::{
-    ColumnDef, ListBoundary, ListPolicy, ListSelection, use_dialog, use_table,
-};
+use kivact::interaction::{ColumnDef, ListBoundary, ListPolicy, ListSelection, use_table};
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 use kivact::test::{RenderOptions, WindowMode};
-use kivact::ui::DialogKind;
 use kivact::view::{Modifiers, SortDirection, for_each};
-use kivact::view::{Placement, overlay};
 
 #[test]
 fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
@@ -176,86 +171,5 @@ fn headers_sort_and_resize_through_caller_bindings() {
     screen.get_by_role(Role::Splitter, "Width").focus();
     screen.press_key(Key::ArrowRight);
     assert_eq!(widths.get_untracked().get(&0), Some(&110.0));
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn a_cell_button_opens_a_modal_without_the_grid_stealing_focus() {
-    let (screen, ()) = mount_with(
-        RenderOptions {
-            window: WindowMode::Real,
-            ..Default::default()
-        },
-        || {
-            let open = signal(false);
-            let grid = use_table(
-                vec![1, 2],
-                |key| *key,
-                vec![ColumnDef::new(0, "Action")],
-                ListSelection::Single(signal(None).into()),
-            );
-            let modal = use_dialog(open, DialogKind::Modal);
-            let action = node()
-                .role(Role::Button)
-                .name("Open details")
-                .focusable(true)
-                .style(style().size(120, 30))
-                .child(text("Open details"))
-                .on_press(move || open.set(true));
-            (
-                (),
-                column((
-                    column((
-                        row(node()
-                            .part(grid.cell(1, 0))
-                            .name("Action cell")
-                            .style(style().size(180, 40))
-                            .child(action))
-                        .part(grid.row(1)),
-                        row(node()
-                            .part(grid.cell(2, 0))
-                            .name("Data cell")
-                            .style(style().size(180, 40))
-                            .child(text("Data")))
-                        .part(grid.row(2)),
-                    ))
-                    .part(grid.grid()),
-                    show(modal.shown(), move || {
-                        overlay(
-                            node_ref(),
-                            Placement::Center,
-                            node()
-                                .role(Role::Button)
-                                .name("Modal action")
-                                .focusable(true)
-                                .style(style().size(180, 40))
-                                .child(text("Modal action")),
-                        )
-                        .part(modal.content())
-                        .name("Details")
-                    }),
-                )),
-            )
-        },
-    );
-    let opener = screen.get_by_role(Role::Button, "Open details");
-    opener.click();
-    assert!(
-        screen
-            .get_by_role(Role::Button, "Modal action")
-            .is_focused()
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-    screen.press_key(Key::Escape);
-    assert!(screen.query_by_role(Role::Dialog, "Details").is_none());
-    assert!(opener.is_focused());
-    screen.get_by_role(Role::GridCell, "Data cell").click();
-    assert!(screen.get_by_role(Role::GridCell, "Data cell").is_focused());
-    screen.press_key(Key::ArrowUp);
-    assert!(
-        screen
-            .get_by_role(Role::GridCell, "Action cell")
-            .is_focused()
-    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

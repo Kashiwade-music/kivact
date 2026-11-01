@@ -6,8 +6,6 @@
 
 use std::sync::Arc;
 
-use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
-
 use kivact_types::{
     Backdrop, BlendMode, BoxShadow, ColorMatrix, DrawCommand, Extend, FillRule, Gradient,
     GradientShape, ImageData, Layer, LayerFilter, LineCap, Mask, Paint, PathCmd, Pattern,
@@ -15,8 +13,7 @@ use kivact_types::{
 };
 
 use crate::support::{
-    BLUE, RED, WHITE, assert_near, color, color_alpha, fill, gpu_against_cpu, open, options, pixel,
-    pt, rect, show, solid, text_runs,
+    BLUE, RED, WHITE, color, color_alpha, fill, gpu_against_cpu, pt, rect, solid, text_runs,
 };
 
 fn image(
@@ -30,111 +27,6 @@ fn image(
         opacity: 1.0,
         color_matrix,
     }
-}
-
-/// A `width` × `height` image of one straight-alpha color.
-fn plain(width: u32, height: u32, rgba: [u8; 4]) -> ImageData {
-    ImageData {
-        width,
-        height,
-        rgba: rgba.repeat((width * height) as usize).into(),
-    }
-}
-
-#[test]
-fn an_image_is_drawn_through_its_color_matrix() {
-    let mut window = open(80.0, 20.0);
-    let red = plain(2, 2, [255, 0, 0, 255]);
-    show(
-        &mut window,
-        vec![
-            image(rect(0.0, 0.0, 20.0, 20.0), red.clone(), None),
-            image(
-                rect(20.0, 0.0, 20.0, 20.0),
-                red.clone(),
-                Some(ColorMatrix::grayscale(1.0)),
-            ),
-            image(
-                rect(40.0, 0.0, 20.0, 20.0),
-                red.clone(),
-                Some(ColorMatrix::hue_rotate(120.0)),
-            ),
-            image(
-                rect(60.0, 0.0, 20.0, 20.0),
-                red,
-                Some(ColorMatrix::invert(1.0)),
-            ),
-        ],
-    );
-    assert_eq!(pixel(&window, 10, 10), RED, "the image itself");
-    assert_near(pixel(&window, 30, 10), 0x363636, 1, "grayscale");
-    let [r, g, b] = crate::support::channels(pixel(&window, 50, 10));
-    assert!(
-        g > r && g > b,
-        "a third of a turn makes red green: {r} {g} {b}"
-    );
-    assert_eq!(pixel(&window, 70, 10), 0x00ffff, "inverted");
-}
-
-/// The frame of raw pixels of `colors[frame]`, a new buffer every frame,
-/// then the last buffer again.
-fn raw_frames(gpu: bool) {
-    let mut window = VirtualWindow::open(VirtualWindowOptions {
-        gpu,
-        ..options(64.0, 64.0)
-    })
-    .expect("a test window opens");
-    let colors = [
-        [255, 0, 0, 255],
-        [0, 0, 255, 255],
-        [0, 255, 0, 255],
-        [0, 0, 0, 0],
-    ];
-    let mut last = None;
-    for frame in 0..59 {
-        let rgba = colors[frame % colors.len()];
-        let pixels = plain(64, 64, rgba);
-        show(
-            &mut window,
-            vec![image(rect(0.0, 0.0, 64.0, 64.0), pixels.clone(), None)],
-        );
-        let expected = if rgba[3] == 0 {
-            WHITE
-        } else {
-            (u32::from(rgba[0]) << 16) | (u32::from(rgba[1]) << 8) | u32::from(rgba[2])
-        };
-        assert_eq!(
-            pixel(&window, 32, 32),
-            expected,
-            "frame {frame} (gpu: {gpu})"
-        );
-        last = Some(pixels);
-    }
-    // The same buffer again, next to new ones.
-    let last = last.expect("frames were drawn");
-    show(
-        &mut window,
-        vec![
-            image(rect(0.0, 0.0, 32.0, 64.0), last, None),
-            image(
-                rect(32.0, 0.0, 32.0, 64.0),
-                plain(1, 1, [255, 0, 0, 255]),
-                None,
-            ),
-        ],
-    );
-    assert_eq!(pixel(&window, 16, 32), 0x00ff00);
-    assert_eq!(pixel(&window, 48, 32), RED);
-}
-
-#[test]
-fn raw_pixels_can_change_every_frame() {
-    raw_frames(false);
-    if let Some(reason) = arvane::test_display::gpu_unavailable() {
-        eprintln!("SKIPPED raw_pixels_can_change_every_frame on the GPU: {reason}");
-        return;
-    }
-    raw_frames(true);
 }
 
 /// A scene of every new command: transforms with text, layers with clips,

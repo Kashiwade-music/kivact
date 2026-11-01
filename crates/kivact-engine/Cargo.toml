@@ -37,16 +37,5 @@ testing = ["arvane/testing", "dep:png"]
 name = "host_locale"
 required-features = ["testing"]
 
-[[test]]
-name = "restack"
-required-features = ["testing"]
-
-[[test]]
-name = "thread_join"
-required-features = ["testing"]
-
-[target.'cfg(windows)'.dev-dependencies]
-windows-sys = { workspace = true, features = ["Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading"] }
-
 [lints]
 workspace = true

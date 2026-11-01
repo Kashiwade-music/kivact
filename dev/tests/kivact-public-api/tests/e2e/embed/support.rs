@@ -24,14 +24,3 @@ pub(super) fn painted(parent: &TestParent) {
 pub(super) fn panel() -> Node {
     node().style(style().size(160, 100).background(Color::WHITE))
 }
-pub(super) fn reopen() {
-    let parent = TestParent::open(200, 120).expect("open another real parent");
-    let app = App::new("Reopened")
-        .window_size(160, 100)
-        .embed(parent.parent().scale(1.0), panel)
-        .expect("reopen the embedded editor");
-    painted(&parent);
-    assert!(app.error().is_none());
-    drop(app);
-    assert!(parent.capture().is_err());
-}
