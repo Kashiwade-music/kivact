@@ -58,19 +58,17 @@ fn fixture() -> (Screen, Model) {
             m,
             column((
                 show(m.present, move || {
-                    app_arrangement(
-                        m.clips,
-                        m.tracks,
-                        ui::ArrangementState {
-                            selection: m.selected.into(),
-                            playhead: m.frame.into(),
-                            loop_range: m.range.into(),
-                            cycling: m.cycling.into(),
-                            zoom: m.zoom.into(),
-                            pan: m.pan.into(),
-                            tool: m.tool.into(),
-                        },
-                    )
+                    app_arrangement(m.clips, m.tracks, {
+                        let mut value = ui::ArrangementState::new();
+                        value.selection = m.selected.into();
+                        value.playhead = m.frame.into();
+                        value.loop_range = m.range.into();
+                        value.cycling = m.cycling.into();
+                        value.zoom = m.zoom.into();
+                        value.pan = m.pan.into();
+                        value.tool = m.tool.into();
+                        value
+                    })
                     .on_edit(arrangement_model::edits(m.clips, m.tracks, move |phase| {
                         m.phases.update(|v| v.push(phase));
                         m.observed.update(|v| {
@@ -140,9 +138,10 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
                     ui::TrackKind::Audio,
                     rgb(0x34d399),
                 )]),
-                ui::ArrangementState {
-                    selection: (signal(vec![1])).into(),
-                    ..ui::ArrangementState::new()
+                {
+                    let mut value = ui::ArrangementState::new();
+                    value.selection = (signal(vec![1])).into();
+                    value
                 },
             )
             .step(step)

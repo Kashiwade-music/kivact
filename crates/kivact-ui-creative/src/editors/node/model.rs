@@ -4,7 +4,9 @@ use kivact::draw::{Pixels, Point, Size};
 use kivact::style::{Color, rgb};
 
 /// A labeled typed socket. Its index in the node's list is its identity.
+/// Built with [`NodeSocket::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct NodeSocket {
     pub label: String,
     pub type_name: String,
@@ -30,7 +32,9 @@ impl NodeSocket {
 }
 
 /// Consumer-owned node presentation. Parameters are display strings supplied by the application.
+/// Built with [`NodeData::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct NodeData {
     pub id: u64,
     pub label: String,
@@ -109,13 +113,16 @@ impl NodeData {
 }
 
 /// A node parameter with explicit placement and an accessible editable value.
+/// Built with [`NodeControl::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct NodeControl {
     pub label: String,
     pub offset: f32,
     pub value: NodeControlValue,
 }
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum NodeControlValue {
     Number {
         value: f64,
@@ -197,7 +204,9 @@ impl NodeControl {
 }
 
 /// A directed connection between two explicit socket indices.
+/// Built with [`NodeLink::new`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct NodeLink {
     pub from: u64,
     pub output: usize,
@@ -217,6 +226,7 @@ impl NodeLink {
 
 /// A proposed change to application-owned node data.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum NodeRequest {
     /// Absolute positions computed from the beginning of the gesture.
     Move(Vec<(u64, Point)>),

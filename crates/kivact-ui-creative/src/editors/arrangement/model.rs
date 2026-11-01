@@ -3,6 +3,7 @@
 use kivact::style::Color;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TrackFlag {
     Mute,
     Solo,
@@ -23,6 +24,7 @@ impl TrackFlag {
 
 /// The timeline's editing tool. Operations report application requests.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TimelineTool {
     #[default]
     Select,
@@ -31,13 +33,16 @@ pub enum TimelineTool {
     Erase,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TrackKind {
     Video,
     Audio,
     Midi,
 }
 /// An editable automation knot, in beats and a normalized scalar value.
+/// Built with [`AutomationPoint::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct AutomationPoint {
     pub id: u64,
     pub beat: f64,
@@ -49,7 +54,9 @@ impl AutomationPoint {
     }
 }
 /// Track header state and its optional automation lane.
+/// Built with [`TimelineTrack::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TimelineTrack {
     pub id: u64,
     pub name: String,
@@ -85,7 +92,9 @@ impl TimelineTrack {
     }
 }
 /// A ruler annotation. Prototype markers locate playback when their ruler is clicked.
+/// Built with [`TimelineMarker::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TimelineMarker {
     pub beat: f64,
     pub label: String,
@@ -103,6 +112,7 @@ impl TimelineMarker {
 
 /// An absolute proposal for the application-owned arrangement model.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ArrangementRequest {
     Retime(Vec<crate::editors::shared::model::ItemTime>),
     Delete(Vec<u64>),

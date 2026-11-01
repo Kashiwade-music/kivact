@@ -15,6 +15,8 @@ pub(crate) fn apply_clips(items: &mut Vec<ui::Clip>, request: &ui::TimeRequest) 
             }
         }
         ui::TimeRequest::Delete(ids) => items.retain(|item| !ids.contains(&item.id)),
+        // Variants added later fall back to being ignored.
+        _ => {}
     }
 }
 
@@ -29,6 +31,8 @@ pub(crate) fn apply_keys(items: &mut Vec<ui::Keyframe>, request: &ui::TimeReques
             }
         }
         ui::TimeRequest::Delete(ids) => items.retain(|item| !ids.contains(&item.id)),
+        // Variants added later fall back to being ignored.
+        _ => {}
     }
 }
 
@@ -38,21 +42,13 @@ pub(crate) trait TestTime: Clone + PartialEq + 'static {
 
 impl TestTime for ui::Clip {
     fn timing(&self) -> ui::ItemTime {
-        ui::ItemTime {
-            id: self.id,
-            time: self.start,
-            duration: self.duration,
-        }
+        ui::ItemTime::new(self.id, self.start, self.duration)
     }
 }
 
 impl TestTime for ui::Keyframe {
     fn timing(&self) -> ui::ItemTime {
-        ui::ItemTime {
-            id: self.id,
-            time: self.time,
-            duration: self.duration,
-        }
+        ui::ItemTime::new(self.id, self.time, self.duration)
     }
 }
 
@@ -92,6 +88,8 @@ pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
                 initial.set(None);
                 observer.call(EditPhase::Cancel);
             }
+            // Variants added later fall back to being ignored.
+            _ => {}
         }
     }
 }

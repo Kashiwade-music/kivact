@@ -18,7 +18,9 @@ use kivact::{Binding, Callback, Value};
 use std::rc::Rc;
 
 /// The display area in logical and physical pixels.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct SurfaceSize {
     pub logical: Size,
     pub physical_width: u32,
@@ -27,7 +29,9 @@ pub struct SurfaceSize {
 }
 
 /// Pointer input in image coordinates, after the display transform is inverted.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct SurfacePointer {
     pub position: Point,
     pub phase: PointerPhase,
@@ -38,7 +42,9 @@ pub struct SurfacePointer {
 }
 
 /// An application-owned semantic rectangle in image coordinates.
+/// Built with [`SurfaceRegion::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct SurfaceRegion {
     pub id: u64,
     pub name: String,

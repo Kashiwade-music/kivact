@@ -6,7 +6,9 @@ use kivact::style::Icon;
 /// Consumer-owned hierarchy node. Identities must be unique; parents may be absent.
 ///
 /// Siblings are shown in the order of the items that name the same parent.
+/// Built with [`TreeItem::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TreeItem {
     pub id: u64,
     pub parent: Option<u64>,
@@ -60,7 +62,9 @@ impl TreeItem {
 /// as a sibling, the lower third after it as a sibling, and the middle third
 /// inside it, as its last child. An item is never dropped on itself or into
 /// its own subtree.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct TreeDrop {
     /// The item that was dragged.
     pub id: u64,
@@ -73,6 +77,7 @@ pub struct TreeDrop {
 
 /// The application-owned restriction a user proposes changing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RestrictionFlag {
     Visible,
     Selectable,
@@ -80,7 +85,9 @@ pub enum RestrictionFlag {
 }
 
 /// An absolute proposal for all affected items in the current gesture.
+/// Produced by the framework; read its fields.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Restriction {
     pub ids: Vec<u64>,
     pub flag: RestrictionFlag,

@@ -228,6 +228,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for SplitButton<K> {
 
 /// Initial placement of a floating tool window in window coordinates.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub enum WindowPosition {
     #[default]
     Center,

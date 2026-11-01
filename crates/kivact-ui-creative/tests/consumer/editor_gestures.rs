@@ -159,10 +159,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             zoom: signal(if kind == Kind::Arrangement { 20.0 } else { 1.0 }),
             frame: signal(0.0),
             transform: signal(ViewTransform::default()),
-            view: signal(ui::GraphView {
-                time: (0.0, 440.0),
-                value: (-258.0, 0.0),
-            }),
+            view: signal(ui::GraphView::new((0.0, 440.0), (-258.0, 0.0))),
         };
         let lanes = vec![
             ui::Lane::new(0, "First"),
@@ -184,55 +181,53 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                         })
                         .collect::<Vec<_>>(),
                 ),
-                ui::ArrangementState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    ..ui::ArrangementState::new()
+                {
+                    let mut value = ui::ArrangementState::new();
+                    value.selection = model.selection.into();
+                    value.pan = model.pan.into();
+                    value.zoom = model.zoom.into();
+                    value
                 },
             )
             .snap(snap)
             .name("Gesture editor")
             .style(style().size(640, 280))
             .into_view(),
-            Kind::Timeline => app_timeline(
-                clips,
-                ui::TimeState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    playhead: model.frame.into(),
-                },
-            )
+            Kind::Timeline => app_timeline(clips, {
+                let mut value = ui::TimeState::new();
+                value.selection = model.selection.into();
+                value.pan = model.pan.into();
+                value.zoom = model.zoom.into();
+                value.playhead = model.frame.into();
+                value
+            })
             .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
             .snap(snap)
             .lanes(lanes)
             .name("Gesture editor")
             .style(style().size(640, 280))
             .into_view(),
-            Kind::DopeSheet => app_dope_sheet(
-                keys,
-                ui::TimeState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    playhead: model.frame.into(),
-                },
-            )
+            Kind::DopeSheet => app_dope_sheet(keys, {
+                let mut value = ui::TimeState::new();
+                value.selection = model.selection.into();
+                value.pan = model.pan.into();
+                value.zoom = model.zoom.into();
+                value.playhead = model.frame.into();
+                value
+            })
             .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
             .snap(snap)
             .lanes(lanes)
             .name("Gesture editor")
             .style(style().size(640, 280))
             .into_view(),
-            Kind::Graph => app_graph(
-                curves,
-                ui::GraphState {
-                    selection: model.selection.into(),
-                    view: model.view.into(),
-                    playhead: model.frame.into(),
-                },
-            )
+            Kind::Graph => app_graph(curves, {
+                let mut value = ui::GraphState::new();
+                value.selection = model.selection.into();
+                value.view = model.view.into();
+                value.playhead = model.frame.into();
+                value
+            })
             .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
             .snap(snap)
             .step(10.0, 0.01)
@@ -240,15 +235,12 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             .name("Gesture editor")
             .style(style().size(640, 280))
             .into_view(),
-            Kind::Nodes => app_node_editor(
-                nodes,
-                signal(Vec::new()),
-                ui::NodeState {
-                    selection: model.selection.into(),
-                    transform: model.transform.into(),
-                    ..ui::NodeState::new()
-                },
-            )
+            Kind::Nodes => app_node_editor(nodes, signal(Vec::new()), {
+                let mut value = ui::NodeState::new();
+                value.selection = model.selection.into();
+                value.transform = model.transform.into();
+                value
+            })
             .snap(snap)
             .name("Gesture editor")
             .style(style().size(640, 280))
@@ -340,13 +332,11 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
         ]);
         (
             data,
-            app_timeline(
-                data,
-                ui::TimeState {
-                    selection: (signal(vec![1])).into(),
-                    ..ui::TimeState::new()
-                },
-            )
+            app_timeline(data, {
+                let mut value = ui::TimeState::new();
+                value.selection = (signal(vec![1])).into();
+                value
+            })
             .test_id("trim"),
         )
     });

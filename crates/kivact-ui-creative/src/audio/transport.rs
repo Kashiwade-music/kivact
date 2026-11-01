@@ -9,11 +9,24 @@ use kivact::view::{IntoValue, IntoView, Role, View, callback};
 use kivact::{Binding, Callback};
 
 /// Playback button state; the application owns its clock.
+/// Built with [`TransportState::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TransportState {
     pub playing: bool,
     pub recording: bool,
     pub cycling: bool,
+}
+
+impl TransportState {
+    /// A transport that is `playing`, `recording` and `cycling` or not.
+    pub const fn new(playing: bool, recording: bool, cycling: bool) -> Self {
+        Self {
+            playing,
+            recording,
+            cycling,
+        }
+    }
 }
 
 impl Default for TransportState {

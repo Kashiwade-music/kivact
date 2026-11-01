@@ -3,7 +3,9 @@ use crate::KeyGlyph;
 use crate::editors::shared::model::{Clip, ItemTime, drawable};
 use kivact::style::{Color, rgb};
 /// A key at a logical time; a positive duration draws an editable bar.
+/// Built with [`Keyframe::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Keyframe {
     pub id: u64,
     pub lane: u64,
@@ -42,6 +44,7 @@ impl Keyframe {
 }
 /// An application-owned change proposed by a timeline or dope sheet.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum TimeRequest {
     /// Move or trim, with absolute times and durations.
     Retime(Vec<ItemTime>),

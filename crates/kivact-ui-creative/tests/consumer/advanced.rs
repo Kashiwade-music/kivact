@@ -29,15 +29,12 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
             let tool = signal(ui::TimelineTool::Select);
             (
                 (clips, tracks, range, tool),
-                app_arrangement(
-                    clips,
-                    tracks,
-                    ui::ArrangementState {
-                        loop_range: range.into(),
-                        tool: tool.into(),
-                        ..ui::ArrangementState::new()
-                    },
-                )
+                app_arrangement(clips, tracks, {
+                    let mut value = ui::ArrangementState::new();
+                    value.loop_range = range.into();
+                    value.tool = tool.into();
+                    value
+                })
                 .test_id("arrangement"),
             )
         });

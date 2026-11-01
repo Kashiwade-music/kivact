@@ -4,6 +4,7 @@ use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 
 /// The five accent choices in the original creative-tool catalog.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Accent {
     #[default]
     Iris,
@@ -32,6 +33,7 @@ impl Accent {
 ///
 /// Application components resolve it with [`LabelTone::color`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub enum LabelTone {
     /// The ordinary label color (`Tokens::text`).
     #[default]
@@ -64,6 +66,7 @@ impl LabelTone {
 
 /// Control-row density, independent of display scale.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Density {
     #[default]
     Comfortable,
@@ -71,7 +74,9 @@ pub enum Density {
 }
 
 /// Typed theme tokens, also usable by application-authored components.
+/// Built with [`Tokens::new`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Tokens {
     /// A caller-selected body font family. The default needs no bundled assets.
     pub body_font: String,
