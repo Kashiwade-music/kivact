@@ -8,6 +8,14 @@ use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
+/// The window procedure of the embedded child window.
+///
+/// # Safety
+///
+/// Only Windows may call this, as the window procedure that `attach`
+/// installed on a child window, on the thread that created `hwnd`, with the
+/// arguments of the message it is delivering. The window's `GWLP_USERDATA`
+/// slot must be zero or hold the `State` pointer that `attach` stored there.
 pub(super) unsafe extern "system" fn wndproc(
     hwnd: HWND,
     message: u32,

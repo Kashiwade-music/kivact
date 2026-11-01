@@ -25,6 +25,14 @@ pub struct TestParent {
     owner: std::thread::ThreadId,
     _ui: PhantomData<Rc<()>>,
 }
+/// The window procedure of the test host and its cover windows.
+///
+/// # Safety
+///
+/// Only Windows may call this, as the window procedure of a window of this
+/// module's classes, on the thread that created `hwnd`, with the arguments
+/// of the message it is delivering. The window's `GWLP_USERDATA` slot is an
+/// integer counter and `GWLP_ID` a color; neither may hold a pointer.
 unsafe extern "system" fn parent_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     if msg == WM_SYSCOMMAND && w & 0xfff0 == SC_CLOSE as usize {
         // SAFETY: this test host uses its own USERDATA as an integer counter.
@@ -186,7 +194,7 @@ impl TestParent {
             _ui: PhantomData,
         })
     }
-    /// Portable parent handle for ChildOptions.
+    /// Portable parent handle to pass to `embed::open`.
     pub fn parent(&self) -> ParentWindow {
         ParentWindow::Win32(std::num::NonZeroIsize::new(self.hwnd).expect("live native handle"))
     }

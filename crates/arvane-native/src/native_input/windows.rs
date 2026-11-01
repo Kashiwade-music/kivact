@@ -146,6 +146,15 @@ fn release(hwnd: HWND, data: *const NativeInput) {
     drop(unsafe { Rc::from_raw(data) });
 }
 
+/// The window subclass procedure (`SUBCLASSPROC`) installed by `install`.
+///
+/// # Safety
+///
+/// Only Windows may call this, as the subclass procedure that `install`
+/// registered, on the thread that owns `hwnd`, with the arguments of the
+/// message it is delivering. `data` must be the `NativeInput` pointer that
+/// `install` gave the subclass, which holds a strong count of it until the
+/// subclass is removed.
 unsafe extern "system" fn subclass(
     hwnd: HWND,
     message: u32,
