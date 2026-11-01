@@ -51,7 +51,8 @@
 //!   filters; no scene draws them (this module draws their effects with
 //!   destination-out instead).
 
-use super::{Area, Canvas, Group, Painter};
+use super::canvas::Canvas;
+use super::painter::{Area, Group, Painter};
 use crate::convert;
 use kivact_types::{
     Backdrop, BoxShadow, DrawCommand, Mask, Radius, Rect as LogicalRect, Rgba,
