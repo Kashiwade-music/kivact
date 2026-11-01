@@ -1,3 +1,5 @@
+![](assets/Kivact_Banner.svg)
+
 # Kivact
 
 [English](README.md)
