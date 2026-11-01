@@ -12,15 +12,14 @@ fn moved(state: State, point: Point) {
     let start = state.point(state.press.origin());
     match state.drag_state() {
         Some(Drag::Items) => {
-            let dx = point.x - start.x;
-            let delta = Point::new(
+            let snap = |d: f32| {
                 if state.snap.get() {
-                    (dx / 10.0).round() * 10.0
+                    (d / 10.0).round() * 10.0
                 } else {
-                    dx
-                },
-                point.y - start.y,
-            );
+                    d
+                }
+            };
+            let delta = Point::new(snap(point.x - start.x), snap(point.y - start.y));
             if delta.x == 0.0 && delta.y == 0.0 && !state.edit.is_active() {
                 return;
             }

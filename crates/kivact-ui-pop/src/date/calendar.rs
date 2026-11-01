@@ -33,12 +33,12 @@ enum Mark {
 ///
 /// The first column is [`week_starts_on`](Calendar::week_starts_on), by
 /// default the first day of the week of the App's locale. The texts are
-/// read through message keys: `calendar.sun` through `calendar.sat` for the
-/// weekday headings, `calendar.previous` (`Previous month`) and
-/// `calendar.next` (`Next month`) and, with
-/// [`year_navigation`](Calendar::year_navigation), `calendar.previous_year`
-/// (`Previous year`) and `calendar.next_year` (`Next year`) for the buttons,
-/// and `calendar.title` (`{year}-{month}`, the month in two digits) for the
+/// read through message keys: `pop.calendar.sun` through `pop.calendar.sat` for the
+/// weekday headings, `pop.calendar.previous` (`Previous month`) and
+/// `pop.calendar.next` (`Next month`) and, with
+/// [`year_navigation`](Calendar::year_navigation), `pop.calendar.previous_year`
+/// (`Previous year`) and `pop.calendar.next_year` (`Next year`) for the buttons,
+/// and `pop.calendar.title` (`{year}-{month}`, the month in two digits) for the
 /// title above the days.
 ///
 /// Keys on a focused day: the arrows move by a day or a week, Home and End
@@ -130,7 +130,7 @@ impl Calendar {
     /// Replace the title with year and month selects (default `false`;
     /// constant or reactive).
     /// The year menu covers the shown year plus or minus 50. The labels use
-    /// `calendar.year` (`Year`) and `calendar.month` (`Month`); each month's
+    /// `pop.calendar.year` (`Year`) and `pop.calendar.month` (`Month`); each month's
     /// label uses the same formatter as [`Self::month_title`]. Navigation
     /// changes the shown month without changing the selected day.
     #[track_caller]
@@ -140,7 +140,7 @@ impl Calendar {
     }
 
     /// The title above the days, from the first day of the shown month
-    /// (default: the message `calendar.title`).
+    /// (default: the message `pop.calendar.title`).
     pub fn month_title(mut self, f: impl Fn(CalendarDate) -> String + 'static) -> Self {
         self.month_title = Some(Rc::new(f));
         self

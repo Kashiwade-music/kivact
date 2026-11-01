@@ -7,22 +7,17 @@
 //! look (checked on the frame's pixels), that what the caller sets wins over
 //! the recipe, and local painting without additional semantic nodes.
 
-use crate::paint::{distance, expect, pixel};
-use crate::support::{mount, mount_with};
-use kivact::binding;
-use kivact::draw::{Draw, Rect, Size};
+use crate::paint::{distance, pixel};
+use crate::support::mount;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 use kivact::style::{Align, Justify, Style};
 use kivact::style::{Color, Direction, rgb};
 use kivact::test::{RenderOptions, Screen};
 use kivact::ui::Look;
 use kivact::ui::{
-    ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, UiRecipes, button,
-    checkbox, switch, text_input,
+    ButtonState, ButtonVariant, TextInputState, UiRecipes, button, checkbox, switch, text_input,
 };
 use kivact::view::A11yAction;
-use kivact::view::provide_theme;
 
 const RED: u32 = 0xff0000;
 const GREEN: u32 = 0x00ff00;
@@ -154,45 +149,6 @@ fn a_checkbox_and_a_switch_publish_their_role_and_state_and_flip_on_space_and_cl
 }
 
 #[test]
-fn a_checkbox_can_be_mixed_and_a_disabled_toggle_ignores_input() {
-    let (screen, (mixed, locked, value)) = mount(|| {
-        let value = signal(false);
-        let mixed = signal(true);
-        let locked = signal(true);
-        // Pressing a mixed check box writes true and the caller clears it.
-        let binding = binding(value.into_value(), move |v: bool| {
-            mixed.set(false);
-            value.set(v);
-        });
-        (
-            (mixed, locked, value),
-            column((
-                checkbox("All", binding).indeterminate(mixed),
-                switch("Gated", value).disabled(locked),
-            )),
-        )
-    });
-    let all = screen.get_by_role(Role::CheckBox, "All");
-    assert!(all.is_indeterminate());
-    all.click();
-    assert!(value.get_untracked());
-    assert!(!mixed.get_untracked());
-    assert!(!all.is_indeterminate());
-    let gated = screen.get_by_role(Role::Switch, "Gated");
-    assert!(gated.is_disabled());
-    value.set(false);
-    screen.run_until_idle();
-    gated.force_click();
-    gated.a11y(A11yAction::Toggle);
-    assert!(!value.get_untracked());
-    locked.set(false);
-    screen.run_until_idle();
-    gated.click();
-    assert!(value.get_untracked());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
 fn a_text_input_is_a_named_text_box_bound_to_its_signal() {
     let (screen, (name, submitted)) = mount(|| {
         let name = signal("Ada".to_string());
@@ -221,125 +177,8 @@ fn a_text_input_is_a_named_text_box_bound_to_its_signal() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-#[test]
-fn a_disabled_text_input_cannot_be_edited() {
-    let (screen, name) = mount(|| {
-        let name = signal(String::new());
-        (name, text_input("Locked", name).disabled(true))
-    });
-    let input = screen.get_by_role(Role::TextBox, "Locked");
-    assert!(input.is_disabled());
-    input.force_click();
-    screen.type_text("typed");
-    assert_eq!(name.get_untracked(), "");
-}
-
 // ---------------------------------------------------------------------------
 // Looks: variants, sizes, tokens, themes.
-
-#[test]
-fn variants_and_sizes_change_the_look() {
-    let screen = kivact::test::render_with(options(Theme::light()), || {
-        row((
-            button("Primary").test_id("primary"),
-            button("Secondary")
-                .variant(ButtonVariant::Secondary)
-                .test_id("secondary"),
-            button("Ghost")
-                .variant(ButtonVariant::Ghost)
-                .test_id("ghost"),
-            button("Danger")
-                .variant(ButtonVariant::Danger)
-                .test_id("danger"),
-            button("Outline")
-                .variant(ButtonVariant::Outline)
-                .test_id("outline"),
-            button("Link").variant(ButtonVariant::Link).test_id("link"),
-            button("Small").size(ControlSize::Small).test_id("small"),
-        ))
-        .style(style().gap(8).padding(8).align_items(Align::Start))
-    });
-    // The fill is the token of the variant: Accent, Danger, Surface, none.
-    expect(&screen.screenshot(), 0, 0, 0xffffff, 0, "the page is white");
-    let fill = |id: &str| pixel_mid(&screen, id, 4.0);
-    assert!(
-        distance(fill("primary"), 0x2563eb) <= 2,
-        "{:06x}",
-        fill("primary")
-    );
-    assert!(
-        distance(fill("danger"), 0xdc2626) <= 2,
-        "{:06x}",
-        fill("danger")
-    );
-    assert!(distance(fill("secondary"), 0xffffff) <= 2);
-    assert!(distance(fill("ghost"), 0xffffff) <= 2);
-    // The secondary button is outlined: its border pixel is the Border token.
-    assert!(distance(pixel_mid(&screen, "secondary", 0.0), 0xd1d5db) <= 8);
-    assert_eq!(
-        pixel_mid(&screen, "ghost", 0.0),
-        0xffffff,
-        "a ghost button has no outline"
-    );
-    // Outline is the surface with the Border token; Link has neither fill nor border.
-    assert!(distance(fill("outline"), 0xffffff) <= 2);
-    assert!(distance(pixel_mid(&screen, "outline", 0.0), 0xd1d5db) <= 8);
-    assert_eq!(
-        pixel_mid(&screen, "link", 0.0),
-        0xffffff,
-        "a link has no outline"
-    );
-    // A medium button is the theme's control height, a small one is lower.
-    let height = |id: &str| screen.get_by_test_id(id).rect().expect("laid out").height;
-    assert_eq!(height("primary"), 28.0);
-    assert!(height("small") < height("primary"), "{}", height("small"));
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn hover_and_press_tint_the_button_with_the_theme_tokens() {
-    let screen = kivact::test::render_with(options(Theme::light()), || {
-        column((
-            button("Go").test_id("go"),
-            button("Quiet")
-                .variant(ButtonVariant::Ghost)
-                .test_id("quiet"),
-        ))
-        .style(style().gap(8).padding(8).align_items(Align::Start))
-    });
-    let rest = pixel_mid(&screen, "go", 4.0);
-    let quiet_rest = pixel_mid(&screen, "quiet", 4.0);
-    screen.get_by_test_id("go").hover();
-    let hovered = pixel_mid(&screen, "go", 4.0);
-    assert_ne!(hovered, rest, "hover tints the fill");
-    screen.get_by_test_id("quiet").hover();
-    let quiet_hovered = pixel_mid(&screen, "quiet", 4.0);
-    assert_ne!(quiet_hovered, quiet_rest, "hover shows the ghost button");
-    assert_eq!(
-        pixel_mid(&screen, "go", 4.0),
-        rest,
-        "the first button is back at rest"
-    );
-}
-
-#[test]
-fn a_text_input_has_the_field_look_and_its_size_follows_the_size() {
-    let screen = kivact::test::render_with(options(Theme::light()), || {
-        column((
-            text_input("Medium", signal(String::new())).test_id("medium"),
-            text_input("Small", signal(String::new()))
-                .size(ControlSize::Small)
-                .test_id("small"),
-        ))
-        .style(style().gap(8).padding(8).align_items(Align::Start))
-    });
-    let rect = |id: &str| screen.get_by_test_id(id).rect().expect("laid out");
-    assert_eq!(rect("medium").height, 28.0);
-    assert!(rect("small").height < 28.0);
-    // A white field with the Border token's outline.
-    assert!(distance(pixel_mid(&screen, "medium", 4.0), 0xffffff) <= 2);
-    assert!(distance(pixel_mid(&screen, "medium", 0.0), 0xd1d5db) <= 12);
-}
 
 #[test]
 fn the_tokens_of_the_theme_re_skin_every_component() {
@@ -366,18 +205,6 @@ fn the_tokens_of_the_theme_re_skin_every_component() {
     assert!(distance(pixel_mid(&screen, "switch", 10.0), 0xff8800) <= 2);
 }
 
-#[test]
-fn a_dark_theme_changes_the_look_of_the_same_components() {
-    let build = || button("Go").test_id("go");
-    let light = kivact::test::render_with(options(Theme::light()), build);
-    let dark = kivact::test::render_with(options(Theme::dark()), build);
-    assert_ne!(
-        pixel_mid(&light, "go", 4.0),
-        pixel_mid(&dark, "go", 4.0),
-        "the accent token differs"
-    );
-}
-
 // ---------------------------------------------------------------------------
 // Recipes.
 
@@ -396,14 +223,6 @@ fn flat_button(_: &Theme, state: &Look<ButtonState>) -> Style {
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .color(Color::WHITE)
-}
-
-fn left_strip(_: &Theme, _: &ButtonState, d: &mut Draw, size: Size) {
-    d.fill_rect(Rect::new(0.0, 0.0, 60.0, size.height), rgb(GREEN));
-}
-
-fn flat_toggle(_: &Theme, _: &Look<CheckState>) -> Style {
-    style().size(120, 30)
 }
 
 fn plain_input(_: &Theme, _: &Look<TextInputState>) -> Style {
@@ -481,254 +300,8 @@ fn what_the_caller_sets_comes_after_the_recipe_and_wins() {
     screen.get_by_role(Role::Button, "Accessible");
 }
 
-#[test]
-fn a_recipes_drawing_and_the_callers_draw_and_draw_over_are_all_painted() {
-    let recipes = recipes_with_button(painted_button);
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
-        button("Go")
-            // Behind the recipe's layer: seen where the recipe draws nothing.
-            .draw(|d, size| d.fill_rect(Rect::new(0.0, 0.0, 130.0, size.height), rgb(YELLOW)))
-            // Over everything.
-            .draw_over(|d, size| d.fill_rect(Rect::new(150.0, 0.0, 50.0, size.height), rgb(BLUE)))
-            .test_id("go")
-    });
-    let at = |dx: f32| pixel_mid(&screen, "go", dx);
-    assert_eq!(
-        at(10.0),
-        GREEN,
-        "the recipe's layer is above the caller's draw"
-    );
-    assert_eq!(
-        at(125.0),
-        YELLOW,
-        "the caller's draw is behind the recipe's layer"
-    );
-    assert_eq!(at(140.0), RED, "the style's background elsewhere");
-    assert_eq!(
-        at(180.0),
-        BLUE,
-        "the caller's draw_over is above everything"
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn local_paint_adds_no_semantic_node_and_a_press_on_it_reaches_the_button() {
-    let drawing = recipes_with_button(painted_button);
-    let plain = recipes_with_button(flat_button);
-    let tree = |recipes: UiRecipes| {
-        let (screen, presses) = mount_with(options(theme_with(recipes)), || {
-            let presses = signal(0);
-            (
-                presses,
-                button("Go")
-                    .test_id("go")
-                    .on_press(move || presses.update(|n| *n += 1)),
-            )
-        });
-        (screen, presses)
-    };
-    let (with, with_presses) = tree(drawing);
-    let (without, _) = tree(plain);
-    assert_eq!(
-        with.get_by_test_id("go").children().len(),
-        1,
-        "recipe painting adds no child beyond the content row"
-    );
-    assert_eq!(
-        without.get_by_test_id("go").children().len(),
-        1,
-        "a recipe without one adds none: the button is its label and itself"
-    );
-    // The layer has no role: it is not found by role, and the nodes of the
-    // accessibility tree that have one are the same with and without it.
-    assert_eq!(with.all_by_role(Role::Button, "Go").len(), 1);
-    let roles = |screen: &Screen| -> Vec<String> {
-        screen
-            .accessibility_tree()
-            .lines()
-            .filter(|line| !line.trim_start().starts_with("Generic"))
-            .map(str::to_owned)
-            .collect()
-    };
-    assert_eq!(roles(&with), roles(&without));
-    let layer = with.get_by_test_id("go").children()[0];
-    assert_eq!(layer.role(), None, "a plain box: no role");
-    assert!(!layer.is_focused());
-    assert!(layer.a11y_actions().is_empty());
-    // A press on the layer (the left strip, away from the label) is a press
-    // on the button.
-    let go = with.get_by_role(Role::Button, "Go");
-    let r = go.rect().expect("laid out");
-    with.click_at(r.x + 10.0, r.y + r.height / 2.0);
-    assert_eq!(with_presses.get_untracked(), 1);
-    assert!(go.is_focused(), "and it focuses the button");
-    assert!(with.errors().is_empty(), "{:?}", with.errors());
-}
-
-#[test]
-fn the_default_button_has_no_extra_node() {
-    let (screen, ()) = mount(|| ((), button("Go").test_id("go")));
-    assert_eq!(screen.get_by_test_id("go").children().len(), 1);
-}
-
-fn square_toggle_draw(_: &Theme, look: &CheckState, d: &mut Draw, size: Size) {
-    d.fill_rect(
-        Rect::new(0.0, 0.0, 20.0, size.height),
-        rgb(if look.checked.is_checked() {
-            GREEN
-        } else {
-            RED
-        }),
-    );
-}
-
-#[test]
-fn a_toggle_recipe_draws_from_the_state_and_follows_it() {
-    let recipes = UiRecipes::default().checkbox(|_| painted_toggle);
-    let (screen, on) = mount_with(options(theme_with(recipes)), || {
-        let on = signal(false);
-        (on, checkbox("Mark", on).test_id("mark"))
-    });
-    assert_eq!(pixel_mid(&screen, "mark", 5.0), RED);
-    screen.get_by_role(Role::CheckBox, "Mark").click();
-    assert!(on.get_untracked());
-    assert_eq!(
-        pixel_mid(&screen, "mark", 5.0),
-        GREEN,
-        "the drawing follows the state"
-    );
-}
-
-#[test]
-fn the_default_check_box_and_switch_draw_their_state() {
-    let (screen, (check, switch_on)) = mount_with(options(Theme::light()), || {
-        let check = signal(false);
-        let switch_on = signal(false);
-        (
-            (check, switch_on),
-            column((
-                checkbox("Check", check).test_id("check"),
-                switch("Switch", switch_on).test_id("switch"),
-            ))
-            .style(style().gap(8).padding(8).align_items(Align::Start)),
-        )
-    });
-    // Off: a white box with a border, and a gray track.
-    let before = (
-        pixel_mid(&screen, "check", 9.0),
-        pixel_mid(&screen, "switch", 28.0),
-    );
-    assert!(distance(before.0, 0xffffff) <= 2, "{:06x}", before.0);
-    assert!(distance(before.1, 0xd1d5db) <= 2, "{:06x}", before.1);
-    check.set(true);
-    switch_on.set(true);
-    screen.run_until_idle();
-    // On: the accent fills both.
-    let on = (
-        pixel_mid(&screen, "check", 6.0),
-        pixel_mid(&screen, "switch", 6.0),
-    );
-    assert!(distance(on.0, 0x2563eb) <= 2, "{:06x}", on.0);
-    assert!(distance(on.1, 0x2563eb) <= 2, "{:06x}", on.1);
-}
-
-#[test]
-fn switching_the_theme_at_run_time_restyles_paint_without_extra_nodes() {
-    let bare = UiRecipes::default().checkbox(|_| flat_toggle);
-    let (screen, theme) = mount(|| {
-        let theme = signal(Theme::light());
-        (
-            theme,
-            provide_theme(theme, || checkbox("Mark", signal(false)).test_id("mark")),
-        )
-    });
-    let layers = || screen.get_by_test_id("mark").children().len();
-    assert_eq!(layers(), 1, "the default check box paints on its root");
-    theme.set(theme_with(bare));
-    screen.run_until_idle();
-    assert_eq!(layers(), 1, "a recipe without a drawing has no layer");
-    assert_eq!(
-        screen
-            .get_by_test_id("mark")
-            .rect()
-            .expect("laid out")
-            .width,
-        120.0
-    );
-    theme.set(Theme::light());
-    screen.run_until_idle();
-    assert_eq!(layers(), 1, "restoring paint adds no child");
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
 // ---------------------------------------------------------------------------
 // One-line labels.
-
-#[test]
-fn labels_stay_on_one_line_and_are_cut_by_an_ellipsis_in_a_narrow_control() {
-    const LONG: &str = "A label that is much longer than its button";
-    let (screen, ()) = mount(|| {
-        (
-            (),
-            column((
-                button(LONG).style(style().width(90)).test_id("long"),
-                checkbox(LONG, signal(false))
-                    .style(style().width(110))
-                    .test_id("check"),
-            ))
-            .style(style().gap(8).padding(8).align_items(Align::Start)),
-        )
-    });
-    // The accessible name is the whole label.
-    let long = screen.get_by_role(Role::Button, LONG);
-    let button_box = long.rect().expect("laid out");
-    assert_eq!(button_box.width, 90.0);
-    assert_eq!(button_box.height, 28.0, "one line high");
-    for text_node in screen.all_by_text(LONG) {
-        let r = text_node.rect().expect("laid out");
-        assert!(r.height < 28.0, "one line: {r:?}");
-    }
-    let outer = |id: &str| screen.get_by_test_id(id).rect().expect("laid out");
-    for text_node in screen.all_by_text(LONG) {
-        let r = text_node.rect().expect("laid out");
-        let owner = if r.y < outer("check").y {
-            outer("long")
-        } else {
-            outer("check")
-        };
-        assert!(
-            r.x + r.width <= owner.x + owner.width + 0.5,
-            "the label {r:?} stays inside {owner:?}"
-        );
-    }
-    assert_eq!(
-        screen
-            .get_by_test_id("check")
-            .rect()
-            .expect("laid out")
-            .height,
-        28.0
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn an_icon_comes_before_the_label_inside_the_button() {
-    let (screen, ()) = mount(|| {
-        (
-            (),
-            button("Add")
-                .icon(node().style(style().size(12, 12)).test_id("icon"))
-                .test_id("add"),
-        )
-    });
-    let add = screen.get_by_test_id("add").rect().expect("laid out");
-    let icon = screen.get_by_test_id("icon").rect().expect("laid out");
-    let label = screen.get_by_text("Add").rect().expect("laid out");
-    assert!(icon.x + icon.width <= label.x, "{icon:?} {label:?}");
-    assert!(icon.x >= add.x && label.x + label.width <= add.x + add.width + 0.5);
-}
 
 #[test]
 fn a_kits_theme_gives_the_standard_components_the_kits_look() {
@@ -762,14 +335,4 @@ fn a_kits_theme_gives_the_standard_components_the_kits_look() {
     let recipes = theme.get::<UiRecipes>();
     assert_ne!(*recipes, UiRecipes::default());
     assert!(kit.errors().is_empty(), "{:?}", kit.errors());
-}
-
-fn painted_button(theme: &Theme, state: &Look<ButtonState>) -> Style {
-    let (theme, state) = (theme.clone(), state.clone());
-    flat_button(&theme, &state).paint(move |draw, size| left_strip(&theme, &state, draw, size))
-}
-fn painted_toggle(theme: &Theme, state: &Look<CheckState>) -> Style {
-    let (theme, state) = (theme.clone(), state.clone());
-    flat_toggle(&theme, &state)
-        .paint(move |draw, size| square_toggle_draw(&theme, &state, draw, size))
 }

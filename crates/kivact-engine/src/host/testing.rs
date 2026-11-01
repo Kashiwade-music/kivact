@@ -732,13 +732,6 @@ impl ArvaneTestHost {
         tree.iter().filter(|(id, _)| tree.live(*id)).count()
     }
 
-    /// How many times the retained paint list was built (a frame builds it
-    /// only when something restacked): a test compares it before and after
-    /// a change to see whether the change restacked.
-    pub fn paint_list_builds(&self) -> u64 {
-        self.host.model.borrow().paint.list_builds()
-    }
-
     /// The layout defects of the texts and text inputs in the subtree of
     /// `scope` (the whole tree without one), in tree order, with the glyphs'
     /// ink as the vertical extent of a line. Nothing is changed or sent.

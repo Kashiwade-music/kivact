@@ -4,7 +4,7 @@
 //! first layout, so the first frame already measures text with them, and a
 //! rejected one is a diagnostic located at its call. The rest of the image
 //! and font behaviour is checked through the public API (`kivact`'s
-//! `tests/assets.rs` and `tests/image_inputs.rs`); only the App's fonts
+//! `tests/assets.rs`); only the App's fonts
 //! need the crate-internal `Screen::start`.
 
 use std::panic::Location;

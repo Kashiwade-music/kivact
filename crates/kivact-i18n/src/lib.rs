@@ -52,8 +52,7 @@
 //!
 //! A component passes the `Value<String>` it read to `name`, `text` or
 //! `placeholder` as it is and makes no effect of its own for the text. A
-//! component with texts lists their keys and defaults in its rustdoc (and
-//! `docs/for-kivact-ui-user` keeps a table per kit). The core holds no
+//! component with texts lists their keys and defaults in its rustdoc. The core holds no
 //! translation resources and no plural rules: the App builds its
 //! [`Messages`] (the part i18next or solid-i18n would play), and a text
 //! that needs plural forms gets one key per form. Of the regional

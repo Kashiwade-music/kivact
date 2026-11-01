@@ -1,0 +1,12 @@
+# Game 作業別ガイド
+
+[English](../../../en/game/how-to-guide/README.md)
+
+Game キット（`kivact-ui-game`）で 1 つの作業を片づけるためのガイド集です。[Game のチュートリアル](../getting-started/README.md) を終えていることを前提にしています。コンポーネントとオプションの全一覧は `cargo doc -p kivact-ui-game --open` で確認できます。
+
+| ガイド | 目的 |
+| --- | --- |
+| [テーマと密度を設定する](theme-and-density.md) | テーマを入れ、ライトとダーク、コンパクトな密度を選び、色とフォントを変える。 |
+| [一覧とツリーでアイテムを見せる](item-lists-and-selection.md) | プレイヤーが選ぶアイテムを、アイテムも選択もアプリが持つ形で見せる。 |
+| [メーターと状態を見せる](meters-and-status.md) | 体力バー、主要な数値、状態ラベル、プロパティ表、イベントログを見せる。 |
+| [選択肢とクイック操作を用意する](choices-and-toolbars.md) | セグメント、カード、縦のナビゲーションで選ばせ、ツールバーでクイック操作を提供する。 |

@@ -14,7 +14,6 @@ gpu = ["kivact/gpu"]
 [dependencies]
 async-channel = { workspace = true }
 kivact = { path = "../../../crates/kivact", default-features = false, features = ["test", "embed"] }
-kivact-external-component = { path = "../fixtures/external-component" }
 kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
 kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
 kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }

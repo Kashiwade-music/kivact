@@ -46,13 +46,6 @@ impl PaintState {
         }
     }
 
-    /// How many times the paint list was built (a test reads it to see
-    /// that a change did not restack).
-    #[cfg(feature = "testing")]
-    pub(crate) fn list_builds(&self) -> u64 {
-        self.list.builds
-    }
-
     /// The window's scale factor the next frame is drawn at.
     pub(crate) fn set_scale(&mut self, scale: f32) {
         self.scale = scale;
@@ -176,8 +169,6 @@ pub(crate) struct PaintList {
     pub(super) backdrop_reach: f32,
     /// Rebuild before the next frame.
     pub(super) stale: bool,
-    /// Builds so far.
-    pub(super) builds: u64,
     /// The window size and raster scale it was culled for.
     pub(super) built_for: Option<(Size, f32)>,
     /// The child indices of the containers with many children.

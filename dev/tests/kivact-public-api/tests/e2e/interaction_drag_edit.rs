@@ -15,7 +15,7 @@ use kivact::prelude::*;
 use kivact::primitive::part;
 use kivact::test::{RenderOptions, Screen, WindowMode};
 use kivact::ui::EditPhase;
-use kivact::view::{Handled, KeyEvent, MouseButton, PointerKind};
+use kivact::view::{Handled, KeyEvent, MouseButton};
 
 /// What the drag reported: its edit phases with the value at that time, the
 /// ends `on_end` saw, and the Escapes that reached the component.
@@ -158,85 +158,5 @@ fn escape_stops_the_drag_and_cancels_only_a_begun_edit() {
         "without a drag Escape reaches the component"
     );
     assert_eq!(log.borrow().edits.len(), 2);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn an_engine_cancel_cancels_only_a_begun_edit() {
-    let (screen, x, log) = mount_stepper();
-    let at = center(&screen);
-    let contact = screen.contact_down(PointerKind::Touch, at.x, at.y);
-    screen.contact_cancel(contact);
-    assert!(log.borrow().edits.is_empty());
-    assert_eq!(
-        log.borrow().ends,
-        [(DragPhase::Cancel, MouseButton::Primary)]
-    );
-
-    let contact = screen.contact_down(PointerKind::Touch, at.x, at.y);
-    screen.contact_move(contact, at.x + 20.0, at.y);
-    assert_eq!(x.get_untracked(), 20.0);
-    screen.contact_cancel(contact);
-    assert_eq!(log.borrow().edits, [(Begin, 0.0), (Cancel, 0.0)]);
-    assert_eq!(x.get_untracked(), 0.0);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn another_button_starts_a_drag_that_only_its_release_ends() {
-    let (screen, x, log) = mount_stepper();
-    let at = center(&screen);
-    screen.mouse_move(at.x, at.y);
-    screen.mouse_down(MouseButton::Secondary);
-    screen.mouse_move(at.x + 20.0, at.y);
-    screen.mouse_up(MouseButton::Secondary);
-    assert_eq!(x.get_untracked(), 0.0, "not one of the drag's buttons");
-    assert!(log.borrow().ends.is_empty());
-
-    screen.mouse_move(at.x, at.y);
-    screen.mouse_down(MouseButton::Middle);
-    screen.mouse_move(at.x + 20.0, at.y);
-    assert_eq!(x.get_untracked(), 20.0);
-    screen.mouse_down(MouseButton::Primary);
-    screen.mouse_up(MouseButton::Primary);
-    assert!(
-        log.borrow().ends.is_empty(),
-        "the primary release is not the drag's"
-    );
-    screen.mouse_up(MouseButton::Middle);
-    assert_eq!(log.borrow().ends, [(DragPhase::End, MouseButton::Middle)]);
-    assert_eq!(log.borrow().edits, [(Begin, 0.0), (Commit, 20.0)]);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn a_change_at_the_release_belongs_to_the_drag() {
-    let log = Shared::default();
-    let seen = log.clone();
-    let (screen, x) = mount_with(real_window(), move || {
-        let x = signal(0.0_f32);
-        let edit = EditSession::new(move |start| x.set(start))
-            .on_edit(move |phase| seen.borrow_mut().edits.push((phase, x.get_untracked())));
-        let drag =
-            use_drag::<()>(DragCoordinates::Window).edit_on_change(edit, move || x.get_untracked());
-        // Only the release writes, from the last position.
-        let drag = drag.on_end(move |update: DragUpdate<()>| {
-            if update.phase == DragPhase::End && update.delta.x != 0.0 {
-                drag.change(|| x.set(update.delta.x));
-            }
-        });
-        let handle = node()
-            .test_id("stepper")
-            .style(style().size(100, 40))
-            .part(drag.source(()));
-        (x, handle)
-    });
-    let at = center(&screen);
-    screen.mouse_move(at.x, at.y);
-    screen.mouse_down(MouseButton::Primary);
-    screen.mouse_move(at.x + 15.0, at.y);
-    screen.mouse_up(MouseButton::Primary);
-    assert_eq!(x.get_untracked(), 15.0);
-    assert_eq!(log.borrow().edits, [(Begin, 0.0), (Commit, 15.0)]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

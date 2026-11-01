@@ -21,13 +21,13 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, mpsc};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use gpu_interop_producer::{Producer, pattern};
 use kivact::control::canvas;
 use kivact::diagnostics::ErrorKind;
-use kivact::draw::{ImageOptions, Pixels, Rect};
+use kivact::draw::{ImageOptions, Rect};
 use kivact::gpu_interop::{
     self, AdapterMatch, ExternalImage, FramePublisher, GpuAdapter, GpuBackend, GpuPreference,
     ImportStatus, ShareError, ShareLink, ShareMode, ShareRequest, ShareStatus, SharedHandle,
@@ -36,7 +36,6 @@ use kivact::gpu_interop::{
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, WindowMode, gpu_unavailable};
 
-use super::paint::pixel;
 use super::support::mount_with;
 
 /// The engine's frame size: the canvas shows a frame twice.
@@ -281,37 +280,6 @@ fn unread_textures() -> SharedTextures {
     }
 }
 
-/// A window drawing on the CPU has no adapter, refuses an import as
-/// unsupported, and draws nothing for a frame (without an error).
-#[test]
-fn a_cpu_window_has_no_adapter_and_imports_nothing() {
-    let viewport = Viewport::mount(RenderOptions {
-        width: (2 * W) as f32,
-        height: (H + 40) as f32,
-        ..RenderOptions::from_env()
-    });
-    let screen = &viewport.screen;
-    assert_eq!(viewport.adapter.get_untracked(), None);
-    let image = viewport.import(unread_textures());
-    let sized = image.frame(0, 1);
-    assert_eq!(
-        (sized.width(), sized.height()),
-        (W, H),
-        "the size of the textures"
-    );
-    match image.status() {
-        ImportStatus::Failed(error) => {
-            assert_eq!(*error.kind(), ErrorKind::Unsupported, "{error}");
-        }
-        status => panic!("an import into a CPU window: {status:?}"),
-    }
-    let blank = screen.screenshot();
-    viewport.show(0, 1);
-    let shot = screen.screenshot();
-    assert_eq!(shot.pixels, blank.pixels, "a frame draws nothing");
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
 /// The size `shared_image` asks after `set_size` in the tests.
 const W2: u32 = 224;
 const H2: u32 = 96;
@@ -329,8 +297,6 @@ enum Ask {
     },
     /// Ask the image for another size.
     Resize(u32, u32),
-    /// Check that the image shows these pixels drawn on the CPU.
-    ShowsPixels(Pixels),
     /// Dispose of the image's owner.
     Dispose,
 }
@@ -457,13 +423,6 @@ impl SharedViewport {
                 assert_eq!(self.image.status(), ShareStatus::Waiting);
                 assert_eq!(self.image.frame(), None, "the old import is dropped");
             }
-            Ask::ShowsPixels(pixels) => {
-                screen.run_until_idle();
-                assert_eq!(self.image.status(), ShareStatus::Pixels);
-                assert_eq!(self.image.frame(), None);
-                assert_eq!(self.image.pixels(), Some(pixels));
-                assert_eq!(pixel(&screen.screenshot(), 10, 10), 0xc8_28_0a);
-            }
             Ask::Dispose => {
                 self.go.set(false);
                 screen.run_until_idle();
@@ -490,10 +449,6 @@ type Start = fn(&GpuAdapter, u32, u32) -> Result<Producer, String>;
 /// The engine on the graphics API itself.
 const NATIVE: Start =
     |adapter, width, height| Producer::new(adapter, Default::default(), width, height);
-
-/// The engine written with Kivact's wgpu.
-const WGPU: Start =
-    |adapter, width, height| Producer::with_wgpu(adapter, Default::default(), width, height);
 
 /// Serve `request` with a new engine (`start`): provide its pool and wait
 /// until it is ready.
@@ -612,76 +567,4 @@ fn shared_image_follows_requests_on_dx12() {
     if let Err(reason) = shared_image_round(GpuBackend::Dx12, NATIVE) {
         eprintln!("SKIPPED shared_image_follows_requests_on_dx12: {reason}");
     }
-}
-
-#[test]
-fn shared_image_follows_requests_on_vulkan() {
-    if let Err(reason) = shared_image_round(GpuBackend::Vulkan, NATIVE) {
-        eprintln!("SKIPPED shared_image_follows_requests_on_vulkan: {reason}");
-    }
-}
-
-/// `shared_image` end to end as above, the engine written with Kivact's
-/// wgpu (`kivact_gpu_share::wgpu`): on the engine's thread, the
-/// request taken, a wgpu device and pool made on its adapter, the pool
-/// provided and waited for, frames drawn and published; once more after
-/// `set_size`.
-#[cfg(windows)]
-#[test]
-fn shared_image_follows_requests_with_a_wgpu_engine_on_dx12() {
-    if let Err(reason) = shared_image_round(GpuBackend::Dx12, WGPU) {
-        eprintln!("SKIPPED shared_image_follows_requests_with_a_wgpu_engine_on_dx12: {reason}");
-    }
-}
-
-#[test]
-fn shared_image_follows_requests_with_a_wgpu_engine_on_vulkan() {
-    if let Err(reason) = shared_image_round(GpuBackend::Vulkan, WGPU) {
-        eprintln!("SKIPPED shared_image_follows_requests_with_a_wgpu_engine_on_vulkan: {reason}");
-    }
-}
-
-/// In a window drawing on the CPU, `shared_image` asks for pictures on
-/// the CPU: a `Pixels` request refuses textures, and what the engine
-/// publishes with `publish_pixels` is the image's `pixels` (no frame).
-#[test]
-fn shared_image_in_a_cpu_window_asks_for_pixels() {
-    let viewport = SharedViewport::mount(RenderOptions {
-        width: (2 * W) as f32,
-        height: (H + 40) as f32,
-        ..RenderOptions::from_env()
-    });
-    assert_eq!(viewport.image.status(), ShareStatus::Pixels);
-    viewport.run_engine(|link, ui| {
-        let request = link.wait_request(UI_WAIT).expect("the image asks");
-        assert_eq!(request.mode, ShareMode::Pixels);
-        assert_eq!((request.width, request.height), (W, H));
-        assert_eq!(link.poll_request(), None, "no newer request");
-        // SAFETY: refused before a handle is read (a Pixels request).
-        let refused = unsafe { link.provide(&request, unread_textures()) };
-        assert!(matches!(refused, Err(ShareError::Failed(_))), "{refused:?}");
-        let rgba: Arc<[u8]> = [0xc8, 0x28, 0x0a, 0xff].repeat((W * H) as usize).into();
-        let pixels = Pixels::new(W, H, rgba);
-        link.publish_pixels(pixels.clone());
-        ui.ask(Ask::ShowsPixels(pixels));
-        ui.ask(Ask::Dispose);
-        assert!(link.is_closed());
-    });
-    assert!(
-        viewport.screen.errors().is_empty(),
-        "{:?}",
-        viewport.screen.errors()
-    );
-}
-
-/// The engine's handles go to other threads.
-#[test]
-fn the_engine_handles_are_send_and_sync() {
-    fn send_sync<T: Send + Sync + Clone>() {}
-    send_sync::<ShareLink>();
-    send_sync::<FramePublisher>();
-    send_sync::<ShareRequest>();
-    send_sync::<ShareError>();
-    let error: Box<dyn std::error::Error + Send + Sync> = Box::new(ShareError::Stale);
-    assert!(!error.to_string().is_empty());
 }

@@ -13,7 +13,7 @@
 //! identity while the other metadata stays reactive. The tree adds no
 //! `scroll_with` or `page_size` of its own; single selection is
 //! `ListSelection::Single`. The Creative outliner is built on a
-//! `Tree<u64>` (see `docs/for-kivact-developer/architecture/creative-editors.md`).
+//! `Tree<u64>`.
 
 use kivact_core::view::HandlerResult;
 use std::cell::Cell;

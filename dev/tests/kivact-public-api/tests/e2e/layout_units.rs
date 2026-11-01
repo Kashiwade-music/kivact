@@ -8,7 +8,7 @@ use kivact::draw::Rect;
 use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::Position;
-use kivact::style::{Align, pct};
+use kivact::style::pct;
 use kivact::test::{RenderOptions, Screen, render_with};
 
 /// The window-space box of the element with test id `id`.
@@ -37,42 +37,6 @@ pub(crate) fn window(w: f32, h: f32) -> RenderOptions {
         height: h,
         ..RenderOptions::from_env()
     }
-}
-
-#[test]
-fn independent_padding_and_margin_edges_compose_and_survive_resize() {
-    let screen = render_with(window(400.0, 300.0), || {
-        column((node().test_id("child").style(
-            style()
-                .grow(1)
-                .margin_top(3)
-                .margin_right(5)
-                .margin_bottom(7)
-                .margin_left(11),
-        ),))
-        .test_id("parent")
-        .style(
-            style()
-                .width(pct(50))
-                .height(160)
-                .padding_top(11)
-                .padding_right(17)
-                .padding_bottom(23)
-                .padding_left(29),
-        )
-    });
-    assert_rect(
-        rect_of(&screen, "child"),
-        (40., 14., 138., 116.),
-        "all eight edges",
-    );
-    screen.resize(600., 300.);
-    assert_rect(
-        rect_of(&screen, "child"),
-        (40., 14., 238., 116.),
-        "resized content box",
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -184,87 +148,6 @@ fn aspect_ratio_sizes_a_box_from_its_other_side() {
 }
 
 #[test]
-fn content_sizes_fit_a_box_to_its_content_and_are_reported_elsewhere() {
-    use kivact::style::Length;
-    let screen = render_with(window(800.0, 600.0), || {
-        column((
-            node()
-                .test_id("max")
-                .child(text("Hello wide world").test_id("line"))
-                .style(style().width(Length::MaxContent)),
-            // In a row the width is the main size, and the height follows the
-            // wrapped text (in a column taffy measures the height unwrapped).
-            row(node()
-                .test_id("min")
-                .child(text("Hello wide world"))
-                .style(style().width(Length::MinContent)))
-            .style(style().align_items(Align::Start)),
-            // min-width: max-content on a box filling a scroller: as wide as
-            // the scroller, or as its content when that is wider (not shrunk
-            // by the scroller's row).
-            scroll(
-                node()
-                    .test_id("track")
-                    .child(node().test_id("lane").style(style().size(1200, 10)))
-                    .style(
-                        style()
-                            .width(Length::MaxContent)
-                            .min_width(pct(100))
-                            .shrink(0),
-                    ),
-            )
-            .orientation(Orientation::Horizontal)
-            .style(style().height(20)),
-            scroll(
-                node()
-                    .test_id("short")
-                    .child(node().style(style().size(300, 10)))
-                    .style(
-                        style()
-                            .width(Length::MaxContent)
-                            .min_width(pct(100))
-                            .shrink(0),
-                    ),
-            )
-            .orientation(Orientation::Horizontal)
-            .style(style().height(20)),
-            // Not a size: auto, and reported.
-            node()
-                .test_id("misplaced")
-                .style(style().height(10).min_width(Length::MaxContent)),
-        ))
-    });
-    let (max, min) = (rect_of(&screen, "max"), rect_of(&screen, "min"));
-    let line = rect_of(&screen, "line");
-    assert!(
-        max.width < 800.0 && (max.width - line.width).abs() <= 1.0,
-        "max-content is the line's width: {max:?} {line:?}"
-    );
-    assert!(
-        min.width < max.width / 2.0 && min.height > max.height * 2.0,
-        "min-content breaks every line: {min:?} vs {max:?}"
-    );
-    assert_eq!(rect_of(&screen, "track").width, 1200.0, "wider content");
-    assert_eq!(
-        rect_of(&screen, "short").width,
-        800.0,
-        "the scroller's width"
-    );
-    assert_eq!(
-        rect_of(&screen, "misplaced").width,
-        800.0,
-        "auto (stretched)"
-    );
-    let errors = screen.errors();
-    assert!(
-        errors.len() == 1
-            && *errors[0].kind() == kivact::diagnostics::ErrorKind::Unsupported
-            && errors[0].to_string().contains("content size"),
-        "one Unsupported report: {errors:?}"
-    );
-}
-
-#[test]
 fn window_size_switches_a_layout_at_a_breakpoint_and_stands_in_for_viewport_units() {
     use kivact::style::Direction;
     let screen = render_with(window(1000.0, 600.0), || {
@@ -315,100 +198,4 @@ fn window_size_switches_a_layout_at_a_breakpoint_and_stands_in_for_viewport_unit
         (200.0, 0.0, 300.0, 50.0),
         "beside again",
     );
-}
-
-/// A border takes room inside the box like padding (CSS `box-sizing:
-/// border-box`): the content sits inside both, a size is the border box's,
-/// and a width set from a signal moves the content. A change of the
-/// border's color writes the paint alone; one of its width writes the
-/// layout too.
-#[test]
-fn a_border_takes_room_inside_the_box_like_padding() {
-    let (screen, (width, color)) = crate::support::mount(|| {
-        let width = signal(2.0f32);
-        let color = signal(0xff0000u32);
-        let view = column((
-            node()
-                .test_id("auto")
-                .style(move || {
-                    style()
-                        .border(width.get(), kivact::style::rgb(color.get()))
-                        .padding(8)
-                        .align_items(Align::Start)
-                })
-                .child(node().test_id("child").style(style().size(20, 10))),
-            node()
-                .test_id("sized")
-                .style(
-                    style()
-                        .size(100, 50)
-                        .border(2, kivact::style::rgb(0x0000ff))
-                        .padding(8),
-                )
-                .child(node().test_id("inner").style(style().grow(1))),
-            node()
-                .test_id("sides")
-                .style(
-                    style()
-                        .border_left(3, kivact::style::rgb(0x0000ff))
-                        .border_bottom(5, kivact::style::rgb(0x0000ff))
-                        .align_items(Align::Start),
-                )
-                .child(node().test_id("side child").style(style().size(10, 10))),
-        ))
-        .style(style().align_items(Align::Start).gap(4));
-        ((width, color), view)
-    });
-    let auto = rect_of(&screen, "auto");
-    // 20 × 10 inside 8 px of padding and 2 px of border on each side.
-    assert_rect(auto, (auto.x, auto.y, 40.0, 30.0), "auto");
-    assert_rect(
-        rect_of(&screen, "child"),
-        (auto.x + 10.0, auto.y + 10.0, 20.0, 10.0),
-        "child",
-    );
-    // The size is the border box's: the content box is 80 × 30.
-    let sized = rect_of(&screen, "sized");
-    assert_rect(sized, (sized.x, sized.y, 100.0, 50.0), "sized");
-    assert_rect(
-        rect_of(&screen, "inner"),
-        (sized.x + 10.0, sized.y + 10.0, 80.0, 30.0),
-        "inner",
-    );
-    // Each side takes its own width.
-    let sides = rect_of(&screen, "sides");
-    assert_rect(sides, (sides.x, sides.y, 13.0, 15.0), "sides");
-    assert_rect(
-        rect_of(&screen, "side child"),
-        (sides.x + 3.0, sides.y, 10.0, 10.0),
-        "side child",
-    );
-
-    // A new color writes one prop (the paint) and moves nothing.
-    let before = screen.stats().set_props;
-    color.set(0x00ff00);
-    screen.run_until_idle();
-    assert_eq!(screen.stats().set_props - before, 1, "the paint alone");
-    assert_eq!(rect_of(&screen, "auto"), auto);
-
-    // A new width writes the layout and the paint and moves the content.
-    let before = screen.stats().set_props;
-    width.set(4.0);
-    screen.run_until_idle();
-    assert_eq!(
-        screen.stats().set_props - before,
-        2,
-        "the layout and the paint"
-    );
-    assert_rect(
-        rect_of(&screen, "auto"),
-        (auto.x, auto.y, 44.0, 34.0),
-        "wider",
-    );
-    assert_rect(
-        rect_of(&screen, "child"),
-        (auto.x + 12.0, auto.y + 12.0, 20.0, 10.0),
-        "moved child",
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

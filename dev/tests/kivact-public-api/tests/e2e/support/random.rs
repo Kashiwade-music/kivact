@@ -1,11 +1,10 @@
-//! Role: Deterministic random driver for probe tests.
+//! Role: Deterministic random driver for the model tests.
 //!
-//! The deterministic random driver of the random probe tests
-//! (`async_tests`, `lifecycle_tests`), the live counts of `Screen::stats`
-//! and the texts on the screen.
+//! The deterministic random driver of the random model tests
+//! (`async_tests`), the live counts of `Screen::stats` and the texts on the
+//! screen.
 
-use kivact::prelude::*;
-use kivact::test::{Screen, SemanticNode};
+use kivact::test::Screen;
 
 // ---------------------------------------------------------------------------
 // deterministic random driver
@@ -30,9 +29,6 @@ impl Rng {
         } else {
             (self.next() % n as u64) as usize
         }
-    }
-    pub(crate) fn chance(&mut self, pct: u64) -> bool {
-        self.next() % 100 < pct
     }
 }
 
@@ -66,19 +62,4 @@ pub(crate) fn residue(s: &Screen) -> Residue {
         loops: st.frame_loops,
         anims: st.animations,
     }
-}
-
-/// The contents of the text nodes on the screen, in tree order.
-pub(crate) fn texts(s: &Screen) -> Vec<String> {
-    fn walk(n: &SemanticNode, out: &mut Vec<String>) {
-        if n.role == Some(Role::Text) {
-            out.push(n.name.clone());
-        }
-        for c in &n.children {
-            walk(c, out);
-        }
-    }
-    let mut out = Vec::new();
-    walk(&s.snapshot(), &mut out);
-    out
 }

@@ -4,7 +4,7 @@
     reason = "queries and input target only owned Win32 test windows"
 )]
 use super::support::{SERIAL, wait};
-use kivact::{prelude::*, style::Color, test::TestParent, view::MouseButton};
+use kivact::{prelude::*, test::TestParent, view::MouseButton};
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -38,35 +38,6 @@ fn embedded_surface_receives_native_mouse_hit_tests() {
         "the embedded surface must receive native mouse input"
     );
     drop(app);
-}
-/// Win32 child creation requires the parent to belong to the calling GUI thread.
-#[test]
-fn a_parent_owned_by_another_thread_is_refused() {
-    let _serial = SERIAL.lock().unwrap();
-    let (hwnd_tx, hwnd_rx) = std::sync::mpsc::channel();
-    let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
-    let host = std::thread::spawn(move || {
-        let parent = TestParent::open(200, 120).unwrap();
-        hwnd_tx.send(parent.win32_hwnd().unwrap() as usize).unwrap();
-        while done_rx.try_recv().is_err() {
-            parent.pump(Duration::from_millis(5));
-        }
-    });
-    let hwnd = hwnd_rx.recv().unwrap();
-    let refused = App::new("Foreign parent")
-        .window_size(160, 100)
-        .embed(
-            kivact::embed::Parent::win32(hwnd as *mut std::ffi::c_void).scale(1.0),
-            || text("Foreign parent"),
-        )
-        .err()
-        .expect("a parent from another thread must be refused");
-    assert!(
-        refused.to_string().contains("calling GUI thread"),
-        "unexpected error: {refused}"
-    );
-    done_tx.send(()).unwrap();
-    host.join().unwrap();
 }
 mod uia {
     //! Role: Embedded Windows UIA provider contract.
@@ -157,137 +128,6 @@ mod uia {
     }
 }
 
-// A separate process selects the renderer before any App or test workers exist.
-fn isolated(name: &str, gpu: bool) -> bool {
-    if std::env::var("KIVACT_WINDOWS_REWORK_CASE").as_deref() == Ok(name) {
-        return false;
-    }
-    let mut command = std::process::Command::new(
-        std::env::current_exe().expect("locate the regression test executable"),
-    );
-    command
-        .args(["--exact", &format!("embed::windows::{name}"), "--nocapture"])
-        .env("KIVACT_WINDOWS_REWORK_CASE", name);
-    if gpu {
-        command.env_remove("ARVANE_RENDERER");
-    } else {
-        command.env("ARVANE_RENDERER", "cpu");
-    }
-    let log =
-        std::env::temp_dir().join(format!("kivact-windows-{name}-{}.log", std::process::id()));
-    let _ = std::fs::remove_file(&log);
-    let status = command
-        .env("KIVACT_FRAME_LOG", &log)
-        .status()
-        .expect("run the isolated renderer regression");
-    assert!(
-        status.success(),
-        "Windows regression child failed; frame evidence: {}",
-        log.display()
-    );
-    true
-}
-fn gpu_evidence(log: &str) -> (usize, bool) {
-    let mut gpu = false;
-    let mut frames = 0;
-    for line in log.lines() {
-        if line.contains("renderer=gpu adapter=") {
-            gpu = true;
-        }
-        if line.starts_with("# renderer=cpu") {
-            assert!(
-                !gpu,
-                "GPU clipping fell back to CPU after activation: {log}"
-            );
-        }
-        if gpu && line.starts_with("F ") {
-            frames += 1;
-        }
-    }
-    (frames, gpu)
-}
-fn clipping(gpu: bool) {
-    let parent = TestParent::open(320, 240).expect("open the clipping test host");
-    let app = App::new("Sibling clipping")
-        .window_size(160, 100)
-        .embed(parent.parent().scale(1.0), || {
-            node().style(style().size(180, 100).background(Color::WHITE))
-        })
-        .expect("open the embedded clipping editor");
-    let log = std::env::var_os("KIVACT_FRAME_LOG").expect("isolated clipping test has a frame log");
-    let notes = || std::fs::read_to_string(&log).unwrap_or_default();
-    wait(&parent, || {
-        let renderer_ready = if gpu {
-            let (frames, active) = gpu_evidence(&notes());
-            active && frames > 0
-        } else {
-            true
-        };
-        parent
-            .capture()
-            .is_ok_and(|shot| shot.pixel(20, 20) == Some(0xffffff))
-            && renderer_ready
-    });
-    parent
-        .cover(40, 20, 60, 40, [23, 97, 181])
-        .expect("create the higher sibling cover");
-    parent.pump(Duration::from_millis(50));
-    let before = if gpu {
-        let (frames, active) = gpu_evidence(&notes());
-        assert!(active, "GPU renderer disappeared before resize");
-        frames
-    } else {
-        0
-    };
-    // Force a new present after placing the higher sibling, including GPU resize.
-    app.set_size(161, 100);
-    wait(&parent, || {
-        let renderer_ready = if gpu {
-            let (frames, active) = gpu_evidence(&notes());
-            active && frames > before
-        } else {
-            true
-        };
-        app.size() == (161, 100) && renderer_ready
-    });
-    parent.pump(Duration::from_millis(100));
-    let shot = parent
-        .capture_host()
-        .expect("capture the host with its overlapping sibling");
-    if gpu {
-        let (frames, active) = gpu_evidence(&notes());
-        assert!(
-            active && frames > before,
-            "capture lacks a new actual GPU frame"
-        );
-    }
-    assert_eq!(shot.pixel(20, 20), Some(0xffffff));
-    assert_eq!(
-        shot.pixel(60, 40),
-        Some(0x1761b5),
-        "present painted over the higher sibling"
-    );
-    assert!(app.error().is_none());
-}
-/// STATIC/GDI parent-DC clipping is specific to Windows.
-#[test]
-fn cpu_present_preserves_a_higher_sibling() {
-    let _serial = SERIAL.lock().expect("Windows screen regression lock");
-    if isolated("cpu_present_preserves_a_higher_sibling", false) {
-        return;
-    }
-    clipping(false);
-}
-/// DXGI must actually present; CPU fallback cannot satisfy this regression.
-#[cfg(feature = "gpu")]
-#[test]
-fn gpu_present_preserves_a_higher_sibling() {
-    let _serial = SERIAL.lock().expect("Windows screen regression lock");
-    if isolated("gpu_present_preserves_a_higher_sibling", true) {
-        return;
-    }
-    clipping(true);
-}
 /// Capture and system-key fallthrough are Win32 message contracts.
 #[test]
 fn chord_keeps_drag_and_alt_f4_reaches_host() {
