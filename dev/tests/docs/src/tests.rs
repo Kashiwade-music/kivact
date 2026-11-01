@@ -38,7 +38,7 @@ fn code_blocks(text: &str) -> Vec<(&str, String)> {
 #[test]
 fn test_modules_in_guides_run_under_the_test_harness() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
-    let mut files = vec![root.join("README.md")];
+    let mut files = vec![root.join("README.md"), root.join("README_JP.md")];
     markdown_files(&root.join("docs"), &mut files);
     let mut wrong = Vec::new();
     for file in &files {

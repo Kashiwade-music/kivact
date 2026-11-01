@@ -11,4 +11,4 @@
 | Game | [ゲーム UI](kivact-ui-game/README.md) | `cargo run -p kivact-ui-game-catalog` |
 | Creative | [制作ツール UI](kivact-ui-creative/README.md) | `cargo run -p kivact-ui-creative-catalog` |
 
-学習の順番は [core 入門](../docs/for-kivact-user/getting-started/README.md)、kit の導入は [公式 UI kit 入門](../docs/for-kivact-ui-user/README.md) を参照してください。開発用の回帰アプリ、ベンチマーク、OS 入力ハーネスは [dev](../dev/README.md) にあります。
+学習の順番は [チュートリアル](../docs/for-kivact-user/jp/getting-started/README.md)、キットの導入は [UI キット ガイド](../docs/for-kivact-ui-user/jp/README.md) を参照してください。

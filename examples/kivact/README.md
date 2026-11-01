@@ -10,6 +10,4 @@
 | [async](async/README.md) | `resource` と `dynamic` による読込中・エラー・完了 | `cargo run -p kivact-example-async` |
 | [component](component/README.md) | props、children、callback を持つ部品 | `cargo run -p kivact-example-component` |
 
-各アプリの摩擦の計測は [FRICTION.md](FRICTION.md) にあります。
-
-Rust 初学者は [入門チュートリアル](../../docs/for-kivact-user/getting-started/README.md) に沿って、実行結果を確かめながらコードを変えてください。小さなアプリを作り始める雛形は [templates/basic](../../templates/basic/README.md) にあります。
+Rust 初学者は [チュートリアル](../../docs/for-kivact-user/jp/getting-started/README.md) に沿って、実行結果を確かめながらコードを変えてください。小さなアプリを作り始める雛形は [templates/basic](../../templates/basic/README.md) にあります。
