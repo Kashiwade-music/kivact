@@ -313,8 +313,7 @@ reason = "Kit E2E tests are written from the user's side and import `kivact::pre
 
 [[style.exceptions]]
 rule = "glob-imports"
-path = "crates/kivact/src/lib.rs"
-item = "prelude"
+path = "crates/kivact/src/prelude.rs"
 reason = "The facade prelude is kivact_core's prelude plus the standard UI functions."
 
 [[style.exceptions]]
