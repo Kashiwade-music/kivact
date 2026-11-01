@@ -234,3 +234,85 @@ offscreen = ["text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
 bridge = ["host", "offscreen", "text_measure", "mutation"]
 native = ["host", "offscreen", "bridge"]
+
+# ----- Google Rust Style Guide の機械的に検査できる部分（vendor/xtask-core の README「Style checks」）。
+# 例外は Google の指針自体が認める場合（意図した prelude、FFI の境界の defense in depth など）だけに書き、
+# reason にその設計上の事実を書く。件数を減らすための例外は書かない。
+[style]
+enabled = true
+extra_rules = [
+    "glob-imports",
+    "non-leaf-implementation",
+    "rustfmt-skip",
+    "non-exhaustive",
+    "catch-unwind",
+    "poison-access",
+    "options-default",
+]
+# facade（kivact）から届く crate と、四つの公式キット。
+api_packages = [
+    "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
+    "kivact-motion", "kivact-reactive", "kivact-style", "kivact-task", "kivact-types", "kivact-ui",
+    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-wire",
+]
+# 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
+options_structs = [
+    "arvane::embed::EmbedOptions",
+    "arvane::test_display::VirtualWindowOptions",
+    "arvane-native::test_display::TestWindowOptions",
+    "arvane-shell::ChildOptions",
+    "arvane-shell::ShellOptions",
+    "kivact-core::test::RenderOptions",
+    "kivact-engine::HostOptions",
+    "kivact-engine::embed::EmbedOptions",
+    "kivact-engine::testing::TestHostOptions",
+    "kivact-interaction::TooltipConfig",
+    "kivact-style::draw::ImageOptions",
+    "kivact-types::MouseSettings",
+    "kivact-ui-basic::ChartConfig",
+    "kivact-ui-creative::WindowOptions",
+]
+
+# kivact::prelude は意図した公開 API（利用者が `use kivact::prelude::*;` で始める）。
+# 利用者の立場のコード（例・雛形・公開 API とキットの E2E）だけが prelude を glob で読む。
+# これらの path でも prelude 以外の glob は書かない。
+[[style.exceptions]]
+rule = "glob-imports"
+path = "examples/*"
+reason = "Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "templates/*"
+reason = "The app template starts from `use kivact::prelude::*`, as the guides teach."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "dev/tests/kivact-public-api/*"
+reason = "Public API E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-basic/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-creative/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-game/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-ui-pop/tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact/src/lib.rs"
+item = "prelude"
+reason = "The facade prelude is kivact_core's prelude plus the standard UI functions."
