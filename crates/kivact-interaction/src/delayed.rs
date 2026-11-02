@@ -1,4 +1,4 @@
-//! Role: One delayed show and hide machine shared by tooltips, submenus and the kits' hover surfaces.
+//! Role: One delayed show and hide machine for tooltips, submenus and hover surfaces.
 //!
 //! [`Delayed`] follows a `wanted` condition late: it shows `open` after the
 //! condition turns true and hides `close` after it turns false, on host-clock

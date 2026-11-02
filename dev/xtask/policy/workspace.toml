@@ -193,7 +193,7 @@ select = ["focus_return", "list", "popup"]
 menu = ["delayed", "focus_return", "list", "popup"]
 zoom_pan = ["edit", "space_pan"]
 splitter = ["axis", "drag", "edit", "policy", "press", "scalar"]
-table = ["list", "policy", "roving", "splitter"]
+table = ["axis", "list", "policy", "roving", "splitter"]
 palette = ["combobox", "dialog", "list", "popup"]
 
 # Portable shell vocabulary and input normalization never depend on a backend.
