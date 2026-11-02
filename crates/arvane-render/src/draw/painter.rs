@@ -68,8 +68,7 @@ pub(crate) fn draw(canvas: &mut impl Canvas, caches: &mut Caches, scene: &Scene,
         device_scale: frame.scale,
         stack: Vec::new(),
         hidden: 0,
-        matrix: None,
-        replaying: false,
+        mode: Mode::Drawing,
     };
     for (i, command) in scene.commands.iter().enumerate() {
         painter.command(i, command);
@@ -100,6 +99,26 @@ pub(super) enum Area<'a> {
     Path(&'a BezPath),
 }
 
+/// What a painter is drawing.
+#[derive(Clone, Copy)]
+pub(super) enum Mode {
+    /// The scene's commands, in order.
+    Drawing,
+    /// The commands before a backdrop again (`effects.rs`): backdrops are
+    /// not drawn again, and colors go through `matrix`.
+    Replaying { matrix: Option<ColorMatrix> },
+}
+
+impl Mode {
+    /// The replay's color matrix, if any.
+    pub(super) fn matrix(&self) -> Option<&ColorMatrix> {
+        match self {
+            Self::Replaying { matrix } => matrix.as_ref(),
+            Self::Drawing => None,
+        }
+    }
+}
+
 pub(super) struct Painter<'a, C: Canvas> {
     pub(super) canvas: &'a mut C,
     pub(super) fonts: &'a mut Fonts,
@@ -116,9 +135,8 @@ pub(super) struct Painter<'a, C: Canvas> {
     pub(super) stack: Vec<Group>,
     /// Groups open since drawing stopped (0: drawing).
     pub(super) hidden: usize,
-    /// The colors of what is drawn go through it (a backdrop's replay).
-    pub(super) matrix: Option<ColorMatrix>,
-    pub(super) replaying: bool,
+    /// Drawing, or replaying for a backdrop.
+    pub(super) mode: Mode,
 }
 
 impl<C: Canvas> Painter<'_, C> {
@@ -131,7 +149,7 @@ impl<C: Canvas> Painter<'_, C> {
 
     /// `color` through the replay's matrix, as the rasterizer takes it.
     fn color(&self, color: Rgba) -> vello_cpu::color::AlphaColor<vello_cpu::color::Srgb> {
-        convert::color(gradient::color(color, self.matrix.as_ref()))
+        convert::color(gradient::color(color, self.mode.matrix()))
     }
 
     /// Hide everything up to the pop of a group being opened.
@@ -257,9 +275,9 @@ impl<C: Canvas> Painter<'_, C> {
                 {
                     return;
                 }
-                let matrix = match (color_matrix, &self.matrix) {
-                    (Some(own), Some(m)) => Some(own.then(*m)),
-                    (own, m) => own.or(*m),
+                let matrix = match (*color_matrix, self.mode.matrix().copied()) {
+                    (Some(own), Some(replay)) => Some(own.then(replay)),
+                    (own, replay) => own.or(replay),
                 };
                 let filtered;
                 let image = match matrix {
@@ -379,7 +397,7 @@ impl<C: Canvas> Painter<'_, C> {
                 });
             }
             DrawCommand::Backdrop(backdrop) => {
-                if !self.replaying {
+                if matches!(self.mode, Mode::Drawing) {
                     self.backdrop(i, backdrop);
                 }
             }
@@ -500,7 +518,7 @@ impl<C: Canvas> Painter<'_, C> {
         match paint::brush(
             paint,
             bounds,
-            self.matrix.as_ref(),
+            self.mode.matrix(),
             self.derived,
             device_scale,
         ) {
@@ -578,7 +596,7 @@ impl<C: Canvas> Painter<'_, C> {
         let Brush::Paint(brush, transform) = paint::brush(
             paint,
             bounds,
-            self.matrix.as_ref(),
+            self.mode.matrix(),
             self.derived,
             device_scale,
         ) else {

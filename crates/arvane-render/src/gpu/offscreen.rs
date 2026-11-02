@@ -18,15 +18,7 @@ impl GpuContext {
         size: Size,
         scale: f32,
     ) -> Result<CpuFrame, RenderError> {
-        // Whatever happens, the frame gives back what it acquired.
-        let rendered = match self.external.begin(scene) {
-            Ok(()) => self.render_frame(scene, size, scale),
-            Err(error) => Err(error),
-        };
-        let ended = self.external.end();
-        let frame = rendered?;
-        ended?;
-        Ok(frame)
+        self.with_external(scene, |context| context.render_frame(scene, size, scale))
     }
 
     /// [`GpuContext::render`] between the external frames' hand-offs.

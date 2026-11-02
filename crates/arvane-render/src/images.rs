@@ -60,6 +60,13 @@ impl<V: Clone> ImageCache<V> {
         self.frame += 1;
     }
 
+    /// The frame being drawn (counted by `begin_frame`), which stamps what
+    /// it uses.
+    #[cfg(feature = "gpu")]
+    pub(crate) fn frame(&self) -> u64 {
+        self.frame
+    }
+
     /// The converted `image`: the one kept from an earlier frame, else
     /// `convert`'s (kept while it fits).
     pub(crate) fn get(&mut self, image: &ImageData, convert: impl FnOnce() -> V) -> V {

@@ -7,7 +7,7 @@
 //! the context (the window) it was imported into; a scene of another
 //! window that names its id draws nothing.
 //!
-//! A frame of the context ([`External::begin`] .. [`External::end`]):
+//! A frame of the context ([`GpuContext::with_external`]):
 //! 1. For each frame the scene names, the ready fence is read on the CPU;
 //!    a frame not ready yet is waited for, all of them together at most
 //!    [`READY_WAIT`] from the frame's start. A frame still not ready, one
@@ -29,15 +29,18 @@
 //! Invariants:
 //! - Used serially on the context's thread, around the context's own
 //!   submissions (the raw submissions need it).
-//! - Every texture acquired in a frame is released in the same frame,
-//!   whether the frame was submitted, skipped or failed.
+//! - Every texture acquired in a frame is released in the same frame
+//!   (`with_external`), whether the frame was submitted, skipped or
+//!   failed; frames do not nest.
 
+use super::state::GpuContext;
 use crate::error::RenderError;
 use kivact_types::ExternalFrame;
+use kivact_types::protocol::Scene;
 use vello_hybrid::TextureId;
 
 #[cfg(feature = "gpu-interop")]
-use kivact_types::protocol::{DrawCommand, Scene};
+use kivact_types::protocol::DrawCommand;
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 #[cfg(feature = "gpu-interop")]
@@ -68,20 +71,26 @@ pub(crate) struct Bound {
 pub(crate) struct External {
     #[cfg(feature = "gpu-interop")]
     images: HashMap<ExternalImageId, Image>,
-    /// The frames drawable in the frame being drawn.
+    /// The frame being drawn ([`GpuContext::with_external`]), while one is.
     #[cfg(feature = "gpu-interop")]
-    frame: HashMap<ExternalFrame, Bound>,
-    /// The textures acquired for the frame being drawn.
-    #[cfg(feature = "gpu-interop")]
-    acquired: Vec<(ExternalImageId, usize)>,
-    /// The frame being drawn was submitted.
-    #[cfg(feature = "gpu-interop")]
-    submitted: bool,
+    frame: Option<Frame>,
     /// Frames not drawn, to be noted.
     #[cfg(feature = "gpu-interop")]
     missed: Vec<ExternalFrame>,
     #[cfg(feature = "gpu-interop")]
     next: u64,
+}
+
+/// What one frame of the context draws of the images.
+#[cfg(feature = "gpu-interop")]
+#[derive(Default)]
+struct Frame {
+    /// The frames drawable in it.
+    bound: HashMap<ExternalFrame, Bound>,
+    /// The textures acquired for it.
+    acquired: Vec<(ExternalImageId, usize)>,
+    /// Its draws were submitted.
+    submitted: bool,
 }
 
 /// One imported image.
@@ -104,7 +113,7 @@ impl External {
     /// The frame `frame`, when the frame being drawn can draw it.
     pub(crate) fn bound(&self, frame: &ExternalFrame) -> Option<&Bound> {
         #[cfg(feature = "gpu-interop")]
-        return self.frame.get(frame);
+        return self.frame.as_ref()?.bound.get(frame);
         #[cfg(not(feature = "gpu-interop"))]
         {
             let _ = frame;
@@ -116,7 +125,10 @@ impl External {
     pub(crate) fn submitted(&mut self) {
         #[cfg(feature = "gpu-interop")]
         {
-            self.submitted = true;
+            self.frame
+                .as_mut()
+                .expect("invariant: draws are submitted inside `GpuContext::with_external`")
+                .submitted = true;
         }
     }
 
@@ -131,10 +143,12 @@ impl External {
     /// Make the frames `scene` names ready to draw (steps 1 and 2 of the
     /// module documentation).
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn begin(&mut self, scene: &Scene) -> Result<(), RenderError> {
-        self.frame.clear();
-        self.acquired.clear();
-        self.submitted = false;
+    fn begin(&mut self, scene: &Scene) -> Result<(), RenderError> {
+        assert!(
+            self.frame.is_none(),
+            "invariant: frames of a context do not nest"
+        );
+        let open = self.frame.insert(Frame::default());
         if self.images.is_empty() {
             return Ok(());
         }
@@ -145,7 +159,7 @@ impl External {
             let DrawCommand::External { frame, .. } = command else {
                 continue;
             };
-            if self.frame.contains_key(frame) {
+            if open.bound.contains_key(frame) {
                 continue;
             }
             let Some(image) = self.images.get_mut(&frame.image) else {
@@ -169,7 +183,7 @@ impl External {
                 continue;
             }
             let (id, view) = image.views[slot].clone();
-            self.frame.insert(
+            open.bound.insert(
                 *frame,
                 Bound {
                     id,
@@ -195,7 +209,7 @@ impl External {
                 .import
                 .acquire(slot, value)
                 .map_err(|error| RenderError::Backend(error.to_string()))?;
-            self.acquired.push((id, slot));
+            open.acquired.push((id, slot));
         }
         Ok(())
     }
@@ -203,22 +217,24 @@ impl External {
     /// Give the textures of the frame back and signal what it drew
     /// (step 3 of the module documentation).
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn end(&mut self) -> Result<(), RenderError> {
+    fn end(&mut self) -> Result<(), RenderError> {
+        let Some(open) = self.frame.take() else {
+            return Ok(());
+        };
         let mut result = Ok(());
-        for (id, slot) in std::mem::take(&mut self.acquired) {
+        for (id, slot) in open.acquired {
             if let Some(image) = self.images.get_mut(&id)
                 && let Err(error) = image.import.release(slot)
             {
                 result = Err(RenderError::Backend(error.to_string()));
             }
         }
-        let frames = std::mem::take(&mut self.frame);
-        if !std::mem::take(&mut self.submitted) {
+        if !open.submitted {
             return result;
         }
         // The smallest and largest value drawn, by image.
         let mut drawn: HashMap<ExternalImageId, (u64, u64)> = HashMap::new();
-        for frame in frames.keys() {
+        for frame in open.bound.keys() {
             let entry = drawn
                 .entry(frame.image)
                 .or_insert((frame.value, frame.value));
@@ -324,12 +340,33 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    pub(crate) fn begin(&mut self, _: &kivact_types::protocol::Scene) -> Result<(), RenderError> {
+    fn begin(&mut self, _: &Scene) -> Result<(), RenderError> {
         Ok(())
     }
 
     /// No imports: nothing to give back.
-    pub(crate) fn end(&mut self) -> Result<(), RenderError> {
+    fn end(&mut self) -> Result<(), RenderError> {
         Ok(())
+    }
+}
+
+impl GpuContext {
+    /// Draw one frame (`draw`) between the external frames' hand-offs: the
+    /// frames `scene` names are made ready first, and every texture
+    /// acquired is given back after, whatever `draw` returned (steps 1-3
+    /// of the module documentation).
+    pub(crate) fn with_external<R>(
+        &mut self,
+        scene: &Scene,
+        draw: impl FnOnce(&mut Self) -> Result<R, RenderError>,
+    ) -> Result<R, RenderError> {
+        let drawn = match self.external.begin(scene) {
+            Ok(()) => draw(self),
+            Err(error) => Err(error),
+        };
+        let ended = self.external.end();
+        let drawn = drawn?;
+        ended?;
+        Ok(drawn)
     }
 }

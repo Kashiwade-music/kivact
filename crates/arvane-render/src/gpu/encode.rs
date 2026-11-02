@@ -226,7 +226,6 @@ fn record(
         scene.fill_rect(&Rect::new(0.0, 0.0, f64::from(width), f64::from(height)));
     }
     images.cache.begin_frame();
-    images.frame += 1;
     images.bindings = TextureBindings::new();
     let mut canvas = HybridCanvas {
         scene,
@@ -301,7 +300,7 @@ impl HybridCanvas<'_> {
             image.width,
             image.height,
         );
-        let frame = self.images.frame;
+        let frame = self.images.cache.frame();
         if let Some(slot) = self.images.atlas.get_mut(&key) {
             slot.frame = frame;
             return (slot.id, slot.width, slot.height);
@@ -332,7 +331,7 @@ impl HybridCanvas<'_> {
 
     /// Free the atlas slots of patterns this frame did not draw.
     fn free_stale_patterns(&mut self) {
-        let frame = self.images.frame;
+        let frame = self.images.cache.frame();
         let stale: Vec<ImageId> = self
             .images
             .atlas
