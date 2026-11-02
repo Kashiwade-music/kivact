@@ -14,6 +14,7 @@ use kivact_reactive::{
     AppId, EffectKind, HandlerResult, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal,
     Value, require_effectful,
 };
+use kivact_wire::motion::SpringRun;
 
 pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,
@@ -25,7 +26,8 @@ pub(crate) struct AnimCell<T: 'static> {
     pub(crate) from: RefCell<Vec<f32>>,
     pub(crate) to: RefCell<Vec<f32>>,
     pub(crate) current: RefCell<Vec<f32>>,
-    pub(crate) velocity: RefCell<Vec<f32>>,
+    /// A spring's velocity, step time and iteration (`Transition::step`).
+    pub(crate) spring: RefCell<SpringRun>,
     pub(crate) phase: Cell<Phase>,
     /// Runs that ended `RunEnd::Completed` so far (`on_complete` follows it).
     pub(crate) completed: Signal<u64>,
@@ -36,19 +38,11 @@ pub(crate) struct AnimCell<T: 'static> {
 pub(crate) enum Phase {
     /// At rest on `to`: no run.
     Idle,
-    /// A run toward `to`.
-    Running(Clock),
+    /// A run toward `to` that started at `start_ns` on the App's clock (its
+    /// delay and timing count from here).
+    Running { start_ns: u64 },
     /// A run stopped by `Animated::pause` at `at_ns`; `resume` continues it.
-    Paused { clock: Clock, at_ns: u64 },
-}
-
-/// The times of a run on the App's clock (ns).
-#[derive(Clone, Copy)]
-pub(crate) struct Clock {
-    /// When the run started (its delay and timing count from here).
-    pub(crate) start_ns: u64,
-    /// When it was last stepped (a spring integrates from here).
-    pub(crate) last_ns: u64,
+    Paused { start_ns: u64, at_ns: u64 },
 }
 
 /// Why a run ends.
@@ -62,21 +56,16 @@ pub(crate) enum RunEnd {
     Cancelled,
 }
 
-/// `clock` after a stop at `paused` that went on at `now`: times up to the
-/// stop move by its length, times during it move to `now`, later ones stay.
-fn shift(clock: Clock, paused: u64, now: u64) -> Clock {
-    let shift = |t: u64| {
-        if t <= paused {
-            t.saturating_add(now.saturating_sub(paused))
-        } else if t <= now {
-            now
-        } else {
-            t
-        }
-    };
-    Clock {
-        start_ns: shift(clock.start_ns),
-        last_ns: shift(clock.last_ns),
+/// The time `t` after a stop at `paused` that went on at `now`: times up to
+/// the stop move by its length, times during it move to `now`, later ones
+/// stay.
+fn shift(t: u64, paused: u64, now: u64) -> u64 {
+    if t <= paused {
+        t.saturating_add(now.saturating_sub(paused))
+    } else if t <= now {
+        now
+    } else {
+        t
     }
 }
 
@@ -95,14 +84,14 @@ impl<T: Animatable> AnimCell<T> {
 
     fn set_phase(&self, phase: Phase) {
         self.phase.set(phase);
-        self.running.set(matches!(phase, Phase::Running(_)));
+        self.running.set(matches!(phase, Phase::Running { .. }));
     }
 
     fn finish(&self, end: RunEnd) {
         self.set_phase(Phase::Idle);
         let to = self.to.borrow().clone();
         self.publish(&to);
-        self.velocity.borrow_mut().iter_mut().for_each(|v| *v = 0.0);
+        self.spring.borrow_mut().velocity.fill(0.0);
         if end == RunEnd::Completed {
             self.completed.update(|n| *n += 1);
         }
@@ -111,7 +100,7 @@ impl<T: Animatable> AnimCell<T> {
     /// Run from `from` toward `to` on `clock`, or end at once: a target equal
     /// to the current value starts no run, and under reduced motion a
     /// decorative run completes at once.
-    fn begin(&self, clock: Clock, reduced: bool) {
+    fn begin(&self, start_ns: u64, reduced: bool) {
         let wire = self.transition.as_wire();
         if *self.from.borrow() == *self.to.borrow() && !matches!(wire.kind, Kind::Keyframes { .. })
         {
@@ -119,7 +108,7 @@ impl<T: Animatable> AnimCell<T> {
         } else if reduced && wire.decorative {
             self.finish(RunEnd::Completed);
         } else {
-            self.set_phase(Phase::Running(clock));
+            self.set_phase(Phase::Running { start_ns });
         }
     }
 
@@ -132,26 +121,29 @@ impl<T: Animatable> AnimCell<T> {
         }
         *self.from.borrow_mut() = self.current.borrow().clone();
         *self.to.borrow_mut() = to;
-        if self.velocity.borrow().len() != T::COMPONENTS {
-            *self.velocity.borrow_mut() = vec![0.0; T::COMPONENTS];
+        {
+            let mut run = self.spring.borrow_mut();
+            if run.velocity.len() != T::COMPONENTS {
+                run.velocity = vec![0.0; T::COMPONENTS];
+            }
+            run.restart(now);
         }
-        let clock = Clock {
-            start_ns: now,
-            last_ns: now,
-        };
         // A paused run stays paused, now toward the new target, and keeps its
         // current value.
         if let Phase::Paused { .. } = phase {
-            self.set_phase(Phase::Paused { clock, at_ns: now });
+            self.set_phase(Phase::Paused {
+                start_ns: now,
+                at_ns: now,
+            });
             return;
         }
-        self.begin(clock, reduced);
+        self.begin(now, reduced);
     }
 }
 
 impl<T: Animatable> Anim for AnimCell<T> {
     fn is_running(&self) -> bool {
-        matches!(self.phase.get(), Phase::Running(_))
+        matches!(self.phase.get(), Phase::Running { .. })
     }
 
     fn finish_decorative(&self) {
@@ -162,66 +154,43 @@ impl<T: Animatable> Anim for AnimCell<T> {
 
     fn shift_clock(&self, paused: u64, now: u64) {
         match self.phase.get() {
-            Phase::Idle => {}
-            Phase::Running(clock) => self.set_phase(Phase::Running(shift(clock, paused, now))),
-            Phase::Paused { clock, at_ns } => {
+            Phase::Idle => return,
+            Phase::Running { start_ns } => self.set_phase(Phase::Running {
+                start_ns: shift(start_ns, paused, now),
+            }),
+            Phase::Paused { start_ns, at_ns } => {
                 let at_ns = if at_ns <= now {
                     at_ns.max(paused).saturating_add(now.saturating_sub(paused))
                 } else {
                     at_ns
                 };
                 self.set_phase(Phase::Paused {
-                    clock: shift(clock, paused, now),
+                    start_ns: shift(start_ns, paused, now),
                     at_ns,
                 });
             }
         }
+        let mut run = self.spring.borrow_mut();
+        run.last_ns = shift(run.last_ns, paused, now);
     }
 
     fn step(&self, now: u64) {
-        let Phase::Running(clock) = self.phase.get() else {
+        let Phase::Running { start_ns } = self.phase.get() else {
             return;
         };
-        let elapsed_ms = now.saturating_sub(clock.start_ns) as f32 / 1e6;
-        match &self.transition.as_wire().kind {
-            Kind::Spring(s) => {
-                self.set_phase(Phase::Running(Clock {
-                    last_ns: now,
-                    ..clock
-                }));
-                if elapsed_ms < self.transition.as_wire().delay_ms {
-                    return;
-                }
-                let dt = now.saturating_sub(clock.last_ns) as f32 / 1e9;
-                let to = self.to.borrow().clone();
-                let mut x = self.current.borrow().clone();
-                let mut v = self.velocity.borrow().clone();
-                if x.len() != to.len() {
-                    x = to.clone();
-                }
-                v.resize(to.len(), 0.0);
-                let settled = kivact_wire::motion::spring_step(*s, &mut x, &mut v, &to, dt);
-                *self.velocity.borrow_mut() = v.clone();
-                if settled {
-                    self.finish(RunEnd::Completed);
-                } else {
-                    self.publish(&x);
-                }
-            }
-            _ => {
-                let mut values = vec![0.0; self.to.borrow().len()];
-                let done = self.transition.as_wire().sample_timed(
-                    &self.from.borrow(),
-                    &self.to.borrow(),
-                    elapsed_ms,
-                    &mut values,
-                );
-                if done {
-                    self.finish(RunEnd::Completed);
-                } else {
-                    self.publish(&values);
-                }
-            }
+        let mut current = self.current.borrow().clone();
+        let done = self.transition.as_wire().step(
+            &self.from.borrow(),
+            &self.to.borrow(),
+            start_ns,
+            now,
+            &mut current,
+            &mut self.spring.borrow_mut(),
+        );
+        if done {
+            self.finish(RunEnd::Completed);
+        } else {
+            self.publish(&current);
         }
     }
 }
@@ -278,7 +247,10 @@ impl<T: Animatable> Animated<T> {
             from: RefCell::new(c.clone()),
             to: RefCell::new(c.clone()),
             current: RefCell::new(c),
-            velocity: RefCell::new(vec![0.0; T::COMPONENTS]),
+            spring: RefCell::new(SpringRun {
+                velocity: vec![0.0; T::COMPONENTS],
+                ..SpringRun::default()
+            }),
             phase: Cell::new(Phase::Idle),
             completed: owner.signal(0u64, at),
         });
@@ -359,9 +331,9 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::pause");
-        if let Phase::Running(clock) = cell.phase.get() {
+        if let Phase::Running { start_ns } = cell.phase.get() {
             cell.set_phase(Phase::Paused {
-                clock,
+                start_ns,
                 at_ns: rt.now_ns(),
             });
         }
@@ -374,10 +346,14 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::resume");
-        if let Phase::Paused { clock, at_ns } = cell.phase.get() {
+        if let Phase::Paused { start_ns, at_ns } = cell.phase.get() {
             let now = rt.now_ns();
             let reduced = MotionState::of(&rt).reduced_motion();
-            cell.begin(shift(clock, at_ns, now), reduced);
+            {
+                let mut run = cell.spring.borrow_mut();
+                run.last_ns = shift(run.last_ns, at_ns, now);
+            }
+            cell.begin(shift(start_ns, at_ns, now), reduced);
             rt.request_turn();
         }
     }

@@ -26,14 +26,15 @@
 //!   current value (no run starts), a `jump_to` or a disposed owner. It runs
 //!   as an effect after the interpolation and the registry borrow ended.
 //! - Reduced motion finishes decorative transitions at once.
-//! - [`Transition::repeat`] (`None`: forever) and
-//!   [`Transition::alternate`] (every other iteration backwards) write the
-//!   repeat; the engine's `Repeat` and `PlayDirection` are internal to its
-//!   wire and not re-exported. `Animated` uses the wire timing the bridge
-//!   re-exports, and the public `Easing` and `Spring` are those single
-//!   definitions, the ones the engine uses for style paint and for the
-//!   host's focus, hover and pressed transitions (one timing, spring
-//!   integration and paint interpolation).
+//! - [`Transition::repeat`] ([`Repeat`]) and [`Transition::alternate`]
+//!   (every other iteration backwards) write the repeat; the engine's
+//!   `PlayDirection` is internal to its wire and not re-exported. One
+//!   stepper (`kivact_wire::motion::Transition::step`) plays client
+//!   animations and the host's state transitions. `Animated` uses the wire
+//!   timing the bridge re-exports, and the public `Easing`, `Spring` and
+//!   `Repeat` are those single definitions, the ones the engine uses for
+//!   style paint and for the host's focus, hover and pressed transitions
+//!   (one timing, spring integration and paint interpolation).
 //!
 //! Entering and leaving ride on the state styles and the paint transition;
 //! there is no animation type for them. `Style::enter` (CSS
@@ -72,7 +73,7 @@ mod values;
 
 pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
-pub use kivact_wire::motion::{Easing, Spring};
+pub use kivact_wire::motion::{Easing, Repeat, Spring};
 pub use state::{MotionEnv, MotionState, MotionStats};
 pub use transition::Transition;
 pub use values::{Animatable, FrameInfo, FrameRate};
