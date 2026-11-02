@@ -94,8 +94,14 @@ impl Model {
                 .rebuild_style(&self.tree, &mut self.layout_state, id);
         }
         for id in self.changes.take(Dirty::LAYOUT_CHAIN) {
-            self.layout_columns
-                .invalidate_chain(&self.tree, &mut self.layout_state, id);
+            // The engine marks the shared viewport as `NodeId(0)` (ENGINE E18 replaces the mark).
+            if id == NodeId(0) {
+                self.layout_columns
+                    .invalidate_viewport(&mut self.layout_state);
+            } else {
+                self.layout_columns
+                    .invalidate_chain(&self.tree, &mut self.layout_state, id);
+            }
         }
         if std::mem::take(&mut self.changes.layout_changed) {
             self.layout_state.topology_changed();

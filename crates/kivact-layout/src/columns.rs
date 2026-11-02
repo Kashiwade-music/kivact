@@ -4,7 +4,7 @@ use crate::calcs::Calcs;
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
 use kivact_wire::{LeafSize, MeasureRequest, Point, Rect, Size};
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 
 /// The computed layout of one node.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -83,8 +83,8 @@ impl ChildCursor {
 /// Derived per-slot measurement records and calc ownership; never authoritative props.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeLayoutState {
-    pub(crate) calcs: RefCell<Vec<u32>>,
-    pub(crate) measured: RefCell<Record>,
+    pub(crate) calcs: Vec<u32>,
+    pub(crate) measured: Record,
 }
 
 /// Style, caches and optional geometry borrowed for one root computation.
@@ -136,8 +136,8 @@ impl Default for NodeLayoutValues {
 pub struct NodeLayoutColumns {
     pub(crate) cursors: Vec<ChildCursor>,
     pub(crate) states: Vec<NodeLayoutState>,
-    pub(crate) calcs: RefCell<Calcs>,
-    pub(crate) values: RefCell<NodeLayoutValues>,
+    pub(crate) calcs: Calcs,
+    pub(crate) values: NodeLayoutValues,
 }
 
 impl Default for NodeLayoutColumns {
@@ -145,8 +145,8 @@ impl Default for NodeLayoutColumns {
         Self {
             cursors: vec![ChildCursor::default()],
             states: vec![NodeLayoutState::default()],
-            calcs: RefCell::new(Calcs::default()),
-            values: RefCell::new(NodeLayoutValues::default()),
+            calcs: Calcs::default(),
+            values: NodeLayoutValues::default(),
         }
     }
 }
@@ -159,7 +159,7 @@ impl NodeLayoutColumns {
     pub fn push(&mut self) {
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
-        let values = self.values.get_mut();
+        let values = &mut self.values;
         values.styles.push(NodeStyle::default());
         values.caches.push(taffy::Cache::new());
         values.unrounded.push(taffy::Layout::new());
@@ -174,12 +174,11 @@ impl NodeLayoutColumns {
     pub fn reset(&mut self, slot: usize) {
         let index = slot + 1;
         self.calcs
-            .get_mut()
             .free
-            .extend(std::mem::take(self.states[index].calcs.get_mut()));
+            .extend(std::mem::take(&mut self.states[index].calcs));
         self.states[index] = NodeLayoutState::default();
         self.cursors[index] = ChildCursor::default();
-        let values = self.values.get_mut();
+        let values = &mut self.values;
         values.styles[index] = NodeStyle::default();
         values.caches[index] = taffy::Cache::new();
         values.unrounded[index] = taffy::Layout::new();
@@ -191,11 +190,10 @@ impl NodeLayoutColumns {
 impl NodeLayoutColumns {
     /// Drain neutral changes once; dropping the drain discards unread changes.
     /// Consume after computation and before the next compute/reset/reuse of the
-    /// paired tree domain. The drain keeps an exclusive derived-values borrow;
-    /// do not reenter geometry/computation operations while it is alive.
-    pub fn drain_geometry_changes(&self) -> GeometryChanges<'_> {
+    /// paired tree domain.
+    pub fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {
         GeometryChanges {
-            values: self.values.borrow_mut(),
+            values: &mut self.values,
             at: 0,
         }
     }
@@ -221,7 +219,7 @@ pub struct GeometryChange {
 
 /// An allocation-free drain retaining the columns' event-buffer capacity.
 pub struct GeometryChanges<'a> {
-    values: std::cell::RefMut<'a, NodeLayoutValues>,
+    values: &'a mut NodeLayoutValues,
     at: usize,
 }
 

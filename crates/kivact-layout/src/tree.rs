@@ -2,12 +2,12 @@
 //!
 //! The layout pass implements taffy's custom tree traits on `LayoutPass`,
 //! which exists only while one root is computed: it shares the borrow of
-//! the `LayoutTree` and borrows `LeafMeasure` and the layout columns, and no
-//! copy of the tree or shared measuring context outlives it. Each root
-//! computation borrows the columns' `RefCell` once: the styles as a shared
-//! slice, the caches and the geometry as mutable slices, indexed directly.
+//! the `LayoutTree` and borrows `LeafMeasure` and the layout columns mutably,
+//! and no copy of the tree or shared measuring context outlives it. Each root
+//! computation splits the columns once: the styles as a shared slice, the
+//! caches and the geometry as mutable slices, indexed directly.
 //! The tree parameter preserves its concrete type through traversal so Taffy
-//! can specialize at the caller. Leaf measurement remains dynamically borrowed.
+//! can specialize at the caller.
 //!
 //! Invariants:
 //! - The root fills the window, then each attached overlay is a root of
@@ -15,8 +15,7 @@
 //!   children of the shared viewport (position zero) in `NodeId` order;
 //!   consumers retain their own presentation order independently.
 //! - A leaf's measurements are recorded by request (`Record`) and taken
-//!   from the record before the leaf is measured; no record borrow spans a
-//!   caller's measuring closure.
+//!   from the record before the leaf is measured.
 //! - A leaf's first baseline is placed inside its padding and border:
 //!   from the content top, or from the content centre (a single-line text
 //!   input's).
@@ -37,7 +36,7 @@
 use crate::calcs::CalcAlloc;
 use crate::calcs::Calcs;
 use crate::style::node::{NodeStyle, TStyle};
-use crate::traversal::Traversal;
+use crate::traversal::{Entry, Traversal, entry, taffy_id, viewport};
 use crate::{
     Flow, GeometryChange, GeometryChangeKind, LayoutState, LayoutTree, LeafMeasure, NodeLayout,
     NodeLayoutColumns, NodeLayoutState, NodeLayoutValues,
@@ -54,7 +53,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     traversal: Traversal<'a, Tree>,
     calcs: &'a Calcs,
     no_grid: &'a TStyle,
-    records: &'a [NodeLayoutState],
+    records: &'a mut [NodeLayoutState],
     styles: &'a [NodeStyle],
     caches: &'a mut [taffy::Cache],
     unrounded: &'a mut [Layout],
@@ -80,34 +79,30 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
         let resolve = |handle, basis| calcs.resolve(handle, basis);
         let mut baseline = None;
         let mut out = taffy::compute_leaf_layout(inputs, style, resolve, |known, avail| {
-            if index == 0 {
-                return taffy::Size::ZERO;
-            }
+            let slot = match entry(t) {
+                Entry::Viewport => return taffy::Size::ZERO,
+                Entry::Slot(slot) => slot,
+            };
             let request = MeasureRequest {
                 known_width: known.width,
                 known_height: known.height,
                 available_width: from_taffy(avail.width),
                 available_height: from_taffy(avail.height),
             };
-            let id = tree
-                .id_at(index - 1)
-                .expect("invariant: layout node exists");
-            let record = &records[index].measured;
+            let id = tree.id_at(slot).expect("invariant: layout node exists");
+            let record = &mut records[index].measured;
             let cached = record
-                .borrow()
                 .sizes
                 .iter()
                 .find(|(r, _)| *r == request)
                 .map(|(_, s)| *s);
             let leaf = cached.unwrap_or_else(|| {
-                // No record borrow spans a caller-supplied measurement closure.
                 let leaf = measure.measure(id, request);
-                let mut kept = record.borrow_mut();
-                if kept.sizes.len() == 16 {
-                    kept.sizes.remove(0);
-                    kept.incomplete = true;
+                if record.sizes.len() == 16 {
+                    record.sizes.remove(0);
+                    record.incomplete = true;
                 }
-                kept.sizes.push((request, leaf));
+                record.sizes.push((request, leaf));
                 leaf
             });
             baseline = leaf.baseline;
@@ -305,7 +300,9 @@ impl<Tree: LayoutTree + ?Sized> RoundTree for LayoutPass<'_, Tree> {
             before.order = layout.order;
             before
         });
-        if index != 0 && before != Some(*layout) {
+        if let Entry::Slot(slot) = entry(t)
+            && before != Some(*layout)
+        {
             let local = before.map(|mut before| {
                 before.location = layout.location;
                 before
@@ -318,7 +315,7 @@ impl<Tree: LayoutTree + ?Sized> RoundTree for LayoutPass<'_, Tree> {
             self.geometry_changed.push(GeometryChange {
                 id: self
                     .tree
-                    .id_at(index - 1)
+                    .id_at(slot)
                     .expect("invariant: layout node exists"),
                 kind,
             });
@@ -334,8 +331,8 @@ impl NodeLayoutColumns {
     /// identity or establish whether an allocated slot is currently live.
     #[inline]
     pub fn layout_at(&self, slot: usize) -> Option<NodeLayout> {
-        let values = self.values.borrow();
-        let l = values
+        let l = self
+            .values
             .final_layout
             .get(slot.checked_add(1)?)
             .copied()
@@ -373,18 +370,11 @@ impl NodeLayoutColumns {
     ) -> Option<NodeLayout> {
         self.layout_at(tree.index_of(id)?)
     }
-    fn layout_id<Tree: LayoutTree + ?Sized>(tree: &Tree, id: NodeId) -> TId {
-        if id.0 == 0 {
-            TId::from(0usize)
-        } else {
-            crate::traversal::taffy_id(tree.index_of(id).expect("invariant: layout node exists"))
-        }
-    }
     /// Replace compiled style from authoritative raw props and invalidate its chain.
     /// Tree, state and columns must share the same slot allocation domain.
     /// An absent identity is ignored; every resolved slot must already be allocated.
     pub fn rebuild_style<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &mut LayoutState,
         id: NodeId,
@@ -394,29 +384,24 @@ impl NodeLayoutColumns {
         };
         let index = slot + 1;
         let style = {
-            let mut calcs = self.calcs.borrow_mut();
-            calcs
+            self.calcs
                 .free
-                .extend(std::mem::take(&mut *self.states[index].calcs.borrow_mut()));
+                .extend(std::mem::take(&mut self.states[index].calcs));
             let mut alloc = CalcAlloc {
-                calcs: &mut calcs,
+                calcs: &mut self.calcs,
                 owned: Vec::new(),
             };
             let (props, hidden) = tree.layout_props(slot);
             let style =
                 crate::style::taffy_style(props.unwrap_or(&Default::default()), hidden, &mut alloc);
-            *self.states[index].calcs.borrow_mut() = alloc.owned;
+            self.states[index].calcs = alloc.owned;
             style
         };
-        let root = {
-            let mut values = self.values.borrow_mut();
-            let root = values.styles[index].position == taffy::Position::Absolute
-                && style.position == taffy::Position::Absolute;
-            values.styles[index] = style;
-            root
-        };
+        let root = self.values.styles[index].position == taffy::Position::Absolute
+            && style.position == taffy::Position::Absolute;
+        self.values.styles[index] = style;
         state.changed = true;
-        *self.states[index].measured.borrow_mut() = Default::default();
+        self.states[index].measured = Default::default();
         if root {
             self.clear_caches_up(tree, state, slot);
         } else {
@@ -425,24 +410,26 @@ impl NodeLayoutColumns {
     }
     /// Invalidate a content measurement and its dependency chain.
     /// Tree, state and columns must share the same slot allocation domain.
-    /// NodeId(0) denotes the shared viewport; absent node identities mark work
-    /// changed without accessing a slot.
+    /// Absent node identities mark work changed without accessing a slot.
     pub fn invalidate_chain<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &mut LayoutState,
         id: NodeId,
     ) {
         state.changed = true;
-        if id.0 == 0 {
-            self.values.borrow_mut().caches[0].clear();
-        } else if let Some(slot) = tree.index_of(id) {
-            *self.states[slot + 1].measured.borrow_mut() = Default::default();
+        if let Some(slot) = tree.index_of(id) {
+            self.states[slot + 1].measured = Default::default();
             self.clear_caches_up(tree, state, slot);
         }
     }
+    /// Invalidate the shared viewport's layout (the container of the fixed boxes).
+    pub fn invalidate_viewport(&mut self, state: &mut LayoutState) {
+        state.changed = true;
+        self.values.caches[0].clear();
+    }
     fn clear_caches_up<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &mut LayoutState,
         slot: usize,
@@ -451,7 +438,7 @@ impl NodeLayoutColumns {
         while let Some(slot) = at {
             let flow = tree.flow(slot);
             let parent = tree.parent(slot);
-            let mut values = self.values.borrow_mut();
+            let values = &mut self.values;
             if let ClearState::AlreadyEmpty = values.caches[slot + 1].clear() {
                 break;
             }
@@ -474,25 +461,25 @@ impl NodeLayoutColumns {
         }
     }
     fn clear_caches_through<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &mut LayoutState,
         slot: usize,
     ) {
         let flow = tree.flow(slot);
         let parent = tree.parent(slot);
-        self.values.borrow_mut().caches[slot + 1].clear();
+        self.values.caches[slot + 1].clear();
         if flow == Flow::Overlay {
             return;
         }
         if flow == Flow::Fixed && parent.is_some() {
-            self.values.borrow_mut().caches[0].clear();
+            self.values.caches[0].clear();
         } else if let Some(parent) = parent {
             self.clear_caches_up(tree, state, parent);
         }
     }
     fn relayout_parents<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &mut LayoutState,
         measure: &mut dyn LeafMeasure,
@@ -505,38 +492,40 @@ impl NodeLayoutColumns {
                 continue;
             }
             let at = slot + 1;
-            let previous = {
-                let mut values = self.values.borrow_mut();
-                values.performed[at].and_then(|inputs| {
-                    values.caches[at]
-                        .get(&inputs)
-                        .map(|before| (inputs, before))
-                })
-            };
+            let performed = self.values.performed[at];
+            let previous = performed.and_then(|inputs| {
+                self.values.caches[at]
+                    .get(&inputs)
+                    .map(|before| (inputs, before))
+            });
             let Some((inputs, before)) = previous else {
                 self.clear_caches_up(tree, state, slot);
                 continue;
             };
-            self.values.borrow_mut().caches[at].clear();
+            self.values.caches[at].clear();
             let after = self.with_pass(tree, state, measure, |pass| {
                 pass.compute_child_layout(TId::from(at), inputs)
             });
             if same_from_outside(&before, &after) {
-                self.values.borrow_mut().unrounded[at].scrollable_overflow_rect =
-                    after.scrollable_overflow_rect;
+                self.values.unrounded[at].scrollable_overflow_rect = after.scrollable_overflow_rect;
             } else {
                 self.clear_caches_up(tree, state, slot);
             }
         }
     }
     fn with_pass<Tree: LayoutTree + ?Sized, R>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &LayoutState,
         measure: &mut dyn LeafMeasure,
         f: impl FnOnce(&mut LayoutPass<'_, Tree>) -> R,
     ) -> R {
-        let mut values = self.values.borrow_mut();
+        let NodeLayoutColumns {
+            cursors,
+            states,
+            calcs,
+            values,
+        } = self;
         let NodeLayoutValues {
             styles,
             caches,
@@ -544,18 +533,17 @@ impl NodeLayoutColumns {
             final_layout,
             geometry_changed,
             performed,
-        } = &mut *values;
-        let calcs = self.calcs.borrow();
+        } = values;
         let mut pass = LayoutPass {
             tree,
             traversal: Traversal {
                 tree,
-                cursors: &self.cursors,
+                cursors,
                 state,
             },
-            calcs: &calcs,
+            calcs,
             no_grid: &state.no_grid,
-            records: &self.states,
+            records: states,
             styles,
             caches,
             unrounded,
@@ -570,59 +558,58 @@ impl NodeLayoutColumns {
     /// Tree, state and columns must share a slot allocation domain with every live
     /// tree slot allocated here. Measurement must describe that same source tree.
     /// Topology and raw properties must remain stable throughout the computation.
-    /// Measurement callbacks may inspect content/resources, but must not query,
-    /// mutate or reenter these active columns or their paired state. This includes
-    /// geometry/layout reads, style rebuilds and nested computation: the columns
-    /// remain mutably borrowed across measurement and reentry may panic.
+    /// Measurement callbacks may inspect content/resources; they cannot reach
+    /// these columns, which are lent mutably for the whole computation.
     pub fn compute<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &mut LayoutState,
-        viewport: Size,
+        available: Size,
         measure: &mut dyn LeafMeasure,
     ) {
-        self.values.borrow_mut().geometry_changed.clear();
+        self.values.geometry_changed.clear();
         state.fixed_cursor.set(None);
         self.relayout_parents(tree, state, measure);
         if let Some(root) = tree.root() {
-            self.compute_at(tree, state, root, viewport, true, measure);
+            let root = taffy_id(tree.index_of(root).expect("invariant: layout node exists"));
+            self.compute_at(tree, state, root, available, true, measure);
             for id in tree.overlays().iter().copied() {
                 self.floor_overlay_width(tree, id);
-                self.compute_at(tree, state, id, viewport, false, measure);
+                let overlay = taffy_id(tree.index_of(id).expect("invariant: overlay exists"));
+                self.compute_at(tree, state, overlay, available, false, measure);
             }
             let traversal = Traversal {
                 tree,
                 cursors: &self.cursors,
                 state,
             };
-            if traversal.child_count(TId::from(0usize)) != 0 {
-                self.compute_at(tree, state, NodeId(0), viewport, true, measure);
+            if traversal.child_count(viewport()) != 0 {
+                self.compute_at(tree, state, viewport(), available, true, measure);
             }
         }
     }
-    fn floor_overlay_width<Tree: LayoutTree + ?Sized>(&self, tree: &Tree, id: NodeId) {
+    fn floor_overlay_width<Tree: LayoutTree + ?Sized>(&mut self, tree: &Tree, id: NodeId) {
         let slot = tree.index_of(id).expect("invariant: overlay exists");
         let floor = tree
             .overlay_width_anchor(slot)
             .and_then(|anchor| self.computed_layout(tree, anchor))
             .map_or(0.0, |layout| layout.size.width);
-        let mut values = self.values.borrow_mut();
+        let values = &mut self.values;
         if values.styles[slot + 1].set_min_width_floor(floor) {
             values.caches[slot + 1].clear();
         }
     }
     fn compute_at<Tree: LayoutTree + ?Sized>(
-        &self,
+        &mut self,
         tree: &Tree,
         state: &LayoutState,
-        id: NodeId,
+        root: TId,
         available: Size,
         fill: bool,
         measure: &mut dyn LeafMeasure,
     ) {
-        let root = Self::layout_id(tree, id);
         if fill {
-            let mut values = self.values.borrow_mut();
+            let values = &mut self.values;
             let style = &mut values.styles[usize::from(root)];
             let size = taffy::Size {
                 width: taffy::Dimension::length(available.width),

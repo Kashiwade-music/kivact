@@ -91,6 +91,30 @@ impl<Tree: LayoutTree + ?Sized> Iterator for LayoutChildren<'_, Tree> {
     }
 }
 
+/// What a taffy node id names: the shared viewport (position 0) or a tree slot (position - 1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Entry {
+    /// The shared viewport, the container of the fixed boxes.
+    Viewport,
+    /// The tree slot (zero-based, excluding the viewport).
+    Slot(usize),
+}
+
+/// The entry taffy's `t` names.
+#[inline(always)]
+pub(crate) fn entry(t: TId) -> Entry {
+    match usize::from(t) {
+        0 => Entry::Viewport,
+        index => Entry::Slot(index - 1),
+    }
+}
+
+/// The taffy id of the shared viewport.
+#[inline(always)]
+pub(crate) fn viewport() -> TId {
+    TId::from(0usize)
+}
+
 #[inline(always)]
 pub(crate) fn taffy_id(slot: usize) -> TId {
     TId::from(
@@ -222,50 +246,44 @@ impl<Tree: LayoutTree + ?Sized> TraversePartialTree for Traversal<'_, Tree> {
         Self: 'a;
     #[inline(always)]
     fn child_ids(&self, parent: TId) -> Self::ChildIter<'_> {
-        let index = usize::from(parent);
-        if index == 0 {
-            LayoutChildren::Fixed(FixedChildren {
+        match entry(parent) {
+            Entry::Viewport => LayoutChildren::Fixed(FixedChildren {
                 tree: self.tree,
                 children: self.tree.fixed().iter(),
-            })
-        } else {
-            let slot = index - 1;
-            LayoutChildren::Flow(FlowChildren {
+            }),
+            Entry::Slot(slot) => LayoutChildren::Flow(FlowChildren {
                 tree: self.tree,
                 slot,
                 children: 0..self.tree.child_count(slot),
                 unfiltered: !self.filters_layout_children() || self.flow_cursor(slot).unfiltered,
-            })
+            }),
         }
     }
     #[inline(always)]
     fn child_count(&self, parent: TId) -> usize {
-        let index = usize::from(parent);
-        if index == 0 {
-            self.cursors[0]
-                .at_epoch(self.state.epoch, || {
-                    let count = self
-                        .tree
-                        .fixed()
-                        .iter()
-                        .filter(|id| attached_fixed(self.tree, **id))
-                        .count();
-                    (count, false)
-                })
-                .count
-        } else if !self.filters_layout_children() {
-            self.tree.child_count(index - 1)
-        } else {
-            self.flow_cursor(index - 1).count
+        match entry(parent) {
+            Entry::Viewport => {
+                self.cursors[0]
+                    .at_epoch(self.state.epoch, || {
+                        let count = self
+                            .tree
+                            .fixed()
+                            .iter()
+                            .filter(|id| attached_fixed(self.tree, **id))
+                            .count();
+                        (count, false)
+                    })
+                    .count
+            }
+            Entry::Slot(slot) if !self.filters_layout_children() => self.tree.child_count(slot),
+            Entry::Slot(slot) => self.flow_cursor(slot).count,
         }
     }
     #[inline(always)]
     fn get_child_id(&self, parent: TId, index: usize) -> TId {
-        let at = usize::from(parent);
-        if at == 0 {
-            self.fixed_child(index)
-        } else {
-            self.flow_child(at - 1, index)
+        match entry(parent) {
+            Entry::Viewport => self.fixed_child(index),
+            Entry::Slot(slot) => self.flow_child(slot, index),
         }
     }
 }
