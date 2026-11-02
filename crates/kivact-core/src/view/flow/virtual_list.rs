@@ -492,12 +492,12 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seek<K, T> {
         let Some(want) = self.state.borrow().pending.clone() else {
             return;
         };
-        if !ViewState::tree(rt).is_live(self.outer) {
+        if !ViewState::tree(rt).contains(self.outer) {
             return;
         }
         // The row is mounted: the host can bring it into view exactly.
         let mounted = self.state.borrow().rows.get(&want).map(|r| r.wrapper);
-        if let Some(wrapper) = mounted.filter(|w| ViewState::tree(rt).is_live(*w)) {
+        if let Some(wrapper) = mounted.filter(|w| ViewState::tree(rt).contains(*w)) {
             self.finish();
             ViewState::tree(rt).engine().scroll_into_view(wrapper);
             rt.request_turn();
@@ -695,7 +695,7 @@ fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]
             stable[kept[j].0] = true;
         }
     }
-    let live = tree.is_live(spacer);
+    let live = tree.contains(spacer);
     tree.set_children(spacer, order.clone());
     if !live {
         return;

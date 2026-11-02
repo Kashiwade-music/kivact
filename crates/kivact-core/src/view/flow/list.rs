@@ -194,7 +194,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
         }
     }
     // 4. Build the new row list; mount new rows; attach and move right to left.
-    let live = ViewState::tree(rt).is_live(frag);
+    let live = ViewState::tree(rt).contains(frag);
     let n = plans.len();
     let mut new_rows: Vec<Row<K, T>> = Vec::with_capacity(n);
     let mut fresh = Vec::with_capacity(n);

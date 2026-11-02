@@ -390,10 +390,10 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
             let inside = |target: kivact_wire::FocusTarget| {
                 let f = target.node;
                 // Already deleted with the overlay, or still under it.
-                !tree.is_live(f)
+                !tree.contains(f)
                     || std::iter::successors(Some(f), |n| tree.get(*n)?.parent).any(|n| n == id)
             };
-            tree.is_live(opener.node) && focus::focused(&rt).is_none_or(inside)
+            tree.contains(opener.node) && focus::focused(&rt).is_none_or(inside)
         };
         if back {
             requests::request_restore_focus(&rt, opener, None, visible);
