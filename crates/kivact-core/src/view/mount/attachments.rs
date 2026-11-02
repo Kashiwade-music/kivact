@@ -1,95 +1,49 @@
-//! Role: Mounting resolves the parts and canvas regions attached to a node.
+//! Role: Mounting binds the references, part hooks and canvas regions attached to a node.
 
 use std::rc::Rc;
 
 use kivact_wire::NodeId;
 use std::panic::Location;
 
-use super::{part_input, parts, regions};
-use crate::view::common::{Common, Constraints, Registry};
+use super::parts;
+use crate::view::common::{Constraints, Registry};
 use crate::view::descriptor::Mcx;
+use crate::view::node_ref::NodeRef;
 use crate::view::part_data::PartBinding;
 
-/// What the parts and regions attached to one node resolved to. A node
-/// without parts or regions has none of them.
-pub(super) struct Attachments {
-    constraints: Option<Constraints>,
-    bindings: Option<Rc<Vec<PartBinding>>>,
-    regions: Option<Rc<Registry>>,
-    /// The accessibility actions the node offers, its own and its parts'.
-    pub(super) actions: Vec<crate::view::A11yAction>,
+/// What the parts and canvas regions attached to one node resolved to (C18).
+pub(super) struct Attached {
+    pub(super) constraints: Constraints,
+    pub(super) bindings: Vec<PartBinding>,
+    pub(super) regions: Rc<Registry>,
 }
 
-/// Stage 2: bind the parts' constraints and the canvas regions, collect the
-/// actions the node offers, and route the node's input handlers through the
-/// parts' defaults.
-pub(super) fn bind(
-    c: &mut Common,
+/// Last stage: bind the node's references (each once, in order), then run the parts'
+/// bind hooks and bind the regions under the node's setup owner. Binding installs layout
+/// and scroll observers, so it follows all retained handlers and draw-size observers; hooks
+/// still precede the first commit.
+pub(super) fn finish(
     cx: &Mcx<'_>,
     id: NodeId,
+    refs: Vec<NodeRef>,
+    attached: Option<Attached>,
     at: &'static Location<'static>,
-) -> Attachments {
-    let has_parts = !c.part_bindings.is_empty() || !c.regions.is_empty();
-    let constraints = has_parts.then(|| parts::constraints(c, cx, at, None));
-    let bindings = constraints.map(|_| Rc::new(std::mem::take(&mut c.part_bindings)));
-    let mut actions = c.handlers.actions();
-    for action in c.part_actions.actions() {
-        if !actions.contains(&action) {
-            actions.push(action);
+) {
+    for (index, reference) in refs.iter().enumerate() {
+        if !refs[..index].contains(reference) {
+            reference.bind(cx.rt, id, at);
         }
     }
-    let regions = constraints.map(|constraints| {
-        let root = part_input::root_target(
-            &c.handlers,
-            std::mem::take(&mut c.part_actions),
-            constraints,
-            cx,
-        );
-        regions::prepare(std::mem::take(&mut c.regions), root, cx, id, at)
-    });
-
-    if let Some(regions) = &regions {
-        c.handlers = part_input::route(id, std::mem::take(&mut c.handlers), regions.clone());
-    }
-    Attachments {
+    if let Some(Attached {
         constraints,
         bindings,
         regions,
-        actions,
-    }
-}
-
-impl Attachments {
-    /// The canvas regions the draw layers declare, if the node has any.
-    pub(super) fn regions(&self) -> Option<Rc<Registry>> {
-        self.regions.clone()
-    }
-
-    /// Last stage: bind the node's references, then run the parts' bind
-    /// hooks and bind the regions. Binding installs layout and scroll
-    /// observers, so it follows all retained handlers and draw-size
-    /// observers; hooks still precede the first commit.
-    pub(super) fn finish(
-        self,
-        cx: &Mcx<'_>,
-        id: NodeId,
-        c: &mut Common,
-        at: &'static Location<'static>,
-    ) {
+    }) = attached
+    {
         let owner = cx.owner;
-        let refs = std::mem::take(&mut c.node_ref);
-        for (index, reference) in refs.iter().enumerate() {
-            if !refs[..index].iter().any(|previous| previous == reference) {
-                reference.bind(cx.rt, id, at);
-            }
-        }
-        if let (Some(constraints), Some(bindings), Some(regions)) =
-            (self.constraints, self.bindings, self.regions)
-        {
-            owner.with_setup(|| {
-                parts::bind_hooks(owner, &bindings, constraints);
-                regions.bind();
-            });
-        }
+        owner.with_setup(|| {
+            parts::bind_hooks(owner, &bindings, constraints);
+            regions.bind();
+        });
     }
 }

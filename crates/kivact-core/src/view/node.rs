@@ -263,10 +263,9 @@ pub trait NodeBuilder: Sized {
     /// Whether the node takes keyboard focus, overriding the builder's default.
     /// Reactive values support a roving tab stop without replacing nodes:
     /// only the selected tab or segment is a Tab stop, and the stop moves
-    /// while the nodes stay. A constant is stored with the node's create
-    /// properties; only a reactive value uses the rare source box.
+    /// while the nodes stay.
     fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
-        self.node_mut().common.set_focusable(on.into_prop());
+        self.node_mut().common.focusable = Some(on.into_prop());
         self
     }
 

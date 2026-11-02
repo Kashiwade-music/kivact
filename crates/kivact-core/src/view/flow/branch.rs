@@ -257,9 +257,8 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
                                 let owner = parent.child(at);
                                 let value = owner.signal(v, at);
                                 let child = child.clone();
-                                let branch = mount_branch(&rt, owner, frag, || {
-                                    child(value.into_value())
-                                });
+                                let branch =
+                                    mount_branch(&rt, owner, frag, || child(value.into_value()));
                                 SomeArm::Child { branch, value }
                             }
                             None => SomeArm::Fallback(

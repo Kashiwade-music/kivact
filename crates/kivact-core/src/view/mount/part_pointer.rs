@@ -63,8 +63,7 @@ fn fallback(root: &Target, event: PointerEvent) -> crate::Result<Handled> {
 /// End the gestures that target `id`: its hover, and the captures it holds.
 pub(super) fn cancel(registry: &Registry, id: TargetId) {
     let root = &*registry.root;
-    let of_id =
-        |target: &Option<Rc<Target>>| target.as_ref().is_some_and(|target| target.id == id);
+    let of_id = |target: &Option<Rc<Target>>| target.as_ref().is_some_and(|target| target.id == id);
     let (captured, hovered, last) = {
         let mut gestures = registry.gestures.borrow_mut();
         let mut captured = Vec::new();

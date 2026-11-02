@@ -47,7 +47,9 @@
 //!
 //! [`NodeRefExt::text_layout`]: crate::primitive::NodeRefExt::text_layout
 
-use crate::view::editing_data::{HighlightAt, TextEditEvent, TextEditing, TextHighlight};
+use crate::view::editing_data::{
+    EditorProps, HighlightAt, TextEditEvent, TextEditing, TextHighlight,
+};
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, SyncHook};
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState, LineColors, LineState};
@@ -72,7 +74,7 @@ impl TextEditing {
     /// `TextEdit` (`kivact::ui`, `kivact::interaction`) pass their
     /// `forward_keys` here.
     pub fn forward_keys(mut self, keys: impl IntoValue<Vec<crate::view::Key>>) -> Self {
-        self.forward_keys = Some(keys.into_prop());
+        self.props.forward_keys = Some(keys.into_prop());
         self
     }
 
@@ -95,7 +97,7 @@ impl TextEditing {
     where
         F: Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome + 'static,
     {
-        self.behavior = Some(Rc::new(f));
+        self.props.behavior = Some(Rc::new(f));
         self
     }
 
@@ -129,7 +131,7 @@ impl TextEditing {
     {
         let src = content.into_prop();
         let f = Rc::new(f);
-        self.highlight = Some(Box::new(move |cx| bind_highlight(cx, src, f)));
+        self.props.highlight = Some(Box::new(move |cx| bind_highlight(cx, src, f)));
         self
     }
 
@@ -142,25 +144,26 @@ impl TextEditing {
     /// `Rc` given again changes nothing unless the text was edited since.
     pub fn new(value: impl IntoValue<Rc<str>>) -> Self {
         Self {
-            behavior: None,
-            highlight: None,
-            forward_keys: None,
-            value: value.into_prop(),
-            multiline: false,
-            report_text: false,
-            password: None,
-            read_only: None,
-            max_length: None,
-            placeholder: None,
+            props: EditorProps {
+                behavior: None,
+                highlight: None,
+                forward_keys: None,
+                value: value.into_prop(),
+                multiline: false,
+                report_text: false,
+                password: None,
+                read_only: None,
+                max_length: None,
+                placeholder: None,
+            },
             on_edit: None,
             on_selection: None,
-            reports_session: false,
         }
     }
 
     /// Accept line breaks. Native editors scroll horizontally and do not wrap.
     pub fn multiline(mut self, value: bool) -> Self {
-        self.multiline = value;
+        self.props.multiline = value;
         self
     }
     /// Also give every [`TextEditEvent`] the whole text after it
@@ -168,27 +171,27 @@ impl TextEditing {
     /// value in a `String` binding needs it; one that applies the changes
     /// to its own copy does not.
     pub fn report_text(mut self, value: bool) -> Self {
-        self.report_text = value;
+        self.props.report_text = value;
         self
     }
     /// Draw masked text and omit its value from platform text snapshots.
     pub fn password(mut self, value: impl IntoValue<bool>) -> Self {
-        self.password = Some(value.into_prop());
+        self.props.password = Some(value.into_prop());
         self
     }
     /// Allow selection while rejecting value changes and new compositions.
     pub fn read_only(mut self, value: impl IntoValue<bool>) -> Self {
-        self.read_only = Some(value.into_prop());
+        self.props.read_only = Some(value.into_prop());
         self
     }
     /// Limit committed text by Unicode scalar count. Preedit is not truncated.
     pub fn max_length(mut self, value: impl IntoValue<usize>) -> Self {
-        self.max_length = Some(value.into_prop());
+        self.props.max_length = Some(value.into_prop());
         self
     }
     /// Show hint text while the editor is empty.
     pub fn placeholder(mut self, value: impl IntoText) -> Self {
-        self.placeholder = Some(value.into_text());
+        self.props.placeholder = Some(value.into_text());
         self
     }
     /// Observe native value and composition updates, including preedit.

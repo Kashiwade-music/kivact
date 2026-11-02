@@ -167,15 +167,16 @@ impl NodeRef {
         let s = self.state.find()?;
         let bound = s.bound.try_get_untracked().flatten()?;
         let rt = Runtime::get(self.app)?;
-        ViewState::tree(&rt)
-            .get(bound.node())
-            .map(|_| bound.node())
+        ViewState::tree(&rt).get(bound.node()).map(|_| bound.node())
     }
 
     /// The complete binding while its scene target still exists.
     pub(crate) fn target(&self) -> Option<FocusTarget> {
         let state = self.state.find()?;
-        live_target(self.app, state.bound.try_get_untracked().flatten()?.target())
+        live_target(
+            self.app,
+            state.bound.try_get_untracked().flatten()?.target(),
+        )
     }
 
     /// Reactive node id (tracked).
@@ -612,11 +613,7 @@ fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::d
 
 /// Whether the node `source` holds is the node a ref is bound to (through
 /// its node source `node`) or lies in its subtree, as a memo.
-fn within(
-    app: AppId,
-    node: Signal<Option<Bound>>,
-    source: Signal<Option<NodeId>>,
-) -> Value<bool> {
+fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>>) -> Value<bool> {
     kivact_reactive::memo(move || {
         let Some(me) = bound_node(app, node) else {
             return false;

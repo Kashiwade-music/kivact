@@ -11,8 +11,8 @@ use kivact_wire::{IntrinsicSize, NodeId};
 
 use crate::view::descriptor::Mcx;
 use crate::view::part_data::PartBinding;
-use crate::view::{MouseButton, PointerEvent, PointerId};
 use crate::view::tree::Handlers;
+use crate::view::{MouseButton, PointerEvent, PointerId};
 use crate::{Signal, Value};
 use kivact_style::Style;
 use kivact_style::asset::ImageFit;
@@ -53,8 +53,9 @@ pub(crate) struct Common {
     pub checked: Option<InputProp<bool>>,
     /// Expanded state (disclosures).
     pub expanded: Option<InputProp<bool>>,
-    /// Focusability (a builder sets its own before the user's modifiers).
-    pub focusable: Option<bool>,
+    /// Focusability, constant or reactive (a builder sets its own before the
+    /// user's modifiers).
+    pub focusable: Option<InputProp<bool>>,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<bool>,
     /// Native pointer focus destination, resolved through the reference binding.
@@ -258,7 +259,6 @@ pub(super) struct Constraints {
 
 #[derive(Clone, Default)]
 pub(crate) struct SemanticSources {
-    pub(crate) focusable: Option<InputProp<bool>>,
     pub(crate) indeterminate: Option<InputProp<bool>>,
     pub(crate) value_min: Option<InputProp<f64>>,
     pub(crate) value_max: Option<InputProp<f64>>,

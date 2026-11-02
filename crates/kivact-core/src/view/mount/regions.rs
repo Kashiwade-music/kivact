@@ -8,8 +8,7 @@ use std::rc::Rc;
 
 use super::{parts, region_template};
 use crate::view::common::{
-    Adopted, Common, Declaration, Entry, Gestures, Registry, RegistryPhase, State, Target,
-    TargetId,
+    Adopted, Common, Declaration, Entry, Gestures, Registry, RegistryPhase, State, Target, TargetId,
 };
 use crate::view::descriptor::Mcx;
 use kivact_reactive::{EffectKind, ErrorKind, Owner, Runtime, UiError};
@@ -150,8 +149,17 @@ impl Registry {
         owner.with_setup(|| {
             let cx = Mcx { rt, owner };
             let mut common = region_template::instantiate(&entry.template);
-            parts::reject_modal(&mut common, &cx, self.at);
-            let constraints = parts::constraints(&mut common, &cx, self.at, Some(self.root.constraints));
+            if std::mem::take(&mut common.part_modal) {
+                parts::report_modal_unsupported(&cx, self.at);
+            }
+            let sources = parts::ConstraintSources {
+                disabled: common.disabled.take(),
+                hidden: common.hidden.take(),
+                focusable: common.focusable.take(),
+                required: std::mem::take(&mut common.part_constraints),
+            };
+            let constraints =
+                parts::constraints(sources, &cx, self.at, Some(self.root.constraints));
             let mut handlers = std::mem::take(&mut common.handlers);
             let mut actions = handlers.take_part_actions();
             actions.compose(std::mem::take(&mut common.part_actions));

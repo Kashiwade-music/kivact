@@ -1,49 +1,21 @@
 //! Role: Mounting wires a node's text editing callbacks and binds its editing data.
 
-use std::rc::Rc;
-
 use kivact_engine::bridge::PropValue;
 
-use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
+use crate::view::editing_data::EditorProps;
 use kivact_wire::NodeId;
 use std::panic::Location;
 
-/// Stage 1: compose `on_edit` and `on_selection` with the handlers that were
-/// registered before them (the earlier handler runs first, and an error from
-/// it stops the callback). `on_selection` also makes the host report
-/// selection sessions.
-pub(super) fn compose_callbacks(c: &mut Common) {
-    if let Some(editing) = c.text_editing.as_mut()
-        && let Some(handler) = editing.on_edit.take()
-    {
-        let previous = c.handlers.text.take();
-        c.handlers.text = Some(Rc::new(move |event| {
-            if let Some(previous) = &previous {
-                previous(event.clone())?;
-            }
-            handler(event)
-        }));
-    }
-    if let Some(editing) = c.text_editing.as_mut()
-        && let Some(handler) = editing.on_selection.take()
-    {
-        editing.reports_session = true;
-        let previous = c.handlers.selection.take();
-        c.handlers.selection = Some(Rc::new(move |session| {
-            if let Some(previous) = &previous {
-                previous(session.clone())?;
-            }
-            handler(session)
-        }));
-    }
-}
-
 /// Write the editing payload of a text-editing node and bind its values.
+///
+/// `report_session`: the node has a session handler (`TextEditing::on_selection`), so the engine
+/// reports the selection sessions.
 pub(super) fn bind(
     cx: &Mcx<'_>,
     id: NodeId,
-    editing: crate::view::editing_data::TextEditing,
+    editing: EditorProps,
+    report_session: bool,
     at: &'static Location<'static>,
 ) {
     use kivact_editing::{EditBehavior, EditOutcome};
@@ -63,7 +35,7 @@ pub(super) fn bind(
         id,
         PropValue::Editing(Some(EditingData {
             behavior,
-            report_session: editing.reports_session.then_some(true),
+            report_session: report_session.then_some(true),
             ..EditingData::default()
         })),
     );
@@ -98,7 +70,7 @@ pub(super) fn bind(
     }
 }
 
-/// Stage 8: bind the IME session of a node that edits its own text. It
+/// Stage 6: bind the IME session of a node that edits its own text. It
 /// follows the draw stage, so a session read in the same turn sees what the
 /// node's drawing made (a caret rectangle taken from the paragraph it drew).
 pub(super) fn bind_session(
