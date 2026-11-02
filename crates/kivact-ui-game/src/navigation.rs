@@ -1,13 +1,11 @@
 //! Role: Numbered steps, breadcrumbs and pagination.
 use kivact::i18n::message;
 use kivact::style::current_theme;
-use std::cell::Cell;
-use std::rc::Rc;
 
 use kivact::control::{Node, NodeBuilder, row, text};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::view::{IntoValue, IntoView, Role, for_index, node_ref};
-use kivact::{Binding, Value};
+use kivact::{Binding, Value, var};
 
 /// Connected numbered steps; indices before the current step are complete.
 #[track_caller]
@@ -129,7 +127,9 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
     let total = count.into_value();
     let binding = page.into();
     let page = binding.into_value();
-    let restore_focus = Rc::new(Cell::new(false));
+    // Armed only when a press really changed the page, so the rebuild that
+    // consumes it is certain.
+    let restore_focus = var(false);
     let (previous_label, next_label) = (
         message("game.pagination.previous", "Previous"),
         message("game.pagination.next", "Next"),
@@ -138,13 +138,14 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
         move || (page.get(), total.get()),
         move |(current, total)| {
             let p = current.min(total.saturating_sub(1)).saturating_add(1);
-            let set_page = {
-                let restore_focus = restore_focus.clone();
-                move |next| {
-                    if page.get_untracked() != next - 1 {
-                        restore_focus.set(true);
-                        binding.set(next - 1);
-                    }
+            let set_page = move |next: usize| {
+                let before = page.get_untracked();
+                if before == next - 1 {
+                    return;
+                }
+                binding.set(next - 1);
+                if page.get_untracked() != before {
+                    restore_focus.set(true);
                 }
             };
             let previous_page = set_page.clone();
@@ -175,9 +176,9 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
                 }
                 let node = node_ref();
                 if n == p {
-                    let restore_focus = restore_focus.clone();
                     kivact::on_mount(move || {
-                        if restore_focus.replace(false) {
+                        if restore_focus.get() {
+                            restore_focus.set(false);
                             node.focus();
                         }
                     });

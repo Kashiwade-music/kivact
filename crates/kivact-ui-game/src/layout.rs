@@ -102,11 +102,12 @@ fn flatten(
 /// [`Tree`](kivact::interaction::Tree)): Up and Down move over the visible
 /// rows, Right and Left open, close and move between a folder and its
 /// children. The chevron, Enter and a double click open and close a folder.
-/// The focus can rest on a folder, but only a leaf is written to `selection`.
+/// The focus can rest on a folder, but only a leaf is written to `selection`,
+/// which holds the selected leaf, `None` while none is.
 #[track_caller]
 pub fn tree(
     entries: impl IntoValue<Vec<TreeEntry>>,
-    selection: impl Into<Binding<String>>,
+    selection: impl Into<Binding<Option<String>>>,
 ) -> Node {
     let entries = entries.into_value();
     let selection = selection.into();
@@ -128,21 +129,14 @@ pub fn tree(
     let nodes = memo(move || data.with(|data| data.0.clone()));
     let facts = memo(move || data.with(|data| data.1.clone()));
     let selected = source.into_value();
-    let keys = binding(
-        memo(move || {
-            let id = selected.get();
-            if id.is_empty() { None } else { Some(id) }
-        }),
-        {
-            move |key: Option<String>| {
-                if let Some(id) = key
-                    && facts.with(|facts| facts.get(&id).is_some_and(|f| !f.folder))
-                {
-                    source.set(id);
-                }
+    let keys = binding(selected, move |key: Option<String>| match key {
+        Some(id) => {
+            if facts.with(|facts| facts.get(&id).is_some_and(|f| !f.folder)) {
+                source.set(Some(id));
             }
-        },
-    );
+        }
+        None => source.set(None),
+    });
     let tree = kivact::interaction::use_tree(nodes, expanded, ListSelection::Single(keys));
     let tree = tree.on_activate({
         move |id: String| {

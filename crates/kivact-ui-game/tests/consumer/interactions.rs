@@ -8,7 +8,7 @@ use kivact_ui_game as g;
 fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
     let (screen, selected) =
         kivact::test::render_with_handle(crate::support::options(true), || {
-            let selected = signal("b.md".to_owned());
+            let selected = signal(Some("b.md".to_owned()));
             (
                 selected,
                 g::tree(
@@ -48,12 +48,12 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
     );
     screen.press_key(Key::ArrowUp);
     assert!(item("a.md").is_focused());
-    assert_eq!(selected.get_untracked(), "a.md");
+    assert_eq!(selected.get_untracked(), Some("a.md".to_owned()));
     screen.press_key(Key::ArrowLeft);
     assert!(item("docs").is_focused(), "Left goes to the folder");
     assert_eq!(
         selected.get_untracked(),
-        "a.md",
+        Some("a.md".to_owned()),
         "a folder is not a selected leaf"
     );
     screen.press_key(Key::ArrowLeft);
@@ -65,7 +65,7 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
     assert_eq!(item("src").is_expanded(), Some(true));
     screen.press_key(Key::ArrowRight);
     assert!(item("lib.rs").is_focused());
-    assert_eq!(selected.get_untracked(), "lib.rs");
+    assert_eq!(selected.get_untracked(), Some("lib.rs".to_owned()));
     item("src").a11y(A11yAction::Collapse);
     assert!(screen.query_by_role(Role::TreeItem, "lib.rs").is_none());
     assert!(
