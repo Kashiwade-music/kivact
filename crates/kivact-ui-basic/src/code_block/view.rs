@@ -7,16 +7,15 @@ use crate::tokens::CodeColors;
 use crate::typography::MONO;
 use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, ScrollAxes, column, node, row, scroll, text};
-use kivact::interaction::text_edit_policy;
+use kivact::interaction::{Delays, text_edit_policy, use_delayed};
 use kivact::primitive::{
     EditContext, EditOutcome, EditRequest, EditState, TextEditing, TextHighlight, part,
 };
 use kivact::style::{Align, Color, Direction, Length, LineHeight, style};
-use kivact::task::{sleep, spawn};
 use kivact::ui::{ButtonVariant, ControlSize};
 use kivact::view::HandlerResult;
 use kivact::view::{IntoText, IntoValue, IntoView, Key, Role, View, callback, show};
-use kivact::{Callback, Value, signal};
+use kivact::{Callback, Value};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -296,8 +295,14 @@ fn gutter(lines: Value<Vec<CodeLine>>) -> Node {
 
 /// The header copy button: `copy` until pressed, then `check` for two seconds.
 fn copy_button(on_copy: Callback<()>) -> View {
-    let copied = signal(false);
-    let generation = signal(0u64);
+    let feedback = use_delayed(
+        false,
+        Delays {
+            open: Duration::ZERO,
+            close: Duration::from_secs(2),
+        },
+    );
+    let copied = feedback.shown();
     let copy_name = kivact::i18n::message("basic.code_block.copy", "Copy");
     let copied_name = kivact::i18n::message("basic.code_block.copied", "Copied");
     let name = move || {
@@ -316,15 +321,7 @@ fn copy_button(on_copy: Callback<()>) -> View {
         .style(style().size(24, 24).padding(0).margin_y(-4))
         .on_press(move || {
             on_copy.call(());
-            copied.set(true);
-            generation.update(|g| *g += 1);
-            let current = generation.get();
-            spawn(async move {
-                sleep(Duration::from_secs(2)).await;
-                if generation.get() == current {
-                    copied.set(false);
-                }
-            });
+            feedback.pulse();
         });
     let status = node()
         .role(Role::Status)

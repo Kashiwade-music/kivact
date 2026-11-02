@@ -152,11 +152,12 @@ impl IntoView for Drawer {
                         }
                     })
                     .on_end(move |update: kivact::interaction::DragUpdate<()>| {
-                        let size = rect.get().map_or(0.0, |rect| {
-                            if horizontal { rect.width } else { rect.height }
-                        });
                         let toward = pulled.get();
-                        let far = size > 0.0 && toward > size * CLOSE_FRACTION;
+                        // Not measured yet: no distance is far enough.
+                        let far = rect
+                            .get()
+                            .map(|rect| if horizontal { rect.width } else { rect.height })
+                            .is_some_and(|size| size > 0.0 && toward > size * CLOSE_FRACTION);
                         let flick = toward > 4.0 && speed.get() > FLICK_SPEED;
                         if update.phase == DragPhase::End && (far || flick) {
                             open.set(false);

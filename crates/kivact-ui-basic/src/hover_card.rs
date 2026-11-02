@@ -10,9 +10,9 @@ use crate::theme_access::{popover_surface, shadow_md, tokens};
 use kivact::control::{NodeBuilder, column};
 use kivact::primitive::NodeExt;
 use kivact::style::{Direction, Style};
-use kivact::task::{Task, sleep, spawn};
 use kivact::view::{IntoView, OverlayAlign, Placement, Role, View, node_ref, overlay, show};
-use kivact::{effect, memo, on_cleanup, signal, var};
+use kivact::interaction::{Delays, use_delayed};
+use kivact::memo;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -105,44 +105,15 @@ impl HoverCard {
         let focus = anchor.focus_within();
         let over_card = card.hovered();
         let engaged = memo(move || over_trigger.get() || focus.get() || over_card.get());
-        let shown = signal(false);
-        let generation = var(0u64);
-        let pending = var(None::<Task>);
-        let dismissed = var(false);
-        let cancel = move || {
-            generation.update(|g| *g = g.wrapping_add(1));
-            if let Some(task) = pending.get() {
-                task.cancel();
-                pending.set(None);
-            }
-        };
-        effect(move || {
-            let engaged = engaged.get();
-            cancel();
-            if !engaged {
-                dismissed.set(false);
-            }
-            let wanted = engaged && !dismissed.get();
-            if wanted == shown.get_untracked() {
-                return;
-            }
-            let delay = if wanted { open_delay } else { close_delay };
-            if delay.is_zero() {
-                shown.set(wanted);
-                return;
-            }
-            let turn = generation.get();
-            let task = spawn(async move {
-                sleep(delay).await;
-                if generation.get() == turn {
-                    shown.set(wanted);
-                }
-            });
-            pending.set(Some(task));
-        });
-        on_cleanup(cancel);
+        let card_delay = use_delayed(
+            engaged,
+            Delays {
+                open: open_delay,
+                close: close_delay,
+            },
+        );
         let trigger = trigger.node_ref(anchor);
-        let panel = show(shown, move || {
+        let panel = show(card_delay.shown(), move || {
             let body = content();
             let panel = column(body).style(panel_style);
             overlay(anchor, placement, panel)
@@ -151,11 +122,7 @@ impl HoverCard {
                 .node_ref(card)
                 .role(Role::Group)
                 .name(kivact::i18n::message("basic.hover_card.label", "Preview"))
-                .on_dismiss(move |_| {
-                    dismissed.set(true);
-                    cancel();
-                    shown.set(false);
-                })
+                .on_dismiss(move |_| card_delay.dismiss())
         });
         (trigger, panel).into_view()
     }
