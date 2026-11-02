@@ -8,20 +8,26 @@ use kivact::i18n::{CalendarDate, message};
 use kivact::interaction::{PopupCloseReason, use_popup};
 use kivact::primitive::NodeExt;
 use kivact::style::{ColorToken, Direction, style};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, LiveRegion, Role, View, callback, node_ref, show,
-};
+use kivact::view::{IntoText, IntoValue, IntoView, LiveRegion, Role, View, callback, node_ref, show};
 use kivact::{Binding, Value, memo, signal};
 use std::rc::Rc;
+
+/// Where the user is in choosing a range in the calendar: before the first
+/// day, or after it and before the second.
+#[derive(Clone, Copy, PartialEq)]
+enum RangePick {
+    Start,
+    End { first: CalendarDate },
+}
 
 /// Two editable dates with one calendar to choose both from. Build it with
 /// [`date_range_input`].
 ///
 /// Each field behaves like a [`DateInput`]. In the calendar, the first day
-/// chosen sets the start and the end to that day and waits for the end; the
-/// second one sets the end, or, when it is before the start, the start (the
-/// two are swapped). The range is drawn in the calendar, and the calendar
-/// closes after the second choice. A start after the end that is typed makes
+/// chosen marks the start and waits for the end; nothing is written until
+/// the second day, which sets both ends (swapping them when it is before the
+/// first) and closes the calendar. Closing it before the second day leaves
+/// both dates as they were. The range is drawn in the calendar. A start after the end that is typed makes
 /// both fields invalid, shows `pop.date.error.order` (`The end date is before the
 /// start date`) and [`valid`](DateRangeInput::valid) `false`.
 /// The popup announces `pop.date.range.pick_start` (`Pick a start date`) and
@@ -127,27 +133,10 @@ impl IntoView for DateRangeInput {
             (from <= to).then_some((from, to))
         });
         let cursor = signal(start_value.get_untracked());
-        let waiting_for_end = signal(false);
         let open = signal(false);
         let anchor = node_ref();
         let popup = use_popup(open);
         let (start_message, end_message, order_message) = (node_ref(), node_ref(), node_ref());
-        let picked = callback(move |date| {
-            let (from, to) = if waiting_for_end.get() {
-                let first = start_value.get();
-                (first.min(date), first.max(date))
-            } else {
-                (date, date)
-            };
-            start.set(from);
-            end.set(to);
-            start_draft.show(from);
-            end_draft.show(to);
-            if waiting_for_end.get() {
-                popup.close(PopupCloseReason::Selection);
-            }
-            waiting_for_end.update(|waiting| *waiting = !*waiting);
-        });
         let start_error_shown = memo(move || start_error.get().is_some());
         let end_error_shown = memo(move || end_error.get().is_some());
         root.child(field_strip(
@@ -170,10 +159,7 @@ impl IntoView for DateRangeInput {
                     end_bad,
                     &[end_message, order_message],
                 ),
-                picker_button(popup, move || {
-                    waiting_for_end.set(false);
-                    cursor.set(start_value.get_untracked());
-                }),
+                picker_button(popup, move || cursor.set(start_value.get_untracked())),
             ),
         ))
         .child(status(
@@ -195,8 +181,25 @@ impl IntoView for DateRangeInput {
             order_message,
         ))
         .child(show(popup.shown(), move || {
+            // One opening of the calendar is one pick of a range.
+            let pick = signal(RangePick::Start);
+            let drawn = memo(move || match pick.get() {
+                RangePick::End { first } => Some((first, first)),
+                RangePick::Start => range.get(),
+            });
+            let picked = callback(move |date: CalendarDate| match pick.get_untracked() {
+                RangePick::Start => pick.set(RangePick::End { first: date }),
+                RangePick::End { first } => {
+                    let (from, to) = (first.min(date), first.max(date));
+                    start.set(from);
+                    end.set(to);
+                    start_draft.show(from);
+                    end_draft.show(to);
+                    popup.close(PopupCloseReason::Selection);
+                }
+            });
             let content = calendar(cursor, today)
-                .range(range)
+                .range(drawn)
                 .on_activate(move |value| picked.try_call(value));
             let content = match &configure {
                 Some(configure) => configure(content),
@@ -205,10 +208,9 @@ impl IntoView for DateRangeInput {
             let pick_start = message("pop.date.range.pick_start", "Pick a start date");
             let pick_end = message("pop.date.range.pick_end", "Pick an end date");
             let instructions = text(move || {
-                if waiting_for_end.get() {
-                    pick_end.get()
-                } else {
-                    pick_start.get()
+                match pick.get() {
+                    RangePick::End { .. } => pick_end.get(),
+                    RangePick::Start => pick_start.get(),
                 }
             })
             .role(Role::Status)
