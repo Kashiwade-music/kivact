@@ -12,7 +12,7 @@
 //! - A controlled value replaces the value but keeps the composition
 //!   (`Editor::set_controlled`); one given while composing is held and
 //!   taken, as a recorded change in the same `TextChanged`, by the edit
-//!   that ends the composition (`Model::adopt_held`). A node's first value
+//!   that ends the composition (`EditorNode::adopt_pending_controlled`). A node's first value
 //!   starts with the caret at the end.
 //! - A controlled value is known by its `Rc`: the same one given again
 //!   while the text keeps the revision it was given at changes nothing
