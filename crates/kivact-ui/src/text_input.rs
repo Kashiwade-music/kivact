@@ -42,6 +42,8 @@ pub struct TextInput {
     /// Called before each edit of the user is written, once the field is
     /// drafting.
     edited: Rc<OnceCell<Rc<dyn Fn()>>>,
+    /// Several lines: Enter breaks the line, so there is no submit.
+    multiline: bool,
 }
 
 /// A text input named `label` (its accessible name; a later `.name(..)`
@@ -124,6 +126,7 @@ fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: 
         on_edit: None,
         return_focus: None,
         edited,
+        multiline,
     }
 }
 
@@ -306,7 +309,9 @@ impl TextInput {
         let drafting = text_draft::install(draft, self.value, invalid);
         let _ = self.edited.set(drafting.edited);
         let submit = drafting.submit;
-        let _ = self.editing.on_submit(move || submit());
+        if !self.multiline {
+            let _ = self.editing.on_submit(move || submit());
+        }
         self.field.part(drafting.part)
     }
 }
