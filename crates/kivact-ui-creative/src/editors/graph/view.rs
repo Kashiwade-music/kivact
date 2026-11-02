@@ -6,12 +6,12 @@ use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, LaneExtensions, graph_lane_
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::ruler::{Ruler, RulerTicks};
 use kivact::control::{Node, NodeBuilder, node};
-use kivact::interaction::{DragCoordinates, EditSession, use_drag};
+use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_space_pan};
 use kivact::primitive::{NodeExt, NodeRefExt, part};
 use kivact::style::{ColorToken, Overflow, style};
 use kivact::ui::{EditPhase, ListItem};
 use kivact::view::{
-    A11yAction, Handled, IntoValue, IntoView, Key, MouseButton, Role, View, callback, node_ref,
+    A11yAction, IntoValue, IntoView, MouseButton, Role, View, callback, node_ref,
 };
 use kivact::{Callback, Value, signal};
 use std::rc::Rc;
@@ -230,7 +230,7 @@ impl IntoView for GraphEditor {
             press,
             gesture,
             active: signal(None),
-            space: signal(false),
+            space: use_space_pan(),
             lane_activate: extensions.lane_activate,
             item_activate: extensions.item_activate,
             child_focus,
@@ -289,14 +289,8 @@ impl IntoView for GraphEditor {
                     .region_events()
                     .on_key(move |event| state.key(event)),
             )
-            .on_key_up(move |event| {
-                if event.key == Key::Space {
-                    state.space.set(false);
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            })
+            // Space arms the pan; it reaches ancestors like on any pan surface.
+            .part(state.space.control())
             .on_wheel(move |event| state.wheel(event));
         match extensions.menu {
             Some(menu) => menu(
