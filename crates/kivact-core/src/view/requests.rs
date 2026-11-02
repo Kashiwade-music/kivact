@@ -125,22 +125,14 @@ pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
 }
 
 /// The host answered focus request `id`.
-pub(crate) fn on_focus_result(rt: &Runtime, id: u64, ok: bool, reason: Option<String>) {
+pub(crate) fn on_focus_result(rt: &Runtime, id: u64, result: Result<(), String>) {
     let w = ViewState::of(rt)
         .requests
         .borrow_mut()
         .sent_focus
         .remove(&id);
     if let Some(w) = w {
-        let r = if ok {
-            Ok(())
-        } else {
-            Err(UiError::new(
-                ErrorKind::Platform,
-                reason.unwrap_or_else(|| "focus request failed".into()),
-                None,
-            ))
-        };
+        let r = result.map_err(|reason| UiError::new(ErrorKind::Platform, reason, None));
         resolve_focus_waiter(rt, w, r);
     }
 }

@@ -51,7 +51,7 @@ pub use boundary::{
 pub use descriptor::{IntoView, View};
 #[doc(inline)]
 pub use input::{
-    A11yEvent, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
+    A11yEvent, ButtonPress, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
     KeyHandlerResult, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId, PointerKind,
     PointerPhase, WheelEvent,
 };
@@ -113,7 +113,9 @@ pub use kivact_reactive::constant_value;
 #[doc(inline)]
 pub use kivact_reactive::{context, try_context};
 #[doc(inline)]
-pub use kivact_wire::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
+pub use kivact_wire::{
+    A11yAction, A11yRequest, CheckedState, LiveRegion, Orientation, Role, SortDirection,
+};
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 #[doc(inline)]

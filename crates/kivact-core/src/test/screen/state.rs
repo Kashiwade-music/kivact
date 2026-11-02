@@ -104,7 +104,7 @@ impl Screen {
             node.value = tree.input_value(id).or_else(|| tree.value(id));
             node.disabled = tree.disabled(id).unwrap_or(false);
             node.selected = tree.selected(id).unwrap_or(false);
-            node.checked = tree.checked(id).flatten();
+            node.checked = tree.checked(id);
             let scenes = [SceneLayer::Draw, SceneLayer::DrawOver].map(|l| tree.scene(id, l));
             for s in scenes.iter().flatten() {
                 for r in &s.regions {

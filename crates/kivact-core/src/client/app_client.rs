@@ -428,11 +428,27 @@ impl Drop for AppClient {
     }
 }
 
+/// The name of a pointer phase without its press data (trace labels carry
+/// no values).
+fn phase_name(phase: kivact_wire::PointerPhase) -> &'static str {
+    use kivact_wire::PointerPhase as P;
+    match phase {
+        P::Down(_) => "Down",
+        P::Move => "Move",
+        P::Up(_) => "Up",
+        P::Cancel => "Cancel",
+        P::Enter => "Enter",
+        P::Leave => "Leave",
+    }
+}
+
 /// Short cause label of an event for the structured trace (no values).
 fn describe(e: &kivact_wire::HostEvent) -> String {
     use kivact_wire::HostEvent as E;
     match e {
-        E::Pointer { node, event, .. } => format!("Pointer {:?} n{}", event.phase, node.0),
+        E::Pointer { node, event, .. } => {
+            format!("Pointer {} n{}", phase_name(event.phase), node.0)
+        }
         E::Wheel { node, .. } => format!("Wheel n{}", node.0),
         E::Key {
             node, key, region, ..
@@ -458,7 +474,7 @@ fn describe(e: &kivact_wire::HostEvent) -> String {
         E::Ime { node, .. } => format!("Ime n{}", node.0),
         E::ScrollChanged { node, .. } => format!("ScrollChanged n{}", node.0),
         E::LayoutChanged { node, .. } => format!("LayoutChanged n{}", node.0),
-        E::A11y { node, action, .. } => format!("A11y {action:?} n{}", node.0),
+        E::A11y { node, request, .. } => format!("A11y {:?} n{}", request.action(), node.0),
         other => {
             let s = format!("{other:?}");
             s.split([' ', '{', '('])

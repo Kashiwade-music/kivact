@@ -60,6 +60,7 @@ impl Common {
         replace(&mut self.selected, part.selected.take());
         replace(&mut self.invalid, part.invalid.take());
         replace(&mut self.checked, part.checked.take());
+        replace(&mut self.indeterminate, part.indeterminate.take());
         replace(&mut self.expanded, part.expanded.take());
         if let Some(semantics) = part.semantics {
             merge_semantics(
@@ -95,7 +96,6 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
 }
 
 fn merge_semantics(target: &mut SemanticSources, mut part: SemanticSources) {
-    replace(&mut target.indeterminate, part.indeterminate.take());
     replace(&mut target.value_min, part.value_min.take());
     replace(&mut target.value_max, part.value_max.take());
     replace(&mut target.value_now, part.value_now.take());

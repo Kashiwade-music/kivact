@@ -109,7 +109,7 @@ pub(crate) fn bind_style(
     let reported = std::cell::Cell::new(false);
     // So are text values the host cannot draw.
     let reported_text = std::cell::Cell::new(false);
-    let reported_local_paint = std::cell::Cell::new(false);
+    let reported_states = std::cell::Cell::new(false);
     let reported_leaf_paint = std::cell::Cell::new(false);
     let theme = cx.theme();
     let weak = cx.weak();
@@ -172,12 +172,15 @@ pub(crate) fn bind_style(
             writer,
         );
         drop(tree);
-        if resolved.unsupported_local_paint > 0 && !reported_local_paint.replace(true) {
+        if !resolved.unsupported_in_states.is_empty() && !reported_states.replace(true) {
             rt.report(
                 Some(owner),
                 UiError::new(
                     kivact_reactive::ErrorKind::Unsupported,
-                    "local paint callbacks in state styles are unsupported; return paint on the base reactive style instead",
+                    format!(
+                        "state styles set properties their state cannot change, ignored: {}; a hover, pressed, focus,                          focus_visible, group_hover, group_focus, enter or exit style changes paint only (background,                          border, ring, radius, opacity, shadow, transform, z_index, scrollbar, cursor, filters, mask,                          clip_path, color), and a paint callback belongs on the base style",
+                        resolved.unsupported_in_states.join(", ")
+                    ),
                     Some(at),
                 ),
             );

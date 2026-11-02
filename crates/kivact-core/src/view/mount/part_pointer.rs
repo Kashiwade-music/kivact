@@ -21,12 +21,6 @@ impl Gestures {
 fn event_for(mut event: PointerEvent, target: &Target, phase: PointerPhase) -> PointerEvent {
     event.phase = phase;
     event.origin.region = target.region();
-    if matches!(
-        phase,
-        PointerPhase::Enter | PointerPhase::Leave | PointerPhase::Cancel
-    ) {
-        event.button = None;
-    }
     if phase == PointerPhase::Cancel {
         event.buttons = PointerButtons::NONE;
     }
@@ -138,7 +132,7 @@ pub(super) fn route(
                 let finish_fallback = gestures.capture(event.id).is_some_and(|capture| {
                     capture.fallback.is_some_and(|button| {
                         event.phase == PointerPhase::Cancel
-                            || (event.phase == PointerPhase::Up && event.button == Some(button))
+                            || matches!(event.phase, PointerPhase::Up(press) if press.button == button)
                     })
                 });
                 if finish_fallback && let Some(capture) = gestures.capture(event.id) {
@@ -164,7 +158,7 @@ pub(super) fn route(
                     let inside = match event.phase {
                         PointerPhase::Enter => true,
                         PointerPhase::Leave | PointerPhase::Cancel => false,
-                        PointerPhase::Move | PointerPhase::Down if !captured => true,
+                        PointerPhase::Move | PointerPhase::Down(_) if !captured => true,
                         _ => was_inside,
                     };
                     let hovered = under(inside);
@@ -191,12 +185,11 @@ pub(super) fn route(
                 } else {
                     under(matches!(
                         event.phase,
-                        PointerPhase::Down | PointerPhase::Move
+                        PointerPhase::Down(_) | PointerPhase::Move
                     ))
                 };
-                if event.phase == PointerPhase::Down
-                    && let Some(button) = event.button
-                {
+                if let PointerPhase::Down(press) = event.phase {
+                    let button = press.button;
                     if let Some(capture) = gestures.capture(event.id) {
                         if !capture.buttons.contains(&button) {
                             capture.buttons.push(button);
@@ -215,12 +208,10 @@ pub(super) fn route(
                     Some(capture) => capture.target.clone(),
                     None => hovered.clone(),
                 };
-                if event.phase == PointerPhase::Up
+                if let PointerPhase::Up(press) = event.phase
                     && let Some(capture) = gestures.capture(event.id)
                 {
-                    if let Some(button) = event.button {
-                        capture.buttons.retain(|held| *held != button);
-                    }
+                    capture.buttons.retain(|held| *held != press.button);
                     if capture.buttons.is_empty() {
                         gestures.captures.retain(|c| c.pointer != event.id);
                     }
@@ -274,9 +265,8 @@ pub(super) fn route(
                 let result = fallback(root, event)?;
                 handled = handled.and(result);
                 if result == Handled::Yes {
-                    if event.phase == PointerPhase::Down
-                        && let Some(button) = event.button
-                    {
+                    if let PointerPhase::Down(press) = event.phase {
+                        let button = press.button;
                         registry
                             .gestures
                             .borrow_mut()
@@ -307,7 +297,6 @@ pub(super) fn route(
         if finish_fallback && (!delivered_finish || result.is_err()) {
             let mut cancelled = event;
             cancelled.phase = PointerPhase::Cancel;
-            cancelled.button = None;
             cancelled.buttons = PointerButtons::NONE;
             if let Some(target) = &target {
                 cancelled = event_for(cancelled, target, PointerPhase::Cancel);

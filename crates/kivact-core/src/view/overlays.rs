@@ -49,8 +49,9 @@ use std::rc::Rc;
 use kivact_engine::bridge::PropValue;
 use kivact_reactive::EffectKind;
 use kivact_reactive::HandlerResult;
+use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owner, Runtime};
-use kivact_wire::{NodeId, NodeType, OverlayProps, PlacementAlign};
+use kivact_wire::{A11yRequest, NodeId, NodeType, OverlayProps};
 
 use kivact_reactive::{IntoValue, Prop as InputProp};
 
@@ -87,27 +88,38 @@ pub use kivact_wire::Placement;
 /// the anchor's, `Center` centres it on the anchor and `End` lines its end
 /// edge up with the anchor's. A start or end that would overflow the window
 /// flips to the other one when that fits.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum OverlayAlign {
-    /// At the anchor's start edge.
-    #[default]
-    Start,
-    /// Centred on the anchor.
-    Center,
-    /// At the anchor's end edge.
-    End,
+///
+/// `Start`: At the anchor's start edge.
+///
+/// `Center`: Centred on the anchor.
+///
+/// `End`: At the anchor's end edge.
+#[doc(inline)]
+pub use kivact_wire::OverlayAlign;
+
+/// Where an overlay is placed, chosen by its constructor: the reactive source
+/// of [`kivact_wire::OverlayAt`] (the same two cases).
+enum Place {
+    /// [`overlay`]: against the node `node` is bound to; `at_least_width`
+    /// from [`Overlay::at_least_anchor_width`].
+    Anchor { node: NodeRef, at_least_width: bool },
+    /// [`overlay_at`]: at a window point, constant or reactive.
+    /// `width_misuse`: where `.at_least_anchor_width(true)` was called on it,
+    /// reported once at mount and ignored (a point has no width).
+    Point {
+        point: InputProp<Point>,
+        width_misuse: Option<&'static Location<'static>>,
+    },
 }
 
 /// Out-of-flow layer (popup, menu, tooltip). Built by [`overlay`] and
 /// [`overlay_at`].
 pub struct Overlay {
-    anchor: Option<NodeRef>,
-    point: Option<InputProp<Point>>,
+    place: Place,
     placement: Placement,
     align: OverlayAlign,
     offset: f32,
     modal: bool,
-    at_least_anchor_width: bool,
     child: View,
     /// Holds the modifiers (`NodeBuilder`); its content and children are unused.
     root: Node,
@@ -153,13 +165,14 @@ pub struct Overlay {
 #[track_caller]
 pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> Overlay {
     Overlay {
-        anchor: Some(anchor),
-        point: None,
+        place: Place::Anchor {
+            node: anchor,
+            at_least_width: false,
+        },
         placement,
         align: OverlayAlign::Start,
         offset: 0.0,
         modal: false,
-        at_least_anchor_width: false,
         child: child.into_view(),
         root: Node::new(Content::Box, None),
         at: Location::caller(),
@@ -182,8 +195,8 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 ///     let at = signal(None::<Point>);
 ///     (
 ///         area.on_pointer(move |e: PointerEvent| {
-///             if e.phase == kivact::view::PointerPhase::Down
-///                 && e.button == Some(kivact::view::MouseButton::Secondary)
+///             if let kivact::view::PointerPhase::Down(press) = e.phase
+///                 && press.button == kivact::view::MouseButton::Secondary
 ///             {
 ///                 at.set(Some(e.window_pos));
 ///             }
@@ -201,13 +214,14 @@ pub fn overlay_at(
     child: impl IntoView,
 ) -> Overlay {
     Overlay {
-        anchor: None,
-        point: Some(point.into_prop()),
+        place: Place::Point {
+            point: point.into_prop(),
+            width_misuse: None,
+        },
         placement,
         align: OverlayAlign::Start,
         offset: 0.0,
         modal: false,
-        at_least_anchor_width: false,
         child: child.into_view(),
         root: Node::new(Content::Box, None),
         at: Location::caller(),
@@ -245,11 +259,16 @@ impl Overlay {
     /// to the anchor's layout width before laying it out, in the same frame,
     /// and follows the anchor when its width changes. A wider content
     /// keeps its width; a percentage or `auto` minimum width of the overlay
-    /// gives way to the anchor's. It has no effect on an overlay placed at
-    /// a point ([`overlay_at`]) or whose anchor is unbound. A select's list
-    /// under its trigger uses it.
+    /// gives way to the anchor's. On an overlay placed at a point
+    /// ([`overlay_at`]) it is reported once at mount
+    /// (`ErrorKind::Unsupported`) and ignored; with an unbound anchor it does
+    /// nothing. A select's list under its trigger uses it.
+    #[track_caller]
     pub fn at_least_anchor_width(mut self, on: bool) -> Self {
-        self.at_least_anchor_width = on;
+        match &mut self.place {
+            Place::Anchor { at_least_width, .. } => *at_least_width = on,
+            Place::Point { width_misuse, .. } => *width_misuse = on.then(Location::caller),
+        }
         self
     }
 
@@ -272,9 +291,7 @@ impl Overlay {
     {
         self.root
             .common
-            .offer_a11y_event(A11yAction::Dismiss, move |event| {
-                f(event.dismiss_reason.unwrap_or(DismissReason::Accessibility))
-            });
+            .offer_a11y_event(A11yAction::Dismiss, move |event| f(dismiss_reason(&event)));
         self
     }
 
@@ -294,7 +311,7 @@ impl Overlay {
             .map(|(_, h)| h.clone());
         let handler: Rc<dyn Fn(crate::view::A11yEvent) -> crate::Result<()>> =
             Rc::new(move |event| {
-                let reason = event.dismiss_reason.unwrap_or(DismissReason::Accessibility);
+                let reason = dismiss_reason(&event);
                 if let Some(previous) = &previous {
                     previous(event)?;
                 }
@@ -308,6 +325,15 @@ impl Overlay {
     }
 }
 
+/// The reason of a dismissal request: only `Dismiss` requests reach the
+/// Dismiss handler slot.
+fn dismiss_reason(event: &crate::view::A11yEvent) -> DismissReason {
+    match event.request {
+        A11yRequest::Dismiss(reason) => reason,
+        _ => unreachable!("invariant: the Dismiss slot receives only Dismiss requests"),
+    }
+}
+
 impl NodeBuilder for Overlay {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -318,13 +344,11 @@ impl IntoView for Overlay {
     fn into_view(self) -> View {
         view_fn(move |cx| {
             let Overlay {
-                anchor,
-                point,
+                place,
                 placement,
                 align,
                 offset,
                 modal,
-                at_least_anchor_width,
                 child,
                 root,
                 at,
@@ -332,24 +356,42 @@ impl IntoView for Overlay {
             let mut common = root.into_modifiers(cx, "an overlay", at);
             let part_modal = std::mem::take(&mut common.part_modal);
             let modal = modal || part_modal;
+            if let Place::Point {
+                width_misuse: Some(loc),
+                ..
+            } = &place
+            {
+                cx.rt.report(
+                    Some(cx.owner),
+                    UiError::new(
+                        ErrorKind::Unsupported,
+                        "`.at_least_anchor_width(true)` on an overlay placed at a point (`overlay_at`): a point has no width; ignored",
+                        Some(loc),
+                    ),
+                );
+            }
             let id = mount_host(cx, NodeType::Overlay, common, at);
             let weak = cx.weak();
             cx.effect(EffectKind::Render, at, move || {
-                let a = anchor.as_ref().and_then(|r| node_ref::node_value(r, at));
-                let p = point.as_ref().map(kivact_reactive::Prop::get);
+                let at_place = match &place {
+                    Place::Anchor {
+                        node,
+                        at_least_width,
+                    } => kivact_wire::OverlayAt::Anchor {
+                        node: node_ref::node_value(node, at),
+                        at_least_width: *at_least_width,
+                    },
+                    Place::Point { point, .. } => {
+                        kivact_wire::OverlayAt::Point(kivact_reactive::Prop::get(point))
+                    }
+                };
                 if let Some(rt) = weak.upgrade() {
                     let props = OverlayProps {
-                        anchor: a,
-                        point: p,
+                        at: at_place,
                         placement,
-                        align: match align {
-                            OverlayAlign::Center => PlacementAlign::Center,
-                            OverlayAlign::End => PlacementAlign::End,
-                            OverlayAlign::Start => PlacementAlign::Start,
-                        },
+                        align,
                         offset,
                         modal,
-                        at_least_anchor_width,
                     };
                     ViewState::tree_mut(&rt).update(
                         id,

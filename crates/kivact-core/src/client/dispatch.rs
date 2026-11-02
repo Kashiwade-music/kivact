@@ -81,18 +81,14 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             region,
             visible,
         } => text::focus_changed(rt, *node, *region, *visible),
-        HostEvent::FocusResult {
-            request,
-            ok,
-            reason,
-        } => text::focus_result(rt, *request, *ok, reason.as_deref()),
+        HostEvent::FocusResult { request, result } => {
+            text::focus_result(rt, *request, result.clone())
+        }
         HostEvent::A11y {
             node,
             region,
-            action,
-            value,
-        } => a11y::a11y(rt, host_event, *node, *region, *action, value.as_deref()),
-        HostEvent::OverlayDismiss { node } => a11y::overlay_dismiss(rt, host_event, *node),
+            request,
+        } => a11y::a11y(rt, host_event, *node, *region, request),
         HostEvent::EnvChanged(env) => env::env_changed(rt, env),
         HostEvent::FrameTick {
             now_ns,

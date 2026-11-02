@@ -10,7 +10,7 @@ use kivact_engine::bridge::PropValue;
 use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{EffectKind, ErrorKind, UiError};
 use kivact_style::asset::ImageFit;
-use kivact_wire::NodeId;
+use kivact_wire::{CheckedState, NodeId};
 
 use kivact_wire::SemanticsProperties;
 /// The nodes `refs` are bound to now, in order, leaving out a reference
@@ -28,8 +28,7 @@ pub(super) fn bind(
     sources: SemanticSources,
     at: &'static std::panic::Location<'static>,
 ) {
-    if sources.indeterminate.is_none()
-        && sources.value_min.is_none()
+    if sources.value_min.is_none()
         && sources.value_max.is_none()
         && sources.value_now.is_none()
         && sources.live_region.is_none()
@@ -88,17 +87,25 @@ pub(super) fn bind_late(
     }
 }
 
+/// The published checked state of a node or region: mixed wins, else the
+/// binary value, else not a toggle.
+pub(super) fn checked_state(
+    checked: Option<bool>,
+    indeterminate: Option<bool>,
+) -> Option<CheckedState> {
+    match (checked, indeterminate) {
+        (_, Some(true)) => Some(CheckedState::Indeterminate),
+        (Some(checked), _) => Some(CheckedState::from_bool(checked)),
+        (None, _) => None,
+    }
+}
+
 /// Resolve shared semantic sources in the current tracked rendering context.
 pub(super) fn resolve(
     sources: &SemanticSources,
     at: &'static std::panic::Location<'static>,
 ) -> SemanticsProperties {
     SemanticsProperties {
-        indeterminate: sources
-            .indeterminate
-            .as_ref()
-            .map(kivact_reactive::Prop::get)
-            .unwrap_or(false),
         value_min: sources.value_min.as_ref().map(kivact_reactive::Prop::get),
         value_max: sources.value_max.as_ref().map(kivact_reactive::Prop::get),
         value_now: sources.value_now.as_ref().map(kivact_reactive::Prop::get),
@@ -149,6 +156,8 @@ pub(super) struct SemanticProps {
     pub(super) description: Option<InputProp<String>>,
     pub(super) value: Option<InputProp<String>>,
     pub(super) checked: Option<InputProp<bool>>,
+    /// Mixed checked state; wins over `checked`.
+    pub(super) indeterminate: Option<InputProp<bool>>,
     pub(super) expanded: Option<InputProp<bool>>,
     pub(super) invalid: Option<InputProp<bool>>,
     /// Final: the caller's, or combined with the parts' requirements.
@@ -174,6 +183,7 @@ pub(super) fn bind_props(
         description,
         value,
         checked,
+        indeterminate,
         expanded,
         invalid,
         hidden,
@@ -185,8 +195,19 @@ pub(super) fn bind_props(
     bind_prop(cx, id, name, PropValue::Name, at);
     bind_prop(cx, id, description, PropValue::Description, at);
     bind_prop(cx, id, value, PropValue::Value, at);
-    bind_prop(cx, id, checked, |b| PropValue::Checked(Some(b)), at);
-    bind_prop(cx, id, expanded, |b| PropValue::Expanded(Some(b)), at);
+    if checked.is_some() || indeterminate.is_some() {
+        let weak = cx.weak();
+        cx.effect(EffectKind::Render, at, move || {
+            let state = checked_state(
+                checked.as_ref().map(kivact_reactive::Prop::get),
+                indeterminate.as_ref().map(kivact_reactive::Prop::get),
+            );
+            if let Some(rt) = weak.upgrade() {
+                ViewState::tree_mut(&rt).update(id, PropValue::Checked(state), rt.running_effect());
+            }
+        });
+    }
+    bind_prop(cx, id, expanded, PropValue::Expanded, at);
     if let Some(sources) = sources {
         bind(cx, id, *sources, at);
     }

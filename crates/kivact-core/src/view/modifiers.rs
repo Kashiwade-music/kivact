@@ -28,7 +28,7 @@
 //! - `on_a11y` keeps one handler per action and a new registration replaces
 //!   it.
 //!
-//! The extra semantics (`indeterminate`, the value range, `live_region`,
+//! The extra semantics (the value range, `live_region`,
 //! `sort`, `orientation`, `active_descendant`, `level`, `set_size`,
 //! `pos_in_set`, `multiselectable` and the relations `described_by`,
 //! `controls`, `labelled_by`) share one rarely allocated box of sources on
@@ -39,7 +39,7 @@ use std::rc::Rc;
 
 use crate::view::common::{Common, SemanticSources};
 use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
-use crate::view::{A11yAction, A11yEvent, HandlerResult};
+use crate::view::{A11yAction, A11yEvent, A11yRequest, HandlerResult};
 
 /// The shared bodies of the modifiers that are more than a field write.
 /// `NodeBuilder`, `NodeExt` and `Part` forward to them.
@@ -140,10 +140,8 @@ impl Common {
         if action == A11yAction::Activate {
             self.handlers.activate = Some(Rc::new(move |region| {
                 f(A11yEvent {
-                    action,
+                    request: A11yRequest::Activate,
                     region,
-                    value: None,
-                    dismiss_reason: None,
                 })
                 .into_result()
             }));

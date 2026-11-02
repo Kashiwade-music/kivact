@@ -51,6 +51,8 @@ pub(crate) struct Common {
     pub semantics: Option<Box<SemanticSources>>,
     /// Checked state (toggles).
     pub checked: Option<InputProp<bool>>,
+    /// Mixed checked state (HTML `indeterminate`).
+    pub indeterminate: Option<InputProp<bool>>,
     /// Expanded state (disclosures).
     pub expanded: Option<InputProp<bool>>,
     /// Focusability, constant or reactive (a builder sets its own before the
@@ -259,7 +261,6 @@ pub(super) struct Constraints {
 
 #[derive(Clone, Default)]
 pub(crate) struct SemanticSources {
-    pub(crate) indeterminate: Option<InputProp<bool>>,
     pub(crate) value_min: Option<InputProp<f64>>,
     pub(crate) value_max: Option<InputProp<f64>>,
     pub(crate) value_now: Option<InputProp<f64>>,

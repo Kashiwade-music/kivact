@@ -2,7 +2,7 @@
 //! the lookup of a node's handler and owner, and the failure-safe handler run.
 
 use kivact_reactive::{Owner, Runtime, UiError};
-use kivact_wire::{HostEvent, NodeId, PointerPhase};
+use kivact_wire::{HostEvent, KeyPhase, NodeId, PointerPhase};
 
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
@@ -12,11 +12,12 @@ use crate::view::tree::Handlers;
 /// press to keyboard.
 pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
-        HostEvent::Pointer { event, .. } if event.phase == PointerPhase::Down => {
+        HostEvent::Pointer { event, .. } if matches!(event.phase, PointerPhase::Down(_)) => {
             ViewState::of(rt).set_pointer_modality(true);
         }
         HostEvent::Key {
-            released: false, ..
+            phase: KeyPhase::Down { .. },
+            ..
         } => ViewState::of(rt).set_pointer_modality(false),
         _ => {}
     }

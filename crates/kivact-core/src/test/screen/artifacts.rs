@@ -125,10 +125,7 @@ impl Screen {
                 }
             }
             if let Some(c) = n.checked {
-                let _ = write!(states, " checked={c}");
-            }
-            if n.properties.as_ref().is_some_and(|p| p.indeterminate) {
-                states.push_str(" indeterminate");
+                let _ = write!(states, " checked={c:?}");
             }
             if let Some(e) = n.expanded {
                 let _ = write!(states, " expanded={e}");

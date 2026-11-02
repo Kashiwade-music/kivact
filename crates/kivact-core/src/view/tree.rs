@@ -493,14 +493,14 @@ impl Tree {
         })
     }
     #[cfg(feature = "test")]
-    pub(crate) fn checked(&self, id: NodeId) -> Option<Option<bool>> {
+    pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_wire::CheckedState> {
         self.with_node(id, |node| {
             node.and_then(|node| node.semantics.as_ref())
                 .and_then(|semantics| semantics.checked)
         })
     }
     #[cfg(feature = "test")]
-    pub(crate) fn expanded(&self, id: NodeId) -> Option<Option<bool>> {
+    pub(crate) fn expanded(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| {
             node.and_then(|node| node.semantics.as_ref())
                 .and_then(|semantics| semantics.expanded)

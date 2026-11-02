@@ -8,6 +8,6 @@
 
 #[doc(inline)]
 pub use kivact_motion::{
-    Animatable, Animated, Easing, FrameInfo, FrameLoop, FrameRate, Spring, Transition, animated,
-    frame_loop,
+    Animatable, Animated, Easing, FrameInfo, FrameLoop, FrameRate, Repeat, Spring, Transition,
+    animated, frame_loop,
 };

@@ -7,7 +7,8 @@
 
 use kivact_wire as p;
 pub use kivact_wire::{
-    FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerButtons, PointerId, PointerPhase,
+    ButtonPress, FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerButtons, PointerId,
+    PointerPhase,
 };
 
 /// What kind of device a pointer is ([`PointerEvent::kind`]).
@@ -25,29 +26,19 @@ use kivact_style::draw::{Point, RegionId};
 
 /// The input that requested dismissal. Unmounting an overlay does not
 /// produce a dismissal event; applications close it explicitly themselves.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DismissReason {
-    /// A pointer button was pressed outside the overlay and its anchor.
-    OutsidePress,
-    /// An unmodified, unhandled Escape reached this overlay.
-    Escape,
-    /// Assistive technology requested the offered Dismiss action.
-    Accessibility,
-}
+#[doc(inline)]
+pub use kivact_wire::DismissReason;
 
-/// An assistive-technology action delivered to a node or one of its drawn
-/// regions. Regions preserve the identity declared by `Draw::region`, so
-/// externally authored editors can operate the requested clip, key or item.
+/// An assistive-technology request delivered to a node or one of its drawn
+/// regions (and the dismissals delivered to an overlay's Dismiss handler).
+/// Regions preserve the identity declared by `Draw::region`, so externally
+/// authored editors can operate the requested clip, key or item.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct A11yEvent {
-    /// The offered action requested by assistive technology.
-    pub action: crate::view::A11yAction,
+    /// What is requested, with a `SetValue`'s text or a `Dismiss`'s reason.
+    pub request: crate::view::A11yRequest,
     /// `None` for the root node, `Some` for a drawn region.
     pub region: Option<RegionId>,
-    /// Requested text or numeric value for `SetValue`, when supplied.
-    pub value: Option<String>,
-    /// Why a Dismiss was requested; `None` for other actions.
-    pub dismiss_reason: Option<DismissReason>,
 }
 
 /// What a key/pointer/wheel callback did with its event.
@@ -164,8 +155,8 @@ pub struct KeyEvent {
 ///
 /// The mouse is `PointerId(1)`; each touch or pen contact has an id of its
 /// own while it lasts, holds [`MouseButton::Primary`] in
-/// [`buttons`](Self::buttons) while in contact and names it as
-/// [`button`](Self::button) at its `Down` and `Up`. Several pointers can be down at once: each one's
+/// [`buttons`](Self::buttons) while in contact and names it in a `Down`'s
+/// and `Up`'s [`ButtonPress`]. Several pointers can be down at once: each one's
 /// events go to the node that got its `Down`, so a handler that follows a
 /// gesture keeps the [`id`](Self::id) its `Down` had.
 ///
@@ -179,6 +170,8 @@ pub struct KeyEvent {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerEvent {
     pub id: PointerId,
+    /// What happened; a `Down` or `Up` carries the [`ButtonPress`]: the
+    /// button it pressed or released and which click of a multi-click it is.
     pub phase: PointerPhase,
     /// Where the pointer is, relative to the node's untransformed box
     /// (its own coordinates).
@@ -187,15 +180,11 @@ pub struct PointerEvent {
     /// to anchor a context menu at (`overlay_at`) or to hit test other
     /// nodes with during a drag.
     pub window_pos: Point,
-    /// The button this event pressed or released: set on `Down` and `Up`
-    /// only, `None` for every other phase.
-    pub button: Option<MouseButton>,
     /// The buttons held after this event (Pointer Events' `buttons`): a
     /// `Move` with a button held is a drag, one with none a hover. `Cancel`
     /// and the `Leave` that follows it hold none.
     pub buttons: PointerButtons,
     pub modifiers: Modifiers,
-    pub click_count: u8,
     /// Mouse, touch or pen.
     pub kind: PointerKind,
     /// Pressure from 0 to 1 of a touch or pen, when the device reports
@@ -231,10 +220,8 @@ pub(crate) fn pointer_event_from_wire(
         phase: e.phase,
         pos: e.pos,
         window_pos: e.window_pos,
-        button: e.button,
         buttons: e.buttons,
         modifiers: e.modifiers,
-        click_count: e.click_count,
         kind: e.kind,
         pressure: e.pressure,
         tilt: e.tilt,
