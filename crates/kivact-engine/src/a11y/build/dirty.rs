@@ -3,6 +3,7 @@
 //! The O(N) enumeration stores IDs/hashes only. Payload construction remains
 //! proportional to the expanded dirt; no accepted payload is retained here.
 use super::node::{drawable, structural};
+use crate::a11y::state::{Dirt, Metadata};
 use crate::model::Model;
 use crate::semantic_role;
 use arvane as a;
@@ -10,28 +11,31 @@ use kivact_wire as wire;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+/// A semantics tree built for publication and the identity metadata it was
+/// built with (`None`: a local text build reused the accepted metadata).
+pub(in crate::a11y) struct Built {
+    pub(in crate::a11y) tree: kivact_types::protocol::SemanticsTree,
+    pub(in crate::a11y) metadata: Option<Metadata>,
+}
+
 impl Model {
     /// Independent full reference; callers isolate mutable identities and caches.
     #[cfg(all(debug_assertions, feature = "testing"))]
     pub(crate) fn build_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> Option<kivact_types::protocol::SemanticsTree> {
-        self.build_semantics_for(engine, true)
+    ) -> kivact_types::protocol::SemanticsTree {
+        self.build_semantics_for(engine, &Dirt::Full).tree
     }
 
-    pub(crate) fn build_dirty_semantics(
+    /// Build the payloads `dirt` asks for, with the identity metadata the
+    /// build used (`None`: a local text build reused the accepted one).
+    pub(in crate::a11y) fn build_semantics_for(
         &mut self,
         engine: &mut a::Engine,
-    ) -> Option<kivact_types::protocol::SemanticsTree> {
-        self.build_semantics_for(engine, self.a11y.full)
-    }
-
-    fn build_semantics_for(
-        &mut self,
-        engine: &mut a::Engine,
-        full: bool,
-    ) -> Option<kivact_types::protocol::SemanticsTree> {
+        dirt: &Dirt,
+    ) -> Built {
+        let full = *dirt == Dirt::Full;
         let Some(root) = self.tree().root() else {
             let id = match self.a11y.empty_root {
                 Some(id) => id,
@@ -54,26 +58,40 @@ impl Model {
                 kivact_types::protocol::Transform::IDENTITY,
                 false,
             );
-            self.a11y.prepared = Some(crate::a11y::state::Metadata {
-                live: BTreeSet::from([id]),
-                ..Default::default()
-            });
             #[cfg(feature = "testing")]
             {
                 self.a11y.constructed += 1;
             }
-            return Some(kivact_types::protocol::SemanticsTree {
-                root: kivact_types::NodeId(id),
-                focus: None,
-                nodes: vec![node],
-            });
+            return Built {
+                tree: kivact_types::protocol::SemanticsTree {
+                    root: kivact_types::NodeId(id),
+                    focus: None,
+                    nodes: vec![node],
+                },
+                metadata: Some(Metadata {
+                    live: BTreeSet::from([id]),
+                    ..Default::default()
+                }),
+            };
         };
-        if !full && !self.a11y.metadata_refresh {
-            return Some(self.build_local_text(root, engine));
+        if let Dirt::LocalText { nodes } = dirt {
+            return Built {
+                tree: self.build_local_text(root, nodes, engine),
+                metadata: None,
+            };
         }
+        let empty = BTreeSet::new();
+        let (own, subtrees, removed) = match dirt {
+            Dirt::Metadata {
+                nodes,
+                subtrees,
+                removed,
+            } => (nodes, subtrees, removed),
+            _ => (&empty, &empty, &empty),
+        };
         self.prepare_region_ids();
         let clipped = self.clipped_rows();
-        let mut metadata = crate::a11y::state::Metadata {
+        let mut metadata = Metadata {
             clipped,
             modal: self.modal(),
             ..Default::default()
@@ -129,8 +147,8 @@ impl Model {
                 }
             }
         }
-        let mut dirty = self.a11y.nodes.clone();
-        dirty.extend(self.a11y.removed.iter().copied());
+        let mut dirty = own.clone();
+        dirty.extend(removed.iter().copied());
         dirty.extend(
             metadata
                 .clipped
@@ -156,7 +174,7 @@ impl Model {
                 .get(&id)
                 .and_then(|p| *p)
                 .is_some_and(|p| inherited.contains(&p));
-            if modal_changed || parent_dirty || self.a11y.subtrees.contains(&id) {
+            if modal_changed || parent_dirty || subtrees.contains(&id) {
                 inherited.insert(id);
                 dirty.insert(id);
             }
@@ -238,11 +256,13 @@ impl Model {
             self.a11y.constructed += nodes.len() as u64;
         }
         let focus = self.semantics_focus(&metadata.clipped);
-        self.a11y.prepared = Some(metadata);
-        Some(kivact_types::protocol::SemanticsTree {
-            root: kivact_types::NodeId(root.0),
-            focus,
-            nodes,
-        })
+        Built {
+            tree: kivact_types::protocol::SemanticsTree {
+                root: kivact_types::NodeId(root.0),
+                focus,
+                nodes,
+            },
+            metadata: Some(metadata),
+        }
     }
 }

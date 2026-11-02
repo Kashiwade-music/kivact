@@ -1,6 +1,6 @@
 //! Role: Frame ticks, smooth scrolls, env and surface changes, and the next deadline.
 
-use super::state::SmoothScroll;
+use super::state::{Clock, SmoothScroll};
 use crate::model::Model;
 use kivact_wire::{HostEnv, HostEvent, MotionClock, NodeId, Point};
 
@@ -14,21 +14,16 @@ impl Model {
         target: Point,
         smooth: bool,
     ) {
-        if let Some(scrolls) = &mut self.frame.smooth_scrolls {
-            scrolls.remove(&id);
-        }
+        self.frame.smooth_scrolls.remove(&id);
         if smooth && !self.frame.reduced_motion() {
-            self.frame
-                .smooth_scrolls
-                .get_or_insert_with(Default::default)
-                .insert(
-                    id,
-                    SmoothScroll {
-                        start,
-                        target,
-                        began: None,
-                    },
-                );
+            self.frame.smooth_scrolls.insert(
+                id,
+                SmoothScroll {
+                    start,
+                    target,
+                    began: None,
+                },
+            );
             let next = self
                 .frame
                 .last_frame
@@ -40,6 +35,20 @@ impl Model {
         }
     }
 
+    /// The environment before the client starts (it gets it in `HostInfo`):
+    /// stored with no event; the clock stands still from now when nothing can
+    /// be drawn.
+    pub(crate) fn start_env(&mut self, env: HostEnv) {
+        self.frame.clock = if env.surface_active {
+            Clock::Running
+        } else {
+            Clock::Stopped {
+                since: self.frame.now,
+            }
+        };
+        self.frame.env = env;
+    }
+
     /// Change the environment the client sees with `change`; when the
     /// result differs, queue it whole as one `EnvChanged`. A change of
     /// drawability also pauses or resumes the frame clocks.
@@ -49,23 +58,32 @@ impl Model {
         if env == self.frame.env {
             return;
         }
-        if env.surface_active != self.frame.env.surface_active {
-            if env.surface_active {
-                if let Some(paused) = self.frame.state_paused_at.take() {
-                    let now = self.frame.now;
-                    self.shift_state_times(paused, now);
-                    self.frame.offset_ns = self
-                        .frame
-                        .offset_ns
-                        .saturating_add(now.saturating_sub(paused));
-                    self.frame.resumed_ns = now;
-                }
-            } else {
-                self.frame.state_paused_at = Some(self.frame.now);
+        match (self.frame.clock, env.surface_active) {
+            (Clock::Stopped { since }, true) => {
+                let now = self.frame.now;
+                self.shift_state_times(since, now);
+                self.frame.motion.offset_ns = self
+                    .frame
+                    .motion
+                    .offset_ns
+                    .saturating_add(now.saturating_sub(since));
+                self.frame.motion.resumed_ns = now;
+                self.frame.clock = Clock::Running;
             }
+            (Clock::Running, false) => {
+                self.frame.clock = Clock::Stopped {
+                    since: self.frame.now,
+                };
+            }
+            _ => {}
         }
         self.a11y.invalidate();
         self.frame.env = env.clone();
+        debug_assert_eq!(
+            self.frame.clock == Clock::Running,
+            self.frame.env.surface_active,
+            "invariant: the frame clock stops exactly while nothing can be drawn"
+        );
         self.push(HostEvent::EnvChanged(env));
     }
 
@@ -107,7 +125,8 @@ impl Model {
             self.frame.frames.push(stamp.saturating_add(period));
         }
         self.sync();
-        if let Some(mut scrolls) = self.frame.smooth_scrolls.take() {
+        if !self.frame.smooth_scrolls.is_empty() {
+            let mut scrolls = std::mem::take(&mut self.frame.smooth_scrolls);
             scrolls.retain(|id, scroll| {
                 let began = *scroll.began.get_or_insert(stamp);
                 let t = if self.frame.reduced_motion() {
@@ -127,7 +146,7 @@ impl Model {
             });
             if !scrolls.is_empty() {
                 self.frame.frames.push(stamp.saturating_add(period));
-                self.frame.smooth_scrolls = Some(scrolls);
+                self.frame.smooth_scrolls = scrolls;
             }
             self.sync();
         }
@@ -141,10 +160,7 @@ impl Model {
 
     /// The motion clock the next frame tick carries.
     fn motion_clock(&self) -> MotionClock {
-        MotionClock {
-            offset_ns: self.frame.offset_ns,
-            resumed_ns: self.frame.resumed_ns,
-        }
+        self.frame.motion
     }
 
     /// When the next frame tick is due: the earliest request, but at most

@@ -1,6 +1,5 @@
 //! Role: Build a frame's draw commands from the paint list, step by step.
 
-use super::list::{NO_MATRIX, NO_TRANSFORM};
 use super::state::{Entry, Step};
 use crate::model::Model;
 use crate::model::interact::visual;
@@ -26,7 +25,10 @@ impl Model {
             let at = zoom.last().copied().unwrap_or(1.0);
             match entry {
                 Entry::Open(step) => {
-                    let at = match self.paint.list.transforms.get(step.transform as usize) {
+                    let at = match step
+                        .transform
+                        .and_then(|t| self.paint.list.transforms.get(t as usize))
+                    {
                         Some(t) => {
                             let z = at * t.max_scale();
                             zoom.push(z);
@@ -44,7 +46,7 @@ impl Model {
                         .raster
                         .set(self.paint.scale * scene::raster_zoom(at));
                     self.paint_close(step, engine, &mut out);
-                    if step.transform != NO_TRANSFORM {
+                    if step.transform.is_some() {
                         zoom.pop();
                     }
                 }
@@ -58,11 +60,8 @@ impl Model {
     }
 
     /// The color matrix at `index` of the paint list.
-    fn matrix(&self, index: u32) -> Option<kivact_types::protocol::ColorMatrix> {
-        if index == NO_MATRIX {
-            return None;
-        }
-        self.paint.list.matrices.get(index as usize).copied()
+    fn matrix(&self, index: Option<u32>) -> Option<kivact_types::protocol::ColorMatrix> {
+        self.paint.list.matrices.get(index? as usize).copied()
     }
 
     /// How `step`'s colors are drawn.
@@ -137,7 +136,10 @@ impl Model {
     ) {
         let host = &self;
         let id = step.id;
-        if let Some(t) = self.paint.list.transforms.get(step.transform as usize) {
+        if let Some(t) = step
+            .transform
+            .and_then(|t| self.paint.list.transforms.get(t as usize))
+        {
             out.push(D::PushTransform(*t));
         }
         let Some(n) = host.node(id) else {
@@ -293,7 +295,7 @@ impl Model {
             });
         }
         out.extend(std::iter::repeat_n(D::PopLayer, usize::from(step.layers)));
-        if step.transform != NO_TRANSFORM {
+        if step.transform.is_some() {
             out.push(D::PopTransform);
         }
     }

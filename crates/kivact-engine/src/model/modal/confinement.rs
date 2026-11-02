@@ -130,7 +130,7 @@ impl Model {
         match phase {
             PointerPhase::Down => {
                 if let Some(button) = button {
-                    admission.press(pointer, node, button);
+                    admission.press(pointer, node);
                     // A new primary press ends the pointer's earlier gesture
                     // whose release never came.
                     if button == kivact_wire::MouseButton::Primary {
@@ -138,9 +138,9 @@ impl Model {
                     }
                 }
             }
-            PointerPhase::Up => admission.release(pointer, node, button),
+            PointerPhase::Up if buttons.is_empty() => admission.end(pointer, node),
             PointerPhase::Cancel => {
-                admission.cancel(pointer, node);
+                admission.end(pointer, node);
                 admission.forget_adoption(pointer);
             }
             _ => {}

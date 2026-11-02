@@ -5,8 +5,7 @@ use crate::measure::editor::EditorNode;
 use crate::measure::input::RefreshedLines;
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::HostNode;
-use kivact_editing::{EditState, Editor, Journal, Taken, TextSession};
+use kivact_editing::{EditState, Editor, Taken, TextSession};
 use kivact_text::EditLines;
 #[cfg(all(debug_assertions, feature = "testing"))]
 use kivact_text::{RefreshError, RefreshMode};
@@ -46,15 +45,16 @@ impl Model {
         let Some(data) = &node.properties.editing else {
             return self.set_edit(id, None);
         };
-        let value = data.value.as_deref().unwrap_or("");
+        let value = data.value.clone().unwrap_or_else(|| Rc::from(""));
         let edit = match &mut self.editors[node.index.0] {
             Some(edit) => {
-                if edit.editor.state().value() != value {
-                    edit.held = !edit.editor.set_controlled(value);
+                if edit.editor.state().value() != &*value {
+                    edit.pending_controlled =
+                        (!edit.editor.set_controlled(&value)).then_some(value);
                 }
                 return None;
             }
-            None => EditState::new(value),
+            None => EditState::new(&value),
         };
         self.set_edit(id, Some(edit))
     }
@@ -92,11 +92,11 @@ impl Model {
             // held while composing.
             Some(edit) if edit.editor.state().value() != &*value => {
                 let taken = edit.editor.set_controlled(&value);
-                edit.held = !taken;
+                edit.pending_controlled = (!taken).then(|| value.clone());
                 taken
             }
             Some(edit) => {
-                edit.held = false;
+                edit.pending_controlled = None;
                 false
             }
             None => false,
@@ -142,30 +142,6 @@ impl Model {
         self.editor_node(id).is_some_and(|node| {
             (node.editor.revision(), node.editor.state().session()) != (before.0, &before.1)
         })
-    }
-
-    /// The value the text input `id` held back while it composed, once the
-    /// composition ended: taken by `journal` as a recorded change
-    /// (`Journal::adopt`); whether its text changed.
-    pub(in crate::model) fn adopt_held(
-        n: &HostNode,
-        held: &mut bool,
-        controlled_at: &mut u64,
-        journal: &mut Journal<'_>,
-    ) -> bool {
-        if !*held || journal.state().is_composing() {
-            return false;
-        }
-        *held = false;
-        let value = n
-            .properties
-            .editing
-            .as_ref()
-            .and_then(|data| data.value.clone())
-            .unwrap_or_default();
-        let changed = journal.adopt(&value);
-        *controlled_at = journal.revision();
-        changed
     }
 
     /// Replace the session of the text input `id` with kivact's (clamped

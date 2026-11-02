@@ -1,6 +1,8 @@
 //! Role: Build the frame's dirty accessibility payload and submit it to the window.
 
+use super::build::Built;
 use super::hash;
+use super::state::Dirt;
 use crate::model::Model;
 
 impl Model {
@@ -22,22 +24,23 @@ impl Model {
             self.a11y.invalidate();
             return;
         }
-        if !self.a11y.pending && self.a11y.root.is_some() {
+        if self.a11y.dirt == Dirt::Clean && self.a11y.root.is_some() {
             return;
         }
+        let mut dirt = std::mem::replace(&mut self.a11y.dirt, Dirt::Clean);
         if self.tree().root().map(|id| kivact_types::NodeId(id.0)) != self.a11y.root {
-            self.a11y.full = true;
+            dirt = Dirt::Full;
         }
-        let Some(mut candidate) = self.build_dirty_semantics(engine) else {
-            self.a11y.invalidate();
-            return;
-        };
+        let Built {
+            tree: mut candidate,
+            metadata,
+        } = self.build_semantics_for(engine, &dirt);
         let hashes: Vec<_> = candidate
             .nodes
             .iter()
             .map(|node| (node.id.0, hash::fingerprint(node)))
             .collect();
-        let replace = self.a11y.full || self.a11y.root != Some(candidate.root);
+        let replace = dirt == Dirt::Full || self.a11y.root != Some(candidate.root);
         if !replace {
             candidate
                 .nodes
@@ -62,7 +65,7 @@ impl Model {
             };
         if accepted.is_ok() {
             self.a11y.hashes.extend(hashes);
-            if let Some(metadata) = self.a11y.prepared.take() {
+            if let Some(metadata) = metadata {
                 self.a11y.hashes.retain(|id, _| metadata.live.contains(id));
                 self.a11y
                     .region_ids
@@ -75,14 +78,8 @@ impl Model {
                     .retain(|key, _| metadata.authored.contains(key));
                 self.a11y.metadata = std::rc::Rc::new(metadata);
             }
-            self.a11y.metadata_refresh = false;
             self.a11y.root = Some(root);
             self.a11y.focus = focus;
-            self.a11y.pending = false;
-            self.a11y.full = false;
-            self.a11y.nodes.clear();
-            self.a11y.subtrees.clear();
-            self.a11y.removed.clear();
         } else {
             self.a11y.invalidate();
         }

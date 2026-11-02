@@ -31,7 +31,7 @@
 //!   lint, then syncs again to dispatch that geometry.
 
 use crate::model::Model;
-use crate::model::changes::Dirty;
+use crate::model::changes::{Dirty, Geometry};
 use arvane::asset::AssetStore;
 use kivact_wire::{NodeId, NodeType, Size};
 
@@ -94,14 +94,12 @@ impl Model {
                 .rebuild_style(&self.tree, &mut self.layout_state, id);
         }
         for id in self.changes.take(Dirty::LAYOUT_CHAIN) {
-            // The engine marks the shared viewport as `NodeId(0)` (ENGINE E18 replaces the mark).
-            if id == NodeId(0) {
-                self.layout_columns
-                    .invalidate_viewport(&mut self.layout_state);
-            } else {
-                self.layout_columns
-                    .invalidate_chain(&self.tree, &mut self.layout_state, id);
-            }
+            self.layout_columns
+                .invalidate_chain(&self.tree, &mut self.layout_state, id);
+        }
+        if std::mem::take(&mut self.changes.viewport_chain) {
+            self.layout_columns
+                .invalidate_viewport(&mut self.layout_state);
         }
         if std::mem::take(&mut self.changes.layout_changed) {
             self.layout_state.topology_changed();
@@ -142,19 +140,20 @@ impl Model {
         }
         touched.sort_unstable();
         self.report_images(&touched);
-        let mut changes = std::mem::take(&mut self.changes);
+        let changes = self.changes.dispatch();
+        let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint
             || changes.fonts
-            || changes.moved
+            || moved
             || changes.any(Dirty::WRITTEN.union(Dirty::REDRAW));
         let restyled = changes
             .marked(Dirty::REDRAW)
             .any(|id| self.node(id).is_some_and(|n| n.states().is_some()));
-        let restack = changes.restack || changes.moved || restyled;
+        let restack = changes.restack || moved || restyled;
         self.paint
             .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
         for id in changes.marked(Dirty::WRITTEN.union(Dirty::REDRAW)) {
-            let flags = changes.dirty.get(&id).copied().unwrap_or_default();
+            let flags = changes.flags(id);
             if flags.contains(Dirty::A11Y_LOCAL_TEXT) && !flags.contains(Dirty::A11Y_METADATA) {
                 self.a11y.local_text(id);
             } else {
@@ -177,10 +176,6 @@ impl Model {
             self.a11y
                 .request_publication(changes.a11y_removed.iter().copied());
         }
-        for id in changes.take(Dirty::MEASURE) {
-            self.changes.mark(id, Dirty::MEASURE);
-        }
-        self.changes.needs_layout = changes.needs_layout;
         self.report_sessions();
     }
 
@@ -217,7 +212,7 @@ impl Model {
                 self.push(e);
             }
             #[cfg(debug_assertions)]
-            self.lint_layout(engine, self.changes.laid_out, &remeasured);
+            self.lint_layout(engine, self.changes.was_laid_out(), &remeasured);
             self.sync();
         }
     }

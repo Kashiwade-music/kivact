@@ -52,7 +52,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             let theme = theme.map(|t| t.get()).unwrap_or_default();
             let measurer = weak
                 .upgrade()
-                .and_then(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
+                .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
             let Recording {
                 scene,
                 unsupported: issues,

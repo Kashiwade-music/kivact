@@ -1,6 +1,6 @@
 //! Role: Invalidate retained paint list entries and their recorded ink.
 
-use crate::model::changes::Changes;
+use crate::model::changes::Dispatched;
 use crate::paint::state::{Ink, PaintList, PaintState};
 use kivact_wire::NodeId;
 
@@ -20,7 +20,7 @@ impl PaintList {
     /// ancestors' ([`PaintList::forget_ink`]).
     fn invalidate(
         &mut self,
-        changes: &Changes,
+        changes: &Dispatched,
         tree: &crate::tree::NodeTree,
         ink: &[std::cell::Cell<Option<Ink>>],
     ) {
@@ -91,7 +91,7 @@ impl PaintState {
     pub(crate) fn outdate_paint(
         &mut self,
         tree: &crate::tree::NodeTree,
-        changes: &Changes,
+        changes: &Dispatched,
         redraw: bool,
         fonts: bool,
         restack: bool,

@@ -221,7 +221,7 @@ impl Model {
         let EditorNode {
             editor,
             lines,
-            held,
+            pending_controlled,
             controlled_at,
             ..
         } = self.editors[n.index.0].as_deref_mut()?;
@@ -249,7 +249,7 @@ impl Model {
         if read_only && (journal.text_changed() || journal.state().is_composing()) {
             journal.revert();
         }
-        if Model::adopt_held(n, held, controlled_at, &mut journal) {
+        if EditorNode::adopt_pending_controlled(pending_controlled, controlled_at, &mut journal) {
             reported = true;
         }
         let changed = !read_only && reported;
@@ -433,7 +433,7 @@ impl Model {
         let report = n.reports_text();
         let Some(EditorNode {
             editor,
-            held,
+            pending_controlled,
             controlled_at,
             ..
         }) = self.editors[n.index.0].as_deref_mut()
@@ -444,7 +444,7 @@ impl Model {
         if !journal.state_mut().unmark() {
             return;
         }
-        Model::adopt_held(n, held, controlled_at, &mut journal);
+        EditorNode::adopt_pending_controlled(pending_controlled, controlled_at, &mut journal);
         let changes = journal.finish();
         let event = HostEvent::TextChanged {
             node: id,

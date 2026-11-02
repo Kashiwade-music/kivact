@@ -31,17 +31,11 @@ impl Model {
                 self.presence.arriving.insert(id);
                 continue;
             }
-            if self.transition_shown(id, |s| s.enter.is_some())
-                && let Some(n) = self.tree.get_mut(id)
-            {
-                n.presence = Presence::Entering;
+            if self.transition_shown(id, |s| s.enter.is_some()) {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
                 self.motion.forget(id);
-                self.prepare_state_motion(id);
-                if let Some(n) = self.tree.get_mut(id) {
-                    n.presence = Presence::Mounted;
-                }
+                self.prepare_entrance(id);
             }
         }
     }

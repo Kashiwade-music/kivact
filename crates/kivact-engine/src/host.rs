@@ -42,6 +42,10 @@
 //!   it). Input that arrives meanwhile is applied to the model at once and
 //!   its turn deferred (`Host::defer`), the IME text and the cursor updated.
 //! - Platform requests (`Writer::effect`) are carried out after the turn;
+//!   those written during the shell's start (the client's start and the
+//!   first pump's turns, `Phase::Starting`) wait for the first entry after
+//!   it, which the host asks for at once (an embedding host is still inside
+//!   its editor's open call and takes no size request or dialog then);
 //!   the window's `Err` is reported as `PlatformResult::Failed(reason)`,
 //!   or `PlatformResult::Unsupported` when the platform has no such
 //!   service (`ShellError::is_unsupported`). A font is registered by the

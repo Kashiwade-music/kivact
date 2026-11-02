@@ -389,7 +389,7 @@ impl Writer {
     fn after_disabled(&self, id: NodeId) {
         let mut model = self.model.borrow_mut();
         if model.node(id).is_some_and(|n| n.disabled()) {
-            model.cancel_disabled_capture(&mut self.engine.borrow_mut());
+            model.cancel_disabled_capture();
         }
     }
 
