@@ -43,7 +43,7 @@ fn menu_renders_nested_levels_and_custom_trigger_keeps_its_style() {
                 vec![
                     MenuEntry::submenu(1, "Export", vec![MenuEntry::item(2, "PNG")]),
                     MenuEntry::separator(),
-                    MenuEntry::item(3, "Grid").checked(true),
+                    MenuEntry::checkbox(3, "Grid", true),
                 ],
                 move |key| chosen.set(Some(key)),
             )

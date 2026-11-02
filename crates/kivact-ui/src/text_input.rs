@@ -17,7 +17,7 @@ use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::{HandlerResult, IntoText, IntoValue, IntoView, NodeRef, View, callback};
 use kivact_core::{Binding, binding};
-use kivact_interaction::{EditPhase, TextEdit, use_text_edit};
+use kivact_interaction::{EditPhase, TextEdit, use_text_area, use_text_edit};
 
 use super::layer::recipes;
 use super::text_draft::{self, Draft};
@@ -87,7 +87,11 @@ fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: 
         }
         value.set(text);
     });
-    let editing = use_text_edit(typed).multiline(multiline);
+    let editing = if multiline {
+        use_text_area(typed)
+    } else {
+        use_text_edit(typed)
+    };
     let part = editing.control();
     let input = part.state();
     let variants = Variants::default();

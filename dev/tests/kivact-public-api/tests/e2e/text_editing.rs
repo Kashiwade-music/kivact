@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::interaction::use_text_edit;
+use kivact::interaction::{use_text_area, use_text_edit};
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
 use kivact::view::KeyEvent;
@@ -46,8 +46,7 @@ fn full_multiline_enter_reaches_the_parent_key_handler() {
             })
             .child(
                 kivact::control::node().name("Limited").part(
-                    kivact::interaction::use_text_edit(signal(String::from("x")))
-                        .multiline(true)
+                    kivact::interaction::use_text_area(signal(String::from("x")))
                         .max_length(1usize)
                         .control(),
                 ),
@@ -78,7 +77,11 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
             changes.borrow_mut().push(format!("change {v}"));
             value.set(v);
         });
-        let field = use_text_edit(edited).multiline(area);
+        let field = if area {
+            use_text_area(edited)
+        } else {
+            use_text_edit(edited)
+        };
         column((
             node()
                 .on_key(move |e: KeyEvent| {
@@ -263,9 +266,12 @@ fn tall_input(area: bool, height: u32) -> Screen {
         node()
             .name("Tall")
             .part(
-                use_text_edit(signal(String::from("abcdefghij")))
-                    .multiline(area)
-                    .control(),
+                if area {
+                    use_text_area(signal(String::from("abcdefghij")))
+                } else {
+                    use_text_edit(signal(String::from("abcdefghij")))
+                }
+                .control(),
             )
             .style(style().width(200).height(height).padding(0))
     });
@@ -323,7 +329,11 @@ fn on_composition_change_reports_each_change_of_the_composing_state() {
         let screen = render(move || {
             let value = signal(String::new());
             let seen = seen.clone();
-            let field = use_text_edit(value).multiline(multiline);
+            let field = if multiline {
+                use_text_area(value)
+            } else {
+                use_text_edit(value)
+            };
             column((
                 node()
                     .name("Draft")

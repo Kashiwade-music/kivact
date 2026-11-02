@@ -178,9 +178,12 @@ pub(super) fn overlays(scene: Demo) -> Node {
                                 MenuEntry::item("copy", "複製").shortcut("Ctrl+D"),
                                 MenuEntry::item("window", "新しいウィンドウで開く"),
                                 MenuEntry::separator(),
-                                MenuEntry::item("pinned", "詳細列を表示").checked(pinned.get()),
-                                MenuEntry::item("archived", "アーカイブを含める")
-                                    .checked(archived.get()),
+                                MenuEntry::checkbox("pinned", "詳細列を表示", pinned.get()),
+                                MenuEntry::checkbox(
+                                    "archived",
+                                    "アーカイブを含める",
+                                    archived.get(),
+                                ),
                                 MenuEntry::separator(),
                                 MenuEntry::item("delete", "削除…").shortcut("Del"),
                             ]

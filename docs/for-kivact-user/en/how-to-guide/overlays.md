@@ -206,7 +206,7 @@ fn app() -> impl IntoView {
             MenuEntry::item("new", "New").shortcut("Ctrl N"),
             MenuEntry::item("open", "Open"),
             MenuEntry::separator(),
-            MenuEntry::item("grid", "Show grid").checked(show_grid.get()).keep_open(true),
+            MenuEntry::checkbox("grid", "Show grid", show_grid.get()).keep_open(true),
             MenuEntry::submenu(
                 "export",
                 "Export",

@@ -23,7 +23,7 @@ pub(super) fn media() -> impl IntoView {
     let query = signal(String::new());
     let mode = signal(Some("tiles".to_owned()));
     let selected = signal(vec![1u64]);
-    let sort = signal(Some((1, kivact::view::SortDirection::Ascending)));
+    let sort = signal(Some((1, kivact::interaction::SortOrder::Ascending)));
     let rows = signal(fixtures());
     let tile_size = signal(120.0);
     let widths = signal(vec![
@@ -51,14 +51,14 @@ pub(super) fn media() -> impl IntoView {
             })
         },
         ListSelection::Multiple(selected.into()),
-    )
-    .policy(ListPolicy {
-        range: ListRangePolicy {
-            shift: ListRangeMode::Add,
-            ..ListRangePolicy::default()
+        ListPolicy {
+            range: ListRangePolicy {
+                shift: ListRangeMode::Add,
+                ..ListRangePolicy::default()
+            },
+            ..ListPolicy::default()
         },
-        ..ListPolicy::default()
-    });
+    );
     let pick = move |id: u64, shift: bool, ctrl: bool| {
         selection_control.select(
             id,

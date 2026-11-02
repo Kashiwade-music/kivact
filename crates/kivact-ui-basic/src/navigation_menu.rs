@@ -7,7 +7,7 @@ use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::i18n::message;
 use kivact::interaction::{
-    List, ListBoundary, ListPolicy, ListSelection, PopupCloseReason, use_list, use_popup,
+    List, ListBoundary, ListMode, ListPolicy, ListSelection, PopupCloseReason, use_list, use_popup,
 };
 use kivact::motion::{Easing, Transition};
 use kivact::primitive::NodeExt;
@@ -15,7 +15,7 @@ use kivact::style::{Align, Color, Direction, Justify, Style, TransitionProp, sty
 use kivact::ui::{ListActivation, ListItem};
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, Handled, IntoText, IntoValue, IntoView, Key, Orientation, OverlayAlign, Placement,
+    Handled, IntoText, IntoValue, IntoView, Key, Orientation, OverlayAlign, Placement,
     PointerPhase, Role, View, callback, node_ref, overlay, provide, show, try_context,
 };
 use kivact::view::{ReadingDirection, current_direction};
@@ -153,13 +153,17 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
         })
     });
     let focus = signal(None::<usize>);
-    let row_list = use_list(labels, ListSelection::Single(focus.into())).policy(ListPolicy {
-        axis: Some(Orientation::Horizontal),
-        boundary: ListBoundary::Wrap,
-        activation: ListActivation::Manual,
-        action: A11yAction::Activate,
-        ..ListPolicy::default()
-    });
+    let row_list = use_list(
+        labels,
+        ListSelection::Single(focus.into()),
+        ListPolicy {
+            axis: Some(Orientation::Horizontal),
+            boundary: ListBoundary::Wrap,
+            activation: ListActivation::Manual,
+            mode: ListMode::Activate,
+            ..ListPolicy::default()
+        },
+    );
     let mut children: Vec<View> = Vec::with_capacity(count);
     for at in 0..count {
         let label = memo(move || {

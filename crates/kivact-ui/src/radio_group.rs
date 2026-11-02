@@ -200,7 +200,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
         let chosen = binding(value.into_value(), move |next: Option<K>| {
             edit.once(value.get(), || value.set(next));
         });
-        let group = use_list(options, ListSelection::Single(chosen)).policy(ListPolicy::radio());
+        let group = use_list(options, ListSelection::Single(chosen), ListPolicy::radio());
         let looks = variants.clone();
         let rows = for_each(
             options,

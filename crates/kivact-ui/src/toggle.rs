@@ -12,7 +12,7 @@ use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_core::{Binding, Value};
-use kivact_interaction::{ToggleState, use_checkbox, use_switch};
+use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
 use std::cell::Cell;
 use std::rc::Rc;
 macro_rules! toggle_builder {
@@ -94,10 +94,7 @@ macro_rules! toggle_builder {
         #[diagnostic::do_not_recommend]
         impl IntoView for $name {
             fn into_view(mut self) -> View {
-                let mut behavior = $kind(self.state);
-                if let Some(mixed) = self.mixed {
-                    behavior = behavior.indeterminate(mixed);
-                }
+                let mut behavior = $kind(self.state, self.mixed);
                 // `.disabled(..)` ignores input while true.
                 if let Some(disabled) = self.root.accessible_disabled() {
                     behavior = behavior.disabled(move || disabled());
@@ -127,9 +124,9 @@ toggle_builder!(
     /// A check box: a box and a label that flip a `bool` together.
     ///
     /// Created by [`checkbox`]. Its behavior and semantics are those of
-    /// [`use_checkbox`].
+    /// [`use_checkbox`](kivact_interaction::use_checkbox).
     Checkbox,
-    use_checkbox,
+    checkbox_behavior,
     checkbox_recipe,
     None
 );
@@ -139,12 +136,26 @@ toggle_builder!(
     /// together.
     ///
     /// Created by [`switch`]. Its behavior and semantics are those of
-    /// [`use_switch`].
+    /// [`use_switch`](kivact_interaction::use_switch).
     Switch,
-    use_switch,
+    switch_behavior,
     switch_recipe,
     Some(switch_text)
 );
+
+/// The behavior of a check box, with its mixed state when it has one.
+fn checkbox_behavior(state: Binding<bool>, mixed: Option<Value<bool>>) -> CheckboxApi {
+    let behavior = use_checkbox(state);
+    match mixed {
+        Some(mixed) => behavior.indeterminate(mixed),
+        None => behavior,
+    }
+}
+
+/// The behavior of a switch; a switch has no mixed state.
+fn switch_behavior(state: Binding<bool>, _mixed: Option<Value<bool>>) -> Toggle {
+    use_switch(state)
+}
 
 /// A switch's localized word for its state, made at setup.
 fn switch_text(on: Value<bool>) -> Value<String> {
@@ -159,7 +170,7 @@ impl Checkbox {
     /// Show and publish the mixed (partially checked) state while true.
     /// The binding stays binary; pressing a mixed check box writes `true`.
     /// Clearing the mixed value is the caller's (see
-    /// [`Toggle::indeterminate`](kivact_interaction::Toggle::indeterminate)).
+    /// [`CheckboxApi::indeterminate`](kivact_interaction::CheckboxApi::indeterminate)).
     pub fn indeterminate(mut self, mixed: impl IntoValue<bool>) -> Self {
         self.mixed = Some(mixed.into_value());
         self

@@ -8,7 +8,6 @@ use crate::editors::node::model::{NodeData, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
 use crate::editors::shared::targets::{self};
 use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::Size;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_zoom_pan};
 use kivact::primitive::{NodeExt, NodeRefExt, part};
 use kivact::style::{ColorToken, Overflow, style};
@@ -190,10 +189,6 @@ impl IntoView for NodeEditor {
             )
         });
         let bounds = memo(move || crate::editors::node::layout::bounds(&data.get()));
-        let content = move || {
-            let r = bounds.get();
-            Size::new(r.width, r.height)
-        };
         let root_part = part(|input| input).region_events().on_key_up(move |event| {
             if event.key == Key::Space {
                 state.space.set(false);
@@ -350,7 +345,7 @@ impl IntoView for NodeEditor {
             )
             .part(
                 use_zoom_pan(transform)
-                    .content_size(content)
+                    .content(bounds)
                     .on_edit(move |value| pan_observer.try_call(value))
                     .viewport(),
             )

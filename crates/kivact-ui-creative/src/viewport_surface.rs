@@ -343,7 +343,10 @@ impl IntoView for ViewportSurface {
             });
         match transform {
             Some(transform) => {
-                let behavior = use_zoom_pan(transform).content_size(content);
+                let behavior = use_zoom_pan(transform).content(move || {
+                    let size = content.get();
+                    Rect::new(0.0, 0.0, size.width, size.height)
+                });
                 let behavior = if let Some(observer) = on_edit {
                     behavior.on_edit(move |value| observer.try_call(value))
                 } else {

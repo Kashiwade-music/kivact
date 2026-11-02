@@ -239,7 +239,11 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleGroup<K> {
         // The list only roves the focus; the real selection is edited by each
         // item's own toggle.
         let roving = signal(None::<K>);
-        let nav = use_list(items, ListSelection::Single(roving.into())).policy(ListPolicy::radio());
+        let nav = use_list(
+            items,
+            ListSelection::Single(roving.into()),
+            ListPolicy::radio(),
+        );
         let joined = spacing == 0.0;
         let vertical_group = orientation == Orientation::Vertical;
         let rows = for_each(

@@ -1,6 +1,7 @@
 //! Role: Chart and data table tests: colors, tooltips, filtering, sorting, paging.
 
 use crate::support::{assert_clean, distance};
+use kivact::interaction::SortOrder;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::RenderOptions;
@@ -77,7 +78,7 @@ fn payments() -> Vec<Payment> {
 struct Handles {
     query: Signal<String>,
     selected: Signal<Vec<u32>>,
-    sort: Signal<Option<(usize, kivact::view::SortDirection)>>,
+    sort: Signal<Option<(usize, kivact::interaction::SortOrder)>>,
     page: Signal<usize>,
     visible: Signal<Vec<bool>>,
     acted: Signal<Option<u32>>,
@@ -130,9 +131,7 @@ fn payments_table() -> (Handles, impl IntoView) {
                     .iter()
                     .enumerate()
                     .map(|(i, title)| {
-                        kivact::ui::MenuEntry::item(i, *title)
-                            .checked(shown[i])
-                            .keep_open(true)
+                        kivact::ui::MenuEntry::checkbox(i, *title, shown[i]).keep_open(true)
                     })
                     .collect::<Vec<_>>()
             });
@@ -207,7 +206,7 @@ fn data_table_sorts_with_the_header_buttons() {
     screen.run_until_idle();
     assert_eq!(
         handles.sort.get_untracked(),
-        Some((1, SortDirection::Ascending))
+        Some((1, SortOrder::Ascending))
     );
     assert_eq!(email().sort(), SortDirection::Ascending);
     assert!(
@@ -218,7 +217,7 @@ fn data_table_sorts_with_the_header_buttons() {
     screen.run_until_idle();
     assert_eq!(
         handles.sort.get_untracked(),
-        Some((1, SortDirection::Descending))
+        Some((1, SortOrder::Descending))
     );
     assert!(
         y_of(&screen, "zed@example.com") < y_of(&screen, "silas22@example.com"),
@@ -228,7 +227,7 @@ fn data_table_sorts_with_the_header_buttons() {
     screen.run_until_idle();
     assert_eq!(
         handles.sort.get_untracked(),
-        Some((2, SortDirection::Ascending))
+        Some((2, SortOrder::Ascending))
     );
     screen.get_by_text("$15.00");
     assert_clean(&screen);

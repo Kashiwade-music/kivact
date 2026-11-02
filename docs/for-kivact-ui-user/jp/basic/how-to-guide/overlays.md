@@ -236,7 +236,7 @@ fn view_menu() -> impl IntoView {
     let entries = move || {
         vec![
             MenuEntry::heading("Appearance"),
-            MenuEntry::item("status", "Status bar").checked(status.get()).keep_open(true),
+            MenuEntry::checkbox("status", "Status bar", status.get()).keep_open(true),
             MenuEntry::separator(),
             MenuEntry::radio("top", "Top", position.get() == "top").keep_open(true),
             MenuEntry::radio("bottom", "Bottom", position.get() == "bottom").keep_open(true),

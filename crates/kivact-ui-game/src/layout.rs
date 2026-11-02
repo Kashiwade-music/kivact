@@ -159,7 +159,7 @@ pub fn tree(
                     .get(&row.key)
                     .map(|f| (f.label.clone(), f.marker.clone(), f.folder))
             });
-            (row.key.clone(), row.has_children, presentation)
+            (row.key.clone(), row.branch.has_children(), presentation)
         },
         move |_, item| {
             let entry = item.get_untracked();

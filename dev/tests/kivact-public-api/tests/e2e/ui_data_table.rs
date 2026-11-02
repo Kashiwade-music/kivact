@@ -6,6 +6,7 @@
 //! public API.
 
 use crate::support::mount_with;
+use kivact::interaction::SortOrder;
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, WindowMode};
 use kivact::view::SortDirection;
@@ -85,7 +86,7 @@ fn a_table_names_its_grid_headers_rows_and_cells() {
 #[test]
 fn a_header_sorts_ascending_then_descending_and_the_sort_binding_follows() {
     let (screen, sort) = mount_with(options(), || {
-        let sort = signal(None::<(usize, SortDirection)>);
+        let sort = signal(None::<(usize, SortOrder)>);
         (
             sort,
             data_table(people(), |p: &Person| p.id, columns()).sort(sort),
@@ -93,14 +94,14 @@ fn a_header_sorts_ascending_then_descending_and_the_sort_binding_follows() {
     });
     let name = screen.get_by_role(Role::ColumnHeader, "Name");
     name.click();
-    assert_eq!(sort.get_untracked(), Some((0, SortDirection::Ascending)));
+    assert_eq!(sort.get_untracked(), Some((0, SortOrder::Ascending)));
     assert_eq!(name.sort(), SortDirection::Ascending);
     assert_eq!(names(&screen), ["Ada", "Alan", "Edsger", "Grace", "Linus"]);
     name.click();
-    assert_eq!(sort.get_untracked(), Some((0, SortDirection::Descending)));
+    assert_eq!(sort.get_untracked(), Some((0, SortOrder::Descending)));
     assert_eq!(names(&screen), ["Linus", "Grace", "Edsger", "Alan", "Ada"]);
     // The caller sorts too: the table reads the binding back.
-    sort.set(Some((1, SortDirection::Ascending)));
+    sort.set(Some((1, SortOrder::Ascending)));
     screen.run_until_idle();
     assert_eq!(names(&screen), ["Linus", "Ada", "Alan", "Grace", "Edsger"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());

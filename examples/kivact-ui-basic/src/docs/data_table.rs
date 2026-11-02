@@ -99,7 +99,7 @@ fn payments() -> impl IntoView {
                 titles
                     .iter()
                     .enumerate()
-                    .map(|(i, title)| MenuEntry::item(i, *title).checked(shown[i]).keep_open(true))
+                    .map(|(i, title)| MenuEntry::checkbox(i, *title, shown[i]).keep_open(true))
                     .collect::<Vec<_>>()
             });
             let columns_menu = menu("Columns", entries, move |index: usize| {

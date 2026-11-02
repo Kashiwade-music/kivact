@@ -579,7 +579,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
     );
     let status = signal(Some("all"));
     let page = signal(0usize);
-    let sort = signal(None::<(usize, kivact::view::SortDirection)>);
+    let sort = signal(None::<(usize, kivact::interaction::SortOrder)>);
     let selected = signal(Vec::<usize>::new());
     let query = signal(String::new());
     let visible = move || {

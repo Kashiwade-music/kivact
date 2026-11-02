@@ -10,7 +10,9 @@ use crate::theme_access::{field_fill, tokens};
 use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Combobox as Behavior, ListItemState, use_combobox as behavior};
+use kivact::interaction::{
+    Combobox as Behavior, ListItemState, ListSelection, use_combobox as behavior,
+};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::ui::{ButtonVariant, ListItem};
@@ -344,11 +346,11 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             Some(v) => v,
             None => binding(single, |_: Option<K>| {}),
         };
-        let list = behavior(options, chosen).popup(open);
-        let list = match multi_value {
-            Some(values) => list.multiple(values),
-            None => list,
+        let selection = match multi_value {
+            Some(values) => ListSelection::Multiple(values),
+            None => ListSelection::Single(chosen),
         };
+        let list = behavior(options, selection).popup(open);
         let query = list.query();
         let list = list.filter(move |q: &str, item: &ListItem<K>| {
             if !typed.get() {

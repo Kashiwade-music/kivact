@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use crate::support::mount_with;
 use kivact::draw::Point;
-use kivact::interaction::{MenuApi, MenuOrigin, MenuRow, use_menu};
+use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::{Element, RenderOptions, Screen, WindowMode};
@@ -73,7 +73,8 @@ fn level<K: Clone + Eq + Hash + 'static>(m: MenuApi<K>) -> Node {
                 .role(Role::Separator)
                 .style(style().height(1).margin_y(4))
                 .into_view(),
-            MenuRow::Item { key, submenu, .. } => {
+            MenuRow::Item { key, kind } => {
+                let submenu = kind == MenuItemKind::Submenu;
                 let label = memo(move || entry.with(|(_, entry)| entry.label()));
                 let part = m.item(key.clone());
                 let anchor = part.node_ref();
@@ -356,8 +357,8 @@ fn choosing_calls_back_with_the_key_closes_every_level_and_returns_the_focus() {
 fn roles_checked_expanded_description_and_the_separator_are_published() {
     let (screen, _) = mount_button(vec![
         Entry::item("cut", "Cut").shortcut("Ctrl X"),
-        Entry::item("grid", "Show grid").checked(true),
-        Entry::item("snap", "Snap").checked(false),
+        Entry::checkbox("grid", "Show grid", true),
+        Entry::checkbox("snap", "Snap", false),
         Entry::separator(),
         Entry::submenu("more", "More", vec![Entry::item("x", "Xray")]),
     ]);

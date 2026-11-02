@@ -16,7 +16,11 @@ pub(crate) fn controller(
     items: impl IntoValue<Vec<ListItem<u64>>>,
     selection: Binding<Vec<u64>>,
 ) -> List<u64> {
-    use_list(items, ListSelection::Multiple(selection))
+    use_list(
+        items,
+        ListSelection::Multiple(selection),
+        ListPolicy::default(),
+    )
 }
 
 pub(crate) enum Press {

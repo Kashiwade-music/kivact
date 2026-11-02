@@ -309,321 +309,328 @@ impl IntoView for Outliner {
                     .collect::<HashMap<_, _>>()
             })
         });
-        let rows = for_each(tree.rows(), |entry| (entry.key, entry.has_children), {
-            let mounted = mounted.clone();
-            move |_, entry| {
-                let entry = entry.get_untracked();
-                let id = entry.key;
-                let Some(fallback) = by_id.with_untracked(|map| map.get(&id).cloned()) else {
-                    return node();
-                };
-                let item = memo(move || {
-                    by_id
-                        .with(|map| map.get(&id).cloned())
-                        .unwrap_or_else(|| fallback.clone())
-                });
-                let dragger = use_drag::<u64>(DragCoordinates::Window);
-                let reference = node_ref();
-                let focused = reference.focused();
-                let mount = generation.get() + 1;
-                generation.set(mount);
-                mounted.borrow_mut().insert(
-                    id,
-                    super::controls::Mounted {
-                        node: reference,
-                        rect: reference.rect(),
-                        generation: mount,
-                    },
-                );
-                let cleanup = mounted.clone();
-                kivact::on_cleanup(move || {
-                    let mut rows = cleanup.borrow_mut();
-                    if rows.get(&id).is_some_and(|row| row.generation == mount) {
-                        rows.remove(&id);
-                    }
-                });
-                kivact::on_mount(move || {
-                    if pending.get() == Some(id) {
-                        pending.set(None);
-                        reference.scroll_into_view();
-                    }
-                });
-                let start_rename = move || {
-                    rename.set(Some(id));
-                    draft.set(item.get_untracked().label);
-                };
-                let label = show(
-                    move || renaming.get() != Some(id),
-                    move || {
-                        text(move || item.with(|n| n.label.clone())).style(move || {
-                            let theme = current_theme();
-                            let p = theme.get::<crate::tokens::Tokens>();
-                            item.with(|item| {
-                                let color = if item.placeholder && item.tone == LabelTone::Normal {
-                                    p.muted
-                                } else {
-                                    item.tone.color(&p)
-                                };
-                                style()
-                                    .grow(1)
-                                    .shrink(1000)
-                                    .min_width(0)
-                                    .single_line()
-                                    .italic(item.placeholder)
-                                    .color(color)
-                            })
-                        })
-                    },
-                );
-                let edit = show(
-                    move || renaming.get() == Some(id),
-                    move || {
-                        let input_ref = node_ref();
-                        kivact::on_mount(move || {
-                            input_ref.focus();
-                            input_ref.select_all();
-                        });
-                        kivact::ui::text_input(
-                            message("creative.outliner.rename", "Rename tree item"),
-                            draft,
-                        )
-                        .node_ref(input_ref)
-                        .style(style().grow(1).height(22))
-                        .draft(move |name| {
-                            if let Some(callback) = on_rename {
-                                callback.call((id, name));
-                            }
-                        })
-                        .on_edit(move |phase| {
-                            if phase != kivact::ui::EditPhase::Begin {
-                                rename.set(None);
-                            }
-                        })
-                        .return_focus(reference)
-                    },
-                );
-                let context = super::controls::Context {
-                    expanded,
-                    session,
-                    selected,
-                    on_restriction,
-                    data,
-                    rows: mounted.clone(),
-                };
-                let chevron = if entry.has_children {
-                    super::controls::expansion(item, context.clone())
-                } else {
-                    // The room of the button, so the labels line up.
-                    column(()).style(style().size(18, 18).shrink(0))
-                };
-                let cells = cells
-                    .iter()
-                    .filter(|(width, _)| *width > 0.0)
-                    .map(|(width, render)| {
-                        row(render(item))
-                            .on_pointer_default(|_| Handled::Yes)
-                            .on_key_default(|event| {
-                                // Enter/Space activate the focused child only after
-                                // key bubbling. Tree/List already ignore child focus.
-                                if matches!(event.key, Key::Tab | Key::Enter | Key::Space) {
-                                    Handled::No
-                                } else {
-                                    Handled::Yes
-                                }
-                            })
-                            .style(
-                                style()
-                                    .align_items(Align::Center)
-                                    .gap(4)
-                                    .width(*width)
-                                    .shrink(0)
-                                    .min_width(0)
-                                    .overflow(Overflow::Hidden),
-                            )
-                            .into_view()
-                    })
-                    .collect::<Vec<_>>();
-                let mark = memo(move || {
-                    plan.get()
-                        .filter(|plan| plan.over == id)
-                        .map(|plan| plan.placement)
-                });
-                let line = move |at: Placement| {
-                    column(())
-                        .hidden(move || mark.get() != Some(at))
-                        .style(move || {
-                            let t = &current_theme();
-                            let base = style()
-                                .position(Position::Absolute)
-                                .left(0)
-                                .right(0)
-                                .height(2)
-                                .z_index(5)
-                                .background(t.get::<crate::tokens::Tokens>().accent);
-                            if at == Placement::Before {
-                                base.top(0)
-                            } else {
-                                base.bottom(0)
-                            }
-                        })
-                };
-                let active_marker = column(()).hidden(move || active.get() != Some(id)).style(
-                    style()
-                        .position(Position::Absolute)
-                        .left(0)
-                        .top(0)
-                        .bottom(0)
-                        .width(2)
-                        .background(Color::Accent),
-                );
-                let body = row((
-                    chevron,
-                    icon(item.get_untracked().icon),
-                    label,
-                    edit,
-                    cells,
-                    super::controls::restriction(item, context.clone(), 1, painting)
-                        .hidden(move || !restrictions.get()),
-                    super::controls::restriction(item, context.clone(), 0, painting)
-                        .hidden(move || !restrictions.get()),
-                    super::controls::restriction(item, context, 2, painting)
-                        .hidden(move || !restrictions.get()),
-                    active_marker,
-                    line(Placement::Before),
-                    line(Placement::After),
-                ))
-                .node_ref(reference)
-                .checked(move || active.get() == Some(id))
-                .style(move || {
-                    let t = &current_theme();
-                    let p = t.get::<crate::tokens::Tokens>();
-                    let rest = style()
-                        .height(row_height.map_or(p.row, |height| {
-                            let height = height.get();
-                            if height.is_finite() {
-                                height.max(20.0)
-                            } else {
-                                p.row
-                            }
-                        }))
-                        .padding_left(
-                            8 + (levels
-                                .with(|map| map.get(&id).copied())
-                                .unwrap_or(entry.level) as i32
-                                - 1)
-                                * 16,
-                        )
-                        .padding_right(5)
-                        .gap(5)
-                        .align_items(Align::Center)
-                        .cursor(Cursor::Default)
-                        .color(if item.get().visible { p.text } else { p.dim })
-                        .hover(style().background(ColorToken::Hover))
-                        .selected(style().background(p.selection));
-                    if mark.get() == Some(Placement::Into) {
-                        rest.background(p.selection).ring(1, p.accent)
-                    } else {
-                        rest
-                    }
-                });
-                let context_for_key = super::controls::Context {
-                    expanded,
-                    session,
-                    selected,
-                    on_restriction,
-                    data,
-                    rows: mounted.clone(),
-                };
-                let released = pressed.clone();
-                let pressed = pressed.clone();
-                let rows = mounted.clone();
-                let drop_at = move |pos: Point| {
-                    let (over, fraction) = rows.borrow().iter().find_map(|(&over, row)| {
-                        let rect = row.rect.get_untracked()?;
-                        rect.contains(pos)
-                            .then(|| (over, (pos.y - rect.y) / rect.height))
-                    })?;
-                    data.with_untracked(|items| plan_drop(items, id, over, fraction))
-                };
-                let drop_at = Rc::new(drop_at);
-                let moved_drop = drop_at.clone();
-                let dragged = |update: &DragUpdate<u64>| update.delta.x.hypot(update.delta.y) > 4.0;
-                let dragger = dragger
-                    .on_update(move |update: DragUpdate<u64>| {
-                        plan.set(if dragged(&update) {
-                            moved_drop(update.pos).map(|(plan, _)| plan)
-                        } else {
-                            None
-                        });
-                    })
-                    .on_end(move |update: DragUpdate<u64>| {
-                        plan.set(None);
-                        if update.phase != DragPhase::End {
-                            return;
-                        }
-                        if let Some((_, drop)) =
-                            dragged(&update).then(|| drop_at(update.pos)).flatten()
-                            && let Some(callback) = item_drop
-                        {
-                            callback.call(drop);
+        let rows = for_each(
+            tree.rows(),
+            |entry| (entry.key, entry.branch.has_children()),
+            {
+                let mounted = mounted.clone();
+                move |_, entry| {
+                    let entry = entry.get_untracked();
+                    let id = entry.key;
+                    let Some(fallback) = by_id.with_untracked(|map| map.get(&id).cloned()) else {
+                        return node();
+                    };
+                    let item = memo(move || {
+                        by_id
+                            .with(|map| map.get(&id).cloned())
+                            .unwrap_or_else(|| fallback.clone())
+                    });
+                    let dragger = use_drag::<u64>(DragCoordinates::Window);
+                    let reference = node_ref();
+                    let focused = reference.focused();
+                    let mount = generation.get() + 1;
+                    generation.set(mount);
+                    mounted.borrow_mut().insert(
+                        id,
+                        super::controls::Mounted {
+                            node: reference,
+                            rect: reference.rect(),
+                            generation: mount,
+                        },
+                    );
+                    let cleanup = mounted.clone();
+                    kivact::on_cleanup(move || {
+                        let mut rows = cleanup.borrow_mut();
+                        if rows.get(&id).is_some_and(|row| row.generation == mount) {
+                            rows.remove(&id);
                         }
                     });
-                // Consume the drag Part after the Tree Part so selection runs
-                // before a drag or double-click rename can handle the press.
-                let body = body
-                    .part(tree.item(entry.key))
-                    .on_key(move |e: KeyEvent| {
-                        let plain = !e.modifiers.ctrl && !e.modifiers.alt && !e.modifiers.meta;
-                        // A key from the rename field or a cell is theirs.
-                        if !focused.get() {
-                            return Handled::No;
+                    kivact::on_mount(move || {
+                        if pending.get() == Some(id) {
+                            pending.set(None);
+                            reference.scroll_into_view();
                         }
-                        // Escape passes on: the list's own Escape ends a
-                        // restriction paint, and the drag's source a drag.
-                        match e.key {
-                            Key::F(2) if plain => {
-                                start_rename();
-                                Handled::Yes
-                            }
-                            Key::Char('h' | 'H') if plain => {
-                                super::controls::toggle(
-                                    &context_for_key,
-                                    id,
-                                    RestrictionFlag::Visible,
-                                );
-                                Handled::Yes
-                            }
-                            _ => Handled::No,
-                        }
-                    })
-                    .part(kivact::primitive::part(|input| input).on_pointer(
-                        move |e: PointerEvent| {
-                            if let PointerPhase::Down(press) = e.phase
-                                && press.button == MouseButton::Primary
-                            {
-                                pressed.set(Some(id));
-                                if press.clicks == 2
-                                    && !has_activation
-                                    && renaming.get() != Some(id)
-                                {
-                                    dragger.cancel();
-                                    start_rename();
-                                    return Handled::Yes;
-                                }
-                            }
-                            if matches!(e.phase, PointerPhase::Up(_) | PointerPhase::Cancel) {
-                                released.set(None);
-                            }
-                            Handled::No
+                    });
+                    let start_rename = move || {
+                        rename.set(Some(id));
+                        draft.set(item.get_untracked().label);
+                    };
+                    let label = show(
+                        move || renaming.get() != Some(id),
+                        move || {
+                            text(move || item.with(|n| n.label.clone())).style(move || {
+                                let theme = current_theme();
+                                let p = theme.get::<crate::tokens::Tokens>();
+                                item.with(|item| {
+                                    let color =
+                                        if item.placeholder && item.tone == LabelTone::Normal {
+                                            p.muted
+                                        } else {
+                                            item.tone.color(&p)
+                                        };
+                                    style()
+                                        .grow(1)
+                                        .shrink(1000)
+                                        .min_width(0)
+                                        .single_line()
+                                        .italic(item.placeholder)
+                                        .color(color)
+                                })
+                            })
                         },
-                    ));
-                if item_drop.is_some() {
-                    body.part(dragger.source(id))
-                } else {
-                    body
+                    );
+                    let edit = show(
+                        move || renaming.get() == Some(id),
+                        move || {
+                            let input_ref = node_ref();
+                            kivact::on_mount(move || {
+                                input_ref.focus();
+                                input_ref.select_all();
+                            });
+                            kivact::ui::text_input(
+                                message("creative.outliner.rename", "Rename tree item"),
+                                draft,
+                            )
+                            .node_ref(input_ref)
+                            .style(style().grow(1).height(22))
+                            .draft(move |name| {
+                                if let Some(callback) = on_rename {
+                                    callback.call((id, name));
+                                }
+                            })
+                            .on_edit(move |phase| {
+                                if phase != kivact::ui::EditPhase::Begin {
+                                    rename.set(None);
+                                }
+                            })
+                            .return_focus(reference)
+                        },
+                    );
+                    let context = super::controls::Context {
+                        expanded,
+                        session,
+                        selected,
+                        on_restriction,
+                        data,
+                        rows: mounted.clone(),
+                    };
+                    let chevron = if entry.branch.has_children() {
+                        super::controls::expansion(item, context.clone())
+                    } else {
+                        // The room of the button, so the labels line up.
+                        column(()).style(style().size(18, 18).shrink(0))
+                    };
+                    let cells = cells
+                        .iter()
+                        .filter(|(width, _)| *width > 0.0)
+                        .map(|(width, render)| {
+                            row(render(item))
+                                .on_pointer_default(|_| Handled::Yes)
+                                .on_key_default(|event| {
+                                    // Enter/Space activate the focused child only after
+                                    // key bubbling. Tree/List already ignore child focus.
+                                    if matches!(event.key, Key::Tab | Key::Enter | Key::Space) {
+                                        Handled::No
+                                    } else {
+                                        Handled::Yes
+                                    }
+                                })
+                                .style(
+                                    style()
+                                        .align_items(Align::Center)
+                                        .gap(4)
+                                        .width(*width)
+                                        .shrink(0)
+                                        .min_width(0)
+                                        .overflow(Overflow::Hidden),
+                                )
+                                .into_view()
+                        })
+                        .collect::<Vec<_>>();
+                    let mark = memo(move || {
+                        plan.get()
+                            .filter(|plan| plan.over == id)
+                            .map(|plan| plan.placement)
+                    });
+                    let line = move |at: Placement| {
+                        column(())
+                            .hidden(move || mark.get() != Some(at))
+                            .style(move || {
+                                let t = &current_theme();
+                                let base = style()
+                                    .position(Position::Absolute)
+                                    .left(0)
+                                    .right(0)
+                                    .height(2)
+                                    .z_index(5)
+                                    .background(t.get::<crate::tokens::Tokens>().accent);
+                                if at == Placement::Before {
+                                    base.top(0)
+                                } else {
+                                    base.bottom(0)
+                                }
+                            })
+                    };
+                    let active_marker = column(()).hidden(move || active.get() != Some(id)).style(
+                        style()
+                            .position(Position::Absolute)
+                            .left(0)
+                            .top(0)
+                            .bottom(0)
+                            .width(2)
+                            .background(Color::Accent),
+                    );
+                    let body = row((
+                        chevron,
+                        icon(item.get_untracked().icon),
+                        label,
+                        edit,
+                        cells,
+                        super::controls::restriction(item, context.clone(), 1, painting)
+                            .hidden(move || !restrictions.get()),
+                        super::controls::restriction(item, context.clone(), 0, painting)
+                            .hidden(move || !restrictions.get()),
+                        super::controls::restriction(item, context, 2, painting)
+                            .hidden(move || !restrictions.get()),
+                        active_marker,
+                        line(Placement::Before),
+                        line(Placement::After),
+                    ))
+                    .node_ref(reference)
+                    .checked(move || active.get() == Some(id))
+                    .style(move || {
+                        let t = &current_theme();
+                        let p = t.get::<crate::tokens::Tokens>();
+                        let rest = style()
+                            .height(row_height.map_or(p.row, |height| {
+                                let height = height.get();
+                                if height.is_finite() {
+                                    height.max(20.0)
+                                } else {
+                                    p.row
+                                }
+                            }))
+                            .padding_left(
+                                8 + (levels
+                                    .with(|map| map.get(&id).copied())
+                                    .unwrap_or(entry.level)
+                                    as i32
+                                    - 1)
+                                    * 16,
+                            )
+                            .padding_right(5)
+                            .gap(5)
+                            .align_items(Align::Center)
+                            .cursor(Cursor::Default)
+                            .color(if item.get().visible { p.text } else { p.dim })
+                            .hover(style().background(ColorToken::Hover))
+                            .selected(style().background(p.selection));
+                        if mark.get() == Some(Placement::Into) {
+                            rest.background(p.selection).ring(1, p.accent)
+                        } else {
+                            rest
+                        }
+                    });
+                    let context_for_key = super::controls::Context {
+                        expanded,
+                        session,
+                        selected,
+                        on_restriction,
+                        data,
+                        rows: mounted.clone(),
+                    };
+                    let released = pressed.clone();
+                    let pressed = pressed.clone();
+                    let rows = mounted.clone();
+                    let drop_at = move |pos: Point| {
+                        let (over, fraction) = rows.borrow().iter().find_map(|(&over, row)| {
+                            let rect = row.rect.get_untracked()?;
+                            rect.contains(pos)
+                                .then(|| (over, (pos.y - rect.y) / rect.height))
+                        })?;
+                        data.with_untracked(|items| plan_drop(items, id, over, fraction))
+                    };
+                    let drop_at = Rc::new(drop_at);
+                    let moved_drop = drop_at.clone();
+                    let dragged =
+                        |update: &DragUpdate<u64>| update.delta.x.hypot(update.delta.y) > 4.0;
+                    let dragger = dragger
+                        .on_update(move |update: DragUpdate<u64>| {
+                            plan.set(if dragged(&update) {
+                                moved_drop(update.pos).map(|(plan, _)| plan)
+                            } else {
+                                None
+                            });
+                        })
+                        .on_end(move |update: DragUpdate<u64>| {
+                            plan.set(None);
+                            if update.phase != DragPhase::End {
+                                return;
+                            }
+                            if let Some((_, drop)) =
+                                dragged(&update).then(|| drop_at(update.pos)).flatten()
+                                && let Some(callback) = item_drop
+                            {
+                                callback.call(drop);
+                            }
+                        });
+                    // Consume the drag Part after the Tree Part so selection runs
+                    // before a drag or double-click rename can handle the press.
+                    let body = body
+                        .part(tree.item(entry.key))
+                        .on_key(move |e: KeyEvent| {
+                            let plain = !e.modifiers.ctrl && !e.modifiers.alt && !e.modifiers.meta;
+                            // A key from the rename field or a cell is theirs.
+                            if !focused.get() {
+                                return Handled::No;
+                            }
+                            // Escape passes on: the list's own Escape ends a
+                            // restriction paint, and the drag's source a drag.
+                            match e.key {
+                                Key::F(2) if plain => {
+                                    start_rename();
+                                    Handled::Yes
+                                }
+                                Key::Char('h' | 'H') if plain => {
+                                    super::controls::toggle(
+                                        &context_for_key,
+                                        id,
+                                        RestrictionFlag::Visible,
+                                    );
+                                    Handled::Yes
+                                }
+                                _ => Handled::No,
+                            }
+                        })
+                        .part(kivact::primitive::part(|input| input).on_pointer(
+                            move |e: PointerEvent| {
+                                if let PointerPhase::Down(press) = e.phase
+                                    && press.button == MouseButton::Primary
+                                {
+                                    pressed.set(Some(id));
+                                    if press.clicks == 2
+                                        && !has_activation
+                                        && renaming.get() != Some(id)
+                                    {
+                                        dragger.cancel();
+                                        start_rename();
+                                        return Handled::Yes;
+                                    }
+                                }
+                                if matches!(e.phase, PointerPhase::Up(_) | PointerPhase::Cancel) {
+                                    released.set(None);
+                                }
+                                Handled::No
+                            },
+                        ));
+                    if item_drop.is_some() {
+                        body.part(dragger.source(id))
+                    } else {
+                        body
+                    }
                 }
-            }
-        });
+            },
+        );
         root.part(tree.list())
             .child(rows)
             .on_key(move |event| {

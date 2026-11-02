@@ -178,7 +178,7 @@ fn app() -> impl IntoView {
             MenuEntry::item("new", "新規").shortcut("Ctrl N"),
             MenuEntry::item("open", "開く"),
             MenuEntry::separator(),
-            MenuEntry::item("grid", "グリッドを表示").checked(show_grid.get()).keep_open(true),
+            MenuEntry::checkbox("grid", "グリッドを表示", show_grid.get()).keep_open(true),
             MenuEntry::submenu(
                 "export",
                 "書き出し",

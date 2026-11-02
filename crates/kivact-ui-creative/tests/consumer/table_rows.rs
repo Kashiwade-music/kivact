@@ -36,15 +36,14 @@ pub(super) fn lines(
         .collect();
     kivact::ui::data_table(rows, |line: &Line| line.id, columns)
         .selection(selected)
-        .focus(TableFocus::Rows)
-        .policy(ListPolicy {
+        .focus(TableFocus::Rows(ListPolicy {
             typeahead: true,
             range: ListRangePolicy {
                 missing_anchor: ListMissingAnchor::FirstSelected,
                 ..ListRangePolicy::default()
             },
             ..ListPolicy::default()
-        })
+        }))
         .toolbar(|_| ())
         .footer(|_| ())
 }

@@ -26,7 +26,9 @@ use kivact_core::view::{
     IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, for_each, overlay,
     overlay_at,
 };
-use kivact_interaction::{MenuApi as Behavior, MenuEntry, MenuItemState, MenuOrigin, MenuRow};
+use kivact_interaction::{
+    MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
+};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -281,16 +283,13 @@ fn item_content<K: Clone + 'static>(
     state: Value<MenuItemState>,
     variants: &Variants,
 ) -> View {
-    let checkable = entry.with_untracked(|e| e.checked_value().is_some());
-    let submenu = entry.with_untracked(|e| e.children().is_some());
+    let checkable = entry.with_untracked(|e| e.check().is_some());
+    let submenu = entry.with_untracked(|e| e.item_kind() == Some(MenuItemKind::Submenu));
     let mark = checkable.then(|| {
-        let shown = move || {
-            let entry = entry.get();
-            (entry.checked_value() == Some(true)).then_some(if entry.is_radio() {
-                "menu-radio"
-            } else {
-                "check"
-            })
+        let shown = move || match entry.get().check() {
+            Some(MenuCheck::Radio(true)) => Some("menu-radio"),
+            Some(MenuCheck::Checkbox(true)) => Some("check"),
+            Some(MenuCheck::Radio(false) | MenuCheck::Checkbox(false)) | None => None,
         };
         with_recipe_style(
             node(),
@@ -370,7 +369,8 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
             behavior.entries(),
             |(key, _)| key.clone(),
             move |row, entry| match row {
-                MenuRow::Item { key, submenu, .. } => {
+                MenuRow::Item { key, kind } => {
+                    let submenu = kind == MenuItemKind::Submenu;
                     let part = behavior.item(key.clone());
                     let item_state = part.state();
                     let anchor = part.node_ref();
