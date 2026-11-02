@@ -30,13 +30,18 @@ pub(crate) fn reduced_motion() -> bool {
     }
 }
 
-/// Current file drag position; Windows queries it even during OLE capture.
+/// Current file drag position from the OS (Windows even during OLE capture, X11 by a pointer
+/// query); `None` where the platform cannot tell.
 pub(crate) fn file_position(window: &winit::window::Window) -> Option<kivact_types::Point> {
     #[cfg(windows)]
     {
         super::windows::file_position(window)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        super::x11::file_position(window)
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = window;
         None

@@ -497,11 +497,18 @@ impl Run {
 enum Dnd {
     /// No file drag over the window.
     Idle,
-    /// These files are dragged over the window (winit reports each hovered file).
-    Hovering(Vec<std::path::PathBuf>),
-    /// These files were dropped; the drop is delivered when winit's batch ends (`about_to_wait`),
-    /// after every `DroppedFile` of it.
-    Dropped(Vec<std::path::PathBuf>),
+    /// These files are dragged over the window (winit reports each hovered file); `at` is the
+    /// last position delivered for them (`None` until the platform told one).
+    Hovering {
+        files: Vec<std::path::PathBuf>,
+        at: Option<kivact_types::Point>,
+    },
+    /// These files were dropped (delivered when winit's batch ends, in `about_to_wait`, after
+    /// every `DroppedFile` of it); `at` is the drag's last delivered position.
+    Dropped {
+        files: Vec<std::path::PathBuf>,
+        at: Option<kivact_types::Point>,
+    },
 }
 struct Runner<'a> {
     handler: &'a mut dyn ShellHandler,
@@ -533,31 +540,34 @@ impl Runner<'_> {
     /// Deliver the files dropped in this batch of winit events, after every `DroppedFile` of it.
     fn deliver_drop(&mut self, el: &ActiveEventLoop) {
         match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-            Dnd::Dropped(files) => {
-                let position = self.file_position();
-                self.input(
-                    el,
-                    ShellEvent::File {
-                        phase: arvane_shell::FilePhase::Drop,
-                        files,
-                        position,
-                    },
-                );
+            Dnd::Dropped { files, at } => {
+                if let Some(position) = self.file_position().or(at) {
+                    self.input(
+                        el,
+                        ShellEvent::File {
+                            phase: arvane_shell::FilePhase::Drop,
+                            files,
+                            position,
+                        },
+                    );
+                }
             }
             other => self.dnd = other,
         }
     }
-    fn file_position(&self) -> kivact_types::Point {
+    /// Where a file drag is now: the operating system's answer, else the last pointer position;
+    /// `None` when neither is known (never a placeholder).
+    fn file_position(&self) -> Option<kivact_types::Point> {
         self.run
             .live_ref()
             .and_then(|w| crate::native_input::file_position(&w.window))
-            .unwrap_or_else(|| {
-                let (x, y) = self.cursor.unwrap_or_default();
+            .or_else(|| {
+                let (x, y) = self.cursor?;
                 let scale = self.run.live_ref().map_or(1.0, |w| w.window.scale_factor());
-                kivact_types::Point {
+                Some(kivact_types::Point {
                     x: (x / scale) as f32,
                     y: (y / scale) as f32,
-                }
+                })
             })
     }
     /// Deliver a window's input event, its presses counted.
@@ -703,12 +713,13 @@ impl ApplicationHandler<()> for Runner<'_> {
         self.callback(el, Some(ShellEvent::MemoryWarning));
     }
     fn user_event(&mut self, el: &ActiveEventLoop, _: ()) {
-        if let Dnd::Hovering(files) = &self.dnd
+        if let Dnd::Hovering { files, at } = &mut self.dnd
             && let Some(position) = self
                 .run
                 .live_ref()
                 .and_then(|w| w.input.file_pointer.take())
         {
+            *at = Some(position);
             let files = files.clone();
             self.input(
                 el,
@@ -846,13 +857,16 @@ impl ApplicationHandler<()> for Runner<'_> {
             WindowEvent::Focused(focus) => Some(ShellEvent::Focused(focus)),
             WindowEvent::CursorMoved { position, .. } => {
                 let at = logical((position.x, position.y), scale);
-                match &self.dnd {
-                    Dnd::Hovering(files) => Some(ShellEvent::File {
-                        phase: arvane_shell::FilePhase::Over,
-                        files: files.clone(),
-                        position: at,
-                    }),
-                    Dnd::Idle | Dnd::Dropped(_) => self
+                match &mut self.dnd {
+                    Dnd::Hovering { files, at: last } => {
+                        *last = Some(at);
+                        Some(ShellEvent::File {
+                            phase: arvane_shell::FilePhase::Over,
+                            files: files.clone(),
+                            position: at,
+                        })
+                    }
+                    Dnd::Idle | Dnd::Dropped { .. } => self
                         .mouse
                         .event(PointerPhase::Move, Some(at))
                         .map(ShellEvent::Pointer),
@@ -917,42 +931,47 @@ impl ApplicationHandler<()> for Runner<'_> {
                 text: event.text.map(|s| s.to_string()),
             }),
             WindowEvent::HoveredFile(path) => {
-                if matches!(self.dnd, Dnd::Dropped(_)) {
+                if matches!(self.dnd, Dnd::Dropped { .. }) {
                     self.deliver_drop(el);
                 }
-                let (phase, files) = match &mut self.dnd {
-                    Dnd::Hovering(files) => {
+                let (phase, files, last) = match std::mem::replace(&mut self.dnd, Dnd::Idle) {
+                    Dnd::Hovering { mut files, at } => {
                         if !files.contains(&path) {
                             files.push(path);
                         }
-                        (arvane_shell::FilePhase::Over, files.clone())
+                        (arvane_shell::FilePhase::Over, files, at)
                     }
-                    other => {
-                        let files = vec![path];
-                        *other = Dnd::Hovering(files.clone());
-                        (arvane_shell::FilePhase::Enter, files)
+                    Dnd::Idle | Dnd::Dropped { .. } => {
+                        (arvane_shell::FilePhase::Enter, vec![path], None)
                     }
                 };
                 if let Some(window) = self.run.live_ref() {
                     crate::native_input::track_files(&window.window, true);
                 }
-                Some(ShellEvent::File {
+                let at = self.file_position().or(last);
+                self.dnd = Dnd::Hovering {
+                    files: files.clone(),
+                    at,
+                };
+                at.map(|position| ShellEvent::File {
                     phase,
                     files,
-                    position: self.file_position(),
+                    position,
                 })
             }
             WindowEvent::HoveredFileCancelled => {
                 match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-                    Dnd::Hovering(files) => {
+                    Dnd::Hovering { files, at } => {
                         if let Some(window) = self.run.live_ref() {
                             crate::native_input::track_files(&window.window, false);
                         }
-                        Some(ShellEvent::File {
-                            phase: arvane_shell::FilePhase::Leave,
-                            files,
-                            position: self.file_position(),
-                        })
+                        self.file_position()
+                            .or(at)
+                            .map(|position| ShellEvent::File {
+                                phase: arvane_shell::FilePhase::Leave,
+                                files,
+                                position,
+                            })
                     }
                     other => {
                         self.dnd = other;
@@ -965,11 +984,18 @@ impl ApplicationHandler<()> for Runner<'_> {
                     crate::native_input::track_files(&window.window, false);
                 }
                 self.dnd = match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-                    Dnd::Dropped(mut files) => {
+                    Dnd::Dropped { mut files, at } => {
                         files.push(path);
-                        Dnd::Dropped(files)
+                        Dnd::Dropped { files, at }
                     }
-                    Dnd::Idle | Dnd::Hovering(_) => Dnd::Dropped(vec![path]),
+                    Dnd::Hovering { at, .. } => Dnd::Dropped {
+                        files: vec![path],
+                        at,
+                    },
+                    Dnd::Idle => Dnd::Dropped {
+                        files: vec![path],
+                        at: None,
+                    },
                 };
                 None
             }

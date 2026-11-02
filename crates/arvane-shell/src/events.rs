@@ -76,7 +76,8 @@ pub enum ShellEvent {
         phase: FilePhase,
         /// Paths supplied by the operating system.
         files: Vec<std::path::PathBuf>,
-        /// Window logical coordinates.
+        /// Window logical coordinates. Never a placeholder: a file event whose position the
+        /// platform cannot tell is not sent.
         position: kivact_types::Point,
     },
     /// Keyboard modifier state changed.
