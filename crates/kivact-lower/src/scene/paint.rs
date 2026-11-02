@@ -50,7 +50,7 @@ impl Context<'_> {
         }
         let checkpoint = self.checkpoint();
         let mut lowered = SceneOut::default();
-        *self.dependencies.borrow_mut() = Some(Vec::new());
+        let mark = self.dependencies.borrow().len();
         self.lower_scene(
             scene,
             inherited,
@@ -63,11 +63,7 @@ impl Context<'_> {
             engine,
             &mut lowered,
         );
-        let dependencies = self
-            .dependencies
-            .borrow_mut()
-            .take()
-            .expect("invariant: scene lowering records dependencies");
+        let dependencies = self.dependencies.borrow()[mark..].to_vec();
         let max_depth = lowered.deepest();
         let lowered = lowered.into_scene();
         if prefix + max_depth + 1 > arvane::MAX_SCENE_DEPTH {

@@ -148,7 +148,6 @@ impl Context<'_> {
             _ => return false,
         };
         if sanitize::drawable(&command) {
-            state.clips += usize::from(matches!(command, D::PushClip(_)));
             state.out.push(command);
         } else {
             self.drop_command();

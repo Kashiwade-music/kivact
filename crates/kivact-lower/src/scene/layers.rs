@@ -1,5 +1,5 @@
 //! Role: Lowering of local scene layers commands.
-use super::state::State;
+use super::state::{Frame, State};
 use crate::context::Context;
 use crate::sanitize;
 use kivact_types::protocol::DrawCommand as D;
@@ -18,7 +18,7 @@ impl Context<'_> {
             y: origin.y,
         };
         let tint = &state.current_tint;
-        let command = match cmd {
+        match cmd {
             SceneCmd::PushLayer(layer) => {
                 let area = rect(layer.area);
                 let outer = kivact_types::protocol::Layer {
@@ -59,19 +59,25 @@ impl Context<'_> {
                     layer.opacity.clamp(0.0, 1.0),
                     tint.matrix.as_ref(),
                 );
-                state.layer_stack.push((layers.len(), state.current_tint));
+                state.frames.push(Frame::Layer {
+                    pushed: layers.len(),
+                    tint: state.current_tint,
+                });
                 state.current_tint.matrix = state
                     .current_tint
                     .then_own(crate::effects::color_matrix(&layer.filter));
                 state.out.extend(layers.into_iter().map(D::PushLayer));
-                return true;
+                true
             }
             SceneCmd::PopLayer => {
-                if let Some((count, old)) = state.layer_stack.pop() {
-                    state.out.extend(std::iter::repeat_n(D::PopLayer, count));
-                    state.current_tint = old;
+                if let Some(&Frame::Layer { pushed, tint }) = state.frames.last() {
+                    state.frames.pop();
+                    state.out.extend(std::iter::repeat_n(D::PopLayer, pushed));
+                    state.current_tint = tint;
+                } else {
+                    self.drop_command();
                 }
-                return true;
+                true
             }
             SceneCmd::PushTransform(m) => {
                 let [a, b, c, d, e, f] = *m;
@@ -80,39 +86,47 @@ impl Context<'_> {
                         x: origin.x,
                         y: origin.y,
                     });
-                state.transforms += 1;
-                state.raster_stack.push(self.raster.get());
+                state.frames.push(Frame::Transform {
+                    raster: self.raster.get(),
+                });
                 self.raster
                     .set(self.raster.get() * crate::scene::raster_zoom(transform.max_scale()));
                 state.out.push(D::PushTransform(transform));
-                return true;
+                true
             }
             SceneCmd::PopTransform => {
-                if state.transforms > 0 {
-                    state.transforms -= 1;
-                    if let Some(raster) = state.raster_stack.pop() {
-                        self.raster.set(raster);
-                    }
+                if let Some(&Frame::Transform { raster }) = state.frames.last() {
+                    state.frames.pop();
+                    self.raster.set(raster);
                     state.out.push(D::PopTransform);
+                } else {
+                    self.drop_command();
                 }
-                return true;
+                true
             }
-            SceneCmd::PushClip(r) => D::PushClip(rect(*r)),
+            SceneCmd::PushClip(r) => {
+                let command = D::PushClip(rect(*r));
+                let drawn = sanitize::drawable(&command);
+                if drawn {
+                    state.out.push(command);
+                } else {
+                    self.drop_command();
+                }
+                state.frames.push(Frame::Clip { drawn });
+                true
+            }
             SceneCmd::PopClip => {
-                if state.clips > 0 {
-                    state.clips -= 1;
-                    state.out.push(D::PopClip);
+                if let Some(&Frame::Clip { drawn }) = state.frames.last() {
+                    state.frames.pop();
+                    if drawn {
+                        state.out.push(D::PopClip);
+                    }
+                } else {
+                    self.drop_command();
                 }
-                return true;
+                true
             }
-            _ => return false,
-        };
-        if sanitize::drawable(&command) {
-            state.clips += usize::from(matches!(command, D::PushClip(_)));
-            state.out.push(command);
-        } else {
-            self.drop_command();
+            _ => false,
         }
-        true
     }
 }
