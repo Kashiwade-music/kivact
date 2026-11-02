@@ -40,6 +40,7 @@ mod completion;
 mod detached;
 mod drain;
 mod executor;
+mod latest;
 mod resource;
 mod sealed;
 mod spawn;
