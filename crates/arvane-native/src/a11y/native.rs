@@ -20,6 +20,9 @@ use winit::window::Window;
 use super::conversion;
 use arvane_shell::{AccessibilityError, PlatformTree, PlatformUpdate, ShellEvent, ShellWaker};
 
+/// Why `pending_with` finds the accepted tree inside a publication callback.
+pub(crate) const TREE_KEPT: &str = "invariant: the accepted tree is forgotten only on this UI thread, and has_pending saw it just before";
+
 struct Activation {
     shared: PlatformTree,
     waker: ShellWaker,
@@ -176,7 +179,7 @@ impl NativeAccessibility {
         self.adapter.update_if_active(|| {
             shared
                 .pending_with(root, convert_update)
-                .expect("invariant: an active native publication retains its accepted tree")
+                .expect(TREE_KEPT)
         });
     }
 

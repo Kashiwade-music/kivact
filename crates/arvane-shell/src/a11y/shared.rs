@@ -25,16 +25,21 @@ pub(crate) enum Unsent {
     Tree,
 }
 
+/// Whether a platform reader holds the tree.
+pub(crate) enum Reader {
+    /// No platform reader: changes are not tracked; the next activation takes the whole tree.
+    Inactive,
+    /// Assistive technology asked for the tree and has not let go of it: meanwhile the application
+    /// keeps it up to date; `unsent` is what the reader has not been handed.
+    Active { unsent: Unsent },
+}
+
 /// The tree and what its window's platform side shares with it.
 pub(crate) struct Shared {
     pub(crate) tree: Option<state::AcceptedTree>,
-    pub(crate) unsent: Unsent,
+    pub(crate) reader: Reader,
     /// The scale the root maps logical bounds to the window's pixels with.
     pub(crate) scale: f64,
-    /// Assistive technology asked for the tree and has not let go of it:
-    /// meanwhile the application keeps it up to date and the platform is
-    /// handed every change.
-    pub(crate) active: bool,
     /// Actions assistive technology asked for, not taken yet.
     pub(crate) actions: Vec<crate::events::ShellEvent>,
 }
@@ -43,9 +48,8 @@ impl Shared {
     pub(crate) fn new(scale: f64) -> Self {
         Shared {
             tree: None,
-            unsent: Unsent::Nothing,
+            reader: Reader::Inactive,
             scale,
-            active: false,
             actions: Vec::new(),
         }
     }
@@ -54,8 +58,8 @@ impl Shared {
     pub(crate) fn replace(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
         let tree = validation::canonicalize(tree)?;
         self.tree = Some(state::AcceptedTree::new(&tree));
-        if self.active {
-            self.unsent = Unsent::Tree;
+        if let Reader::Active { unsent } = &mut self.reader {
+            *unsent = Unsent::Tree;
         }
         Ok(())
     }
@@ -75,11 +79,11 @@ impl Shared {
         let Some(changed) = tree.apply(update)? else {
             return Ok(false);
         };
-        if !self.active {
+        let Reader::Active { unsent } = &mut self.reader else {
             // No one reads the tree: activation hands over all of it.
             return Ok(true);
-        }
-        self.unsent = match std::mem::take(&mut self.unsent) {
+        };
+        *unsent = match std::mem::take(unsent) {
             Unsent::Nothing => Unsent::Changed {
                 nodes: changed.nodes,
                 runs: changed.runs,
@@ -117,7 +121,12 @@ pub(crate) fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
 ///
 /// Updates validate transactionally. While a platform reader is active, this
 /// handle tracks unpublished changes. Activation converts the complete current
-/// tree; deactivation drops pending changes. Conversion closures run under the
+/// tree; deactivation drops pending changes. Inside the adapter's publication
+/// callback the adapter decides: if this handle saw no activation (or a
+/// deactivation the adapter has not seen), [`Self::pending_with`] hands over the
+/// whole tree and the reader becomes active. On Windows, UI Automation never
+/// deactivates: the reader stays active until the backend disconnects its
+/// provider and calls [`Self::deactivate`]. Conversion closures run under the
 /// tree lock and must only convert borrowed data: they must not call this handle,
 /// application callbacks, wakers or the platform adapter. Acquire an adapter's
 /// publication lock first, then call [`Self::pending_with`] inside its callback.
@@ -203,14 +212,12 @@ impl PlatformTree {
 
     /// Whether a platform reader has activated the tree and not deactivated it.
     pub fn active(&self) -> bool {
-        lock(&self.shared).active
+        matches!(lock(&self.shared).reader, Reader::Active { .. })
     }
 
     /// Stop publication and discard pending changes; the accepted tree remains.
     pub fn deactivate(&self) {
-        let mut shared = lock(&self.shared);
-        shared.active = false;
-        shared.unsent = Unsent::Nothing;
+        lock(&self.shared).reader = Reader::Inactive;
     }
 
     /// Activate a reader and convert its complete current tree under lock.
@@ -218,9 +225,12 @@ impl PlatformTree {
     /// return so it can refresh semantics. A conversion panic propagates.
     pub fn activate_with<R>(&self, convert: impl FnOnce(PlatformUpdate<'_>) -> R) -> Option<R> {
         let mut shared = lock(&self.shared);
-        shared.active = true;
-        shared.tree.as_ref()?;
-        shared.unsent = Unsent::Tree;
+        if shared.tree.is_none() {
+            shared.reader = Reader::Active {
+                unsent: Unsent::Tree,
+            };
+            return None;
+        }
         let tree = shared.tree.as_ref()?;
         let result = convert(PlatformUpdate {
             tree,
@@ -229,7 +239,9 @@ impl PlatformTree {
             all_runs: true,
             scale: shared.scale,
         });
-        shared.unsent = Unsent::Nothing;
+        shared.reader = Reader::Active {
+            unsent: Unsent::Nothing,
+        };
         Some(result)
     }
 
@@ -239,7 +251,13 @@ impl PlatformTree {
     /// acquiring the adapter's lock; call [`Self::pending_with`] inside it.
     pub fn has_pending(&self, include_root: bool) -> bool {
         let shared = lock(&self.shared);
-        shared.tree.is_some() && (include_root || !matches!(shared.unsent, Unsent::Nothing))
+        shared.tree.is_some()
+            && match &shared.reader {
+                Reader::Inactive => false,
+                Reader::Active { unsent } => {
+                    include_root || !matches!(unsent, Unsent::Nothing)
+                }
+            }
     }
 
     /// Convert what the platform still lacks from the current accepted tree.
@@ -247,19 +265,22 @@ impl PlatformTree {
     /// acquired. The closure runs under the shell lock; pending state is cleared
     /// only after it returns. If activation already consumed the changes, the
     /// selection may contain only current focus (and the root when requested).
-    /// `None` means no accepted tree, or the reader has deactivated.
+    /// `None` means no accepted tree.
     pub fn pending_with<R>(
         &self,
         include_root: bool,
         convert: impl FnOnce(PlatformUpdate<'_>) -> R,
     ) -> Option<R> {
         let mut shared = lock(&self.shared);
-        if !shared.active {
-            return None;
-        }
         let tree = shared.tree.as_ref()?;
         let root = tree.root();
-        let (mut nodes, runs, all_runs) = match &shared.unsent {
+        // An inactive handle has tracked nothing: the adapter asked, so it gets the whole tree.
+        let whole = Unsent::Tree;
+        let unsent = match &shared.reader {
+            Reader::Active { unsent } => unsent,
+            Reader::Inactive => &whole,
+        };
+        let (mut nodes, runs, all_runs) = match unsent {
             Unsent::Tree => (tree.nodes(), &[][..], true),
             Unsent::Nothing => (Vec::new(), &[][..], false),
             Unsent::Changed {
@@ -286,7 +307,9 @@ impl PlatformTree {
             all_runs,
             scale: shared.scale,
         });
-        shared.unsent = Unsent::Nothing;
+        shared.reader = Reader::Active {
+            unsent: Unsent::Nothing,
+        };
         Some(result)
     }
 
@@ -295,12 +318,13 @@ impl PlatformTree {
     pub fn rescale(&self, scale: f64) {
         let mut shared = lock(&self.shared);
         shared.scale = scale;
-        if shared.active
-            && let Some(root) = shared.tree.as_ref().map(state::AcceptedTree::root)
-        {
-            match &mut shared.unsent {
+        let Some(root) = shared.tree.as_ref().map(state::AcceptedTree::root) else {
+            return;
+        };
+        if let Reader::Active { unsent } = &mut shared.reader {
+            match unsent {
                 Unsent::Nothing => {
-                    shared.unsent = Unsent::Changed {
+                    *unsent = Unsent::Changed {
                         nodes: vec![root],
                         runs: Vec::new(),
                         merged: false,
@@ -318,7 +342,9 @@ impl PlatformTree {
     pub fn forget(&self) {
         let mut shared = lock(&self.shared);
         shared.tree = None;
-        shared.unsent = Unsent::Nothing;
+        if let Reader::Active { unsent } = &mut shared.reader {
+            *unsent = Unsent::Tree;
+        }
     }
 
     /// Check a request against the current hierarchy, without queueing it.

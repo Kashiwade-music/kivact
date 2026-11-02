@@ -35,7 +35,7 @@ pub(super) fn publish(state: &super::state::State) {
             bridge
                 .tree
                 .pending_with(true, convert_update)
-                .expect("active publication retains its accepted tree")
+                .expect(crate::a11y::native::TREE_KEPT)
         })
     };
     if let Some(events) = events {

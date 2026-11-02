@@ -93,7 +93,7 @@ impl Bridge {
             self.adapter.update_if_active(|| {
                 self.tree
                     .pending_with(true, convert_update)
-                    .expect("active publication retains its accepted tree")
+                    .expect(crate::a11y::native::TREE_KEPT)
             });
         }
         Ok(())
