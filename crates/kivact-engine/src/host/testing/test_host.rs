@@ -135,14 +135,18 @@ impl ArvaneTestHost {
     /// Deliver the mouse event of `phase` as the test window makes it
     /// (`VirtualWindow::mouse`): at `position` (`None`: where the mouse
     /// last was), with the buttons held so far and a `Down`'s or `Up`'s
-    /// `button`.
+    /// `button`. Panics when nothing placed the mouse yet.
     pub fn mouse(
         &mut self,
         phase: kivact_types::PointerPhase,
         position: Option<kivact_types::Point>,
         button: Option<kivact_types::MouseButton>,
     ) {
-        let event = self.window.mouse(phase, position, button);
+        let Some(event) = self.window.mouse(phase, position, button) else {
+            panic!(
+                "kivact::test: a mouse button or leave was injected before the mouse was in the window; move it there first (Screen::mouse_move, or an element's click/hover)"
+            );
+        };
         self.send(event);
     }
 
@@ -176,7 +180,7 @@ impl ArvaneTestHost {
 
     /// Whether the App exited (it accepted a close request).
     pub fn exited(&self) -> bool {
-        self.control.exit
+        self.control == ShellControl::Exit
     }
 
     // ----- clock and scheduling -----
@@ -200,13 +204,13 @@ impl ArvaneTestHost {
     /// When the host next wants to run (virtual ns): queued events at once,
     /// requested frames and the client's timers.
     pub fn next_deadline(&self) -> Option<u64> {
-        self.control.next_wake_ns
+        self.control.deadline()
     }
 
     /// Whether the host wants to run now.
     pub fn due(&self) -> bool {
         self.control
-            .next_wake_ns
+            .deadline()
             .is_some_and(|t| t <= self.window.now_ns())
     }
 

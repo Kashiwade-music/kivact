@@ -123,8 +123,10 @@ element or a modal's backdrop).
 
 For a click that is *meant* to do nothing, or a press outside a popup, skip the
 checks with `force_click()` or the screen-level `click_at(x, y)`, `mouse_move`,
-`mouse_down` and `mouse_up`. `contact_down/move/up` run several touch contacts
-at once. `Key`, `Modifiers`, `MouseButton` and `PointerKind` are in
+`mouse_down` and `mouse_up`. Place the pointer first (`mouse_move`, or a click
+or hover): `mouse_down`, `mouse_up` and `mouse_leave` before that panic, as a
+real window has no pointer to press. `contact_down/move/up` run several touch
+contacts at once. `Key`, `Modifiers`, `MouseButton` and `PointerKind` are in
 `kivact::view` (`Key` is also in the prelude).
 
 ```rust,test_harness

@@ -8,10 +8,11 @@ use windows_sys::Win32::Graphics::Gdi::{
 };
 
 pub(super) fn present(state: &State) -> Result<(), ShellError> {
-    let (width, height) = state.pixel_size.get();
-    if width == 0 || height == 0 || !state.cpu_shown.get() {
+    let frame = state.frame.borrow();
+    let Some(frame) = frame.as_ref() else {
         return Ok(());
-    }
+    };
+    let (width, height) = (frame.width.get(), frame.height.get());
     let hwnd = state.native.hwnd();
     // SAFETY: borrow a private cached DC for this live child on its GUI thread.
     let dc = unsafe { GetDCEx(hwnd, 0, DCX_CACHE | DCX_CLIPSIBLINGS) };
@@ -45,7 +46,6 @@ pub(super) fn present(state: &State) -> Result<(), ShellError> {
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
-    let pixels = state.pixels.borrow();
     // SAFETY: pixels holds width*height BGRA words for the top-down 32-bit DIB.
     let copied = unsafe {
         SetDIBitsToDevice(
@@ -58,7 +58,7 @@ pub(super) fn present(state: &State) -> Result<(), ShellError> {
             0,
             0,
             height,
-            pixels.as_ptr().cast(),
+            frame.pixels.as_ptr().cast(),
             &info,
             DIB_RGB_COLORS,
         )

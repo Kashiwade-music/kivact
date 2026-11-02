@@ -58,13 +58,26 @@ impl Default for ShellOptions {
         }
     }
 }
-/// Callback control; absent deadlines put the loop to sleep until OS input.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ShellControl {
-    /// Exit after the callback.
-    pub exit: bool,
-    /// Next callback deadline in shell monotonic nanoseconds.
-    pub next_wake_ns: Option<u64>,
+/// What the event loop does after a callback.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShellControl {
+    /// Sleep until OS input or a [`ShellWaker`] wake.
+    Wait,
+    /// Deliver `ShellEvent::Wake` at this deadline (shell monotonic nanoseconds) unless something else
+    /// runs first.
+    WakeAt(u64),
+    /// Leave the event loop after this callback. An embedded child cannot exit by itself: it reports a
+    /// failure.
+    Exit,
+}
+impl ShellControl {
+    /// The wake deadline, for [`Self::WakeAt`].
+    pub fn deadline(self) -> Option<u64> {
+        match self {
+            Self::WakeAt(ns) => Some(ns),
+            Self::Wait | Self::Exit => None,
+        }
+    }
 }
 /// Thread-safe worker wake handle. It owns no window state.
 #[derive(Clone)]

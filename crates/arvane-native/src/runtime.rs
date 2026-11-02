@@ -47,17 +47,18 @@
 //!   the area a software keyboard covers.
 
 use crate::a11y::native::NativeAccessibility;
-use crate::key_code::physical_code;
+use crate::cpu::CpuSurface;
+use crate::key_code::{map_key, physical_code, physical_letter};
 use crate::native_input::state::NativeInput;
 use crate::services::Services;
 use arvane_shell::ShellImeText;
 use arvane_shell::{ShellControl, ShellError, ShellOptions, ShellWaker};
 use arvane_shell::{ShellEvent, ShellEventLoop, ShellHandler, ShellWindow};
 use kivact_types::{
-    Cursor as ShellCursor, Key as ShellKey, Modifiers as ShellModifiers, MouseButton as ShellButton,
+    Cursor as ShellCursor, Modifiers as ShellModifiers, MouseButton as ShellButton,
 };
 use kivact_types::{Point, PointerPhase, Rect, Size};
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -65,32 +66,37 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::{ElementState, Ime, MouseScrollDelta, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::window::{CursorIcon, Window, WindowId};
 
-/// The CPU presentation surface of a window.
-type CpuSurface = softbuffer::Surface<Arc<Window>, Arc<Window>>;
+/// The softbuffer surface of a winit window.
+type WinitSurface = softbuffer::Surface<Arc<Window>, Arc<Window>>;
+
+/// The window's presentation surface as the platform gives it.
+enum Surface {
+    /// The platform destroyed it with a suspension (Android); `last` is its generation.
+    Destroyed { last: NonZeroU64 },
+    /// The platform surface of `generation` (the first is 1) and the CPU surface on it.
+    Live {
+        generation: NonZeroU64,
+        cpu: CpuSurface<Arc<Window>, Arc<Window>>,
+    },
+}
 
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
     /// The window's subclass (Windows), held for its drop, which removes
     /// it before the window goes (fields drop in order).
     #[cfg(windows)]
-    _subclass: Option<crate::native_input::Subclass>,
+    subclass: Option<crate::native_input::Subclass>,
     /// What the subclass and the runner share.
     input: Rc<NativeInput>,
-    /// Created by the first CPU presentation (`present_with`).
-    surface: Option<CpuSurface>,
+    /// The CPU surface inside is created by the first CPU presentation (`present_with`).
+    surface: Surface,
     /// `Arc`: a GPU surface keeps the window it presents to alive on any
     /// thread (`gpu_target`); `affinity` keeps this
     /// handle on the UI thread.
     pub(crate) window: Arc<Window>,
     started: Instant,
-    /// The generation of the window's presentation surface, `None` while
-    /// the platform destroyed it (`surface_generation`).
-    generation: Option<u64>,
-    /// Surfaces the platform gave the window so far.
-    surfaces: u64,
     // Rc enforces affinity even if an upstream platform makes its surface Send.
     affinity: Rc<()>,
     accessibility: NativeAccessibility,
@@ -160,19 +166,21 @@ impl ShellWindow for WinitWindow {
     /// Drop the CPU presentation surface after a presentation failure; the
     /// next CPU presentation creates a new one.
     fn recover_surface(&mut self) -> Result<(), ShellError> {
-        self.surface = None;
+        self.release_cpu_surface();
         Ok(())
     }
     /// Whether the window shows a frame its CPU presentation surface
     /// presented (it presented a CPU frame since nothing else presented to
     /// it).
     fn shows_cpu_frame(&self) -> bool {
-        self.surface.is_some()
+        matches!(&self.surface, Surface::Live { cpu, .. } if cpu.shows_frame())
     }
     /// Release the CPU presentation surface (and its pixel buffer) of a
     /// window something else (a GPU surface) presents to now.
     fn release_cpu_surface(&mut self) {
-        self.surface = None;
+        if let Surface::Live { cpu, .. } = &mut self.surface {
+            cpu.release();
+        }
     }
     /// The window as a GPU surface's target. winit hands window handles
     /// out only on the thread running the window's event loop: make the
@@ -183,11 +191,6 @@ impl ShellWindow for WinitWindow {
     ) -> Result<(), ShellError> {
         make(self.window.clone());
         Ok(())
-    }
-    /// A key naming the window among the process's windows (test windows'
-    /// keys have the top bit set).
-    fn key(&self) -> u64 {
-        u64::from(self.window.id())
     }
     /// Validate a complete accessibility tree and replace the window's
     /// accepted one with it: assistive technology is handed every node. A
@@ -255,11 +258,11 @@ impl ShellWindow for WinitWindow {
         let mobile = cfg!(any(target_os = "android", target_os = "ios"));
         kivact_types::Capabilities {
             touch: !cfg!(target_os = "macos"),
-            pen: cfg!(windows) && self.input.subclassed.get(),
+            pen: self.subclassed(),
             soft_keyboard: SOFT_KEYBOARD,
             safe_area: false,
             memory_warnings: mobile,
-            ime_reconversion: cfg!(windows) && self.input.subclassed.get(),
+            ime_reconversion: self.subclassed(),
             native_accessibility: !mobile,
             gpu: false,
         }
@@ -269,7 +272,10 @@ impl ShellWindow for WinitWindow {
     /// while it has none ([`ShellEvent::SurfaceDestroyed`] until
     /// [`ShellEvent::SurfaceCreated`]). Desktops keep the first.
     fn surface_generation(&self) -> Option<u64> {
-        self.generation
+        match self.surface {
+            Surface::Live { generation, .. } => Some(generation.get()),
+            Surface::Destroyed { .. } => None,
+        }
     }
     /// Schedule OS-driven redraw.
     fn request_redraw(&self) {
@@ -401,31 +407,17 @@ impl ShellWindow for WinitWindow {
         draw: &mut dyn FnMut(&mut [u32]) -> bool,
     ) -> Result<bool, ShellError> {
         let _ = &self.affinity;
-        if self.generation.is_none() || width == 0 || height == 0 {
+        let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Ok(false);
-        }
-        if (width, height) != self.physical_size() {
+        };
+        let physical = self.physical_size();
+        let Surface::Live { cpu, .. } = &mut self.surface else {
+            return Ok(false);
+        };
+        if (width, height) != physical {
             return Err(ShellError::new("frame size differs from window surface"));
         }
-        let width = NonZeroU32::new(width).expect("invariant: zero-sized frames returned above");
-        let height = NonZeroU32::new(height).expect("invariant: zero-sized frames returned above");
-        let surface = match &mut self.surface {
-            Some(surface) => surface,
-            None => self.surface.insert(cpu_surface(&self.window)?),
-        };
-        surface
-            .resize(width, height)
-            .map_err(|e| ShellError::new(e.to_string()))?;
-        let mut buffer = surface
-            .buffer_mut()
-            .map_err(|e| ShellError::new(e.to_string()))?;
-        if !draw(&mut buffer[..]) {
-            return Ok(false);
-        }
-        buffer
-            .present()
-            .map(|()| true)
-            .map_err(|e| ShellError::new(e.to_string()))
+        cpu.present(w, h, || cpu_surface(&self.window), draw)
     }
 }
 /// A physical client position in logical pixels.
@@ -436,7 +428,7 @@ fn logical((x, y): (f64, f64), scale: f64) -> Point {
     }
 }
 
-fn cpu_surface(window: &Arc<Window>) -> Result<CpuSurface, ShellError> {
+fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
     let context =
         softbuffer::Context::new(window.clone()).map_err(|e| ShellError::new(e.to_string()))?;
     softbuffer::Surface::new(&context, window.clone()).map_err(|e| ShellError::new(e.to_string()))
@@ -472,14 +464,51 @@ impl Shell {
         })
     }
 }
+/// Where the runner is in the window's life.
+enum Run {
+    /// `resumed` has not created the window yet.
+    Starting,
+    /// The handler receives the window's events.
+    Running(WinitWindow),
+    /// The handler asked to exit (`failure` None) or failed: it gets no more events; `close`
+    /// follows the loop.
+    Stopped {
+        window: WinitWindow,
+        failure: Option<ShellError>,
+    },
+    /// The window could not be created: no handler started.
+    Unopened(ShellError),
+}
+impl Run {
+    fn live(&mut self) -> Option<&mut WinitWindow> {
+        match self {
+            Self::Running(window) => Some(window),
+            Self::Starting | Self::Stopped { .. } | Self::Unopened(_) => None,
+        }
+    }
+    fn live_ref(&self) -> Option<&WinitWindow> {
+        match self {
+            Self::Running(window) => Some(window),
+            Self::Starting | Self::Stopped { .. } | Self::Unopened(_) => None,
+        }
+    }
+}
+/// Files dragged from the operating system over the window.
+enum Dnd {
+    /// No file drag over the window.
+    Idle,
+    /// These files are dragged over the window (winit reports each hovered file).
+    Hovering(Vec<std::path::PathBuf>),
+    /// These files were dropped; the drop is delivered when winit's batch ends (`about_to_wait`),
+    /// after every `DroppedFile` of it.
+    Dropped(Vec<std::path::PathBuf>),
+}
 struct Runner<'a> {
     handler: &'a mut dyn ShellHandler,
     options: ShellOptions,
-    window: Option<WinitWindow>,
+    run: Run,
     started: Instant,
     waker: ShellWaker,
-    failure: Option<ShellError>,
-    control: ShellControl,
     /// The last pointer position reported (physical client pixels).
     cursor: Option<(f64, f64)>,
     /// The mouse's logical position and held buttons, which winit's button
@@ -487,24 +516,44 @@ struct Runner<'a> {
     mouse: arvane_shell::Mouse,
     /// Shift is held (a vertical wheel then scrolls horizontally).
     shift: bool,
-    file_paths: Vec<std::path::PathBuf>,
-    dropped_files: Vec<std::path::PathBuf>,
+    dnd: Dnd,
     /// Counts the presses of the pointer events delivered.
     clicks: arvane_shell::ClickCounter,
     /// The touch and pen contacts in progress.
     contacts: arvane_shell::Contacts,
 }
 impl Runner<'_> {
+    /// Stop delivering events: the loop ends after this callback and `close` follows it.
+    fn stop(&mut self, failure: Option<ShellError>) {
+        self.run = match std::mem::replace(&mut self.run, Run::Starting) {
+            Run::Running(window) => Run::Stopped { window, failure },
+            other => other,
+        };
+    }
+    /// Deliver the files dropped in this batch of winit events, after every `DroppedFile` of it.
+    fn deliver_drop(&mut self, el: &ActiveEventLoop) {
+        match std::mem::replace(&mut self.dnd, Dnd::Idle) {
+            Dnd::Dropped(files) => {
+                let position = self.file_position();
+                self.input(
+                    el,
+                    ShellEvent::File {
+                        phase: arvane_shell::FilePhase::Drop,
+                        files,
+                        position,
+                    },
+                );
+            }
+            other => self.dnd = other,
+        }
+    }
     fn file_position(&self) -> kivact_types::Point {
-        self.window
-            .as_ref()
+        self.run
+            .live_ref()
             .and_then(|w| crate::native_input::file_position(&w.window))
             .unwrap_or_else(|| {
                 let (x, y) = self.cursor.unwrap_or_default();
-                let scale = self
-                    .window
-                    .as_ref()
-                    .map_or(1.0, |w| w.window.scale_factor());
+                let scale = self.run.live_ref().map_or(1.0, |w| w.window.scale_factor());
                 kivact_types::Point {
                     x: (x / scale) as f32,
                     y: (y / scale) as f32,
@@ -513,17 +562,14 @@ impl Runner<'_> {
     }
     /// Deliver a window's input event, its presses counted.
     fn input(&mut self, el: &ActiveEventLoop, mut event: ShellEvent) {
-        if let Some(window) = &self.window {
+        if let Some(window) = self.run.live_ref() {
             self.clicks
                 .count(&mut event, || window.now_ns(), || window.double_click());
         }
         self.callback(el, Some(event));
     }
     fn callback(&mut self, el: &ActiveEventLoop, event: Option<ShellEvent>) {
-        if self.failure.is_some() {
-            return;
-        }
-        let Some(window) = self.window.as_mut() else {
+        let Run::Running(window) = &mut self.run else {
             return;
         };
         let result = match event {
@@ -531,27 +577,24 @@ impl Runner<'_> {
             None => self.handler.start(window, self.waker.clone()),
         };
         match result {
-            Ok(control) => {
-                self.control = control;
-                if control.exit {
-                    el.exit();
-                } else {
-                    match control.next_wake_ns {
-                        None => el.set_control_flow(ControlFlow::Wait),
-                        Some(ns) => match self.started.checked_add(Duration::from_nanos(ns)) {
-                            Some(deadline) => el.set_control_flow(ControlFlow::WaitUntil(deadline)),
-                            None => {
-                                self.failure = Some(ShellError::new(
-                                    "shell wake deadline exceeds the platform clock range",
-                                ));
-                                el.exit();
-                            }
-                        },
+            Ok(ShellControl::Exit) => {
+                self.stop(None);
+                el.exit();
+            }
+            Ok(ShellControl::Wait) => el.set_control_flow(ControlFlow::Wait),
+            Ok(ShellControl::WakeAt(ns)) => {
+                match self.started.checked_add(Duration::from_nanos(ns)) {
+                    Some(deadline) => el.set_control_flow(ControlFlow::WaitUntil(deadline)),
+                    None => {
+                        self.stop(Some(ShellError::new(
+                            "shell wake deadline exceeds the platform clock range",
+                        )));
+                        el.exit();
                     }
                 }
             }
             Err(error) => {
-                self.failure = Some(error);
+                self.stop(Some(error));
                 el.exit();
             }
         }
@@ -559,15 +602,21 @@ impl Runner<'_> {
 }
 impl ApplicationHandler<()> for Runner<'_> {
     fn resumed(&mut self, el: &ActiveEventLoop) {
-        if let Some(window) = self.window.as_mut() {
+        if let Some(window) = self.run.live() {
             // A platform that destroyed the surface with the suspension
             // gives the window a new one now.
-            if window.generation.is_none() {
-                window.surfaces += 1;
-                window.generation = Some(window.surfaces);
+            if let Surface::Destroyed { last } = window.surface {
+                window.surface = Surface::Live {
+                    generation: last.saturating_add(1),
+                    cpu: CpuSurface::Released,
+                };
                 self.callback(el, Some(ShellEvent::SurfaceCreated));
             }
             self.callback(el, Some(ShellEvent::Resumed));
+            return;
+        }
+        if !matches!(self.run, Run::Starting) {
+            // A stopped runner resumes nothing.
             return;
         }
         let result = (|| {
@@ -606,13 +655,14 @@ impl ApplicationHandler<()> for Runner<'_> {
             let monitor = window.current_monitor();
             let mut window = WinitWindow {
                 #[cfg(windows)]
-                _subclass: crate::native_input::Subclass::install(&window, &input),
+                subclass: crate::native_input::Subclass::install(&window, &input),
                 input,
-                surface: None,
+                surface: Surface::Live {
+                    generation: NonZeroU64::MIN,
+                    cpu: CpuSurface::Released,
+                },
                 window,
                 started: self.started,
-                generation: Some(1),
-                surfaces: 1,
                 affinity: Rc::new(()),
                 accessibility,
                 services: Services::default(),
@@ -624,16 +674,14 @@ impl ApplicationHandler<()> for Runner<'_> {
         })();
         match result {
             Ok(window) => {
-                self.window = Some(window);
+                self.run = Run::Running(window);
                 self.callback(el, None);
-                if self.failure.is_none()
-                    && let Some(window) = &self.window
-                {
+                if let Some(window) = self.run.live_ref() {
                     window.window.set_visible(true);
                 }
             }
             Err(e) => {
-                self.failure = Some(e);
+                self.run = Run::Unopened(e);
                 el.exit();
             }
         }
@@ -642,9 +690,12 @@ impl ApplicationHandler<()> for Runner<'_> {
         self.callback(el, Some(ShellEvent::Suspended));
         // Android destroys the native window's surface with the suspension
         // (winit asks applications to drop theirs); iOS keeps it.
-        if SUSPENSION_DESTROYS_SURFACES && let Some(window) = self.window.as_mut() {
-            window.generation = None;
-            window.release_cpu_surface();
+        if SUSPENSION_DESTROYS_SURFACES
+            && let Some(window) = self.run.live()
+            && let Surface::Live { generation, .. } = window.surface
+        {
+            // The CPU surface drops with the variant.
+            window.surface = Surface::Destroyed { last: generation };
             self.callback(el, Some(ShellEvent::SurfaceDestroyed));
         }
     }
@@ -652,32 +703,32 @@ impl ApplicationHandler<()> for Runner<'_> {
         self.callback(el, Some(ShellEvent::MemoryWarning));
     }
     fn user_event(&mut self, el: &ActiveEventLoop, _: ()) {
-        if !self.file_paths.is_empty() {
-            let point = self
-                .window
-                .as_ref()
-                .and_then(|w| w.input.file_pointer.take());
-            if let Some(position) = point {
-                self.input(
-                    el,
-                    ShellEvent::File {
-                        phase: arvane_shell::FilePhase::Over,
-                        files: self.file_paths.clone(),
-                        position,
-                    },
-                );
-            }
+        if let Dnd::Hovering(files) = &self.dnd
+            && let Some(position) = self
+                .run
+                .live_ref()
+                .and_then(|w| w.input.file_pointer.take())
+        {
+            let files = files.clone();
+            self.input(
+                el,
+                ShellEvent::File {
+                    phase: arvane_shell::FilePhase::Over,
+                    files,
+                    position,
+                },
+            );
         }
         let environment = self
-            .window
-            .as_ref()
+            .run
+            .live_ref()
             .is_some_and(|window| window.input.env_changed.take());
         if environment {
             self.callback(el, Some(ShellEvent::EnvironmentChanged));
         }
         let actions = self
-            .window
-            .as_mut()
+            .run
+            .live()
             .map(|window| window.accessibility.drain_actions())
             .unwrap_or_default();
         for action in actions {
@@ -686,19 +737,7 @@ impl ApplicationHandler<()> for Runner<'_> {
         self.callback(el, Some(ShellEvent::Wake));
     }
     fn about_to_wait(&mut self, el: &ActiveEventLoop) {
-        if !self.dropped_files.is_empty() {
-            let files = std::mem::take(&mut self.dropped_files);
-            let position = self.file_position();
-            self.file_paths.clear();
-            self.input(
-                el,
-                ShellEvent::File {
-                    phase: arvane_shell::FilePhase::Drop,
-                    files,
-                    position,
-                },
-            );
-        }
+        self.deliver_drop(el);
     }
     fn new_events(&mut self, el: &ActiveEventLoop, cause: StartCause) {
         if matches!(cause, StartCause::ResumeTimeReached { .. }) {
@@ -706,7 +745,7 @@ impl ApplicationHandler<()> for Runner<'_> {
         }
     }
     fn window_event(&mut self, el: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
-        let Some(window) = self.window.as_mut() else {
+        let Some(window) = self.run.live() else {
             return;
         };
         if window.window.id() != id {
@@ -743,11 +782,10 @@ impl ApplicationHandler<()> for Runner<'_> {
                 {
                     self.cursor = Some(at);
                     let at = logical(at, scale);
-                    before = Some(ShellEvent::Pointer(self.mouse.event(
-                        PointerPhase::Move,
-                        Some(at),
-                        None,
-                    )));
+                    before = self
+                        .mouse
+                        .event(PointerPhase::Move, Some(at), None)
+                        .map(ShellEvent::Pointer);
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
@@ -806,31 +844,26 @@ impl ApplicationHandler<()> for Runner<'_> {
                 Some(ShellEvent::Resized)
             }
             WindowEvent::Focused(focus) => Some(ShellEvent::Focused(focus)),
-            WindowEvent::CursorMoved { position, .. } if !self.file_paths.is_empty() => {
-                Some(ShellEvent::File {
-                    phase: arvane_shell::FilePhase::Over,
-                    files: self.file_paths.clone(),
-                    position: kivact_types::Point {
-                        x: (position.x / scale) as f32,
-                        y: (position.y / scale) as f32,
-                    },
-                })
-            }
             WindowEvent::CursorMoved { position, .. } => {
                 let at = logical((position.x, position.y), scale);
-                Some(ShellEvent::Pointer(self.mouse.event(
-                    PointerPhase::Move,
-                    Some(at),
-                    None,
-                )))
+                match &self.dnd {
+                    Dnd::Hovering(files) => Some(ShellEvent::File {
+                        phase: arvane_shell::FilePhase::Over,
+                        files: files.clone(),
+                        position: at,
+                    }),
+                    Dnd::Idle | Dnd::Dropped(_) => self
+                        .mouse
+                        .event(PointerPhase::Move, Some(at), None)
+                        .map(ShellEvent::Pointer),
+                }
             }
             // The mouse keeps its position and buttons: a button held keeps
             // its capture and is released outside.
-            WindowEvent::CursorLeft { .. } => Some(ShellEvent::Pointer(self.mouse.event(
-                PointerPhase::Leave,
-                None,
-                None,
-            ))),
+            WindowEvent::CursorLeft { .. } => self
+                .mouse
+                .event(PointerPhase::Leave, None, None)
+                .map(ShellEvent::Pointer),
             WindowEvent::MouseInput { state, button, .. } => match button {
                 winit::event::MouseButton::Left => Some(ShellButton::Primary),
                 winit::event::MouseButton::Right => Some(ShellButton::Secondary),
@@ -839,16 +872,18 @@ impl ApplicationHandler<()> for Runner<'_> {
                 winit::event::MouseButton::Forward => Some(ShellButton::Forward),
                 _ => None,
             }
-            .map(|button| {
-                ShellEvent::Pointer(self.mouse.event(
-                    if state == ElementState::Pressed {
-                        PointerPhase::Down
-                    } else {
-                        PointerPhase::Up
-                    },
-                    None,
-                    Some(button),
-                ))
+            .and_then(|button| {
+                self.mouse
+                    .event(
+                        if state == ElementState::Pressed {
+                            PointerPhase::Down
+                        } else {
+                            PointerPhase::Up
+                        },
+                        None,
+                        Some(button),
+                    )
+                    .map(ShellEvent::Pointer)
             }),
             WindowEvent::MouseWheel { delta, .. } => {
                 let (x, y) = match delta {
@@ -890,38 +925,60 @@ impl ApplicationHandler<()> for Runner<'_> {
                 text: event.text.map(|s| s.to_string()),
             }),
             WindowEvent::HoveredFile(path) => {
-                let first = self.file_paths.is_empty();
-                if !self.file_paths.contains(&path) {
-                    self.file_paths.push(path);
+                if matches!(self.dnd, Dnd::Dropped(_)) {
+                    self.deliver_drop(el);
                 }
-                if let Some(window) = &self.window {
+                let (phase, files) = match &mut self.dnd {
+                    Dnd::Hovering(files) => {
+                        if !files.contains(&path) {
+                            files.push(path);
+                        }
+                        (arvane_shell::FilePhase::Over, files.clone())
+                    }
+                    other => {
+                        let files = vec![path];
+                        *other = Dnd::Hovering(files.clone());
+                        (arvane_shell::FilePhase::Enter, files)
+                    }
+                };
+                if let Some(window) = self.run.live_ref() {
                     crate::native_input::track_files(&window.window, true);
                 }
                 Some(ShellEvent::File {
-                    phase: if first {
-                        arvane_shell::FilePhase::Enter
-                    } else {
-                        arvane_shell::FilePhase::Over
-                    },
-                    files: self.file_paths.clone(),
+                    phase,
+                    files,
                     position: self.file_position(),
                 })
             }
             WindowEvent::HoveredFileCancelled => {
-                if let Some(window) = &self.window {
-                    crate::native_input::track_files(&window.window, false);
+                match std::mem::replace(&mut self.dnd, Dnd::Idle) {
+                    Dnd::Hovering(files) => {
+                        if let Some(window) = self.run.live_ref() {
+                            crate::native_input::track_files(&window.window, false);
+                        }
+                        Some(ShellEvent::File {
+                            phase: arvane_shell::FilePhase::Leave,
+                            files,
+                            position: self.file_position(),
+                        })
+                    }
+                    other => {
+                        self.dnd = other;
+                        None
+                    }
                 }
-                Some(ShellEvent::File {
-                    phase: arvane_shell::FilePhase::Leave,
-                    files: std::mem::take(&mut self.file_paths),
-                    position: self.file_position(),
-                })
             }
             WindowEvent::DroppedFile(path) => {
-                if let Some(window) = &self.window {
+                if let Some(window) = self.run.live_ref() {
                     crate::native_input::track_files(&window.window, false);
                 }
-                self.dropped_files.push(path);
+                self.dnd = match std::mem::replace(&mut self.dnd, Dnd::Idle) {
+                    Dnd::Dropped(mut files) => {
+                        files.push(path);
+                        Dnd::Dropped(files)
+                    }
+                    Dnd::Idle | Dnd::Hovering(_) => Dnd::Dropped(vec![path]),
+                };
                 None
             }
             WindowEvent::Ime(Ime::Preedit(text, selection)) => {
@@ -937,86 +994,19 @@ impl ApplicationHandler<()> for Runner<'_> {
         }
     }
 }
-/// The US-layout letter of a physical letter key (`KeyA`..=`KeyZ`).
-fn physical_letter(key: PhysicalKey) -> Option<char> {
-    let PhysicalKey::Code(code) = key else {
-        return None;
-    };
-    const LETTERS: [KeyCode; 26] = [
-        KeyCode::KeyA,
-        KeyCode::KeyB,
-        KeyCode::KeyC,
-        KeyCode::KeyD,
-        KeyCode::KeyE,
-        KeyCode::KeyF,
-        KeyCode::KeyG,
-        KeyCode::KeyH,
-        KeyCode::KeyI,
-        KeyCode::KeyJ,
-        KeyCode::KeyK,
-        KeyCode::KeyL,
-        KeyCode::KeyM,
-        KeyCode::KeyN,
-        KeyCode::KeyO,
-        KeyCode::KeyP,
-        KeyCode::KeyQ,
-        KeyCode::KeyR,
-        KeyCode::KeyS,
-        KeyCode::KeyT,
-        KeyCode::KeyU,
-        KeyCode::KeyV,
-        KeyCode::KeyW,
-        KeyCode::KeyX,
-        KeyCode::KeyY,
-        KeyCode::KeyZ,
-    ];
-    let i = LETTERS.iter().position(|c| *c == code)?;
-    Some(char::from(b'a' + u8::try_from(i).ok()?))
-}
-fn map_key(key: &Key) -> ShellKey {
-    match key {
-        Key::Character(s) => s.chars().next().map_or(ShellKey::Unidentified, |c| {
-            if c == ' ' {
-                ShellKey::Space
-            } else {
-                ShellKey::Char(c)
-            }
-        }),
-        Key::Named(n) => match n {
-            NamedKey::Enter => ShellKey::Enter,
-            NamedKey::Tab => ShellKey::Tab,
-            NamedKey::Space => ShellKey::Space,
-            NamedKey::Backspace => ShellKey::Backspace,
-            NamedKey::Delete => ShellKey::Delete,
-            NamedKey::Escape => ShellKey::Escape,
-            NamedKey::ArrowUp => ShellKey::ArrowUp,
-            NamedKey::ArrowDown => ShellKey::ArrowDown,
-            NamedKey::ArrowLeft => ShellKey::ArrowLeft,
-            NamedKey::ArrowRight => ShellKey::ArrowRight,
-            NamedKey::Home => ShellKey::Home,
-            NamedKey::End => ShellKey::End,
-            NamedKey::PageUp => ShellKey::PageUp,
-            NamedKey::PageDown => ShellKey::PageDown,
-            NamedKey::ContextMenu => ShellKey::ContextMenu,
-            NamedKey::F1 => ShellKey::F(1),
-            NamedKey::F2 => ShellKey::F(2),
-            NamedKey::F3 => ShellKey::F(3),
-            NamedKey::F4 => ShellKey::F(4),
-            NamedKey::F5 => ShellKey::F(5),
-            NamedKey::F6 => ShellKey::F(6),
-            NamedKey::F7 => ShellKey::F(7),
-            NamedKey::F8 => ShellKey::F(8),
-            NamedKey::F9 => ShellKey::F(9),
-            NamedKey::F10 => ShellKey::F(10),
-            NamedKey::F11 => ShellKey::F(11),
-            NamedKey::F12 => ShellKey::F(12),
-            _ => ShellKey::Unidentified,
-        },
-        _ => ShellKey::Unidentified,
-    }
-}
-
 impl WinitWindow {
+    /// Whether the Windows subclass is installed: it answers the IME's reconversion and tells pens
+    /// from touch.
+    fn subclassed(&self) -> bool {
+        #[cfg(windows)]
+        {
+            self.subclass.is_some()
+        }
+        #[cfg(not(windows))]
+        {
+            false
+        }
+    }
     /// How close in time (ns) and space (logical pixels per axis) a second
     /// press of a button counts as a double click: the system's setting
     /// (Windows' defaults elsewhere: 500 ms, 4 pixels), read at each press.
@@ -1051,24 +1041,34 @@ impl ShellEventLoop for Shell {
         let mut app = Runner {
             handler,
             options: self.options,
-            window: None,
+            run: Run::Starting,
             started: Instant::now(),
             waker,
-            failure: None,
-            control: ShellControl::default(),
             cursor: None,
             mouse: arvane_shell::Mouse::default(),
-            file_paths: Vec::new(),
-            dropped_files: Vec::new(),
+            dnd: Dnd::Idle,
             shift: false,
             clicks: arvane_shell::ClickCounter::default(),
             contacts: arvane_shell::Contacts::default(),
         };
         let result = self.event_loop.run_app(&mut app);
-        if let Some(window) = app.window.as_mut() {
-            app.handler.close(window);
-        }
+        let Runner { handler, run, .. } = app;
+        let failure = match run {
+            Run::Starting => None,
+            Run::Running(mut window) => {
+                handler.close(&mut window);
+                None
+            }
+            Run::Stopped {
+                mut window,
+                failure,
+            } => {
+                handler.close(&mut window);
+                failure
+            }
+            Run::Unopened(error) => Some(error),
+        };
         result.map_err(|e| ShellError::new(e.to_string()))?;
-        app.failure.map_or(Ok(()), Err)
+        failure.map_or(Ok(()), Err)
     }
 }

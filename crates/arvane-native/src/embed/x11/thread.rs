@@ -23,7 +23,7 @@ impl ChildBackend for Arc<Notifier> {
     }
     fn close(&self, shared: &Shared) {
         // `request_close` already ran; the wake makes the UI loop observe it.
-        if shared.alive.load(Ordering::Acquire) {
+        if shared.alive() {
             self.wake();
         }
         let thread = self.thread.lock().expect(LOCK_POISONED).take();
@@ -62,7 +62,7 @@ const LOCK_POISONED: &str = "embedded child lock poisoned: a panic already happe
 struct UiThreadExit(Arc<Shared>);
 impl Drop for UiThreadExit {
     fn drop(&mut self) {
-        self.0.alive.store(false, Ordering::Release);
+        self.0.window_gone();
     }
 }
 pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
@@ -176,12 +176,12 @@ fn run(
     } else {
         std::mem::forget(window);
     }
-    shared.alive.store(false, Ordering::Release);
+    shared.window_gone();
     result
 }
 
 fn closed(window: &Window) -> bool {
-    window.shared.stopped() || !window.native.alive.load(Ordering::Acquire)
+    window.shared.stopped() || !window.native.exists.load(Ordering::Acquire)
 }
 
 fn event_loop(
@@ -223,14 +223,14 @@ fn event_loop(
             // An unchecked request on our window (focus) can fail after the host
             // destroyed the parent; that is a close, not an error.
             if matches!(&event, x11rb::protocol::Event::Error(e) if super::error::gone(e, id)) {
-                window.native.alive.store(false, Ordering::Release);
+                window.native.exists.store(false, Ordering::Release);
                 window.shared.request_close();
                 return Ok(());
             }
             let destroyed = matches!(&event, x11rb::protocol::Event::DestroyNotify(e)
                 if e.window == id);
             if destroyed {
-                window.native.alive.store(false, Ordering::Release);
+                window.native.exists.store(false, Ordering::Release);
                 window.shared.request_close();
                 // Parent destruction is an external close. Delivering it as
                 // CloseRequested would turn the App's ordinary close response
@@ -248,14 +248,7 @@ fn event_loop(
             return Ok(());
         }
         let woke = super::poll::drain(&window.backend.wake)?;
-        let commands: Vec<_> = window
-            .shared
-            .commands
-            .lock()
-            .expect(LOCK_POISONED)
-            .drain(..)
-            .collect();
-        for command in commands {
+        for command in window.shared.take_commands() {
             if closed(window) {
                 return Ok(());
             }
@@ -289,8 +282,7 @@ fn event_loop(
             }
         }
         let due = session
-            .control
-            .next_wake_ns
+            .deadline()
             .is_some_and(|deadline| deadline <= window.now_ns());
         if due || woke {
             session.deliver(ShellEvent::Wake, window);
@@ -336,8 +328,7 @@ fn event_loop(
             return Ok(());
         }
         let remaining = session
-            .control
-            .next_wake_ns
+            .deadline()
             .map(|deadline| deadline.saturating_sub(window.now_ns()));
         // A lost XIM acknowledgement is given up at its own deadline.
         let remaining = [remaining, window.ime.borrow().remaining_ns()]

@@ -102,7 +102,7 @@ screen.within(row).get_by_role(Role::Button, "削除").click();
 | 支援技術 | `a11y(A11yAction::…)`、`a11y_with_value(action, "text")` |
 | IME の変換 | `compose("preedit")`、`commit("text")` |
 
-何も起きないことを確かめるためのクリックや、ポップアップの外側を押す操作では、`force_click()` か、画面レベルの `click_at(x, y)`・`mouse_move`・`mouse_down`・`mouse_up` で検査を省けます。`contact_down/move/up` は、複数のタッチを同時に動かします。`Key`・`Modifiers`・`MouseButton`・`PointerKind` は `kivact::view` にあります（`Key` はプレリュードにもあります）。
+何も起きないことを確かめるためのクリックや、ポップアップの外側を押す操作では、`force_click()` か、画面レベルの `click_at(x, y)`・`mouse_move`・`mouse_down`・`mouse_up` で検査を省けます。ポインターを先に置いてください（`mouse_move`、またはクリックやホバー）。置く前の `mouse_down`・`mouse_up`・`mouse_leave` は、実際の window と同じく押す位置がないため panic します。`contact_down/move/up` は、複数のタッチを同時に動かします。`Key`・`Modifiers`・`MouseButton`・`PointerKind` は `kivact::view` にあります（`Key` はプレリュードにもあります）。
 
 ```rust,test_harness
 use kivact::prelude::*;

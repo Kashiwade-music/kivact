@@ -21,7 +21,9 @@ fn mouse_event(
     position: Option<Point>,
     button: Option<MouseButton>,
 ) -> ShellEvent {
-    let event = window.mouse(phase, position, button);
+    let event = window
+        .mouse(phase, position, button)
+        .expect("the test placed the mouse first");
     window.input(event)
 }
 

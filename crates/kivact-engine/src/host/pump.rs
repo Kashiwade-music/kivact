@@ -243,7 +243,7 @@ impl Host {
     }
     pub(super) fn pump<W: Window>(&mut self, window: &mut W) -> Result<ShellControl, ShellError> {
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         #[cfg(feature = "gpu-interop")]
         self.adapter_changed(window);
@@ -253,7 +253,7 @@ impl Host {
             if self.closing() {
                 // Native handle close owns shutdown; exit=true here could race
                 // that request and be diagnosed as an App-requested failure.
-                return Ok(ShellControl::default());
+                return Ok(ShellControl::Wait);
             }
             // The store's finished work (natural sizes, rasters, failures)
             // lands before each turn, so the turn sees its reports; every
@@ -397,9 +397,10 @@ impl Host {
                 .flatten()
                 .min()
         };
-        ShellControl {
-            exit: self.exit,
-            next_wake_ns: next,
+        if self.exit {
+            ShellControl::Exit
+        } else {
+            next.map_or(ShellControl::Wait, ShellControl::WakeAt)
         }
     }
 }

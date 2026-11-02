@@ -1,6 +1,7 @@
 //! Role: Keyboard code translation layer.
 
-use winit::keyboard::{KeyCode, PhysicalKey};
+use kivact_types::Key as ShellKey;
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 pub(super) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
     use kivact_types::KeyCode as C;
     match key {
@@ -120,5 +121,83 @@ pub(super) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
         PhysicalKey::Code(KeyCode::F23) => C::F23,
         PhysicalKey::Code(KeyCode::F24) => C::F24,
         _ => C::Unidentified,
+    }
+}
+/// The US-layout letter of a physical letter key (`KeyA`..=`KeyZ`).
+pub(super) fn physical_letter(key: PhysicalKey) -> Option<char> {
+    let PhysicalKey::Code(code) = key else {
+        return None;
+    };
+    const LETTERS: [KeyCode; 26] = [
+        KeyCode::KeyA,
+        KeyCode::KeyB,
+        KeyCode::KeyC,
+        KeyCode::KeyD,
+        KeyCode::KeyE,
+        KeyCode::KeyF,
+        KeyCode::KeyG,
+        KeyCode::KeyH,
+        KeyCode::KeyI,
+        KeyCode::KeyJ,
+        KeyCode::KeyK,
+        KeyCode::KeyL,
+        KeyCode::KeyM,
+        KeyCode::KeyN,
+        KeyCode::KeyO,
+        KeyCode::KeyP,
+        KeyCode::KeyQ,
+        KeyCode::KeyR,
+        KeyCode::KeyS,
+        KeyCode::KeyT,
+        KeyCode::KeyU,
+        KeyCode::KeyV,
+        KeyCode::KeyW,
+        KeyCode::KeyX,
+        KeyCode::KeyY,
+        KeyCode::KeyZ,
+    ];
+    let i = LETTERS.iter().position(|c| *c == code)?;
+    Some(char::from(b'a' + u8::try_from(i).ok()?))
+}
+pub(super) fn map_key(key: &Key) -> ShellKey {
+    match key {
+        Key::Character(s) => s.chars().next().map_or(ShellKey::Unidentified, |c| {
+            if c == ' ' {
+                ShellKey::Space
+            } else {
+                ShellKey::Char(c)
+            }
+        }),
+        Key::Named(n) => match n {
+            NamedKey::Enter => ShellKey::Enter,
+            NamedKey::Tab => ShellKey::Tab,
+            NamedKey::Space => ShellKey::Space,
+            NamedKey::Backspace => ShellKey::Backspace,
+            NamedKey::Delete => ShellKey::Delete,
+            NamedKey::Escape => ShellKey::Escape,
+            NamedKey::ArrowUp => ShellKey::ArrowUp,
+            NamedKey::ArrowDown => ShellKey::ArrowDown,
+            NamedKey::ArrowLeft => ShellKey::ArrowLeft,
+            NamedKey::ArrowRight => ShellKey::ArrowRight,
+            NamedKey::Home => ShellKey::Home,
+            NamedKey::End => ShellKey::End,
+            NamedKey::PageUp => ShellKey::PageUp,
+            NamedKey::PageDown => ShellKey::PageDown,
+            NamedKey::ContextMenu => ShellKey::ContextMenu,
+            NamedKey::F1 => ShellKey::F(1),
+            NamedKey::F2 => ShellKey::F(2),
+            NamedKey::F3 => ShellKey::F(3),
+            NamedKey::F4 => ShellKey::F(4),
+            NamedKey::F5 => ShellKey::F(5),
+            NamedKey::F6 => ShellKey::F(6),
+            NamedKey::F7 => ShellKey::F(7),
+            NamedKey::F8 => ShellKey::F(8),
+            NamedKey::F9 => ShellKey::F(9),
+            NamedKey::F10 => ShellKey::F(10),
+            NamedKey::F11 => ShellKey::F(11),
+            NamedKey::F12 => ShellKey::F(12),
+            _ => ShellKey::Unidentified,
+        },
+        _ => ShellKey::Unidentified,
     }
 }

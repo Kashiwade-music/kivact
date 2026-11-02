@@ -29,7 +29,8 @@ pub(super) struct Native {
     pub(super) connection: Arc<XCBConnection>,
     pub(super) id: NonZeroU32,
     pub(super) xembed: u32,
-    pub(super) alive: AtomicBool,
+    /// The X server still has this window (no DestroyNotify or BadWindow for it yet).
+    pub(super) exists: AtomicBool,
     pub(super) screen: i32,
     visual: NonZeroU32,
     owner: ThreadId,
@@ -51,7 +52,7 @@ impl Native {
     pub(super) fn settle(&self, result: Result<(), ReplyError>) -> Result<(), ShellError> {
         match result {
             Err(error) if super::error::destroyed(&error, self.id.get()) => {
-                self.alive.store(false, Ordering::Release);
+                self.exists.store(false, Ordering::Release);
                 Ok(())
             }
             other => other.map_err(super::error::platform),
@@ -112,7 +113,7 @@ impl Native {
             screen: screen as i32,
             visual,
             owner: std::thread::current().id(),
-            alive: AtomicBool::new(true),
+            exists: AtomicBool::new(true),
         });
         let mask = EventMask::EXPOSURE
             | EventMask::STRUCTURE_NOTIFY
@@ -182,7 +183,7 @@ fn resource_scale(connection: &XCBConnection, root: u32) -> Option<f32> {
 
 impl HasWindowHandle for Native {
     fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
-        if std::thread::current().id() != self.owner || !self.alive.load(Ordering::Acquire) {
+        if std::thread::current().id() != self.owner || !self.exists.load(Ordering::Acquire) {
             return Err(HandleError::Unavailable);
         }
         let mut handle = XcbWindowHandle::new(self.id);
@@ -194,7 +195,7 @@ impl HasWindowHandle for Native {
 
 impl HasDisplayHandle for Native {
     fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
-        if std::thread::current().id() != self.owner || !self.alive.load(Ordering::Acquire) {
+        if std::thread::current().id() != self.owner || !self.exists.load(Ordering::Acquire) {
             return Err(HandleError::Unavailable);
         }
         let connection = NonNull::new(self.connection.get_raw_xcb_connection());
@@ -206,7 +207,7 @@ impl HasDisplayHandle for Native {
 
 impl Drop for Native {
     fn drop(&mut self) {
-        if self.alive.swap(false, Ordering::AcqRel) {
+        if self.exists.swap(false, Ordering::AcqRel) {
             // A completed external drop must acknowledge destruction on the
             // server, before another connection can still observe this child.
             if let Ok(destroyed) = self.connection.destroy_window(self.id.get()) {

@@ -4,6 +4,7 @@ use super::conn::Native;
 use arvane_shell::{ShellError, ShellEvent};
 use kivact_types::{FilePhase, Point};
 use std::ffi::OsString;
+use std::num::NonZeroU32;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 use x11rb::connection::Connection;
@@ -13,9 +14,12 @@ use x11rb::protocol::xproto::{AtomEnum, ClientMessageEvent, ConnectionExt, Event
 use x11rb::wrapper::ConnectionExt as _;
 
 pub(super) struct Dnd {
+    atoms: Atoms,
+    drag: Drag,
+}
+struct Atoms {
     aware: u32,
     incr: u32,
-    incremental: Option<Vec<u8>>,
     enter: u32,
     position: u32,
     status: u32,
@@ -27,10 +31,29 @@ pub(super) struct Dnd {
     uri: u32,
     types: u32,
     copy: u32,
-    source: u32,
-    accepts: bool,
-    point: Point,
-    pending: bool,
+}
+enum Drag {
+    /// No drag from another client is over the window.
+    Idle,
+    /// `source` drags over the window; `accepts`: it offers a URI list we take; `point`: the last
+    /// XdndPosition (`None` before the first one, so no status was sent yet).
+    Hovering {
+        source: NonZeroU32,
+        accepts: bool,
+        point: Option<Point>,
+    },
+    /// `source` dropped at `point`; its selection is being converted.
+    Converting {
+        source: NonZeroU32,
+        point: Point,
+        transfer: Transfer,
+    },
+}
+enum Transfer {
+    /// The selection was requested; its notification has not arrived.
+    Requested,
+    /// The source sends the list in increments (INCR); the bytes so far.
+    Incremental(Vec<u8>),
 }
 impl Dnd {
     pub(super) fn new(native: &Native) -> Result<Self, ShellError> {
@@ -43,10 +66,9 @@ impl Dnd {
                 .map_err(super::error::platform)?
                 .atom)
         };
-        let dnd = Self {
+        let atoms = Atoms {
             aware: atom(b"XdndAware")?,
             incr: atom(b"INCR")?,
-            incremental: None,
             enter: atom(b"XdndEnter")?,
             position: atom(b"XdndPosition")?,
             status: atom(b"XdndStatus")?,
@@ -58,17 +80,13 @@ impl Dnd {
             uri: atom(b"text/uri-list")?,
             types: atom(b"XdndTypeList")?,
             copy: atom(b"XdndActionCopy")?,
-            source: 0,
-            accepts: false,
-            point: Point::default(),
-            pending: false,
         };
         native
             .connection
             .change_property32(
                 PropMode::REPLACE,
                 native.id.get(),
-                dnd.aware,
+                atoms.aware,
                 AtomEnum::ATOM,
                 &[5],
             )
@@ -76,44 +94,49 @@ impl Dnd {
             .check()
             .map_err(super::error::platform)?;
         native.connection.flush().map_err(super::error::platform)?;
-        Ok(dnd)
+        Ok(Self {
+            atoms,
+            drag: Drag::Idle,
+        })
     }
-    fn send(&self, native: &Native, kind: u32, data: [u32; 5]) -> Result<(), ShellError> {
-        if self.source != 0 {
-            native
-                .connection
-                .send_event(
-                    false,
-                    self.source,
-                    EventMask::NO_EVENT,
-                    ClientMessageEvent::new(32, self.source, kind, data),
-                )
-                .map_err(super::error::platform)?;
-            native.connection.flush().map_err(super::error::platform)?;
-        }
-        Ok(())
+    fn send(
+        &self,
+        native: &Native,
+        source: NonZeroU32,
+        kind: u32,
+        data: [u32; 5],
+    ) -> Result<(), ShellError> {
+        native
+            .connection
+            .send_event(
+                false,
+                source.get(),
+                EventMask::NO_EVENT,
+                ClientMessageEvent::new(32, source.get(), kind, data),
+            )
+            .map_err(super::error::platform)?;
+        native.connection.flush().map_err(super::error::platform)
     }
-    /// Drops the current drag. Later messages from that source are ignored.
-    fn forget(&mut self) {
-        self.pending = false;
-        self.incremental = None;
-        self.source = 0;
-        self.accepts = false;
-    }
+    /// Ends the conversion: tells the source whether the drop succeeded and reports the files.
     fn finish(
         &mut self,
         native: &Native,
         files: Vec<PathBuf>,
         out: &mut Vec<ShellEvent>,
     ) -> Result<(), ShellError> {
+        let Drag::Converting { source, point, .. } = std::mem::replace(&mut self.drag, Drag::Idle)
+        else {
+            return Ok(());
+        };
         let success = !files.is_empty();
         self.send(
             native,
-            self.finished,
+            source,
+            self.atoms.finished,
             [
                 native.id.get(),
                 u32::from(success),
-                if success { self.copy } else { 0 },
+                if success { self.atoms.copy } else { 0 },
                 0,
                 0,
             ],
@@ -122,10 +145,9 @@ impl Dnd {
             out.push(ShellEvent::File {
                 phase: FilePhase::Drop,
                 files,
-                position: self.point,
+                position: point,
             });
         }
-        self.forget();
         Ok(())
     }
     pub(super) fn event(
@@ -138,32 +160,63 @@ impl Dnd {
         match event {
             Event::ClientMessage(e) if e.window == native.id.get() && e.format == 32 => {
                 let d = e.data.as_data32();
-                if e.type_ == self.enter {
-                    self.source = d[0];
-                    self.pending = false;
-                    self.incremental = None;
-                    self.accepts = (d[1] >> 24) >= 3 && (d[1] >> 24) <= 5;
+                // The drag this message belongs to, when its source is the one hovering.
+                let hovering = match self.drag {
+                    Drag::Hovering {
+                        source,
+                        accepts,
+                        point,
+                    } if source.get() == d[0] => Some((source, accepts, point)),
+                    _ => None,
+                };
+                if e.type_ == self.atoms.enter {
+                    let Some(source) = NonZeroU32::new(d[0]) else {
+                        return Ok(out);
+                    };
+                    // A new drag abandons a conversion in progress: its source is told it failed.
+                    if let Drag::Converting { source: old, .. } =
+                        std::mem::replace(&mut self.drag, Drag::Idle)
+                    {
+                        self.send(
+                            native,
+                            old,
+                            self.atoms.finished,
+                            [native.id.get(), 0, 0, 0, 0],
+                        )?;
+                    }
+                    let mut accepts = (d[1] >> 24) >= 3 && (d[1] >> 24) <= 5;
                     let offered = if d[1] & 1 == 0 {
                         d[2..5].to_vec()
                     } else {
                         let reply = native
                             .connection
-                            .get_property(false, self.source, self.types, AtomEnum::ATOM, 0, 4096)
+                            .get_property(
+                                false,
+                                source.get(),
+                                self.atoms.types,
+                                AtomEnum::ATOM,
+                                0,
+                                4096,
+                            )
                             .map_err(super::error::platform)?
                             .reply();
                         match reply {
                             Ok(reply) => reply.value32().map(Iterator::collect).unwrap_or_default(),
                             // The source is another client's window: its being gone or
                             // unreadable refuses this drag, not the App.
-                            Err(ReplyError::X11Error(_)) => {
-                                self.forget();
-                                return Ok(out);
-                            }
+                            Err(ReplyError::X11Error(_)) => return Ok(out),
                             Err(error) => return Err(super::error::platform(error)),
                         }
                     };
-                    self.accepts &= offered.contains(&self.uri);
-                } else if e.type_ == self.position && d[0] == self.source {
+                    accepts &= offered.contains(&self.atoms.uri);
+                    self.drag = Drag::Hovering {
+                        source,
+                        accepts,
+                        point: None,
+                    };
+                } else if e.type_ == self.atoms.position
+                    && let Some((source, accepts, _)) = hovering
+                {
                     let x = (d[2] >> 16) as i16;
                     let y = d[2] as i16;
                     let root = native.connection.setup().roots[native.screen as usize].root;
@@ -177,61 +230,90 @@ impl Dnd {
                         Err(error) if super::error::destroyed(&error, native.id.get()) => {
                             // The host destroyed our parent: a close, not a failure.
                             native
-                                .alive
+                                .exists
                                 .store(false, std::sync::atomic::Ordering::Release);
-                            self.forget();
+                            self.drag = Drag::Idle;
                             return Ok(out);
                         }
                         Err(ReplyError::X11Error(_)) => {
-                            self.accepts = false;
-                            self.send(native, self.status, [native.id.get(), 0, 0, 0, 0])?;
-                            self.forget();
+                            self.drag = Drag::Idle;
+                            self.send(
+                                native,
+                                source,
+                                self.atoms.status,
+                                [native.id.get(), 0, 0, 0, 0],
+                            )?;
                             return Ok(out);
                         }
                         Err(error) => return Err(super::error::platform(error)),
                     };
-                    self.point = Point {
-                        x: f32::from(translated.dst_x) / scale,
-                        y: f32::from(translated.dst_y) / scale,
+                    self.drag = Drag::Hovering {
+                        source,
+                        accepts,
+                        point: Some(Point {
+                            x: f32::from(translated.dst_x) / scale,
+                            y: f32::from(translated.dst_y) / scale,
+                        }),
                     };
                     self.send(
                         native,
-                        self.status,
+                        source,
+                        self.atoms.status,
                         [
                             native.id.get(),
-                            u32::from(self.accepts) | 2,
+                            u32::from(accepts) | 2,
                             0,
                             0,
-                            if self.accepts { self.copy } else { 0 },
+                            if accepts { self.atoms.copy } else { 0 },
                         ],
                     )?;
-                } else if e.type_ == self.leave && d[0] == self.source {
-                    self.forget();
-                } else if e.type_ == self.drop && d[0] == self.source {
-                    if self.accepts {
-                        self.pending = true;
-                        native
-                            .connection
-                            .convert_selection(
-                                native.id.get(),
-                                self.selection,
-                                self.uri,
-                                self.property,
-                                d[2],
-                            )
-                            .map_err(super::error::platform)?;
-                        native.connection.flush().map_err(super::error::platform)?;
-                    } else {
-                        self.send(native, self.finished, [native.id.get(), 0, 0, 0, 0])?;
+                } else if e.type_ == self.atoms.leave && hovering.is_some() {
+                    self.drag = Drag::Idle;
+                } else if e.type_ == self.atoms.drop
+                    && let Some((source, accepts, point)) = hovering
+                {
+                    match (accepts, point) {
+                        (true, Some(point)) => {
+                            self.drag = Drag::Converting {
+                                source,
+                                point,
+                                transfer: Transfer::Requested,
+                            };
+                            native
+                                .connection
+                                .convert_selection(
+                                    native.id.get(),
+                                    self.atoms.selection,
+                                    self.atoms.uri,
+                                    self.atoms.property,
+                                    d[2],
+                                )
+                                .map_err(super::error::platform)?;
+                            native.connection.flush().map_err(super::error::platform)?;
+                        }
+                        _ => {
+                            self.drag = Drag::Idle;
+                            self.send(
+                                native,
+                                source,
+                                self.atoms.finished,
+                                [native.id.get(), 0, 0, 0, 0],
+                            )?;
+                        }
                     }
                 }
             }
             Event::SelectionNotify(e)
-                if self.pending
-                    && e.requestor == native.id.get()
-                    && e.selection == self.selection =>
+                if matches!(
+                    self.drag,
+                    Drag::Converting {
+                        transfer: Transfer::Requested,
+                        ..
+                    }
+                ) && e.requestor == native.id.get()
+                    && e.selection == self.atoms.selection =>
             {
-                if e.property != self.property {
+                if e.property != self.atoms.property {
                     self.finish(native, Vec::new(), &mut out)?;
                 } else {
                     let reply = native
@@ -239,7 +321,7 @@ impl Dnd {
                         .get_property(
                             false,
                             native.id.get(),
-                            self.property,
+                            self.atoms.property,
                             AtomEnum::ANY,
                             0,
                             4_194_304,
@@ -249,13 +331,15 @@ impl Dnd {
                         .map_err(super::error::platform)?;
                     native
                         .connection
-                        .delete_property(native.id.get(), self.property)
+                        .delete_property(native.id.get(), self.atoms.property)
                         .map_err(super::error::platform)?;
                     native.connection.flush().map_err(super::error::platform)?;
-                    if reply.type_ == self.incr && reply.format == 32 {
-                        self.incremental = Some(Vec::new());
+                    if reply.type_ == self.atoms.incr && reply.format == 32 {
+                        if let Drag::Converting { transfer, .. } = &mut self.drag {
+                            *transfer = Transfer::Incremental(Vec::new());
+                        }
                     } else {
-                        let files = if reply.type_ == self.uri
+                        let files = if reply.type_ == self.atoms.uri
                             && reply.format == 8
                             && reply.bytes_after == 0
                         {
@@ -268,24 +352,38 @@ impl Dnd {
                 }
             }
             Event::PropertyNotify(e)
-                if self.pending
-                    && self.incremental.is_some()
-                    && e.window == native.id.get()
-                    && e.atom == self.property
+                if matches!(
+                    self.drag,
+                    Drag::Converting {
+                        transfer: Transfer::Incremental(_),
+                        ..
+                    }
+                ) && e.window == native.id.get()
+                    && e.atom == self.atoms.property
                     && e.state == x11rb::protocol::xproto::Property::NEW_VALUE =>
             {
                 let reply = native
                     .connection
-                    .get_property(true, native.id.get(), self.property, self.uri, 0, 4_194_304)
+                    .get_property(
+                        true,
+                        native.id.get(),
+                        self.atoms.property,
+                        self.atoms.uri,
+                        0,
+                        4_194_304,
+                    )
                     .map_err(super::error::platform)?
                     .reply()
                     .map_err(super::error::platform)?;
                 native.connection.flush().map_err(super::error::platform)?;
-                let buffer = self
-                    .incremental
-                    .as_mut()
-                    .expect("incremental transfer is active");
-                if reply.type_ != self.uri
+                let Drag::Converting {
+                    transfer: Transfer::Incremental(buffer),
+                    ..
+                } = &mut self.drag
+                else {
+                    return Ok(out);
+                };
+                if reply.type_ != self.atoms.uri
                     || reply.format != 8
                     || reply.bytes_after != 0
                     || buffer.len().saturating_add(reply.value.len()) > 16_777_216

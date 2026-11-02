@@ -76,7 +76,7 @@ impl Bridge {
                 // The host can destroy its parent after the event queue was
                 // drained. A checked reply can observe that before DestroyNotify.
                 native
-                    .alive
+                    .exists
                     .store(false, std::sync::atomic::Ordering::Release);
                 return Ok(());
             }
@@ -93,7 +93,7 @@ impl Bridge {
             self.adapter.update_if_active(|| {
                 self.tree
                     .pending_with(true, convert_update)
-                    .expect("active publication retains its accepted tree")
+                    .expect(crate::a11y::native::TREE_KEPT)
             });
         }
         Ok(())

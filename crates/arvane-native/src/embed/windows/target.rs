@@ -12,12 +12,10 @@ pub(super) struct Target {
 }
 impl HasWindowHandle for Target {
     fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
-        if !self.shared.alive.load(std::sync::atomic::Ordering::Acquire) {
+        if !self.shared.alive() {
             return Err(HandleError::Unavailable);
         }
-        let mut handle = Win32WindowHandle::new(
-            NonZeroIsize::new(self.native.hwnd()).ok_or(HandleError::Unavailable)?,
-        );
+        let mut handle = Win32WindowHandle::new(self.native.hwnd);
         handle.hinstance = NonZeroIsize::new(self.instance);
         // SAFETY: target use is synchronous on the owning UI thread. Shared alive
         // rejects access after destruction; the caller retains target for surface use.
