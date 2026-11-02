@@ -99,18 +99,18 @@ pub enum EditPhase {
 /// # }
 /// use kivact::prelude::*;
 /// use kivact::interaction::EditSession;
-/// use kivact::view::{Handled, MouseButton, PointerPhase};
+/// use kivact::view::{ButtonPress, Handled, MouseButton, PointerPhase};
 ///
 /// let value = signal(100.0_f64);
 /// let edit = EditSession::new(move |initial| value.set(initial));
 /// let field = node().name("Width").focusable(true)
 ///     .on_pointer(move |event| {
 ///         match event.phase {
-///             PointerPhase::Down if event.button == Some(MouseButton::Primary) => {
+///             PointerPhase::Down(ButtonPress { button: MouseButton::Primary, .. }) => {
 ///                 edit.begin(value.get_untracked());
 ///             }
 ///             PointerPhase::Move if edit.is_active() => value.set(f64::from(event.pos.x)),
-///             PointerPhase::Up => edit.commit(),
+///             PointerPhase::Up(_) => edit.commit(),
 ///             PointerPhase::Cancel => { edit.cancel(); }
 ///             _ => return Handled::No,
 ///         }
