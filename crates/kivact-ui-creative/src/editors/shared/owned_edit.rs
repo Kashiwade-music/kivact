@@ -1,4 +1,4 @@
-//! Role: One edit session shared by several sources of a component, owned by the source that began it.
+//! Role: An edit session shared by several sources, owned by the one that began it.
 use kivact::Callback;
 use kivact::interaction::EditSession;
 use kivact::ui::EditPhase;
