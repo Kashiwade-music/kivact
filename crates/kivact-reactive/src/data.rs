@@ -408,9 +408,14 @@ pub trait Driver {
 #[derive(Default)]
 pub struct Extensions(pub(crate) Vec<(TypeId, Box<dyn Any>)>);
 
-/// An `on_mount` callback: its owner, the token it waits for (`None` until
-/// the driver stamps it) and the callback.
-pub(crate) type PendingMount = (Key, Option<u64>, Box<dyn FnOnce()>);
+/// An `on_mount` callback waiting for the driver's acknowledgement.
+pub(crate) struct PendingMount {
+    /// The owner it runs for (skipped once that owner is gone).
+    pub(crate) owner: Key,
+    /// The token it waits for; `None` until the driver stamps it.
+    pub(crate) token: Option<u64>,
+    pub(crate) run: Box<dyn FnOnce()>,
+}
 
 /// The marker that keeps a handle on the UI thread: it is neither `Send` nor
 /// `Sync`, so a closure that captures a `Signal` (or any other handle) cannot
