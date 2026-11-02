@@ -1,7 +1,7 @@
 //! Role: Keep Win32 identity, message ids and the host-facing Backend below dispatch.
 use crate::embed::child::{Backend, Shared};
-use std::sync::Arc;
 use std::num::NonZeroIsize;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::ThreadId;
 use windows_sys::Win32::Foundation::HWND;

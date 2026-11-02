@@ -2,8 +2,8 @@
 
 use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
-use crate::embed::child::{Backend as _, Shared};
 use crate::cpu::CpuSurface;
+use crate::embed::child::{Backend as _, Shared};
 use crate::embed::session::negotiate;
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::protocol::Environment;
@@ -254,8 +254,7 @@ impl ShellWindow for Window {
             || {
                 let context =
                     softbuffer::Context::new(native.clone()).map_err(super::error::platform)?;
-                softbuffer::Surface::new(&context, native.clone())
-                    .map_err(super::error::platform)
+                softbuffer::Surface::new(&context, native.clone()).map_err(super::error::platform)
             },
             draw,
         )?;

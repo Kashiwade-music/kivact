@@ -254,9 +254,7 @@ impl PlatformTree {
         shared.tree.is_some()
             && match &shared.reader {
                 Reader::Inactive => false,
-                Reader::Active { unsent } => {
-                    include_root || !matches!(unsent, Unsent::Nothing)
-                }
+                Reader::Active { unsent } => include_root || !matches!(unsent, Unsent::Nothing),
             }
     }
 

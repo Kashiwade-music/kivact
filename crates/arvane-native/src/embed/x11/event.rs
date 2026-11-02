@@ -117,7 +117,11 @@ impl Input {
                         .map_err(super::error::platform)?;
                     out.extend(
                         self.mouse
-                            .event(PointerPhase::Down, point(e.event_x, e.event_y), Some(button))
+                            .event(
+                                PointerPhase::Down,
+                                point(e.event_x, e.event_y),
+                                Some(button),
+                            )
                             .map(ShellEvent::Pointer),
                     );
                 }

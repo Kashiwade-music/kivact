@@ -155,7 +155,9 @@ impl Keyboard {
         self.set_mask(mask);
         let code = physical(detail);
         // SAFETY: state is live; any X11 keycode is accepted by xkbcommon.
-        let sym = unsafe { (self.api.xkb_state_key_get_one_sym)(self.map.state.raw.as_ptr(), detail.into()) };
+        let sym = unsafe {
+            (self.api.xkb_state_key_get_one_sym)(self.map.state.raw.as_ptr(), detail.into())
+        };
         // SAFETY: keysym conversion accepts unknown keysyms and returns zero for them.
         let scalar = unsafe { (self.api.xkb_keysym_to_utf32)(sym) };
         let key = logical(sym, scalar);
@@ -166,7 +168,12 @@ impl Keyboard {
         let text = if down {
             // SAFETY: a null buffer with size zero asks for the required UTF-8 size.
             let length = unsafe {
-                (self.api.xkb_state_key_get_utf8)(self.map.state.raw.as_ptr(), detail.into(), ptr::null_mut(), 0)
+                (self.api.xkb_state_key_get_utf8)(
+                    self.map.state.raw.as_ptr(),
+                    detail.into(),
+                    ptr::null_mut(),
+                    0,
+                )
             };
             if length > 0 {
                 let mut bytes = vec![0_u8; length as usize + 1];
@@ -195,7 +202,9 @@ impl Keyboard {
             xkb::xkb_key_direction::XKB_KEY_UP
         };
         // SAFETY: state is live and the direction enum and keycode are valid.
-        unsafe { (self.api.xkb_state_update_key)(self.map.state.raw.as_ptr(), detail.into(), direction) };
+        unsafe {
+            (self.api.xkb_state_update_key)(self.map.state.raw.as_ptr(), detail.into(), direction)
+        };
         let modifiers = self.modifiers();
         self.modifiers = modifiers;
         let event = if down {

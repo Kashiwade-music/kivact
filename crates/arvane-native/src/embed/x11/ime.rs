@@ -85,7 +85,10 @@ enum Context {
     /// Connected; the input method is not open yet.
     Connecting,
     Open,
-    Ready { im: u16, ic: u16 },
+    Ready {
+        im: u16,
+        ic: u16,
+    },
     /// The server ended the connection (`handle_disconnect`); `filter` degrades.
     Disconnected,
 }

@@ -553,10 +553,7 @@ impl Runner<'_> {
             .and_then(|w| crate::native_input::file_position(&w.window))
             .unwrap_or_else(|| {
                 let (x, y) = self.cursor.unwrap_or_default();
-                let scale = self
-                    .run
-                    .live_ref()
-                    .map_or(1.0, |w| w.window.scale_factor());
+                let scale = self.run.live_ref().map_or(1.0, |w| w.window.scale_factor());
                 kivact_types::Point {
                     x: (x / scale) as f32,
                     y: (y / scale) as f32,

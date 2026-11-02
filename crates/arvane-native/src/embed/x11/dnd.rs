@@ -124,8 +124,7 @@ impl Dnd {
         files: Vec<PathBuf>,
         out: &mut Vec<ShellEvent>,
     ) -> Result<(), ShellError> {
-        let Drag::Converting { source, point, .. } =
-            std::mem::replace(&mut self.drag, Drag::Idle)
+        let Drag::Converting { source, point, .. } = std::mem::replace(&mut self.drag, Drag::Idle)
         else {
             return Ok(());
         };

@@ -176,11 +176,8 @@ impl NativeAccessibility {
             return;
         }
         let shared = &self.shared;
-        self.adapter.update_if_active(|| {
-            shared
-                .pending_with(root, convert_update)
-                .expect(TREE_KEPT)
-        });
+        self.adapter
+            .update_if_active(|| shared.pending_with(root, convert_update).expect(TREE_KEPT));
     }
 
     /// Whether assistive technology reads the tree (it asked for it and has

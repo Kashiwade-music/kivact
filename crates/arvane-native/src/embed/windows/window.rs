@@ -136,7 +136,10 @@ impl ShellWindow for Window {
         &mut self,
         update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
-        self.0.a11y.update(update).map(|_| super::a11y::publish(&self.0))
+        self.0
+            .a11y
+            .update(update)
+            .map(|_| super::a11y::publish(&self.0))
     }
     fn accessibility_active(&self) -> bool {
         self.0.a11y.active()
@@ -325,9 +328,7 @@ impl State {
             let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
                 return;
             };
-            if shared.alive()
-                && !native.wake_pending.swap(true, Ordering::AcqRel)
-            {
+            if shared.alive() && !native.wake_pending.swap(true, Ordering::AcqRel) {
                 // SAFETY: posting uses only the opaque HWND and never accesses UI state.
                 if unsafe { PostMessageW(native.hwnd(), super::native::WAKE, 0, 0) } == 0 {
                     native.wake_pending.store(false, Ordering::Release);

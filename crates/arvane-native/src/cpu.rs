@@ -1,4 +1,4 @@
-//! Role: The CPU presentation surface of a softbuffer window and whether it shows a frame.
+//! Role: The softbuffer CPU surface of a window and whether it shows a frame.
 use arvane_shell::ShellError;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use std::num::NonZeroU32;
