@@ -83,8 +83,8 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
             })
         },
         ListSelection::Single(selected),
-    )
-    .policy(ListPolicy::tabs());
+        ListPolicy::tabs(),
+    );
     let strip = node()
         .part(group.list().role(Role::TabList))
         .child(for_each(

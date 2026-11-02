@@ -1,11 +1,11 @@
 //! Role: Edit session, drag and focus count shared by the thumbs of one scalar.
 
-use super::track::{self, Pointer};
+use super::track::{self, Grip, Pointer};
 use crate::drag::Drag;
 use crate::edit::EditSession;
 use kivact_core::draw::Rect;
 use kivact_core::view::{NodeRef, node_ref};
-use kivact_core::{Signal, Value, effect, effect_on, signal, var};
+use kivact_core::{Signal, Value, Var, effect_on, memo, on_cleanup, signal, var};
 
 /// The edit plumbing one [`Scalar`] or both thumbs of a
 /// [`RangeScalar`](crate::RangeScalar) share: the session, what it restores,
@@ -15,11 +15,13 @@ pub(crate) struct Shared {
     pub(crate) session: EditSession<[f64; 2]>,
     pub(crate) snapshot: Value<[f64; 2]>,
     pub(crate) pointer: Pointer,
-    pub(crate) drag: Drag<Option<usize>>,
+    pub(crate) drag: Drag<Grip>,
     /// The caller's disabled value, given to [`Scalar::disabled`].
     pub(crate) disabled: Signal<Option<Value<bool>>>,
-    /// How many thumbs have the focus; a drag the focus leaves is canceled.
-    focused: Signal<usize>,
+    /// The keyboard increment given to `key_step`; the range's step else.
+    pub(crate) key_step: Var<Option<f64>>,
+    /// Whether each thumb has the focus; a drag the focus leaves is canceled.
+    thumb_focus: Signal<Vec<Value<bool>>>,
 }
 
 impl Shared {
@@ -29,16 +31,19 @@ impl Shared {
         let session = EditSession::new(restore);
         let pointer = Pointer::new();
         let disabled = signal(None);
+        let thumb_focus = signal(Vec::<Value<bool>>::new());
         let shared = Shared {
             session,
             snapshot,
             pointer,
             drag: track::drag(session, snapshot, pointer, disabled),
             disabled,
-            focused: signal(0),
+            key_step: var(None),
+            thumb_focus,
         };
-        effect_on(shared.focused, move |focused| {
-            if *focused == 0 {
+        let any_focused = memo(move || thumb_focus.with(|focus| focus.iter().any(|v| v.get())));
+        effect_on(any_focused, move |focused| {
+            if !*focused {
                 shared.drag.cancel();
             }
         });
@@ -95,21 +100,16 @@ impl Edit {
     }
 }
 
-/// Count `focused` (read reactively) in the thumbs `shared` watches. Setup only.
+/// Register whether a thumb has the focus (read reactively) with the thumbs
+/// `shared` watches; the registration ends with the thumb's owner. Setup only.
 #[track_caller]
-pub(super) fn watch_focus(shared: Shared, focused: impl Fn() -> bool + 'static) {
-    let was = var(false);
-    effect(move || {
-        let now = focused();
-        if now != was.get() {
-            was.set(now);
-            shared.focused.update(|count| {
-                *count = if now {
-                    *count + 1
-                } else {
-                    count.saturating_sub(1)
-                }
-            });
+pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
+    shared.thumb_focus.update(|thumbs| thumbs.push(focused));
+    on_cleanup(move || {
+        if shared.thumb_focus.try_get_untracked().is_some() {
+            shared
+                .thumb_focus
+                .update(|thumbs| thumbs.retain(|thumb| *thumb != focused));
         }
     });
 }

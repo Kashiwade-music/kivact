@@ -167,12 +167,12 @@ with a tab slot that closes a tab and drags it 60 px to swap with a
 neighbor; the application applies both to its options. `.content(|key| ..)`
 and `.keep_mounted(true)` are the standard tabs'.
 The standard `kivact::ui::data_table(rows, key, columns)` is drawn dense in this
-kit's theme (its `DataTableRecipes`): `.focus(TableFocus::Rows)` makes the rows
+kit's theme (its `DataTableRecipes`): `.focus(TableFocus::Rows(ListPolicy::default()))` makes the rows
 one tab stop (the row focused last), and Up, Down, Home, End, Page Up and Page
 Down move and select (Shift extends a range, Ctrl or Cmd moves the focus
 alone), Space and Ctrl or Cmd+Space select and toggle the focused row, Ctrl or
 Cmd+A selects every row shown, and typing a letter jumps to the next row whose
-label starts with it (`.policy(..)`). `.row_height(..)` and `.row_color(..)`
+label starts with it (`ListPolicy { typeahead: true, .. }` in the variant). `.row_height(..)` and `.row_color(..)`
 reach the row recipe, `.cell_controls(..)` keeps controls mounted while their
 row changes, `.resizable(widths)` resizes columns and `.row_details(..)` puts
 inline details under a row. `outliner` supports range selection, rename and safe

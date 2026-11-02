@@ -3,9 +3,9 @@
 use super::data::{ListGesture, ListItem, ListItemState, ListPolicy, ListSelection};
 use super::state::State;
 use super::{input, parts, state, typeahead};
-use kivact_core::diagnostics::ErrorKind;
+use crate::axis::check_list_axis;
 use kivact_core::primitive::{Owned, Part, PartState, require_effectful, require_setup};
-use kivact_core::view::{A11yAction, Handled, HandlerResult, IntoValue, KeyEvent, callback};
+use kivact_core::view::{Handled, HandlerResult, IntoValue, KeyEvent, callback};
 use kivact_core::{Binding, Value, Var};
 use std::hash::Hash;
 use std::panic::Location;
@@ -14,11 +14,11 @@ use std::rc::Rc;
 /// A Copy list handle over caller-owned item order and authoritative selection.
 /// Attach `list()` and `item(key)` to caller-rendered nodes or canvas regions.
 /// Filtering never clears selection; only mounted eligible items take roving focus.
-/// Configure policy, paging, leave/scroll callbacks and anchor during setup,
-/// before creating the first container or item Part. Boundary wrapping applies
-/// to explicit navigation; active removal always clamps from its old position.
-/// Reactive inputs and caller
-/// binding writes continue to update existing Parts.
+/// The policy is given to [`use_list`]; paging, leave/scroll callbacks and the
+/// anchor may be set before or after the parts are made. Boundary wrapping
+/// applies to explicit navigation; active removal always clamps from its old
+/// position. Reactive inputs and caller binding writes continue to update
+/// existing Parts.
 pub struct List<K: Clone + Eq + Hash + 'static> {
     state: Owned<State<K>>,
 }
@@ -32,13 +32,19 @@ impl<K: Clone + Eq + Hash + 'static> Clone for List<K> {
 }
 
 /// Create a setup-owned list without rendering any elements.
+///
+/// The `policy` holds the navigation and the [`ListMode`](super::ListMode) of
+/// the list; `ListPolicy::axis` of `Some(Orientation::Unspecified)` is a usage
+/// error (use `None` for all four arrow keys). Setup only.
 #[track_caller]
 pub fn use_list<K: Clone + Eq + Hash + 'static>(
     items: impl IntoValue<Vec<ListItem<K>>>,
     selection: ListSelection<K>,
+    policy: ListPolicy,
 ) -> List<K> {
+    check_list_axis(policy.axis, "use_list");
     List {
-        state: state::create(items.into_value(), selection, Location::caller()),
+        state: state::create(items.into_value(), selection, policy, Location::caller()),
     }
 }
 
@@ -47,76 +53,56 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     fn state(self) -> Rc<State<K>> {
         self.state.get()
     }
+    /// Change the policy of a list whose mode stays the same (tabs and
+    /// trees adjust the axis and the activation after `use_list`). Setup only.
     #[track_caller]
-    fn configure(self, name: &'static str) -> Option<Rc<State<K>>> {
+    pub(crate) fn retune(self, change: impl FnOnce(&mut ListPolicy)) {
         let state = self.state();
-        require_setup(name);
-        if state.started.get() {
-            state.owner.report(
-                ErrorKind::Message,
-                "List must be configured before creating parts",
-                Location::caller(),
-            );
-            None
-        } else {
-            Some(state)
-        }
-    }
-    /// Configure navigation and selection before constructing any list part.
-    #[track_caller]
-    pub fn policy(self, policy: ListPolicy) -> Self {
-        let state = self.state();
-        require_setup("List::policy");
-        if !matches!(policy.action, A11yAction::Select | A11yAction::Activate) {
-            state.owner.report(
-                ErrorKind::Unsupported,
-                "List policy action must be Select or Activate",
-                Location::caller(),
-            );
-            return self;
-        }
-        if let Some(state) = self.configure("List::policy") {
-            state.policy.set(policy);
-            state.revision.update(|revision| *revision += 1);
-        }
-        self
+        require_setup("List::retune");
+        let mut policy = state.policy();
+        change(&mut policy);
+        check_list_axis(policy.axis, "List::retune");
+        assert!(
+            policy.mode == state.mode,
+            "invariant: a list's mode is fixed by use_list"
+        );
+        state.policy.set(policy);
     }
     /// Set the Select-policy Page Up/Down distance; values below one count as one.
-    /// Setup only, before creating any Part.
+    /// Setup only.
     #[track_caller]
     pub fn page_size(self, rows: impl IntoValue<usize>) -> Self {
-        if let Some(state) = self.configure("List::page_size") {
-            state.page.set(rows.into_value());
-        }
+        let state = self.state();
+        require_setup("List::page_size");
+        state.page.set(rows.into_value());
         self
     }
     /// Prefer another enabled key when the current logical item disappears.
-    /// Setup only, before creating any Part.
+    /// Setup only.
     #[track_caller]
     pub fn on_leave(self, f: impl Fn(&K) -> Option<K> + 'static) -> Self {
-        if let Some(state) = self.configure("List::on_leave") {
-            *state.leave.borrow_mut() = Some(Rc::new(f));
-        }
+        let state = self.state();
+        require_setup("List::on_leave");
+        *state.leave.borrow_mut() = Some(Rc::new(f));
         self
     }
     /// Scroll through the caller and permit pending focus on unmounted keys.
-    /// An `Err` from `f` goes to the nearest error handler. Setup only, before
-    /// creating any Part.
+    /// An `Err` from `f` goes to the nearest error handler. Setup only.
     #[track_caller]
     pub fn scroll_with<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
-        if let Some(state) = self.configure("List::scroll_with") {
-            *state.scroll.borrow_mut() = Some(callback(f));
-        }
+        let state = self.state();
+        require_setup("List::scroll_with");
+        *state.scroll.borrow_mut() = Some(callback(f));
         self
     }
     /// Share an authoritative range anchor with other list instances.
-    /// Setup only, before creating any Part; later binding writes remain reactive.
+    /// Setup only; later binding writes remain reactive.
     #[track_caller]
     pub fn anchor(self, anchor: impl Into<Binding<Option<K>>>) -> Self {
-        if let Some(state) = self.configure("List::anchor") {
-            state.anchor.set(anchor.into());
-            state.revision.update(|revision| *revision += 1);
-        }
+        let state = self.state();
+        require_setup("List::anchor");
+        let anchor = anchor.into();
+        state.anchor.update(|current| *current = anchor);
         self
     }
     /// Read the authoritative selection as zero, one or several keys.
@@ -164,7 +150,7 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
             ListSelection::Single(binding) => binding.set(None),
             ListSelection::Multiple(binding) => binding.set(Vec::new()),
         }
-        state.anchor.get().set(None);
+        state.anchor.get_untracked().set(None);
     }
     /// Select enabled logical keys in order for Multiple, leaving its anchor unchanged.
     #[track_caller]
@@ -211,9 +197,9 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     }
     #[track_caller]
     pub(crate) fn shared_typeahead(self, typed: Var<typeahead::Typeahead>) -> Self {
-        if let Some(state) = self.configure("List::shared_typeahead") {
-            state.typed.set(typed);
-        }
+        let state = self.state();
+        require_setup("List::shared_typeahead");
+        state.typed.set(typed);
         self
     }
 }

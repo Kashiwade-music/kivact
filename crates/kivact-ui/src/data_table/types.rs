@@ -3,13 +3,13 @@ use crate::DataColumn;
 use crate::variants::Variants;
 use kivact_core::control::Node;
 use kivact_core::style::Color;
-use kivact_core::view::{SortDirection, View};
+use kivact_core::view::View;
 use kivact_core::{Binding, Callback, Value};
-use kivact_interaction::{ListPolicy, TableFocus, TableModel};
+use kivact_interaction::{SortOrder, TableFocus, TableModel};
 use std::rc::Rc;
 
 /// The sorted column (an index into the columns) and its direction.
-pub(super) type Sort = Binding<Option<(usize, SortDirection)>>;
+pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
 /// The page shown and the rows on a page.
 pub(super) type Paging = (Binding<usize>, Value<usize>);
 pub(super) type Key<R, K> = Rc<dyn Fn(&R) -> K>;
@@ -33,7 +33,7 @@ pub struct DataTableContext<R: 'static, K: 'static> {
     pub selection: Option<Binding<Vec<K>>>,
     /// The sorted column (by position) and direction. It is the caller's
     /// binding, or the table's own when the caller gave none.
-    pub sort: Binding<Option<(usize, SortDirection)>>,
+    pub sort: Binding<Option<(usize, SortOrder)>>,
     /// The caller's filter text, when the table has one.
     pub filter: Option<Binding<String>>,
     /// The caller's page number and the rows on a page, when the table
@@ -68,7 +68,6 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) details: Option<RowSlot<R>>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) focus: TableFocus,
-    pub(super) policy: ListPolicy,
     pub(super) row_height: Option<Value<f32>>,
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,

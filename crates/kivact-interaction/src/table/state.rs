@@ -1,13 +1,13 @@
 //! Role: Table state shares the row list, sort, widths and the cell registry.
 
-use super::data::{Header, TableFocus};
+use super::data::{Header, SortOrder, TableFocus};
 use crate::policy::scalar::ScalarRange;
 use crate::roving::{Observation, Roving};
-use crate::{List, ListItem, ListSelection, use_list};
+use crate::{List, ListItem, ListPolicy, ListSelection, use_list};
 use kivact_core::primitive::{Owned, Owner};
 use kivact_core::view::NodeRef;
 use kivact_core::{Binding, Signal, Value, effect, memo, signal};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::panic::Location;
@@ -26,20 +26,18 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + '
     pub(super) keys: Value<Vec<K>>,
     pub(super) columns: Value<Vec<Header<C>>>,
     pub(super) selection: ListSelection<K>,
-    pub(super) focus: Cell<TableFocus>,
-    pub(super) started: Cell<bool>,
-    pub(super) label: Rc<RefCell<Option<Label<K>>>>,
-    pub(super) labels: Signal<u64>,
-    pub(super) sort: Cell<Binding<Option<(C, kivact_core::view::SortDirection)>>>,
-    pub(super) widths: Cell<Binding<HashMap<C, f64>>>,
-    pub(super) resize: Cell<(ScalarRange, f64)>,
+    /// The keyboard pattern; fixed by `use_table`.
+    pub(super) focus: TableFocus,
+    pub(super) label: Signal<Option<Label<K>>>,
+    pub(super) sort: Signal<Binding<Option<(C, SortOrder)>>>,
+    pub(super) widths: Signal<Binding<HashMap<C, f64>>>,
+    pub(super) resize: Signal<(ScalarRange, f64)>,
     headers: RefCell<HashMap<C, NodeRef>>,
     /// The mounted cells, the cell the keyboard or pointer last moved to and
     /// the focus bookkeeping.
     pub(super) roving: Roving<(K, C)>,
     /// The cell holding the tab stop.
     pub(super) active: Value<Option<(K, C)>>,
-    pub(super) revision: Signal<u64>,
     pub(super) at: &'static Location<'static>,
 }
 
@@ -47,17 +45,15 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
     keys: Value<Vec<K>>,
     columns: Value<Vec<Header<C>>>,
     selection: ListSelection<K>,
+    focus: TableFocus,
     at: &'static Location<'static>,
 ) -> Owned<State<K, C>> {
     let owner = Owner::current("table");
     let root = Owner::root("table");
     let alive = owner.store("Table", Rc::new(()));
-    let label = Rc::new(RefCell::new(None::<Label<K>>));
-    let labels = signal(0u64);
-    let names = label.clone();
+    let label = signal(None::<Label<K>>);
     let items = memo(move || {
-        labels.get();
-        let label = names.borrow().clone();
+        let label = label.get();
         keys.with(|keys| {
             keys.iter()
                 .map(|key| match &label {
@@ -70,7 +66,14 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
                 .collect::<Vec<_>>()
         })
     });
-    let rows = use_list(items, selection);
+    let policy = match focus {
+        TableFocus::Rows(policy) => policy,
+        TableFocus::Cells(range) => ListPolicy {
+            range,
+            ..ListPolicy::default()
+        },
+    };
+    let rows = use_list(items, selection, policy);
     let selected = rows.selected();
     let starting = memo(move || {
         columns.with(|columns| {
@@ -83,13 +86,13 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
     let widths = signal(starting.get_untracked());
     let roving = Roving::<(K, C)>::new();
     let requested = roving.requested;
-    let revision = signal(0u64);
-    let registry = roving.members.clone();
+    let registry = roving.clone();
     let active = memo(move || {
         alive.try_get()?;
-        revision.get();
-        let cells = registry.borrow();
-        let available = |cell: &(K, C)| cells.get(cell).is_some_and(|entry| entry.available());
+        registry.track();
+        let available = |cell: &(K, C)| {
+            registry.with_members(|cells| cells.get(cell).is_some_and(|entry| entry.available()))
+        };
         if let Some(cell) = requested.get().filter(|cell| available(cell)) {
             return Some(cell);
         }
@@ -111,7 +114,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
                 .or_else(|| keys.iter().find_map(first_in))
         })
     });
-    let sort = signal(None);
+    let sort = signal(Binding::from(signal(None::<(C, SortOrder)>)));
     let state = Rc::new(State {
         owner,
         root,
@@ -120,20 +123,17 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
         keys,
         columns,
         selection,
-        focus: Cell::new(TableFocus::default()),
-        started: Cell::new(false),
+        focus,
         label,
-        labels,
-        sort: Cell::new(Binding::from(sort)),
-        widths: Cell::new(Binding::from(widths)),
-        resize: Cell::new((
+        sort,
+        widths: signal(Binding::from(widths)),
+        resize: signal((
             ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),
             10.0,
         )),
         headers: RefCell::new(HashMap::new()),
         roving,
         active,
-        revision,
         at,
     });
     let stored = owner.store("Table", state.clone());

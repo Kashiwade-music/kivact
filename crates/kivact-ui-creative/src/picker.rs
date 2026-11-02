@@ -9,7 +9,9 @@ use std::rc::Rc;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 use kivact::draw::Point;
 use kivact::i18n::message;
-use kivact::interaction::{Combobox, Popup, PopupCloseReason, use_combobox, use_popup};
+use kivact::interaction::{
+    Combobox, ListSelection, Popup, PopupCloseReason, use_combobox, use_popup,
+};
 use kivact::style::{Align, Icon, pct, style};
 use kivact::ui::ListItem;
 use kivact::view::{
@@ -494,19 +496,20 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
             }
             popup.close(PopupCloseReason::Selection);
         });
-        let combo = use_combobox(options, value).filter(move |query, option| {
-            let query = query.trim().to_lowercase();
-            lists.with(|all| {
-                available_column(all, &query, active_column.get().unwrap_or(0), 1)
-                    .and_then(|column| {
-                        all[column]
-                            .iter()
-                            .find(|item| &item.key == option.key())
-                            .filter(|item| accepts(&query, item))
-                    })
-                    .is_some()
-            })
-        });
+        let combo =
+            use_combobox(options, ListSelection::Single(value)).filter(move |query, option| {
+                let query = query.trim().to_lowercase();
+                lists.with(|all| {
+                    available_column(all, &query, active_column.get().unwrap_or(0), 1)
+                        .and_then(|column| {
+                            all[column]
+                                .iter()
+                                .find(|item| &item.key == option.key())
+                                .filter(|item| accepts(&query, item))
+                        })
+                        .is_some()
+                })
+            });
         let query = combo.query();
         if multiple {
             effect(move || {

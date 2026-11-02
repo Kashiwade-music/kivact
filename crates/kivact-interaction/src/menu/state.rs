@@ -1,9 +1,12 @@
 //! Role: Store menu entries and shared session state.
 
+use std::panic::Location;
+
 use crate::Popup;
 use crate::list::typeahead::Typeahead;
+use kivact_core::diagnostics::ErrorKind;
 use kivact_core::draw::Point;
-use kivact_core::primitive::PartState;
+use kivact_core::primitive::{PartState, raise};
 use kivact_core::style::Icon;
 use kivact_core::view::{IntoText, NodeRef, Reactive};
 use kivact_core::{Callback, Signal, Value, Var};
@@ -18,14 +21,41 @@ pub enum MenuOrigin {
     Anchor,
 }
 
+/// The checked state a check or radio item shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MenuCheck {
+    /// A check item ([`MenuEntry::checkbox`]) with this state.
+    Checkbox(bool),
+    /// A radio item ([`MenuEntry::radio`]) with this state.
+    Radio(bool),
+}
+
+impl MenuCheck {
+    /// Whether the item is checked.
+    pub fn is_checked(self) -> bool {
+        matches!(self, Self::Checkbox(true) | Self::Radio(true))
+    }
+}
+
+/// What choosing an item does: part of its row's identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MenuItemKind {
+    /// A plain item ([`MenuEntry::item`]).
+    Action,
+    /// A check item ([`MenuEntry::checkbox`]).
+    Checkbox,
+    /// A radio item ([`MenuEntry::radio`]).
+    Radio,
+    /// An item that opens a submenu ([`MenuEntry::submenu`]).
+    Submenu,
+}
+
 /// The state of a menu item for the caller's drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
     pub input: PartState,
     /// The checked state of a check or radio item; `None` for other items.
-    pub checked: Option<bool>,
-    /// The item is a radio item ([`MenuEntry::radio`]).
-    pub radio: bool,
+    pub check: Option<MenuCheck>,
     /// A submenu item whose submenu is open.
     pub expanded: bool,
     /// The entry is marked destructive ([`MenuEntry::destructive`]), for a
@@ -41,6 +71,13 @@ pub struct MenuItemState {
 /// callback and keeps focus on the same key when the entries change. Keys must
 /// be unique among the entries of one level (a duplicate is reported and the
 /// later row is dropped). Separators, headings and groups have no key.
+///
+/// The constructor chooses the kind of the row: [`item`](Self::item),
+/// [`checkbox`](Self::checkbox), [`radio`](Self::radio),
+/// [`submenu`](Self::submenu), [`separator`](Self::separator),
+/// [`heading`](Self::heading) and [`group`](Self::group). A modifier that does
+/// not apply to the kind (a `shortcut` on a separator, `keep_open` on a
+/// submenu) is a usage error.
 ///
 /// A [`group`](Self::group) is a run of rows of the same level under an
 /// optional heading, like Radix's `Menu.Group` and `Menu.RadioGroup`: the
@@ -63,7 +100,7 @@ pub struct MenuItemState {
 /// use kivact::interaction::MenuEntry;
 /// let entries = vec![
 ///     MenuEntry::item("new", "New").shortcut("Ctrl N").icon("file-plus"),
-///     MenuEntry::item("grid", "Show grid").checked(true),
+///     MenuEntry::checkbox("grid", "Show grid", true),
 ///     MenuEntry::separator(),
 ///     MenuEntry::group("Align", vec![
 ///         MenuEntry::radio("left", "Left", true),
@@ -79,53 +116,65 @@ pub struct MenuItemState {
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct MenuEntry<K> {
-    /// The application's identity for the row; `None` for a separator.
-    pub(crate) key: Option<K>,
+    kind: EntryKind<K>,
     /// What the row says; its accessible name and the text typeahead matches.
-    pub(crate) label: Reactive<String>,
-    /// The shortcut text, published as the item's accessible description.
-    pub(crate) shortcut: String,
-    /// A disabled item is skipped by the keys and cannot be chosen.
-    pub(crate) disabled: bool,
-    /// The checked state of a check or radio item; `None` for other rows.
-    pub(crate) checked: Option<bool>,
-    /// A radio item ([`radio`](Self::radio)): `Role::MenuItemRadio`.
-    pub(crate) radio: bool,
-    /// A heading ([`heading`](Self::heading)): the keys skip it.
-    pub(crate) heading: bool,
-    /// The entries of a submenu item or of a [`group`](Self::group);
-    /// `None` for other rows.
-    pub(crate) children: Option<Vec<MenuEntry<K>>>,
-    /// An icon shown before the label: a name the theme resolves or an image.
-    pub(crate) icon: Option<Icon>,
-    /// A secondary line under the label.
-    pub(crate) description: Option<Reactive<String>>,
-    /// A destructive item (delete, remove): only the drawing reads it.
-    pub(crate) destructive: bool,
-    /// Choosing the item leaves the menu open (a check item toggled in a
-    /// row of several).
-    pub(crate) keep_open: bool,
+    /// Empty for a separator.
+    pub(super) label: Reactive<String>,
     /// The row keeps the room of a check mark before its content, so that
     /// it lines up with the check and radio items of its level (Radix's
     /// `inset`). Only the drawing reads it.
-    pub(crate) inset: bool,
+    inset: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum EntryKind<K> {
+    Item(ItemEntry<K>),
+    Separator,
+    Heading,
+    Group(Vec<MenuEntry<K>>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ItemEntry<K> {
+    /// The application's identity for the row.
+    key: K,
+    role: ItemRole<K>,
+    /// The shortcut text, published as the item's accessible description.
+    shortcut: String,
+    /// A disabled item is skipped by the keys and cannot be chosen.
+    disabled: bool,
+    /// An icon shown before the label: a name the theme resolves or an image.
+    icon: Option<Icon>,
+    /// A secondary line under the label.
+    description: Option<Reactive<String>>,
+    /// A destructive item (delete, remove): only the drawing reads it.
+    destructive: bool,
+    /// Choosing the item leaves the menu open (a check item toggled in a
+    /// row of several).
+    keep_open: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ItemRole<K> {
+    Action,
+    Check(MenuCheck),
+    Submenu(Vec<MenuEntry<K>>),
 }
 
 impl<K> MenuEntry<K> {
-    fn new(key: Option<K>, label: Reactive<String>, children: Option<Vec<MenuEntry<K>>>) -> Self {
+    fn of_item(key: K, label: impl IntoText, role: ItemRole<K>) -> Self {
         Self {
-            key,
-            label,
-            shortcut: String::new(),
-            disabled: false,
-            checked: None,
-            radio: false,
-            heading: false,
-            children,
-            icon: None,
-            description: None,
-            destructive: false,
-            keep_open: false,
+            kind: EntryKind::Item(ItemEntry {
+                key,
+                role,
+                shortcut: String::new(),
+                disabled: false,
+                icon: None,
+                description: None,
+                destructive: false,
+                keep_open: false,
+            }),
+            label: Reactive::new(label.into_text()),
             inset: false,
         }
     }
@@ -133,19 +182,14 @@ impl<K> MenuEntry<K> {
     /// An item the user can choose. The label is its accessible name and the
     /// text typeahead matches.
     pub fn item(key: K, label: impl IntoText) -> Self {
-        Self::new(Some(key), Reactive::new(label.into_text()), None)
+        Self::of_item(key, label, ItemRole::Action)
     }
 
-    /// An item that opens `children` instead of being chosen. Enter, Space,
-    /// a click and Right open the submenu, and hovering it opens the submenu
-    /// after 140 ms.
-    pub fn submenu(key: K, label: impl IntoText, children: Vec<MenuEntry<K>>) -> Self {
-        Self::new(Some(key), Reactive::new(label.into_text()), Some(children))
-    }
-
-    /// A divider with no key. It cannot be focused or chosen.
-    pub fn separator() -> Self {
-        Self::new(None, Reactive::new(String::new()), None)
+    /// A check item (`Role::MenuItemCheckBox`) with this state. The menu keeps
+    /// no state: choosing the item calls the menu's callback and the
+    /// application writes the new value into its entries.
+    pub fn checkbox(key: K, label: impl IntoText, checked: bool) -> Self {
+        Self::of_item(key, label, ItemRole::Check(MenuCheck::Checkbox(checked)))
     }
 
     /// A radio item (`Role::MenuItemRadio`) with this checked state. Put the
@@ -153,97 +197,163 @@ impl<K> MenuEntry<K> {
     /// item, choosing it calls the menu's callback with its key and the menu
     /// keeps no state.
     pub fn radio(key: K, label: impl IntoText, checked: bool) -> Self {
-        let mut entry = Self::new(Some(key), Reactive::new(label.into_text()), None);
-        entry.checked = Some(checked);
-        entry.radio = true;
-        entry
+        Self::of_item(key, label, ItemRole::Check(MenuCheck::Radio(checked)))
+    }
+
+    /// An item that opens `children` instead of being chosen. Enter, Space,
+    /// a click and Right open the submenu, and hovering it opens the submenu
+    /// after 140 ms.
+    pub fn submenu(key: K, label: impl IntoText, children: Vec<MenuEntry<K>>) -> Self {
+        Self::of_item(key, label, ItemRole::Submenu(children))
+    }
+
+    /// A divider with no key. It cannot be focused or chosen.
+    pub fn separator() -> Self {
+        Self {
+            kind: EntryKind::Separator,
+            label: Reactive::new(String::new()),
+            inset: false,
+        }
     }
 
     /// A heading with no key, such as the title of the rows after it. It
     /// cannot be focused or chosen.
     pub fn heading(text: impl IntoText) -> Self {
-        let mut entry = Self::new(None, Reactive::new(text.into_text()), None);
-        entry.heading = true;
-        entry
+        Self {
+            kind: EntryKind::Heading,
+            label: Reactive::new(text.into_text()),
+            inset: false,
+        }
     }
 
     /// A group of rows of the same level under the heading `label` (an empty
     /// label shows no heading). Groups do not nest a level: the keys move
     /// through their rows as through the rest of the level.
     pub fn group(label: impl IntoText, entries: Vec<MenuEntry<K>>) -> Self {
-        Self::new(None, Reactive::new(label.into_text()), Some(entries))
+        Self {
+            kind: EntryKind::Group(entries),
+            label: Reactive::new(label.into_text()),
+            inset: false,
+        }
+    }
+
+    /// The kind of the row in a usage message.
+    fn what(&self) -> &'static str {
+        match &self.kind {
+            EntryKind::Item(item) if matches!(item.role, ItemRole::Submenu(_)) => "submenu",
+            EntryKind::Item(_) => "item",
+            EntryKind::Separator => "separator",
+            EntryKind::Heading => "heading",
+            EntryKind::Group(_) => "group",
+        }
+    }
+
+    /// The item data for a modifier that only items have; any other kind is a
+    /// usage error at `at`.
+    fn item_for(
+        &mut self,
+        name: &'static str,
+        at: &'static Location<'static>,
+    ) -> &mut ItemEntry<K> {
+        let what = self.what();
+        match &mut self.kind {
+            EntryKind::Item(item) => item,
+            _ => raise(
+                ErrorKind::Message,
+                format!("MenuEntry::{name}: a {what} has no {name}"),
+                at,
+            ),
+        }
     }
 
     /// Show `icon` before the label: a name the theme resolves (`"check"`)
-    /// or an image [`Asset`](kivact_core::Asset).
+    /// or an image [`Asset`](kivact_core::Asset). Items only.
+    #[track_caller]
     pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.icon = Some(icon.into());
+        self.item_for("icon", Location::caller()).icon = Some(icon.into());
         self
     }
 
-    /// A secondary line of text under the label.
+    /// A secondary line of text under the label. Items only.
+    #[track_caller]
     pub fn description(mut self, text: impl IntoText) -> Self {
-        self.description = Some(Reactive::new(text.into_text()));
+        self.item_for("description", Location::caller()).description =
+            Some(Reactive::new(text.into_text()));
         self
-    }
-
-    /// Whether this row is a [`group`](Self::group).
-    pub fn is_group(&self) -> bool {
-        self.key.is_none() && self.children.is_some()
     }
 
     /// Text shown for the key combination that triggers the same command, and
     /// published as the item's accessible description. It only displays: the
-    /// menu binds no key.
+    /// menu binds no key. Items only.
+    #[track_caller]
     pub fn shortcut(mut self, text: impl Into<String>) -> Self {
-        self.shortcut = text.into();
+        self.item_for("shortcut", Location::caller()).shortcut = text.into();
         self
     }
 
     /// A disabled item is skipped by the arrow keys and typeahead and cannot
-    /// be chosen. A disabled submenu does not open.
+    /// be chosen. A disabled submenu does not open. Items only.
+    #[track_caller]
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
-    }
-
-    /// Make the item a check item (`Role::MenuItemCheckBox`) with this state.
-    /// The menu keeps no state: choosing the item calls the menu's callback
-    /// and the application writes the new value into its entries.
-    pub fn checked(mut self, checked: bool) -> Self {
-        self.checked = Some(checked);
+        self.item_for("disabled", Location::caller()).disabled = disabled;
         self
     }
 
     /// Mark the item destructive (deleting, removing): its
     /// [`MenuItemState::destructive`] tells the drawing to warn. The
-    /// behavior and semantics do not change.
+    /// behavior and semantics do not change. Items only.
+    #[track_caller]
     pub fn destructive(mut self, destructive: bool) -> Self {
-        self.destructive = destructive;
+        self.item_for("destructive", Location::caller()).destructive = destructive;
         self
     }
 
     /// Indent the row (an item, a submenu item, a heading or the heading of
     /// a group) by the room of a check mark, so that it lines up with the
     /// check and radio items of its level. The behavior and semantics do
-    /// not change.
+    /// not change. A separator has none.
+    #[track_caller]
     pub fn inset(mut self, inset: bool) -> Self {
+        if matches!(self.kind, EntryKind::Separator) {
+            raise(
+                ErrorKind::Message,
+                "MenuEntry::inset: a separator has no inset",
+                Location::caller(),
+            );
+        }
         self.inset = inset;
         self
     }
 
     /// Leave the menu open when the item is chosen: the callback runs and
     /// the focus stays on the item, as for the check items of a column
-    /// visibility menu. A submenu item ignores it.
+    /// visibility menu. Items and check items only; a submenu has none.
+    #[track_caller]
     pub fn keep_open(mut self, keep_open: bool) -> Self {
-        self.keep_open = keep_open;
+        let at = Location::caller();
+        let item = self.item_for("keep_open", at);
+        if matches!(item.role, ItemRole::Submenu(_)) {
+            raise(
+                ErrorKind::Message,
+                "MenuEntry::keep_open: a submenu has no keep_open",
+                at,
+            );
+        }
+        item.keep_open = keep_open;
         self
+    }
+
+    fn item_data(&self) -> Option<&ItemEntry<K>> {
+        match &self.kind {
+            EntryKind::Item(item) => Some(item),
+            _ => None,
+        }
     }
 
     /// The application's identity of the row; `None` for a separator, a
     /// heading and a group.
     pub fn key(&self) -> Option<&K> {
-        self.key.as_ref()
+        self.item_data().map(|item| &item.key)
     }
 
     /// What the row says, its accessible name and the text typeahead
@@ -255,62 +365,111 @@ impl<K> MenuEntry<K> {
 
     /// The shortcut text ([`shortcut`](Self::shortcut)); empty without one.
     pub fn shortcut_value(&self) -> &str {
-        &self.shortcut
+        self.item_data().map_or("", |item| item.shortcut.as_str())
     }
 
     /// Whether the item is unavailable ([`disabled`](Self::disabled)).
     pub fn is_disabled(&self) -> bool {
-        self.disabled
+        self.item_data().is_some_and(|item| item.disabled)
     }
 
     /// The checked state of a check or radio item; `None` for other rows.
-    pub fn checked_value(&self) -> Option<bool> {
-        self.checked
+    pub fn check(&self) -> Option<MenuCheck> {
+        match self.item_data()?.role {
+            ItemRole::Check(check) => Some(check),
+            ItemRole::Action | ItemRole::Submenu(_) => None,
+        }
     }
 
-    /// Whether the row is a [`radio`](Self::radio) item.
-    pub fn is_radio(&self) -> bool {
-        self.radio
+    /// What choosing the row does; `None` for a separator, a heading and a
+    /// group.
+    pub fn item_kind(&self) -> Option<MenuItemKind> {
+        Some(match &self.item_data()?.role {
+            ItemRole::Action => MenuItemKind::Action,
+            ItemRole::Check(MenuCheck::Checkbox(_)) => MenuItemKind::Checkbox,
+            ItemRole::Check(MenuCheck::Radio(_)) => MenuItemKind::Radio,
+            ItemRole::Submenu(_) => MenuItemKind::Submenu,
+        })
     }
 
     /// Whether the row is a [`heading`](Self::heading).
     pub fn is_heading(&self) -> bool {
-        self.heading
+        matches!(self.kind, EntryKind::Heading)
+    }
+
+    /// Whether this row is a [`group`](Self::group).
+    pub fn is_group(&self) -> bool {
+        matches!(self.kind, EntryKind::Group(_))
     }
 
     /// The rows of a submenu item or of a [`group`](Self::group); `None` for
     /// other rows.
     pub fn children(&self) -> Option<&[MenuEntry<K>]> {
-        self.children.as_deref()
+        match &self.kind {
+            EntryKind::Group(entries) => Some(entries),
+            EntryKind::Item(ItemEntry {
+                role: ItemRole::Submenu(children),
+                ..
+            }) => Some(children),
+            _ => None,
+        }
+    }
+
+    /// The rows of a submenu item.
+    pub(super) fn submenu_entries(&self) -> Option<&[MenuEntry<K>]> {
+        match &self.kind {
+            EntryKind::Item(ItemEntry {
+                role: ItemRole::Submenu(children),
+                ..
+            }) => Some(children),
+            _ => None,
+        }
+    }
+
+    /// The rows of a group.
+    pub(super) fn group_entries(&self) -> Option<&[MenuEntry<K>]> {
+        match &self.kind {
+            EntryKind::Group(entries) => Some(entries),
+            _ => None,
+        }
     }
 
     /// The icon given to [`icon`](Self::icon).
     pub fn icon_value(&self) -> Option<&Icon> {
-        self.icon.as_ref()
+        self.item_data()?.icon.as_ref()
     }
 
     /// The description's current text; tracked when read inside a
     /// computation.
     #[track_caller]
     pub fn description_value(&self) -> Option<String> {
-        self.description.as_ref().map(Reactive::get)
+        self.item_data()?.description.as_ref().map(Reactive::get)
     }
 
     /// Whether the item is marked [`destructive`](Self::destructive).
     pub fn is_destructive(&self) -> bool {
-        self.destructive
+        self.item_data().is_some_and(|item| item.destructive)
     }
 
     /// Whether choosing the item leaves the menu open
     /// ([`keep_open`](Self::keep_open)).
     pub fn keeps_open(&self) -> bool {
-        self.keep_open
+        self.item_data().is_some_and(|item| item.keep_open)
     }
 
     /// Whether the row keeps the room of a check mark
     /// ([`inset`](Self::inset)).
     pub fn is_inset(&self) -> bool {
         self.inset
+    }
+
+    /// A heading with the label and the inset of this group.
+    pub(super) fn heading_of_group(&self) -> Self {
+        Self {
+            kind: EntryKind::Heading,
+            label: self.label.clone(),
+            inset: self.inset,
+        }
     }
 
     /// The same entry with every key (this one and its children's) mapped by
@@ -342,22 +501,33 @@ impl<K> MenuEntry<K> {
     /// );
     /// ```
     pub fn map_key<L>(self, f: &impl Fn(K) -> L) -> MenuEntry<L> {
+        let kind = match self.kind {
+            EntryKind::Item(item) => EntryKind::Item(ItemEntry {
+                key: f(item.key),
+                role: match item.role {
+                    ItemRole::Action => ItemRole::Action,
+                    ItemRole::Check(check) => ItemRole::Check(check),
+                    ItemRole::Submenu(children) => ItemRole::Submenu(
+                        children.into_iter().map(|child| child.map_key(f)).collect(),
+                    ),
+                },
+                shortcut: item.shortcut,
+                disabled: item.disabled,
+                icon: item.icon,
+                description: item.description,
+                destructive: item.destructive,
+                keep_open: item.keep_open,
+            }),
+            EntryKind::Separator => EntryKind::Separator,
+            EntryKind::Heading => EntryKind::Heading,
+            EntryKind::Group(entries) => {
+                EntryKind::Group(entries.into_iter().map(|child| child.map_key(f)).collect())
+            }
+        };
         MenuEntry {
-            key: self.key.map(f),
+            kind,
             label: self.label,
-            shortcut: self.shortcut,
-            disabled: self.disabled,
-            checked: self.checked,
-            radio: self.radio,
-            heading: self.heading,
-            icon: self.icon,
-            description: self.description,
-            destructive: self.destructive,
-            keep_open: self.keep_open,
             inset: self.inset,
-            children: self
-                .children
-                .map(|children| children.into_iter().map(|child| child.map_key(f)).collect()),
         }
     }
 }
@@ -371,14 +541,8 @@ impl<K> MenuEntry<K> {
 /// a group follow its heading in the level.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum MenuRow<K> {
-    /// An item, a submenu item (`submenu`), a check item (`check`) or a
-    /// radio item (`check` and `radio`).
-    Item {
-        key: K,
-        submenu: bool,
-        check: bool,
-        radio: bool,
-    },
+    /// An item of this kind.
+    Item { key: K, kind: MenuItemKind },
     /// The n-th separator of the level, counted from 0.
     Separator(usize),
     /// The n-th heading of the level, counted from 0: a
@@ -393,12 +557,38 @@ pub(super) enum Edge {
     Last,
 }
 
-/// A focus request for a level of the open menu, consumed by the level at that
-/// depth once it is mounted.
+/// What a focus request of a menu level aims at.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum Target<K> {
+    Edge(Edge),
+    Key(K),
+}
+
+/// A focus request for a level of the open menu, consumed by that level once
+/// it is mounted.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Want<K> {
-    Edge(usize, Edge),
-    Key(usize, K),
+    /// A key, a submenu opening, a closing level or assistive technology
+    /// asked for it: the pointer never replaces it.
+    Command { depth: usize, target: Target<K> },
+    /// The pointer rests on this item: any later request replaces it.
+    Hover { depth: usize, key: K },
+}
+
+impl<K> Want<K> {
+    /// The level the request is for.
+    pub(super) fn depth(&self) -> usize {
+        match self {
+            Self::Command { depth, .. } | Self::Hover { depth, .. } => *depth,
+        }
+    }
+}
+
+/// How the open menu was opened.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Opened {
+    Button,
+    Context(MenuOrigin),
 }
 
 /// State shared by every level of one menu. All handles are `Copy`.
@@ -408,8 +598,10 @@ pub(super) struct Session<K: 'static> {
     /// The top level's popup; its anchor is the trigger.
     pub(super) popup: Popup,
     pub(super) anchor: NodeRef,
-    /// Where the open menu was asked to appear.
-    pub(super) origin: Signal<Option<MenuOrigin>>,
+    /// How the open menu was opened; `None` while it is closed.
+    pub(super) opened: Signal<Option<Opened>>,
+    /// Where the open menu was asked to appear, derived from `opened`.
+    pub(super) origin: Value<Option<MenuOrigin>>,
     /// Keys of the submenu items that are open, outermost first.
     pub(super) path: Signal<Vec<K>>,
     /// The item that has the focus: its depth and key.

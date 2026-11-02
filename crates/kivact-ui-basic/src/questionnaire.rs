@@ -315,7 +315,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<Option<String>>) -> Node {
                 .map(|c| ListItem::new(c.value.clone(), c.label.clone()))
                 .collect();
             let items = items.into_value();
-            let group = use_list(items, ListSelection::Single(answer)).policy(ListPolicy::radio());
+            let group = use_list(items, ListSelection::Single(answer), ListPolicy::radio());
             let choices = choices.clone();
             let rows = for_each(
                 items,

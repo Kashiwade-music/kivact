@@ -12,7 +12,7 @@ fn find_level<'a, K: PartialEq>(
 ) -> Option<&'a [MenuEntry<K>]> {
     let mut level = entries;
     for key in prefix {
-        level = item_in(level, key)?.children.as_deref()?;
+        level = item_in(level, key)?.submenu_entries()?;
     }
     Some(level)
 }
@@ -20,12 +20,12 @@ fn find_level<'a, K: PartialEq>(
 /// The rows of a level with its groups opened in place.
 fn flat<'a, K>(level: &'a [MenuEntry<K>], out: &mut Vec<&'a MenuEntry<K>>) {
     for entry in level {
-        match &entry.children {
-            Some(children) if entry.is_group() => {
+        match entry.group_entries() {
+            Some(children) => {
                 out.push(entry);
                 flat(children, out);
             }
-            _ => out.push(entry),
+            None => out.push(entry),
         }
     }
 }
@@ -33,15 +33,14 @@ fn flat<'a, K>(level: &'a [MenuEntry<K>], out: &mut Vec<&'a MenuEntry<K>>) {
 fn item_in<'a, K: PartialEq>(level: &'a [MenuEntry<K>], key: &K) -> Option<&'a MenuEntry<K>> {
     let mut rows = Vec::new();
     flat(level, &mut rows);
-    rows.into_iter()
-        .find(|entry| entry.key.as_ref() == Some(key))
+    rows.into_iter().find(|entry| entry.key() == Some(key))
 }
 
 /// Whether the item `key` of the level `prefix` exists and can be used.
 pub(super) fn item_enabled<K: PartialEq>(entries: &[MenuEntry<K>], prefix: &[K], key: &K) -> bool {
     find_level(entries, prefix)
         .and_then(|level| item_in(level, key))
-        .is_some_and(|entry| !entry.disabled)
+        .is_some_and(|entry| !entry.is_disabled())
 }
 
 /// How many levels, counted from the top level, the current entries keep:
@@ -58,7 +57,7 @@ pub(super) fn kept_levels<K: PartialEq>(
             break;
         };
         match item_in(last, key) {
-            Some(entry) if !entry.disabled => match entry.children.as_deref() {
+            Some(entry) if !entry.is_disabled() => match entry.submenu_entries() {
                 Some(children) => levels.push(children),
                 None => break,
             },
@@ -85,28 +84,26 @@ pub(super) fn rows<K: Clone + PartialEq>(entries: &[MenuEntry<K>], prefix: &[K])
     flattened
         .into_iter()
         .filter_map(|entry| {
-            let row = match &entry.key {
-                Some(key) => MenuRow::Item {
+            let row = match (entry.key(), entry.item_kind()) {
+                (Some(key), Some(kind)) => MenuRow::Item {
                     key: key.clone(),
-                    submenu: entry.children.is_some(),
-                    check: entry.checked.is_some(),
-                    radio: entry.radio,
+                    kind,
                 },
                 // A group shows its label as a heading, if it has one.
-                None if entry.heading || entry.is_group() => {
+                _ if entry.is_heading() || entry.is_group() => {
                     if entry.is_group() && entry.label.get().is_empty() {
                         return None;
                     }
                     labels += 1;
                     MenuRow::Label(labels - 1)
                 }
-                None => {
+                _ => {
                     separators += 1;
                     MenuRow::Separator(separators - 1)
                 }
             };
             let entry = if entry.is_group() {
-                MenuEntry::heading(entry.label.clone())
+                entry.heading_of_group()
             } else {
                 entry.clone()
             };
@@ -119,8 +116,8 @@ pub(super) fn rows<K: Clone + PartialEq>(entries: &[MenuEntry<K>], prefix: &[K])
 pub(super) fn edge_item<K: Clone>(rows: &Rows<K>, edge: Edge) -> Option<K> {
     let mut enabled = rows
         .iter()
-        .filter(|(_, entry)| !entry.disabled)
-        .filter_map(|(_, entry)| entry.key.clone());
+        .filter(|(_, entry)| !entry.is_disabled())
+        .filter_map(|(_, entry)| entry.key().cloned());
     match edge {
         Edge::First => enabled.next(),
         Edge::Last => enabled.last(),

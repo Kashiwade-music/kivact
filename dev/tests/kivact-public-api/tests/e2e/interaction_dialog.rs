@@ -366,3 +366,35 @@ fn a_modal_contains_tab_and_blocks_the_page_behind_it() {
         );
     }
 }
+
+#[test]
+fn a_popover_anchored_after_its_content_is_made_opens_and_returns_the_focus_to_the_anchor() {
+    let (screen, open) = mount(|| {
+        let open = signal(false);
+        let anchor = node_ref();
+        let behavior = use_dialog(open, DialogKind::Popover);
+        // The surface part exists before the anchor is given.
+        let content = std::cell::RefCell::new(Some(behavior.content()));
+        let hint = show(behavior.shown(), move || {
+            let content = content
+                .borrow_mut()
+                .take()
+                .expect("invariant: the popover opens once");
+            overlay(anchor, Placement::Below, column((button("First"),)))
+                .part(content)
+                .name("Settings")
+        });
+        let _ = behavior.anchor(anchor);
+        let opener = button("Open")
+            .node_ref(anchor)
+            .on_press(move || open.update(|v| *v = !*v));
+        (open, column((opener, hint)))
+    });
+    screen.get_by_test_id("Open").click();
+    assert!(open.get_untracked());
+    screen.get_by_role(Role::Dialog, "Settings");
+    screen.press_key(Key::Escape);
+    assert!(!open.get_untracked());
+    assert!(screen.get_by_test_id("Open").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

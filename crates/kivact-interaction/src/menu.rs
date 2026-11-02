@@ -5,7 +5,8 @@
 //!
 //! [`MenuEntry`] is public plain data (items, submenus, separators, radio
 //! items, headings and groups, with label, shortcut, icon, description,
-//! disabled, checked, destructive, inset and keep-open), and
+//! disabled, destructive, inset and keep-open; the constructor chooses item,
+//! check item, radio item, submenu, separator, heading or group), and
 //! [`MenuEntry::map_key`] maps the keys of the children too. A level's
 //! [`MenuApi::entries`] are `(MenuRow, MenuEntry)` pairs: a group expands in
 //! place into its heading (`MenuRow::Label`) and rows of the same level, and
@@ -18,8 +19,8 @@
 //! A submenu is a child level of the same session; its `shown`, `origin`
 //! and `show` mount the content in a new owner while it is open. A level
 //! moves with the list's menu policy (vertical, wrapping, manual activation)
-//! plus typeahead, and hovering a submenu item opens it after the
-//! disclosure's 140 ms delay. A context menu is the same [`MenuApi`] through
+//! plus typeahead, and hovering a submenu item opens it after a
+//! 140 ms [`Delayed`](crate::Delayed). A context menu is the same [`MenuApi`] through
 //! [`MenuApi::context_trigger`]; there is no separate context menu type. A
 //! pointer request reports `MenuOrigin::Pointer` (a window point) and keys
 //! and assistive technology report `MenuOrigin::Anchor`, so the caller picks
@@ -41,4 +42,4 @@ mod session;
 mod state;
 
 pub use handle::{MenuApi, use_menu};
-pub use state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
+pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};

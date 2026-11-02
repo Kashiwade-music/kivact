@@ -17,14 +17,15 @@
 | 候補つきの検索ボックス | `use_combobox` | `input()`、`content()`、`item(key)` |
 | コマンドパレット | `use_command_palette` | `content()`、`input()`、`list()`、`item(key)` |
 | 開閉する本体、ポップオーバー、ツールチップ | `use_disclosure`、`use_popup`、`use_tooltip` | `trigger()`、`content()` |
+| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `shown()`、`dismiss()`、`pulse()` |
 | ダイアログ | `use_dialog` | `trigger()`、`content()`、`title()`、`description()`、`close_trigger()` |
 | タブ | `use_tabs` | `list()`、`item(key)`、`panel(key)` |
 | ツリー | `use_tree` | `list()`、`item(key)` |
 | テーブル | `use_table` | `grid()`、`header(column)`、`row(key)`、`cell(key, column)` |
 | スライダー、数値入力 | `use_scalar`、`use_range_scalar` | `thumb()`、`track(axis)`、`input()` |
 | サイズ変更できる仕切り | `use_splitter` | `handle()` |
-| ドラッグ、ズームとパン | `use_drag`、`use_zoom_pan` | `source(..)`、`viewport()` |
-| ネイティブのテキスト編集 | `use_text_edit` | `control()` |
+| ドラッグ、ズームとパン | `use_drag`、`use_zoom_pan`、`use_space_pan` | `source(..)`、`viewport()`、`control()` |
+| ネイティブのテキスト編集 | `use_text_edit`、`use_text_area` | `control()` |
 
 ここに載せていないコントローラーや各コントローラーの詳細は、`cargo doc -p kivact-interaction --open` で見られます。
 
@@ -134,10 +135,14 @@ pub fn segmented<K: Clone + Eq + Hash + 'static>(
     selected: impl Into<Binding<Option<K>>>,
 ) -> Node {
     let options = options.into_value();
-    let list = use_list(options, ListSelection::Single(selected.into())).policy(ListPolicy {
-        axis: Some(Orientation::Horizontal),
-        ..ListPolicy::default()
-    });
+    let list = use_list(
+        options,
+        ListSelection::Single(selected.into()),
+        ListPolicy {
+            axis: Some(Orientation::Horizontal),
+            ..ListPolicy::default()
+        },
+    );
     let rows = for_each(
         options,
         |option| option.key().clone(),
@@ -208,7 +213,7 @@ mod tests {
 
 - **ロール。** コンテナーは `ListBox` です (`ListSelection::Multiple` では複数選択可)。各項目は、ラベルを名前とする `Option` で、選択に含まれているときは `selected` になります。
 - **選択は呼び出し側のもの。** リストはコピーを持ちません。ユーザーの選択は、渡した binding に書き込みます (`Binding<Option<K>>` に対する `ListSelection::Single`、または Shift と Ctrl の範囲選択を伴う `Binding<Vec<K>>` に対する `ListSelection::Multiple`)。フィルターで隠れた選択済みキーは消えません。
-- **ナビゲーション。** `ListPolicy` で、軸、端での折り返し、移動で選択するか、先頭文字による検索、確定を起動操作で行うかを決めます。プリセットの `ListPolicy::tabs()`、`radio()`、`menu()`、`listbox()` が一般的な部品をカバーします。ポリシーは最初の Part を作る前に設定してください。
+- **ナビゲーション。** `ListPolicy` で、軸、端での折り返し、移動で選択するか、先頭文字による検索、確定を起動操作で行うかを決めます。プリセットの `ListPolicy::tabs()`、`radio()`、`menu()`、`listbox()` が一般的な部品をカバーします。ポリシーは `use_list` の 3 番目の引数で渡します。
 - **タブストップは 1 つ。** 行全体が Tab の停止位置 1 つで、中は矢印キーで移動します。無効な項目 (`ListItem::disabled(true)`) は飛ばされます。
 
 ## リストを開閉する
@@ -542,7 +547,7 @@ mod tests {
 }
 ```
 
-binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。`control()` の前に `.multiline(true)`、`.password(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
+binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。複数行は `use_text_area(value)` で作ります。`.password(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
 
 コードエディターのように、キー入力のたびに全体をコピーできないほど大きな文書には、より低い層の `kivact::primitive::TextEditing` を使います。範囲編集を通知し、キーのポリシーを受け取り、行に色を付けられます。実験的な API です。rustdoc を見てください。
 

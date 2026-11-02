@@ -224,7 +224,7 @@ fn context_menu() -> impl IntoView {
 }
 ```
 
-- Entries: `item`, `radio`, `heading` (a label), `separator` and `submenu(key, label, entries)`. An item can have `.icon(name)`, `.shortcut(text)`, `.disabled(true)`, `.destructive(true)` and `.checked(bool)`.
+- Entries: `item`, `checkbox(key, label, checked)`, `radio`, `heading` (a label), `separator` and `submenu(key, label, entries)`. An item can have `.icon(name)`, `.shortcut(text)`, `.disabled(true)` and `.destructive(true)`. A modifier that does not apply to the entry's kind is a usage error.
 - A menu does not keep state. For check and radio items, make `entries` a closure that reads your signals, and add `.keep_open(true)` so a pick does not close the menu; your `choose` closure updates the signal and the next list shows the new marks:
 
 ```rust,no_run
@@ -236,7 +236,7 @@ fn view_menu() -> impl IntoView {
     let entries = move || {
         vec![
             MenuEntry::heading("Appearance"),
-            MenuEntry::item("status", "Status bar").checked(status.get()).keep_open(true),
+            MenuEntry::checkbox("status", "Status bar", status.get()).keep_open(true),
             MenuEntry::separator(),
             MenuEntry::radio("top", "Top", position.get() == "top").keep_open(true),
             MenuEntry::radio("bottom", "Bottom", position.get() == "bottom").keep_open(true),

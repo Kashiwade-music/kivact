@@ -1,7 +1,7 @@
 //! Role: A headless row model: filter, sort and page the caller's rows by column.
 
-use super::data::Header;
-use kivact_core::view::{IntoText, IntoValue, Reactive, SortDirection};
+use super::data::{Header, SortOrder};
+use kivact_core::view::{IntoText, IntoValue, Reactive};
 use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 use std::cmp::Ordering;
 use std::hash::Hash;
@@ -11,7 +11,7 @@ type Compare<R> = Rc<dyn Fn(&R, &R) -> Ordering>;
 type Matches<R> = Rc<dyn Fn(&R, &str) -> bool>;
 type KeyOf<R, K> = Rc<dyn Fn(&R) -> K>;
 /// The caller's sort column and direction.
-type Sort<C> = Binding<Option<(C, SortDirection)>>;
+type Sort<C> = Binding<Option<(C, SortOrder)>>;
 
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack Table's column definition), and
@@ -195,13 +195,13 @@ struct Paging {
 /// #     pub use kivact_core::{control, prelude, view};
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
-/// use kivact::interaction::{ColumnDef, ListSelection, use_table, use_table_model};
+/// use kivact::interaction::{ColumnDef, ListSelection, TableFocus, use_table, use_table_model};
 /// use kivact::prelude::*;
-/// use kivact::view::SortDirection;
+/// use kivact::interaction::SortOrder;
 /// #[derive(Clone, PartialEq)]
 /// struct Person { id: u32, name: String, age: u32 }
 /// let people = signal(vec![Person { id: 1, name: "Ada".into(), age: 36 }]);
-/// let sort = signal(Some(("name", SortDirection::Ascending)));
+/// let sort = signal(Some(("name", SortOrder::Ascending)));
 /// let query = signal(String::new());
 /// let page = signal(0_usize);
 /// let model = use_table_model(people, |p: &Person| p.id, vec![
@@ -215,7 +215,7 @@ struct Paging {
 /// .page(page, 20_usize);
 /// let selected = signal(Vec::<u32>::new());
 /// let table = use_table(model.rows(), |p: &Person| p.id, model.columns(),
-///     ListSelection::Multiple(selected.into()))
+///     ListSelection::Multiple(selected.into()), TableFocus::default())
 ///     .sort(sort);
 /// let status = text(move || format!("{} people, page {} of {}",
 ///     model.row_count().get(), page.get() + 1, model.page_count().get()));
@@ -232,10 +232,9 @@ pub struct TableModel<R: 'static, K: 'static, C: 'static> {
     columns: Value<Vec<ColumnDef<R, C>>>,
     count: Value<usize>,
     pages: Value<usize>,
-    sort: Var<Option<Sort<C>>>,
-    query: Var<Option<Value<String>>>,
-    paging: Var<Option<Paging>>,
-    revision: Signal<u64>,
+    sort: Signal<Option<Sort<C>>>,
+    query: Signal<Option<Value<String>>>,
+    paging: Signal<Option<Paging>>,
 }
 
 impl<R: 'static, K: 'static, C: 'static> Clone for TableModel<R, K, C> {
@@ -265,10 +264,9 @@ where
     let key: KeyOf<R, K> = Rc::new(key);
     let key_of = key.clone();
     let columns: Rc<[ColumnDef<R, C>]> = columns.into();
-    let sort = var(None::<Sort<C>>);
-    let query = var(None::<Value<String>>);
-    let paging = var(None::<Paging>);
-    let revision = signal(0u64);
+    let sort = signal(None::<Sort<C>>);
+    let query = signal(None::<Value<String>>);
+    let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();
         move || {
@@ -283,7 +281,6 @@ where
     let ordered = {
         let (columns, shown) = (columns.clone(), shown.clone());
         memo(move || {
-            revision.get();
             let query = query
                 .get()
                 .map(|query| query.get().trim().to_string())
@@ -303,12 +300,12 @@ where
                 };
                 let compare = sort.and_then(|(key, direction)| {
                     let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
-                    (direction != SortDirection::None).then_some((compare, direction))
+                    Some((compare, direction))
                 });
                 if let Some((compare, direction)) = compare {
                     kept.sort_by(|&a, &b| {
                         let order = compare(&rows[a], &rows[b]);
-                        if direction == SortDirection::Descending {
+                        if direction == SortOrder::Descending {
                             order.reverse()
                         } else {
                             order
@@ -320,40 +317,30 @@ where
         })
     };
     let count = memo(move || ordered.with(Vec::len));
-    let size = move || {
-        paging
-            .get()
-            .map(|paging| paging.size.get().max(1))
-            .unwrap_or(usize::MAX)
-    };
     let pages = memo(move || {
-        revision.get();
         let count = count.get();
-        if paging.get().is_none() || count == 0 {
-            1
-        } else {
-            count.div_ceil(size())
+        match paging.get() {
+            Some(paging) if count > 0 => count.div_ceil(paging.size.get().max(1)),
+            Some(_) | None => 1,
         }
     });
     let page = memo(move || {
-        revision.get();
-        let (start, size) = match paging.get() {
+        let range = match paging.get() {
             Some(paging) => {
-                let size = size();
-                (
-                    paging.index.get().min(pages.get() - 1).saturating_mul(size),
-                    size,
-                )
+                let size = paging.size.get().max(1);
+                let start = paging.index.get().min(pages.get() - 1).saturating_mul(size);
+                Some((start, size))
             }
-            None => (0, usize::MAX),
+            None => None,
         };
-        ordered.with(|order| {
-            order
+        ordered.with(|order| match range {
+            Some((start, size)) => order
                 .iter()
                 .skip(start)
                 .take(size)
                 .copied()
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
+            None => order.clone(),
         })
     });
     let shown_rows = memo(move || {
@@ -376,21 +363,19 @@ where
         sort,
         query,
         paging,
-        revision,
     }
 }
 
 impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + Eq + Hash + 'static>
     TableModel<R, K, C>
 {
-    /// Sort by the column and direction this binding holds; `None`, a
-    /// [`SortDirection::None`] or a column without a compare function keeps
-    /// the caller's order. Give the same binding to
+    /// Sort by the column and direction this binding holds; `None` or a
+    /// column without a compare function keeps the caller's order. Give the same binding to
     /// [`Table::sort`](crate::Table::sort). Setup only.
     #[track_caller]
-    pub fn sort(self, sort: impl Into<Binding<Option<(C, SortDirection)>>>) -> Self {
-        self.sort.set(Some(sort.into()));
-        self.revision.update(|revision| *revision += 1);
+    pub fn sort(self, sort: impl Into<Binding<Option<(C, SortOrder)>>>) -> Self {
+        let sort = sort.into();
+        self.sort.update(|current| *current = Some(sort));
         self
     }
 
@@ -399,8 +384,8 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     /// every row. The model only reads it. Setup only.
     #[track_caller]
     pub fn filter(self, query: impl IntoValue<String>) -> Self {
-        self.query.set(Some(query.into_value()));
-        self.revision.update(|revision| *revision += 1);
+        let query = query.into_value();
+        self.query.update(|current| *current = Some(query));
         self
     }
 
@@ -411,11 +396,11 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     /// Setup only.
     #[track_caller]
     pub fn page(self, index: impl Into<Binding<usize>>, size: impl IntoValue<usize>) -> Self {
-        self.paging.set(Some(Paging {
+        let paging = Paging {
             index: index.into(),
             size: size.into_value(),
-        }));
-        self.revision.update(|revision| *revision += 1);
+        };
+        self.paging.update(|current| *current = Some(paging));
         self
     }
 

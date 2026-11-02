@@ -24,9 +24,11 @@
 //!
 //! With [`CalendarSelection::Single`] a choice writes `Some(day)`. With
 //! [`CalendarSelection::Range`] the first choice writes the range of that one
-//! day and the second completes it, in either order. The policy's
-//! `on_commit` runs when a choice is complete: each choice of a single day,
-//! the second choice of a range.
+//! day and the second completes it, in either order. Escape while the second
+//! choice is awaited puts back the range from before the first choice; a write
+//! to the range binding from elsewhere starts the next choice over. The
+//! policy's `on_commit` runs when a choice is complete: each choice of a single
+//! day, the second choice of a range.
 //!
 //! ```no_run
 //! # mod kivact {

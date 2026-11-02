@@ -4,7 +4,7 @@
 //! a delay and the App-wide rule of one shown tooltip. Its parts are the
 //! trigger and the content, with [`PopupState`]; it adds
 //! no wrapper box, so the trigger part binds beside the caller's own
-//! `NodeRef`. The delay runs on the disclosure's task timer (no polling), and
+//! `NodeRef`. The delay is a [`Delayed`](crate::Delayed) on a task timer (no polling), and
 //! the hover reading is the host's hit test, so it works the same with the
 //! keyboard focus and is not changed by a child's pointer handler or
 //! capture. Because the press and wheel handling runs after the caller's
@@ -19,13 +19,13 @@ use std::time::Duration;
 use kivact_core::primitive::{Owner, Part, app_state, part};
 use kivact_core::view::try_context;
 
-use super::disclosure::{Disclosure, use_disclosure};
+use super::delayed::{Delayed, delayed};
 use super::popup::PopupState;
 use kivact_core::view::{
     A11yAction, Handled, Key, KeyEvent, Modifiers, NodeRef, PointerEvent, PointerPhase, Role,
     node_ref,
 };
-use kivact_core::{Signal, Value, binding, effect, memo, on_cleanup, signal};
+use kivact_core::{Signal, Value, effect, memo, on_cleanup, signal};
 
 /// App-wide timing of [`TooltipApi`], read when a tooltip is created.
 ///
@@ -71,9 +71,10 @@ impl Default for TooltipConfig {
 /// has none of it.
 #[derive(Clone, Copy)]
 struct Hub {
-    /// The tooltip that is shown now, by id.
-    shown: Signal<Option<u64>>,
-    /// The tooltip that hid last and when, on the host clock.
+    /// The tooltips that are shown by their own delay, oldest first; the last
+    /// one is visible.
+    wanting: Signal<Vec<u64>>,
+    /// The visible tooltip that hid last and when, on the host clock.
     hidden: Signal<Option<(u64, u64)>>,
     /// The id the next tooltip takes.
     next: Signal<u64>,
@@ -85,7 +86,7 @@ impl Hub {
     fn of_app() -> Self {
         Owner::current("tooltip");
         app_state("tooltip", || Hub {
-            shown: signal(None::<u64>),
+            wanting: signal(Vec::<u64>::new()),
             hidden: signal(None::<(u64, u64)>),
             next: signal(0u64),
         })
@@ -97,10 +98,18 @@ impl Hub {
         id
     }
 
-    /// Whether a tooltip other than `id` is shown or hid less than `within`
-    /// ago, so `id` shows without a delay.
+    /// The visible tooltip (tracked).
+    fn current(&self) -> Option<u64> {
+        self.wanting.with(|wanting| wanting.last().copied())
+    }
+
+    /// Whether a tooltip other than `id` is visible or hid less than `within`
+    /// ago, so `id` shows without a delay (untracked).
     fn warm_for(&self, id: u64, within: Duration) -> bool {
-        if self.shown.get_untracked().is_some_and(|shown| shown != id) {
+        let visible = self
+            .wanting
+            .with_untracked(|wanting| wanting.last().copied());
+        if visible.is_some_and(|visible| visible != id) {
             return true;
         }
         self.hidden.get_untracked().is_some_and(|(hid, at)| {
@@ -108,10 +117,26 @@ impl Hub {
         })
     }
 
-    /// `id` no longer wants to show: if it is the one shown, it hides now.
+    /// `id` is shown by its own delay: it becomes the visible tooltip.
+    fn want(&self, id: u64) {
+        self.wanting.update(|wanting| {
+            wanting.retain(|other| *other != id);
+            wanting.push(id);
+        });
+    }
+
+    /// `id` no longer wants to show: if it was the visible one, it hides now
+    /// and the one it preempted is visible again.
     fn release(&self, id: u64) {
-        if self.shown.get_untracked() == Some(id) {
-            self.shown.set(None);
+        if !self.wanting.with_untracked(|wanting| wanting.contains(&id)) {
+            return;
+        }
+        let was_visible = self.wanting.update(|wanting| {
+            let was_visible = wanting.last() == Some(&id);
+            wanting.retain(|other| *other != id);
+            was_visible
+        });
+        if was_visible {
             self.hidden.set(Some((id, now_ns())));
         }
     }
@@ -140,7 +165,7 @@ fn now_ns() -> u64 {
 /// the tooltip then and goes on as usual otherwise), on a pointer press on the
 /// trigger and on a wheel over it. Tab and modifier keys alone do not hide
 /// it. After one of these it stays hidden until the condition stops and
-/// becomes true again, as [`Disclosure::close`] does with a delay. A child
+/// becomes true again, as [`Delayed::dismiss`](crate::Delayed::dismiss) does. A child
 /// of the trigger that handles pointer presses itself is the one that receives
 /// them, so a press on it does not reach the trigger; Escape and a press
 /// outside still hide the tooltip.
@@ -148,8 +173,10 @@ fn now_ns() -> u64 {
 /// One tooltip is shown at a time in an App: showing a tooltip hides the one
 /// before it. When a tooltip hid less than [`TooltipConfig::skip_delay`] ago
 /// (300 ms by default), or another is shown, the next one shows without the
-/// delay. This state is created by the first tooltip, under the App's root
-/// owner, and is not made in an App without tooltips.
+/// delay. A tooltip that another one took over while it was still engaged
+/// shows again when that one hides. This state is created by the first
+/// tooltip, under the App's root owner, and is not made in an App without
+/// tooltips.
 ///
 /// Semantics: the surface is `Role::Tooltip` and cannot take the focus; the
 /// trigger is `described_by` it while it is shown.
@@ -173,8 +200,7 @@ fn now_ns() -> u64 {
 /// ```
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
-    disclosure: Disclosure,
-    skipped: Signal<bool>,
+    delayed: Delayed,
     visible: Value<bool>,
     anchor: NodeRef,
     surface: NodeRef,
@@ -195,38 +221,41 @@ pub fn use_tooltip() -> TooltipApi {
     let focus = anchor.focus_within();
     let engaged = memo(move || hover.get() || focus.get());
 
-    // The deadline of the delay, and a path that skips it while another
-    // tooltip is warm. Both end with the engagement.
-    let disclosure = use_disclosure(binding(engaged, |_| {})).delay(config.delay);
-    let delayed = disclosure.shown();
-    let skipped = signal(false);
-    effect(move || {
-        if !engaged.get() {
-            skipped.set(false);
-        } else if hub.warm_for(id, config.skip_delay) {
-            skipped.set(true);
-        }
-    });
-    let wanted = memo(move || delayed.get() || skipped.get());
+    // The delay, or none while another tooltip is warm; both end with the
+    // engagement.
+    let delayed = delayed(
+        engaged,
+        move || {
+            if hub.warm_for(id, config.skip_delay) {
+                Duration::ZERO
+            } else {
+                config.delay
+            }
+        },
+        Duration::ZERO,
+    );
 
-    // One tooltip at a time: the one that wants to show takes the hub, and
-    // one that lost it hides.
+    // One tooltip at a time: the one that was shown last is visible, and one
+    // that another took over shows again when that one hides.
     effect(move || {
-        if wanted.get() {
-            hub.shown.set(Some(id));
+        if delayed.shown().get() {
+            hub.want(id);
         } else {
             hub.release(id);
         }
     });
-    let visible = memo(move || wanted.get() && hub.shown.get() == Some(id));
+    let visible = memo(move || delayed.shown().get() && hub.current() == Some(id));
     on_cleanup(move || {
-        if hub.shown.try_get() == Some(Some(id)) {
+        if hub
+            .wanting
+            .try_get()
+            .is_some_and(|wanting| wanting.contains(&id))
+        {
             hub.release(id);
         }
     });
     TooltipApi {
-        disclosure,
-        skipped,
+        delayed,
         visible,
         anchor,
         surface: node_ref(),
@@ -242,8 +271,7 @@ impl TooltipApi {
     /// Hide the hint until the trigger is engaged again.
     #[track_caller]
     fn dismiss(self) {
-        self.skipped.set(false);
-        self.disclosure.close();
+        self.delayed.dismiss();
     }
 
     /// The trigger whose hover and focus show the hint.

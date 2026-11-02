@@ -19,10 +19,9 @@ fn row_name<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
     state: &Rc<State<K, C>>,
     key: Var<K>,
 ) -> Value<String> {
-    let (label, labels) = (state.label.clone(), state.labels);
+    let label = state.label;
     memo(move || {
-        labels.get();
-        let label = label.borrow().clone();
+        let label = label.get();
         label
             .map(|label| key.with(|key| label(key)))
             .unwrap_or_default()
@@ -61,7 +60,7 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
     let id = var((key, column));
     let selected = state.list.selected();
     let is_selected = memo(move || id.with(|(key, _)| selected.with(|s| s.contains(key))));
-    if state.focus.get() == TableFocus::Rows {
+    if matches!(state.focus, TableFocus::Rows(_)) {
         return part(move |input| TableCellState {
             input,
             selected: is_selected.get(),
@@ -113,7 +112,7 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
             return;
         }
         let cell = id.get();
-        if state.roving.members.borrow().contains_key(&cell) {
+        if state.roving.contains(&cell) {
             owner.report(
                 ErrorKind::Message,
                 "Table: a cell with this row and column is already mounted",
@@ -122,7 +121,7 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
             return;
         }
         let node = mount.node;
-        state.roving.members.borrow_mut().insert(
+        state.roving.insert(
             cell.clone(),
             Member {
                 node,
@@ -131,29 +130,15 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
                 hidden: mount.hidden,
             },
         );
-        state.revision.update(|revision| *revision += 1);
         let mounted = node.mounted_node();
         let weak = Rc::downgrade(&state);
         owner.on_cleanup(move || {
             let Some(state) = weak.upgrade() else {
                 return;
             };
-            if !state
-                .roving
-                .members
-                .borrow()
-                .get(&cell)
-                .is_some_and(|entry| entry.node.same_ref(node))
-            {
-                return;
-            }
             let focused = mounted.is_some() && state.owner.focused_node() == mounted;
-            state.roving.members.borrow_mut().remove(&cell);
-            if state.alive.try_get().is_some() {
-                if focused {
-                    state.roving.restore_from.set(mounted);
-                }
-                state.revision.update(|revision| *revision += 1);
+            if state.roving.remove(&cell, node) && focused {
+                state.roving.restore_from.set(mounted);
             }
         });
     })

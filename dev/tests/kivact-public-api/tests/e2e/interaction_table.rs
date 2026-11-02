@@ -1,10 +1,12 @@
 //! Role: Table parts share grid focus, list selection, sort and resize behavior.
 
 use crate::support::mount_with;
-use kivact::interaction::{ColumnDef, ListBoundary, ListPolicy, ListSelection, use_table};
+use kivact::interaction::{
+    ColumnDef, ListRangePolicy, ListSelection, SortOrder, TableFocus, use_table,
+};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, WindowMode};
-use kivact::view::{Modifiers, SortDirection, for_each};
+use kivact::view::{Modifiers, for_each};
 
 #[test]
 fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
@@ -21,12 +23,8 @@ fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
                 |row| *row,
                 vec![ColumnDef::new(0, "Name"), ColumnDef::new(1, "Value")],
                 ListSelection::Multiple(selected.into()),
+                TableFocus::Cells(ListRangePolicy::default()),
             )
-            .policy(ListPolicy {
-                axis: Some(Orientation::Horizontal),
-                boundary: ListBoundary::Wrap,
-                ..Default::default()
-            })
             .row_label(|key| format!("Row {key}"));
             let body = for_each(
                 rows,
@@ -147,6 +145,7 @@ fn headers_sort_and_resize_through_caller_bindings() {
                 |row| *row,
                 vec![ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b))],
                 ListSelection::Multiple(signal(Vec::<i32>::new()).into()),
+                TableFocus::default(),
             )
             .sort(sort)
             .widths(widths);
@@ -165,9 +164,9 @@ fn headers_sort_and_resize_through_caller_bindings() {
     );
     screen.get_by_role(Role::ColumnHeader, "Name").focus();
     screen.press_key(Key::Enter);
-    assert_eq!(sort.get_untracked(), Some((0, SortDirection::Ascending)));
+    assert_eq!(sort.get_untracked(), Some((0, SortOrder::Ascending)));
     screen.press_key(Key::Space);
-    assert_eq!(sort.get_untracked(), Some((0, SortDirection::Descending)));
+    assert_eq!(sort.get_untracked(), Some((0, SortOrder::Descending)));
     screen.get_by_role(Role::Splitter, "Width").focus();
     screen.press_key(Key::ArrowRight);
     assert_eq!(widths.get_untracked().get(&0), Some(&110.0));

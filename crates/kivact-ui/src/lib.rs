@@ -8,7 +8,7 @@
 //! | Component | First argument | Behavior and semantics from |
 //! |---|---|---|
 //! | [`button`] | the visible text, also the name | `Role::Button`; click, Enter, Space and the accessibility `Activate` action activate it |
-//! | [`checkbox`], [`switch`] | the visible label, also the name | [`Toggle`](kivact_interaction::Toggle) of kind `Checkbox` or `Switch` |
+//! | [`checkbox`], [`switch`] | the visible label, also the name | [`CheckboxApi`](kivact_interaction::CheckboxApi) and [`Toggle`](kivact_interaction::Toggle) of kind `Switch` |
 //! | [`select`] | the assistive name; not drawn | shared interaction parts |
 //! | [`menu`] | the visible label of the trigger, also the name | shared interaction parts |
 //! | [`dialog`] | the title, drawn unless hidden, and the dialog's name | shared interaction parts |

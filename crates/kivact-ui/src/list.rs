@@ -188,10 +188,14 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for List<K> {
             Some(keys) => ListSelection::Multiple(edited(keys, on_edit)),
             None => ListSelection::Single(edited(selected, on_edit)),
         };
-        let behavior = use_list(items, selection).policy(ListPolicy {
-            typeahead: true,
-            ..ListPolicy::default()
-        });
+        let behavior = use_list(
+            items,
+            selection,
+            ListPolicy {
+                typeahead: true,
+                ..ListPolicy::default()
+            },
+        );
         let container = behavior.list();
         state.set(Some(container.state()));
         let looks = variants.clone();

@@ -1,12 +1,13 @@
 //! Role: Map the pointer along a slider's track to the value of a thumb.
 
+use crate::axis::Axis;
 use crate::drag::{Drag, DragCoordinates, DragUpdate, use_drag};
 use crate::edit::EditSession;
 use crate::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use crate::policy::scalar::ScalarRange;
 use kivact_core::draw::{Point, Rect};
 use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{NodeRef, Orientation, ReadingDirection, current_direction};
+use kivact_core::view::{NodeRef, ReadingDirection, current_direction};
 use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 
 /// One thumb as the pointer moves it: its writer, range and element.
@@ -32,11 +33,30 @@ impl Target {
     }
 }
 
-/// The drag payload of a range's body ([`RangeScalar::body`]): the span
-/// between the two thumbs, which moves both.
-///
-/// [`RangeScalar::body`]: crate::RangeScalar::body
-pub(crate) const BODY: usize = usize::MAX;
+/// Where a press of a slider's drag landed: the drag's payload.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Grip {
+    /// The track: the thumb nearest to the press moves.
+    Track,
+    /// The thumb with this index.
+    Thumb(usize),
+    /// A range's body ([`RangeScalar::body`]): the span between the two
+    /// thumbs, which moves both.
+    ///
+    /// [`RangeScalar::body`]: crate::RangeScalar::body
+    Body,
+}
+
+/// What the active drag holds, from its start to its end.
+#[derive(Clone, Copy)]
+enum Grab {
+    /// Thumb `index`; `offset` is the pointer's distance from its center
+    /// along the axis (0 from the track).
+    Thumb { index: usize, offset: f32 },
+    /// A range's body: the pointer along the axis at the press, and both
+    /// thumbs' values then.
+    Body { from: f32, ends: [f64; 2] },
+}
 
 /// Where `value` lies in `range`, clamped to 0..=1.
 pub(crate) fn fraction(value: f64, range: ScalarRange) -> f64 {
@@ -51,7 +71,7 @@ pub(crate) fn fraction(value: f64, range: ScalarRange) -> f64 {
 #[derive(Clone, Copy)]
 pub(crate) struct Geometry {
     rect: Value<Option<Rect>>,
-    horizontal: bool,
+    axis: Axis,
     /// The value grows from the right edge (a horizontal track in a
     /// right-to-left subtree); the thumbs' arrows mirror.
     pub(crate) rtl: bool,
@@ -59,11 +79,15 @@ pub(crate) struct Geometry {
 
 impl Geometry {
     fn along(self, p: Point) -> f32 {
-        if self.horizontal { p.x } else { p.y }
+        if self.axis.is_horizontal() { p.x } else { p.y }
     }
 
     fn length(self, r: Rect) -> f32 {
-        if self.horizontal { r.width } else { r.height }
+        if self.axis.is_horizontal() {
+            r.width
+        } else {
+            r.height
+        }
     }
 
     /// Where `pos` (along the axis, in window coordinates) lies on the
@@ -71,7 +95,11 @@ impl Geometry {
     /// maximum.
     fn fraction_at(self, pos: f32, thumb: f32) -> Option<f64> {
         let rect = self.rect.get()?;
-        let start = if self.horizontal { rect.x } else { rect.y };
+        let start = if self.axis.is_horizontal() {
+            rect.x
+        } else {
+            rect.y
+        };
         let usable = f64::from(self.length(rect) - thumb);
         let offset = f64::from(pos - start - thumb / 2.0);
         let f = if usable > 0.0 {
@@ -79,7 +107,7 @@ impl Geometry {
         } else {
             0.0
         };
-        Some(if self.rtl || !self.horizontal {
+        Some(if self.rtl || !self.axis.is_horizontal() {
             1.0 - f
         } else {
             f
@@ -94,11 +122,8 @@ pub(crate) struct Pointer {
     pub(crate) thumbs: Var<Vec<Target>>,
     /// A track is attached; without one the thumbs ignore the pointer.
     attached: Signal<bool>,
-    /// The thumb a drag moves and the pointer's distance from its center;
-    /// for the body ([`BODY`]), the pointer's position at the press.
-    grabbed: Var<(usize, f32)>,
-    /// The values of the thumbs when the body was pressed.
-    ends: Var<[f64; 2]>,
+    /// What the active drag holds; `None` outside a drag.
+    grab: Var<Option<Grab>>,
 }
 
 impl Pointer {
@@ -109,15 +134,14 @@ impl Pointer {
             geometry: var(None),
             thumbs: var(Vec::new()),
             attached: signal(false),
-            grabbed: var((0, 0.0)),
-            ends: var([0.0, 0.0]),
+            grab: var(None),
         }
     }
 
     /// Move both thumbs from where they were at the press by the pointer's
     /// travel from `from` to `pos`, keeping their distance: the travel is
     /// quantized by the range's step and stops where an end meets a bound.
-    fn move_body(self, from: f32, pos: f32) {
+    fn move_body(self, from: f32, ends: [f64; 2], pos: f32) {
         let (Some(geometry), thumbs) = (self.geometry.get(), self.thumbs.get()) else {
             return;
         };
@@ -133,13 +157,13 @@ impl Pointer {
             return;
         }
         let mut delta = f64::from(pos - from) / usable * (range.max() - range.min());
-        if geometry.rtl || !geometry.horizontal {
+        if geometry.rtl || !geometry.axis.is_horizontal() {
             delta = -delta;
         }
         if let Some(step) = range.step() {
             delta = (delta / step).round() * step;
         }
-        let [a, b] = self.ends.get();
+        let [a, b] = ends;
         let delta = delta.clamp(range.min() - a.min(b), range.max() - a.max(b));
         // The end moving away from the other goes first, so neither stops
         // at the other's old value.
@@ -164,35 +188,39 @@ impl Pointer {
         }
     }
 
-    /// A press on the thumb `update.payload` (or on the track: `None`)
-    /// starts moving a thumb.
-    fn start(self, update: &DragUpdate<Option<usize>>) {
+    /// A press on a thumb, the track or the body starts moving a thumb.
+    fn start(self, update: &DragUpdate<Grip>) {
         let (Some(geometry), thumbs) = (self.geometry.get(), self.thumbs.get()) else {
             return;
         };
         let Some(&first) = thumbs.first() else { return };
         let pos = geometry.along(update.pos);
-        if update.payload == Some(BODY) {
+        if update.payload == Grip::Body {
             let value = |index: usize| thumbs.get(index).map_or(0.0, |t| t.binding.get_untracked());
-            self.ends.set([value(0), value(1)]);
-            self.grabbed.set((BODY, pos));
+            self.grab.set(Some(Grab::Body {
+                from: pos,
+                ends: [value(0), value(1)],
+            }));
             return;
         }
-        let index = update
-            .payload
-            .unwrap_or_else(|| nearest(&thumbs, geometry.fraction_at(pos, first.length(geometry))));
+        let index = match update.payload {
+            Grip::Thumb(index) => index,
+            Grip::Track | Grip::Body => {
+                nearest(&thumbs, geometry.fraction_at(pos, first.length(geometry)))
+            }
+        };
         let target = thumbs[index];
         let offset = match (update.payload, target.rect.get()) {
-            (Some(_), Some(rect)) => {
+            (Grip::Thumb(_), Some(rect)) => {
                 pos - (geometry.along(Point::new(rect.x, rect.y)) + geometry.length(rect) / 2.0)
             }
             _ => 0.0,
         };
-        self.grabbed.set((index, offset));
+        self.grab.set(Some(Grab::Thumb { index, offset }));
         // The first thumb takes the press's focus (`focus_on_press`); another
         // one moved from the track takes it too, unless it cannot (a thumb
         // made `focusable(false)` under a track that keeps the focus).
-        if update.payload.is_none() && index > 0 {
+        if update.payload == Grip::Track && index > 0 {
             FocusReturn {
                 target: FocusReturnTarget::Anchor(target.thumb),
                 on: ReasonSet::PROGRAMMATIC,
@@ -202,35 +230,39 @@ impl Pointer {
         self.write(index, pos - offset);
     }
 
-    fn follow(self, update: &DragUpdate<Option<usize>>) {
+    fn follow(self, update: &DragUpdate<Grip>) {
         let Some(geometry) = self.geometry.get() else {
             return;
         };
-        let (index, offset) = self.grabbed.get();
-        if index == BODY {
-            self.move_body(offset, geometry.along(update.pos));
-            return;
+        match self.grab.get() {
+            Some(Grab::Thumb { index, offset }) => {
+                self.write(index, geometry.along(update.pos) - offset);
+            }
+            Some(Grab::Body { from, ends }) => {
+                self.move_body(from, ends, geometry.along(update.pos));
+            }
+            None => {}
         }
-        self.write(index, geometry.along(update.pos) - offset);
     }
 }
 
-/// The drag of one slider's thumbs and track: its payload is the pressed
-/// thumb, `None` on the track. Disabled while `disabled` holds a true value
-/// or no track is attached. Setup only.
+/// The drag of one slider's thumbs and track: its payload is where the press
+/// landed. Disabled while `disabled` holds a true value or no track is
+/// attached. Setup only.
 #[track_caller]
 pub(crate) fn drag(
     session: EditSession<[f64; 2]>,
     snapshot: Value<[f64; 2]>,
     pointer: Pointer,
     disabled: Signal<Option<Value<bool>>>,
-) -> Drag<Option<usize>> {
+) -> Drag<Grip> {
     let off = memo(move || !pointer.attached.get() || disabled.get().is_some_and(|d| d.get()));
-    use_drag::<Option<usize>>(DragCoordinates::Window)
+    use_drag::<Grip>(DragCoordinates::Window)
         .disabled(off)
         .edit(session, move || snapshot.get_untracked())
-        .on_start(move |update: DragUpdate<Option<usize>>| pointer.start(&update))
-        .on_update(move |update: DragUpdate<Option<usize>>| pointer.follow(&update))
+        .on_start(move |update: DragUpdate<Grip>| pointer.start(&update))
+        .on_update(move |update: DragUpdate<Grip>| pointer.follow(&update))
+        .on_end(move |_: DragUpdate<Grip>| pointer.grab.set(None))
 }
 
 /// The track of the thumbs `pointer` and `drag` move; a press focuses
@@ -238,20 +270,19 @@ pub(crate) fn drag(
 #[track_caller]
 pub(crate) fn track(
     pointer: Pointer,
-    drag: Drag<Option<usize>>,
+    drag: Drag<Grip>,
     first_thumb: NodeRef,
-    axis: Orientation,
+    axis: Axis,
 ) -> Part<PartState> {
-    let horizontal = !matches!(axis, Orientation::Vertical);
-    let rtl = horizontal && current_direction() == ReadingDirection::Rtl;
+    let rtl = axis.is_horizontal() && current_direction() == ReadingDirection::Rtl;
     let surface = part(|input| input).focus_on_press(first_thumb);
     pointer.geometry.set(Some(Geometry {
         rect: surface.node_ref().rect(),
-        horizontal,
+        axis,
         rtl,
     }));
     pointer.attached.set(true);
-    surface.with(drag.source(None))
+    surface.with(drag.source(Grip::Track))
 }
 
 /// The thumb whose value lies nearest to `pointer` (a fraction of the

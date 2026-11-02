@@ -1,8 +1,10 @@
 //! Role: The `Scalar` handle: binding writes, key steps, assistive actions and its parts.
 
-use super::edit_state::{Edit, Shared, watch_focus};
+use super::edit_state::{Edit, Shared, register_focus};
+use super::ops::ScalarOps;
 use super::range::{IntoScalarRange, follow_range};
-use super::track::{self, Target, fraction};
+use super::track::{self, Grip, Target, fraction};
+use crate::axis::Axis;
 use crate::drag::Drag;
 use crate::edit::EditPhase;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
@@ -45,11 +47,8 @@ pub struct ScalarState {
 /// back.
 #[derive(Clone, Copy)]
 pub struct Scalar {
-    pub(crate) binding: Binding<f64>,
-    pub(crate) range: Value<ScalarRange>,
-    pub(crate) key_step: Option<f64>,
-    pub(crate) disabled: Option<Value<bool>>,
-    pub(crate) edit: Option<Edit>,
+    pub(crate) ops: ScalarOps,
+    pub(crate) edit: Edit,
 }
 
 /// Use this binding as the sole writer of a scalar value.
@@ -93,33 +92,26 @@ pub fn use_scalar(value: impl Into<Binding<f64>>, range: impl IntoScalarRange) -
     let snapshot = memo(move || [binding.get(), 0.0]);
     let shared = Shared::new(snapshot, move |[start, _]| binding.set(start));
     let scalar = Scalar {
-        binding,
-        range: range.into_range(),
-        key_step: None,
-        disabled: None,
-        edit: Some(Edit::new(shared, 0, None)),
+        ops: ScalarOps {
+            binding,
+            range: range.into_range(),
+        },
+        edit: Edit::new(shared, 0, None),
     };
-    follow_range(binding, scalar.range);
+    follow_range(binding, scalar.ops.range);
     shared.pointer.thumbs.set(vec![scalar.target()]);
     scalar
-}
-
-/// What one key press does to the value.
-#[derive(Clone, Copy)]
-pub(crate) enum KeyOp {
-    Steps(f64),
-    To(f64),
 }
 
 impl Scalar {
     /// Override the positive keyboard and accessibility increment without
     /// changing quantization. The default is the range's step, or 1 when the
     /// range is continuous.
-    pub fn key_step(mut self, step: f64) -> Result<Self, ScalarRangeError> {
+    pub fn key_step(self, step: f64) -> Result<Self, ScalarRangeError> {
         if !step.is_finite() || step <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
-        self.key_step = Some(step);
+        self.edit.shared.key_step.set(Some(step));
         Ok(self)
     }
 
@@ -128,14 +120,12 @@ impl Scalar {
     /// Also marks the thumb disabled and makes it unfocusable; the track
     /// ignores the pointer, and a drag in progress ends where it is. Setup only.
     #[track_caller]
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
         let disabled = disabled.into_value();
-        self.disabled = Some(disabled);
-        if let Some(edit) = self.edit {
-            edit.shared
-                .disabled
-                .update(|current| *current = Some(disabled));
-        }
+        self.edit
+            .shared
+            .disabled
+            .update(|current| *current = Some(disabled));
         self
     }
 
@@ -152,9 +142,7 @@ impl Scalar {
     /// drag cancels it. [`EditPhase`] has the rules every component follows.
     /// A later call replaces the earlier one. Setup only.
     pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
-        if let Some(edit) = self.edit {
-            edit.shared.session.on_edit(f);
-        }
+        self.edit.shared.session.on_edit(f);
         self
     }
 
@@ -167,24 +155,22 @@ impl Scalar {
     /// the release. Escape on a source of `drag`, an engine Cancel and
     /// [`Drag::cancel`] write the value from before the press back and report
     /// `Cancel`, as [`Drag::edit`] does. Use this instead of
-    /// [`Drag::edit`]; configure it before attaching the drag's sources.
+    /// [`Drag::edit`].
     /// Setup only.
     pub fn scrub<T: Clone + 'static>(self, drag: Drag<T>) -> Drag<T> {
-        let edit = self
-            .edit
-            .expect("invariant: use_scalar gives every Scalar an edit");
+        let edit = self.edit;
         let snapshot = edit.shared.snapshot;
         drag.edit(edit.shared.session, move || snapshot.get_untracked())
     }
 
     /// The caller's value, including any direct external binding writes.
     pub fn value(self) -> Value<f64> {
-        self.binding.into_value()
+        self.ops.binding.into_value()
     }
 
     /// The bounds and optional quantization, following a reactive range.
     pub fn range(self) -> Value<ScalarRange> {
-        self.range
+        self.ops.range
     }
 
     /// Normalize by the current range and invoke the binding writer.
@@ -195,77 +181,33 @@ impl Scalar {
     /// writing. A direct call is not an edit and reports no [`EditPhase`].
     #[track_caller]
     pub fn set(self, value: f64) -> bool {
-        let Some(value) = self.range.get_untracked().normalize(value) else {
-            return false;
-        };
-        self.binding.set(value);
-        true
+        self.ops.set(value)
     }
 
     /// Change the current normalized value by keyboard step units.
     #[track_caller]
     pub fn step_by(self, steps: f64) -> bool {
-        if !steps.is_finite() {
-            return false;
-        }
-        let range = self.range.get_untracked();
-        let current = self.value().get_untracked();
-        let amount = steps * self.current_key_step(range);
-        let next = if amount.is_finite() {
-            range.offset(current, amount)
-        } else {
-            range.normalize(current).and_then(|_| {
-                range.normalize(if steps > 0.0 {
-                    range.max()
-                } else {
-                    range.min()
-                })
-            })
-        };
-        let Some(next) = next else { return false };
-        self.binding.set(next);
-        true
+        self.ops.step_by(steps, self.current_key_step())
     }
 
-    fn current_key_step(self, range: ScalarRange) -> f64 {
-        self.key_step.or(range.step()).unwrap_or(1.0)
-    }
-
-    /// Directional increments, ten steps for PageUp/PageDown, and Home/End;
-    /// `mirror` swaps ArrowLeft and ArrowRight.
-    pub(crate) fn key_op(self, key: Key, mirror: bool) -> Option<KeyOp> {
-        let range = self.range.get();
-        Some(match key {
-            Key::ArrowRight if mirror => KeyOp::Steps(-1.0),
-            Key::ArrowLeft if mirror => KeyOp::Steps(1.0),
-            Key::ArrowRight | Key::ArrowUp => KeyOp::Steps(1.0),
-            Key::ArrowLeft | Key::ArrowDown => KeyOp::Steps(-1.0),
-            Key::PageUp => KeyOp::Steps(10.0),
-            Key::PageDown => KeyOp::Steps(-10.0),
-            Key::Home => KeyOp::To(range.min()),
-            Key::End => KeyOp::To(range.max()),
-            _ => return None,
-        })
+    /// The keyboard increment: the one given to [`key_step`](Self::key_step),
+    /// else the range's step, else 1.
+    fn current_key_step(self) -> f64 {
+        self.edit
+            .shared
+            .key_step
+            .get()
+            .or(self.ops.range.get_untracked().step())
+            .unwrap_or(1.0)
     }
 
     /// This scalar as a thumb the pointer moves.
     pub(crate) fn target(self) -> Target {
-        let edit = self
-            .edit
-            .expect("invariant: a pointer target carries an edit");
         Target {
-            binding: self.binding,
-            range: self.range,
-            thumb: edit.thumb,
-            rect: edit.thumb_rect,
-        }
-    }
-
-    #[track_caller]
-    pub(crate) fn apply(self, op: KeyOp) -> bool {
-        match op {
-            KeyOp::Steps(steps) => self.step_by(steps),
-            KeyOp::To(value) => self.set(value),
+            binding: self.ops.binding,
+            range: self.ops.range,
+            thumb: self.edit.thumb,
+            rect: self.edit.thumb_rect,
         }
     }
 
@@ -277,22 +219,7 @@ impl Scalar {
     /// either way. For the writes of a component's own keys or wheel that the
     /// thumb does not handle. Call it from a handler.
     pub fn once(self, write: impl FnOnce() -> bool) -> bool {
-        match self.edit {
-            Some(edit) => edit.shared.once(write),
-            None => write(),
-        }
-    }
-
-    /// Increment, Decrement and SetValue through the same writer. Returns
-    /// whether the writer was offered a value; an invalid or missing value is not.
-    #[track_caller]
-    pub(crate) fn a11y(self, event: &A11yEvent) -> bool {
-        match &event.request {
-            A11yRequest::Increment => self.step_by(1.0),
-            A11yRequest::Decrement => self.step_by(-1.0),
-            A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(|v| self.set(v)),
-            _ => false,
-        }
+        self.edit.shared.once(write)
     }
 
     /// Create the semantic and input attachment of a slider's thumb. Read its
@@ -330,7 +257,7 @@ impl Scalar {
     /// `axis` is the direction the value grows in: `Orientation::Horizontal` from
     /// the left edge (from the right edge in a right-to-left subtree,
     /// [`current_direction`](kivact_core::view::current_direction)), `Orientation::Vertical` from the bottom edge.
-    /// `Orientation::Unspecified` is treated like `Orientation::Horizontal`. The value spans the
+    /// `Orientation::Unspecified` is a usage error. The value spans the
     /// track's length minus the thumb's, so the thumb's center reaches the
     /// value: draw the thumb at `fraction * (track - thumb)` inside the track.
     /// A press on the thumb keeps the distance from the pointer to the
@@ -338,15 +265,15 @@ impl Scalar {
     /// one edit ([`on_edit`](Self::on_edit)). Setup only.
     #[track_caller]
     pub fn track(self, axis: Orientation) -> Part<PartState> {
-        let edit = self
-            .edit
-            .expect("invariant: use_scalar gives every Scalar an edit");
+        let axis = Axis::of(axis, "Scalar::track");
+        let edit = self.edit;
         track::track(edit.shared.pointer, edit.shared.drag, edit.thumb, axis)
     }
 
     #[track_caller]
     fn part(self, role: Role) -> Part<ScalarState> {
-        let (value, range) = (self.value(), self.range);
+        let (value, range) = (self.value(), self.ops.range);
+        let shared = self.edit.shared;
         let mut control = part(move |input| {
             let value = value.get();
             ScalarState {
@@ -359,10 +286,7 @@ impl Scalar {
         .focusable(true)
         .value_now(value)
         .on_key(move |event: KeyEvent| {
-            if event.key == Key::Escape
-                && let Some(edit) = self.edit
-                && edit.shared.drag.cancel().is_some()
-            {
+            if event.key == Key::Escape && shared.drag.cancel().is_some() {
                 return Handled::Yes;
             }
             if role == Role::SpinButton
@@ -372,14 +296,15 @@ impl Scalar {
             {
                 return Handled::No;
             }
-            let mirror =
-                role == Role::Slider && self.edit.is_some_and(|edit| edit.shared.mirrored());
-            match self.key_op(event.key, mirror) {
-                Some(op) if self.once(|| self.apply(op)) => Handled::Yes,
+            let mirror = role == Role::Slider && shared.mirrored();
+            match self.ops.key_op(event.key, mirror) {
+                Some(op) if self.once(|| self.ops.apply(op, self.current_key_step())) => {
+                    Handled::Yes
+                }
                 _ => Handled::No,
             }
         });
-        control = match self.edit.and_then(|edit| edit.bounds) {
+        control = match self.edit.bounds {
             Some((min, max)) => control.value_min(min).value_max(max),
             None => control
                 .value_min(move || range.get().min())
@@ -401,20 +326,18 @@ impl Scalar {
                     _ => true,
                 };
                 if writes {
-                    self.once(|| self.a11y(&event));
+                    self.once(|| self.ops.a11y(&event, self.current_key_step()));
                 }
             });
         }
-        if let Some(disabled) = self.disabled {
-            control = control.disabled(disabled);
-        }
-        if let Some(edit) = self.edit {
-            let state = control.state();
-            watch_focus(edit.shared, move || state.get().input.focused);
-            control = control.reference(edit.thumb);
-            if role == Role::Slider {
-                control = control.with(edit.shared.drag.source(Some(edit.index)));
-            }
+        let state = control.state();
+        let focused = memo(move || state.get().input.focused);
+        register_focus(shared, focused);
+        control = control
+            .disabled(move || shared.disabled.with(|d| d.is_some_and(|d| d.get())))
+            .reference(self.edit.thumb);
+        if role == Role::Slider {
+            control = control.with(shared.drag.source(Grip::Thumb(self.edit.index)));
         }
         control
     }

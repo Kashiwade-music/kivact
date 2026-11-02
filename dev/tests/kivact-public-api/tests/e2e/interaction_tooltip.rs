@@ -150,3 +150,26 @@ fn keyboard_focus_shows_it_and_losing_focus_hides_it() {
     assert!(none_shown(&screen), "focus moved away");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_tooltip_taken_over_shows_again_when_the_other_hides() {
+    let (screen, ()) = mount(|| ((), pair(true)));
+    screen.get_by_test_id("A").focus();
+    screen.advance(DELAY);
+    assert!(shown(&screen, "Tip A"));
+    screen.get_by_test_id("B").hover();
+    screen.advance(ms(1));
+    assert!(
+        shown(&screen, "Tip B"),
+        "the warm one shows without a delay"
+    );
+    assert!(!shown(&screen, "Tip A"), "one at a time");
+    screen.mouse_leave();
+    screen.advance(ms(1));
+    assert!(
+        shown(&screen, "Tip A"),
+        "the one it preempted is still engaged"
+    );
+    assert!(!shown(&screen, "Tip B"));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

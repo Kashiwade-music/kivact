@@ -72,7 +72,8 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
     /// Whether rows have check boxes: the table has a selection and cells
     /// hold the focus (with rows, a press selects the row).
     fn checks(&self) -> Option<Binding<Vec<K>>> {
-        self.selection.filter(|_| self.focus == TableFocus::Cells)
+        self.selection
+            .filter(|_| matches!(self.focus, TableFocus::Cells(_)))
     }
 
     /// The style that shares the width of column `index` between its header
@@ -307,7 +308,7 @@ where
     let named = def.clone();
     // With row focus a press reaches the row, which selects: the cell is a
     // passive grid cell and takes its state from the row.
-    let (node, state) = if grid.focus == TableFocus::Rows {
+    let (node, state) = if matches!(grid.focus, TableFocus::Rows(_)) {
         let state = memo(move || {
             let row = row.get();
             TableCellState {

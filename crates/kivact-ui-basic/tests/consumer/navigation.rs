@@ -47,9 +47,7 @@ pub(super) fn account_items(radio: &str, check: bool) -> Vec<MenuEntry<&'static 
             .shortcut("Ctrl+P"),
         MenuEntry::item("billing", "Billing").disabled(true),
         MenuEntry::separator(),
-        MenuEntry::item("bars", "Status Bar")
-            .checked(check)
-            .keep_open(true),
+        MenuEntry::checkbox("bars", "Status Bar", check).keep_open(true),
         MenuEntry::radio("top", "Top", radio == "top").keep_open(true),
         MenuEntry::radio("bottom", "Bottom", radio == "bottom").keep_open(true),
         MenuEntry::separator(),

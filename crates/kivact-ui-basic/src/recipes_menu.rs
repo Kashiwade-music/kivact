@@ -124,7 +124,7 @@ fn when_lit(s: &kivact::ui::Look<MenuItemState>, base: Style, lit: Style) -> Sty
 /// at the end (`pr-8`), or at the start in the menu bar (`pl-8`).
 fn item(t: &Theme, s: &kivact::ui::Look<MenuItemState>, look: MenuLook) -> Style {
     let p = t.get::<Tokens>();
-    let (left, right) = match (s.checked.is_some(), look.bar) {
+    let (left, right) = match (s.check.is_some(), look.bar) {
         (true, true) => (32.0, 8.0),
         (true, false) => (8.0, 32.0),
         (false, _) => (8.0, 8.0),
