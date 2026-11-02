@@ -38,8 +38,9 @@
 //!   of its text and no composition (they are taken back), only of its
 //!   selection.
 //! - A change of the text an entry point does not report is taken back
-//!   (a behavior that returns `changed: false`, or panicked): the text the
-//!   core copied by its reported changes stays the editor's.
+//!   (a behavior that returns `changed: false`): the edit's `Journal` takes
+//!   it back, and the text the core copied by its reported changes stays the
+//!   editor's.
 //! - Every entry point ([`Model::edit_input_with`]), a behavior's
 //!   included, holds the editor to its maximum length in scalars of
 //!   committed text: after it the value is cut to the larger of the limit
@@ -62,9 +63,10 @@ use std::ops::Range;
 
 use kivact_wire::{A11yAction, HostEvent, Key, KeyCode, Modifiers, NodeId, Role};
 
+use crate::measure::editor::EditorNode;
 use crate::model::Model;
 use crate::model::changes::Dirty;
-use kivact_editing::Editor;
+use kivact_editing::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
 use kivact_text::{EditLines, Shaping};
 
@@ -184,7 +186,7 @@ impl Model {
         id: NodeId,
         f: impl FnOnce(&mut EditState) -> bool,
     ) -> Option<bool> {
-        self.edit_input_with(id, |state, _| f(state))
+        self.edit_editor_with(id, |journal, _| f(journal.state_mut()))
     }
 
     /// [`Model::edit_input`] with `f` reading (and shaping) the input's
@@ -194,13 +196,18 @@ impl Model {
         id: NodeId,
         f: impl FnOnce(&mut EditState, &mut EditLines) -> bool,
     ) -> Option<bool> {
-        self.edit_editor_with(id, |editor, lines| f(editor.state_mut(), lines))
+        self.edit_editor_with(id, |journal, lines| {
+            f(
+                journal.state_mut(),
+                lines.expect("invariant: an editor node has lines"),
+            )
+        })
     }
 
     pub(super) fn edit_editor_with(
         &mut self,
         id: NodeId,
-        f: impl FnOnce(&mut Editor, &mut EditLines) -> bool,
+        f: impl FnOnce(&mut Journal<'_>, Option<&mut EditLines>) -> bool,
     ) -> Option<bool> {
         let n = self.tree.get_mut(id)?;
         if n.disabled() {
@@ -209,48 +216,47 @@ impl Model {
         let read_only = n.read_only();
         let max_length = n.max_length();
         let report = n.reports_text();
-        let node = self.editors[n.index.0].as_mut()?;
-        let lines = node.lines.get_mut();
-        let edit = &mut node.editor;
-        edit.set_max_length(max_length);
-        edit.start_log();
-        let before = (edit.revision(), edit.state().session().clone());
+        let EditorNode {
+            editor,
+            lines,
+            held,
+            controlled_at,
+            ..
+        } = self.editors[n.index.0].as_deref_mut()?;
+        let mut journal = editor.journal(max_length);
         let limit = max_length.map(|max| {
-            if edit.state().is_composing() {
+            if journal.state().is_composing() {
                 max
             } else {
-                max.max(edit.state().value().chars().count())
+                max.max(journal.state().value().chars().count())
             }
         });
-        let mut reported = f(edit, lines);
+        let mut reported = f(&mut journal, Some(lines.get_mut()));
         // A change of the text must be reported: an unreported one (a
-        // behavior that changed the text and said it did not, or panicked)
-        // is taken back.
-        if !reported && edit.revision() != before.0 {
-            edit.revert(before.0, before.1.clone());
+        // behavior that changed the text and said it did not) is taken back.
+        if !reported && journal.text_changed() {
+            journal.revert();
         }
-        edit.set_max_length(max_length);
-        if !edit.state().is_composing()
+        if !journal.state().is_composing()
             && let Some(max) = limit
-            && let Some((end, _)) = edit.state().value().char_indices().nth(max)
+            && let Some((end, _)) = journal.state().value().char_indices().nth(max)
         {
-            edit.truncate(end);
+            journal.truncate(end);
             reported = true;
         }
-        if read_only && (edit.revision() != before.0 || edit.state().is_composing()) {
-            edit.revert(before.0, before.1);
+        if read_only && (journal.text_changed() || journal.state().is_composing()) {
+            journal.revert();
         }
-        if Model::adopt_held(n, self.editors[n.index.0].as_deref_mut()?) {
+        if Model::adopt_held(n, held, controlled_at, &mut journal) {
             reported = true;
         }
-        let edit = &mut self.editors[n.index.0].as_mut()?.editor;
         let changed = !read_only && reported;
-        let changes = edit.take_changes();
+        let changes = journal.finish();
         let event = changed.then(|| HostEvent::TextChanged {
             node: id,
             changes,
-            session: edit.state().session().clone(),
-            text: report.then(|| edit.state().value().to_string()),
+            session: editor.state().session().clone(),
+            text: report.then(|| editor.state().value().to_string()),
         });
         self.repaint_text(id);
         if let Some(e) = event {
@@ -425,24 +431,26 @@ impl Model {
             return;
         };
         let report = n.reports_text();
-        let Some(node) = self.editors[n.index.0].as_mut() else {
+        let Some(EditorNode {
+            editor,
+            held,
+            controlled_at,
+            ..
+        }) = self.editors[n.index.0].as_deref_mut()
+        else {
             return;
         };
-        let edit = &mut node.editor;
-        edit.start_log();
-        if !edit.state_mut().unmark() {
+        let mut journal = editor.journal(n.max_length());
+        if !journal.state_mut().unmark() {
             return;
         }
-        Model::adopt_held(n, node);
-        let Some(node) = self.editors[n.index.0].as_mut() else {
-            return;
-        };
-        let edit = &mut node.editor;
+        Model::adopt_held(n, held, controlled_at, &mut journal);
+        let changes = journal.finish();
         let event = HostEvent::TextChanged {
             node: id,
-            changes: edit.take_changes(),
-            session: edit.state().session().clone(),
-            text: report.then(|| edit.state().value().to_string()),
+            changes,
+            session: editor.state().session().clone(),
+            text: report.then(|| editor.state().value().to_string()),
         };
         self.repaint_text(id);
         self.push(event);

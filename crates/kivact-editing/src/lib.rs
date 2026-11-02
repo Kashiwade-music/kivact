@@ -26,7 +26,10 @@
 //!   report `changed: false`, so the host sends no `TextChanged`.
 //! - A value set by the core waits while a composition is in progress; the
 //!   host gives it again when the composition ends, as a recorded change
-//!   (`Editor::adopt`).
+//!   (`Journal::adopt`).
+//! - A host changes an editor's text by one [`Journal`] per edit: it opens on
+//!   the current text and session, ends with the changes to report, or takes
+//!   them all back (also when dropped unfinished).
 //! - The caret starts at the end of the value.
 //! - Every change of the text, recorded or not, joins the state's damage:
 //!   the one byte range that changed since the revision it starts from,
@@ -46,6 +49,7 @@ mod change;
 mod edit_state;
 mod editor;
 mod geometry;
+mod journal;
 mod line_colors;
 mod session;
 mod text_layout;
@@ -55,6 +59,7 @@ pub use change::{Damage, TextChange};
 pub use edit_state::{EditState, Taken};
 pub use editor::Editor;
 pub use geometry::{TextGeometry, caret_at};
+pub use journal::{Incoming, Journal};
 pub use line_colors::{LineColors, LineState};
 pub use session::TextSession;
 pub use text_layout::{EditCaret, EditLine, TextLayout};

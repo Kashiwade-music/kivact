@@ -6,8 +6,7 @@ use crate::measure::input::RefreshedLines;
 use crate::model::Model;
 use crate::mutation::Mutation;
 use crate::tree::node::HostNode;
-use kivact_editing::Editor;
-use kivact_editing::{EditState, Taken, TextSession};
+use kivact_editing::{EditState, Editor, Journal, Taken, TextSession};
 use kivact_text::EditLines;
 #[cfg(all(debug_assertions, feature = "testing"))]
 use kivact_text::{RefreshError, RefreshMode};
@@ -122,36 +121,22 @@ impl Model {
     /// Replace the editing state of the text input `id` with kivact's
     /// `state` (clamped to its maximum length); whether it changed.
     pub(crate) fn replace_edit_state(&mut self, id: NodeId, state: EditState) -> bool {
-        let mut state = Editor::new(state);
-        state.set_max_length(self.node(id).and_then(|node| node.max_length()));
-        if !state.state().is_composing()
-            && let Some(max) = state.max_length()
-            && let Some((end, _)) = state.state().value().char_indices().nth(max)
-        {
-            state.truncate(end);
-        }
+        let max_length = self.node(id).and_then(|node| node.max_length());
         let Some(current) = self.editor_node(id) else {
             return false;
         };
-        let revision = current.editor.revision();
-        let current = current.editor.state();
-        let how = if state.revision() == revision {
-            Taken::Same
-        } else if state.recorded_since(revision) {
-            Taken::Recorded
-        } else if state.state().value() == current.value() {
-            Taken::Same
-        } else {
-            Taken::Whole
-        };
-        if matches!(how, Taken::Same) && state.state().session() == current.session() {
+        let incoming = current.editor.incoming(state, max_length);
+        let before = (
+            current.editor.revision(),
+            current.editor.state().session().clone(),
+        );
+        if incoming.how() == Taken::Same && incoming.state().session() == &before.1 {
             return false;
         }
-        let before = (revision, current.session().clone());
-        self.edit_editor_with(id, |edit, _| {
-            let reported =
-                !matches!(how, Taken::Same) || edit.state().marked() != state.state().marked();
-            edit.take(state.into_state(), how);
+        self.edit_editor_with(id, |journal, _| {
+            let reported = incoming.how() != Taken::Same
+                || journal.state().marked() != incoming.state().marked();
+            journal.take(incoming);
             reported
         });
         self.editor_node(id).is_some_and(|node| {
@@ -160,24 +145,26 @@ impl Model {
     }
 
     /// The value the text input `id` held back while it composed, once the
-    /// composition ended: taken as a recorded change (`Editor::adopt`);
-    /// whether its text changed.
+    /// composition ended: taken by `journal` as a recorded change
+    /// (`Journal::adopt`); whether its text changed.
     pub(in crate::model) fn adopt_held(
         n: &HostNode,
-        node: &mut crate::measure::editor::EditorNode,
+        held: &mut bool,
+        controlled_at: &mut u64,
+        journal: &mut Journal<'_>,
     ) -> bool {
-        if !node.held || node.editor.state().is_composing() {
+        if !*held || journal.state().is_composing() {
             return false;
         }
-        node.held = false;
+        *held = false;
         let value = n
             .properties
             .editing
             .as_ref()
             .and_then(|data| data.value.clone())
             .unwrap_or_default();
-        let changed = node.editor.adopt(&value);
-        node.controlled_at = node.editor.revision();
+        let changed = journal.adopt(&value);
+        *controlled_at = journal.revision();
         changed
     }
 

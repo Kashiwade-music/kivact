@@ -21,15 +21,15 @@ struct Logged {
 }
 
 /// How a state taken from kivact changed the editor's text
-/// ([`Editor::take`](crate::Editor::take)).
+/// ([`Editor::incoming`](crate::Editor::incoming)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Taken {
     /// The same text: only the session is taken, and the text keeps its
     /// revision (a state of the same text from another revision changes
     /// nothing that has to be reported or taken back).
     Same,
-    /// By the changes the state recorded since it was read. Its journal
-    /// must cover the receiving editor's current revision, as checked by
-    /// [`Editor::recorded_since`](crate::Editor::recorded_since) before the state is passed to [`Editor::take`](crate::Editor::take).
+    /// By the changes the state recorded since it was read from this editor
+    /// ([`Editor::snapshot`](crate::Editor::snapshot)).
     Recorded,
     /// Replaced as a whole.
     Whole,
@@ -384,6 +384,11 @@ impl EditState {
     /// `revision` (it was read from a text at that revision).
     pub(crate) fn recorded_since(&self, revision: u64) -> bool {
         self.base == revision
+    }
+
+    /// Whether the log recorded a change since it started.
+    pub(crate) fn has_changes(&self) -> bool {
+        !self.log.is_empty()
     }
 
     /// The recorded changes, starting a new log.
