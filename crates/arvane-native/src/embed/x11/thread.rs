@@ -290,7 +290,7 @@ fn event_loop(
         }
         let due = session
             .control
-            .next_wake_ns
+            .deadline()
             .is_some_and(|deadline| deadline <= window.now_ns());
         if due || woke {
             session.deliver(ShellEvent::Wake, window);
@@ -337,7 +337,7 @@ fn event_loop(
         }
         let remaining = session
             .control
-            .next_wake_ns
+            .deadline()
             .map(|deadline| deadline.saturating_sub(window.now_ns()));
         // A lost XIM acknowledgement is given up at its own deadline.
         let remaining = [remaining, window.ime.borrow().remaining_ns()]

@@ -19,7 +19,7 @@ impl Session {
     pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self {
             handler: None,
-            control: ShellControl::default(),
+            control: ShellControl::Wait,
             shared,
         }
     }
@@ -34,7 +34,7 @@ impl Session {
         }
         self.handler = Some(make());
         let result = if self.shared.stopped() {
-            Ok(ShellControl::default())
+            Ok(ShellControl::Wait)
         } else {
             self.handler
                 .as_mut()
@@ -59,10 +59,10 @@ impl Session {
         match result {
             Err(error) => self.shared.fail(error),
             Ok(_) if self.shared.stopped() => {}
-            Ok(control) if !control.exit => self.control = control,
-            Ok(_) => self.shared.fail(ShellError::new(
+            Ok(ShellControl::Exit) => self.shared.fail(ShellError::new(
                 "the App asked to exit; an embedded App cannot exit by itself",
             )),
+            Ok(control) => self.control = control,
         }
     }
     /// Returns false when the backend must forget its remaining native resources.

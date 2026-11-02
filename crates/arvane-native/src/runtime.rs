@@ -184,11 +184,6 @@ impl ShellWindow for WinitWindow {
         make(self.window.clone());
         Ok(())
     }
-    /// A key naming the window among the process's windows (test windows'
-    /// keys have the top bit set).
-    fn key(&self) -> u64 {
-        u64::from(self.window.id())
-    }
     /// Validate a complete accessibility tree and replace the window's
     /// accepted one with it: assistive technology is handed every node. A
     /// rejected tree keeps the accepted one.
@@ -533,20 +528,21 @@ impl Runner<'_> {
         match result {
             Ok(control) => {
                 self.control = control;
-                if control.exit {
-                    el.exit();
-                } else {
-                    match control.next_wake_ns {
-                        None => el.set_control_flow(ControlFlow::Wait),
-                        Some(ns) => match self.started.checked_add(Duration::from_nanos(ns)) {
-                            Some(deadline) => el.set_control_flow(ControlFlow::WaitUntil(deadline)),
+                match control {
+                    ShellControl::Exit => el.exit(),
+                    ShellControl::Wait => el.set_control_flow(ControlFlow::Wait),
+                    ShellControl::WakeAt(ns) => {
+                        match self.started.checked_add(Duration::from_nanos(ns)) {
+                            Some(deadline) => {
+                                el.set_control_flow(ControlFlow::WaitUntil(deadline));
+                            }
                             None => {
                                 self.failure = Some(ShellError::new(
                                     "shell wake deadline exceeds the platform clock range",
                                 ));
                                 el.exit();
                             }
-                        },
+                        }
                     }
                 }
             }
@@ -1055,7 +1051,7 @@ impl ShellEventLoop for Shell {
             started: Instant::now(),
             waker,
             failure: None,
-            control: ShellControl::default(),
+            control: ShellControl::Wait,
             cursor: None,
             mouse: arvane_shell::Mouse::default(),
             file_paths: Vec::new(),

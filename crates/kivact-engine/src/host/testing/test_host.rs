@@ -176,7 +176,7 @@ impl ArvaneTestHost {
 
     /// Whether the App exited (it accepted a close request).
     pub fn exited(&self) -> bool {
-        self.control.exit
+        self.control == ShellControl::Exit
     }
 
     // ----- clock and scheduling -----
@@ -200,13 +200,13 @@ impl ArvaneTestHost {
     /// When the host next wants to run (virtual ns): queued events at once,
     /// requested frames and the client's timers.
     pub fn next_deadline(&self) -> Option<u64> {
-        self.control.next_wake_ns
+        self.control.deadline()
     }
 
     /// Whether the host wants to run now.
     pub fn due(&self) -> bool {
         self.control
-            .next_wake_ns
+            .deadline()
             .is_some_and(|t| t <= self.window.now_ns())
     }
 

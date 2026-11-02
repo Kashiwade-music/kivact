@@ -107,7 +107,7 @@ impl Host {
         self.client.start(&info, waker, tree);
         self.effects(window);
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         #[cfg(feature = "gpu-interop")]
         self.externals(window);
@@ -122,12 +122,12 @@ impl Host {
         window: &mut W,
     ) -> Result<ShellControl, ShellError> {
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         self.starting = false;
         self.effects(window);
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         self.model.borrow_mut().frame.set_now(window.now_ns());
         if stops_smooth_scrolls(&event) {
@@ -339,7 +339,7 @@ impl Host {
                 .accessibility_action(node, action, value),
         }
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         if input {
             return Ok(self.defer(window));

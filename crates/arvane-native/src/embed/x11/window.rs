@@ -157,9 +157,6 @@ impl ShellWindow for Window {
         self.cpu = None;
         self.shown_cpu = false;
     }
-    fn key(&self) -> u64 {
-        u64::from(self.native.id.get())
-    }
     fn replace_accessibility(
         &mut self,
         tree: &kivact_types::protocol::SemanticsTree,

@@ -252,9 +252,6 @@ impl ShellWindow for VirtualShell {
     fn set_ime_text(&self, text: Option<ShellImeText>) {
         *self.ime_text.borrow_mut() = text;
     }
-    fn key(&self) -> u64 {
-        self.real.as_ref().map_or(0, TestWindow::key)
-    }
     fn physical_size(&self) -> (u32, u32) {
         physical(self.size, self.scale)
     }

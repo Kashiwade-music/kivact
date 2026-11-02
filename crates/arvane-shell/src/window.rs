@@ -66,9 +66,6 @@ pub trait ShellWindow {
     /// Release CPU presentation resources before another presenter takes ownership.
     fn release_cpu_surface(&mut self);
 
-    /// Stable window identity within this backend's live window domain; independent of surface generation.
-    fn key(&self) -> u64;
-
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,

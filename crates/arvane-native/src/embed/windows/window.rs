@@ -137,9 +137,6 @@ impl ShellWindow for Window {
         self.0.pixel_size.set((0, 0));
         self.0.cpu_shown.set(false);
     }
-    fn key(&self) -> u64 {
-        self.0.native.hwnd() as u64
-    }
     fn replace_accessibility(
         &mut self,
         tree: &kivact_types::protocol::SemanticsTree,
@@ -445,7 +442,7 @@ impl State {
         if self.shared.stopped() || self.closing.get() {
             return;
         }
-        let next_wake_ns = self.session.borrow().control.next_wake_ns;
+        let next_wake_ns = self.session.borrow().control.deadline();
         let hwnd = self.native.hwnd();
         // SAFETY: cancel only the HWND-scoped timer owned by this child.
         unsafe {
