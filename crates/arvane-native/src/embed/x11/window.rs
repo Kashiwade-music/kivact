@@ -3,6 +3,7 @@
 use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::embed::child::{Backend as _, Shared};
+use crate::cpu::CpuSurface;
 use crate::embed::session::negotiate;
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::protocol::Environment;
@@ -24,9 +25,7 @@ pub(super) struct Window {
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     pub(super) redraw: Cell<bool>,
     started: Instant,
-    generation: u64,
-    cpu: Option<softbuffer::Surface<Arc<Native>, Arc<Native>>>,
-    shown_cpu: bool,
+    cpu: CpuSurface<Arc<Native>, Arc<Native>>,
     pub(super) accessibility: super::a11y::Bridge,
     services: super::services::Services,
     pub(super) ime: RefCell<super::ime::Ime>,
@@ -61,9 +60,7 @@ impl Window {
             on_resize_request,
             redraw: Cell::new(true),
             started: Instant::now(),
-            generation: 1,
-            cpu: None,
-            shown_cpu: false,
+            cpu: CpuSurface::Released,
             accessibility: super::a11y::Bridge::new(f64::from(scale), waker),
             services: super::services::Services::default(),
             ime,
@@ -147,15 +144,13 @@ impl ShellWindow for Window {
     }
     fn recover_surface(&mut self) -> Result<(), ShellError> {
         self.release_cpu_surface();
-        self.generation += 1;
         Ok(())
     }
     fn shows_cpu_frame(&self) -> bool {
-        self.shown_cpu
+        self.cpu.shows_frame()
     }
     fn release_cpu_surface(&mut self) {
-        self.cpu = None;
-        self.shown_cpu = false;
+        self.cpu.release();
     }
     fn replace_accessibility(
         &mut self,
@@ -194,7 +189,8 @@ impl ShellWindow for Window {
         }
     }
     fn surface_generation(&self) -> Option<u64> {
-        Some(self.generation)
+        // The X window is never re-created, so its surface keeps the first generation.
+        Some(1)
     }
     fn request_redraw(&self) {
         self.redraw.set(true);
@@ -243,45 +239,35 @@ impl ShellWindow for Window {
         height: u32,
         draw: &mut dyn FnMut(&mut [u32]) -> bool,
     ) -> Result<bool, ShellError> {
-        if width == 0 || height == 0 {
+        let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Ok(false);
-        }
+        };
         if (width, height) != (self.width, self.height) {
             return Err(super::error::platform(
                 "CPU frame dimensions differ from the window",
             ));
         }
-        if self.cpu.is_none() {
-            let context =
-                softbuffer::Context::new(self.native.clone()).map_err(super::error::platform)?;
-            self.cpu = Some(
-                softbuffer::Surface::new(&context, self.native.clone())
-                    .map_err(super::error::platform)?,
-            );
+        let native = self.native.clone();
+        let presented = self.cpu.present(
+            w,
+            h,
+            || {
+                let context =
+                    softbuffer::Context::new(native.clone()).map_err(super::error::platform)?;
+                softbuffer::Surface::new(&context, native.clone())
+                    .map_err(super::error::platform)
+            },
+            draw,
+        )?;
+        if presented {
+            // softbuffer queues XCB image requests on this shared connection. Send
+            // them now; the host event loop may otherwise wait without another request.
+            self.native
+                .connection
+                .flush()
+                .map_err(super::error::platform)?;
         }
-        let surface = self
-            .cpu
-            .as_mut()
-            .expect("invariant: CPU surface created above");
-        surface
-            .resize(
-                NonZeroU32::new(width).expect("invariant: nonzero width"),
-                NonZeroU32::new(height).expect("invariant: nonzero height"),
-            )
-            .map_err(super::error::platform)?;
-        let mut buffer = surface.buffer_mut().map_err(super::error::platform)?;
-        if !draw(&mut buffer) {
-            return Ok(false);
-        }
-        buffer.present().map_err(super::error::platform)?;
-        // softbuffer queues XCB image requests on this shared connection. Send
-        // them now; the host event loop may otherwise wait without another request.
-        self.native
-            .connection
-            .flush()
-            .map_err(super::error::platform)?;
-        self.shown_cpu = true;
-        Ok(true)
+        Ok(presented)
     }
     fn with_gpu_target(
         &self,

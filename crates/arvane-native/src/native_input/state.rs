@@ -42,9 +42,9 @@ pub(crate) struct NativeInput {
     /// message, not taken yet.
     pub(crate) pointer: Cell<Option<(f64, f64)>>,
     pub(crate) file_pointer: Cell<Option<kivact_types::Point>>,
-    /// The subclass is installed (it removes itself when the window is
-    /// destroyed).
-    pub(crate) subclassed: Cell<bool>,
+    /// The subclass has not been removed yet (by `WM_NCDESTROY` or the guard's drop); only the
+    /// subclass reads it.
+    pub(crate) subclass_installed: Cell<bool>,
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
