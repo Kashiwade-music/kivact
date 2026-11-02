@@ -184,8 +184,9 @@ impl TextEditing {
         self.props.read_only = Some(value.into_prop());
         self
     }
-    /// Limit committed text by Unicode scalar count. Preedit is not truncated.
-    pub fn max_length(mut self, value: impl IntoValue<usize>) -> Self {
+    /// Limit committed text by Unicode scalar count, constant or reactive: `Some(n)` limits, `None` does not
+    /// (the default). Preedit is not truncated.
+    pub fn max_length(mut self, value: impl IntoValue<Option<usize>>) -> Self {
         self.props.max_length = Some(value.into_prop());
         self
     }

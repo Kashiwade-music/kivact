@@ -95,7 +95,8 @@ pub(crate) struct EditorProps {
     pub(crate) report_text: bool,
     pub(crate) password: Option<InputProp<bool>>,
     pub(crate) read_only: Option<InputProp<bool>>,
-    pub(crate) max_length: Option<InputProp<usize>>,
+    /// The longest text, in Unicode scalars; no source, or a source reading `None`: no limit.
+    pub(crate) max_length: Option<InputProp<Option<usize>>>,
     pub(crate) placeholder: Option<InputProp<String>>,
 }
 

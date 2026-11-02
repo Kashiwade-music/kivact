@@ -194,13 +194,7 @@ impl TextEdit {
                     .get()
                     .is_some_and(|value| value.get())
             })
-            .max_length(move || {
-                self.data
-                    .get()
-                    .max_length
-                    .get()
-                    .map_or(usize::MAX, |value| value.get())
-            })
+            .max_length(move || self.data.get().max_length.get().map(|value| value.get()))
             .placeholder(move || {
                 self.data
                     .get()

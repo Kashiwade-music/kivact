@@ -286,9 +286,9 @@ props! {
     ReadOnly: set_read_only(v: bool)
         => field(Some(v), |p| Some(&mut editing(p)?.read_only)),
         mut = Mut::READ_ONLY.when(v);
-    /// Replace the node's max length when its value differs.
-    MaxLength: set_max_length(v: usize)
-        => field(Some(v), |p| Some(&mut editing(p)?.max_length)),
+    /// Replace the node's max length (`None`: no limit) when its value differs.
+    MaxLength: set_max_length(v: Option<usize>)
+        => field(v, |p| Some(&mut editing(p)?.max_length)),
         mut = Mut::NONE;
     /// Replace the node's placeholder when its value differs.
     Placeholder: set_placeholder(v: String)
