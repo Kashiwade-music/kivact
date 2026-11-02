@@ -411,7 +411,7 @@ impl EditLines {
         let Some(line) = self.line_mut(i) else {
             return ids();
         };
-        *line.kept().run_id.get_or_insert_with(|| ids())
+        *line.kept().run_id.get_or_insert_with(ids)
     }
 
     /// The lines published to assistive technology: those around the
