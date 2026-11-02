@@ -21,4 +21,5 @@
 mod app_side;
 pub(crate) mod link;
 
-pub use app_side::{ShareStatus, SharedImage, shared_image};
+pub use app_side::{SharedImage, shared_image};
+pub use link::ShareStatus;

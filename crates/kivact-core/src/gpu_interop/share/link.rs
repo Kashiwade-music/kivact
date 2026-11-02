@@ -21,7 +21,6 @@ use std::time::Duration;
 use kivact_reactive::UiError;
 use kivact_wire::{GpuAdapter, SharedTextures};
 
-use super::app_side::ShareStatus;
 use crate::gpu_interop::import::FramePublisher;
 use crate::gpu_interop::import::inbox::Inbox;
 use kivact_style::draw::Pixels;
@@ -82,6 +81,30 @@ impl fmt::Display for ShareError {
 }
 
 impl std::error::Error for ShareError {}
+
+/// Where a [`SharedImage`](super::app_side::SharedImage) stands, tracked
+/// ([`SharedImage::status`](super::app_side::SharedImage::status)).
+#[derive(Clone, Debug, PartialEq)]
+pub enum ShareStatus {
+    /// A [`ShareMode::Gpu`] request was issued; the engine has not
+    /// provided textures for it yet.
+    Waiting,
+    /// The engine provided textures; the window imports them.
+    Importing,
+    /// The textures are imported: the engine's frames draw
+    /// ([`SharedImage::frame`](super::app_side::SharedImage::frame)).
+    Ready,
+    /// The request is [`ShareMode::Pixels`]: the window cannot import, and
+    /// the engine publishes pictures drawn on the CPU
+    /// ([`SharedImage::pixels`](super::app_side::SharedImage::pixels)).
+    Pixels,
+    /// The window could not import the textures (the kinds of
+    /// `ImportStatus::Failed`). The image stays so until the next request.
+    Failed(UiError),
+    /// The image's owner is gone: nothing draws, and the engine's link is
+    /// closed (`ShareLink::is_closed`).
+    Closed,
+}
 
 /// The state the engine's threads share with the UI side of the image.
 pub(crate) enum LinkState {

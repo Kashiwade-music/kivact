@@ -43,7 +43,7 @@ use crate::view::View;
 use crate::view::requests;
 use crate::view::root::AppSettings;
 use crate::view::state::ViewState;
-use crate::view::tree::TextEditsAhead;
+use crate::view::text_edits::TextEditsAhead;
 use kivact_motion::MotionState;
 use kivact_reactive::{ErrorKind, Extensions, Runtime, TurnRecorder, UiError};
 use kivact_style::Theme;

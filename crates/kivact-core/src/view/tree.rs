@@ -25,7 +25,7 @@
 //! - While several native `TextChanged` events wait, core counts only the
 //!   undelivered edits per node, so an old controlled value never
 //!   overwrites a newer native edit; the batch's counts live in a
-//!   `TextEditsAhead` guard.
+//!   `TextEditsAhead` guard (`view::text_edits`).
 //! - Ordinary callbacks run after the engine borrow is released. The one
 //!   exception is a primitive's measure function, which runs no user
 //!   handler and drops no user value (see `crate::primitive`).
@@ -42,9 +42,8 @@ use kivact_wire::{
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
-use crate::view::state::ViewState;
-use kivact_reactive::{NodeId as EffectId, Owner, Runtime, Signal, Trigger, UiError};
-use kivact_wire::{A11yAction, HostEvent};
+use kivact_reactive::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
+use kivact_wire::A11yAction;
 
 /// Scroll position report of a scroll container.
 #[derive(Clone, Copy, Debug)]
@@ -264,39 +263,6 @@ impl TNode {
     /// Whether the node is a host node (not a fragment).
     pub(crate) fn is_host(&self) -> bool {
         self.kind.is_some()
-    }
-}
-
-/// The `TextChanged` events of the batch being delivered that have not
-/// run yet, per node: while one waits for a node, a controlled write of
-/// its value is stale and dropped (`Tree::update`). Dropping it forgets
-/// what is left, so the next batch counts anew.
-#[must_use = "the counts are forgotten when the guard drops"]
-pub(crate) struct TextEditsAhead<'a> {
-    rt: &'a Runtime,
-}
-
-impl<'a> TextEditsAhead<'a> {
-    /// Count the `TextChanged` events of `events` per node.
-    pub(crate) fn count(rt: &'a Runtime, events: &[HostEvent]) -> Self {
-        ViewState::tree_mut(rt).count_text_edits(events.iter().filter_map(|event| match event {
-            HostEvent::TextChanged { node, .. } => Some(*node),
-            _ => None,
-        }));
-        TextEditsAhead { rt }
-    }
-
-    /// `event` runs now: a `TextChanged` no longer waits for its node.
-    pub(crate) fn deliver(&self, event: &HostEvent) {
-        if let HostEvent::TextChanged { node, .. } = event {
-            ViewState::tree_mut(self.rt).consume_text_edit(*node);
-        }
-    }
-}
-
-impl Drop for TextEditsAhead<'_> {
-    fn drop(&mut self) {
-        ViewState::tree_mut(self.rt).clear_text_edits();
     }
 }
 
@@ -582,7 +548,7 @@ impl Tree {
         changed
     }
 
-    fn count_text_edits(&mut self, ids: impl Iterator<Item = NodeId>) {
+    pub(super) fn count_text_edits(&mut self, ids: impl Iterator<Item = NodeId>) {
         debug_assert!(
             self.future_text_edits.is_empty(),
             "invariant: one batch is delivered at a time"
@@ -592,7 +558,7 @@ impl Tree {
         }
     }
 
-    fn consume_text_edit(&mut self, id: NodeId) {
+    pub(super) fn consume_text_edit(&mut self, id: NodeId) {
         if let Some(count) = self.future_text_edits.get_mut(&id) {
             *count -= 1;
             if *count == 0 {
@@ -601,7 +567,7 @@ impl Tree {
         }
     }
 
-    fn clear_text_edits(&mut self) {
+    pub(super) fn clear_text_edits(&mut self) {
         self.future_text_edits.clear();
     }
     pub(crate) fn take_removes(&mut self) -> bool {

@@ -5,39 +5,15 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_reactive::UiError;
 use kivact_reactive::{Owner, Runtime, Signal, Trigger};
 use kivact_wire::{GpuAdapter, SharedTextures};
 
-use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, Work};
+use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
 use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::inbox::Inbox;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
 use kivact_style::draw::{GpuFrame, Pixels};
 use kivact_task::spawn_in;
-
-/// Where a [`SharedImage`] stands, tracked ([`SharedImage::status`]).
-#[derive(Clone, Debug, PartialEq)]
-pub enum ShareStatus {
-    /// A [`ShareMode::Gpu`] request was issued; the engine has not
-    /// provided textures for it yet.
-    Waiting,
-    /// The engine provided textures; the window imports them.
-    Importing,
-    /// The textures are imported: the engine's frames draw
-    /// ([`SharedImage::frame`]).
-    Ready,
-    /// The request is [`ShareMode::Pixels`]: the window cannot import, and
-    /// the engine publishes pictures drawn on the CPU
-    /// ([`SharedImage::pixels`]).
-    Pixels,
-    /// The window could not import the textures (the kinds of
-    /// `ImportStatus::Failed`). The image stays so until the next request.
-    Failed(UiError),
-    /// The image's owner is gone: nothing draws, and the engine's link is
-    /// closed (`ShareLink::is_closed`).
-    Closed,
-}
 
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
