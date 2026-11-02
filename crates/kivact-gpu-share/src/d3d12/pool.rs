@@ -8,10 +8,11 @@ use crate::common::{Error, api};
 use crate::d3d12_contract::HAND_OFF_STATE;
 use crate::d3d12_contract::luid_bytes;
 use crate::d3d12_contract::resource_flags as flags;
-use crate::pool::{DROP_WAIT, FrameReady, PoolConfig, Slots};
+use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
 use kivact_types::{
     AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
 };
+use std::fmt;
 use std::os::windows::io::{FromRawHandle, OwnedHandle};
 use std::time::Duration;
 use windows::Win32::Foundation::GENERIC_ALL;
@@ -24,32 +25,38 @@ use windows::Win32::Graphics::Direct3D12::{
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_SAMPLE_DESC};
 use windows::core::{Interface, PCWSTR};
 
-/// The texture the next frame is drawn into, from [`Pool::acquire`], until
-/// [`Pool::submit`] or [`Pool::finish`] takes it.
-#[derive(Debug)]
-pub struct Target {
-    slot: u32,
-    resource: ID3D12Resource,
-    width: u32,
-    height: u32,
-    /// The value `release` reaches before the queue writes (0: no wait).
-    wait: u64,
+/// The texture the next frame is drawn into, from [`Pool::acquire`]. It
+/// borrows the pool until [`Target::submit`] or [`Target::finish`] takes
+/// it; dropping it gives the frame up (the next acquire gives the same
+/// texture again).
+#[must_use = "draw into the target, then submit or finish it; dropping it gives the frame up"]
+pub struct Target<'pool> {
+    pool: &'pool mut Pool,
+    acquired: Acquired,
 }
 
-impl Target {
+impl fmt::Debug for Target<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Target")
+            .field("slot", &self.acquired.slot)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Target<'_> {
     /// The texture's index in the pool.
     pub fn slot(&self) -> u32 {
-        self.slot
+        self.acquired.slot
     }
 
     /// The texture to draw into.
     pub fn resource(&self) -> &ID3D12Resource {
-        &self.resource
+        &self.pool.textures[self.acquired.slot as usize]
     }
 
     /// The texture's size: width and height.
     pub fn size(&self) -> (u32, u32) {
-        (self.width, self.height)
+        (self.pool.width, self.pool.height)
     }
 
     /// The texture's format ([`FORMAT`]).
@@ -57,15 +64,70 @@ impl Target {
         FORMAT
     }
 
-    /// The value `release` reaches before the queue writes (0: no wait).
-    #[cfg(feature = "wgpu")]
-    pub(crate) fn release_wait(&self) -> u64 {
-        self.wait
+    /// Record into `list` the transition of the texture from the
+    /// hand-off state ([`HAND_OFF_STATE`]) to `state`, the engine's first
+    /// use. Nothing when `state` is the hand-off state.
+    ///
+    /// # Safety
+    /// `list` is open (reset and not closed), of the pool's device.
+    pub unsafe fn record_acquire(
+        &self,
+        list: &ID3D12GraphicsCommandList,
+        state: D3D12_RESOURCE_STATES,
+    ) {
+        if state != HAND_OFF_STATE {
+            let barrier = transition(self.resource(), HAND_OFF_STATE, state);
+            // SAFETY: recording into the open list (the caller).
+            unsafe { list.ResourceBarrier(&[barrier]) };
+        }
+    }
+
+    /// Record into `list` the transition of the texture from `state`, the
+    /// engine's last use, back to the hand-off state. Nothing when `state`
+    /// is the hand-off state.
+    ///
+    /// # Safety
+    /// As [`Target::record_acquire`].
+    pub unsafe fn record_release(
+        &self,
+        list: &ID3D12GraphicsCommandList,
+        state: D3D12_RESOURCE_STATES,
+    ) {
+        if state != HAND_OFF_STATE {
+            let barrier = transition(self.resource(), state, HAND_OFF_STATE);
+            // SAFETY: recording into the open list (the caller).
+            unsafe { list.ResourceBarrier(&[barrier]) };
+        }
+    }
+
+    /// The fences the engine's own submission of this frame waits for and
+    /// signals; the frame counts as submitted. The submission must follow:
+    /// until `ready` reaches the frame's value, acquiring this texture
+    /// again times out.
+    pub fn finish(self) -> Submission {
+        self.pool.finish_acquired(self.acquired)
+    }
+
+    /// On `queue`: wait for the window's release of the texture, execute
+    /// `lists` (which draw the frame between [`Target::record_acquire`]
+    /// and [`Target::record_release`]), signal `ready`: the frame to
+    /// publish. An error gives the frame up.
+    ///
+    /// # Safety
+    /// `queue` is a direct queue of the pool's device; `lists` are closed
+    /// command lists of the device.
+    pub unsafe fn submit(
+        self,
+        queue: &ID3D12CommandQueue,
+        lists: &[Option<ID3D12CommandList>],
+    ) -> Result<FrameReady, Error> {
+        // SAFETY: the caller's queue and lists, as documented above.
+        unsafe { self.pool.submit_acquired(queue, self.acquired, lists) }
     }
 }
 
 /// The fences an engine's own submission of a frame waits for and
-/// signals ([`Pool::finish`]).
+/// signals ([`Target::finish`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Submission {
     /// `ID3D12CommandQueue::Wait` for `release` to reach this value before
@@ -201,117 +263,65 @@ impl Pool {
     /// The texture of the next frame, once its last frame signaled
     /// `ready` (waited at most `timeout` on the CPU). The queue waits for
     /// the window's `release` of that frame: the submission
-    /// ([`Pool::submit`], or [`Pool::finish`]'s `wait`) does, so the
+    /// ([`Target::submit`], or [`Target::finish`]'s `wait`) does, so the
     /// engine can draw ahead of the window.
     ///
     /// A [`Error::Timeout`] means the texture's last submission did not
     /// finish, usually because the queue still waits for a release the
     /// window never gives (a lost device, a window that stopped
     /// presenting).
-    pub fn acquire(&mut self, timeout: Duration) -> Result<Target, Error> {
-        let (slot, last) = self.frames.acquire()?;
-        if let Err(error) = wait(&self.ready, last, timeout, "the texture's last frame") {
-            self.frames.cancel();
-            return Err(error);
-        }
+    pub fn acquire(&mut self, timeout: Duration) -> Result<Target<'_>, Error> {
+        let acquired = self.begin(timeout)?;
         Ok(Target {
-            slot,
-            resource: self.textures[slot as usize].clone(),
-            width: self.width,
-            height: self.height,
-            wait: last,
+            pool: self,
+            acquired,
         })
     }
 
-    /// Give `target` up without a frame (nothing of it was submitted).
-    pub fn cancel(&mut self, target: Target) {
-        let _ = target;
-        self.frames.cancel();
-    }
-
-    /// Record into `list` the transition of `target`'s texture from the
-    /// hand-off state ([`HAND_OFF_STATE`]) to `state`, the engine's first
-    /// use. Nothing when `state` is the hand-off state.
-    ///
-    /// # Safety
-    /// `list` is open (reset and not closed), of the pool's device;
-    /// `target` is of this pool.
-    pub unsafe fn record_acquire(
-        &self,
-        list: &ID3D12GraphicsCommandList,
-        target: &Target,
-        state: D3D12_RESOURCE_STATES,
-    ) {
-        if state != HAND_OFF_STATE {
-            let barrier = transition(&target.resource, HAND_OFF_STATE, state);
-            // SAFETY: recording into the open list (the caller).
-            unsafe { list.ResourceBarrier(&[barrier]) };
+    /// The next frame's texture, once its last frame signaled `ready`
+    /// (waited at most `timeout`).
+    pub(crate) fn begin(&self, timeout: Duration) -> Result<Acquired, Error> {
+        let acquired = self.frames.next();
+        if let Some(last) = acquired.wait {
+            wait(&self.ready, last.get(), timeout, "the texture's last frame")?;
         }
+        Ok(acquired)
     }
 
-    /// Record into `list` the transition of `target`'s texture from
-    /// `state`, the engine's last use, back to the hand-off state. Nothing
-    /// when `state` is the hand-off state.
-    ///
-    /// # Safety
-    /// As [`Pool::record_acquire`].
-    pub unsafe fn record_release(
-        &self,
-        list: &ID3D12GraphicsCommandList,
-        target: &Target,
-        state: D3D12_RESOURCE_STATES,
-    ) {
-        if state != HAND_OFF_STATE {
-            let barrier = transition(&target.resource, state, HAND_OFF_STATE);
-            // SAFETY: recording into the open list (the caller).
-            unsafe { list.ResourceBarrier(&[barrier]) };
-        }
-    }
-
-    /// The fences the engine's own submission of `target`'s frame waits
-    /// for and signals; the frame counts as submitted. The submission
-    /// must follow: until `ready` reaches the frame's value, acquiring
-    /// this texture again times out.
-    pub fn finish(&mut self, target: Target) -> Submission {
-        let frame = self.frames.finish(target.slot);
+    /// [`Target::finish`].
+    pub(crate) fn finish_acquired(&mut self, acquired: Acquired) -> Submission {
+        let frame = self.frames.finish(acquired);
         Submission {
-            wait: (target.wait > 0).then(|| (self.release.clone(), target.wait)),
+            wait: acquired
+                .wait
+                .map(|value| (self.release.clone(), value.get())),
             signal: (self.ready.clone(), frame.value),
             frame,
         }
     }
 
-    /// On `queue`: wait for the window's release of `target`'s texture,
-    /// execute `lists` (which draw the frame between
-    /// [`Pool::record_acquire`] and [`Pool::record_release`]), signal
-    /// `ready`: the frame to publish. When the wait or signal cannot be
-    /// queued, the frame is given up.
+    /// [`Target::submit`].
     ///
     /// # Safety
-    /// `queue` is a direct queue of the pool's device; `lists` are closed
-    /// command lists of the device.
-    pub unsafe fn submit(
+    /// As [`Target::submit`].
+    pub(crate) unsafe fn submit_acquired(
         &mut self,
         queue: &ID3D12CommandQueue,
-        target: Target,
+        acquired: Acquired,
         lists: &[Option<ID3D12CommandList>],
     ) -> Result<FrameReady, Error> {
-        if target.wait > 0 {
+        if let Some(value) = acquired.wait {
             // SAFETY: a GPU-side wait on a live fence of the device.
-            if let Err(error) = unsafe { queue.Wait(&self.release, target.wait) } {
-                self.cancel(target);
-                return Err(api("ID3D12CommandQueue::Wait")(error));
-            }
+            unsafe { queue.Wait(&self.release, value.get()) }
+                .map_err(api("ID3D12CommandQueue::Wait"))?;
         }
         // SAFETY: closed lists of the device, on its queue (the caller).
         unsafe { queue.ExecuteCommandLists(lists) };
-        let value = self.frames.last() + 1;
+        let value = self.frames.next_value();
         // SAFETY: a GPU-side signal of a live fence of the device.
-        if let Err(error) = unsafe { queue.Signal(&self.ready, value) } {
-            self.cancel(target);
-            return Err(api("ID3D12CommandQueue::Signal")(error));
-        }
-        Ok(self.finish(target).frame)
+        unsafe { queue.Signal(&self.ready, value.get()) }
+            .map_err(api("ID3D12CommandQueue::Signal"))?;
+        Ok(self.finish_acquired(acquired).frame)
     }
 
     /// The pool's textures, by slot.
@@ -341,7 +351,10 @@ impl Pool {
     /// Wait at most `timeout` on the CPU for every submitted frame's
     /// `ready` (the engine's work on the pool finished).
     pub fn wait_idle(&self, timeout: Duration) -> Result<(), Error> {
-        wait(&self.ready, self.frames.last(), timeout, "the last frame")
+        match self.frames.last() {
+            Some(last) => wait(&self.ready, last.get(), timeout, "the last frame"),
+            None => Ok(()),
+        }
     }
 
     /// Texture `slot`'s last frame as straight-alpha RGBA8 (`width` ×
@@ -359,8 +372,9 @@ impl Pool {
         slot: u32,
         timeout: Duration,
     ) -> Result<Vec<u8>, Error> {
-        let last = self.frames.drawn(slot)?;
-        wait(&self.ready, last, timeout, "the texture's last frame")?;
+        if let Some(last) = self.frames.drawn(slot)? {
+            wait(&self.ready, last.get(), timeout, "the texture's last frame")?;
+        }
         // SAFETY: the pool's device and texture; the queue and the
         // texture's use as the caller says.
         unsafe {

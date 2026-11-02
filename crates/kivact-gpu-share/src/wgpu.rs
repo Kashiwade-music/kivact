@@ -9,7 +9,7 @@
 //! `wgpu::Texture`s (`create_texture_from_hal`) of the usage [`usage`]
 //! says. A frame: [`Pool::acquire`] gives a [`Target`], the engine
 //! records its own command buffers on the target's texture, and
-//! [`Pool::submit`] submits them between the hand-off:
+//! [`Target::submit`] submits them between the hand-off:
 //!
 //! 1. a raw submission on wgpu's queue: a GPU-side wait for the window's
 //!    `release` of the texture's last frame, then the texture taken from
@@ -31,7 +31,7 @@
 //! Invariants:
 //! - The raw submissions go to wgpu's own queue (`VkQueue`,
 //!   `ID3D12CommandQueue`), which needs external synchronization with
-//!   wgpu's use of it: [`Pool::submit`] and [`Pool::read_back`] are
+//!   wgpu's use of it: [`Target::submit`] and [`Pool::read_back`] are
 //!   `unsafe fn`s whose callers keep every other use of the device's
 //!   queue off other threads during the call.
 //! - The pool keeps a clone of the `wgpu::Device`; wgpu-hal owns the
