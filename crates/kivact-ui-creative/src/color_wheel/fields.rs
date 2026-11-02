@@ -2,7 +2,7 @@
 use super::ColorModel;
 use super::color_to_hsv;
 use super::geometry::Channel;
-use super::state::State;
+use super::state::{ColorOwner, State};
 use crate::number;
 use kivact::control::{NodeBuilder, column, row};
 use kivact::i18n::message;
@@ -47,11 +47,9 @@ pub(super) fn fields(state: State, model: Binding<ColorModel>, alpha: Value<bool
     .into_view()
 }
 fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
-    let editing = kivact::var(false);
+    let owner = ColorOwner::Field { hsv, index };
     kivact::on_cleanup(move || {
-        if editing.get() {
-            state.edit.cancel();
-        }
+        state.edit.cancel_owned(owner);
     });
     let value = state.color.into_value();
     let hue = state.hue;
@@ -78,7 +76,7 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
         }
     };
     let write = callback(move |next| {
-        if state.dragging() || state.blocked.get() {
+        if state.edit.owner() != Some(owner) {
             return;
         }
         if hsv {
@@ -104,12 +102,7 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
     .range(0.0, if hsv && index == 0 { 360.0 } else { 1.0 })
     .step(if hsv && index == 0 { 1.0 } else { 0.001 })
     .precision(3)
-    .on_edit(move |phase| {
-        if !state.dragging() && !state.blocked.get() {
-            editing.set(phase == EditPhase::Begin);
-        }
-        state.phase(phase);
-    })
+.on_edit(move |phase| state.phase(owner, phase))
     .style(style().grow(1).min_width(0).width(60))
 }
 fn encode(color: Color, alpha: bool) -> String {
@@ -136,30 +129,30 @@ fn parse(text: &str, current: Color, alpha: bool) -> Option<Color> {
     }
     Some(Color::from_rgba_f32(c[0], c[1], c[2], c[3]))
 }
+/// What the hexadecimal field shows: the color, or the text typed since.
+#[derive(Clone, PartialEq)]
+enum HexField {
+    Following,
+    Typed(String),
+}
 fn hex(state: State, alpha: Value<bool>) -> View {
     let value = state.color.into_value();
-    let draft = signal(encode(value.get_untracked(), alpha.get_untracked()));
-    let dirty = signal(false);
-    effect(move || {
-        let color = value.get();
-        if !dirty.get_untracked() {
-            draft.set(encode(color, alpha.get()));
-        }
+    let field = signal(HexField::Following);
+    let text = memo(move || match field.get() {
+        HexField::Following => encode(value.get(), alpha.get()),
+        HexField::Typed(text) => text,
     });
-    let input = binding(draft.into_value(), move |text: String| {
-        dirty.set(true);
-        draft.set(text);
-    });
-    let invalid = memo(move || parse(&draft.get(), value.get(), alpha.get()).is_none());
-    // Enter, or leaving the field with a changed text, writes a valid draft.
-    let commit = move |text: String| {
-        if state.dragging() || state.blocked.get_untracked() {
+    let input = binding(text, move |typed: String| field.set(HexField::Typed(typed)));
+    let invalid = memo(move || parse(&text.get(), value.get(), alpha.get()).is_none());
+    // Enter, or leaving the field with a changed text, writes a valid draft;
+    // either way the field follows the color again.
+    let commit = move |typed: String| {
+        field.set(HexField::Following);
+        if state.blocked.get_untracked() {
             return;
         }
-        if let Some(color) = parse(&text, value.get_untracked(), alpha.get_untracked()) {
-            state.once(|| state.color.set(color));
-            dirty.set(false);
-            draft.set(encode(color, alpha.get()));
+        if let Some(color) = parse(&typed, value.get_untracked(), alpha.get_untracked()) {
+            state.once(ColorOwner::Hex, || state.color.set(color));
         }
     };
     kivact::ui::text_input(message("creative.color.hex", "Color HEX"), input)
@@ -167,8 +160,7 @@ fn hex(state: State, alpha: Value<bool>) -> View {
         // Escape discards the draft: the field follows the color again.
         .on_edit(move |phase| {
             if phase == EditPhase::Cancel {
-                dirty.set(false);
-                draft.set(encode(value.get(), alpha.get()));
+                field.set(HexField::Following);
             }
         })
         .disabled(state.blocked)
@@ -199,7 +191,7 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                 .disabled(state.blocked)
                 .on_press(move || {
                     selected.set(Some(index));
-                    state.once(|| {
+                    state.once(ColorOwner::Swatch, || {
                         let color = item.get().1;
                         state.color.set(if alpha.get() {
                             color
@@ -223,7 +215,7 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                 kivact::ui::button(message("creative.color.add_swatch", "Add swatch"))
                     .disabled(state.blocked)
                     .on_press(move || {
-                        state.once(|| {
+                        state.once(ColorOwner::Swatch, || {
                             let mut colors = colors.get();
                             colors.push(state.color.into_value().get());
                             selected.set(Some(colors.len() - 1));
@@ -234,7 +226,7 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                     .disabled(move || state.blocked.get() || selected.get().is_none())
                     .on_press(move || {
                         if let Some(index) = selected.get() {
-                            state.once(|| {
+                            state.once(ColorOwner::Swatch, || {
                                 let mut colors = colors.get();
                                 if index < colors.len() {
                                     colors.remove(index);
