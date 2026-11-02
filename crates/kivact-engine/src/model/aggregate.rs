@@ -123,11 +123,6 @@ impl Model {
         self.events.has_events()
     }
 
-    /// Take every queued event, in order.
-    pub(crate) fn take_events(&mut self) -> Vec<HostEvent> {
-        self.events.take()
-    }
-
     /// The last applied revision.
     pub(crate) fn applied(&self) -> Revision {
         self.events.applied()

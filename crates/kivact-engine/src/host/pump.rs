@@ -272,16 +272,11 @@ impl Host {
                 } else {
                     // Every queued event, with the commit boundaries among
                     // them: all of their revisions are laid out now.
-                    let mut events = Vec::new();
-                    let mut boundaries = Vec::new();
-                    while let Some((mut before, revision)) = model.events.take_commit() {
-                        events.append(&mut before);
-                        boundaries.push(Boundary {
-                            events: events.len(),
-                            revision,
-                        });
-                    }
-                    events.append(&mut model.take_events());
+                    let (events, boundaries) = model.events.drain();
+                    let boundaries = boundaries
+                        .into_iter()
+                        .map(|(events, revision)| Boundary { events, revision })
+                        .collect::<Vec<_>>();
                     Some((events, boundaries))
                 }
             };
