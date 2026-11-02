@@ -48,7 +48,8 @@ impl Drop for XkbState {
 /// A compiled keymap and its state; `state` drops before `keymap` (field order).
 struct Map {
     state: XkbState,
-    keymap: XkbKeymap,
+    /// Held only for its drop, which must follow the state's.
+    _keymap: XkbKeymap,
 }
 
 pub(super) struct Keyboard {
@@ -268,7 +269,10 @@ fn compile(
     let state = NonNull::new(state)
         .map(|raw| XkbState { api, raw })
         .ok_or_else(|| super::error::platform("XKB state creation failed"))?;
-    Ok(Map { state, keymap })
+    Ok(Map {
+        state,
+        _keymap: keymap,
+    })
 }
 
 /// Asks the server to report keymap replacement for the core keyboard.
