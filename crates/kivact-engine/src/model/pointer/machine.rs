@@ -1,12 +1,21 @@
 //! Role: The pointer state machine: chains, press, release, move, cancel and wheel.
 
 use super::space::PointerSpace;
-use super::state::{PointerSource, Track};
+use super::state::{Gesture, PointerSource, Press, Route, Track};
 use crate::model::Model;
 use kivact_wire::{
     A11yAction, FocusTarget, HostEvent, Modifiers, MouseButton, NodeId, Point, PointerButtons,
     PointerEvent, PointerId, PointerPhase, RegionId,
 };
+
+/// Which of a pointer's two chains a change is about.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Chain {
+    /// The hit node and its ancestors.
+    Hover,
+    /// The hover chain at a primary press, until the release.
+    Pressed,
+}
 
 impl Model {
     #[expect(clippy::too_many_arguments, reason = "one pointer event's fields")]
@@ -18,10 +27,10 @@ impl Model {
         button: Option<MouseButton>,
         modifiers: Modifiers,
         click_count: u8,
-        space: &PointerSpace<'_>,
+        at: Point,
     ) {
-        let pos = space.local(self, node);
-        let region = space.region(self, node, pos);
+        let pos = self.to_local(node, at);
+        let region = self.node(node).and_then(|n| n.region_at(pos));
         let source = self.pointer.state.track(pointer).source;
         self.push(HostEvent::Pointer {
             node,
@@ -30,7 +39,7 @@ impl Model {
                 id: source.id,
                 phase,
                 pos,
-                window_pos: space.window(),
+                window_pos: at,
                 button: if matches!(phase, PointerPhase::Down | PointerPhase::Up) {
                     button
                 } else {
@@ -64,26 +73,35 @@ impl Model {
     }
 
     /// Swap `pointer`'s pressed or hover chain with `chain`.
-    fn swap_chain(&mut self, pointer: PointerId, pressed: bool, chain: &mut Vec<NodeId>) {
+    fn swap_chain(&mut self, pointer: PointerId, which: Chain, chain: &mut Vec<NodeId>) {
         let track = self.pointer.state.track_mut(pointer);
-        let own = if pressed {
-            &mut track.pressed
-        } else {
-            &mut track.hover
+        let own = match which {
+            Chain::Hover => &mut track.hover,
+            Chain::Pressed => match &mut track.gesture {
+                Gesture::Route(Route {
+                    press: Some(press), ..
+                }) => &mut press.chain,
+                _ => {
+                    assert!(
+                        chain.is_empty(),
+                        "invariant: a pressed chain is set only during a press"
+                    );
+                    return;
+                }
+            },
         };
         std::mem::swap(own, chain);
     }
 
     /// Replace `pointer`'s pressed or hover chain, repainting the nodes
     /// whose shown hover or pressed state flips.
-    pub(super) fn set_chain(&mut self, pointer: PointerId, pressed: bool, mut chain: Vec<NodeId>) {
+    fn set_chain(&mut self, pointer: PointerId, which: Chain, mut chain: Vec<NodeId>) {
         let track = self.pointer.state.track(pointer);
-        let old = if pressed {
-            &track.pressed
-        } else {
-            &track.hover
+        let old = match which {
+            Chain::Hover => track.hover.as_slice(),
+            Chain::Pressed => track.pressed(),
         };
-        if *old == chain {
+        if old == chain.as_slice() {
             return;
         }
         let touched: Vec<NodeId> = old
@@ -93,7 +111,7 @@ impl Model {
             .copied()
             .collect();
         // The hover of a group restyles the nodes below it.
-        let dependents = if pressed {
+        let dependents = if which == Chain::Pressed {
             Vec::new()
         } else {
             self.group_dependents(&touched, |s| s.group_hover.is_some())
@@ -101,7 +119,7 @@ impl Model {
         let shown = |model: &Model, id: NodeId| (model.is_hovered(id), model.is_pressed(id));
         let before: Vec<_> = touched.iter().map(|id| shown(self, *id)).collect();
         let head = self.hovered();
-        self.swap_chain(pointer, pressed, &mut chain);
+        self.swap_chain(pointer, which, &mut chain);
         // (node, whether its hover flipped, whether its shown pressed state flipped)
         let flipped: Vec<(NodeId, bool, bool)> = touched
             .iter()
@@ -114,7 +132,7 @@ impl Model {
             .collect();
         if !flipped.is_empty() || !dependents.is_empty() {
             // The motion starts from what is shown before the change.
-            self.swap_chain(pointer, pressed, &mut chain);
+            self.swap_chain(pointer, which, &mut chain);
             for id in flipped
                 .iter()
                 .map(|(id, ..)| *id)
@@ -122,7 +140,7 @@ impl Model {
             {
                 self.prepare_state_motion(id);
             }
-            self.swap_chain(pointer, pressed, &mut chain);
+            self.swap_chain(pointer, which, &mut chain);
         }
         for id in dependents {
             self.restyled(id);
@@ -157,7 +175,7 @@ impl Model {
     /// entered (the mouse left the window with a button held, the hit was
     /// removed).
     pub(crate) fn clear_hover(&mut self, pointer: PointerId) {
-        self.set_chain(pointer, false, Vec::new());
+        self.set_chain(pointer, Chain::Hover, Vec::new());
     }
 
     /// At a commit: a hit that got hidden (by itself or an ancestor) or
@@ -199,16 +217,32 @@ impl Model {
     ) {
         if self.pointer.state.track(pointer).source.primary {
             let chain = self.tree.chain(hit);
-            self.set_chain(pointer, false, chain);
+            self.set_chain(pointer, Chain::Hover, chain);
         }
         let over = hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer()));
         let old = std::mem::replace(&mut self.pointer.state.track_mut(pointer).over, over);
         if over != old {
             if let Some(o) = old.filter(|o| self.tree.contains(*o)) {
-                self.send_pointer(pointer, o, PointerPhase::Leave, None, modifiers, 0, space);
+                self.send_pointer(
+                    pointer,
+                    o,
+                    PointerPhase::Leave,
+                    None,
+                    modifiers,
+                    0,
+                    space.window(),
+                );
             }
             if let Some(n) = over {
-                self.send_pointer(pointer, n, PointerPhase::Enter, None, modifiers, 0, space);
+                self.send_pointer(
+                    pointer,
+                    n,
+                    PointerPhase::Enter,
+                    None,
+                    modifiers,
+                    0,
+                    space.window(),
+                );
             }
         }
     }
@@ -241,14 +275,14 @@ impl Model {
     ) {
         let hit = self.scoped(hit);
         self.track_hover(pointer, hit, modifiers, space);
-        let capture = self.pointer.state.track(pointer).capture;
+        let capture = self.pointer.state.track(pointer).capture();
         if self.pointer.state.track(pointer).source.primary {
             self.primary_press(pointer, hit, button, modifiers, capture, space);
         }
         let target =
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
         if let Some(t) = target.filter(|t| self.tree.get(*t).is_some_and(|n| !n.disabled())) {
-            self.pointer.state.track_mut(pointer).capture = Some(t);
+            self.pointer.state.track_mut(pointer).route_mut().capture = Some(t);
             self.send_pointer(
                 pointer,
                 t,
@@ -256,7 +290,7 @@ impl Model {
                 Some(button),
                 modifiers,
                 click_count,
-                space,
+                space.window(),
             );
         }
     }
@@ -326,8 +360,22 @@ impl Model {
         }
         if primary {
             let chain = self.pointer.state.track(pointer).hover.clone();
-            self.set_chain(pointer, true, chain);
-            self.pointer.state.track_mut(pointer).press_target = press;
+            let route = self.pointer.state.track_mut(pointer).route_mut();
+            if route.press.is_none() {
+                route.press = Some(Press {
+                    chain: Vec::new(),
+                    target: None,
+                });
+            }
+            self.set_chain(pointer, Chain::Pressed, chain);
+            self.pointer
+                .state
+                .track_mut(pointer)
+                .route_mut()
+                .press
+                .as_mut()
+                .expect("invariant: the press was just made")
+                .target = press;
         }
         let input = native_focus
             .filter(|f| f.region.is_none())
@@ -348,32 +396,36 @@ impl Model {
     }
 
     /// A button of `pointer` released over `hit` (`None`: nothing, or
-    /// outside the window). `remaining` represents any buttons still held
-    /// by this pointer. Each Up reaches the original listener; the final one
-    /// releases the capture.
+    /// outside the window). Each Up reaches the original listener; the one
+    /// that leaves no button held releases the capture.
     #[expect(clippy::too_many_arguments, reason = "one release's fields")]
     pub(crate) fn pointer_up(
         &mut self,
         pointer: PointerId,
         hit: Option<NodeId>,
         button: MouseButton,
-        remaining: Option<MouseButton>,
         modifiers: Modifiers,
         click_count: u8,
         space: &PointerSpace<'_>,
     ) {
         let hit = self.scoped(hit);
         let hit_chain = self.tree.chain(hit);
-        let capture = self.pointer.state.track(pointer).capture;
-        if remaining.is_none() {
-            self.pointer.state.track_mut(pointer).capture = None;
-        }
+        let capture = self.pointer.state.track(pointer).capture();
+        let released = self.pointer.state.track(pointer).source.buttons.is_empty();
         let press = if button == MouseButton::Primary {
-            self.set_chain(pointer, true, Vec::new());
-            self.pointer.state.track_mut(pointer).press_target.take()
+            self.set_chain(pointer, Chain::Pressed, Vec::new());
+            match &mut self.pointer.state.track_mut(pointer).gesture {
+                Gesture::Route(route) => route.press.take().and_then(|press| press.target),
+                _ => None,
+            }
         } else {
             None
         };
+        if released
+            && let Gesture::Route(route) = &mut self.pointer.state.track_mut(pointer).gesture
+        {
+            route.capture = None;
+        }
         if let Some(t) = capture {
             self.send_pointer(
                 pointer,
@@ -382,7 +434,7 @@ impl Model {
                 Some(button),
                 modifiers,
                 click_count,
-                space,
+                space.window(),
             );
         }
         if let Some(a) = press.filter(|a| hit_chain.contains(&a.node))
@@ -412,26 +464,37 @@ impl Model {
             })
     }
 
-    /// `pointer` moved over `hit` with `pressed` held (`None`: no button).
+    /// `pointer` moved over `hit`, with the buttons its source holds.
     pub(crate) fn pointer_move(
         &mut self,
         pointer: PointerId,
         hit: Option<NodeId>,
-        pressed: Option<MouseButton>,
         modifiers: Modifiers,
         space: &PointerSpace<'_>,
     ) {
+        let held = self.pointer.state.track(pointer).source.buttons;
         // No button held while a capture is active: the release happened
         // where the host could not see it. End the drag with `Cancel`.
-        if pressed.is_none() && self.pointer.state.track(pointer).capture.is_some() {
-            self.cancel_pointer_input(pointer, space);
+        if held.is_empty() && self.pointer.state.track(pointer).capture().is_some() {
+            self.cancel_pointer_input(pointer);
         }
         let hit = self.scoped(hit);
         let before = self.pointer.state.track(pointer).over;
         self.track_hover(pointer, hit, modifiers, space);
         let track = self.pointer.state.track(pointer);
-        if let Some(t) = track.capture.or(track.over.filter(|o| before == Some(*o))) {
-            self.send_pointer(pointer, t, PointerPhase::Move, pressed, modifiers, 0, space);
+        if let Some(t) = track
+            .capture()
+            .or(track.over.filter(|o| before == Some(*o)))
+        {
+            self.send_pointer(
+                pointer,
+                t,
+                PointerPhase::Move,
+                None,
+                modifiers,
+                0,
+                space.window(),
+            );
         }
         // A primary drag that started in the focused text input selects.
         let selecting = self
@@ -439,14 +502,14 @@ impl Model {
             .filter(|f| f.region.is_none())
             .map(|f| f.node)
             .filter(|f| {
-                pressed == Some(MouseButton::Primary)
+                held.contains(MouseButton::Primary)
                     && self.tree.get(*f).is_some_and(|n| {
                         self.editors[n.index.0]
                             .as_deref()
                             .map(|editor| editor.editor.state())
                             .is_some()
                     })
-                    && self.pointer.state.track(pointer).pressed.contains(f)
+                    && self.pointer.state.track(pointer).pressed().contains(f)
             });
         if let Some(i) = selecting
             && let Some(at) = space.text_offset(self, i)
@@ -457,17 +520,19 @@ impl Model {
 
     /// `pointer`'s capture is lost (the window was deactivated while
     /// pressed, the platform canceled the contact): `Cancel` to its
-    /// capturing listener, and its press activates nothing.
-    pub(crate) fn cancel_pointer_input(&mut self, pointer: PointerId, space: &PointerSpace<'_>) {
+    /// capturing listener, and its press activates nothing. It needs no
+    /// text engine, so it is delivered at once.
+    pub(crate) fn cancel_pointer_input(&mut self, pointer: PointerId) {
         // The `Cancel` and the `Leave` after it hold no button; the
         // pointer's next event reports what is held again.
         self.pointer.state.track_mut(pointer).source.buttons = PointerButtons::NONE;
-        self.pointer.state.track_mut(pointer).touch_scroll = None;
-        self.pointer.state.track_mut(pointer).touch_cancel_pending = false;
-        self.set_chain(pointer, true, Vec::new());
+        self.set_chain(pointer, Chain::Pressed, Vec::new());
         let track = self.pointer.state.track_mut(pointer);
-        track.press_target = None;
-        if let Some(t) = track.capture.take() {
+        let at = track.at;
+        if let Gesture::Route(Route {
+            capture: Some(t), ..
+        }) = std::mem::take(&mut track.gesture)
+        {
             self.send_pointer(
                 pointer,
                 t,
@@ -475,7 +540,7 @@ impl Model {
                 None,
                 Modifiers::default(),
                 0,
-                space,
+                at,
             );
         }
     }
@@ -483,21 +548,20 @@ impl Model {
     /// Disabling a capturing listener ends the drags it captured (each
     /// where its pointer last was), including component cleanup, before a
     /// later re-enable can resume the old gesture.
-    pub(crate) fn cancel_disabled_capture(&mut self, engine: &mut arvane::Engine) {
-        let disabled: Vec<(PointerId, Point)> = self
+    pub(crate) fn cancel_disabled_capture(&mut self) {
+        let disabled: Vec<PointerId> = self
             .pointer
             .state
             .tracks
             .values()
             .filter(|t| {
-                t.capture
+                t.capture()
                     .is_some_and(|id| self.tree.get(id).is_some_and(|node| node.disabled()))
             })
-            .map(|t| (t.source.id, t.at))
+            .map(|t| t.source.id)
             .collect();
-        for (pointer, at) in disabled {
-            let space = PointerSpace::new(at, engine);
-            self.cancel_pointer_input(pointer, &space);
+        for pointer in disabled {
+            self.cancel_pointer_input(pointer);
         }
     }
 

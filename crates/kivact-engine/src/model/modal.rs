@@ -26,7 +26,8 @@
 //!   starts something (a `Down`, an `Enter`, a `Move` with no button held)
 //!   needs scope; the later `Move`, `Up` and `Cancel` of a gesture
 //!   admitted at its `Down` stay admitted on that node whatever modal
-//!   opens meanwhile, and the final release or the `Cancel` ends it. A
+//!   opens meanwhile, and the `Up` that leaves no button held or the
+//!   `Cancel` ends it. A
 //!   rejected event for another node does not end an admitted drag, and
 //!   `Leave` is always admitted. Events not aimed at a node pass. The
 //!   drag table lives in [`state::Admission`] and is borrowed inside one

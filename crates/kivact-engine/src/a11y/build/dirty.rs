@@ -30,7 +30,11 @@ impl Model {
 
     /// Build the payloads `dirt` asks for, with the identity metadata the
     /// build used (`None`: a local text build reused the accepted one).
-    pub(in crate::a11y) fn build_semantics_for(&mut self, engine: &mut a::Engine, dirt: &Dirt) -> Built {
+    pub(in crate::a11y) fn build_semantics_for(
+        &mut self,
+        engine: &mut a::Engine,
+        dirt: &Dirt,
+    ) -> Built {
         let full = *dirt == Dirt::Full;
         let Some(root) = self.tree().root() else {
             let id = match self.a11y.empty_root {

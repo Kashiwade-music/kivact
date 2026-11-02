@@ -1,8 +1,9 @@
 //! Role: Pointer state machine: hover, press, capture, click, drag and wheel routing.
 //!
 //! The pointer state machine: one track per pointer (the mouse, each touch
-//! or pen contact) with its hover and pressed chains, `Enter`/`Leave` of the
-//! nearest pointer listener and pointer capture; press → focus, click →
+//! or pen contact) with its hover chain, `Enter`/`Leave` of the nearest
+//! pointer listener and its gesture (pointer capture and pressed chain,
+//! a scrollbar drag or a touch pan, one at a time); press → focus, click →
 //! `Activate`, drag selection in a text input, and wheel routing. The
 //! caller hit-tests ([`Model::hit`]) and gives the pointer's window
 //! position ([`PointerSpace`]).
@@ -11,9 +12,12 @@
 //! - A hit outside the scope of a shown modal hits nothing (the backdrop).
 //! - Every pointer has a track of its own (`PointerState::tracks`): the
 //!   mouse always, a touch or pen contact from its `Down` to its `Up` or
-//!   `Cancel`. Its capture, `Enter`/`Leave` listener, hover and pressed
-//!   chains and press target are its own; its events carry its id, kind,
-//!   pressure and whether it is primary; no pointer waits for another.
+//!   `Cancel`. Its gesture (`Gesture::Route` with its capture, pressed
+//!   chain and press target, `Gesture::Scrollbar` or `Gesture::Pan`),
+//!   `Enter`/`Leave` listener and hover chain are its own; its events carry
+//!   its id, kind, pressure and whether it is primary; no pointer waits for
+//!   another. The buttons it holds are the shell's (`PointerInput::buttons`),
+//!   kept once in its track's source.
 //! - The primary pointers (Pointer Events' `isPrimary`: the mouse; the
 //!   first touch and the first pen contact while no other of its kind is in
 //!   contact) also make what is synthesized from the pointer: the hover and

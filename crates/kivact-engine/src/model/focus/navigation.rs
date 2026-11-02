@@ -1,7 +1,7 @@
 //! Role: Focus processing: tab stops, Tab order, focus requests and automatic moves.
 
-use crate::model::Model;
 use super::state::Focused;
+use crate::model::Model;
 use kivact_wire::{FocusTarget, HostEvent, NodeId};
 
 impl Model {
@@ -186,11 +186,7 @@ impl Model {
         {
             self.commit_composition(old.node);
         }
-        for n in [old_target, target]
-            .into_iter()
-            .flatten()
-            .map(|t| t.node)
-        {
+        for n in [old_target, target].into_iter().flatten().map(|t| t.node) {
             self.prepare_state_motion(n);
             self.repaint(n);
             if self.tree.get(n).and_then(|x| x.states()).is_some_and(|s| {

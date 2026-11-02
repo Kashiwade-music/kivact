@@ -49,7 +49,8 @@ impl Model {
         let edit = match &mut self.editors[node.index.0] {
             Some(edit) => {
                 if edit.editor.state().value() != &*value {
-                    edit.pending_controlled = (!edit.editor.set_controlled(&value)).then_some(value);
+                    edit.pending_controlled =
+                        (!edit.editor.set_controlled(&value)).then_some(value);
                 }
                 return None;
             }

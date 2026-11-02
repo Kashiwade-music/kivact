@@ -42,13 +42,12 @@ use crate::tree::node::layer_index;
 impl Model {
     /// End the writes of one revision (the one after the last applied):
     /// check the focus once and record its private post-layout boundary.
-    pub(crate) fn commit_revision(&mut self, engine: &mut arvane::Engine) -> Revision {
+    pub(crate) fn commit_revision(&mut self) -> Revision {
         self.tree.pack_child_orders();
         self.start_entrances();
         self.revalidate_focus();
         self.confine_focus();
         self.revalidate_hover();
-        self.flush_touch_cancellations(engine);
         self.reveal_moved_focus();
         let revision = Revision(self.applied().0 + 1);
         self.events.commit(revision);
@@ -290,8 +289,7 @@ impl Model {
                 if (place.sticky, place.fixed) != was {
                     // Its parent draws it differently (in flow, stuck, or as a
                     // layer of its own).
-                    self.changes
-                        .regroup(parent);
+                    self.changes.regroup(parent);
                 }
             }
             if !place.sticky
@@ -393,8 +391,7 @@ impl Model {
                 self.changes.mark(child, Dirty::REDRAW);
             }
         }
-        self.changes
-            .regroup(parent);
+        self.changes.regroup(parent);
         self.changes.needs_layout = true;
     }
 

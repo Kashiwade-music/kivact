@@ -308,7 +308,7 @@ impl Writer {
     pub fn commit(&self) -> Revision {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
-        let revision = m.commit_revision(&mut self.engine.borrow_mut());
+        let revision = m.commit_revision();
         m.writes.commit(revision);
         m.sync();
         revision
