@@ -44,9 +44,6 @@ pub(crate) struct HostNode {
 pub(crate) enum Presence {
     #[default]
     Mounted,
-    /// Shows its enter paint while its starting value is captured, at the
-    /// first commit that finds it attached.
-    Entering,
     /// Removed by kivact and kept, with its subtree, until its exit paint
     /// is reached: drawn, but neither hit, focused nor exposed.
     Leaving,
