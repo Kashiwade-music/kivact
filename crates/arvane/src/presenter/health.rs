@@ -1,4 +1,4 @@
-//! Role: What a window's surface did with the last frames that reached it, for the frame policy.
+//! Role: What a window's surface did with the frames that reached it.
 
 use std::num::{NonZeroU8, NonZeroU32};
 

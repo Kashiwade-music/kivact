@@ -545,7 +545,7 @@ impl Drop for Shared {
     fn drop(&mut self) {
         // The objects must outlive the GPU's use of them: when the queue
         // does not finish, they and the textures stay for the process.
-        if !self.idle(super::pool::IDLE) {
+        if !self.idle(super::idle::IDLE) {
             for texture in &self.textures {
                 std::mem::forget(texture.clone());
             }

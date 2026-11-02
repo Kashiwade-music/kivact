@@ -1,4 +1,4 @@
-//! Role: Everything a text engine computes from its fonts: snapshots, layouts and font queries.
+//! Role: Everything a text engine computes from its fonts, replaced as a whole.
 //! Snapshot keys preserve text, style, width and caret distinctions.
 
 use crate::layouts;

@@ -33,7 +33,6 @@
 //!   (`with_external`), whether the frame was submitted, skipped or
 //!   failed; frames do not nest.
 
-use super::state::GpuContext;
 use crate::error::RenderError;
 use kivact_types::ExternalFrame;
 use kivact_types::protocol::Scene;
@@ -141,9 +140,9 @@ impl External {
     }
 
     /// Make the frames `scene` names ready to draw (steps 1 and 2 of the
-    /// module documentation).
+    /// module documentation). Only [`GpuContext::with_external`] calls it.
     #[cfg(feature = "gpu-interop")]
-    fn begin(&mut self, scene: &Scene) -> Result<(), RenderError> {
+    pub(super) fn begin(&mut self, scene: &Scene) -> Result<(), RenderError> {
         assert!(
             self.frame.is_none(),
             "invariant: frames of a context do not nest"
@@ -215,9 +214,10 @@ impl External {
     }
 
     /// Give the textures of the frame back and signal what it drew
-    /// (step 3 of the module documentation).
+    /// (step 3 of the module documentation). Only
+    /// [`GpuContext::with_external`] calls it.
     #[cfg(feature = "gpu-interop")]
-    fn end(&mut self) -> Result<(), RenderError> {
+    pub(super) fn end(&mut self) -> Result<(), RenderError> {
         let Some(open) = self.frame.take() else {
             return Ok(());
         };
@@ -340,33 +340,12 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    fn begin(&mut self, _: &Scene) -> Result<(), RenderError> {
+    pub(super) fn begin(&mut self, _: &Scene) -> Result<(), RenderError> {
         Ok(())
     }
 
     /// No imports: nothing to give back.
-    fn end(&mut self) -> Result<(), RenderError> {
+    pub(super) fn end(&mut self) -> Result<(), RenderError> {
         Ok(())
-    }
-}
-
-impl GpuContext {
-    /// Draw one frame (`draw`) between the external frames' hand-offs: the
-    /// frames `scene` names are made ready first, and every texture
-    /// acquired is given back after, whatever `draw` returned (steps 1-3
-    /// of the module documentation).
-    pub(crate) fn with_external<R>(
-        &mut self,
-        scene: &Scene,
-        draw: impl FnOnce(&mut Self) -> Result<R, RenderError>,
-    ) -> Result<R, RenderError> {
-        let drawn = match self.external.begin(scene) {
-            Ok(()) => draw(self),
-            Err(error) => Err(error),
-        };
-        let ended = self.external.end();
-        let drawn = drawn?;
-        ended?;
-        Ok(drawn)
     }
 }

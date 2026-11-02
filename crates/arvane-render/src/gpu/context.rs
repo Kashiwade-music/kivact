@@ -269,3 +269,24 @@ fn record(failure: &Mutex<Option<String>>, message: String) {
         .expect("GPU failure lock poisoned: a panic already happened")
         .get_or_insert(message);
 }
+
+impl GpuContext {
+    /// Draw one frame (`draw`) between the external frames' hand-offs: the
+    /// frames `scene` names are made ready first, and every texture
+    /// acquired is given back after, whatever `draw` returned (steps 1-3
+    /// of the module documentation).
+    pub(super) fn with_external<R>(
+        &mut self,
+        scene: &Scene,
+        draw: impl FnOnce(&mut Self) -> Result<R, RenderError>,
+    ) -> Result<R, RenderError> {
+        let drawn = match self.external.begin(scene) {
+            Ok(()) => draw(self),
+            Err(error) => Err(error),
+        };
+        let ended = self.external.end();
+        let drawn = drawn?;
+        ended?;
+        Ok(drawn)
+    }
+}

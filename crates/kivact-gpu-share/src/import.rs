@@ -51,6 +51,7 @@
 mod device;
 #[cfg(windows)]
 mod dx12;
+mod idle;
 mod pool;
 #[cfg(any(windows, target_os = "linux"))]
 mod vulkan;

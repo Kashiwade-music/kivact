@@ -1,12 +1,9 @@
 //! Role: Import: an engine's shared texture pool and its fences, opened on wgpu.
 
+use super::idle::IDLE;
 use crate::common::Error;
 use kivact_types::{SharedTextureFormat, SharedTextures};
 use std::time::Duration;
-
-/// The longest the queue is waited for when an import is prepared or
-/// dropped.
-pub(super) const IDLE: Duration = Duration::from_secs(5);
 
 /// The backend half of an import: its fences and the raw work around
 /// wgpu's submissions.
