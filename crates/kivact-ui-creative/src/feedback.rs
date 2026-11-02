@@ -542,7 +542,8 @@ fn window_layer<V: IntoView>(
                     ) - base.x,
                     proposed.y.clamp(0.0, (viewport.height - 30.0).max(0.0)) - base.y,
                 ));
-            });
+            })
+            .on_end(move |_| grabbed.set(None));
         let (minimize_label, close_label) = (
             message("creative.window.minimize", "Minimize window"),
             message("creative.window.close", "Close window"),

@@ -252,10 +252,8 @@ impl IntoView for Outliner {
         {
             let mounted = mounted.clone();
             let pressed = pressed.clone();
-            let first = Cell::new(true);
-            kivact::effect(move || {
-                let target = active.get();
-                if first.replace(false) || !reveal_active.get_untracked() {
+            kivact::effect_on(active, move |&target| {
+                if !reveal_active.get_untracked() {
                     return;
                 }
                 pending.set(None);
@@ -289,8 +287,7 @@ impl IntoView for Outliner {
                 }
             });
         }
-        let painting = signal(None::<super::controls::Paint>);
-        let session = crate::editors::shared::model::observed(
+        let painter = super::controls::Painter::new(crate::editors::shared::model::observed(
             EditSession::new(|()| {}),
             on_restriction.map(|observer| {
                 callback(move |phase| {
@@ -301,7 +298,7 @@ impl IntoView for Outliner {
                     });
                 })
             }),
-        );
+        ));
         let levels = memo(move || {
             tree.rows().with(|rows| {
                 rows.iter()
@@ -408,7 +405,7 @@ impl IntoView for Outliner {
                     );
                     let context = super::controls::Context {
                         expanded,
-                        session,
+                        painter,
                         selected,
                         on_restriction,
                         data,
@@ -486,11 +483,11 @@ impl IntoView for Outliner {
                         label,
                         edit,
                         cells,
-                        super::controls::restriction(item, context.clone(), 1, painting)
+                        super::controls::restriction(item, context.clone(), 1)
                             .hidden(move || !restrictions.get()),
-                        super::controls::restriction(item, context.clone(), 0, painting)
+                        super::controls::restriction(item, context.clone(), 0)
                             .hidden(move || !restrictions.get()),
-                        super::controls::restriction(item, context, 2, painting)
+                        super::controls::restriction(item, context, 2)
                             .hidden(move || !restrictions.get()),
                         active_marker,
                         line(Placement::Before),
@@ -533,7 +530,7 @@ impl IntoView for Outliner {
                     });
                     let context_for_key = super::controls::Context {
                         expanded,
-                        session,
+                        painter,
                         selected,
                         on_restriction,
                         data,
@@ -634,8 +631,7 @@ impl IntoView for Outliner {
         root.part(tree.list())
             .child(rows)
             .on_key(move |event| {
-                if event.key == Key::Escape && session.cancel() {
-                    painting.set(None);
+                if event.key == Key::Escape && painter.cancel() {
                     Handled::Yes
                 } else {
                     Handled::No
