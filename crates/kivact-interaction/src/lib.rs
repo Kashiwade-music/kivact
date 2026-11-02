@@ -30,8 +30,10 @@
 
 #![forbid(unsafe_code)]
 
+mod axis;
 mod calendar;
 mod combobox;
+mod delayed;
 mod dialog;
 mod disclosure;
 mod drag;
@@ -43,11 +45,13 @@ mod menubar;
 mod palette;
 mod policy;
 mod popup;
+mod press;
 mod range_scalar;
 mod roving;
 mod scalar;
 mod sealed;
 mod select;
+mod space_pan;
 mod splitter;
 mod table;
 mod tabs;
@@ -64,6 +68,7 @@ pub use calendar::{
     use_calendar_grid,
 };
 pub use combobox::{Combobox, use_combobox};
+pub use delayed::{Delayed, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogKind, Dismiss, Side, use_dialog};
 pub use disclosure::{Disclosure, DisclosureState, use_disclosure};
 pub use drag::{Drag, DragCoordinates, DragPhase, DragStart, DragState, DragUpdate, use_drag};
@@ -82,6 +87,7 @@ pub use popup::{Popup, PopupState, use_popup};
 pub use range_scalar::{RangeScalar, RangeThumb, use_range_scalar};
 pub use scalar::{IntoScalarRange, Scalar, ScalarState, use_scalar};
 pub use select::{SelectApi, use_select};
+pub use space_pan::{SpacePan, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use table::{
     ColumnDef, Table, TableCellState, TableFocus, TableHeaderState, TableModel, TableRowState,
