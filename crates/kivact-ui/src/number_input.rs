@@ -8,10 +8,26 @@ use kivact_core::i18n::message;
 use kivact_core::primitive::{NodeExt, PartState};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::{IntoText, IntoValue, IntoView, View, node_ref};
-use kivact_core::{Binding, Value, binding, effect, signal};
+use kivact_core::{Binding, Value, binding, effect_on, memo, signal};
 use kivact_interaction::{EditPhase, ScalarRange, use_scalar};
-use std::cell::Cell;
-use std::rc::Rc;
+
+/// What a number field shows: the value formatted, or what the user typed
+/// while the field has the focus.
+#[derive(Clone, PartialEq)]
+enum NumberText {
+    Value(String),
+    /// `produced` is the stored value the last parsable text produced
+    /// (`None` until one parses).
+    Typed { text: String, produced: Option<f64> },
+}
+
+impl NumberText {
+    fn text(&self) -> &str {
+        match self {
+            NumberText::Value(text) | NumberText::Typed { text, .. } => text,
+        }
+    }
+}
 
 /// A number field with a decrease and an increase button, created by
 /// [`number_input`].
@@ -170,36 +186,40 @@ impl IntoView for NumberInput {
             number = number.on_edit(move |phase| on_edit.call(phase));
         }
         let shown = number.value();
-        let text = signal(format_value(shown.get_untracked(), range));
+        let typed = signal(NumberText::Value(format_value(
+            shown.get_untracked(),
+            range,
+        )));
         let input_ref = node_ref();
         let focused = input_ref.focused();
-        // The stored value that the last typed text produced.
-        let typed_value = Rc::new(Cell::new(None::<f64>));
         // A value that changes elsewhere replaces the text, unless the text
-        // already parses to it or the user's own typing just produced it
-        // while the field has the focus.
-        effect({
-            let typed_value = typed_value.clone();
-            move || {
-                let now = shown.get();
-                let typed = text.with_untracked(|typed| typed.trim().parse::<f64>().ok());
-                if typed != Some(now)
-                    && !(focused.get_untracked() && typed_value.get() == Some(now))
-                {
-                    text.set(format_value(now, range));
-                }
+        // already parses to it or the user's own typing just produced it.
+        effect_on(shown, move |&now| {
+            let keeps = typed.with_untracked(|shown_text| {
+                shown_text.text().trim().parse::<f64>().ok() == Some(now)
+                    || matches!(shown_text, NumberText::Typed { produced: Some(p), .. } if *p == now)
+            });
+            if !keeps {
+                typed.set(NumberText::Value(format_value(now, range)));
             }
         });
-        let edit = binding(text, {
-            let typed_value = typed_value.clone();
-            move |typed: String| {
-                text.set(typed.clone());
-                if let Ok(parsed) = typed.trim().parse::<f64>() {
+        let edit = binding(
+            memo(move || typed.with(|shown_text| shown_text.text().to_owned())),
+            move |text: String| {
+                let parsed = text.trim().parse::<f64>().ok();
+                if let Some(parsed) = parsed {
                     number.once(|| number.set(parsed));
-                    typed_value.set(Some(shown.get_untracked()));
                 }
-            }
-        });
+                let produced = match parsed {
+                    Some(_) => Some(shown.get_untracked()),
+                    None => typed.with_untracked(|previous| match previous {
+                        NumberText::Typed { produced, .. } => *produced,
+                        NumberText::Value(_) => None,
+                    }),
+                };
+                typed.set(NumberText::Typed { text, produced });
+            },
+        );
         let field = text_input(label, edit)
             .disabled(disabled)
             .invalid(invalid)
@@ -207,10 +227,12 @@ impl IntoView for NumberInput {
             .node_ref(input_ref)
             .part(number.input());
         // Leaving the field shows the written value again.
-        effect(move || {
-            if !focused.get() {
-                typed_value.set(None);
-                text.set(format_value(shown.get_untracked(), range));
+        effect_on(focused, move |&now| {
+            if !now {
+                typed.set(NumberText::Value(format_value(
+                    shown.get_untracked(),
+                    range,
+                )));
             }
         });
         let mut field = with_recipe_style(
