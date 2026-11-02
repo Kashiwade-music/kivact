@@ -1,7 +1,7 @@
 //! Role: Compare normal line queries using disposable retained and rebuilt copies.
 
 use crate::measure::input::RefreshedLines;
-use kivact_text::{EditLines, RefreshMode, Source};
+use kivact_text::{EditLines, Source};
 use kivact_types::Point;
 
 fn equal<T: PartialEq + std::fmt::Debug>(out: &mut Vec<String>, label: &str, a: T, b: T) {
@@ -17,20 +17,16 @@ pub(super) fn compare(
 ) -> Vec<String> {
     // Every query below mutates only disposable copies. No live IDs or caches.
     let mut retained = snapshot.lines.clone();
-    let mut rebuilt = EditLines::default();
-    rebuilt
-        .refresh(
-            Source {
-                damage: None,
-                ..snapshot.source
-            },
-            snapshot
-                .style
-                .expect("invariant: Verify captures one reference style"),
-            engine,
-            RefreshMode::Incremental,
-        )
-        .expect("invariant: incremental reference refresh performs no integrity verification");
+    let mut rebuilt = EditLines::new(
+        Source {
+            damage: None,
+            ..snapshot.source
+        },
+        snapshot
+            .style
+            .expect("invariant: Verify captures one reference style"),
+        engine,
+    );
     let text = retained.shown(snapshot.source.value, snapshot.source.placeholder);
     let mut errors = Vec::new();
     equal(

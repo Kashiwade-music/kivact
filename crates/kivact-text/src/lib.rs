@@ -1,7 +1,8 @@
 //! Role: A text input's lines, shaped as they are needed and kept in step with its edits.
 //!
-//! Refresh before geometry queries and keep the displayed source consistent
-//! with that refresh. Ordinary reconciliation is incremental. Explicit
+//! Lines start from a first source ([`EditLines::new`]); refresh them with
+//! every later source before geometry queries, and keep the displayed source
+//! consistent with that refresh. Ordinary reconciliation is incremental. Explicit
 //! [`RefreshMode::Verify`] checkpoints add a complete metadata scan only in
 //! debug builds; release compiles that assurance and its allocations out.
 //! No query owns or mutates an editor document or its change history.

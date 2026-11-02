@@ -82,7 +82,7 @@ impl EditLines {
     }
 
     fn rebuild_with_metrics(&mut self, text: &str, engine: &mut arvane::Engine) {
-        let style = &self.key().style;
+        let style = &self.key.style;
         let height = crate::line_height(engine, style);
         let blank = engine
             .shape(" ", style, None)
@@ -94,29 +94,14 @@ impl EditLines {
     fn reconcile(
         &mut self,
         source: Source<'_>,
-        mut style: kivact_types::protocol::TextStyle,
+        style: kivact_types::protocol::TextStyle,
         engine: &mut arvane::Engine,
     ) {
-        let shown = if source.value.is_empty() {
-            Shown::Placeholder(source.placeholder.to_owned())
-        } else if source.password {
-            Shown::Masked
-        } else {
-            Shown::Value
-        };
-        // Shaped start aligned and without a color: aligning and coloring
-        // (a hover, a focus style) never shape again.
-        self.align = style.align;
-        style.align = kivact_types::TextAlign::Start;
-        style.color = kivact_types::protocol::TextStyle::default().color;
-        let key = Key {
-            style,
-            shown,
-            multiline: source.multiline,
-        };
+        let (key, align) = Key::of(&source, style);
+        self.align = align;
         let text = self.shown(source.value, source.placeholder);
-        if self.key.as_ref() != Some(&key) {
-            self.key = Some(key);
+        if self.key != key {
+            self.key = key;
             let text = self.shown(source.value, source.placeholder);
             self.rebuild_with_metrics(text, engine);
         } else if self.revision != source.revision && self.shows_value() {
@@ -133,8 +118,8 @@ impl EditLines {
     /// The text the lines are of: `value`, or `placeholder` while they
     /// show it.
     pub fn shown<'a>(&self, value: &'a str, placeholder: &'a str) -> &'a str {
-        match self.key.as_ref().map(|k| &k.shown) {
-            Some(Shown::Placeholder(_)) => placeholder,
+        match self.key.shown {
+            Shown::Placeholder(_) => placeholder,
             _ => value,
         }
     }

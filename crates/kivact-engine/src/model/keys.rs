@@ -189,18 +189,20 @@ impl Model {
         self.edit_editor_with(id, |journal, _| f(journal.state_mut()))
     }
 
-    /// [`Model::edit_input`] with `f` reading (and shaping) the input's
-    /// lines as they were last brought up to date.
+    /// Run `f` (a behavior's request) on the text input `id`, its lines
+    /// brought up to its text first and shaped as the behavior asks,
+    /// aligned in a box the given width wide.
     pub(crate) fn edit_input_with(
         &mut self,
         id: NodeId,
-        f: impl FnOnce(&mut EditState, &mut EditLines) -> bool,
+        engine: &mut arvane::Engine,
+        f: impl FnOnce(&mut EditState, &Shaping<'_>, f32) -> bool,
     ) -> Option<bool> {
+        let width = self.lay_out_lines(id, engine);
         self.edit_editor_with(id, |journal, lines| {
-            f(
-                journal.state_mut(),
-                lines.expect("invariant: an editor node has lines"),
-            )
+            let lines = lines.expect("invariant: lay_out_lines made the input's lines");
+            let lines = Shaping::new(lines, engine);
+            f(journal.state_mut(), &lines, width)
         })
     }
 
@@ -231,7 +233,7 @@ impl Model {
                 max.max(journal.state().value().chars().count())
             }
         });
-        let mut reported = f(&mut journal, Some(lines.get_mut()));
+        let mut reported = f(&mut journal, lines.get_mut().as_mut());
         // A change of the text must be reported: an unreported one (a
         // behavior that changed the text and said it did not) is taken back.
         if !reported && journal.text_changed() {
@@ -344,10 +346,8 @@ impl Model {
             let read_only = flags.1;
             let mut outcome = EditOutcome::NotEditing;
             if let Some(behavior) = behavior.filter(|_| !spin_boundary) {
-                let width = self.lay_out_lines(i, engine);
-                self.edit_input_with(i, |state, lines| {
-                    let lines = Shaping::new(lines, engine);
-                    let context = context(flags, &lines, width);
+                self.edit_input_with(i, engine, |state, lines, width| {
+                    let context = context(flags, lines, width);
                     let request = EditRequest::Key { key, modifiers };
                     outcome = behavior.invoke(state, request, &context);
                     matches!(
@@ -465,10 +465,8 @@ impl Model {
         let Some(behavior) = node.input_data().and_then(|data| data.behavior.clone()) else {
             return;
         };
-        let width = self.lay_out_lines(id, engine);
-        self.edit_input_with(id, |state, lines| {
-            let lines = Shaping::new(lines, engine);
-            let context = context(flags, &lines, width);
+        self.edit_input_with(id, engine, |state, lines, width| {
+            let context = context(flags, lines, width);
             matches!(
                 behavior.invoke(state, EditRequest::Paste(text), &context),
                 EditOutcome::Done { changed: true } | EditOutcome::Copy { changed: true, .. }

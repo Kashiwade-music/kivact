@@ -5,8 +5,9 @@ use std::cell::RefCell;
 pub(crate) struct EditorNode {
     /// Document and host-only journal/damage controls.
     pub(crate) editor: Editor,
-    /// Shaping cache, kept outside Editor to preserve the future crate DAG.
-    pub(crate) lines: RefCell<kivact_text::EditLines>,
+    /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
+    /// preserve the future crate DAG.
+    pub(crate) lines: RefCell<Option<kivact_text::EditLines>>,
     /// A controlled value waits in node properties while the IME composes.
     pub(crate) held: bool,
     /// Last session sent to the selection listener.

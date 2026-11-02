@@ -1,13 +1,14 @@
 //! Role: `EditLines`: the retained, lazily shaped lines of one text input.
 
 use crate::records::{Before, Chunk, Key};
+use crate::refresh::Source;
 use kivact_editing::LineColors;
 use std::ops::Range;
 
 /// The lines of a text input (see the module invariants).
 #[derive(Clone, Debug)]
 pub struct EditLines {
-    pub(crate) key: Option<Key>,
+    pub(crate) key: Key,
     pub(crate) align: kivact_types::TextAlign,
     pub(crate) revision: u64,
     pub(crate) height: f32,
@@ -25,30 +26,35 @@ pub struct EditLines {
     pub(crate) drawn: Range<usize>,
 }
 
-impl Default for EditLines {
-    /// No lines yet, with what comes before them all (nothing): `before`
-    /// always ends with the totals.
-    fn default() -> Self {
-        Self {
-            key: None,
-            align: kivact_types::TextAlign::default(),
-            revision: 0,
-            height: 0.0,
-            blank: 0.0,
+impl EditLines {
+    /// The lines of what `source` shows in `style`, every line split, none shaped (its
+    /// `damage` is not needed: nothing was laid out before).
+    pub fn new(
+        source: Source<'_>,
+        style: kivact_types::protocol::TextStyle,
+        engine: &mut arvane::Engine,
+    ) -> Self {
+        let (key, align) = Key::of(&source, style);
+        let height = crate::line_height(engine, &key.style);
+        let blank = engine
+            .shape(" ", &key.style, None)
+            .map_or(height, |s| s.baseline);
+        // `before` always ends with the totals, even with no line yet.
+        let mut lines = EditLines {
+            key,
+            align,
+            revision: source.revision,
+            height,
+            blank,
             chunks: Vec::new(),
             before: vec![Before::default()],
             width: 0.0,
             colors: None,
             colored: 0,
             drawn: 0..0,
-        }
-    }
-}
-
-impl EditLines {
-    pub(crate) fn key(&self) -> &Key {
-        self.key
-            .as_ref()
-            .expect("invariant: refreshed lines have a key")
+        };
+        let text = lines.shown(source.value, source.placeholder);
+        lines.rebuild(text, height, blank);
+        lines
     }
 }
