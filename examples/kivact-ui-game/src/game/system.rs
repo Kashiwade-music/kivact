@@ -2,7 +2,6 @@
 
 use super::common::{cards, line, list, specimen, suppress_search_shortcut, wide};
 use super::state::Demo;
-use kivact::{binding, memo};
 use kivact::control::{rich_text, span};
 use kivact::platform;
 use kivact::prelude::{
@@ -11,7 +10,7 @@ use kivact::prelude::{
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
 use kivact::ui::{MenuEntry, Toast, Tone, toaster};
-use kivact::view::IntoValue;
+use kivact::{binding, memo};
 use kivact_ui_game as g;
 use std::time::Duration;
 

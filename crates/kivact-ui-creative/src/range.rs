@@ -214,8 +214,12 @@ impl IntoView for Range {
         effect(move || {
             let now = bounded(value.get());
             match moved.get() {
-                Some(before) if before.0 != now.0 && before.1 == now.1 => active.set(RangePart::Start),
-                Some(before) if before.0 == now.0 && before.1 != now.1 => active.set(RangePart::End),
+                Some(before) if before.0 != now.0 && before.1 == now.1 => {
+                    active.set(RangePart::Start)
+                }
+                Some(before) if before.0 == now.0 && before.1 != now.1 => {
+                    active.set(RangePart::End)
+                }
                 _ => {}
             }
             moved.set(Some(now));

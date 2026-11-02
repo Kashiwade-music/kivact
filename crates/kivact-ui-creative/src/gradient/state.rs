@@ -72,7 +72,8 @@ impl State {
         if !self.enabled() || self.edit.is_active() {
             return;
         }
-        self.edit.once(GradientOwner::Step, || self.snapshot(), write);
+        self.edit
+            .once(GradientOwner::Step, || self.snapshot(), write);
     }
     pub(super) fn selected(self) -> Option<GradientStop> {
         let id = self.selection.into_value().get_untracked()?;

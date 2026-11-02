@@ -252,30 +252,48 @@ fn main() -> kivact::Result<()> {
 
 その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).draft(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
 
+その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`open(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
+
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::EditPhase;
+use kivact::ui::use_inline_edit;
 
-fn rename(title: Signal<String>) -> impl IntoView {
-    let text_draft = signal(title.get_untracked());
-    let editing = signal(true);
-    show(editing, move || {
-        text_input("タイトル", text_draft)
-            .draft(move |text| title.set(text))
-            .on_edit(move |phase| {
-                if phase != EditPhase::Begin {
-                    editing.set(false);
-                }
-            })
-    })
+fn names() -> impl IntoView {
+    let items = signal(vec![(1u32, "はじめに".to_owned()), (2, "おわりに".to_owned())]);
+    let rename = use_inline_edit(signal(None::<u32>));
+    column(for_each(
+        items,
+        |(id, _)| *id,
+        move |id, item| {
+            row((
+                text(move || item.get().1),
+                show(
+                    move || !rename.is_open(&id),
+                    move || button("名前を変更").on_press(move || rename.open(id)),
+                ),
+                show(
+                    move || rename.is_open(&id),
+                    move || {
+                        rename.field(id, "名前", signal(item.get_untracked().1), move |name| {
+                            items.update(|all| {
+                                if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
+                                    row.1 = name;
+                                }
+                            });
+                        })
+                    },
+                ),
+            ))
+        },
+    ))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("Rename").run(|| rename(signal("無題".to_owned())))
+    App::new("Rename").run(names)
 }
 ```
 
-`on_edit` は `Begin`、`Commit`、`Cancel` を報告するので、欄は自分で閉じられます。`invalid` の入力は確定されません。Enter は下書きのものになるため、`draft` は `on_submit` の代わりになります。
+欄は現れたときにフォーカスを取り、文字列を選択した状態になります。Enter か、変更したまま欄を離れると、文字列を渡して確定の関数が呼ばれます。Escape は編集を捨てます。どちらの場合も欄は閉じます。行が取り除かれたときも欄は閉じるので、名前変更が項目より長く残ることはありません。`invalid` の入力は確定されません。画面に残る欄には、`text_input(..).draft(on_commit)` だけを使います。Enter は下書きのものになるため `draft` は `on_submit` の代わりになり、`.on_edit(..)` は `Begin`、`Commit`、`Cancel` を報告します。
 
 ## 関連項目
 

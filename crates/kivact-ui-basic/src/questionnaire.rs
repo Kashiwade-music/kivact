@@ -439,12 +439,7 @@ impl IntoView for Questionnaire {
             },
         );
         let answered = memo(move || {
-            answers.with(|a| {
-                matches!(
-                    a.get(index.get()),
-                    Some(QuestionnaireAnswer::Answered(_))
-                )
-            })
+            answers.with(|a| matches!(a.get(index.get()), Some(QuestionnaireAnswer::Answered(_))))
         });
         let optional =
             memo(move || steps.with(|all| all.get(index.get()).is_some_and(|s| s.optional)));
@@ -456,9 +451,9 @@ impl IntoView for Questionnaire {
         let submitted = memo(move || phase.with(|p| matches!(p, Phase::Submitted { .. })));
         effect(move || {
             let (at, all) = (index.get(), answers.get());
-            let stale = phase.with_untracked(|p| {
-                matches!(p, Phase::Submitted { at: a, answers: l } if *a != at || *l != all)
-            });
+            let stale = phase.with_untracked(
+                |p| matches!(p, Phase::Submitted { at: a, answers: l } if *a != at || *l != all),
+            );
             if stale {
                 phase.set(Phase::Asking);
             }

@@ -15,8 +15,8 @@ use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column, node, row, text};
 use kivact_core::view::{IntoText, IntoValue, IntoView, Orientation, View, dynamic, for_each};
 use kivact_core::{Binding, Value};
-use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
 use kivact_interaction::TabState;
+use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
 use std::hash::Hash;
 use std::rc::Rc;
 

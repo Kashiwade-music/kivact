@@ -12,7 +12,10 @@ pub(super) fn popup(state: State) -> impl IntoView {
     let data = state.data();
     let visible = binding(
         (move || {
-            state.mode.with(|mode| matches!(mode, NodeMode::Popup { .. })) && !state.blocked.get()
+            state
+                .mode
+                .with(|mode| matches!(mode, NodeMode::Popup { .. }))
+                && !state.blocked.get()
         })
         .into_value(),
         move |visible: bool| {

@@ -108,8 +108,10 @@ fn stay() -> impl IntoView {
 ```
 
 Each field follows the rules above. In the calendar, the first day you choose
-sets both ends and waits for the end; the second sets the end, or swaps the
-two when it is before the start, then the popup closes. The range is shaded.
+marks the start and waits for the end; nothing is written until the second
+day, which sets both dates (swapping them when it is before the first) and
+closes the popup. Closing the popup before the second day leaves both dates
+as they were. The range is shaded.
 If someone types a start after the end, both fields turn red, the message
 "The end date is before the start date" appears and `valid` becomes `false`.
 While the popup is open it announces "Pick a start date" and "Pick an end

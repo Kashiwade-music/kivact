@@ -155,6 +155,55 @@ fn dropdown_menu_navigates_by_keyboard_and_skips_labels() {
     let _ = shift();
 }
 
+#[test]
+fn navigation_menu_shows_one_panel_at_a_time() {
+    let screen = kivact::test::render_with_handle(light(), || {
+        (
+            (),
+            page(basic::navigation_menu(vec![
+                basic::NavItem::menu("Alpha", || text("Alpha panel")),
+                basic::NavItem::menu("Beta", || text("Beta panel")),
+            ])),
+        )
+    })
+    .0;
+    let alpha = screen.get_by_role(Role::Button, "Alpha");
+    let beta = screen.get_by_role(Role::Button, "Beta");
+    let shown = |text: &str| screen.query_by_text(text).is_some();
+    // Hovering a trigger shows its panel, and the trigger reports it.
+    alpha.hover();
+    assert!(shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(true));
+    // Escape on the focused trigger closes a hover-opened panel.
+    alpha.focus();
+    screen.press_key(Key::Escape);
+    assert!(!shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(false));
+    // ArrowDown on another trigger pins that panel; the first one goes.
+    screen.mouse_move(850.0, 650.0);
+    alpha.hover();
+    assert!(shown("Alpha panel"));
+    beta.focus();
+    screen.press_key(Key::ArrowDown);
+    assert!(shown("Beta panel"));
+    assert!(!shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(false));
+    assert_eq!(beta.is_expanded(), Some(true));
+    screen.press_key(Key::Escape);
+    assert!(!shown("Beta panel"));
+    // A click on a hover-opened panel pins it: it stays after the pointer leaves.
+    screen.mouse_move(850.0, 650.0);
+    alpha.hover();
+    alpha.click();
+    screen.mouse_move(850.0, 650.0);
+    assert!(shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(true));
+    alpha.focus();
+    screen.press_key(Key::Escape);
+    assert!(!shown("Alpha panel") && !shown("Beta panel"));
+    assert_clean(&screen);
+}
+
 /// The box a context menu is attached to in the tests.
 pub(super) fn right_click_area() -> Node {
     column(text("Right click here"))

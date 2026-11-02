@@ -102,7 +102,7 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
     .range(0.0, if hsv && index == 0 { 360.0 } else { 1.0 })
     .step(if hsv && index == 0 { 1.0 } else { 0.001 })
     .precision(3)
-.on_edit(move |phase| state.phase(owner, phase))
+    .on_edit(move |phase| state.phase(owner, phase))
     .style(style().grow(1).min_width(0).width(60))
 }
 fn encode(color: Color, alpha: bool) -> String {

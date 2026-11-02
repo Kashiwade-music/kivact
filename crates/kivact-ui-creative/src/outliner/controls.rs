@@ -157,11 +157,7 @@ pub(super) fn toggle(context: &Context, id: u64, flag: RestrictionFlag) {
             .once(|| propose(context, column, &ids, !self::flag(&item, column)));
     }
 }
-pub(super) fn restriction(
-    item: Value<TreeItem>,
-    context: Context,
-    column: usize,
-) -> Node {
+pub(super) fn restriction(item: Value<TreeItem>, context: Context, column: usize) -> Node {
     let id = item.get_untracked().id;
     let mut button = kivact::ui::button(
         [

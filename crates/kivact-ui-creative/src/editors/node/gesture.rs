@@ -64,7 +64,10 @@ pub(crate) enum NodeMode {
     Idle,
     /// An output socket was activated without the pointer; activating an
     /// input socket connects them.
-    Connecting { from: u64, output: usize },
+    Connecting {
+        from: u64,
+        output: usize,
+    },
     /// The parameter popup of a control is open at `at` (window
     /// coordinates), with the control as it was when it opened or when its
     /// edit began.
@@ -80,7 +83,9 @@ pub(crate) enum NodeMode {
 #[derive(Clone, PartialEq)]
 pub(crate) enum DragMode {
     /// The selected nodes, from their positions at the press.
-    Items { origins: Vec<(u64, Point)> },
+    Items {
+        origins: Vec<(u64, Point)>,
+    },
     /// A number control, from the control at the press.
     Control {
         node: u64,
@@ -97,7 +102,10 @@ pub(crate) enum DragMode {
         rewire: Option<NodeLink>,
         released: Option<(u64, usize)>,
     },
-    Marquee { from: Point, to: Point },
+    Marquee {
+        from: Point,
+        to: Point,
+    },
 }
 
 #[derive(Clone, Copy)]

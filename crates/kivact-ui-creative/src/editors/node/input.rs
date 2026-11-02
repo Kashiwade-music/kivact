@@ -352,9 +352,9 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                 .map(|n| (n.id, n.muted))
                 .collect::<Vec<_>>();
             if !old.is_empty() {
-                state.edit.once((), || {
-                    state.request(NodeRequest::ToggleMute(selected))
-                });
+                state
+                    .edit
+                    .once((), || state.request(NodeRequest::ToggleMute(selected)));
             }
         }
         Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown => {

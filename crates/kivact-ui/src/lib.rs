@@ -160,6 +160,7 @@ pub use data_column::DataColumn;
 pub use data_table::{DataTable, DataTableContext, data_table};
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};
+pub use inline_edit::{InlineEdit, use_inline_edit};
 /// The values and data the standard components and the official kits take,
 /// so an app needs no `kivact::interaction` import (that module is the
 /// component author's).
@@ -167,7 +168,6 @@ pub use kivact_interaction::{
     Command, DialogKind, Dismiss, EditPhase, ListActivation, ListItem, MenuEntry, ScalarRange,
     ScalarRangeError, Side, Toast, Toaster, Tone, TreeNode, toaster,
 };
-pub use inline_edit::{InlineEdit, use_inline_edit};
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
 pub use progress::{Progress, progress};

@@ -1,7 +1,7 @@
 //! Role: One edit session shared by several sources of a component, owned by the source that began it.
+use kivact::Callback;
 use kivact::interaction::EditSession;
 use kivact::ui::EditPhase;
-use kivact::Callback;
 
 /// An [`EditSession`] whose value carries who began the edit (`O`) beside the
 /// snapshot it restores (`S`), so a source can end only its own edit and a
@@ -21,7 +21,10 @@ impl<O: Copy + PartialEq + 'static, S: Clone + 'static> Copy for OwnedEdit<O, S>
 impl<O: Copy + PartialEq + 'static, S: Clone + 'static> OwnedEdit<O, S> {
     /// An edit that writes `restore` the snapshot when canceled and reports
     /// its phases to `observer`. Setup only.
-    pub(crate) fn new(restore: impl Fn(S) + 'static, observer: Option<Callback<EditPhase>>) -> Self {
+    pub(crate) fn new(
+        restore: impl Fn(S) + 'static,
+        observer: Option<Callback<EditPhase>>,
+    ) -> Self {
         Self {
             session: crate::editors::shared::model::observed(
                 EditSession::new(move |(_, snapshot): (O, S)| restore(snapshot)),

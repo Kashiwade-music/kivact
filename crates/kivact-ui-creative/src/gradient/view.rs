@@ -298,9 +298,7 @@ fn fields(
         })
         .into_value(),
         move |display| {
-            if state.enabled()
-                && state.edit.owner() == Some(GradientOwner::Color)
-            {
+            if state.enabled() && state.edit.owner() == Some(GradientOwner::Color) {
                 state.color(from_display(display));
             }
         },

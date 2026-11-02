@@ -8,7 +8,9 @@ use kivact::i18n::{CalendarDate, message};
 use kivact::interaction::{PopupCloseReason, use_popup};
 use kivact::primitive::NodeExt;
 use kivact::style::{ColorToken, Direction, style};
-use kivact::view::{IntoText, IntoValue, IntoView, LiveRegion, Role, View, callback, node_ref, show};
+use kivact::view::{
+    IntoText, IntoValue, IntoView, LiveRegion, Role, View, callback, node_ref, show,
+};
 use kivact::{Binding, Value, memo, signal};
 use std::rc::Rc;
 
@@ -207,11 +209,9 @@ impl IntoView for DateRangeInput {
             };
             let pick_start = message("pop.date.range.pick_start", "Pick a start date");
             let pick_end = message("pop.date.range.pick_end", "Pick an end date");
-            let instructions = text(move || {
-                match pick.get() {
-                    RangePick::End { .. } => pick_end.get(),
-                    RangePick::Start => pick_start.get(),
-                }
+            let instructions = text(move || match pick.get() {
+                RangePick::End { .. } => pick_end.get(),
+                RangePick::Start => pick_start.get(),
             })
             .role(Role::Status)
             .live_region(LiveRegion::Polite);

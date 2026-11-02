@@ -18,7 +18,10 @@ enum NumberText {
     Value(String),
     /// `produced` is the stored value the last parsable text produced
     /// (`None` until one parses).
-    Typed { text: String, produced: Option<f64> },
+    Typed {
+        text: String,
+        produced: Option<f64>,
+    },
 }
 
 impl NumberText {

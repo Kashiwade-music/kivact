@@ -10,9 +10,7 @@ use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_space_pan}
 use kivact::primitive::{NodeExt, NodeRefExt, part};
 use kivact::style::{ColorToken, Overflow, style};
 use kivact::ui::{EditPhase, ListItem};
-use kivact::view::{
-    A11yAction, IntoValue, IntoView, MouseButton, Role, View, callback, node_ref,
-};
+use kivact::view::{A11yAction, IntoValue, IntoView, MouseButton, Role, View, callback, node_ref};
 use kivact::{Callback, Value, signal};
 use std::rc::Rc;
 

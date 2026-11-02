@@ -8,11 +8,11 @@
 
 use crate::theme_access::{popover_surface, shadow_md, tokens};
 use kivact::control::{NodeBuilder, column};
+use kivact::interaction::{Delays, use_delayed};
+use kivact::memo;
 use kivact::primitive::NodeExt;
 use kivact::style::{Direction, Style};
 use kivact::view::{IntoView, OverlayAlign, Placement, Role, View, node_ref, overlay, show};
-use kivact::interaction::{Delays, use_delayed};
-use kivact::memo;
 use std::rc::Rc;
 use std::time::Duration;
 
