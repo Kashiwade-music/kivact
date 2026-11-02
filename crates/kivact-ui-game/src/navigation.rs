@@ -148,7 +148,7 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
                     restore_focus.set(true);
                 }
             };
-            let previous_page = set_page.clone();
+            let previous_page = set_page;
             let mut items = vec![
                 crate::tool_button("‹")
                     .name(previous_label)
@@ -183,7 +183,6 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
                         }
                     });
                 }
-                let set_page = set_page.clone();
                 items.push(
                     crate::tool_button(n.to_string())
                         .node_ref(node)
