@@ -1,6 +1,7 @@
 //! Role: Per-node layout columns: results, measure records, cursors and geometry changes.
 
 use crate::calcs::Calcs;
+use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
 use kivact_wire::{LeafSize, MeasureRequest, Point, Rect, Size};
 use std::cell::{Cell, RefCell};
@@ -31,13 +32,52 @@ pub(crate) struct Record {
     pub(crate) incomplete: bool,
 }
 
-/// A disposable filtered index cursor; never owns links or child IDs.
+/// A disposable filtered index cursor (`None`: never counted); never owns links or child IDs.
 #[derive(Clone, Debug, Default)]
-pub(crate) struct ChildCursor {
-    pub(crate) epoch: Cell<u64>,
-    pub(crate) count: Cell<usize>,
-    pub(crate) unfiltered: Cell<bool>,
-    pub(crate) at: Cell<Option<(usize, usize)>>,
+pub(crate) struct ChildCursor(Cell<Option<Counted>>);
+
+/// A cursor as counted at one epoch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Counted {
+    pub(crate) epoch: Epoch,
+    /// The children in flow (the viewport's: its attached fixed boxes).
+    pub(crate) count: usize,
+    /// Whether no child is filtered out.
+    pub(crate) unfiltered: bool,
+    /// The last (filtered, raw) position looked up.
+    pub(crate) at: Option<(usize, usize)>,
+}
+
+impl ChildCursor {
+    /// The cursor counted at `epoch`; `count` (the count and whether nothing is filtered)
+    /// counts it again when it was counted at another epoch or never.
+    #[inline(always)]
+    pub(crate) fn at_epoch(&self, epoch: Epoch, count: impl FnOnce() -> (usize, bool)) -> Counted {
+        if let Some(counted) = self.0.get()
+            && counted.epoch == epoch
+        {
+            return counted;
+        }
+        let (count, unfiltered) = count();
+        let counted = Counted {
+            epoch,
+            count,
+            unfiltered,
+            at: None,
+        };
+        self.0.set(Some(counted));
+        counted
+    }
+
+    /// Keep `counted` (with a new position).
+    pub(crate) fn store(&self, counted: Counted) {
+        self.0.set(Some(counted));
+    }
+
+    /// Forget the count: the next read counts again.
+    pub(crate) fn forget(&self) {
+        self.0.set(None);
+    }
 }
 
 /// Derived per-slot measurement records and calc ownership; never authoritative props.

@@ -9,16 +9,16 @@
 //! - While no overlay is attached and no node is fixed, children are the
 //!   links as they are: no cursor is read and nothing is filtered. A node
 //!   whose children are all in flow is walked directly as well.
-//! - Otherwise a node's cursor (`ChildCursor`: epoch, count, whether it is
-//!   unfiltered, the last position) only follows indices into its links
-//!   past the filtered children; it copies no child ids or links. It is
-//!   counted again once per layout epoch, which the sync bumps when the
+//! - Otherwise a node's cursor (`ChildCursor`: never counted, or counted at
+//!   an epoch with its count, whether it is unfiltered and the last position)
+//!   only follows indices into its links past the filtered children; it
+//!   copies no child ids or links. It is counted again once per layout epoch, which the sync bumps when the
 //!   structure or the fixed membership changed: a new height alone counts
 //!   nothing again.
 //! - Iterators borrow the same concrete Tree for their entire traversal;
 //!   no boxing, conversion or ownership change accompanies specialization.
 
-use crate::{ChildCursor, Flow, LayoutState, LayoutTree};
+use crate::{ChildCursor, Counted, Flow, LayoutState, LayoutTree};
 use kivact_wire::NodeId;
 use taffy::{NodeId as TId, TraversePartialTree, TraverseTree};
 
@@ -109,23 +109,17 @@ impl<Tree: LayoutTree + ?Sized> Traversal<'_, Tree> {
         self.tree.flow(slot) == Flow::Normal
     }
     #[inline(always)]
-    fn flow_cursor(&self, slot: usize) -> &ChildCursor {
-        let cursor = &self.cursors[slot + 1];
-        if cursor.epoch.get() != self.state.epoch {
-            self.refresh_flow_cursor(slot, cursor);
-        }
-        cursor
+    fn flow_cursor(&self, slot: usize) -> Counted {
+        self.cursors[slot + 1].at_epoch(self.state.epoch, || self.count_flow(slot))
     }
+    /// The children of `slot` in flow, and whether none is filtered out.
     #[inline(never)]
-    fn refresh_flow_cursor(&self, slot: usize, cursor: &ChildCursor) {
+    fn count_flow(&self, slot: usize) -> (usize, bool) {
         let raw_count = self.tree.child_count(slot);
         let count = (0..raw_count)
             .filter(|raw| self.in_flow(self.tree.child_at(slot, *raw)))
             .count();
-        cursor.count.set(count);
-        cursor.unfiltered.set(count == raw_count);
-        cursor.at.set(None);
-        cursor.epoch.set(self.state.epoch);
+        (count, count == raw_count)
     }
     #[inline(always)]
     fn flow_child(&self, slot: usize, index: usize) -> TId {
@@ -136,19 +130,16 @@ impl<Tree: LayoutTree + ?Sized> Traversal<'_, Tree> {
             );
             return taffy_id(self.tree.child_at(slot, index));
         }
-        let cursor = self.flow_cursor(slot);
-        assert!(
-            index < cursor.count.get(),
-            "invariant: valid layout child index"
-        );
-        if cursor.unfiltered.get() {
+        let counted = self.flow_cursor(slot);
+        assert!(index < counted.count, "invariant: valid layout child index");
+        if counted.unfiltered {
             return taffy_id(self.tree.child_at(slot, index));
         }
-        self.filtered_flow_child(slot, index, cursor)
+        self.filtered_flow_child(slot, index, counted)
     }
     #[inline(never)]
-    fn filtered_flow_child(&self, slot: usize, index: usize, cursor: &ChildCursor) -> TId {
-        let at = cursor.at.get();
+    fn filtered_flow_child(&self, slot: usize, index: usize, counted: Counted) -> TId {
+        let at = counted.at;
         let (mut filtered, mut raw) = at.unwrap_or((0, 0));
         if at.is_none() {
             raw = (0..self.tree.child_count(slot))
@@ -169,7 +160,10 @@ impl<Tree: LayoutTree + ?Sized> Traversal<'_, Tree> {
             }
             filtered -= 1;
         }
-        cursor.at.set(Some((filtered, raw)));
+        self.cursors[slot + 1].store(Counted {
+            at: Some((filtered, raw)),
+            ..counted
+        });
         taffy_id(self.tree.child_at(slot, raw))
     }
     fn fixed_child(&self, index: usize) -> TId {
@@ -240,8 +234,7 @@ impl<Tree: LayoutTree + ?Sized> TraversePartialTree for Traversal<'_, Tree> {
                 tree: self.tree,
                 slot,
                 children: 0..self.tree.child_count(slot),
-                unfiltered: !self.filters_layout_children()
-                    || self.flow_cursor(slot).unfiltered.get(),
+                unfiltered: !self.filters_layout_children() || self.flow_cursor(slot).unfiltered,
             })
         }
     }
@@ -249,24 +242,21 @@ impl<Tree: LayoutTree + ?Sized> TraversePartialTree for Traversal<'_, Tree> {
     fn child_count(&self, parent: TId) -> usize {
         let index = usize::from(parent);
         if index == 0 {
-            let cursor = &self.cursors[0];
-            if cursor.epoch.get() != self.state.epoch {
-                cursor.count.set(
-                    self.tree
+            self.cursors[0]
+                .at_epoch(self.state.epoch, || {
+                    let count = self
+                        .tree
                         .fixed()
                         .iter()
                         .filter(|id| attached_fixed(self.tree, **id))
-                        .count(),
-                );
-                cursor.unfiltered.set(false);
-                cursor.at.set(None);
-                cursor.epoch.set(self.state.epoch);
-            }
-            cursor.count.get()
+                        .count();
+                    (count, false)
+                })
+                .count
         } else if !self.filters_layout_children() {
             self.tree.child_count(index - 1)
         } else {
-            self.flow_cursor(index - 1).count.get()
+            self.flow_cursor(index - 1).count
         }
     }
     #[inline(always)]

@@ -103,8 +103,7 @@ impl NodeLayoutColumns {
             }
         }
         for cursor in &self.cursors {
-            cursor.epoch.set(state.epoch.wrapping_add(1));
-            cursor.at.set(None);
+            cursor.forget();
         }
         state.relayout.clear();
         for record in &self.states {
