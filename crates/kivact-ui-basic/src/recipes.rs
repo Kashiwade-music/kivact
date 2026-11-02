@@ -10,10 +10,10 @@ use crate::button::{Look, metrics, trigger_style};
 use crate::theme_access::{CHECK, MINUS, field_fill, stroke_glyph, stroke_loader};
 use crate::tokens::Tokens;
 use kivact::draw::{CornerRadius, Draw, Path, Point, Rect, Size, Stroke};
-use kivact::interaction::CheckedState;
 use kivact::primitive::PartState;
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::{ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, UiRecipes};
+use kivact::view::CheckedState;
 
 /// The recipes of the kit's look.
 ///

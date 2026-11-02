@@ -36,7 +36,7 @@ use std::panic::Location;
 
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{NodeRefExt, Part, PartState, part, raise};
-use kivact_core::view::{A11yAction, DismissReason, NodeRef, Role, node_ref};
+use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
 use kivact_core::{Binding, Value, Var, on_mount, var};
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
@@ -277,7 +277,9 @@ impl DialogApi {
             part(self.state())
                 .reference(self.popup.content_ref())
                 .on_a11y_event(A11yAction::Dismiss, move |event| {
-                    let reason = event.dismiss_reason.unwrap_or(DismissReason::Accessibility);
+                    let A11yRequest::Dismiss(reason) = event.request else {
+                        unreachable!("invariant: the Dismiss slot receives only Dismiss requests")
+                    };
                     if allowed(reason) {
                         open.set(false);
                     }

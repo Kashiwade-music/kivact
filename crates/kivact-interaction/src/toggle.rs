@@ -12,7 +12,9 @@
 //! assistive technology action and leaves the tab order.
 
 use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{A11yAction, Handled, IntoValue, Key, KeyEvent, Modifiers, Role};
+use kivact_core::view::{
+    A11yAction, CheckedState, Handled, IntoValue, Key, KeyEvent, Modifiers, Role,
+};
 use kivact_core::{Binding, Value};
 
 /// Copy handle for a momentary button, the behavior of react-aria's
@@ -70,34 +72,6 @@ enum Kind {
     Checkbox,
     Switch,
     Button,
-}
-
-/// Whether a check box, a switch, a toggle button or a radio item is on,
-/// as HTML's `checked` and `indeterminate` (Radix's `data-state`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum CheckedState {
-    #[default]
-    Unchecked,
-    Checked,
-    /// A check box shows the mixed state ([`Toggle::indeterminate`]),
-    /// whatever its binding holds.
-    Indeterminate,
-}
-
-impl CheckedState {
-    /// The state of a binary value.
-    pub fn from_bool(checked: bool) -> Self {
-        if checked {
-            Self::Checked
-        } else {
-            Self::Unchecked
-        }
-    }
-
-    /// Whether it is [`Checked`](Self::Checked).
-    pub fn is_checked(self) -> bool {
-        self == Self::Checked
-    }
 }
 
 /// Reactive drawing state from the actual attached input target.

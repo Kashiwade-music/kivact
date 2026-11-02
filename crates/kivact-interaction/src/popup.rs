@@ -34,7 +34,9 @@
 use std::panic::Location;
 
 use kivact_core::primitive::{NodeRefExt, NodeToken, Owner, Part, PartState, focused_node, part};
-use kivact_core::view::{A11yAction, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref};
+use kivact_core::view::{
+    A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
+};
 use kivact_core::{Binding, Value, Var, effect, on_cleanup, on_mount, var};
 
 use super::disclosure::{Disclosure, use_disclosure};
@@ -292,7 +294,9 @@ impl Popup {
         })
         .reference(self.content_ref())
         .on_a11y_event(A11yAction::Dismiss, move |event| {
-            let reason = event.dismiss_reason.unwrap_or(DismissReason::Accessibility);
+            let A11yRequest::Dismiss(reason) = event.request else {
+                unreachable!("invariant: the Dismiss slot receives only Dismiss requests")
+            };
             if !allow(reason) {
                 return;
             }

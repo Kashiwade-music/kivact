@@ -13,8 +13,9 @@ use kivact::style::{Align, Color, ColorToken, Cursor, Justify, Style, Theme, sty
 use kivact::ui::{EditPhase, ScalarRange};
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoText, IntoValue, IntoView, Key, MouseButton, Orientation,
-    Placement, PointerPhase, Role, View, callback, node_ref, overlay, show,
+    A11yAction, A11yEvent, A11yRequest, ButtonPress, Handled, IntoText, IntoValue, IntoView, Key,
+    MouseButton, Orientation, Placement, PointerPhase, Role, View, callback, node_ref, overlay,
+    show,
 };
 use kivact::{Binding, Callback, Value, binding, memo, on_mount, signal, var};
 use std::rc::Rc;
@@ -708,18 +709,25 @@ impl IntoView for Numeric {
                     return Handled::Yes;
                 }
                 if mixed.get() {
-                    if e.phase == PointerPhase::Down
-                        && e.button == Some(MouseButton::Primary)
-                        && matches!(kind, NumericKind::Number | NumericKind::Slider)
+                    if matches!(
+                        e.phase,
+                        PointerPhase::Down(ButtonPress {
+                            button: MouseButton::Primary,
+                            ..
+                        })
+                    ) && matches!(kind, NumericKind::Number | NumericKind::Slider)
                     {
                         begin_text();
                     }
                     return Handled::Yes;
                 }
-                if e.phase == PointerPhase::Down
-                    && e.button == Some(MouseButton::Primary)
-                    && e.click_count > 1
-                {
+                if matches!(
+                    e.phase,
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        clicks: 2..
+                    })
+                ) {
                     pointer.cancel();
                     set(reset);
                     return Handled::Yes;
@@ -734,23 +742,20 @@ impl IntoView for Numeric {
         let act = move |event: A11yEvent| {
             let writes = event.region.is_none()
                 && !pointer.is_active()
-                && match event.action {
-                    A11yAction::SetValue => event
-                        .value
-                        .as_deref()
-                        .and_then(|v| v.parse::<f64>().ok())
-                        .is_some_and(f64::is_finite),
+                && match &event.request {
+                    A11yRequest::SetValue(text) => {
+                        text.parse::<f64>().ok().is_some_and(f64::is_finite)
+                    }
                     _ => !mixed.get_untracked(),
                 };
             if writes {
-                scalar.once(|| match event.action {
-                    A11yAction::Increment => scalar.step_by(1.0),
-                    A11yAction::Decrement => scalar.step_by(-1.0),
-                    _ => event
-                        .value
-                        .as_deref()
-                        .and_then(|v| v.parse::<f64>().ok())
-                        .is_some_and(|v| scalar.set(v)),
+                scalar.once(|| match &event.request {
+                    A11yRequest::Increment => scalar.step_by(1.0),
+                    A11yRequest::Decrement => scalar.step_by(-1.0),
+                    A11yRequest::SetValue(text) => {
+                        text.parse::<f64>().ok().is_some_and(|v| scalar.set(v))
+                    }
+                    _ => false,
                 });
             }
         };

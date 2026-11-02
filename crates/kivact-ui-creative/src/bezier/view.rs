@@ -11,8 +11,8 @@ use kivact::style::{current_theme, style};
 use kivact::ui::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View, callback,
-    node_ref,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
+    callback, node_ref,
 };
 use kivact::{Binding, Callback, effect, var};
 
@@ -184,7 +184,7 @@ impl IntoView for BezierCurve {
                 }
             });
             let action = move |event: A11yEvent| {
-                if matches!(event.action, A11yAction::Select | A11yAction::Activate) {
+                if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                     target.focus();
                     return;
                 }
@@ -192,10 +192,10 @@ impl IntoView for BezierCurve {
                     return;
                 }
                 let (x, y) = value.get_untracked().clean().point(index);
-                let next = match event.action {
-                    A11yAction::SetValue => event.value.as_deref().and_then(pair),
-                    A11yAction::Increment => Some((x + 0.01, y)),
-                    A11yAction::Decrement => Some((x - 0.01, y)),
+                let next = match &event.request {
+                    A11yRequest::SetValue(text) => pair(text),
+                    A11yRequest::Increment => Some((x + 0.01, y)),
+                    A11yRequest::Decrement => Some((x - 0.01, y)),
                     _ => None,
                 };
                 if let Some(next) = next {

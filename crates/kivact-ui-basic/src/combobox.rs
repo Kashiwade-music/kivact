@@ -386,7 +386,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             .part(input_part)
             .expanded(open)
             .on_pointer(move |event: kivact::view::PointerEvent| {
-                if event.phase == kivact::view::PointerPhase::Down && !off.get() {
+                if matches!(event.phase, kivact::view::PointerPhase::Down(_)) && !off.get() {
                     open.set(true);
                 }
                 Handled::No

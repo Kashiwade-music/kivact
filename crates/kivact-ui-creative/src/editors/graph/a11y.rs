@@ -6,7 +6,7 @@ use crate::editors::shared::model::Lane;
 use kivact::control::Node;
 use kivact::interaction::Drag;
 use kivact::primitive::part;
-use kivact::view::{A11yAction, Role};
+use kivact::view::{A11yAction, A11yRequest, Role};
 use kivact::{Binding, Value};
 use std::rc::Rc;
 
@@ -184,7 +184,7 @@ pub(crate) fn attach(
             }
             result
                 .on_a11y_event(A11yAction::SetValue, move |event| {
-                    if let Some(value) = event.value {
+                    if let A11yRequest::SetValue(value) = event.request {
                         let pair = if matches!(target, Target::Playhead) {
                             value
                                 .parse::<f64>()

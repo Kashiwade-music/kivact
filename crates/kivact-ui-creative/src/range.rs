@@ -8,8 +8,8 @@ use kivact::primitive::{NodeExt, PartState};
 use kivact::style::{Cursor, pct, style};
 use kivact::ui::{EditPhase, ScalarRange};
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, Orientation,
-    Role, View, callback,
+    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoText, IntoValue, IntoView, Key,
+    Orientation, Role, View, callback,
 };
 use kivact::{Binding, Callback, Value, binding, effect, memo, signal, var};
 
@@ -159,21 +159,16 @@ impl IntoView for Range {
         // endpoint; the body edits the end.
         let act = move |event: A11yEvent| {
             let scalar = endpoints[active.get_untracked().min(1)];
-            match event.action {
-                A11yAction::SetValue => {
-                    if let Some(v) = event
-                        .value
-                        .as_deref()
-                        .and_then(|s| s.parse::<f64>().ok())
-                        .filter(|v| v.is_finite())
-                    {
+            match &event.request {
+                A11yRequest::SetValue(text) => {
+                    if let Some(v) = text.parse::<f64>().ok().filter(|v| v.is_finite()) {
                         ends.once(|| scalar.set(v));
                     }
                 }
-                A11yAction::Increment => {
+                A11yRequest::Increment => {
                     ends.once(|| scalar.step_by(1.0));
                 }
-                A11yAction::Decrement => {
+                A11yRequest::Decrement => {
                     ends.once(|| scalar.step_by(-1.0));
                 }
                 _ => {}

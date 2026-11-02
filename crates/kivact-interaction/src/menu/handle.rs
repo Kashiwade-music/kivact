@@ -250,15 +250,19 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
         .on_pointer(move |event: PointerEvent| {
             // The overlay is anchored to the area, and the host does not
             // count a press on its anchor as outside it.
-            if event.phase == PointerPhase::Down {
+            if matches!(event.phase, PointerPhase::Down(_)) {
                 session.close(PopupCloseReason::OutsidePress);
             }
-            let phase = if cfg!(target_os = "macos") {
-                PointerPhase::Down
-            } else {
-                PointerPhase::Up
+            // A context menu opens on the press on macOS and on the release
+            // elsewhere.
+            let opens = match event.phase {
+                PointerPhase::Down(press) | PointerPhase::Up(press) => {
+                    press.button == MouseButton::Secondary
+                        && matches!(event.phase, PointerPhase::Down(_)) == cfg!(target_os = "macos")
+                }
+                _ => false,
             };
-            if event.button == Some(MouseButton::Secondary) && event.phase == phase {
+            if opens {
                 session.open_at(MenuOrigin::Pointer(event.window_pos));
             }
             Handled::No

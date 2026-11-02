@@ -4,7 +4,7 @@ use crate::parts::{pressable, sized_icon};
 use crate::primitives::spinner;
 use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, Scroll, column, node, row, scroll, text};
+use kivact::control::{Node, NodeBuilder, Scroll, ScrollAxes, column, node, row, scroll, text};
 use kivact::primitive::NodeExt;
 use kivact::style::{
     Align, BorderStyle, Cursor, Direction, Justify, Overflow, Position, Style, pct, style,
@@ -356,6 +356,6 @@ pub fn attachment_action(
 #[track_caller]
 pub fn attachment_group(children: impl IntoView) -> Scroll {
     scroll(row(children).style(style().gap(12).align_items(Align::Start)))
-        .orientation(Orientation::Horizontal)
+        .axes(ScrollAxes::Horizontal)
         .style(style().min_width(0).padding_y(4))
 }

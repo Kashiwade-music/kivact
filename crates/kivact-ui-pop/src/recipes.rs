@@ -14,10 +14,10 @@ use crate::choice::{draw_check_indicator, draw_switch_indicator};
 use crate::form::input_style;
 use kivact::draw::{Draw, Size};
 use kivact::draw::{Layer, Transform};
-use kivact::interaction::CheckedState;
 use kivact::style::{Style, Theme, style};
 use kivact::ui::Look;
 use kivact::ui::{ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, UiRecipes};
+use kivact::view::CheckedState;
 
 /// The size of a check box's box and the room a switch's track takes.
 const CHECK: (f32, f32) = (16.0, 16.0);

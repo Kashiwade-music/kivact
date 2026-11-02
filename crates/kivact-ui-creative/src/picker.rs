@@ -637,7 +637,7 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
         // A press on a part that cannot take the focus (a disabled row, a
         // heading, the scroll bar) leaves the focus on the field.
         .on_pointer_default(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down {
+            if matches!(event.phase, PointerPhase::Down(_)) {
                 field.focus();
             }
             Handled::No
@@ -810,13 +810,13 @@ fn item_row<K: Clone + Eq + Hash + 'static>(
             if !disabled.get()
                 && matches!(
                     event.phase,
-                    PointerPhase::Enter | PointerPhase::Move | PointerPhase::Down
+                    PointerPhase::Enter | PointerPhase::Move | PointerPhase::Down(_)
                 )
                 && let Some(column) = session.column
             {
                 column.set(Some(index));
             }
-            if event.phase == PointerPhase::Down && disabled.get() {
+            if matches!(event.phase, PointerPhase::Down(_)) && disabled.get() {
                 session.field.focus();
             }
             Handled::No

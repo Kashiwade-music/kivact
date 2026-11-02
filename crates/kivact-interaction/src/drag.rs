@@ -519,8 +519,8 @@ impl<T: Clone + 'static> Drag<T> {
                 .is_some_and(|a| a.source == id && a.start.pointer == event.id)
         };
         let valid = pos.x.is_finite() && pos.y.is_finite();
-        if event.phase == PointerPhase::Down {
-            let button = event.button?;
+        if let PointerPhase::Down(press) = event.phase {
+            let button = press.button;
             if self.buttons & bit(button) == 0 || !valid || self.is_disabled() || self.is_active() {
                 return None;
             }
@@ -540,7 +540,7 @@ impl<T: Clone + 'static> Drag<T> {
         }
         if !matches!(
             event.phase,
-            PointerPhase::Move | PointerPhase::Up | PointerPhase::Cancel
+            PointerPhase::Move | PointerPhase::Up(_) | PointerPhase::Cancel
         ) {
             return None;
         }
@@ -550,7 +550,7 @@ impl<T: Clone + 'static> Drag<T> {
         let releases = self.state.with(|active| {
             active
                 .as_ref()
-                .is_some_and(|a| event.button == Some(a.start.button))
+                .is_some_and(|a| matches!(event.phase, PointerPhase::Up(press) if press.button == a.start.button))
         });
         let phase = match event.phase {
             PointerPhase::Move => {
@@ -561,7 +561,7 @@ impl<T: Clone + 'static> Drag<T> {
                 }
                 DragPhase::Move
             }
-            PointerPhase::Up if releases => DragPhase::End,
+            PointerPhase::Up(_) if releases => DragPhase::End,
             PointerPhase::Cancel => DragPhase::Cancel,
             _ => return None,
         };

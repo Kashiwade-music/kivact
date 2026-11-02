@@ -34,12 +34,12 @@ fn consumer_buttons_checks_mixed_states_and_modifiers() {
     assert_eq!(count.get_untracked(), 2);
     assert!(screen.get_by_role(Role::Button, "Disabled").is_disabled());
     let check = screen.get_by_role(Role::CheckBox, "Permissions");
-    assert!(check.is_indeterminate());
+    assert_eq!(check.checked(), Some(CheckedState::Indeterminate));
     check.a11y(A11yAction::Toggle);
     assert!(checked.get_untracked());
     mixed.set(false);
     screen.run_until_idle();
-    assert!(!check.is_indeterminate());
+    assert_ne!(check.checked(), Some(CheckedState::Indeterminate));
     screen
         .get_by_role(Role::Switch, "Network")
         .press_key(Key::Space);
@@ -81,7 +81,7 @@ fn consumer_checkbox_switch_and_disclosure_follow_the_shared_toggle_rules() {
     let locked = screen.get_by_role(Role::CheckBox, "Locked");
     locked.force_click();
     locked.a11y(A11yAction::Toggle);
-    assert_eq!(locked.is_checked(), Some(false));
+    assert_eq!(locked.checked(), Some(CheckedState::Unchecked));
 
     let settings = screen.get_by_role(Role::Button, "Settings");
     assert_eq!(settings.is_expanded(), Some(false));
@@ -133,10 +133,9 @@ fn consumer_table_preserves_selection_and_updates_cells() {
     assert_eq!(selected.get_untracked(), vec!["a"]);
     screen.get_by_text("Footer renderer");
     screen.get_by_text("Bulk renderer");
-    assert!(
-        screen
-            .get_by_role(Role::CheckBox, "Select all")
-            .is_indeterminate()
+    assert_eq!(
+        screen.get_by_role(Role::CheckBox, "Select all").checked(),
+        Some(CheckedState::Indeterminate)
     );
     screen
         .get_by_role(Role::ColumnHeader, "NAME")

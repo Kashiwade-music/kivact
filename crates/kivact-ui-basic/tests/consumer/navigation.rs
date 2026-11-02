@@ -130,8 +130,8 @@ fn dropdown_menu_navigates_by_keyboard_and_skips_labels() {
     assert_eq!(
         screen
             .get_by_role(Role::MenuItemCheckBox, "Status Bar")
-            .is_checked(),
-        Some(true)
+            .checked(),
+        Some(CheckedState::Checked)
     );
     screen.press_key(Key::Enter);
     assert_eq!(chosen.get_untracked(), ["bars"]);

@@ -8,12 +8,13 @@ use kivact_core::i18n::message_with;
 use kivact_core::primitive::Part;
 use kivact_core::style::{Cursor, Justify, Position, Style, pct, style};
 use kivact_core::view::{
-    Handled, IntoView, MouseButton, PointerEvent, PointerPhase, Role, View, dynamic,
+    ButtonPress, CheckedState, Handled, IntoView, MouseButton, PointerEvent, PointerPhase, Role,
+    View, dynamic,
 };
 use kivact_core::{Binding, Callback, Value, binding, memo, signal};
 use kivact_interaction::{
-    CheckedState, DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState,
-    TableFocus, TableRowState, use_drag,
+    DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState, TableFocus,
+    TableRowState, use_drag,
 };
 use std::hash::Hash;
 use std::rc::Rc;
@@ -171,7 +172,13 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
 /// A primary press on a data cell must not replace the row selection when
 /// rows are chosen with their check box.
 fn keep_selection(event: PointerEvent) -> Handled {
-    if event.phase == PointerPhase::Down && event.button == Some(MouseButton::Primary) {
+    if matches!(
+        event.phase,
+        PointerPhase::Down(ButtonPress {
+            button: MouseButton::Primary,
+            ..
+        })
+    ) {
         Handled::Yes
     } else {
         Handled::No

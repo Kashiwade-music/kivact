@@ -63,8 +63,8 @@ fn theme_switch_restyles_mounted_components_and_keeps_their_state() {
     assert!(checked.get_untracked());
     assert_eq!(name.get_untracked(), "Ada");
     assert_eq!(
-        screen.get_by_role(Role::CheckBox, "Sync").is_checked(),
-        Some(true)
+        screen.get_by_role(Role::CheckBox, "Sync").checked(),
+        Some(CheckedState::Checked)
     );
     assert_eq!(
         screen.get_by_role(Role::TextBox, "Name").value().as_deref(),
@@ -106,10 +106,9 @@ fn checkbox_and_switch_toggle_with_pointer_and_keyboard() {
     assert!(distance(check_box_fill(&screen, "Accept terms"), 0x171717) <= 2);
     check.press_key(Key::Space);
     assert!(!checked.get_untracked());
-    assert!(
-        screen
-            .get_by_role(Role::CheckBox, "Partial")
-            .is_indeterminate()
+    assert_eq!(
+        screen.get_by_role(Role::CheckBox, "Partial").checked(),
+        Some(CheckedState::Indeterminate)
     );
     assert!(screen.get_by_role(Role::CheckBox, "Locked").is_disabled());
     let switch = screen.get_by_role(Role::Switch, "Airplane mode");

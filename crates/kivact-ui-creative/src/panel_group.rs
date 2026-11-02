@@ -12,7 +12,7 @@ use kivact::prelude::{
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, current_theme};
 use kivact::view::{A11yAction, Handled};
-use kivact::view::{MouseButton, PointerPhase, for_each};
+use kivact::view::{ButtonPress, MouseButton, PointerPhase, for_each};
 use kivact::{Binding, binding};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -153,7 +153,10 @@ pub fn panel_group<V: IntoView>(
             .name(move || panel.get().title)
             .on_pointer_default(move |event| {
                 match event.phase {
-                    PointerPhase::Down if event.button == Some(MouseButton::Primary) => {
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        ..
+                    }) => {
                         exclusive.set(event.modifiers.ctrl || event.modifiers.meta);
                     }
                     PointerPhase::Leave | PointerPhase::Cancel => exclusive.set(false),

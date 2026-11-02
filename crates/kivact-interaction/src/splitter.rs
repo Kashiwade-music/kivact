@@ -15,8 +15,8 @@ use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, Key, KeyEvent, MouseButton, Orientation,
-    PointerEvent, PointerPhase, Role,
+    A11yAction, A11yEvent, A11yRequest, ButtonPress, Handled, IntoValue, Key, KeyEvent,
+    MouseButton, Orientation, PointerEvent, PointerPhase, Role,
 };
 use kivact_core::{Binding, Value, var};
 
@@ -261,12 +261,8 @@ impl SplitterApi {
         // Only an action that will write is an edit: a value that is not a
         // number reports nothing.
         let act = move |event: A11yEvent| {
-            let writes = match event.action {
-                A11yAction::SetValue => event
-                    .value
-                    .as_deref()
-                    .and_then(|v| v.parse::<f64>().ok())
-                    .is_some_and(f64::is_finite),
+            let writes = match &event.request {
+                A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(f64::is_finite),
                 _ => true,
             };
             if writes && !self.is_disabled() {
@@ -334,10 +330,13 @@ impl SplitterApi {
         })
         // A double click resets before the drag source sees the press.
         .on_pointer(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down
-                && event.button == Some(MouseButton::Primary)
-                && event.click_count > 1
-                && !self.is_disabled()
+            if matches!(
+                event.phase,
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    clicks: 2..
+                })
+            ) && !self.is_disabled()
                 && !session.is_active()
                 && reset()
             {

@@ -51,12 +51,12 @@ fn bezier_keys_and_advertised_actions_make_single_edits() {
     assert!((value.get_untracked().y1 - 0.2).abs() < 1e-9);
     first.a11y(A11yAction::Increment);
     first.a11y(A11yAction::Decrement);
-    first.a11y_with_value(A11yAction::SetValue, "0.4,1.5");
+    first.a11y_set_value("0.4,1.5");
     assert_eq!(
         (value.get_untracked().x1, value.get_untracked().y1),
         (0.4, 1.5)
     );
-    first.a11y_with_value(A11yAction::SetValue, "0.5 -0.25");
+    first.a11y_set_value("0.5 -0.25");
     assert_eq!(
         (value.get_untracked().x1, value.get_untracked().y1),
         (0.5, -0.25)
@@ -69,7 +69,7 @@ fn bezier_keys_and_advertised_actions_make_single_edits() {
             .iter()
             .all(|phases| *phases == [Begin, Commit])
     );
-    first.a11y_with_value(A11yAction::SetValue, "NaN,0.5");
+    first.a11y_set_value("NaN,0.5");
     assert_eq!(log.borrow().len(), 14);
     assert_eq!(value.get_untracked().x2, 0.25);
     clean(&screen);

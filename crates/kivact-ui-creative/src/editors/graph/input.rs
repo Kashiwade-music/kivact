@@ -13,13 +13,13 @@ impl State {
     /// canvas and its regions) then follow the pointer until it ends.
     pub(crate) fn pointer(self, event: PointerEvent) -> Handled {
         match event.phase {
-            PointerPhase::Down => {
+            PointerPhase::Down(press) => {
                 if self.gesture.is_active() {
                     return Handled::Yes;
                 }
-                let pan = event.button == Some(MouseButton::Middle)
-                    || (event.button == Some(MouseButton::Primary) && self.space.get());
-                if !pan && event.button != Some(MouseButton::Primary) {
+                let pan = press.button == MouseButton::Middle
+                    || (press.button == MouseButton::Primary && self.space.get());
+                if !pan && press.button != MouseButton::Primary {
                     return Handled::No;
                 }
                 let target = self.target(event.region());

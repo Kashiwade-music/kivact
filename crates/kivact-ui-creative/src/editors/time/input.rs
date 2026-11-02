@@ -12,16 +12,16 @@ use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPha
 /// The press decides what the editor's drag does; the drag's sources (the
 /// canvas and its regions) then follow the pointer until it ends.
 pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
-    if e.phase != PointerPhase::Down {
+    let PointerPhase::Down(press) = e.phase else {
         return Handled::No;
-    }
+    };
     if s.gesture.is_active() {
         return Handled::Yes;
     }
     let target = s.target(e.region());
-    match e.button {
-        Some(MouseButton::Middle) => start(s, Drag::Pan, s.view_snapshot(), &e, None),
-        Some(MouseButton::Primary) => {
+    match press.button {
+        MouseButton::Middle => start(s, Drag::Pan, s.view_snapshot(), &e, None),
+        MouseButton::Primary => {
             s.active.set(target);
             match target {
                 // A lane press only activates on a stationary double click.

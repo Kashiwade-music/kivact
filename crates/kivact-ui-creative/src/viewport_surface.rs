@@ -11,8 +11,8 @@ use kivact::style::{ColorToken, Overflow, style};
 use kivact::ui::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    Handled, IntoValue, IntoView, Modifiers, MouseButton, PointerId, PointerPhase, Role, View,
-    callback, node_ref,
+    Handled, IntoValue, IntoView, Modifiers, PointerId, PointerPhase, Role, View, callback,
+    node_ref,
 };
 use kivact::{Binding, Callback, Value};
 use std::rc::Rc;
@@ -31,7 +31,6 @@ pub struct SurfaceSize {
 pub struct SurfacePointer {
     pub position: Point,
     pub phase: PointerPhase,
-    pub button: Option<MouseButton>,
     pub modifiers: Modifiers,
     pub pointer_id: PointerId,
     pub region: Option<u64>,
@@ -297,7 +296,6 @@ impl IntoView for ViewportSurface {
                     callback.call(SurfacePointer {
                         position: view.get().to_content(event.pos),
                         phase: event.phase,
-                        button: event.button,
                         modifiers: event.modifiers,
                         pointer_id: event.id,
                         region: event.region().and_then(|id| {

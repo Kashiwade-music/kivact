@@ -104,12 +104,12 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     assert!(near(key(m, 1).value, -1.0, 1e-5));
     screen
         .get_by_role(Role::Button, "Position key 2.5")
-        .a11y_with_value(A11yAction::SetValue, "3, -0.5");
+        .a11y_set_value("3, -0.5");
     assert!(near(key(m, 1).time, 3.0, 1e-5));
     assert!(near(key(m, 1).value, -0.5, 1e-5));
     screen
         .get_by_role(Role::Slider, "Playhead")
-        .a11y_with_value(A11yAction::SetValue, "4.25");
+        .a11y_set_value("4.25");
     assert!(near(m.frame.get_untracked(), 4.25, 1e-5));
     screen
         .get_by_role(Role::Slider, "Playhead")

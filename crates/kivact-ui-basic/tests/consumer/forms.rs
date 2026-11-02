@@ -136,7 +136,7 @@ fn radio_group_arrows_move_and_select() {
     screen.get_by_role(Role::RadioGroup, "Fruit");
     screen.get_by_text("Crunchy");
     let apple = screen.get_by_role(Role::RadioButton, "Apple");
-    assert_eq!(apple.is_checked(), Some(true));
+    assert_eq!(apple.checked(), Some(CheckedState::Checked));
     apple.focus();
     screen.press_key(Key::ArrowDown);
     screen.run_until_idle();
