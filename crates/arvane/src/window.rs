@@ -301,7 +301,7 @@ impl Window for NativeWindow<'_> {
     }
     #[cfg(feature = "gpu-interop")]
     fn gpu_adapter(&self) -> Option<GpuAdapter> {
-        self.presenter.gpu_adapter(self.shell.key())
+        self.presenter.gpu_adapter()
     }
     #[cfg(feature = "gpu-interop")]
     fn import_external_image(
@@ -309,8 +309,7 @@ impl Window for NativeWindow<'_> {
         id: ExternalImageId,
         textures: SharedTextures,
     ) -> Result<(), Error> {
-        self.presenter
-            .import_external(self.shell.key(), id, textures)
+        self.presenter.import_external(id, textures)
     }
     #[cfg(feature = "gpu-interop")]
     fn drop_external_image(&mut self, id: ExternalImageId) {
@@ -424,7 +423,7 @@ pub(crate) struct Driver<H> {
     presenter: Presenter,
     /// The window starts the GPU renderer.
     gpu: bool,
-    /// Must remain last: retain only after handler/assets and presenter drop.
+    /// Dropped last (fields drop in declaration order): it retains the module only after the handler, its asset stores and the presenter dropped (`shutdown.rs`).
     _retention: crate::shutdown::RetainOnDrop,
 }
 
@@ -465,7 +464,7 @@ impl<H: Handler> ShellHandler for Driver<H> {
         // The platform destroyed the window's surface: the GPU's goes with
         // it (the next frame after `SurfaceCreated` makes a new one).
         if event == ShellEvent::SurfaceDestroyed {
-            self.presenter.surface_destroyed(window.key());
+            self.presenter.surface_destroyed();
         }
         let mut window = NativeWindow {
             shell: window,

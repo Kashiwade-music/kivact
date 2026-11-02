@@ -11,6 +11,7 @@ use kivact_types::protocol::{Environment, MouseSettings, SemanticsTree, Semantic
 use kivact_types::{Capabilities, Cursor, Insets, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
+use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -62,9 +63,28 @@ pub(super) struct VirtualShell {
     pub(super) occluded: bool,
     /// Presentations that are to fail as a lost surface does.
     pub(super) failing: u32,
-    /// The surface generation (`None`: destroyed) and the surfaces made.
-    pub(super) surface: (Option<u64>, u64),
+    /// The window's surface.
+    pub(super) surface: TestSurface,
     pub(super) cpu_frame: Cell<bool>,
+}
+
+/// The window's presentation surface, as the test drives the platform.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum TestSurface {
+    /// The surface of `generation` (the count of surfaces made; the first is 1).
+    Live { generation: NonZeroU64 },
+    /// Destroyed by the platform; the last one was of generation `last`.
+    Destroyed { last: NonZeroU64 },
+}
+
+impl TestSurface {
+    /// The live surface's generation; `None` while destroyed.
+    pub(super) fn generation(self) -> Option<u64> {
+        match self {
+            Self::Live { generation } => Some(generation.get()),
+            Self::Destroyed { .. } => None,
+        }
+    }
 }
 
 impl VirtualShell {
@@ -179,7 +199,7 @@ impl ShellWindow for VirtualShell {
         }
     }
     fn surface_generation(&self) -> Option<u64> {
-        self.surface.0
+        self.surface.generation()
     }
     fn request_redraw(&self) {
         self.redraw.set(true);
@@ -273,7 +293,7 @@ impl ShellWindow for VirtualShell {
         height: u32,
         draw: &mut dyn FnMut(&mut [u32]) -> bool,
     ) -> Result<bool, ShellError> {
-        if self.surface.0.is_none() || width == 0 || height == 0 {
+        if self.surface.generation().is_none() || width == 0 || height == 0 {
             return Ok(false);
         }
         if (width, height) != self.physical_size() {
