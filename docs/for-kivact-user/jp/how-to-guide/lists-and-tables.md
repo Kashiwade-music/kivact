@@ -322,7 +322,7 @@ mod tests {
 | 呼び出し | 得られるもの |
 | --- | --- |
 | `.selection(Signal<Vec<K>>)` | 各行とヘッダーのチェックボックス、選択数の表示 |
-| `.sort(Binding<Option<(usize, SortDirection)>>)` | 並べ替え中の列(位置)と向きの読み書き。渡さなくても、ヘッダーは自分で並べ替える |
+| `.sort(Binding<Option<(usize, SortOrder)>>)` | 並べ替え中の列(位置)と向きの読み書き。渡さなくても、ヘッダーは自分で並べ替える |
 | `.filter(Signal<String>)` | 絞り込みの欄。`DataColumn::filter` が一致する行だけを残す |
 | `.page(Signal<usize>, size)` | `size` 行ごとの頁と、前へ・次へ |
 | `.resizable(Signal<Vec<f32>>)` | ヘッダーの幅変更ハンドル。幅はあなたの値になる |
@@ -332,7 +332,7 @@ mod tests {
 
 列は、比較(`.compare(..)`、またはセルの文字列を比較する `.sortable()`)を持つと並べ替えられ、`.filter(..)` を持つと絞り込みに加わります。`.cell(|row| view)` はセルの view を置き換えますが、文字列はセルのアクセシブルな名前として残ります。`.numeric(true)` は右寄せ、`.width(px)` は幅の固定で、ほかの列が残りを分け合い、`.visible(..)` は列を隠します。
 
-既定では、キーボードのフォーカスはセル間を移動し、Space で行を選びます。`.focus(TableFocus::Rows)` にすると、行全体がフォーカスの単位になります。数万行の表では、絞り込み済みのデータに `.page(..)` を組み合わせてください。現在の頁の行はすべてマウントされるからです。
+既定では、キーボードのフォーカスはセル間を移動し、Space で行を選びます。`.focus(TableFocus::Rows(ListPolicy::default()))` にすると、行全体がフォーカスの単位になります。数万行の表では、絞り込み済みのデータに `.page(..)` を組み合わせてください。現在の頁の行はすべてマウントされるからです。
 
 ## 大きなデータ
 

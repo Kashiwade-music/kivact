@@ -69,7 +69,7 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::SortDirection;
+use kivact::interaction::SortOrder;
 use kivact_ui_pop as pop;
 
 #[derive(Clone, PartialEq)]
@@ -83,7 +83,7 @@ fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
     let selected = signal(Vec::<u32>::new());
     let query = signal(String::new());
     let page = signal(0_usize);
-    let sort = signal(Some((1_usize, SortDirection::Descending)));
+    let sort = signal(Some((1_usize, SortOrder::Descending)));
     column((
         data_table(
             rows,
