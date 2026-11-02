@@ -1,4 +1,4 @@
-//! Role: The one in-flight run of latest-wins work: a resource fetch or a `Latest` action run.
+//! Role: The one in-flight run of latest-wins work (a resource fetch, a `Latest` run).
 
 use std::cell::Cell;
 use std::future::Future;

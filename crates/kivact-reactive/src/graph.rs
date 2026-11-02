@@ -577,10 +577,11 @@ impl Runtime {
         let mut g = self.graph.borrow_mut();
         unlink_deps(&mut g, key);
         // Unlink subscribers: remove this node from each subscriber's deps.
-        let subs = match g.get_mut(key) {
-            Some(n) => n.subs_mut().map(std::mem::take).unwrap_or_default(),
-            None => return None,
-        };
+        let subs = g
+            .get_mut(key)?
+            .subs_mut()
+            .map(std::mem::take)
+            .unwrap_or_default();
         for (sub, dep_index) in subs {
             remove_dep_entry(&mut g, sub, dep_index as usize);
         }

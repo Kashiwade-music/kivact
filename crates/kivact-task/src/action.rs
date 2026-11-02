@@ -605,8 +605,7 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
     pub fn attempt(&self) -> u32 {
         let (_, cell) = self.cell(Location::caller());
         cell.state.with(|_| ());
-        let attempt = cell.last.borrow().as_ref().map_or(0, |s| s.attempt);
-        attempt
+        cell.last.borrow().as_ref().map_or(0, |s| s.attempt)
     }
 
     /// Runs waiting to start (the running one excluded; always 0 for
@@ -723,7 +722,6 @@ impl<T: Clone + 'static, I: Clone + 'static> Action<T, I> {
     pub fn input(&self) -> Option<I> {
         let (_, cell) = self.cell(Location::caller());
         cell.state.with(|_| ());
-        let input = cell.last.borrow().as_ref().map(|s| I::clone(&s.input));
-        input
+        cell.last.borrow().as_ref().map(|s| I::clone(&s.input))
     }
 }
