@@ -6,11 +6,11 @@
 //! shared image, and the engine's waits wake on the UI's changes.
 //!
 //! Invariants:
-//! - `LinkState::request` is the newest request; its token is one more
-//!   than the one before. A call naming another token is stale.
-//! - `LinkState::phase` is the phase of the newest request only; the UI
-//!   side moves it, except `Waiting` → `Importing`, which `provide` does.
-//! - Once `closed`, nothing is kept: textures given are dropped, frames
+//! - `LinkState::Open` holds the newest request (its token is one more
+//!   than the one before; a call naming another token is stale), its phase
+//!   and the newest CPU picture; the UI side moves the phase, except
+//!   `Waiting` → `Provided`, which `provide` does.
+//! - Once `Closed`, nothing is kept: textures given are dropped, frames
 //!   are not published, and the waits return at once.
 
 use std::fmt;
@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use kivact_reactive::UiError;
 use kivact_wire::{GpuAdapter, SharedTextures};
 
 use crate::gpu_interop::import::FramePublisher;
@@ -81,69 +82,222 @@ impl fmt::Display for ShareError {
 
 impl std::error::Error for ShareError {}
 
-/// Where the newest request stands.
+/// Where a [`SharedImage`](super::app_side::SharedImage) stands, tracked
+/// ([`SharedImage::status`](super::app_side::SharedImage::status)).
 #[derive(Clone, Debug, PartialEq)]
+pub enum ShareStatus {
+    /// A [`ShareMode::Gpu`] request was issued; the engine has not
+    /// provided textures for it yet.
+    Waiting,
+    /// The engine provided textures; the window imports them.
+    Importing,
+    /// The textures are imported: the engine's frames draw
+    /// ([`SharedImage::frame`](super::app_side::SharedImage::frame)).
+    Ready,
+    /// The request is [`ShareMode::Pixels`]: the window cannot import, and
+    /// the engine publishes pictures drawn on the CPU
+    /// ([`SharedImage::pixels`](super::app_side::SharedImage::pixels)).
+    Pixels,
+    /// The window could not import the textures (the kinds of
+    /// `ImportStatus::Failed`). The image stays so until the next request.
+    Failed(UiError),
+    /// The image's owner is gone: nothing draws, and the engine's link is
+    /// closed (`ShareLink::is_closed`).
+    Closed,
+}
+
+/// The state the engine's threads share with the UI side of the image.
+pub(crate) enum LinkState {
+    /// The image's owner lives.
+    Open(Box<Open>),
+    /// The image's owner is gone: nothing is kept, frames are not
+    /// published and the waits return at once.
+    Closed,
+}
+
+/// The state of an image whose owner lives.
+pub(crate) struct Open {
+    /// The newest request; its token is one more than the one before.
+    request: ShareRequest,
+    /// Where the newest request stands.
+    phase: Phase,
+    /// The newest picture published on the CPU, for the UI to take
+    /// (whatever the request).
+    pixels: Option<Pixels>,
+}
+
+/// Where the newest request stands. `Pixels` exactly for a request of
+/// `ShareMode::Pixels` (`Phase::of`).
 pub(crate) enum Phase {
     /// A GPU request waits for textures.
     Waiting,
-    /// Textures were given and are being imported.
+    /// The engine gave textures; the UI has not taken them yet.
+    Provided(SharedTextures),
+    /// The UI imports the textures.
     Importing,
-    /// Imported: frames are published.
-    Ready,
-    /// The import failed, with the window's message.
-    Failed(String),
+    /// Imported: frames are published through the import's publisher.
+    Ready(FramePublisher),
+    /// The import failed (the kinds of `ImportStatus::Failed`).
+    Failed(UiError),
     /// A request of `ShareMode::Pixels`.
     Pixels,
 }
 
-/// The state the engine's threads share with the UI side of the image.
-pub(crate) struct LinkState {
-    pub(crate) request: ShareRequest,
-    pub(crate) phase: Phase,
-    /// Textures given for the request of the token, for the UI to import.
-    pub(crate) provided: Option<(u64, SharedTextures)>,
-    /// The newest picture published on the CPU, for the UI to take.
-    pub(crate) pixels: Option<Pixels>,
-    /// The publisher of the newest request's import, once it is `Ready`.
-    pub(crate) publisher: Option<FramePublisher>,
-    /// The owner of the image is gone.
-    pub(crate) closed: bool,
+/// What the engine handed the UI.
+pub(crate) enum Work {
+    /// Textures to import for the request of the token.
+    Import(u64, SharedTextures),
+    /// A picture drawn on the CPU.
+    Pixels(Pixels),
 }
 
 impl LinkState {
-    pub(crate) fn new(request: ShareRequest) -> Self {
+    pub(super) fn new(request: ShareRequest) -> Self {
         let phase = Phase::of(&request.mode);
-        LinkState {
+        LinkState::Open(Box::new(Open {
             request,
             phase,
-            provided: None,
             pixels: None,
-            publisher: None,
-            closed: false,
-        }
+        }))
     }
 
-    /// Replace the request with a new one of `mode` and size; what was
-    /// given for the old one is returned, to drop after the lock.
-    pub(crate) fn renew(
-        &mut self,
-        mode: ShareMode,
-        (width, height): (u32, u32),
-    ) -> Option<(u64, SharedTextures)> {
-        self.phase = Phase::of(&mode);
-        self.request = ShareRequest {
+    /// Replace the request with a new one of `mode` and size; the old
+    /// phase (its textures or publisher) is returned, to drop after the
+    /// lock.
+    pub(super) fn renew(&mut self, mode: ShareMode, (width, height): (u32, u32)) -> Option<Phase> {
+        let LinkState::Open(open) = self else {
+            return None;
+        };
+        let phase = std::mem::replace(&mut open.phase, Phase::of(&mode));
+        open.request = ShareRequest {
             mode,
             width,
             height,
-            token: self.request.token + 1,
+            token: open.request.token + 1,
         };
-        self.publisher = None;
-        self.provided.take()
+        Some(phase)
     }
 
-    /// Whether `request` is the newest one.
-    fn is_current(&self, request: &ShareRequest) -> bool {
-        self.request.token == request.token
+    /// The owner is gone; what was kept is returned, to drop after the
+    /// lock.
+    pub(super) fn close(&mut self) -> LinkState {
+        std::mem::replace(self, LinkState::Closed)
+    }
+
+    /// What the UI task takes: provided textures (the phase becomes
+    /// `Importing`), else the newest picture.
+    pub(super) fn take_work(&mut self) -> Option<Work> {
+        let LinkState::Open(open) = self else {
+            return None;
+        };
+        match std::mem::replace(&mut open.phase, Phase::Importing) {
+            Phase::Provided(textures) => Some(Work::Import(open.request.token, textures)),
+            other => {
+                open.phase = other;
+                open.pixels.take().map(Work::Pixels)
+            }
+        }
+    }
+
+    /// The import of request `token` settled as `phase` (`Ready` or
+    /// `Failed`); whether it is the newest request's import.
+    pub(super) fn settle(&mut self, token: u64, phase: Phase) -> bool {
+        match self {
+            LinkState::Open(open)
+                if open.request.token == token && matches!(open.phase, Phase::Importing) =>
+            {
+                open.phase = phase;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The status the UI shows.
+    pub(super) fn status(&self) -> ShareStatus {
+        let LinkState::Open(open) = self else {
+            return ShareStatus::Closed;
+        };
+        match &open.phase {
+            Phase::Waiting => ShareStatus::Waiting,
+            Phase::Provided(_) | Phase::Importing => ShareStatus::Importing,
+            Phase::Ready(_) => ShareStatus::Ready,
+            Phase::Failed(error) => ShareStatus::Failed(error.clone()),
+            Phase::Pixels => ShareStatus::Pixels,
+        }
+    }
+
+    /// The newest request, `None` once closed.
+    pub(super) fn newest(&self) -> Option<&ShareRequest> {
+        match self {
+            LinkState::Open(open) => Some(&open.request),
+            LinkState::Closed => None,
+        }
+    }
+
+    /// Give the newest request `request` the textures; on a refusal, the
+    /// error and the textures to drop after the lock.
+    fn provide(
+        &mut self,
+        request: &ShareRequest,
+        textures: SharedTextures,
+    ) -> Result<(), (ShareError, SharedTextures)> {
+        let LinkState::Open(open) = self else {
+            return Err((ShareError::Closed, textures));
+        };
+        if open.request.token != request.token {
+            return Err((ShareError::Stale, textures));
+        }
+        if matches!(open.phase, Phase::Waiting) {
+            open.phase = Phase::Provided(textures);
+            return Ok(());
+        }
+        let message = if matches!(open.phase, Phase::Pixels) {
+            "a Pixels request takes no textures"
+        } else {
+            "the request was given textures already"
+        };
+        Err((ShareError::Failed(message.into()), textures))
+    }
+
+    /// The answer of `wait_ready` for `request`, `None` while it waits.
+    fn ready(&self, request: &ShareRequest) -> Option<Result<(), ShareError>> {
+        let LinkState::Open(open) = self else {
+            return Some(Err(ShareError::Closed));
+        };
+        if open.request.token != request.token {
+            return Some(Err(ShareError::Stale));
+        }
+        match &open.phase {
+            Phase::Ready(_) => Some(Ok(())),
+            Phase::Failed(error) => Some(Err(ShareError::Failed(error.message().to_owned()))),
+            Phase::Pixels => Some(Err(ShareError::Failed(
+                "a Pixels request imports nothing".into(),
+            ))),
+            Phase::Waiting | Phase::Provided(_) | Phase::Importing => None,
+        }
+    }
+
+    /// The publisher of `request`'s import, while it is `Ready`.
+    fn publisher(&self, request: &ShareRequest) -> Option<FramePublisher> {
+        let LinkState::Open(open) = self else {
+            return None;
+        };
+        match &open.phase {
+            Phase::Ready(publisher) if open.request.token == request.token => {
+                Some(publisher.clone())
+            }
+            _ => None,
+        }
+    }
+
+    /// Keep `pixels` as the newest picture; the picture to drop (replaced,
+    /// or refused when closed).
+    fn put_pixels(&mut self, pixels: Pixels) -> Option<Pixels> {
+        match self {
+            LinkState::Closed => Some(pixels),
+            LinkState::Open(open) => open.pixels.replace(pixels),
+        }
     }
 }
 
@@ -190,9 +344,7 @@ impl ShareLink {
     /// The newest request, when it is newer than the last one this handle
     /// returned; `None` otherwise and once closed.
     pub fn poll_request(&self) -> Option<ShareRequest> {
-        let request = self
-            .state
-            .read(|s| (!s.closed).then(|| s.request.clone()))?;
+        let request = self.state.read(|s| s.newest().cloned())?;
         self.take_if_new(request)
     }
 
@@ -203,12 +355,9 @@ impl ShareLink {
         let seen = self.seen.load(Ordering::SeqCst);
         let request = self
             .state
-            .wait(timeout, |s| {
-                if s.closed {
-                    Some(None)
-                } else {
-                    (s.request.token > seen).then(|| Some(s.request.clone()))
-                }
+            .wait(timeout, |s| match s.newest() {
+                None => Some(None),
+                Some(newest) => (newest.token > seen).then(|| Some(newest.clone())),
             })
             .flatten()?;
         self.take_if_new(request)
@@ -254,25 +403,14 @@ impl ShareLink {
         request: &ShareRequest,
         textures: SharedTextures,
     ) -> Result<(), ShareError> {
-        let (result, refused) = self.state.update(|s| {
-            let refusal = if s.closed {
-                ShareError::Closed
-            } else if !s.is_current(request) {
-                ShareError::Stale
-            } else if s.request.mode == ShareMode::Pixels {
-                ShareError::Failed("a Pixels request takes no textures".into())
-            } else if s.phase != Phase::Waiting {
-                ShareError::Failed("the request was given textures already".into())
-            } else {
-                s.phase = Phase::Importing;
-                s.provided = Some((request.token, textures));
-                return (Ok(()), None);
-            };
-            (Err(refusal), Some(textures))
-        });
-        // The refused handles close outside the lock.
-        drop(refused);
-        result
+        match self.state.update(|s| s.provide(request, textures)) {
+            Ok(()) => Ok(()),
+            Err((error, refused)) => {
+                // The refused handles close outside the lock.
+                drop(refused);
+                Err(error)
+            }
+        }
     }
 
     /// Wait at most `timeout` for the import of the textures given for
@@ -288,22 +426,7 @@ impl ShareLink {
     /// [`ShareError::Timeout`] when the time ran out.
     pub fn wait_ready(&self, request: &ShareRequest, timeout: Duration) -> Result<(), ShareError> {
         self.state
-            .wait(timeout, |s| {
-                if s.closed {
-                    return Some(Err(ShareError::Closed));
-                }
-                if !s.is_current(request) {
-                    return Some(Err(ShareError::Stale));
-                }
-                match &s.phase {
-                    Phase::Ready => Some(Ok(())),
-                    Phase::Failed(message) => Some(Err(ShareError::Failed(message.clone()))),
-                    Phase::Pixels => Some(Err(ShareError::Failed(
-                        "a Pixels request imports nothing".into(),
-                    ))),
-                    Phase::Waiting | Phase::Importing => None,
-                }
-            })
+            .wait(timeout, |s| s.ready(request))
             .unwrap_or(Err(ShareError::Timeout))
     }
 
@@ -319,13 +442,7 @@ impl ShareLink {
     /// ([`ShareLink::wait_ready`]), a [`ShareMode::Pixels`] request, and
     /// once closed.
     pub fn publish(&self, request: &ShareRequest, slot: u32, value: u64) {
-        let publisher = self.state.read(|s| {
-            if s.closed || !s.is_current(request) || s.phase != Phase::Ready {
-                return None;
-            }
-            s.publisher.clone()
-        });
-        if let Some(publisher) = publisher {
+        if let Some(publisher) = self.state.read(|s| s.publisher(request)) {
             publisher.publish(slot, value);
         }
     }
@@ -335,19 +452,13 @@ impl ShareLink {
     /// whatever the request (the newest picture wins); ignored once
     /// closed.
     pub fn publish_pixels(&self, pixels: Pixels) {
-        let dropped = self.state.update(|s| {
-            if s.closed {
-                Some(pixels)
-            } else {
-                s.pixels.replace(pixels)
-            }
-        });
+        let dropped = self.state.update(|s| s.put_pixels(pixels));
         drop(dropped);
     }
 
     /// Whether the shared image's owner is gone: the engine stops.
     pub fn is_closed(&self) -> bool {
-        self.state.read(|s| s.closed)
+        self.state.read(|s| matches!(s, LinkState::Closed))
     }
 }
 

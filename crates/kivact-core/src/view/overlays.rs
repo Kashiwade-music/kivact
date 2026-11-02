@@ -379,9 +379,7 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
     let Some(opener) = focus::focused(rt) else {
         return;
     };
-    let visible = ViewState::of(rt)
-        .focus_keys()
-        .is_some_and(|keys| keys.visible.get_untracked());
+    let visible = ViewState::of(rt).focus_keys().visible.get_untracked();
     let weak = Rc::downgrade(rt);
     owner.on_cleanup(move || {
         let Some(rt) = weak.upgrade() else { return };
@@ -404,8 +402,8 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
 /// Where a key goes and where its handler chain stops (see [`key_route`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct KeyRoute {
-    /// The first node of the chain (`None`: nothing is mounted).
-    pub target: Option<NodeId>,
+    /// The first node of the chain.
+    pub target: NodeId,
     /// The topmost shown modal, where the chain stops.
     pub stop: Option<NodeId>,
     /// Whether an unhandled Enter or Space activates `target`: not when
@@ -422,14 +420,14 @@ pub(crate) struct KeyRoute {
 pub(crate) fn key_route(rt: &Runtime, named: Option<NodeId>) -> KeyRoute {
     let focused = focus::focused(rt).map(|f| f.node);
     let tree = ViewState::tree(rt);
-    let modal = tree.reader().and_then(|reader| reader.active_modal());
+    let modal = tree.reader().active_modal();
     let target = named
         .or(focused)
         .filter(|t| modal.is_none_or(|m| tree.is_within(*t, m)))
         .or(modal);
     KeyRoute {
         activates: target.is_some(),
-        target: target.or_else(|| tree.app_view()).or(tree.root),
+        target: target.or_else(|| tree.app_view()).unwrap_or(tree.root),
         stop: modal,
     }
 }
@@ -442,5 +440,5 @@ pub(crate) fn escape_dismisses(rt: &Runtime, e: &KeyEvent) -> Option<NodeId> {
     if e.repeat || e.key != Key::Escape || e.modifiers != Modifiers::default() {
         return None;
     }
-    ViewState::tree(rt).reader()?.dismiss_target()
+    ViewState::tree(rt).reader().dismiss_target()
 }

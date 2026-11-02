@@ -11,7 +11,7 @@ use kivact_wire::{FocusTarget, NodeId};
 
 use crate::view::state::{Bound, NodeRefState, ViewState};
 use kivact_reactive::{
-    AppId, ErrorKind, IntoValue, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
+    AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
     require_setup,
 };
 use kivact_style::draw::Rect;
@@ -204,9 +204,7 @@ impl NodeRef {
     pub fn hit_test(&self, point: crate::draw::Point) -> bool {
         let (rt, _) = self.state(Location::caller());
         let Some(id) = self.node() else { return false };
-        ViewState::tree(&rt)
-            .reader()
-            .is_some_and(|reader| reader.hit_test(id, point))
+        ViewState::tree(&rt).reader().hit_test(id, point)
     }
 
     /// Select every character in the bound text input.
@@ -448,9 +446,7 @@ impl NodeRef {
         let at = Location::caller();
         let (rt, s) = self.state(at);
         require_setup("NodeRef::focused");
-        let Some(keys) = ViewState::of(&rt).focus_keys() else {
-            return false.into_value();
-        };
+        let keys = ViewState::of(&rt).focus_keys();
         let app = rt.id();
         let node = s.bound;
         drop(rt);
@@ -480,9 +476,7 @@ impl NodeRef {
         let at = Location::caller();
         let (rt, _) = self.state(at);
         let focused = self.focused();
-        let Some(keys) = ViewState::of(&rt).focus_keys() else {
-            return false.into_value();
-        };
+        let keys = ViewState::of(&rt).focus_keys();
         kivact_reactive::memo(move || focused.get() && keys.visible.get())
     }
 
@@ -502,9 +496,7 @@ impl NodeRef {
         let at = Location::caller();
         let (rt, s) = self.state(at);
         require_setup("NodeRef::focus_within");
-        let Some(keys) = ViewState::of(&rt).focus_keys() else {
-            return false.into_value();
-        };
+        let keys = ViewState::of(&rt).focus_keys();
         let app = rt.id();
         let node = s.bound;
         drop(rt);
@@ -594,7 +586,7 @@ fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rec
         .into_iter()
         .filter_map(|layer| tree.scene(target.node, layer))
         .find_map(|scene| scene.regions.iter().find(|item| item.id == region).cloned())?;
-        let bounds = tree.reader()?.region_bounds(target.node, region.rect)?;
+        let bounds = tree.reader().region_bounds(target.node, region.rect)?;
         Some(bounds)
     })
 }

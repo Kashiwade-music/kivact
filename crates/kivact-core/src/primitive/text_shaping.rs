@@ -21,9 +21,7 @@ pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f32>) ->
         line_height: Some(theme.text().line_height),
         ..Default::default()
     };
-    let measurer = ViewState::tree(&rt)
-        .reader()
-        .map(|reader| reader.paragraph_measurer(inherited));
+    let measurer = ViewState::tree(&rt).reader().paragraph_measurer(inherited);
     let run = TextRun::from_style(
         text,
         wire::Point::default(),
@@ -32,8 +30,6 @@ pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f32>) ->
         wire::Rgba::TRANSPARENT,
         None,
     );
-    let shaped = measurer
-        .and_then(|measurer| measurer.shape(run.as_wire(), max_width))
-        .unwrap_or_default();
+    let shaped = measurer.shape(run.as_wire(), max_width).unwrap_or_default();
     TextParagraph::from_shaped(text, shaped, max_width)
 }

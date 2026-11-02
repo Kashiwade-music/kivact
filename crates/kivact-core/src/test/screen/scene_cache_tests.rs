@@ -2,7 +2,7 @@
 //! Public Screen fixes assets to inline execution and App fonts to startup.
 //! These cases use the same AppClient and production test host directly,
 //! with existing normal host operations, to exercise later resource changes.
-use crate::client::AppClient;
+use crate::client::{AppClient, AppConfig};
 use crate::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
 use crate::view::View;
 use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
@@ -18,10 +18,8 @@ fn host(
     inline_assets: bool,
 ) -> (ArvaneTestHost, Rc<Runtime>) {
     let client = AppClient::new(
-        "retained scene".into(),
-        Theme::light(),
+        AppConfig::new("retained scene".into(), Theme::light(), Box::new(root)),
         Some(2),
-        Box::new(root),
         Location::caller(),
     );
     let rt = client.runtime().clone();

@@ -28,7 +28,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         unreachable!("`dispatch` routes only `HostEvent::Key` here");
     };
     let route = overlays::key_route(rt, *node);
-    let Some(target) = route.target else { return };
+    let target = route.target;
     if ViewState::tree(rt).get(target).is_none() {
         return stale(rt, "key", target);
     }

@@ -56,6 +56,6 @@ mod phases;
 mod settle;
 pub(crate) mod state;
 
-pub(crate) use app_client::AppClient;
+pub(crate) use app_client::{AppClient, AppConfig};
 #[cfg(feature = "test")]
 pub(crate) use state::HostState;

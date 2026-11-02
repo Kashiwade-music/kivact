@@ -283,7 +283,13 @@ impl Host {
                 // once instead of waiting for the next paint.
                 self.layout();
             }
-            ShellEvent::Modifiers(m) => self.model.borrow_mut().modifiers = m,
+            ShellEvent::Modifiers(m) => {
+                let mut model = self.model.borrow_mut();
+                if model.modifiers != m {
+                    model.modifiers = m;
+                    model.push(HostEvent::ModifiersChanged(m));
+                }
+            }
             ShellEvent::File {
                 phase,
                 files,

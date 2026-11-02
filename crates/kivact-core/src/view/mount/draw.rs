@@ -50,11 +50,9 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
         cx.effect(EffectKind::Render, at, move || {
             let sz = size.get();
             let theme = theme.map(|t| t.get()).unwrap_or_default();
-            let measurer = weak.upgrade().and_then(|rt| {
-                ViewState::tree_mut(&rt)
-                    .reader()
-                    .and_then(|reader| reader.text_measurer(id))
-            });
+            let measurer = weak
+                .upgrade()
+                .and_then(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
             let Recording {
                 scene,
                 unsupported: issues,

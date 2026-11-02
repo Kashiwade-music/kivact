@@ -29,9 +29,7 @@ pub(crate) fn run_requested_activations(rt: &Runtime) -> bool {
     let pending = requests::take_activations(rt);
     let any = !pending.is_empty();
     for target in pending {
-        let in_scope = ViewState::tree(rt)
-            .reader()
-            .is_none_or(|reader| reader.in_modal_scope(target.node));
+        let in_scope = ViewState::tree(rt).reader().in_modal_scope(target.node);
         if ViewState::tree(rt).get(target.node).is_none() || !in_scope {
             continue;
         }
@@ -135,10 +133,7 @@ pub(super) fn file(
         n.handlers.as_ref().and_then(|h| h.file.if_set())
     });
     if let Some((id, handler)) = found {
-        let local = ViewState::tree(rt)
-            .reader()
-            .map(|r| r.local_point(id, window_pos))
-            .unwrap_or(window_pos);
+        let local = ViewState::tree(rt).reader().local_point(id, window_pos);
         let event = crate::view::FileEvent {
             phase,
             files: files.to_vec(),
@@ -161,7 +156,7 @@ pub(super) fn activate_event(
     if let Some(pointer) = pointer
         && ViewState::tree(rt)
             .reader()
-            .is_some_and(|reader| reader.take_adopted_activation(node, region, pointer))
+            .take_adopted_activation(node, region, pointer)
     {
         return;
     }

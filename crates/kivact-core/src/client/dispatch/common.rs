@@ -22,6 +22,21 @@ pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
     }
 }
 
+/// Note the modifier keys the host reported last (`view::current_modifiers`):
+/// key, pointer and wheel events carry them, and `ModifiersChanged` reports a
+/// change between events. Recorded before admission, so an event a modal
+/// drops still updates them.
+pub(super) fn track_modifiers(rt: &Runtime, host_event: &HostEvent) {
+    let modifiers = match host_event {
+        HostEvent::Key { modifiers, .. }
+        | HostEvent::Wheel { modifiers, .. }
+        | HostEvent::ModifiersChanged(modifiers) => *modifiers,
+        HostEvent::Pointer { event, .. } => event.modifiers,
+        _ => return,
+    };
+    ViewState::of(rt).set_modifiers(modifiers);
+}
+
 pub(super) fn node_owner(rt: &Runtime, id: NodeId) -> Option<Owner> {
     ViewState::tree(rt).get(id).map(|n| n.owner)
 }
@@ -36,10 +51,9 @@ pub(super) fn stale(rt: &Runtime, what: &str, id: NodeId) {
 /// not admit is dropped and counted like a stale event. Asked exactly once
 /// per event, immediately before the event is dispatched, so a modal an
 /// earlier event of the turn opened already applies (and the engine records
-/// the pointer drag the event admits). Without an engine nothing is open.
+/// the pointer drag the event admits).
 pub(super) fn admitted(rt: &Runtime, event: &HostEvent, what: &str, id: NodeId) -> bool {
-    let reader = ViewState::tree(rt).reader();
-    if reader.is_none_or(|reader| reader.admit_input(event)) {
+    if ViewState::tree(rt).reader().admit_input(event) {
         return true;
     }
     drop_outside_modal(rt, what, id);

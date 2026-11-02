@@ -279,7 +279,8 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
             // Which row holds the focus changes rarely: only then does the
             // visible range run again, not at every focus move.
             let held_version = cx.owner.trigger(at);
-            if keep_focused && let Some(keys) = ViewState::of(cx.rt).focus_keys() {
+            if keep_focused {
+                let keys = ViewState::of(cx.rt).focus_keys();
                 let weak = cx.weak();
                 let st = state.clone();
                 cx.effect(EffectKind::Internal, at, move || {

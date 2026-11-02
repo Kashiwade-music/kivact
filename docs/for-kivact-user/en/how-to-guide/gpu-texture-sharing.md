@@ -283,6 +283,7 @@ Show `image.status()` while you develop. It is tracked, like a signal.
 | `Ready` | Frames draw. | Publish frames. |
 | `Pixels` | The window cannot import: it draws on the CPU, its GPU device is not up yet, or the platform is not Windows or Linux. | Serve with `publish_pixels`. |
 | `Failed(error)` | The window refused the pool. `error.kind()` is `Unsupported` (no importing GPU device) or `Platform` (the textures do not match the adapter, the API or the size they say, or a device failure). The message is Arvane's. | Fix the pool. The state stays until the next request. |
+| `Closed` | The image's owner is gone (its `show` turned false, its row went, the App closed). Nothing draws and the link is closed. | Stop the engine thread when `is_closed` says so. |
 
 A **new request** comes by itself in three cases: the window's adapter changes (a new
 device after a device loss, or the GPU appears after the first frames), the size changes,

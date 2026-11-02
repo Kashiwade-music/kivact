@@ -8,6 +8,8 @@
 //! node and message as `ErrorKind::Asset`, located where its node was
 //! created.
 //!
+//! Modifier changes are only recorded (`view::current_modifiers`).
+//!
 //! While overlays are shown, the engine decides which events are admitted
 //! (`Reader::admit_input`, asked once per event right before it is
 //! dispatched), where key, pointer and wheel handler chains stop and which
@@ -34,6 +36,7 @@ pub(super) use pointer::run_requested_activations;
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
     common::track_modality(rt, host_event);
+    common::track_modifiers(rt, host_event);
     match host_event {
         HostEvent::Pointer {
             node,
@@ -61,6 +64,8 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         } => pointer::activate_event(rt, host_event, *node, *region, *pointer),
         HostEvent::HoverChanged { node } => pointer::hover_changed(rt, *node),
         HostEvent::Key { .. } => key::key(rt, host_event),
+        // Recorded by `track_modifiers` above; nothing else to deliver.
+        HostEvent::ModifiersChanged(_) => {}
         HostEvent::TextChanged {
             node,
             changes,

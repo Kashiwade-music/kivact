@@ -20,6 +20,7 @@ pub(crate) mod focus;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
+pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
 pub(crate) mod node;
@@ -33,6 +34,7 @@ pub(crate) mod root;
 pub(crate) mod span;
 pub(crate) mod state;
 pub(crate) mod sync_hook;
+pub(crate) mod text_edits;
 pub(crate) mod tree;
 
 #[doc(inline)]
@@ -59,6 +61,8 @@ pub use kivact_reactive::HandlerResult;
 pub use kivact_reactive::{IntoReactive, IntoText, IntoValue, Reactive};
 #[doc(inline)]
 pub use kivact_reactive::{callback, constant, selector};
+#[doc(inline)]
+pub use modifier_keys::current_modifiers;
 
 /// Lets a component author take their own type as a prop.
 ///

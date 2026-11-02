@@ -51,17 +51,7 @@ impl Owner {
                 at,
             )
         });
-        let owner = ViewState::tree(&rt)
-            .root
-            .and_then(|id| ViewState::tree(&rt).get(id).map(|node| node.owner))
-            .unwrap_or_else(|| {
-                raise(
-                    ErrorKind::WrongApp,
-                    format!("`{api}` needs the App's root, which is gone"),
-                    at,
-                )
-            });
-        let owner = Self(owner);
+        let owner = Self(ViewState::tree(&rt).root_owner());
         owner.runtime();
         owner
     }

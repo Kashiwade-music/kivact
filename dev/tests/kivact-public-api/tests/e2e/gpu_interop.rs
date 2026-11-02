@@ -217,7 +217,7 @@ fn imports_draw_and_drop(backend: GpuBackend) -> Result<(), String> {
         "the dropped image releases its last frame (release {})",
         producer.release_value()
     );
-    assert_eq!(image.status(), ImportStatus::Lost, "the owner is gone");
+    assert_eq!(image.status(), ImportStatus::Dropped, "the owner is gone");
     // Textures of another adapter are refused, as a platform failure.
     let mut other = Producer::new(&adapter, Default::default(), W, H).expect("the engine starts");
     let mut shared = other.shared_textures().expect("the engine shares its pool");
@@ -426,6 +426,11 @@ impl SharedViewport {
             Ask::Dispose => {
                 self.go.set(false);
                 screen.run_until_idle();
+                assert_eq!(
+                    self.image.status(),
+                    ShareStatus::Closed,
+                    "the image's owner is gone"
+                );
             }
         }
     }
