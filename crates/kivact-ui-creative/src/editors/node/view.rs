@@ -1,7 +1,7 @@
 //! Role: The NodeEditor builder and the node canvas view it builds.
 
 use super::a11y::{semantic, targets};
-use crate::editors::node::gesture::{ConnectGuard, Snapshot, State};
+use crate::editors::node::gesture::{ConnectGuard, DragMode, NodeMode, State};
 use crate::editors::node::gesture::{ControlKind, Target};
 use crate::editors::node::input::{key, pointer};
 use crate::editors::node::model::{NodeData, NodeLink, NodeRequest};
@@ -14,9 +14,9 @@ use kivact::style::{ColorToken, Overflow, style};
 use kivact::ui::{EditPhase, ListItem};
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yRequest, Handled, IntoValue, IntoView, Key, Role, View, callback, node_ref,
+    A11yAction, A11yRequest, Handled, IntoValue, IntoView, Role, View, callback, node_ref,
 };
-use kivact::{Callback, Value, effect, memo, signal, var};
+use kivact::{Callback, Value, effect, memo, signal};
 
 /// An editor for typed nodes, sockets, controls and links.
 pub struct NodeEditor {
@@ -117,7 +117,6 @@ impl IntoView for NodeEditor {
         let choose = selection::controller(order, selected);
         let scene = targets::targets(move || targets(&data.get(), &edges.get()));
         let reference = node_ref();
-        let slot = signal(None);
         let edit = crate::editors::shared::model::observed(
             EditSession::new(move |_| {}),
             Some(callback(move |phase| {
@@ -132,23 +131,35 @@ impl IntoView for NodeEditor {
         );
         let press = crate::editors::shared::gesture::CanvasGesture::<
             crate::editors::node::gesture::Target,
-            (
-                Option<crate::editors::node::gesture::Drag>,
-                Option<crate::editors::node::gesture::Snapshot>,
-            ),
+            DragMode,
         >::new();
-        let (blocked, pan_active, space) = (signal(false), signal(false), signal(false));
-        // A gesture begins its edit at its first change, from the press's
-        // snapshot; an empty one would restore nothing. The view pans
+        let bounds = memo(move || crate::editors::node::layout::bounds(&data.get()));
+        let root_part = part(|input| input).region_events();
+        let input = root_part.state();
+        let blocked = memo(move || {
+            let input = input.get();
+            input.disabled || input.hidden || !reference.is_visible()
+        });
+        // The canvas pans and zooms; the pan forwards its phases as the
+        // editor's own.
+        let pan_observer = callback(move |phase| {
+            if let Some(observer) = observer {
+                observer.call(match phase {
+                    EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
+                    EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
+                    EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
+                });
+            }
+        });
+        let zoom = use_zoom_pan(transform)
+            .content(bounds)
+            .on_edit(move |phase| pan_observer.try_call(phase));
+        let (armed, gesturing) = (zoom.space_armed(), zoom.is_gesturing());
+        // A gesture begins its edit at its first change. The view pans
         // instead while Space is held or a pan runs.
         let gesture = use_drag::<()>(DragCoordinates::Local)
-            .disabled(move || space.get() || pan_active.get())
-            .edit_on_change(edit, move || {
-                press
-                    .with_payload(|payload| payload.1.clone())
-                    .flatten()
-                    .unwrap_or(Snapshot::Empty)
-            });
+            .disabled(move || armed.get() || gesturing.get())
+            .edit_on_change(edit, || ());
         let state = State {
             on_edit: observer,
             can_connect,
@@ -161,21 +172,14 @@ impl IntoView for NodeEditor {
             scene,
             snap,
             active: signal(None),
-            port: signal(None),
-            popup: signal(None),
+            mode: signal(NodeMode::Idle),
             reference,
             texts: crate::editors::shared::texts::Texts::new(),
             press,
             gesture,
-            released: var(None),
             edit,
-            slot,
-            blocked,
-            pan_active,
-            fitting: var(false),
-            rewire: signal(None),
-            domain: var(None),
-            space,
+            blocked: blocked.into_value(),
+            zoom,
         };
         let gesture = crate::editors::node::input::drag(state);
         let infos = kivact::memo(move || {
@@ -188,31 +192,27 @@ impl IntoView for NodeEditor {
                 state.texts,
             )
         });
-        let bounds = memo(move || crate::editors::node::layout::bounds(&data.get()));
-        let root_part = part(|input| input).region_events().on_key_up(move |event| {
-            if event.key == Key::Space {
-                state.space.set(false);
-            }
-            Handled::No
-        });
-        let input = root_part.state();
         let focus = reference.focus_within();
         effect(move || {
-            let input = input.get();
-            let blocked = input.disabled || input.hidden || !reference.is_visible();
-            state.blocked.set(blocked);
-            if blocked {
+            if blocked.get() {
                 state.cancel();
             } else if !focus.get() {
-                state.space.set(false);
                 if state.drag_state().is_some() || state.edit.is_active() {
                     state.cancel();
+                } else {
+                    // A keyboard connection ends when the focus leaves; an
+                    // open popup follows its own focus rules.
+                    state.mode.update(|mode| {
+                        if matches!(mode, NodeMode::Connecting { .. }) {
+                            *mode = NodeMode::Idle;
+                        }
+                    });
                 }
             }
         });
         effect(move || {
             let nodes = data.get();
-            if let Some((id, index, original)) = state.slot.get()
+            if let Some((id, index, original)) = state.held_slot()
                 && !nodes
                     .iter()
                     .find(|n| n.id == id)
@@ -220,33 +220,6 @@ impl IntoView for NodeEditor {
                     .is_some_and(|c| crate::editors::node::edit::same_slot(&original, c))
             {
                 state.cancel();
-            }
-        });
-        let pan_observer = callback(move |phase| {
-            match phase {
-                EditPhase::Begin => state.pan_active.set(true),
-                EditPhase::Commit => {
-                    if state.fitting.get() {
-                        let r = bounds.get();
-                        let mut fit = transform.get();
-                        fit.offset.x -= r.x * fit.scale as f32;
-                        fit.offset.y -= r.y * fit.scale as f32;
-                        transform.set(fit);
-                    }
-                    state.fitting.set(false);
-                    state.pan_active.set(false);
-                }
-                EditPhase::Cancel => {
-                    state.fitting.set(false);
-                    state.pan_active.set(false);
-                }
-            }
-            if let Some(observer) = observer {
-                observer.call(match phase {
-                    EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
-                    EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
-                    EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                });
             }
         });
         let root = root
@@ -343,12 +316,7 @@ impl IntoView for NodeEditor {
                     .region_events()
                     .on_key(move |event| key(state, event)),
             )
-            .part(
-                use_zoom_pan(transform)
-                    .content(bounds)
-                    .on_edit(move |value| pan_observer.try_call(value))
-                    .viewport(),
-            )
+            .part(zoom.viewport())
             .child(crate::editors::node::parameters::popup(state))
             .into_view()
     }

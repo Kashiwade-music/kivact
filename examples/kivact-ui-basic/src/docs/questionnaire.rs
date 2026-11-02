@@ -67,11 +67,11 @@ fn answers() -> impl IntoView {
             .optional(true),
     ];
     let step = signal(0usize);
-    let answers = signal(Vec::<Option<String>>::new());
+    let answers = signal(Vec::<basic::QuestionnaireAnswer>::new());
     let sent = signal(String::new());
     column((
         basic::questionnaire(steps, step, answers)
-            .on_submit(move |a: Vec<Option<String>>| sent.set(format!("{a:?}")))
+            .on_submit(move |a: Vec<basic::QuestionnaireAnswer>| sent.set(format!("{a:?}")))
             .style(style().width(420)),
         basic::muted(move || format!("Submitted: {}", sent.get())),
     ))

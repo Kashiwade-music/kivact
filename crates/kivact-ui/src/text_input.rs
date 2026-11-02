@@ -39,6 +39,8 @@ pub struct TextInput {
     commit: Option<kivact_core::Callback<String>>,
     on_edit: Option<kivact_core::Callback<EditPhase>>,
     return_focus: Option<NodeRef>,
+    /// Called once the draft has ended with a commit or a cancel.
+    ended: Option<kivact_core::Callback<()>>,
     /// Called before each edit of the user is written, once the field is
     /// drafting.
     edited: Rc<OnceCell<Rc<dyn Fn()>>>,
@@ -125,6 +127,7 @@ fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: 
         commit: None,
         on_edit: None,
         return_focus: None,
+        ended: None,
         edited,
         multiline,
     }
@@ -268,6 +271,13 @@ impl TextInput {
         self
     }
 
+    /// Called once the draft has ended with a commit or a cancel (not at
+    /// its `Begin`): an inline field uses it to remove itself.
+    pub(crate) fn on_draft_end(mut self, ended: kivact_core::Callback<()>) -> Self {
+        self.ended = Some(ended);
+        self
+    }
+
     /// Observe transitions into and out of native composition.
     pub fn on_composition_change<F, R>(mut self, f: F) -> Self
     where
@@ -304,6 +314,7 @@ impl TextInput {
             commit,
             on_edit: self.on_edit,
             return_focus: self.return_focus,
+            ended: self.ended,
         };
         let invalid = invalid.unwrap_or_else(|| Rc::new(|| false));
         let drafting = text_draft::install(draft, self.value, invalid);

@@ -18,7 +18,7 @@ impl State {
                     return Handled::Yes;
                 }
                 let pan = press.button == MouseButton::Middle
-                    || (press.button == MouseButton::Primary && self.space.get());
+                    || (press.button == MouseButton::Primary && self.space.armed().get_untracked());
                 if !pan && press.button != MouseButton::Primary {
                     return Handled::No;
                 }
@@ -160,10 +160,6 @@ impl State {
         }
         // The drag's sources take Escape during a drag.
         if self.drag_state().is_some() {
-            return Handled::Yes;
-        }
-        if event.key == Key::Space {
-            self.space.set(true);
             return Handled::Yes;
         }
         let target = self

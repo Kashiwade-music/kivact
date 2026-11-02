@@ -2,7 +2,6 @@
 
 use super::common::{cards, line, list, specimen, suppress_search_shortcut, wide};
 use super::state::Demo;
-use kivact::binding;
 use kivact::control::{rich_text, span};
 use kivact::platform;
 use kivact::prelude::{
@@ -11,7 +10,7 @@ use kivact::prelude::{
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
 use kivact::ui::{MenuEntry, Toast, Tone, toaster};
-use kivact::view::IntoValue;
+use kivact::{binding, memo};
 use kivact_ui_game as g;
 use std::time::Duration;
 
@@ -484,10 +483,15 @@ pub(super) fn drawer_body() -> Node {
 pub(super) fn layout() -> Node {
     let document = signal("OPS-2042.md".to_owned());
     let document_title = signal("第 3 区画 定期点検".to_owned());
-    let selection = binding(document.into_value(), move |id: String| {
-        document_title.set(id.clone());
-        document.set(id);
-    });
+    let selection = binding(
+        memo(move || Some(document.get())),
+        move |id: Option<String>| {
+            if let Some(id) = id {
+                document_title.set(id.clone());
+                document.set(id);
+            }
+        },
+    );
     let entries = vec![
         g::TreeEntry::folder(
             "operations",

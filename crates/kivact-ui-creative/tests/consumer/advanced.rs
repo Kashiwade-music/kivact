@@ -433,6 +433,60 @@ fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_conten
 }
 
 #[test]
+fn panel_group_ctrl_opens_only_the_chosen_panel_and_a_plain_expand_closes_nothing() {
+    let (screen, panels) = kivact::test::render_with_handle(crate::support::options(), || {
+        let panels = signal(vec![
+            ui::InspectorPanel::new(1, "Transform"),
+            ui::InspectorPanel::new(2, "Relations"),
+        ]);
+        (panels, ui::panel_group(panels, |_| text("Body")))
+    });
+    let transform = screen.get_by_role(Role::Button, "Transform");
+    let relations = screen.get_by_role(Role::Button, "Relations");
+    // Ctrl and a press that never becomes a click change nothing...
+    screen.key_down(
+        Key::Unidentified,
+        KeyCode::ControlLeft,
+        Modifiers {
+            ctrl: true,
+            ..Default::default()
+        },
+    );
+    let header = relations.rect().expect("relations header");
+    screen.mouse_move(header.center().x, header.center().y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(header.center().x, header.center().y + 400.0);
+    screen.mouse_up(MouseButton::Primary);
+    screen.key_up(
+        Key::Unidentified,
+        KeyCode::ControlLeft,
+        Modifiers::default(),
+    );
+    // ...and leave nothing armed for a later assistive expand.
+    transform.a11y(A11yAction::Collapse);
+    transform.a11y(A11yAction::Expand);
+    assert!(panels.get_untracked().iter().all(|panel| panel.expanded));
+    relations.a11y(A11yAction::Collapse);
+    screen.key_down(
+        Key::Unidentified,
+        KeyCode::ControlLeft,
+        Modifiers {
+            ctrl: true,
+            ..Default::default()
+        },
+    );
+    relations.a11y(A11yAction::Expand);
+    screen.key_up(
+        Key::Unidentified,
+        KeyCode::ControlLeft,
+        Modifiers::default(),
+    );
+    let open: Vec<bool> = panels.get_untracked().iter().map(|p| p.expanded).collect();
+    assert_eq!(open, vec![false, true], "Ctrl keeps only the chosen panel");
+    clean(&screen);
+}
+
+#[test]
 fn viewport_surface_forwards_application_image_coordinates() {
     let (screen, position) = kivact::test::render_with_handle(crate::support::options(), || {
         let position = signal(Point::new(0.0, 0.0));

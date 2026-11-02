@@ -174,7 +174,9 @@ pub use native_select::{NativeSelect, NativeSelectSize, native_select};
 pub use primitives::{
     Label, Separator, Skeleton, aspect_ratio, kbd, kbd_group, label, separator, skeleton, spinner,
 };
-pub use questionnaire::{Questionnaire, QuestionnaireChoice, QuestionnaireStep, questionnaire};
+pub use questionnaire::{
+    Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
+};
 pub use theme::theme;
 pub use tokens::{CodeColors, Tokens};
 pub use typography::{

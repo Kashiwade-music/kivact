@@ -1,6 +1,6 @@
 //! Role: Node canvas pointer, keyboard and drag finalization.
 use crate::editors::node::gesture::Target;
-use crate::editors::node::gesture::{Domain, Drag, Snapshot, State};
+use crate::editors::node::gesture::{DragMode, NodeMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControlValue, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
@@ -11,7 +11,7 @@ use kivact::view::{ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEven
 fn moved(state: State, point: Point) {
     let start = state.point(state.press.origin());
     match state.drag_state() {
-        Some(Drag::Items) => {
+        Some(DragMode::Items { origins }) => {
             let snap = |d: f32| {
                 if state.snap.get() {
                     (d / 10.0).round() * 10.0
@@ -24,12 +24,6 @@ fn moved(state: State, point: Point) {
                 return;
             }
             state.press.set_pending(None);
-            let Some(Snapshot::Positions(origins)) = state.initial() else {
-                return;
-            };
-            if !state.edit.is_active() {
-                state.domain.set(Some(Domain::Positions));
-            }
             state.gesture.change(|| {
                 state.request(NodeRequest::Move(
                     origins
@@ -41,30 +35,31 @@ fn moved(state: State, point: Point) {
                 ))
             });
         }
-        Some(Drag::Control(id, index)) => {
+        Some(DragMode::Control {
+            node: id,
+            index,
+            slot,
+        }) => {
             let dx = f64::from(point.x - start.x);
             if dx == 0.0 && !state.edit.is_active() {
                 return;
             }
-            if let Some(NodeControlValue::Number { value, step, .. }) =
-                state.initial().and_then(|snapshot| {
-                    if let Snapshot::Control(owner, at, value) = snapshot {
-                        (owner == id && at == index).then_some(value)
-                    } else {
-                        None
-                    }
-                })
-            {
-                if !state.edit.is_active() {
-                    state.domain.set(Some(Domain::Control(id, index)));
-                }
+            if let NodeControlValue::Number { value, step, .. } = slot.value {
                 state
                     .gesture
                     .change(|| state.change_raw(id, index, Some(value + dx * step), 0.0));
             }
         }
-        Some(Drag::Link(id, index, _)) => state.set_drag(Some(Drag::Link(id, index, point))),
-        Some(Drag::Marquee(a, _)) => state.set_drag(Some(Drag::Marquee(a, point))),
+        Some(DragMode::Link { .. }) => state.press.update_payload(|payload| {
+            if let DragMode::Link { to, .. } = payload {
+                *to = point;
+            }
+        }),
+        Some(DragMode::Marquee { .. }) => state.press.update_payload(|payload| {
+            if let DragMode::Marquee { to, .. } = payload {
+                *to = point;
+            }
+        }),
         None => {}
     }
 }
@@ -75,7 +70,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
     if state.blocked.get() {
         return Handled::No;
     }
-    if state.pan_active.get() {
+    if state.zoom.is_gesturing().get_untracked() {
         return Handled::No;
     }
     if event.phase.press().map(|press| press.button) == Some(MouseButton::Middle) {
@@ -91,7 +86,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
             button: MouseButton::Primary,
             ..
         })
-    ) && state.space.get()
+    ) && state.zoom.space_armed().get_untracked()
     {
         return if state.busy() {
             Handled::Yes
@@ -111,14 +106,12 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
             if state.busy() {
                 return Handled::Yes;
             }
-            let mut initial = None;
             let mut drag = None;
             let mut pending = None;
             match target {
                 Some(Target::Item(id)) => {
                     state.active.set(None);
-                    state.popup.set(None);
-                    state.slot.set(None);
+                    state.mode.set(NodeMode::Idle);
                     match selection::press(
                         &state.selected.get(),
                         id,
@@ -128,30 +121,36 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                         selection::Press::Pending(id) => pending = Some(id),
                         selection::Press::Select(gesture) => state.select(id, gesture),
                     }
-                    initial = Some(Snapshot::Positions(
-                        state
+                    drag = Some(DragMode::Items {
+                        origins: state
                             .data()
                             .get()
                             .iter()
                             .filter(|n| state.selected.get().contains(&n.id))
                             .map(|n| (n.id, n.position))
                             .collect(),
-                    ));
-                    drag = Some(Drag::Items);
+                    });
                 }
                 Some(Target::Control(id, index, _)) => {
                     state.active.set(Some((id, index)));
                     if let Some(control) = state.control(id, index)
                         && matches!(control.value, NodeControlValue::Number { .. })
                     {
-                        state.slot(id, index);
-                        initial = Some(Snapshot::Control(id, index, control.value));
-                        drag = Some(Drag::Control(id, index));
+                        drag = Some(DragMode::Control {
+                            node: id,
+                            index,
+                            slot: control,
+                        });
                     }
                 }
                 Some(Target::Socket(id, true, index)) => {
-                    state.rewire.set(None);
-                    drag = Some(Drag::Link(id, index, point));
+                    drag = Some(DragMode::Link {
+                        from: id,
+                        output: index,
+                        to: point,
+                        rewire: None,
+                        released: None,
+                    });
                 }
                 Some(Target::Socket(id, false, index)) => {
                     if let Some(link) = state
@@ -161,8 +160,13 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                         .find(|l| l.to == id && l.input == index)
                         .copied()
                     {
-                        state.rewire.set(Some(link));
-                        drag = Some(Drag::Link(link.from, link.output, point));
+                        drag = Some(DragMode::Link {
+                            from: link.from,
+                            output: link.output,
+                            to: point,
+                            rewire: Some(link),
+                            released: None,
+                        });
                     }
                 }
                 Some(target @ Target::Link(..)) => state.invoke(target, false),
@@ -174,20 +178,31 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                     if let Some(link) = link {
                         state.invoke(Target::link(link), false);
                     } else {
-                        drag = Some(Drag::Marquee(point, point));
+                        drag = Some(DragMode::Marquee {
+                            from: point,
+                            to: point,
+                        });
                         state.selected_link.set(None);
                     }
                 }
             }
-            if drag.is_none() {
+            let Some(drag) = drag else {
                 return Handled::Yes;
-            }
-            state.press.begin(&event, target, (drag, initial), pending);
+            };
+            state.press.begin(&event, target, drag, pending);
             Handled::No
         }
         PointerPhase::Up(_) => {
             // A link ends on the socket under the release.
-            state.released.set(target);
+            let released = match target {
+                Some(Target::Socket(id, false, index)) => Some((id, index)),
+                _ => None,
+            };
+            state.press.update_payload(|payload| {
+                if let DragMode::Link { released: end, .. } = payload {
+                    *end = released;
+                }
+            });
             Handled::No
         }
         _ => Handled::No,
@@ -200,7 +215,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
 pub(crate) fn drag(state: State) -> Gesture<()> {
     state.press.install(
         state.gesture,
-        move || matches!(state.drag_state(), Some(Drag::Marquee(..))),
+        move || matches!(state.drag_state(), Some(DragMode::Marquee { .. })),
         (
             move || state.selected.get(),
             move |ids| state.selected.set(ids),
@@ -238,12 +253,17 @@ pub(crate) fn drag(state: State) -> Gesture<()> {
 }
 fn finish_fields(state: State) {
     let point = state.point(state.press.current());
-    let drag = state.drag_state();
-    state.set_drag(None);
-    if let Some(Drag::Link(from, output, _)) = drag {
-        let input = match state.released.get() {
-            Some(Target::Socket(id, false, index)) => Some((id, index)),
-            _ => state.data().with(|nodes| {
+    if let Some(DragMode::Link {
+        from,
+        output,
+        rewire,
+        released,
+        ..
+    }) = state.drag_state()
+    {
+        let input = match released {
+            Some(socket) => Some(socket),
+            None => state.data().with(|nodes| {
                 nodes.iter().find_map(|node| {
                     (0..node.inputs.len())
                         .find(|index| {
@@ -255,16 +275,12 @@ fn finish_fields(state: State) {
             }),
         };
         let add = input.map(|(to, input)| NodeLink::new(from, output, to, input));
-        state.links_edit(state.rewire.get(), add);
-        state.rewire.set(None);
-    } else {
-        state.domain.set(None);
+        state.write_links(rewire, add);
     }
-    state.released.set(None);
 }
 pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
     if event.key == Key::Escape {
-        if state.pan_active.get_untracked() {
+        if state.zoom.is_gesturing().get_untracked() {
             return Handled::No;
         }
         // The drag's sources take Escape during a drag; a control's edit
@@ -276,10 +292,9 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
         state.cancel();
         state.choose.clear();
         state.selected_link.set(None);
-        state.port.set(None);
         return Handled::Yes;
     }
-    if state.pan_active.get_untracked() {
+    if state.zoom.is_gesturing().get_untracked() {
         if event.key == Key::Tab {
             return Handled::No;
         }
@@ -297,14 +312,6 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
         };
     }
     match event.key {
-        Key::Space => {
-            state.space.set(true);
-            return Handled::No;
-        }
-        Key::Char('0') => {
-            state.fitting.set(true);
-            return Handled::No;
-        }
         Key::Delete | Key::Backspace => {
             if let Some(link) = state.selected_link.get_untracked() {
                 state.links_edit(Some(link), None);
@@ -324,7 +331,7 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                         .into_iter()
                         .filter(|l| selected.contains(&l.from) || selected.contains(&l.to))
                         .collect();
-                    state.edit.once(Snapshot::Empty, || {
+                    state.edit.once((), || {
                         state.request(NodeRequest::Delete {
                             nodes: selected,
                             links,
@@ -345,9 +352,9 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                 .map(|n| (n.id, n.muted))
                 .collect::<Vec<_>>();
             if !old.is_empty() {
-                state.edit.once(Snapshot::Empty, || {
-                    state.request(NodeRequest::ToggleMute(selected))
-                });
+                state
+                    .edit
+                    .once((), || state.request(NodeRequest::ToggleMute(selected)));
             }
         }
         Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown => {
@@ -387,7 +394,7 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                         .collect();
                     state
                         .edit
-                        .once(Snapshot::Empty, || state.request(NodeRequest::Move(next)));
+                        .once((), || state.request(NodeRequest::Move(next)));
                 }
             }
         }

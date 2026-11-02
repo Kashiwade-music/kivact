@@ -7,16 +7,24 @@ use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
 use kivact::prelude::{
     ColorToken, IntoValue, IntoView, Node, NodeBuilder, Role, Value, column, memo, node, node_ref,
-    row, signal, style, text, var,
+    row, signal, style, text,
 };
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, current_theme};
-use kivact::view::{A11yAction, Handled};
-use kivact::view::{ButtonPress, MouseButton, PointerPhase, for_each};
+use kivact::view::A11yAction;
+use kivact::view::for_each;
 use kivact::{Binding, binding};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+/// The panel being dragged by its grip, and the panel it would land beside
+/// (`true`: after it).
+#[derive(Clone, Copy, PartialEq)]
+struct PanelDrag {
+    panel: u64,
+    target: Option<(u64, bool)>,
+}
 
 /// A retained inspector panel. Identities must be unique within its group.
 #[derive(Clone, Debug, PartialEq)]
@@ -39,7 +47,8 @@ impl InspectorPanel {
     }
 }
 /// Inspector panels with peer collapse and grip reordering. Content remains mounted when closed.
-/// Ctrl/Meta-click opens only the chosen panel. The grip also offers accessible up/down movement.
+/// Opening or closing a panel (a click, a key or an assistive action) while Ctrl or Meta is held
+/// leaves only that panel open. The grip also offers accessible up/down movement.
 #[track_caller]
 pub fn panel_group<V: IntoView>(
     panels: impl Into<Binding<Vec<InspectorPanel>>>,
@@ -48,28 +57,25 @@ pub fn panel_group<V: IntoView>(
     let panels = panels.into();
     let data = panels.into_value();
     let rectangles = Rc::new(RefCell::new(HashMap::<u64, Value<Option<Rect>>>::new()));
-    let dragged_panel = signal(None::<u64>);
-    let target = signal(None::<(u64, bool)>);
+    let drag = signal(None::<PanelDrag>);
     let rows = for_each(data, |panel| panel.id, {
         let rectangles = rectangles.clone();
         move |id, panel| {
             kivact::on_cleanup(move || {
-                if dragged_panel.get_untracked() == Some(id) {
-                    dragged_panel.set(None);
-                    target.set(None);
+                if drag.get_untracked().is_some_and(|drag| drag.panel == id) {
+                    drag.set(None);
                 }
             });
             let reference = node_ref();
             rectangles.borrow_mut().insert(id, reference.rect());
             let drag_rects = rectangles.clone();
-            // Ctrl/Meta on the press makes the next write open only this panel.
-            let exclusive = var(false);
             let expanded = binding(
                 memo(move || panel.with(|panel| panel.expanded)),
                 move |open: bool| {
-                    let only_this = exclusive.update(std::mem::take);
+                    let held = kivact::view::current_modifiers();
                     let mut next = data.get();
-                    if only_this {
+                    if held.ctrl || held.meta {
+                        // Ctrl or Meta: only this panel stays open.
                         for item in &mut next {
                             item.expanded = item.id == id;
                         }
@@ -92,8 +98,10 @@ pub fn panel_group<V: IntoView>(
             };
             let reorder = use_drag(DragCoordinates::Window)
                 .on_start(move |_| {
-                    dragged_panel.set(Some(id));
-                    target.set(None);
+                    drag.set(Some(PanelDrag {
+                        panel: id,
+                        target: None,
+                    }));
                 })
                 .on_update(move |update: DragUpdate<u64>| {
                     let order = data.get();
@@ -108,11 +116,15 @@ pub fn panel_group<V: IntoView>(
                             }
                         }
                     }
-                    target.set(found);
+                    drag.update(|drag| {
+                        if let Some(drag) = drag {
+                            drag.target = found;
+                        }
+                    });
                 })
                 .on_end(move |update: DragUpdate<u64>| {
                     if update.phase == DragPhase::End
-                        && let Some((destination, after)) = target.get()
+                        && let Some((destination, after)) = drag.get().and_then(|drag| drag.target)
                     {
                         let mut next = data.get();
                         if let Some(index) = next.iter().position(|item| item.id == id) {
@@ -124,8 +136,7 @@ pub fn panel_group<V: IntoView>(
                             }
                         }
                     }
-                    dragged_panel.set(None);
-                    target.set(None);
+                    drag.set(None);
                 });
             let mut grip = kivact::ui::button(message_with(
                 "creative.panels.reorder",
@@ -151,23 +162,6 @@ pub fn panel_group<V: IntoView>(
             ))
             .part(use_disclosure(expanded).trigger())
             .name(move || panel.get().title)
-            .on_pointer_default(move |event| {
-                match event.phase {
-                    PointerPhase::Down(ButtonPress {
-                        button: MouseButton::Primary,
-                        ..
-                    }) => {
-                        exclusive.set(event.modifiers.ctrl || event.modifiers.meta);
-                    }
-                    PointerPhase::Leave | PointerPhase::Cancel => exclusive.set(false),
-                    _ => {}
-                }
-                Handled::No
-            })
-            .on_key_default(move |_| {
-                exclusive.set(false);
-                Handled::No
-            })
             .style(
                 style()
                     .height(30)
@@ -198,12 +192,12 @@ pub fn panel_group<V: IntoView>(
                     .radius(7)
                     .background(p.island)
                     .border(1, p.hair)
-                    .opacity(if dragged_panel.get() == Some(id) {
+                    .opacity(if drag.get().is_some_and(|drag| drag.panel == id) {
                         0.65
                     } else {
                         1.0
                     });
-                if let Some((target, after)) = target.get()
+                if let Some((target, after)) = drag.get().and_then(|drag| drag.target)
                     && target == id
                 {
                     style = if after {

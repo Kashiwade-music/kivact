@@ -206,17 +206,7 @@ impl IntoView for Outliner {
             row_height,
         } = self;
         let data = items;
-        let renaming = rename.into_value();
-        let draft = signal(String::new());
-        kivact::effect(move || {
-            if let Some(id) = renaming.get() {
-                draft.set(data.with_untracked(|v| {
-                    v.iter()
-                        .find(|n| n.id == id)
-                        .map_or_else(String::new, |n| n.label.clone())
-                }));
-            }
-        });
+        let rename_edit = kivact::ui::use_inline_edit(rename);
         let by_id = memo(move || {
             data.with(|items| {
                 items
@@ -252,10 +242,8 @@ impl IntoView for Outliner {
         {
             let mounted = mounted.clone();
             let pressed = pressed.clone();
-            let first = Cell::new(true);
-            kivact::effect(move || {
-                let target = active.get();
-                if first.replace(false) || !reveal_active.get_untracked() {
+            kivact::effect_on(active, move |&target| {
+                if !reveal_active.get_untracked() {
                     return;
                 }
                 pending.set(None);
@@ -289,8 +277,7 @@ impl IntoView for Outliner {
                 }
             });
         }
-        let painting = signal(None::<super::controls::Paint>);
-        let session = crate::editors::shared::model::observed(
+        let painter = super::controls::Painter::new(crate::editors::shared::model::observed(
             EditSession::new(|()| {}),
             on_restriction.map(|observer| {
                 callback(move |phase| {
@@ -301,7 +288,7 @@ impl IntoView for Outliner {
                     });
                 })
             }),
-        );
+        ));
         let levels = memo(move || {
             tree.rows().with(|rows| {
                 rows.iter()
@@ -351,12 +338,9 @@ impl IntoView for Outliner {
                             reference.scroll_into_view();
                         }
                     });
-                    let start_rename = move || {
-                        rename.set(Some(id));
-                        draft.set(item.get_untracked().label);
-                    };
+                    let start_rename = move || rename_edit.open(id);
                     let label = show(
-                        move || renaming.get() != Some(id),
+                        move || !rename_edit.is_open(&id),
                         move || {
                             text(move || item.with(|n| n.label.clone())).style(move || {
                                 let theme = current_theme();
@@ -380,35 +364,26 @@ impl IntoView for Outliner {
                         },
                     );
                     let edit = show(
-                        move || renaming.get() == Some(id),
+                        move || rename_edit.is_open(&id),
                         move || {
-                            let input_ref = node_ref();
-                            kivact::on_mount(move || {
-                                input_ref.focus();
-                                input_ref.select_all();
-                            });
-                            kivact::ui::text_input(
-                                message("creative.outliner.rename", "Rename tree item"),
-                                draft,
-                            )
-                            .node_ref(input_ref)
-                            .style(style().grow(1).height(22))
-                            .draft(move |name| {
-                                if let Some(callback) = on_rename {
-                                    callback.call((id, name));
-                                }
-                            })
-                            .on_edit(move |phase| {
-                                if phase != kivact::ui::EditPhase::Begin {
-                                    rename.set(None);
-                                }
-                            })
-                            .return_focus(reference)
+                            rename_edit
+                                .field(
+                                    id,
+                                    message("creative.outliner.rename", "Rename tree item"),
+                                    signal(item.get_untracked().label),
+                                    move |name| {
+                                        if let Some(callback) = on_rename {
+                                            callback.call((id, name));
+                                        }
+                                    },
+                                )
+                                .style(style().grow(1).height(22))
+                                .return_focus(reference)
                         },
                     );
                     let context = super::controls::Context {
                         expanded,
-                        session,
+                        painter,
                         selected,
                         on_restriction,
                         data,
@@ -486,11 +461,11 @@ impl IntoView for Outliner {
                         label,
                         edit,
                         cells,
-                        super::controls::restriction(item, context.clone(), 1, painting)
+                        super::controls::restriction(item, context.clone(), 1)
                             .hidden(move || !restrictions.get()),
-                        super::controls::restriction(item, context.clone(), 0, painting)
+                        super::controls::restriction(item, context.clone(), 0)
                             .hidden(move || !restrictions.get()),
-                        super::controls::restriction(item, context, 2, painting)
+                        super::controls::restriction(item, context, 2)
                             .hidden(move || !restrictions.get()),
                         active_marker,
                         line(Placement::Before),
@@ -533,7 +508,7 @@ impl IntoView for Outliner {
                     });
                     let context_for_key = super::controls::Context {
                         expanded,
-                        session,
+                        painter,
                         selected,
                         on_restriction,
                         data,
@@ -610,7 +585,7 @@ impl IntoView for Outliner {
                                     pressed.set(Some(id));
                                     if press.clicks == 2
                                         && !has_activation
-                                        && renaming.get() != Some(id)
+                                        && !rename_edit.is_open(&id)
                                     {
                                         dragger.cancel();
                                         start_rename();
@@ -634,8 +609,7 @@ impl IntoView for Outliner {
         root.part(tree.list())
             .child(rows)
             .on_key(move |event| {
-                if event.key == Key::Escape && session.cancel() {
-                    painting.set(None);
+                if event.key == Key::Escape && painter.cancel() {
                     Handled::Yes
                 } else {
                     Handled::No

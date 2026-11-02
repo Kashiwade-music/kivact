@@ -5,7 +5,7 @@ use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::EditPhase;
-use kivact::view::A11yAction;
+use kivact::view::{A11yAction, KeyCode, Modifiers};
 use kivact_ui_creative as ui;
 #[derive(Clone, Copy)]
 struct Model {
@@ -132,6 +132,39 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     );
     let canvas = screen.get_by_role(Role::Canvas, "Graph");
     canvas.press_key(Key::Char('a'));
+    clean(&screen);
+}
+
+#[test]
+fn space_held_while_focus_leaves_does_not_pan_later() {
+    let (screen, m) = fixture();
+    let view = m.view.get_untracked();
+    let canvas = screen.get_by_role(Role::Canvas, "Graph");
+    canvas.focus();
+    screen.key_down(Key::Space, KeyCode::Space, Modifiers::default());
+    screen.get_by_role(Role::Button, "Outside").focus();
+    screen.key_up(Key::Space, KeyCode::Space, Modifiers::default());
+    canvas.focus();
+    let key_center = screen
+        .get_by_role(Role::Button, "Position key 2")
+        .rect()
+        .expect("key")
+        .center();
+    let origin = canvas.rect().expect("graph");
+    let (x, y) = (key_center.x - origin.x, key_center.y - origin.y);
+    canvas.drag(
+        Point::new(x - 40.0, y - 40.0),
+        Point::new(x + 40.0, y + 40.0),
+    );
+    assert_eq!(
+        m.view.get_untracked(),
+        view,
+        "the primary drag does not pan"
+    );
+    assert!(
+        !m.selection.get_untracked().is_empty(),
+        "the primary drag selected with a marquee"
+    );
     clean(&screen);
 }
 

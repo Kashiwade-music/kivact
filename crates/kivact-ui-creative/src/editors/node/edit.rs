@@ -1,6 +1,6 @@
 //! Role: Node edit proposals and accessible operations.
 use crate::editors::node::gesture::Target;
-use crate::editors::node::gesture::{Domain, Snapshot, State};
+use crate::editors::node::gesture::{DragMode, NodeMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest};
 use kivact::Value;
@@ -50,7 +50,7 @@ impl State {
     }
     pub(crate) fn busy(self) -> bool {
         self.blocked.get_untracked()
-            || self.pan_active.get_untracked()
+            || self.zoom.is_gesturing().get_untracked()
             || self.edit.is_active()
             || self.drag_state().is_some()
     }
@@ -66,13 +66,8 @@ impl State {
         self.press.cancel(|| self.reset_fields());
     }
     pub(crate) fn reset_fields(self) {
-        self.released.set(None);
-        self.rewire.set(None);
-        self.popup.set(None);
+        self.mode.set(NodeMode::Idle);
         self.active.set(None);
-        self.slot.set(None);
-        self.domain.set(None);
-        self.space.set(false);
     }
     pub(crate) fn select(self, id: u64, gesture: ListGesture) {
         self.selected_link.set(None);
@@ -88,20 +83,67 @@ impl State {
                 .cloned()
         })
     }
-    pub(crate) fn slot(self, id: u64, index: usize) -> Option<NodeControl> {
-        let control = self.control(id, index)?;
-        self.slot.set(Some((id, index, control.clone())));
-        Some(control)
+    /// The control as it was when the drag pressed it or the popup opened or
+    /// began its edit, which an edit changes from.
+    pub(crate) fn slot_of(self, id: u64, index: usize) -> Option<NodeControl> {
+        let pressed = self
+            .press
+            .with_payload(|payload| match payload {
+                DragMode::Control {
+                    node,
+                    index: at,
+                    slot,
+                } if *node == id && *at == index => Some(slot.clone()),
+                _ => None,
+            })
+            .flatten();
+        pressed.or_else(|| {
+            self.mode.with_untracked(|mode| match mode {
+                NodeMode::Popup {
+                    node,
+                    index: at,
+                    slot,
+                    ..
+                } if *node == id && *at == index => Some(slot.clone()),
+                _ => None,
+            })
+        })
+    }
+    /// The control whose original the drag or the popup holds, with its
+    /// position. Tracked.
+    pub(crate) fn held_slot(self) -> Option<(u64, usize, NodeControl)> {
+        let pressed = self
+            .press
+            .with_payload(|payload| match payload {
+                DragMode::Control { node, index, slot } => Some((*node, *index, slot.clone())),
+                _ => None,
+            })
+            .flatten();
+        pressed.or_else(|| {
+            self.mode.with(|mode| match mode {
+                NodeMode::Popup {
+                    node, index, slot, ..
+                } => Some((*node, *index, slot.clone())),
+                _ => None,
+            })
+        })
+    }
+    /// Whether the popup of the control is open. Tracked.
+    pub(crate) fn popup_is(self, id: u64, index: usize) -> bool {
+        self.mode.with(|mode| {
+            matches!(mode, NodeMode::Popup { node, index: at, .. } if *node == id && *at == index)
+        })
+    }
+    /// Close the parameter popup, if one is open.
+    pub(crate) fn close_popup(self) {
+        self.mode.update(|mode| {
+            if matches!(mode, NodeMode::Popup { .. }) {
+                *mode = NodeMode::Idle;
+            }
+        });
     }
     pub(crate) fn change_raw(self, id: u64, index: usize, value: Option<f64>, delta: f64) {
-        let original = if self.domain.get() == Some(Domain::Control(id, index)) {
-            self.slot
-                .get_untracked()
-                .filter(|(owner, at, _)| *owner == id && *at == index)
-                .map(|(_, _, control)| control)
-        } else {
-            self.control(id, index)
-        };
+        let original = self.slot_of(id, index).or_else(|| self.control(id, index));
         if let Some(mut control) = original {
             control.change(value, delta);
             self.request(NodeRequest::Control {
@@ -115,10 +157,9 @@ impl State {
         if self.busy() || value.is_some_and(|v| !v.is_finite()) {
             return;
         }
-        if let Some(mut control) = self.slot(id, index) {
-            let snapshot = Snapshot::Control(id, index, control.value.clone());
+        if let Some(mut control) = self.control(id, index) {
             control.change(value, delta);
-            self.edit.once(snapshot, || {
+            self.edit.once((), || {
                 self.request(NodeRequest::Control {
                     node: id,
                     index,
@@ -129,19 +170,21 @@ impl State {
     }
     pub(crate) fn control_phase(self, id: u64, index: usize, phase: EditPhase) {
         match phase {
-            EditPhase::Begin if !self.busy() => {
-                if let Some(control) = self.slot(id, index) {
-                    self.domain.set(Some(Domain::Control(id, index)));
-                    self.edit.begin(Snapshot::Control(id, index, control.value));
+            EditPhase::Begin if !self.busy() && self.popup_is(id, index) => {
+                if let Some(control) = self.control(id, index) {
+                    self.mode.update(|mode| {
+                        if let NodeMode::Popup { slot, .. } = mode {
+                            *slot = control.clone();
+                        }
+                    });
+                    self.edit.begin(());
                 }
             }
-            EditPhase::Commit if self.domain.get() == Some(Domain::Control(id, index)) => {
+            EditPhase::Commit if self.popup_is(id, index) && self.edit.is_active() => {
                 self.edit.commit();
-                self.domain.set(None);
             }
-            EditPhase::Cancel if self.domain.get() == Some(Domain::Control(id, index)) => {
+            EditPhase::Cancel if self.popup_is(id, index) && self.edit.is_active() => {
                 self.edit.cancel();
-                self.domain.set(None);
             }
             _ => {}
         }
@@ -150,7 +193,9 @@ impl State {
         if self.busy() {
             return;
         }
-        self.slot(id, index);
+        let Some(control) = self.control(id, index) else {
+            return;
+        };
         if let Some(r) = self.reference.rect().get_untracked()
             && let Some(local) = self.data().with_untracked(|nodes| {
                 nodes
@@ -163,8 +208,12 @@ impl State {
                 .transform
                 .get_untracked()
                 .to_view(Point::new(local.x, local.y + local.height));
-            self.popup
-                .set(Some((id, index, Point::new(r.x + p.x, r.y + p.y))));
+            self.mode.set(NodeMode::Popup {
+                node: id,
+                index,
+                at: Point::new(r.x + p.x, r.y + p.y),
+                slot: control,
+            });
         }
     }
     pub(crate) fn activate(self, id: u64, index: usize) {
@@ -175,9 +224,7 @@ impl State {
         match self.control(id, index).map(|c| c.value) {
             Some(NodeControlValue::Choice { .. }) => self.open(id, index),
             Some(NodeControlValue::Toggle(_)) => self.change(id, index, None, 1.0),
-            _ => {
-                self.slot(id, index);
-            }
+            _ => {}
         }
     }
     pub(crate) fn valid_link(self, link: NodeLink) -> bool {
@@ -189,11 +236,17 @@ impl State {
         if self.busy() {
             return;
         }
+        self.write_links(remove, add);
+    }
+    /// Write one edit that removes `remove` and adds `add` (when valid),
+    /// whatever else is going on: the end of a link drag, which is itself
+    /// the gesture that makes the editor busy.
+    pub(crate) fn write_links(self, remove: Option<NodeLink>, add: Option<NodeLink>) {
         let add = add.filter(|link| self.valid_link(*link));
         if remove.is_none() && add.is_none() {
             return;
         }
-        self.edit.once(Snapshot::Empty, || {
+        self.edit.once((), || {
             if let Some(link) = remove {
                 self.request(NodeRequest::Disconnect(link));
             }
@@ -220,11 +273,14 @@ impl State {
                 self.selected_link.set(target.as_link());
                 self.choose.clear();
             }
-            Target::Socket(id, true, index) => self.port.set(Some((id, index))),
+            Target::Socket(id, true, index) => self.mode.set(NodeMode::Connecting {
+                from: id,
+                output: index,
+            }),
             Target::Socket(id, false, index) => {
-                if let Some((from, output)) = self.port.get_untracked() {
+                if let NodeMode::Connecting { from, output } = self.mode.get_untracked() {
                     self.connect(from, output, id, index);
-                    self.port.set(None);
+                    self.mode.set(NodeMode::Idle);
                 }
             }
         }

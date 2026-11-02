@@ -5,6 +5,7 @@ pub(crate) mod gesture;
 pub(crate) mod lane;
 pub(crate) mod metrics;
 pub(crate) mod model;
+pub(crate) mod owned_edit;
 pub(crate) mod region_parts;
 pub(crate) mod ruler;
 pub(crate) mod selection;

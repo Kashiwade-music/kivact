@@ -121,14 +121,14 @@ fn missions() -> impl IntoView {
 
 ## 階層をツリーで見せる
 
-`game::tree(entries, selection)` はファイルツリーを描きます。`entries` は `game::TreeEntry` の一覧で、`TreeEntry::file(id, label)` と `TreeEntry::folder(id, label, children)` で作ります。`selection` は、選択された**葉**の id を持つ `Signal<String>` です。
+`game::tree(entries, selection)` はファイルツリーを描きます。`entries` は `game::TreeEntry` の一覧で、`TreeEntry::file(id, label)` と `TreeEntry::folder(id, label, children)` で作ります。`selection` は、選択された**葉**の id を持つ `Signal<Option<String>>` です。何も選ばれていないときは `None` です。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn files() -> impl IntoView {
-    let selected = signal(String::from("save-1"));
+    let selected = signal(Some(String::from("save-1")));
     let entries = vec![
         game::TreeEntry::folder(
             "saves",
@@ -143,7 +143,7 @@ fn files() -> impl IntoView {
     ];
     column((
         game::tree(entries, selected),
-        game::mono(move || format!("OPEN {}", selected.get())),
+        game::mono(move || format!("OPEN {}", selected.get().unwrap_or_default())),
     ))
     .style(style().gap(12).width(300).margin(24))
 }

@@ -3,9 +3,9 @@
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
 use kivact::draw::{Point, RegionId};
-use kivact::interaction::{Drag as Gesture, EditSession, List, ViewTransform};
+use kivact::interaction::{Drag as Gesture, EditSession, List, ViewTransform, ZoomPan};
 use kivact::view::{NodeRef, Role};
-use kivact::{Binding, Callback, Signal, UiError, Value, Var};
+use kivact::{Binding, Callback, Signal, UiError, Value};
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -46,19 +46,6 @@ impl Target {
 
 pub(crate) type ConnectGuard = Value<Rc<dyn Fn(&NodeLink) -> bool>>;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Domain {
-    Positions,
-    Control(u64, usize),
-}
-
-#[derive(Clone)]
-pub(crate) enum Snapshot {
-    Positions(Vec<(u64, Point)>),
-    Control(u64, usize, NodeControlValue),
-    Empty,
-}
-
 #[derive(Clone, PartialEq)]
 pub(crate) struct Info {
     pub(crate) id: RegionId,
@@ -71,12 +58,54 @@ pub(crate) struct Info {
     pub(crate) range: Option<(f64, f64, f64)>,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Drag {
-    Items,
-    Control(u64, usize),
-    Link(u64, usize, Point),
-    Marquee(Point, Point),
+/// What the editor does besides a pointer drag. Its data lives in the variant.
+#[derive(Clone, PartialEq)]
+pub(crate) enum NodeMode {
+    Idle,
+    /// An output socket was activated without the pointer; activating an
+    /// input socket connects them.
+    Connecting {
+        from: u64,
+        output: usize,
+    },
+    /// The parameter popup of a control is open at `at` (window
+    /// coordinates), with the control as it was when it opened or when its
+    /// edit began.
+    Popup {
+        node: u64,
+        index: usize,
+        at: Point,
+        slot: NodeControl,
+    },
+}
+
+/// The primary drag the press chose; the payload of `State::press`.
+#[derive(Clone, PartialEq)]
+pub(crate) enum DragMode {
+    /// The selected nodes, from their positions at the press.
+    Items {
+        origins: Vec<(u64, Point)>,
+    },
+    /// A number control, from the control at the press.
+    Control {
+        node: u64,
+        index: usize,
+        slot: NodeControl,
+    },
+    /// A link from an output socket to `to`; `rewire` is the link re-routed
+    /// from its input socket; `released` is the input socket under the
+    /// release.
+    Link {
+        from: u64,
+        output: usize,
+        to: Point,
+        rewire: Option<NodeLink>,
+        released: Option<(u64, usize)>,
+    },
+    Marquee {
+        from: Point,
+        to: Point,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -96,37 +125,34 @@ pub(crate) struct State {
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) snap: Value<bool>,
     pub(crate) active: Signal<Option<(u64, usize)>>,
-    pub(crate) port: Signal<Option<(u64, usize)>>,
-    pub(crate) popup: Signal<Option<(u64, usize, Point)>>,
+    pub(crate) mode: Signal<NodeMode>,
     pub(crate) reference: NodeRef,
     pub(crate) texts: crate::editors::shared::texts::Texts,
-    pub(crate) press:
-        crate::editors::shared::gesture::CanvasGesture<Target, (Option<Drag>, Option<Snapshot>)>,
+    pub(crate) press: crate::editors::shared::gesture::CanvasGesture<Target, DragMode>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`node_input::drag`).
     pub(crate) gesture: Gesture<()>,
-    /// The target under the release of a drag (a link's input socket).
-    pub(crate) released: Var<Option<Target>>,
-    pub(crate) edit: EditSession<Snapshot>,
-    pub(crate) blocked: Signal<bool>,
-    pub(crate) pan_active: Signal<bool>,
-    pub(crate) fitting: Var<bool>,
-    pub(crate) slot: Signal<Option<(u64, usize, NodeControl)>>,
-    pub(crate) rewire: Signal<Option<NodeLink>>,
-    pub(crate) domain: Var<Option<Domain>>,
-    pub(crate) space: Signal<bool>,
+    /// The editor's edit. The application restores its own items on
+    /// `Cancel`, so the session restores nothing.
+    pub(crate) edit: EditSession<()>,
+    /// The editor is disabled, hidden or not visible.
+    pub(crate) blocked: Value<bool>,
+    /// The canvas's pan and zoom, which also tracks Space.
+    pub(crate) zoom: ZoomPan,
 }
 
 impl State {
-    pub(crate) fn drag_state(self) -> Option<Drag> {
-        self.press.with_payload(|payload| payload.0).flatten()
+    /// What the pressed drag does; `None` while no press drags.
+    pub(crate) fn drag_state(self) -> Option<DragMode> {
+        self.press.with_payload(Clone::clone)
     }
-    pub(crate) fn set_drag(self, drag: Option<Drag>) {
-        self.press.update_payload(|payload| payload.0 = drag);
-    }
-    pub(crate) fn initial(self) -> Option<Snapshot> {
+    /// The link a drag re-routes from its input socket.
+    pub(crate) fn rewired(self) -> Option<NodeLink> {
         self.press
-            .with_payload(|payload| payload.1.clone())
+            .with_payload(|payload| match payload {
+                DragMode::Link { rewire, .. } => *rewire,
+                _ => None,
+            })
             .flatten()
     }
 }
