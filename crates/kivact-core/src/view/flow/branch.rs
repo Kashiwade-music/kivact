@@ -11,8 +11,8 @@
 //! - Conditions, `show_some` values and `dynamic` sources are evaluated in
 //!   a pure section (tracked, no side effects); building, mounting and
 //!   disposing happen outside it.
-//! - Branch builders run untracked in the branch's setup frame; a panic
-//!   there is reported to the branch owner and mounts an empty fragment.
+//! - Branch builders run untracked in the branch's setup frame; a panic there
+//!   propagates and ends the App.
 
 use std::cell::RefCell;
 use std::panic::Location;
@@ -36,18 +36,16 @@ pub(crate) struct Branch {
     pub(crate) node: NodeId,
 }
 
-/// Mount a branch under `frag` in a fresh child owner of `parent`.
+/// Mount `build`'s view in the fresh branch owner `owner` (a child owner the caller made, so it
+/// can create the branch's state in it first), appended under `frag`.
 pub(crate) fn mount_branch(
     rt: &Rc<Runtime>,
-    parent: Owner,
+    owner: Owner,
     frag: NodeId,
-    index: Option<usize>,
-    build: &dyn Fn() -> View,
-    at: &'static Location<'static>,
+    build: impl FnOnce() -> View,
 ) -> Branch {
-    let owner = parent.child(at);
     let node = mount_in(rt, owner, build);
-    ViewState::tree_mut(rt).insert(frag, node, index);
+    ViewState::tree_mut(rt).insert(frag, node, None);
     Branch { owner, node }
 }
 
@@ -101,6 +99,25 @@ impl Show {
     }
 }
 
+/// What a `show` has mounted.
+enum ShowArm {
+    /// Nothing: before the first run, and while the effect replaces the branch.
+    Pending,
+    /// The child, while the condition is true.
+    Child(Branch),
+    /// The fallback (if any), while the condition is false.
+    Fallback(Option<Branch>),
+}
+
+impl ShowArm {
+    fn into_branch(self) -> Option<Branch> {
+        match self {
+            ShowArm::Pending | ShowArm::Fallback(None) => None,
+            ShowArm::Child(branch) | ShowArm::Fallback(Some(branch)) => Some(branch),
+        }
+    }
+}
+
 impl IntoView for Show {
     fn into_view(self) -> View {
         let Show {
@@ -109,53 +126,39 @@ impl IntoView for Show {
             fallback,
             at,
         } = self;
-        switch_view(vec![(when, child)], fallback, at)
-    }
-}
-
-pub(crate) fn switch_view(
-    cases: Vec<(InputProp<bool>, Build)>,
-    fallback: Option<Build>,
-    at: &'static Location<'static>,
-) -> View {
-    view_fn(move |cx| {
-        let frag = cx.fragment();
-        let rt = cx.weak();
-        let parent = cx.owner;
-        // (selected arm: usize::MAX = fallback, current branch)
-        let state: RefCell<(Option<usize>, Option<Branch>)> = RefCell::new((None, None));
-        cx.effect(EffectKind::Internal, at, move || {
-            let Some(rt) = rt.upgrade() else { return };
-            // Conditions only compute values: pure.
-            let arm = kivact_reactive::pure(|| {
-                cases
-                    .iter()
-                    .position(|(c, _)| c.get())
-                    .unwrap_or(usize::MAX)
+        view_fn(move |cx| {
+            let frag = cx.fragment();
+            let rt = cx.weak();
+            let parent = cx.owner;
+            let state = RefCell::new(ShowArm::Pending);
+            cx.effect(EffectKind::Internal, at, move || {
+                let Some(rt) = rt.upgrade() else { return };
+                // The condition only computes a value: pure.
+                let when = kivact_reactive::pure(|| when.get());
+                if matches!(
+                    (when, &*state.borrow()),
+                    (true, ShowArm::Child(_)) | (false, ShowArm::Fallback(_))
+                ) {
+                    return;
+                }
+                let old = std::mem::replace(&mut *state.borrow_mut(), ShowArm::Pending);
+                if let Some(b) = old.into_branch() {
+                    unmount_branch(&rt, b);
+                }
+                let next = if when {
+                    ShowArm::Child(mount_branch(&rt, parent.child(at), frag, || child()))
+                } else {
+                    ShowArm::Fallback(
+                        fallback
+                            .as_ref()
+                            .map(|f| mount_branch(&rt, parent.child(at), frag, || f())),
+                    )
+                };
+                *state.borrow_mut() = next;
             });
-            if state.borrow().0 == Some(arm) {
-                return;
-            }
-            let old = {
-                let mut s = state.borrow_mut();
-                s.0 = Some(arm);
-                s.1.take()
-            };
-            if let Some(b) = old {
-                unmount_branch(&rt, b);
-            }
-            let build = if arm == usize::MAX {
-                fallback.clone()
-            } else {
-                Some(cases[arm].1.clone())
-            };
-            if let Some(build) = build {
-                let b = mount_branch(&rt, parent, frag, None, &*build, at);
-                state.borrow_mut().1 = Some(b);
-            }
-        });
-        frag
-    })
+            frag
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +201,25 @@ impl<T: 'static> ShowSome<T> {
     }
 }
 
+/// What a `show_some` has mounted.
+enum SomeArm<T: 'static> {
+    /// Nothing: before the first run, and while the effect replaces the branch.
+    Pending,
+    /// The child and the signal its `Value<T>` reads, while the source is `Some`.
+    Child { branch: Branch, value: Signal<T> },
+    /// The fallback (if any), while the source is `None`.
+    Fallback(Option<Branch>),
+}
+
+impl<T: 'static> SomeArm<T> {
+    fn into_branch(self) -> Option<Branch> {
+        match self {
+            SomeArm::Pending | SomeArm::Fallback(None) => None,
+            SomeArm::Child { branch, .. } | SomeArm::Fallback(Some(branch)) => Some(branch),
+        }
+    }
+}
+
 impl<T: Clone + 'static> IntoView for ShowSome<T> {
     fn into_view(self) -> View {
         let ShowSome {
@@ -210,61 +232,43 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
             let frag = cx.fragment();
             let rt = cx.weak();
             let parent = cx.owner;
-            // (is_some, branch, value signal of the Some branch)
-            let state: RefCell<(Option<bool>, Option<Branch>, Option<Signal<T>>)> =
-                RefCell::new((None, None, None));
+            let state: RefCell<SomeArm<T>> = RefCell::new(SomeArm::Pending);
             cx.effect(EffectKind::Internal, at, move || {
                 let Some(rt) = rt.upgrade() else { return };
                 let v = kivact_reactive::pure(|| value.get());
-                let is_some = v.is_some();
-                let (same, sig) = {
-                    let s = state.borrow();
-                    (s.0 == Some(is_some), s.2)
+                let child_value = match &*state.borrow() {
+                    SomeArm::Child { value, .. } => Some(*value),
+                    _ => None,
                 };
-                if same {
-                    if let (Some(v), Some(sig)) = (v, sig) {
-                        sig.update(|slot| *slot = v);
+                let shows_fallback = matches!(*state.borrow(), SomeArm::Fallback(_));
+                match (v, child_value) {
+                    // Some->Some keeps the branch and only updates its value.
+                    (Some(v), Some(sig)) => {
+                        sig.update(move |slot| *slot = v);
                     }
-                    return;
-                }
-                let old = {
-                    let mut s = state.borrow_mut();
-                    s.0 = Some(is_some);
-                    s.2 = None;
-                    s.1.take()
-                };
-                if let Some(b) = old {
-                    unmount_branch(&rt, b);
-                }
-                match v {
-                    Some(v) => {
-                        let cell: RefCell<Option<Signal<T>>> = RefCell::new(None);
-                        let init = RefCell::new(Some(v));
-                        let child = child.clone();
-                        let b = mount_branch(
-                            &rt,
-                            parent,
-                            frag,
-                            None,
-                            &|| {
-                                let Some(v) = init.borrow_mut().take() else {
-                                    return View::empty();
-                                };
-                                let sig = kivact_reactive::signal(v);
-                                *cell.borrow_mut() = Some(sig);
-                                child(sig.into_value())
-                            },
-                            at,
-                        );
-                        let mut s = state.borrow_mut();
-                        s.1 = Some(b);
-                        s.2 = cell.into_inner();
-                    }
-                    None => {
-                        if let Some(fb) = fallback.clone() {
-                            let b = mount_branch(&rt, parent, frag, None, &*fb, at);
-                            state.borrow_mut().1 = Some(b);
+                    (None, _) if shows_fallback => {}
+                    (v, _) => {
+                        let old = std::mem::replace(&mut *state.borrow_mut(), SomeArm::Pending);
+                        if let Some(b) = old.into_branch() {
+                            unmount_branch(&rt, b);
                         }
+                        let next = match v {
+                            Some(v) => {
+                                let owner = parent.child(at);
+                                let value = owner.signal(v, at);
+                                let child = child.clone();
+                                let branch = mount_branch(&rt, owner, frag, || {
+                                    child(value.into_value())
+                                });
+                                SomeArm::Child { branch, value }
+                            }
+                            None => SomeArm::Fallback(
+                                fallback
+                                    .as_ref()
+                                    .map(|f| mount_branch(&rt, parent.child(at), frag, || f())),
+                            ),
+                        };
+                        *state.borrow_mut() = next;
                     }
                 }
             });
@@ -313,18 +317,7 @@ pub fn dynamic<T: Clone + PartialEq + 'static, V: IntoView>(
                 unmount_branch(&rt, b);
             }
             let built_from = value.clone();
-            let value = RefCell::new(Some(value));
-            let b = mount_branch(
-                &rt,
-                parent,
-                frag,
-                None,
-                &|| match value.borrow_mut().take() {
-                    Some(v) => child(v).into_view(),
-                    None => View::empty(),
-                },
-                at,
-            );
+            let b = mount_branch(&rt, parent.child(at), frag, || child(value).into_view());
             *current.borrow_mut() = Some((built_from, b));
         });
         frag

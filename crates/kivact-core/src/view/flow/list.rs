@@ -54,11 +54,11 @@ pub(crate) use kivact_reactive::keyed::key_hash;
 /// Indices (into `seq`) of one longest strictly increasing subsequence.
 pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
     let mut tails: Vec<usize> = Vec::new();
-    let mut prev = vec![usize::MAX; seq.len()];
+    let mut prev: Vec<Option<usize>> = vec![None; seq.len()];
     for (i, &v) in seq.iter().enumerate() {
         let pos = tails.partition_point(|&t| seq[t] < v);
         if pos > 0 {
-            prev[i] = tails[pos - 1];
+            prev[i] = Some(tails[pos - 1]);
         }
         if pos == tails.len() {
             tails.push(i);
@@ -70,7 +70,7 @@ pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
     let mut cur = tails.last().copied();
     while let Some(i) = cur {
         out.push(i);
-        cur = (prev[i] != usize::MAX).then(|| prev[i]);
+        cur = prev[i];
     }
     out.reverse();
     out
@@ -294,26 +294,10 @@ where
             }
             for item in appended {
                 let i = rows.borrow().len();
-                let cell = RefCell::new(None);
-                let init = RefCell::new(Some(item));
-                let b = mount_branch(
-                    &rt,
-                    parent,
-                    frag,
-                    None,
-                    &|| {
-                        let Some(v) = init.borrow_mut().take() else {
-                            return View::empty();
-                        };
-                        let sig = kivact_reactive::signal(v);
-                        *cell.borrow_mut() = Some(sig);
-                        row(i, sig.into_value()).into_view()
-                    },
-                    at,
-                );
-                if let Some(sig) = cell.into_inner() {
-                    rows.borrow_mut().push((b, sig));
-                }
+                let owner = parent.child(at);
+                let sig = owner.signal(item, at);
+                let b = mount_branch(&rt, owner, frag, || row(i, sig.into_value()).into_view());
+                rows.borrow_mut().push((b, sig));
             }
         });
         frag
