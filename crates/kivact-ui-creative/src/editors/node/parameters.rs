@@ -1,6 +1,6 @@
 //! Role: Node parameter popups forwarding edits to the editor session.
 use crate::Color;
-use crate::editors::node::gesture::{Domain, Snapshot, State};
+use crate::editors::node::gesture::{NodeMode, State};
 use crate::editors::node::model::{NodeControlValue, NodeRequest};
 use kivact::binding;
 use kivact::control::{NodeBuilder, column, node};
@@ -11,18 +11,26 @@ use kivact::view::{IntoValue, IntoView, Placement, Role, overlay_at};
 pub(super) fn popup(state: State) -> impl IntoView {
     let data = state.data();
     let visible = binding(
-        (move || state.popup.get().is_some() && !state.blocked.get()).into_value(),
+        (move || {
+            state.mode.with(|mode| matches!(mode, NodeMode::Popup { .. })) && !state.blocked.get()
+        })
+        .into_value(),
         move |visible: bool| {
             if !visible {
-                state.popup.set(None);
+                state.close_popup();
             }
         },
     );
     let popup = kivact::interaction::use_popup(visible);
     kivact::view::show(popup.shown(), move || {
         let (id, index, point) = state
-            .popup
-            .get_untracked()
+            .mode
+            .with_untracked(|mode| match mode {
+                NodeMode::Popup {
+                    node, index, at, ..
+                } => Some((*node, *index, *at)),
+                _ => None,
+            })
             .expect("invariant: shown node popup has a control");
         let control = state.control(id, index);
         let content = match control.map(|c| (c.label, c.value)) {
@@ -47,7 +55,7 @@ pub(super) fn popup(state: State) -> impl IntoView {
                     .into_value(),
                     move |value| {
                         if !state.blocked.get()
-                            && state.domain.get() == Some(Domain::Control(id, index))
+                            && state.popup_is(id, index)
                             && state.edit.is_active()
                         {
                             state.change_raw(id, index, Some(value), 0.0);
@@ -76,26 +84,23 @@ pub(super) fn popup(state: State) -> impl IntoView {
                                 if state.busy() {
                                     return;
                                 }
-                                if let Some(control) = state.slot(id, index) {
-                                    state.edit.once(
-                                        Snapshot::Control(id, index, control.value.clone()),
-                                        || {
-                                            if let NodeControlValue::Choice { options, .. } =
-                                                control.value.clone()
-                                            {
-                                                state.request(NodeRequest::Control {
-                                                    node: id,
-                                                    index,
-                                                    value: NodeControlValue::Choice {
-                                                        options,
-                                                        selected: choice,
-                                                    },
-                                                });
-                                            }
-                                        },
-                                    );
+                                if let Some(control) = state.control(id, index) {
+                                    state.edit.once((), || {
+                                        if let NodeControlValue::Choice { options, .. } =
+                                            control.value.clone()
+                                        {
+                                            state.request(NodeRequest::Control {
+                                                node: id,
+                                                index,
+                                                value: NodeControlValue::Choice {
+                                                    options,
+                                                    selected: choice,
+                                                },
+                                            });
+                                        }
+                                    });
                                 }
-                                state.popup.set(None);
+                                state.close_popup();
                             })
                             .into_view()
                     })

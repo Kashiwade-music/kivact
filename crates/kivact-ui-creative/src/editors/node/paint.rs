@@ -1,7 +1,7 @@
 //! Role: Paint node bodies, sockets and controls using typed scene targets.
 
 use crate::editors::node::gesture::Target;
-use crate::editors::node::gesture::{Drag, State};
+use crate::editors::node::gesture::{DragMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::layout::{control, rect, socket};
 use crate::editors::node::model::{NodeControlValue, NodeData};
@@ -133,7 +133,7 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
     let scene = state.scene.get().ok();
     draw.layer(layer, |draw| {
         for link in links {
-            if state.rewire.get() == Some(link) {
+            if state.rewired() == Some(link) {
                 continue;
             }
             if let Some((from, to)) = geometry::endpoints(&nodes, link) {
@@ -162,7 +162,12 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
                 state.texts,
             );
         }
-        if let Some(Drag::Link(id, index, to)) = state.drag_state()
+        if let Some(DragMode::Link {
+            from: id,
+            output: index,
+            to,
+            ..
+        }) = state.drag_state()
             && let Some(node) = nodes.iter().find(|n| n.id == id)
         {
             geometry::draw_link(draw, geometry::socket(node, true, index), to, p.accent);
@@ -183,8 +188,8 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
                 }
             }
         }
-        if let Some(Drag::Marquee(a, b)) = state.drag_state() {
-            draw.stroke_rect(Rect::from_points(a, b), 1.0, p.accent);
+        if let Some(DragMode::Marquee { from, to }) = state.drag_state() {
+            draw.stroke_rect(Rect::from_points(from, to), 1.0, p.accent);
         }
     });
 }
