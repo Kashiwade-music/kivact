@@ -53,7 +53,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             let measurer = weak.upgrade().and_then(|rt| {
                 ViewState::tree_mut(&rt)
                     .reader()
-                    .and_then(|reader| reader.text_measurer(id))
+                    .map(|reader| reader.text_measurer(id))
             });
             let Recording {
                 scene,
