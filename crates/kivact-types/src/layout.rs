@@ -1,4 +1,4 @@
-//! Role: Layout keywords: flex direction, alignment, position, overflow, placement, scroll axes.
+//! Role: Layout keywords: flex, alignment, position, overflow, placement, scroll axes.
 
 /// Main-axis direction and ordering of children in a flex container.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
