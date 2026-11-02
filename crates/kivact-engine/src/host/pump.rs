@@ -2,6 +2,7 @@
 
 use super::client::{Boundary, Client};
 use crate::model::Model;
+use crate::model::edit::state::ImeUpdate;
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
 use kivact_wire::{FileDialogRequest, HostEvent, PlatformRequest, PlatformResult};
@@ -369,11 +370,11 @@ impl Host {
         if let Some(caret) = caret {
             window.set_ime_cursor_area(caret);
         }
-        let text = self
+        let update = self
             .model
             .borrow_mut()
             .ime_changed(&mut self.engine.borrow_mut());
-        if let Some(text) = text {
+        if let ImeUpdate::Set(text) = update {
             window.set_ime_text(text);
         }
         self.show_cursor(window);
@@ -404,11 +405,11 @@ impl Host {
         }
         // The IME may ask about the text right after the input that
         // edited it (a reconversion after a selection).
-        let text = self
+        let update = self
             .model
             .borrow_mut()
             .ime_changed(&mut self.engine.borrow_mut());
-        if let Some(text) = text {
+        if let ImeUpdate::Set(text) = update {
             window.set_ime_text(text);
         }
         self.show_cursor(window);

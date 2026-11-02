@@ -38,7 +38,7 @@
 //! - The IME is given its text only when the text's revision, the session
 //!   or the geometry changed since the last time. The offsets the IME
 //!   answers with are in the text it was last given, which starts at
-//!   `Edits::ime_start` in the value.
+//!   `ImeGiven::Input::start` in the value.
 //! - The range the IME takes for reconversion (`ShellEvent::ImeSelection`,
 //!   [`Model::ime_select`]) becomes the selection, which the composition
 //!   that follows replaces. It is ignored while composing, and in a
