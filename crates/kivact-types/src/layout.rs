@@ -1,4 +1,4 @@
-//! Role: Layout keywords: flex direction, alignment, position, overflow, placement.
+//! Role: Layout keywords: flex direction, alignment, position, overflow, placement, scroll axes.
 
 /// Main-axis direction and ordering of children in a flex container.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -72,4 +72,32 @@ pub enum Placement {
     Start,
     End,
     Center,
+}
+
+/// Where an overlay sits along its anchor's side ([`Placement`]): its start,
+/// centre or end (`Below` with `End`: right edges aligned). Not the flex
+/// [`Align`] of a container's children.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum OverlayAlign {
+    /// At the anchor's start edge.
+    #[default]
+    Start,
+    /// Centred on the anchor.
+    Center,
+    /// At the anchor's end edge.
+    End,
+}
+
+/// The axes a scroll container scrolls along. An axis that does not scroll
+/// clips.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ScrollAxes {
+    /// Up and down (the default); the content is laid out in a column.
+    #[default]
+    Vertical,
+    /// Sideways; the content is laid out in a row.
+    Horizontal,
+    /// Both ways (a table or a code block wider and taller than the
+    /// container); the content is laid out in a column.
+    Both,
 }

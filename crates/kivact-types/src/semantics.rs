@@ -137,6 +137,121 @@ pub enum A11yAction {
     Dismiss,
 }
 
+/// The input that requested a dismissal. Unmounting an overlay does not
+/// produce one; applications close it explicitly.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DismissReason {
+    /// A pointer button was pressed outside the overlay and its anchor.
+    OutsidePress,
+    /// An unmodified, unhandled Escape reached this overlay.
+    Escape,
+    /// Assistive technology requested the offered Dismiss action.
+    Accessibility,
+}
+
+/// What a node or drawn region is asked to do: an [`A11yAction`] with the
+/// data only some actions carry. Assistive technology sends all of them; a
+/// `Dismiss` also comes from an outside press or an Escape (its
+/// [`DismissReason`]).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum A11yRequest {
+    /// Native default activation.
+    Activate,
+    /// Focus.
+    Focus,
+    /// Increment.
+    Increment,
+    /// Decrement.
+    Decrement,
+    /// Expand.
+    Expand,
+    /// Collapse.
+    Collapse,
+    /// Toggle.
+    Toggle,
+    /// Select.
+    Select,
+    /// Scroll into view.
+    ScrollIntoView,
+    /// Set this text (a number arrives as its text): parsing, range and
+    /// validity are the component's.
+    SetValue(String),
+    /// Show the context menu.
+    ShowMenu,
+    /// Close, for this reason.
+    Dismiss(DismissReason),
+}
+
+impl A11yRequest {
+    /// The action this request asks for.
+    pub fn action(&self) -> A11yAction {
+        match self {
+            Self::Activate => A11yAction::Activate,
+            Self::Focus => A11yAction::Focus,
+            Self::Increment => A11yAction::Increment,
+            Self::Decrement => A11yAction::Decrement,
+            Self::Expand => A11yAction::Expand,
+            Self::Collapse => A11yAction::Collapse,
+            Self::Toggle => A11yAction::Toggle,
+            Self::Select => A11yAction::Select,
+            Self::ScrollIntoView => A11yAction::ScrollIntoView,
+            Self::SetValue(_) => A11yAction::SetValue,
+            Self::ShowMenu => A11yAction::ShowMenu,
+            Self::Dismiss(_) => A11yAction::Dismiss,
+        }
+    }
+
+    /// The request assistive technology makes for a fieldless `action`: `None`
+    /// for `SetValue` (it carries a value); `Dismiss` is
+    /// `Dismiss(DismissReason::Accessibility)`.
+    pub fn from_action(action: A11yAction) -> Option<A11yRequest> {
+        Some(match action {
+            A11yAction::Activate => Self::Activate,
+            A11yAction::Focus => Self::Focus,
+            A11yAction::Increment => Self::Increment,
+            A11yAction::Decrement => Self::Decrement,
+            A11yAction::Expand => Self::Expand,
+            A11yAction::Collapse => Self::Collapse,
+            A11yAction::Toggle => Self::Toggle,
+            A11yAction::Select => Self::Select,
+            A11yAction::ScrollIntoView => Self::ScrollIntoView,
+            A11yAction::SetValue => return None,
+            A11yAction::ShowMenu => Self::ShowMenu,
+            A11yAction::Dismiss => Self::Dismiss(DismissReason::Accessibility),
+        })
+    }
+}
+
+/// Whether a check box, a switch, a toggle button or a radio item is on, as
+/// ARIA's `aria-checked` (`true`, `false`, `mixed`) and Radix's `data-state`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum CheckedState {
+    /// Off.
+    #[default]
+    Unchecked,
+    /// On.
+    Checked,
+    /// Partially checked (HTML's `indeterminate`), whatever the binary value
+    /// is.
+    Indeterminate,
+}
+
+impl CheckedState {
+    /// The state of a binary value.
+    pub fn from_bool(checked: bool) -> Self {
+        if checked {
+            Self::Checked
+        } else {
+            Self::Unchecked
+        }
+    }
+
+    /// Whether it is [`Checked`](Self::Checked).
+    pub fn is_checked(self) -> bool {
+        self == Self::Checked
+    }
+}
+
 /// Portable LiveRegion semantics.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum LiveRegion {
