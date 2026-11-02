@@ -77,10 +77,11 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
             changes.borrow_mut().push(format!("change {v}"));
             value.set(v);
         });
+        // A text area takes Enter as a line break: only a line submits.
         let field = if area {
             use_text_area(edited)
         } else {
-            use_text_edit(edited)
+            use_text_edit(edited).on_submit(move || submits.borrow_mut().push("submit".into()))
         };
         column((
             node()
@@ -88,11 +89,9 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
                     keys.borrow_mut().push(format!("key {:?}", e.key));
                 })
                 .child(
-                    node().name(if area { "Notes" } else { "Name" }).part(
-                        field
-                            .on_submit(move || submits.borrow_mut().push("submit".into()))
-                            .control(),
-                    ),
+                    node()
+                        .name(if area { "Notes" } else { "Name" })
+                        .part(field.control()),
                 ),
             node()
                 .role(Role::Button)
