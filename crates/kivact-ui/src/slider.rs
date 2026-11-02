@@ -1,5 +1,5 @@
 //! Role: Render themed sliders over the shared scalar track and thumb parts.
-use super::layer::with_recipe_style;
+use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
@@ -14,8 +14,6 @@ use kivact_core::{Binding, Callback, Value};
 use kivact_interaction::{
     EditPhase, IntoScalarRange, RangeThumb, Scalar, ScalarRange, use_range_scalar, use_scalar,
 };
-use std::cell::Cell;
-use std::rc::Rc;
 
 /// The values a slider edits: one, or the two ends of a range.
 enum Values {
@@ -26,8 +24,6 @@ enum Values {
 /// A themed slider, created by [`slider`] or [`range_slider`].
 pub struct Slider {
     root: Node,
-    /// The track's state for its recipe layer, set once the slider is built.
-    track: Rc<Cell<Option<Value<AxisState>>>>,
     label: Value<String>,
     values: Values,
     range: Option<Value<ScalarRange>>,
@@ -84,25 +80,10 @@ pub fn range_slider(
 }
 
 fn create(label: Value<String>, values: Values) -> Slider {
-    let track = Rc::new(Cell::new(None::<Value<AxisState>>));
-    let read = track.clone();
     // The variants are shared: `.variant` adds to them before mount.
     let variants = Variants::default();
-    // The recipe is the first style layer, so the caller's styles win.
-    let root = with_recipe_style(
-        node(),
-        |r| r.slider_recipes().track_recipe(),
-        &variants,
-        move || {
-            read.get()
-                .expect("invariant: the track is prepared before mount")
-                .get()
-        },
-    )
-    .style(style().position(Position::Relative));
     Slider {
-        root,
-        track,
+        root: node().style(style().position(Position::Relative)),
         label,
         values,
         range: None,
@@ -277,7 +258,6 @@ impl IntoView for Slider {
     fn into_view(self) -> View {
         let Slider {
             mut root,
-            track,
             label,
             values,
             range,
@@ -419,10 +399,15 @@ impl IntoView for Slider {
                 thumb.into_view()
             })
             .collect();
-        track.set(Some(kivact_core::memo(move || state(track_state.get()))));
         // The track is disabled with its thumbs, so a look dims the whole
-        // slider.
-        let root = root.part(track_part);
+        // slider. Its recipe is the base style, so the caller's styles win.
+        let root = with_base_recipe_style(
+            root,
+            |r| r.slider_recipes().track_recipe(),
+            &variants,
+            move || state(track_state.get()),
+        )
+        .part(track_part);
         let root = if fractions.from.is_some() {
             let mut root = root.role(Role::Group);
             // The caller's name of the group wins.

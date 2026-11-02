@@ -10,14 +10,13 @@
 //! binding, but the factory is not called for it. A kit's domain tab bar
 //! (close, reorder, icons, counters) moves and selects with the same
 //! interaction parts and draws its ordinary parts with `UiRecipes::tabs`.
-use super::layer::with_recipe_style;
+use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column, node, row, text};
 use kivact_core::view::{IntoText, IntoValue, IntoView, Orientation, View, dynamic, for_each};
 use kivact_core::{Binding, Value};
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
-use kivact_interaction::{TabListState, TabState};
-use std::cell::Cell;
+use kivact_interaction::TabState;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -26,7 +25,6 @@ type TabContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<TabState>) -> View>;
 
 pub struct Tabs<K: Clone + Eq + Hash + 'static> {
     root: Node,
-    state: Rc<Cell<Option<Value<TabListState>>>>,
     options: Value<Vec<ListItem<K>>>,
     binding: Binding<K>,
     activation: ListActivation,
@@ -51,21 +49,9 @@ pub fn tabs<K: Clone + Eq + Hash + 'static>(
     options: impl IntoValue<Vec<ListItem<K>>>,
     binding: impl Into<Binding<K>>,
 ) -> Tabs<K> {
-    let state = Rc::new(Cell::new(None::<Value<TabListState>>));
-    let read = state.clone();
     let variants = Variants::default();
     Tabs {
-        root: with_recipe_style(
-            node().name(label),
-            |r| r.tabs_recipes().list_recipe(),
-            &variants,
-            move || {
-                read.get()
-                    .expect("invariant: tab list prepared before mount")
-                    .get()
-            },
-        ),
-        state,
+        root: node().name(label),
         options: options.into_value(),
         binding: binding.into(),
         activation: ListActivation::Automatic,
@@ -145,7 +131,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
             .activation(self.activation)
             .orientation(self.orientation);
         let part = behavior.list();
-        self.state.set(Some(part.state()));
+        let list_state = part.state();
         let slot = self.item;
         let variants = self.variants.clone();
         let labels = for_each(
@@ -171,7 +157,13 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
                 .child(content)
             },
         );
-        let list = self.root.part(part).child(labels);
+        let root = with_base_recipe_style(
+            self.root,
+            |r| r.tabs_recipes().list_recipe(),
+            &self.variants,
+            move || list_state.get(),
+        );
+        let list = root.part(part).child(labels);
         let list = if self.orientation == Orientation::Vertical {
             list.style(kivact_core::style::style().direction(kivact_core::style::Direction::Column))
         } else {

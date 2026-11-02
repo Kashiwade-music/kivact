@@ -5,7 +5,7 @@
 //! binding and no separate constant `checked` mode. Its recipe gets the real
 //! checked state in a `CheckState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.
-use super::layer::with_recipe_style;
+use super::layer::with_base_recipe_style;
 use super::values::{CheckState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
@@ -13,8 +13,6 @@ use kivact_core::primitive::NodeExt;
 use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_core::{Binding, Value};
 use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
-use std::cell::Cell;
-use std::rc::Rc;
 macro_rules! toggle_builder {
     ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $text:expr) => {
         $(#[$doc])*
@@ -23,7 +21,6 @@ macro_rules! toggle_builder {
             label: Value<String>,
             state: Binding<bool>,
             mixed: Option<Value<bool>>,
-            part_state: Rc<Cell<Option<Value<CheckState>>>>,
             hide_label: Option<Value<bool>>,
             size: ControlSize,
             variants: Variants,
@@ -31,24 +28,14 @@ macro_rules! toggle_builder {
 
         impl $name {
             fn create(label: Value<String>, state: Binding<bool>) -> Self {
-                let part_state = Rc::new(Cell::new(None::<Value<CheckState>>));
-                let read = part_state.clone();
-                let variants = Variants::default();
-                let root = with_recipe_style(
-                    node().style(super::helpers::single_line_text()).name(label),
-                    |recipes| recipes.$recipe(),
-                    &variants,
-                    move || read.get().expect("invariant: toggle part prepared before mount").get(),
-                );
                 Self {
-                    root,
+                    root: node().style(super::helpers::single_line_text()).name(label),
                     label,
                     state,
                     mixed: None,
-                    part_state,
                     hide_label: None,
                     size: ControlSize::Medium,
-                    variants,
+                    variants: Variants::default(),
                 }
             }
 
@@ -110,8 +97,13 @@ macro_rules! toggle_builder {
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid()),
                     text,
                 });
-                self.part_state.set(Some(part.state()));
-                self.root
+                let check_state = part.state();
+                with_base_recipe_style(
+                    self.root,
+                    |recipes| recipes.$recipe(),
+                    &self.variants,
+                    move || check_state.get(),
+                )
                     .part(part)
                     .child(super::helpers::visible_label(self.label, self.hide_label))
                     .into_view()
