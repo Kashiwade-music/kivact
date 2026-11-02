@@ -168,27 +168,31 @@ resolve = [
 # `palette` を組む。表に無い部品を参照するときは、ここに足してから使う。
 [module_rules.kivact-interaction.uses]
 policy = []
+axis = []
+press = []
+delayed = []
+space_pan = []
 disclosure = []
 edit = []
 focus_return = []
 roving = []
 drag = ["edit"]
-list = ["roving"]
+list = ["axis", "roving"]
 text_edit = []
 toaster = []
 toggle = []
 popup = ["disclosure", "focus_return"]
-scalar = ["drag", "edit", "focus_return", "policy"]
+scalar = ["axis", "drag", "edit", "focus_return", "policy"]
 range_scalar = ["drag", "edit", "policy", "scalar"]
 dialog = ["focus_return", "popup"]
-tooltip = ["disclosure", "popup"]
+tooltip = ["delayed", "popup"]
 combobox = ["list"]
-tabs = ["list"]
-tree = ["list"]
+tabs = ["axis", "list"]
+tree = ["list", "press"]
 select = ["focus_return", "list", "popup"]
-menu = ["disclosure", "focus_return", "list", "popup"]
-zoom_pan = ["edit"]
-splitter = ["drag", "edit", "policy", "scalar"]
+menu = ["delayed", "focus_return", "list", "popup"]
+zoom_pan = ["edit", "space_pan"]
+splitter = ["axis", "drag", "edit", "policy", "press", "scalar"]
 table = ["list", "policy", "roving", "splitter"]
 palette = ["combobox", "dialog", "list", "popup"]
 
@@ -298,6 +302,7 @@ options_structs = [
     "kivact-engine::HostOptions",
     "kivact-engine::embed::EmbedOptions",
     "kivact-engine::testing::TestHostOptions",
+    "kivact-interaction::Delays",
     "kivact-interaction::Dismiss",
     "kivact-interaction::ListPolicy",
     "kivact-interaction::ListRangePolicy",
