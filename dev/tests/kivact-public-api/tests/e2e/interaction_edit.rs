@@ -126,7 +126,7 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
 
     split.a11y(A11yAction::Increment);
     split.a11y(A11yAction::Decrement);
-    split.a11y_with_value(A11yAction::SetValue, "73");
+    split.a11y_set_value("73");
     assert_eq!(
         *log.borrow(),
         [
@@ -141,8 +141,8 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
     log.borrow_mut().clear();
 
     // Input that writes nothing is no edit.
-    split.a11y_with_value(A11yAction::SetValue, "not a number");
-    split.a11y_with_value(A11yAction::SetValue, "NaN");
+    split.a11y_set_value("not a number");
+    split.a11y_set_value("NaN");
     screen.press_key(Key::ArrowUp);
     assert!(log.borrow().is_empty(), "{:?}", log.borrow());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());

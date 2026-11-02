@@ -373,7 +373,7 @@ fn roles_checked_expanded_description_and_the_separator_are_published() {
         "Ctrl X",
         "the shortcut is the description"
     );
-    assert_eq!(cut.is_checked(), None);
+    assert_eq!(cut.checked(), None);
     assert_eq!(cut.is_expanded(), None);
     assert_eq!(
         screen
@@ -383,12 +383,10 @@ fn roles_checked_expanded_description_and_the_separator_are_published() {
     );
 
     let grid = screen.get_by_role(Role::MenuItemCheckBox, "Show grid");
-    assert_eq!(grid.is_checked(), Some(true));
+    assert_eq!(grid.checked(), Some(CheckedState::Checked));
     assert_eq!(
-        screen
-            .get_by_role(Role::MenuItemCheckBox, "Snap")
-            .is_checked(),
-        Some(false)
+        screen.get_by_role(Role::MenuItemCheckBox, "Snap").checked(),
+        Some(CheckedState::Unchecked)
     );
     assert!(screen.query_by_role(Role::MenuItem, "Show grid").is_none());
 

@@ -9,10 +9,11 @@ use kivact::primitive::NodeExt;
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::draw::Rect;
+use kivact::diagnostics::ErrorKind;
+use kivact::draw::{Point, Rect};
 use kivact::prelude::*;
 use kivact::test::render;
-use kivact::view::{A11yAction, Handled, Placement, overlay};
+use kivact::view::{A11yAction, Handled, Placement, overlay, overlay_at};
 
 /// Counts calls of the handlers it makes.
 #[derive(Clone, Default)]
@@ -306,4 +307,21 @@ fn overlays_flip_clamp_center_stay_out_of_flow_and_follow_their_anchor() {
     let l = button_rect("left");
     assert_eq!(rect("below").y, l.y + l.height, "follows the moved anchor");
     s.get_by_test_id("below").click();
+}
+
+/// An overlay placed at a point has no anchor width to follow: asking for it is reported.
+#[test]
+fn at_least_anchor_width_on_a_point_overlay_is_reported() {
+    let screen = render(|| {
+        overlay_at(Point::new(10.0, 10.0), Placement::Below, text("menu"))
+            .at_least_anchor_width(true)
+    });
+    let errors = screen.errors();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(*errors[0].kind(), ErrorKind::Unsupported);
+    assert!(
+        errors[0].message().contains("at_least_anchor_width"),
+        "{}",
+        errors[0].message()
+    );
 }

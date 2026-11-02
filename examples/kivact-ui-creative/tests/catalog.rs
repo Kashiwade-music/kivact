@@ -6,7 +6,7 @@
 
 use kivact::draw::Point;
 use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
-use kivact::view::{A11yAction, Key, Modifiers, Role};
+use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_creative_catalog::{catalog, fonts};
 use std::sync::Arc;
 use std::time::Duration;
@@ -193,13 +193,13 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
     section.get_by_role(Role::RadioButton, "HSV").click();
     section
         .get_by_role(Role::Slider, "Picker Hue")
-        .a11y_with_value(A11yAction::SetValue, "0.3333333333333333");
+        .a11y_set_value("0.3333333333333333");
     section
         .get_by_role(Role::Slider, "Picker Saturation")
-        .a11y_with_value(A11yAction::SetValue, "1");
+        .a11y_set_value("1");
     section
         .get_by_role(Role::Slider, "Picker Value")
-        .a11y_with_value(A11yAction::SetValue, "1");
+        .a11y_set_value("1");
     assert_eq!(
         section
             .get_by_role(Role::TextBox, "HEX Color")
@@ -259,11 +259,11 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
             .get_by_role(Role::SpinButton, "Color R")
     };
     assert_eq!(red().value_range().2, Some(1.0));
-    red().a11y_with_value(A11yAction::SetValue, "0.25");
+    red().a11y_set_value("0.25");
     screen.press_key(Key::Escape);
     opener.click();
     assert_eq!(red().value_range().2, Some(1.0));
-    red().a11y_with_value(A11yAction::SetValue, "0.5");
+    red().a11y_set_value("0.5");
     screen
         .get_by_test_id("creative-section-9")
         .get_by_role(Role::CheckBox, "Name")

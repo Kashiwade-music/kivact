@@ -8,8 +8,10 @@
 //! top), and `Screen::scroll` wheels at the current pointer position.
 
 use crate::support::mount;
+use kivact::diagnostics::ErrorKind;
 use kivact::draw::Rect;
 use kivact::prelude::*;
+use kivact::primitive::NodeExt;
 use kivact::style::Align;
 use kivact::test::{Screen, render};
 use kivact::view::View;
@@ -238,9 +240,10 @@ fn a_long_list_draws_what_reaches_its_viewport_from_rows_outside_it() {
     );
 }
 
-/// `scroll(..)` scrolls vertically; `.orientation(Horizontal)` sideways and
-/// `.both_axes()` both ways. The caller's `.style(..)` before or after the
-/// direction sets the size without changing the axis.
+/// `scroll(..)` scrolls vertically; `.axes(ScrollAxes::Horizontal)` sideways
+/// and `.axes(ScrollAxes::Both)` both ways. The caller's `.style(..)` before
+/// or after the direction sets the size without changing the axis, and the
+/// accessibility orientation follows the axes.
 #[test]
 fn a_scroll_container_scrolls_along_the_axis_its_builder_names() {
     fn boxed(id: &'static str) -> Node {
@@ -254,12 +257,12 @@ fn a_scroll_container_scrolls_along_the_axis_its_builder_names() {
                 .style(style().width(300).height(100))
                 .test_id("vertical"),
             scroll(row((boxed("h0"), boxed("h1"))))
-                .orientation(Orientation::Horizontal)
+                .axes(ScrollAxes::Horizontal)
                 .style(style().width(300).height(100))
                 .test_id("horizontal"),
             scroll(column((boxed("b0"), boxed("b1"))))
                 .style(style().width(300).height(100))
-                .both_axes()
+                .axes(ScrollAxes::Both)
                 .test_id("both"),
         ))
     });
@@ -267,6 +270,18 @@ fn a_scroll_container_scrolls_along_the_axis_its_builder_names() {
         rect(&screen, "v0"),
         rect(&screen, "h0"),
         rect(&screen, "b0"),
+    );
+    assert_eq!(
+        screen.get_by_test_id("vertical").orientation(),
+        Orientation::Vertical
+    );
+    assert_eq!(
+        screen.get_by_test_id("horizontal").orientation(),
+        Orientation::Horizontal
+    );
+    assert_eq!(
+        screen.get_by_test_id("both").orientation(),
+        Orientation::Unspecified
     );
     screen.get_by_test_id("vertical").scroll(50.0, 50.0);
     let after = rect(&screen, "v0");
@@ -281,5 +296,28 @@ fn a_scroll_container_scrolls_along_the_axis_its_builder_names() {
     assert!(
         after.x < b.x && after.y < b.y,
         "the last one scrolls both ways"
+    );
+}
+
+/// A scroll container's accessibility orientation follows its axes; setting another is reported.
+#[test]
+fn orientation_on_a_scroll_container_is_reported_and_the_axes_win() {
+    let screen = render(|| {
+        scroll(row((text("a"), text("b"))))
+            .axes(ScrollAxes::Horizontal)
+            .orientation(Orientation::Vertical)
+            .test_id("strip")
+    });
+    assert_eq!(
+        screen.get_by_test_id("strip").orientation(),
+        Orientation::Horizontal
+    );
+    let errors = screen.errors();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(*errors[0].kind(), ErrorKind::Unsupported);
+    assert!(
+        errors[0].message().contains("orientation"),
+        "{}",
+        errors[0].message()
     );
 }

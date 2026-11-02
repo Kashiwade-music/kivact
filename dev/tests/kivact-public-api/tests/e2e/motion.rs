@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use crate::support::{mount, mount_with};
 use kivact::motion::FrameRate;
-use kivact::motion::{Animated, Easing, FrameInfo, FrameLoop, Transition, animated, frame_loop};
+use kivact::motion::{
+    Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
+};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 
@@ -122,7 +124,7 @@ fn keyframes_delay_and_repeat() {
     screen.advance(ms(200));
     assert_eq!(shown.get_untracked(), 50.0);
     let tr = Transition::tween(100, Easing::Linear)
-        .repeat(Some(2))
+        .repeat(Repeat::Times(2))
         .alternate();
     let (screen, (target, shown)) = animated_app(tr);
     target.set(100.0);
@@ -167,4 +169,46 @@ fn on_complete_runs_only_when_a_run_reaches_its_target() {
     assert_eq!(completions.get(), 2, "a jump cancels the run");
     assert!(!shown.is_running());
     assert_eq!(shown.get_untracked(), 10.0);
+}
+
+/// Zero iterations end at once on the target; a spring repeats like a tween.
+#[test]
+fn zero_iterations_end_at_once_and_springs_repeat() {
+    let (screen, (target, shown)) =
+        animated_app(Transition::tween(100, Easing::Linear).repeat(Repeat::Times(0)));
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(16));
+    assert_eq!(
+        shown.get_untracked(),
+        100.0,
+        "no iteration: at the target at once"
+    );
+
+    // One spring run: count the 50 ms steps until it settles.
+    let (screen, (target, shown)) = animated_app(Transition::spring(Spring::STIFF));
+    target.set(100.0);
+    screen.run_until_idle();
+    let mut once = 0;
+    while shown.get_untracked() != 100.0 {
+        screen.advance(ms(50));
+        once += 1;
+        assert!(once < 200, "the spring settles");
+    }
+    // Two iterations: after one run's time it has restarted and is not at the target.
+    let (screen, (target, shown)) =
+        animated_app(Transition::spring(Spring::STIFF).repeat(Repeat::Times(2)));
+    target.set(100.0);
+    screen.run_until_idle();
+    for _ in 0..once {
+        screen.advance(ms(50));
+    }
+    assert!(
+        shown.get_untracked() < 100.0,
+        "the second iteration started from 0"
+    );
+    for _ in 0..(once + 2) {
+        screen.advance(ms(50));
+    }
+    assert_eq!(shown.get_untracked(), 100.0, "both iterations ended");
 }

@@ -4,7 +4,7 @@ use crate::creative::audio_values::TransportState;
 use super::audio_values::level;
 use super::common::{col, note};
 use kivact::binding;
-use kivact::prelude::{IntoView, NodeBuilder, Orientation, Signal, rgb, row, scroll, signal};
+use kivact::prelude::{IntoView, NodeBuilder, ScrollAxes, Signal, rgb, row, scroll, signal};
 use kivact::style::style;
 use kivact::view::IntoValue;
 use kivact_ui_creative as ui;
@@ -79,7 +79,7 @@ pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {
         })
         .collect::<Vec<_>>();
     col((
-        scroll(row(strips).style(style().gap(4).padding(8))).orientation(Orientation::Horizontal),
+        scroll(row(strips).style(style().gap(4).padding(8))).axes(ScrollAxes::Horizontal),
         note("インサート名を表示。M / S はミュート・ソロ。再生するとメーターが動作。"),
     ))
     .style(style().padding_bottom(16))
