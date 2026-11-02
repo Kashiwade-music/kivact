@@ -22,16 +22,34 @@ use kivact_types::{MouseButton, Point, PointerId, PointerKind, PointerPhase};
 /// window that cannot read the system's settings counts with.
 pub const DEFAULT_DOUBLE_CLICK: (u64, (f32, f32)) = (500_000_000, (4.0, 4.0));
 
+/// The last mouse press.
+#[derive(Clone, Copy, Debug)]
+struct Press {
+    button: MouseButton,
+    at: Point,
+    time_ns: u64,
+    count: u8,
+}
+
+/// The last touch or pen contact's `Down`.
+#[derive(Clone, Copy, Debug)]
+struct Tap {
+    id: PointerId,
+    at: Point,
+    time_ns: u64,
+    count: u8,
+}
+
 /// Counts the presses of the pointer events a window delivers.
 #[derive(Clone, Debug, Default)]
 pub struct ClickCounter {
-    /// The last press: button, position, time and click count.
-    last: Option<(MouseButton, Point, u64, u8)>,
-    /// The count each held button was pressed with (0: not held), by
+    /// The last mouse press.
+    last: Option<Press>,
+    /// The count each held button was pressed with (`None`: not held), by
     /// [`slot`].
-    pressed: [u8; 5],
-    /// The last contact's `Down`: its pointer, position, time and count.
-    tap: Option<(PointerId, Point, u64, u8)>,
+    pressed: [Option<u8>; 5],
+    /// The last contact's `Down`.
+    tap: Option<Tap>,
 }
 
 /// The index of `button` in [`ClickCounter::pressed`].
@@ -83,15 +101,20 @@ impl ClickCounter {
                 let (now, settings) = (now_ns(), double_click());
                 let count = self
                     .tap
-                    .filter(|&(_, at, then, _)| follows(input.position, now, at, then, settings))
-                    .map_or(1, |tap| tap.3.saturating_add(1));
-                self.tap = Some((input.id, input.position, now, count));
+                    .filter(|tap| follows(input.position, now, tap.at, tap.time_ns, settings))
+                    .map_or(1, |tap| tap.count.saturating_add(1));
+                self.tap = Some(Tap {
+                    id: input.id,
+                    at: input.position,
+                    time_ns: now,
+                    count,
+                });
                 input.clicks = count;
             } else {
                 input.clicks = self
                     .tap
-                    .filter(|tap| tap.0 == input.id)
-                    .map_or(1, |tap| tap.3);
+                    .filter(|tap| tap.id == input.id)
+                    .map_or(1, |tap| tap.count);
             }
             return;
         }
@@ -100,19 +123,25 @@ impl ClickCounter {
                 let (now, settings) = (now_ns(), double_click());
                 let count = self
                     .last
-                    .filter(|&(last, at, then, _)| {
-                        last == button && follows(input.position, now, at, then, settings)
+                    .filter(|last| {
+                        last.button == button
+                            && follows(input.position, now, last.at, last.time_ns, settings)
                     })
-                    .map_or(1, |last| last.3.saturating_add(1));
-                self.last = Some((button, input.position, now, count));
-                self.pressed[slot(button)] = count;
+                    .map_or(1, |last| last.count.saturating_add(1));
+                self.last = Some(Press {
+                    button,
+                    at: input.position,
+                    time_ns: now,
+                    count,
+                });
+                self.pressed[slot(button)] = Some(count);
                 input.clicks = count;
             }
             (PointerPhase::Up, Some(button)) => {
-                input.clicks = std::mem::take(&mut self.pressed[slot(button)]).max(1);
+                input.clicks = self.pressed[slot(button)].take().unwrap_or(1);
             }
             (PointerPhase::Cancel, _) => {
-                self.pressed = [0; 5];
+                self.pressed = [None; 5];
                 input.clicks = 1;
             }
             _ => input.clicks = 1,
