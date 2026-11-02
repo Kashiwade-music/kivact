@@ -179,11 +179,21 @@ fn navigation_menu_shows_one_panel_at_a_time() {
     screen.press_key(Key::Escape);
     assert!(!shown("Alpha panel"));
     assert_eq!(alpha.is_expanded(), Some(false));
-    // ArrowDown on another trigger pins that panel; the first one goes.
+    // Hovering the next trigger replaces the panel: one is open at a time.
     screen.mouse_move(850.0, 650.0);
+    beta.hover();
+    assert!(shown("Beta panel"));
     alpha.hover();
     assert!(shown("Alpha panel"));
-    beta.focus();
+    assert!(!shown("Beta panel"));
+    assert_eq!(alpha.is_expanded(), Some(true));
+    assert_eq!(beta.is_expanded(), Some(false));
+    // ArrowDown on a trigger pins its panel.
+    screen.mouse_move(850.0, 650.0);
+    assert!(!shown("Alpha panel"));
+    alpha.focus();
+    screen.press_key(Key::ArrowRight);
+    assert!(beta.is_focused());
     screen.press_key(Key::ArrowDown);
     assert!(shown("Beta panel"));
     assert!(!shown("Alpha panel"));
@@ -191,16 +201,16 @@ fn navigation_menu_shows_one_panel_at_a_time() {
     assert_eq!(beta.is_expanded(), Some(true));
     screen.press_key(Key::Escape);
     assert!(!shown("Beta panel"));
+    assert_eq!(beta.is_expanded(), Some(false));
     // A click on a hover-opened panel pins it: it stays after the pointer leaves.
-    screen.mouse_move(850.0, 650.0);
     alpha.hover();
     alpha.click();
     screen.mouse_move(850.0, 650.0);
     assert!(shown("Alpha panel"));
     assert_eq!(alpha.is_expanded(), Some(true));
-    alpha.focus();
     screen.press_key(Key::Escape);
     assert!(!shown("Alpha panel") && !shown("Beta panel"));
+    assert_eq!(alpha.is_expanded(), Some(false));
     assert_clean(&screen);
 }
 
