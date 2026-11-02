@@ -1,12 +1,12 @@
 //! Role: List input enters the shared selection and navigation state.
 
-use super::data::{ListActivation, ListGesture, ListSelection};
+use super::data::{ListActivation, ListGesture, ListMode, ListSelection};
 use super::order::Movement;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
 use kivact_core::view::{
-    A11yAction, ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation,
-    PointerEvent, PointerPhase,
+    ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation, PointerEvent,
+    PointerPhase,
 };
 use std::hash::Hash;
 
@@ -17,7 +17,7 @@ pub(super) fn gesture<K: Clone + Eq + Hash + 'static>(
     if matches!(state.selection, ListSelection::Single(_)) {
         return ListGesture::Replace;
     }
-    ListGesture::from_modifiers(modifiers, &state.policy.get())
+    ListGesture::from_modifiers(modifiers, &state.policy())
 }
 
 pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
@@ -25,7 +25,7 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
     key: &K,
     event: PointerEvent,
 ) -> Handled {
-    if state.policy.get().action != A11yAction::Select
+    if state.mode != ListMode::Select
         || !matches!(
             event.phase,
             PointerPhase::Down(ButtonPress {
@@ -54,8 +54,8 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
 /// ([`current_direction`](kivact_core::view::current_direction)) the rows of
 /// a horizontal order run from the right, so ArrowLeft moves to the next
 /// row and ArrowRight to the previous one.
-fn movement(event: &KeyEvent, axis: Option<Orientation>, action: A11yAction) -> Option<Movement> {
-    if action == A11yAction::Activate
+fn movement(event: &KeyEvent, axis: Option<Orientation>, mode: ListMode) -> Option<Movement> {
+    if mode == ListMode::Activate
         && (event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta)
     {
         return None;
@@ -85,9 +85,9 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
     if !state.holds_focus(from) || state.target(from).is_none() {
         return Handled::No;
     }
-    let policy = state.policy.get();
+    let policy = state.policy();
     let modifiers = event.modifiers;
-    if policy.action == A11yAction::Select {
+    if state.mode == ListMode::Select {
         match event.key {
             Key::Space => {
                 let gesture = gesture(state, modifiers);
@@ -109,8 +109,8 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
             _ => {}
         }
     }
-    let jump = movement(&event, policy.axis, policy.action);
-    let page = if policy.action == A11yAction::Select {
+    let jump = movement(&event, policy.axis, state.mode);
+    let page = if state.mode == ListMode::Select {
         match event.key {
             Key::PageUp => Some(false),
             Key::PageDown => Some(true),
@@ -125,11 +125,11 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
             return Handled::No;
         };
         // Select's clamped boundary is consumed without another selection write.
-        if policy.action == A11yAction::Select && &next == from {
+        if state.mode == ListMode::Select && &next == from {
             return Handled::Yes;
         }
         if policy.activation == ListActivation::Automatic {
-            if policy.action == A11yAction::Activate {
+            if state.mode == ListMode::Activate {
                 state.choose(next);
             } else {
                 let requested = gesture(state, modifiers);
@@ -162,7 +162,7 @@ pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
         && !modifiers.ctrl
         && !modifiers.alt
         && !modifiers.meta
-        && state.policy.get().typeahead
+        && state.policy().typeahead
     {
         let handled = typed(state, Some(from), c, false);
         return if consume_unmatched {
@@ -184,7 +184,7 @@ fn destination<K: Clone + Eq + Hash + 'static>(
     let available = |key: &K| logical || state.focus_available(key);
     state.order.with_untracked(|order| {
         if let Some(movement) = movement {
-            return order.navigate(from, movement, state.policy.get().boundary, available);
+            return order.navigate(from, movement, state.policy().boundary, available);
         }
         let forward = page?;
         let keys = order
@@ -233,7 +233,7 @@ pub(super) fn typed<K: Clone + Eq + Hash + 'static>(
     if logical {
         state.select(next, ListGesture::Replace);
     } else {
-        if state.policy.get().activation == ListActivation::Automatic {
+        if state.policy().activation == ListActivation::Automatic {
             state.select(next.clone(), ListGesture::Replace);
         }
         state.focus(next);
@@ -246,8 +246,8 @@ pub(super) fn key_selection<K: Clone + Eq + Hash + 'static>(
     event: &KeyEvent,
 ) -> Handled {
     let current = kivact_core::untrack(|| selected(state.selection).into_iter().next());
-    let policy = state.policy.get();
-    if let Some(movement) = movement(event, policy.axis, policy.action) {
+    let policy = state.policy();
+    if let Some(movement) = movement(event, policy.axis, state.mode) {
         let Some(next) = destination(state, current.as_ref(), Some(movement), None, true) else {
             return Handled::No;
         };

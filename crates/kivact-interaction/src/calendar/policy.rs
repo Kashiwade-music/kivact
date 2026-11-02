@@ -77,7 +77,7 @@ impl CalendarPolicy {
 
     /// With a single-day selection, a key that moves the focus also chooses
     /// the day it reaches, without running `on_commit` (default false: Enter
-    /// or Space chooses). Ignored for a range.
+    /// or Space chooses). With a range it is a usage error.
     pub fn select_on_move(mut self, on: bool) -> Self {
         self.select_on_move = on;
         self

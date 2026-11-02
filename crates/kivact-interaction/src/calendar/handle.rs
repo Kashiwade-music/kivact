@@ -2,13 +2,16 @@
 
 use super::policy::{CalendarPolicy, CalendarSelection};
 use super::state;
-use super::state::State;
+use super::state::{Choice, State};
 use crate::roving::Member;
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
-use kivact_core::primitive::{NodeRefExt, Owned, Owner, Part, PartState, part, require_setup};
+use kivact_core::primitive::{
+    NodeRefExt, Owned, Owner, Part, PartState, part, raise, require_setup,
+};
 use kivact_core::view::{Handled, KeyEvent, Role};
 use kivact_core::{Binding, Value, memo};
+use std::panic::Location;
 use std::rc::Rc;
 
 /// How a day lies in the selection.
@@ -63,6 +66,13 @@ pub fn use_calendar_grid(
     policy: CalendarPolicy,
 ) -> CalendarGrid {
     require_setup("use_calendar_grid");
+    if policy.select_on_move && matches!(selection, CalendarSelection::Range(_)) {
+        raise(
+            ErrorKind::Message,
+            "use_calendar_grid: CalendarPolicy::select_on_move applies to a single day",
+            Location::caller(),
+        );
+    }
     CalendarGrid {
         state: state::create(month.into(), selection, policy),
     }
@@ -90,7 +100,7 @@ impl CalendarGrid {
     /// a range. Its name and drawing stay the caller's.
     #[track_caller]
     pub fn grid(self) -> Part<PartState> {
-        let multiple = matches!(self.state().selection, CalendarSelection::Range(_));
+        let multiple = matches!(self.state().choice, Choice::Range { .. });
         part(|input| input)
             .role(Role::Grid)
             .multiselectable(multiple)
@@ -149,8 +159,8 @@ impl CalendarGrid {
             let policy = state.policy.disabled.clone();
             memo(move || policy(day))
         };
-        let selection = state.selection;
-        let marks = memo(move || marks(selection, day));
+        let choice = state.choice;
+        let marks = memo(move || marks(choice, day));
         let attachment = part(move |input| {
             let (selected, edge, span) = marks.get();
             CalendarDayState {
@@ -186,7 +196,7 @@ impl CalendarGrid {
                     );
                     return;
                 }
-                if state.roving.members.borrow().contains_key(&day) {
+                if state.roving.contains(&day) {
                     owner.report(
                         ErrorKind::Message,
                         "CalendarGrid: a cell for this day is already mounted",
@@ -195,7 +205,7 @@ impl CalendarGrid {
                     return;
                 }
                 let node = mount.node;
-                state.roving.members.borrow_mut().insert(
+                state.roving.insert(
                     day,
                     Member {
                         node,
@@ -204,29 +214,15 @@ impl CalendarGrid {
                         hidden: mount.hidden,
                     },
                 );
-                state.revision.update(|revision| *revision += 1);
                 let mounted = node.mounted_node();
                 let weak = Rc::downgrade(&state);
                 owner.on_cleanup(move || {
                     let Some(state) = weak.upgrade() else {
                         return;
                     };
-                    if !state
-                        .roving
-                        .members
-                        .borrow()
-                        .get(&day)
-                        .is_some_and(|entry| entry.node.same_ref(node))
-                    {
-                        return;
-                    }
                     let focused = mounted.is_some() && state.owner.focused_node() == mounted;
-                    state.roving.members.borrow_mut().remove(&day);
-                    if state.alive.try_get().is_some() {
-                        if focused {
-                            state.roving.restore_from.set(mounted);
-                        }
-                        state.revision.update(|revision| *revision += 1);
+                    if state.roving.remove(&day, node) && focused {
+                        state.roving.restore_from.set(mounted);
                     }
                 });
             })
@@ -234,13 +230,13 @@ impl CalendarGrid {
 }
 
 /// Whether the day is selected, drawn solid, and where it lies in a range.
-fn marks(selection: CalendarSelection, day: CalendarDate) -> (bool, bool, CalendarSpan) {
-    match selection {
-        CalendarSelection::Single(value) => {
+fn marks(choice: Choice, day: CalendarDate) -> (bool, bool, CalendarSpan) {
+    match choice {
+        Choice::Single(value) => {
             let chosen = value.with(|value| *value == Some(day));
             (chosen, chosen, CalendarSpan::None)
         }
-        CalendarSelection::Range(value) => value.with(|range| match range {
+        Choice::Range { value, .. } => value.with(|range| match range {
             Some(range) if range.contains(day) => {
                 let span = if range.start() == range.end() {
                     CalendarSpan::None

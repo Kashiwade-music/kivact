@@ -5,6 +5,8 @@ use super::state::{Edge, Session};
 use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
+use kivact_core::diagnostics::ErrorKind;
+use kivact_core::primitive::raise;
 use kivact_core::primitive::{Part, part};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
@@ -13,6 +15,7 @@ use kivact_core::view::{
 };
 use kivact_core::{Value, memo};
 use std::hash::Hash;
+use std::panic::Location;
 
 /// An application menu over keyed [`MenuEntry`] rows, without a look of its own.
 ///
@@ -122,6 +125,19 @@ pub fn use_menu<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
 }
 
 impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
+    /// A submenu handle has no `name`: only the menu from `use_menu` does.
+    fn top_level(self, name: &'static str, at: &'static Location<'static>) {
+        if self.level.depth > 0 {
+            raise(
+                ErrorKind::Message,
+                format!(
+                    "MenuApi::{name}: a submenu handle has no {name}; call it on the menu from use_menu"
+                ),
+                at,
+            );
+        }
+    }
+
     /// The rows of this level, each with the identity to key its `for_each`
     /// by. A submenu level has no rows once its item is gone.
     pub fn entries(self) -> Value<Vec<(MenuRow<K>, MenuEntry<K>)>> {
@@ -137,7 +153,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// Where the open menu was asked to appear; `None` while it is closed.
     /// A context menu reads it to place its overlay at the pointer.
     pub fn origin(self) -> Value<Option<MenuOrigin>> {
-        self.session.origin.into_value()
+        self.session.origin
     }
 
     /// Open the menu as the trigger's ArrowDown does: it opens on its first
@@ -147,6 +163,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// only.
     #[track_caller]
     pub fn open(self) {
+        self.top_level("open", Location::caller());
         if self.session.shown().get_untracked() {
             return;
         }
@@ -159,6 +176,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// is closed. Top level only.
     #[track_caller]
     pub fn close(self) {
+        self.top_level("close", Location::caller());
         self.session.close(PopupCloseReason::Programmatic);
     }
 
@@ -188,6 +206,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// overlay is anchored to and the focus returns to. Top level only.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
+        self.top_level("trigger", Location::caller());
         let session = self.session;
         session
             .popup
@@ -240,6 +259,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// level only.
     #[track_caller]
     pub fn context_trigger(self) -> Part<PopupState> {
+        self.top_level("context_trigger", Location::caller());
         let session = self.session;
         let open = session.shown();
         part(move |input| PopupState {

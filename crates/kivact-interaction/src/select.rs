@@ -28,7 +28,7 @@ use kivact_core::view::{
     Handled, IntoText, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role, callback,
 };
 use kivact_core::{
-    Binding, Callback, Signal, Value, effect, memo, on_cleanup, on_mount, signal, untrack, var,
+    Binding, Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, untrack, var,
 };
 
 /// A select over keyed [`ListItem`]s, without a look of its own.
@@ -110,8 +110,10 @@ use kivact_core::{
 pub struct SelectApi<K: Clone + Eq + Hash + 'static> {
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
-    placeholder: Value<String>,
-    preview: Option<Callback<Option<K>>>,
+    /// What the trigger shows while nothing is selected; read tracked.
+    placeholder: Signal<Value<String>>,
+    /// Reports the option being tried out; read when the surface binds.
+    preview: Var<Option<Callback<Option<K>>>>,
     popup: Popup,
     /// Moves the selection while the list is closed.
     closed: List<K>,
@@ -147,8 +149,8 @@ pub fn use_select<K: Clone + Eq + Hash + 'static>(
     SelectApi {
         options,
         selected,
-        placeholder: message("select.placeholder", "Select…"),
-        preview: None,
+        placeholder: signal(message("select.placeholder", "Select…")),
+        preview: var(None),
         popup: use_popup(open),
         // The closed trigger moves the selection through the logical order,
         // including options that are not mounted.
@@ -161,8 +163,9 @@ pub fn use_select<K: Clone + Eq + Hash + 'static>(
 impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
     /// What the trigger shows while no option is selected. Setup only.
     #[track_caller]
-    pub fn placeholder(mut self, text: impl IntoText) -> Self {
-        self.placeholder = text.into_text_value();
+    pub fn placeholder(self, text: impl IntoText) -> Self {
+        let text = text.into_text_value();
+        self.placeholder.update(|placeholder| *placeholder = text);
         self
     }
 
@@ -174,7 +177,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
     /// again each time that option changes. When the list closes it receives
     /// `None`, whether an option was chosen or not; a choice is written to the
     /// selection first. A preview never selects: the selection is still only
-    /// what the binding receives. Setup only, before creating the surface.
+    /// what the binding receives. Setup only.
     ///
     /// ```no_run
     /// # mod kivact {
@@ -193,8 +196,9 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
     ///     let _ = themes;
     /// }
     /// ```
-    pub fn on_preview<R: HandlerResult>(mut self, f: impl Fn(Option<K>) -> R + 'static) -> Self {
-        self.preview = Some(callback(f));
+    pub fn on_preview<R: HandlerResult>(self, f: impl Fn(Option<K>) -> R + 'static) -> Self {
+        let f = callback(f);
+        self.preview.set(Some(f));
         self
     }
 
@@ -211,7 +215,10 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                 options.with(|rows| {
                     key.as_ref()
                         .and_then(|key| rows.iter().find(|row| &row.key == key))
-                        .map_or_else(|| placeholder.get(), |row| row.label.get())
+                        .map_or_else(
+                            || placeholder.with(|text| text.get()),
+                            |row| row.label.get(),
+                        )
                 })
             })
         })
@@ -304,7 +311,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                 }
             })
             .on_bind(move |_| {
-                if let Some(preview) = preview {
+                if let Some(preview) = preview.get() {
                     track_preview(list, hovered, preview);
                 }
                 on_mount(move || {
@@ -381,7 +388,11 @@ fn group<K: Clone + Eq + Hash + 'static>(
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
 ) -> List<K> {
-    use_list(options, ListSelection::Single(selected)).policy(ListPolicy::listbox())
+    use_list(
+        options,
+        ListSelection::Single(selected),
+        ListPolicy::listbox(),
+    )
 }
 
 /// Report the previewed option to `preview` while the list is open: the row

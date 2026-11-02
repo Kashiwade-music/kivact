@@ -3,7 +3,7 @@
 use kivact_core::Binding;
 use kivact_core::primitive::PartState;
 use kivact_core::style::Icon;
-use kivact_core::view::{A11yAction, IntoText, Modifiers, Orientation, Reactive};
+use kivact_core::view::{IntoText, Modifiers, Orientation, Reactive};
 
 /// A labelled logical choice whose identity belongs to application data.
 ///
@@ -221,18 +221,30 @@ impl<K: Clone + PartialEq + 'static> Clone for ListSelection<K> {
     }
 }
 
+/// What choosing an item does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ListMode {
+    /// A press or Space selects with the gesture its modifiers ask for (a
+    /// list box, a table's rows).
+    #[default]
+    Select,
+    /// The native release, Enter, Space or assistive technology chooses once
+    /// (tabs, radios, menus).
+    Activate,
+}
+
 /// Shared navigation, activation, typeahead and range policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ListPolicy {
     /// Which arrow keys move through the logical order: the vertical ones
     /// ([`Orientation::Vertical`]), the horizontal ones
-    /// ([`Orientation::Horizontal`]) or all four (`None`, or
-    /// [`Orientation::Unspecified`]). A single axis is also published as the
-    /// list's orientation.
+    /// ([`Orientation::Horizontal`]) or all four (`None`).
+    /// `Some(Orientation::Unspecified)` is a usage error. A single axis is also
+    /// published as the list's orientation.
     pub axis: Option<Orientation>,
     pub boundary: ListBoundary,
     pub activation: ListActivation,
-    pub action: A11yAction,
+    pub mode: ListMode,
     pub typeahead: bool,
     pub range: ListRangePolicy,
 }
@@ -242,7 +254,7 @@ impl Default for ListPolicy {
             axis: Some(Orientation::Vertical),
             boundary: ListBoundary::Clamp,
             activation: ListActivation::Automatic,
-            action: A11yAction::Select,
+            mode: ListMode::Select,
             typeahead: false,
             range: ListRangePolicy::default(),
         }
@@ -253,7 +265,7 @@ impl ListPolicy {
         Self {
             axis: Some(Orientation::Horizontal),
             boundary: ListBoundary::Wrap,
-            action: A11yAction::Activate,
+            mode: ListMode::Activate,
             ..Self::default()
         }
     }
@@ -261,7 +273,7 @@ impl ListPolicy {
         Self {
             axis: None,
             boundary: ListBoundary::Wrap,
-            action: A11yAction::Activate,
+            mode: ListMode::Activate,
             ..Self::default()
         }
     }
@@ -269,7 +281,7 @@ impl ListPolicy {
         Self {
             boundary: ListBoundary::Wrap,
             activation: ListActivation::Manual,
-            action: A11yAction::Activate,
+            mode: ListMode::Activate,
             typeahead: true,
             ..Self::default()
         }
@@ -277,7 +289,7 @@ impl ListPolicy {
     pub fn listbox() -> Self {
         Self {
             activation: ListActivation::Manual,
-            action: A11yAction::Activate,
+            mode: ListMode::Activate,
             typeahead: true,
             ..Self::default()
         }

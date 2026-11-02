@@ -10,6 +10,8 @@
 //! belongs to the setup owner that adds it, so when that owner (a child
 //! component, say) is disposed first, the `Cancel` of the session owner's
 //! later disposal is skipped for it rather than reported as a misuse.
+//! [`EditSession::with_initial`] reads the starting value of the active edit
+//! (tracked), for a component that shows who owns the edit.
 //! [`EditSession::once`] wraps a single write in `Begin` and `Commit`, and
 //! inside an edit already in progress joins it without another phase. The
 //! scalar, the splitter, drags ([`Drag::edit`](crate::Drag::edit)) and zoom
@@ -17,7 +19,7 @@
 
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::view::{HandlerResult, callback};
-use kivact_core::{Callback, UiError, Var, on_cleanup, var};
+use kivact_core::{Callback, Signal, UiError, Var, on_cleanup, signal, var};
 
 /// The phase of one continuous edit that a component reports to the app.
 ///
@@ -126,7 +128,7 @@ pub enum EditPhase {
 /// # let _ = field;
 /// ```
 pub struct EditSession<T: 'static> {
-    initial: Var<Option<T>>,
+    initial: Signal<Option<T>>,
     restore: Callback<T>,
     observer: Var<Option<Callback<EditPhase>>>,
     /// Passes an error of the observer on, as the session's owner reports it.
@@ -148,7 +150,7 @@ impl<T: Clone + 'static> EditSession<T> {
     #[track_caller]
     pub fn new<R: HandlerResult>(restore: impl Fn(T) -> R + 'static) -> Self {
         let session = Self {
-            initial: var(None),
+            initial: signal(None),
             restore: callback(restore),
             observer: var(None),
             failed: callback(Err::<(), UiError>),
@@ -189,13 +191,13 @@ impl<T: Clone + 'static> EditSession<T> {
         if self.is_active() {
             return;
         }
-        self.initial.set(Some(initial));
+        self.initial.update(|current| *current = Some(initial));
         self.report(EditPhase::Begin);
     }
 
     /// End the active edit and report `Commit`.
     pub fn commit(self) {
-        if self.initial.update(Option::take).is_some() {
+        if self.is_active() && self.initial.update(Option::take).is_some() {
             self.report(EditPhase::Commit);
         }
     }
@@ -203,6 +205,9 @@ impl<T: Clone + 'static> EditSession<T> {
     /// Write the starting value back, end the active edit and report `Cancel`.
     /// Returns whether an edit was active.
     pub fn cancel(self) -> bool {
+        if !self.is_active() {
+            return false;
+        }
         let Some(initial) = self.initial.update(Option::take) else {
             return false;
         };
@@ -233,8 +238,18 @@ impl<T: Clone + 'static> EditSession<T> {
         self.commit();
     }
 
-    /// Whether an edit has begun and not ended.
+    /// Whether an edit has begun and not ended (untracked: an effect that
+    /// calls it does not follow the edit; use
+    /// [`with_initial`](Self::with_initial) for that).
     pub fn is_active(self) -> bool {
-        self.initial.with(Option::is_some)
+        self.initial.with_untracked(Option::is_some)
+    }
+
+    /// Read the value the active edit started from; `None` while no edit is
+    /// active. Tracked: a memo, an effect or a style that calls it follows the
+    /// edit's begin and end, so `with_initial(|_| ()).is_some()` is a tracked
+    /// "is active".
+    pub fn with_initial<R>(self, read: impl FnOnce(&T) -> R) -> Option<R> {
+        self.initial.with(|initial| initial.as_ref().map(read))
     }
 }

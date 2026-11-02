@@ -11,7 +11,7 @@
 //! actually mounts it. Tabs, radio groups, menus, selects, tables and trees
 //! are built on a list.
 //!
-//! [`ListPolicy`] holds the axis, boundary, activation, action, typeahead
+//! [`ListPolicy`] holds the axis, boundary, activation, mode, typeahead
 //! and range policy. The default is vertical, clamped, automatic, Select and
 //! no typeahead; the `tabs`, `radio`, `menu` and `listbox` presets use
 //! Activate, and `menu` and `listbox` add typeahead. With Select a primary
@@ -20,9 +20,10 @@
 //! on the native release, Enter, Space or assistive technology. Wrapping
 //! applies to explicit moves only. When the active item disappears, Select
 //! clamps from its old position and Activate recovers to a valid selected key
-//! or the first one. The policy, `page_size`, `on_leave`, `scroll_with` and
-//! `anchor` are fixed during setup before the first part; reactive items and
-//! external binding writes still reach existing parts.
+//! or the first one. The policy is the third argument of `use_list`;
+//! `page_size`, `on_leave`, `scroll_with` and `anchor` may be set before or
+//! after the parts are made, and reactive items and external binding writes
+//! reach existing parts.
 //!
 //! [`List::select`] offers a gesture for a valid logical key, mounted or
 //! not; [`List::choose`] selects and focuses a mounted candidate, and
@@ -72,6 +73,6 @@ pub(crate) mod typeahead;
 
 pub use data::{
     ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
-    ListMissingAnchor, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
+    ListMissingAnchor, ListMode, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
 };
 pub use handle::{List, use_list};

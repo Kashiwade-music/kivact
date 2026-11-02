@@ -21,7 +21,8 @@
 //!
 //! Opening and closing is one chain: a disclosure edits the requested open
 //! state, a popup adds the overlay's focus and dismissal rules to it, and a
-//! tooltip and a dialog add their own rules to a popup. The content of a
+//! tooltip and a dialog add their own rules to a popup. A delayed shown state
+//! is a [`Delayed`]. The content of a
 //! popup, tooltip or dialog is mounted with the free function
 //! `show(handle.shown(), factory)`, in a fresh owner on every opening. A menu
 //! and a command palette keep their own `show`: a menu's top level builds its
@@ -76,9 +77,12 @@ pub use edit::{EditPhase, EditSession};
 pub use focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 pub use list::{
     List, ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
-    ListMissingAnchor, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection, use_list,
+    ListMissingAnchor, ListMode, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
+    use_list,
 };
-pub use menu::{MenuApi, MenuEntry, MenuItemState, MenuOrigin, MenuRow, use_menu};
+pub use menu::{
+    MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow, use_menu,
+};
 pub use menubar::{Menubar, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPalette, filter_commands, use_command_palette};
 pub use policy::grid::GridMove;
@@ -90,18 +94,19 @@ pub use select::{SelectApi, use_select};
 pub use space_pan::{SpacePan, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use table::{
-    ColumnDef, Table, TableCellState, TableFocus, TableHeaderState, TableModel, TableRowState,
-    use_table, use_table_model,
+    ColumnDef, SortOrder, Table, TableCellState, TableFocus, TableHeaderState, TableModel,
+    TableRowState, use_table, use_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
 pub use toaster::{Toast, ToastId, ToastState, Toaster, toaster};
 pub use toggle::{
-    ButtonApi, Toggle, ToggleState, use_button, use_checkbox, use_switch, use_toggle_button,
+    ButtonApi, CheckboxApi, Toggle, ToggleState, use_button, use_checkbox, use_switch,
+    use_toggle_button,
 };
 pub use tone::Tone;
 pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip};
-pub use tree::{Tree, TreeItemState, TreeNode, TreeRow, use_tree};
+pub use tree::{Tree, TreeBranch, TreeItemState, TreeNode, TreeRow, use_tree};
 
-pub use text_edit::{TextEdit, text_edit_policy, use_text_edit};
+pub use text_edit::{TextEdit, text_edit_policy, use_text_area, use_text_edit};
 
 pub use zoom_pan::{ViewTransform, ZoomPan, use_zoom_pan};

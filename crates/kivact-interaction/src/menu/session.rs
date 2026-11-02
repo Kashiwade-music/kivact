@@ -3,10 +3,9 @@
 use std::hash::Hash;
 
 use super::order::{item_enabled, kept_levels};
-use super::state::{Edge, MenuEntry, MenuOrigin, Session, Want};
+use super::state::{Edge, MenuEntry, MenuOrigin, Opened, Session, Target, Want};
 use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupCloseReason, ReasonSet, use_popup};
-use kivact_core::view::node_ref;
 use kivact_core::{Callback, Value, effect, memo, signal, var};
 
 impl<K: Clone + Eq + Hash + 'static> Session<K> {
@@ -14,14 +13,20 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
     #[track_caller]
     pub(super) fn new(entries: Value<Vec<MenuEntry<K>>>, choose: Callback<K>) -> Self {
         let open = signal(false);
-        let anchor = node_ref();
         // The popup returns the focus; each opening says where to (see
-        // `open_from_button` and `open_at`).
-        let popup = use_popup(open).anchor(anchor);
+        // `Session::focus_return`, installed when the top level binds).
+        let popup = use_popup(open);
+        let anchor = popup.anchor_ref();
         let path = signal(Vec::<K>::new());
         let focus_key = signal(None::<(usize, K)>);
         let want = signal(None::<Want<K>>);
-        let origin = signal(None::<MenuOrigin>);
+        let opened = signal(None::<Opened>);
+        let origin = memo(move || {
+            opened.get().map(|opened| match opened {
+                Opened::Button => MenuOrigin::Anchor,
+                Opened::Context(origin) => origin,
+            })
+        });
         let kept = memo(move || {
             let path = path.get();
             let focus = focus_key.get();
@@ -32,6 +37,7 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
             choose,
             popup,
             anchor,
+            opened,
             origin,
             path,
             focus_key,
@@ -46,7 +52,17 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
                 path.set(Vec::new());
                 want.set(None);
                 focus_key.set(None);
-                origin.set(None);
+                opened.set(None);
+            }
+        });
+        // A request for a level that is not open is dropped.
+        effect(move || {
+            let open_levels = path.with(Vec::len) + 1;
+            if want.with(|want| {
+                want.as_ref()
+                    .is_some_and(|want| want.depth() >= open_levels)
+            }) {
+                want.set(None);
             }
         });
         // Bring the open levels in line with what the entries keep: a submenu
@@ -71,10 +87,10 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
                 });
                 path.update(|path| path.truncate(kept - 1));
                 focus_key.set(None);
-                want.set(Some(match held {
-                    Some(key) => Want::Key(kept - 1, key),
-                    None => Want::Edge(kept - 1, Edge::First),
-                }));
+                match held {
+                    Some(key) => this.request_key(kept - 1, key),
+                    None => this.request(kept - 1, Edge::First),
+                }
             }
         });
         this
@@ -94,22 +110,26 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
         self.popup.close(reason);
     }
 
+    /// Where the focus returns for the opening in progress: to the trigger
+    /// for a menu button, to the element that had the focus for a context
+    /// menu.
+    pub(super) fn focus_return(&self) -> FocusReturn {
+        match self.opened.get_untracked() {
+            Some(Opened::Context(_)) => FocusReturn::opener(ReasonSet::DISMISS),
+            Some(Opened::Button) | None => FocusReturn::anchor(self.anchor),
+        }
+    }
+
     /// Open from the menu button; the focus later returns to it.
     pub(super) fn open_from_button(&self) {
-        self.popup
-            .set_focus_return(FocusReturn::anchor(self.anchor));
-        self.origin.set(Some(MenuOrigin::Anchor));
+        self.opened.set(Some(Opened::Button));
         self.popup.open_binding().set(true);
     }
 
     /// Open as a context menu; the focus later returns to the element that
     /// has it now.
     pub(super) fn open_at(&self, origin: MenuOrigin) {
-        if !self.shown().get() {
-            self.popup
-                .set_focus_return(FocusReturn::opener(ReasonSet::DISMISS));
-        }
-        self.origin.set(Some(origin));
+        self.opened.set(Some(Opened::Context(origin)));
         self.popup.open_binding().set(true);
     }
 }
@@ -124,7 +144,29 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
     }
 
     pub(super) fn request(&self, depth: usize, edge: Edge) {
-        self.want.set(Some(Want::Edge(depth, edge)));
+        self.want.set(Some(Want::Command {
+            depth,
+            target: Target::Edge(edge),
+        }));
+    }
+
+    /// Ask for the focus on `key` of the level at `depth`; a pointer never
+    /// replaces it.
+    pub(super) fn request_key(&self, depth: usize, key: K) {
+        self.want.set(Some(Want::Command {
+            depth,
+            target: Target::Key(key),
+        }));
+    }
+
+    /// The pointer rests on `key` of the level at `depth`: asked for unless a
+    /// command is waiting.
+    pub(super) fn hover(&self, depth: usize, key: K) {
+        self.want.update(|want| {
+            if !matches!(want, Some(Want::Command { .. })) {
+                *want = Some(Want::Hover { depth, key });
+            }
+        });
     }
 
     /// Open the submenu of `key` (an item of the level at `depth`) without
@@ -160,7 +202,7 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
         let parent = self.path.with(|path| path.get(depth - 1).cloned());
         self.path.update(|path| path.truncate(depth - 1));
         if let Some(parent) = parent {
-            self.want.set(Some(Want::Key(depth - 1, parent)));
+            self.request_key(depth - 1, parent);
         }
     }
 

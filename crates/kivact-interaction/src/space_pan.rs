@@ -26,7 +26,9 @@ pub struct SpacePan {
 /// Create a Space tracker. Setup only.
 #[track_caller]
 pub fn use_space_pan() -> SpacePan {
-    SpacePan { held: signal(false) }
+    SpacePan {
+        held: signal(false),
+    }
 }
 
 impl SpacePan {

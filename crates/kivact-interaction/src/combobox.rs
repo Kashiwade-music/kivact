@@ -11,10 +11,11 @@
 //! stays in the field and a disabled option is never chosen. By default the
 //! list is always there and Escape belongs to the surrounding popup or
 //! dialog's dismissal; [`popup`](Combobox::popup) makes the list a popup this
-//! behavior opens and closes, and [`multiple`](Combobox::multiple) lets
+//! behavior opens and closes, and a [`ListSelection::Multiple`] selection lets
 //! several options be chosen. Creative's pickers, the command palette
 //! (`crate::palette`) and the kits' searchable selects share this behavior.
 
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -22,9 +23,9 @@ use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{
     Handled, IntoValue, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase, Role, node_ref,
 };
-use kivact_core::{Binding, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, var};
+use kivact_core::{Binding, Signal, Value, effect, memo, on_cleanup, on_mount, signal};
 
-use super::{ListItem, ListItemState};
+use super::{ListItem, ListItemState, ListSelection};
 
 type Filter<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
 
@@ -43,7 +44,8 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// [`use_text_edit`](crate::use_text_edit) for [`query`](Self::query); [`content`](Self::content) to the node that holds
 /// the rows; and [`item`](Self::item) to each row, rendered with
 /// `for_each` over [`visible`](Self::visible). The choice is written to the
-/// caller's `Binding<Option<K>>`.
+/// caller's selection ([`ListSelection::Single`] writes `Some(key)`,
+/// [`ListSelection::Multiple`] toggles the key in its `Vec<K>`).
 ///
 /// The list shows the options the [`filter`](Self::filter) accepts, in their
 /// order. The focus stays in the field: the active option is shown to
@@ -66,8 +68,8 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// closed list (they move the active option only once it is open), Enter on
 /// a closed one does nothing, Escape closes an open one, choosing a single
 /// option closes it, and the list closes when the field loses the focus.
-/// With [`multiple`](Self::multiple), choosing toggles the option in the
-/// caller's `Vec<K>` and clears the query, the list stays open, and
+/// With a [`ListSelection::Multiple`] selection, choosing toggles the option in
+/// the caller's `Vec<K>` and clears the query, the list stays open, and
 /// Backspace in an empty field removes the last chosen option.
 ///
 /// Semantics: the field `controls` the surface, a `Role::ListBox`; an option
@@ -75,10 +77,10 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 ///
 /// ```no_run
 /// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::for_each};
-/// use kivact_interaction::{ListItem, use_combobox, use_text_edit};
+/// use kivact_interaction::{ListItem, ListSelection, use_combobox, use_text_edit};
 /// let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
 /// let chosen = signal(None::<&'static str>);
-/// let colors = use_combobox(options.clone(), chosen);
+/// let colors = use_combobox(options.clone(), ListSelection::Single(chosen.into()));
 /// let rows = for_each(colors.visible(), |key| *key, move |key, _| {
 ///     let label = options.iter().find(|o| *o.key() == key).map(|o| o.label());
 ///     node().part(colors.item(key)).child(text(label.unwrap_or_default()))
@@ -90,19 +92,18 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// ```
 pub struct Combobox<K: Clone + Eq + Hash + 'static> {
     options: Value<Vec<ListItem<K>>>,
-    value: Binding<Option<K>>,
+    /// The caller's selection: one option or several.
+    selection: ListSelection<K>,
     /// The open state of a list that is a popup.
-    popup: Var<Option<Binding<bool>>>,
-    /// The chosen options of a combobox that takes several.
-    multiple: Var<Option<Binding<Vec<K>>>>,
+    popup: Signal<Option<Binding<bool>>>,
     query: Signal<String>,
     filter: Signal<Filter<K>>,
     /// The options that match, in order.
     shown: Value<Vec<ListItem<K>>>,
     visible: Value<Vec<K>>,
     active: Signal<Option<K>>,
-    /// The key and node of the active option, for `active_descendant`.
-    active_node: Signal<Option<(K, NodeRef)>>,
+    /// The mounted options by key, for `active_descendant`.
+    rows: Signal<HashMap<K, NodeRef>>,
     input_ref: NodeRef,
     list_ref: NodeRef,
 }
@@ -121,12 +122,12 @@ fn first_enabled<K: Clone>(options: &[ListItem<K>]) -> Option<K> {
         .map(|option| option.key.clone())
 }
 
-/// A combobox over `options` whose choice is written to `value`, with an
+/// A combobox over `options` whose choice is written to `selection`, with an
 /// empty query. Setup only.
 #[track_caller]
 pub fn use_combobox<K: Clone + Eq + Hash + 'static>(
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    selection: ListSelection<K>,
 ) -> Combobox<K> {
     let options = options.into_value();
     let query = signal(String::new());
@@ -175,15 +176,14 @@ pub fn use_combobox<K: Clone + Eq + Hash + 'static>(
     });
     Combobox {
         options,
-        value: value.into(),
-        popup: var(None),
-        multiple: var(None),
+        selection,
+        popup: signal(None),
         query,
         filter,
         shown,
         visible,
         active,
-        active_node: signal(None),
+        rows: signal(HashMap::new()),
         input_ref: node_ref(),
         list_ref: node_ref(),
     }
@@ -208,7 +208,7 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
     #[track_caller]
     pub fn popup(self, open: impl Into<Binding<bool>>) -> Self {
         let open = open.into();
-        self.popup.set(Some(open));
+        self.popup.update(|slot| *slot = Some(open));
         let focused = self.input_ref.focused();
         effect(move || {
             if !focused.get() && open.get_untracked() {
@@ -218,43 +218,30 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
         self
     }
 
-    /// Let several options be chosen, kept in `values`: choosing an option
-    /// toggles it there and clears the query, and Backspace in an empty
-    /// field removes the last one. The `value` given to [`use_combobox`] is
-    /// then not written. Setup only.
-    pub fn multiple(self, values: impl Into<Binding<Vec<K>>>) -> Self {
-        self.multiple.set(Some(values.into()));
-        self
-    }
-
     /// Whether the list shows: the open state of a [`popup`](Self::popup), and
     /// always for a combobox without one.
     pub fn shown(self) -> Value<bool> {
         let popup = self.popup;
-        (move || match popup.get() {
-            Some(open) => open.get(),
-            None => true,
-        })
-        .into_value()
+        (move || popup.with(|popup| popup.is_none_or(|open| open.get()))).into_value()
     }
 
     /// Open a popup list. Nothing happens without [`popup`](Self::popup).
     pub fn open(self) {
-        if let Some(open) = self.popup.get() {
+        if let Some(open) = self.popup.get_untracked() {
             open.set(true);
         }
     }
 
     /// Close a popup list. Nothing happens without [`popup`](Self::popup).
     pub fn close(self) {
-        if let Some(open) = self.popup.get() {
+        if let Some(open) = self.popup.get_untracked() {
             open.set(false);
         }
     }
 
     /// Open a closed popup list and close an open one.
     pub fn toggle(self) {
-        if let Some(open) = self.popup.get() {
+        if let Some(open) = self.popup.get_untracked() {
             open.set(!open.get_untracked());
         }
     }
@@ -293,20 +280,23 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
         if !enabled {
             return;
         }
-        if let Some(values) = self.multiple.get() {
-            let mut keys = values.get_untracked();
-            match keys.iter().position(|k| *k == key) {
-                Some(at) => {
-                    keys.remove(at);
+        match self.selection {
+            ListSelection::Multiple(values) => {
+                let mut keys = values.get_untracked();
+                match keys.iter().position(|k| *k == key) {
+                    Some(at) => {
+                        keys.remove(at);
+                    }
+                    None => keys.push(key),
                 }
-                None => keys.push(key),
+                values.set(keys);
+                self.query.set(String::new());
             }
-            values.set(keys);
-            self.query.set(String::new());
-            return;
+            ListSelection::Single(value) => {
+                value.set(Some(key));
+                self.close();
+            }
         }
-        self.value.set(Some(key));
-        self.close();
     }
 
     /// Move the active option to the next (`1`) or previous (`-1`) enabled
@@ -347,17 +337,25 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
     /// to [`query`](Self::query). Setup only.
     #[track_caller]
     pub fn input(self) -> Part<PartState> {
-        let active_node = self.active_node;
+        let (active, rows) = (self.active, self.rows);
         part(|input| input)
             .reference(self.input_ref)
             .controls(self.list_ref)
-            .active_descendant(move || active_node.with(|slot| slot.as_ref().map(|(_, n)| *n)))
+            .active_descendant(move || {
+                active.with(|key| {
+                    key.as_ref()
+                        .and_then(|key| rows.with(|rows| rows.get(key).copied()))
+                })
+            })
             .on_key(move |event: KeyEvent| {
                 let m = event.modifiers;
                 if m.ctrl || m.alt || m.meta || m.shift {
                     return Handled::No;
                 }
-                let closed = self.popup.get().is_some_and(|open| !open.get_untracked());
+                let closed = self
+                    .popup
+                    .get_untracked()
+                    .is_some_and(|open| !open.get_untracked());
                 match event.key {
                     Key::ArrowDown | Key::ArrowUp if closed => self.open(),
                     Key::ArrowDown => self.step(1),
@@ -369,11 +367,11 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
                             self.choose(key);
                         }
                     }
-                    Key::Escape if self.popup.get().is_some() && !closed => {
+                    Key::Escape if self.popup.with_untracked(Option::is_some) && !closed => {
                         self.close();
                     }
                     Key::Backspace if self.query.with_untracked(String::is_empty) => {
-                        let Some(values) = self.multiple.get() else {
+                        let ListSelection::Multiple(values) = self.selection else {
                             return Handled::No;
                         };
                         let mut keys = values.get_untracked();
@@ -409,9 +407,8 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
     pub fn item(self, key: K) -> Part<ListItemState> {
         let options = self.options;
         let active = self.active;
-        let active_node = self.active_node;
-        let value = self.value;
-        let multiple = self.multiple;
+        let rows = self.rows;
+        let selection = self.selection;
         let item = {
             let key = key.clone();
             memo(move || {
@@ -428,9 +425,9 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
         };
         let is_value = {
             let key = key.clone();
-            memo(move || match multiple.get() {
-                Some(values) => values.with(|values| values.contains(&key)),
-                None => value.with(|value| value.as_ref() == Some(&key)),
+            memo(move || match selection {
+                ListSelection::Multiple(values) => values.with(|values| values.contains(&key)),
+                ListSelection::Single(value) => value.with(|value| value.as_ref() == Some(&key)),
             })
         };
         let disabled = memo(move || item.with(|item| item.as_ref().is_none_or(|(_, d)| *d)));
@@ -462,27 +459,24 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
             })
             .on_press(move || self.choose(press_key.clone()))
             .on_bind(move |_| {
-                // The slot holds the option that took it; an option clears it
-                // only while it still holds that option, so a disposed
-                // reference is never left in it.
-                let leave = {
-                    let held = held.clone();
-                    move || {
-                        active_node.update(|slot| {
-                            if slot.as_ref().is_some_and(|(key, _)| *key == held) {
-                                *slot = None;
+                rows.update(|rows| {
+                    rows.insert(held.clone(), row);
+                });
+                // An option removes its entry only while it still holds it, so
+                // a disposed reference is never left in the map.
+                let leave = held.clone();
+                on_cleanup(move || {
+                    if rows.try_get_untracked().is_some() {
+                        rows.update(|rows| {
+                            if rows.get(&leave) == Some(&row) {
+                                rows.remove(&leave);
                             }
-                        })
+                        });
                     }
-                };
-                let take = held.clone();
-                let release = leave.clone();
+                });
                 effect(move || {
                     if is_active.get() {
-                        active_node.update(|slot| *slot = Some((take.clone(), row)));
                         row.scroll_into_view();
-                    } else {
-                        release();
                     }
                 });
                 on_mount(move || {
@@ -490,7 +484,6 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
                         row.scroll_into_view();
                     }
                 });
-                on_cleanup(leave);
             })
     }
 
