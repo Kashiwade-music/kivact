@@ -2,8 +2,8 @@
 //!
 //! Owned native editing state, composition and shaped layout snapshots.
 //! An [`EditState`] is a document (the text and its revision) with an
-//! editing session over it ([`TextSession`]: the selection, the caret's
-//! side and the IME composition). Every change of the text is a range
+//! editing session over it ([`TextSession`]: the selection's anchor and
+//! caret, and the IME composition). Every change of the text is a range
 //! replacement ([`TextChange`]), recorded as it is made, so the host
 //! reports edits by range instead of by whole value. An editor runs
 //! kivact's hooks: its behavior ([`EditBehavior`]) for each routed key and
@@ -15,7 +15,8 @@
 //! - Offsets are byte offsets into the text on char boundaries; platform
 //!   IMEs see UTF-16 ones ([`EditState::utf16_of_byte`]), converted at the
 //!   edges.
-//! - `sel.start <= sel.end`; `reversed` says the caret is at `sel.start`.
+//! - A selection is its anchor and its caret, in either order; the selected
+//!   range runs from the smaller to the larger.
 //! - Every change of the text takes a new revision from one counter, so
 //!   equal revisions mean equal text; comparing states compares their
 //!   texts only when the revisions differ.
