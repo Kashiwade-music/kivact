@@ -143,7 +143,7 @@ impl Model {
                     // A state transform or z-index moves or reorders it:
                     // reported and placed again like a written one.
                     self.changes.needs_layout = true;
-                    self.changes.moved = true;
+                    self.changes.moved();
                 }
             }
         }

@@ -61,7 +61,7 @@ impl Model {
         self.changes.restack = true;
         if let Some(parent) = self.tree.detach(id) {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
-            self.changes.mark(NodeId(0), Dirty::LAYOUT_CHAIN);
+            self.changes.outdate_viewport();
             self.changes.layout_changed = true;
             self.insert(parent, id, before, false);
         }
@@ -116,7 +116,7 @@ impl Model {
             // Like a wheel or a scroll by a delta, a new offset moves the
             // content (the paint list redraws positions on `moved`).
             if n.scroll != offset {
-                self.changes.moved = true;
+                self.changes.moved();
                 self.changes.mark(id, Dirty::SCROLLED);
             }
             n.scroll = offset;
@@ -292,13 +292,13 @@ impl Model {
                 if place.fixed != was.1 {
                     // It moves between its parent's layout and the window's.
                     self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
-                    self.changes.mark(NodeId(0), Dirty::LAYOUT_CHAIN);
+                    self.changes.outdate_viewport();
                 }
                 if (place.sticky, place.fixed) != was {
                     // Its parent draws it differently (in flow, stuck, or as a
                     // layer of its own).
                     self.changes
-                        .mark(parent, Dirty::WRITTEN.union(Dirty::CHILDREN));
+                        .regroup(parent);
                 }
             }
             if !place.sticky
@@ -318,7 +318,7 @@ impl Model {
             // transforms are placed live), so the geometry reports run and
             // positions are redrawn.
             self.changes.needs_layout = true;
-            self.changes.moved = true;
+            self.changes.moved();
         }
         if text {
             // An inherited text style: every text below measures again, and
@@ -379,7 +379,7 @@ impl Model {
         // Its ancestors changed: so did the text style it inherits.
         self.forget_text_below(id);
         self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
-        self.changes.mark(NodeId(0), Dirty::LAYOUT_CHAIN);
+        self.changes.outdate_viewport();
         self.changes.layout_changed = true;
         if inherited.is_some_and(|old| old != self.text_props(id)) {
             let mut stack = vec![id];
@@ -401,7 +401,7 @@ impl Model {
             }
         }
         self.changes
-            .mark(parent, Dirty::WRITTEN.union(Dirty::CHILDREN));
+            .regroup(parent);
         self.changes.needs_layout = true;
     }
 
@@ -427,7 +427,7 @@ impl Model {
         if let Some(parent) = parent {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         }
-        self.changes.mark(NodeId(0), Dirty::LAYOUT_CHAIN);
+        self.changes.outdate_viewport();
         self.changes.layout_changed = true;
         for gone in self.remove_slots(id) {
             self.changes.a11y_removed.insert(gone);
@@ -439,7 +439,7 @@ impl Model {
         self.clear_removed_hits();
         self.pointer.forget_missing(&self.tree);
         if let Some(p) = parent {
-            self.changes.mark(p, Dirty::WRITTEN.union(Dirty::CHILDREN));
+            self.changes.regroup(p);
         }
         if let Some(left) = focus_lost {
             // Move the focus to the next tab stop before reporting, out of

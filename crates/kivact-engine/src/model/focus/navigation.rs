@@ -177,7 +177,7 @@ impl Model {
                 (s.focus.is_some() || s.focus_visible.is_some()) && crate::tree::states_place(s)
             }) {
                 self.changes.needs_layout = true;
-                self.changes.moved = true;
+                self.changes.moved();
             }
         }
         if self.focus.target != target {

@@ -154,7 +154,7 @@ impl Model {
             {
                 self.changes.a11y_subtrees.insert(*id);
                 self.changes.needs_layout = true;
-                self.changes.moved = true;
+                self.changes.moved();
             }
             if done && let Some(n) = self.tree.get_mut(*id) {
                 n.place.transformed = !target.transform.is_none();

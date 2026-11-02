@@ -166,7 +166,7 @@ impl Model {
         {
             self.changes.a11y_subtrees.insert(id);
             self.changes.needs_layout = true;
-            self.changes.moved = true;
+            self.changes.moved();
         }
     }
 
