@@ -234,7 +234,6 @@ impl AppClient {
         let ready = waker.clone();
         TaskState::of(&rt).set_waker(Arc::new(move || ready.wake()));
         HostState::of(&rt).link.start(info.now_ns, waker);
-        MotionState::of(&rt).set_frame_period(info.env.frame_period_ns.max(1));
         // Install the owned writer before setup creates detached host nodes.
         ViewState::tree_mut(&rt).set_engine(tree.clone());
         ViewState::tree(&rt)
@@ -303,7 +302,6 @@ impl AppClient {
         rt.clear_turn_request();
         host.link.set_in_turn(true);
         host.turns.set(host.turns.get() + 1);
-        let started = std::time::Instant::now();
         let turn = rt.turn(events.len());
         phases::drain(&rt, Phase::AfterCommit { revision: before });
         // Errors the engine's last layout raised (a primitive's measure
@@ -358,8 +356,7 @@ impl AppClient {
         }
 
         let output = self.output(&rt);
-        let took = started.elapsed().as_nanos() as u64;
-        turn.finish(writes, took);
+        turn.finish(writes);
         // Requests made during the turn woke nobody (`HostLink`): ask again
         // only for work the turn left.
         host.link.set_in_turn(false);

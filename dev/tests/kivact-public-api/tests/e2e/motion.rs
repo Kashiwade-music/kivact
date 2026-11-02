@@ -133,3 +133,38 @@ fn keyframes_delay_and_repeat() {
     screen.advance(ms(200));
     assert_eq!(shown.get_untracked(), 100.0);
 }
+
+/// `on_complete` runs when a run reaches its target, never for a run that a new target or a
+/// `jump_to` ends.
+#[test]
+fn on_complete_runs_only_when_a_run_reaches_its_target() {
+    let completions = Rc::new(Cell::new(0u32));
+    let c2 = completions.clone();
+    let (screen, (target, shown)) = mount(move || {
+        let target = signal(0.0f32);
+        let c3 = c2.clone();
+        let shown = animated(target, Transition::tween(100, Easing::Linear))
+            .on_complete(move || c3.set(c3.get() + 1));
+        ((target, shown), text(move || format!("{:.1}", shown.get())))
+    });
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(200));
+    assert_eq!(completions.get(), 1, "the run reached 100");
+    target.set(0.0);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    target.set(90.0);
+    screen.run_until_idle();
+    screen.advance(ms(300));
+    assert_eq!(completions.get(), 2, "only the run toward 90 completed");
+    target.set(20.0);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    shown.jump_to(10.0);
+    screen.run_until_idle();
+    screen.advance(ms(200));
+    assert_eq!(completions.get(), 2, "a jump cancels the run");
+    assert!(!shown.is_running());
+    assert_eq!(shown.get_untracked(), 10.0);
+}

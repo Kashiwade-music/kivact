@@ -32,7 +32,7 @@ impl Screen {
     /// The App's counters ([`Stats`] says how to read them): `batches` and
     /// `ops` count the revisions the client committed and their writes, and
     /// `core_ns` the time in the core's turns, `on_mount` work included.
-    /// Notes recorded during setup go to a record of their own (turn 0), so
+    /// Notes recorded during setup go to a record of their own (`Turn::Setup`), so
     /// they add no turn.
     pub fn stats(&self) -> Stats {
         let rec = &self.record;

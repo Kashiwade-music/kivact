@@ -16,7 +16,6 @@ pub(super) fn env_changed(rt: &Runtime, env: &HostEnv) {
     let Some(state) = ViewState::of(rt).env() else {
         return;
     };
-    MotionState::of(rt).set_frame_period(env.frame_period_ns.max(1));
     // Only the env signal is written here: no owner applies.
     rt.enter(|| state.set(env.clone()));
     // Reduced motion ends the running decorative values in this turn, not

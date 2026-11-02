@@ -3,13 +3,12 @@
 //! `Resource<T>` (Solid `createResource`): refetch when the source changes,
 //! drop the previous future, accept only the latest request.
 
-use std::cell::Cell;
 use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
 
 use super::async_state::{AsyncState, cancelled};
-use super::state::TaskCell;
+use super::latest::LatestRun;
 use kivact_reactive::{
     EffectKind, IntoValue, Owned, Owner, Runtime, Signal, Trigger, UiError, require_effectful,
 };
@@ -18,8 +17,7 @@ pub(crate) struct ResourceCell<T: 'static> {
     state: Signal<AsyncState<T>>,
     latest: Signal<Option<T>>,
     refetch: Trigger,
-    task: Cell<Option<Owned<TaskCell>>>,
-    generation: Cell<u64>,
+    fetch: Rc<LatestRun>,
 }
 
 /// Async data driven by a reactive source; made by [`resource`].
@@ -63,8 +61,7 @@ where
         state: owner.signal(AsyncState::<T>::Idle, at),
         latest: owner.signal(None::<T>, at),
         refetch: owner.trigger(at),
-        task: Cell::new(None),
-        generation: Cell::new(0),
+        fetch: LatestRun::new(),
     });
     let handle = owner.store("Resource", cell.clone(), at);
     let weak = Rc::downgrade(&cell);
@@ -77,24 +74,19 @@ where
             let Some(cell) = weak.upgrade() else { return };
             cell.refetch.track();
             kivact_reactive::untrack(|| {
-                let generation = cell.generation.get() + 1;
-                cell.generation.set(generation);
-                if let Some(t) = cell.task.take() {
-                    t.remove();
-                }
-                cell.state.update(|st| *st = AsyncState::Pending);
-                let fut = fetch(s);
-                let weak = Rc::downgrade(&cell);
-                let task = super::spawn::spawn_owned(
+                let publish_to = Rc::downgrade(&cell);
+                cell.fetch.start(
                     &rt,
                     owner,
-                    async move {
-                        let r = fut.await;
-                        let Some(cell) = weak.upgrade() else { return };
-                        if cell.generation.get() != generation {
+                    at,
+                    || {
+                        cell.state.update(|st| *st = AsyncState::Pending);
+                        fetch(s)
+                    },
+                    move |r| {
+                        let Some(cell) = publish_to.upgrade() else {
                             return;
-                        }
-                        cell.task.set(None);
+                        };
                         let next = match r {
                             Ok(v) => {
                                 let latest = v.clone();
@@ -105,9 +97,7 @@ where
                         };
                         cell.state.update(move |st| *st = next);
                     },
-                    at,
                 );
-                cell.task.set(Some(task));
             });
         },
         at,
@@ -157,9 +147,7 @@ impl<T: Clone + 'static> Resource<T> {
         let cell = self.cell(at);
         // Checked before any state changes.
         require_effectful("Resource::cancel");
-        if let Some(t) = cell.task.take() {
-            cell.generation.set(cell.generation.get() + 1);
-            t.remove();
+        if cell.fetch.cancel() {
             let err = cancelled(at);
             cell.state.update(move |st| *st = AsyncState::Failed(err));
         }

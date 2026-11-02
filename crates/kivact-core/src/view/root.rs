@@ -68,10 +68,11 @@ pub(crate) fn mount_root(
     ViewState::of(rt).set_env(env.clone());
     ViewState::of(rt).set_capabilities(info.capabilities);
     crate::view::focus::install(rt, owner, at);
-    kivact_motion::MotionState::of(rt).attach_env(
-        env.field("reduced_motion", |e| e.reduced_motion),
-        env.field("surface_active", |e| e.surface_active),
-    );
+    kivact_motion::MotionState::of(rt).attach_env(kivact_motion::MotionEnv {
+        reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
+        surface_active: env.field("surface_active", |e| e.surface_active),
+        frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
+    });
     let theme: Signal<Theme> = owner.signal(settings.theme, at);
     Theme::install(owner, theme.into_value());
     kivact_i18n::install_locale(owner, locale);

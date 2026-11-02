@@ -27,6 +27,8 @@ enum Outcome<R> {
     Done(R),
     /// The job's thread unwound out of it; the thread's id finds its payload.
     Died(std::thread::ThreadId),
+    /// The awaiting future returned the result.
+    Taken,
 }
 
 /// Future of a blocking job.
@@ -71,7 +73,7 @@ impl<R> Future for BlockingFuture<R> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<R> {
         let mut s = lock(&self.slot);
-        match std::mem::replace(&mut s.outcome, Outcome::Running) {
+        match std::mem::replace(&mut s.outcome, Outcome::Taken) {
             Outcome::Done(v) => Poll::Ready(v),
             Outcome::Died(thread) => {
                 drop(s);
@@ -84,9 +86,11 @@ impl<R> Future for BlockingFuture<R> {
                 }
             }
             Outcome::Running => {
+                s.outcome = Outcome::Running;
                 s.waker = Some(cx.waker().clone());
                 Poll::Pending
             }
+            Outcome::Taken => panic!("a `blocking` future polled after it completed"),
         }
     }
 }

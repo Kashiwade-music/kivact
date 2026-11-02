@@ -114,7 +114,7 @@ use kivact::prelude::*;
 
 fn save_form() -> impl IntoView {
     let name = signal(String::new());
-    let save = action(|name: String| async move {
+    let save = action(ActionPolicy::Latest, |name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
             Err(UiError::msg("名前が空です"))
@@ -160,17 +160,17 @@ mod tests {
 }
 ```
 
-`action` に渡すクロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
+`action` の最初の引数は、前の処理が終わらないうちに新しい `run` が来たときの扱いです（後述）。`ActionPolicy::Latest` は古い処理を取り消します。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
 
 `resource` と `action` は、イベントハンドラの中ではなく、コンポーネントの組み立て中に作ります。ハンドラの中では、すでにあるハンドルに対して `run`・`refetch`・`cancel` を呼びます。
 
 ### 利用者が続けて 2 回クリックしたら
 
-`policy` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
+`action` に渡す `ActionPolicy` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
 
 | ポリシー | 動き |
 |---|---|
-| `ActionPolicy::Latest`（既定） | 新しい処理をすぐに始め、古い処理を取り消します。 |
+| `ActionPolicy::Latest` | 新しい処理をすぐに始め、古い処理を取り消します。 |
 | `ActionPolicy::Queue` | 処理を 1 つずつ、`run` の順に実行します。 |
 | `ActionPolicy::QueueLatest` | `Queue` と同じですが、新しい `run` は待機中の処理を置き換えます。実行中の処理は中断されません。 |
 
@@ -178,11 +178,10 @@ mod tests {
 # use kivact::prelude::*;
 fn drafts() -> impl IntoView {
     let draft = signal(String::new());
-    let save = action(|text: String| async move {
+    let save = action(ActionPolicy::QueueLatest, |text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
-    })
-    .policy(ActionPolicy::QueueLatest);
+    });
     save.on_done(|result| println!("saved: {result:?}"));
     column((
         text_input("下書き", draft),

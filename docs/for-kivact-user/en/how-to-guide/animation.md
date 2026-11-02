@@ -106,7 +106,8 @@ to run on every frame. Prefer a transform when you have the choice.
 - `is_running()` is a tracked read that tells whether it is moving.
 - `.on_complete(|| …)`, registered in setup, runs once when a run finishes
   naturally. It does not run for a superseded target, a `jump_to` or an
-  infinite repeat.
+  infinite repeat. A target equal to the current value starts no run, so it
+  does not run then either.
 - The value type can be `f32`, `f64`, a tuple of up to four of them,
   `Point`, `Size` or `Rect`. Implement `Animatable` to animate your own
   type (it converts to and from a few `f32` components). A color is not

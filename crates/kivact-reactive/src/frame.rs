@@ -178,14 +178,23 @@ impl FrameGuard<'_> {
 impl Drop for FrameGuard<'_> {
     #[inline]
     fn drop(&mut self) {
-        if let Some(slot) = self.collector
-            && let Ok(mut collectors) = self.rt.collectors.try_borrow_mut()
-        {
+        if let Some(slot) = self.collector {
+            let mut collectors = self.rt.collectors.borrow_mut();
+            debug_assert_eq!(
+                collectors.len(),
+                slot + 1,
+                "invariant: frame guards drop in LIFO order"
+            );
             collectors.truncate(slot);
         }
-        if let Ok(mut frames) = self.rt.frames.try_borrow_mut() {
-            frames.truncate(self.depth - 1);
-        }
+        let mut frames = self.rt.frames.borrow_mut();
+        debug_assert_eq!(
+            frames.len(),
+            self.depth,
+            "invariant: frame guards drop in LIFO order"
+        );
+        frames.truncate(self.depth - 1);
+        drop(frames);
         leave_app(self.outer_app);
     }
 }
