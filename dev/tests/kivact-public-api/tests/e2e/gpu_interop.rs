@@ -426,6 +426,11 @@ impl SharedViewport {
             Ask::Dispose => {
                 self.go.set(false);
                 screen.run_until_idle();
+                assert_eq!(
+                    self.image.status(),
+                    ShareStatus::Closed,
+                    "the image's owner is gone"
+                );
             }
         }
     }
