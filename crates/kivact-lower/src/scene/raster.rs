@@ -22,7 +22,7 @@ impl Context<'_> {
                 opacity,
                 pixelated,
             } => {
-                state.out.commands.push(D::ImageSampled {
+                state.out.push(D::ImageSampled {
                     image: kivact_types::protocol::ImageData {
                         width: image.width,
                         height: image.height,
@@ -52,7 +52,7 @@ impl Context<'_> {
                     pixelated: *pixelated,
                 };
                 if sanitize::drawable(&command) {
-                    state.out.commands.push(command);
+                    state.out.push(command);
                 } else {
                     self.drop_command();
                 }
@@ -95,7 +95,7 @@ impl Context<'_> {
                             height: crop.height / n.height * image.height as f32,
                         }
                     });
-                    state.out.commands.push(D::ImageSampled {
+                    state.out.push(D::ImageSampled {
                         image,
                         rect: rect(*r),
                         source,
@@ -118,7 +118,7 @@ impl Context<'_> {
                 if !sanitize::drawable(&D::PushClip(r)) {
                     self.drop_command();
                 } else if let Some((image, _)) = self.pixels(source, device) {
-                    state.out.commands.push(D::Image {
+                    state.out.push(D::Image {
                         image,
                         rect: r,
                         opacity: tint.alpha,

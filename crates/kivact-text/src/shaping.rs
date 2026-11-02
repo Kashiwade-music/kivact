@@ -2,7 +2,7 @@
 
 use crate::EditLines;
 use crate::pieces::{floor, shape_long};
-use crate::records::{Colored, Shown};
+use crate::records::{Colored, Shape, Shown};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
 use kivact_types::{Point, Rect};
 use std::borrow::Cow;
@@ -60,18 +60,18 @@ impl EditLines {
         let Some((line, _)) = self.line(i) else {
             return;
         };
-        if line.shaped.is_some() {
+        if !matches!(line.shape, Shape::Pending) {
             return;
         }
-        let key = self.key().clone();
+        let style = self.key.style.clone();
         let shown = self.shown_text(text, i);
-        let shaped = shape_long(&shown, |r| engine.shape(&shown[r], &key.style, None).ok());
-        let width = shaped.as_ref().map_or(0.0, |s| s.size.width);
+        let shaped = shape_long(&shown, |r| engine.shape(&shown[r], &style, None).ok());
+        let shape = shaped.map_or(Shape::Failed, Shape::Done);
+        let width = shape.width();
         let (c, j) = self.locate(i);
         let chunk = &mut self.chunks[c];
         let line = &mut chunk.lines[j];
-        line.shaped = Some(shaped);
-        line.width = width;
+        line.shape = shape;
         chunk.width = chunk.width.max(width);
         self.width = self.width.max(width);
     }
@@ -82,7 +82,7 @@ impl EditLines {
         let Some((line, base)) = self.line(i) else {
             return Cow::Borrowed("");
         };
-        let masked = self.key().shown == Shown::Masked;
+        let masked = self.key.shown == Shown::Masked;
         display(&text[base + line.start..base + line.content], masked)
     }
 
@@ -104,7 +104,7 @@ impl EditLines {
         let mut i = 0;
         while i < self.len() && (i == 0 || self.range(i).start < MEASURED) {
             self.ensure(text, i, engine);
-            width = width.max(self.line(i).map_or(0.0, |(l, _)| l.width));
+            width = width.max(self.line(i).map_or(0.0, |(l, _)| l.shape.width()));
             i += 1;
         }
         width
@@ -129,7 +129,7 @@ impl EditLines {
         engine: &mut arvane::Engine,
     ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         self.ensure(text, i, engine);
-        self.line(i)?.0.shaped.clone().flatten()
+        self.line(i)?.0.shape.shaped().cloned()
     }
 
     /// How far line `i` of `text` starts into a box `width` wide (its
@@ -143,7 +143,7 @@ impl EditLines {
             return 0.0;
         }
         self.ensure(text, i, engine);
-        self.aligned(self.line(i).map_or(0.0, |(l, _)| l.width), width)
+        self.aligned(self.line(i).map_or(0.0, |(l, _)| l.shape.width()), width)
     }
 
     /// How far a line `line` wide starts into a box `width` wide.
@@ -368,7 +368,7 @@ impl EditLines {
         engine: &mut arvane::Engine,
     ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         let content = self.content(i)?;
-        let mut style = self.key().style.clone();
+        let mut style = self.key.style.clone();
         style.color = color;
         let kept = self.line_mut(i)?.kept.as_deref_mut()?;
         let colored = kept.colors.as_ref().filter(|c| !c.spans.is_empty())?;
@@ -404,18 +404,14 @@ impl EditLines {
 
     /// The identity of line `i`'s text run, a new one from `ids` if it has
     /// none yet.
-    /// `ids` must allocate fresh nonzero IDs, collision-free throughout the
-    /// caller's publication document/tree (not the whole process or OS). Zero
-    /// is the unassigned sentinel; never reuse an ID while it is addressable.
+    /// `ids` must allocate fresh IDs, collision-free throughout the
+    /// caller's publication document/tree (not the whole process or OS);
+    /// never reuse an ID while it is addressable.
     pub fn run_id(&mut self, i: usize, ids: &mut dyn FnMut() -> u64) -> u64 {
         let Some(line) = self.line_mut(i) else {
             return ids();
         };
-        let kept = line.kept();
-        if kept.run_id == 0 {
-            kept.run_id = ids();
-        }
-        kept.run_id
+        *line.kept().run_id.get_or_insert_with(ids)
     }
 
     /// The lines published to assistive technology: those around the
@@ -444,7 +440,7 @@ impl EditLines {
     /// change or move; a new line's run takes a new identity from `ids`.
     /// Runs contain original text, including for visually masked passwords;
     /// callers own redaction/protected-publication policy. `ids` must allocate
-    /// fresh nonzero IDs unique in the caller's publication document/tree,
+    /// fresh IDs unique in the caller's publication document/tree,
     /// never reused while addressable. Detached copies may own separate domains.
     pub fn published(
         &mut self,

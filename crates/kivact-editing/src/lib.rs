@@ -2,8 +2,8 @@
 //!
 //! Owned native editing state, composition and shaped layout snapshots.
 //! An [`EditState`] is a document (the text and its revision) with an
-//! editing session over it ([`TextSession`]: the selection, the caret's
-//! side and the IME composition). Every change of the text is a range
+//! editing session over it ([`TextSession`]: the selection's anchor and
+//! caret, and the IME composition). Every change of the text is a range
 //! replacement ([`TextChange`]), recorded as it is made, so the host
 //! reports edits by range instead of by whole value. An editor runs
 //! kivact's hooks: its behavior ([`EditBehavior`]) for each routed key and
@@ -15,7 +15,8 @@
 //! - Offsets are byte offsets into the text on char boundaries; platform
 //!   IMEs see UTF-16 ones ([`EditState::utf16_of_byte`]), converted at the
 //!   edges.
-//! - `sel.start <= sel.end`; `reversed` says the caret is at `sel.start`.
+//! - A selection is its anchor and its caret, in either order; the selected
+//!   range runs from the smaller to the larger.
 //! - Every change of the text takes a new revision from one counter, so
 //!   equal revisions mean equal text; comparing states compares their
 //!   texts only when the revisions differ.
@@ -25,7 +26,10 @@
 //!   report `changed: false`, so the host sends no `TextChanged`.
 //! - A value set by the core waits while a composition is in progress; the
 //!   host gives it again when the composition ends, as a recorded change
-//!   (`Editor::adopt`).
+//!   (`Journal::adopt`).
+//! - A host changes an editor's text by one [`Journal`] per edit: it opens on
+//!   the current text and session, ends with the changes to report, or takes
+//!   them all back (also when dropped unfinished).
 //! - The caret starts at the end of the value.
 //! - Every change of the text, recorded or not, joins the state's damage:
 //!   the one byte range that changed since the revision it starts from,
@@ -45,6 +49,7 @@ mod change;
 mod edit_state;
 mod editor;
 mod geometry;
+mod journal;
 mod line_colors;
 mod session;
 mod text_layout;
@@ -54,6 +59,7 @@ pub use change::{Damage, TextChange};
 pub use edit_state::{EditState, Taken};
 pub use editor::Editor;
 pub use geometry::{TextGeometry, caret_at};
+pub use journal::{Incoming, Journal};
 pub use line_colors::{LineColors, LineState};
 pub use session::TextSession;
 pub use text_layout::{EditCaret, EditLine, TextLayout};

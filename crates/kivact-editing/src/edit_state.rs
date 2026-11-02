@@ -21,15 +21,15 @@ struct Logged {
 }
 
 /// How a state taken from kivact changed the editor's text
-/// ([`Editor::take`](crate::Editor::take)).
+/// ([`Editor::incoming`](crate::Editor::incoming)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Taken {
     /// The same text: only the session is taken, and the text keeps its
     /// revision (a state of the same text from another revision changes
     /// nothing that has to be reported or taken back).
     Same,
-    /// By the changes the state recorded since it was read. Its journal
-    /// must cover the receiving editor's current revision, as checked by
-    /// [`Editor::recorded_since`](crate::Editor::recorded_since) before the state is passed to [`Editor::take`](crate::Editor::take).
+    /// By the changes the state recorded since it was read from this editor
+    /// ([`Editor::snapshot`](crate::Editor::snapshot)).
     Recorded,
     /// Replaced as a whole.
     Whole,
@@ -136,7 +136,7 @@ impl EditState {
 
     /// The selected text.
     pub fn selected_text(&self) -> &str {
-        &self.text[self.session.sel.clone()]
+        &self.text[self.session.selection()]
     }
 
     /// Char offset of a byte offset. It counts the text before it.
@@ -201,12 +201,10 @@ impl EditState {
     /// Replace the session with `session`, clamped into the text (on char
     /// boundaries).
     pub fn set_session(&mut self, session: TextSession) {
-        let sel = self.clamp(session.sel);
-        let marked = session.marked.map(|m| self.clamp(m));
         self.session = TextSession {
-            reversed: session.reversed && !sel.is_empty(),
-            sel,
-            marked,
+            anchor: floor_boundary(&self.text, session.anchor),
+            caret: floor_boundary(&self.text, session.caret),
+            marked: session.marked.map(|m| self.clamp(m)),
         };
     }
 
@@ -264,12 +262,10 @@ impl EditState {
     pub fn move_to(&mut self, to: usize, extend: bool) {
         let to = floor_boundary(&self.text, to);
         if extend {
-            let anchor = self.anchor();
-            self.session.sel = anchor.min(to)..anchor.max(to);
-            self.session.reversed = to < anchor;
+            self.session.caret = to;
         } else {
-            self.session.sel = to..to;
-            self.session.reversed = false;
+            self.session.anchor = to;
+            self.session.caret = to;
         }
     }
 
@@ -326,7 +322,7 @@ impl EditState {
     pub fn commit(&mut self, range: Option<Range<usize>>, text: &str) {
         let r = range
             .or_else(|| self.session.marked.clone())
-            .unwrap_or_else(|| self.session.sel.clone());
+            .unwrap_or_else(|| self.session.selection());
         self.replace(r, text);
     }
 
@@ -342,7 +338,7 @@ impl EditState {
         let r = self.clamp(
             range
                 .or_else(|| self.session.marked.clone())
-                .unwrap_or_else(|| self.session.sel.clone()),
+                .unwrap_or_else(|| self.session.selection()),
         );
         let start = r.start;
         let limit = self.max_length.take();
@@ -351,7 +347,8 @@ impl EditState {
         self.session.marked = (!text.is_empty()).then(|| start..start + text.len());
         let rel = selected.unwrap_or(text.len()..text.len());
         let rel = floor_boundary(text, rel.start)..floor_boundary(text, rel.end);
-        self.session.sel = start + rel.start..start + rel.end.max(rel.start);
+        self.session.anchor = start + rel.start;
+        self.session.caret = start + rel.end.max(rel.start);
     }
 
     /// End the composition, keeping as much of its text as the length
@@ -387,6 +384,11 @@ impl EditState {
     /// `revision` (it was read from a text at that revision).
     pub(crate) fn recorded_since(&self, revision: u64) -> bool {
         self.base == revision
+    }
+
+    /// Whether the log recorded a change since it started.
+    pub(crate) fn has_changes(&self) -> bool {
+        !self.log.is_empty()
     }
 
     /// The recorded changes, starting a new log.

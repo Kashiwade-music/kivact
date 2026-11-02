@@ -22,7 +22,7 @@ impl Model {
         clip: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let host = &self;
         let Some(n) = host.node(id) else {
@@ -45,7 +45,7 @@ impl Model {
             y: line.y + r.y,
             ..r
         };
-        out.commands.push(D::PushClip(area));
+        out.push(D::PushClip(area));
         if host.focused()
             == Some(kivact_wire::FocusTarget {
                 node: id,
@@ -81,13 +81,13 @@ impl Model {
                 }),
             });
             for rect in spans(edit.selection(), engine) {
-                out.commands.push(D::Rect {
+                out.push(D::Rect {
                     rect,
                     fill: fill.clone(),
                 });
             }
             let marked = edit.marked().map(|m| spans(m, engine));
-            out.commands.push(D::Rect {
+            out.push(D::Rect {
                 rect: place(lines.caret(value, edit.caret(), area.width, engine)),
                 fill: kivact_types::protocol::Paint::Solid(
                     tint.color(props.more().caret_color.unwrap_or(color)),
@@ -95,7 +95,7 @@ impl Model {
             });
             if let Some(marked) = marked {
                 for band in marked {
-                    out.commands.push(D::Line {
+                    out.push(D::Line {
                         from: Point {
                             x: band.x,
                             y: band.bottom(),
@@ -146,21 +146,21 @@ impl Model {
                 }
             }
         }
-        out.commands.push(D::PopClip);
+        out.push(D::PopClip);
     }
 }
 
 /// Glyph runs of `shaped` at `(x, y)`, colored `color` of their shaped
 /// color.
 fn push_runs(
-    out: &mut kivact_types::protocol::Scene,
+    out: &mut kivact_lower::SceneOut,
     shaped: Option<&kivact_types::protocol::ShapedText>,
     x: f32,
     y: f32,
     color: impl Fn(kivact_types::Rgba) -> kivact_types::Rgba,
 ) {
     for run in shaped.iter().flat_map(|shaped| &shaped.runs) {
-        out.commands.push(D::Glyphs {
+        out.push(D::Glyphs {
             run: std::sync::Arc::clone(run),
             origin: Point { x, y },
             color: Some(color(run.color)),

@@ -4,7 +4,9 @@
 //! canvas origin, preserving paint order and alpha (scenes keep their size
 //! under a transform).
 //!
-//! Invalid commands are dropped and clips are balanced within each node's scene.
+//! Invalid commands are dropped and counted. A pop that does not close the
+//! innermost group the scene opened (none is open, or one of another kind) is
+//! invalid; the groups a scene leaves open are closed after it, innermost first.
 //! A text run uses its own family and line height, else its node's inherited
 //! ones (resolved like a text's), its italic, letter spacing, features and decoration
 //! lines (drawn like a text's: `glyphs`); an image fills its rect with the asset

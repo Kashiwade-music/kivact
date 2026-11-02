@@ -14,8 +14,7 @@ pub enum Flow {
 }
 
 /// Borrowed authoritative topology and raw properties over reusable zero-based slots.
-/// Logical identity zero is reserved for the synthetic viewport; it must not
-/// identify an authoritative node. Live identity-to-slot and slot-to-identity
+/// Live identity-to-slot and slot-to-identity
 /// mappings must be mutual inverses. Parent and child links must agree, be
 /// acyclic, and reference live allocated slots.
 /// A slot is valid only while its node is live. Children are accessed directly,
@@ -51,11 +50,9 @@ pub trait LayoutTree {
 }
 
 /// Measures content and resources without owning layout caches or retaining the callback.
-/// During computation the paired columns are mutably borrowed. A measurement
-/// callback must not query, mutate or reenter the active same-domain layout
-/// columns or state (including geometry/layout reads, rebuilds or computation).
-/// Such reentry violates the borrow contract and may panic. Record revalidation
-/// also requires retained measurement records to stay unchanged until it returns.
+/// The columns are lent mutably for the whole computation, so a measurer cannot
+/// reach them. Record revalidation requires retained measurement records to
+/// stay unchanged until it returns.
 pub trait LeafMeasure {
     /// Measure the logical node under logical-pixel constraints, including baseline.
     fn measure(&mut self, id: kivact_wire::NodeId, request: MeasureRequest) -> LeafSize;

@@ -1,23 +1,32 @@
-//! Role: Balanced stacks and dependencies for one local scene lowering.
+//! Role: The groups one local scene lowering has open in the output.
+use crate::SceneOut;
 use crate::effects::Tint;
 use kivact_types::protocol::DrawCommand as D;
 use kivact_wire::{ComputedText, Rect};
+/// A group a local scene opened in the output and has not closed yet.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Frame {
+    /// A rect clip; `drawn: false` when its rect could not be drawn (its pop draws nothing).
+    Clip { drawn: bool },
+    /// A transform, with the raster scale outside it.
+    Transform { raster: f32 },
+    /// A drawing layer: the output layers it pushed and the tint outside it.
+    Layer { pushed: usize, tint: Tint },
+}
+
 pub(super) struct State<'a> {
     pub(super) inherited: Option<&'a ComputedText>,
     pub(super) engine: &'a mut arvane::Engine,
-    pub(super) out: &'a mut kivact_types::protocol::Scene,
+    pub(super) out: &'a mut SceneOut,
     pub(super) origin: Rect,
-    pub(super) clips: usize,
-    pub(super) transforms: usize,
-    pub(super) raster_stack: Vec<f32>,
-    pub(super) layer_stack: Vec<(usize, Tint)>,
+    pub(super) frames: Vec<Frame>,
     pub(super) current_tint: Tint,
 }
 impl<'a> State<'a> {
     pub(super) fn new(
         inherited: Option<&'a ComputedText>,
         engine: &'a mut arvane::Engine,
-        out: &'a mut kivact_types::protocol::Scene,
+        out: &'a mut SceneOut,
         origin: Rect,
         tint: Tint,
     ) -> Self {
@@ -26,24 +35,21 @@ impl<'a> State<'a> {
             engine,
             out,
             origin,
-            clips: 0,
-            transforms: 0,
-            raster_stack: Vec::new(),
-            layer_stack: Vec::new(),
+            frames: Vec::new(),
             current_tint: tint,
         }
     }
     pub(super) fn finish(self) {
-        self.out
-            .commands
-            .extend(std::iter::repeat_n(D::PopClip, self.clips));
-        self.out
-            .commands
-            .extend(std::iter::repeat_n(D::PopTransform, self.transforms));
-        for (count, _) in self.layer_stack.into_iter().rev() {
-            self.out
-                .commands
-                .extend(std::iter::repeat_n(D::PopLayer, count));
+        // The groups left open are closed innermost first; the caller restores the raster scale.
+        for frame in self.frames.into_iter().rev() {
+            match frame {
+                Frame::Clip { drawn: true } => self.out.push(D::PopClip),
+                Frame::Clip { drawn: false } => {}
+                Frame::Transform { .. } => self.out.push(D::PopTransform),
+                Frame::Layer { pushed, .. } => {
+                    self.out.extend(std::iter::repeat_n(D::PopLayer, pushed));
+                }
+            }
         }
     }
 }

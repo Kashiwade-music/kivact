@@ -125,9 +125,8 @@ impl Offscreen {
         self.assets.get_mut().begin_frame();
         self.assets.get_mut().discard_failures();
         let raster = Cell::new(1.0);
-        self.scene_cache.borrow_mut().begin_frame();
         let context = Context::new(&self.assets, &raster, &self.scene_cache);
-        let mut lowered = kivact_types::protocol::Scene::default();
+        let mut lowered = kivact_lower::SceneOut::default();
         context.paint_scene(
             scene,
             Some(inherited),
@@ -153,6 +152,7 @@ impl Offscreen {
         failure.map_err(OffscreenError::Failed)?;
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
+        let lowered = lowered.into_scene();
         let mut frame = self
             .rasterizer
             .render(&lowered, size.0, size.1)

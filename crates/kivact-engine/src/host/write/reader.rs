@@ -37,9 +37,7 @@ impl Reader {
     /// A copy of the editing state of the text input `id` (its text
     /// included), recording the changes made to it from here.
     pub fn edit_state(&self, id: NodeId) -> Option<kivact_editing::EditState> {
-        let mut state = kivact_editing::Editor::new(self.model.borrow().edit(id).cloned()?);
-        state.start_log();
-        Some(state.into_state())
+        Some(self.model.borrow().editor_node(id)?.editor.snapshot())
     }
 
     /// The editing session of the text input `id`, without its text.

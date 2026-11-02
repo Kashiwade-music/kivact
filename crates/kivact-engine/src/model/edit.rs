@@ -10,7 +10,7 @@
 //!   editing state, and it keeps the index of text inputs with it: the
 //!   index lists exactly the live nodes with one.
 //! - A controlled value replaces the value but keeps the composition
-//!   (`EditState::set_controlled`); one given while composing is held and
+//!   (`Editor::set_controlled`); one given while composing is held and
 //!   taken, as a recorded change in the same `TextChanged`, by the edit
 //!   that ends the composition (`Model::adopt_held`). A node's first value
 //!   starts with the caret at the end.
