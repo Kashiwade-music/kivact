@@ -1,12 +1,9 @@
 //! Role: Import: an engine's shared texture pool and its fences, opened on wgpu.
 
+use super::idle::IDLE;
 use crate::common::Error;
 use kivact_types::{SharedTextureFormat, SharedTextures};
 use std::time::Duration;
-
-/// The longest the queue is waited for when an import is prepared or
-/// dropped.
-const IDLE: Duration = Duration::from_secs(5);
 
 /// The backend half of an import: its fences and the raw work around
 /// wgpu's submissions.
@@ -21,15 +18,23 @@ enum Raw {
     Unsupported(std::convert::Infallible),
 }
 
-/// The textures wgpu sees and the backend half, as a backend imports them.
-type Imported = (Vec<::wgpu::Texture>, Raw);
+/// Who holds a texture of the pool.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Holder {
+    /// The engine: the window does not sample it.
+    Engine,
+    /// The window, between [`Import::acquire`] and [`Import::release`].
+    Window,
+}
 
 /// A pool of shared textures and its fences, imported into a wgpu device
 /// (see this module's documentation for the hand-off).
 pub struct Import {
-    textures: Vec<::wgpu::Texture>,
     width: u32,
     height: u32,
+    /// Who holds each texture, by slot.
+    holders: Vec<Holder>,
+    /// The backend half, which owns the textures.
     raw: Raw,
 }
 
@@ -72,13 +77,13 @@ impl Import {
             usage: ::wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };
-        let (textures, raw) = import(device, shared, &desc)?;
+        let raw = import(device, shared, &desc)?;
         // Made first, so a failure below still waits for the queue before
-        // the raw objects go.
+        // the raw objects go (the backend's drop).
         let mut import = Self {
-            textures,
             width,
             height,
+            holders: vec![Holder::Window; raw.textures().len()],
             raw,
         };
         // wgpu's tracker holds the sampled state from now on, reached
@@ -89,7 +94,8 @@ impl Import {
         encoder.transition_resources(
             std::iter::empty(),
             import
-                .textures
+                .raw
+                .textures()
                 .iter()
                 .map(|texture| ::wgpu::TextureTransition {
                     texture,
@@ -98,8 +104,8 @@ impl Import {
                 }),
         );
         queue.submit([encoder.finish()]);
-        for slot in 0..import.textures.len() {
-            import.raw.release(slot)?;
+        for slot in 0..import.holders.len() {
+            import.release(slot)?;
         }
         if !import.raw.idle(IDLE) {
             return Err(Error::Timeout("shared texture preparation"));
@@ -109,7 +115,7 @@ impl Import {
 
     /// The pool's textures, by slot.
     pub fn textures(&self) -> &[::wgpu::Texture] {
-        &self.textures
+        self.raw.textures()
     }
 
     /// The textures' pixel size.
@@ -131,15 +137,24 @@ impl Import {
     /// Before the submissions that sample texture `slot`: wait on the GPU
     /// for the ready fence to reach `value` and take the texture from the
     /// engine. Call it only once [`Import::wait_ready`] said `value` was
-    /// reached, on the thread that submits to the device's queue.
+    /// reached, on the thread that submits to the device's queue. An error
+    /// when the window holds the texture already (acquired and not
+    /// released).
     pub fn acquire(&mut self, slot: usize, value: u64) -> Result<(), Error> {
-        self.raw.acquire(slot, value)
+        self.check(slot, Holder::Engine, "acquired already")?;
+        self.raw.acquire(slot, value)?;
+        self.holders[slot] = Holder::Window;
+        Ok(())
     }
 
     /// After the last submission that samples texture `slot` (of those
-    /// since its [`Import::acquire`]): give it back to the engine.
+    /// since its [`Import::acquire`]): give it back to the engine. An
+    /// error when the window does not hold it.
     pub fn release(&mut self, slot: usize) -> Result<(), Error> {
-        self.raw.release(slot)
+        self.check(slot, Holder::Window, "not acquired")?;
+        self.raw.release(slot)?;
+        self.holders[slot] = Holder::Engine;
+        Ok(())
     }
 
     /// Signal the release fence to `value` after every earlier submission
@@ -147,13 +162,17 @@ impl Import {
     pub fn signal(&mut self, value: u64) -> Result<(), Error> {
         self.raw.signal(value)
     }
-}
 
-impl Drop for Import {
-    fn drop(&mut self) {
-        // The raw objects must outlive the GPU's use of them.
-        if !self.raw.idle(IDLE) {
-            self.raw.leak();
+    /// Fail unless texture `slot` exists and `holder` holds it
+    /// (`otherwise` says why not).
+    fn check(&self, slot: usize, holder: Holder, otherwise: &str) -> Result<(), Error> {
+        match self.holders.get(slot) {
+            None => Err(Error::Mismatch(format!(
+                "no texture {slot} in a pool of {}",
+                self.holders.len()
+            ))),
+            Some(held) if *held == holder => Ok(()),
+            Some(_) => Err(Error::Mismatch(format!("texture {slot} is {otherwise}"))),
         }
     }
 }
@@ -163,16 +182,14 @@ fn import(
     device: &::wgpu::Device,
     shared: SharedTextures,
     desc: &::wgpu::TextureDescriptor<'_>,
-) -> Result<Imported, Error> {
+) -> Result<Raw, Error> {
     #[cfg(windows)]
     if super::dx12::is_dx12(device) {
-        return super::dx12::import(device, shared, desc)
-            .map(|(textures, raw)| (textures, Raw::Dx12(raw)));
+        return super::dx12::import(device, shared, desc).map(Raw::Dx12);
     }
     #[cfg(any(windows, target_os = "linux"))]
     if super::vulkan::is_vulkan(device) {
-        return super::vulkan::import(device, shared, desc)
-            .map(|(textures, raw)| (textures, Raw::Vulkan(Box::new(raw))));
+        return super::vulkan::import(device, shared, desc).map(|raw| Raw::Vulkan(Box::new(raw)));
     }
     let _ = (device, shared, desc);
     Err("this device cannot import shared textures".into())
@@ -247,14 +264,13 @@ impl Raw {
         }
     }
 
-    /// Keep the raw objects alive for the process (the GPU may still use
-    /// them).
-    fn leak(&mut self) {
+    /// The pool's textures, by slot.
+    fn textures(&self) -> &[::wgpu::Texture] {
         match self {
             #[cfg(windows)]
-            Self::Dx12(raw) => raw.leak(),
+            Self::Dx12(raw) => raw.textures(),
             #[cfg(any(windows, target_os = "linux"))]
-            Self::Vulkan(raw) => raw.leak(),
+            Self::Vulkan(raw) => raw.textures(),
             #[cfg(not(any(windows, target_os = "linux")))]
             Self::Unsupported(never) => match *never {},
         }

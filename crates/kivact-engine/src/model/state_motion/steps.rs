@@ -1,15 +1,24 @@
 //! Role: Prepare, retarget, step and shift the transitions of state styles.
 
-use super::state::StateAnimation;
+use super::state::{AnimPhase, StateAnimation};
 use crate::model::Model;
-use kivact_wire::motion::Kind;
+use kivact_wire::motion::SpringRun;
 use kivact_wire::{NodeId, PaintProps, PaintVec};
 
 impl Model {
     /// Capture the displayed value before the host changes a state.
     pub(crate) fn prepare_state_motion(&mut self, id: NodeId) {
-        if let Some(a) = self.motion.0.as_mut().and_then(|m| m.get_mut(&id)) {
-            a.pending = true;
+        self.capture_state_motion(id, false);
+    }
+
+    /// Capture the paint `id` enters from: its target paint with its enter paint over it.
+    pub(crate) fn prepare_entrance(&mut self, id: NodeId) {
+        self.capture_state_motion(id, true);
+    }
+
+    fn capture_state_motion(&mut self, id: NodeId, entering: bool) {
+        if let Some(a) = self.motion.0.get_mut(&id) {
+            a.phase = AnimPhase::Captured;
             return;
         }
         let Some(transition) = self
@@ -25,42 +34,46 @@ impl Model {
             .get(id)
             .and_then(|n| n.states())
             .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
-        let paint = self.target_paint(id);
-        let c = self.text_color(id);
+        let paint = if entering {
+            self.enter_paint(id)
+        } else {
+            self.target_paint(id)
+        };
+        let c = if entering {
+            self.enter_text_color(id)
+        } else {
+            self.text_color(id)
+        };
         let mut current = PaintVec::of(&paint).components().to_vec();
         current.extend_from_slice(&[c.r, c.g, c.b, c.a]);
         let len = current.len();
         let a = StateAnimation {
             transition,
             target: paint,
-            from: current.clone(),
-            to: current.clone(),
             current,
-            velocity: vec![0.0; len],
-            start: 0,
-            last: 0,
-            pending: true,
+            spring: SpringRun {
+                velocity: vec![0.0; len],
+                ..SpringRun::default()
+            },
             colors_text,
+            phase: AnimPhase::Captured,
         };
-        self.motion
-            .0
-            .get_or_insert_with(Default::default)
-            .insert(id, a);
+        self.motion.0.insert(id, a);
     }
 
     /// Retarget pending captures after input or a prop commit, not every frame.
     pub(crate) fn retarget_states(&mut self, now: u64, reduced: bool) -> bool {
-        let Some(mut animations) = self.motion.0.take() else {
+        if self.motion.0.is_empty() {
             return false;
-        };
+        }
+        let mut animations = std::mem::take(&mut self.motion.0);
         animations.retain(|id, a| {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            if !a.pending {
+            if !matches!(a.phase, AnimPhase::Captured) {
                 return true;
             }
-            a.pending = false;
             let target = self.target_paint(*id);
             let Some(timing) = target.transition.clone() else {
                 return false;
@@ -77,86 +90,78 @@ impl Model {
             if to == a.current || (reduced && a.transition.decorative) {
                 return false;
             }
-            a.from = a.current.clone();
-            a.to = to;
             a.target = target;
-            a.start = now;
-            a.last = now;
             if let Some(n) = self.tree.get_mut(*id) {
                 n.place.transformed |=
                     !a.current_paint().transform.is_none() || !a.target.transform.is_none();
             }
+            a.spring.restart(now);
+            a.phase = AnimPhase::Running {
+                from: a.current.clone(),
+                to,
+                start: now,
+            };
             true
         });
         let active = !animations.is_empty();
-        if active {
-            self.motion.0 = Some(animations);
-        }
+        self.motion.0 = animations;
         active
     }
 
     pub(crate) fn step_states(&mut self, now: u64, reduced: bool) -> bool {
-        let Some(mut animations) = self.motion.0.take() else {
+        if self.motion.0.is_empty() {
             return false;
-        };
+        }
+        let mut animations = std::mem::take(&mut self.motion.0);
         animations.retain(|id, a| {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            let elapsed = now.saturating_sub(a.start) as f32 / 1e6;
-            let done = if reduced && a.transition.decorative {
+            let StateAnimation {
+                transition,
+                target,
+                current,
+                spring,
+                phase,
+                ..
+            } = a;
+            let AnimPhase::Running { from, to, start } = phase else {
+                return true;
+            };
+            let done = if reduced && transition.decorative {
                 true
             } else {
-                match a.transition.kind {
-                    Kind::Spring(s) => {
-                        if elapsed < a.transition.delay_ms {
-                            false
-                        } else {
-                            let dt = now.saturating_sub(a.last) as f32 / 1e9;
-                            kivact_wire::motion::spring_step(
-                                s,
-                                &mut a.current,
-                                &mut a.velocity,
-                                &a.to,
-                                dt,
-                            )
-                        }
-                    }
-                    _ => a
-                        .transition
-                        .sample_timed(&a.from, &a.to, elapsed, &mut a.current),
-                }
+                transition.step(from, to, *start, now, current, spring)
             };
-            a.last = now;
             self.repaint(*id);
-            if a.target.transform != PaintProps::default().transform
+            if target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
                 self.changes.a11y_subtrees.insert(*id);
                 self.changes.needs_layout = true;
-                self.changes.moved = true;
+                self.changes.moved();
             }
             if done && let Some(n) = self.tree.get_mut(*id) {
-                n.place.transformed = !a.target.transform.is_none();
+                n.place.transformed = !target.transform.is_none();
             }
             !done
         });
-        let active = !animations.is_empty();
-        if active {
-            self.motion.0 = Some(animations);
-        }
+        let active = animations
+            .values()
+            .any(|a| matches!(a.phase, AnimPhase::Running { .. }));
+        self.motion.0 = animations;
         active
     }
 
     pub(crate) fn shift_state_times(&mut self, paused: u64, now: u64) {
-        if let Some(animations) = &mut self.motion.0 {
-            for a in animations.values_mut() {
-                a.start = if a.start <= paused {
-                    a.start.saturating_add(now.saturating_sub(paused))
+        for a in self.motion.0.values_mut() {
+            if let AnimPhase::Running { start, .. } = &mut a.phase {
+                *start = if *start <= paused {
+                    start.saturating_add(now.saturating_sub(paused))
                 } else {
                     now
                 };
-                a.last = now;
+                a.spring.last_ns = now;
             }
         }
     }

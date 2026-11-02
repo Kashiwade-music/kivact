@@ -20,6 +20,9 @@ use winit::window::Window;
 use super::conversion;
 use arvane_shell::{AccessibilityError, PlatformTree, PlatformUpdate, ShellEvent, ShellWaker};
 
+/// Why `pending_with` finds the accepted tree inside a publication callback.
+pub(crate) const TREE_KEPT: &str = "invariant: the accepted tree is forgotten only on this UI thread, and has_pending saw it just before";
+
 struct Activation {
     shared: PlatformTree,
     waker: ShellWaker,
@@ -44,10 +47,10 @@ struct Actions {
 
 impl accesskit::ActionHandler for Actions {
     fn do_action(&mut self, request: accesskit::ActionRequest) {
-        let Some((node, action, value)) = translate_action(&request) else {
+        let Some((node, asked)) = translate_action(&request) else {
             return;
         };
-        if self.shared.queue_action(node, action, value.as_deref()) {
+        if self.shared.queue_action(node, asked) {
             self.waker.wake();
         }
     }
@@ -173,11 +176,8 @@ impl NativeAccessibility {
             return;
         }
         let shared = &self.shared;
-        self.adapter.update_if_active(|| {
-            shared
-                .pending_with(root, convert_update)
-                .expect("invariant: an active native publication retains its accepted tree")
-        });
+        self.adapter
+            .update_if_active(|| shared.pending_with(root, convert_update).expect(TREE_KEPT));
     }
 
     /// Whether assistive technology reads the tree (it asked for it and has
@@ -231,18 +231,22 @@ fn scale_root(update: &mut accesskit::TreeUpdate, scale: f64) {
 /// Decode native vocabulary only; the shell validates and queues the request.
 pub(crate) fn translate_action(
     request: &accesskit::ActionRequest,
-) -> Option<(u64, kivact_types::A11yAction, Option<String>)> {
+) -> Option<(u64, kivact_types::A11yRequest)> {
     if request.target_tree != accesskit::TreeId::ROOT {
         return None;
     }
     let action = conversion::action(request)?;
-    let value = match &request.data {
-        Some(accesskit::ActionData::Value(value)) => Some(value.to_string()),
-        Some(accesskit::ActionData::NumericValue(value)) if value.is_finite() => {
-            Some(value.to_string())
+    let asked = match action {
+        kivact_types::A11yAction::SetValue => {
+            kivact_types::A11yRequest::SetValue(match &request.data {
+                Some(accesskit::ActionData::Value(value)) => value.to_string(),
+                Some(accesskit::ActionData::NumericValue(value)) if value.is_finite() => {
+                    value.to_string()
+                }
+                _ => return None,
+            })
         }
-        Some(accesskit::ActionData::NumericValue(_)) => return None,
-        _ => None,
+        action => kivact_types::A11yRequest::from_action(action)?,
     };
-    Some((request.target_node.0, action, value))
+    Some((request.target_node.0, asked))
 }

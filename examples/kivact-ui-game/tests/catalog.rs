@@ -6,7 +6,7 @@
 
 use kivact::draw::Point;
 use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
-use kivact::view::{A11yAction, Key, Modifiers, Role, SortDirection};
+use kivact::view::{CheckedState, Key, Modifiers, Role, SortDirection};
 use kivact_ui_game_catalog::{catalog, fonts, locale, messages};
 use std::sync::Arc;
 use std::time::Duration;
@@ -201,12 +201,12 @@ fn game_input_mixed_selection_and_pointer_slider_change_real_values() {
     evidence(&screen, "game-input-focus");
     chapter(&screen, "selection");
     let all = screen.get_by_role(Role::CheckBox, "全権限");
-    assert!(all.is_indeterminate());
+    assert_eq!(all.checked(), Some(CheckedState::Indeterminate));
     all.click();
-    assert_eq!(all.is_checked(), Some(true));
-    assert!(!all.is_indeterminate());
+    assert_eq!(all.checked(), Some(CheckedState::Checked));
+    assert_ne!(all.checked(), Some(CheckedState::Indeterminate));
     screen.get_by_role(Role::CheckBox, "承認").click();
-    assert!(all.is_indeterminate());
+    assert_eq!(all.checked(), Some(CheckedState::Indeterminate));
     let track = screen.get_by_test_id("game-cpu-slider");
     let rect = track.rect().expect("visible slider bounds");
     track.drag(
@@ -216,7 +216,7 @@ fn game_input_mixed_selection_and_pointer_slider_change_real_values() {
     let slider = screen.get_by_role(Role::Slider, "CPU 上限");
     let value = slider.value_range().2.expect("slider exposes its value");
     assert!((70. ..=90.).contains(&value), "dragged CPU value {value}");
-    slider.a11y_with_value(A11yAction::SetValue, "37.5");
+    slider.a11y_set_value("37.5");
     assert_eq!(slider.value_range().2, Some(37.5));
     evidence(&screen, "game-selection-mixed-slider");
     clean(&screen);
@@ -233,7 +233,7 @@ fn game_table_sort_filter_bulk_and_drawer_preserve_record_keys() {
     screen
         .get_by_role(Role::CheckBox, "OPS-2041 を選択")
         .click();
-    assert!(all.is_indeterminate());
+    assert_eq!(all.checked(), Some(CheckedState::Indeterminate));
     assert!(screen.get_by_role(Role::Row, "OPS-2041").is_selected());
     evidence(&screen, "game-table-partial-bulk");
     let progress = screen.get_by_role(Role::ColumnHeader, "進捗");

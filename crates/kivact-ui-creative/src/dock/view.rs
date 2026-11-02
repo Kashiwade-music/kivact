@@ -142,8 +142,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
             on_edit,
             current,
             drag: signal(None),
-            renaming: signal(None),
-            draft: signal(String::new()),
+            rename: kivact::ui::use_inline_edit(signal(None)),
             root: reference.rect(),
             shared: var(Rc::new(Shared {
                 rects: RefCell::new(HashMap::new()),

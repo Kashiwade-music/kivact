@@ -1,6 +1,7 @@
 //! Role: This module stores motion state and frame loop records.
 
 use std::cell::{Cell, RefCell};
+use std::num::NonZeroU64;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 
@@ -34,10 +35,22 @@ pub struct MotionStats {
     pub ticks: u64,
 }
 
+/// What frame planning reads of the host's environment, attached once by the
+/// view root ([`MotionState::attach_env`]); each value is read untracked.
+#[derive(Clone, Copy)]
+pub struct MotionEnv {
+    /// The host asks for reduced motion.
+    pub reduced_motion: Value<bool>,
+    /// A surface can be drawn on.
+    pub surface_active: Value<bool>,
+    /// The display refresh period in ns (positive).
+    pub frame_period_ns: Value<u64>,
+}
+
 /// Per-App state of the motion subsystem, driven by the host that runs the
 /// App's turns: it installs the state (`default`) as a runtime extension when
-/// the App is created, feeds it the host's frame period (`set_frame_period`)
-/// and the environment projections it reads (`attach_env`), asks it which
+/// the App is created, attaches the environment it reads (`attach_env`:
+/// reduced motion, surface activity and the frame period), asks it which
 /// frame to request (`plan_frame`) and delivers `FrameTick`s
 /// (`on_frame_tick`) and applies a newly enabled reduced-motion preference
 /// (`reduce_motion`). The engine's `MotionClock` a tick carries is the one
@@ -46,13 +59,8 @@ pub struct MotionStats {
 #[derive(Default)]
 pub struct MotionState {
     frames: RefCell<Frames>,
-    /// Display refresh period reported by the host (0 before `start`).
-    frame_period_ns: Cell<u64>,
-    /// The App's reduced-motion projection of the host environment, once
-    /// the root is mounted.
-    reduced_motion: Cell<Option<Value<bool>>>,
-    /// The App's surface-activity projection, once the root is mounted.
-    surface_active: Cell<Option<Value<bool>>>,
+    /// The host's environment, once the view root attached it.
+    env: Cell<Option<MotionEnv>>,
     /// The part of the clock's `offset_ns` the animations are already moved
     /// by.
     applied_offset_ns: Cell<u64>,
@@ -65,36 +73,46 @@ impl MotionState {
         rt.ext::<MotionState>()
     }
 
-    /// Record the host's display refresh period in ns.
-    pub fn set_frame_period(&self, ns: u64) {
-        self.frame_period_ns.set(ns);
+    /// Attach the host's environment frame planning reads (untracked). The
+    /// view root calls it once, when the App's environment exists.
+    pub fn attach_env(&self, env: MotionEnv) {
+        let previous = self.env.replace(Some(env));
+        assert!(
+            previous.is_none(),
+            "invariant: the motion environment is attached once"
+        );
     }
 
-    /// Attach the environment projections frame planning reads (untracked):
-    /// the host's reduced-motion preference and whether a surface can be
-    /// drawn on. The view root calls it once the App's environment exists.
-    pub fn attach_env(&self, reduced_motion: Value<bool>, surface_active: Value<bool>) {
-        self.reduced_motion.set(Some(reduced_motion));
-        self.surface_active.set(Some(surface_active));
+    fn env(&self) -> MotionEnv {
+        self.env.get().expect(
+            "invariant: the view root attaches the motion environment before anything moves",
+        )
     }
 
-    /// Whether the host asks for reduced motion (untracked read).
+    /// Whether the host asks for reduced motion (untracked; a disposed root
+    /// reads as no).
     pub(crate) fn reduced_motion(&self) -> bool {
-        self.reduced_motion
-            .get()
-            .and_then(|v| kivact_reactive::untrack(|| v.try_get()))
-            .unwrap_or(false)
+        let v = self.env().reduced_motion;
+        kivact_reactive::untrack(|| v.try_get()).unwrap_or(false)
     }
 
+    /// Whether a surface can be drawn on (untracked; a disposed root reads as
+    /// yes).
     fn surface_active(&self) -> bool {
-        self.surface_active
-            .get()
-            .and_then(|v| kivact_reactive::untrack(|| v.try_get()))
-            .unwrap_or(true)
+        let v = self.env().surface_active;
+        kivact_reactive::untrack(|| v.try_get()).unwrap_or(true)
     }
 
-    fn period(&self) -> u64 {
-        self.frame_period_ns.get().max(1)
+    /// The display refresh period; `None` once the view root is disposed (the
+    /// App is closing and no frame work is left).
+    fn period(&self) -> Option<NonZeroU64> {
+        let v = self.env().frame_period_ns;
+        let ns = kivact_reactive::untrack(|| v.try_get())?;
+        Some(
+            NonZeroU64::new(ns).expect(
+                "invariant: hosts report a positive frame period (`HostEnv::frame_period_ns`)",
+            ),
+        )
     }
 
     /// Track a frame loop (weakly; it is dropped with its owner).
@@ -141,12 +159,17 @@ impl MotionState {
             let stopped = clock.offset_ns - applied;
             let paused = clock.resumed_ns.saturating_sub(stopped);
             for a in self.live_anims() {
-                a.resume(paused, clock.resumed_ns);
+                a.shift_clock(paused, clock.resumed_ns);
             }
             for l in self.live_loops() {
-                l.start_ns.set(now);
-                l.index.set(0);
-                l.last_tick.set(None);
+                if let Some(run) = l.run.get() {
+                    l.set_run(Some(LoopRun {
+                        start_ns: now,
+                        index: 0,
+                        last_tick: None,
+                        ..run
+                    }));
+                }
             }
         }
     }
@@ -157,35 +180,34 @@ impl MotionState {
     /// animations.
     pub fn on_frame_tick(&self, rt: &Runtime, now: u64, present: u64, clock: &MotionClock) {
         self.apply_clock(now, clock);
-        let period = self.period();
         {
             let mut m = self.frames.borrow_mut();
             m.requested = None;
             m.last_tick = Some(now);
             m.ticks += 1;
         }
+        let Some(period) = self.period() else { return };
+        let period = period.get();
         for l in self.live_loops() {
-            let Some(due) = l.due(period) else { continue };
-            if due > now {
+            let Some(run) = l.run.get() else { continue };
+            if run.due(period) > now {
                 continue;
             }
-            let delta = l
-                .last_tick
-                .get()
-                .map(|t| now.saturating_sub(t))
-                .unwrap_or(0);
-            l.last_tick.set(Some(now));
-            let frame = l.frames.get();
-            l.frames.set(frame + 1);
-            if let Some(FrameRate::Hz(_)) = l.current.get() {
+            let delta = run.last_tick.map_or(0, |t| now.saturating_sub(t));
+            let mut next = LoopRun {
+                last_tick: Some(now),
+                ..run
+            };
+            if let FrameRate::Hz(_) = run.rate {
                 // advance to the first slot after now (no catch-up bursts)
-                let mut i = l.index.get() + 1;
-                l.index.set(i);
-                while l.due(period).is_some_and(|d| d <= now) {
-                    i += 1;
-                    l.index.set(i);
+                next.index += 1;
+                while next.due(period) <= now {
+                    next.index += 1;
                 }
             }
+            l.set_run(Some(next));
+            let frame = l.frames.get();
+            l.frames.set(frame + 1);
             let info = FrameInfo {
                 now: Duration::from_nanos(now),
                 delta: Duration::from_nanos(delta),
@@ -202,7 +224,7 @@ impl MotionState {
         // Animation steps run no user code.
         rt.enter(|| {
             for a in self.live_anims() {
-                if a.active() {
+                if a.is_running() {
                     a.step(now);
                 }
             }
@@ -214,16 +236,17 @@ impl MotionState {
         if !self.surface_active() {
             return None;
         }
-        let period = self.period();
+        let period = self.period()?.get();
         let now = rt.now_ns();
         let last = self.frames.borrow().last_tick;
         let mut want: Option<u64> = None;
         for l in self.live_loops() {
-            if let Some(d) = l.due(period) {
+            if let Some(run) = l.run.get() {
+                let d = run.due(period);
                 want = Some(want.map_or(d, |w| w.min(d)));
             }
         }
-        if self.live_anims().iter().any(|a| a.active()) {
+        if self.live_anims().iter().any(|a| a.is_running()) {
             let d = last.map(|t| t + period).unwrap_or(now).max(now);
             want = Some(want.map_or(d, |w| w.min(d)));
         }
@@ -255,7 +278,8 @@ impl MotionState {
 
 /// Type-erased animation stepping for the motion driver.
 pub(crate) trait Anim {
-    fn active(&self) -> bool;
+    /// A run is in progress (not paused).
+    fn is_running(&self) -> bool;
     fn step(&self, now_ns: u64);
     /// Apply a newly enabled reduced-motion preference to an existing run.
     /// Explicitly paused values keep their state until their owner resumes them.
@@ -264,30 +288,48 @@ pub(crate) trait Anim {
     /// move the animation's times by the pause, so it goes on from where
     /// it stood (one started during the pause starts at `now_ns`; one after
     /// it is left as it is).
-    fn resume(&self, paused_ns: u64, now_ns: u64);
+    fn shift_clock(&self, paused_ns: u64, now_ns: u64);
 }
 
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Rc<dyn Fn(FrameInfo) -> Result<(), UiError>>,
+    /// The rate `FrameLoop::rate` readers see: written only by `set_run`.
     pub(crate) rate: Signal<Option<FrameRate>>,
-    pub(crate) current: Cell<Option<FrameRate>>,
-    pub(crate) start_ns: Cell<u64>,
-    pub(crate) index: Cell<u64>,
-    pub(crate) last_tick: Cell<Option<u64>>,
+    /// The running loop; `None` while stopped.
+    pub(crate) run: Cell<Option<LoopRun>>,
+    /// Callbacks so far (`FrameInfo::frame`).
     pub(crate) frames: Cell<u64>,
 }
 
-impl LoopCell {
+/// A running frame loop.
+#[derive(Clone, Copy)]
+pub(crate) struct LoopRun {
+    pub(crate) rate: FrameRate,
+    /// When the loop started at this rate (host ns; `Hz` ticks count from here).
+    pub(crate) start_ns: u64,
+    /// Ticks at this rate so far.
+    pub(crate) index: u64,
+    /// Host time of the last callback; `None` before the first one.
+    pub(crate) last_tick: Option<u64>,
+}
+
+impl LoopRun {
     /// Next due time on the host clock.
-    pub(crate) fn due(&self, period_ns: u64) -> Option<u64> {
-        match self.current.get()? {
-            FrameRate::Hz(hz) => Some(
-                self.start_ns.get() + ((self.index.get() + 1) as f64 * 1e9 / hz).round() as u64,
-            ),
-            FrameRate::Display => {
-                Some(self.last_tick.get().unwrap_or(self.start_ns.get()) + period_ns)
+    pub(crate) fn due(&self, period_ns: u64) -> u64 {
+        match self.rate {
+            FrameRate::Hz(hz) => {
+                self.start_ns + ((self.index + 1) as f64 * 1e9 / hz).round() as u64
             }
+            FrameRate::Display => self.last_tick.unwrap_or(self.start_ns) + period_ns,
         }
+    }
+}
+
+impl LoopCell {
+    /// Start, change or stop (`None`) the loop.
+    pub(crate) fn set_run(&self, run: Option<LoopRun>) {
+        self.run.set(run);
+        self.rate.set(run.map(|r| r.rate));
     }
 }

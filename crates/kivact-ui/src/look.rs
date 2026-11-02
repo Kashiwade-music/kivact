@@ -19,7 +19,7 @@ use super::values::{
     ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, ToggleButtonState,
 };
 use super::variants::Look;
-use kivact_interaction::CheckedState;
+use kivact_core::view::CheckedState;
 
 /// The font size of a control.
 fn font_size(theme: &Theme, size: ControlSize) -> f32 {

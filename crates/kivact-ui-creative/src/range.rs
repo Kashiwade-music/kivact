@@ -8,13 +8,32 @@ use kivact::primitive::{NodeExt, PartState};
 use kivact::style::{Cursor, pct, style};
 use kivact::ui::{EditPhase, ScalarRange};
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, Orientation,
-    Role, View, callback,
+    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoText, IntoValue, IntoView, Key,
+    Orientation, Role, View, callback,
 };
 use kivact::{Binding, Callback, Value, binding, effect, memo, signal, var};
 
 /// The side of an end's square region, which the pointer grabs.
 const THUMB: f32 = 20.0;
+
+/// What the keys and actions on the root of a range edit.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RangePart {
+    Start,
+    End,
+    Body,
+}
+
+impl RangePart {
+    /// The region its handle draws.
+    fn region(self) -> RegionId {
+        RegionId(match self {
+            RangePart::Start => 1,
+            RangePart::End => 2,
+            RangePart::Body => 3,
+        })
+    }
+}
 
 /// Two ordered endpoints, edited without crossing or hiding the other endpoint.
 pub struct Range {
@@ -118,9 +137,8 @@ impl IntoView for Range {
         let start_template = message("creative.range.start", "{label} start");
         let end_template = message("creative.range.end", "{label} end");
         let value = state.into_value();
-        // What the root's keys and actions edit: the start (0), the end (1)
-        // or the interval body (2).
-        let active = signal(0usize);
+        // What the root's keys and actions edit.
+        let active = signal(RangePart::Start);
         let range = ScalarRange::new(min, max).expect("invariant: finite endpoint bounds");
         let bounded = move |v: (f64, f64)| {
             let a = if v.0.is_finite() {
@@ -155,25 +173,25 @@ impl IntoView for Range {
             None => ends,
         };
         let endpoints = [ends.end(RangeThumb::Low), ends.end(RangeThumb::High)];
+        // The endpoint a part edits: the body edits the end.
+        let endpoint_of = move |part: RangePart| match part {
+            RangePart::Start => endpoints[0],
+            RangePart::End | RangePart::Body => endpoints[1],
+        };
         // Actions on the root, rather than on an endpoint, edit the active
         // endpoint; the body edits the end.
         let act = move |event: A11yEvent| {
-            let scalar = endpoints[active.get_untracked().min(1)];
-            match event.action {
-                A11yAction::SetValue => {
-                    if let Some(v) = event
-                        .value
-                        .as_deref()
-                        .and_then(|s| s.parse::<f64>().ok())
-                        .filter(|v| v.is_finite())
-                    {
+            let scalar = endpoint_of(active.get_untracked());
+            match &event.request {
+                A11yRequest::SetValue(text) => {
+                    if let Some(v) = text.parse::<f64>().ok().filter(|v| v.is_finite()) {
                         ends.once(|| scalar.set(v));
                     }
                 }
-                A11yAction::Increment => {
+                A11yRequest::Increment => {
                     ends.once(|| scalar.step_by(1.0));
                 }
-                A11yAction::Decrement => {
+                A11yRequest::Decrement => {
                     ends.once(|| scalar.step_by(-1.0));
                 }
                 _ => {}
@@ -185,10 +203,10 @@ impl IntoView for Range {
         // ends. The keys then edit what was pressed or moved last.
         let track = ends.track(Orientation::Horizontal);
         let pressed = |state: Value<PartState>| memo(move || state.get().pressed);
-        let follow_press = move |pressed: Value<bool>, side: usize| {
+        let follow_press = move |pressed: Value<bool>, part: RangePart| {
             effect(move || {
                 if pressed.get() {
-                    active.set(side);
+                    active.set(part);
                 }
             });
         };
@@ -196,8 +214,12 @@ impl IntoView for Range {
         effect(move || {
             let now = bounded(value.get());
             match moved.get() {
-                Some(before) if before.0 != now.0 && before.1 == now.1 => active.set(0),
-                Some(before) if before.0 == now.0 && before.1 != now.1 => active.set(1),
+                Some(before) if before.0 != now.0 && before.1 == now.1 => {
+                    active.set(RangePart::Start)
+                }
+                Some(before) if before.0 == now.0 && before.1 != now.1 => {
+                    active.set(RangePart::End)
+                }
                 _ => {}
             }
             moved.set(Some(now));
@@ -207,18 +229,19 @@ impl IntoView for Range {
         if interval.is_some() {
             let info = kivact::memo(move || {
                 RegionInfo::new(
-                    RegionId(3),
+                    RangePart::Body.region(),
                     Kind::RangeBody,
                     interpolate(&interval_template.get(), &[("label", &label.get())]),
                 )
             });
-            let select = callback(move |_| active.set(2));
+            let select = callback(move |_| active.set(RangePart::Body));
             let body = region_parts::attachment(Kind::RangeBody, info, select).with(ends.body());
-            follow_press(pressed(body.state()), 2);
-            root = root.region(RegionId(3), body);
+            follow_press(pressed(body.state()), RangePart::Body);
+            root = root.region(RangePart::Body.region(), body);
         }
-        for (side, endpoint) in endpoints.into_iter().enumerate() {
-            let template = if side == 0 {
+        for part in [RangePart::Start, RangePart::End] {
+            let endpoint = endpoint_of(part);
+            let template = if part == RangePart::Start {
                 start_template
             } else {
                 end_template
@@ -229,10 +252,10 @@ impl IntoView for Range {
                 .thumb()
                 .focusable(false)
                 .name(move || interpolate(&template.get(), &[("label", &label.get())]))
-                .on_a11y(A11yAction::Select, move || active.set(side));
+                .on_a11y(A11yAction::Select, move || active.set(part));
             let state = control.state();
-            follow_press(memo(move || state.get().input.pressed), side);
-            root = root.region(RegionId(side as u64 + 1), control);
+            follow_press(memo(move || state.get().input.pressed), part);
+            root = root.region(part.region(), control);
         }
         root.part(track)
             .value_text(move || format!("{} – {}", value.get().0, value.get().1))
@@ -249,7 +272,7 @@ impl IntoView for Range {
                     d.rounded_rect(r, 3.0, color.get().with_alpha(0.35));
                     d.stroke_rect(r, 1.0, color.get().with_alpha(0.7));
                     if movable.get() {
-                        d.region(RegionId(3), r);
+                        d.region(RangePart::Body.region(), r);
                     }
                 } else {
                     d.rounded_rect(
@@ -263,7 +286,7 @@ impl IntoView for Range {
                         p.accent,
                     );
                 }
-                for (side, v) in [a, b].into_iter().enumerate() {
+                for (part, v) in [(RangePart::Start, a), (RangePart::End, b)] {
                     if interval.is_none() {
                         d.rounded_rect(
                             Rect::new(x(v) - 8.0, y - 8.0, 16.0, 16.0),
@@ -272,7 +295,7 @@ impl IntoView for Range {
                         );
                     }
                     d.region(
-                        RegionId(side as u64 + 1),
+                        part.region(),
                         Rect::new(x(v) - THUMB / 2.0, y - THUMB / 2.0, THUMB, THUMB),
                     );
                 }
@@ -282,7 +305,7 @@ impl IntoView for Range {
             .on_a11y_event(A11yAction::Increment, act)
             .on_a11y_event(A11yAction::Decrement, act)
             .on_key_default(move |e| {
-                let side = active.get();
+                let part = active.get();
                 let factor = if e.modifiers.ctrl {
                     0.1
                 } else if e.modifiers.shift {
@@ -290,7 +313,7 @@ impl IntoView for Range {
                 } else {
                     1.0
                 };
-                if side == 2 && movable.get() {
+                if part == RangePart::Body && movable.get() {
                     let v = bounded(value.get());
                     let delta = match e.key {
                         Key::ArrowLeft | Key::ArrowDown => -step * factor,
@@ -306,7 +329,7 @@ impl IntoView for Range {
                     });
                     return Handled::Yes;
                 }
-                let scalar = endpoints[side.min(1)];
+                let scalar = endpoint_of(part);
                 match e.key {
                     Key::ArrowLeft | Key::ArrowDown => ends.once(|| scalar.step_by(-factor)),
                     Key::ArrowRight | Key::ArrowUp => ends.once(|| scalar.step_by(factor)),

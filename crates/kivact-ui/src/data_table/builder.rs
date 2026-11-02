@@ -6,9 +6,9 @@ use crate::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column};
 use kivact_core::primitive::PartState;
 use kivact_core::style::Color;
-use kivact_core::view::{HandlerResult, IntoValue, IntoView, Role, SortDirection, callback};
+use kivact_core::view::{HandlerResult, IntoValue, IntoView, Role, callback};
 use kivact_core::{Binding, Value};
-use kivact_interaction::{ListPolicy, TableFocus};
+use kivact_interaction::{SortOrder, TableFocus};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -116,7 +116,6 @@ where
         details: None,
         cells: None,
         focus: TableFocus::default(),
-        policy: ListPolicy::default(),
         row_height: None,
         row_color: None,
         variants,
@@ -155,7 +154,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// reads the binding back, so the caller may set it too. Without it the
     /// headers sort in the table's own state, unless the table has an
     /// [`on_reorder`](Self::on_reorder), which then keeps the caller's order.
-    pub fn sort(mut self, sort: impl Into<Binding<Option<(usize, SortDirection)>>>) -> Self {
+    pub fn sort(mut self, sort: impl Into<Binding<Option<(usize, SortOrder)>>>) -> Self {
         self.sort = Some(sort.into());
         self
     }
@@ -266,16 +265,11 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Choose what takes the keyboard focus: a cell ([`TableFocus::Cells`],
     /// the default, with a check box for each row when the table has a
-    /// selection) or a row ([`TableFocus::Rows`]).
+    /// selection) or a row ([`TableFocus::Rows`]). The variant carries the
+    /// selection range policy (and, for rows, the whole list policy) of the
+    /// shared table.
     pub fn focus(mut self, focus: TableFocus) -> Self {
         self.focus = focus;
-        self
-    }
-
-    /// Set the row selection range and typeahead policy of the shared table;
-    /// see [`Table::policy`](kivact_interaction::Table::policy).
-    pub fn policy(mut self, policy: ListPolicy) -> Self {
-        self.policy = policy;
         self
     }
 

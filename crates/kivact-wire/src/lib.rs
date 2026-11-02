@@ -42,8 +42,8 @@ pub use drawing::{DrawingLayer, DrawingShape, LineCap, LineJoin, Pixels, ShapePa
 /// GPU texture sharing: how the window answered an import.
 pub use events::ExternalImport;
 pub use events::{
-    FilePhase, HostEnv, HostEvent, Key, KeyCode, Modifiers, MouseButton, PlatformResult,
-    PointerButtons, PointerEvent, PointerId, PointerKind, PointerPhase, ThemeHint,
+    ButtonPress, FilePhase, HostEnv, HostEvent, Key, KeyCode, KeyPhase, Modifiers, MouseButton,
+    PlatformResult, PointerButtons, PointerEvent, PointerId, PointerKind, PointerPhase, ThemeHint,
 };
 pub use grid::{
     Breadth, GridContainer, GridFlow, GridLine, GridPos, GridProps, GridTrack, Repeat, TrackSize,
@@ -59,8 +59,8 @@ pub use kivact_types::{
     SharedHandle, SharedTextureFormat, SharedTextures,
 };
 pub use kivact_types::{
-    Align, BorderStyle, FlexDirection, ImeEvent, Justify, LifecycleEvent, Overflow, Placement,
-    Position, RegionId, TextMetrics,
+    Align, BorderStyle, FlexDirection, ImeEvent, Justify, LifecycleEvent, Overflow, OverlayAlign,
+    Placement, Position, RegionId, ScrollAxes, TextMetrics,
 };
 pub use kivact_types::{Asset, ImageFit};
 pub use kivact_types::{DecorationLines, FillRule, Insets, Point, Rect, Size};
@@ -75,8 +75,8 @@ pub use measure::{
 pub use motion::MotionClock;
 pub use node::{
     BoxData, EditingData, FileDialogRequest, ImageData, ImeSession, IntrinsicSize, NodeInput,
-    NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayProps, PlacementAlign,
-    PlatformRequest, SceneLayer, TextData,
+    NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayAt, OverlayProps, PlatformRequest,
+    SceneLayer, TextData,
 };
 pub use paint::{
     BlendMode, Border, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners,
@@ -86,7 +86,8 @@ pub use paint::{
 pub use paint_vec::PaintVec;
 pub use scene::{Region, Scene, SceneCmd, TextRun};
 pub use semantics::{
-    A11yAction, LiveRegion, Orientation, Role, SemanticsProperties, SortDirection, check_text,
+    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
+    SemanticsProperties, SortDirection, check_text,
 };
 pub use style::{
     Cursor, ElementTransform, LayoutProps, PaintDelta, PaintProps, ScrollbarDelta, ScrollbarProps,

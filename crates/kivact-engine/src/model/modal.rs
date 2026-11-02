@@ -21,12 +21,13 @@
 //! - Admission ([`Model::admit_input`]) is decided once per event, when
 //!   kivact is about to dispatch it, so a modal an earlier event of the
 //!   same turn opened already applies. A node event (`Activate`, `A11y`,
-//!   `Wheel`, `File`, `TextChanged`, `SelectionChanged`, `OverlayDismiss`)
+//!   `Wheel`, `File`, `TextChanged`, `SelectionChanged`)
 //!   is admitted exactly when its node is in scope. A pointer event that
 //!   starts something (a `Down`, an `Enter`, a `Move` with no button held)
 //!   needs scope; the later `Move`, `Up` and `Cancel` of a gesture
 //!   admitted at its `Down` stay admitted on that node whatever modal
-//!   opens meanwhile, and the final release or the `Cancel` ends it. A
+//!   opens meanwhile, and the `Up` that leaves no button held or the
+//!   `Cancel` ends it. A
 //!   rejected event for another node does not end an admitted drag, and
 //!   `Leave` is always admitted. Events not aimed at a node pass. The
 //!   drag table lives in [`state::Admission`] and is borrowed inside one

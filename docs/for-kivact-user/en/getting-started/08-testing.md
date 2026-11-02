@@ -224,7 +224,7 @@ mod tests {
     fn checking_a_task_lowers_the_count() {
         let screen = open();
         screen.get_by_role(Role::CheckBox, "Buy milk").click();
-        assert_eq!(screen.get_by_role(Role::CheckBox, "Buy milk").is_checked(), Some(true));
+        assert_eq!(screen.get_by_role(Role::CheckBox, "Buy milk").checked(), Some(CheckedState::Checked));
         screen.get_by_text("2 left");
     }
 
@@ -254,7 +254,7 @@ mod tests {
 
 **Actions** are real input. `.click()` presses the element, `.type_text("..")` types into a text field and `.press_key(Key::Enter)` presses a key. They check that a user could really do it: clicking a disabled or covered element fails the test.
 
-**Assertions** read the state of an element: `.is_disabled()`, `.is_checked()` (an `Option<bool>`) and `.value()` (the text in a field). Use plain `assert!` and `assert_eq!` for these.
+**Assertions** read the state of an element: `.is_disabled()`, `.checked()` (an `Option<CheckedState>`) and `.value()` (the text in a field). Use plain `assert!` and `assert_eq!` for these.
 
 **Helpers keep tests short.** `open()` and `add()` are ordinary functions that hold the repeated steps. A fresh `render` per test also means that tests do not share state.
 

@@ -1,27 +1,33 @@
 //! Role: Gradient model writes and one shared edit transaction.
 use super::data::{GradientStop, position_value};
-use kivact::interaction::{Drag, EditSession};
+use crate::editors::shared::owned_edit::OwnedEdit;
+use kivact::interaction::Drag;
 use kivact::style::Color;
 use kivact::ui::EditPhase;
 use kivact::view::IntoValue;
 use kivact::{Binding, Callback, Signal, Value, Var, signal, var};
+/// Who began the active edit of the shared session.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Domain {
+pub(super) enum GradientOwner {
+    /// A drag of a stop on the ramp.
     Stop,
+    /// The position field.
     Position,
+    /// The color picker.
     Color,
+    /// A whole step: adding, removing or moving a stop by key.
+    Step,
 }
 type Snapshot = (Vec<GradientStop>, Option<usize>);
 #[derive(Clone, Copy)]
 pub(super) struct State {
     pub(super) stops: Binding<Vec<GradientStop>>,
     pub(super) selection: Binding<Option<usize>>,
-    pub(super) edit: EditSession<Snapshot>,
+    pub(super) edit: OwnedEdit<GradientOwner, Snapshot>,
     /// The ramp's drag of a stop, once the ramp made it.
     pub(super) drag: Var<Option<Drag<usize>>>,
     pub(super) blocked: Signal<bool>,
     pub(super) valid: Value<bool>,
-    pub(super) domain: Var<Option<Domain>>,
 }
 impl State {
     pub(super) fn new(
@@ -30,20 +36,13 @@ impl State {
         valid: Value<bool>,
         observer: Option<Callback<EditPhase>>,
     ) -> Self {
-        // Every edit, a drag's or a field's, ends its domain when it ends.
-        let domain = var(None);
-        let edit = EditSession::new(move |(data, selected): Snapshot| {
-            stops.set(data);
-            selection.set(selected);
-        })
-        .on_edit(move |phase| {
-            if phase != EditPhase::Begin {
-                domain.set(None);
-            }
-            if let Some(observer) = observer {
-                observer.call(phase);
-            }
-        });
+        let edit = OwnedEdit::new(
+            move |(data, selected): Snapshot| {
+                stops.set(data);
+                selection.set(selected);
+            },
+            observer,
+        );
         Self {
             stops,
             selection,
@@ -51,7 +50,6 @@ impl State {
             drag: var(None),
             blocked: signal(false),
             valid,
-            domain,
         }
     }
     pub(super) fn enabled(self) -> bool {
@@ -70,14 +68,12 @@ impl State {
             self.selection.into_value().get_untracked(),
         )
     }
-    pub(super) fn begin(self) {
-        self.edit.begin(self.snapshot());
-    }
     pub(super) fn once(self, write: impl FnOnce()) {
         if !self.enabled() || self.edit.is_active() {
             return;
         }
-        self.edit.once(self.snapshot(), write);
+        self.edit
+            .once(GradientOwner::Step, || self.snapshot(), write);
     }
     pub(super) fn selected(self) -> Option<GradientStop> {
         let id = self.selection.into_value().get_untracked()?;
@@ -102,7 +98,7 @@ impl State {
         });
     }
     pub(super) fn color(self, color: Color) {
-        if !self.enabled() || self.domain.get() != Some(Domain::Color) || !self.edit.is_active() {
+        if !self.enabled() || self.edit.owner() != Some(GradientOwner::Color) {
             return;
         }
         let Some(id) = self.selection.into_value().get_untracked() else {
@@ -151,20 +147,17 @@ impl State {
             self.selection.set(Some(id));
         });
     }
-    pub(super) fn phase(self, domain: Domain, phase: EditPhase) {
+    /// A phase of an edit that `owner` reports.
+    pub(super) fn phase(self, owner: GradientOwner, phase: EditPhase) {
         if !self.enabled() {
             return;
         }
         match phase {
-            EditPhase::Begin if !self.edit.is_active() => {
-                self.domain.set(Some(domain));
-                self.begin();
+            EditPhase::Begin => self.edit.begin(owner, self.snapshot()),
+            EditPhase::Commit => self.edit.commit(owner),
+            EditPhase::Cancel => {
+                self.edit.cancel_owned(owner);
             }
-            EditPhase::Commit if self.domain.get() == Some(domain) => self.edit.commit(),
-            EditPhase::Cancel if self.domain.get() == Some(domain) => {
-                self.edit.cancel();
-            }
-            _ => {}
         }
     }
 }

@@ -18,7 +18,7 @@
 //!   UTF-16 code units of that text, which starts at byte 0, and reach the
 //!   node as byte offsets (clamped to the text).
 
-use super::state::SessionSource;
+use super::state::{ImeGiven, SessionSource};
 use crate::model::Model;
 use crate::model::interact::text_geometry::byte_of_utf16;
 use crate::model::transform::map_rect;
@@ -102,12 +102,16 @@ impl Model {
     pub(super) fn session_ime_changed(&mut self, id: NodeId) -> Option<arvane::ShellImeText> {
         let session = self.session(id)?.clone();
         let t = self.transform_between(id, None);
-        let source: SessionSource = (id, session.clone(), self.rect(id), t);
-        if self.edits.session_from.as_ref() == Some(&source) {
+        let source = SessionSource {
+            node: id,
+            session: session.clone(),
+            area: self.rect(id),
+            transform: t,
+        };
+        if matches!(&self.edits.given, ImeGiven::Session(given) if *given == source) {
             return None;
         }
-        self.edits.session_from = Some(source);
-        self.edits.ime_start = 0;
+        self.edits.given = ImeGiven::Session(source);
         let caret = self.session_rect(id, session.caret);
         let area = self.rect(id).unwrap_or_default();
         let area = map_rect(self.transform_between(id, None).as_ref(), area);

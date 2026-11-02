@@ -10,8 +10,8 @@
 //! is pending for the whole tree is a flag. A bit means what the set it
 //! replaced meant: `WRITTEN` (its own props, scenes or children were
 //! written), `CHILDREN` (its list of children, or how one of them is
-//! drawn among its siblings, changed: its child index is dropped; it is
-//! always `WRITTEN` too), `REDRAW` (its drawing changed without a write: focus, hover or
+//! drawn among its siblings, changed: its child index is dropped; set only by
+//! [`Changes::regroup`], which also sets `WRITTEN`), `REDRAW` (its drawing changed without a write: focus, hover or
 //! pressed flipped, a text input's value, selection or composition moved,
 //! an ancestor's text style changed, a layout moved its box), `MEASURE`
 //! (its measured content changed), `LAYOUT_STYLE` (its layout style is
@@ -29,6 +29,9 @@
 //!   is forgotten whole ([`Changes::forget`]).
 //! - `sync` takes `LAYOUT_STYLE` before `LAYOUT_CHAIN`; `MEASURE` is the one
 //!   bit that survives a sync (until a layout pass takes it).
+//! - Positions are one [`Geometry`]. `sync` takes what it dispatches with
+//!   [`Changes::dispatch`], which leaves `MEASURE`, `needs_layout`,
+//!   `layout_changed` and `viewport_chain` for the layout pass.
 
 use std::collections::{HashMap, HashSet};
 
@@ -44,7 +47,7 @@ impl Dirty {
     /// Its drawing changed without a write of its own.
     pub(crate) const REDRAW: Self = Self(1 << 1);
     /// Its children changed (attached, removed, or sticky or fixed anew).
-    pub(crate) const CHILDREN: Self = Self(1 << 7);
+    const CHILDREN: Self = Self(1 << 7);
     /// Its measured content changed.
     pub(crate) const MEASURE: Self = Self(1 << 2);
     /// Its layout style is built again.
@@ -91,16 +94,27 @@ impl Dirty {
     }
 }
 
+/// How far boxes may have moved since the last sync.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Geometry {
+    /// No box moved.
+    #[default]
+    Kept,
+    /// Positions may have moved without a layout computation (a scroll offset, a
+    /// sticky shift, a moving transform, a placement): positions are drawn again.
+    Moved,
+    /// The layout was computed: any box may have moved or resized.
+    LaidOut,
+}
+
 /// Pending work; only sync dispatches visual invalidation.
 #[derive(Default)]
 pub(crate) struct Changes {
     /// What is pending for each node (see the module docs).
     pub(super) dirty: HashMap<NodeId, Dirty>,
-    /// Positions may have moved: the layout was computed, or a scroll
-    /// offset changed (a host caching positions draws them again).
-    pub(super) moved: bool,
-    /// The layout was computed: any box may have moved or resized.
-    pub(super) laid_out: bool,
+    /// How far boxes may have moved (a host caching positions draws them
+    /// again).
+    pub(super) geometry: Geometry,
     pub(super) needs_layout: bool,
     pub(super) paint: bool,
     pub(super) restack: bool,
@@ -110,6 +124,57 @@ pub(crate) struct Changes {
     pub(super) a11y_removed: HashSet<NodeId>,
     pub(super) a11y_focus: bool,
     pub(super) layout_changed: bool,
+    /// The viewport's layout cache is outdated (a fixed box came or went).
+    pub(super) viewport_chain: bool,
+}
+
+/// What one sync dispatches into derived work (`Changes::dispatch`).
+pub(crate) struct Dispatched {
+    dirty: HashMap<NodeId, Dirty>,
+    pub(crate) geometry: Geometry,
+    pub(crate) paint: bool,
+    pub(crate) restack: bool,
+    pub(crate) fonts: bool,
+    pub(crate) a11y_structure: bool,
+    pub(crate) a11y_subtrees: HashSet<NodeId>,
+    pub(crate) a11y_removed: HashSet<NodeId>,
+    pub(crate) a11y_focus: bool,
+}
+
+impl Dispatched {
+    /// Whether any node has any bit of `bits`.
+    pub(crate) fn any(&self, bits: Dirty) -> bool {
+        self.dirty.values().any(|d| d.intersects(bits))
+    }
+
+    /// The nodes with any bit of `bits`.
+    pub(crate) fn marked(&self, bits: Dirty) -> impl Iterator<Item = NodeId> + '_ {
+        self.dirty
+            .iter()
+            .filter(move |(_, d)| d.intersects(bits))
+            .map(|(id, _)| *id)
+    }
+
+    /// What is pending for `id`.
+    pub(crate) fn flags(&self, id: NodeId) -> Dirty {
+        self.dirty.get(&id).copied().unwrap_or_default()
+    }
+
+    /// Whether the layout was computed.
+    pub(crate) fn was_laid_out(&self) -> bool {
+        self.geometry == Geometry::LaidOut
+    }
+
+    /// The nodes whose children changed.
+    pub(crate) fn regrouped(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.marked(Dirty::CHILDREN)
+    }
+
+    /// The nodes whose drawing changed, with or without a write, and the
+    /// scroll containers whose content moved.
+    pub(crate) fn redrawn(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.marked(Dirty::WRITTEN.union(Dirty::REDRAW).union(Dirty::SCROLLED))
+    }
 }
 
 impl Changes {
@@ -126,9 +191,44 @@ impl Changes {
         self.dirty.entry(id).or_default().insert(bits);
     }
 
-    /// Whether any node has any bit of `bits`.
-    pub(super) fn any(&self, bits: Dirty) -> bool {
-        self.dirty.values().any(|d| d.intersects(bits))
+    /// Positions may have moved (no layout computation).
+    pub(crate) fn moved(&mut self) {
+        self.geometry = self.geometry.max(Geometry::Moved);
+    }
+
+    /// The list of children of `parent`, or how one of them is drawn among its
+    /// siblings, changed: it is written, and its child index is dropped.
+    pub(crate) fn regroup(&mut self, parent: NodeId) {
+        self.mark(parent, Dirty::WRITTEN.union(Dirty::CHILDREN));
+    }
+
+    /// The viewport's layout cache is outdated (a fixed box came or went).
+    pub(crate) fn outdate_viewport(&mut self) {
+        self.viewport_chain = true;
+    }
+
+    /// Take what one sync dispatches. `MEASURE` bits, `needs_layout`,
+    /// `layout_changed` and `viewport_chain` stay: the layout pass takes them.
+    pub(super) fn dispatch(&mut self) -> Dispatched {
+        let mut dirty = std::mem::take(&mut self.dirty);
+        dirty.retain(|id, d| {
+            if d.contains(Dirty::MEASURE) {
+                self.dirty.insert(*id, Dirty::MEASURE);
+                d.remove(Dirty::MEASURE);
+            }
+            !d.is_empty()
+        });
+        Dispatched {
+            dirty,
+            geometry: std::mem::take(&mut self.geometry),
+            paint: std::mem::take(&mut self.paint),
+            restack: std::mem::take(&mut self.restack),
+            fonts: std::mem::take(&mut self.fonts),
+            a11y_structure: std::mem::take(&mut self.a11y_structure),
+            a11y_subtrees: std::mem::take(&mut self.a11y_subtrees),
+            a11y_removed: std::mem::take(&mut self.a11y_removed),
+            a11y_focus: std::mem::take(&mut self.a11y_focus),
+        }
     }
 
     /// The nodes with any bit of `bits`.
@@ -171,14 +271,13 @@ impl Changes {
         for id in geometry_changed {
             self.mark(id, Dirty::REDRAW);
         }
-        self.moved = true;
-        self.laid_out = true;
+        self.geometry = Geometry::LaidOut;
     }
 
     /// The scroll container `id` moved its content.
     pub(crate) fn scrolled(&mut self, id: NodeId) {
         self.needs_layout = true;
-        self.moved = true;
+        self.moved();
         self.mark(id, Dirty::SCROLLED);
     }
 
@@ -189,28 +288,17 @@ impl Changes {
 
     /// The sticky box `id` moved with its scrollport.
     pub(crate) fn stuck(&mut self, id: NodeId) {
-        self.moved = true;
+        self.moved();
         self.mark(id, Dirty::STUCK);
     }
 
     /// Whether the last layout pass computed the tree.
     pub(crate) fn was_laid_out(&self) -> bool {
-        self.laid_out
+        self.geometry == Geometry::LaidOut
     }
 
     /// The nodes a write touched (their own props, scenes or children).
     pub(crate) fn touched(&self) -> impl Iterator<Item = NodeId> + '_ {
         self.marked(Dirty::WRITTEN)
-    }
-
-    /// The nodes whose children changed.
-    pub(crate) fn regrouped(&self) -> impl Iterator<Item = NodeId> + '_ {
-        self.marked(Dirty::CHILDREN)
-    }
-
-    /// The nodes whose drawing changed, with or without a write, and the
-    /// scroll containers whose content moved.
-    pub(crate) fn redrawn(&self) -> impl Iterator<Item = NodeId> + '_ {
-        self.marked(Dirty::WRITTEN.union(Dirty::REDRAW).union(Dirty::SCROLLED))
     }
 }

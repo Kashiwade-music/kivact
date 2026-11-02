@@ -224,7 +224,7 @@ fn context_menu() -> impl IntoView {
 }
 ```
 
-- 項目の種類は `item`、`radio`、`heading`（見出し）、`separator`、`submenu(key, label, entries)` です。項目には `.icon(name)`、`.shortcut(text)`、`.disabled(true)`、`.destructive(true)`、`.checked(bool)` を付けられます。
+- 項目の種類は `item`、`checkbox(key, label, checked)`、`radio`、`heading`（見出し）、`separator`、`submenu(key, label, entries)` です。項目には `.icon(name)`、`.shortcut(text)`、`.disabled(true)`、`.destructive(true)` を付けられます。項目の種類に当てはまらない修飾は使い方の誤りです。
 - メニューは状態を持ちません。チェック項目やラジオ項目では、`entries` に signal を読むクロージャを渡し、`.keep_open(true)` を付けて、選んでもメニューが閉じないようにします。`choose` のクロージャが signal を更新し、次の一覧に新しい印が反映されます。
 
 ```rust,no_run
@@ -236,7 +236,7 @@ fn view_menu() -> impl IntoView {
     let entries = move || {
         vec![
             MenuEntry::heading("Appearance"),
-            MenuEntry::item("status", "Status bar").checked(status.get()).keep_open(true),
+            MenuEntry::checkbox("status", "Status bar", status.get()).keep_open(true),
             MenuEntry::separator(),
             MenuEntry::radio("top", "Top", position.get() == "top").keep_open(true),
             MenuEntry::radio("bottom", "Bottom", position.get() == "bottom").keep_open(true),

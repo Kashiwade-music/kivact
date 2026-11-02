@@ -10,15 +10,15 @@ use std::rc::Rc;
 use kivact::control::{NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::message_with;
 use kivact::interaction::{
-    DragCoordinates, DragPhase, DragUpdate, EditPhase, List, ListPolicy, ListSelection, use_drag,
+    DragCoordinates, DragPhase, DragUpdate, List, ListPolicy, ListSelection, use_drag,
     use_list as make_list,
 };
 use kivact::style::{Align, Cursor, Direction, Overflow, style};
 use kivact::view::{
-    Handled, IntoView, Key, MouseButton, PointerPhase, Role, View, callback, dynamic, for_each,
-    node_ref, show,
+    ButtonPress, Handled, IntoView, Key, MouseButton, PointerPhase, Role, View, callback, dynamic,
+    for_each, node_ref, show,
 };
-use kivact::{Callback, Value, binding, memo, var};
+use kivact::{Callback, Value, binding, memo, signal, var};
 
 use super::data::{DockCx, MenuInput, TabDrag, Texts};
 use super::geometry::{STRIP, drop_target};
@@ -83,8 +83,8 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
             })
         },
         ListSelection::Single(selected),
-    )
-    .policy(ListPolicy::tabs());
+        ListPolicy::tabs(),
+    );
     let strip = node()
         .part(group.list().role(Role::TabList))
         .child(for_each(
@@ -162,7 +162,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     let member_ref = member.node_ref();
     let member_state = member.state();
     cx.register_rect(id, member_ref.rect());
-    let renaming = move || cx.renaming.with(|r| r.as_ref() == Some(&key.get()));
+    let renaming = move || cx.rename.is_open(&key.get());
     // A renamed tab does not drag; the press still reaches the tab's selection.
     let tab_drag = use_drag::<()>(DragCoordinates::Window)
         .disabled(renaming)
@@ -194,10 +194,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
                 cx.edit(|layout| layout.move_tab(&key.get(), placement));
             }
         });
-    let start_rename = move || {
-        cx.draft.set(title.get_untracked());
-        cx.renaming.set(Some(key.get()));
-    };
+    let start_rename = move || cx.rename.open(key.get());
     let dragged = move || {
         cx.drag
             .with(|d| d.as_ref().is_some_and(|d| d.source == key.get()))
@@ -216,22 +213,16 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         move || text(title).style(style().shrink(1).min_width(0)),
     );
     let editor = show(renaming, move || {
-        let field = node_ref();
-        kivact::on_mount(move || {
-            field.focus();
-            field.select_all();
-        });
-        kivact::ui::text_input(texts.rename, cx.draft)
-            .node_ref(field)
+        cx.rename
+            .field(
+                key.get(),
+                texts.rename,
+                signal(title.get_untracked()),
+                move |name| {
+                    cx.edit(|layout| layout.rename(&key.get(), name));
+                },
+            )
             .style(style().width(120).height(22))
-            .draft(move |name| {
-                cx.edit(|layout| layout.rename(&key.get(), name));
-            })
-            .on_edit(move |phase| {
-                if phase != EditPhase::Begin {
-                    cx.renaming.set(None);
-                }
-            })
             .return_focus(member_ref)
     });
     let close = kivact::ui::button(message_with(
@@ -246,7 +237,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     .style(style().size(16, 16).padding(0).radius(4))
     // Presses on the close button never start a tab drag or rename.
     .on_pointer_default(|event| {
-        if event.phase == PointerPhase::Down {
+        if matches!(event.phase, PointerPhase::Down(_)) {
             Handled::Yes
         } else {
             Handled::No
@@ -271,10 +262,13 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         .part(member)
         .child((glyph, label, editor, close))
         .on_pointer_default(move |event| {
-            if event.phase == PointerPhase::Down
-                && event.button == Some(MouseButton::Primary)
-                && event.click_count > 1
-            {
+            if matches!(
+                event.phase,
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    clicks: 2..
+                })
+            ) {
                 tab_drag.cancel();
                 cx.drag.set(None);
                 // The panel's icon maximizes, its title renames.

@@ -16,12 +16,6 @@ const MARGIN: f32 = 2.0;
 /// Containers with at least this many children keep a [`ChildIndex`].
 const INDEXED: usize = 32;
 
-/// No color matrix (an index into [`PaintList::matrices`]).
-pub(crate) const NO_MATRIX: u32 = u32::MAX;
-
-/// No transform (an index into [`PaintList::transforms`]).
-pub(crate) const NO_TRANSFORM: u32 = u32::MAX;
-
 struct Walk<'a> {
     host: &'a Model,
     margin: f32,
@@ -43,7 +37,14 @@ impl Walk<'_> {
     /// List `id` and its subtree; `origin` is its untransformed layout
     /// box's origin and `clip` the area its ancestors let it draw in
     /// (grown by the margin), both in its parent's own space.
-    fn node(&mut self, id: NodeId, origin: Point, parent_alpha: f32, matrix: u32, clip: Rect) {
+    fn node(
+        &mut self,
+        id: NodeId,
+        origin: Point,
+        parent_alpha: f32,
+        matrix: Option<u32>,
+        clip: Rect,
+    ) {
         let host = self.host;
         let Some(n) = host.node(id) else {
             return;
@@ -78,7 +79,7 @@ impl Walk<'_> {
                     x: origin.x + t.e,
                     y: origin.y + t.f,
                 };
-                (NO_TRANSFORM, clip, o)
+                (None, clip, o)
             }
             Some(t) => {
                 let t = crate::model::transform::placed(t, origin);
@@ -88,9 +89,9 @@ impl Walk<'_> {
                 };
                 self.transforms.push(t);
                 let index = (self.transforms.len() - 1) as u32;
-                (index, map_rect(Some(&back), clip), origin)
+                (Some(index), map_rect(Some(&back), clip), origin)
             }
-            None => (NO_TRANSFORM, clip, origin),
+            None => (None, clip, origin),
         };
         let clips = n.clips();
         // Group opacity over more than one thing it draws.
@@ -121,7 +122,7 @@ impl Walk<'_> {
             parent_alpha * look.opacity
         };
         let own_matrix = match look.recolor {
-            Some(own) => self.matrix(own, matrix),
+            Some(own) => Some(self.matrix(own, matrix)),
             None => matrix,
         };
         let step = Step {
@@ -138,7 +139,7 @@ impl Walk<'_> {
             parent_matrix: matrix,
             clip,
         };
-        let listed = visible || layers > 0 || transform != NO_TRANSFORM;
+        let listed = visible || layers > 0 || transform.is_some();
         if listed {
             self.out.push(Entry::Open(step));
         }
@@ -162,10 +163,7 @@ impl Walk<'_> {
         };
         self.children(id, n, base, alpha, own_matrix, child_clip);
         if listed
-            && (clips
-                || layers > 0
-                || transform != NO_TRANSFORM
-                || (visible && n.scenes()[1].is_some()))
+            && (clips || layers > 0 || transform.is_some() || (visible && n.scenes()[1].is_some()))
         {
             self.out.push(Entry::Close(step));
         }
@@ -173,8 +171,8 @@ impl Walk<'_> {
 
     /// The index of the color matrix of a node with the color filters
     /// `own`: its color filters, then its ancestors' (`parent`).
-    fn matrix(&mut self, own: ColorMatrix, parent: u32) -> u32 {
-        let m = match self.matrices.get(parent as usize) {
+    fn matrix(&mut self, own: ColorMatrix, parent: Option<u32>) -> u32 {
+        let m = match parent.and_then(|p| self.matrices.get(p as usize)) {
             Some(p) => own.then(*p),
             None => own,
         };
@@ -190,7 +188,7 @@ impl Walk<'_> {
         n: &HostNode,
         base: Point,
         alpha: f32,
-        matrix: u32,
+        matrix: Option<u32>,
         clip: Rect,
     ) {
         let host = self.host;
@@ -280,10 +278,10 @@ impl Model {
                 transforms: Vec::new(),
             };
             if let Some(root) = self.tree().root() {
-                walk.node(root, Point::default(), 1.0, NO_MATRIX, viewport);
+                walk.node(root, Point::default(), 1.0, None, viewport);
             }
             for (layer, origin) in self.layers() {
-                walk.node(layer, origin, 1.0, NO_MATRIX, viewport);
+                walk.node(layer, origin, 1.0, None, viewport);
             }
             let Walk {
                 out,

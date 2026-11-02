@@ -8,9 +8,8 @@
 //! one [`List`]: its registry, selection and navigation. The
 //! rows are metadata ([`TreeRow`]); `list` and `item` are the `Tree` and
 //! `TreeItem` parts, with [`TreeItemState`] (`input`, `selected`, `active`,
-//! `expanded`, `has_children`, `level`). Only a parent has `expanded` and
-//! Expand/Collapse, so a row's part is built for its `(key, has_children)`
-//! identity while the other metadata stays reactive. The tree adds no
+//! `branch`, `level`). Only a parent has Expand/Collapse, so a row's part
+//! is built for its `(key, has_children)` identity while the other metadata stays reactive. The tree adds no
 //! `scroll_with` or `page_size` of its own; single selection is
 //! `ListSelection::Single`. The Creative outliner is built on a
 //! `Tree<u64>`.
@@ -24,11 +23,11 @@ use std::rc::Rc;
 
 use kivact_core::primitive::{Owned, Owner, Part, PartState};
 
+use super::press::is_double_press;
 use super::{List, ListItem, ListPolicy, ListRangePolicy, ListSelection, use_list};
 use kivact_core::view::A11yAction;
 use kivact_core::view::{
-    Handled, IntoText, IntoValue, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Reactive,
-    Role, callback,
+    Handled, IntoText, IntoValue, Key, KeyEvent, PointerEvent, Reactive, Role, callback,
 };
 use kivact_core::{Binding, Callback, Signal, Value, memo, signal};
 
@@ -89,10 +88,33 @@ impl<K> TreeNode<K> {
     }
 }
 
+/// Whether a tree row is a parent and whether its children are shown.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TreeBranch {
+    /// The row has no children (the ones that match, while a filter is set).
+    Leaf,
+    /// The row has children and they are hidden.
+    Collapsed,
+    /// The row has children and they are shown.
+    Expanded,
+}
+
+impl TreeBranch {
+    /// Whether the row is a parent.
+    pub fn has_children(self) -> bool {
+        self != Self::Leaf
+    }
+
+    /// Whether the children are shown.
+    pub fn is_expanded(self) -> bool {
+        self == Self::Expanded
+    }
+}
+
 /// A row of the flattened tree: what a kit needs to draw it.
 ///
-/// Key `for_each` rows by `(key, has_children)` so a parent/leaf transition
-/// rebuilds the row Part and its accessibility action set.
+/// Key `for_each` rows by `(key, branch.has_children())` so a parent/leaf
+/// transition rebuilds the row Part and its accessibility action set.
 #[derive(Clone, PartialEq, Debug)]
 pub struct TreeRow<K> {
     pub key: K,
@@ -103,10 +125,8 @@ pub struct TreeRow<K> {
     /// The position among the siblings, counted from 1.
     pub pos_in_set: u32,
     /// Whether the node has children (the ones that match, while a filter is
-    /// set).
-    pub has_children: bool,
-    /// Whether the children are shown. Always `false` without children.
-    pub expanded: bool,
+    /// set) and whether they are shown.
+    pub branch: TreeBranch,
 }
 
 /// A shown row with the parts of its node that a row reads.
@@ -242,10 +262,15 @@ fn flatten<K: Clone + Eq + Hash>(
             }
         };
         level[node] = parent_level + 1;
-        let has_children = kept_children[node] > 0;
-        let is_expanded = has_children && (filtering || expanded.contains(&forest.keys[node]));
+        let branch = if kept_children[node] == 0 {
+            TreeBranch::Leaf
+        } else if filtering || expanded.contains(&forest.keys[node]) {
+            TreeBranch::Expanded
+        } else {
+            TreeBranch::Collapsed
+        };
         // The children of a row are shown when the row is and is open.
-        open[node] = shown && is_expanded;
+        open[node] = shown && branch.is_expanded();
         if shown {
             let source = &nodes[forest.src[node]];
             out.push(Entry {
@@ -254,8 +279,7 @@ fn flatten<K: Clone + Eq + Hash>(
                     level: level[node],
                     set_size,
                     pos_in_set,
-                    has_children,
-                    expanded: is_expanded,
+                    branch,
                 },
                 label: source.label.get(),
                 disabled: source.disabled,
@@ -283,8 +307,7 @@ pub struct TreeItemState {
     pub input: PartState,
     pub selected: bool,
     pub active: bool,
-    pub expanded: bool,
-    pub has_children: bool,
+    pub branch: TreeBranch,
     pub level: u32,
 }
 
@@ -297,7 +320,7 @@ pub struct TreeItemState {
 /// (its indentation, its marker, its button to open and close) and `Tree`
 /// adds the role, the state and the behavior. `Tree` is `Copy`, so one value
 /// serves the container and every row. [`rows`](Self::rows) is the list to
-/// draw, in tree order. Key the `for_each` by `(key, has_children)`: a row
+/// draw, in tree order. Key the `for_each` by `(key, branch.has_children())`: a row
 /// reads its level, position, expanded state and label as they change, but
 /// whether it is a parent is decided when it is built.
 ///
@@ -353,7 +376,7 @@ pub struct TreeItemState {
 ///     let tree = use_tree(nodes, expanded, ListSelection::Multiple(selected.into()));
 ///     let rows = for_each(
 ///         tree.rows(),
-///         |row| (row.key, row.has_children),
+///         |row| (row.key, row.branch.has_children()),
 ///         move |_, row| {
 ///             let row = row.get_untracked();
 ///             let key = row.key;
@@ -428,10 +451,14 @@ pub fn use_tree<K: Clone + Eq + Hash + 'static>(
                 .collect::<Vec<_>>()
         })
     });
-    let list = use_list(items, selection).policy(ListPolicy {
-        typeahead: true,
-        ..ListPolicy::default()
-    });
+    let list = use_list(
+        items,
+        selection,
+        ListPolicy {
+            typeahead: true,
+            ..ListPolicy::default()
+        },
+    );
     // The active row that a closing parent hid is replaced by the
     // nearest ancestor that is still shown.
     let list = list.on_leave(move |gone: &K| {
@@ -475,14 +502,10 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
             .expect("invariant: controller state has its original type")
     }
 
-    /// Configure modifier gestures for multiple selection before creating Parts.
+    /// Configure modifier gestures for multiple selection. Setup only.
     #[track_caller]
     pub fn policy(self, policy: ListRangePolicy) -> Self {
-        self.state().list.policy(ListPolicy {
-            typeahead: true,
-            range: policy,
-            ..ListPolicy::default()
-        });
+        self.state().list.retune(|list| list.range = policy);
         self
     }
 
@@ -552,7 +575,7 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
 
     /// Attach one visible row's semantics and behavior to a node or region.
     /// Metadata updates reactively. Hidden and absent rows are ineligible.
-    /// Key caller `for_each` rows by `(key, has_children)`: parent/leaf changes
+    /// Key caller `for_each` rows by `(key, branch.has_children())`: parent/leaf changes
     /// must rebuild the Part because Expand and Collapse are set at setup.
     /// A canvas caller likewise replaces declaration identity on that change.
     #[track_caller]
@@ -564,8 +587,11 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
             let key = key.clone();
             move || info.with(|info| info.get(&key).cloned())
         });
-        let parent =
-            live.with_untracked(|entry| entry.as_ref().is_some_and(|entry| entry.row.has_children));
+        let parent = live.with_untracked(|entry| {
+            entry
+                .as_ref()
+                .is_some_and(|entry| entry.row.branch.has_children())
+        });
         let for_key = key.clone();
         let for_pointer = key.clone();
         let mut part = state
@@ -575,9 +601,11 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
                 input: state.input,
                 selected: state.selected,
                 active: state.active,
-                expanded: live.with(|entry| entry.as_ref().is_some_and(|entry| entry.row.expanded)),
-                has_children: live
-                    .with(|entry| entry.as_ref().is_some_and(|entry| entry.row.has_children)),
+                branch: live.with(|entry| {
+                    entry
+                        .as_ref()
+                        .map_or(TreeBranch::Leaf, |entry| entry.row.branch)
+                }),
                 level: live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.level)),
             })
             .role(Role::TreeItem)
@@ -591,10 +619,7 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
             })
             .on_key(move |event: KeyEvent| this.on_key(&for_key, &event))
             .on_pointer(move |event: PointerEvent| {
-                if event.phase == PointerPhase::Down
-                    && event.button == Some(MouseButton::Primary)
-                    && event.click_count == 2
-                {
+                if is_double_press(&event) {
                     this.activate(&for_pointer);
                 }
                 Handled::No
@@ -603,7 +628,11 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
             let for_open = key.clone();
             part = part
                 .expanded(move || {
-                    live.with(|entry| entry.as_ref().is_some_and(|entry| entry.row.expanded))
+                    live.with(|entry| {
+                        entry
+                            .as_ref()
+                            .is_some_and(|entry| entry.row.branch.is_expanded())
+                    })
                 })
                 .on_a11y(A11yAction::Expand, move || {
                     Self::set_open(&this.state(), &for_open, true);
@@ -665,10 +694,10 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
         let Some(entry) = Self::entry(state, from) else {
             return Handled::No;
         };
-        if !entry.row.has_children {
+        if !entry.row.branch.has_children() {
             return Handled::Yes;
         }
-        if !entry.row.expanded {
+        if !entry.row.branch.is_expanded() {
             Self::set_open(state, from, true);
             return Handled::Yes;
         }
@@ -697,7 +726,7 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
         let filtering = state
             .filter
             .with_untracked(|query| !query.get_untracked().is_empty());
-        if entry.row.expanded && !filtering {
+        if entry.row.branch.is_expanded() && !filtering {
             Self::set_open(state, from, false);
             return Handled::Yes;
         }

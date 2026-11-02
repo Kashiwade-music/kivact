@@ -2,8 +2,8 @@
 //!
 //! Backends deliver ordered [`ShellEvent`] values on their UI thread, using
 //! logical window pixels for input coordinates and nanoseconds for deadlines.
-//! [`ShellOptions`] configures a window; [`ShellControl`] chooses its next wake
-//! and [`ShellWaker`] lets workers notify its event loop. [`ShellError`] separates
+//! [`ShellOptions`] configures a window; [`ShellControl`] says whether the loop
+//! waits, wakes at a deadline or exits, and [`ShellWaker`] lets workers notify its event loop. [`ShellError`] separates
 //! unsupported platform services from failures of an available service.
 //!
 //! The mouse, touch and pen arrive as one [`ShellEvent::Pointer`]. [`Mouse`]

@@ -1,6 +1,7 @@
 //! Role: Paint one node's scene: reuse its cached lowering or lower each command.
 
 use super::state::State;
+use crate::SceneOut;
 use crate::context::Context;
 use crate::effects::Tint;
 use crate::scene_cache::Entry;
@@ -17,7 +18,7 @@ impl Context<'_> {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut SceneOut,
     ) {
         #[cfg(feature = "gpu-interop")]
         let cacheable = !scene
@@ -32,24 +33,24 @@ impl Context<'_> {
         }
         let raster = self.raster.get().to_bits();
         // Drop the cache borrow before refreshing resource usage.
-        let (cached, prefix) = {
-            let mut cache = self.scene_cache.borrow_mut();
-            let prefix = cache.prefix_depth(out);
-            (cache.get(scene, inherited, raster, tint), prefix)
-        };
+        let prefix = out.open();
+        let cached = self
+            .scene_cache
+            .borrow_mut()
+            .get(scene, inherited, raster, tint);
         if let Some(entry) = cached {
             if prefix + entry.max_depth + 1 > arvane::MAX_SCENE_DEPTH {
                 self.lower_scene(scene, inherited, origin, tint, engine, out);
                 return;
             }
             if self.resources_match(&entry.dependencies) {
-                append(out, &entry.lowered, origin);
+                append(out, &entry.lowered.commands, origin);
                 return;
             }
         }
         let checkpoint = self.checkpoint();
-        let mut lowered = kivact_types::protocol::Scene::default();
-        *self.dependencies.borrow_mut() = Some(Vec::new());
+        let mut lowered = SceneOut::default();
+        let mark = self.dependencies.borrow().len();
         self.lower_scene(
             scene,
             inherited,
@@ -62,18 +63,15 @@ impl Context<'_> {
             engine,
             &mut lowered,
         );
-        let dependencies = self
-            .dependencies
-            .borrow_mut()
-            .take()
-            .expect("invariant: scene lowering records dependencies");
-        let max_depth = crate::scene_cache::payload_depth(&lowered);
+        let dependencies = self.dependencies.borrow()[mark..].to_vec();
+        let max_depth = lowered.deepest();
+        let lowered = lowered.into_scene();
         if prefix + max_depth + 1 > arvane::MAX_SCENE_DEPTH {
             self.restore(checkpoint);
             self.lower_scene(scene, inherited, origin, tint, engine, out);
             return;
         }
-        append(out, &lowered, origin);
+        append(out, &lowered.commands, origin);
         if self.succeeded_since(&checkpoint) {
             self.scene_cache.borrow_mut().insert(Entry {
                 scene: Arc::downgrade(scene),
@@ -95,7 +93,7 @@ impl Context<'_> {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut crate::SceneOut,
     ) {
         let raster = self.raster.get();
         let mut state = State::new(inherited, engine, out, origin, *tint);
@@ -110,17 +108,12 @@ impl Context<'_> {
     }
 }
 
-fn append(
-    out: &mut kivact_types::protocol::Scene,
-    local: &kivact_types::protocol::Scene,
-    origin: Rect,
-) {
-    out.commands
-        .push(D::PushTransform(kivact_types::protocol::Transform {
-            e: origin.x,
-            f: origin.y,
-            ..kivact_types::protocol::Transform::IDENTITY
-        }));
-    out.commands.extend(local.commands.iter().cloned());
-    out.commands.push(D::PopTransform);
+fn append(out: &mut SceneOut, local: &[D], origin: Rect) {
+    out.push(D::PushTransform(kivact_types::protocol::Transform {
+        e: origin.x,
+        f: origin.y,
+        ..kivact_types::protocol::Transform::IDENTITY
+    }));
+    out.extend(local.iter().cloned());
+    out.push(D::PopTransform);
 }

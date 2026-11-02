@@ -1,13 +1,14 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
-use super::state::State;
+use super::state::{CpuFrame, Hold, Phase, ScaleSource, State};
 use crate::embed::child::{Backend, Command, Shared};
 use crate::embed::session::{Session, negotiate};
 use arvane_shell::{AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow};
-use arvane_shell::{ClickCounter, MakeHandler, Mouse, ShellEvent, ShellWaker};
+use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -24,20 +25,6 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 pub(super) struct Window(pub(super) Rc<State>);
 
-/// Marks the App busy while its code runs; clears the mark on unwind too, so
-/// the window procedure can stop the child after it caught a panic.
-struct BusyGuard<'a>(&'a Cell<bool>);
-impl<'a> BusyGuard<'a> {
-    fn new(busy: &'a Cell<bool>) -> Self {
-        busy.set(true);
-        Self(busy)
-    }
-}
-impl Drop for BusyGuard<'_> {
-    fn drop(&mut self) {
-        self.0.set(false);
-    }
-}
 pub(super) fn environment(state: &State) -> kivact_types::protocol::Environment {
     let scale = state.shared.scale();
     let mouse = crate::native_input::state::MouseSettings::read();
@@ -85,7 +72,7 @@ fn frame_period(hwnd: isize) -> u64 {
 }
 impl ShellWindow for Window {
     fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        debug_assert!(!self.0.opening.get());
+        debug_assert!(self.0.phase.get() != Phase::Opening);
         debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
         negotiate(
             size,
@@ -129,29 +116,17 @@ impl ShellWindow for Window {
         Ok(())
     }
     fn shows_cpu_frame(&self) -> bool {
-        self.0.cpu_shown.get()
+        self.0.frame.borrow().is_some()
     }
     fn release_cpu_surface(&mut self) {
-        *self.0.pixels.borrow_mut() = Vec::new();
-        *self.0.scratch.borrow_mut() = Vec::new();
-        self.0.pixel_size.set((0, 0));
-        self.0.cpu_shown.set(false);
-    }
-    fn key(&self) -> u64 {
-        self.0.native.hwnd() as u64
+        self.0.frame.replace(None);
+        self.0.scratch.replace(Vec::new());
     }
     fn replace_accessibility(
         &mut self,
         tree: &kivact_types::protocol::SemanticsTree,
     ) -> Result<(), AccessibilityError> {
-        let result = self
-            .0
-            .a11y
-            .borrow()
-            .as_ref()
-            .expect("live child has UIA adapter")
-            .tree
-            .replace(tree);
+        let result = self.0.a11y.replace(tree);
         if result.is_ok() {
             super::a11y::publish(&self.0);
         }
@@ -161,34 +136,19 @@ impl ShellWindow for Window {
         &mut self,
         update: &kivact_types::protocol::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
-        let result = self
-            .0
-            .a11y
-            .borrow()
-            .as_ref()
-            .expect("live child has UIA adapter")
-            .tree
-            .update(update);
-        match result {
-            Ok(_) => {
-                super::a11y::publish(&self.0);
-                Ok(())
-            }
-            Err(error) => Err(error),
-        }
-    }
-    fn accessibility_active(&self) -> bool {
         self.0
             .a11y
-            .borrow()
-            .as_ref()
-            .is_some_and(|bridge| bridge.tree.active())
+            .update(update)
+            .map(|_| super::a11y::publish(&self.0))
+    }
+    fn accessibility_active(&self) -> bool {
+        self.0.a11y.active()
     }
     fn size(&self) -> Size {
-        let (w, h) = self.physical_size();
+        let applied = self.0.shared.applied();
         Size {
-            width: w as f32 / self.scale(),
-            height: h as f32 / self.scale(),
+            width: applied.width as f32 / applied.scale,
+            height: applied.height as f32 / applied.scale,
         }
     }
     fn physical_size(&self) -> (u32, u32) {
@@ -211,7 +171,7 @@ impl ShellWindow for Window {
         Some(1)
     }
     fn request_redraw(&self) {
-        if self.0.shared.alive.load(Ordering::Acquire) {
+        if self.0.shared.alive() {
             // SAFETY: invalidation only targets our live child; callback dispatch is deferred.
             unsafe {
                 InvalidateRect(self.0.native.hwnd(), std::ptr::null(), 0);
@@ -271,7 +231,10 @@ impl ShellWindow for Window {
         height: u32,
         draw: &mut dyn FnMut(&mut [u32]) -> bool,
     ) -> Result<bool, ShellError> {
-        if width == 0 || height == 0 || !self.0.shared.alive.load(Ordering::Acquire) {
+        let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
+            return Ok(false);
+        };
+        if !self.0.shared.alive() {
             return Ok(false);
         }
         if (width, height) != self.physical_size() {
@@ -292,10 +255,16 @@ impl ShellWindow for Window {
         if !draw(&mut scratch) {
             return Ok(false);
         }
-        std::mem::swap(&mut *self.0.pixels.borrow_mut(), &mut *scratch);
-        self.0.pixel_size.set((width, height));
+        let pixels = std::mem::take(&mut *scratch);
         drop(scratch);
-        self.0.cpu_shown.set(true);
+        let old = self.0.frame.replace(Some(CpuFrame {
+            pixels,
+            width: w,
+            height: h,
+        }));
+        if let Some(old) = old {
+            *self.0.scratch.borrow_mut() = old.pixels;
+        }
         super::cpu::present(&self.0)?;
         Ok(true)
     }
@@ -303,7 +272,7 @@ impl ShellWindow for Window {
         &self,
         make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
     ) -> Result<(), ShellError> {
-        if !self.0.shared.alive.load(Ordering::Acquire) {
+        if !self.0.shared.alive() {
             return Err(ShellError::new("embedded window is closed"));
         }
         make(self.0.target.clone());
@@ -316,11 +285,12 @@ impl State {
         shared: Arc<Shared>,
         native: Arc<Native>,
         instance: isize,
-        explicit_scale: bool,
+        scale_source: ScaleSource,
         on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     ) -> Self {
         Self {
-            a11y: RefCell::new(None),
+            a11y: PlatformTree::new(f64::from(shared.scale())),
+            uia: RefCell::new(None),
             services: RefCell::new(crate::services::Services::default()),
             input: crate::native_input::state::NativeInput::default(),
             target: Arc::new(super::target::Target {
@@ -333,22 +303,18 @@ impl State {
             native,
             on_resize_request,
             events: RefCell::new(VecDeque::new()),
-            busy: Cell::new(false),
-            commands_active: Cell::new(false),
-            closing: Cell::new(false),
-            resources_leaked: Cell::new(false),
-            opening: Cell::new(true),
+            phase: Cell::new(Phase::Opening),
+            in_callback: Cell::new(false),
+            draining: Cell::new(false),
             original_proc: Cell::new(None),
             cursor: Cell::new(kivact_types::Cursor::Auto),
             pending_surrogate: Cell::new(None),
             mouse: Cell::new(Mouse::default()),
             clicks: RefCell::new(ClickCounter::default()),
             environment: RefCell::new(kivact_types::protocol::Environment::default()),
-            explicit_scale: Cell::new(explicit_scale),
-            pixels: RefCell::new(Vec::new()),
+            scale_source: Cell::new(scale_source),
+            frame: RefCell::new(None),
             scratch: RefCell::new(Vec::new()),
-            pixel_size: Cell::new((0, 0)),
-            cpu_shown: Cell::new(false),
             started: Instant::now(),
         }
     }
@@ -362,9 +328,7 @@ impl State {
             let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
                 return;
             };
-            if shared.alive.load(Ordering::Acquire)
-                && !native.wake_pending.swap(true, Ordering::AcqRel)
-            {
+            if shared.alive() && !native.wake_pending.swap(true, Ordering::AcqRel) {
                 // SAFETY: posting uses only the opaque HWND and never accesses UI state.
                 if unsafe { PostMessageW(native.hwnd(), super::native::WAKE, 0, 0) } == 0 {
                     native.wake_pending.store(false, Ordering::Release);
@@ -374,13 +338,11 @@ impl State {
     }
     pub(super) fn start(self: &Rc<Self>, make: MakeHandler) {
         {
-            let _busy = BusyGuard::new(&self.busy);
+            let _callback = Hold::enter(&self.in_callback)
+                .expect("invariant: open runs no App callback before start");
             self.session
                 .borrow_mut()
                 .start(make, &mut Window(self.clone()), self.waker());
-        }
-        if self.closing.get() {
-            self.dispose();
         }
         if self.shared.stopped() {
             self.stop();
@@ -389,20 +351,20 @@ impl State {
         }
     }
     pub(super) fn event(self: &Rc<Self>, event: ShellEvent) {
-        if self.closing.get() || self.shared.stopped() {
+        if self.shared.stopped() {
             return;
         }
         self.events.borrow_mut().push_back(event);
-        if !self.opening.get() {
+        if self.phase.get() == Phase::Live {
             self.drain();
         }
     }
     pub(super) fn drain(self: &Rc<Self>) {
-        if self.busy.get() || self.opening.get() {
+        if self.in_callback.get() || self.phase.get() != Phase::Live {
             return;
         }
         loop {
-            if self.closing.get() || self.shared.stopped() {
+            if self.shared.stopped() {
                 break;
             }
             let event = self.events.borrow_mut().pop_front();
@@ -411,29 +373,19 @@ impl State {
             };
             self.invoke(event);
         }
-        let actions = self
-            .a11y
-            .borrow()
-            .as_ref()
-            .map(|bridge| bridge.tree.drain_actions())
-            .unwrap_or_default();
-        for event in actions {
+        for event in self.a11y.drain_actions() {
             self.event(event);
         }
         self.commands();
     }
     fn invoke(self: &Rc<Self>, event: ShellEvent) {
-        if self.busy.get() {
-            return;
-        }
         {
-            let _busy = BusyGuard::new(&self.busy);
+            let Some(_callback) = Hold::enter(&self.in_callback) else {
+                return;
+            };
             self.session
                 .borrow_mut()
                 .deliver(event, &mut Window(self.clone()));
-        }
-        if self.closing.get() {
-            self.dispose();
         }
         if self.shared.stopped() {
             self.stop();
@@ -442,16 +394,16 @@ impl State {
         }
     }
     fn control(self: &Rc<Self>) {
-        if self.shared.stopped() || self.closing.get() {
+        if self.shared.stopped() {
             return;
         }
-        let next_wake_ns = self.session.borrow().control.next_wake_ns;
+        let deadline = self.session.borrow().deadline();
         let hwnd = self.native.hwnd();
         // SAFETY: cancel only the HWND-scoped timer owned by this child.
         unsafe {
             KillTimer(hwnd, super::native::TIMER);
         }
-        if let Some(deadline) = next_wake_ns {
+        if let Some(deadline) = deadline {
             let remaining = deadline.saturating_sub(self.now()) / 1_000_000;
             let ms = if remaining <= 17 {
                 USER_TIMER_MINIMUM
@@ -466,20 +418,14 @@ impl State {
         }
     }
     pub(super) fn commands(self: &Rc<Self>) {
-        if self.busy.get() || self.opening.get() || self.commands_active.replace(true) {
+        if self.in_callback.get() || self.phase.get() != Phase::Live {
             return;
         }
-        loop {
-            if self.shared.stopped() || self.closing.get() {
-                break;
-            }
-            let command = self
-                .shared
-                .commands
-                .lock()
-                .expect("embedded child lock poisoned: a panic already happened")
-                .pop_front();
-            match command {
+        let Some(drain) = Hold::enter(&self.draining) else {
+            return;
+        };
+        while !self.shared.stopped() {
+            match self.shared.pop_command() {
                 Some(Command::SetSize {
                     width: w,
                     height: h,
@@ -490,7 +436,7 @@ impl State {
                     if !self.shared.current(generation) {
                         continue;
                     }
-                    if !self.shared.alive.load(Ordering::Acquire) {
+                    if !self.shared.alive() {
                         continue;
                     }
                     // SAFETY: native resizing occurs only on the HWND's UI thread.
@@ -510,65 +456,67 @@ impl State {
                     }
                 }
                 Some(Command::SetScale(scale)) => {
-                    self.explicit_scale.set(true);
-                    self.shared.set_scale_value(scale);
+                    self.scale_source.set(ScaleSource::Host);
+                    self.shared.set_scale(scale);
                     self.event(ShellEvent::Resized);
                 }
                 None => break,
             }
         }
-        self.commands_active.set(false);
+        drop(drain);
         if self.shared.stopped() {
             self.stop();
         }
     }
     pub(super) fn destroy(self: &Rc<Self>) {
-        if self.shared.alive.load(Ordering::Acquire) {
+        if self.shared.alive() {
             // SAFETY: all callers run on the creating UI thread; wndproc marks dead.
             unsafe {
                 DestroyWindow(self.native.hwnd());
             }
         }
     }
+    /// Close the handler and release the child's resources, exactly once.
     pub(super) fn dispose(self: &Rc<Self>) {
-        if self.busy.get() || self.resources_leaked.get() {
+        if !matches!(self.phase.get(), Phase::Opening | Phase::Live) {
             return;
         }
-        self.busy.set(true);
-        if !self.session.borrow_mut().close(&mut Window(self.clone())) {
+        let closed = {
+            // Deferred while App code runs: the callback's caller stops the child.
+            let Some(_callback) = Hold::enter(&self.in_callback) else {
+                return;
+            };
+            self.phase.set(Phase::Disposed);
+            self.session.borrow_mut().close(&mut Window(self.clone()))
+        };
+        if !closed {
             self.leak_resources();
             return;
         }
-        self.cpu_shown.set(false);
-        self.pixel_size.set((0, 0));
-        self.pixels.borrow_mut().clear();
-        self.scratch.borrow_mut().clear();
+        self.frame.replace(None);
+        self.scratch.replace(Vec::new());
         // Explicit close disposes before DestroyWindow; parent destruction enters
         // through WM_DESTROY. Both paths disconnect before adapter destruction.
         super::a11y::disconnect(self);
-        let a11y = self.a11y.borrow_mut().take();
-        drop(a11y);
+        drop(self.uia.borrow_mut().take());
         // SAFETY: this child owns the HWND-scoped timer; cleanup runs on its UI thread.
         unsafe {
             KillTimer(self.native.hwnd(), super::native::TIMER);
         }
         self.events.borrow_mut().clear();
-        self.busy.set(false);
     }
     fn leak_resources(self: &Rc<Self>) {
         // Native resources and their callbacks may outlive all owner guards.
         crate::module::retain_module();
-        self.resources_leaked.set(true);
-        self.busy.set(false);
+        self.phase.set(Phase::Leaked);
         // A later WM_DESTROY or the final handle drop must not retry teardown.
         std::mem::forget(self.clone());
     }
     pub(super) fn stop(self: &Rc<Self>) {
         self.shared.request_close();
-        if self.busy.get() {
+        if self.in_callback.get() || !matches!(self.phase.get(), Phase::Opening | Phase::Live) {
             return;
         }
-        self.closing.set(true);
         self.dispose();
         self.destroy();
     }
@@ -581,13 +529,10 @@ impl State {
         };
         // SAFETY: GetClientRect writes the supplied RECT on the child's UI thread.
         if unsafe { GetClientRect(self.native.hwnd(), &mut rect) } != 0 {
-            let previous = self.shared.size();
-            self.shared.update(
+            return self.shared.set_size(
                 (rect.right - rect.left).max(0) as u32,
                 (rect.bottom - rect.top).max(0) as u32,
-                self.shared.scale(),
             );
-            return previous != self.shared.size();
         }
         false
     }

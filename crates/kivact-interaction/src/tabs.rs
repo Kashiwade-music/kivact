@@ -8,7 +8,7 @@
 //! under the owner. A panel shows only while its key is selected and still
 //! among the options. An empty selection offers the first enabled key to the
 //! binding, and a selected key that is missing stays selected. Activation
-//! and the vertical layout are fixed before the first part. The caller
+//! and the layout direction may be set before or after the parts. The caller
 //! decides the panels' lifetime with a keyed `for_each` or `show`; keeping
 //! panels mounted is the renderer's choice. A segmented control is a radio
 //! group (the list's radio policy), not tabs, and a kit's domain tab bar with
@@ -22,9 +22,17 @@ use std::rc::Rc;
 
 use kivact_core::primitive::{Owned, Owner, Part, PartState, part};
 use kivact_core::view::{IntoValue, NodeRef, Orientation, Role};
-use kivact_core::{Binding, Value, memo, var};
+use kivact_core::{Binding, Signal, Value, memo, signal, var};
 
+use super::axis::Axis;
 use super::{List, ListActivation, ListItem, ListPolicy, ListSelection, use_list};
+
+/// What the setters of [`TabsApi`] store; read where the parts use it.
+#[derive(Clone, Copy)]
+struct TabsSettings {
+    activation: ListActivation,
+    axis: Axis,
+}
 
 struct Refs<K> {
     map: RefCell<HashMap<K, (NodeRef, NodeRef)>>,
@@ -77,8 +85,9 @@ pub struct TabsApi<K: Eq + Hash + Clone + 'static> {
     selected: Binding<K>,
     owner: Owner,
     refs: Owned<Refs<K>>,
-    activation: ListActivation,
-    orientation: Orientation,
+    settings: Signal<TabsSettings>,
+    /// The layout direction, derived from the settings.
+    orientation: Value<Orientation>,
 }
 
 impl<K: Eq + Hash + Clone + 'static> Clone for TabsApi<K> {
@@ -99,8 +108,16 @@ pub fn use_tabs<K: Clone + Eq + Hash + 'static>(
     let selected: Binding<K> = selected.into();
     // The list's single selection is optional; the tabs always hold a key,
     // so clearing it is ignored.
-    let group =
-        use_list(options, ListSelection::Single(selected.optional())).policy(ListPolicy::tabs());
+    let group = use_list(
+        options,
+        ListSelection::Single(selected.optional()),
+        ListPolicy::tabs(),
+    );
+    let settings = signal(TabsSettings {
+        activation: ListActivation::Automatic,
+        axis: Axis::Horizontal,
+    });
+    let orientation = memo(move || settings.with(|settings| settings.axis.orientation()));
     let refs = owner.store(
         "Tabs",
         Rc::new(Refs::<K> {
@@ -113,55 +130,48 @@ pub fn use_tabs<K: Clone + Eq + Hash + 'static>(
         selected,
         owner,
         refs,
-        activation: ListActivation::Automatic,
-        orientation: Orientation::Horizontal,
+        settings,
+        orientation,
     }
 }
 
 impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
-    #[track_caller]
-    fn with_policy(mut self) -> Self {
-        let mut policy = ListPolicy::tabs();
-        policy.activation = self.activation;
-        if self.orientation == Orientation::Vertical {
-            policy.axis = Some(Orientation::Vertical);
-        }
-        self.group = self.group.policy(policy);
-        self
-    }
-
     /// Whether moving to a tab with the arrow keys also selects it.
     /// [`Automatic`](ListActivation::Automatic) is the default;
     /// [`Manual`](ListActivation::Manual) only moves focus and Enter or
-    /// Space selects. Configure before [`list`](Self::list). Setup only.
+    /// Space selects. Setup only.
     #[track_caller]
-    pub fn activation(mut self, activation: ListActivation) -> Self {
-        self.activation = activation;
-        self.with_policy()
+    pub fn activation(self, activation: ListActivation) -> Self {
+        self.settings
+            .update(|settings| settings.activation = activation);
+        self.tune()
     }
 
     /// The direction the tabs are laid out in (default
     /// [`Orientation::Horizontal`]): in a vertical list Up and Down move
-    /// between them, and the list publishes the orientation. A constant set
-    /// before [`list`](Self::list): it is the list's keyboard policy. Setup
-    /// only.
+    /// between them, and the list publishes the orientation.
+    /// `Orientation::Unspecified` is a usage error. Setup only.
     #[track_caller]
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
-        self.with_policy()
+    pub fn orientation(self, orientation: Orientation) -> Self {
+        let axis = Axis::of(orientation, "TabsApi::orientation");
+        self.settings.update(|settings| settings.axis = axis);
+        self.tune()
+    }
+
+    /// Give the list the settings' activation and axis.
+    #[track_caller]
+    fn tune(self) -> Self {
+        let TabsSettings { activation, axis } = self.settings.get_untracked();
+        self.group.retune(|policy| {
+            policy.activation = activation;
+            policy.axis = Some(axis.orientation());
+        });
+        self
     }
 
     /// Caller-owned selected key, including a key missing from the options.
     pub fn selected(self) -> Value<K> {
         self.selected.into_value()
-    }
-
-    fn layout(self) -> Orientation {
-        if self.orientation == Orientation::Vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        }
     }
 
     #[track_caller]
@@ -178,12 +188,15 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
     /// Tab-list semantics and keyboard orientation without layout or children.
     #[track_caller]
     pub fn list(self) -> Part<TabListState> {
-        let orientation = self.layout();
+        let orientation = self.orientation;
         self.group
             .list()
             .role(Role::TabList)
             .orientation(orientation)
-            .map_state(move |input| TabListState { input, orientation })
+            .map_state(move |input| TabListState {
+                input,
+                orientation: orientation.get(),
+            })
     }
 
     /// A tab with reactive label, selection, constraints and roving navigation.
@@ -203,12 +216,12 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
                 })
             })
         });
-        let orientation = self.layout();
+        let orientation = self.orientation;
         member
             .map_state(move |state| TabState {
                 input: state.input,
                 selected: state.selected,
-                orientation,
+                orientation: orientation.get(),
             })
             .role(Role::Tab)
             .name(label)
@@ -223,7 +236,7 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
         let key = var(key);
         let selected = self.selected();
         let options = self.options;
-        let orientation = self.layout();
+        let orientation = self.orientation;
         let shown = memo(move || {
             key.with(|key| {
                 selected.with(|selected| selected == key)
@@ -233,7 +246,7 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
         part(move |input| TabState {
             input,
             selected: shown.get(),
-            orientation,
+            orientation: orientation.get(),
         })
         .role(Role::TabPanel)
         .hidden(move || !shown.get())

@@ -33,7 +33,7 @@ pub struct Colors {
 /// `shaped` at `origin`: its shadows, decorations and glyphs in paint
 /// order (see the module invariants), colored by `colors`.
 pub fn push_text(
-    out: &mut kivact_types::protocol::Scene,
+    out: &mut crate::SceneOut,
     shaped: &kivact_types::protocol::ShapedText,
     origin: Point,
     colors: &Colors,
@@ -52,13 +52,12 @@ pub fn push_text(
         };
         let blurred = shadow.blur.is_finite() && shadow.blur > 0.0;
         if blurred {
-            out.commands
-                .push(D::PushLayer(kivact_types::protocol::Layer {
-                    filter: Some(kivact_types::protocol::LayerFilter::Blur {
-                        std_dev: shadow.blur / 2.0,
-                    }),
-                    ..kivact_types::protocol::Layer::default()
-                }));
+            out.push(D::PushLayer(kivact_types::protocol::Layer {
+                filter: Some(kivact_types::protocol::LayerFilter::Blur {
+                    std_dev: shadow.blur / 2.0,
+                }),
+                ..kivact_types::protocol::Layer::default()
+            }));
         }
         let all = Colors {
             glyphs: Some(color),
@@ -68,7 +67,7 @@ pub fn push_text(
         glyphs(out, shaped, at, all.glyphs);
         lines(out, shaped, at, &all, true, device);
         if blurred {
-            out.commands.push(D::PopLayer);
+            out.push(D::PopLayer);
         }
     }
     lines(out, shaped, origin, colors, false, device);
@@ -78,13 +77,13 @@ pub fn push_text(
 
 /// The glyph runs of `shaped` at `origin`, in `color` when given.
 fn glyphs(
-    out: &mut kivact_types::protocol::Scene,
+    out: &mut crate::SceneOut,
     shaped: &kivact_types::protocol::ShapedText,
     origin: Point,
     color: Option<Rgba>,
 ) {
     for run in &shaped.runs {
-        out.commands.push(D::Glyphs {
+        out.push(D::Glyphs {
             run: std::sync::Arc::clone(run),
             origin,
             color,
@@ -97,7 +96,7 @@ fn glyphs(
 /// and thickness on whole `device` pixels (crisp, like the baselines the
 /// renderers align).
 fn lines(
-    out: &mut kivact_types::protocol::Scene,
+    out: &mut crate::SceneOut,
     shaped: &kivact_types::protocol::ShapedText,
     origin: Point,
     colors: &Colors,
@@ -113,7 +112,7 @@ fn lines(
         if (line.line == kivact_types::DecorationLines::LINE_THROUGH) != through {
             continue;
         }
-        out.commands.push(D::Rect {
+        out.push(D::Rect {
             rect: Rect {
                 x: line.rect.x + origin.x,
                 y: ((line.rect.y + origin.y) * device).round() / device,

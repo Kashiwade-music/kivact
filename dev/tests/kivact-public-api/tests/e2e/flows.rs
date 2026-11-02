@@ -302,7 +302,7 @@ fn scroll_to_brings_a_row_that_is_not_mounted_into_view() {
 /// `scroll_to`.
 #[test]
 fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus() {
-    use kivact::interaction::{ListSelection, use_list};
+    use kivact::interaction::{ListPolicy, ListSelection, use_list};
     use kivact::test::{RenderOptions, WindowMode};
     use kivact::ui::ListItem;
     use kivact::view::Key;
@@ -325,6 +325,7 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
                         .collect::<Vec<_>>()
                 },
                 ListSelection::Multiple(selected.into()),
+                ListPolicy::default(),
             )
             .page_size(5)
             .scroll_with(move |key| target.set(Some(key)));

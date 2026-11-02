@@ -6,7 +6,7 @@ use kivact::i18n::message;
 use kivact::style::{Color, Direction, Position, pct, style};
 use kivact::ui::{ButtonVariant, ControlSize, button};
 use kivact::view::{IntoView, ScrollBehavior, View, node_ref};
-use kivact::{effect, memo, signal, var};
+use kivact::{effect, effect_on, memo, signal};
 
 /// A scrolling column of messages that sticks to the bottom (message-scroller.tsx).
 ///
@@ -74,13 +74,7 @@ impl IntoView for MessageScroller {
         };
         // A scroll by the user decides whether to follow. The offset the
         // scroller starts with is not a scroll.
-        let started = var(false);
-        effect(move || {
-            let offset = offset.get();
-            if !started.get() {
-                started.set(true);
-                return;
-            }
+        effect_on(offset, move |&offset| {
             let now = is_at_end(
                 offset,
                 view_height.get_untracked(),

@@ -245,6 +245,26 @@ into one place only, and an `Fn` bound gives you no way to clone it. `callback(f
 `move` closures can hold it. Call it with `.call(argument)`; for a callback without
 input, use `()` as the argument as above.
 
+A press handler gets no event. To see whether a modifier key is held, as
+`event.getModifierState("Control")` does in React, read `current_modifiers()`:
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::view::current_modifiers;
+
+/// Opens its panel; Ctrl+click (Cmd+click) opens only this one.
+fn open_button(open: impl Fn(bool) + 'static) -> impl IntoView {
+    button("Open").on_press(move || {
+        let held = current_modifiers();
+        open(held.ctrl || held.meta);
+    })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Open").run(|| open_button(|only| println!("only this panel: {only}")))
+}
+```
+
 If the caller's closure may fail, widen the bound so `?` works for them:
 `impl Fn() -> R + 'static where R: HandlerResult` accepts `()` and
 `Result<(), UiError>`, and `callback` takes either. A failure is reported to the

@@ -136,9 +136,7 @@ fn checkboxes() -> impl IntoView {
     let person = signal("pedro");
     let items = move || {
         vec![
-            MenuEntry::item("bookmarks", "Show Bookmarks")
-                .checked(bookmarks.get())
-                .keep_open(true),
+            MenuEntry::checkbox("bookmarks", "Show Bookmarks", bookmarks.get()).keep_open(true),
             MenuEntry::separator(),
             MenuEntry::heading("People"),
             MenuEntry::radio("pedro", "Pedro Duarte", person.get() == "pedro").keep_open(true),

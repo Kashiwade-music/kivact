@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use crate::support::{mount, mount_with};
 use kivact::motion::FrameRate;
-use kivact::motion::{Animated, Easing, FrameInfo, FrameLoop, Transition, animated, frame_loop};
+use kivact::motion::{
+    Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
+};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 
@@ -122,7 +124,7 @@ fn keyframes_delay_and_repeat() {
     screen.advance(ms(200));
     assert_eq!(shown.get_untracked(), 50.0);
     let tr = Transition::tween(100, Easing::Linear)
-        .repeat(Some(2))
+        .repeat(Repeat::Times(2))
         .alternate();
     let (screen, (target, shown)) = animated_app(tr);
     target.set(100.0);
@@ -132,4 +134,81 @@ fn keyframes_delay_and_repeat() {
     assert!(v > 30.0 && v < 70.0, "{v}");
     screen.advance(ms(200));
     assert_eq!(shown.get_untracked(), 100.0);
+}
+
+/// `on_complete` runs when a run reaches its target, never for a run that a new target or a
+/// `jump_to` ends.
+#[test]
+fn on_complete_runs_only_when_a_run_reaches_its_target() {
+    let completions = Rc::new(Cell::new(0u32));
+    let c2 = completions.clone();
+    let (screen, (target, shown)) = mount(move || {
+        let target = signal(0.0f32);
+        let c3 = c2.clone();
+        let shown = animated(target, Transition::tween(100, Easing::Linear))
+            .on_complete(move || c3.set(c3.get() + 1));
+        ((target, shown), text(move || format!("{:.1}", shown.get())))
+    });
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(200));
+    assert_eq!(completions.get(), 1, "the run reached 100");
+    target.set(0.0);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    target.set(90.0);
+    screen.run_until_idle();
+    screen.advance(ms(300));
+    assert_eq!(completions.get(), 2, "only the run toward 90 completed");
+    target.set(20.0);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    shown.jump_to(10.0);
+    screen.run_until_idle();
+    screen.advance(ms(200));
+    assert_eq!(completions.get(), 2, "a jump cancels the run");
+    assert!(!shown.is_running());
+    assert_eq!(shown.get_untracked(), 10.0);
+}
+
+/// Zero iterations end at once on the target; a spring repeats like a tween.
+#[test]
+fn zero_iterations_end_at_once_and_springs_repeat() {
+    let (screen, (target, shown)) =
+        animated_app(Transition::tween(100, Easing::Linear).repeat(Repeat::Times(0)));
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(16));
+    assert_eq!(
+        shown.get_untracked(),
+        100.0,
+        "no iteration: at the target at once"
+    );
+
+    // One spring run: count the 50 ms steps until it settles.
+    let (screen, (target, shown)) = animated_app(Transition::spring(Spring::STIFF));
+    target.set(100.0);
+    screen.run_until_idle();
+    let mut once = 0;
+    while shown.get_untracked() != 100.0 {
+        screen.advance(ms(50));
+        once += 1;
+        assert!(once < 200, "the spring settles");
+    }
+    // Two iterations: after one run's time it has restarted and is not at the target.
+    let (screen, (target, shown)) =
+        animated_app(Transition::spring(Spring::STIFF).repeat(Repeat::Times(2)));
+    target.set(100.0);
+    screen.run_until_idle();
+    for _ in 0..once {
+        screen.advance(ms(50));
+    }
+    assert!(
+        shown.get_untracked() < 100.0,
+        "the second iteration started from 0"
+    );
+    for _ in 0..(once + 2) {
+        screen.advance(ms(50));
+    }
+    assert_eq!(shown.get_untracked(), 100.0, "both iterations ended");
 }

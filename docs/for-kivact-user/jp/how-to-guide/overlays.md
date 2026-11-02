@@ -178,7 +178,7 @@ fn app() -> impl IntoView {
             MenuEntry::item("new", "新規").shortcut("Ctrl N"),
             MenuEntry::item("open", "開く"),
             MenuEntry::separator(),
-            MenuEntry::item("grid", "グリッドを表示").checked(show_grid.get()).keep_open(true),
+            MenuEntry::checkbox("grid", "グリッドを表示", show_grid.get()).keep_open(true),
             MenuEntry::submenu(
                 "export",
                 "書き出し",
@@ -218,7 +218,7 @@ mod tests {
 }
 ```
 
-- 項目は `MenuEntry::item`、`submenu`、`separator`、`heading`、`group`、`radio` で作ります。`.shortcut("Ctrl N")`(表示のみで、メニューはキーを割り当てません)、`.icon(..)`、`.description(..)`、`.checked(bool)`、`.disabled(bool)`、`.destructive(true)`、`.keep_open(true)` で修飾できます。
+- 項目は `MenuEntry::item`、`checkbox(key, label, checked)`、`radio`、`submenu`、`separator`、`heading`、`group` で作ります。行の種類はコンストラクターが決めます。`.shortcut("Ctrl N")`(表示のみで、メニューはキーを割り当てません)、`.icon(..)`、`.description(..)`、`.disabled(bool)`、`.destructive(true)`、`.keep_open(true)` で修飾できます。項目の種類に当てはまらない修飾(区切り線への `shortcut`、サブメニューへの `keep_open` など)は使い方の誤りです。
 - チェックマークやラベルがシグナルに依存するときは、上のように `entries` にクロージャを渡します。メニューが再び読み取ります。固定のメニューなら素の `Vec` で十分です。
 - key はあなたのものです。`&'static str` か、`Clone + Eq + Hash` を満たす enum を使います。
 - 矢印キー、Enter、Space、サブメニューのための右・左キー、Escape、先頭の文字を打つ操作がすべて使えます。項目を選ぶとメニューは閉じます。ただし、その項目に `.keep_open(true)` があれば開いたままです。

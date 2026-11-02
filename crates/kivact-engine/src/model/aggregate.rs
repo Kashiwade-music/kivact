@@ -36,8 +36,6 @@ pub(crate) struct Model {
     pub(crate) window_request: Option<(String, Option<Size>)>,
     /// The platform effects to carry out after the turn.
     pub(crate) effects: Vec<(RequestId, PlatformRequest)>,
-    /// A font was registered during the turn.
-    pub(crate) fonts_pending: bool,
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
     #[cfg(feature = "gpu-interop")]
@@ -83,7 +81,6 @@ impl Model {
             frame: super::frame::state::Frame::default(),
             window_request: None,
             effects: vec![],
-            fonts_pending: false,
             #[cfg(feature = "gpu-interop")]
             external_writes: Vec::new(),
             #[cfg(debug_assertions)]
@@ -121,11 +118,6 @@ impl Model {
     /// Whether events are waiting.
     pub(crate) fn has_events(&self) -> bool {
         self.events.has_events()
-    }
-
-    /// Take every queued event, in order.
-    pub(crate) fn take_events(&mut self) -> Vec<HostEvent> {
-        self.events.take()
     }
 
     /// The last applied revision.

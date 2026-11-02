@@ -12,6 +12,8 @@
 //!   up to `SHUTDOWN_WAIT`; a longer job's thread is detached with a warning.
 //!   Queued jobs are skipped. The thread owns everything it touches, and its
 //!   waker tolerates a host that has already closed.
+//! - A job sent to a thread that ended (a panic in a job) resumes that
+//!   panic at once: no job is dropped silently.
 //! - Jobs run on a thread with a `JOB_STACK` stack, the worker's and, for
 //!   an inline store, a helper thread the call waits for
 //!   ([`run_on_job_stack`]): usvg and resvg recurse once per element level
@@ -69,9 +71,11 @@ impl<W: Fn()> Drop for WakeOnExit<W> {
 }
 
 pub(crate) struct Worker {
+    /// `None` only in `Drop` (closing the queue ends the thread's wait).
     jobs: Option<Sender<Job>>,
     done: Receiver<Done>,
     stop: Arc<AtomicBool>,
+    /// `None` once joined (a resumed panic, or `Drop`).
     thread: Option<JoinHandle<()>>,
 }
 
@@ -106,11 +110,13 @@ impl Worker {
         })
     }
 
-    pub(crate) fn submit(&self, job: Job) {
-        if let Some(jobs) = &self.jobs {
-            // The thread only ends after `Drop` (or a panic in a job, which
-            // `try_recv` resumes); a job sent then is simply never answered.
-            let _ = jobs.send(job);
+    pub(crate) fn submit(&mut self, job: Job) {
+        let jobs = self
+            .jobs
+            .as_ref()
+            .expect("invariant: the queue closes only in Drop");
+        if jobs.send(job).is_err() {
+            self.resume_panic();
         }
     }
 
@@ -120,12 +126,21 @@ impl Worker {
         match self.done.try_recv() {
             Ok(done) => Some(done),
             Err(mpsc::TryRecvError::Empty) => None,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                // The thread ended; only a panic in a job ends it before `Drop`.
-                match self.thread.take().map(JoinHandle::join) {
-                    Some(Err(payload)) => std::panic::resume_unwind(payload),
-                    _ => panic!("invariant: the asset worker only stops when dropped"),
-                }
+            Err(mpsc::TryRecvError::Disconnected) => self.resume_panic(),
+        }
+    }
+
+    /// The thread ended before `Drop`, which only a panic in a job does:
+    /// resume that panic here, on the host thread (it ends the App).
+    fn resume_panic(&mut self) -> ! {
+        let thread = self
+            .thread
+            .take()
+            .expect("invariant: a resumed worker panic ends the App, so it is resumed once");
+        match thread.join() {
+            Err(payload) => std::panic::resume_unwind(payload),
+            Ok(()) => {
+                unreachable!("invariant: the asset worker stops only when dropped or on a panic")
             }
         }
     }

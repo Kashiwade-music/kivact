@@ -47,7 +47,7 @@ use kivact_engine::testing::{PointerId, PointerInput, PointerPhase, ShellEvent};
 use kivact_wire::{self as p, NodeId};
 
 use super::model::{Contact, Element, Screen};
-use crate::view::input::{Modifiers, MouseButton, PointerKind};
+use crate::view::input::{ButtonPress, Modifiers, MouseButton, PointerKind};
 #[cfg(test)]
 use crate::view::state::ViewState;
 use crate::view::{A11yAction, Key, Role};
@@ -62,6 +62,13 @@ fn key_text(key: Key) -> Option<String> {
     }
 }
 
+/// The press a touch or pen contact makes: the primary button, a single click
+/// (the window counts taps).
+const CONTACT_PRESS: ButtonPress = ButtonPress {
+    button: MouseButton::Primary,
+    clicks: 1,
+};
+
 impl Screen {
     pub(super) fn send(&self, event: ShellEvent) {
         self.host.borrow_mut().send(event);
@@ -69,19 +76,18 @@ impl Screen {
 
     /// Move the virtual window's mouse to the window point `at`.
     fn mouse_to(&self, at: Point) {
-        self.host
-            .borrow_mut()
-            .mouse(PointerPhase::Move, Some(at), None);
+        self.host.borrow_mut().mouse(PointerPhase::Move, Some(at));
     }
 
     /// Press or release `button` where the virtual window's mouse is.
     fn mouse_button(&self, button: MouseButton, pressed: bool) {
+        let press = ButtonPress { button, clicks: 1 };
         let phase = if pressed {
-            PointerPhase::Down
+            PointerPhase::Down(press)
         } else {
-            PointerPhase::Up
+            PointerPhase::Up(press)
         };
-        self.host.borrow_mut().mouse(phase, None, Some(button));
+        self.host.borrow_mut().mouse(phase, None);
     }
 
     /// Send `key` with `modifiers` held (none: no modifier events).
@@ -183,14 +189,16 @@ impl Screen {
         self.run_until_idle();
     }
 
-    /// Press `button` where the pointer is.
+    /// Press `button` where the pointer is. Panics when the pointer was never placed in the window (call
+    /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_down(&self, button: MouseButton) {
         self.log(format!("{button:?} down"));
         self.mouse_button(button, true);
         self.run_until_idle();
     }
 
-    /// Release `button` where the pointer is.
+    /// Release `button` where the pointer is. Panics when the pointer was never placed in the window (call
+    /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_up(&self, button: MouseButton) {
         self.log(format!("{button:?} up"));
         self.mouse_button(button, false);
@@ -233,7 +241,7 @@ impl Screen {
         let at = Point::new(x, y);
         self.contacts.borrow_mut().push((contact, at));
         self.log(format!("{} down at ({x}, {y})", contact.name()));
-        self.send_contact(PointerPhase::Down, contact, at);
+        self.send_contact(PointerPhase::Down(CONTACT_PRESS), contact, at);
         self.run_until_idle();
         contact
     }
@@ -261,7 +269,7 @@ impl Screen {
     pub fn contact_up(&self, contact: Contact) {
         let at = self.end_contact("contact_up", contact);
         self.log(format!("{} up", contact.name()));
-        self.send_contact(PointerPhase::Up, contact, at);
+        self.send_contact(PointerPhase::Up(CONTACT_PRESS), contact, at);
         self.run_until_idle();
     }
 
@@ -312,22 +320,18 @@ impl Screen {
             position: at,
             buttons: p::PointerButtons::NONE.with(
                 MouseButton::Primary,
-                matches!(phase, PointerPhase::Down | PointerPhase::Move),
+                matches!(phase, PointerPhase::Down(_) | PointerPhase::Move),
             ),
-            button: matches!(phase, PointerPhase::Down | PointerPhase::Up)
-                .then_some(MouseButton::Primary),
             pressure: None,
             tilt: None,
-            clicks: 1,
         });
     }
 
-    /// The pointer leaves the window.
+    /// The pointer leaves the window. Panics when the pointer was never placed in the window (call
+    /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_leave(&self) {
         self.log("pointer leaves".into());
-        self.host
-            .borrow_mut()
-            .mouse(PointerPhase::Leave, None, None);
+        self.host.borrow_mut().mouse(PointerPhase::Leave, None);
         self.run_until_idle();
     }
 
@@ -580,8 +584,7 @@ impl<'a> Element<'a> {
             .expect("invariant: focusable element has accessibility identity");
         screen.send(ShellEvent::Accessibility {
             node: id,
-            action: p::A11yAction::Focus,
-            value: None,
+            request: p::A11yRequest::Focus,
         });
         screen.run_until_idle();
         if !self.is_focused() {
@@ -693,19 +696,30 @@ impl<'a> Element<'a> {
     }
 
     /// Request an accessibility action, as assistive technology does (the
-    /// host carries out only what the element offers now).
+    /// host carries out only what the element offers now). A `Dismiss` is
+    /// `DismissReason::Accessibility`. `SetValue` carries a value: use
+    /// [`a11y_set_value`](Self::a11y_set_value).
+    #[track_caller]
     pub fn a11y(&self, action: A11yAction) {
-        self.a11y_request(action, None);
+        let Some(request) = p::A11yRequest::from_action(action) else {
+            self.screen.fail(&format!(
+                "a11y: SetValue carries a value; use `a11y_set_value(..)` on {}",
+                self.describe()
+            ));
+        };
+        self.a11y_request(request);
     }
 
-    /// Request an accessibility action with a value (`SetValue`).
-    pub fn a11y_with_value(&self, action: A11yAction, value: &str) {
-        self.a11y_request(action, Some(value.to_string()));
+    /// Ask assistive technology's `SetValue` with `value`.
+    #[track_caller]
+    pub fn a11y_set_value(&self, value: &str) {
+        self.a11y_request(p::A11yRequest::SetValue(value.to_string()));
     }
 
-    fn a11y_request(&self, action: A11yAction, value: Option<String>) {
+    #[track_caller]
+    fn a11y_request(&self, request: p::A11yRequest) {
         self.screen
-            .log(format!("a11y {action:?} on {}", self.short()));
+            .log(format!("a11y {request:?} on {}", self.short()));
         let id = {
             let host = self.screen.host.borrow();
             host.semantics_id(self.node, self.region)
@@ -716,11 +730,8 @@ impl<'a> Element<'a> {
                 self.describe()
             ));
         };
-        self.screen.send(ShellEvent::Accessibility {
-            node: id,
-            action,
-            value,
-        });
+        self.screen
+            .send(ShellEvent::Accessibility { node: id, request });
         self.screen.run_until_idle();
     }
 

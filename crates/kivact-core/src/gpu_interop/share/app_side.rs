@@ -5,37 +5,15 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_reactive::Signal;
-use kivact_reactive::UiError;
-use kivact_reactive::{Owner, Runtime};
+use kivact_reactive::{Owner, Runtime, Signal, Trigger};
 use kivact_wire::{GpuAdapter, SharedTextures};
 
-use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest};
+use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
 use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::inbox::Inbox;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
 use kivact_style::draw::{GpuFrame, Pixels};
 use kivact_task::spawn_in;
-
-/// Where a [`SharedImage`] stands, tracked ([`SharedImage::status`]).
-#[derive(Clone, Debug, PartialEq)]
-pub enum ShareStatus {
-    /// A [`ShareMode::Gpu`] request was issued; the engine has not
-    /// provided textures for it yet.
-    Waiting,
-    /// The engine provided textures; the window is importing them.
-    Importing,
-    /// The textures are imported: the engine's frames draw
-    /// ([`SharedImage::frame`]).
-    Ready,
-    /// The request is [`ShareMode::Pixels`]: the window cannot import, and
-    /// the engine publishes pictures drawn on the CPU
-    /// ([`SharedImage::pixels`]).
-    Pixels,
-    /// The window could not import the textures (the kinds of
-    /// `ImportStatus::Failed`). The image stays so until the next request.
-    Failed(UiError),
-}
 
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
@@ -46,13 +24,13 @@ pub enum ShareStatus {
 #[derive(Clone)]
 pub struct SharedImage {
     state: Arc<Inbox<LinkState>>,
-    status: Signal<ShareStatus>,
+    /// Notified after each change of `state` the UI makes or takes from the
+    /// engine (the receiving task): [`SharedImage::status`] tracks it.
+    changed: Trigger,
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
     pixels: Signal<Option<Pixels>>,
     size: Signal<(u32, u32)>,
-    /// Counts the imports found `Lost`.
-    lost: Signal<u64>,
 }
 
 /// The import of a request: the image and its owner.
@@ -68,12 +46,6 @@ impl PartialEq for Current {
     fn eq(&self, other: &Self) -> bool {
         self.token == other.token
     }
-}
-
-/// What the engine handed the UI.
-enum Work {
-    Import(u64, SharedTextures),
-    Pixels(Pixels),
 }
 
 /// An image an engine on another thread shares with the window, of
@@ -109,47 +81,36 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     })));
     let image = SharedImage {
         state: state.clone(),
-        status: owner.signal(status_of(&mode), at),
+        changed: owner.trigger(at),
         current: owner.signal(None, at),
         pixels: owner.signal(None, at),
         size: owner.signal(size, at),
-        lost: owner.signal(0, at),
     };
-    // A new request when what the last one was made of changes.
-    let issued = RefCell::new((mode, size, 0));
+    // A new request when what the last one was made of changes, or its
+    // import was lost.
+    let issued = RefCell::new((mode, size));
     let renewing = image.clone();
     kivact_reactive::effect(move || {
-        let wanted = (mode_of(adapter()), renewing.size.get(), renewing.lost.get());
-        if *issued.borrow() == wanted {
+        let wanted = (mode_of(adapter()), renewing.size.get());
+        let lost = renewing.import_lost();
+        if !lost && *issued.borrow() == wanted {
             return;
         }
-        let (mode, size, _) = wanted.clone();
+        let (mode, size) = wanted.clone();
         *issued.borrow_mut() = wanted;
         renewing.renew(mode, size);
     });
     let receiving = image.clone();
     spawn_in(owner, receiving.receive(owner, at), at);
     owner.on_cleanup(move || {
-        let dropped = state.update(|s| {
-            s.closed = true;
-            s.publisher = None;
-            s.pixels = None;
-            s.provided.take()
-        });
-        drop(dropped);
+        let closed = state.update(LinkState::close);
+        drop(closed);
     });
     image
 }
 
 fn mode_of(adapter: Option<GpuAdapter>) -> ShareMode {
     adapter.map_or(ShareMode::Pixels, ShareMode::Gpu)
-}
-
-fn status_of(mode: &ShareMode) -> ShareStatus {
-    match mode {
-        ShareMode::Gpu(_) => ShareStatus::Waiting,
-        ShareMode::Pixels => ShareStatus::Pixels,
-    }
 }
 
 impl SharedImage {
@@ -180,11 +141,12 @@ impl SharedImage {
         self.pixels.try_get().flatten()
     }
 
-    /// Where the image stands ([`ShareStatus`]), tracked. `Waiting` once
+    /// Where the image stands ([`ShareStatus`]), tracked. `Closed` once
     /// its owner is gone.
     #[track_caller]
     pub fn status(&self) -> ShareStatus {
-        self.status.try_get().unwrap_or(ShareStatus::Waiting)
+        self.changed.track();
+        self.state.read(LinkState::status)
     }
 
     /// Ask the engine for pictures of `width` × `height` pixels (at least
@@ -194,10 +156,17 @@ impl SharedImage {
         self.size.set((width.max(1), height.max(1)));
     }
 
+    /// Whether the import of the newest request was lost (a new device),
+    /// tracked.
+    fn import_lost(&self) -> bool {
+        self.current
+            .get()
+            .is_some_and(|current| current.image.status() == ImportStatus::Lost)
+    }
+
     /// Issue a request of `mode` and `size`, dropping the import of the
     /// one before.
     fn renew(&self, mode: ShareMode, size: (u32, u32)) {
-        let status = status_of(&mode);
         let dropped = self.state.update(|s| s.renew(mode, size));
         drop(dropped);
         if let Some(old) = self.current.try_get_untracked().flatten() {
@@ -206,21 +175,14 @@ impl SharedImage {
                 old.owner.dispose();
             }
         }
-        self.status.set(status);
+        self.changed.notify();
     }
 
     /// The task of the image: import what the engine provides, keep what
     /// it publishes on the CPU.
     async fn receive(self, owner: Owner, at: &'static Location<'static>) {
         loop {
-            let work = self
-                .state
-                .next(|s| match s.provided.take() {
-                    Some((token, textures)) => Some(Work::Import(token, textures)),
-                    None => s.pixels.take().map(Work::Pixels),
-                })
-                .await;
-            match work {
+            match self.state.next(LinkState::take_work).await {
                 Work::Pixels(pixels) => self.pixels.set(Some(pixels)),
                 Work::Import(token, textures) => self.import(token, textures, owner, at),
             }
@@ -244,37 +206,22 @@ impl SharedImage {
             owner: child,
             image: image.clone(),
         }));
-        self.status.set(ShareStatus::Importing);
+        self.changed.notify();
         let this = self.clone();
         child.with_setup(|| kivact_reactive::effect(move || this.follow(token, &image)));
     }
 
     /// Mirror the status of the import of request `token`.
     fn follow(&self, token: u64, image: &ExternalImage) {
-        let (phase, status) = match image.status() {
-            ImportStatus::Pending => return,
-            ImportStatus::Ready => (Phase::Ready, ShareStatus::Ready),
-            ImportStatus::Failed(error) => (
-                Phase::Failed(error.message().to_owned()),
-                ShareStatus::Failed(error),
-            ),
-            ImportStatus::Lost => {
-                self.lost
-                    .set(self.lost.try_get_untracked().unwrap_or(0) + 1);
-                return;
-            }
+        // A `Lost` import is renewed by the renewal effect; a `Dropped` one
+        // has no effect left.
+        let phase = match image.status() {
+            ImportStatus::Pending | ImportStatus::Lost | ImportStatus::Dropped => return,
+            ImportStatus::Ready => Phase::Ready(image.publisher()),
+            ImportStatus::Failed(error) => Phase::Failed(error),
         };
-        let publisher = (phase == Phase::Ready).then(|| image.publisher());
-        let current = self.state.update(|s| {
-            let current = s.request.token == token && !s.closed;
-            if current {
-                s.phase = phase;
-                s.publisher = publisher;
-            }
-            current
-        });
-        if current {
-            self.status.set(status);
+        if self.state.update(|s| s.settle(token, phase)) {
+            self.changed.notify();
         }
     }
 }
@@ -282,7 +229,7 @@ impl SharedImage {
 impl fmt::Debug for SharedImage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SharedImage")
-            .field("request", &self.state.read(|s| s.request.clone()))
+            .field("status", &self.state.read(LinkState::status))
             .finish_non_exhaustive()
     }
 }

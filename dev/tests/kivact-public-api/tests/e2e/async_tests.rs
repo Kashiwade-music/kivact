@@ -38,7 +38,7 @@ fn action_request_cancel_retry_matches_the_model() {
         let slot: Rc<Cell<Option<Action<u32, u32>>>> = Rc::new(Cell::new(None));
         let s2 = slot.clone();
         let screen = render(move || {
-            let act = action(|i: u32| async move {
+            let act = action(ActionPolicy::Latest, |i: u32| async move {
                 kivact::task::sleep(Duration::from_millis(10 * (i as u64 % 5 + 1))).await;
                 if i % 7 == 3 {
                     Err(UiError::msg("odd failure"))

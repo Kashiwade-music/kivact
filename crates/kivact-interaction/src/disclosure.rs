@@ -2,12 +2,9 @@
 //!
 //! A disclosure is the first link of the opening chain: a popup
 //! (`crate::popup`) adds overlay rules to it, and a tooltip and a dialog add
-//! theirs to a popup. It keeps the requested state (the caller's
-//! `Binding<bool>`) apart from the shown state: with a delay, each
-//! false-to-true change arms one host-clock deadline as a task timer, with no
-//! polling; going back to false or disposing the owner cancels it and hides
-//! at once, and [`Disclosure::close`] keeps the content hidden until the next
-//! false-to-true change (without a delay it writes false to the binding).
+//! theirs to a popup. Its shown state is the requested state, the caller's
+//! `Binding<bool>`; [`Disclosure::close`] writes `false` to it. A delayed
+//! shown state is a [`Delayed`](crate::Delayed).
 //! The parts are the trigger and the content, with [`DisclosureState`]
 //! (`input`, `open`). Whether the content is unmounted with `show` or kept
 //! mounted and hidden is the caller's choice; the kits' toggles and
@@ -15,12 +12,9 @@
 //! accordion's height) stays visible while [`Disclosure::leaving`] says the
 //! animation runs; the trigger's `expanded` follows the shown state at once.
 
-use std::time::Duration;
-
 use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::task::{Task, sleep, spawn};
 use kivact_core::view::{A11yAction, IntoValue, NodeRef, Role, node_ref};
-use kivact_core::{Binding, Signal, Value, Var, effect, on_cleanup, signal, var};
+use kivact_core::{Binding, Signal, Value, signal};
 
 /// The shown state and actual input state of a disclosure's trigger or content.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,25 +22,6 @@ pub struct DisclosureState {
     pub input: PartState,
     /// The content is shown (after the delay, when there is one).
     pub open: bool,
-}
-
-/// One host-clock deadline from the requested state to the shown state.
-#[derive(Clone, Copy)]
-struct Deadline {
-    shown: Signal<bool>,
-    generation: Var<u64>,
-    pending: Var<Option<Task>>,
-}
-
-impl Deadline {
-    fn cancel(self) {
-        self.generation
-            .update(|generation| *generation = generation.wrapping_add(1));
-        if let Some(task) = self.pending.get() {
-            task.cancel();
-            self.pending.set(None);
-        }
-    }
 }
 
 /// Copy handle for a collapsible region: a trigger and the content it shows.
@@ -62,10 +37,6 @@ impl Deadline {
 /// sets it and `Collapse` clears it. A [`disabled`](Self::disabled)
 /// disclosure accepts no input or assistive technology action.
 ///
-/// With a [`delay`](Self::delay), the shown state follows the requested state
-/// late: each false-to-true change starts one host-clock deadline, and going
-/// back to false cancels it and hides at once. No frame loop is used.
-///
 /// ```no_run
 /// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::show};
 /// use kivact_interaction::use_disclosure;
@@ -79,11 +50,18 @@ impl Deadline {
 #[derive(Clone, Copy)]
 pub struct Disclosure {
     pub(crate) open: Binding<bool>,
-    disabled: Option<Value<bool>>,
+    /// The shown state: the requested state.
     shown: Value<bool>,
-    deadline: Option<Deadline>,
-    leaving: Option<Value<bool>>,
+    settings: Signal<DisclosureSettings>,
     pub(crate) content: NodeRef,
+}
+
+/// What the setters store; read where the parts use it, so they work in any
+/// order.
+#[derive(Clone, Copy, Default)]
+struct DisclosureSettings {
+    disabled: Option<Value<bool>>,
+    leaving: Option<Value<bool>>,
 }
 
 /// Create a disclosure whose requested state is `open`, the sole writer.
@@ -94,10 +72,8 @@ pub fn use_disclosure(open: impl Into<Binding<bool>>) -> Disclosure {
     let open = open.into();
     Disclosure {
         open,
-        disabled: None,
         shown: open.into_value(),
-        deadline: None,
-        leaving: None,
+        settings: signal(DisclosureSettings::default()),
         content: node_ref(),
     }
 }
@@ -107,85 +83,42 @@ impl Disclosure {
     ///
     /// Also marks the trigger disabled and makes it unfocusable. Setup only.
     #[track_caller]
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = Some(disabled.into_value());
-        self
-    }
-
-    /// Show the content `delay` after the requested state becomes true.
-    ///
-    /// Each false-to-true transition starts one host-clock deadline; returning
-    /// to false cancels it and hides the content. Zero delay is immediate. The
-    /// deadline and its task belong to the setup owner and are removed on
-    /// cleanup. Call it once, before creating parts. Setup only.
-    #[track_caller]
-    pub fn delay(mut self, delay: Duration) -> Self {
-        let requested = self.open;
-        let deadline = Deadline {
-            shown: signal(false),
-            generation: var(0),
-            pending: var(None),
-        };
-        effect(move || {
-            let engaged = requested.get();
-            deadline.cancel();
-            deadline.shown.set(false);
-            if !engaged {
-                return;
-            }
-            if delay.is_zero() {
-                deadline.shown.set(true);
-                return;
-            }
-            let generation = deadline.generation.get();
-            let task = spawn(async move {
-                sleep(delay).await;
-                if deadline.generation.get() == generation && requested.get() {
-                    deadline.shown.set(true);
-                }
-            });
-            deadline.pending.set(Some(task));
-        });
-        on_cleanup(move || deadline.cancel());
-        self.shown = deadline.shown.into_value();
-        self.deadline = Some(deadline);
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        let disabled = disabled.into_value();
+        self.settings
+            .update(|settings| settings.disabled = Some(disabled));
         self
     }
 
     /// Keep the [`content`](Self::content) visible after it stops being shown
     /// while `leaving` is true: the caller's closing animation (a height that
     /// collapses) still runs. The trigger's `expanded` and the content's
-    /// [`DisclosureState::open`] follow the shown state at once. Call it
-    /// before creating the content part. Setup only.
-    pub fn leaving(mut self, leaving: impl IntoValue<bool>) -> Self {
-        self.leaving = Some(leaving.into_value());
+    /// [`DisclosureState::open`] follow the shown state at once. Setup only.
+    pub fn leaving(self, leaving: impl IntoValue<bool>) -> Self {
+        let leaving = leaving.into_value();
+        self.settings
+            .update(|settings| settings.leaving = Some(leaving));
         self
     }
 
-    /// Whether the content is shown: the requested state, after the delay.
+    /// Whether the content is shown: the requested state.
     pub fn shown(self) -> Value<bool> {
         self.shown
     }
 
-    /// Hide the content now.
-    ///
-    /// Without a delay this writes false to the binding. With one it cancels
-    /// the deadline and keeps the content hidden until the requested state goes
-    /// false and then true again, without writing the binding.
+    /// Close: write `false` to the binding.
     #[track_caller]
     pub fn close(self) {
-        match self.deadline {
-            Some(deadline) => {
-                // Validate purity and borrowing before changing the pending deadline.
-                deadline.shown.set(false);
-                deadline.cancel();
-            }
-            None => self.open.set(false),
-        }
+        self.open.set(false);
+    }
+
+    fn is_disabled(self) -> bool {
+        self.settings
+            .with_untracked(|settings| settings.disabled.is_some_and(|d| d.get()))
     }
 
     fn write(self, open: Option<bool>) {
-        if self.disabled.is_some_and(|d| d.get()) {
+        if self.is_disabled() {
             return;
         }
         self.open.set(open.unwrap_or_else(|| !self.open.get()));
@@ -198,16 +131,16 @@ impl Disclosure {
         state: impl Fn(PartState, bool) -> S + 'static,
     ) -> Part<S> {
         let shown = self.shown;
-        let trigger = part(move |input| state(input, shown.get()))
+        let settings = self.settings;
+        let disabled = move || {
+            settings.with(|settings| settings.disabled.is_some_and(|disabled| disabled.get()))
+        };
+        part(move |input| state(input, shown.get()))
             .role(Role::Button)
             .expanded(shown)
-            .controls(self.content);
-        match self.disabled {
-            Some(disabled) => trigger
-                .disabled(disabled)
-                .focusable(move || !disabled.get()),
-            None => trigger.focusable(true),
-        }
+            .controls(self.content)
+            .disabled(disabled)
+            .focusable(move || !disabled())
     }
 
     /// The trigger: a button publishing `expanded` that toggles the state.
@@ -228,12 +161,17 @@ impl Disclosure {
     #[track_caller]
     pub fn content(self) -> Part<DisclosureState> {
         let shown = self.shown;
-        let leaving = self.leaving;
+        let settings = self.settings;
         part(move |input| DisclosureState {
             input,
             open: shown.get(),
         })
         .reference(self.content)
-        .hidden(move || !shown.get() && !leaving.is_some_and(|leaving| leaving.get()))
+        .hidden(move || {
+            let leaving = settings
+                .with(|settings| settings.leaving)
+                .is_some_and(|leaving| leaving.get());
+            !shown.get() && !leaving
+        })
     }
 }

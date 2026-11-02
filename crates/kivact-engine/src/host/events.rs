@@ -8,8 +8,9 @@
 //! - What the client sees of the window's environment is one `HostEnv`,
 //!   kept by the model's frame group. At start the window's environment
 //!   (`Window::environment`: scale, refresh period, reduced motion, theme,
-//!   safe area, mouse settings, locale), its size and fullscreen state and
-//!   its capabilities (`Window::capabilities`) are reported in `HostInfo`.
+//!   safe area, mouse settings, locale), its size and fullscreen state, its
+//!   capabilities (`Window::capabilities`) and whether frames can be drawn
+//!   (`HostEnv::surface_active`) are reported in `HostInfo`.
 //!   The theme is reported light at start and follows the system's from
 //!   its first change.
 //! - Every change goes through `Model::update_env`, which sends one
@@ -27,7 +28,7 @@
 //!   asked for and no frame tick is sent (the client's frame clock stops);
 //!   a resume and a new surface draw again.
 //! - A press and a release carry the click count Arvane counted
-//!   (`PointerInput::clicks`; a release has its press's), and a
+//!   (the `ButtonPress` of the phase; a release has its press's), and a
 //!   wheel the amount Arvane made logical pixels; the model is given them
 //!   as they are. A wheel's native scroll runs the layout pass at once, so
 //!   `ScrollChanged` is reported without waiting for the next frame.
@@ -38,14 +39,14 @@
 //! - `MemoryWarning` releases unused asset and text engine caches
 //!   (`Engine::release_caches`: registered fonts and owned runs already
 //!   returned are kept) and is reported to the client.
-use super::pump::Host;
+use super::pump::{Host, LastFrame, Phase};
 use crate::KeyResult;
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_lower::conversion as c;
 use kivact_wire::{
-    HostEvent, HostInfo, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint,
+    HostEnv, HostEvent, HostInfo, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint,
 };
 impl arvane::Handler for Host {
     fn start(
@@ -75,20 +76,25 @@ impl Host {
         store: arvane::asset::AssetStore,
     ) -> Result<ShellControl, ShellError> {
         self.environment = window.environment();
+        let drawable = self.drawable(window);
         let env = {
             let mut model = self.model.borrow_mut();
             model.set_viewport(window.size());
-            // The theme is the one the model starts with (light); the
-            // rest is the window's.
-            let env = model.frame.start_env();
-            env.scale = window.scale();
-            env.reduced_motion = self.environment.reduced_motion;
-            env.frame_period_ns = self.environment.frame_period_ns;
-            env.safe_area = c::insets(self.environment.safe_area);
-            env.window = window.size();
-            env.locale = self.environment.locale.clone();
-            env.fullscreen = window.fullscreen();
-            env.clone()
+            model.frame.set_now(window.now_ns());
+            let env = HostEnv {
+                scale: window.scale(),
+                reduced_motion: self.environment.reduced_motion,
+                // The theme the model starts with (light; a test may start dark).
+                theme_hint: model.frame.theme_hint(),
+                frame_period_ns: self.environment.frame_period_ns,
+                safe_area: c::insets(self.environment.safe_area),
+                window: window.size(),
+                locale: self.environment.locale.clone(),
+                fullscreen: window.fullscreen(),
+                surface_active: drawable,
+            };
+            model.start_env(env.clone());
+            env
         };
         self.frame_log
             .borrow_mut()
@@ -105,9 +111,8 @@ impl Host {
         }
         let tree = super::write::Writer::new(&self.model, &self.engine);
         self.client.start(&info, waker, tree);
-        self.effects(window);
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         #[cfg(feature = "gpu-interop")]
         self.externals(window);
@@ -122,12 +127,11 @@ impl Host {
         window: &mut W,
     ) -> Result<ShellControl, ShellError> {
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
-        self.starting = false;
-        self.effects(window);
+        self.enter(window);
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         self.model.borrow_mut().frame.set_now(window.now_ns());
         if stops_smooth_scrolls(&event) {
@@ -160,37 +164,44 @@ impl Host {
                     match self.present(window, started) {
                         Ok(Presented::Shown { .. }) => {
                             self.model.borrow_mut().paint.drawn();
-                            self.skipping = false;
+                            self.last_frame = LastFrame::Settled;
                         }
                         // The window had no buffer (timed out, occluded):
                         // the picture is drawn again when Arvane says.
                         Ok(Presented::Skipped { retry_at_ns }) => {
                             self.model.borrow_mut().paint.drawn();
-                            self.skipping = true;
-                            self.repaint_at = Some(retry_at_ns);
+                            self.last_frame = LastFrame::Skipped { retry_at_ns };
                         }
                         // Content cannot render; the next change redraws.
-                        Ok(Presented::Dropped(_)) => self.model.borrow_mut().paint.drawn(),
+                        Ok(Presented::Dropped(_)) => {
+                            self.model.borrow_mut().paint.drawn();
+                            self.last_frame = LastFrame::Settled;
+                        }
                         // The window made its surface again: report the
                         // loss and draw again.
                         Ok(Presented::SurfaceLost(error)) => {
-                            let mut model = self.model.borrow_mut();
-                            model.set_surface(false);
-                            let revision = model.applied();
-                            model.push(HostEvent::HostFailure {
-                                revision,
-                                reason: error.to_string(),
-                            });
-                            model.set_surface(true);
-                            model.invalidate_paint();
+                            {
+                                let mut model = self.model.borrow_mut();
+                                model.set_surface(false);
+                                let revision = model.applied();
+                                model.push(HostEvent::HostFailure {
+                                    revision,
+                                    reason: error.to_string(),
+                                });
+                                model.set_surface(true);
+                                model.invalidate_paint();
+                            }
+                            self.last_frame = LastFrame::Settled;
                         }
                         Err(error) => return Err(ShellError::new(error.to_string())),
                     }
                 }
             }
             ShellEvent::Wake => {
-                if self.repaint_at.is_some_and(|t| t <= window.now_ns()) {
-                    self.repaint_at = None;
+                if let LastFrame::Skipped { retry_at_ns } = self.last_frame
+                    && retry_at_ns <= window.now_ns()
+                {
+                    self.last_frame = LastFrame::Settled;
                     self.model.borrow_mut().invalidate_paint();
                 }
                 let events = {
@@ -202,7 +213,7 @@ impl Host {
                     model.has_events()
                 };
                 // A due wake without events still gives the client its turn.
-                if !events && !self.exit {
+                if !events && self.phase != Phase::Exiting {
                     self.turn(&[], &[], window)?;
                 }
             }
@@ -226,12 +237,13 @@ impl Host {
                 .model
                 .borrow_mut()
                 .cancel_pointer(&mut self.engine.borrow_mut()),
-            // A window coming back (after skipped frames) draws at once.
-            ShellEvent::Focused(true) if self.skipping => {
-                self.repaint_at = None;
-                self.model.borrow_mut().invalidate_paint();
+            ShellEvent::Focused(true) => {
+                // A window coming back (after skipped frames) draws at once.
+                if let LastFrame::Skipped { .. } = self.last_frame {
+                    self.last_frame = LastFrame::Settled;
+                    self.model.borrow_mut().invalidate_paint();
+                }
             }
-            ShellEvent::Focused(true) => {}
             ShellEvent::Suspended => {
                 if !self.suspended {
                     self.suspended = true;
@@ -283,7 +295,13 @@ impl Host {
                 // once instead of waiting for the next paint.
                 self.layout();
             }
-            ShellEvent::Modifiers(m) => self.model.borrow_mut().modifiers = m,
+            ShellEvent::Modifiers(m) => {
+                let mut model = self.model.borrow_mut();
+                if model.modifiers != m {
+                    model.modifiers = m;
+                    model.push(HostEvent::ModifiersChanged(m));
+                }
+            }
             ShellEvent::File {
                 phase,
                 files,
@@ -329,17 +347,12 @@ impl Host {
             }
             ShellEvent::ImeDisabled => self.model.borrow_mut().ime_disabled(),
             ShellEvent::EnvironmentChanged => self.environment_changed(window),
-            ShellEvent::Accessibility {
-                node,
-                action,
-                value,
-            } => self
-                .model
-                .borrow_mut()
-                .accessibility_action(node, action, value),
+            ShellEvent::Accessibility { node, request } => {
+                self.model.borrow_mut().accessibility_action(node, request)
+            }
         }
         if self.closing() {
-            return Ok(ShellControl::default());
+            return Ok(ShellControl::Wait);
         }
         if input {
             return Ok(self.defer(window));
@@ -401,7 +414,7 @@ fn stops_smooth_scrolls(event: &ShellEvent) -> bool {
     match event {
         ShellEvent::Wheel { .. } => true,
         ShellEvent::Pointer(input) => {
-            input.kind != PointerKind::Mouse || input.phase == PointerPhase::Down
+            input.kind != PointerKind::Mouse || matches!(input.phase, PointerPhase::Down(_))
         }
         _ => false,
     }

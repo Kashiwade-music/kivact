@@ -1,5 +1,6 @@
 //! Role: IME composition, commit and selection applied to the focused text input.
 
+use super::state::{ImeGiven, ImeUpdate, InputSource};
 use crate::model::Model;
 use kivact_editing::EditState;
 use kivact_wire::ImeEvent;
@@ -48,8 +49,8 @@ impl Model {
     }
 
     /// The IME took `start..end` (UTF-16 code units of the text it was
-    /// last given, which starts at byte `ime_start` of the focused input's
-    /// value) for reconversion: it becomes the selection, which the
+    /// last given, which starts at byte `start` of `ImeGiven::Input` in the
+    /// focused input's value) for reconversion: it becomes the selection, which the
     /// reconversion's composition replaces. Ignored while composing.
     pub(crate) fn ime_select(&mut self, start: usize, end: usize) {
         if self.session_select(start, end) {
@@ -61,7 +62,17 @@ impl Model {
         if self.node(id).is_some_and(|n| n.password() || n.read_only()) {
             return;
         }
-        let base = self.edits.ime_start;
+        let ImeGiven::Input {
+            source,
+            start: Some(base),
+        } = &self.edits.given
+        else {
+            return;
+        };
+        if source.node != id {
+            return;
+        }
+        let base = *base;
         let Some((start, end)) = self
             .node(id)
             .and_then(|n| {
@@ -85,66 +96,47 @@ impl Model {
         self.sync();
     }
 
-    /// The IME text to give the window, when it changed since the last
-    /// one given (`Some(None)`: no text input has the focus any more).
-    pub(crate) fn ime_changed(
-        &mut self,
-        engine: &mut arvane::Engine,
-    ) -> Option<Option<arvane::ShellImeText>> {
+    /// The IME text to give the window, when it changed since the last one
+    /// given.
+    pub(crate) fn ime_changed(&mut self, engine: &mut arvane::Engine) -> ImeUpdate {
         if let Some(id) = self.focused_session() {
-            // A native editor gives its text again when it gets the focus back.
-            self.edits.ime_from = None;
-            return self.session_ime_changed(id).map(Some);
-        }
-        if self.edits.session_from.take().is_some() {
-            self.edits.ime_from = None;
+            return match self.session_ime_changed(id) {
+                Some(text) => ImeUpdate::Set(Some(text)),
+                None => ImeUpdate::Unchanged,
+            };
         }
         let now = self.focused_input().and_then(|id| {
             let n = self.node(id)?;
             let area = crate::model::interact::text_geometry::text_line(self, id, engine);
             let transform = self.transform_between(id, None);
-            let edit = self.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())?;
-            Some((
-                id,
-                (
-                    self.editors[n.index.0].as_deref()?.editor.revision(),
-                    edit.session(),
-                ),
+            let editor = self.editors[n.index.0].as_deref()?;
+            Some(InputSource {
+                node: id,
+                revision: editor.editor.revision(),
+                session: editor.editor.state().session().clone(),
                 area,
-                self.editors[n.index.0]
-                    .as_deref()
-                    .map_or(0.0, |node| node.scroll_x),
+                scroll: editor.scroll_x,
                 transform,
-                (n.password(), n.read_only()),
-            ))
+                password: n.password(),
+                read_only: n.read_only(),
+            })
         });
-        let same = match (&self.edits.ime_from, &now) {
-            (Some(None), None) => true,
-            (
-                Some(Some((id, edit, area, scroll, t, flags))),
-                Some((id2, edit2, area2, scroll2, t2, flags2)),
-            ) => {
-                id == id2
-                    && (edit.0, &edit.1) == *edit2
-                    && area == area2
-                    && scroll == scroll2
-                    && t == t2
-                    && flags == flags2
-            }
+        let same = match (&self.edits.given, &now) {
+            (ImeGiven::Nothing, None) => true,
+            (ImeGiven::Input { source, .. }, Some(now)) => source == now,
             _ => false,
         };
         if same {
-            return None;
+            return ImeUpdate::Unchanged;
         }
-        self.edits.ime_from = Some(
-            now.map(|(id, (revision, session), area, scroll, t, flags)| {
-                (id, (revision, session.clone()), area, scroll, t, flags)
-            }),
-        );
         let text = crate::model::interact::text_geometry::ime_text(self, engine);
-        self.edits.ime_start = text.as_ref().map_or(0, |(_, start)| *start);
-        Some(text.map(|(text, _)| text))
+        self.edits.given = match now {
+            None => ImeGiven::Nothing,
+            Some(source) => ImeGiven::Input {
+                source,
+                start: text.as_ref().map(|(_, start)| *start),
+            },
+        };
+        ImeUpdate::Set(text.map(|(text, _)| text))
     }
 }

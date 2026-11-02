@@ -10,7 +10,9 @@ use crate::theme_access::{field_fill, tokens};
 use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Combobox as Behavior, ListItemState, use_combobox as behavior};
+use kivact::interaction::{
+    Combobox as Behavior, ListItemState, ListSelection, use_combobox as behavior,
+};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::ui::{ButtonVariant, ListItem};
@@ -23,6 +25,16 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 type Matcher = Rc<dyn Fn(&str, &str) -> bool>;
+
+/// Whether the option list is open, and whether the typed text filters it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ComboMode {
+    Closed,
+    /// Open with every option (the field was pressed, or a key opened it).
+    Browsing,
+    /// Open and narrowed by the text the user typed.
+    Filtering,
+}
 
 /// A text field with a filtered popup list of options (`Combobox`).
 ///
@@ -158,14 +170,14 @@ fn side_button(
 fn popup<K: Clone + Eq + Hash + 'static>(
     list: Behavior<K>,
     options: Value<Vec<ListItem<K>>>,
-    open: kivact::Signal<bool>,
+    open: Binding<bool>,
     anchor: NodeRef,
     empty: Value<String>,
     name: Value<String>,
     is_chosen: impl Fn(&K) -> bool + Copy + 'static,
 ) -> View {
     let nothing = memo(move || list.visible().with(Vec::is_empty));
-    show(open, move || {
+    show(open.into_value(), move || {
         let rows = for_each(
             list.visible(),
             |key| key.clone(),
@@ -332,8 +344,18 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             Selection::Single(v) => (Some(v), None),
             Selection::Multiple(v) => (None, Some(v)),
         };
-        let open = signal(false);
-        let typed = signal(false);
+        let mode = signal(ComboMode::Closed);
+        // The list is open in either mode; only `Filtering` narrows the options.
+        let open = binding(
+            memo(move || mode.get() != ComboMode::Closed),
+            move |open: bool| {
+                mode.update(|mode| match (open, *mode) {
+                    (false, _) => *mode = ComboMode::Closed,
+                    (true, ComboMode::Closed) => *mode = ComboMode::Browsing,
+                    _ => {}
+                });
+            },
+        );
         let single: Value<Option<K>> = match single_value {
             Some(v) => v.into_value(),
             None => (|| None::<K>).into_value(),
@@ -344,14 +366,14 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             Some(v) => v,
             None => binding(single, |_: Option<K>| {}),
         };
-        let list = behavior(options, chosen).popup(open);
-        let list = match multi_value {
-            Some(values) => list.multiple(values),
-            None => list,
+        let selection = match multi_value {
+            Some(values) => ListSelection::Multiple(values),
+            None => ListSelection::Single(chosen),
         };
+        let list = behavior(options, selection).popup(open);
         let query = list.query();
         let list = list.filter(move |q: &str, item: &ListItem<K>| {
-            if !typed.get() {
+            if mode.get() != ComboMode::Filtering {
                 return true;
             }
             let label = item.label();
@@ -362,10 +384,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
         });
         // While the list is closed the field shows the chosen label.
         effect(move || {
-            let is_open = open.get();
+            let closed = mode.get() == ComboMode::Closed;
             let chosen = single.get();
-            if !is_open {
-                typed.set(false);
+            if closed {
                 query.set(
                     chosen
                         .as_ref()
@@ -375,19 +396,21 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             }
         });
         let edit = binding(query, move |s: String| {
-            typed.set(true);
             query.set(s);
-            open.set(true);
+            mode.set(ComboMode::Filtering);
         });
         let input_part = list.input();
         let input_ref = input_part.node_ref();
         let mut field_input = input_group_input(name, edit)
             .forward_keys(vec![Key::ArrowDown, Key::ArrowUp, Key::Enter, Key::Escape])
             .part(input_part)
-            .expanded(open)
+            .expanded(open.into_value())
             .on_pointer(move |event: kivact::view::PointerEvent| {
-                if event.phase == kivact::view::PointerPhase::Down && !off.get() {
-                    open.set(true);
+                if matches!(event.phase, kivact::view::PointerPhase::Down(_))
+                    && !off.get()
+                    && mode.get_untracked() == ComboMode::Closed
+                {
+                    mode.set(ComboMode::Browsing);
                 }
                 Handled::No
             });
@@ -406,7 +429,15 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
                 "chevron-down",
                 input_ref,
                 off,
-                move || open.update(|o| *o = !*o),
+                move || {
+                    mode.update(|mode| {
+                        *mode = if *mode == ComboMode::Closed {
+                            ComboMode::Browsing
+                        } else {
+                            ComboMode::Closed
+                        };
+                    });
+                },
             );
             let clear_name = message("basic.combobox.clear", "Clear");
             let clear_button = show(

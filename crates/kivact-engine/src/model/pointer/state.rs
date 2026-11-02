@@ -4,16 +4,14 @@ use std::collections::BTreeMap;
 
 use crate::tree::NodeTree;
 use kivact_wire::PointerId;
-use kivact_wire::{FocusTarget, MouseButton, NodeId, Point, PointerButtons, PointerKind};
+use kivact_wire::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 
 /// The pointer group: the state machine's tracks (with each pointer's last
-/// position), and the shell's pointer input it is driven by (the mouse's
-/// held buttons, a scrollbar drag, the file drop target) and the cursor
-/// last shown.
+/// position and its gesture), the file drop target and the cursor last
+/// shown. The buttons a pointer holds are the shell's (`PointerInput::buttons`),
+/// kept once in its track's source.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
-    pub(super) buttons: MouseButtons,
-    pub(super) scroll_drag: Option<ScrollDrag>,
     pub(super) file_target: Option<NodeId>,
     pub(super) shown: kivact_types::Cursor,
 }
@@ -22,8 +20,6 @@ impl Default for Pointer {
     fn default() -> Self {
         Self {
             state: PointerState::default(),
-            buttons: MouseButtons::default(),
-            scroll_drag: None,
             file_target: None,
             shown: kivact_types::Cursor::Default,
         }
@@ -45,9 +41,6 @@ impl Pointer {
     /// a file drag over one is over nothing.
     pub(crate) fn forget_missing(&mut self, tree: &NodeTree) {
         self.state.forget_missing(tree);
-        if self.scroll_drag.is_some_and(|d| !tree.live(d.node)) {
-            self.scroll_drag = None;
-        }
         if self.file_target.is_some_and(|n| !tree.live(n)) {
             self.file_target = None;
         }
@@ -78,41 +71,93 @@ impl Default for PointerState {
     }
 }
 
-/// Single-touch scroll candidacy, retained only until cancellation or multi-touch.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct TouchScroll {
-    pub(super) start: Point,
-    pub(super) last: Point,
-    pub(super) from: NodeId,
-    pub(super) origin: NodeId,
-    pub(super) modal: Option<NodeId>,
-    /// None until takeover; true is vertical, false horizontal.
-    pub(super) vertical: Option<bool>,
-}
-
 /// What the state machine follows of one pointer.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Track {
-    /// Which pointer it is.
+    /// Which pointer it is; `source.buttons` is the one record of the
+    /// buttons it holds.
     pub(crate) source: PointerSource,
     /// The window position of its last event.
     pub(crate) at: Point,
     /// The hit node and its ancestors; always empty for a pointer that is
     /// not primary (it hovers nothing).
     pub(crate) hover: Vec<NodeId>,
-    /// The hover chain at a primary press of a primary pointer, until the
-    /// release.
-    pub(crate) pressed: Vec<NodeId>,
-    /// The listener that received the first `Down`, until all buttons
-    /// release (a contact: until it ends).
-    pub(crate) capture: Option<NodeId>,
     /// The nearest pointer listener under the pointer (`Enter`/`Leave`).
     pub(crate) over: Option<NodeId>,
-    /// The exact activation target that received the primary press of a
-    /// primary pointer.
-    pub(crate) press_target: Option<FocusTarget>,
-    pub(super) touch_scroll: Option<TouchScroll>,
-    pub(super) touch_cancel_pending: bool,
+    /// What its buttons do now.
+    pub(crate) gesture: Gesture,
+}
+
+/// What a pointer's buttons do, one mode at a time.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Gesture {
+    /// Its events go to the listeners (`Route::default()` between gestures).
+    Route(Route),
+    /// The mouse's primary press landed on a scrollbar: its moves drag the bar
+    /// and its other buttons do nothing until the primary release. Only the
+    /// mouse's track.
+    Scrollbar(ScrollDrag),
+    /// A single touch moved past the slop over a scroll container: its capture
+    /// and press were cancelled and its moves scroll natively until it ends.
+    /// Only a touch track.
+    Pan(TouchPan),
+}
+
+impl Default for Gesture {
+    fn default() -> Self {
+        Gesture::Route(Route::default())
+    }
+}
+
+/// A routed gesture: each part lives while its condition holds.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Route {
+    /// The listener that received the gesture's first `Down`; it gets every
+    /// later `Down`, `Move`, `Up` and `Cancel` until the last button releases.
+    pub(crate) capture: Option<NodeId>,
+    /// While a primary pointer holds its primary button.
+    pub(crate) press: Option<Press>,
+    /// A single touch over a scroll container, still within the slop.
+    pub(super) touch: Option<TouchCandidate>,
+}
+
+/// A primary press of a primary pointer.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Press {
+    /// The hover chain at the press (the pressed chain).
+    pub(crate) chain: Vec<NodeId>,
+    /// The exact activation target, if any.
+    pub(crate) target: Option<FocusTarget>,
+}
+
+/// Where a touch's native scroll starts, and what it needs to stay valid.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct TouchTarget {
+    pub(super) from: NodeId,
+    pub(super) origin: NodeId,
+    pub(super) modal: Option<NodeId>,
+}
+
+/// A touch that may start a native scroll once it leaves the slop.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct TouchCandidate {
+    pub(super) start: Point,
+    pub(super) target: TouchTarget,
+}
+
+/// A touch that scrolls natively along `axis`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct TouchPan {
+    pub(super) last: Point,
+    pub(super) target: TouchTarget,
+    pub(super) axis: Axis,
+}
+
+/// The axis a touch pan scrolls along.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Axis {
+    Horizontal,
+    Vertical,
 }
 
 impl Track {
@@ -121,13 +166,37 @@ impl Track {
             source,
             at: Point::default(),
             hover: Vec::new(),
-            pressed: Vec::new(),
-            capture: None,
             over: None,
-            press_target: None,
-            touch_scroll: None,
-            touch_cancel_pending: false,
+            gesture: Gesture::default(),
         }
+    }
+
+    /// The listener holding the capture, if any.
+    pub(crate) fn capture(&self) -> Option<NodeId> {
+        match &self.gesture {
+            Gesture::Route(route) => route.capture,
+            _ => None,
+        }
+    }
+
+    /// The pressed chain (empty without a press).
+    pub(crate) fn pressed(&self) -> &[NodeId] {
+        match &self.gesture {
+            Gesture::Route(Route {
+                press: Some(press), ..
+            }) => &press.chain,
+            _ => &[],
+        }
+    }
+
+    /// The routed gesture; only called where the pointer is routed.
+    pub(super) fn route_mut(&mut self) -> &mut Route {
+        let Gesture::Route(route) = &mut self.gesture else {
+            unreachable!(
+                "invariant: a press is routed only while the pointer drags no scrollbar and pans nothing"
+            )
+        };
+        route
     }
 }
 
@@ -164,54 +233,13 @@ impl PointerSource {
     };
 }
 
-#[derive(Clone, Copy)]
+/// A mouse scrollbar drag in progress.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ScrollDrag {
     pub(crate) node: NodeId,
     pub(crate) vertical: bool,
     pub(crate) pointer: f32,
     pub(crate) offset: f32,
-}
-
-/// Mouse buttons currently reported down by the shell. A release clears only
-/// its own bit; the representative Move button prefers a held primary button.
-#[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct MouseButtons(u8);
-
-impl MouseButtons {
-    pub(crate) fn set(&mut self, button: MouseButton, pressed: bool) {
-        let bit = match button {
-            MouseButton::Primary => 1,
-            MouseButton::Secondary => 2,
-            MouseButton::Middle => 4,
-            MouseButton::Back => 8,
-            MouseButton::Forward => 16,
-        };
-        if pressed {
-            self.0 |= bit;
-        } else {
-            self.0 &= !bit;
-        }
-    }
-
-    pub(crate) fn held(self) -> Option<MouseButton> {
-        if self.0 & 1 != 0 {
-            Some(MouseButton::Primary)
-        } else if self.0 & 2 != 0 {
-            Some(MouseButton::Secondary)
-        } else if self.0 & 4 != 0 {
-            Some(MouseButton::Middle)
-        } else if self.0 & 8 != 0 {
-            Some(MouseButton::Back)
-        } else if self.0 & 16 != 0 {
-            Some(MouseButton::Forward)
-        } else {
-            None
-        }
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.0 = 0;
-    }
 }
 
 impl PointerState {
@@ -231,19 +259,28 @@ impl PointerState {
     /// Drop removed and leaving nodes.
     pub(crate) fn forget_missing(&mut self, tree: &NodeTree) {
         for track in self.tracks.values_mut() {
-            for chain in [&mut track.hover, &mut track.pressed] {
-                chain.retain(|n| tree.live(*n));
+            track.hover.retain(|n| tree.live(*n));
+            if track.over.is_some_and(|n| !tree.live(n)) {
+                track.over = None;
             }
-            for slot in [&mut track.capture, &mut track.over] {
-                if slot.is_some_and(|n| !tree.live(n)) {
-                    *slot = None;
+            let ended = match &mut track.gesture {
+                Gesture::Route(route) => {
+                    if route.capture.is_some_and(|n| !tree.live(n)) {
+                        route.capture = None;
+                    }
+                    if let Some(press) = &mut route.press {
+                        press.chain.retain(|n| tree.live(*n));
+                        if press.target.is_some_and(|t| !tree.live(t.node)) {
+                            press.target = None;
+                        }
+                    }
+                    false
                 }
-            }
-            if track
-                .press_target
-                .is_some_and(|target| !tree.live(target.node))
-            {
-                track.press_target = None;
+                Gesture::Scrollbar(drag) => !tree.live(drag.node),
+                Gesture::Pan(_) => false,
+            };
+            if ended {
+                track.gesture = Gesture::default();
             }
         }
     }

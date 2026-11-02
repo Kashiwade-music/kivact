@@ -32,8 +32,8 @@ impl Screen {
     fn host_nodes(&self, scope: Option<NodeId>) -> Vec<NodeId> {
         let tree = ViewState::tree(&self.rt);
         let mut out = Vec::new();
-        let start = scope.or(tree.root);
-        let mut stack: Vec<NodeId> = start.into_iter().collect();
+        let start = scope.unwrap_or(tree.root);
+        let mut stack: Vec<NodeId> = vec![start];
         while let Some(id) = stack.pop() {
             let Some(n) = tree.get(id) else { continue };
             if tree.hidden(id) == Some(true) {

@@ -42,10 +42,7 @@ impl Handler for Host {
         seen.waker = Some(waker);
         seen.deadline = deadline;
         window.request_redraw();
-        Ok(ShellControl {
-            exit: false,
-            next_wake_ns: Some(deadline),
-        })
+        Ok(ShellControl::WakeAt(deadline))
     }
     fn event(
         &mut self,
@@ -72,9 +69,10 @@ impl Handler for Host {
                 .expect("embedded CPU frame presents");
         }
         seen.events.push(event);
-        Ok(ShellControl {
-            exit: false,
-            next_wake_ns: (!seen.timer).then_some(seen.deadline),
+        Ok(if seen.timer {
+            ShellControl::Wait
+        } else {
+            ShellControl::WakeAt(seen.deadline)
         })
     }
 }

@@ -9,15 +9,17 @@
 //! Invariants:
 //! - A request is issued at creation, and again when what it was made of
 //!   changes: the adapter (`Some` or `None`, its generation), the size
-//!   (`set_size`), or a `Lost` import. Issuing one drops the import of
+//!   (`set_size`), or the import being `Lost`. Issuing one drops the import of
 //!   the one before at once (its child owner is disposed).
 //! - Each import has a child owner of the image's owner; its status is
-//!   mirrored into the link's phase and the image's status by an effect
-//!   of that child owner, so a dropped import stops being followed.
+//!   mirrored into the link's phase (which the engine's thread waits on) by
+//!   an effect of that child owner, so a dropped import stops being
+//!   followed; the image's status is read from the link's phase.
 //! - The image's owner going closes the link (its cleanup), after its
 //!   child owners dropped the imports.
 
 mod app_side;
 pub(crate) mod link;
 
-pub use app_side::{ShareStatus, SharedImage, shared_image};
+pub use app_side::{SharedImage, shared_image};
+pub use link::ShareStatus;

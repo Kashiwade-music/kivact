@@ -7,19 +7,19 @@ use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::i18n::message;
 use kivact::interaction::{
-    List, ListBoundary, ListPolicy, ListSelection, PopupCloseReason, use_list, use_popup,
+    List, ListBoundary, ListMode, ListPolicy, ListSelection, use_list, use_popup,
 };
 use kivact::motion::{Easing, Transition};
-use kivact::primitive::NodeExt;
+use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Color, Direction, Justify, Style, TransitionProp, style};
 use kivact::ui::{ListActivation, ListItem};
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, Handled, IntoText, IntoValue, IntoView, Key, Orientation, OverlayAlign, Placement,
+    Handled, IntoText, IntoValue, IntoView, Key, Orientation, OverlayAlign, Placement,
     PointerPhase, Role, View, callback, node_ref, overlay, provide, show, try_context,
 };
 use kivact::view::{ReadingDirection, current_direction};
-use kivact::{Callback, Signal, Value, binding, effect, memo, signal, var};
+use kivact::{Callback, Signal, Value, binding, effect_on, memo, signal};
 use std::rc::Rc;
 
 /// One entry of a [`navigation_menu`]: a plain link or a trigger that opens a panel.
@@ -69,6 +69,15 @@ impl NavItem {
             kind: NavKind::Menu(Rc::new(move || content().into_view())),
         }
     }
+}
+
+/// Which panel of a menu is open, and why: hovered (closed when the pointer
+/// leaves) or pinned (by a press, a key or an assistive action).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NavOpen {
+    Closed,
+    Hover(usize),
+    Pinned(usize),
 }
 
 /// What a panel provides to the links inside it.
@@ -141,8 +150,7 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
     let items = items.into_value();
     let rtl = current_direction() == ReadingDirection::Rtl;
     let count = items.with_untracked(Vec::len);
-    let hover = signal(None::<usize>);
-    let pinned = signal(None::<usize>);
+    let open = signal(NavOpen::Closed);
     // The links and triggers are a horizontal list: the arrows move the focus along it.
     let labels = memo(move || {
         items.with(|all| {
@@ -153,13 +161,17 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
         })
     });
     let focus = signal(None::<usize>);
-    let row_list = use_list(labels, ListSelection::Single(focus.into())).policy(ListPolicy {
-        axis: Some(Orientation::Horizontal),
-        boundary: ListBoundary::Wrap,
-        activation: ListActivation::Manual,
-        action: A11yAction::Activate,
-        ..ListPolicy::default()
-    });
+    let row_list = use_list(
+        labels,
+        ListSelection::Single(focus.into()),
+        ListPolicy {
+            axis: Some(Orientation::Horizontal),
+            boundary: ListBoundary::Wrap,
+            activation: ListActivation::Manual,
+            mode: ListMode::Activate,
+            ..ListPolicy::default()
+        },
+    );
     let mut children: Vec<View> = Vec::with_capacity(count);
     for at in 0..count {
         let label = memo(move || {
@@ -187,8 +199,7 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
                 );
             }
             Some(NavKind::Menu(content)) => {
-                let (trigger, panel) =
-                    menu_item(at, label, content, (hover, pinned), row_list, rtl);
+                let (trigger, panel) = menu_item(at, label, content, open, row_list, rtl);
                 children.push(trigger.into_view());
                 children.push(panel);
             }
@@ -212,36 +223,31 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
 }
 
 /// The trigger and the panel overlay of item `at` of `row_list`; `open` is
-/// the item that hover opened and the one a press pinned open.
+/// the panel of the menu that is open.
 fn menu_item(
     at: usize,
     label: Value<String>,
     content: Rc<dyn Fn() -> View>,
-    open: (Signal<Option<usize>>, Signal<Option<usize>>),
+    open: Signal<NavOpen>,
     row_list: List<usize>,
     rtl: bool,
 ) -> (Node, View) {
-    let (hover, pinned) = open;
-    let shown = memo(move || pinned.get() == Some(at) || hover.get() == Some(at));
-    // A press on a panel that only hover opened pins it instead of closing it.
-    let pin_next = var(false);
-    let open_binding = binding(shown, move |open: bool| {
-        if open || pin_next.get() {
-            pin_next.set(false);
-            pinned.set(Some(at));
-        } else {
-            if pinned.get() == Some(at) {
-                pinned.set(None);
+    let shown =
+        memo(move || matches!(open.get(), NavOpen::Hover(i) | NavOpen::Pinned(i) if i == at));
+    // The popup's binding is only the pinned state: a press on a panel that
+    // only hover opened pins it, a press on a pinned one closes it, and the
+    // popup's dismissals (Escape, an outside press, Tab away) close it.
+    let pinned = binding(
+        memo(move || open.get() == NavOpen::Pinned(at)),
+        move |pin: bool| {
+            if pin {
+                open.set(NavOpen::Pinned(at));
+            } else if open.get_untracked() == NavOpen::Pinned(at) {
+                open.set(NavOpen::Closed);
             }
-            if hover.get() == Some(at) {
-                hover.set(None);
-            }
-        }
-    });
-    let pop = use_popup(open_binding);
-    let arm_pin = move || {
-        pin_next.set(shown.get_untracked() && pinned.get_untracked() != Some(at));
-    };
+        },
+    );
+    let pop = use_popup(pinned);
     let attachment = pop.trigger();
     let state = attachment.state();
     let anchor = attachment.node_ref();
@@ -252,21 +258,12 @@ fn menu_item(
         memo(move || on_trigger.get() || on_panel.get())
     };
     // The pointer ending its visit closes a panel that only hover opened.
-    let seen = var(false);
-    effect(move || {
-        if hot.get() {
-            seen.set(true);
-        } else if seen.get() {
-            seen.set(false);
-            if hover.get_untracked() == Some(at) {
-                hover.set(None);
-            }
+    effect_on(hot, move |&hot| {
+        if !hot && open.get_untracked() == NavOpen::Hover(at) {
+            open.set(NavOpen::Closed);
         }
     });
-    let close = callback(move |()| {
-        hover.set(None);
-        pinned.set(None);
-    });
+    let close = callback(move |()| open.set(NavOpen::Closed));
     let chevron_state = state;
     let chevron = sized_icon(icon("chevron-down"), 12.0).style(move || {
         style()
@@ -284,6 +281,10 @@ fn menu_item(
     });
     let trigger = node()
         .part(attachment)
+        // The trigger reports what is drawn: expanded while its panel is
+        // shown, hovered or pinned (a later part's semantics replace an
+        // earlier one's).
+        .part(part(|input| input).expanded(shown))
         .part(row_list.item(at))
         .role(Role::Button)
         .selected(false)
@@ -291,30 +292,25 @@ fn menu_item(
         .name(label)
         .style(move || trigger_style(&tokens(), shown.get()))
         .on_pointer(move |event| {
-            match event.phase {
-                PointerPhase::Enter => {
-                    if pinned.get().is_some_and(|open| open != at) {
-                        pinned.set(None);
+            if event.phase == PointerPhase::Enter {
+                open.update(|state| {
+                    if *state != NavOpen::Pinned(at) {
+                        *state = NavOpen::Hover(at);
                     }
-                    hover.set(Some(at));
-                }
-                PointerPhase::Down => arm_pin(),
-                PointerPhase::Leave => pin_next.set(false),
-                _ => {}
+                });
             }
             Handled::No
         })
         .on_key(move |event| {
-            // Escape closes through the popup, so its focus-return policy applies.
-            if event.key == Key::Escape && shown.get() {
-                pop.close(PopupCloseReason::Escape);
+            if event.key == Key::Escape && shown.get_untracked() {
+                open.set(NavOpen::Closed);
                 return Handled::Yes;
             }
-            if matches!(event.key, Key::Enter | Key::Space) {
-                arm_pin();
-            }
-            if event.key == Key::ArrowDown && !event.modifiers.alt && pinned.get() != Some(at) {
-                pinned.set(Some(at));
+            if event.key == Key::ArrowDown
+                && !event.modifiers.alt
+                && open.get_untracked() != NavOpen::Pinned(at)
+            {
+                open.set(NavOpen::Pinned(at));
                 return Handled::Yes;
             }
             Handled::No

@@ -30,7 +30,8 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact_core::UiError;
-use kivact_core::primitive::{Part, PartState, app_state, part};
+use kivact_core::diagnostics::ErrorKind;
+use kivact_core::primitive::{Part, PartState, app_state, part, raise};
 
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{
@@ -93,6 +94,33 @@ pub struct Toast {
     /// A view a kit draws as the toast's icon instead of the icon of its
     /// tone, if there is one. It is called once, when the toast is shown.
     pub icon: Option<Rc<dyn Fn() -> View>>,
+}
+
+/// Toasts are equal when their text, tone and duration are, and their action
+/// and icon are the same functions (a closure is equal to a clone of itself),
+/// as for a [`ColumnDef`](crate::ColumnDef).
+impl PartialEq for Toast {
+    fn eq(&self, other: &Self) -> bool {
+        fn same<T: ?Sized>(a: &Rc<T>, b: &Rc<T>) -> bool {
+            Rc::ptr_eq(a, b)
+        }
+        let action = match (&self.action, &other.action) {
+            (None, None) => true,
+            (Some((a, f)), Some((b, g))) => a == b && same(f, g),
+            _ => false,
+        };
+        let icon = match (&self.icon, &other.icon) {
+            (None, None) => true,
+            (Some(a), Some(b)) => same(a, b),
+            _ => false,
+        };
+        self.title == other.title
+            && self.body == other.body
+            && self.tone == other.tone
+            && self.duration == other.duration
+            && action
+            && icon
+    }
 }
 
 impl Toast {
@@ -223,7 +251,7 @@ pub struct Toaster {
     /// Every toast not yet gone, shown or waiting, oldest first.
     queue: Signal<Entries>,
     /// The first `limit` of `queue`.
-    visible: Signal<Entries>,
+    visible: Value<Entries>,
     next: Signal<u64>,
     limit: Signal<usize>,
     /// How many [`hold_while`](Self::hold_while) values are true now.
@@ -241,12 +269,19 @@ pub struct Toaster {
 /// whenever a toast is due.
 #[track_caller]
 pub fn toaster() -> Toaster {
-    app_state("toaster", || Toaster {
-        queue: signal(Entries::new()),
-        visible: signal(Entries::new()),
-        next: signal(0u64),
-        limit: signal(DEFAULT_MAX_VISIBLE),
-        holds: signal(0usize),
+    app_state("toaster", || {
+        let queue = signal(Entries::new());
+        let limit = signal(DEFAULT_MAX_VISIBLE);
+        Toaster {
+            queue,
+            visible: memo(move || {
+                let limit = limit.get();
+                queue.with(|queue| queue.iter().take(limit).cloned().collect())
+            }),
+            next: signal(0u64),
+            limit,
+            holds: signal(0usize),
+        }
     })
 }
 
@@ -258,7 +293,6 @@ impl Toaster {
         let id = ToastId(self.next.get_untracked());
         self.next.set(id.0 + 1);
         self.queue.update(|queue| queue.push((id, toast)));
-        self.sync();
         id
     }
 
@@ -271,20 +305,26 @@ impl Toaster {
         if queued {
             self.queue
                 .update(|queue| queue.retain(|(queued, _)| *queued != id));
-            self.sync();
         }
     }
 
     /// The toasts shown now, oldest first.
     pub fn toasts(self) -> Value<Vec<(ToastId, Toast)>> {
-        self.visible.into_value()
+        self.visible
     }
 
-    /// How many toasts are shown at once; the rest wait. The default is 3 and
-    /// at least 1 is kept.
+    /// How many toasts are shown at once; the rest wait. The default is 3. Showing
+    /// none (`0`) is a usage error.
+    #[track_caller]
     pub fn max_visible(self, n: usize) -> Self {
-        self.limit.set(n.max(1));
-        self.sync();
+        if n == 0 {
+            raise(
+                ErrorKind::Message,
+                "Toaster::max_visible: show at least one toast",
+                std::panic::Location::caller(),
+            );
+        }
+        self.limit.set(n);
         self
     }
 
@@ -303,20 +343,6 @@ impl Toaster {
                 on_cleanup(move || self.holds.set(self.holds.get_untracked().saturating_sub(1)));
             }
         });
-    }
-
-    /// Make `visible` the first `limit` toasts of the queue.
-    fn sync(self) {
-        let limit = self.limit.get_untracked();
-        let shown: Entries = self
-            .queue
-            .with_untracked(|queue| queue.iter().take(limit).cloned().collect());
-        let same = self.visible.with_untracked(|visible| {
-            visible.len() == shown.len() && visible.iter().zip(&shown).all(|(a, b)| a.0 == b.0)
-        });
-        if !same {
-            self.visible.update(|visible| *visible = shown);
-        }
     }
 
     /// The toast `id` if it is shown now.
@@ -356,7 +382,7 @@ impl Toaster {
     /// the matching [`region`](Self::region). Setup only.
     #[track_caller]
     pub fn visible(self, assertive: bool) -> Value<Vec<ToastId>> {
-        let shown = self.visible.into_value();
+        let shown = self.visible;
         memo(move || shown.with(|shown| ids(shown, assertive)))
     }
 

@@ -1,14 +1,12 @@
 //! Role: Render a themed selectable list over the shared keyed list parts.
-use super::layer::with_recipe_style;
+use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::PartState;
 use kivact_core::view::{HandlerResult, IntoText, IntoValue, IntoView, View, callback, for_each};
 use kivact_core::{Binding, Callback, Value, binding};
 use kivact_interaction::{
     EditPhase, EditSession, ListItem, ListItemState, ListPolicy, ListSelection, use_list,
 };
-use std::cell::Cell;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -19,7 +17,6 @@ type ItemContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<ListItemState>) -> Vie
 /// [`list`].
 pub struct List<K: Clone + Eq + Hash + 'static> {
     root: Node,
-    state: Rc<Cell<Option<Value<PartState>>>>,
     items: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
     multiple: Option<Binding<Vec<K>>>,
@@ -57,24 +54,10 @@ pub fn list<K: Clone + Eq + Hash + 'static>(
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: impl Into<Binding<Option<K>>>,
 ) -> List<K> {
-    let state = Rc::new(Cell::new(None::<Value<PartState>>));
-    let read = state.clone();
     // The variants are shared: `.variant` adds to them before mount.
     let variants = Variants::default();
-    // The recipe is the first style layer, so the caller's styles win.
-    let root = with_recipe_style(
-        node().name(label),
-        |r| r.list_recipes().root_recipe(),
-        &variants,
-        move || {
-            read.get()
-                .expect("invariant: list prepared before mount")
-                .get()
-        },
-    );
     List {
-        root,
-        state,
+        root: node().name(label),
         items: items.into_value(),
         selected: selected.into(),
         multiple: None,
@@ -176,7 +159,6 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for List<K> {
     fn into_view(self) -> View {
         let List {
             root,
-            state,
             items,
             selected,
             multiple,
@@ -188,12 +170,16 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for List<K> {
             Some(keys) => ListSelection::Multiple(edited(keys, on_edit)),
             None => ListSelection::Single(edited(selected, on_edit)),
         };
-        let behavior = use_list(items, selection).policy(ListPolicy {
-            typeahead: true,
-            ..ListPolicy::default()
-        });
+        let behavior = use_list(
+            items,
+            selection,
+            ListPolicy {
+                typeahead: true,
+                ..ListPolicy::default()
+            },
+        );
         let container = behavior.list();
-        state.set(Some(container.state()));
+        let list_state = container.state();
         let looks = variants.clone();
         let rows = for_each(
             items,
@@ -232,6 +218,15 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for List<K> {
                 .child(content)
             },
         );
-        root.part(container).child(rows).into_view()
+        // The recipe is the base style, so the caller's styles win.
+        with_base_recipe_style(
+            root,
+            |r| r.list_recipes().root_recipe(),
+            &variants,
+            move || list_state.get(),
+        )
+        .part(container)
+        .child(rows)
+        .into_view()
     }
 }

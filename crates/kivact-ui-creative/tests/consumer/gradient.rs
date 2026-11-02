@@ -51,7 +51,7 @@ fn gradient_keys_actions_selection_and_position_reorder_keep_storage_order() {
         },
     );
     assert!((data.get_untracked()[0].position - 0.36).abs() < 1e-9);
-    stop.a11y_with_value(A11yAction::SetValue, "0.9");
+    stop.a11y_set_value("0.9");
     assert_eq!(selected.get_untracked(), Some(0));
     stop.a11y(A11yAction::Increment);
     stop.a11y(A11yAction::Decrement);
@@ -61,10 +61,10 @@ fn gradient_keys_actions_selection_and_position_reorder_keep_storage_order() {
     assert_eq!(data.get_untracked()[0].position, 1.0);
     screen
         .get_by_role(Role::SpinButton, "Stop position")
-        .a11y_with_value(A11yAction::SetValue, "0.6");
+        .a11y_set_value("0.6");
     assert_eq!(data.get_untracked()[0].position, 0.6);
     let count = log.borrow().len();
-    stop.a11y_with_value(A11yAction::SetValue, "NaN");
+    stop.a11y_set_value("NaN");
     assert_eq!(log.borrow().len(), count);
     stop.press_key(Key::Delete);
     assert_eq!(selected.get_untracked(), Some(0));

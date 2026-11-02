@@ -5,12 +5,13 @@ use super::raw::FORMAT;
 use super::raw::{barrier, memory_type};
 use super::read_back::{ReadImage, read_back};
 use crate::common::{Error, api};
-use crate::pool::{DROP_WAIT, FrameReady, PoolConfig, Slots};
+use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
 use crate::vulkan_contract::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use ash::vk;
 use kivact_types::{
     AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
 };
+use std::fmt;
 use std::time::Duration;
 
 /// One texture of the pool.
@@ -20,31 +21,38 @@ struct Slot {
     memory: vk::DeviceMemory,
 }
 
-/// The texture the next frame is drawn into, from [`Pool::acquire`], until
-/// [`Pool::submit`] or [`Pool::finish`] takes it.
-#[derive(Debug)]
-pub struct Target {
-    slot: u32,
-    image: vk::Image,
-    extent: vk::Extent2D,
-    /// The value `release` reaches before the GPU writes (0: no wait).
-    wait: u64,
+/// The texture the next frame is drawn into, from [`Pool::acquire`]. It
+/// borrows the pool until [`Target::submit`] or [`Target::finish`] takes
+/// it; dropping it gives the frame up (the next acquire gives the same
+/// texture again).
+#[must_use = "draw into the target, then submit or finish it; dropping it gives the frame up"]
+pub struct Target<'pool> {
+    pool: &'pool mut Pool,
+    acquired: Acquired,
 }
 
-impl Target {
+impl fmt::Debug for Target<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Target")
+            .field("slot", &self.acquired.slot)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Target<'_> {
     /// The texture's index in the pool.
     pub fn slot(&self) -> u32 {
-        self.slot
+        self.acquired.slot
     }
 
     /// The image to draw into.
     pub fn image(&self) -> vk::Image {
-        self.image
+        self.pool.slots[self.acquired.slot as usize].image
     }
 
     /// The image's size.
     pub fn extent(&self) -> vk::Extent2D {
-        self.extent
+        self.pool.extent
     }
 
     /// The image's format ([`FORMAT`]).
@@ -52,15 +60,84 @@ impl Target {
         FORMAT
     }
 
-    /// The value `release` reaches before the GPU writes (0: no wait).
-    #[cfg(feature = "wgpu")]
-    pub(crate) fn release_wait(&self) -> u64 {
-        self.wait
+    /// Record into `command` the barriers that take the image from the
+    /// window: acquired from `VK_QUEUE_FAMILY_EXTERNAL` to the pool's
+    /// queue family keeping [`HAND_OFF_LAYOUT`] (as the window released
+    /// it), then moved to `layout` (contents kept) for the engine's first
+    /// use at `stage` with `access`. The frame's first commands on the
+    /// image.
+    ///
+    /// # Safety
+    /// `command` is a command buffer of the pool's device, recording, for
+    /// a queue of the pool's queue family.
+    pub unsafe fn record_acquire(
+        &self,
+        command: vk::CommandBuffer,
+        layout: vk::ImageLayout,
+        stage_access: (vk::PipelineStageFlags, vk::AccessFlags),
+    ) {
+        // SAFETY: as documented (the caller); the slot is the target's.
+        unsafe {
+            self.pool
+                .record_acquire_slot(command, self.acquired.slot, layout, stage_access);
+        }
+    }
+
+    /// Record into `command` the barriers that give the image back to the
+    /// window: from `layout` (last used at `stage` with `access`) to
+    /// [`HAND_OFF_LAYOUT`], then released to `VK_QUEUE_FAMILY_EXTERNAL`
+    /// keeping it. The frame's last commands on the image.
+    ///
+    /// # Safety
+    /// As [`Target::record_acquire`].
+    pub unsafe fn record_release(
+        &self,
+        command: vk::CommandBuffer,
+        layout: vk::ImageLayout,
+        stage_access: (vk::PipelineStageFlags, vk::AccessFlags),
+    ) {
+        // SAFETY: as documented (the caller); the slot is the target's.
+        unsafe {
+            self.pool
+                .record_release_slot(command, self.acquired.slot, layout, stage_access);
+        }
+    }
+
+    /// The semaphores the engine's own submission of this frame waits for
+    /// and signals; the frame counts as submitted. The submission must
+    /// follow: until `ready` reaches the frame's value, acquiring this
+    /// texture again times out.
+    pub fn finish(self) -> Submission {
+        self.pool.finish_acquired(self.acquired)
+    }
+
+    /// Submit `commands` (which draw the frame between
+    /// [`Target::record_acquire`] and [`Target::record_release`]) to
+    /// `queue`, waiting on the GPU for the window's release first,
+    /// signaling `ready` after, and `fence` (may be null) once done: the
+    /// frame to publish. An error gives the frame up.
+    ///
+    /// # Safety
+    /// `queue` is a queue of the pool's device and queue family, not used
+    /// by another thread during the call; `commands` are executable
+    /// command buffers of the device; `fence` is null or an unsignaled
+    /// fence of the device.
+    pub unsafe fn submit(
+        self,
+        queue: vk::Queue,
+        commands: &[vk::CommandBuffer],
+        fence: vk::Fence,
+    ) -> Result<FrameReady, Error> {
+        // SAFETY: the caller's queue, buffers and fence, as documented.
+        unsafe {
+            self.pool
+                .submit_acquired(queue, self.acquired, commands, fence)
+        }
     }
 }
 
 /// The timeline semaphores an engine's own submission of a frame waits
-/// for and signals ([`Pool::finish`]).
+/// for and signals ([`Target::finish`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Submission {
     /// Wait (`VkTimelineSemaphoreSubmitInfo`) for `release` to reach this
@@ -73,6 +150,16 @@ pub struct Submission {
     pub frame: FrameReady,
 }
 
+/// Who destroys the pool's images and their memory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ImageOwner {
+    /// The pool, when it is dropped.
+    Pool,
+    /// wgpu-hal, which wraps them as textures (`hand_over_images`).
+    #[cfg(feature = "wgpu")]
+    Wgpu,
+}
+
 /// A pool of shared images and its `ready` and `release` timeline
 /// semaphores, on the engine's own device.
 pub struct Pool {
@@ -83,8 +170,8 @@ pub struct Pool {
     extent: vk::Extent2D,
     storage: bool,
     slots: Vec<Slot>,
-    /// The pool destroys the images and their memory (not handed over).
-    owns_images: bool,
+    /// Who destroys the images and their memory.
+    owner: ImageOwner,
     ready: vk::Semaphore,
     release: vk::Semaphore,
     frames: Slots,
@@ -130,7 +217,7 @@ impl Pool {
             },
             storage: config.storage,
             slots: Vec::new(),
-            owns_images: true,
+            owner: ImageOwner::Pool,
             ready: vk::Semaphore::null(),
             release: vk::Semaphore::null(),
             frames: Slots::new(config.slots),
@@ -305,49 +392,42 @@ impl Pool {
     /// The texture of the next frame, once its last frame's submission
     /// signaled `ready` (waited at most `timeout` on the CPU). The GPU
     /// waits for the window's `release` of that frame: the submission
-    /// ([`Pool::submit`], or [`Pool::finish`]'s `wait`) does, so the
+    /// ([`Target::submit`], or [`Target::finish`]'s `wait`) does, so the
     /// engine can draw ahead of the window.
     ///
     /// A [`Error::Timeout`] means the texture's last submission did not
     /// finish, usually because it still waits for a release the window
     /// never gives (a lost device, a window that stopped presenting).
-    pub fn acquire(&mut self, timeout: Duration) -> Result<Target, Error> {
-        let (slot, last) = self.frames.acquire()?;
-        if let Err(error) = self.wait(self.ready, last, timeout, "the texture's last frame") {
-            self.frames.cancel();
-            return Err(error);
-        }
+    pub fn acquire(&mut self, timeout: Duration) -> Result<Target<'_>, Error> {
+        let acquired = self.begin(timeout)?;
         Ok(Target {
-            slot,
-            image: self.slots[slot as usize].image,
-            extent: self.extent,
-            wait: last,
+            pool: self,
+            acquired,
         })
     }
 
-    /// Give `target` up without a frame (nothing of it was submitted).
-    pub fn cancel(&mut self, target: Target) {
-        let _ = target;
-        self.frames.cancel();
+    /// The next frame's texture, once its last frame signaled `ready`
+    /// (waited at most `timeout`).
+    pub(crate) fn begin(&self, timeout: Duration) -> Result<Acquired, Error> {
+        let acquired = self.frames.next();
+        if let Some(last) = acquired.wait {
+            self.wait(self.ready, last.get(), timeout, "the texture's last frame")?;
+        }
+        Ok(acquired)
     }
 
-    /// Record into `command` the barriers that take `target`'s image from
-    /// the window: acquired from `VK_QUEUE_FAMILY_EXTERNAL` to the pool's
-    /// queue family keeping [`HAND_OFF_LAYOUT`] (as the window released
-    /// it), then moved to `layout` (contents kept) for the engine's first
-    /// use at `stage` with `access`. The frame's first commands on the
-    /// image.
+    /// [`Target::record_acquire`] for texture `slot`.
     ///
     /// # Safety
-    /// `command` is a command buffer of the pool's device, recording, for
-    /// a queue of the pool's queue family; `target` is of this pool.
-    pub unsafe fn record_acquire(
+    /// As [`Target::record_acquire`]; `slot` is a texture of the pool.
+    pub(crate) unsafe fn record_acquire_slot(
         &self,
         command: vk::CommandBuffer,
-        target: &Target,
+        slot: u32,
         layout: vk::ImageLayout,
         (stage, access): (vk::PipelineStageFlags, vk::AccessFlags),
     ) {
+        let image = self.slots[slot as usize].image;
         let all = vk::PipelineStageFlags::ALL_COMMANDS;
         let none = vk::AccessFlags::empty();
         let memory = vk::AccessFlags::MEMORY_READ | vk::AccessFlags::MEMORY_WRITE;
@@ -356,7 +436,7 @@ impl Pool {
             barrier(
                 &self.device,
                 command,
-                target.image,
+                image,
                 (HAND_OFF_LAYOUT, HAND_OFF_LAYOUT),
                 (vk::QUEUE_FAMILY_EXTERNAL, self.family),
                 (all, none),
@@ -369,7 +449,7 @@ impl Pool {
                 barrier(
                     &self.device,
                     command,
-                    target.image,
+                    image,
                     (HAND_OFF_LAYOUT, layout),
                     (vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED),
                     (all, none),
@@ -379,21 +459,18 @@ impl Pool {
         }
     }
 
-    /// Record into `command` the barriers that give `target`'s image back
-    /// to the window: from `layout` (last used at `stage` with `access`)
-    /// to [`HAND_OFF_LAYOUT`], then released to
-    /// `VK_QUEUE_FAMILY_EXTERNAL` keeping it. The frame's last commands
-    /// on the image.
+    /// [`Target::record_release`] for texture `slot`.
     ///
     /// # Safety
-    /// As [`Pool::record_acquire`].
-    pub unsafe fn record_release(
+    /// As [`Target::record_acquire`]; `slot` is a texture of the pool.
+    pub(crate) unsafe fn record_release_slot(
         &self,
         command: vk::CommandBuffer,
-        target: &Target,
+        slot: u32,
         layout: vk::ImageLayout,
         (stage, access): (vk::PipelineStageFlags, vk::AccessFlags),
     ) {
+        let image = self.slots[slot as usize].image;
         let all = vk::PipelineStageFlags::ALL_COMMANDS;
         let none = vk::AccessFlags::empty();
         let (src_stage, src_access) = if layout == HAND_OFF_LAYOUT {
@@ -404,7 +481,7 @@ impl Pool {
                 barrier(
                     &self.device,
                     command,
-                    target.image,
+                    image,
                     (layout, HAND_OFF_LAYOUT),
                     (vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED),
                     (stage, access),
@@ -418,7 +495,7 @@ impl Pool {
             barrier(
                 &self.device,
                 command,
-                target.image,
+                image,
                 (HAND_OFF_LAYOUT, HAND_OFF_LAYOUT),
                 (self.family, vk::QUEUE_FAMILY_EXTERNAL),
                 (src_stage, src_access),
@@ -427,42 +504,31 @@ impl Pool {
         }
     }
 
-    /// The semaphores the engine's own submission of `target`'s frame
-    /// waits for and signals; the frame counts as submitted. The
-    /// submission must follow: until `ready` reaches the frame's value,
-    /// acquiring this texture again times out.
-    pub fn finish(&mut self, target: Target) -> Submission {
-        let frame = self.frames.finish(target.slot);
+    /// [`Target::finish`].
+    pub(crate) fn finish_acquired(&mut self, acquired: Acquired) -> Submission {
+        let frame = self.frames.finish(acquired);
         Submission {
-            wait: (target.wait > 0).then_some((self.release, target.wait)),
+            wait: acquired.wait.map(|value| (self.release, value.get())),
             signal: (self.ready, frame.value),
             frame,
         }
     }
 
-    /// Submit `commands` (which draw `target`'s frame between
-    /// [`Pool::record_acquire`] and [`Pool::record_release`]) to `queue`,
-    /// waiting on the GPU for the window's release first, signaling
-    /// `ready` after, and `fence` (may be null) once done: the frame to
-    /// publish. When the submission fails, the frame is given up.
+    /// [`Target::submit`].
     ///
     /// # Safety
-    /// `queue` is a queue of the pool's device and queue family, not used
-    /// by another thread during the call; `commands` are executable
-    /// command buffers of the device; `fence` is null or an unsignaled
-    /// fence of the device.
-    pub unsafe fn submit(
+    /// As [`Target::submit`].
+    pub(crate) unsafe fn submit_acquired(
         &mut self,
         queue: vk::Queue,
-        target: Target,
+        acquired: Acquired,
         commands: &[vk::CommandBuffer],
         fence: vk::Fence,
     ) -> Result<FrameReady, Error> {
-        let value = self.frames.last() + 1;
-        let (waits, wait_values) = if target.wait > 0 {
-            (vec![self.release], vec![target.wait])
-        } else {
-            (Vec::new(), Vec::new())
+        let value = self.frames.next_value().get();
+        let (waits, wait_values) = match acquired.wait {
+            Some(wait) => (vec![self.release], vec![wait.get()]),
+            None => (Vec::new(), Vec::new()),
         };
         let stages = vec![vk::PipelineStageFlags::ALL_COMMANDS; waits.len()];
         let signals = [self.ready];
@@ -479,11 +545,8 @@ impl Pool {
         // SAFETY: the caller's queue and buffers of the pool's device.
         let submitted = unsafe { self.device.queue_submit(queue, &[info], fence) };
         match submitted {
-            Ok(()) => Ok(self.finish(target).frame),
-            Err(e) => {
-                self.cancel(target);
-                Err(api("vkQueueSubmit")(e))
-            }
+            Ok(()) => Ok(self.finish_acquired(acquired).frame),
+            Err(e) => Err(api("vkQueueSubmit")(e)),
         }
     }
 
@@ -498,7 +561,7 @@ impl Pool {
     /// finished); the pool still uses them.
     #[cfg(feature = "wgpu")]
     pub(crate) fn hand_over_images(&mut self) -> Vec<(vk::Image, vk::DeviceMemory)> {
-        self.owns_images = false;
+        self.owner = ImageOwner::Wgpu;
         self.slots.iter().map(|s| (s.image, s.memory)).collect()
     }
 
@@ -518,7 +581,10 @@ impl Pool {
     /// Wait at most `timeout` on the CPU for every submitted frame's
     /// `ready` (the engine's work on the pool finished).
     pub fn wait_idle(&self, timeout: Duration) -> Result<(), Error> {
-        self.wait(self.ready, self.frames.last(), timeout, "the last frame")
+        match self.frames.last() {
+            Some(last) => self.wait(self.ready, last.get(), timeout, "the last frame"),
+            None => Ok(()),
+        }
     }
 
     /// Texture `slot`'s last frame as straight-alpha RGBA8 (`width` ×
@@ -539,8 +605,9 @@ impl Pool {
         slot: u32,
         timeout: Duration,
     ) -> Result<Vec<u8>, Error> {
-        let last = self.frames.drawn(slot)?;
-        self.wait(self.ready, last, timeout, "the texture's last frame")?;
+        if let Some(last) = self.frames.drawn(slot)? {
+            self.wait(self.ready, last.get(), timeout, "the texture's last frame")?;
+        }
         let image = ReadImage {
             image: self.slots[slot as usize].image,
             layout: HAND_OFF_LAYOUT,
@@ -565,16 +632,18 @@ impl Pool {
 
 impl Drop for Pool {
     fn drop(&mut self) {
-        if self.ready != vk::Semaphore::null() && self.wait_idle(DROP_WAIT).is_err() {
+        if self.wait_idle(DROP_WAIT).is_err() {
             // A submission may still wait for a release: keep everything.
             return;
         }
-        for slot in self.slots.iter().filter(|_| self.owns_images) {
-            // SAFETY: no submission uses the image any more (`ready`);
-            // destroying a null handle is a no-op.
-            unsafe { self.device.destroy_image(slot.image, None) };
-            // SAFETY: as above, after its image.
-            unsafe { self.device.free_memory(slot.memory, None) };
+        if self.owner == ImageOwner::Pool {
+            for slot in &self.slots {
+                // SAFETY: no submission uses the image any more (`ready`);
+                // destroying a null handle is a no-op.
+                unsafe { self.device.destroy_image(slot.image, None) };
+                // SAFETY: as above, after its image.
+                unsafe { self.device.free_memory(slot.memory, None) };
+            }
         }
         // SAFETY: no submission waits for or signals it any more.
         unsafe { self.device.destroy_semaphore(self.ready, None) };

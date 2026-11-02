@@ -13,10 +13,11 @@ use kivact::style::{Align, Color, ColorToken, Cursor, Justify, Style, Theme, sty
 use kivact::ui::{EditPhase, ScalarRange};
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoText, IntoValue, IntoView, Key, MouseButton, Orientation,
-    Placement, PointerPhase, Role, View, callback, node_ref, overlay, show,
+    A11yAction, A11yEvent, A11yRequest, ButtonPress, Handled, IntoText, IntoValue, IntoView, Key,
+    MouseButton, Orientation, Placement, PointerPhase, Role, View, callback, node_ref, overlay,
+    show,
 };
-use kivact::{Binding, Callback, Value, binding, memo, on_mount, signal, var};
+use kivact::{Binding, Callback, Value, binding, memo, signal, var};
 use std::rc::Rc;
 
 type TextParser = Rc<dyn Fn(&str, f64) -> Result<f64, String>>;
@@ -325,12 +326,10 @@ impl IntoView for Numeric {
             mixed,
         } = self;
         let value = state.into_value();
-        let editing = signal(false);
-        let draft = signal(String::new());
-        // The value the open text field started from, which a relative entry
-        // such as `+5` is added to, and the text it opened with; `None` while
-        // the field is closed.
-        let text_start = var(None::<(f64, String)>);
+        // Whether the text field is open. It ends itself on Enter, Escape
+        // and when it is removed.
+        let typing = kivact::ui::use_inline_edit(signal(None::<()>));
+        let text_open = move || typing.is_open(&());
         // The value a scrub's delta is measured from.
         let origin = var(0.0);
         let moved = signal(false);
@@ -377,9 +376,9 @@ impl IntoView for Numeric {
         let not_finite = message("creative.numeric.not_finite", "Enter a finite number");
         let mixed_text = message("creative.numeric.mixed", "Mixed");
         let text_parser = var(text_parser);
-        let parse = move |s: &str| -> Result<f64, String> {
-            let from = text_start.with(|start| start.as_ref().map(|start| start.0));
-            let from = from.unwrap_or_else(|| value.get_untracked());
+        // `from` is the value the text field opened with, which a relative
+        // entry such as `+5` is added to.
+        let parse = move |s: &str, from: f64| -> Result<f64, String> {
             match text_parser.get() {
                 Some(parser) => parser(s, from).and_then(|v| {
                     if v.is_finite() {
@@ -391,31 +390,7 @@ impl IntoView for Numeric {
                 None => parse_scalar(s, timecode, from).ok_or_else(|| not_finite.get()),
             }
         };
-        let begin_text = move || {
-            let initial = format_scalar(value.get_untracked(), precision, "", timecode);
-            text_start.set(Some((value.get_untracked(), initial.clone())));
-            draft.set(initial);
-            editing.set(true);
-        };
-        let discard_text = move || {
-            text_start.set(None);
-            editing.set(false);
-        };
-        // Write the typed text when the draft commits: Enter, or leaving the
-        // field with a changed text. A text left as it opened writes nothing,
-        // unless the value is mixed, which Enter confirms. A text that does
-        // not parse is `invalid`, which the draft does not commit.
-        let commit_text = move |typed: String| {
-            let Some((_, opened)) = text_start.get() else {
-                return;
-            };
-            if typed == opened && !mixed.get_untracked() {
-                return;
-            }
-            if let Ok(next) = parse(&typed) {
-                set(next);
-            }
-        };
+        let begin_text = move || typing.open(());
         let suffix = unit.clone();
         let shown = (move || {
             if mixed.get() {
@@ -426,7 +401,7 @@ impl IntoView for Numeric {
         })
         .into_value();
         let display = show(
-            move || !editing.get(),
+            move || !text_open(),
             move || {
                 if matches!(kind, NumericKind::Knob | NumericKind::Fader) {
                     return ().into_view();
@@ -467,36 +442,41 @@ impl IntoView for Numeric {
                 .into_view()
             },
         );
-        let edit = show(editing, move || {
-            let field = node_ref();
+        let edit = show(text_open, move || {
             let status = node_ref();
+            let from = value.get_untracked();
+            let opened = format_scalar(from, precision, "", timecode);
+            let draft = signal(opened.clone());
+            // Write the typed text when the draft commits: Enter, or leaving
+            // the field with a changed text. A text left as it opened writes
+            // nothing, unless the value is mixed, which Enter confirms. A text
+            // that does not parse is `invalid`, which the draft does not
+            // commit.
+            let commit_text = move |typed: String| {
+                if typed == opened && !mixed.get_untracked() {
+                    return;
+                }
+                if let Ok(next) = parse(&typed, from) {
+                    set(next);
+                }
+            };
             // Why the text does not parse, while it does not; it follows the
             // draft as it is typed.
-            let reason = memo(move || parse(&draft.get()).err());
+            let reason = memo(move || parse(&draft.get(), from).err());
             let shown = memo(move || reason.get().is_some_and(|reason| !reason.is_empty()));
             let hint = use_popup(binding(shown, |_: bool| {}))
                 .anchor(reference)
                 .focus_return(FocusReturn::preserve());
-            on_mount(move || {
-                field.focus();
-                field.select_all();
-            });
             (
-                kivact::ui::text_input(label, draft)
-                    // A draft that does not parse stays open after the focus
-                    // leaves; Escape discards it.
-                    .draft(commit_text)
-                    .on_edit(move |phase| {
-                        if phase != EditPhase::Begin {
-                            discard_text();
-                        }
-                    })
+                // A draft that does not parse stays open after the focus
+                // leaves; Escape discards it.
+                typing
+                    .field((), label, draft, commit_text)
                     .return_focus(reference)
                     .style(move || {
                         let t = &current_theme();
                         style().font_family(t.get::<crate::tokens::Tokens>().mono_font.as_str())
                     })
-                    .node_ref(field)
                     .style(style().width(kivact::style::pct(100)))
                     .invalid(move || reason.get().is_some())
                     .described_by(status),
@@ -655,7 +635,7 @@ impl IntoView for Numeric {
                         | Key::End
                         | Key::Backspace
                 );
-                if editing.get() {
+                if text_open() {
                     // The text field runs first. Consume the keys it leaves
                     // unhandled at the ends of its text, so that none of them
                     // writes the value.
@@ -692,7 +672,7 @@ impl IntoView for Numeric {
                 Handled::Yes
             })
             .on_wheel_default(move |e| {
-                if editing.get() || mixed.get() {
+                if text_open() || mixed.get() {
                     return Handled::No;
                 }
                 if pointer.is_active() {
@@ -704,22 +684,29 @@ impl IntoView for Numeric {
             })
             // Runs before the scrub source below; `Yes` keeps the press from it.
             .on_pointer_default(move |e| {
-                if editing.get() {
+                if text_open() {
                     return Handled::Yes;
                 }
                 if mixed.get() {
-                    if e.phase == PointerPhase::Down
-                        && e.button == Some(MouseButton::Primary)
-                        && matches!(kind, NumericKind::Number | NumericKind::Slider)
+                    if matches!(
+                        e.phase,
+                        PointerPhase::Down(ButtonPress {
+                            button: MouseButton::Primary,
+                            ..
+                        })
+                    ) && matches!(kind, NumericKind::Number | NumericKind::Slider)
                     {
                         begin_text();
                     }
                     return Handled::Yes;
                 }
-                if e.phase == PointerPhase::Down
-                    && e.button == Some(MouseButton::Primary)
-                    && e.click_count > 1
-                {
+                if matches!(
+                    e.phase,
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        clicks: 2..
+                    })
+                ) {
                     pointer.cancel();
                     set(reset);
                     return Handled::Yes;
@@ -734,23 +721,20 @@ impl IntoView for Numeric {
         let act = move |event: A11yEvent| {
             let writes = event.region.is_none()
                 && !pointer.is_active()
-                && match event.action {
-                    A11yAction::SetValue => event
-                        .value
-                        .as_deref()
-                        .and_then(|v| v.parse::<f64>().ok())
-                        .is_some_and(f64::is_finite),
+                && match &event.request {
+                    A11yRequest::SetValue(text) => {
+                        text.parse::<f64>().ok().is_some_and(f64::is_finite)
+                    }
                     _ => !mixed.get_untracked(),
                 };
             if writes {
-                scalar.once(|| match event.action {
-                    A11yAction::Increment => scalar.step_by(1.0),
-                    A11yAction::Decrement => scalar.step_by(-1.0),
-                    _ => event
-                        .value
-                        .as_deref()
-                        .and_then(|v| v.parse::<f64>().ok())
-                        .is_some_and(|v| scalar.set(v)),
+                scalar.once(|| match &event.request {
+                    A11yRequest::Increment => scalar.step_by(1.0),
+                    A11yRequest::Decrement => scalar.step_by(-1.0),
+                    A11yRequest::SetValue(text) => {
+                        text.parse::<f64>().ok().is_some_and(|v| scalar.set(v))
+                    }
+                    _ => false,
                 });
             }
         };

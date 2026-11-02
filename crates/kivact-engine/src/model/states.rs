@@ -84,6 +84,12 @@ fn merge(p: &mut PaintProps, d: &PaintDelta) {
 impl Model {
     /// The state deltas of `id` that apply now, lowest first.
     pub(crate) fn active_deltas(&self, id: NodeId) -> Vec<&PaintDelta> {
+        self.deltas(id, false)
+    }
+
+    /// The state deltas of `id` that apply now, lowest first; with `entering`,
+    /// its enter paint too.
+    fn deltas(&self, id: NodeId, entering: bool) -> Vec<&PaintDelta> {
         let Some(node) = self.tree.get(id) else {
             return Vec::new();
         };
@@ -110,9 +116,7 @@ impl Model {
             s.group_hover.as_ref().filter(|_| self.is_group_hovered(id)),
             s.hover.as_ref().filter(|_| self.is_hovered(id)),
             s.pressed.as_ref().filter(|_| self.is_pressed(id)),
-            s.enter
-                .as_ref()
-                .filter(|_| node.presence == Presence::Entering),
+            s.enter.as_ref().filter(|_| entering),
             s.exit
                 .as_ref()
                 .filter(|_| node.presence == Presence::Leaving),
@@ -162,19 +166,28 @@ impl Model {
         {
             self.changes.a11y_subtrees.insert(id);
             self.changes.needs_layout = true;
-            self.changes.moved = true;
+            self.changes.moved();
         }
     }
 
     /// The paint of `id` with its active state deltas applied.
     pub(crate) fn target_paint(&self, id: NodeId) -> PaintProps {
+        self.paint_with(id, false)
+    }
+
+    /// The paint `id` enters from: its target paint with its enter paint over it.
+    pub(crate) fn enter_paint(&self, id: NodeId) -> PaintProps {
+        self.paint_with(id, true)
+    }
+
+    fn paint_with(&self, id: NodeId, entering: bool) -> PaintProps {
         let mut p = self
             .tree
             .get(id)
             .and_then(|n| n.paint())
             .cloned()
             .unwrap_or_default();
-        for d in self.active_deltas(id) {
+        for d in self.deltas(id, entering) {
             merge(&mut p, d);
         }
         p
@@ -197,6 +210,16 @@ impl Model {
     /// The text color of `id`: the one of the nearest ancestor-or-self with
     /// an active text color delta, else the inherited `Text` prop's.
     pub(crate) fn text_color(&self, id: NodeId) -> Rgba {
+        self.text_color_with(id, false)
+    }
+
+    /// The text color `id` enters from: its enter paint's text color over its
+    /// target one.
+    pub(crate) fn enter_text_color(&self, id: NodeId) -> Rgba {
+        self.text_color_with(id, true)
+    }
+
+    fn text_color_with(&self, id: NodeId, entering: bool) -> Rgba {
         for x in self.tree.chain(Some(id)) {
             if let Some(a) = self.motion.get(x)
                 && a.colors_text()
@@ -204,7 +227,7 @@ impl Model {
                 return a.current_color();
             }
             if let Some(c) = self
-                .active_deltas(x)
+                .deltas(x, entering && x == id)
                 .into_iter()
                 .filter_map(|d| d.text_color)
                 .next_back()

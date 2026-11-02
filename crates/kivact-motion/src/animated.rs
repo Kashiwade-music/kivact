@@ -14,21 +14,59 @@ use kivact_reactive::{
     AppId, EffectKind, HandlerResult, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal,
     Value, require_effectful,
 };
+use kivact_wire::motion::SpringRun;
 
 pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,
     pub(crate) value: Signal<T>,
+    /// Whether a run is in progress (`Animated::is_running`): written only by
+    /// `set_phase`.
     pub(crate) running: Signal<bool>,
     pub(crate) transition: Transition,
     pub(crate) from: RefCell<Vec<f32>>,
     pub(crate) to: RefCell<Vec<f32>>,
     pub(crate) current: RefCell<Vec<f32>>,
-    pub(crate) velocity: RefCell<Vec<f32>>,
-    pub(crate) start_ns: Cell<u64>,
-    pub(crate) last_ns: Cell<u64>,
-    pub(crate) active: Cell<bool>,
-    pub(crate) paused: Cell<Option<u64>>,
+    /// A spring's velocity, step time and iteration (`Transition::step`).
+    pub(crate) spring: RefCell<SpringRun>,
+    pub(crate) phase: Cell<Phase>,
+    /// Runs that ended `RunEnd::Completed` so far (`on_complete` follows it).
     pub(crate) completed: Signal<u64>,
+}
+
+/// Where an animated value stands.
+#[derive(Clone, Copy)]
+pub(crate) enum Phase {
+    /// At rest on `to`: no run.
+    Idle,
+    /// A run toward `to` that started at `start_ns` on the App's clock (its
+    /// delay and timing count from here).
+    Running { start_ns: u64 },
+    /// A run stopped by `Animated::pause` at `at_ns`; `resume` continues it.
+    Paused { start_ns: u64, at_ns: u64 },
+}
+
+/// Why a run ends.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RunEnd {
+    /// It reached its target, in time or at once under reduced motion:
+    /// `on_complete` runs.
+    Completed,
+    /// `jump_to`, or a target equal to the current value (no run starts):
+    /// nothing is reported.
+    Cancelled,
+}
+
+/// The time `t` after a stop at `paused` that went on at `now`: times up to
+/// the stop move by its length, times during it move to `now`, later ones
+/// stay.
+fn shift(t: u64, paused: u64, now: u64) -> u64 {
+    if t <= paused {
+        t.saturating_add(now.saturating_sub(paused))
+    } else if t <= now {
+        now
+    } else {
+        t
+    }
 }
 
 fn comps<T: Animatable>(v: &T) -> Vec<f32> {
@@ -44,133 +82,115 @@ impl<T: Animatable> AnimCell<T> {
         self.value.update(move |slot| *slot = v);
     }
 
-    fn finish(&self) {
-        let notify = self.active.replace(false);
+    fn set_phase(&self, phase: Phase) {
+        self.phase.set(phase);
+        self.running.set(matches!(phase, Phase::Running { .. }));
+    }
+
+    fn finish(&self, end: RunEnd) {
+        self.set_phase(Phase::Idle);
         let to = self.to.borrow().clone();
         self.publish(&to);
-        self.velocity.borrow_mut().iter_mut().for_each(|v| *v = 0.0);
-        self.paused.set(None);
-        if self.running.try_get() == Some(true) {
-            self.running.set(false);
-        }
-        if notify {
+        self.spring.borrow_mut().velocity.fill(0.0);
+        if end == RunEnd::Completed {
             self.completed.update(|n| *n += 1);
+        }
+    }
+
+    /// Run from `from` toward `to` on `clock`, or end at once: a target equal
+    /// to the current value starts no run, and under reduced motion a
+    /// decorative run completes at once.
+    fn begin(&self, start_ns: u64, reduced: bool) {
+        let wire = self.transition.as_wire();
+        if *self.from.borrow() == *self.to.borrow() && !matches!(wire.kind, Kind::Keyframes { .. })
+        {
+            self.finish(RunEnd::Cancelled);
+        } else if reduced && wire.decorative {
+            self.finish(RunEnd::Completed);
+        } else {
+            self.set_phase(Phase::Running { start_ns });
         }
     }
 
     /// Start moving from the current value to `target` at `now`.
     pub(crate) fn retarget(&self, target: &T, now: u64, reduced: bool) {
         let to = comps(target);
-        if *self.to.borrow() == to && self.active.get() {
+        let phase = self.phase.get();
+        if *self.to.borrow() == to && !matches!(phase, Phase::Idle) {
             return;
         }
         *self.from.borrow_mut() = self.current.borrow().clone();
         *self.to.borrow_mut() = to;
-        self.start_ns.set(now);
-        self.last_ns.set(now);
-        if self.paused.get().is_some() {
-            self.paused.set(Some(now));
-        }
-        if self.velocity.borrow().len() != T::COMPONENTS {
-            *self.velocity.borrow_mut() = vec![0.0; T::COMPONENTS];
-        }
-        // A paused run retains its current value even for immediate targets.
-        if self.paused.get().is_some() {
-            self.active.set(true);
-            return;
-        }
-        if reduced && self.transition.as_wire().decorative {
-            self.active.set(true);
-            self.finish();
-            return;
-        }
-        if *self.from.borrow() == *self.to.borrow()
-            && !matches!(self.transition.as_wire().kind, Kind::Keyframes { .. })
         {
-            self.finish();
+            let mut run = self.spring.borrow_mut();
+            if run.velocity.len() != T::COMPONENTS {
+                run.velocity = vec![0.0; T::COMPONENTS];
+            }
+            run.restart(now);
+        }
+        // A paused run stays paused, now toward the new target, and keeps its
+        // current value.
+        if let Phase::Paused { .. } = phase {
+            self.set_phase(Phase::Paused {
+                start_ns: now,
+                at_ns: now,
+            });
             return;
         }
-        self.active.set(true);
-        if self.paused.get().is_none() && self.running.try_get() != Some(true) {
-            self.running.set(true);
-        }
+        self.begin(now, reduced);
     }
 }
 
 impl<T: Animatable> Anim for AnimCell<T> {
-    fn active(&self) -> bool {
-        self.active.get() && self.paused.get().is_none()
+    fn is_running(&self) -> bool {
+        matches!(self.phase.get(), Phase::Running { .. })
     }
 
     fn finish_decorative(&self) {
-        if self.active() && self.transition.as_wire().decorative {
-            self.finish();
+        if self.is_running() && self.transition.as_wire().decorative {
+            self.finish(RunEnd::Completed);
         }
     }
 
-    fn resume(&self, paused: u64, now: u64) {
-        if let Some(at) = self.paused.get()
-            && at <= now
-        {
-            self.paused.set(Some(
-                at.max(paused).saturating_add(now.saturating_sub(paused)),
-            ));
-        }
-        let shift = |t: u64| {
-            if t <= paused {
-                t.saturating_add(now.saturating_sub(paused))
-            } else if t <= now {
-                now
-            } else {
-                t
+    fn shift_clock(&self, paused: u64, now: u64) {
+        match self.phase.get() {
+            Phase::Idle => return,
+            Phase::Running { start_ns } => self.set_phase(Phase::Running {
+                start_ns: shift(start_ns, paused, now),
+            }),
+            Phase::Paused { start_ns, at_ns } => {
+                let at_ns = if at_ns <= now {
+                    at_ns.max(paused).saturating_add(now.saturating_sub(paused))
+                } else {
+                    at_ns
+                };
+                self.set_phase(Phase::Paused {
+                    start_ns: shift(start_ns, paused, now),
+                    at_ns,
+                });
             }
-        };
-        self.start_ns.set(shift(self.start_ns.get()));
-        self.last_ns.set(shift(self.last_ns.get()));
+        }
+        let mut run = self.spring.borrow_mut();
+        run.last_ns = shift(run.last_ns, paused, now);
     }
 
     fn step(&self, now: u64) {
-        if !self.active.get() {
+        let Phase::Running { start_ns } = self.phase.get() else {
             return;
-        }
-        let elapsed_ms = now.saturating_sub(self.start_ns.get()) as f32 / 1e6;
-        match &self.transition.as_wire().kind {
-            Kind::Spring(s) => {
-                if elapsed_ms < self.transition.as_wire().delay_ms {
-                    self.last_ns.set(now);
-                    return;
-                }
-                let dt = now.saturating_sub(self.last_ns.get()) as f32 / 1e9;
-                self.last_ns.set(now);
-                let to = self.to.borrow().clone();
-                let mut x = self.current.borrow().clone();
-                let mut v = self.velocity.borrow().clone();
-                if x.len() != to.len() {
-                    x = to.clone();
-                }
-                v.resize(to.len(), 0.0);
-                let settled = kivact_wire::motion::spring_step(*s, &mut x, &mut v, &to, dt);
-                *self.velocity.borrow_mut() = v.clone();
-                if settled {
-                    self.finish();
-                } else {
-                    self.publish(&x);
-                }
-            }
-            _ => {
-                let mut values = vec![0.0; self.to.borrow().len()];
-                let done = self.transition.as_wire().sample_timed(
-                    &self.from.borrow(),
-                    &self.to.borrow(),
-                    elapsed_ms,
-                    &mut values,
-                );
-                if done {
-                    self.finish();
-                } else {
-                    self.publish(&values);
-                }
-            }
+        };
+        let mut current = self.current.borrow().clone();
+        let done = self.transition.as_wire().step(
+            &self.from.borrow(),
+            &self.to.borrow(),
+            start_ns,
+            now,
+            &mut current,
+            &mut self.spring.borrow_mut(),
+        );
+        if done {
+            self.finish(RunEnd::Completed);
+        } else {
+            self.publish(&current);
         }
     }
 }
@@ -227,11 +247,11 @@ impl<T: Animatable> Animated<T> {
             from: RefCell::new(c.clone()),
             to: RefCell::new(c.clone()),
             current: RefCell::new(c),
-            velocity: RefCell::new(vec![0.0; T::COMPONENTS]),
-            start_ns: Cell::new(0),
-            last_ns: Cell::new(0),
-            active: Cell::new(false),
-            paused: Cell::new(None),
+            spring: RefCell::new(SpringRun {
+                velocity: vec![0.0; T::COMPONENTS],
+                ..SpringRun::default()
+            }),
+            phase: Cell::new(Phase::Idle),
             completed: owner.signal(0u64, at),
         });
         let anim: Rc<dyn Anim> = cell.clone();
@@ -301,9 +321,7 @@ impl<T: Animatable> Animated<T> {
         // Checked before any state changes.
         require_effectful("Animated::jump_to");
         *cell.to.borrow_mut() = comps(&v);
-        // A jump cancels the current run; it is not natural completion.
-        cell.active.set(false);
-        cell.finish();
+        cell.finish(RunEnd::Cancelled);
     }
 
     /// Pause this animation. Retargeting while paused keeps it paused.
@@ -313,9 +331,11 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::pause");
-        if cell.active.get() && cell.paused.get().is_none() {
-            cell.paused.set(Some(rt.now_ns()));
-            cell.running.set(false);
+        if let Phase::Running { start_ns } = cell.phase.get() {
+            cell.set_phase(Phase::Paused {
+                start_ns,
+                at_ns: rt.now_ns(),
+            });
         }
     }
 
@@ -326,23 +346,22 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::resume");
-        if let Some(paused) = cell.paused.take() {
+        if let Phase::Paused { start_ns, at_ns } = cell.phase.get() {
             let now = rt.now_ns();
-            Anim::resume(cell.as_ref(), paused, now);
-            if (MotionState::of(&rt).reduced_motion() && cell.transition.as_wire().decorative)
-                || (*cell.from.borrow() == *cell.to.borrow()
-                    && !matches!(cell.transition.as_wire().kind, Kind::Keyframes { .. }))
+            let reduced = MotionState::of(&rt).reduced_motion();
             {
-                cell.finish();
-            } else {
-                cell.running.set(cell.active.get());
+                let mut run = cell.spring.borrow_mut();
+                run.last_ns = shift(run.last_ns, at_ns, now);
             }
+            cell.begin(shift(start_ns, at_ns, now), reduced);
             rt.request_turn();
         }
     }
 
-    /// Register a setup-owned callback for natural completion of a run.
-    /// Retarget, jump and owner disposal do not notify; repeats notify once.
+    /// Register a setup-owned callback for natural completion of a run (and
+    /// one that reduced motion completes at once). A new target, `jump_to`, a
+    /// target equal to the current value (no run starts) and owner disposal do
+    /// not notify; a finite repeat notifies once.
     /// `f` may return `()` or `Result<(), UiError>`; an `Err` goes to the
     /// nearest error handler.
     #[track_caller]

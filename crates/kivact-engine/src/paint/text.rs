@@ -16,7 +16,7 @@ impl Model {
 
     pub(crate) fn fill(
         &self,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
         shape: &BoxShape,
         fill: &Fill,
         tint: &Tint,
@@ -47,7 +47,7 @@ impl Model {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let inherited = scene
             .cmds
@@ -77,7 +77,7 @@ impl Model {
         area: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let Some(n) = self.node(id) else {
             return;

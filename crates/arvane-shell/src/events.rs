@@ -76,7 +76,8 @@ pub enum ShellEvent {
         phase: FilePhase,
         /// Paths supplied by the operating system.
         files: Vec<std::path::PathBuf>,
-        /// Window logical coordinates.
+        /// Window logical coordinates. Never a placeholder: a file event whose position the
+        /// platform cannot tell is not sent.
         position: kivact_types::Point,
     },
     /// Keyboard modifier state changed.
@@ -111,10 +112,8 @@ pub enum ShellEvent {
     Accessibility {
         /// Stable semantics identity.
         node: u64,
-        /// Requested portable action; a native click arrives as `Activate` and
-        /// is resolved against the node's declared actions by the receiver.
-        action: kivact_types::A11yAction,
-        /// Optional requested text value.
-        value: Option<String>,
+        /// The request; a native click arrives as `Activate` and is resolved
+        /// against the node's declared actions by the receiver.
+        request: kivact_types::A11yRequest,
     },
 }

@@ -62,6 +62,6 @@ pub(super) fn focus_changed(
     );
 }
 
-pub(super) fn focus_result(rt: &Runtime, request: RequestId, ok: bool, reason: Option<&str>) {
-    crate::view::requests::on_focus_result(rt, request.0, ok, reason.map(str::to_owned));
+pub(super) fn focus_result(rt: &Runtime, request: RequestId, result: Result<(), String>) {
+    crate::view::requests::on_focus_result(rt, request.0, result);
 }

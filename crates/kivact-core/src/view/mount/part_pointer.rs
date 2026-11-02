@@ -5,36 +5,14 @@
 //! own target. The part hover (`Enter`/`Leave` of a region) follows the
 //! primary pointers only, like the engine's hover.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::view::common::{Registry, Target};
+use crate::view::common::{Capture, Gestures, PrimaryHover, Registry, Target, TargetId};
 use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver};
 use crate::view::state::ViewState;
 use crate::view::{Handled, MouseButton, PointerButtons, PointerEvent, PointerId, PointerPhase};
-use kivact_reactive::EffectKind;
 
-struct Capture {
-    pointer: PointerId,
-    target: Option<Rc<Target>>,
-    buttons: Vec<MouseButton>,
-    /// The pointer's last event, for a `Cancel` the part sends itself.
-    last: PointerEvent,
-}
-
-#[derive(Default)]
-struct State {
-    /// A primary pointer is inside the node.
-    inside: bool,
-    hovered: Option<Rc<Target>>,
-    /// The capture of each pointer with a button held, in press order.
-    captures: Vec<Capture>,
-    /// The last event of a primary pointer.
-    last: Option<PointerEvent>,
-    fallback_capture: Option<(PointerId, MouseButton)>,
-}
-
-impl State {
+impl Gestures {
     fn capture(&mut self, pointer: PointerId) -> Option<&mut Capture> {
         self.captures.iter_mut().find(|c| c.pointer == pointer)
     }
@@ -42,13 +20,7 @@ impl State {
 
 fn event_for(mut event: PointerEvent, target: &Target, phase: PointerPhase) -> PointerEvent {
     event.phase = phase;
-    event.origin.region = target.region;
-    if matches!(
-        phase,
-        PointerPhase::Enter | PointerPhase::Leave | PointerPhase::Cancel
-    ) {
-        event.button = None;
-    }
+    event.origin.region = target.region();
     if phase == PointerPhase::Cancel {
         event.buttons = PointerButtons::NONE;
     }
@@ -82,36 +54,28 @@ fn fallback(root: &Target, event: PointerEvent) -> crate::Result<Handled> {
     deliver(&[fallback], &event)
 }
 
-fn cancel(state: &RefCell<State>, registry: &Registry, generation: u64, root: &Target) {
-    let of_generation = |target: &Option<Rc<Target>>| {
-        target
-            .as_ref()
-            .is_some_and(|target| target.generation == generation)
-    };
+/// End the gestures that target `id`: its hover, and the captures it holds.
+pub(super) fn cancel(registry: &Registry, id: TargetId) {
+    let root = &*registry.root;
+    let of_id = |target: &Option<Rc<Target>>| target.as_ref().is_some_and(|target| target.id == id);
     let (captured, hovered, last) = {
-        let mut state = state.borrow_mut();
+        let mut gestures = registry.gestures.borrow_mut();
         let mut captured = Vec::new();
-        let mut fallback = state.fallback_capture;
-        for capture in &mut state.captures {
-            if of_generation(&capture.target) {
+        for capture in &mut gestures.captures {
+            if of_id(&capture.target) {
                 let target = capture
                     .target
                     .take()
-                    .expect("invariant: a target of the generation was checked");
-                let ends_fallback = fallback.is_some_and(|(id, _)| id == capture.pointer);
-                if ends_fallback {
-                    fallback = None;
-                }
-                captured.push((target, capture.last, ends_fallback));
+                    .expect("invariant: a target of the id was checked");
+                let ends_fallback = capture.fallback.take().is_some();
+                captured.push((target, capture.last, capture.pointer, ends_fallback));
             }
         }
-        state.fallback_capture = fallback;
-        let hovered = if of_generation(&state.hovered) {
-            state.hovered.take()
-        } else {
-            None
+        let hovered = match &mut gestures.hover {
+            PrimaryHover::Inside(target) if of_id(target) => target.take(),
+            _ => None,
         };
-        (captured, hovered, state.last)
+        (captured, hovered, gestures.last)
     };
     let report = |target: &Target, result: crate::Result<Handled>| {
         if let Err(error) = result
@@ -125,7 +89,7 @@ fn cancel(state: &RefCell<State>, registry: &Registry, generation: u64, root: &T
         observe(&target, event);
         report(&target, default(&target, event));
     }
-    for (target, event, cancel_fallback) in captured {
+    for (target, event, pointer, cancel_fallback) in captured {
         let event = event_for(event, &target, PointerPhase::Cancel);
         observe(&target, event);
         report(&target, default(&target, event));
@@ -133,14 +97,14 @@ fn cancel(state: &RefCell<State>, registry: &Registry, generation: u64, root: &T
             report(root, fallback(root, event));
             // The gesture ended without a release: its click activates
             // whatever the pointer presses next.
-            forget_adoption(registry, event.id);
+            forget_adoption(registry, pointer);
         }
     }
 }
 
 /// The pointer's gesture no longer holds its adoption of the click.
 fn forget_adoption(registry: &Registry, pointer: PointerId) {
-    if let Some(runtime) = registry.runtime.upgrade() {
+    if let Some(runtime) = registry.root.runtime.upgrade() {
         ViewState::tree(&runtime)
             .engine()
             .forget_adopted_pointer(pointer);
@@ -155,123 +119,104 @@ fn forget_adoption(registry: &Registry, pointer: PointerId) {
 /// the node's fallback for region input runs.
 pub(super) fn route(
     registry: Rc<Registry>,
-    root: Rc<Target>,
     own: EventHandlers<PointerEvent>,
 ) -> EventHandlers<PointerEvent> {
-    let state = Rc::new(RefCell::new(State::default()));
-    let cancellation = state.clone();
-    let cancel_root = root.clone();
-    let cancel_registry = Rc::downgrade(&registry);
-    *registry.cancel.borrow_mut() = Some(Rc::new(move |generation| {
-        if let Some(registry) = cancel_registry.upgrade() {
-            cancel(&cancellation, &registry, generation, &cancel_root);
-        }
-    }));
-    if registry.runtime.upgrade().is_some() {
-        let weak_registry = Rc::downgrade(&registry);
-        let constraints = root.constraints;
-        root.owner.effect(
-            EffectKind::Internal,
-            move || {
-                if (constraints.disabled.get() || constraints.hidden.get())
-                    && let Some(registry) = weak_registry.upgrade()
-                {
-                    registry.cancel(0);
-                }
-            },
-            registry.at,
-        );
-    }
     EventHandlers::router(move |event: PointerEvent| {
+        let root = &registry.root;
         let mut transitions = Vec::new();
         let (target, deliver_raw, finish_fallback) = {
-            let mut state = state.borrow_mut();
+            let mut gestures = registry.gestures.borrow_mut();
             if event.origin.node != registry.node {
                 (None, false, false)
             } else {
-                let finish_fallback = state.fallback_capture.is_some_and(|(id, button)| {
-                    id == event.id
-                        && (event.phase == PointerPhase::Cancel
-                            || (event.phase == PointerPhase::Up && event.button == Some(button)))
+                let finish_fallback = gestures.capture(event.id).is_some_and(|capture| {
+                    capture.fallback.is_some_and(|button| {
+                        event.phase == PointerPhase::Cancel
+                            || matches!(event.phase, PointerPhase::Up(press) if press.button == button)
+                    })
                 });
-                if finish_fallback {
-                    state.fallback_capture = None;
+                if finish_fallback && let Some(capture) = gestures.capture(event.id) {
+                    capture.fallback = None;
                 }
-                let captured = state.capture(event.id).is_some();
-                if let Some(capture) = state.capture(event.id) {
+                let captured = gestures.capture(event.id).is_some();
+                if let Some(capture) = gestures.capture(event.id) {
                     capture.last = event;
                 }
-                let under = |state: &State| {
-                    let inside = if event.is_primary {
-                        state.inside
-                    } else {
-                        matches!(event.phase, PointerPhase::Down | PointerPhase::Move)
-                    };
-                    if inside {
-                        match event.region() {
-                            Some(id) => registry.lookup(id).filter(|target| target.enabled()),
-                            None => root.enabled().then(|| root.clone()),
-                        }
-                    } else {
-                        None
+                let under = |inside: bool| -> Option<Rc<Target>> {
+                    if !inside {
+                        return None;
+                    }
+                    match event.region() {
+                        Some(id) => registry.lookup(id).filter(|target| target.enabled()),
+                        None => root.enabled().then(|| root.clone()),
                     }
                 };
                 // A pointer that is not primary hovers no part.
                 let hovered = if event.is_primary {
-                    state.last = Some(event);
-                    match event.phase {
-                        PointerPhase::Enter => state.inside = true,
-                        PointerPhase::Leave | PointerPhase::Cancel => state.inside = false,
-                        PointerPhase::Move | PointerPhase::Down if !captured => state.inside = true,
-                        _ => {}
-                    }
-                    let hovered = under(&state);
-                    if state.hovered.as_ref().map(|target| target.generation)
-                        != hovered.as_ref().map(|target| target.generation)
+                    gestures.last = Some(event);
+                    let was_inside = matches!(gestures.hover, PrimaryHover::Inside(_));
+                    let inside = match event.phase {
+                        PointerPhase::Enter => true,
+                        PointerPhase::Leave | PointerPhase::Cancel => false,
+                        PointerPhase::Move | PointerPhase::Down(_) if !captured => true,
+                        _ => was_inside,
+                    };
+                    let hovered = under(inside);
+                    let previous = match std::mem::take(&mut gestures.hover) {
+                        PrimaryHover::Inside(target) => target,
+                        PrimaryHover::Outside => None,
+                    };
+                    if previous.as_ref().map(|target| target.id)
+                        != hovered.as_ref().map(|target| target.id)
                     {
-                        if let Some(previous) = state.hovered.take() {
+                        if let Some(previous) = previous {
                             transitions.push((previous, PointerPhase::Leave));
                         }
                         if let Some(next) = &hovered {
                             transitions.push((next.clone(), PointerPhase::Enter));
                         }
-                        state.hovered = hovered.clone();
                     }
+                    gestures.hover = if inside {
+                        PrimaryHover::Inside(hovered.clone())
+                    } else {
+                        PrimaryHover::Outside
+                    };
                     hovered
                 } else {
-                    under(&state)
+                    under(matches!(
+                        event.phase,
+                        PointerPhase::Down(_) | PointerPhase::Move
+                    ))
                 };
-                if event.phase == PointerPhase::Down
-                    && let Some(button) = event.button
-                {
-                    if let Some(capture) = state.capture(event.id) {
+                if let PointerPhase::Down(press) = event.phase {
+                    let button = press.button;
+                    if let Some(capture) = gestures.capture(event.id) {
                         if !capture.buttons.contains(&button) {
                             capture.buttons.push(button);
                         }
                     } else {
-                        state.captures.push(Capture {
+                        gestures.captures.push(Capture {
                             pointer: event.id,
                             target: hovered.clone(),
                             buttons: vec![button],
                             last: event,
+                            fallback: None,
                         });
                     }
                 }
-                let target = match state.capture(event.id) {
+                let target = match gestures.capture(event.id) {
                     Some(capture) => capture.target.clone(),
                     None => hovered.clone(),
                 };
-                if event.phase == PointerPhase::Up
-                    && let Some(capture) = state.capture(event.id)
+                if let PointerPhase::Up(press) = event.phase
+                    && let Some(capture) = gestures.capture(event.id)
                 {
-                    if let Some(button) = event.button {
-                        capture.buttons.retain(|held| *held != button);
-                    }
+                    capture.buttons.retain(|held| *held != press.button);
                     if capture.buttons.is_empty() {
-                        state.captures.retain(|c| c.pointer != event.id);
+                        gestures.captures.retain(|c| c.pointer != event.id);
                     }
                 } else if event.phase == PointerPhase::Cancel {
-                    state.captures.retain(|c| c.pointer != event.id);
+                    gestures.captures.retain(|c| c.pointer != event.id);
                 }
                 (
                     target,
@@ -310,27 +255,31 @@ pub(super) fn route(
                 && event.origin.node == registry.node
                 && target
                     .as_ref()
-                    .is_some_and(|target| target.region.is_some() && target.enabled())
+                    .is_some_and(|target| target.region().is_some() && target.enabled())
             {
                 let target = target
                     .as_ref()
                     .expect("invariant: a live region target was checked");
                 let event = event_for(event, target, event.phase);
                 delivered_finish = finish_fallback;
-                let result = fallback(&root, event)?;
+                let result = fallback(root, event)?;
                 handled = handled.and(result);
                 if result == Handled::Yes {
-                    if event.phase == PointerPhase::Down
-                        && let Some(button) = event.button
-                    {
-                        state.borrow_mut().fallback_capture = Some((event.id, button));
+                    if let PointerPhase::Down(press) = event.phase {
+                        let button = press.button;
+                        registry
+                            .gestures
+                            .borrow_mut()
+                            .capture(event.id)
+                            .expect("invariant: a press creates its pointer's capture")
+                            .fallback = Some(button);
                         // Only a primary pointer's press can activate, so
                         // only its gesture declines the activation. The
                         // engine remembers it until the click is answered.
                         if button == MouseButton::Primary
                             && event.is_primary
-                            && let Some(region) = target.region
-                            && let Some(runtime) = registry.runtime.upgrade()
+                            && let Some(region) = target.region()
+                            && let Some(runtime) = root.runtime.upgrade()
                         {
                             ViewState::tree(&runtime).engine().adopt_pointer(
                                 registry.node,
@@ -348,12 +297,11 @@ pub(super) fn route(
         if finish_fallback && (!delivered_finish || result.is_err()) {
             let mut cancelled = event;
             cancelled.phase = PointerPhase::Cancel;
-            cancelled.button = None;
             cancelled.buttons = PointerButtons::NONE;
             if let Some(target) = &target {
                 cancelled = event_for(cancelled, target, PointerPhase::Cancel);
             }
-            if let Err(error) = fallback(&root, cancelled)
+            if let Err(error) = fallback(root, cancelled)
                 && let Some(runtime) = root.runtime.upgrade()
             {
                 runtime.report(Some(root.owner), error);

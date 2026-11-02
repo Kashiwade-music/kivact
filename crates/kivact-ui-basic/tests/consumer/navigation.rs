@@ -47,9 +47,7 @@ pub(super) fn account_items(radio: &str, check: bool) -> Vec<MenuEntry<&'static 
             .shortcut("Ctrl+P"),
         MenuEntry::item("billing", "Billing").disabled(true),
         MenuEntry::separator(),
-        MenuEntry::item("bars", "Status Bar")
-            .checked(check)
-            .keep_open(true),
+        MenuEntry::checkbox("bars", "Status Bar", check).keep_open(true),
         MenuEntry::radio("top", "Top", radio == "top").keep_open(true),
         MenuEntry::radio("bottom", "Bottom", radio == "bottom").keep_open(true),
         MenuEntry::separator(),
@@ -130,8 +128,8 @@ fn dropdown_menu_navigates_by_keyboard_and_skips_labels() {
     assert_eq!(
         screen
             .get_by_role(Role::MenuItemCheckBox, "Status Bar")
-            .is_checked(),
-        Some(true)
+            .checked(),
+        Some(CheckedState::Checked)
     );
     screen.press_key(Key::Enter);
     assert_eq!(chosen.get_untracked(), ["bars"]);
@@ -155,6 +153,65 @@ fn dropdown_menu_navigates_by_keyboard_and_skips_labels() {
     assert_eq!(trigger.is_expanded(), Some(false));
     assert_clean(&screen);
     let _ = shift();
+}
+
+#[test]
+fn navigation_menu_shows_one_panel_at_a_time() {
+    let screen = kivact::test::render_with_handle(light(), || {
+        (
+            (),
+            page(basic::navigation_menu(vec![
+                basic::NavItem::menu("Alpha", || text("Alpha panel")),
+                basic::NavItem::menu("Beta", || text("Beta panel")),
+            ])),
+        )
+    })
+    .0;
+    let alpha = screen.get_by_role(Role::Button, "Alpha");
+    let beta = screen.get_by_role(Role::Button, "Beta");
+    let shown = |text: &str| screen.query_by_text(text).is_some();
+    // Hovering a trigger shows its panel, and the trigger reports it.
+    alpha.hover();
+    assert!(shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(true));
+    // Escape on the focused trigger closes a hover-opened panel.
+    alpha.focus();
+    screen.press_key(Key::Escape);
+    assert!(!shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(false));
+    // Hovering the next trigger replaces the panel: one is open at a time.
+    screen.mouse_move(850.0, 650.0);
+    beta.hover();
+    assert!(shown("Beta panel"));
+    alpha.hover();
+    assert!(shown("Alpha panel"));
+    assert!(!shown("Beta panel"));
+    assert_eq!(alpha.is_expanded(), Some(true));
+    assert_eq!(beta.is_expanded(), Some(false));
+    // ArrowDown on a trigger pins its panel.
+    screen.mouse_move(850.0, 650.0);
+    assert!(!shown("Alpha panel"));
+    alpha.focus();
+    screen.press_key(Key::ArrowRight);
+    assert!(beta.is_focused());
+    screen.press_key(Key::ArrowDown);
+    assert!(shown("Beta panel"));
+    assert!(!shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(false));
+    assert_eq!(beta.is_expanded(), Some(true));
+    screen.press_key(Key::Escape);
+    assert!(!shown("Beta panel"));
+    assert_eq!(beta.is_expanded(), Some(false));
+    // A click on a hover-opened panel pins it: it stays after the pointer leaves.
+    alpha.hover();
+    alpha.click();
+    screen.mouse_move(850.0, 650.0);
+    assert!(shown("Alpha panel"));
+    assert_eq!(alpha.is_expanded(), Some(true));
+    screen.press_key(Key::Escape);
+    assert!(!shown("Alpha panel") && !shown("Beta panel"));
+    assert_eq!(alpha.is_expanded(), Some(false));
+    assert_clean(&screen);
 }
 
 /// The box a context menu is attached to in the tests.

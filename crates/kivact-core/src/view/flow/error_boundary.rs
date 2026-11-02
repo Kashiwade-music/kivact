@@ -24,7 +24,6 @@ use std::rc::Rc;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use kivact_reactive::EffectKind;
-use kivact_reactive::Signal;
 use kivact_reactive::UiError;
 
 use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};
@@ -77,6 +76,24 @@ impl ErrorBoundary {
     }
 }
 
+/// What the boundary does with an error raised under it while the child is shown.
+enum Catch {
+    /// `.on_error(f)` alone: `f` runs and the child stays.
+    Observe(Rc<dyn Fn(UiError)>),
+    /// `.fallback(f)`, with or without `.on_error`: the fallback replaces the child.
+    Replace {
+        on_error: Option<Rc<dyn Fn(UiError)>>,
+        fallback: FallbackFn,
+    },
+}
+
+/// What a boundary with a fallback shows.
+#[derive(Clone, PartialEq)]
+enum Shown {
+    Child,
+    Fallback(UiError),
+}
+
 impl IntoView for ErrorBoundary {
     fn into_view(self) -> View {
         let ErrorBoundary {
@@ -85,37 +102,45 @@ impl IntoView for ErrorBoundary {
             on_error,
             at,
         } = self;
+        let catch = match (fallback, on_error) {
+            (None, None) => None,
+            (None, Some(f)) => Some(Catch::Observe(f)),
+            (Some(fallback), on_error) => Some(Catch::Replace { on_error, fallback }),
+        };
         view_fn(move |cx| {
             let frag = cx.fragment();
             let rt = cx.rt.clone();
             let parent = cx.owner;
             let boundary = parent.child(at);
-            // The error shown by the fallback (only with a fallback).
-            let error: Option<Signal<Option<UiError>>> = fallback
-                .as_ref()
-                .map(|_| boundary.signal(None::<UiError>, at));
-            if fallback.is_some() || on_error.is_some() {
-                let weak_rt = Rc::downgrade(&rt);
-                boundary.on_error(move |e: UiError| {
-                    let Some(rt) = weak_rt.upgrade() else { return };
-                    let child_shown = error.is_none_or(|s| s.try_get() == Some(None));
-                    if !child_shown {
-                        rt.report(Some(parent), e);
-                        return;
-                    }
-                    if let Some(f) = &on_error {
-                        f(e.clone());
-                    }
-                    if let Some(s) = error {
-                        s.set(Some(e));
-                    }
-                });
-            }
-            let (Some(fallback), Some(error)) = (fallback, error) else {
-                // No fallback: the child is mounted once and stays.
-                mount_branch(&rt, boundary, frag, None, &*child, at);
-                return frag;
+            let (on_error, fallback) = match catch {
+                // No handler: errors go on to the parent; the child is mounted once and stays.
+                None => {
+                    mount_branch(&rt, boundary.child(at), frag, || child());
+                    return frag;
+                }
+                Some(Catch::Observe(f)) => {
+                    boundary.on_error(move |e| f(e));
+                    mount_branch(&rt, boundary.child(at), frag, || child());
+                    return frag;
+                }
+                Some(Catch::Replace { on_error, fallback }) => (on_error, fallback),
             };
+            let shown = boundary.signal(Shown::Child, at);
+            let weak_rt = Rc::downgrade(&rt);
+            boundary.on_error(move |e: UiError| {
+                let Some(rt) = weak_rt.upgrade() else { return };
+                match shown.try_get_untracked() {
+                    Some(Shown::Child) => {
+                        if let Some(f) = &on_error {
+                            f(e.clone());
+                        }
+                        shown.set(Shown::Fallback(e));
+                    }
+                    // While the fallback is shown, and once the boundary is disposed, the error
+                    // goes to the parent.
+                    Some(Shown::Fallback(_)) | None => rt.report(Some(parent), e),
+                }
+            });
             let weak = Rc::downgrade(&rt);
             let current: RefCell<Option<Branch>> = RefCell::new(None);
             let inner = Mcx {
@@ -123,26 +148,19 @@ impl IntoView for ErrorBoundary {
                 owner: boundary,
             };
             inner.effect(EffectKind::Internal, at, move || {
-                let err = error.get();
+                let now = shown.get();
                 let Some(rt) = weak.upgrade() else { return };
                 if let Some(b) = current.borrow_mut().take() {
                     unmount_branch(&rt, b);
                 }
-                let b = match err {
-                    None => mount_branch(&rt, boundary, frag, None, &*child, at),
-                    Some(e) => {
+                let b = match now {
+                    Shown::Child => mount_branch(&rt, boundary.child(at), frag, || child()),
+                    Shown::Fallback(e) => {
                         let fallback = fallback.clone();
-                        mount_branch(
-                            &rt,
-                            boundary,
-                            frag,
-                            None,
-                            &move || {
-                                let reset: Rc<dyn Fn()> = Rc::new(move || error.set(None));
-                                fallback(e.clone(), reset)
-                            },
-                            at,
-                        )
+                        mount_branch(&rt, boundary.child(at), frag, move || {
+                            let reset: Rc<dyn Fn()> = Rc::new(move || shown.set(Shown::Child));
+                            fallback(e, reset)
+                        })
                     }
                 };
                 *current.borrow_mut() = Some(b);

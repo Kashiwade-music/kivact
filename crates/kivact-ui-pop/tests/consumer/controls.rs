@@ -48,10 +48,9 @@ fn checkbox_switch_and_mixed_states_are_accessible() {
     let check = screen.get_by_role(Role::CheckBox, "Reports");
     check.press_key(Key::Space);
     assert!(checked.get_untracked());
-    assert!(
-        screen
-            .get_by_role(Role::CheckBox, "Partial")
-            .is_indeterminate()
+    assert_eq!(
+        screen.get_by_role(Role::CheckBox, "Partial").checked(),
+        Some(CheckedState::Indeterminate)
     );
     screen.get_by_role(Role::Switch, "Sync").click();
     assert!(!on.get_untracked());
@@ -85,7 +84,7 @@ fn toggles_and_accordion_follow_the_shared_toggle_rules() {
     assert!(!check.get_untracked() && !switch.get_untracked());
     button.press_key(Key::Enter);
     assert!(bold.get_untracked(), "Enter flips a toggle button");
-    assert_eq!(button.is_checked(), Some(true));
+    assert_eq!(button.checked(), Some(CheckedState::Checked));
     for node in [&check_box, &switch_node, &button] {
         node.press_key(Key::Space);
         assert_eq!(node.value(), None, "role and checked, no On/Off text");
@@ -98,7 +97,7 @@ fn toggles_and_accordion_follow_the_shared_toggle_rules() {
     assert!(locked.is_disabled());
     locked.force_click();
     locked.a11y(A11yAction::Toggle);
-    assert_eq!(locked.is_checked(), Some(false));
+    assert_eq!(locked.checked(), Some(CheckedState::Unchecked));
 
     let details = screen.get_by_role(Role::Button, "Details");
     assert_eq!(details.is_expanded(), Some(false));
@@ -134,11 +133,11 @@ fn slider_drag_keyboard_and_accessibility_share_one_binding() {
     assert_eq!(value.get_untracked(), 31.0);
     slider.a11y(A11yAction::Increment);
     assert_eq!(value.get_untracked(), 32.0);
-    slider.a11y_with_value(A11yAction::SetValue, "37.5");
+    slider.a11y_set_value("37.5");
     assert_eq!(value.get_untracked(), 38.0);
-    slider.a11y_with_value(A11yAction::SetValue, "NaN");
+    slider.a11y_set_value("NaN");
     assert_eq!(value.get_untracked(), 38.0);
-    slider.a11y_with_value(A11yAction::SetValue, "-1000");
+    slider.a11y_set_value("-1000");
     assert_eq!(value.get_untracked(), 0.0);
     screen
         .get_by_test_id("volume")

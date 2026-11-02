@@ -16,12 +16,11 @@
 //! `TextureUses::RESOURCE`).
 
 use crate::common::{Error, api};
-use crate::pool::{FrameReady, PoolConfig};
+use crate::pool::{Acquired, FrameReady, PoolConfig};
 use crate::vulkan::{self as backend, DEVICE_EXTENSIONS, HAND_OFF_LAYOUT};
 use ::wgpu::hal::api::Vulkan;
 use ash::vk;
 use kivact_types::{GpuAdapter, SharedTextures};
-use std::mem::ManuallyDrop;
 use std::time::Duration;
 
 /// Whether the Vulkan adapter `found` is `adapter` (its UUIDs).
@@ -48,42 +47,29 @@ pub(super) fn open(
     Ok((adapter, device, queue))
 }
 
-/// The command pool of the hand-off's barriers, destroyed when dropped
-/// (unless leaked).
+/// The command pool of the hand-off's barriers, destroyed when dropped.
 struct Commands {
     device: ash::Device,
     pool: vk::CommandPool,
     /// Per texture: the acquire and the release buffer.
     buffers: Vec<[vk::CommandBuffer; 2]>,
-    leaked: bool,
 }
 
 impl Drop for Commands {
     fn drop(&mut self) {
-        if !self.leaked {
-            // SAFETY: the buffers finished (the pool's last `ready`, or never
-            // submitted); destroying a null pool is a no-op.
-            unsafe { self.device.destroy_command_pool(self.pool, None) };
-        }
+        // SAFETY: the buffers finished (`wgpu::Pool`'s drop waited for the
+        // last `ready`, else the raw half is never dropped) or were never
+        // submitted; destroying a null pool is a no-op.
+        unsafe { self.device.destroy_command_pool(self.pool, None) };
     }
 }
 
 /// A pool's Vulkan half: the backend's pool and the hand-off on wgpu's
 /// queue.
 pub(super) struct Raw {
-    /// Dropped by [`Raw`]'s drop unless leaked.
-    pool: ManuallyDrop<backend::Pool>,
+    pool: backend::Pool,
     queue: vk::Queue,
     commands: Commands,
-}
-
-impl Drop for Raw {
-    fn drop(&mut self) {
-        if !self.commands.leaked {
-            // SAFETY: dropped once, here; not used after.
-            unsafe { ManuallyDrop::drop(&mut self.pool) };
-        }
-    }
 }
 
 impl Raw {
@@ -115,7 +101,6 @@ impl Raw {
             device: raw.clone(),
             pool: vk::CommandPool::null(),
             buffers: Vec::new(),
-            leaked: false,
         };
         let info = vk::CommandPoolCreateInfo::default()
             .queue_family_index(family)
@@ -176,7 +161,7 @@ impl Raw {
             .collect();
         Ok((
             Self {
-                pool: ManuallyDrop::new(pool),
+                pool,
                 queue,
                 commands,
             },
@@ -189,10 +174,6 @@ impl Raw {
         &self.pool
     }
 
-    pub(super) fn pool_mut(&mut self) -> &mut backend::Pool {
-        &mut self.pool
-    }
-
     /// `buffer` begun for one submission.
     fn begin(&self, buffer: vk::CommandBuffer) -> Result<(), Error> {
         let begin = vk::CommandBufferBeginInfo::default()
@@ -203,14 +184,14 @@ impl Raw {
             .map_err(api("vkBeginCommandBuffer"))
     }
 
-    /// Step 1: wait for `release` and acquire `target`'s image from
+    /// Step 1: wait for `release` and acquire the frame's image from
     /// `VK_QUEUE_FAMILY_EXTERNAL` keeping the hand-off layout.
     ///
     /// # Safety
     /// No other thread uses wgpu's queue during the call.
-    pub(super) unsafe fn take(&mut self, target: &backend::Target) -> Result<(), Error> {
+    pub(super) unsafe fn take(&mut self, acquired: Acquired) -> Result<(), Error> {
         let device = &self.commands.device;
-        let buffer = self.commands.buffers[target.slot() as usize][0];
+        let buffer = self.commands.buffers[acquired.slot as usize][0];
         self.begin(buffer)?;
         let all = (
             vk::PipelineStageFlags::ALL_COMMANDS,
@@ -219,15 +200,13 @@ impl Raw {
         // SAFETY: the begun buffer of the pool's device and family.
         unsafe {
             self.pool
-                .record_acquire(buffer, target, HAND_OFF_LAYOUT, all)
+                .record_acquire_slot(buffer, acquired.slot, HAND_OFF_LAYOUT, all)
         };
         // SAFETY: the begun buffer.
         unsafe { device.end_command_buffer(buffer) }.map_err(api("vkEndCommandBuffer"))?;
-        let wait = target.release_wait();
-        let (waits, values) = if wait > 0 {
-            (vec![self.pool.release_semaphore()], vec![wait])
-        } else {
-            (Vec::new(), Vec::new())
+        let (waits, values) = match acquired.wait {
+            Some(wait) => (vec![self.pool.release_semaphore()], vec![wait.get()]),
+            None => (Vec::new(), Vec::new()),
         };
         let stages = vec![vk::PipelineStageFlags::ALL_COMMANDS; waits.len()];
         let buffers = [buffer];
@@ -244,36 +223,31 @@ impl Raw {
             .map_err(api("vkQueueSubmit"))
     }
 
-    /// Step 4: release `target`'s image to `VK_QUEUE_FAMILY_EXTERNAL`
+    /// Step 4: release the frame's image to `VK_QUEUE_FAMILY_EXTERNAL`
     /// keeping the hand-off layout and signal `ready`.
     ///
     /// # Safety
     /// As [`Raw::take`].
-    pub(super) unsafe fn give(&mut self, target: backend::Target) -> Result<FrameReady, Error> {
-        let buffer = self.commands.buffers[target.slot() as usize][1];
-        let recorded = self.begin(buffer).and_then(|()| {
-            let written = (
-                vk::PipelineStageFlags::ALL_COMMANDS,
-                vk::AccessFlags::MEMORY_WRITE,
-            );
-            // SAFETY: the begun buffer of the pool's device and family.
-            unsafe {
-                self.pool
-                    .record_release(buffer, &target, HAND_OFF_LAYOUT, written)
-            };
-            // SAFETY: the begun buffer.
-            unsafe { self.commands.device.end_command_buffer(buffer) }
-                .map_err(api("vkEndCommandBuffer"))
-        });
-        if let Err(error) = recorded {
-            self.pool.cancel(target);
-            return Err(error);
-        }
+    pub(super) unsafe fn give(&mut self, acquired: Acquired) -> Result<FrameReady, Error> {
+        let buffer = self.commands.buffers[acquired.slot as usize][1];
+        self.begin(buffer)?;
+        let written = (
+            vk::PipelineStageFlags::ALL_COMMANDS,
+            vk::AccessFlags::MEMORY_WRITE,
+        );
+        // SAFETY: the begun buffer of the pool's device and family.
+        unsafe {
+            self.pool
+                .record_release_slot(buffer, acquired.slot, HAND_OFF_LAYOUT, written)
+        };
+        // SAFETY: the begun buffer.
+        unsafe { self.commands.device.end_command_buffer(buffer) }
+            .map_err(api("vkEndCommandBuffer"))?;
         // SAFETY: wgpu's queue of the pool's device and family, not used by
         // another thread meanwhile (the caller); the recorded buffer.
         unsafe {
             self.pool
-                .submit(self.queue, target, &[buffer], vk::Fence::null())
+                .submit_acquired(self.queue, acquired, &[buffer], vk::Fence::null())
         }
     }
 
@@ -285,11 +259,6 @@ impl Raw {
         // SAFETY: wgpu's queue of the pool's family; the rest as the caller
         // says.
         unsafe { self.pool.read_back(self.queue, slot, timeout) }
-    }
-
-    pub(super) fn leak(&mut self) {
-        // The backend's pool is never dropped: its semaphores stay.
-        self.commands.leaked = true;
     }
 }
 

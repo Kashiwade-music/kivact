@@ -13,21 +13,41 @@
 //!   and reported as a `Cycle` to the default sink; the cut effects become
 //!   clean so a later change schedules them again.
 
-use std::cmp::Reverse;
-
 use crate::arena::Key;
-use crate::data::{Color, EffectKind, Runtime, Sched};
+use crate::data::{Color, EffectKind, NodeData, RNode, Runtime, Sched};
 use crate::error::{ErrorKind, new_error};
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
 pub(crate) const CYCLE_LIMIT: usize = 100;
 
 impl Sched {
-    pub(crate) fn push(&mut self, kind: EffectKind, seq: u64, key: Key) {
+    /// Queue `key`; returns whether it was not queued yet.
+    pub(crate) fn push(&mut self, kind: EffectKind, seq: u64, key: Key) -> bool {
         match kind {
-            EffectKind::User => self.user.push(Reverse((seq, key))),
-            _ => self.render.push(Reverse((seq, key))),
+            EffectKind::User => self.user.insert((seq, key)),
+            _ => self.render.insert((seq, key)),
         }
+    }
+
+    /// The first queued Render/Internal effect, removed.
+    pub(crate) fn pop_render(&mut self) -> Option<Key> {
+        self.render.pop_first().map(|(_, k)| k)
+    }
+
+    /// Every queued Render/Internal effect in order, removed.
+    pub(crate) fn take_render(&mut self) -> Vec<Key> {
+        std::mem::take(&mut self.render)
+            .into_iter()
+            .map(|(_, k)| k)
+            .collect()
+    }
+
+    /// Every queued User effect in order, removed.
+    pub(crate) fn take_user(&mut self) -> Vec<Key> {
+        std::mem::take(&mut self.user)
+            .into_iter()
+            .map(|(_, k)| k)
+            .collect()
     }
 
     pub(crate) fn has_render(&self) -> bool {
@@ -52,19 +72,19 @@ impl Runtime {
         let epoch = self.stab_epoch.get() + 1;
         self.stab_epoch.set(epoch);
         loop {
-            let next = self.sched.borrow_mut().render.pop();
-            let Some(Reverse((_, key))) = next else { break };
+            let next = self.sched.borrow_mut().pop_render();
+            let Some(key) = next else { break };
             runs += 1;
-            let own_runs = match self.graph.borrow_mut().get_mut(key) {
-                Some(n) => {
-                    if n.stab_epoch != epoch {
-                        n.stab_epoch = epoch;
-                        n.stab_runs = 0;
+            let own_runs = match self.graph.borrow_mut().get_mut(key).map(|n| &mut n.data) {
+                Some(NodeData::Effect(e)) => {
+                    if e.stab_epoch != epoch {
+                        e.stab_epoch = epoch;
+                        e.stab_runs = 0;
                     }
-                    n.stab_runs += 1;
-                    n.stab_runs as usize
+                    e.stab_runs += 1;
+                    e.stab_runs as usize
                 }
-                None => 0,
+                _ => 0,
             };
             if own_runs > CYCLE_LIMIT || runs > limit {
                 self.abandon_render_effects(key);
@@ -87,30 +107,19 @@ impl Runtime {
     /// Drop the queued Render/Internal effects after a cycle. They become
     /// clean so that a later change schedules them again.
     fn abandon_render_effects(&self, current: Key) {
-        let mut keys: Vec<Key> = {
-            let mut s = self.sched.borrow_mut();
-            s.render.drain().map(|Reverse((_, k))| k).collect()
-        };
+        let mut keys = self.sched.borrow_mut().take_render();
         keys.push(current);
         let mut g = self.graph.borrow_mut();
         for k in keys {
-            if let Some(n) = g.get_mut(k) {
-                n.queued = false;
-                n.state = Color::Clean;
+            if let Some(c) = g.get_mut(k).and_then(RNode::computation_mut) {
+                c.state = Color::Clean;
             }
         }
     }
 
     /// Run the user effects queued so far (one round). Returns whether any ran.
     pub fn run_user_effects(&self) -> bool {
-        let batch: Vec<Key> = {
-            let mut s = self.sched.borrow_mut();
-            let mut v = Vec::with_capacity(s.user.len());
-            while let Some(Reverse((_, k))) = s.user.pop() {
-                v.push(k);
-            }
-            v
-        };
+        let batch = self.sched.borrow_mut().take_user();
         let ran = !batch.is_empty();
         for k in batch {
             self.run_effect(k);
@@ -120,17 +129,11 @@ impl Runtime {
 
     /// Drop pending user effects after a cycle was detected.
     pub(crate) fn abandon_user_queue(&self) -> Vec<Key> {
-        let mut s = self.sched.borrow_mut();
-        let mut v = Vec::new();
-        while let Some(Reverse((_, k))) = s.user.pop() {
-            v.push(k);
-        }
-        drop(s);
+        let v = self.sched.borrow_mut().take_user();
         let mut g = self.graph.borrow_mut();
         for k in &v {
-            if let Some(n) = g.get_mut(*k) {
-                n.queued = false;
-                n.state = Color::Clean;
+            if let Some(c) = g.get_mut(*k).and_then(RNode::computation_mut) {
+                c.state = Color::Clean;
             }
         }
         v

@@ -34,6 +34,7 @@
 //!   supported: no such action exists.
 
 mod dirty;
+pub(super) use dirty::Built;
 mod identity;
 mod local_text;
 mod node;

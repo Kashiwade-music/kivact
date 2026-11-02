@@ -143,7 +143,7 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
     assert!(min.unwrap() > 0.0 && min.unwrap() < 20.0, "{min:?}");
     assert!(max.unwrap() < 100.0 && max.unwrap() > 80.0, "{max:?}");
     // Equal weights put the splitter in the middle of its row.
-    splitter.a11y_with_value(A11yAction::SetValue, "50");
+    splitter.a11y_set_value("50");
     let row = top_row(&probe.layout.get_untracked());
     assert!(near(row[0], row[1], 1e-9));
     let middle = 780.0 * 0.75 / 2.0;
@@ -183,7 +183,7 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
     );
 
     // Double click equalizes too; a drag moves by the pointer's travel.
-    splitter.a11y_with_value(A11yAction::SetValue, "30");
+    splitter.a11y_set_value("30");
     splitter.double_click();
     let row = top_row(&probe.layout.get_untracked());
     assert!(near(row[0], row[1], 1e-9));

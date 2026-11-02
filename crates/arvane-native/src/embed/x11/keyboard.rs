@@ -7,17 +7,57 @@
 use arvane_shell::{ShellError, ShellEvent};
 use kivact_types::{Key, KeyCode, Modifiers};
 use std::collections::HashSet;
-use std::ptr;
+use std::ptr::{self, NonNull};
 use x11rb::protocol::xkb::{ConnectionExt as _, EventType, ID, MapPart, SelectEventsAux};
 use x11rb::xcb_ffi::XCBConnection;
 use xkbcommon_dl::{self as xkb, x11};
 
+/// An owned xkbcommon context.
+struct XkbContext {
+    api: &'static xkb::XkbCommon,
+    raw: NonNull<xkb::xkb_context>,
+}
+impl Drop for XkbContext {
+    fn drop(&mut self) {
+        // SAFETY: raw is the owned reference returned by xkb_context_new; keymaps are dropped first.
+        unsafe { (self.api.xkb_context_unref)(self.raw.as_ptr()) };
+    }
+}
+/// An owned xkbcommon keymap.
+struct XkbKeymap {
+    api: &'static xkb::XkbCommon,
+    raw: NonNull<xkb::xkb_keymap>,
+}
+impl Drop for XkbKeymap {
+    fn drop(&mut self) {
+        // SAFETY: raw is an owned reference and the state referencing it was dropped first.
+        unsafe { (self.api.xkb_keymap_unref)(self.raw.as_ptr()) };
+    }
+}
+/// An owned xkbcommon state.
+struct XkbState {
+    api: &'static xkb::XkbCommon,
+    raw: NonNull<xkb::xkb_state>,
+}
+impl Drop for XkbState {
+    fn drop(&mut self) {
+        // SAFETY: raw is an owned reference returned by xkb_x11_state_new_from_device.
+        unsafe { (self.api.xkb_state_unref)(self.raw.as_ptr()) };
+    }
+}
+/// A compiled keymap and its state; `state` drops before `keymap` (field order).
+struct Map {
+    state: XkbState,
+    /// Held only for its drop, which must follow the state's.
+    _keymap: XkbKeymap,
+}
+
 pub(super) struct Keyboard {
     api: &'static xkb::XkbCommon,
     x11: &'static x11::XkbCommonX11,
-    context: *mut xkb::xkb_context,
-    keymap: *mut xkb::xkb_keymap,
-    state: *mut xkb::xkb_state,
+    // Drops before `context` (field order).
+    map: Map,
+    context: XkbContext,
     pressed: HashSet<u8>,
     modifiers: Modifiers,
 }
@@ -49,75 +89,29 @@ impl Keyboard {
         // SAFETY: this creates an owned context without changing process settings.
         let context =
             unsafe { (api.xkb_context_new)(xkb::xkb_context_flags::XKB_CONTEXT_NO_FLAGS) };
-        let mut keyboard = Self {
+        let context = NonNull::new(context)
+            .map(|raw| XkbContext { api, raw })
+            .ok_or_else(|| super::error::platform("XKB context creation failed"))?;
+        let map = compile(api, x11, &context, connection)?;
+        Ok(Self {
             api,
             x11,
+            map,
             context,
-            keymap: ptr::null_mut(),
-            state: ptr::null_mut(),
             pressed: HashSet::new(),
             modifiers: Modifiers::default(),
-        };
-        if context.is_null() {
-            return Err(super::error::platform("XKB context creation failed"));
-        }
-        keyboard.load(connection)?;
-        Ok(keyboard)
+        })
     }
 
     /// Rebuilds the keymap after the server changed it. A failure keeps the
     /// previous keymap and state so typing continues; held keys stay tracked.
     pub(super) fn reload(&mut self, connection: &XCBConnection) {
-        if let Err(error) = self.load(connection) {
-            tracing::warn!(
+        match compile(self.api, self.x11, &self.context, connection) {
+            Ok(map) => self.map = map,
+            Err(error) => tracing::warn!(
                 target: "kivact",
                 "X11 embed keymap reload failed; keeping the previous keymap: {error}"
-            );
-        }
-    }
-
-    fn load(&mut self, connection: &XCBConnection) -> Result<(), ShellError> {
-        let raw = connection.get_raw_xcb_connection();
-        // SAFETY: raw is live for the entire keyboard initialization.
-        let device = unsafe { (self.x11.xkb_x11_get_core_keyboard_device_id)(raw) };
-        if device < 0 {
-            return Err(super::error::platform("XKB core keyboard unavailable"));
-        }
-        // SAFETY: context and connection are live; this returns an owned keymap.
-        let keymap = unsafe {
-            (self.x11.xkb_x11_keymap_new_from_device)(
-                self.context,
-                raw,
-                device,
-                xkb::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS,
-            )
-        };
-        if keymap.is_null() {
-            return Err(super::error::platform("XKB keymap creation failed"));
-        }
-        // SAFETY: the keymap and connection remain live; the state gets its own reference.
-        let state = unsafe { (self.x11.xkb_x11_state_new_from_device)(keymap, raw, device) };
-        if state.is_null() {
-            // SAFETY: keymap is the owned reference created above.
-            unsafe { (self.api.xkb_keymap_unref)(keymap) };
-            return Err(super::error::platform("XKB state creation failed"));
-        }
-        self.release();
-        self.keymap = keymap;
-        self.state = state;
-        Ok(())
-    }
-
-    fn release(&mut self) {
-        if !self.state.is_null() {
-            // SAFETY: state is an owned reference returned by a load.
-            unsafe { (self.api.xkb_state_unref)(self.state) };
-            self.state = ptr::null_mut();
-        }
-        if !self.keymap.is_null() {
-            // SAFETY: keymap is owned and the state reference was released above.
-            unsafe { (self.api.xkb_keymap_unref)(self.keymap) };
-            self.keymap = ptr::null_mut();
+            ),
         }
     }
 
@@ -137,7 +131,7 @@ impl Keyboard {
         // SAFETY: state is an owned initialized state and all masks are plain values.
         unsafe {
             (self.api.xkb_state_update_mask)(
-                self.state,
+                self.map.state.raw.as_ptr(),
                 u32::from(mask & 0xff),
                 0,
                 0,
@@ -161,7 +155,9 @@ impl Keyboard {
         self.set_mask(mask);
         let code = physical(detail);
         // SAFETY: state is live; any X11 keycode is accepted by xkbcommon.
-        let sym = unsafe { (self.api.xkb_state_key_get_one_sym)(self.state, detail.into()) };
+        let sym = unsafe {
+            (self.api.xkb_state_key_get_one_sym)(self.map.state.raw.as_ptr(), detail.into())
+        };
         // SAFETY: keysym conversion accepts unknown keysyms and returns zero for them.
         let scalar = unsafe { (self.api.xkb_keysym_to_utf32)(sym) };
         let key = logical(sym, scalar);
@@ -172,14 +168,19 @@ impl Keyboard {
         let text = if down {
             // SAFETY: a null buffer with size zero asks for the required UTF-8 size.
             let length = unsafe {
-                (self.api.xkb_state_key_get_utf8)(self.state, detail.into(), ptr::null_mut(), 0)
+                (self.api.xkb_state_key_get_utf8)(
+                    self.map.state.raw.as_ptr(),
+                    detail.into(),
+                    ptr::null_mut(),
+                    0,
+                )
             };
             if length > 0 {
                 let mut bytes = vec![0_u8; length as usize + 1];
                 // SAFETY: the writable buffer includes space for the trailing NUL.
                 unsafe {
                     (self.api.xkb_state_key_get_utf8)(
-                        self.state,
+                        self.map.state.raw.as_ptr(),
                         detail.into(),
                         bytes.as_mut_ptr().cast(),
                         bytes.len(),
@@ -201,7 +202,9 @@ impl Keyboard {
             xkb::xkb_key_direction::XKB_KEY_UP
         };
         // SAFETY: state is live and the direction enum and keycode are valid.
-        unsafe { (self.api.xkb_state_update_key)(self.state, detail.into(), direction) };
+        unsafe {
+            (self.api.xkb_state_update_key)(self.map.state.raw.as_ptr(), detail.into(), direction)
+        };
         let modifiers = self.modifiers();
         self.modifiers = modifiers;
         let event = if down {
@@ -222,7 +225,7 @@ impl Keyboard {
         // SAFETY: name is NUL-terminated and state is live for this call.
         unsafe {
             (self.api.xkb_state_mod_name_is_active)(
-                self.state,
+                self.map.state.raw.as_ptr(),
                 name.as_ptr(),
                 xkb::xkb_state_component::XKB_STATE_MODS_EFFECTIVE,
             ) != 0
@@ -244,14 +247,41 @@ impl Keyboard {
     }
 }
 
-impl Drop for Keyboard {
-    fn drop(&mut self) {
-        self.release();
-        if !self.context.is_null() {
-            // SAFETY: context is owned and keymap was released above.
-            unsafe { (self.api.xkb_context_unref)(self.context) };
-        }
+/// Compiles the core keyboard's keymap and state.
+fn compile(
+    api: &'static xkb::XkbCommon,
+    x11: &'static x11::XkbCommonX11,
+    context: &XkbContext,
+    connection: &XCBConnection,
+) -> Result<Map, ShellError> {
+    let raw = connection.get_raw_xcb_connection();
+    // SAFETY: raw is live for the entire keyboard initialization.
+    let device = unsafe { (x11.xkb_x11_get_core_keyboard_device_id)(raw) };
+    if device < 0 {
+        return Err(super::error::platform("XKB core keyboard unavailable"));
     }
+    // SAFETY: context and connection are live; this returns an owned keymap.
+    let keymap = unsafe {
+        (x11.xkb_x11_keymap_new_from_device)(
+            context.raw.as_ptr(),
+            raw,
+            device,
+            xkb::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS,
+        )
+    };
+    let keymap = NonNull::new(keymap)
+        .map(|raw| XkbKeymap { api, raw })
+        .ok_or_else(|| super::error::platform("XKB keymap creation failed"))?;
+    // SAFETY: the keymap and connection remain live; the state gets its own reference.
+    let state = unsafe { (x11.xkb_x11_state_new_from_device)(keymap.raw.as_ptr(), raw, device) };
+    // A null state drops the keymap owner on the error return.
+    let state = NonNull::new(state)
+        .map(|raw| XkbState { api, raw })
+        .ok_or_else(|| super::error::platform("XKB state creation failed"))?;
+    Ok(Map {
+        state,
+        _keymap: keymap,
+    })
 }
 
 /// Asks the server to report keymap replacement for the core keyboard.

@@ -64,16 +64,16 @@ impl Transition {
         self
     }
 
-    /// Play `times` iterations (`None`: forever). The default is one.
-    pub fn repeat(mut self, times: Option<u32>) -> Self {
-        self.0.repeat = match times {
-            Some(n) => Repeat::Times(n),
-            None => Repeat::Infinite,
-        };
+    /// How many times it plays (`Repeat::Times(1)` by default;
+    /// `Repeat::Forever` until the target changes; `Repeat::Times(0)` ends at
+    /// once on the target). A spring's iteration ends when it settles.
+    pub fn repeat(mut self, repeat: Repeat) -> Self {
+        self.0.repeat = repeat;
         self
     }
 
-    /// Play every other iteration backwards.
+    /// Play every other iteration backwards (a spring heads back to where it
+    /// started).
     pub fn alternate(mut self) -> Self {
         self.0.direction = PlayDirection::Alternate;
         self

@@ -11,8 +11,9 @@ pub struct NodeId(pub u64);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RequestId(pub u64);
 
-/// Revision of the engine's tree. Every bridge `Writer::commit` ends the
-/// next revision; revision 0 means "nothing committed yet".
+/// Revision of the engine's tree: revision `n` is the tree after the `n`-th
+/// bridge `Writer::commit`; revision 0 is the empty tree before the first
+/// commit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct Revision(pub u64);
 

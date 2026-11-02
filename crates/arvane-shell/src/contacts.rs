@@ -66,7 +66,7 @@ impl Contacts {
         let at = self.live.iter().position(|c| c.platform == platform.id.0);
         let mut events = Vec::new();
         let (id, kind) = match (platform.phase, at) {
-            (PointerPhase::Down, at) => {
+            (PointerPhase::Down(_), at) => {
                 if let Some(at) = at {
                     events.push(cancel(self.live.remove(at)));
                 }
@@ -89,14 +89,14 @@ impl Contacts {
                 live.at = platform.position;
                 (live.id, live.kind)
             }
-            (PointerPhase::Up | PointerPhase::Cancel, Some(at)) => {
+            (PointerPhase::Up(_) | PointerPhase::Cancel, Some(at)) => {
                 let live = self.live.remove(at);
                 (live.id, live.kind)
             }
             // A window reports contacts, not a pen hovering (`Enter`,
             // `Leave`), nor a move or an end of one that never began.
             (PointerPhase::Enter | PointerPhase::Leave, _)
-            | (PointerPhase::Move | PointerPhase::Up | PointerPhase::Cancel, None) => {
+            | (PointerPhase::Move | PointerPhase::Up(_) | PointerPhase::Cancel, None) => {
                 return events;
             }
         };
@@ -123,9 +123,7 @@ fn cancel(live: Live) -> ShellEvent {
         phase: PointerPhase::Cancel,
         position: live.at,
         buttons: PointerButtons::NONE,
-        button: None,
         pressure: None,
         tilt: None,
-        clicks: 1,
     })
 }

@@ -135,12 +135,12 @@ fn world() -> (World, impl IntoView) {
                 use kivact::view::PointerPhase::{Down, Move, Up};
                 let mut at = grab.borrow_mut();
                 match (e.phase, *at) {
-                    (Down, _) => *at = Some(e.pos),
+                    (Down(_), _) => *at = Some(e.pos),
                     (Move, Some(last)) => {
                         pan.update(|p| *p = (p.0 + e.pos.x - last.x, p.1 + e.pos.y - last.y));
                         *at = Some(e.pos);
                     }
-                    (Up, _) => *at = None,
+                    (Up(_), _) => *at = None,
                     _ => {}
                 }
                 Handled::Yes
@@ -157,7 +157,7 @@ fn world() -> (World, impl IntoView) {
                         .name("pad")
                         .test_id("pad")
                         .on_pointer(move |e: PointerEvent| {
-                            if e.phase == kivact::view::PointerPhase::Down {
+                            if matches!(e.phase, kivact::view::PointerPhase::Down(_)) {
                                 seen.borrow_mut().push(e.pos);
                             }
                             Handled::Yes

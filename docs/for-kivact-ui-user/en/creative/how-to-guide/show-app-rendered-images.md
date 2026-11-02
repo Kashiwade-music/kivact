@@ -82,7 +82,7 @@ Run it. The image fits the surface at first. Scroll to zoom around the pointer, 
 ### What the surface does for you
 
 - **Without `.transform(..)` the image always fits** the surface. With a `Binding<ViewTransform>` you own the zoom and pan, so you can save it, reset it (as **Fit** does) or share it between two viewers.
-- **Coordinates are the image's.** `on_pointer` reports each `SurfacePointer` (position, phase, button, modifiers) with `position` in pixels of the *image*, whatever the zoom is. `overlay(|draw, transform| ..)` draws in the same coordinates. Use `transform` when you need the current scale, for example to keep a handle the same size on screen.
+- **Coordinates are the image's.** `on_pointer` reports each `SurfacePointer` (position, phase, modifiers; a press's button is in the phase) with `position` in pixels of the *image*, whatever the zoom is. `overlay(|draw, transform| ..)` draws in the same coordinates. Use `transform` when you need the current scale, for example to keep a handle the same size on screen.
 - **`regions(..)`** adds accessible, clickable rectangles in image coordinates (`SurfaceRegion::new(id, name, role, bounds)`); the `region` field of a pointer event says which one is under the pointer.
 - **`pixelated(true)`** samples the nearest pixel when you zoom in past the native size, which is what you want for pixel inspection.
 - **`on_resize`** reports a `SurfaceSize`: the logical size, the physical pixel size and the scale factor. Render at `physical_width` by `physical_height` for a sharp image on a high-density display, and re-render when it changes.

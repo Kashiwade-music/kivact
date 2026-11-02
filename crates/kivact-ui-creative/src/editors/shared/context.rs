@@ -14,11 +14,11 @@ pub(crate) fn context_pointer<T: Copy>(
     locate: impl Fn(Option<T>) -> EditorContext,
     time: impl Fn(f32) -> f64,
 ) -> Handled {
-    if event.button == Some(MouseButton::Secondary) {
+    if event.phase.press().map(|press| press.button) == Some(MouseButton::Secondary) {
         if dragging {
             return Handled::Yes;
         }
-        if event.phase == PointerPhase::Down {
+        if matches!(event.phase, PointerPhase::Down(_)) {
             let mut snapshot = locate(target);
             if target.is_none() {
                 snapshot.time = time(event.pos.x);

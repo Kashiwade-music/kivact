@@ -5,7 +5,7 @@ use kivact::control::Node;
 use kivact::draw::RegionId;
 use kivact::interaction::{Drag, ListGesture};
 use kivact::primitive::part;
-use kivact::view::{A11yAction, IntoValue, Role};
+use kivact::view::{A11yAction, A11yRequest, IntoValue, Role};
 use std::rc::Rc;
 #[derive(Clone, PartialEq)]
 struct Info {
@@ -80,7 +80,9 @@ pub(crate) fn attach<T: TimeItem>(
                 Target::Item(id) => result
                     .value_text(move || info.get().value)
                     .on_a11y_event(A11yAction::SetValue, move |event| {
-                        if let Some(time) = event.value.and_then(|v| v.parse::<f64>().ok()) {
+                        if let A11yRequest::SetValue(text) = event.request
+                            && let Some(time) = text.parse::<f64>().ok()
+                        {
                             state.set_item_time(id, time);
                         }
                     })
@@ -139,10 +141,8 @@ pub(crate) fn attach<T: TimeItem>(
                 .value_now(frame)
                 .value_text(move || format(frame.get()))
                 .on_a11y_event(A11yAction::SetValue, move |event| {
-                    if let Some(value) = event
-                        .value
-                        .and_then(|v| v.parse::<f64>().ok())
-                        .filter(|v| v.is_finite())
+                    if let A11yRequest::SetValue(text) = event.request
+                        && let Some(value) = text.parse::<f64>().ok().filter(|v| v.is_finite())
                     {
                         state.set_playhead(value.max(0.0));
                     }

@@ -3,7 +3,7 @@
 use super::geometry::DropTarget;
 use super::model::{DockLayout, DockTabs};
 use kivact::draw::Rect;
-use kivact::ui::EditPhase;
+use kivact::ui::{EditPhase, InlineEdit};
 use kivact::view::View;
 use kivact::{Binding, Callback, Signal, Value, Var};
 use std::cell::{Cell, RefCell};
@@ -56,8 +56,7 @@ pub(super) struct DockCx<K: 'static> {
     /// The normalized layout.
     pub(super) current: Value<DockLayout<K>>,
     pub(super) drag: Signal<Option<TabDrag<K>>>,
-    pub(super) renaming: Signal<Option<K>>,
-    pub(super) draft: Signal<String>,
+    pub(super) rename: InlineEdit<K>,
     pub(super) root: Value<Option<Rect>>,
     pub(super) shared: Var<Rc<Shared<K>>>,
 }

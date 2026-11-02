@@ -80,9 +80,9 @@ fn inputs_and_tag_editor_commit_native_edits() {
     assert_eq!(note.rect().unwrap().height, 72.0);
     grip.a11y(A11yAction::Increment);
     assert_eq!(note.rect().unwrap().height, 80.0);
-    grip.a11y_with_value(A11yAction::SetValue, "-100");
+    grip.a11y_set_value("-100");
     assert_eq!(note.rect().unwrap().height, 72.0);
-    grip.a11y_with_value(A11yAction::SetValue, "NaN");
+    grip.a11y_set_value("NaN");
     assert_eq!(note.rect().unwrap().height, 72.0);
     assert_eq!(
         screen

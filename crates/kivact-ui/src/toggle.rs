@@ -5,16 +5,14 @@
 //! binding and no separate constant `checked` mode. Its recipe gets the real
 //! checked state in a `CheckState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.
-use super::layer::with_recipe_style;
+use super::layer::with_base_recipe_style;
 use super::values::{CheckState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_core::{Binding, Value};
-use kivact_interaction::{ToggleState, use_checkbox, use_switch};
-use std::cell::Cell;
-use std::rc::Rc;
+use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
     ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $text:expr) => {
         $(#[$doc])*
@@ -23,7 +21,6 @@ macro_rules! toggle_builder {
             label: Value<String>,
             state: Binding<bool>,
             mixed: Option<Value<bool>>,
-            part_state: Rc<Cell<Option<Value<CheckState>>>>,
             hide_label: Option<Value<bool>>,
             size: ControlSize,
             variants: Variants,
@@ -31,24 +28,14 @@ macro_rules! toggle_builder {
 
         impl $name {
             fn create(label: Value<String>, state: Binding<bool>) -> Self {
-                let part_state = Rc::new(Cell::new(None::<Value<CheckState>>));
-                let read = part_state.clone();
-                let variants = Variants::default();
-                let root = with_recipe_style(
-                    node().style(super::helpers::single_line_text()).name(label),
-                    |recipes| recipes.$recipe(),
-                    &variants,
-                    move || read.get().expect("invariant: toggle part prepared before mount").get(),
-                );
                 Self {
-                    root,
+                    root: node().style(super::helpers::single_line_text()).name(label),
                     label,
                     state,
                     mixed: None,
-                    part_state,
                     hide_label: None,
                     size: ControlSize::Medium,
-                    variants,
+                    variants: Variants::default(),
                 }
             }
 
@@ -94,10 +81,7 @@ macro_rules! toggle_builder {
         #[diagnostic::do_not_recommend]
         impl IntoView for $name {
             fn into_view(mut self) -> View {
-                let mut behavior = $kind(self.state);
-                if let Some(mixed) = self.mixed {
-                    behavior = behavior.indeterminate(mixed);
-                }
+                let mut behavior = $kind(self.state, self.mixed);
                 // `.disabled(..)` ignores input while true.
                 if let Some(disabled) = self.root.accessible_disabled() {
                     behavior = behavior.disabled(move || disabled());
@@ -113,8 +97,13 @@ macro_rules! toggle_builder {
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid()),
                     text,
                 });
-                self.part_state.set(Some(part.state()));
-                self.root
+                let check_state = part.state();
+                with_base_recipe_style(
+                    self.root,
+                    |recipes| recipes.$recipe(),
+                    &self.variants,
+                    move || check_state.get(),
+                )
                     .part(part)
                     .child(super::helpers::visible_label(self.label, self.hide_label))
                     .into_view()
@@ -127,9 +116,9 @@ toggle_builder!(
     /// A check box: a box and a label that flip a `bool` together.
     ///
     /// Created by [`checkbox`]. Its behavior and semantics are those of
-    /// [`use_checkbox`].
+    /// [`use_checkbox`](kivact_interaction::use_checkbox).
     Checkbox,
-    use_checkbox,
+    checkbox_behavior,
     checkbox_recipe,
     None
 );
@@ -139,12 +128,26 @@ toggle_builder!(
     /// together.
     ///
     /// Created by [`switch`]. Its behavior and semantics are those of
-    /// [`use_switch`].
+    /// [`use_switch`](kivact_interaction::use_switch).
     Switch,
-    use_switch,
+    switch_behavior,
     switch_recipe,
     Some(switch_text)
 );
+
+/// The behavior of a check box, with its mixed state when it has one.
+fn checkbox_behavior(state: Binding<bool>, mixed: Option<Value<bool>>) -> CheckboxApi {
+    let behavior = use_checkbox(state);
+    match mixed {
+        Some(mixed) => behavior.indeterminate(mixed),
+        None => behavior,
+    }
+}
+
+/// The behavior of a switch; a switch has no mixed state.
+fn switch_behavior(state: Binding<bool>, _mixed: Option<Value<bool>>) -> Toggle {
+    use_switch(state)
+}
 
 /// A switch's localized word for its state, made at setup.
 fn switch_text(on: Value<bool>) -> Value<String> {
@@ -159,7 +162,7 @@ impl Checkbox {
     /// Show and publish the mixed (partially checked) state while true.
     /// The binding stays binary; pressing a mixed check box writes `true`.
     /// Clearing the mixed value is the caller's (see
-    /// [`Toggle::indeterminate`](kivact_interaction::Toggle::indeterminate)).
+    /// [`CheckboxApi::indeterminate`](kivact_interaction::CheckboxApi::indeterminate)).
     pub fn indeterminate(mut self, mixed: impl IntoValue<bool>) -> Self {
         self.mixed = Some(mixed.into_value());
         self

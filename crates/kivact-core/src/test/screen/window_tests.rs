@@ -11,7 +11,7 @@ use std::panic::Location;
 use kivact_wire::Size;
 
 use super::model::Screen;
-use crate::client::AppClient;
+use crate::client::{AppClient, AppConfig};
 use crate::prelude::{IntoView, Theme, spawn, text};
 use crate::test::RenderOptions;
 use crate::view::View;
@@ -24,8 +24,9 @@ fn the_minimum_window_size_reaches_the_window() {
         height: 240.0,
     };
     let root: Box<dyn FnOnce() -> View> = Box::new(|| text("min").into_view());
-    let client = AppClient::new("min".into(), Theme::default(), Some(2), root, at)
-        .with_min_window_size(Some(min));
+    let mut config = AppConfig::new("min".into(), Theme::default(), root);
+    config.min_window_size = Some(min);
+    let client = AppClient::new(config, Some(2), at);
     let screen = Screen::start_client(RenderOptions::default(), false, client, at);
     assert_eq!(screen.with_host(|h| h.min_window_size()), Some(min));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -49,8 +50,9 @@ fn resize_requests_are_clamped_to_the_apps_single_minimum() {
         spawn(crate::platform::request_window_size(100, 300));
         text("resize").into_view()
     });
-    let client = AppClient::new("resize".into(), Theme::default(), Some(2), root, at)
-        .with_min_window_size(Some(min));
+    let mut config = AppConfig::new("resize".into(), Theme::default(), root);
+    config.min_window_size = Some(min);
+    let client = AppClient::new(config, Some(2), at);
     let screen = Screen::start_client(RenderOptions::default(), false, client, at);
     screen.run_until_idle();
     assert_eq!(

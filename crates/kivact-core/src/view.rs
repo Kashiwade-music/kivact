@@ -20,6 +20,7 @@ pub(crate) mod focus;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
+pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
 pub(crate) mod node;
@@ -33,6 +34,7 @@ pub(crate) mod root;
 pub(crate) mod span;
 pub(crate) mod state;
 pub(crate) mod sync_hook;
+pub(crate) mod text_edits;
 pub(crate) mod tree;
 
 #[doc(inline)]
@@ -49,7 +51,7 @@ pub use boundary::{
 pub use descriptor::{IntoView, View};
 #[doc(inline)]
 pub use input::{
-    A11yEvent, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
+    A11yEvent, ButtonPress, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
     KeyHandlerResult, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId, PointerKind,
     PointerPhase, WheelEvent,
 };
@@ -59,6 +61,8 @@ pub use kivact_reactive::HandlerResult;
 pub use kivact_reactive::{IntoReactive, IntoText, IntoValue, Reactive};
 #[doc(inline)]
 pub use kivact_reactive::{callback, constant, selector};
+#[doc(inline)]
+pub use modifier_keys::current_modifiers;
 
 /// Lets a component author take their own type as a prop.
 ///
@@ -109,7 +113,9 @@ pub use kivact_reactive::constant_value;
 #[doc(inline)]
 pub use kivact_reactive::{context, try_context};
 #[doc(inline)]
-pub use kivact_wire::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
+pub use kivact_wire::{
+    A11yAction, A11yRequest, CheckedState, LiveRegion, Orientation, Role, SortDirection,
+};
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 #[doc(inline)]

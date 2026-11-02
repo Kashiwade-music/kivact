@@ -1,10 +1,20 @@
-//! Role: Easing curves and spring parameters of animations.
+//! Role: Easing curves, spring parameters and iteration counts of animations.
 
 /// Where a discrete easing step jumps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StepPosition {
     Start,
     End,
+}
+
+/// How many times a transition plays (CSS `animation-iteration-count`, Framer
+/// Motion's `repeat`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Repeat {
+    /// This many iterations; `Times(0)` ends at once on the target.
+    Times(u32),
+    /// Until the target changes.
+    Forever,
 }
 
 /// Mapping from normalized elapsed time to animation progress.

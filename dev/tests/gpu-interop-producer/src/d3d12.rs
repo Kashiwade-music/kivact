@@ -271,20 +271,20 @@ impl Engine for D3d12 {
         };
         let dest = D3D12_RESOURCE_STATE_COPY_DEST;
         // SAFETY: the reset list of the pool's device.
-        unsafe { self.pool.record_acquire(&slot.list, &target, dest) };
+        unsafe { target.record_acquire(&slot.list, dest) };
         // SAFETY: recording into the reset list, with live resources.
         unsafe {
             slot.list
                 .CopyTextureRegion(&texture, 0, 0, 0, &source, None)
         };
         // SAFETY: as above.
-        unsafe { self.pool.record_release(&slot.list, &target, dest) };
+        unsafe { target.record_release(&slot.list, dest) };
         // SAFETY: the recorded list.
         unsafe { slot.list.Close() }.map_err(failed("Close"))?;
         let list: ID3D12CommandList = slot.list.cast().map_err(failed("cast"))?;
         // SAFETY: the engine's direct queue of the pool's device; the
         // closed list.
-        unsafe { self.pool.submit(&self.queue, target, &[Some(list)]) }.map_err(|e| e.to_string())
+        unsafe { target.submit(&self.queue, &[Some(list)]) }.map_err(|e| e.to_string())
     }
 
     fn release_value(&self) -> u64 {

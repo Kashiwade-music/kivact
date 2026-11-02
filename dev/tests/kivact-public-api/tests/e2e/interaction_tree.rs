@@ -6,7 +6,7 @@
 //! selection, odd data, typeahead and the roving tab stop.
 
 use crate::support::mount_with;
-use kivact::interaction::Tree;
+use kivact::interaction::{Tree, TreeBranch};
 use kivact::prelude::*;
 use kivact::test::{Element, RenderOptions, Screen, WindowMode};
 use kivact::ui::TreeNode;
@@ -87,7 +87,7 @@ fn mount_nodes_kind(
         );
         let rows = for_each(
             tree.rows(),
-            |row| (row.key, row.has_children),
+            |row| (row.key, row.branch.has_children()),
             move |_, row| {
                 let row = row.get_untracked();
                 let label = move || {
@@ -163,25 +163,17 @@ fn the_rows_are_flattened_in_tree_order_with_their_level_and_position() {
     let rows = h.tree.rows().get_untracked();
     let facts: Vec<_> = rows
         .iter()
-        .map(|r| {
-            (
-                r.level,
-                r.set_size,
-                r.pos_in_set,
-                r.has_children,
-                r.expanded,
-            )
-        })
+        .map(|r| (r.level, r.set_size, r.pos_in_set, r.branch))
         .collect();
     assert_eq!(
         facts,
         [
-            (1, 3, 1, true, true),
-            (2, 3, 1, false, false),
-            (2, 3, 2, true, false),
-            (2, 3, 3, false, false),
-            (1, 3, 2, true, false),
-            (1, 3, 3, false, false),
+            (1, 3, 1, TreeBranch::Expanded),
+            (2, 3, 1, TreeBranch::Leaf),
+            (2, 3, 2, TreeBranch::Collapsed),
+            (2, 3, 3, TreeBranch::Leaf),
+            (1, 3, 2, TreeBranch::Collapsed),
+            (1, 3, 3, TreeBranch::Leaf),
         ]
     );
     let tree = screen.get_by_role(Role::Tree, "Files");

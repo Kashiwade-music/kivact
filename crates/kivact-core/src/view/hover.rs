@@ -7,11 +7,11 @@
 //! Invariants:
 //! - The host owns hit testing and the hover chain; this module only holds
 //!   its last report. The client records it inside the turn.
-//! - The last reported node is always kept as a plain value
-//!   (`ViewState::hovered`). The graph source is created by the first
-//!   `NodeRef::hovered`, under the root owner, and lives as long as the
-//!   App; an App that never calls it has no hover source and a report writes
-//!   nothing to the graph. The source starts at the node reported so far.
+//! - Before the first `NodeRef::hovered` the last report is a plain value
+//!   (`Hover::Plain`); that call turns it into a graph source under the root
+//!   owner (`Hover::Reactive`), which holds every later report for the App's
+//!   lifetime. An App that never calls it writes nothing to the graph. The
+//!   source starts at the node reported so far.
 //! - Once it exists, it is written only when a report arrives.
 //!   `hovered` walks the core tree's parent chain of that node, which a
 //!   later turn does not change for a live node: the core never reparents a
@@ -24,24 +24,19 @@ use kivact_reactive::Runtime;
 use kivact_reactive::Signal;
 use kivact_wire::NodeId;
 
-use crate::view::state::ViewState;
+use crate::view::state::{Hover, ViewState};
 
 /// The hover source of `rt`'s App, created under the root owner by the first
 /// call (at the node the host reported last) and kept for the App's lifetime.
 pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Option<NodeId>> {
     let state = ViewState::of(rt);
-    if let Some(source) = state.hover() {
-        return source;
-    }
-    let owner = {
-        let tree = ViewState::tree(rt);
-        tree.root
-            .and_then(|root| tree.get(root))
-            .expect("invariant: the App root exists before a hover source is read")
-            .owner
+    let last = match state.hover() {
+        Hover::Reactive(source) => return source,
+        Hover::Plain(last) => last,
     };
-    let source = owner.signal(state.hovered(), at);
-    state.set_hover(source);
+    let owner = ViewState::tree(rt).root_owner();
+    let source = owner.signal(last, at);
+    state.set_hover(Hover::Reactive(source));
     source
 }
 
@@ -50,12 +45,9 @@ pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Opt
 pub(crate) fn set_hovered(rt: &Runtime, node: Option<NodeId>) {
     let node = node.filter(|id| ViewState::tree(rt).get(*id).is_some());
     let state = ViewState::of(rt);
-    state.set_hovered(node);
-    let Some(source) = state.hover() else {
-        return;
-    };
-    // Only the hover source is written here: no owner applies.
-    rt.enter(|| {
-        source.set(node);
-    })
+    match state.hover() {
+        Hover::Plain(_) => state.set_hover(Hover::Plain(node)),
+        // Only the hover source is written here: no owner applies.
+        Hover::Reactive(source) => rt.enter(|| source.set(node)),
+    }
 }

@@ -86,12 +86,9 @@ pub(super) fn date_text(value: Value<CalendarDate>) -> DateText {
         Err(DateError::Incomplete) => checked.get().then_some(DateError::Format),
         Err(error) => Some(error),
     });
-    let (focused, was_focused) = (node.focused(), signal(false));
-    kivact::effect(move || {
-        if focused.get() {
-            was_focused.set(true);
-        } else if was_focused.get_untracked() {
-            was_focused.set(false);
+    // Leaving the field checks it.
+    kivact::effect_on(node.focused(), move |&now| {
+        if !now {
             checked.set(true);
         }
     });

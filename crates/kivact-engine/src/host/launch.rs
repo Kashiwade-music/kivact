@@ -2,7 +2,7 @@
 
 use super::client::Client;
 use super::options::HostOptions;
-use super::pump::Host;
+use super::pump::{Host, LastFrame, Phase};
 use crate::FrameLog;
 use crate::model::Model;
 use arvane::{RendererChange, Shell, ShellOptions};
@@ -66,17 +66,15 @@ pub(crate) fn new(
             arvane::asset::AssetStore::inline(),
         ))),
         engine: Rc::new(RefCell::new(engine)),
-        repaint_at: None,
-        skipping: false,
+        last_frame: LastFrame::Settled,
         next_wake: None,
-        exit: false,
         embedded_closing: None,
         environment: kivact_types::protocol::Environment::default(),
         suspended: false,
         soft_keyboard: false,
         frame_log,
         accessibility_noted: false,
-        starting: true,
+        phase: Phase::Starting,
         #[cfg(feature = "gpu-interop")]
         adapter: None,
     }

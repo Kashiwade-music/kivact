@@ -58,7 +58,7 @@ impl Context<'_> {
                     }
                 }
                 let mut push = |paint| {
-                    state.out.commands.push(match &painted.stroke {
+                    state.out.push(match &painted.stroke {
                         Some(stroke) => D::StrokeShape {
                             shape: shape.clone(),
                             stroke: stroke.clone(),
@@ -94,7 +94,7 @@ impl Context<'_> {
                     self.drop_command();
                 } else if let Fill::Solid(color) = fill {
                     // As before fills had layers.
-                    state.out.commands.push(D::Rect {
+                    state.out.push(D::Rect {
                         rect: r,
                         fill: kivact_types::protocol::Paint::Solid(tint.color(*color)),
                     });
@@ -148,8 +148,7 @@ impl Context<'_> {
             _ => return false,
         };
         if sanitize::drawable(&command) {
-            state.clips += usize::from(matches!(command, D::PushClip(_)));
-            state.out.commands.push(command);
+            state.out.push(command);
         } else {
             self.drop_command();
         }

@@ -159,7 +159,7 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
                     _ => Handled::No,
                 })
                 .on_pointer(move |e: PointerEvent| {
-                    if e.phase == kivact::view::PointerPhase::Down {
+                    if matches!(e.phase, kivact::view::PointerPhase::Down(_)) {
                         seen.set(Some(e.pos));
                         level.set((e.pos.x / 10.0) as u32);
                     }

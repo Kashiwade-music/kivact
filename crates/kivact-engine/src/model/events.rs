@@ -19,19 +19,13 @@ impl EventQueue {
         !self.events.is_empty() || !self.boundaries.is_empty()
     }
 
-    pub(crate) fn take(&mut self) -> Vec<HostEvent> {
-        debug_assert!(self.boundaries.is_empty());
-        self.events.drain(..).collect()
-    }
-
-    /// Drain only events preceding the oldest completed commit.
-    pub(crate) fn take_commit(&mut self) -> Option<(Vec<HostEvent>, Revision)> {
-        let (offset, revision) = self.boundaries.pop_front()?;
-        let events = self.events.drain(..offset).collect();
-        for (following, _) in &mut self.boundaries {
-            *following -= offset;
-        }
-        Some((events, revision))
+    /// Take every queued event in order, with the commit boundaries among them: the
+    /// number of events before each boundary and its revision.
+    pub(crate) fn drain(&mut self) -> (Vec<HostEvent>, Vec<(usize, Revision)>) {
+        (
+            self.events.drain(..).collect(),
+            self.boundaries.drain(..).collect(),
+        )
     }
 
     pub(crate) fn applied(&self) -> Revision {

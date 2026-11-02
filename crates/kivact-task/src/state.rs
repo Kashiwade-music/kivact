@@ -5,7 +5,7 @@
 //! extension when the App is created. [`TaskState`] is the driver API of the
 //! host that runs the App's turns.
 
-use std::cell::{Cell, RefCell};
+use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
@@ -42,11 +42,12 @@ impl TimeState {
     }
 }
 
-/// What a spawned task stores under its owner: its executor handle and
-/// whether its future completed.
+/// What a spawned task stores under its owner: its executor task (removing
+/// the object cancels the future). The object is removed after the poll that
+/// completes the future, by `cancel`, or with its owner.
 pub(crate) struct TaskCell {
-    pub(super) handle: RefCell<Option<super::executor::RawTask>>,
-    pub(super) finished: Cell<bool>,
+    /// Set right after the spawn, before the first poll.
+    pub(super) task: OnceCell<super::executor::RawTask>,
 }
 
 /// Everything the task subsystem keeps per App, driven by the host that runs

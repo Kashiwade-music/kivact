@@ -9,8 +9,8 @@ use kivact::interaction::EditSession;
 use kivact::primitive::NodeExt;
 use kivact::style::style;
 use kivact::view::MouseButton;
-use kivact::view::{A11yAction, Handled, NodeRef, PointerPhase};
-use kivact::{Binding, Callback, Value};
+use kivact::view::{A11yAction, ButtonPress, Handled, NodeRef, PointerPhase};
+use kivact::{Binding, Callback, Signal, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -29,7 +29,7 @@ pub(super) struct Context {
     pub expanded: Binding<Vec<u64>>,
     pub selected: Binding<Vec<u64>>,
     pub on_restriction: Option<Callback<EditorEvent<Restriction>>>,
-    pub session: EditSession<()>,
+    pub painter: Painter,
     pub data: Value<Vec<TreeItem>>,
     pub rows: Rows,
 }
@@ -39,6 +39,77 @@ pub(super) struct Paint {
     value: bool,
     touched: Vec<u64>,
 }
+
+/// One restriction paint: a drag across rows that sets one flag on each row
+/// it touches, as one edit.
+#[derive(Clone, Copy)]
+pub(super) struct Painter {
+    paint: Signal<Option<Paint>>,
+    session: EditSession<()>,
+}
+
+impl Painter {
+    pub(super) fn new(session: EditSession<()>) -> Self {
+        Painter {
+            paint: kivact::signal(None),
+            session,
+        }
+    }
+
+    /// Begin the paint and propose its first rows; nothing happens (and
+    /// `false` returns) while a paint runs.
+    fn start(self, context: &Context, paint: Paint) -> bool {
+        if self.paint.with_untracked(Option::is_some) {
+            return false;
+        }
+        self.session.begin(());
+        propose(context, paint.column, &paint.touched, paint.value);
+        self.paint.set(Some(paint));
+        true
+    }
+
+    /// The pointer is over the row `over`: add its rows and propose again.
+    fn extend(self, context: &Context, over: u64) {
+        let Some(mut paint) = self.paint.get_untracked() else {
+            return;
+        };
+        if paint.touched.contains(&over) {
+            return;
+        }
+        for id in ids(context, over) {
+            if !paint.touched.contains(&id) {
+                paint.touched.push(id);
+            }
+        }
+        propose(context, paint.column, &paint.touched, paint.value);
+        self.paint.set(Some(paint));
+    }
+
+    /// The button is released: end the paint and commit its edit.
+    fn finish(self) {
+        if self.paint.get_untracked().is_some() {
+            self.paint.set(None);
+            self.session.commit();
+        }
+    }
+
+    /// End the paint and cancel its edit; whether a paint ran.
+    pub(super) fn cancel(self) -> bool {
+        if self.paint.get_untracked().is_some() {
+            self.paint.set(None);
+            self.session.cancel();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// A single toggle (a key or an assistive action) as one edit.
+    fn once(self, write: impl FnOnce()) {
+        self.session.once((), write);
+    }
+}
+
 fn flag(item: &TreeItem, column: usize) -> bool {
     match column {
         0 => item.visible,
@@ -81,17 +152,12 @@ pub(super) fn toggle(context: &Context, id: u64, flag: RestrictionFlag) {
         .with_untracked(|items| items.iter().find(|item| item.id == id).cloned())
     {
         let ids = ids(context, id);
-        context.session.once((), || {
-            propose(context, column, &ids, !self::flag(&item, column))
-        });
+        context
+            .painter
+            .once(|| propose(context, column, &ids, !self::flag(&item, column)));
     }
 }
-pub(super) fn restriction(
-    item: Value<TreeItem>,
-    context: Context,
-    column: usize,
-    painting: kivact::Signal<Option<Paint>>,
-) -> Node {
+pub(super) fn restriction(item: Value<TreeItem>, context: Context, column: usize) -> Node {
     let id = item.get_untracked().id;
     let mut button = kivact::ui::button(
         [
@@ -120,47 +186,37 @@ pub(super) fn restriction(
         })
         .on_pointer_default(move |event| {
             match event.phase {
-                PointerPhase::Down if event.button == Some(MouseButton::Primary) => {
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    ..
+                }) => {
                     let value = !flag(&item.get(), column);
                     let touched = ids(&context, id);
-                    context.session.begin(());
-                    propose(&context, column, &touched, value);
-                    painting.set(Some(Paint {
+                    let paint = Paint {
                         column,
                         value,
                         touched,
-                    }));
-                }
-                PointerPhase::Move => {
-                    if let Some(mut paint) = painting.get() {
-                        let target = context.rows.borrow().iter().find_map(|(&id, mounted)| {
-                            let rect = mounted.rect.get()?;
-                            (event.window_pos.x >= rect.x
-                                && event.window_pos.x <= rect.x + rect.width
-                                && event.window_pos.y >= rect.y
-                                && event.window_pos.y < rect.y + rect.height)
-                                .then_some(id)
-                        });
-                        if let Some(id) = target
-                            && !paint.touched.contains(&id)
-                        {
-                            for id in ids(&context, id) {
-                                if !paint.touched.contains(&id) {
-                                    paint.touched.push(id);
-                                }
-                            }
-                            propose(&context, paint.column, &paint.touched, paint.value);
-                            painting.set(Some(paint));
-                        }
+                    };
+                    if !context.painter.start(&context, paint) {
+                        return Handled::Yes;
                     }
                 }
-                PointerPhase::Up => {
-                    painting.set(None);
-                    context.session.commit();
+                PointerPhase::Move => {
+                    let target = context.rows.borrow().iter().find_map(|(&id, mounted)| {
+                        let rect = mounted.rect.get()?;
+                        (event.window_pos.x >= rect.x
+                            && event.window_pos.x <= rect.x + rect.width
+                            && event.window_pos.y >= rect.y
+                            && event.window_pos.y < rect.y + rect.height)
+                            .then_some(id)
+                    });
+                    if let Some(id) = target {
+                        context.painter.extend(&context, id);
+                    }
                 }
+                PointerPhase::Up(_) => context.painter.finish(),
                 PointerPhase::Cancel => {
-                    painting.set(None);
-                    context.session.cancel();
+                    context.painter.cancel();
                 }
                 _ => return Handled::No,
             }
@@ -212,13 +268,19 @@ pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> Node {
         })
         .on_a11y(A11yAction::Toggle, move || expand(false))
         .on_pointer_default(move |event| {
-            if event.phase == PointerPhase::Down && event.button == Some(MouseButton::Primary) {
+            if matches!(
+                event.phase,
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    ..
+                })
+            ) {
                 expand(event.modifiers.shift);
                 return Handled::Yes;
             }
             if matches!(
                 event.phase,
-                PointerPhase::Up | PointerPhase::Move | PointerPhase::Cancel
+                PointerPhase::Up(_) | PointerPhase::Move | PointerPhase::Cancel
             ) {
                 Handled::Yes
             } else {

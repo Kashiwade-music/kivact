@@ -5,7 +5,7 @@
 //! removes the last one with Backspace, through the public API only.
 
 use crate::support::mount;
-use kivact::interaction::{ListItem, use_combobox, use_text_edit};
+use kivact::interaction::{ListItem, ListSelection, use_combobox, use_text_edit};
 use kivact::prelude::*;
 use kivact::view::for_each;
 
@@ -25,11 +25,11 @@ fn picker(
     values: Option<Signal<Vec<&'static str>>>,
 ) -> impl IntoView {
     let labels = options();
-    let combo = use_combobox(labels.clone(), value).popup(open);
-    let combo = match values {
-        Some(values) => combo.multiple(values),
-        None => combo,
+    let selection = match values {
+        Some(values) => ListSelection::Multiple(values.into()),
+        None => ListSelection::Single(value.into()),
     };
+    let combo = use_combobox(labels.clone(), selection).popup(open);
     column((
         node()
             .name("Color")

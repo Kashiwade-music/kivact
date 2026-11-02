@@ -3,7 +3,7 @@
 use super::conversion::color_to_hsv;
 use super::data::ColorModel;
 use super::geometry::{Channel, Geometry};
-use super::state::State;
+use super::state::{ColorOwner, State};
 use kivact::control::{Node, NodeBuilder, column, node};
 use kivact::draw::Size;
 use kivact::i18n::message;
@@ -13,8 +13,8 @@ use kivact::style::{Color, pct, style};
 use kivact::ui::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View, callback,
-    node_ref, show,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
+    callback, node_ref, show,
 };
 use kivact::{Binding, Callback, Value, effect};
 
@@ -123,7 +123,7 @@ fn key(state: State, channel: Channel, event: KeyEvent) -> Handled {
         Key::ArrowDown => (x - delta, y),
         _ => return Handled::No,
     };
-    state.once(|| state.set(channel, next.0, next.1));
+    state.once(ColorOwner::Wheel, || state.set(channel, next.0, next.1));
     Handled::Yes
 }
 
@@ -171,7 +171,9 @@ impl IntoView for ColorWheel {
         // Each drag is one edit of the shared session; Escape on the wheel,
         // an engine Cancel and `cancel` write the color from the press back.
         let gesture = use_drag::<Channel>(DragCoordinates::Local)
-            .edit(state.edit, move || state.snapshot())
+            .edit(state.edit.session(), move || {
+                (ColorOwner::Wheel, state.snapshot())
+            })
             .on_start(move |update: DragUpdate<Channel>| {
                 active.set(update.payload);
                 apply(update);
@@ -261,29 +263,26 @@ impl IntoView for ColorWheel {
                     });
                 let target = part.node_ref();
                 let action = move |event: A11yEvent| {
-                    if matches!(event.action, A11yAction::Select | A11yAction::Activate) {
+                    if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                         active.set(channel);
                         target.focus();
                         return;
                     }
                     let (x, y) = state.channel(channel);
                     let step = if channel == Channel::Hue { 1.0 } else { 0.01 };
-                    let next = match event.action {
-                        A11yAction::SetValue if channel == Channel::Sv => {
-                            event.value.as_deref().and_then(pair)
-                        }
-                        A11yAction::SetValue => event
-                            .value
-                            .as_deref()
-                            .and_then(|s| s.parse::<f64>().ok())
+                    let next = match &event.request {
+                        A11yRequest::SetValue(text) if channel == Channel::Sv => pair(text),
+                        A11yRequest::SetValue(text) => text
+                            .parse::<f64>()
+                            .ok()
                             .filter(|v| v.is_finite())
                             .map(|x| (x, y)),
-                        A11yAction::Increment => Some((x + step, y)),
-                        A11yAction::Decrement => Some((x - step, y)),
+                        A11yRequest::Increment => Some((x + step, y)),
+                        A11yRequest::Decrement => Some((x - step, y)),
                         _ => None,
                     };
                     if let Some((x, y)) = next {
-                        state.once(|| state.set(channel, x, y));
+                        state.once(ColorOwner::Wheel, || state.set(channel, x, y));
                     }
                 };
                 part.with(gesture.source(channel))

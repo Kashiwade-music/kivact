@@ -1,6 +1,6 @@
 //! Role: This module runs owned futures on the UI thread.
 
-use std::cell::{Cell, RefCell};
+use std::cell::OnceCell;
 use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
@@ -30,10 +30,11 @@ impl Task {
         }
     }
 
-    /// Whether the task has completed or been cancelled.
+    /// Whether the task has completed or been cancelled (its owner's
+    /// disposal included).
     #[track_caller]
     pub fn is_finished(&self) -> bool {
-        self.handle.find().is_none_or(|c| c.finished.get())
+        self.handle.find().is_none()
     }
 }
 
@@ -46,22 +47,20 @@ pub(super) fn spawn_owned(
     at: &'static Location<'static>,
 ) -> Owned<TaskCell> {
     let cell = Rc::new(TaskCell {
-        handle: RefCell::new(None),
-        finished: Cell::new(false),
+        task: OnceCell::new(),
     });
     let key = owner.store("Task", cell.clone(), at);
-    let weak = Rc::downgrade(&cell);
     let app = rt.id();
     let wrapped = async move {
         fut.await;
         let Some(rt) = Runtime::get(app) else { return };
-        if let Some(c) = weak.upgrade() {
-            c.finished.set(true);
-        }
         TaskState::of(&rt).finished.borrow_mut().push(key);
     };
-    let handle = TaskState::of(rt).exec.spawn(Some(owner.id()), wrapped);
-    *cell.handle.borrow_mut() = Some(handle);
+    let task = TaskState::of(rt).exec.spawn(Some(owner.id()), wrapped);
+    assert!(
+        cell.task.set(task).is_ok(),
+        "invariant: a task cell gets its task once"
+    );
     rt.request_turn();
     key
 }

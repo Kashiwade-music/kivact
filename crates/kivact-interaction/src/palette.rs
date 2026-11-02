@@ -23,7 +23,8 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 use super::{
-    Combobox, DialogApi, DialogKind, ListItem, ListItemState, PopupState, use_combobox, use_dialog,
+    Combobox, DialogApi, DialogKind, ListItem, ListItemState, ListSelection, PopupState,
+    use_combobox, use_dialog,
 };
 use kivact_core::i18n::message;
 use kivact_core::primitive::{Part, PartState, part};
@@ -314,13 +315,14 @@ pub fn use_command_palette<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
             Ok(())
         },
     );
-    let combobox = use_combobox(options, chosen).filter(move |query, option| {
-        commands.with(|all| {
-            all.iter()
-                .find(|command| command.key == option.key)
-                .is_some_and(|command| filter.with(|filter| filter(query, command)))
-        })
-    });
+    let combobox =
+        use_combobox(options, ListSelection::Single(chosen)).filter(move |query, option| {
+            commands.with(|all| {
+                all.iter()
+                    .find(|command| command.key == option.key)
+                    .is_some_and(|command| filter.with(|filter| filter(query, command)))
+            })
+        });
     let shown = open.into_value();
     effect(move || {
         if !shown.get() {

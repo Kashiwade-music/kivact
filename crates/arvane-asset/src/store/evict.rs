@@ -4,7 +4,8 @@
 //! removing items with their pixel ids reported.
 //!
 //! Invariants:
-//! - Nothing the current or the previous frame used is evicted, nor
+//! - Nothing the current or the previous frame used is evicted (before the
+//!   host's first frame no use is protected), nor
 //!   anything in flight (a pending load, a reload, a check, a pending
 //!   raster). When only such items are left, the cache stays over budget
 //!   until they are no longer used: drawing what is shown wins over the
@@ -25,7 +26,7 @@
 use kivact_types::Asset;
 
 use super::AssetStore;
-use super::entry::{Stamp, State, Variant, VariantKey};
+use super::entry::{Residency, Stamp, State, Variant, VariantKey};
 
 /// The most tinted copies of one asset at one size kept beyond those the
 /// current frame uses.
@@ -45,7 +46,10 @@ impl AssetStore {
     /// Whether an item used at `stamp` is protected from eviction: used in
     /// the current or the previous frame.
     pub(super) fn protected(&self, stamp: Stamp) -> bool {
-        stamp.frame + 1 >= self.frame
+        matches!(
+            (self.frame, stamp.frame),
+            (Some(current), Some(used)) if used.get().saturating_add(1) >= current.get()
+        )
     }
 
     /// Evicts least recently used items until `incoming` more bytes fit
@@ -83,11 +87,12 @@ impl AssetStore {
                 let Some(entry) = self.entries.get_mut(&asset) else {
                     return;
                 };
-                if let State::Raster { pixels, .. } = &mut entry.state
-                    && let Some(p) = pixels.take()
+                if let State::Raster { residency, .. } = &mut entry.state
+                    && let Residency::Resident { pixels, .. } = residency
                 {
-                    self.bytes -= p.bytes();
-                    self.evicted.push(p.id());
+                    self.bytes -= pixels.bytes();
+                    self.evicted.push(pixels.id());
+                    *residency = Residency::Evicted;
                 }
             }
             Victim::Variant(asset, key) => {
@@ -122,7 +127,8 @@ impl AssetStore {
                     && key.tint.is_some()
                 {
                     count += 1;
-                    if used.frame < frame && oldest.is_none_or(|(o, _)| *used < o) {
+                    let current = frame.is_some() && used.frame == frame;
+                    if !current && oldest.is_none_or(|(o, _)| *used < o) {
                         oldest = Some((*used, *key));
                     }
                 }
@@ -154,12 +160,11 @@ impl AssetStore {
                 continue;
             }
             if let State::Raster {
-                pixels: Some(p),
-                drawn,
+                residency: Residency::Resident { pixels, drawn },
                 ..
             } = &entry.state
             {
-                consider(*drawn, p.bytes(), Victim::Source(asset.clone()));
+                consider(*drawn, pixels.bytes(), Victim::Source(asset.clone()));
             }
             for (key, variant) in &entry.variants {
                 if let Variant::Ready { used, pixels } = variant {
@@ -177,10 +182,11 @@ impl AssetStore {
         };
         self.bytes -= entry.bytes_held();
         if let State::Raster {
-            pixels: Some(p), ..
+            residency: Residency::Resident { pixels, .. },
+            ..
         } = &entry.state
         {
-            self.evicted.push(p.id());
+            self.evicted.push(pixels.id());
         }
         for variant in entry.variants.values() {
             if let Variant::Ready { pixels, .. } = variant {

@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::interaction::use_text_edit;
+use kivact::interaction::{use_text_area, use_text_edit};
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
 use kivact::view::KeyEvent;
@@ -46,8 +46,7 @@ fn full_multiline_enter_reaches_the_parent_key_handler() {
             })
             .child(
                 kivact::control::node().name("Limited").part(
-                    kivact::interaction::use_text_edit(signal(String::from("x")))
-                        .multiline(true)
+                    kivact::interaction::use_text_area(signal(String::from("x")))
                         .max_length(1usize)
                         .control(),
                 ),
@@ -78,18 +77,21 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
             changes.borrow_mut().push(format!("change {v}"));
             value.set(v);
         });
-        let field = use_text_edit(edited).multiline(area);
+        // A text area takes Enter as a line break: only a line submits.
+        let field = if area {
+            use_text_area(edited)
+        } else {
+            use_text_edit(edited).on_submit(move || submits.borrow_mut().push("submit".into()))
+        };
         column((
             node()
                 .on_key(move |e: KeyEvent| {
                     keys.borrow_mut().push(format!("key {:?}", e.key));
                 })
                 .child(
-                    node().name(if area { "Notes" } else { "Name" }).part(
-                        field
-                            .on_submit(move || submits.borrow_mut().push("submit".into()))
-                            .control(),
-                    ),
+                    node()
+                        .name(if area { "Notes" } else { "Name" })
+                        .part(field.control()),
                 ),
             node()
                 .role(Role::Button)
@@ -263,9 +265,12 @@ fn tall_input(area: bool, height: u32) -> Screen {
         node()
             .name("Tall")
             .part(
-                use_text_edit(signal(String::from("abcdefghij")))
-                    .multiline(area)
-                    .control(),
+                if area {
+                    use_text_area(signal(String::from("abcdefghij")))
+                } else {
+                    use_text_edit(signal(String::from("abcdefghij")))
+                }
+                .control(),
             )
             .style(style().width(200).height(height).padding(0))
     });
@@ -323,7 +328,11 @@ fn on_composition_change_reports_each_change_of_the_composing_state() {
         let screen = render(move || {
             let value = signal(String::new());
             let seen = seen.clone();
-            let field = use_text_edit(value).multiline(multiline);
+            let field = if multiline {
+                use_text_area(value)
+            } else {
+                use_text_edit(value)
+            };
             column((
                 node()
                     .name("Draft")
@@ -379,4 +388,24 @@ fn on_composition_change_reports_each_change_of_the_composing_state() {
             screen.errors()
         );
     }
+}
+
+#[test]
+fn a_max_length_set_after_the_control_is_made_limits_the_text() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let screen = render(move || {
+        let value = signal(String::new());
+        tx.send(value).expect("the test waits");
+        let editing = use_text_edit(value);
+        let control = editing.control();
+        // The limit comes after the control, as a kit's builder does.
+        let _ = editing.max_length(3usize);
+        node().name("Limited").part(control)
+    });
+    let value = rx.recv().expect("the view sent its value");
+    let field = screen.get_by_role(Role::TextBox, "Limited");
+    field.focus();
+    screen.type_text("abcde");
+    assert_eq!(value.get_untracked(), "abc");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

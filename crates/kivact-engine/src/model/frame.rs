@@ -14,7 +14,8 @@
 //!   their place in time: the pause is skipped on resume. The same stop is
 //!   the client's: every tick carries the engine's one `MotionClock` (the
 //!   time stood still so far, when the last stop ended), a snapshot taken
-//!   when the tick is queued.
+//!   when the tick is queued. The stop is `Clock::Stopped`, written only by
+//!   [`Model::start_env`] and [`Model::update_env`].
 //! - A wake less than a quarter period late stamps the tick with its due
 //!   time, so a display-rate loop does not add the shell's wake latency to
 //!   every period. Missed ticks are never made up: a later wake (after a

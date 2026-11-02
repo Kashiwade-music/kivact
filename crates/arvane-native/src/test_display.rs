@@ -335,12 +335,6 @@ impl TestWindow {
         }
     }
 
-    /// A key naming the window among the process's windows (test window
-    /// ids, with the top bit set).
-    pub fn key(&self) -> u64 {
-        self.id | 1 << 63
-    }
-
     /// Run `run` with the native window as a GPU surface's target, on the
     /// test display's thread (the only thread winit hands window handles
     /// out on); asynchronously, and never for a closed window.

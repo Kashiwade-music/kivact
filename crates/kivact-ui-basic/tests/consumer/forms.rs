@@ -21,6 +21,51 @@ fn page(child: impl IntoView) -> Node {
 }
 
 #[test]
+fn questionnaire_submits_once_and_records_skips() {
+    let (screen, (answers, submitted)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let step = signal(0usize);
+            let answers = signal(Vec::<basic::QuestionnaireAnswer>::new());
+            let submitted = signal(0usize);
+            let steps = vec![
+                basic::QuestionnaireStep::input("Name?").optional(true),
+                basic::QuestionnaireStep::choices(
+                    "Color?",
+                    vec![
+                        basic::QuestionnaireChoice::new("red", "Red"),
+                        basic::QuestionnaireChoice::new("blue", "Blue"),
+                    ],
+                ),
+            ];
+            (
+                (answers, submitted),
+                page(basic::questionnaire(steps, step, answers).on_submit(
+                    move |_: Vec<basic::QuestionnaireAnswer>| submitted.update(|count| *count += 1),
+                )),
+            )
+        });
+    screen.get_by_role(Role::Button, "Skip").click();
+    assert_eq!(
+        answers.get_untracked(),
+        vec![basic::QuestionnaireAnswer::Skipped]
+    );
+    screen.get_by_text("Red").click();
+    assert_eq!(
+        answers.get_untracked()[1],
+        basic::QuestionnaireAnswer::Answered("red".to_owned())
+    );
+    let submit = screen.get_by_role(Role::Button, "Submit");
+    submit.click();
+    assert_eq!(submitted.get_untracked(), 1);
+    assert!(submit.is_disabled(), "a submitted sheet is not sent again");
+    screen.get_by_text("Blue").click();
+    assert!(!submit.is_disabled(), "a changed answer asks again");
+    submit.click();
+    assert_eq!(submitted.get_untracked(), 2);
+    assert_clean(&screen);
+}
+
+#[test]
 fn field_shows_label_description_and_error() {
     let (screen, error) = kivact::test::render_with_handle(crate::support::options(), || {
         let name = signal(String::new());
@@ -136,7 +181,7 @@ fn radio_group_arrows_move_and_select() {
     screen.get_by_role(Role::RadioGroup, "Fruit");
     screen.get_by_text("Crunchy");
     let apple = screen.get_by_role(Role::RadioButton, "Apple");
-    assert_eq!(apple.is_checked(), Some(true));
+    assert_eq!(apple.checked(), Some(CheckedState::Checked));
     apple.focus();
     screen.press_key(Key::ArrowDown);
     screen.run_until_idle();

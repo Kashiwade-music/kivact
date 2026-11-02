@@ -224,7 +224,7 @@ mod tests {
     fn checking_a_task_lowers_the_count() {
         let screen = open();
         screen.get_by_role(Role::CheckBox, "牛乳を買う").click();
-        assert_eq!(screen.get_by_role(Role::CheckBox, "牛乳を買う").is_checked(), Some(true));
+        assert_eq!(screen.get_by_role(Role::CheckBox, "牛乳を買う").checked(), Some(CheckedState::Checked));
         screen.get_by_text("残り 2 件");
     }
 
@@ -254,7 +254,7 @@ mod tests {
 
 **操作は本物の入力です。** `.click()` は要素を押し、`.type_text("..")` はテキスト欄に入力し、`.press_key(Key::Enter)` はキーを押します。これらは、利用者が実際にそれをできるかも確認します。無効な要素や、ほかの要素に隠れた要素をクリックすると、テストは失敗します。
 
-**アサーション。** 要素の状態は、`.is_disabled()`、`.is_checked()` (`Option<bool>`)、`.value()` (欄の文字) で読み取ります。判定には、普通の `assert!` と `assert_eq!` を使います。
+**アサーション。** 要素の状態は、`.is_disabled()`、`.checked()` (`Option<CheckedState>`)、`.value()` (欄の文字) で読み取ります。判定には、普通の `assert!` と `assert_eq!` を使います。
 
 **ヘルパーでテストを短くする。** `open()` と `add()` は、繰り返す手順をまとめた普通の関数です。テストごとに新しく `render` するので、テストどうしで状態が共有されることもありません。
 

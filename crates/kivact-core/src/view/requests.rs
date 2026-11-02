@@ -3,9 +3,8 @@
 //! Requests the view layer sends to the host and whose answers come back as
 //! events: keyboard focus (`NodeRef::focus`, the focus restores after a
 //! modal overlay or a popup closes and `NodeRef::restore_focus`),
-//! platform effects (`kivact::platform`, the App's fonts), and layout observation
-//! requested before a `NodeRef` is bound. Request ids come from one
-//! per-App counter.
+//! platform effects (`kivact::platform`, the App's fonts). Request ids come
+//! from one per-App counter.
 //!
 //! Invariants:
 //! - Every focus restore (a modal overlay or a popup closing,
@@ -32,9 +31,9 @@ use std::panic::Location;
 
 use kivact_wire::{PlatformRequest, PlatformResult, RequestId};
 
-use super::state::{EffectWaiter, FocusWaiter, NodeRefState, ViewState};
+use super::state::{EffectWaiter, FocusWaiter, QueuedFocus, ViewState};
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owned, Owner, Runtime};
+use kivact_reactive::{Owner, Runtime};
 use kivact_style::asset::Asset;
 
 /// Ask the host to focus `node` (written with the next revision); an unmounted
@@ -52,8 +51,12 @@ pub(crate) fn request_focus(
     };
     let mut req = ViewState::of(rt).requests.borrow_mut();
     let id = req.request_id();
-    req.focus_waiters.insert(id, waiter);
-    req.pending_focus.push((node, id, visible));
+    req.queued_focus.push(QueuedFocus {
+        id,
+        target: node,
+        visible,
+        waiter,
+    });
     drop(req);
     rt.request_turn();
 }
@@ -122,22 +125,14 @@ pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
 }
 
 /// The host answered focus request `id`.
-pub(crate) fn on_focus_result(rt: &Runtime, id: u64, ok: bool, reason: Option<String>) {
+pub(crate) fn on_focus_result(rt: &Runtime, id: u64, result: Result<(), String>) {
     let w = ViewState::of(rt)
         .requests
         .borrow_mut()
-        .focus_waiters
+        .sent_focus
         .remove(&id);
     if let Some(w) = w {
-        let r = if ok {
-            Ok(())
-        } else {
-            Err(UiError::new(
-                ErrorKind::Platform,
-                reason.unwrap_or_else(|| "focus request failed".into()),
-                None,
-            ))
-        };
+        let r = result.map_err(|reason| UiError::new(ErrorKind::Platform, reason, None));
         resolve_focus_waiter(rt, w, r);
     }
 }
@@ -152,65 +147,51 @@ pub(crate) fn on_focus_result(rt: &Runtime, id: u64, ok: bool, reason: Option<St
 /// answer, so the host does not move the focus away from the node the App
 /// asked for, nor to a node that left.
 pub(crate) fn flush_focus(rt: &Runtime) {
-    let pending = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().pending_focus);
-    let is_live =
-        |node: kivact_wire::FocusTarget| ViewState::tree(rt).get(node.node).is_some_and(|n| n.live);
-    let is_restore = |w: Option<&FocusWaiter>| matches!(w, Some(FocusWaiter::Restore { .. }));
-    let explicit = {
-        let r = ViewState::of(rt).requests.borrow();
-        pending
-            .iter()
-            .any(|(node, id, _)| !is_restore(r.focus_waiters.get(id)) && is_live(*node))
-    };
-    for (node, id, visible) in pending {
-        let cancelled = match ViewState::of(rt).requests.borrow().focus_waiters.get(&id) {
-            Some(FocusWaiter::Restore { report }) => {
-                explicit
-                    || report.is_some_and(|(owner, _)| !owner.is_alive())
-                    || !can_take_focus(rt, node)
-            }
-            _ => false,
-        };
-        if cancelled {
+    let queued = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().queued_focus);
+    let exists = |target: kivact_wire::FocusTarget| ViewState::tree(rt).contains(target.node);
+    let explicit = queued
+        .iter()
+        .any(|q| matches!(q.waiter, FocusWaiter::Report(..)) && exists(q.target));
+    for QueuedFocus {
+        id,
+        target,
+        visible,
+        waiter,
+    } in queued
+    {
+        if let FocusWaiter::Restore { report } = &waiter
+            && (explicit
+                || report.is_some_and(|(owner, _)| !owner.is_alive())
+                || !can_take_focus(rt, target))
+        {
+            continue; // cancelled: dropped without a write or an answer
+        }
+        if exists(target) {
             ViewState::of(rt)
                 .requests
                 .borrow_mut()
-                .focus_waiters
-                .remove(&id);
-            continue;
-        }
-        let live = is_live(node);
-        if live {
+                .sent_focus
+                .insert(id, waiter);
             ViewState::tree(rt)
                 .engine()
-                .focus(node, RequestId(id), visible);
+                .focus(target, RequestId(id), visible);
         } else {
-            let w = ViewState::of(rt)
-                .requests
-                .borrow_mut()
-                .focus_waiters
-                .remove(&id);
-            if let Some(w) = w {
-                resolve_focus_waiter(
-                    rt,
-                    w,
-                    Err(UiError::new(
-                        ErrorKind::Platform,
-                        "focus: node was removed",
-                        None,
-                    )),
-                );
-            }
+            resolve_focus_waiter(
+                rt,
+                waiter,
+                Err(UiError::new(
+                    ErrorKind::Platform,
+                    "focus: node was removed",
+                    None,
+                )),
+            );
         }
     }
 }
 
-/// Whether the engine lets `target` take a restored focus now. Before the
-/// App started there is no engine and nothing to restore to.
+/// Whether the engine lets `target` take a restored focus now.
 fn can_take_focus(rt: &Runtime, target: kivact_wire::FocusTarget) -> bool {
-    ViewState::tree(rt)
-        .reader()
-        .is_some_and(|reader| reader.can_take_focus(target))
+    ViewState::tree(rt).reader().can_take_focus(target)
 }
 
 /// Ask the host to give the focus back to `node` (a popup or modal overlay
@@ -250,36 +231,6 @@ pub(crate) fn has_activations(rt: &Runtime) -> bool {
         .borrow()
         .pending_activations
         .is_empty()
-}
-
-/// Observe the node of NodeRef `key` as soon as it is bound.
-pub(crate) fn observe_on_bind(rt: &Runtime, key: Owned<NodeRefState>) {
-    ViewState::of(rt)
-        .requests
-        .borrow_mut()
-        .observe_on_bind
-        .push(key);
-}
-
-/// Take the pending observe request of NodeRef `key`, if any.
-pub(crate) fn take_observe_on_bind(rt: &Runtime, key: Owned<NodeRefState>) -> bool {
-    let mut r = ViewState::of(rt).requests.borrow_mut();
-    match r.observe_on_bind.iter().position(|k| *k == key) {
-        Some(p) => {
-            r.observe_on_bind.swap_remove(p);
-            true
-        }
-        None => false,
-    }
-}
-
-/// Drop the pending observe request of a disposed NodeRef `key`.
-pub(crate) fn forget_observe_on_bind(rt: &Runtime, key: Owned<NodeRefState>) {
-    ViewState::of(rt)
-        .requests
-        .borrow_mut()
-        .observe_on_bind
-        .retain(|x| *x != key);
 }
 
 /// A platform result as `Ok`, or the error it reports.

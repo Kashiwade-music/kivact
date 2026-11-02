@@ -119,8 +119,8 @@ pub(crate) struct Step {
     /// translations below them applied).
     pub(super) origin: Point,
     /// The transform it is drawn through (an index into
-    /// [`PaintList::transforms`], or `u32::MAX`).
-    pub(super) transform: u32,
+    /// [`PaintList::transforms`]).
+    pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors').
     pub(super) alpha: f32,
@@ -135,9 +135,9 @@ pub(crate) struct Step {
     /// Its opacity is a group's (applied by its outer layer).
     pub(super) group: bool,
     /// Its colors' matrix and its parent's (indices into
-    /// [`PaintList::matrices`], or `u32::MAX`).
-    pub(super) matrix: u32,
-    pub(super) parent_matrix: u32,
+    /// [`PaintList::matrices`]).
+    pub(super) matrix: Option<u32>,
+    pub(super) parent_matrix: Option<u32>,
     /// The area its ancestors let it draw in (grown by the culling
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.

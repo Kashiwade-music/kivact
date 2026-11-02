@@ -37,11 +37,10 @@
 //! `gpu-interop`).
 //!
 //! A group's state lives in a leaf `state` module under the module that
-//! changes it: `focus::state::Focus` (the focus target, whether its
-//! indicator shows, the reveals after layout), `pointer::state::Pointer`
-//! (the pointer state machine's tracks and the shell's position, buttons,
-//! touch and pen contacts, scrollbar drag, file drop target and shown
-//! cursor), `edit::state::Edits` (the text inputs with an editing state and
+//! changes it: `focus::state::Focus` (the focus with its indicator and pending
+//! reveal, the reveals after layout), `pointer::state::Pointer` (the pointer
+//! state machine's tracks, each with its gesture, the file drop target and
+//! the shown cursor), `edit::state::Edits` (the text inputs with an editing state and
 //! the text last given to the IME), `state_motion::state::StateMotion` (the
 //! moving state style transitions), `presence::state::Presences` (nodes
 //! awaiting their entrance, leaving subtrees), `frame::state::Frame`

@@ -8,7 +8,9 @@
 use arvane::test_display::VirtualWindow;
 use arvane::{ShellEvent, Window as _};
 use kivact_types::protocol::PointerInput;
-use kivact_types::{Key, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase};
+use kivact_types::{
+    ButtonPress, Key, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,
+};
 
 use crate::support::open;
 
@@ -19,23 +21,38 @@ fn mouse_event(
     window: &mut VirtualWindow,
     phase: PointerPhase,
     position: Option<Point>,
-    button: Option<MouseButton>,
 ) -> ShellEvent {
-    let event = window.mouse(phase, position, button);
+    let event = window
+        .mouse(phase, position)
+        .expect("the test placed the mouse first");
     window.input(event)
 }
 
 fn press(window: &mut VirtualWindow, button: MouseButton) -> ShellEvent {
-    mouse_event(window, PointerPhase::Down, None, Some(button))
+    mouse_event(
+        window,
+        PointerPhase::Down(ButtonPress { button, clicks: 1 }),
+        None,
+    )
 }
 
 fn release(window: &mut VirtualWindow, button: MouseButton) -> ShellEvent {
-    mouse_event(window, PointerPhase::Up, None, Some(button))
+    mouse_event(
+        window,
+        PointerPhase::Up(ButtonPress { button, clicks: 1 }),
+        None,
+    )
 }
 
 fn clicks(event: &ShellEvent) -> u8 {
     match event {
-        ShellEvent::Pointer(input) => input.clicks,
+        ShellEvent::Pointer(input) => {
+            input
+                .phase
+                .press()
+                .expect("invariant: a press or release")
+                .clicks
+        }
         other => panic!("not a button: {other:?}"),
     }
 }
@@ -54,7 +71,7 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
                      button: MouseButton| {
         at += after_ms * MS;
         window.set_now(at);
-        mouse_event(window, PointerPhase::Move, Some(Point { x, y }), None);
+        mouse_event(window, PointerPhase::Move, Some(Point { x, y }));
         let down = clicks(&press(window, button));
         let up = clicks(&release(window, button));
         assert_eq!(up, down, "a release carries its press's count");
@@ -87,15 +104,20 @@ fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f32) -> PointerIn
         position: Point { x, y: 10.0 },
         buttons: PointerButtons::NONE.with(
             MouseButton::Primary,
-            matches!(phase, PointerPhase::Down | PointerPhase::Move),
+            matches!(phase, PointerPhase::Down(_) | PointerPhase::Move),
         ),
-        button: matches!(phase, PointerPhase::Down | PointerPhase::Up)
-            .then_some(MouseButton::Primary),
         pressure: Some(0.5),
         tilt: None,
-        clicks: 0,
     }
 }
+
+const SINGLE: ButtonPress = ButtonPress {
+    button: MouseButton::Primary,
+    clicks: 1,
+};
+/// The `Down` and `Up` of a single click of the primary button.
+const DOWN: PointerPhase = PointerPhase::Down(SINGLE);
+const UP: PointerPhase = PointerPhase::Up(SINGLE);
 
 fn pointer(events: Vec<ShellEvent>) -> PointerInput {
     match events.as_slice() {
@@ -107,15 +129,15 @@ fn pointer(events: Vec<ShellEvent>) -> PointerInput {
 #[test]
 fn contacts_get_pointer_ids_and_kinds_of_their_own() {
     use PointerKind::{Mouse, Pen, Touch};
-    use PointerPhase::{Cancel, Down, Move, Up};
+    use PointerPhase::{Cancel, Move};
     let mut window = open(100.0, 100.0);
     assert!(window.capabilities().touch && window.capabilities().pen);
     // A finger: the platform's id 7 becomes pointer 2 (1 is the mouse),
     // kept until it lifts.
-    let down = pointer(window.contact(contact(7, Touch, Down, 1.0)));
+    let down = pointer(window.contact(contact(7, Touch, DOWN, 1.0)));
     assert_eq!(
         (down.id, down.kind, down.phase),
-        (PointerId(2), Touch, Down)
+        (PointerId(2), Touch, DOWN)
     );
     assert_eq!(
         (down.position.x, down.position.y, down.pressure),
@@ -128,24 +150,24 @@ fn contacts_get_pointer_ids_and_kinds_of_their_own() {
         "the kind is the one of the contact's Down"
     );
     // A pen meanwhile is another pointer.
-    let pen = pointer(window.contact(contact(8, Pen, Down, 3.0)));
+    let pen = pointer(window.contact(contact(8, Pen, DOWN, 3.0)));
     assert_eq!((pen.id, pen.kind), (PointerId(3), Pen));
-    let up = pointer(window.contact(contact(7, Touch, Up, 2.0)));
-    assert_eq!((up.id, up.phase), (PointerId(2), Up));
+    let up = pointer(window.contact(contact(7, Touch, UP, 2.0)));
+    assert_eq!((up.id, up.phase), (PointerId(2), UP));
     let canceled = pointer(window.contact(contact(8, Pen, Cancel, 3.0)));
     assert_eq!(
         (canceled.id, canceled.kind, canceled.phase),
         (PointerId(3), Pen, Cancel)
     );
     // The platform reuses id 7: a new contact, a new pointer.
-    let again = pointer(window.contact(contact(7, Touch, Down, 4.0)));
+    let again = pointer(window.contact(contact(7, Touch, DOWN, 4.0)));
     assert_eq!(again.id, PointerId(4));
     // A contact is never the mouse.
-    let mouse = pointer(window.contact(contact(9, Mouse, Down, 5.0)));
+    let mouse = pointer(window.contact(contact(9, Mouse, DOWN, 5.0)));
     assert_eq!((mouse.id, mouse.kind), (PointerId(5), Touch));
     // Nothing is reported for a contact that never began (a hovering pen).
     assert_eq!(window.contact(contact(40, Pen, Move, 1.0)), []);
-    assert_eq!(window.contact(contact(41, Touch, Up, 1.0)), []);
+    assert_eq!(window.contact(contact(41, Touch, UP, 1.0)), []);
 }
 
 #[test]

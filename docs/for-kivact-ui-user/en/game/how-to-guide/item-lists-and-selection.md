@@ -142,15 +142,16 @@ row updates when they change.
 
 `game::tree(entries, selection)` draws a file tree. `entries` is a list of
 `game::TreeEntry`, built with `TreeEntry::file(id, label)` and
-`TreeEntry::folder(id, label, children)`; `selection` is a `Signal<String>`
-holding the id of the selected **leaf**.
+`TreeEntry::folder(id, label, children)`; `selection` is a
+`Signal<Option<String>>` holding the id of the selected **leaf**, `None` while
+none is selected.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn files() -> impl IntoView {
-    let selected = signal(String::from("save-1"));
+    let selected = signal(Some(String::from("save-1")));
     let entries = vec![
         game::TreeEntry::folder(
             "saves",
@@ -165,7 +166,7 @@ fn files() -> impl IntoView {
     ];
     column((
         game::tree(entries, selected),
-        game::mono(move || format!("OPEN {}", selected.get())),
+        game::mono(move || format!("OPEN {}", selected.get().unwrap_or_default())),
     ))
     .style(style().gap(12).width(300).margin(24))
 }

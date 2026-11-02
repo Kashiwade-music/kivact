@@ -9,7 +9,9 @@ use std::rc::Rc;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 use kivact::draw::Point;
 use kivact::i18n::message;
-use kivact::interaction::{Combobox, Popup, PopupCloseReason, use_combobox, use_popup};
+use kivact::interaction::{
+    Combobox, ListSelection, Popup, PopupCloseReason, use_combobox, use_popup,
+};
 use kivact::style::{Align, Icon, pct, style};
 use kivact::ui::ListItem;
 use kivact::view::{
@@ -396,17 +398,84 @@ struct Run<K> {
     items: Vec<PickerItem<K>>,
 }
 
+/// How one opening of the picker ended.
+enum PickerOutcome<K> {
+    Picked(K),
+    Canceled,
+}
+
+/// Where one opening of the picker is: open (with the key last reported to
+/// `on_preview`), or settled by a pick or a cancel.
+#[derive(Clone, PartialEq)]
+enum PickerPhase<K> {
+    Open { previewed: Option<K> },
+    Settled,
+}
+
+/// What the picker reports to the application, once per opening.
+struct Outcomes<K: Clone + PartialEq + 'static> {
+    phase: Var<PickerPhase<K>>,
+    pick: Option<Callback<K>>,
+    preview: Option<Callback<Option<K>>>,
+    cancel: Option<Callback<()>>,
+}
+
+impl<K: Clone + PartialEq + 'static> Clone for Outcomes<K> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<K: Clone + PartialEq + 'static> Copy for Outcomes<K> {}
+
+impl<K: Clone + PartialEq + 'static> Outcomes<K> {
+    /// While open: report `key` when it differs from the one last reported.
+    fn preview(self, key: Option<K>) {
+        let changed = self
+            .phase
+            .with(|phase| matches!(phase, PickerPhase::Open { previewed } if *previewed != key));
+        if changed {
+            self.phase.set(PickerPhase::Open {
+                previewed: key.clone(),
+            });
+            if let Some(preview) = self.preview {
+                preview.call(key);
+            }
+        }
+    }
+
+    /// Once: settle the opening. A pick reports `on_pick`, a cancel
+    /// `on_cancel`; then a preview that is still showing ends.
+    fn settle(self, outcome: PickerOutcome<K>) {
+        let PickerPhase::Open { previewed } = self.phase.get() else {
+            return;
+        };
+        self.phase.set(PickerPhase::Settled);
+        match outcome {
+            PickerOutcome::Picked(key) => {
+                if let Some(pick) = self.pick {
+                    pick.call(key);
+                }
+            }
+            PickerOutcome::Canceled => {
+                if let Some(cancel) = self.cancel {
+                    cancel.call(());
+                }
+            }
+        }
+        if previewed.is_some()
+            && let Some(preview) = self.preview
+        {
+            preview.call(None);
+        }
+    }
+}
+
 /// The handles one opening of the picker shares.
 struct Session<K: Clone + Eq + Hash + 'static> {
     active: Value<Option<K>>,
     combo: Combobox<K>,
-    /// The key last reported to `on_preview`.
-    reported: Var<Option<K>>,
-    /// A pick or a cancel already happened.
-    settled: Var<bool>,
+    outcomes: Outcomes<K>,
     field: NodeRef,
-    preview: Option<Callback<Option<K>>>,
-    cancel: Option<Callback<()>>,
     column: Option<Signal<Option<usize>>>,
 }
 
@@ -416,29 +485,6 @@ impl<K: Clone + Eq + Hash + 'static> Clone for Session<K> {
     }
 }
 impl<K: Clone + Eq + Hash + 'static> Copy for Session<K> {}
-
-impl<K: Clone + Eq + Hash + 'static> Session<K> {
-    fn end_preview(&self) {
-        if self.reported.with(Option::is_some) {
-            self.reported.set(None);
-            if let Some(preview) = self.preview {
-                preview.call(None);
-            }
-        }
-    }
-
-    /// The popup ends. Without a pick it was a cancel; either way the preview
-    /// ends, after `on_cancel`.
-    fn finish(&self) {
-        if !self.settled.get() {
-            self.settled.set(true);
-            if let Some(cancel) = self.cancel {
-                cancel.call(());
-            }
-        }
-        self.end_preview();
-    }
-}
 
 impl<K: Clone + Eq + Hash + 'static> Parts<K> {
     /// The content of one opening: the search field over the list.
@@ -468,8 +514,12 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
             memo(move || lists.with(|lists| lists.iter().flatten().cloned().collect::<Vec<_>>()));
         let active_column = signal(Some(0usize));
         let empty = message("creative.picker.empty", "No matches");
-        let reported = var(None::<K>);
-        let settled = var(false);
+        let outcomes = Outcomes {
+            phase: var(PickerPhase::Open { previewed: None }),
+            pick,
+            preview,
+            cancel,
+        };
         let options = memo(move || {
             items.with(|all| {
                 all.iter()
@@ -482,31 +532,23 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
         let chosen = signal(None::<K>);
         let value = binding(chosen, move |key: Option<K>| {
             let Some(key) = key else { return };
-            settled.set(true);
-            if let Some(pick) = pick {
-                pick.call(key);
-            }
-            if reported.with(Option::is_some) {
-                reported.set(None);
-                if let Some(preview) = preview {
-                    preview.call(None);
-                }
-            }
+            outcomes.settle(PickerOutcome::Picked(key));
             popup.close(PopupCloseReason::Selection);
         });
-        let combo = use_combobox(options, value).filter(move |query, option| {
-            let query = query.trim().to_lowercase();
-            lists.with(|all| {
-                available_column(all, &query, active_column.get().unwrap_or(0), 1)
-                    .and_then(|column| {
-                        all[column]
-                            .iter()
-                            .find(|item| &item.key == option.key())
-                            .filter(|item| accepts(&query, item))
-                    })
-                    .is_some()
-            })
-        });
+        let combo =
+            use_combobox(options, ListSelection::Single(value)).filter(move |query, option| {
+                let query = query.trim().to_lowercase();
+                lists.with(|all| {
+                    available_column(all, &query, active_column.get().unwrap_or(0), 1)
+                        .and_then(|column| {
+                            all[column]
+                                .iter()
+                                .find(|item| &item.key == option.key())
+                                .filter(|item| accepts(&query, item))
+                        })
+                        .is_some()
+                })
+            });
         let query = combo.query();
         if multiple {
             effect(move || {
@@ -535,27 +577,18 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
         let session = Session {
             active: combo.active(),
             combo,
-            reported,
-            settled,
+            outcomes,
             field,
-            preview,
-            cancel,
             column: multiple.then_some(active_column),
         };
         let active = session.active;
         // The preview follows the active row.
         effect(move || {
             let key = active.get();
-            untrack(|| {
-                if session.reported.with(|last| *last != key) {
-                    session.reported.set(key.clone());
-                    if let Some(preview) = preview {
-                        preview.call(key);
-                    }
-                }
-            });
+            untrack(|| session.outcomes.preview(key));
         });
-        on_cleanup(move || session.finish());
+        // Closing without a pick is a cancel.
+        on_cleanup(move || session.outcomes.settle(PickerOutcome::Canceled));
         let count = titles.len();
         let search = search_field(session, placeholder, move |event| {
             if !multiple || event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta {
@@ -637,7 +670,7 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
         // A press on a part that cannot take the focus (a disabled row, a
         // heading, the scroll bar) leaves the focus on the field.
         .on_pointer_default(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down {
+            if matches!(event.phase, PointerPhase::Down(_)) {
                 field.focus();
             }
             Handled::No
@@ -810,13 +843,13 @@ fn item_row<K: Clone + Eq + Hash + 'static>(
             if !disabled.get()
                 && matches!(
                     event.phase,
-                    PointerPhase::Enter | PointerPhase::Move | PointerPhase::Down
+                    PointerPhase::Enter | PointerPhase::Move | PointerPhase::Down(_)
                 )
                 && let Some(column) = session.column
             {
                 column.set(Some(index));
             }
-            if event.phase == PointerPhase::Down && disabled.get() {
+            if matches!(event.phase, PointerPhase::Down(_)) && disabled.get() {
                 session.field.focus();
             }
             Handled::No

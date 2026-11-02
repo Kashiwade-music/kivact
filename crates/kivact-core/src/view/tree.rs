@@ -20,9 +20,12 @@
 //!   its model only while one of their calls runs. An effect writes in
 //!   place with a comparing setter (an equal write records nothing); the
 //!   engine's `Changes` and `Model::sync` derive the rest at commit.
+//! - The tree exists from the host's start (`ViewState::start`): its writer
+//!   and its root node are never missing.
 //! - While several native `TextChanged` events wait, core counts only the
 //!   undelivered edits per node, so an old controlled value never
-//!   overwrites a newer native edit.
+//!   overwrites a newer native edit; the batch's counts live in a
+//!   `TextEditsAhead` guard (`view::text_edits`).
 //! - Ordinary callbacks run after the engine borrow is released. The one
 //!   exception is a primitive's measure function, which runs no user
 //!   handler and drops no user value (see `crate::primitive`).
@@ -103,6 +106,28 @@ impl Handlers {
     /// The accessibility actions these handlers offer.
     pub(crate) fn actions(&self) -> Vec<A11yAction> {
         offered_actions(self.activate.is_some(), &self.a11y)
+    }
+
+    /// Add a layout observer after the ones already there (all run, in registration order).
+    pub(crate) fn observe_layout(&mut self, f: impl Fn(Rect, Size) + 'static) {
+        let previous = self.layout.take();
+        self.layout = Some(Rc::new(move |bounds, size| {
+            if let Some(previous) = &previous {
+                previous(bounds, size);
+            }
+            f(bounds, size);
+        }));
+    }
+
+    /// Add a scroll observer after the ones already there (all run, in registration order).
+    pub(crate) fn observe_scroll(&mut self, f: impl Fn(ScrollState) + 'static) {
+        let previous = self.scroll.take();
+        self.scroll = Some(Rc::new(move |state| {
+            if let Some(previous) = &previous {
+                previous(state);
+            }
+            f(state);
+        }));
     }
 }
 
@@ -202,8 +227,6 @@ pub(crate) struct TNode {
     pub parent: Option<NodeId>,
     /// Child nodes in order, fragments included (see `parent`).
     pub children: Vec<NodeId>,
-    /// Created on the host (not yet removed).
-    pub live: bool,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
     /// Where the builder of a host node was called (`#[track_caller]` of
@@ -222,6 +245,21 @@ pub(crate) struct TNode {
 }
 
 impl TNode {
+    /// A detached node of `owner` (`None`: a fragment), with no children,
+    /// handlers or origins yet.
+    fn new(kind: Option<NodeType>, owner: Owner) -> TNode {
+        TNode {
+            kind,
+            parent: None,
+            children: Vec::new(),
+            owner,
+            at: None,
+            handlers: None,
+            observation: None,
+            origins: Vec::new(),
+        }
+    }
+
     /// Whether the node is a host node (not a fragment).
     pub(crate) fn is_host(&self) -> bool {
         self.kind.is_some()
@@ -232,9 +270,9 @@ impl TNode {
 pub(crate) struct Tree {
     pub(crate) nodes: IdMap<TNode>,
     next_id: u64,
-    /// The root node, once mounted.
-    pub root: Option<NodeId>,
-    engine: Option<Writer>,
+    /// The root node (`NodeType::Root`), made with the tree; it lives as long as the App.
+    pub root: NodeId,
+    engine: Writer,
     future_text_edits: IdMap<usize>,
     removes: bool,
     /// Lazily installed for choice candidates; only Hidden changes notify it.
@@ -242,16 +280,34 @@ pub(crate) struct Tree {
 }
 
 impl Tree {
-    pub(crate) fn new() -> Self {
+    /// The tree of an App the host started: `engine` writes the engine's
+    /// tree, and the root node (`NodeType::Root`, of the root `owner`) is
+    /// created in it.
+    pub(crate) fn new(engine: Writer, owner: Owner) -> Self {
+        let root = NodeId(1);
+        let mut nodes = IdMap::default();
+        nodes.insert(root, TNode::new(Some(NodeType::Root), owner));
+        engine.create(root, NodeKind::new(NodeType::Root));
         Tree {
-            nodes: IdMap::default(),
-            next_id: 0,
-            root: None,
-            engine: None,
+            nodes,
+            next_id: 1,
+            root,
+            engine,
             future_text_edits: IdMap::default(),
             removes: false,
             visibility_revision: None,
         }
+    }
+
+    fn root_node(&self) -> &TNode {
+        self.nodes
+            .get(&self.root)
+            .expect("invariant: the root node lives as long as the App")
+    }
+
+    /// The root owner (the owner of the root node).
+    pub(crate) fn root_owner(&self) -> Owner {
+        self.root_node().owner
     }
 
     /// Release excess metadata capacity without discarding live nodes,
@@ -269,20 +325,7 @@ impl Tree {
     pub(crate) fn create(&mut self, kind: Option<NodeType>, owner: Owner) -> NodeId {
         self.next_id += 1;
         let id = NodeId(self.next_id);
-        self.nodes.insert(
-            id,
-            TNode {
-                kind,
-                parent: None,
-                children: Vec::new(),
-                live: true,
-                owner,
-                at: None,
-                handlers: None,
-                observation: None,
-                origins: Vec::new(),
-            },
-        );
+        self.nodes.insert(id, TNode::new(kind, owner));
         if let Some(kind) = kind {
             self.engine().create(id, NodeKind::new(kind));
         }
@@ -305,14 +348,9 @@ impl Tree {
         Some(n.handlers.get_or_insert_with(Default::default))
     }
 
-    /// Read the engine's tree through `engine` from now on.
-    pub(crate) fn set_engine(&mut self, engine: Writer) {
-        self.engine = Some(engine);
-    }
-
-    /// The engine's reader, once the App started.
-    pub(crate) fn reader(&self) -> Option<Reader> {
-        self.engine.as_ref().map(Writer::reader)
+    /// The engine's reader.
+    pub(crate) fn reader(&self) -> Reader {
+        self.engine.reader()
     }
 
     /// A value-less visibility notification owned by the App root, created
@@ -321,11 +359,7 @@ impl Tree {
         if let Some(revision) = self.visibility_revision {
             return revision;
         }
-        let owner = self
-            .root
-            .and_then(|root| self.get(root))
-            .expect("invariant: the App root exists before creating a choice controller")
-            .owner;
+        let owner = self.root_owner();
         let revision = owner.trigger(at);
         self.visibility_revision = Some(revision);
         revision
@@ -347,27 +381,17 @@ impl Tree {
             scene_revision: node.owner.trigger(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
-        let previous = handlers.layout.take();
         let rect = observation.rect;
-        handlers.layout = Some(Rc::new(move |bounds, size| {
-            if let Some(previous) = &previous {
-                previous(bounds, size);
-            }
+        handlers.observe_layout(move |bounds, _| {
             rect.set(Some(crate::draw::Rect::new(
                 bounds.x,
                 bounds.y,
                 bounds.width,
                 bounds.height,
             )));
-        }));
-        let previous = handlers.scroll.take();
+        });
         let scroll = observation.scroll;
-        handlers.scroll = Some(Rc::new(move |state| {
-            if let Some(previous) = &previous {
-                previous(state);
-            }
-            scroll.set(state.offset);
-        }));
+        handlers.observe_scroll(move |state| scroll.set(state.offset));
         node.observation = Some(observation);
         Some(observation)
     }
@@ -397,11 +421,9 @@ impl Tree {
         }
     }
 
-    /// The owned engine writer, installed before mounting.
+    /// The owned engine writer.
     pub(crate) fn engine(&self) -> &Writer {
-        self.engine
-            .as_ref()
-            .expect("invariant: the engine is installed before mount")
+        &self.engine
     }
 
     pub(crate) fn with_node<R>(
@@ -409,10 +431,7 @@ impl Tree {
         id: NodeId,
         f: impl FnOnce(Option<&NodeProperties>) -> R,
     ) -> R {
-        match self.reader() {
-            Some(reader) => reader.with_node(id, f),
-            None => f(None),
-        }
+        self.reader().with_node(id, f)
     }
 
     pub(crate) fn content(&self, id: NodeId) -> Option<String> {
@@ -425,7 +444,7 @@ impl Tree {
     }
     #[cfg(feature = "test")]
     pub(crate) fn input_value(&self, id: NodeId) -> Option<String> {
-        self.reader()?
+        self.reader()
             .edit_state(id)
             .map(kivact_editing::EditState::into_value)
     }
@@ -474,14 +493,14 @@ impl Tree {
         })
     }
     #[cfg(feature = "test")]
-    pub(crate) fn checked(&self, id: NodeId) -> Option<Option<bool>> {
+    pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_wire::CheckedState> {
         self.with_node(id, |node| {
             node.and_then(|node| node.semantics.as_ref())
                 .and_then(|semantics| semantics.checked)
         })
     }
     #[cfg(feature = "test")]
-    pub(crate) fn expanded(&self, id: NodeId) -> Option<Option<bool>> {
+    pub(crate) fn expanded(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| {
             node.and_then(|node| node.semantics.as_ref())
                 .and_then(|semantics| semantics.expanded)
@@ -529,14 +548,17 @@ impl Tree {
         changed
     }
 
-    pub(crate) fn count_text_edits(&mut self, ids: impl Iterator<Item = NodeId>) {
-        self.future_text_edits.clear();
+    pub(super) fn count_text_edits(&mut self, ids: impl Iterator<Item = NodeId>) {
+        debug_assert!(
+            self.future_text_edits.is_empty(),
+            "invariant: one batch is delivered at a time"
+        );
         for id in ids {
             *self.future_text_edits.entry(id).or_default() += 1;
         }
     }
 
-    pub(crate) fn consume_text_edit(&mut self, id: NodeId) {
+    pub(super) fn consume_text_edit(&mut self, id: NodeId) {
         if let Some(count) = self.future_text_edits.get_mut(&id) {
             *count -= 1;
             if *count == 0 {
@@ -545,7 +567,7 @@ impl Tree {
         }
     }
 
-    pub(crate) fn clear_text_edits(&mut self) {
+    pub(super) fn clear_text_edits(&mut self) {
         self.future_text_edits.clear();
     }
     pub(crate) fn take_removes(&mut self) -> bool {
@@ -553,7 +575,7 @@ impl Tree {
     }
 
     pub(crate) fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<Scene>> {
-        self.reader()?.scene(id, layer)
+        self.reader().scene(id, layer)
     }
 
     pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Scene) {
@@ -581,9 +603,10 @@ impl Tree {
         })
     }
 
-    /// Whether node `id` exists on the host.
-    pub(crate) fn is_live(&self, id: NodeId) -> bool {
-        self.nodes.get(&id).is_some_and(|n| n.live)
+    /// Whether node `id` has a record: it was created and not removed (it may be a
+    /// detached list row not inserted yet).
+    pub(crate) fn contains(&self, id: NodeId) -> bool {
+        self.nodes.contains_key(&id)
     }
 
     /// Nearest host ancestor (the node itself excluded).
@@ -612,10 +635,12 @@ impl Tree {
     }
 
     /// The App's view: the first host node of what the App mounted below
-    /// the root (`None` while nothing is mounted).
+    /// the root (`None` while the App's view has no host node).
     pub(crate) fn app_view(&self) -> Option<NodeId> {
-        let root = self.nodes.get(&self.root?)?;
-        root.children.iter().find_map(|c| self.first_host(*c))
+        self.root_node()
+            .children
+            .iter()
+            .find_map(|c| self.first_host(*c))
     }
 
     fn first_host(&self, id: NodeId) -> Option<NodeId> {
@@ -665,13 +690,10 @@ impl Tree {
             Some(i) if i < p.children.len() => p.children.insert(i, child),
             _ => p.children.push(child),
         }
-        let parent_live = p.live;
         if let Some(c) = self.nodes.get_mut(&child) {
             c.parent = Some(parent);
         }
-        if parent_live {
-            self.attach_writes(child);
-        }
+        self.attach_writes(child);
     }
 
     /// Attach the top host nodes of a newly linked subtree.
@@ -711,14 +733,12 @@ impl Tree {
         let Some(n) = self.nodes.get(&id) else {
             return Removed(Vec::new());
         };
-        let (parent, live) = (n.parent, n.live);
-        if live {
-            let mut tops = Vec::new();
-            self.top_hosts(id, &mut tops);
-            for h in tops {
-                self.removes = true;
-                self.engine().remove(h);
-            }
+        let parent = n.parent;
+        let mut tops = Vec::new();
+        self.top_hosts(id, &mut tops);
+        for h in tops {
+            self.removes = true;
+            self.engine().remove(h);
         }
         if let Some(p) = parent.and_then(|p| self.nodes.get_mut(&p))
             && let Some(pos) = p.children.iter().position(|c| *c == id)
@@ -733,13 +753,11 @@ impl Tree {
     /// deleted records come back, as from [`Tree::remove`].
     #[must_use = "drop the removed records after the tree borrow ends"]
     pub(crate) fn remove_unlinked(&mut self, id: NodeId) -> Removed {
-        if self.is_live(id) {
-            let mut tops = Vec::new();
-            self.top_hosts(id, &mut tops);
-            for h in tops {
-                self.removes = true;
-                self.engine().remove(h);
-            }
+        let mut tops = Vec::new();
+        self.top_hosts(id, &mut tops);
+        for h in tops {
+            self.removes = true;
+            self.engine().remove(h);
         }
         self.delete_records(id)
     }
@@ -873,7 +891,7 @@ impl Tree {
     /// in it: input that bubbles up from `id` (pointer, wheel and key handler
     /// chains) stops there and never reaches the nodes behind the modal.
     pub(crate) fn modal_boundary(&self, id: NodeId) -> Option<NodeId> {
-        self.reader()?
+        self.reader()
             .active_modal()
             .filter(|m| self.is_within(id, *m))
     }

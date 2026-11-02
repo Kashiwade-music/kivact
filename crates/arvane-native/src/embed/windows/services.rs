@@ -88,7 +88,7 @@ fn wait<T>(future: impl Future<Output = T>) -> T {
 
 /// One round of the modal loop that rfd's worker dialog needs from its owner
 /// thread. Host windows keep painting and running timers, as with a modal
-/// dialog run on this thread; State::busy queues the editor's own events.
+/// dialog run on this thread; State::in_callback queues the editor's own events.
 fn pump() {
     // SAFETY: no handles are passed; the wait ends on any input or after 10 ms.
     unsafe {

@@ -5,7 +5,7 @@ use crate::editors::shared::model::EditorContext;
 use crate::editors::shared::ruler::Ruler;
 use crate::editors::shared::targets::Scene;
 use kivact::draw::{Point, RegionId, Size};
-use kivact::interaction::{Drag, EditSession, List};
+use kivact::interaction::{Drag, EditSession, List, SpacePan};
 use kivact::style::Color;
 use kivact::view::Role;
 use kivact::{Binding, Callback, Signal, UiError, Value};
@@ -88,7 +88,8 @@ pub(crate) struct State {
     pub(crate) gesture: Drag<()>,
     pub(crate) edit: EditSession<Snapshot>,
     pub(crate) active: Signal<Option<Target>>,
-    pub(crate) space: Signal<bool>,
+    /// Space held on the focused editor: the next primary drag pans.
+    pub(crate) space: SpacePan,
     pub(crate) lane_activate: Option<Callback<u64>>,
     pub(crate) item_activate: Option<Callback<u64>>,
     pub(crate) child_focus: Value<bool>,

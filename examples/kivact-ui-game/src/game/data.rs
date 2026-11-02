@@ -526,7 +526,10 @@ pub(super) fn table(scene: Demo) -> Node {
         kivact::ui::data_table(rows, |r: &Record| r.id.clone(), columns())
             .selection(scene.selected)
             .style(style().border(0, ColorToken::Border))
-            .sort(signal(Some((6, kivact::view::SortDirection::Descending))))
+            .sort(signal(Some((
+                6,
+                kivact::interaction::SortOrder::Descending,
+            ))))
             .filter(query)
             .page(signal(0_usize), move || page_size.get().unwrap_or(25))
             .row_label(|r: &Record| r.id.clone())

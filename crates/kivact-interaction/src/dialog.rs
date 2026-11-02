@@ -12,9 +12,9 @@
 //! anchor to the popup and shares its rule of leaving by Tab from both the
 //! anchor and the surface.
 //!
-//! [`DialogApi::content`] checks a popover's anchor first, under
-//! `#[track_caller]`: a missing anchor panics with the located misuse
-//! diagnostic before anything mounts. The initial focus (the given node, or
+//! [`DialogApi::content`] checks a popover's anchor when it opens: a
+//! missing anchor panics with the located misuse diagnostic (the location
+//! of the `content()` call). The initial focus (the given node, or
 //! the surface's first focusable one through `focus_first_inside`) is
 //! requested after the mount through the core's restore path, which checks
 //! the target when the request is sent. A surface dismissal is admitted by
@@ -36,7 +36,7 @@ use std::panic::Location;
 
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{NodeRefExt, Part, PartState, part, raise};
-use kivact_core::view::{A11yAction, DismissReason, NodeRef, Role, node_ref};
+use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
 use kivact_core::{Binding, Value, Var, on_mount, var};
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
@@ -86,6 +86,14 @@ impl Default for Dismiss {
             outside: true,
         }
     }
+}
+
+/// What the setters of a [`DialogApi`] store; read where they apply, so they
+/// work in any order.
+#[derive(Clone, Copy, Default)]
+struct DialogSettings {
+    dismiss: Option<Dismiss>,
+    initial_focus: Option<NodeRef>,
 }
 
 /// Copy handle for a dialog, a drawer or a popover, without a look.
@@ -144,8 +152,7 @@ impl Default for Dismiss {
 pub struct DialogApi {
     popup: Popup,
     kind: DialogKind,
-    dismiss: Option<Dismiss>,
-    initial_focus: Option<NodeRef>,
+    settings: Var<DialogSettings>,
     /// Whether a popover has its anchor: a [`trigger`](Self::trigger) part
     /// or an [`anchor`](Self::anchor).
     anchored: Var<bool>,
@@ -159,8 +166,7 @@ pub fn use_dialog(open: impl Into<Binding<bool>>, kind: DialogKind) -> DialogApi
     DialogApi {
         popup: use_popup(open),
         kind,
-        dismiss: None,
-        initial_focus: None,
+        settings: var(DialogSettings::default()),
         anchored: var(false),
         title: node_ref(),
         description: node_ref(),
@@ -170,26 +176,29 @@ pub fn use_dialog(open: impl Into<Binding<bool>>, kind: DialogKind) -> DialogApi
 impl DialogApi {
     /// Put the focus on this node when the dialog opens, instead of the first
     /// focusable one. The content has to mount the node.
-    pub fn initial_focus(mut self, target: NodeRef) -> Self {
-        self.initial_focus = Some(target);
+    pub fn initial_focus(self, target: NodeRef) -> Self {
         if self.popover() {
-            self.popup = self.popup.initial_focus(target);
+            self.popup.initial_focus(target);
+        } else {
+            self.settings
+                .update(|settings| settings.initial_focus = Some(target));
         }
         self
     }
 
     /// Choose which requests close it. The default is Escape and an outside
     /// press; for [`DialogKind::AlertModal`] it is Escape only.
-    pub fn dismiss(mut self, dismiss: Dismiss) -> Self {
-        self.dismiss = Some(dismiss);
+    pub fn dismiss(self, dismiss: Dismiss) -> Self {
+        self.settings
+            .update(|settings| settings.dismiss = Some(dismiss));
         self
     }
 
     /// The node a [`DialogKind::Popover`] is placed at, for a popover opened
     /// by a node without the [`trigger`](Self::trigger) part. A popover needs
     /// an anchor or a trigger; the other kinds ignore it. Setup only.
-    pub fn anchor(mut self, anchor: NodeRef) -> Self {
-        self.popup = self.popup.anchor(anchor);
+    pub fn anchor(self, anchor: NodeRef) -> Self {
+        self.popup.anchor(anchor);
         self.anchored.set(true);
         self
     }
@@ -214,13 +223,15 @@ impl DialogApi {
     }
 
     fn rules(self) -> Dismiss {
-        self.dismiss.unwrap_or(match self.kind {
-            DialogKind::AlertModal => Dismiss {
-                outside: false,
-                ..Dismiss::default()
-            },
-            _ => Dismiss::default(),
-        })
+        self.settings
+            .with(|settings| settings.dismiss)
+            .unwrap_or(match self.kind {
+                DialogKind::AlertModal => Dismiss {
+                    outside: false,
+                    ..Dismiss::default()
+                },
+                _ => Dismiss::default(),
+            })
     }
 
     fn close(self, reason: PopupCloseReason) {
@@ -244,19 +255,12 @@ impl DialogApi {
     /// It sets the role, modality, `labelled_by` and `described_by`, connects
     /// the overlay's dismissal (after the caller's own dismissal handlers) and
     /// requests the initial focus on each opening. A popover without a
-    /// trigger or an anchor is a usage error when this part is constructed.
+    /// trigger or an anchor is a usage error when it opens.
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
-        if self.popover() && !self.anchored.get() {
-            raise(
-                ErrorKind::Message,
-                "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
-                Location::caller(),
-            );
-        }
-        let rules = self.rules();
+        let at = Location::caller();
         let allowed = move |reason: DismissReason| match reason {
-            DismissReason::Escape => rules.escape,
+            DismissReason::Escape => self.rules().escape,
             DismissReason::OutsidePress => {
                 // An outside press keeps the pressed destination, accepted or
                 // not: for the rest of this opening a popover returns the
@@ -264,9 +268,9 @@ impl DialogApi {
                 // installs the full policy again.
                 if self.popover() {
                     self.popup
-                        .set_focus_return(FocusReturn::anchor(self.popup.anchor_ref()));
+                        .set_opening_policy(FocusReturn::anchor(self.popup.anchor_ref()));
                 }
-                rules.outside
+                self.rules().outside
             }
             DismissReason::Accessibility => true,
         };
@@ -277,7 +281,9 @@ impl DialogApi {
             part(self.state())
                 .reference(self.popup.content_ref())
                 .on_a11y_event(A11yAction::Dismiss, move |event| {
-                    let reason = event.dismiss_reason.unwrap_or(DismissReason::Accessibility);
+                    let A11yRequest::Dismiss(reason) = event.request else {
+                        unreachable!("invariant: the Dismiss slot receives only Dismiss requests")
+                    };
                     if allowed(reason) {
                         open.set(false);
                     }
@@ -291,24 +297,31 @@ impl DialogApi {
             .modal(!self.popover())
             .labelled_by(self.title)
             .described_by(self.description)
-            .on_bind(move |mount| self.bind(mount.node))
+            .on_bind(move |mount| self.bind(mount.node, at))
     }
 
     /// Per-opening focus: the start and, for a popover, the return. Setup
     /// only, under the mounted surface's owner.
-    fn bind(self, surface: NodeRef) {
+    fn bind(self, surface: NodeRef, at: &'static Location<'static>) {
+        if self.popover() && !self.anchored.get() {
+            raise(
+                ErrorKind::Message,
+                "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
+                at,
+            );
+        }
         if self.popover() {
             // Whatever closes a popover while the focus is inside it, the
             // focus goes back to the anchor. A modal gets this from the
             // overlay's own cleanup.
-            self.popup.set_focus_return(FocusReturn {
+            self.popup.set_opening_policy(FocusReturn {
                 target: FocusReturnTarget::Anchor(self.popup.anchor_ref()),
                 on: ReasonSet::DISMISS
                     .union(ReasonSet::PROGRAMMATIC)
                     .union(ReasonSet::UNMOUNT),
             });
         }
-        match self.initial_focus {
+        match self.settings.with(|settings| settings.initial_focus) {
             Some(target) if !self.popover() => on_mount(move || {
                 if target.mounted_node().is_some() {
                     target.focus();

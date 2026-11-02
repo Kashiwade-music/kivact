@@ -216,7 +216,7 @@ impl IntoView for TagInput {
         });
         root.child((field, chips))
             .on_pointer_default(move |event| {
-                if event.phase == PointerPhase::Down && !disabled.get() {
+                if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
                     input_ref.focus();
                 }
                 Handled::No

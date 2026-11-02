@@ -3,7 +3,9 @@
 use crate::drag::Drag;
 use crate::edit::EditPhase;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use crate::scalar::{BODY, Edit, IntoScalarRange, Scalar, ScalarState, Shared, pulled_inside};
+use crate::scalar::{
+    Edit, Grip, IntoScalarRange, Scalar, ScalarOps, ScalarState, Shared, pulled_inside,
+};
 use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{HandlerResult, IntoValue, Orientation};
 use kivact_core::{Binding, Value, binding, effect_on, memo};
@@ -77,11 +79,11 @@ pub fn use_range_scalar(
     });
     let (low_value, high_value) = (low.into_value(), high.into_value());
     let end = |index: usize, write: Binding<f64>, bounds: (Value<f64>, Value<f64>)| Scalar {
-        binding: write,
-        range,
-        key_step: None,
-        disabled: None,
-        edit: Some(Edit::new(shared, index, Some(bounds))),
+        ops: ScalarOps {
+            binding: write,
+            range,
+        },
+        edit: Edit::new(shared, index, Some(bounds)),
     };
     let min = memo(move || range.get().min());
     let max = memo(move || range.get().max());
@@ -119,19 +121,18 @@ pub fn use_range_scalar(
 impl RangeScalar {
     /// Override the positive keyboard and accessibility increment of both
     /// thumbs, as [`Scalar::key_step`] does.
-    pub fn key_step(mut self, step: f64) -> Result<Self, ScalarRangeError> {
-        self.low = self.low.key_step(step)?;
-        self.high = self.high.key_step(step)?;
+    pub fn key_step(self, step: f64) -> Result<Self, ScalarRangeError> {
+        // Both ends share the setting.
+        self.low.key_step(step)?;
         Ok(self)
     }
 
     /// Ignore input and assistive technology on both thumbs and the track
     /// while true. Setup only.
     #[track_caller]
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        let disabled = disabled.into_value();
-        self.low = self.low.disabled(disabled);
-        self.high = self.high.disabled(disabled);
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        // Both ends share the setting.
+        self.low.disabled(disabled);
         self
     }
 
@@ -193,12 +194,9 @@ impl RangeScalar {
     /// pointer writes both back. A press focuses the low thumb. Setup only.
     #[track_caller]
     pub fn body(self) -> Part<PartState> {
-        let edit = self
-            .low
-            .edit
-            .expect("invariant: use_range_scalar gives every end an edit");
+        let edit = self.low.edit;
         part(|input| input)
             .focus_on_press(edit.thumb)
-            .with(edit.shared.drag.source(Some(BODY)))
+            .with(edit.shared.drag.source(Grip::Body))
     }
 }

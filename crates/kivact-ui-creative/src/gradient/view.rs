@@ -3,7 +3,7 @@
 use super::data::GradientStop;
 use super::data::position_value;
 use super::geometry::Ramp;
-use super::state::{Domain, State};
+use super::state::{GradientOwner, State};
 use kivact::control::{Node, NodeBuilder, column, node, row};
 use kivact::draw::Size;
 use kivact::i18n::message;
@@ -13,8 +13,8 @@ use kivact::style::{Color, pct, style};
 use kivact::ui::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View, callback,
-    node_ref,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
+    callback, node_ref,
 };
 use kivact::{Binding, Callback, binding, effect, memo, var};
 use std::rc::Rc;
@@ -120,7 +120,7 @@ impl IntoView for GradientEditor {
         let rect = reference.rect();
         let snapshot = var((0.0, 1.0));
         let apply = move |update: DragUpdate<usize>| {
-            if state.enabled() && state.domain.get() == Some(Domain::Stop) {
+            if state.enabled() && state.edit.owner() == Some(GradientOwner::Stop) {
                 let (position, width) = snapshot.get();
                 state.position(update.payload, position + f64::from(update.delta.x) / width);
             }
@@ -130,9 +130,11 @@ impl IntoView for GradientEditor {
         // back. A press during a field's edit joins that edit and moves
         // nothing.
         let gesture = use_drag::<usize>(DragCoordinates::Local)
-            .edit(state.edit, move || state.snapshot())
+            .edit(state.edit.session(), move || {
+                (GradientOwner::Stop, state.snapshot())
+            })
             .on_start(move |update: DragUpdate<usize>| {
-                if !state.enabled() || state.domain.get().is_some() {
+                if !state.enabled() || state.edit.owner() != Some(GradientOwner::Stop) {
                     return;
                 }
                 if let Some(stop) = stops.with(|stops| stops.get(update.payload).copied()) {
@@ -140,7 +142,6 @@ impl IntoView for GradientEditor {
                         .get()
                         .map_or(Size::new(240.0, 44.0), |r| Size::new(r.width, r.height));
                     snapshot.set((position_value(stop.position), Ramp::new(size).width));
-                    state.domain.set(Some(Domain::Stop));
                     selection.set(Some(update.payload));
                 }
             })
@@ -223,7 +224,7 @@ impl IntoView for GradientEditor {
                         if !state.enabled() {
                             return;
                         }
-                        if matches!(event.action, A11yAction::Select | A11yAction::Activate) {
+                        if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                             if !state.edit.is_active() {
                                 selection.set(Some(id));
                                 target.focus();
@@ -233,14 +234,12 @@ impl IntoView for GradientEditor {
                         let current = stops.with_untracked(|stops| {
                             stops.get(id).map_or(0.0, |s| position_value(s.position))
                         });
-                        let next = match event.action {
-                            A11yAction::SetValue => event
-                                .value
-                                .as_deref()
-                                .and_then(|text| text.trim().parse::<f64>().ok())
-                                .filter(|v| v.is_finite()),
-                            A11yAction::Increment => Some(current + 0.01),
-                            A11yAction::Decrement => Some(current - 0.01),
+                        let next = match &event.request {
+                            A11yRequest::SetValue(text) => {
+                                text.trim().parse::<f64>().ok().filter(|v| v.is_finite())
+                            }
+                            A11yRequest::Increment => Some(current + 0.01),
+                            A11yRequest::Decrement => Some(current - 0.01),
                             _ => None,
                         };
                         if let Some(next) = next {
@@ -284,7 +283,7 @@ fn fields(
         .into_value(),
         move |position| {
             if state.enabled()
-                && state.domain.get() == Some(Domain::Position)
+                && state.edit.owner() == Some(GradientOwner::Position)
                 && let Some(index) = state.selection.into_value().get()
             {
                 state.position(index, position);
@@ -299,10 +298,7 @@ fn fields(
         })
         .into_value(),
         move |display| {
-            if state.enabled()
-                && state.domain.get() == Some(Domain::Color)
-                && state.edit.is_active()
-            {
+            if state.enabled() && state.edit.owner() == Some(GradientOwner::Color) {
                 state.color(from_display(display));
             }
         },
@@ -315,7 +311,7 @@ fn fields(
     .step(0.01)
     .precision(3)
     .disabled(field_disabled)
-    .on_edit(move |phase| state.phase(Domain::Position, phase));
+    .on_edit(move |phase| state.phase(GradientOwner::Position, phase));
     let buttons = row((
         kivact::ui::button(message("creative.gradient.add", "Add stop"))
             .disabled(move || state.blocked.get() || !state.valid.get())
@@ -336,7 +332,7 @@ fn fields(
             .alpha(true)
             .wheel_size(160.0)
             .disabled(field_disabled)
-            .on_edit(move |phase| state.phase(Domain::Color, phase)),
+            .on_edit(move |phase| state.phase(GradientOwner::Color, phase)),
     ))
     .style(style().gap(8).min_width(0).width(pct(100)))
 }

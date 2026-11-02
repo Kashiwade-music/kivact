@@ -9,7 +9,7 @@ use kivact::draw::{Layer, Path, Point};
 use kivact::style::{Align, BorderStyle, ColorToken, Direction, Position, pct, style};
 use kivact::task::spawn;
 use kivact::view::{FilePhase, Handled, HandlerResult, IntoText, IntoValue, Role};
-use kivact::{Signal, Value, signal};
+use kivact::{Signal, Value, memo, signal};
 
 use crate::Tokens;
 
@@ -111,6 +111,16 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
         label,
     }
 }
+/// What the drop zone is doing, and what it last failed at.
+#[derive(Clone, PartialEq)]
+enum PickStatus {
+    Ready,
+    /// The native picker is open.
+    Picking,
+    /// The last drop or pick was refused; shown under the label.
+    Failed(String),
+}
+
 /// Native drop target with application-owned guidance and file filters.
 pub struct Dropzone {
     root: Node,
@@ -121,7 +131,8 @@ pub struct Dropzone {
     on_files: Rc<dyn Fn(Vec<PathBuf>) -> kivact::Result<()>>,
 }
 impl Dropzone {
-    /// Receive dropped and picked files; no action by default.
+    /// Receive dropped and picked files; no action by default. An `Err` is
+    /// shown under the label until the next drop or pick.
     pub fn on_files<R: HandlerResult>(mut self, f: impl Fn(Vec<PathBuf>) -> R + 'static) -> Self {
         self.on_files = Rc::new(move |files| f(files).into_result());
         self
@@ -149,7 +160,7 @@ impl kivact::view::IntoView for Dropzone {
         let over = self.over;
         let hint = self.hint;
         let filters = self.filters;
-        let error = signal(None::<String>);
+        let status = signal(PickStatus::Ready);
         let drop_callback = on_files.clone();
         let click_callback = on_files;
         let picker_title = message("game.dropzone.picker", "Choose files");
@@ -169,12 +180,19 @@ impl kivact::view::IntoView for Dropzone {
                     FilePhase::Leave => over.set(false),
                     FilePhase::Drop => {
                         over.set(false);
-                        drop_callback(e.files)?;
+                        status.set(match drop_callback(e.files) {
+                            Ok(()) => PickStatus::Ready,
+                            Err(failure) => PickStatus::Failed(failure.to_string()),
+                        });
                     }
                 }
                 Ok(Handled::Yes)
             })
             .on_press(move || {
+                if status.get_untracked() == PickStatus::Picking {
+                    return;
+                }
+                status.set(PickStatus::Picking);
                 let callback = click_callback.clone();
                 let title = picker_title.get();
                 let filters = filters.get_untracked();
@@ -186,13 +204,12 @@ impl kivact::view::IntoView for Dropzone {
                     })
                     .await
                     {
-                        Ok(Some(paths)) => {
-                            if let Err(failure) = callback(paths) {
-                                error.set(Some(failure.to_string()));
-                            }
-                        }
-                        Ok(None) => {}
-                        Err(failure) => error.set(Some(failure.to_string())),
+                        Ok(Some(paths)) => status.set(match callback(paths) {
+                            Ok(()) => PickStatus::Ready,
+                            Err(failure) => PickStatus::Failed(failure.to_string()),
+                        }),
+                        Ok(None) => status.set(PickStatus::Ready),
+                        Err(failure) => status.set(PickStatus::Failed(failure.to_string())),
                     }
                 });
             })
@@ -214,11 +231,17 @@ impl kivact::view::IntoView for Dropzone {
                     }
                 });
             })
-            .child(kivact::view::show_some(error, |message| {
-                text(message)
-                    .role(Role::Alert)
-                    .style(style().color(ColorToken::Danger))
-            }))
+            .child(kivact::view::show_some(
+                memo(move || match status.get() {
+                    PickStatus::Failed(message) => Some(message),
+                    _ => None,
+                }),
+                |message| {
+                    text(message)
+                        .role(Role::Alert)
+                        .style(style().color(ColorToken::Danger))
+                },
+            ))
             .into_view()
     }
 }

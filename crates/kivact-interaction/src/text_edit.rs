@@ -1,6 +1,7 @@
 //! Role: Headless native text editing over the public primitive contracts.
 //!
-//! [`use_text_edit`] gives an ordinary node native editing without a look:
+//! [`use_text_edit`] (one line) and [`use_text_area`] (several) give an
+//! ordinary node native editing without a look:
 //! [`TextEdit::control`] attaches the editor to the node, and the core keeps
 //! no text field type or `text_field`/`text_area` constructor of its own.
 //! The standard `kivact::ui::text_input` and `text_area` are the one
@@ -11,5 +12,5 @@
 mod handle;
 mod policy;
 
-pub use handle::{TextEdit, use_text_edit};
+pub use handle::{TextEdit, use_text_area, use_text_edit};
 pub use policy::text_edit_policy;

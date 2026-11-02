@@ -16,17 +16,17 @@ pub use kivact_wire::{Capabilities, Insets};
 
 /// The App's environment as seen from the nearest owner at the call (`api`
 /// names the caller in misuse diagnostics).
-fn state(api: &'static str, at: &'static Location<'static>) -> Option<Rc<EnvState>> {
+fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
     let rt = kivact_reactive::Owner::ambient(api, at).runtime();
     ViewState::of(&rt).env()
 }
 
 /// What one field of the host environment is now, tracked: the reader is
-/// notified only when that field changes (`None` before the root is
-/// mounted). The accessor named `api` shares one memo of its field.
+/// notified only when that field changes. The accessor named `api` shares
+/// one memo of its field.
 #[track_caller]
-fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) -> T) -> Option<T> {
-    state(api, Location::caller()).map(|env| env.field(api, f).get())
+fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) -> T) -> T {
+    state(api, Location::caller()).field(api, f).get()
 }
 
 /// The window's available font families, sorted by name without duplicates.
@@ -38,10 +38,7 @@ fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) 
 #[track_caller]
 pub fn font_families() -> Vec<String> {
     let rt = kivact_reactive::Owner::ambient("font_families", Location::caller()).runtime();
-    ViewState::tree(&rt)
-        .reader()
-        .map(|reader| reader.font_families())
-        .unwrap_or_default()
+    ViewState::tree(&rt).reader().font_families()
 }
 
 /// Whether the window is borderless fullscreen, tracked. Like every read
@@ -49,25 +46,25 @@ pub fn font_families() -> Vec<String> {
 /// effect) at the call; a located `SetupOnly` misuse outside every owner.
 #[track_caller]
 pub fn fullscreen() -> bool {
-    env_field("fullscreen", |e| e.fullscreen).unwrap_or(false)
+    env_field("fullscreen", |e| e.fullscreen)
 }
 
 /// Whether the system asks for reduced motion, tracked.
 #[track_caller]
 pub fn reduced_motion() -> bool {
-    env_field("reduced_motion", |e| e.reduced_motion).unwrap_or(false)
+    env_field("reduced_motion", |e| e.reduced_motion)
 }
 
 /// The display scale factor, tracked.
 #[track_caller]
 pub fn scale_factor() -> f32 {
-    env_field("scale_factor", |e| e.scale).unwrap_or(1.0)
+    env_field("scale_factor", |e| e.scale)
 }
 
 /// Whether the window surface is visible and active, tracked.
 #[track_caller]
 pub fn surface_active() -> bool {
-    env_field("surface_active", |e| e.surface_active).unwrap_or(true)
+    env_field("surface_active", |e| e.surface_active)
 }
 
 /// The part of each window edge that system UI may cover (a notch, a
@@ -97,8 +94,7 @@ pub fn safe_area() -> Insets {
     }
     let env = state.env();
     drop(rt);
-    env.map(|env| env.field("safe_area", |e| e.safe_area).get())
-        .unwrap_or_default()
+    env.field("safe_area", |e| e.safe_area).get()
 }
 
 /// The window's size in logical pixels (its content area: what the
@@ -121,7 +117,7 @@ pub fn safe_area() -> Insets {
 /// ```
 #[track_caller]
 pub fn window_size() -> Size {
-    env_field("window_size", |e| e.window).unwrap_or_default()
+    env_field("window_size", |e| e.window)
 }
 
 /// What the platform the App runs on can do (fixed for the App's

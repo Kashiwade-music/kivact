@@ -10,15 +10,17 @@
 
 use super::drag::{DragCoordinates, DragUpdate, use_drag};
 use super::edit::{EditPhase, EditSession};
-use super::scalar::{IntoScalarRange, Scalar, follow_range};
-use crate::policy::scalar::{ScalarRange, ScalarRangeError};
+use super::scalar::{IntoScalarRange, ScalarOps, follow_range};
+use crate::axis::Axis;
+use crate::policy::scalar::ScalarRangeError;
+use crate::press::is_double_press;
 use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, Key, KeyEvent, MouseButton, Orientation,
-    PointerEvent, PointerPhase, Role,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, Key, KeyEvent, Orientation,
+    PointerEvent, Role,
 };
-use kivact_core::{Binding, Value, var};
+use kivact_core::{Binding, Signal, Value, memo, signal, var};
 
 /// Reactive drawing state of an attached splitter handle.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -40,8 +42,7 @@ pub struct SplitterState {
 ///
 /// `axis` is the direction the panes are laid out in, so `Orientation::Horizontal`
 /// means side by side and the splitter moves along x.
-/// `Orientation::Unspecified` is not a layout direction and is treated like
-/// `Orientation::Horizontal`.
+/// `Orientation::Unspecified` is not a layout direction and is a usage error.
 ///
 /// Semantics follow the ARIA convention that `orientation` is the direction of
 /// the separator line, which is perpendicular to the way it moves: panes laid
@@ -60,8 +61,8 @@ pub struct SplitterState {
 /// grows it. The arrows of the other axis are not handled. Home
 /// and End jump to the range's minimum and maximum, and Enter moves to the
 /// [`reset_to`](Self::reset_to) value, if any. Every write is normalized by the
-/// [`ScalarRange`] and offered to the binding's writer, exactly as
-/// [`Scalar::set`] does. Increment, Decrement and SetValue from assistive
+/// [`ScalarRange`](crate::ScalarRange) and offered to the binding's writer, exactly as
+/// [`Scalar::set`](crate::Scalar::set) does. Increment, Decrement and SetValue from assistive
 /// technology take the same path.
 ///
 /// A primary-button drag in window coordinates moves the value by the pointer's
@@ -72,7 +73,7 @@ pub struct SplitterState {
 /// `reset_to` value. A disabled splitter accepts no input or assistive
 /// technology action and cancels a drag in progress.
 ///
-/// The range may follow the layout: pass a constant [`ScalarRange`], or a
+/// The range may follow the layout: pass a constant [`ScalarRange`](crate::ScalarRange), or a
 /// closure, a `Signal` or a `Value` of one ([`IntoScalarRange`]). The published
 /// `value_min` and `value_max`, the key step (when not overridden), Home, End
 /// and drag clamping all follow the current range. When the range changes and
@@ -109,14 +110,20 @@ pub struct SplitterState {
 /// ```
 #[derive(Clone, Copy)]
 pub struct SplitterApi {
-    binding: Binding<f64>,
-    range: Value<ScalarRange>,
-    axis: Orientation,
-    key_step: Option<f64>,
+    ops: ScalarOps,
+    axis: Axis,
+    settings: Signal<SplitterSettings>,
+    edit: EditSession<f64>,
+}
+
+/// What the setters of a [`SplitterApi`] store; read where they apply, so they
+/// work in any order.
+#[derive(Clone, Copy, Default)]
+struct SplitterSettings {
+    key_step: Option<Value<f64>>,
     reset: Option<Value<Option<f64>>>,
     scale: Option<Value<f64>>,
     disabled: Option<Value<bool>>,
-    edit: EditSession<f64>,
 }
 
 /// Use this binding as the sole writer of the leading pane's size.
@@ -135,13 +142,12 @@ pub fn use_splitter(
 ) -> SplitterApi {
     let binding = value.into();
     SplitterApi {
-        binding,
-        range: range.into_range(),
-        axis,
-        key_step: None,
-        reset: None,
-        scale: None,
-        disabled: None,
+        ops: ScalarOps {
+            binding,
+            range: range.into_range(),
+        },
+        axis: Axis::of(axis, "use_splitter"),
+        settings: signal(SplitterSettings::default()),
         edit: EditSession::new(move |start| binding.set(start)),
     }
 }
@@ -151,21 +157,32 @@ impl SplitterApi {
     ///
     /// The default is the current range's step, or one percent of the range
     /// when it is continuous. A non-finite or non-positive step is rejected as
-    /// [`ScalarRange::with_step`] and [`Scalar::key_step`] do.
-    pub fn key_step(mut self, step: f64) -> Result<Self, ScalarRangeError> {
+    /// [`ScalarRange::with_step`](crate::ScalarRange::with_step) and [`Scalar::key_step`](crate::Scalar::key_step) do.
+    /// Setup only.
+    #[track_caller]
+    pub fn key_step(self, step: f64) -> Result<Self, ScalarRangeError> {
         if !step.is_finite() || step <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
-        self.key_step = Some(step);
-        Ok(self)
+        Ok(self.key_step_value(step.into_value()))
+    }
+
+    /// The keyboard increment as a value that may change (the table's resize
+    /// limits). The step is not validated here.
+    pub(crate) fn key_step_value(self, step: Value<f64>) -> Self {
+        self.settings
+            .update(|settings| settings.key_step = Some(step));
+        self
     }
 
     /// The value Enter and a double click move to. `None` ignores both.
     ///
     /// Setup only.
     #[track_caller]
-    pub fn reset_to(mut self, value: impl IntoValue<Option<f64>>) -> Self {
-        self.reset = Some(value.into_value());
+    pub fn reset_to(self, value: impl IntoValue<Option<f64>>) -> Self {
+        let value = value.into_value();
+        self.settings
+            .update(|settings| settings.reset = Some(value));
         self
     }
 
@@ -176,8 +193,10 @@ impl SplitterApi {
     /// value is a percentage of a measured container. The scale is read when the
     /// pointer moves. Setup only.
     #[track_caller]
-    pub fn pointer_scale(mut self, units_per_px: impl IntoValue<f64>) -> Self {
-        self.scale = Some(units_per_px.into_value());
+    pub fn pointer_scale(self, units_per_px: impl IntoValue<f64>) -> Self {
+        let scale = units_per_px.into_value();
+        self.settings
+            .update(|settings| settings.scale = Some(scale));
         self
     }
 
@@ -186,8 +205,10 @@ impl SplitterApi {
     ///
     /// Also marks the handle disabled and makes it unfocusable. Setup only.
     #[track_caller]
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = Some(disabled.into_value());
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        let disabled = disabled.into_value();
+        self.settings
+            .update(|settings| settings.disabled = Some(disabled));
         self
     }
 
@@ -209,31 +230,32 @@ impl SplitterApi {
     }
 
     fn is_disabled(self) -> bool {
-        self.disabled.is_some_and(|d| d.get_untracked())
+        self.settings
+            .with_untracked(|settings| settings.disabled.is_some_and(|d| d.get_untracked()))
     }
 
     /// Whether the panes are side by side.
     fn side_by_side(self) -> bool {
-        !matches!(self.axis, Orientation::Vertical)
+        self.axis.is_horizontal()
     }
 
-    /// The scalar operations for the range as it is now.
-    fn scalar(self) -> Scalar {
-        let range = self.range.get_untracked();
+    /// The keyboard increment as it is now: the one given to
+    /// [`key_step`](Self::key_step), else the current range's step, else one
+    /// percent of the range.
+    fn current_key_step(self) -> f64 {
+        if let Some(step) = self
+            .settings
+            .with_untracked(|settings| settings.key_step)
+            .map(|step| step.get_untracked())
+        {
+            return step;
+        }
+        let range = self.ops.range.get_untracked();
         let default_step = range.step().unwrap_or((range.max() - range.min()) / 100.0);
-        let step = self
-            .key_step
-            .unwrap_or(if default_step.is_finite() && default_step > 0.0 {
-                default_step
-            } else {
-                1.0
-            });
-        Scalar {
-            binding: self.binding,
-            range: self.range,
-            key_step: Some(step),
-            disabled: None,
-            edit: None,
+        if default_step.is_finite() && default_step > 0.0 {
+            default_step
+        } else {
+            1.0
         }
     }
 
@@ -246,56 +268,60 @@ impl SplitterApi {
     /// the part's. Setup only.
     #[track_caller]
     pub fn handle(self) -> Part<SplitterState> {
-        let value = self.binding.into_value();
-        let (range, side_by_side) = (self.range, self.side_by_side());
+        let value = self.ops.binding.into_value();
+        let (range, side_by_side) = (self.ops.range, self.side_by_side());
         let rtl = side_by_side
             && kivact_core::view::current_direction() == kivact_core::view::ReadingDirection::Rtl;
-        follow_range(self.binding, range);
+        follow_range(self.ops.binding, range);
         let edit = self.edit;
         // One key press or assistive technology action is a whole edit.
-        let once = move |write: &dyn Fn(Scalar) -> bool| -> bool {
+        let once = move |write: &dyn Fn(ScalarOps, f64) -> bool| -> bool {
             let mut accepted = false;
-            edit.once(value.get_untracked(), || accepted = write(self.scalar()));
+            edit.once(value.get_untracked(), || {
+                accepted = write(self.ops, self.current_key_step());
+            });
             accepted
         };
         // Only an action that will write is an edit: a value that is not a
         // number reports nothing.
         let act = move |event: A11yEvent| {
-            let writes = match event.action {
-                A11yAction::SetValue => event
-                    .value
-                    .as_deref()
-                    .and_then(|v| v.parse::<f64>().ok())
-                    .is_some_and(f64::is_finite),
+            let writes = match &event.request {
+                A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(f64::is_finite),
                 _ => true,
             };
             if writes && !self.is_disabled() {
-                once(&|scalar| scalar.a11y(&event));
+                once(&|ops, step| ops.a11y(&event, step));
             }
         };
         let reset = move || -> bool {
-            self.reset
+            self.settings
+                .with_untracked(|settings| settings.reset)
                 .and_then(|reset| reset.get_untracked())
-                .is_some_and(|reset| once(&|scalar| scalar.set(reset)))
+                .is_some_and(|reset| once(&|ops, _| ops.set(reset)))
         };
         // The value at the press; external writes during the drag do not move it.
-        let origin = var(0.0);
-        let session = use_drag::<()>(DragCoordinates::Window);
-        let session = match self.disabled {
-            Some(disabled) => session.disabled(disabled),
-            None => session,
-        }
-        .edit(edit, move || value.get_untracked())
-        .on_start(move |_| origin.set(value.get()))
-        .on_update(move |update: DragUpdate<()>| {
-            let travel = match (side_by_side, rtl) {
-                (true, false) => update.delta.x,
-                (true, true) => -update.delta.x,
-                (false, _) => update.delta.y,
-            };
-            let scale = self.scale.map_or(1.0, |scale| scale.get());
-            self.scalar().set(origin.get() + f64::from(travel) * scale);
+        let origin = var(None::<f64>);
+        let settings = self.settings;
+        let disabled = memo(move || {
+            settings.with(|settings| settings.disabled.is_some_and(|disabled| disabled.get()))
         });
+        let session = use_drag::<()>(DragCoordinates::Window)
+            .disabled(disabled)
+            .edit(edit, move || value.get_untracked())
+            .on_start(move |_| origin.set(Some(value.get())))
+            .on_update(move |update: DragUpdate<()>| {
+                let Some(origin) = origin.get() else { return };
+                let travel = match (side_by_side, rtl) {
+                    (true, false) => update.delta.x,
+                    (true, true) => -update.delta.x,
+                    (false, _) => update.delta.y,
+                };
+                let scale = settings
+                    .with_untracked(|settings| settings.scale)
+                    .map_or(1.0, |scale| scale.get());
+                self.ops.set(origin + f64::from(travel) * scale);
+            })
+            .on_end(move |_| origin.set(None));
         let source = session.source(());
         let dragging = source.state();
         let (shrink_key, grow_key) = match (side_by_side, rtl) {
@@ -303,7 +329,7 @@ impl SplitterApi {
             (true, true) => (Key::ArrowRight, Key::ArrowLeft),
             (false, _) => (Key::ArrowUp, Key::ArrowDown),
         };
-        let mut handle = part(move |input| SplitterState {
+        let handle = part(move |input| SplitterState {
             input,
             value: value.get(),
             dragging: dragging.get().active,
@@ -323,10 +349,10 @@ impl SplitterApi {
                 return Handled::No;
             }
             let accepted = match event.key {
-                key if key == shrink_key => once(&|scalar| scalar.step_by(-1.0)),
-                key if key == grow_key => once(&|scalar| scalar.step_by(1.0)),
-                Key::Home => once(&|scalar| scalar.set(range.get_untracked().min())),
-                Key::End => once(&|scalar| scalar.set(range.get_untracked().max())),
+                key if key == shrink_key => once(&|ops, step| ops.step_by(-1.0, step)),
+                key if key == grow_key => once(&|ops, step| ops.step_by(1.0, step)),
+                Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),
+                Key::End => once(&|ops, _| ops.set(range.get_untracked().max())),
                 Key::Enter => reset(),
                 _ => false,
             };
@@ -334,13 +360,7 @@ impl SplitterApi {
         })
         // A double click resets before the drag source sees the press.
         .on_pointer(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down
-                && event.button == Some(MouseButton::Primary)
-                && event.click_count > 1
-                && !self.is_disabled()
-                && !session.is_active()
-                && reset()
-            {
+            if is_double_press(&event) && !self.is_disabled() && !session.is_active() && reset() {
                 Handled::Yes
             } else {
                 Handled::No
@@ -348,10 +368,8 @@ impl SplitterApi {
         })
         .on_a11y_event(A11yAction::Increment, act)
         .on_a11y_event(A11yAction::Decrement, act)
-        .on_a11y_event(A11yAction::SetValue, act);
-        if let Some(disabled) = self.disabled {
-            handle = handle.disabled(disabled);
-        }
+        .on_a11y_event(A11yAction::SetValue, act)
+        .disabled(disabled);
         handle.with(source)
     }
 }

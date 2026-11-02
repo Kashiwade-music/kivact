@@ -7,7 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{LoopCell, MotionState};
+use super::state::{LoopCell, LoopRun, MotionState};
 use super::values::{FrameInfo, FrameRate};
 
 use kivact_reactive::{
@@ -33,10 +33,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
         owner,
         f: Rc::new(move |info| f(info).into_result()),
         rate: owner.signal(None::<FrameRate>, at),
-        current: Cell::new(None),
-        start_ns: Cell::new(0),
-        index: Cell::new(0),
-        last_tick: Cell::new(None),
+        run: Cell::new(None),
         frames: Cell::new(0),
     });
     MotionState::of(&rt).register_loop(Rc::downgrade(&cell));
@@ -71,16 +68,19 @@ impl FrameLoop {
             );
             return;
         }
-        if cell.current.get() == Some(rate) {
+        let current = cell.run.get();
+        if current.is_some_and(|r| r.rate == rate) {
             return;
         }
         let now = rt.now_ns();
-        cell.current.set(Some(rate));
-        cell.start_ns.set(now);
-        cell.index.set(0);
-        if cell.rate.try_get() != Some(Some(rate)) {
-            cell.rate.set(Some(rate));
-        }
+        // A new rate counts from now; the time of the last callback stays
+        // (`FrameInfo::delta`).
+        cell.set_run(Some(LoopRun {
+            rate,
+            start_ns: now,
+            index: 0,
+            last_tick: current.and_then(|r| r.last_tick),
+        }));
         rt.request_turn();
     }
 
@@ -90,11 +90,7 @@ impl FrameLoop {
         let at = Location::caller();
         let (rt, cell) = self.cell(at);
         require_effectful("FrameLoop::stop");
-        cell.current.set(None);
-        cell.last_tick.set(None);
-        if cell.rate.try_get() != Some(None) {
-            cell.rate.set(None);
-        }
+        cell.set_run(None);
         drop(rt);
     }
 

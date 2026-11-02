@@ -1,5 +1,6 @@
 //! Role: Passive line, chunk, cache-key and prefix records.
 
+use crate::source::Source;
 use kivact_editing::LineState;
 use kivact_types::{Point, Rgba};
 use std::ops::Range;
@@ -24,6 +25,34 @@ pub(crate) struct Key {
     pub(crate) multiline: bool,
 }
 
+impl Key {
+    /// What `source` in `style` is shaped for (start aligned, without a color), and the
+    /// alignment its lines are moved by.
+    pub(crate) fn of(
+        source: &Source<'_>,
+        mut style: kivact_types::protocol::TextStyle,
+    ) -> (Key, kivact_types::TextAlign) {
+        let shown = if source.value.is_empty() {
+            Shown::Placeholder(source.placeholder.to_owned())
+        } else if source.password {
+            Shown::Masked
+        } else {
+            Shown::Value
+        };
+        // Shaped start aligned and without a color: aligning and coloring
+        // (a hover, a focus style) never shape again.
+        let align = style.align;
+        style.align = kivact_types::TextAlign::Start;
+        style.color = kivact_types::protocol::TextStyle::default().color;
+        let key = Key {
+            style,
+            shown,
+            multiline: source.multiline,
+        };
+        (key, align)
+    }
+}
+
 /// One line's colors and the states it was colored from and leaves.
 #[derive(Clone, Debug)]
 pub(crate) struct Colored {
@@ -39,10 +68,39 @@ pub(crate) struct Kept {
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
     pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::protocol::ShapedText>)>,
-    /// Its text run's identity (0: none yet).
-    pub(crate) run_id: u64,
+    /// Its text run's identity, once it has one.
+    pub(crate) run_id: Option<u64>,
     /// Its text run and where it was placed.
     pub(crate) run: Option<(Point, Arc<kivact_types::SemanticsTextRun>)>,
+}
+
+/// What became of shaping a line.
+#[derive(Clone, Debug)]
+pub(crate) enum Shape {
+    /// Not shaped yet.
+    Pending,
+    /// The shaper could not shape it: it is laid out as an empty line.
+    Failed,
+    /// Shaped.
+    Done(Arc<kivact_types::protocol::ShapedText>),
+}
+
+impl Shape {
+    /// Its shaped width (0 until shaped, and when shaping failed).
+    pub(crate) fn width(&self) -> f32 {
+        match self {
+            Shape::Done(shaped) => shaped.size.width,
+            Shape::Pending | Shape::Failed => 0.0,
+        }
+    }
+
+    /// Its shaped text, when shaped.
+    pub(crate) fn shaped(&self) -> Option<&Arc<kivact_types::protocol::ShapedText>> {
+        match self {
+            Shape::Done(shaped) => Some(shaped),
+            Shape::Pending | Shape::Failed => None,
+        }
+    }
 }
 
 /// One hard line: its byte range from its chunk's start, its counts and
@@ -57,10 +115,8 @@ pub(crate) struct Line {
     /// Scalars and UTF-16 units of `start..end`.
     pub(crate) chars: u32,
     pub(crate) units: u32,
-    /// Its text, shaped (`None`: not yet; `Some(None)`: it cannot be).
-    pub(crate) shaped: Option<Option<Arc<kivact_types::protocol::ShapedText>>>,
-    /// Its shaped width (0 until shaped).
-    pub(crate) width: f32,
+    /// Its text, shaped as it was first needed.
+    pub(crate) shape: Shape,
     pub(crate) kept: Option<Box<Kept>>,
 }
 
@@ -78,8 +134,7 @@ impl Line {
             end: end - base,
             chars: all.chars().count() as u32,
             units: all.encode_utf16().count() as u32,
-            shaped: None,
-            width: 0.0,
+            shape: Shape::Pending,
             kept: None,
         }
     }
@@ -133,7 +188,11 @@ impl Chunk {
         self.bytes = self.lines.last().map_or(0, |l| l.end);
         self.chars = self.lines.iter().map(|l| l.chars as usize).sum();
         self.units = self.lines.iter().map(|l| l.units as usize).sum();
-        self.width = self.lines.iter().map(|l| l.width).fold(0.0, f32::max);
+        self.width = self
+            .lines
+            .iter()
+            .map(|l| l.shape.width())
+            .fold(0.0, f32::max);
     }
 }
 

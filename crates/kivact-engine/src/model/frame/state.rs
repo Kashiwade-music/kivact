@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use kivact_wire::{HostEnv, Insets, NodeId, Point, Size, ThemeHint};
+use kivact_wire::{HostEnv, Insets, MotionClock, NodeId, Point, Size, ThemeHint};
 
 /// One active programmatic scroll; allocated only while animating.
 pub(super) struct SmoothScroll {
@@ -11,18 +11,26 @@ pub(super) struct SmoothScroll {
     pub(super) began: Option<u64>,
 }
 
+/// Whether the frame clock runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Clock {
+    /// Ticks are delivered.
+    Running,
+    /// Nothing can be drawn since `since` (host ns): no tick; the state transitions
+    /// are shifted by the stop when it ends.
+    Stopped { since: u64 },
+}
+
 /// Frame requests, animation clocks and the environment the client sees.
 pub(crate) struct Frame {
     pub(super) now: u64,
-    /// When the frame clock stopped (no surface), until it resumes.
-    pub(super) state_paused_at: Option<u64>,
-    /// The time the frame clock stood still in the stops that ended
-    /// (`MotionClock::offset_ns`).
-    pub(super) offset_ns: u64,
-    /// When the last stop ended (`MotionClock::resumed_ns`).
-    pub(super) resumed_ns: u64,
+    /// Whether the frame clock runs; written only by `Model::start_env` and
+    /// `Model::update_env`.
+    pub(super) clock: Clock,
+    /// The stops that ended, as the client sees them in each tick.
+    pub(super) motion: MotionClock,
     pub(super) frames: Vec<u64>,
-    pub(super) smooth_scrolls: Option<BTreeMap<NodeId, SmoothScroll>>,
+    pub(super) smooth_scrolls: BTreeMap<NodeId, SmoothScroll>,
     pub(super) last_frame: Option<u64>,
     /// The environment as the client last saw it: the one source of the
     /// display period, reduced motion and drawability.
@@ -33,11 +41,10 @@ impl Default for Frame {
     fn default() -> Self {
         Self {
             now: 0,
-            state_paused_at: None,
-            offset_ns: 0,
-            resumed_ns: 0,
+            clock: Clock::Running,
+            motion: MotionClock::default(),
             frames: vec![],
-            smooth_scrolls: None,
+            smooth_scrolls: BTreeMap::new(),
             last_frame: None,
             env: HostEnv {
                 scale: 1.0,
@@ -60,10 +67,16 @@ impl Frame {
         self.now = now;
     }
 
-    /// The environment before the client starts: written in place, with
-    /// no event (the client gets it in `HostInfo`).
-    pub(crate) fn start_env(&mut self) -> &mut HostEnv {
-        &mut self.env
+    /// The theme the environment starts with (light unless a test driver
+    /// starts dark); `Model::start_env` keeps it.
+    #[cfg(feature = "testing")]
+    pub(crate) fn start_theme(&mut self, theme: ThemeHint) {
+        self.env.theme_hint = theme;
+    }
+
+    /// The theme the client sees.
+    pub(crate) fn theme_hint(&self) -> ThemeHint {
+        self.env.theme_hint
     }
 
     /// The display's frame period.
@@ -88,6 +101,6 @@ impl Frame {
 
     /// Stop every smooth scroll where it is (the user took over).
     pub(crate) fn stop_smooth_scrolls(&mut self) {
-        self.smooth_scrolls = None;
+        self.smooth_scrolls.clear();
     }
 }

@@ -2,7 +2,7 @@
 use super::state::State;
 use crate::key_code;
 use arvane_shell::ShellEvent;
-use kivact_types::{Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
+use kivact_types::{ButtonPress, Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
 use std::rc::Rc;
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
@@ -64,10 +64,14 @@ fn position(state: &State, l: LPARAM) -> Point {
         y: ((l as u32 >> 16) as u16 as i16) as f32 / scale,
     }
 }
-fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM, button: Option<MouseButton>) {
+fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM) {
     let mut mouse = state.mouse.get();
-    let mut event = ShellEvent::Pointer(mouse.event(phase, Some(position(state, l)), button));
+    let input = mouse.event(phase, Some(position(state, l)));
     state.mouse.set(mouse);
+    let Some(input) = input else {
+        return;
+    };
+    let mut event = ShellEvent::Pointer(input);
     let settings = crate::native_input::state::MouseSettings::read();
     let scale = state.shared.scale();
     state.clicks.borrow_mut().count(
@@ -111,14 +115,16 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 };
                 TrackMouseEvent(&mut request);
             }
-            pointer(state, PointerPhase::Move, l, None);
+            pointer(state, PointerPhase::Move, l);
             Some(0)
         }
         WM_MOUSELEAVE => {
             let mut mouse = state.mouse.get();
-            let event = mouse.event(PointerPhase::Leave, None, None);
+            let event = mouse.event(PointerPhase::Leave, None);
             state.mouse.set(mouse);
-            state.event(ShellEvent::Pointer(event));
+            if let Some(event) = event {
+                state.event(ShellEvent::Pointer(event));
+            }
             Some(0)
         }
         // lParam names the window gaining capture: ours means we re-captured
@@ -161,15 +167,15 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                     }
                 }
             }
+            let press = ButtonPress { button, clicks: 1 };
             pointer(
                 state,
                 if down {
-                    PointerPhase::Down
+                    PointerPhase::Down(press)
                 } else {
-                    PointerPhase::Up
+                    PointerPhase::Up(press)
                 },
                 l,
-                Some(button),
             );
             if !down
                 && w & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2) as usize
@@ -196,7 +202,8 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 ScreenToClient(hwnd, &mut point);
             }
             let mut mouse = state.mouse.get();
-            let scale = state.shared.scale();
+            let applied = state.shared.applied();
+            let scale = applied.scale;
             let previous = mouse.position();
             let event = mouse.event(
                 PointerPhase::Move,
@@ -204,10 +211,11 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                     x: point.x as f32 / scale,
                     y: point.y as f32 / scale,
                 }),
-                None,
             );
             state.mouse.set(mouse);
-            if Some(event.position) != previous {
+            if let Some(event) = event
+                && Some(event.position) != previous
+            {
                 state.event(ShellEvent::Pointer(event));
             }
             let notch = (w >> 16) as u16 as i16 as f32 / 120.0;
@@ -217,7 +225,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 (0.0, notch)
             };
             let settings = crate::native_input::state::MouseSettings::read();
-            let height = state.shared.size().1 as f32 / scale;
+            let height = applied.height as f32 / scale;
             let (x, y) = crate::wheel::lines(
                 x,
                 y,
@@ -243,17 +251,24 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
         // A separate WM_CHAR (for example test text injection) remains a commit.
         WM_CHAR => {
             let unit = w as u16;
-            if (0xd800..=0xdbff).contains(&unit) {
-                state.pending_surrogate.set(Some(unit));
-            } else {
-                let text = if let Some(high) = state.pending_surrogate.take() {
-                    String::from_utf16_lossy(&[high, unit])
-                } else {
-                    String::from_utf16_lossy(&[unit])
-                };
-                if !text.chars().all(char::is_control) {
-                    state.event(ShellEvent::Commit(text));
+            let high = (0xd800..=0xdbff).contains(&unit);
+            let text = match (state.pending_surrogate.take(), high) {
+                (None, true) => {
+                    state.pending_surrogate.set(Some(unit));
+                    None
                 }
+                // The earlier high surrogate had no low one: it is reported, not lost.
+                (Some(_), true) => {
+                    state.pending_surrogate.set(Some(unit));
+                    Some("\u{fffd}".to_owned())
+                }
+                (Some(previous), false) => Some(String::from_utf16_lossy(&[previous, unit])),
+                (None, false) => Some(String::from_utf16_lossy(&[unit])),
+            };
+            if let Some(text) = text
+                && !text.chars().all(char::is_control)
+            {
+                state.event(ShellEvent::Commit(text));
             }
             Some(0)
         }

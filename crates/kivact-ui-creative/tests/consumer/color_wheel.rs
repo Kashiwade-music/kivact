@@ -31,12 +31,12 @@ fn color_wheel_regions_keys_actions_and_gray_hue_preservation() {
     ] {
         assert!(hue.a11y_actions().contains(&action));
     }
-    hue.a11y_with_value(A11yAction::SetValue, "120");
+    hue.a11y_set_value("120");
     assert_eq!(*log.borrow(), [Begin, Commit]);
     log.borrow_mut().clear();
     assert_eq!(color.get_untracked().components()[0], 0.5);
     let sv = screen.get_by_role(Role::Slider, "Saturation and value");
-    sv.a11y_with_value(A11yAction::SetValue, "1,0.5");
+    sv.a11y_set_value("1,0.5");
     assert_eq!(*log.borrow(), [Begin, Commit]);
     log.borrow_mut().clear();
     let (h, s, v) = ui::color_to_hsv(color.get_untracked());
@@ -57,12 +57,12 @@ fn color_wheel_regions_keys_actions_and_gray_hue_preservation() {
     log.borrow_mut().clear();
     assert!((ui::color_to_hsv(color.get_untracked()).0 - 131.0).abs() < 0.01);
     let alpha = screen.get_by_role(Role::Slider, "Alpha");
-    alpha.a11y_with_value(A11yAction::SetValue, "0.7");
+    alpha.a11y_set_value("0.7");
     assert!((color.get_untracked().components()[3] - 0.7).abs() < 0.001);
     assert_eq!(*log.borrow(), [Begin, Commit]);
     log.borrow_mut().clear();
-    sv.a11y_with_value(A11yAction::SetValue, "NaN,0.5");
-    hue.a11y_with_value(A11yAction::SetValue, "inf");
+    sv.a11y_set_value("NaN,0.5");
+    hue.a11y_set_value("inf");
     assert!(log.borrow().is_empty());
     clean(&screen);
 }

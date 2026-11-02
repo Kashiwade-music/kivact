@@ -3,7 +3,7 @@
 use super::error::AccessibilityError;
 use super::shared::PlatformTree;
 use crate::events::ShellEvent;
-use kivact_types::A11yAction;
+use kivact_types::A11yRequest;
 use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
 
 /// A window's validated semantics, updated transactionally and safe to share
@@ -66,13 +66,8 @@ impl Accessibility {
     /// `Activate`, `Toggle` and `Select` are equivalent default declarations and
     /// arrive as `Activate`; focusability declares `Focus`. Every other action
     /// requires its exact declaration. This is also the native backend's rule.
-    pub fn request_action(
-        &self,
-        node: u64,
-        action: A11yAction,
-        value: Option<&str>,
-    ) -> Option<ShellEvent> {
-        self.platform.request_action(node, action, value)
+    pub fn request_action(&self, node: u64, request: A11yRequest) -> Option<ShellEvent> {
+        self.platform.request_action(node, request)
     }
 
     fn notify(&self) {
