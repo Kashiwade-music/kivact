@@ -95,4 +95,3 @@ mod look;
 mod self_check;
 mod walk;
 
-pub(crate) use walk::{NO_MATRIX, NO_TRANSFORM};
