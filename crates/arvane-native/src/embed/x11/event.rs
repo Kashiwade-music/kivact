@@ -12,6 +12,8 @@ pub(super) struct Input {
     mouse: Mouse,
     clicks: ClickCounter,
     pub(super) keyboard: Keyboard,
+    /// The window has the keyboard focus as last reported; reported again only on change.
+    focused: bool,
 }
 
 impl Input {
@@ -20,6 +22,7 @@ impl Input {
             mouse: Mouse::default(),
             clicks: ClickCounter::default(),
             keyboard,
+            focused: false,
         }
     }
     pub(super) fn translate(
@@ -50,7 +53,7 @@ impl Input {
                     out.push(ShellEvent::Resized);
                 }
             }
-            Event::FocusIn(_) => out.push(ShellEvent::Focused(true)),
+            Event::FocusIn(_) => self.focus_in(&mut out),
             Event::FocusOut(_) => self.blur(&mut out),
             Event::MotionNotify(e) => {
                 self.sync_modifiers(e.state.into(), &mut out);
@@ -145,7 +148,7 @@ impl Input {
             Event::ClientMessage(e) if e.type_ == window.native.xembed && e.format == 32 => {
                 match e.data.as_data32()[1] {
                     // Only XEMBED_FOCUS_IN moves focus; WINDOW_ACTIVATE (1) does not.
-                    4 => out.push(ShellEvent::Focused(true)),
+                    4 => self.focus_in(&mut out),
                     2 | 5 => self.blur(&mut out),
                     _ => {}
                 }
@@ -191,7 +194,17 @@ impl Input {
             out.push(event);
         }
     }
+    fn focus_in(&mut self, out: &mut Vec<ShellEvent>) {
+        if !self.focused {
+            self.focused = true;
+            out.push(ShellEvent::Focused(true));
+        }
+    }
     fn blur(&mut self, out: &mut Vec<ShellEvent>) {
+        if !self.focused {
+            return;
+        }
+        self.focused = false;
         if let Some(cancel) = self.mouse.cancel() {
             out.push(ShellEvent::Pointer(cancel));
         }
