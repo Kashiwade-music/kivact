@@ -92,11 +92,11 @@ struct Partial {
 
 impl Drop for Partial {
     fn drop(&mut self) {
-        // Nothing of these was submitted yet.
-        if self.pool != vk::CommandPool::null() {
-            // SAFETY: a pool of this device, its buffers never submitted.
-            unsafe { self.device.destroy_command_pool(self.pool, None) };
-        }
+        // Nothing of these was submitted yet; destroying or freeing a null
+        // handle is a no-op.
+        // SAFETY: a pool of this device (or null), its buffers never
+        // submitted.
+        unsafe { self.device.destroy_command_pool(self.pool, None) };
         for &semaphore in &self.semaphores {
             // SAFETY: a semaphore of this device, never used.
             unsafe { self.device.destroy_semaphore(semaphore, None) };
@@ -104,10 +104,8 @@ impl Drop for Partial {
         for &(image, memory) in &self.images {
             // SAFETY: an image of this device, never used.
             unsafe { self.device.destroy_image(image, None) };
-            if memory != vk::DeviceMemory::null() {
-                // SAFETY: its memory, no longer bound to a live image.
-                unsafe { self.device.free_memory(memory, None) };
-            }
+            // SAFETY: its memory (or null), no longer bound to a live image.
+            unsafe { self.device.free_memory(memory, None) };
         }
     }
 }
@@ -117,7 +115,7 @@ pub(crate) fn import(
     device: &::wgpu::Device,
     shared: SharedTextures,
     desc: &::wgpu::TextureDescriptor<'_>,
-) -> Result<(Vec<::wgpu::Texture>, Shared), Error> {
+) -> Result<Shared, Error> {
     same_backend(&shared, GpuBackend::Vulkan)?;
     let (width, height, storage) = (shared.width, shared.height, shared.storage);
     // SAFETY: the guard is dropped before wgpu makes textures from it.
@@ -221,21 +219,18 @@ pub(crate) fn import(
         unreachable!("invariant: three semaphores were made");
     };
     let pool = std::mem::replace(&mut partial.pool, vk::CommandPool::null());
-    Ok((
+    Ok(Shared {
         textures,
-        Shared {
-            device: raw,
-            queue,
-            ready,
-            release,
-            own,
-            own_value: 0,
-            pool,
-            slots,
-            leaked: false,
-            _keep: device.clone(),
-        },
-    ))
+        device: raw,
+        queue,
+        ready,
+        release,
+        own,
+        own_value: 0,
+        pool,
+        slots,
+        _keep: device.clone(),
+    })
 }
 
 /// Fail unless the shared image (its usage with or without storage) can be
@@ -452,6 +447,8 @@ struct Slot {
 
 /// An import's semaphores and ownership barriers on wgpu's queue.
 pub(crate) struct Shared {
+    /// The pool's textures as wgpu sees them.
+    textures: Vec<::wgpu::Texture>,
     device: ash::Device,
     queue: vk::Queue,
     ready: vk::Semaphore,
@@ -461,8 +458,6 @@ pub(crate) struct Shared {
     own_value: u64,
     pool: vk::CommandPool,
     slots: Vec<Slot>,
-    /// The GPU may still use the objects: they are not destroyed.
-    leaked: bool,
     /// Keeps the native device alive while the objects live.
     _keep: ::wgpu::Device,
 }
@@ -540,18 +535,24 @@ impl Shared {
             && self.wait(self.own, self.own_value, timeout)
     }
 
-    pub(crate) fn leak(&mut self) {
-        self.leaked = true;
+    /// The pool's textures, by slot.
+    pub(crate) fn textures(&self) -> &[::wgpu::Texture] {
+        &self.textures
     }
 }
 
 impl Drop for Shared {
     fn drop(&mut self) {
-        if self.leaked {
+        // The objects must outlive the GPU's use of them: when the queue
+        // does not finish, they and the textures stay for the process.
+        if !self.idle(super::pool::IDLE) {
+            for texture in &self.textures {
+                std::mem::forget(texture.clone());
+            }
             return;
         }
         // SAFETY: the queue finished every submission that used the pool's
-        // buffers (`Import`'s drop waited).
+        // buffers (the wait above).
         unsafe { self.device.destroy_command_pool(self.pool, None) };
         for semaphore in [self.ready, self.release, self.own] {
             // SAFETY: as above, for the semaphores.

@@ -38,8 +38,8 @@
 //!   thread).
 //! - An import keeps a clone of its `wgpu::Device`, so the native device
 //!   outlives the raw objects; dropping it waits (bounded) for the queue
-//!   before destroying them, and leaks them instead when the queue does
-//!   not finish.
+//!   before destroying them and the textures, and keeps them all for the
+//!   process instead when the queue does not finish.
 //! - Waits are bounded; failures are `Err`, never panics.
 //!
 //! Platforms: Direct3D 12 (Windows) and Vulkan (Windows, Linux with
