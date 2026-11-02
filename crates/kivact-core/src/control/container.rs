@@ -59,8 +59,9 @@ pub fn grid(children: impl IntoView) -> Node {
 ///
 /// It scrolls vertically; [`axes`](Scroll::axes) scrolls horizontally or both
 /// ways. Its accessibility orientation follows the axes (vertical,
-/// horizontal, none for both); `.orientation(..)` on it is reported and
-/// ignored. The modifiers of [`NodeBuilder`] apply to the container.
+/// horizontal, none for both); an `.orientation(..)` on it that disagrees is
+/// reported and ignored. The modifiers of [`NodeBuilder`] apply to the
+/// container.
 ///
 /// ```
 /// # use kivact_core as kivact;
@@ -143,18 +144,22 @@ impl IntoView for Scroll {
             .at
             .expect("invariant: `scroll` is #[track_caller] and locates its root");
         let view = self.root.child(self.child).into_view();
-        if caller.is_none() {
+        let Some(caller) = caller else {
             return view;
-        }
+        };
         view_fn(move |cx| {
-            cx.rt.report(
-                Some(cx.owner),
-                UiError::new(
-                    ErrorKind::Unsupported,
-                    "`.orientation(..)` on a scroll container: its accessibility orientation follows `.axes(..)`                      (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
-                    Some(at),
-                ),
-            );
+            // A value that agrees with the axes (a list part names its own
+            // orientation) is redundant; one that disagrees is reported.
+            if Some(kivact_reactive::untrack(|| caller.get())) != derived {
+                cx.rt.report(
+                    Some(cx.owner),
+                    UiError::new(
+                        ErrorKind::Unsupported,
+                        "`.orientation(..)` on a scroll container disagrees with `.axes(..)`: its accessibility orientation follows the axes                          (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
+                        Some(at),
+                    ),
+                );
+            }
             mount(view, cx)
         })
     }

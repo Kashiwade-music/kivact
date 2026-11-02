@@ -233,7 +233,8 @@ fn main() -> kivact::Result<()> {
   content out in a row and scrolls sideways. `.axes(ScrollAxes::Both)` scrolls
   both ways.
 - A scroll container's accessibility orientation follows its axes (vertical,
-  horizontal, none for both); `.orientation(..)` on it is reported and ignored.
+  horizontal, none for both); an `.orientation(..)` on it that disagrees is
+  reported and ignored.
 - `scroll` returns a `Scroll` builder: `.style(..)`, `.name(..)` and the other
   node modifiers apply to the scroll area itself.
 - The wheel and touch drag scroll the area; at the edge, the wheel passes to the
