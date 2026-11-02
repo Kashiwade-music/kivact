@@ -15,9 +15,7 @@ impl HasWindowHandle for Target {
         if !self.shared.alive() {
             return Err(HandleError::Unavailable);
         }
-        let mut handle = Win32WindowHandle::new(
-            NonZeroIsize::new(self.native.hwnd()).ok_or(HandleError::Unavailable)?,
-        );
+        let mut handle = Win32WindowHandle::new(self.native.hwnd);
         handle.hinstance = NonZeroIsize::new(self.instance);
         // SAFETY: target use is synchronous on the owning UI thread. Shared alive
         // rejects access after destruction; the caller retains target for surface use.

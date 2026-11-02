@@ -252,17 +252,24 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
         // A separate WM_CHAR (for example test text injection) remains a commit.
         WM_CHAR => {
             let unit = w as u16;
-            if (0xd800..=0xdbff).contains(&unit) {
-                state.pending_surrogate.set(Some(unit));
-            } else {
-                let text = if let Some(high) = state.pending_surrogate.take() {
-                    String::from_utf16_lossy(&[high, unit])
-                } else {
-                    String::from_utf16_lossy(&[unit])
-                };
-                if !text.chars().all(char::is_control) {
-                    state.event(ShellEvent::Commit(text));
+            let high = (0xd800..=0xdbff).contains(&unit);
+            let text = match (state.pending_surrogate.take(), high) {
+                (None, true) => {
+                    state.pending_surrogate.set(Some(unit));
+                    None
                 }
+                // The earlier high surrogate had no low one: it is reported, not lost.
+                (Some(_), true) => {
+                    state.pending_surrogate.set(Some(unit));
+                    Some("\u{fffd}".to_owned())
+                }
+                (Some(previous), false) => Some(String::from_utf16_lossy(&[previous, unit])),
+                (None, false) => Some(String::from_utf16_lossy(&[unit])),
+            };
+            if let Some(text) = text
+                && !text.chars().all(char::is_control)
+            {
+                state.event(ShellEvent::Commit(text));
             }
             Some(0)
         }

@@ -4,13 +4,13 @@ use crate::a11y::native::convert_update;
 use std::rc::Rc;
 pub(super) fn get_object(state: &Rc<super::state::State>, w: usize, l: isize) -> Option<isize> {
     let result = {
-        let mut slot = state.a11y.borrow_mut();
-        let bridge = slot.as_mut()?;
+        let mut slot = state.uia.borrow_mut();
+        let adapter = slot.as_mut()?;
         let mut activation = Activation {
-            tree: bridge.tree.clone(),
+            tree: state.a11y.clone(),
             waker: state.waker(),
         };
-        bridge.adapter.handle_wm_getobject(
+        adapter.handle_wm_getobject(
             accesskit_windows::WPARAM(w),
             accesskit_windows::LPARAM(l),
             &mut activation,
@@ -23,17 +23,16 @@ pub(super) fn get_object(state: &Rc<super::state::State>, w: usize, l: isize) ->
     })
 }
 pub(super) fn publish(state: &super::state::State) {
+    state.a11y.rescale(f64::from(state.shared.scale()));
+    if !state.a11y.has_pending(true) {
+        return;
+    }
     let events = {
-        let mut slot = state.a11y.borrow_mut();
-        let Some(bridge) = slot.as_mut() else { return };
-        let scale = f64::from(state.shared.scale());
-        bridge.tree.rescale(scale);
-        if !bridge.tree.has_pending(true) {
-            return;
-        }
-        bridge.adapter.update_if_active(|| {
-            bridge
-                .tree
+        let mut slot = state.uia.borrow_mut();
+        let Some(adapter) = slot.as_mut() else { return };
+        adapter.update_if_active(|| {
+            state
+                .a11y
                 .pending_with(true, convert_update)
                 .expect(crate::a11y::native::TREE_KEPT)
         })
@@ -44,10 +43,10 @@ pub(super) fn publish(state: &super::state::State) {
 }
 pub(super) fn focus(state: &super::state::State, focused: bool) {
     let events = state
-        .a11y
+        .uia
         .borrow_mut()
         .as_mut()
-        .and_then(|bridge| bridge.adapter.update_window_focus_state(focused));
+        .and_then(|adapter| adapter.update_window_focus_state(focused));
     if let Some(events) = events {
         events.raise();
     }
@@ -63,4 +62,6 @@ pub(super) fn disconnect(state: &super::state::State) {
             std::ptr::null_mut(),
         );
     }
+    // UI Automation never deactivates by itself: the reader is gone once its provider is.
+    state.a11y.deactivate();
 }

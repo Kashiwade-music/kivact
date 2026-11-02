@@ -5,10 +5,12 @@ type Proc = unsafe extern "system" fn() -> isize;
 type SetContext = unsafe extern "system" fn(isize) -> isize;
 type GetContext = unsafe extern "system" fn(HWND) -> isize;
 type GetDpi = unsafe extern "system" fn(HWND) -> u32;
-pub(super) struct Guard {
-    old: isize,
-    restore: Option<SetContext>,
+/// What undoes the thread's DPI context change.
+struct Restore {
+    set: SetContext,
+    old: std::num::NonZeroIsize,
 }
+pub(super) struct Guard(Option<Restore>);
 fn api(name: &[u8]) -> Option<Proc> {
     let user32: Vec<u16> = "user32.dll\0".encode_utf16().collect();
     // SAFETY: querying a loaded system module does not change its reference count.
@@ -34,26 +36,18 @@ impl Guard {
             let context = unsafe { get(parent) };
             // SAFETY: this alters only the current UI thread and saves its old context.
             let old = unsafe { set(context) };
-            Self {
-                old,
-                restore: Some(set),
-            }
+            Self(std::num::NonZeroIsize::new(old).map(|old| Restore { set, old }))
         } else {
-            Self {
-                old: 0,
-                restore: None,
-            }
+            Self(None)
         }
     }
 }
 impl Drop for Guard {
     fn drop(&mut self) {
-        if self.old != 0
-            && let Some(set) = self.restore
-        {
+        if let Some(restore) = &self.0 {
             // SAFETY: restore the exact previous context on this guard's creating thread.
             unsafe {
-                set(self.old);
+                (restore.set)(restore.old.get());
             }
         }
     }

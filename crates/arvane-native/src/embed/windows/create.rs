@@ -1,12 +1,13 @@
 //! Role: Validates the Win32 parent and creates the child window on its GUI thread.
 
 use super::native::{COMMAND, MAX_DIMENSION, Native};
-use super::state::State;
+use super::state::{Phase, ScaleSource, State};
 use crate::embed::child::{Handle, Shared};
 use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
+use std::num::NonZeroIsize;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use windows_sys::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, GetWindowThreadProcessId, IsWindow, PostMessageW, SW_SHOWNOACTIVATE,
@@ -62,19 +63,6 @@ pub(in crate::embed) fn open(
         scale,
         MAX_DIMENSION,
     )?;
-    let shared = Arc::new(Shared::new(width, height, scale, options.panic));
-    let native = Arc::new(Native {
-        hwnd: 0.into(),
-        ui_thread: std::thread::current().id(),
-        wake_pending: AtomicBool::new(false),
-    });
-    let state = Rc::new(State::new(
-        shared.clone(),
-        native.clone(),
-        instance,
-        options.scale.is_some(),
-        options.on_resize_request,
-    ));
     let guard = super::dpi::Guard::for_parent(parent.get());
     // SAFETY: STATIC is a system-owned class; creation receives no Rust state.
     let hwnd = unsafe {
@@ -94,11 +82,27 @@ pub(in crate::embed) fn open(
         )
     };
     drop(guard);
-    if hwnd == 0 {
-        shared.window_gone();
+    let Some(hwnd) = NonZeroIsize::new(hwnd) else {
         return Err(ShellError::new("CreateWindowExW failed"));
-    }
-    native.hwnd.store(hwnd, Ordering::Release);
+    };
+    let shared = Arc::new(Shared::new(width, height, scale, options.panic));
+    let native = Arc::new(Native {
+        hwnd,
+        ui_thread: std::thread::current().id(),
+        wake_pending: AtomicBool::new(false),
+    });
+    let state = Rc::new(State::new(
+        shared.clone(),
+        native.clone(),
+        instance,
+        if options.scale.is_some() {
+            ScaleSource::Host
+        } else {
+            ScaleSource::System
+        },
+        options.on_resize_request,
+    ));
+    let hwnd = hwnd.get();
     if let Err(error) = super::proc::attach(&state, hwnd) {
         state.destroy();
         return Err(error);
@@ -108,10 +112,10 @@ pub(in crate::embed) fn open(
     let opening = Opening::new(state.clone(), hwnd);
     // SAFETY: opt in only our newly created child to shell drop messages.
     unsafe { windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd, 1) };
-    state.a11y.replace(Some(super::bridge::Bridge::new(
+    state.uia.replace(Some(super::bridge::adapter(
         hwnd,
+        state.a11y.clone(),
         state.waker(),
-        f64::from(scale),
     )));
     if options.scale.is_none() {
         let actual = super::dpi::scale(hwnd);
@@ -145,15 +149,14 @@ pub(in crate::embed) fn open(
         .environment
         .replace(super::window::environment(&state));
     state.start(make);
-    let failure = shared.failure();
-    if let Some(error) = failure {
+    if let Some(error) = shared.failure() {
         return Err(error);
     }
     if shared.panicked() {
         return Err(ShellError::new("the embedded App panicked while opening"));
     }
     // The host may destroy the parent (and with it this child) while the App starts.
-    if !shared.alive() || state.closing.get() {
+    if shared.stopped() {
         return Err(ShellError::new(
             "the parent window was destroyed while the editor opened",
         ));
@@ -161,7 +164,7 @@ pub(in crate::embed) fn open(
     // Initialize UIA before visibility: showing a window can ask for its provider.
     // SAFETY: show only this live child, retaining the host's activation.
     unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
-    state.opening.set(false);
+    state.phase.set(Phase::Live);
     // Post queued start-time work: no host callback is entered during open.
     // SAFETY: the live child HWND belongs to this thread.
     unsafe {

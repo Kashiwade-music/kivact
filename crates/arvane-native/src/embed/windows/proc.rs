@@ -1,5 +1,5 @@
 //! Role: Win32 dispatch with an independently retained Rc on every entry.
-use super::state::State;
+use super::state::{Phase, ScaleSource, State};
 use arvane_shell::{ShellError, ShellEvent};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
@@ -53,7 +53,10 @@ pub(super) unsafe extern "system" fn wndproc(
             0
         }
     };
-    if state.shared.stopped() && !state.busy.get() && !state.closing.get() {
+    if state.shared.stopped()
+        && !state.in_callback.get()
+        && matches!(state.phase.get(), Phase::Opening | Phase::Live)
+    {
         state.stop();
     }
     if message == WM_NCDESTROY {
@@ -120,7 +123,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             0
         }
         WM_DPICHANGED_AFTERPARENT => {
-            if !state.explicit_scale.get() {
+            if state.scale_source.get() == ScaleSource::System {
                 state.shared.set_scale(super::dpi::scale(hwnd));
                 state.event(ShellEvent::Resized);
             }
@@ -167,21 +170,15 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             state.event(ShellEvent::Focused(focused));
             0
         }
-        WM_DESTROY | WM_NCDESTROY => {
-            if message == WM_DESTROY {
-                super::a11y::disconnect(state);
-            }
-            state.closing.set(true);
-            if !state.busy.get() {
-                state.dispose();
-            }
+        WM_DESTROY => {
+            // Dispose first: the handler's close (GPU shutdown) still sees a live window.
+            super::a11y::disconnect(state);
+            state.dispose();
             state.shared.window_gone();
-            if message == WM_NCDESTROY {
-                0
-            } else {
-                original(state, hwnd, message, w, l)
-            }
+            original(state, hwnd, message, w, l)
         }
+        // The tail of `wndproc` ends the child's life.
+        WM_NCDESTROY => 0,
         _ => {
             // The system control class can emit double-click messages. Our
             // ClickCounter counts repeated presses itself, so retain each down.

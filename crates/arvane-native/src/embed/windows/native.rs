@@ -1,7 +1,8 @@
 //! Role: Keep Win32 identity, message ids and the host-facing Backend below dispatch.
 use crate::embed::child::{Backend, Shared};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+use std::num::NonZeroIsize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::ThreadId;
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -11,13 +12,13 @@ pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
 pub(super) const TIMER: usize = 1;
 pub(super) struct Native {
-    pub(super) hwnd: AtomicIsize,
+    pub(super) hwnd: NonZeroIsize,
     pub(super) ui_thread: ThreadId,
     pub(super) wake_pending: AtomicBool,
 }
 impl Native {
     pub(super) fn hwnd(&self) -> HWND {
-        self.hwnd.load(Ordering::Acquire)
+        self.hwnd.get()
     }
 }
 /// Largest physical dimension a Win32 child window accepts (`i32` extents).
