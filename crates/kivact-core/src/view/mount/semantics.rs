@@ -132,7 +132,6 @@ pub(super) fn resolve(
         controls: bound(&sources.controls, at),
         labelled_by: bound(&sources.labelled_by, at),
         text: sources.text.as_ref().map(kivact_reactive::Prop::get),
-        ..Default::default()
     }
 }
 
