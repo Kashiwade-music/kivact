@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use kivact_reactive::Selector;
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owned, Owner, Runtime};
+use kivact_reactive::{Owner, Runtime};
 use kivact_reactive::{Signal, Value};
 use kivact_wire::{HostEnv, NodeId, PlatformResult};
 
@@ -22,16 +22,68 @@ use kivact_style::draw::Rect;
 use kivact_task::Completion;
 use kivact_wire::Capabilities;
 
+/// What a [`NodeRef`](super::NodeRef) is bound to.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Bound {
+    /// A host node.
+    Node(NodeId),
+    /// A canvas region of a host node, with that region's pointer hover.
+    Region {
+        node: NodeId,
+        region: kivact_style::draw::RegionId,
+        hovered: Value<bool>,
+    },
+}
+
+impl Bound {
+    /// The host node, whole or by region.
+    pub(crate) fn node(self) -> NodeId {
+        match self {
+            Bound::Node(node) | Bound::Region { node, .. } => node,
+        }
+    }
+
+    /// The focus target the binding names.
+    pub(crate) fn target(self) -> kivact_wire::FocusTarget {
+        match self {
+            Bound::Node(node) => kivact_wire::FocusTarget { node, region: None },
+            Bound::Region { node, region, .. } => kivact_wire::FocusTarget {
+                node,
+                region: Some(region),
+            },
+        }
+    }
+}
+
 /// What a [`NodeRef`](super::NodeRef) stores under its owner: the bound
 /// target and its reactive readers.
 pub(crate) struct NodeRefState {
     pub(crate) owner: Owner,
-    pub(crate) node: Cell<Option<kivact_wire::FocusTarget>>,
-    /// The binding for reactive readers and region bindings.
-    pub(crate) node_sig: Signal<Option<kivact_wire::FocusTarget>>,
+    /// The one source of the binding (`None` while unbound). Tracked readers `get` it;
+    /// untracked paths use `try_get_untracked`, where a disposed signal reads as unbound.
+    pub(crate) bound: Signal<Option<Bound>>,
+    /// `NodeRef::rect` was called: every node the ref binds to has its layout observed.
+    pub(crate) observes_layout: Cell<bool>,
     pub(crate) rect_value: Value<Option<Rect>>,
     pub(crate) scroll_value: Value<crate::draw::Point>,
-    pub(crate) regional_hover: Cell<Option<Value<bool>>>,
+}
+
+/// The node the host last reported under the pointer (`view::hover`).
+#[derive(Clone, Copy)]
+pub(crate) enum Hover {
+    /// No `NodeRef::hovered` asked yet: the last report as a plain value.
+    Plain(Option<NodeId>),
+    /// The graph source the first `NodeRef::hovered` created; it holds the last report.
+    Reactive(Signal<Option<NodeId>>),
+}
+
+/// A focus request made in this turn and not sent to the host yet.
+pub(crate) struct QueuedFocus {
+    pub(crate) id: u64,
+    pub(crate) target: kivact_wire::FocusTarget,
+    /// Whether the host shows a focus indicator for it.
+    pub(crate) visible: bool,
+    pub(crate) waiter: FocusWaiter,
 }
 
 /// The App's host environment: one signal holding the whole `HostEnv` the
@@ -129,12 +181,11 @@ pub(crate) enum EffectWaiter {
 #[derive(Default)]
 pub(crate) struct Requests {
     pub(crate) next_request: u64,
-    pub(crate) focus_waiters: HashMap<u64, FocusWaiter>,
-    /// Focus requests not sent yet: (node, request id).
-    pub(crate) pending_focus: Vec<(kivact_wire::FocusTarget, u64, bool)>,
+    /// Focus requests of this turn, in request order (`requests::flush_focus` sends or cancels each).
+    pub(crate) queued_focus: Vec<QueuedFocus>,
+    /// Focus requests sent to the host, by request id, until it answers.
+    pub(crate) sent_focus: HashMap<u64, FocusWaiter>,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
-    /// `NodeRef`s whose node is observed as soon as they are bound.
-    pub(crate) observe_on_bind: Vec<Owned<NodeRefState>>,
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_wire::FocusTarget>,
@@ -162,9 +213,7 @@ pub(crate) struct ViewState {
     /// The keyboard focus source, once the root is mounted.
     focus: Cell<Option<FocusKeys>>,
     /// The node the host reported under the pointer last.
-    hovered: Cell<Option<NodeId>>,
-    /// The hover source, once the first `NodeRef::hovered` created it.
-    hover: Cell<Option<Signal<Option<NodeId>>>>,
+    hover: Cell<Hover>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<bool>,
@@ -188,8 +237,7 @@ impl ViewState {
             capabilities: Cell::new(Capabilities::default()),
             noted_missing: RefCell::new(std::collections::BTreeSet::new()),
             focus: Cell::new(None),
-            hovered: Cell::new(None),
-            hover: Cell::new(None),
+            hover: Cell::new(Hover::Plain(None)),
             pointer_modality: Cell::new(false),
             requests: RefCell::new(Requests::default()),
         }
@@ -207,10 +255,9 @@ impl ViewState {
     pub(crate) fn release_capacity(&self) {
         self.tree.borrow_mut().release_capacity();
         let mut requests = self.requests.borrow_mut();
-        requests.focus_waiters.shrink_to_fit();
-        requests.pending_focus.shrink_to_fit();
+        requests.queued_focus.shrink_to_fit();
+        requests.sent_focus.shrink_to_fit();
         requests.effects.shrink_to_fit();
-        requests.observe_on_bind.shrink_to_fit();
         requests.pending_activations.shrink_to_fit();
     }
 
@@ -271,16 +318,6 @@ impl ViewState {
         self.focus.set(Some(keys));
     }
 
-    /// The node the host reported under the pointer last.
-    pub(crate) fn hovered(&self) -> Option<NodeId> {
-        self.hovered.get()
-    }
-
-    /// Record the node the host reported under the pointer.
-    pub(crate) fn set_hovered(&self, node: Option<NodeId>) {
-        self.hovered.set(node);
-    }
-
     /// Whether the last key or pointer press was a pointer press.
     pub(crate) fn pointer_modality(&self) -> bool {
         self.pointer_modality.get()
@@ -291,13 +328,13 @@ impl ViewState {
         self.pointer_modality.set(pointer);
     }
 
-    /// The hover source (`None` until the first `NodeRef::hovered`).
-    pub(crate) fn hover(&self) -> Option<Signal<Option<NodeId>>> {
+    /// The node the host reported under the pointer last.
+    pub(crate) fn hover(&self) -> Hover {
         self.hover.get()
     }
 
-    /// Install the hover source (its first use).
-    pub(crate) fn set_hover(&self, node: Signal<Option<NodeId>>) {
-        self.hover.set(Some(node));
+    /// Replace the hover record (a report, or the first `NodeRef::hovered`).
+    pub(crate) fn set_hover(&self, hover: Hover) {
+        self.hover.set(hover);
     }
 }

@@ -208,9 +208,7 @@ impl HostNode {
         self.input_data().and_then(|d| d.read_only).unwrap_or(false)
     }
     pub(crate) fn max_length(&self) -> Option<usize> {
-        self.input_data()?
-            .max_length
-            .filter(|max| *max != usize::MAX)
+        self.input_data()?.max_length
     }
     pub(crate) fn placeholder(&self) -> &str {
         self.input_data()

@@ -80,6 +80,13 @@ pub(crate) type BindHighlight = Box<dyn FnOnce(HighlightAt)>;
 /// The resulting editor is a native leaf: children and custom drawing are
 /// unsupported. Canvas regions cannot carry an editing attachment.
 pub struct TextEditing {
+    pub(crate) props: EditorProps,
+    pub(crate) on_edit: Option<Rc<dyn Fn(TextEditEvent) -> kivact_reactive::Result<()>>>,
+    pub(crate) on_selection: Option<SessionHandler>,
+}
+
+/// The editor settings a mounted editing node binds (`mount::editing::bind`).
+pub(crate) struct EditorProps {
     pub(crate) behavior: Option<Rc<Behavior>>,
     pub(crate) highlight: Option<BindHighlight>,
     pub(crate) forward_keys: Option<InputProp<Vec<kivact_wire::Key>>>,
@@ -88,13 +95,9 @@ pub struct TextEditing {
     pub(crate) report_text: bool,
     pub(crate) password: Option<InputProp<bool>>,
     pub(crate) read_only: Option<InputProp<bool>>,
-    pub(crate) max_length: Option<InputProp<usize>>,
+    /// The longest text, in Unicode scalars; no source, or a source reading `None`: no limit.
+    pub(crate) max_length: Option<InputProp<Option<usize>>>,
     pub(crate) placeholder: Option<InputProp<String>>,
-    pub(crate) on_edit: Option<Rc<dyn Fn(TextEditEvent) -> kivact_reactive::Result<()>>>,
-    pub(crate) on_selection: Option<SessionHandler>,
-    /// An `on_selection` handler was attached (the engine reports the
-    /// session).
-    pub(crate) reports_session: bool,
 }
 
 /// What [`TextEditing::on_selection`] runs.

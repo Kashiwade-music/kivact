@@ -52,9 +52,6 @@ impl Screen {
                 reach += 1;
                 if n.is_host() {
                     hosts.push(id);
-                    if !n.live {
-                        errs.push(format!("core host node {} reachable but not live", id.0));
-                    }
                 }
                 stack.extend(n.children.iter().copied());
             }

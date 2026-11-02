@@ -12,6 +12,7 @@ use kivact_wire::{IntrinsicSize, NodeId};
 use crate::view::descriptor::Mcx;
 use crate::view::part_data::PartBinding;
 use crate::view::tree::Handlers;
+use crate::view::{MouseButton, PointerEvent, PointerId};
 use crate::{Signal, Value};
 use kivact_style::Style;
 use kivact_style::asset::ImageFit;
@@ -52,8 +53,9 @@ pub(crate) struct Common {
     pub checked: Option<InputProp<bool>>,
     /// Expanded state (disclosures).
     pub expanded: Option<InputProp<bool>>,
-    /// Focusability (a builder sets its own before the user's modifiers).
-    pub focusable: Option<bool>,
+    /// Focusability, constant or reactive (a builder sets its own before the
+    /// user's modifiers).
+    pub focusable: Option<InputProp<bool>>,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<bool>,
     /// Native pointer focus destination, resolved through the reference binding.
@@ -120,9 +122,17 @@ pub(crate) enum Declaration {
     Collection(Collection),
 }
 
+/// Which target of a node attached-part input goes to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum TargetId {
+    /// The node itself.
+    Root,
+    /// One adoption of a canvas region (a re-adopted region is a new target).
+    Region { region: RegionId, generation: u64 },
+}
+
 pub(super) struct Target {
-    pub(super) generation: u64,
-    pub(super) region: Option<RegionId>,
+    pub(super) id: TargetId,
     pub(super) owner: Owner,
     pub(super) runtime: Weak<Runtime>,
     /// The lists hold the target's observers and part defaults (the node's
@@ -134,6 +144,14 @@ pub(super) struct Target {
 }
 
 impl Target {
+    /// The canvas region this target is, if it is not the node itself.
+    pub(super) fn region(&self) -> Option<RegionId> {
+        match self.id {
+            TargetId::Root => None,
+            TargetId::Region { region, .. } => Some(region),
+        }
+    }
+
     pub(super) fn live(&self) -> bool {
         self.runtime.upgrade().is_some() && self.owner.is_alive()
     }
@@ -156,6 +174,9 @@ pub(super) struct Entry {
     pub(super) generation: u64,
     pub(super) item_owner: Owner,
     pub(super) template: Common,
+    /// `None` while the entry is not adopted: before its first adoption, and
+    /// while an earlier duplicate shadows it (it is adopted again when the
+    /// duplicate goes).
     pub(super) adopted: RefCell<Option<Rc<Adopted>>>,
 }
 
@@ -170,18 +191,59 @@ pub(super) struct State {
     pub(super) retired: Vec<Owner>,
 }
 
+/// Whether the node of a registry has finished mounting.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum RegistryPhase {
+    /// Adopted regions wait for `Registry::bind` to bind their references and hooks.
+    Mounting,
+    /// A region adopted from now on binds at once.
+    Mounted,
+}
+
 /// One canvas identity owns this lookup for its entire mounted lifetime.
 pub(crate) struct Registry {
     pub(super) node: NodeId,
-    pub(super) owner: Owner,
-    pub(super) runtime: Weak<Runtime>,
-    pub(super) parent: Constraints,
+    /// The node's own target; its owner, runtime and final constraints are the registry's.
+    pub(super) root: Rc<Target>,
     pub(super) at: &'static Location<'static>,
     pub(super) state: RefCell<State>,
     pub(super) revision: Signal<u64>,
     pub(super) changed: Signal<u64>,
-    pub(super) ready: Cell<bool>,
-    pub(super) cancel: RefCell<Option<Rc<dyn Fn(u64)>>>,
+    pub(super) phase: Cell<RegistryPhase>,
+    /// The pointer gestures on the node and its regions (`mount::part_pointer`).
+    pub(super) gestures: RefCell<Gestures>,
+}
+
+/// The pointer gestures of a node with parts (`mount::part_pointer`).
+#[derive(Default)]
+pub(super) struct Gestures {
+    pub(super) hover: PrimaryHover,
+    /// The capture of each pointer with a button held, in press order.
+    pub(super) captures: Vec<Capture>,
+    /// The last event of a primary pointer.
+    pub(super) last: Option<PointerEvent>,
+}
+
+/// Where the primary pointer is.
+#[derive(Default)]
+pub(super) enum PrimaryHover {
+    #[default]
+    Outside,
+    /// Inside the node, over this enabled target (or none).
+    Inside(Option<Rc<Target>>),
+}
+
+pub(super) struct Capture {
+    pub(super) pointer: PointerId,
+    /// `None`: the gesture has no target until its release (pressed over no
+    /// enabled target, or cancelled).
+    pub(super) target: Option<Rc<Target>>,
+    pub(super) buttons: Vec<MouseButton>,
+    /// The pointer's last event, for a `Cancel` the part sends itself.
+    pub(super) last: PointerEvent,
+    /// The button whose press the node's region fallback consumed: the
+    /// fallback's gesture ends with its release or a cancel.
+    pub(super) fallback: Option<MouseButton>,
 }
 
 /// Final values are shared by publication, input gating, and every bind hook.
@@ -197,7 +259,6 @@ pub(super) struct Constraints {
 
 #[derive(Clone, Default)]
 pub(crate) struct SemanticSources {
-    pub(crate) focusable: Option<InputProp<bool>>,
     pub(crate) indeterminate: Option<InputProp<bool>>,
     pub(crate) value_min: Option<InputProp<f64>>,
     pub(crate) value_max: Option<InputProp<f64>>,

@@ -82,7 +82,7 @@ pub(super) fn drain(rt: &Runtime, phase: Phase<'_>) -> Drained {
                 let tree = ViewState::tree(rt);
                 host.asset_failures
                     .borrow_mut()
-                    .retain(|(id, _)| tree.is_live(*id));
+                    .retain(|(id, _)| tree.contains(*id));
             }
             let revision = writer.stats().revision;
             rt.mounts()

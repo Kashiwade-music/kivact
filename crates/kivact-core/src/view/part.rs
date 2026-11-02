@@ -73,13 +73,16 @@ use crate::{Signal, Value, memo, on_cleanup, signal};
 /// Actual input and availability state of an attached node or canvas region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PartState {
-    /// A primary pointer or focused activation key is held down.
+    /// A primary pointer or focused activation key is held down. Always
+    /// `false` while the target is disabled or hidden.
     pub pressed: bool,
-    /// The pointer is over this exact target.
+    /// The pointer is over this exact target. Always `false` while the
+    /// target is disabled or hidden.
     pub hovered: bool,
     /// This exact target has keyboard focus.
     pub focused: bool,
     /// The host requests a visible focus indication for this exact target.
+    /// Implies `focused`.
     pub focus_visible: bool,
     /// A caller or attached behavior disables this target.
     pub disabled: bool,
@@ -446,7 +449,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     ///
     /// Same as [`NodeBuilder::focusable`](crate::control::NodeBuilder::focusable).
     pub fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
-        self.common.set_focusable(on.into_prop());
+        self.common.focusable = Some(on.into_prop());
         self
     }
 

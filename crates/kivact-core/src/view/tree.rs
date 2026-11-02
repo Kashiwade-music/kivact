@@ -104,6 +104,28 @@ impl Handlers {
     pub(crate) fn actions(&self) -> Vec<A11yAction> {
         offered_actions(self.activate.is_some(), &self.a11y)
     }
+
+    /// Add a layout observer after the ones already there (all run, in registration order).
+    pub(crate) fn observe_layout(&mut self, f: impl Fn(Rect, Size) + 'static) {
+        let previous = self.layout.take();
+        self.layout = Some(Rc::new(move |bounds, size| {
+            if let Some(previous) = &previous {
+                previous(bounds, size);
+            }
+            f(bounds, size);
+        }));
+    }
+
+    /// Add a scroll observer after the ones already there (all run, in registration order).
+    pub(crate) fn observe_scroll(&mut self, f: impl Fn(ScrollState) + 'static) {
+        let previous = self.scroll.take();
+        self.scroll = Some(Rc::new(move |state| {
+            if let Some(previous) = &previous {
+                previous(state);
+            }
+            f(state);
+        }));
+    }
 }
 
 /// The activation, text and accessibility-action defaults of the parts
@@ -202,8 +224,6 @@ pub(crate) struct TNode {
     pub parent: Option<NodeId>,
     /// Child nodes in order, fragments included (see `parent`).
     pub children: Vec<NodeId>,
-    /// Created on the host (not yet removed).
-    pub live: bool,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
     /// Where the builder of a host node was called (`#[track_caller]` of
@@ -275,7 +295,6 @@ impl Tree {
                 kind,
                 parent: None,
                 children: Vec::new(),
-                live: true,
                 owner,
                 at: None,
                 handlers: None,
@@ -347,27 +366,17 @@ impl Tree {
             scene_revision: node.owner.trigger(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
-        let previous = handlers.layout.take();
         let rect = observation.rect;
-        handlers.layout = Some(Rc::new(move |bounds, size| {
-            if let Some(previous) = &previous {
-                previous(bounds, size);
-            }
+        handlers.observe_layout(move |bounds, _| {
             rect.set(Some(crate::draw::Rect::new(
                 bounds.x,
                 bounds.y,
                 bounds.width,
                 bounds.height,
             )));
-        }));
-        let previous = handlers.scroll.take();
+        });
         let scroll = observation.scroll;
-        handlers.scroll = Some(Rc::new(move |state| {
-            if let Some(previous) = &previous {
-                previous(state);
-            }
-            scroll.set(state.offset);
-        }));
+        handlers.observe_scroll(move |state| scroll.set(state.offset));
         node.observation = Some(observation);
         Some(observation)
     }
@@ -581,9 +590,10 @@ impl Tree {
         })
     }
 
-    /// Whether node `id` exists on the host.
-    pub(crate) fn is_live(&self, id: NodeId) -> bool {
-        self.nodes.get(&id).is_some_and(|n| n.live)
+    /// Whether node `id` has a record: it was created and not removed (it may be a
+    /// detached list row not inserted yet).
+    pub(crate) fn contains(&self, id: NodeId) -> bool {
+        self.nodes.contains_key(&id)
     }
 
     /// Nearest host ancestor (the node itself excluded).
@@ -665,13 +675,10 @@ impl Tree {
             Some(i) if i < p.children.len() => p.children.insert(i, child),
             _ => p.children.push(child),
         }
-        let parent_live = p.live;
         if let Some(c) = self.nodes.get_mut(&child) {
             c.parent = Some(parent);
         }
-        if parent_live {
-            self.attach_writes(child);
-        }
+        self.attach_writes(child);
     }
 
     /// Attach the top host nodes of a newly linked subtree.
@@ -711,14 +718,12 @@ impl Tree {
         let Some(n) = self.nodes.get(&id) else {
             return Removed(Vec::new());
         };
-        let (parent, live) = (n.parent, n.live);
-        if live {
-            let mut tops = Vec::new();
-            self.top_hosts(id, &mut tops);
-            for h in tops {
-                self.removes = true;
-                self.engine().remove(h);
-            }
+        let parent = n.parent;
+        let mut tops = Vec::new();
+        self.top_hosts(id, &mut tops);
+        for h in tops {
+            self.removes = true;
+            self.engine().remove(h);
         }
         if let Some(p) = parent.and_then(|p| self.nodes.get_mut(&p))
             && let Some(pos) = p.children.iter().position(|c| *c == id)
@@ -733,13 +738,11 @@ impl Tree {
     /// deleted records come back, as from [`Tree::remove`].
     #[must_use = "drop the removed records after the tree borrow ends"]
     pub(crate) fn remove_unlinked(&mut self, id: NodeId) -> Removed {
-        if self.is_live(id) {
-            let mut tops = Vec::new();
-            self.top_hosts(id, &mut tops);
-            for h in tops {
-                self.removes = true;
-                self.engine().remove(h);
-            }
+        let mut tops = Vec::new();
+        self.top_hosts(id, &mut tops);
+        for h in tops {
+            self.removes = true;
+            self.engine().remove(h);
         }
         self.delete_records(id)
     }

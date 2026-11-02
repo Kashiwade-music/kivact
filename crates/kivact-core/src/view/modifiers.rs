@@ -37,8 +37,6 @@
 
 use std::rc::Rc;
 
-use kivact_reactive::Prop as InputProp;
-
 use crate::view::common::{Common, SemanticSources};
 use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
 use crate::view::{A11yAction, A11yEvent, HandlerResult};
@@ -49,19 +47,6 @@ impl Common {
     /// The rarely allocated box of extra semantic sources.
     pub(crate) fn semantics_mut(&mut self) -> &mut SemanticSources {
         self.semantics.get_or_insert_with(Default::default)
-    }
-
-    /// `focusable`: a constant is stored with the node's create properties;
-    /// only a reactive value uses the rare source box.
-    pub(crate) fn set_focusable(&mut self, source: InputProp<bool>) {
-        if let Some(on) = source.fixed() {
-            self.focusable = Some(on);
-            if let Some(semantics) = self.semantics.as_mut() {
-                semantics.focusable = None;
-            }
-        } else {
-            self.semantics_mut().focusable = Some(source);
-        }
     }
 
     /// `on_key`: run before the key handlers already registered.

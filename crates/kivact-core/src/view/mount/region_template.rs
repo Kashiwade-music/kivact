@@ -35,7 +35,7 @@ pub(super) fn instantiate(source: &Common) -> Common {
         semantics: source.semantics.clone(),
         checked: source.checked.clone(),
         expanded: source.expanded.clone(),
-        focusable: source.focusable,
+        focusable: source.focusable.clone(),
         focus_on_press: source.focus_on_press,
         handlers: handlers(&source.handlers),
         part_constraints: source.part_constraints.clone(),

@@ -27,9 +27,11 @@ mod parts;
 pub(crate) mod region_collection;
 mod region_template;
 pub(crate) mod regions;
+mod resolve;
 mod semantics;
 mod style;
 use super::common::Common;
+use resolve::Resolved;
 
 use kivact_wire::{LayoutProps, NodeId, NodeType};
 
@@ -52,43 +54,50 @@ pub(crate) fn mount_host(
 /// style is resolved even without layers) before it is set.
 /// `virtual_list` keeps its vertical scroll this way.
 ///
-/// A node is mounted in stages, each taking its own fields out of the
-/// `Common` (the order matters: handlers are routed before the listener
-/// flags are read, the node's first write comes before any binding, and
-/// the references and bind hooks come last):
-/// 1. `editing::compose_callbacks`: text edit callbacks.
-/// 2. `attachments::bind`: parts and canvas regions.
-/// 3. `create::write`: listener flags and the first write.
-/// 4. `semantics::bind_props`: semantics and image properties.
-/// 5. `style::bind_states`: disabled and selected.
-/// 6. `style::bind_node_style`: the style effect.
-/// 7. `draw::bind`: the draw effect.
-/// 8. `semantics::bind_late` and `editing::bind_session`: the node's own text
-///    and its IME session.
+/// `resolve::resolve` consumes the declared `Common` once and hands each stage its own input
+/// (`Resolved`), so no stage reads a field another stage took or rewrote. What remains is the
+/// order the effects are created in:
+/// 1. `create::write`: the first write (handlers, listener flags, focusability, text editing).
+/// 2. `semantics::bind_props`: semantics and image properties.
+/// 3. `style::bind_states`: disabled and selected.
+/// 4. `style::bind_node_style`: the style effect.
+/// 5. `draw::bind`: the draw effect.
+/// 6. `semantics::bind_late` and `editing::bind_session`: effects that read what the drawing made.
+/// 7. `attachments::finish`: references, part hooks and regions, after every handler is installed.
 pub(crate) fn mount_host_with(
     cx: &Mcx<'_>,
     kind: NodeType,
-    mut c: Common,
+    c: Common,
     at: &'static Location<'static>,
     fix_layout: Option<fn(&mut LayoutProps)>,
 ) -> NodeId {
     // `.at(..)` replaces the builder's call site.
-    let at = c.at.take().unwrap_or(at);
-    parts::reject_modal(&mut c, cx, at);
-    diagnostics::report_unreachable_press(&c, cx, at);
+    let at = c.at.unwrap_or(at);
     let id = cx.host(kind);
-    editing::compose_callbacks(&mut c);
-    let mut attachments = attachments::bind(&mut c, cx, id, at);
-    let actions = std::mem::take(&mut attachments.actions);
-    let facts = create::write(cx, id, kind, &mut c, actions, at);
-    semantics::bind_props(cx, id, &mut c, at);
-    let states = style::bind_states(cx, id, &mut c, at);
-    style::bind_node_style(cx, id, &mut c, &facts, states, fix_layout, at);
-    draw::bind(cx, id, &mut c, &facts, attachments.regions(), at);
-    semantics::bind_late(cx, id, &mut c, at);
-    if let Some(session) = c.ime.take() {
+    let Resolved {
+        first,
+        semantics,
+        disabled,
+        selected,
+        style,
+        facts,
+        draw,
+        late_semantics,
+        ime,
+        refs,
+        attached,
+    } = resolve::resolve(cx, id, kind, c, at);
+    create::write(cx, id, first, at);
+    semantics::bind_props(cx, id, semantics, at);
+    let states = style::bind_states(cx, id, disabled, selected, at);
+    style::bind_node_style(cx, id, style, &facts, states, fix_layout, at);
+    if let Some(draw) = draw {
+        draw::bind(cx, id, draw, at);
+    }
+    semantics::bind_late(cx, id, late_semantics, at);
+    if let Some(session) = ime {
         editing::bind_session(cx, id, session, at);
     }
-    attachments.finish(cx, id, &mut c, at);
+    attachments::finish(cx, id, refs, attached, at);
     id
 }

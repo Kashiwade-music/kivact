@@ -10,7 +10,7 @@ use kivact_style::{Interactive, Style};
 use kivact_wire::{LayoutProps, NodeId, NodeType};
 
 use super::facts::{LocalPaintSource, NodeFacts};
-use crate::view::common::{Common, StyleLayer};
+use crate::view::common::StyleLayer;
 use crate::view::descriptor::Mcx;
 use crate::view::state::ViewState;
 
@@ -27,37 +27,31 @@ pub(super) struct States {
     selected: Option<Rc<dyn Fn() -> bool>>,
 }
 
-/// Stage 5: bind disabled and selected, which feed both semantics and the
+/// Stage 3: bind disabled and selected, which feed both semantics and the
 /// state styles.
 pub(super) fn bind_states(
     cx: &Mcx<'_>,
     id: NodeId,
-    c: &mut Common,
+    disabled: Option<InputProp<bool>>,
+    selected: Option<InputProp<bool>>,
     at: &'static Location<'static>,
 ) -> States {
-    let disabled = c
-        .disabled
-        .take()
-        .map(|s| bind_state(cx, id, s, PropValue::Disabled, at));
-    let selected = c
-        .selected
-        .take()
-        .map(|s| bind_state(cx, id, s, PropValue::Selected, at));
+    let disabled = disabled.map(|s| bind_state(cx, id, s, PropValue::Disabled, at));
+    let selected = selected.map(|s| bind_state(cx, id, s, PropValue::Selected, at));
     States { disabled, selected }
 }
 
-/// Stage 6: bind the style effect when the node has style layers, owns part
+/// Stage 4: bind the style effect when the node has style layers, owns part
 /// of its layout, or is a focus stop (which gets the theme's focus ring).
 pub(super) fn bind_node_style(
     cx: &Mcx<'_>,
     id: NodeId,
-    c: &mut Common,
+    layers: Vec<StyleLayer>,
     facts: &NodeFacts,
     states: States,
     fix_layout: Option<fn(&mut LayoutProps)>,
     at: &'static Location<'static>,
 ) {
-    let layers = std::mem::take(&mut c.style);
     if !layers.is_empty() || fix_layout.is_some() || facts.focus_stop {
         let style = NodeStyle {
             layers,
@@ -117,8 +111,6 @@ pub(crate) fn bind_style(
     let reported_text = std::cell::Cell::new(false);
     let reported_local_paint = std::cell::Cell::new(false);
     let reported_leaf_paint = std::cell::Cell::new(false);
-    let had_text = std::cell::Cell::new(false);
-    let had_states = std::cell::Cell::new(false);
     let theme = cx.theme();
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
@@ -173,18 +165,12 @@ pub(crate) fn bind_style(
         let mut tree = ViewState::tree_mut(&rt);
         tree.update(id, PropValue::Layout(layout), writer);
         tree.update(id, PropValue::Paint(resolved.paint), writer);
-        if let Some(t) = resolved.text {
-            had_text.set(true);
-            tree.update(id, PropValue::TextStyle(Some(t)), writer);
-        } else if had_text.replace(false) {
-            tree.update(id, PropValue::TextStyle(None), writer);
-        }
-        if let Some(st) = resolved.states {
-            had_states.set(true);
-            tree.update(id, PropValue::States(st), writer);
-        } else if had_states.replace(false) {
-            tree.update(id, PropValue::States(Default::default()), writer);
-        }
+        tree.update(id, PropValue::TextStyle(resolved.text), writer);
+        tree.update(
+            id,
+            PropValue::States(resolved.states.unwrap_or_default()),
+            writer,
+        );
         drop(tree);
         if resolved.unsupported_local_paint > 0 && !reported_local_paint.replace(true) {
             rt.report(
