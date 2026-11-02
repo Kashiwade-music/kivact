@@ -160,3 +160,56 @@ fn escape_stops_the_drag_and_cancels_only_a_begun_edit() {
     assert_eq!(log.borrow().edits.len(), 2);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_drag_during_an_edit_it_did_not_begin_leaves_that_edit_open() {
+    let log = Shared::default();
+    let seen = log.clone();
+    let (screen, x) = mount_with(real_window(), move || {
+        let x = signal(0.0_f32);
+        let edits = seen.clone();
+        let edit = EditSession::new(move |start| x.set(start))
+            .on_edit(move |phase| edits.borrow_mut().edits.push((phase, x.get_untracked())));
+        let source = use_drag::<()>(DragCoordinates::Window)
+            .edit(edit, move || x.get_untracked())
+            .on_update(move |update: DragUpdate<()>| x.set(update.delta.x))
+            .source(());
+        let button = |name: &'static str| {
+            node()
+                .role(Role::Button)
+                .name(name)
+                .test_id(name)
+                .focusable(true)
+                .style(style().size(100, 30).shrink(0))
+        };
+        (
+            x,
+            column((
+                button("Begin").on_press(move || edit.begin(x.get_untracked())),
+                button("Commit").on_press(move || edit.commit()),
+                node()
+                    .test_id("stepper")
+                    .name("Stepper")
+                    .focusable(true)
+                    .style(style().size(100, 40))
+                    .part(source),
+            )),
+        )
+    });
+    screen.get_by_test_id("Begin").click();
+    assert_eq!(log.borrow().edits, [(Begin, 0.0)]);
+    let at = center(&screen);
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(at.x + 20.0, at.y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(x.get_untracked(), 20.0);
+    assert_eq!(
+        log.borrow().edits,
+        [(Begin, 0.0)],
+        "the drag joined the edit and left it open"
+    );
+    screen.get_by_test_id("Commit").click();
+    assert_eq!(log.borrow().edits, [(Begin, 0.0), (Commit, 20.0)]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

@@ -27,6 +27,7 @@ mod image_semantics;
 mod input_platform;
 mod interaction_calendar;
 mod interaction_combobox;
+mod interaction_delayed;
 mod interaction_dialog;
 mod interaction_drag_edit;
 mod interaction_edit;

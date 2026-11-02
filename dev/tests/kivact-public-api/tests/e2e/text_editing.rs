@@ -390,3 +390,23 @@ fn on_composition_change_reports_each_change_of_the_composing_state() {
         );
     }
 }
+
+#[test]
+fn a_max_length_set_after_the_control_is_made_limits_the_text() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let screen = render(move || {
+        let value = signal(String::new());
+        tx.send(value).expect("the test waits");
+        let editing = use_text_edit(value);
+        let control = editing.control();
+        // The limit comes after the control, as a kit's builder does.
+        let _ = editing.max_length(3usize);
+        node().name("Limited").part(control)
+    });
+    let value = rx.recv().expect("the view sent its value");
+    let field = screen.get_by_role(Role::TextBox, "Limited");
+    field.focus();
+    screen.type_text("abcde");
+    assert_eq!(value.get_untracked(), "abc");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
