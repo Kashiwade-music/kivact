@@ -76,7 +76,7 @@ impl Bridge {
                 // The host can destroy its parent after the event queue was
                 // drained. A checked reply can observe that before DestroyNotify.
                 native
-                    .alive
+                    .exists
                     .store(false, std::sync::atomic::Ordering::Release);
                 return Ok(());
             }

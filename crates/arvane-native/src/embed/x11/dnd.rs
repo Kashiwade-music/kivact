@@ -177,7 +177,7 @@ impl Dnd {
                         Err(error) if super::error::destroyed(&error, native.id.get()) => {
                             // The host destroyed our parent: a close, not a failure.
                             native
-                                .alive
+                                .exists
                                 .store(false, std::sync::atomic::Ordering::Release);
                             self.forget();
                             return Ok(out);

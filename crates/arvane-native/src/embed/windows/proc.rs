@@ -57,7 +57,7 @@ pub(super) unsafe extern "system" fn wndproc(
         state.stop();
     }
     if message == WM_NCDESTROY {
-        state.shared.alive.store(false, Ordering::Release);
+        state.shared.window_gone();
         detach(&state, hwnd);
         return original(&state, hwnd, message, w, l);
     }
@@ -121,7 +121,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
         }
         WM_DPICHANGED_AFTERPARENT => {
             if !state.explicit_scale.get() {
-                state.shared.set_scale_value(super::dpi::scale(hwnd));
+                state.shared.set_scale(super::dpi::scale(hwnd));
                 state.event(ShellEvent::Resized);
             }
             0
@@ -175,7 +175,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             if !state.busy.get() {
                 state.dispose();
             }
-            state.shared.alive.store(false, Ordering::Release);
+            state.shared.window_gone();
             if message == WM_NCDESTROY {
                 0
             } else {
@@ -203,7 +203,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
 /// Fall through to the system procedure after App code ran; the host may have
 /// destroyed the window meanwhile, and a dead HWND takes no further processing.
 fn original_if_alive(state: &State, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
-    if state.shared.alive.load(Ordering::Acquire) {
+    if state.shared.alive() {
         original(state, hwnd, message, w, l)
     } else {
         0

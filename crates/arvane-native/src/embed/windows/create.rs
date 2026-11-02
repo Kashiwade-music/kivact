@@ -95,7 +95,7 @@ pub(in crate::embed) fn open(
     };
     drop(guard);
     if hwnd == 0 {
-        shared.alive.store(false, Ordering::Release);
+        shared.window_gone();
         return Err(ShellError::new("CreateWindowExW failed"));
     }
     native.hwnd.store(hwnd, Ordering::Release);
@@ -116,7 +116,7 @@ pub(in crate::embed) fn open(
     if options.scale.is_none() {
         let actual = super::dpi::scale(hwnd);
         if actual != scale {
-            shared.set_scale_value(actual);
+            shared.set_scale(actual);
             let (width, height) = crate::embed::geometry::physical_size(
                 kivact_types::Size {
                     width: options.width,
@@ -153,7 +153,7 @@ pub(in crate::embed) fn open(
         return Err(ShellError::new("the embedded App panicked while opening"));
     }
     // The host may destroy the parent (and with it this child) while the App starts.
-    if !shared.alive.load(Ordering::Acquire) || state.closing.get() {
+    if !shared.alive() || state.closing.get() {
         return Err(ShellError::new(
             "the parent window was destroyed while the editor opened",
         ));

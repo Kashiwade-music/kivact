@@ -34,7 +34,7 @@ impl Backend for Arc<Native> {
         // The App runs on the host GUI thread; its panic is kept by `wndproc`.
     }
     fn close(&self, shared: &Shared) {
-        if !shared.alive.load(Ordering::Acquire) {
+        if !shared.alive() {
             return;
         }
         // `request_close` already ran; the window procedure's stop check turns
@@ -60,13 +60,13 @@ impl Backend for Arc<Native> {
                     &mut result,
                 )
             };
-            if sent == 0 && shared.alive.load(Ordering::Acquire) {
+            if sent == 0 && shared.alive() {
                 crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::module::retain_module();
                 tracing::warn!(target: "kivact", "embedded Win32 UI thread did not stop within two seconds; detaching");
             }
         }
-        if shared.alive.load(Ordering::Acquire) {
+        if shared.alive() {
             // Cleanup still runs our code after this drop returns (a busy App
             // callback defers it), so keep the module mapped even if the host
             // unloads immediately.

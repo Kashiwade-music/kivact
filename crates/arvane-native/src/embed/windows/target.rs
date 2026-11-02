@@ -12,7 +12,7 @@ pub(super) struct Target {
 }
 impl HasWindowHandle for Target {
     fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
-        if !self.shared.alive.load(std::sync::atomic::Ordering::Acquire) {
+        if !self.shared.alive() {
             return Err(HandleError::Unavailable);
         }
         let mut handle = Win32WindowHandle::new(

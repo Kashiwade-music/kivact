@@ -182,10 +182,10 @@ impl ShellWindow for Window {
             .is_some_and(|bridge| bridge.tree.active())
     }
     fn size(&self) -> Size {
-        let (w, h) = self.physical_size();
+        let applied = self.0.shared.applied();
         Size {
-            width: w as f32 / self.scale(),
-            height: h as f32 / self.scale(),
+            width: applied.width as f32 / applied.scale,
+            height: applied.height as f32 / applied.scale,
         }
     }
     fn physical_size(&self) -> (u32, u32) {
@@ -208,7 +208,7 @@ impl ShellWindow for Window {
         Some(1)
     }
     fn request_redraw(&self) {
-        if self.0.shared.alive.load(Ordering::Acquire) {
+        if self.0.shared.alive() {
             // SAFETY: invalidation only targets our live child; callback dispatch is deferred.
             unsafe {
                 InvalidateRect(self.0.native.hwnd(), std::ptr::null(), 0);
@@ -268,7 +268,7 @@ impl ShellWindow for Window {
         height: u32,
         draw: &mut dyn FnMut(&mut [u32]) -> bool,
     ) -> Result<bool, ShellError> {
-        if width == 0 || height == 0 || !self.0.shared.alive.load(Ordering::Acquire) {
+        if width == 0 || height == 0 || !self.0.shared.alive() {
             return Ok(false);
         }
         if (width, height) != self.physical_size() {
@@ -300,7 +300,7 @@ impl ShellWindow for Window {
         &self,
         make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
     ) -> Result<(), ShellError> {
-        if !self.0.shared.alive.load(Ordering::Acquire) {
+        if !self.0.shared.alive() {
             return Err(ShellError::new("embedded window is closed"));
         }
         make(self.0.target.clone());
@@ -359,7 +359,7 @@ impl State {
             let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
                 return;
             };
-            if shared.alive.load(Ordering::Acquire)
+            if shared.alive()
                 && !native.wake_pending.swap(true, Ordering::AcqRel)
             {
                 // SAFETY: posting uses only the opaque HWND and never accesses UI state.
@@ -442,7 +442,7 @@ impl State {
         if self.shared.stopped() || self.closing.get() {
             return;
         }
-        let next_wake_ns = self.session.borrow().control.deadline();
+        let next_wake_ns = self.session.borrow().deadline();
         let hwnd = self.native.hwnd();
         // SAFETY: cancel only the HWND-scoped timer owned by this child.
         unsafe {
@@ -470,13 +470,7 @@ impl State {
             if self.shared.stopped() || self.closing.get() {
                 break;
             }
-            let command = self
-                .shared
-                .commands
-                .lock()
-                .expect("embedded child lock poisoned: a panic already happened")
-                .pop_front();
-            match command {
+            match self.shared.pop_command() {
                 Some(Command::SetSize {
                     width: w,
                     height: h,
@@ -487,7 +481,7 @@ impl State {
                     if !self.shared.current(generation) {
                         continue;
                     }
-                    if !self.shared.alive.load(Ordering::Acquire) {
+                    if !self.shared.alive() {
                         continue;
                     }
                     // SAFETY: native resizing occurs only on the HWND's UI thread.
@@ -508,7 +502,7 @@ impl State {
                 }
                 Some(Command::SetScale(scale)) => {
                     self.explicit_scale.set(true);
-                    self.shared.set_scale_value(scale);
+                    self.shared.set_scale(scale);
                     self.event(ShellEvent::Resized);
                 }
                 None => break,
@@ -520,7 +514,7 @@ impl State {
         }
     }
     pub(super) fn destroy(self: &Rc<Self>) {
-        if self.shared.alive.load(Ordering::Acquire) {
+        if self.shared.alive() {
             // SAFETY: all callers run on the creating UI thread; wndproc marks dead.
             unsafe {
                 DestroyWindow(self.native.hwnd());
@@ -578,13 +572,10 @@ impl State {
         };
         // SAFETY: GetClientRect writes the supplied RECT on the child's UI thread.
         if unsafe { GetClientRect(self.native.hwnd(), &mut rect) } != 0 {
-            let previous = self.shared.size();
-            self.shared.update(
+            return self.shared.set_size(
                 (rect.right - rect.left).max(0) as u32,
                 (rect.bottom - rect.top).max(0) as u32,
-                self.shared.scale(),
             );
-            return previous != self.shared.size();
         }
         false
     }

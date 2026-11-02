@@ -202,7 +202,8 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 ScreenToClient(hwnd, &mut point);
             }
             let mut mouse = state.mouse.get();
-            let scale = state.shared.scale();
+            let applied = state.shared.applied();
+            let scale = applied.scale;
             let previous = mouse.position();
             let event = mouse.event(
                 PointerPhase::Move,
@@ -225,7 +226,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 (0.0, notch)
             };
             let settings = crate::native_input::state::MouseSettings::read();
-            let height = state.shared.size().1 as f32 / scale;
+            let height = applied.height as f32 / scale;
             let (x, y) = crate::wheel::lines(
                 x,
                 y,

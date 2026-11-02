@@ -10,16 +10,25 @@ use arvane_shell::{
 };
 use std::sync::Arc;
 
+enum HandlerState {
+    /// `start` has not built the handler.
+    Unstarted,
+    /// The handler runs; `control` is what it last returned.
+    Running {
+        handler: Box<dyn ShellHandler>,
+        control: ShellControl,
+    },
+    /// `close` consumed the handler.
+    Closed,
+}
 pub(super) struct Session {
-    handler: Option<Box<dyn ShellHandler>>,
-    pub(super) control: ShellControl,
+    state: HandlerState,
     shared: Arc<Shared>,
 }
 impl Session {
     pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self {
-            handler: None,
-            control: ShellControl::Wait,
+            state: HandlerState::Unstarted,
             shared,
         }
     }
@@ -29,17 +38,19 @@ impl Session {
         window: &mut dyn ShellWindow,
         waker: ShellWaker,
     ) {
+        debug_assert!(matches!(self.state, HandlerState::Unstarted));
         if self.shared.stopped() {
             return;
         }
-        self.handler = Some(make());
+        let mut handler = make();
         let result = if self.shared.stopped() {
             Ok(ShellControl::Wait)
         } else {
-            self.handler
-                .as_mut()
-                .expect("invariant: handler was constructed")
-                .start(window, waker)
+            handler.start(window, waker)
+        };
+        self.state = HandlerState::Running {
+            handler,
+            control: ShellControl::Wait,
         };
         self.accept(result);
     }
@@ -47,7 +58,7 @@ impl Session {
         if self.shared.stopped() {
             return;
         }
-        let Some(handler) = self.handler.as_mut() else {
+        let HandlerState::Running { handler, .. } = &mut self.state else {
             return;
         };
         let result = handler.event(event, window);
@@ -62,25 +73,38 @@ impl Session {
             Ok(ShellControl::Exit) => self.shared.fail(ShellError::new(
                 "the App asked to exit; an embedded App cannot exit by itself",
             )),
-            Ok(control) => self.control = control,
+            Ok(next) => {
+                if let HandlerState::Running { control, .. } = &mut self.state {
+                    *control = next;
+                }
+            }
+        }
+    }
+    /// The wake deadline the running handler asked for.
+    pub(super) fn deadline(&self) -> Option<u64> {
+        match &self.state {
+            HandlerState::Running { control, .. } => control.deadline(),
+            HandlerState::Unstarted | HandlerState::Closed => None,
         }
     }
     /// Returns false when the backend must forget its remaining native resources.
     pub(super) fn close(&mut self, window: &mut dyn ShellWindow) -> bool {
         self.shared.request_close();
-        let Some(mut handler) = self.handler.take() else {
-            return true;
-        };
-        if self.shared.panicked() {
-            // After a panic no more App code runs: not even its close.
-            // Forgotten owners can bypass every worker's shutdown/drop guard.
-            crate::module::retain_module();
-            std::mem::forget(handler);
-            return false;
+        match std::mem::replace(&mut self.state, HandlerState::Closed) {
+            HandlerState::Unstarted | HandlerState::Closed => true,
+            HandlerState::Running { mut handler, .. } => {
+                if self.shared.panicked() {
+                    // After a panic no more App code runs: not even its close.
+                    // Forgotten owners can bypass every worker's shutdown/drop guard.
+                    crate::module::retain_module();
+                    std::mem::forget(handler);
+                    return false;
+                }
+                handler.close(window);
+                drop(handler);
+                true
+            }
         }
-        handler.close(window);
-        drop(handler);
-        true
     }
 }
 pub(super) fn negotiate(
