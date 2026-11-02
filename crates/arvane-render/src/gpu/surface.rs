@@ -19,9 +19,9 @@
 //! frame retried once; a timeout or an occluded window skips the frame
 //! ([`Presentation::Skipped`]); anything else is an error for the facade
 //! (a surface error drops the surface, a device failure the device). After
-//! a skipped frame the next one takes the surface's buffer before
-//! recording the scene, so a window that stays occluded costs no
-//! recording.
+//! a skipped frame (either kind of frame) the next one takes the surface's
+//! buffer before recording the scene, so a window that stays occluded
+//! costs no recording.
 //!
 //! Frame pacing: mailbox where the surface offers it (each frame replaces
 //! the one waiting for the next vblank, without tearing), else FIFO
@@ -41,7 +41,7 @@
 //! `DXGI_SCALING_STRETCH`, stretched to the window; either way the content
 //! would be wrong while the window is dragged.
 
-use super::state::{FORMAT, GpuContext, GpuSurface, Presentation};
+use super::state::{Configured, FORMAT, GpuContext, GpuSurface, Presentation, Swapchain};
 use super::texture::target_texture;
 use crate::error::RenderError;
 use kivact_types::Size;
@@ -52,11 +52,29 @@ impl GpuSurface {
     pub(super) fn new(surface: wgpu::Surface<'static>) -> Self {
         Self {
             surface,
-            config: None,
+            swapchain: Swapchain::Unconfigured,
             raster: None,
-            blitter: None,
             keep: false,
-            skipped: false,
+        }
+    }
+
+    /// The configured swapchain (a frame configures it before it records or
+    /// acquires).
+    fn configured(&self) -> &Configured {
+        match &self.swapchain {
+            Swapchain::Configured(configured) => configured,
+            Swapchain::Unconfigured => unreachable!(
+                "invariant: a frame configures the swapchain before it records or acquires"
+            ),
+        }
+    }
+
+    fn configured_mut(&mut self) -> &mut Configured {
+        match &mut self.swapchain {
+            Swapchain::Configured(configured) => configured,
+            Swapchain::Unconfigured => unreachable!(
+                "invariant: a frame configures the swapchain before it records or acquires"
+            ),
         }
     }
 
@@ -79,15 +97,9 @@ impl GpuContext {
         scale: f32,
         physical: (u32, u32),
     ) -> Result<(Presentation, Duration), RenderError> {
-        // Whatever happens, the frame gives back what it acquired.
-        let presented = match self.external.begin(scene) {
-            Ok(()) => self.present_frame(surface, scene, size, scale, physical),
-            Err(error) => Err(error),
-        };
-        let ended = self.external.end();
-        let presented = presented?;
-        ended?;
-        Ok(presented)
+        self.with_external(scene, |context| {
+            context.present_frame(surface, scene, size, scale, physical)
+        })
     }
 
     /// [`GpuContext::present`] between the external frames' hand-offs.
@@ -108,15 +120,15 @@ impl GpuContext {
         // DirectX's swapchain calls may send messages to the window's
         // thread, which would wait for a join that waits for them.
         let alongside = self.adapter.get_info().backend == wgpu::Backend::Vulkan
-            && surface
-                .config
-                .as_ref()
-                .is_some_and(|c| (c.width, c.height) != (width, height));
+            && matches!(
+                &surface.swapchain,
+                Swapchain::Configured(c) if (c.config.width, c.config.height) != (width, height)
+            );
         if !alongside {
             self.reconfigure(surface, width, height, false)?;
         }
-        let format = surface.config.as_ref().map(|c| c.format);
-        let direct = !surface.keep && format == Some(FORMAT) && raster_size == (width, height);
+        let format = surface.configured().config.format;
+        let direct = !surface.keep && format == FORMAT && raster_size == (width, height);
         if direct {
             // Up to 64 MiB that frames drawn straight into the swapchain
             // do not need; made again when one is drawn for a copy.
@@ -130,7 +142,7 @@ impl GpuContext {
         }
         // After a skipped frame, take the buffer first: no recording while
         // the window stays occluded.
-        let early = if surface.skipped && !alongside {
+        let early = if !alongside && surface.configured().skipped {
             let waiting = Instant::now();
             let acquired = self.acquire(surface, width, height)?;
             let waited = waiting.elapsed();
@@ -161,13 +173,11 @@ impl GpuContext {
                 let acquired = self.acquire(surface, width, height)?;
                 let waited = waiting.elapsed();
                 let Some(acquired) = acquired else {
-                    surface.skipped = true;
                     return Ok((Presentation::Skipped, waited));
                 };
                 (acquired, waited)
             }
         };
-        surface.skipped = false;
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -185,11 +195,10 @@ impl GpuContext {
                 .expect("invariant: the raster texture was just made")
                 .create_view(&wgpu::TextureViewDescriptor::default());
             self.draw(&mut encoder, raster_size, &raster)?;
-            let (_, blitter) = surface
+            surface
+                .configured()
                 .blitter
-                .as_ref()
-                .expect("invariant: a configured surface has a blitter");
-            blitter.copy(&self.device, &mut encoder, &raster, &view);
+                .copy(&self.device, &mut encoder, &raster, &view);
         }
         self.queue.submit([encoder.finish()]);
         self.external.submitted();
@@ -268,11 +277,10 @@ impl GpuContext {
             .as_ref()
             .expect("invariant: the raster texture was just made")
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let (_, blitter) = surface
+        surface
+            .configured()
             .blitter
-            .as_ref()
-            .expect("invariant: a configured surface has a blitter");
-        blitter.copy(&self.device, &mut encoder, &source, &view);
+            .copy(&self.device, &mut encoder, &source, &view);
         self.queue.submit([encoder.finish()]);
         let presenting = Instant::now();
         texture.present();
@@ -296,8 +304,21 @@ impl GpuContext {
     }
 
     /// The surface's next texture and whether it is suboptimal; `None`
-    /// skips the frame. An outdated or lost surface is reconfigured once.
+    /// skips the frame. Notes whether a buffer came ([`Configured::skipped`]).
     fn acquire(
+        &self,
+        surface: &mut GpuSurface,
+        width: u32,
+        height: u32,
+    ) -> Result<Option<(wgpu::SurfaceTexture, bool)>, RenderError> {
+        let acquired = self.next_texture(surface, width, height)?;
+        surface.configured_mut().skipped = acquired.is_none();
+        Ok(acquired)
+    }
+
+    /// The surface's next texture and whether it is suboptimal; `None`
+    /// skips the frame. An outdated or lost surface is reconfigured once.
+    fn next_texture(
         &self,
         surface: &mut GpuSurface,
         width: u32,
@@ -369,34 +390,22 @@ fn configure(
     height: u32,
     again: bool,
 ) -> Result<(), RenderError> {
-    if !again
-        && surface
-            .config
-            .as_ref()
-            .is_some_and(|c| (c.width, c.height) == (width, height))
-    {
+    if let Swapchain::Configured(configured) = &mut surface.swapchain {
+        if !again && (configured.config.width, configured.config.height) == (width, height) {
+            return Ok(());
+        }
+        configured.config.width = width;
+        configured.config.height = height;
+        surface.surface.configure(device, &configured.config);
         return Ok(());
     }
-    let config = match surface.config.take() {
-        Some(config) => wgpu::SurfaceConfiguration {
-            width,
-            height,
-            ..config
-        },
-        None => surface_config(adapter, &surface.surface, width, height)?,
-    };
-    if surface
-        .blitter
-        .as_ref()
-        .is_none_or(|(format, _)| *format != config.format)
-    {
-        surface.blitter = Some((
-            config.format,
-            wgpu::util::TextureBlitter::new(device, config.format),
-        ));
-    }
+    let config = surface_config(adapter, &surface.surface, width, height)?;
     surface.surface.configure(device, &config);
-    surface.config = Some(config);
+    surface.swapchain = Swapchain::Configured(Configured {
+        blitter: wgpu::util::TextureBlitter::new(device, config.format),
+        config,
+        skipped: false,
+    });
     Ok(())
 }
 

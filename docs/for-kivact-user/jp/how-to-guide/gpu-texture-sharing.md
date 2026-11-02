@@ -169,7 +169,7 @@ impl Engine {
         let (pool, textures) = share::Pool::new(&device, adapter, config).map_err(|e| e.to_string())?;
 
         // SAFETY: pool は `kivact_gpu_share` が作ったもので、`SharedTextures` の契約を
-        // 守ります。このエンジンは `wait_ready` のあと、`Pool::submit` 経由でのみ
+        // 守ります。このエンジンは `wait_ready` のあと、`Target::submit` 経由でのみ
         // テクスチャに描きます。
         unsafe { link.provide(&request, textures) }.map_err(|e| e.to_string())?;
         link.wait_ready(&request, Duration::from_secs(5)).map_err(|e| e.to_string())?;
@@ -182,7 +182,7 @@ impl Engine {
         let mut encoder = self.device.create_command_encoder(&Default::default());
         draw_scene(&mut encoder, &view); // エンジン自前のレンダーパス
         // SAFETY: `queue` は pool のキューで、このスレッドだけが使います。
-        let ready: FrameReady = unsafe { self.pool.submit(&self.queue, target, [encoder.finish()]) }
+        let ready: FrameReady = unsafe { target.submit(&self.queue, [encoder.finish()]) }
             .map_err(|e| ShareError::Failed(e.to_string()))?;
         link.publish(&self.request, ready.slot, ready.value);
         Ok(())
@@ -197,10 +197,10 @@ impl Engine {
 3. **`Pool::new`** はテクスチャとフェンスを作り、ハンドルを一度だけ返します。リクエストごとに新しいプールを作ってください。同じプールを 2 回渡してはいけません (`ShareError::Failed`)。
 4. **`provide`** はハンドルを UI スレッドに渡し、UI スレッドがそれをインポートします。`unsafe` なのは、エンジンが `kivact::gpu_interop::SharedTextures` の rustdoc にある契約を守ると約束するからです。形式、受け渡しの状態、`wait_ready` のあとにだけ書くこと、解放フェンスがテクスチャの最後のフレームに達してからだけ書くこと、などです。`kivact_gpu_share` のプールが、そのほとんどを代わりに守ります。
 5. **`wait_ready`** は、ウィンドウがインポートを終えると `Ok` を返します。それより前に描くと、テクスチャはまだあなたのものではありません。
-6. **`acquire` / `submit`** はテクスチャを渡し、最後のフレームに対するウィンドウの解放を GPU 側で待ち、あなたのコマンドの前後に受け渡しのバリアを置きます。テクスチャには `slots` フレーム前の絵が残っているので、`LoadOp::Load` でそれを保てます。
+6. **`acquire` / `submit`** はテクスチャを渡し (`acquire` が返す `Target` は `submit` までプールを借用します)、最後のフレームに対するウィンドウの解放を GPU 側で待ち、あなたのコマンドの前後に受け渡しのバリアを置きます。テクスチャには `slots` フレーム前の絵が残っているので、`LoadOp::Load` でそれを保てます。
 7. **`publish(request, slot, value)`** はフレームの準備ができたことを UI に伝え、UI スレッドを起こします。最新のフレームが勝ちます。UI がエンジンより遅ければ古いフレームは飛ばされ、まとめて解放されます。古いリクエスト、準備ができていないリクエスト、閉じたリンクへの publish は無視されます。
 
-生の Vulkan や Direct3D 12 でも同じ手順で、`kivact_gpu_share::vulkan::Pool` と `d3d12::Pool` (`acquire`、`record_acquire`、自前のコマンド、`record_release`、`submit`) を使います。クレートの rustdoc を見てください。
+生の Vulkan や Direct3D 12 でも同じ手順で、`kivact_gpu_share::vulkan::Pool` と `d3d12::Pool` (`acquire` のあと、その target の `record_acquire`、自前のコマンド、`record_release`、`submit`) を使います。クレートの rustdoc を見てください。
 
 ### CPU 上の絵
 
@@ -273,7 +273,7 @@ fn main() -> kivact::Result<()> {
 - **Windows と Linux のみ。** Windows では Direct3D 12 と Direct3D 12、Vulkan と Vulkan。Linux では Vulkan。ほかの組み合わせはなく、macOS も対象外です。
 - **形式。** RGBA8、プリマルチプライドアルファ、sRGB エンコードの値の 1 種類だけです。
 - **契約はあなたが守る。** `provide`、`submit`、低レベルのインポートが `unsafe` なのは、エンジンが書いてよい場所にだけ書いているかを Kivact が確認できないためです。契約を破ると、グラフィックス API の未定義動作になり、絵が壊れる、デバイスが失われる、プロセスがクラッシュするといったことが起こりえます。
-- **順序どおり、1 枚ずつ。** プールはテクスチャをラウンドロビンで渡し、acquire したフレームは、次の acquire の前に submit するかキャンセルします。
+- **順序どおり、1 枚ずつ。** プールはテクスチャをラウンドロビンで渡します。フレームの target は submit するまでプールを借用します。フレームをやめるときは target を破棄 (drop) します。
 - **インポート 1 回につきエクスポート 1 回。** ドライバーによっては (Vulkan の NVIDIA)、以前エクスポートしたハンドルのメモリのインポートを拒否します。リクエストごとに新しいプールを作ってください。
 - **プールはウィンドウがインポートしてから使う。** Vulkan では、テクスチャはウィンドウのインポートが置いたレイアウトで始まります。一度もインポートされていないプールは Vulkan の規則の外にあります。`Pixels` には、プールではなくエンジン自前のテクスチャを読み戻してください。
 - **実験的な API。** 名前や細部が変わることがあります。

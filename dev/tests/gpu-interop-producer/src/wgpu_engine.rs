@@ -123,8 +123,7 @@ impl Engine for Wgpu {
         });
         // SAFETY: the engine's own queue of the pool's device, used by this
         // thread alone.
-        unsafe { self.pool.submit(&self.queue, target, [encoder.finish()]) }
-            .map_err(|e| e.to_string())
+        unsafe { target.submit(&self.queue, [encoder.finish()]) }.map_err(|e| e.to_string())
     }
 
     fn release_value(&self) -> u64 {

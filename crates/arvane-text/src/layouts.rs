@@ -153,10 +153,4 @@ impl Shaped {
             .get_mut(&key)
             .expect("invariant: inserted above")
     }
-
-    /// Forget every layout (fonts changed).
-    pub(crate) fn clear(&mut self) {
-        self.current.clear();
-        self.previous.clear();
-    }
 }

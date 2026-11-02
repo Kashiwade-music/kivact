@@ -50,25 +50,25 @@
 //! send_to_ui(shared); // the UI calls `unsafe { gpu_interop::import(shared) }`
 //!
 //! // Each frame, once the import is `Ready`:
-//! let target = pool.acquire(Duration::from_secs(1))?; // 1. the texture
+//! let target = pool.acquire(Duration::from_secs(1))?; // 1. the texture (borrows the pool)
 //! begin(command);
 //! let write = (vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT, vk::AccessFlags::COLOR_ATTACHMENT_WRITE);
-//! unsafe { pool.record_acquire(command, &target, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, write) }; // 2.
+//! unsafe { target.record_acquire(command, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, write) }; // 2.
 //! draw_into(command, target.image(), target.extent()); // 3. the engine's own drawing
-//! unsafe { pool.record_release(command, &target, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, write) }; // 4.
+//! unsafe { target.record_release(command, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, write) }; // 4.
 //! end(command);
-//! let ready = unsafe { pool.submit(queue, target, &[command], vk::Fence::null())? }; // 5. signal
+//! let ready = unsafe { target.submit(queue, &[command], vk::Fence::null())? }; // 5. signal
 //! send_to_ui(ready.frame(image_id)); // 6. publish: the UI draws `GpuFrame` of it
 //! ```
 //!
-//! Direct3D 12 is the same with `d3d12::Pool`: `acquire`,
-//! `record_acquire` (from `COMMON` to the engine's state), the drawing,
-//! `record_release` (back to `COMMON`), and `submit` on the engine's
-//! `ID3D12CommandQueue` (the GPU-side `Wait` for `release`, the command
-//! lists, the `Signal` of `ready`).
+//! Direct3D 12 is the same with `d3d12::Pool`: `acquire`, then on its
+//! target `record_acquire` (from `COMMON` to the engine's state), the
+//! drawing, `record_release` (back to `COMMON`), and `submit` on the
+//! engine's `ID3D12CommandQueue` (the GPU-side `Wait` for `release`, the
+//! command lists, the `Signal` of `ready`).
 //!
 //! An engine that submits on its own takes the fences and values from
-//! `finish` instead of `submit` (`vulkan::Submission`,
+//! the target's `finish` instead of `submit` (`vulkan::Submission`,
 //! `d3d12::Submission`): a GPU-side wait for `release` before the
 //! frame's work and a signal of `ready` after it.
 //!
@@ -98,8 +98,9 @@
 //! module reaches below wgpu's safe API (`as_hal`, `open_with_callback`,
 //! `create_texture_from_hal`). `wgpu::request_device` opens a device on
 //! the window's adapter able to share; `wgpu::Pool` makes the pool and
-//! gives each frame's texture as a `wgpu::Texture`; its `submit` puts the
-//! engine's command buffers between the hand-off on wgpu's queue. A frame:
+//! gives each frame's texture as a `wgpu::Texture`; the target's `submit`
+//! puts the engine's command buffers between the hand-off on wgpu's queue.
+//! A frame:
 //!
 //! ```ignore
 //! use kivact_gpu_share::{PoolConfig, wgpu as share};
@@ -122,7 +123,7 @@
 //! draw_into(&mut encoder, &view); // 2. a render pass (`LoadOp::Load` keeps the slot's last frame)
 //! // 3. submit between the hand-off; the queue is not used by another
 //! //    thread meanwhile (it gets raw submissions too).
-//! let ready = unsafe { pool.submit(&queue, target, [encoder.finish()])? };
+//! let ready = unsafe { target.submit(&queue, [encoder.finish()])? };
 //! send_to_ui(ready.frame(image_id)); // 4. publish
 //! ```
 //!
@@ -151,9 +152,9 @@
 //!   `UNDEFINED`, owned by nobody) is outside Vulkan's rules there, though
 //!   drivers take it; an engine showing `Pixels` reads back a texture of
 //!   its own instead.
-//! - The engine waits for its frames in order: `acquire` gives the
-//!   textures round robin, and a frame acquired is submitted (or
-//!   cancelled) before the next is acquired.
+//! - The engine draws one frame at a time: `acquire` gives the textures
+//!   round robin, and its target borrows the pool until it is submitted
+//!   (or dropped, which gives the frame up).
 
 #![deny(unsafe_code)]
 

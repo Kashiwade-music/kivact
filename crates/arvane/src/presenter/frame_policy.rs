@@ -1,19 +1,18 @@
 //! Role: Presenter: one window's renderers and the policy applied to each frame.
 
 use super::frame::Presented;
+#[cfg(feature = "gpu")]
+use super::gpu::Fallback;
+use super::health::FrameHealth;
 use crate::error::{self, Error, ErrorKind};
 use crate::presentation::{Notes, Renderer, RendererChange};
 use crate::{ShellError, ShellWaker};
+#[cfg(feature = "gpu")]
+use arvane_render::RenderError;
 use arvane_shell::ShellWindow;
 use kivact_types::Size;
 use kivact_types::protocol::Scene;
 use std::time::{Duration, Instant};
-
-/// Surface failures in a row after which presenting is an error.
-const LOSSES: u8 = 3;
-
-/// A skipped frame is drawn again after at most 2^4 = 16 display periods.
-const MAX_BACKOFF: u32 = 4;
 
 /// What drawing one frame did, before the frame policy.
 pub(super) struct Drawn {
@@ -30,10 +29,8 @@ pub(crate) struct Presenter {
     #[cfg(feature = "gpu")]
     pub(super) gpu: super::gpu::Gpu,
     pub(super) notes: Notes,
-    /// Surface failures in a row.
-    pub(super) losses: u8,
-    /// Frames skipped in a row (no buffer).
-    pub(super) skipped: u32,
+    /// What the window's surface did with the last frames that reached it.
+    pub(super) health: FrameHealth,
 }
 
 impl Presenter {
@@ -61,8 +58,7 @@ impl Presenter {
             #[cfg(feature = "gpu")]
             gpu: super::gpu::Gpu::new(env.gpu),
             notes,
-            losses: 0,
-            skipped: 0,
+            health: FrameHealth::Healthy,
         }
     }
 
@@ -80,23 +76,22 @@ impl Presenter {
         }
     }
 
-    /// The adapter of the GPU device drawing the window `key`'s frames,
-    /// when it can import shared textures (see [`crate::Window::gpu_adapter`]).
+    /// The adapter of the GPU device drawing the window's frames, when it
+    /// can import shared textures (see [`crate::Window::gpu_adapter`]).
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn gpu_adapter(&self, key: u64) -> Option<kivact_types::GpuAdapter> {
-        self.gpu.adapter(key)
+    pub(crate) fn gpu_adapter(&self) -> Option<kivact_types::GpuAdapter> {
+        self.gpu.adapter()
     }
 
-    /// Import `textures` as the image `id` of the window `key` (see
+    /// Import `textures` as the image `id` of the window (see
     /// [`crate::Window::import_external_image`]).
     #[cfg(feature = "gpu-interop")]
     pub(crate) fn import_external(
         &mut self,
-        key: u64,
         id: kivact_types::ExternalImageId,
         textures: kivact_types::SharedTextures,
     ) -> Result<(), Error> {
-        if self.gpu.adapter(key).is_none() {
+        if self.gpu.adapter().is_none() {
             return Err(Error::with(
                 ErrorKind::Unavailable,
                 "the window has no GPU device that can import shared textures \
@@ -105,16 +100,15 @@ impl Presenter {
         }
         let context = self
             .gpu
-            .context(key)
-            .expect("invariant: a window with an adapter has a context");
+            .context()
+            .expect("invariant: a device with an adapter is ready");
         match context.import_external(id, textures) {
             Ok(()) => Ok(()),
-            Err(failure @ arvane_render::RenderError::Backend(_)) => {
+            Err(failure) => {
                 let error = error::render(failure.clone());
-                self.gpu.device_failed(&failure, &mut self.notes);
+                self.gpu.failed(&failure, &mut self.notes);
                 Err(error)
             }
-            Err(failure) => Err(error::render(failure)),
         }
     }
 
@@ -122,21 +116,18 @@ impl Presenter {
     /// [`crate::Window::drop_external_image`]).
     #[cfg(feature = "gpu-interop")]
     pub(crate) fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
-        if let Some(context) = self.gpu.ready_context() {
+        if let Some(context) = self.gpu.context() {
             context.drop_external(id);
         }
     }
 
-    /// The platform destroyed the surface of the window `key`: drop the
-    /// GPU surface made for it (a new surface generation gets a new one
-    /// with its first frame) and start the frame policy afresh.
-    pub(crate) fn surface_destroyed(&mut self, key: u64) {
+    /// The platform destroyed the window's surface: drop the GPU surface
+    /// made for it (a new surface generation gets a new one with its first
+    /// frame) and start the frame policy afresh.
+    pub(crate) fn surface_destroyed(&mut self) {
         #[cfg(feature = "gpu")]
-        self.gpu.drop_surface(key);
-        #[cfg(not(feature = "gpu"))]
-        let _ = key;
-        self.losses = 0;
-        self.skipped = 0;
+        self.gpu.drop_surface();
+        self.health = FrameHealth::Healthy;
     }
 
     /// Start the GPU renderer on a worker thread; frames are drawn on the
@@ -146,7 +137,8 @@ impl Presenter {
     /// ([`Presenter::prepare`] then).
     pub(crate) fn start_gpu(&mut self, waker: ShellWaker) {
         #[cfg(feature = "gpu")]
-        self.gpu.start(std::sync::Arc::new(move || waker.wake()));
+        self.gpu
+            .start(std::sync::Arc::new(move || waker.wake()), &mut self.notes);
         #[cfg(not(feature = "gpu"))]
         {
             let _ = waker;
@@ -167,10 +159,9 @@ impl Presenter {
             if self.gpu.ready() {
                 return false;
             }
-            let key = window.key();
             let make = |context: &arvane_render::GpuContext| make_surface(window, context, false);
             self.gpu
-                .advance(&mut self.notes, Some((key, &make, window.physical_size())));
+                .advance(&mut self.notes, &make, window.physical_size());
             self.gpu.ready()
         }
         #[cfg(not(feature = "gpu"))]
@@ -192,8 +183,7 @@ impl Presenter {
     ) -> Result<Presented, Error> {
         match drawn {
             Ok(drawn) if drawn.shown => {
-                self.losses = 0;
-                self.skipped = 0;
+                self.health.shown();
                 Ok(Presented::Shown {
                     renderer: drawn.renderer,
                     raster: drawn.raster,
@@ -204,15 +194,13 @@ impl Presenter {
             // is drawn again a display period later, backing off to 16
             // periods while it stays so.
             Ok(_) => {
-                let wait = period_ns << self.skipped.min(MAX_BACKOFF);
-                self.skipped = self.skipped.saturating_add(1);
+                let wait = self.health.skipped(period_ns);
                 Ok(Presented::Skipped {
                     retry_at_ns: now_ns.saturating_add(wait),
                 })
             }
             Err(error) if error.kind() == ErrorKind::Surface => {
-                self.losses += 1;
-                if self.losses >= LOSSES {
+                if self.health.lost() {
                     return Err(error);
                 }
                 recover().map_err(|e| Error::with(ErrorKind::Surface, e.to_string()))?;
@@ -254,17 +242,15 @@ impl Presenter {
         let physical = window.physical_size();
         #[cfg(feature = "gpu")]
         {
-            let key = window.key();
             let make = |context: &arvane_render::GpuContext| make_surface(window, context, false);
-            self.gpu
-                .advance(&mut self.notes, Some((key, &make, physical)));
+            self.gpu.advance(&mut self.notes, &make, physical);
             let started = Instant::now();
             // While a worker makes the window's swapchain, a frame presented
             // through GDI may not show (a flip-model swapchain replaces what
             // the window shows): the window keeps its last CPU frame and
             // the frame is drawn again later (the first GPU frame follows
             // the configuration at once).
-            if self.gpu.configuring(key) && window.shows_cpu_frame() {
+            if self.gpu.configuring() && window.shows_cpu_frame() {
                 return Ok(Drawn {
                     renderer: Renderer::Cpu,
                     shown: false,
@@ -272,7 +258,7 @@ impl Presenter {
                     present: Duration::ZERO,
                 });
             }
-            let presented = self.gpu.present(key, &make, scene, size, scale, physical);
+            let presented = self.gpu.present(&make, scene, size, scale, physical);
             match presented {
                 None => {}
                 Some(Ok((presentation, present))) => {
@@ -293,7 +279,7 @@ impl Presenter {
                         .render_0rgb(scene, size, scale, physical, &mut pixels)
                         .map_err(error::render)?;
                     let raster = started.elapsed();
-                    match self.gpu.present_pixels(key, &make, &pixels, physical) {
+                    match self.gpu.present_pixels(&make, &pixels, physical) {
                         Some(Ok((presentation, present))) => {
                             return Ok(Drawn {
                                 renderer: Renderer::Cpu,
@@ -302,11 +288,11 @@ impl Presenter {
                                 present,
                             });
                         }
-                        Some(Err(e)) => self.gpu_failed(key, e)?,
+                        Some(Err(e)) => self.gpu_failed(e)?,
                         None => {}
                     }
                 }
-                Some(Err(e)) => self.gpu_failed(key, e)?,
+                Some(Err(e)) => self.gpu_failed(e)?,
             }
         }
         let started = Instant::now();
@@ -336,30 +322,19 @@ impl Presenter {
         })
     }
 
-    /// Handle a failed GPU frame: content and surface errors are returned;
-    /// after a device failure, a scene beyond the GPU renderer's limits, or
-    /// a surface failure that moves the window to the CPU, the frame is
-    /// drawn on the CPU (`Ok`).
+    /// Handle a failed GPU frame: a surface error that keeps the window on
+    /// the GPU is returned (`ErrorKind::Surface`: the frame policy makes the
+    /// surface again); after a device failure, a surface that kept failing
+    /// or a scene beyond the GPU renderer's limits the frame is drawn on
+    /// the CPU (`Ok`); any other error is returned.
     #[cfg(feature = "gpu")]
-    pub(super) fn gpu_failed(
-        &mut self,
-        key: u64,
-        failure: arvane_render::RenderError,
-    ) -> Result<(), Error> {
-        use arvane_render::RenderError;
-        match failure {
-            // A window whose surface keeps failing is drawn on the CPU.
-            RenderError::Surface(_) if self.gpu.surface_failed(key, &failure, &mut self.notes) => {
-                Ok(())
-            }
-            RenderError::Surface(_) => Err(Error::with(ErrorKind::Surface, failure.to_string())),
+    pub(super) fn gpu_failed(&mut self, failure: RenderError) -> Result<(), Error> {
+        match self.gpu.failed(&failure, &mut self.notes) {
+            Fallback::Cpu => Ok(()),
+            Fallback::Surface => Err(Error::with(ErrorKind::Surface, failure.to_string())),
             // The CPU renderer draws what vello_hybrid cannot.
-            RenderError::GpuLimit(_) => Ok(()),
-            RenderError::Backend(_) | RenderError::NoAdapter(_) => {
-                self.gpu.device_failed(&failure, &mut self.notes);
-                Ok(())
-            }
-            _ => Err(error::render(failure)),
+            Fallback::Other if matches!(failure, RenderError::GpuLimit(_)) => Ok(()),
+            Fallback::Other => Err(error::render(failure)),
         }
     }
 }

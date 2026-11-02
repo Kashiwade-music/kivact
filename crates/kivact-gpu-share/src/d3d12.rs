@@ -4,11 +4,11 @@
 //! ([`find_adapter`] finds it by LUID). [`Pool::new`] makes the textures
 //! in shared heaps and the two shared fences as
 //! [`kivact_types::SharedTextures`] says and makes their NT handles once. A
-//! frame: [`Pool::acquire`], [`Pool::record_acquire`] (from `COMMON`, the
-//! hand-off state), the engine's own drawing, [`Pool::record_release`]
-//! (back to `COMMON`), then [`Pool::submit`] on the engine's queue (or the
-//! engine's own `Wait`, lists and `Signal` with [`Pool::finish`]'s
-//! fences).
+//! frame: [`Pool::acquire`] gives a [`Target`]; its
+//! [`Target::record_acquire`] (from `COMMON`, the hand-off state), the
+//! engine's own drawing, [`Target::record_release`] (back to `COMMON`),
+//! then [`Target::submit`] on the engine's queue (or the engine's own
+//! `Wait`, lists and `Signal` with [`Target::finish`]'s fences).
 //!
 //! The device: in one process, `D3D12CreateDevice` on an adapter returns
 //! the process's singleton device of that adapter, the very device the

@@ -23,9 +23,11 @@
 //!   keys keep alive and a fixed cost per entry (`entry::ENTRY_BYTES`).
 //!   Recency is per frame: the host calls [`AssetStore::begin_frame`]
 //!   before a pass that draws every image it shows, and what the current
-//!   and the previous frame used is never evicted (`evict`). Pixels larger
-//!   than the whole budget are not kept: a decoded image that large fails
-//!   as `TooLarge`.
+//!   and the previous frame used is never evicted (`evict`); before the
+//!   first call nothing is protected (a plain LRU within the budget). The
+//!   store cannot see the host's passes, so the host drives the frames.
+//!   Pixels larger than the whole budget are not kept: a decoded image
+//!   that large fails as `TooLarge`.
 //! - Asking for a natural size never starts work: [`AssetStore::peek`]
 //!   reads the cache only, and a raster source whose pixels were evicted
 //!   keeps its natural size (its pixels are loaded again when drawn).

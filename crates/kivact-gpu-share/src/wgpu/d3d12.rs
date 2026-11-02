@@ -14,10 +14,9 @@
 use crate::common::{Error, api};
 use crate::d3d12::raw::transition;
 use crate::d3d12::{self as backend, HAND_OFF_STATE};
-use crate::pool::{FrameReady, PoolConfig};
+use crate::pool::{Acquired, FrameReady, PoolConfig};
 use ::wgpu::hal::api::Dx12;
 use kivact_types::{GpuAdapter, SharedTextures};
-use std::mem::ManuallyDrop;
 use std::time::Duration;
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
@@ -63,13 +62,11 @@ struct Lists {
 /// A pool's Direct3D 12 half: the backend's pool and the hand-off on
 /// wgpu's queue.
 pub(super) struct Raw {
-    /// Dropped by [`Raw`]'s drop unless leaked.
-    pool: ManuallyDrop<backend::Pool>,
+    pool: backend::Pool,
     queue: ID3D12CommandQueue,
     /// Keeps the recorded lists' memory.
-    allocator: ID3D12CommandAllocator,
+    _allocator: ID3D12CommandAllocator,
     lists: Vec<Lists>,
-    leaked: bool,
 }
 
 impl Raw {
@@ -131,11 +128,10 @@ impl Raw {
         }
         Ok((
             Self {
-                pool: ManuallyDrop::new(pool),
+                pool,
                 queue,
-                allocator,
+                _allocator: allocator,
                 lists,
-                leaked: false,
             },
             textures,
             shared,
@@ -146,29 +142,21 @@ impl Raw {
         &self.pool
     }
 
-    pub(super) fn pool_mut(&mut self) -> &mut backend::Pool {
-        &mut self.pool
-    }
-
     /// Step 1: wait for `release` and, unless it is the texture's first
     /// frame, move it from `COMMON` to the shader-resource state.
     ///
     /// # Safety
     /// The order of wgpu's queue is not changed by another thread during
     /// the call.
-    pub(super) unsafe fn take(
-        &mut self,
-        target: &backend::Target,
-        first: bool,
-    ) -> Result<(), Error> {
-        let wait = target.release_wait();
-        if wait > 0 {
+    pub(super) unsafe fn take(&mut self, acquired: Acquired) -> Result<(), Error> {
+        if let Some(wait) = acquired.wait {
             // SAFETY: a GPU-side wait on a live fence of the device.
-            unsafe { self.queue.Wait(self.pool.release_fence(), wait) }
+            unsafe { self.queue.Wait(self.pool.release_fence(), wait.get()) }
                 .map_err(api("ID3D12CommandQueue::Wait"))?;
-        }
-        if !first {
-            let list = self.lists[target.slot() as usize].acquire.clone();
+            // Not the texture's first frame (wgpu's tracker starts a texture
+            // at `UNINITIALIZED`, which is `COMMON`): from `COMMON` to the
+            // sampled state.
+            let list = self.lists[acquired.slot as usize].acquire.clone();
             // SAFETY: a closed list of this device, on wgpu's queue between
             // wgpu's submissions (the caller).
             unsafe { self.queue.ExecuteCommandLists(&[Some(list)]) };
@@ -176,16 +164,19 @@ impl Raw {
         Ok(())
     }
 
-    /// Step 4: move `target`'s texture back to `COMMON` and signal
+    /// Step 4: move the frame's texture back to `COMMON` and signal
     /// `ready`.
     ///
     /// # Safety
     /// As [`Raw::take`].
-    pub(super) unsafe fn give(&mut self, target: backend::Target) -> Result<FrameReady, Error> {
-        let list = self.lists[target.slot() as usize].release.clone();
+    pub(super) unsafe fn give(&mut self, acquired: Acquired) -> Result<FrameReady, Error> {
+        let list = self.lists[acquired.slot as usize].release.clone();
         // SAFETY: wgpu's direct queue of the pool's device; a closed list of
         // the device.
-        unsafe { self.pool.submit(&self.queue, target, &[Some(list)]) }
+        unsafe {
+            self.pool
+                .submit_acquired(&self.queue, acquired, &[Some(list)])
+        }
     }
 
     /// Texture `slot`'s last frame, read back on wgpu's queue.
@@ -196,26 +187,5 @@ impl Raw {
         // SAFETY: wgpu's direct queue of the pool's device; the rest as the
         // caller says.
         unsafe { self.pool.read_back(&self.queue, slot, timeout) }
-    }
-
-    pub(super) fn leak(&mut self) {
-        self.leaked = true;
-    }
-}
-
-impl Drop for Raw {
-    fn drop(&mut self) {
-        if self.leaked {
-            // The queue may still execute the lists or wait on the fences:
-            // they and the pool stay for the process.
-            std::mem::forget(self.allocator.clone());
-            for lists in &self.lists {
-                std::mem::forget(lists.acquire.clone());
-                std::mem::forget(lists.release.clone());
-            }
-        } else {
-            // SAFETY: dropped once, here; not used after.
-            unsafe { ManuallyDrop::drop(&mut self.pool) };
-        }
     }
 }

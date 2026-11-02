@@ -52,7 +52,7 @@
 //!   destination-out instead).
 
 use super::canvas::Canvas;
-use super::painter::{Area, Group, Painter};
+use super::painter::{Area, Group, Mode, Painter};
 use crate::convert;
 use kivact_types::protocol::{
     Backdrop, BoxShadow, DrawCommand, Mask, Radius, RoundedRect as Rounded, SHADOW_REACH, Shape,
@@ -82,15 +82,18 @@ impl<C: Canvas> Painter<'_, C> {
         self.canvas.fill_rect(&convert::rect(everywhere));
         self.canvas.set_blend_mode(dest_out);
         // The mask's alpha only: the replay's colors do not apply.
-        let matrix = self.matrix.take();
+        let mode = self.mode;
+        if let Mode::Replaying { .. } = mode {
+            self.mode = Mode::Replaying { matrix: None };
+        }
         self.fill(&mask.paint, mask.rect, Area::Rect(convert::rect(mask.rect)));
-        self.matrix = matrix;
+        self.mode = mode;
         self.canvas.set_blend_mode(Default::default());
         self.canvas.pop_layer();
     }
 
     pub(super) fn box_shadow(&mut self, shadow: &BoxShadow) {
-        let color = crate::gradient::color(shadow.color, self.matrix.as_ref());
+        let color = crate::gradient::color(shadow.color, self.mode.matrix());
         if color.a <= 0.0 {
             return;
         }
@@ -279,6 +282,7 @@ impl<C: Canvas> Painter<'_, C> {
         matrix: Option<kivact_types::protocol::ColorMatrix>,
     ) {
         let frame = self.frame;
+        let entry = self.transform;
         // The parts of one axis: before the frame (reflected about its
         // start), across it, after it (about its end), each at most the
         // frame long (one reflection), with its reflection.
@@ -319,11 +323,14 @@ impl<C: Canvas> Painter<'_, C> {
                 self.canvas.pop_layer();
             }
         }
+        self.transform = entry;
+        self.set_transform();
     }
 
     /// Draw again the commands before `at` that reach `region` (root
     /// coordinates), skipping groups that do not, with colors through
-    /// `matrix`. Starts and ends at the root transform.
+    /// `matrix`; the painter's groups, transform and mode are as they were
+    /// afterwards.
     fn replay(
         &mut self,
         at: usize,
@@ -334,8 +341,9 @@ impl<C: Canvas> Painter<'_, C> {
             return;
         };
         let stack = std::mem::take(&mut self.stack);
-        let previous = std::mem::replace(&mut self.matrix, matrix);
-        self.replaying = true;
+        let transform = self.transform;
+        let hidden = self.hidden;
+        let mode = std::mem::replace(&mut self.mode, Mode::Replaying { matrix });
         let scene = self.scene;
         let reaches = |i: usize| index.bounds[i].is_some_and(|b| b.intersects(region));
         let mut i = 0;
@@ -374,11 +382,11 @@ impl<C: Canvas> Painter<'_, C> {
         }
         // Close what is still open (ancestors' groups): only transforms
         // touched the canvas, and the caller restores the transform.
-        self.hidden = 0;
+        // Back to the painter as it was: its groups, transform and mode.
         self.stack = stack;
-        self.matrix = previous;
-        self.replaying = false;
-        self.transform = Transform::IDENTITY;
+        self.hidden = hidden;
+        self.mode = mode;
+        self.transform = transform;
         self.set_transform();
     }
 }

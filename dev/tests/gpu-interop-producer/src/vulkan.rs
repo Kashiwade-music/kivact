@@ -312,7 +312,6 @@ impl Vulkan {
         // SAFETY: a fence of the device; a bounded wait (already signaled:
         // the pool waited for the slot's `ready`).
         if let Err(e) = unsafe { device.wait_for_fences(&[fence], true, nanos) } {
-            pool.cancel(target);
             return Err(format!("the texture's last frame did not finish: {e}"));
         }
         // SAFETY: the fence's submission finished.
@@ -335,7 +334,7 @@ impl Vulkan {
             vk::AccessFlags::TRANSFER_WRITE,
         );
         // SAFETY: the begun buffer of the pool's device and family.
-        unsafe { pool.record_acquire(command, &target, dst, write) };
+        unsafe { target.record_acquire(command, dst, write) };
         let region = vk::BufferImageCopy {
             buffer_offset: 0,
             buffer_row_length: 0,
@@ -354,12 +353,12 @@ impl Vulkan {
             device.cmd_copy_buffer_to_image(command, staging, target.image(), dst, &[region])
         };
         // SAFETY: as above.
-        unsafe { pool.record_release(command, &target, dst, write) };
+        unsafe { target.record_release(command, dst, write) };
         // SAFETY: the begun buffer.
         unsafe { device.end_command_buffer(command) }.map_err(failed("vkEndCommandBuffer"))?;
         // SAFETY: the engine's own queue of the pool's family; the recorded
         // buffer; the slot's reset fence.
-        unsafe { pool.submit(self.queue, target, &[command], fence) }.map_err(|e| e.to_string())
+        unsafe { target.submit(self.queue, &[command], fence) }.map_err(|e| e.to_string())
     }
 }
 

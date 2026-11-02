@@ -133,7 +133,7 @@ pub(crate) fn import(
     device: &::wgpu::Device,
     shared: SharedTextures,
     desc: &::wgpu::TextureDescriptor<'_>,
-) -> Result<(Vec<::wgpu::Texture>, Shared), Error> {
+) -> Result<Shared, Error> {
     same_backend(&shared, GpuBackend::Dx12)?;
     let (width, height) = (shared.width, shared.height);
     let (raw, queue) = {
@@ -200,21 +200,18 @@ pub(crate) fn import(
             unsafe { device.create_texture_from_hal::<Dx12>(texture, desc) }
         })
         .collect();
-    Ok((
+    Ok(Shared {
         textures,
-        Shared {
-            queue,
-            ready,
-            release,
-            _allocator: allocator,
-            slots,
-            own,
-            own_value: 0,
-            event,
-            leaked: false,
-            _keep: device.clone(),
-        },
-    ))
+        queue,
+        ready,
+        release,
+        _allocator: allocator,
+        slots,
+        own,
+        own_value: 0,
+        event,
+        _keep: device.clone(),
+    })
 }
 
 struct Slot {
@@ -224,6 +221,8 @@ struct Slot {
 
 /// An import's fences and transitions on wgpu's queue.
 pub(crate) struct Shared {
+    /// The pool's textures as wgpu sees them.
+    textures: Vec<::wgpu::Texture>,
     queue: ID3D12CommandQueue,
     ready: ID3D12Fence,
     release: ID3D12Fence,
@@ -235,8 +234,6 @@ pub(crate) struct Shared {
     own_value: u64,
     /// Waited on for a fence's value.
     event: OwnedHandle,
-    /// The GPU may still use the objects: they are kept for the process.
-    leaked: bool,
     /// Keeps the native device alive while the objects live.
     _keep: ::wgpu::Device,
 }
@@ -325,14 +322,17 @@ impl Shared {
         self.wait(&self.own, self.own_value, timeout)
     }
 
-    pub(crate) fn leak(&mut self) {
-        self.leaked = true;
+    /// The pool's textures, by slot.
+    pub(crate) fn textures(&self) -> &[::wgpu::Texture] {
+        &self.textures
     }
 }
 
 impl Drop for Shared {
     fn drop(&mut self) {
-        if self.leaked {
+        // The objects must outlive the GPU's use of them: when the queue
+        // does not finish, they and the textures stay for the process.
+        if !self.idle(super::idle::IDLE) {
             // The GPU may still execute the lists: keep their memory.
             std::mem::forget(self._allocator.clone());
             for fence in [&self.ready, &self.release, &self.own] {
@@ -341,6 +341,9 @@ impl Drop for Shared {
             for slot in &self.slots {
                 std::mem::forget(slot.acquire.clone());
                 std::mem::forget(slot.release.clone());
+            }
+            for texture in &self.textures {
+                std::mem::forget(texture.clone());
             }
         }
     }

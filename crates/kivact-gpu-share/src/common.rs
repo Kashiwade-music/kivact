@@ -28,8 +28,9 @@ pub enum Error {
     /// No adapter of the graphics API is the one the window reported.
     NoAdapter,
     /// The arguments disagree with each other or with the contract
-    /// (another adapter or graphics API, an empty size, a frame acquired
-    /// twice, a texture of another format).
+    /// (another adapter or graphics API, an empty size, a texture the
+    /// window acquired twice or released without acquiring it, a texture
+    /// of another format).
     Mismatch(String),
     /// A call of the graphics API failed.
     Api {

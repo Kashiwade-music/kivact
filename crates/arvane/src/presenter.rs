@@ -17,7 +17,8 @@
 //!   so neither loses a frame or ends the application.
 //! - A frame the window has no buffer for (timed out, occluded) is not
 //!   shown: it is to be drawn again a display period later, the wait
-//!   doubling while it stays so, up to 16 periods ([`Presented::Skipped`]).
+//!   doubling while it stays so, up to 16 periods ([`Presented::Skipped`]);
+//!   a shown frame or a lost surface starts the wait again at one period.
 //! - A scene vello_hybrid cannot draw though the device is fine (an atlas
 //!   or intermediate texture it cannot allocate, a missing texture
 //!   binding: `RenderError::GpuLimit`) is drawn by vello_cpu for that
@@ -25,7 +26,7 @@
 //!   with a swapchain does not show what is presented through GDI).
 //! - A failed presentation recreates the window's surface
 //!   ([`Presented::SurfaceLost`]); the third in a row is an error (a shown
-//!   frame counts again from zero), as is a surface that cannot be made
+//!   or skipped frame ends the row), as is a surface that cannot be made
 //!   again.
 //! - A scene that cannot be drawn is [`Presented::Dropped`]; so is, on
 //!   every renderer and before anything is drawn, a frame of a window of
@@ -47,6 +48,7 @@ mod frame;
 mod frame_policy;
 #[cfg(feature = "gpu")]
 mod gpu;
+mod health;
 #[cfg(feature = "testing")]
 mod test_frames;
 

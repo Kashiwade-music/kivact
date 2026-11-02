@@ -1,13 +1,14 @@
 //! Role: A presenter's GPU renderer and its life cycle (feature `gpu`).
 //!
-//! States: off (CPU only) → starting (a worker thread creates the device)
-//! → configuring (the window's thread made the window's surface; a worker
-//! configures its swapchain, which takes ~0.2 s the first time on some
-//! drivers) → ready (frames go to the windows' GPU surfaces) → failed (CPU
-//! for the rest of the session). Until ready, frames are drawn on the CPU,
-//! so neither step stalls the window's thread. A device created on the
-//! calling thread ([`Gpu::enable`]) is ready at once and configures
-//! surfaces with their first frame.
+//! The renderer of the presenter's one window ([`State`]): off (CPU only);
+//! started in the background (a native window): a worker thread creates
+//! the device, the window's thread makes the window's surface and a worker
+//! configures its swapchain (~0.2 s the first time on some drivers), then
+//! frames go to the window's GPU surface; started in the foreground
+//! ([`Gpu::enable`], a test window): the device is made on the calling
+//! thread and is ready at once, and the window's first frame makes its
+//! surface; failed: CPU for the rest of the session. Until ready, frames
+//! are drawn on the CPU, so no step stalls the window's thread.
 //!
 //! A native window starts the GPU as it is created, not once CPU frames
 //! grow costly. The worker's device is taken on the window's thread
@@ -27,15 +28,16 @@
 //! platform destroys (Android, in the background) is dropped with it; the
 //! window's next frame makes a new one.
 //!
-//! Failure policy (with `arvane-render`'s surface policy): a surface that
-//! stays lost is dropped and made again by the next frame; a window whose
-//! surface fails [`SURFACE_FAILURES`] frames in a row (it cannot be made,
-//! the adapter cannot present to it, no usable format, lost again after
-//! reconfiguring) is drawn on the CPU for the rest of the session; a device
-//! failure (device loss, out of memory, a validation error) drops the
-//! device and every surface and starts a new device once per session, the
-//! frames in between drawn on the CPU; a second device failure, or a
-//! failed restart, leaves the presenter on the CPU.
+//! Failure policy ([`Gpu::failed`], with `arvane-render`'s surface
+//! policy): a surface error, from a frame or from making or configuring
+//! the swapchain, drops the window's surface and the next frame makes a
+//! new one; [`SURFACE_FAILURES`] of them in a row on one device move the
+//! window to the CPU for the rest of the session. A device failure (device
+//! loss, out of memory, a validation error) drops the device and its
+//! surface; a background start then starts a new device once per session,
+//! the frames in between drawn on the CPU. A second device failure, a
+//! failed restart or a foreground device's failure leaves the presenter on
+//! the CPU.
 
 #[cfg(feature = "testing")]
 use crate::error::{self, Error};
@@ -45,37 +47,105 @@ use kivact_types::Size;
 #[cfg(feature = "testing")]
 use kivact_types::protocol::CpuFrame;
 use kivact_types::protocol::Scene;
+use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-/// Device restarts allowed per session.
+/// Device restarts allowed per session (background starts only).
 const RESTARTS: u8 = 1;
 
 /// Bound DLL shutdown without waiting forever for a graphics driver.
 const SHUTDOWN_WAIT: Duration = Duration::from_secs(2);
 
+/// GPU surface failures in a row, on one device, after which the window is
+/// drawn on the CPU.
+pub(crate) const SURFACE_FAILURES: u8 = 2;
+
+/// Wakes the presenting thread (any thread may call it).
+pub(crate) type Wake = Arc<dyn Fn() + Send + Sync>;
+
+/// Makes the window's surface on the window's thread.
+pub(crate) type MakeSurface<'a> = &'a dyn Fn(&GpuContext) -> Result<GpuSurface, RenderError>;
+
+/// A device and how long the worker took to create it.
+type Started = Result<(Box<GpuContext>, Duration), RenderError>;
+/// A device, the window's configured surface, and how long configuring took.
+type Configured = (Box<GpuContext>, Result<(GpuSurface, Duration), RenderError>);
+
+/// A worker thread not joined yet, and the channel of its one result.
+struct Running<T> {
+    result: mpsc::Receiver<T>,
+    thread: JoinHandle<()>,
+}
+
+/// A worker thread of the GPU start. `poll` and `shutdown` consume it, so
+/// a worker is never polled after it was joined.
 struct Worker<T> {
-    result: Option<mpsc::Receiver<T>>,
-    thread: Option<JoinHandle<()>>,
     name: &'static str,
+    /// `None` once joined (by `poll` or `shutdown`, which then drop it).
+    run: Option<Running<T>>,
+}
+
+/// What polling a worker found.
+enum Polled<T> {
+    /// Still working.
+    Working(Worker<T>),
+    /// It sent its result and ended.
+    Sent(T),
+    /// It ended without a result.
+    Stopped,
+}
+
+impl<T: Send + 'static> Worker<T> {
+    /// Run `work` on a new thread named `name`, calling `wake` once it sent
+    /// its result; `None` when the system cannot start a thread.
+    fn spawn(
+        name: &'static str,
+        wake: Wake,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> Option<Self> {
+        let (sender, result) = mpsc::sync_channel(1);
+        let thread = std::thread::Builder::new()
+            .name(name.into())
+            .spawn(move || {
+                let _ = sender.send(work());
+                wake();
+            })
+            .ok()?;
+        Some(Self {
+            name,
+            run: Some(Running { result, thread }),
+        })
+    }
 }
 
 impl<T> Worker<T> {
-    fn poll(&mut self) -> Result<T, mpsc::TryRecvError> {
-        let result = self
-            .result
+    /// The worker's result, once it sent one (the thread is joined then).
+    fn poll(mut self) -> Polled<T> {
+        let received = self
+            .run
             .as_ref()
-            .expect("invariant: active worker has a result channel")
+            .expect("invariant: only `poll` and `shutdown` join a worker, and both consume it")
+            .result
             .try_recv();
-        if !matches!(result, Err(mpsc::TryRecvError::Empty)) {
-            self.join();
+        match received {
+            Err(mpsc::TryRecvError::Empty) => Polled::Working(self),
+            Ok(value) => {
+                self.join();
+                Polled::Sent(value)
+            }
+            Err(mpsc::TryRecvError::Disconnected) => {
+                self.join();
+                Polled::Stopped
+            }
         }
-        result
     }
 
+    /// Join the ended thread, resuming its panic (unless one is already
+    /// unwinding). A result still queued is dropped here, on this thread.
     fn join(&mut self) {
-        if let Some(thread) = self.thread.take()
+        if let Some(Running { thread, .. }) = self.run.take()
             && let Err(payload) = thread.join()
             && !std::thread::panicking()
         {
@@ -83,428 +153,489 @@ impl<T> Worker<T> {
         }
     }
 
-    fn shutdown(&mut self, window: &mut dyn arvane_shell::ShellWindow) {
-        if let Some(thread) = self.thread.as_ref()
-            && window.wait_until(&mut || thread.is_finished(), SHUTDOWN_WAIT)
-        {
+    /// Wait (bounded, the window kept responsive) for the thread to end and
+    /// join it; a thread still running is left to `Drop`, which detaches it.
+    fn shutdown(mut self, window: &mut dyn arvane_shell::ShellWindow) {
+        let finished = self.run.as_ref().is_none_or(|running| {
+            window.wait_until(&mut || running.thread.is_finished(), SHUTDOWN_WAIT)
+        });
+        if finished {
+            // Queued surfaces and devices are dropped here, on the UI thread.
             self.join();
-            // Queued surfaces/devices are dropped here, on the UI thread.
-            drop(self.result.take());
         }
     }
 }
 
 impl<T> Drop for Worker<T> {
     fn drop(&mut self) {
-        if let Some(thread) = self.thread.take() {
-            if thread.is_finished() {
-                let _ = thread.join();
-                return;
-            }
-            crate::shutdown::DETACHED.store(true, std::sync::atomic::Ordering::Release);
-            tracing::warn!(target: "kivact", worker = self.name,
-                "GPU worker still running when its window closed; its thread is detached");
-            // Keep a late result alive rather than destroying its native surface
-            // on the worker. A timed-out driver is an explicitly documented leak.
-            if let Some(result) = self.result.take() {
-                std::mem::forget(result);
-            }
+        let Some(Running { result, thread }) = self.run.take() else {
+            return;
+        };
+        if thread.is_finished() {
+            let _ = thread.join();
+            return;
+        }
+        crate::shutdown::DETACHED.store(true, std::sync::atomic::Ordering::Release);
+        tracing::warn!(target: "kivact", worker = self.name,
+            "GPU worker still running when its window closed; its thread is detached");
+        // Keep a late result alive rather than destroying its native surface
+        // on the worker. A timed-out driver is an explicitly documented leak.
+        std::mem::forget(result);
+    }
+}
+
+/// A ready device and the window's surface on it.
+struct Device {
+    /// The window's surface; the window's next GPU frame makes it when `None`.
+    /// Boxed: a surface is large.
+    surface: Option<Box<GpuSurface>>,
+    /// The window's surface failures in a row on this device.
+    failures: u8,
+    /// Boxed: a context is large.
+    context: Box<GpuContext>,
+}
+
+impl Device {
+    fn new(context: Box<GpuContext>) -> Self {
+        Self {
+            surface: None,
+            failures: 0,
+            context,
         }
     }
 }
 
-/// GPU surface failures in a row after which a window is drawn on the CPU.
-pub(crate) const SURFACE_FAILURES: u8 = 2;
+/// A GPU started on worker threads (a native window).
+struct Background {
+    /// Wakes the window's thread when a worker finishes.
+    wake: Wake,
+    /// Device restarts left this session.
+    restarts: u8,
+    step: Step,
+}
 
-/// A device and how long the worker took to create it.
-type Started = Result<(GpuContext, Duration), RenderError>;
-/// A device, the window's configured surface, and how long configuring took.
-type Configured = (GpuContext, Result<(GpuSurface, Duration), RenderError>);
-
-enum State {
-    Off,
+/// Where a background start is.
+enum Step {
+    /// A worker creates the device.
     Starting(Worker<Started>),
-    /// The device is ready; no window presented since.
+    /// The device is ready; the window's surface is made with its next
+    /// frame or wake.
     Waiting {
-        context: GpuContext,
+        context: Box<GpuContext>,
         init: Duration,
     },
+    /// A worker configures the window's swapchain; `stale` once the
+    /// platform destroyed the window's surface meanwhile.
     Configuring {
         worker: Worker<Configured>,
-        key: u64,
         init: Duration,
+        stale: bool,
     },
-    Ready(GpuContext),
+    /// Frames go to the GPU.
+    Ready(Device),
+}
+
+/// The GPU renderer's life cycle (see the module documentation).
+enum State {
+    /// Not started: frames are drawn on the CPU.
+    Off,
+    /// Started on worker threads.
+    Background(Background),
+    /// Made on the window's thread ([`Gpu::enable`]): ready at once, never
+    /// restarted.
+    #[cfg_attr(
+        not(feature = "testing"),
+        expect(
+            dead_code,
+            reason = "only a test window makes the GPU in the foreground"
+        )
+    )]
+    Foreground(Device),
+    /// CPU for the rest of the session.
     Failed,
 }
 
-/// Makes a window's surface on the window's thread.
-pub(crate) type MakeSurface<'a> = &'a dyn Fn(&GpuContext) -> Result<GpuSurface, RenderError>;
+/// What a failed GPU step means for the window's frame ([`Gpu::failed`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Fallback {
+    /// The window's surface failed and was dropped; the next frame makes a
+    /// new one.
+    Surface,
+    /// The GPU does not draw this frame: the device failed (restarting or
+    /// not), or the window's surface kept failing.
+    Cpu,
+    /// Not a device or surface failure (the scene, GPU limits, shared
+    /// textures): the caller handles the error.
+    Other,
+}
 
-/// The GPU renderer of an engine and its windows' surfaces.
+/// The GPU renderer of a presenter's window.
 pub(crate) struct Gpu {
     /// How devices are made.
     env: GpuEnv,
     state: State,
-    /// Surfaces by window key.
-    surfaces: Vec<(u64, GpuSurface)>,
-    /// The device was started in the background: a failed device is
-    /// restarted the same way.
-    background: bool,
-    /// Wakes the window's thread when a background step finishes.
-    wake: Option<Wake>,
-    restarts: u8,
-    /// GPU surface failures in a row, by window key.
-    surface_failures: Vec<(u64, u8)>,
-    /// Windows drawn on the CPU after their surfaces kept failing.
-    cpu_windows: Vec<u64>,
-    /// The window whose surface the platform destroyed while a worker
-    /// configured it.
-    stale: Option<u64>,
-    clear_metadata: bool,
 }
 
-/// Wakes the presenting thread (any thread may call it).
-pub(crate) type Wake = std::sync::Arc<dyn Fn() + Send + Sync>;
-
 impl Gpu {
-    pub(crate) fn shutdown(&mut self, window: &mut dyn arvane_shell::ShellWindow) {
-        let mut state = std::mem::replace(&mut self.state, State::Off);
-        match &mut state {
-            State::Starting(worker) => worker.shutdown(window),
-            State::Configuring { worker, .. } => worker.shutdown(window),
-            _ => {}
-        }
-        self.surfaces.clear();
-        self.wake = None;
-        drop(state);
-    }
-
-    pub(crate) fn release_caches(&mut self) {
-        self.clear_metadata = true;
-        self.clear_ready_metadata();
-    }
-
-    fn clear_ready_metadata(&mut self) {
-        if self.clear_metadata {
-            match &mut self.state {
-                State::Ready(context) | State::Waiting { context, .. } => {
-                    context.release_caches();
-                    self.clear_metadata = false;
-                }
-                _ => {}
-            }
-        }
-    }
-
     pub(crate) fn new(env: GpuEnv) -> Self {
         Self {
             env,
             state: State::Off,
-            surfaces: Vec::new(),
-            background: false,
-            wake: None,
-            restarts: RESTARTS,
-            surface_failures: Vec::new(),
-            cpu_windows: Vec::new(),
-            stale: None,
-            clear_metadata: false,
+        }
+    }
+
+    /// Stop the workers that need the native window before it is dropped.
+    pub(crate) fn shutdown(&mut self, window: &mut dyn arvane_shell::ShellWindow) {
+        if let State::Background(background) = std::mem::replace(&mut self.state, State::Off) {
+            match background.step {
+                Step::Starting(worker) => worker.shutdown(window),
+                Step::Configuring { worker, .. } => worker.shutdown(window),
+                Step::Waiting { .. } | Step::Ready(_) => {}
+            }
+        }
+    }
+
+    /// Release rebuildable validation metadata under memory pressure.
+    pub(crate) fn release_caches(&mut self) {
+        match &mut self.state {
+            State::Foreground(device)
+            | State::Background(Background {
+                step: Step::Ready(device),
+                ..
+            }) => device.context.release_caches(),
+            State::Background(Background {
+                step: Step::Waiting { context, .. },
+                ..
+            }) => context.release_caches(),
+            // A device still on a worker has drawn no window frame yet.
+            State::Off | State::Failed | State::Background(_) => {}
+        }
+    }
+
+    fn device(&self) -> Option<&Device> {
+        match &self.state {
+            State::Foreground(device)
+            | State::Background(Background {
+                step: Step::Ready(device),
+                ..
+            }) => Some(device),
+            _ => None,
+        }
+    }
+
+    fn device_mut(&mut self) -> Option<&mut Device> {
+        match &mut self.state {
+            State::Foreground(device)
+            | State::Background(Background {
+                step: Step::Ready(device),
+                ..
+            }) => Some(device),
+            _ => None,
         }
     }
 
     /// Whether frames go to the GPU now.
     pub(crate) fn ready(&self) -> bool {
-        matches!(self.state, State::Ready(_))
+        self.device().is_some()
     }
 
-    /// Whether a worker is configuring the window `key`'s swapchain.
-    pub(crate) fn configuring(&self, key: u64) -> bool {
-        matches!(self.state, State::Configuring { key: k, .. } if k == key)
+    /// Whether a worker is configuring the window's swapchain.
+    pub(crate) fn configuring(&self) -> bool {
+        matches!(
+            &self.state,
+            State::Background(Background {
+                step: Step::Configuring { .. },
+                ..
+            })
+        )
     }
 
     /// Create the device on a worker thread; frames are drawn on the CPU
-    /// until it and the presenting window's surface are ready.
-    /// `wake` is called when the device or a surface is ready.
-    pub(crate) fn start(&mut self, wake: Wake) {
+    /// until it and the window's surface are ready. `wake` is called when
+    /// a worker finishes.
+    pub(crate) fn start(&mut self, wake: Wake, notes: &mut Notes) {
         if !matches!(self.state, State::Off) {
             return;
         }
-        self.background = true;
-        self.wake = Some(wake);
-        self.spawn();
-    }
-
-    fn spawn(&mut self) {
-        let (sender, result) = mpsc::sync_channel(1);
-        let wake = self.wake.clone();
-        let env = self.env;
-        let spawned = std::thread::Builder::new()
-            .name("arvane-gpu-init".into())
-            .spawn(move || {
-                let since = Instant::now();
-                let _ = sender.send(GpuContext::new(&env).map(|c| (c, since.elapsed())));
-                if let Some(wake) = wake {
-                    wake();
-                }
-            });
-        self.state = match spawned {
-            Ok(thread) => State::Starting(Worker {
-                result: Some(result),
-                thread: Some(thread),
-                name: "arvane-gpu-init",
+        self.state = match start_device(self.env, &wake) {
+            Some(worker) => State::Background(Background {
+                wake,
+                restarts: RESTARTS,
+                step: Step::Starting(worker),
             }),
-            Err(_) => State::Failed,
+            None => cpu_session(notes, "the GPU worker thread cannot start"),
         };
     }
 
-    /// Create the device now, on the calling thread (tests, offscreen
-    /// frames).
+    /// Create the device now, on the calling thread (test windows,
+    /// offscreen frames); the window's first frame makes its surface.
     #[cfg(feature = "testing")]
     pub(crate) fn enable(&mut self, notes: &mut Notes) -> Result<(), Error> {
-        if self.ready() {
-            return Ok(());
-        }
+        assert!(
+            matches!(self.state, State::Off),
+            "invariant: a test window enables the GPU once, on a new presenter"
+        );
         let since = Instant::now();
-        let context = GpuContext::new(&self.env).map_err(error::render)?;
+        let context = Box::new(GpuContext::new(&self.env).map_err(error::render)?);
         notes.note(ready_note(&context, since.elapsed(), None));
-        self.surfaces.clear();
-        self.state = State::Ready(context);
+        self.state = State::Foreground(Device::new(context));
         Ok(())
     }
 
-    /// Move a background start along: take the worker's device and, for
-    /// the window `window` (its key, surface maker and physical size),
-    /// hand its surface to a worker to configure; take the configured
-    /// surface.
+    /// Move a background start along for the window (`make` makes its
+    /// surface, `physical` is its size): take the worker's device, make the
+    /// window's surface and hand it to a worker to configure, take the
+    /// configured surface. Nothing for any other state.
     pub(crate) fn advance(
         &mut self,
         notes: &mut Notes,
-        window: Option<(u64, MakeSurface<'_>, (u32, u32))>,
-    ) {
-        if let State::Starting(worker) = &mut self.state {
-            match worker.poll() {
-                Err(mpsc::TryRecvError::Empty) => return,
-                Ok(Ok((context, init))) => self.state = State::Waiting { context, init },
-                Ok(Err(error)) => {
-                    notes.note(cpu(format!("GPU unavailable: {error}")));
-                    return self.fail();
-                }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    notes.note(cpu("GPU initialization stopped".into()));
-                    return self.fail();
-                }
-            }
-        }
-        match std::mem::replace(&mut self.state, State::Off) {
-            State::Waiting { context, init } => match window {
-                Some((key, make, (width, height))) if !self.cpu_windows.contains(&key) => {
-                    self.configure(context, key, make, width, height, init, notes);
-                }
-                // No window is presenting (on the GPU): keep the device
-                // until one is.
-                _ => self.state = State::Waiting { context, init },
-            },
-            State::Configuring {
-                mut worker,
-                key,
-                init,
-            } => match worker.poll() {
-                Err(mpsc::TryRecvError::Empty) => {
-                    self.state = State::Configuring { worker, key, init };
-                }
-                // The window's surface was destroyed while it was being
-                // configured: its next frame makes a new one.
-                Ok((context, Ok(_))) if self.stale.take() == Some(key) => {
-                    self.state = State::Waiting { context, init };
-                }
-                Ok((context, Ok((surface, configure)))) => {
-                    notes.note(ready_note(&context, init, Some(configure)));
-                    self.surfaces = vec![(key, surface)];
-                    self.state = State::Ready(context);
-                }
-                // The configuration ended without a surface: a destroyed
-                // surface noted meanwhile has nothing left to drop (kept, it
-                // would drop the window's next configured surface).
-                Ok((context, Err(error))) => {
-                    self.stale = None;
-                    self.state = State::Ready(context);
-                    self.device_failed(&error, notes);
-                }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    self.stale = None;
-                    notes.note(cpu("GPU surface configuration stopped".into()));
-                    self.fail();
-                }
-            },
-            state => self.state = state,
-        }
-        self.clear_ready_metadata();
-    }
-
-    /// Make the window's surface here and configure it on a worker.
-    #[expect(clippy::too_many_arguments, reason = "one hand-off step")]
-    fn configure(
-        &mut self,
-        context: GpuContext,
-        key: u64,
         make: MakeSurface<'_>,
-        width: u32,
-        height: u32,
-        init: Duration,
-        notes: &mut Notes,
+        physical: (u32, u32),
     ) {
-        let mut surface = match make(&context) {
-            Ok(surface) => surface,
-            Err(error) => {
-                // The window cannot have a GPU surface: CPU frames.
-                notes.note(cpu(format!("GPU cannot present: {error}")));
-                self.fail();
-                return;
-            }
+        let state = std::mem::replace(&mut self.state, State::Off);
+        let State::Background(Background {
+            wake,
+            restarts,
+            step,
+        }) = state
+        else {
+            self.state = state;
+            return;
         };
-        let (sender, result) = mpsc::sync_channel(1);
-        let wake = self.wake.clone();
-        let spawned = std::thread::Builder::new()
-            .name("arvane-gpu-configure".into())
-            .spawn(move || {
-                let since = Instant::now();
-                let configured = context.configure(&mut surface, width, height);
-                let configured = configured.map(|()| (surface, since.elapsed()));
-                let _ = sender.send((context, configured));
-                if let Some(wake) = wake {
-                    wake();
+        // The device the worker made.
+        let step = match step {
+            Step::Starting(worker) => match worker.poll() {
+                Polled::Working(worker) => Step::Starting(worker),
+                Polled::Sent(Ok((context, init))) => Step::Waiting { context, init },
+                Polled::Sent(Err(error)) => {
+                    self.state = cpu_session(notes, format!("GPU unavailable: {error}"));
+                    return;
                 }
-            });
-        self.state = match spawned {
-            Ok(thread) => State::Configuring {
-                worker: Worker {
-                    result: Some(result),
-                    thread: Some(thread),
-                    name: "arvane-gpu-configure",
-                },
-                key,
-                init,
+                Polled::Stopped => {
+                    self.state = cpu_session(notes, "GPU initialization stopped");
+                    return;
+                }
             },
-            Err(_) => State::Failed,
+            step => step,
         };
+        let step = match step {
+            // The window's surface, made here, configured on a worker.
+            Step::Waiting { context, init } => match make(&context) {
+                Ok(surface) => match configure(&wake, context, init, surface, physical) {
+                    Some(step) => step,
+                    None => {
+                        self.state = cpu_session(notes, "the GPU worker thread cannot start");
+                        return;
+                    }
+                },
+                Err(error) => {
+                    let note = ready_note(&context, init, None);
+                    self.state = State::Background(Background {
+                        wake,
+                        restarts,
+                        step: Step::Ready(Device::new(context)),
+                    });
+                    self.unconfigured(&error, note, notes);
+                    return;
+                }
+            },
+            Step::Configuring {
+                worker,
+                init,
+                stale,
+            } => match worker.poll() {
+                Polled::Working(worker) => Step::Configuring {
+                    worker,
+                    init,
+                    stale,
+                },
+                // The platform destroyed the window's surface meanwhile:
+                // whatever configuring did, the window's next frame makes a
+                // new one (a device failure stays recorded in the context
+                // and fails that frame).
+                Polled::Sent((context, _)) if stale => Step::Waiting { context, init },
+                Polled::Sent((context, Ok((surface, configure)))) => {
+                    notes.note(ready_note(&context, init, Some(configure)));
+                    Step::Ready(Device {
+                        surface: Some(Box::new(surface)),
+                        failures: 0,
+                        context,
+                    })
+                }
+                Polled::Sent((context, Err(error))) => {
+                    let note = ready_note(&context, init, None);
+                    self.state = State::Background(Background {
+                        wake,
+                        restarts,
+                        step: Step::Ready(Device::new(context)),
+                    });
+                    self.unconfigured(&error, note, notes);
+                    return;
+                }
+                Polled::Stopped => {
+                    self.state = cpu_session(notes, "GPU surface configuration stopped");
+                    return;
+                }
+            },
+            step @ (Step::Starting(_) | Step::Ready(_)) => step,
+        };
+        self.state = State::Background(Background {
+            wake,
+            restarts,
+            step,
+        });
     }
 
-    fn fail(&mut self) {
-        self.surfaces.clear();
-        self.state = State::Failed;
-    }
-
-    /// The platform destroyed the window `key`'s surface: drop its GPU
-    /// surface; a swapchain a worker is configuring for it is dropped
-    /// when the worker hands it back (the device is kept).
-    pub(crate) fn drop_surface(&mut self, key: u64) {
-        self.surfaces.retain(|(k, _)| *k != key);
-        if self.configuring(key) {
-            self.stale = Some(key);
+    /// The window's swapchain could not be made or configured (`error`;
+    /// the device is ready without a surface now): classify it as a
+    /// frame's failure would be, and note the GPU (`note`) when it keeps
+    /// the device.
+    fn unconfigured(&mut self, error: &RenderError, note: RendererChange, notes: &mut Notes) {
+        if self.failed(error, notes) == Fallback::Surface {
+            notes.note(note);
         }
     }
 
-    /// Present to the window `key` on the GPU, its surface made by `make`
-    /// the first time; `None` when the GPU is not ready or the window is
-    /// drawn on the CPU (draw on the CPU).
+    /// Apply the failure `error` of a GPU step of the window (a frame, an
+    /// offscreen render, an import, making or configuring its swapchain)
+    /// and say what it means for the window's frame (see the module's
+    /// failure policy).
+    pub(crate) fn failed(&mut self, error: &RenderError, notes: &mut Notes) -> Fallback {
+        match error {
+            RenderError::Surface(_) => self.surface_failed(error, notes),
+            RenderError::Backend(_) | RenderError::NoAdapter(_) => {
+                self.device_failed(error, notes);
+                Fallback::Cpu
+            }
+            _ => Fallback::Other,
+        }
+    }
+
+    fn surface_failed(&mut self, error: &RenderError, notes: &mut Notes) -> Fallback {
+        let device = self
+            .device_mut()
+            .expect("invariant: a surface fails only on a ready device");
+        device.surface = None;
+        device.failures = device.failures.saturating_add(1);
+        if device.failures < SURFACE_FAILURES {
+            return Fallback::Surface;
+        }
+        self.state = cpu_session(
+            notes,
+            format!("GPU surface keeps failing, CPU for the session: {error}"),
+        );
+        Fallback::Cpu
+    }
+
+    /// The device failed: drop it, and start a new one once per session
+    /// (background starts only).
+    fn device_failed(&mut self, error: &RenderError, notes: &mut Notes) {
+        let state = std::mem::replace(&mut self.state, State::Off);
+        self.state = match state {
+            State::Background(Background { wake, restarts, .. }) if restarts > 0 => {
+                notes.note(cpu(format!("GPU device failed, restarting: {error}")));
+                match start_device(self.env, &wake) {
+                    Some(worker) => State::Background(Background {
+                        wake,
+                        restarts: restarts - 1,
+                        step: Step::Starting(worker),
+                    }),
+                    None => cpu_session(notes, "the GPU worker thread cannot start"),
+                }
+            }
+            _ => cpu_session(
+                notes,
+                format!("GPU device failed, CPU for the session: {error}"),
+            ),
+        };
+    }
+
+    /// The platform destroyed the window's surface: drop its GPU surface; a
+    /// swapchain a worker is configuring for it is dropped when the worker
+    /// hands it back (the device is kept).
+    pub(crate) fn drop_surface(&mut self) {
+        match &mut self.state {
+            State::Foreground(device)
+            | State::Background(Background {
+                step: Step::Ready(device),
+                ..
+            }) => device.surface = None,
+            State::Background(Background {
+                step: Step::Configuring { stale, .. },
+                ..
+            }) => *stale = true,
+            _ => {}
+        }
+    }
+
+    /// Present to the window on the GPU, its surface made by `make` when it
+    /// has none; `None` when the GPU is not ready (draw on the CPU).
     pub(crate) fn present(
         &mut self,
-        key: u64,
         make: MakeSurface<'_>,
         scene: &Scene,
         size: Size,
         scale: f32,
         physical: (u32, u32),
     ) -> Option<Result<(Presentation, Duration), RenderError>> {
-        let State::Ready(context) = &mut self.state else {
-            return None;
+        let Device {
+            surface,
+            failures,
+            context,
+        } = self.device_mut()?;
+        let surface = match window_surface(context, surface, make) {
+            Ok(surface) => surface,
+            Err(error) => return Some(Err(error)),
         };
-        if self.cpu_windows.contains(&key) {
-            return None;
-        }
-        let index = match self.surfaces.iter().position(|(k, _)| *k == key) {
-            Some(index) => index,
-            None => match make(context) {
-                Ok(surface) => {
-                    self.surfaces.push((key, surface));
-                    self.surfaces.len() - 1
-                }
-                Err(error) => return Some(Err(error)),
-            },
-        };
-        let surface = &mut self.surfaces[index].1;
         let presented = context.present(surface, scene, size, scale, physical);
         if presented.is_ok() {
-            self.surface_failures.retain(|(k, _)| *k != key);
+            *failures = 0;
         }
         Some(presented)
     }
 
-    /// Present `pixels` (0x00RRGGBB rows of the window's size, drawn on
-    /// the CPU) through the window `key`'s GPU surface; `None` when the GPU
-    /// does not present that window.
+    /// Present `pixels` (0x00RRGGBB rows of the window's size, drawn on the
+    /// CPU) through the window's GPU surface; `None` when the GPU is not
+    /// ready.
     pub(crate) fn present_pixels(
         &mut self,
-        key: u64,
         make: MakeSurface<'_>,
         pixels: &[u32],
         physical: (u32, u32),
     ) -> Option<Result<(Presentation, Duration), RenderError>> {
-        let State::Ready(context) = &mut self.state else {
-            return None;
+        let Device {
+            surface,
+            failures,
+            context,
+        } = self.device_mut()?;
+        let surface = match window_surface(context, surface, make) {
+            Ok(surface) => surface,
+            Err(error) => return Some(Err(error)),
         };
-        if self.cpu_windows.contains(&key) {
-            return None;
+        let presented = context.present_pixels(surface, pixels, physical);
+        if presented.is_ok() {
+            *failures = 0;
         }
-        let index = match self.surfaces.iter().position(|(k, _)| *k == key) {
-            Some(index) => index,
-            None => match make(context) {
-                Ok(surface) => {
-                    self.surfaces.push((key, surface));
-                    self.surfaces.len() - 1
-                }
-                Err(error) => return Some(Err(error)),
-            },
-        };
-        Some(context.present_pixels(&mut self.surfaces[index].1, pixels, physical))
+        Some(presented)
     }
 
-    /// The adapter of the device drawing the window `key`'s frames, when
-    /// it can import shared textures.
+    /// The adapter of the device drawing the window's frames, when it can
+    /// import shared textures.
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn adapter(&self, key: u64) -> Option<kivact_types::GpuAdapter> {
-        match &self.state {
-            State::Ready(context) if !self.cpu_windows.contains(&key) => context.interop_adapter(),
-            _ => None,
-        }
+    pub(crate) fn adapter(&self) -> Option<kivact_types::GpuAdapter> {
+        self.device()?.context.interop_adapter()
     }
 
-    /// The device's context, when it is ready (whatever window draws on
-    /// the CPU).
+    /// The context of the device drawing the window's frames, when ready.
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn ready_context(&mut self) -> Option<&mut GpuContext> {
-        match &mut self.state {
-            State::Ready(context) => Some(context),
-            _ => None,
-        }
-    }
-
-    /// The context drawing the window `key`'s frames, when the GPU is
-    /// ready and the window is not drawn on the CPU.
-    #[cfg(feature = "gpu-interop")]
-    pub(crate) fn context(&mut self, key: u64) -> Option<&mut GpuContext> {
-        match &mut self.state {
-            State::Ready(context) if !self.cpu_windows.contains(&key) => Some(context),
-            _ => None,
-        }
+    pub(crate) fn context(&mut self) -> Option<&mut GpuContext> {
+        self.device_mut().map(|device| &mut *device.context)
     }
 
     /// The external frames the last frames did not draw (each once).
     pub(crate) fn take_missed(&mut self) -> Vec<kivact_types::ExternalFrame> {
-        match &mut self.state {
-            State::Ready(context) => context.take_missed_external(),
-            _ => Vec::new(),
-        }
+        self.device_mut()
+            .map_or_else(Vec::new, |device| device.context.take_missed_external())
     }
 
     /// Render offscreen and read back; `None` when the GPU is not ready.
@@ -515,67 +646,65 @@ impl Gpu {
         size: Size,
         scale: f32,
     ) -> Option<Result<CpuFrame, RenderError>> {
-        match &mut self.state {
-            State::Ready(context) => Some(context.render(scene, size, scale)),
-            _ => None,
-        }
+        Some(self.device_mut()?.context.render(scene, size, scale))
     }
 
-    /// Read back the last frame presented to the window `key`.
+    /// Read back the last frame presented to the window.
     #[cfg(feature = "testing")]
-    pub(crate) fn read_back(&self, key: u64) -> Option<Result<CpuFrame, RenderError>> {
-        let State::Ready(context) = &self.state else {
-            return None;
-        };
-        let (_, surface) = self.surfaces.iter().find(|(k, _)| *k == key)?;
-        Some(context.read_back(surface))
+    pub(crate) fn read_back(&self) -> Option<Result<CpuFrame, RenderError>> {
+        let device = self.device()?;
+        Some(device.context.read_back(device.surface.as_ref()?))
     }
+}
 
-    /// The window `key`'s surface failed (`error`): drop it, the next
-    /// frame makes a new one. Returns whether the window is drawn on the
-    /// CPU from now on (it failed [`SURFACE_FAILURES`] frames in a row).
-    pub(crate) fn surface_failed(
-        &mut self,
-        key: u64,
-        error: &RenderError,
-        notes: &mut Notes,
-    ) -> bool {
-        self.surfaces.retain(|(k, _)| *k != key);
-        let count = match self.surface_failures.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, count)) => {
-                *count = count.saturating_add(1);
-                *count
-            }
-            None => {
-                self.surface_failures.push((key, 1));
-                1
-            }
-        };
-        if count < SURFACE_FAILURES {
-            return false;
-        }
-        self.surface_failures.retain(|(k, _)| *k != key);
-        self.cpu_windows.push(key);
-        notes.note(cpu(format!(
-            "GPU surface keeps failing, CPU for this window: {error}"
-        )));
-        true
+/// The window's surface, made by `make` when there is none.
+fn window_surface<'a>(
+    context: &GpuContext,
+    surface: &'a mut Option<Box<GpuSurface>>,
+    make: MakeSurface<'_>,
+) -> Result<&'a mut GpuSurface, RenderError> {
+    if surface.is_none() {
+        *surface = Some(Box::new(make(context)?));
     }
+    Ok(surface
+        .as_mut()
+        .expect("invariant: the surface was just made"))
+}
 
-    /// The device failed: drop it, and start a new one once per session.
-    pub(crate) fn device_failed(&mut self, error: &RenderError, notes: &mut Notes) {
-        self.surfaces.clear();
-        if self.background && self.restarts > 0 {
-            self.restarts -= 1;
-            notes.note(cpu(format!("GPU device failed, restarting: {error}")));
-            self.spawn();
-        } else {
-            notes.note(cpu(format!(
-                "GPU device failed, CPU for the session: {error}"
-            )));
-            self.fail();
-        }
-    }
+/// A worker creating a device as `env` says; `None` when it cannot start.
+fn start_device(env: GpuEnv, wake: &Wake) -> Option<Worker<Started>> {
+    Worker::spawn("arvane-gpu-init", Arc::clone(wake), move || {
+        let since = Instant::now();
+        GpuContext::new(&env).map(|context| (Box::new(context), since.elapsed()))
+    })
+}
+
+/// The step that configures `surface`'s swapchain for `physical` on a
+/// worker; `None` when the worker cannot start.
+fn configure(
+    wake: &Wake,
+    context: Box<GpuContext>,
+    init: Duration,
+    mut surface: GpuSurface,
+    (width, height): (u32, u32),
+) -> Option<Step> {
+    let worker = Worker::spawn("arvane-gpu-configure", Arc::clone(wake), move || {
+        let since = Instant::now();
+        let configured = context.configure(&mut surface, width, height);
+        let configured = configured.map(|()| (surface, since.elapsed()));
+        (context, configured)
+    })?;
+    Some(Step::Configuring {
+        worker,
+        init,
+        stale: false,
+    })
+}
+
+/// The CPU for the rest of the session, noted with `reason`.
+fn cpu_session(notes: &mut Notes, reason: impl Into<String>) -> State {
+    notes.note(cpu(reason.into()));
+    State::Failed
 }
 
 fn ready_note(context: &GpuContext, init: Duration, configure: Option<Duration>) -> RendererChange {
