@@ -9,7 +9,8 @@
 //!   kept by the model's frame group. At start the window's environment
 //!   (`Window::environment`: scale, refresh period, reduced motion, theme,
 //!   safe area, mouse settings, locale), its size and fullscreen state and
-//!   its capabilities (`Window::capabilities`) are reported in `HostInfo`.
+//!   its capabilities (`Window::capabilities`) and whether frames can be drawn
+//!   (`HostEnv::surface_active`) are reported in `HostInfo`.
 //!   The theme is reported light at start and follows the system's from
 //!   its first change.
 //! - Every change goes through `Model::update_env`, which sends one
@@ -45,7 +46,7 @@ use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_lower::conversion as c;
 use kivact_wire::{
-    HostEvent, HostInfo, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint,
+    HostEnv, HostEvent, HostInfo, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint,
 };
 impl arvane::Handler for Host {
     fn start(
@@ -75,20 +76,25 @@ impl Host {
         store: arvane::asset::AssetStore,
     ) -> Result<ShellControl, ShellError> {
         self.environment = window.environment();
+        let drawable = self.drawable(window);
         let env = {
             let mut model = self.model.borrow_mut();
             model.set_viewport(window.size());
-            // The theme is the one the model starts with (light); the
-            // rest is the window's.
-            let env = model.frame.start_env();
-            env.scale = window.scale();
-            env.reduced_motion = self.environment.reduced_motion;
-            env.frame_period_ns = self.environment.frame_period_ns;
-            env.safe_area = c::insets(self.environment.safe_area);
-            env.window = window.size();
-            env.locale = self.environment.locale.clone();
-            env.fullscreen = window.fullscreen();
-            env.clone()
+            model.frame.set_now(window.now_ns());
+            let env = HostEnv {
+                scale: window.scale(),
+                reduced_motion: self.environment.reduced_motion,
+                // The theme the model starts with (light; a test may start dark).
+                theme_hint: model.frame.theme_hint(),
+                frame_period_ns: self.environment.frame_period_ns,
+                safe_area: c::insets(self.environment.safe_area),
+                window: window.size(),
+                locale: self.environment.locale.clone(),
+                fullscreen: window.fullscreen(),
+                surface_active: drawable,
+            };
+            model.start_env(env.clone());
+            env
         };
         self.frame_log
             .borrow_mut()

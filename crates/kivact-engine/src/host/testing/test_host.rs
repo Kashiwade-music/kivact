@@ -92,7 +92,7 @@ impl ArvaneTestHost {
             Rc::new(RefCell::new(crate::FrameLog::disabled())),
         );
         // Reported light at start in production; a test may start dark.
-        host.model.borrow_mut().frame.start_env().theme_hint = options.theme;
+        host.model.borrow_mut().frame.start_theme(options.theme);
         let woken = Arc::new(AtomicBool::new(false));
         let flag = woken.clone();
         // A wake also unparks the test thread, which may be waiting for a
