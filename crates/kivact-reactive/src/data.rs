@@ -18,8 +18,7 @@
 use crate::{AppId, NodeId};
 use std::any::{Any, TypeId};
 use std::cell::{Cell, OnceCell, RefCell};
-use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::fmt;
 use std::marker::PhantomData;
 use std::panic::Location;
@@ -136,31 +135,125 @@ pub(crate) struct EffectCell {
 }
 
 pub(crate) struct RNode {
-    pub(crate) kind: Kind,
     pub(crate) owner: Key,
     pub(crate) owner_index: u32,
     pub(crate) cell: Rc<dyn Any>,
-    pub(crate) compute: Option<Rc<dyn Compute>>,
-    /// (source, index of this node in source.subs), in read order.
-    pub(crate) deps: Vec<(Key, u32)>,
-    /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
-    pub(crate) state: Color,
-    pub(crate) seq: u64,
     pub(crate) at: &'static Location<'static>,
-    pub(crate) queued: bool,
-    pub(crate) running: bool,
-    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
-    /// Write epoch of the last change (sources).
-    pub(crate) changed_at: u64,
     /// Value type name (diagnostics; values themselves are never recorded).
     pub(crate) ty: &'static str,
+    pub(crate) data: NodeData,
+}
+
+/// What a graph node is, with the data only that kind has.
+pub(crate) enum NodeData {
+    /// A writable source (signal, var storage, trigger, selector key).
+    Source(SourceNode),
+    /// A cached derived value.
+    Memo(MemoNode),
+    /// An effect.
+    Effect(EffectNode),
+}
+
+pub(crate) struct SourceNode {
+    /// (subscriber, index of this node in subscriber.deps).
+    pub(crate) subs: Vec<(Key, u32)>,
+    /// Write epoch of the last change.
+    pub(crate) changed_at: u64,
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, u64)>,
+}
+
+pub(crate) struct MemoNode {
+    /// (subscriber, index of this node in subscriber.deps).
+    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) run: Computation,
+}
+
+pub(crate) struct EffectNode {
+    pub(crate) kind: EffectKind,
+    /// Creation order: queued effects run in it.
+    pub(crate) seq: u64,
+    pub(crate) run: Computation,
+    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
     /// Stabilisation pass (epoch) and the runs of this effect within it
-    /// (per-effect cycle limit).
+    /// (per-effect cycle limit; a User effect never stabilises).
     pub(crate) stab_epoch: u64,
     pub(crate) stab_runs: u32,
+}
+
+/// The part of a memo or an effect that computes.
+pub(crate) struct Computation {
+    pub(crate) compute: Rc<dyn Compute>,
+    /// (source, index of this node in source.subs), in read order.
+    pub(crate) deps: Vec<(Key, u32)>,
+    pub(crate) state: Color,
+    /// The computation is on the stack (a memo read now is a `Cycle`).
+    pub(crate) running: bool,
+}
+
+impl Computation {
+    /// A computation that has not run yet (dirty).
+    pub(crate) fn new(compute: Rc<dyn Compute>) -> Self {
+        Computation {
+            compute,
+            deps: Vec::new(),
+            state: Color::Dirty,
+            running: false,
+        }
+    }
+}
+
+impl RNode {
+    /// The public kind (diagnostics).
+    pub(crate) fn kind(&self) -> Kind {
+        match &self.data {
+            NodeData::Source(_) => Kind::Source,
+            NodeData::Memo(_) => Kind::Memo,
+            NodeData::Effect(e) => Kind::Effect(e.kind),
+        }
+    }
+
+    /// The readers of a source or a memo; nothing reads an effect.
+    pub(crate) fn subs(&self) -> &[(Key, u32)] {
+        match &self.data {
+            NodeData::Source(s) => &s.subs,
+            NodeData::Memo(m) => &m.subs,
+            NodeData::Effect(_) => &[],
+        }
+    }
+
+    pub(crate) fn subs_mut(&mut self) -> Option<&mut Vec<(Key, u32)>> {
+        match &mut self.data {
+            NodeData::Source(s) => Some(&mut s.subs),
+            NodeData::Memo(m) => Some(&mut m.subs),
+            NodeData::Effect(_) => None,
+        }
+    }
+
+    /// The computation of a memo or an effect.
+    pub(crate) fn computation(&self) -> Option<&Computation> {
+        match &self.data {
+            NodeData::Source(_) => None,
+            NodeData::Memo(m) => Some(&m.run),
+            NodeData::Effect(e) => Some(&e.run),
+        }
+    }
+
+    pub(crate) fn computation_mut(&mut self) -> Option<&mut Computation> {
+        match &mut self.data {
+            NodeData::Source(_) => None,
+            NodeData::Memo(m) => Some(&mut m.run),
+            NodeData::Effect(e) => Some(&mut e.run),
+        }
+    }
+
+    /// What a memo or an effect read during its last run (empty for a source).
+    pub(crate) fn deps(&self) -> &[(Key, u32)] {
+        match self.computation() {
+            Some(c) => &c.deps,
+            None => &[],
+        }
+    }
 }
 
 /// Read-only snapshot of one graph node, for diagnostics (`why` chains).
@@ -238,10 +331,13 @@ pub(crate) struct FrameGuard<'a> {
     pub(crate) collector: Option<usize>,
 }
 
+/// Queued effects by creation order: being in a set is being queued.
 #[derive(Default)]
 pub(crate) struct Sched {
-    pub(crate) render: BinaryHeap<Reverse<(u64, Key)>>,
-    pub(crate) user: BinaryHeap<Reverse<(u64, Key)>>,
+    /// Render and Internal effects (run by `stabilize`).
+    pub(crate) render: BTreeSet<(u64, Key)>,
+    /// User effects (run by `run_user_effects`).
+    pub(crate) user: BTreeSet<(u64, Key)>,
 }
 
 /// A value-changing write during a turn.

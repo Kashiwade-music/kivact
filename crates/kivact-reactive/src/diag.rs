@@ -16,7 +16,7 @@
 
 use std::panic::Location;
 
-use crate::data::{Diag, EffectKind, Kind, Runtime};
+use crate::data::{Diag, Runtime};
 use crate::data::{TraceRun, TraceWrite, TurnRecord};
 use crate::error::UiError;
 
@@ -102,15 +102,9 @@ impl Diag {
     }
 
     /// A memo or effect re-evaluation.
-    pub(crate) fn record_run(&mut self, kind: Kind, at: &'static Location<'static>) {
+    pub(crate) fn record_run(&mut self, kind: &'static str, at: &'static Location<'static>) {
         self.current.runs += 1;
         if self.current.reruns.len() < PER_TURN {
-            let kind = match kind {
-                Kind::Memo => "memo",
-                Kind::Effect(EffectKind::Render) => "render",
-                Kind::Effect(EffectKind::Internal) => "internal",
-                Kind::Effect(EffectKind::User) | Kind::Source => "effect",
-            };
             self.current.reruns.push(TraceRun { kind, at });
         }
     }

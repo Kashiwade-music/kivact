@@ -38,7 +38,7 @@ use std::rc::Rc;
 
 use super::arena::Tomb;
 use crate::arena::Key;
-use crate::data::{ConstEntry, EffectKind, Kind, OwnerEntry, Runtime};
+use crate::data::{ConstEntry, EffectKind, Kind, NodeData, OwnerEntry, Runtime};
 use crate::error::{ErrorKind, UiError, misuse_at, new_error};
 
 /// Rounds a disposal releases what its members registered while being
@@ -138,8 +138,9 @@ impl Runtime {
     }
 
     pub(crate) fn add_effect_cleanup(&self, effect: Key, f: Box<dyn FnOnce()>) {
-        if let Some(n) = self.graph.borrow_mut().get_mut(effect) {
-            n.cleanups.push(f);
+        if let Some(NodeData::Effect(e)) = self.graph.borrow_mut().get_mut(effect).map(|n| &mut n.data)
+        {
+            e.cleanups.push(f);
         }
     }
 
@@ -355,7 +356,7 @@ impl Runtime {
     ) {
         // Effects first (their cleanups may read memos and sources), then memos, then sources.
         let rank = |k: &Key| -> u8 {
-            match self.graph.borrow().get(*k).map(|n| n.kind) {
+            match self.graph.borrow().get(*k).map(|n| n.kind()) {
                 Some(Kind::Effect(EffectKind::User)) => 0,
                 Some(Kind::Effect(_)) => 1,
                 Some(Kind::Memo) => 2,
@@ -369,7 +370,10 @@ impl Runtime {
                 .graph
                 .borrow_mut()
                 .get_mut(n)
-                .map(|r| std::mem::take(&mut r.cleanups));
+                .and_then(|r| match &mut r.data {
+                    NodeData::Effect(e) => Some(std::mem::take(&mut e.cleanups)),
+                    _ => None,
+                });
             if let Some(cleanups) = cleanups.filter(|c| !c.is_empty()) {
                 let _g = self.handler_frame(Some(key));
                 for c in cleanups.into_iter().rev() {
@@ -377,8 +381,7 @@ impl Runtime {
                 }
             }
             if let Some(node) = self.remove_node(n, Some(created_at)) {
-                graveyard.push(Box::new(node.cell));
-                graveyard.push(Box::new(node.compute));
+                graveyard.push(Box::new(node));
             }
         }
         for o in objects {
