@@ -132,6 +132,7 @@ mod data_table;
 mod disclosure;
 mod field;
 mod helpers;
+mod inline_edit;
 mod layer;
 mod list;
 mod look;
@@ -166,6 +167,7 @@ pub use kivact_interaction::{
     Command, DialogKind, Dismiss, EditPhase, ListActivation, ListItem, MenuEntry, ScalarRange,
     ScalarRangeError, Side, Toast, Toaster, Tone, TreeNode, toaster,
 };
+pub use inline_edit::{InlineEdit, use_inline_edit};
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
 pub use progress::{Progress, progress};
