@@ -114,10 +114,6 @@ impl A11yState {
     }
     /// Raise the dirt to `Metadata` (keeping a local-text level's nodes); its
     /// sets (own payloads, subtrees, removed), or `None` at `Full`.
-    #[allow(
-        clippy::type_complexity,
-        reason = "the three sets of Dirt::Metadata, borrowed together"
-    )]
     fn metadata_dirt(
         &mut self,
     ) -> Option<(

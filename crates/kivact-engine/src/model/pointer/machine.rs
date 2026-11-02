@@ -398,7 +398,6 @@ impl Model {
     /// A button of `pointer` released over `hit` (`None`: nothing, or
     /// outside the window). Each Up reaches the original listener; the one
     /// that leaves no button held releases the capture.
-    #[expect(clippy::too_many_arguments, reason = "one release's fields")]
     pub(crate) fn pointer_up(
         &mut self,
         pointer: PointerId,
