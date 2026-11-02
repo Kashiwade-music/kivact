@@ -1,6 +1,7 @@
 //! Role: Focus processing: tab stops, Tab order, focus requests and automatic moves.
 
 use crate::model::Model;
+use super::state::Focused;
 use kivact_wire::{FocusTarget, HostEvent, NodeId};
 
 impl Model {
@@ -14,16 +15,18 @@ impl Model {
     /// At a commit: a focus the host moved on its own is revealed, like a
     /// Tab move.
     pub(crate) fn reveal_moved_focus(&mut self) {
-        if std::mem::take(&mut self.focus.reveal_focus)
-            && let Some(focus) = self.focus.target
-        {
-            self.reveal(focus.node);
+        let Some(f) = &mut self.focus.focused else {
+            return;
+        };
+        if std::mem::take(&mut f.reveal_at_commit) {
+            let node = f.target.node;
+            self.reveal(node);
         }
     }
 
     /// The exact native keyboard focus target.
     pub(crate) fn focused(&self) -> Option<FocusTarget> {
-        self.focus.target
+        self.focus.target()
     }
 
     /// Whether a node itself is an enabled, shown tab stop.
@@ -100,7 +103,7 @@ impl Model {
         }
         let cur = self
             .focus
-            .target
+            .target()
             .and_then(|f| stops.iter().position(|s| *s == f));
         let next = match (cur, backward) {
             (None, false) => 0,
@@ -135,7 +138,7 @@ impl Model {
     /// Whether the focus is on the nearest ancestor of `id` that is a group
     /// or on a node below it.
     pub(crate) fn is_group_focused(&self, id: NodeId) -> bool {
-        let Some(focus) = self.focus.target else {
+        let Some(focus) = self.focus.target() else {
             return false;
         };
         self.nearest_group(id)
@@ -144,29 +147,46 @@ impl Model {
 
     /// Change the sole focus target and report its complete identity.
     pub(crate) fn set_focus(&mut self, target: Option<FocusTarget>) {
-        self.set_focus_visible(target, self.focus.visible);
+        self.set_focus_visible(target, self.focus.visible());
     }
 
     /// Change focus together with the modality used by focus indicators.
     pub(crate) fn set_focus_visible(&mut self, target: Option<FocusTarget>, visible: bool) {
-        let left = self.tree.chain(self.focus.target.map(|t| t.node));
-        self.change_focus(target, visible, &left);
+        let left = self.tree.chain(self.focus.target().map(|t| t.node));
+        self.change_focus(target, visible, &left, false);
     }
 
     /// [`Model::set_focus_visible`] from a focus whose node and its
     /// ancestors, nearest first, were `left` (read before a removal took
     /// them from the tree).
-    fn change_focus(&mut self, target: Option<FocusTarget>, visible: bool, left: &[NodeId]) {
-        let visible = target.is_some() && visible;
-        if self.focus.target == target && self.focus.visible == visible {
+    /// With `host_move`, the host moved the focus on its own: it is revealed at
+    /// the commit, like a Tab move.
+    fn change_focus(
+        &mut self,
+        target: Option<FocusTarget>,
+        visible: bool,
+        left: &[NodeId],
+        host_move: bool,
+    ) {
+        let new = target.map(|target| Focused {
+            target,
+            visible,
+            reveal_at_commit: host_move,
+        });
+        let old = self.focus.focused;
+        if old.map(|f| (f.target, f.visible)) == new.map(|f| (f.target, f.visible)) {
+            if host_move && let Some(f) = &mut self.focus.focused {
+                f.reveal_at_commit = true;
+            }
             return;
         }
-        if self.focus.target != target
-            && let Some(old) = self.focus.target.filter(|t| t.region.is_none())
+        let old_target = old.map(|f| f.target);
+        if old_target != target
+            && let Some(old) = old_target.filter(|t| t.region.is_none())
         {
             self.commit_composition(old.node);
         }
-        for n in [self.focus.target, target]
+        for n in [old_target, target]
             .into_iter()
             .flatten()
             .map(|t| t.node)
@@ -180,7 +200,7 @@ impl Model {
                 self.changes.moved();
             }
         }
-        if self.focus.target != target {
+        if old_target != target {
             // The groups the focus enters or leaves restyle the nodes below.
             let new = self.tree.chain(target.map(|t| t.node));
             let touched: Vec<NodeId> = left
@@ -194,19 +214,18 @@ impl Model {
                 self.restyled(id);
             }
         }
-        self.changes.a11y_focus |= self.focus.target != target;
-        self.focus.target = target;
-        self.focus.visible = visible;
+        self.changes.a11y_focus |= old_target != target;
+        self.focus.focused = new;
         self.push(HostEvent::FocusChanged {
             node: target.map(|t| t.node),
             region: target.and_then(|t| t.region),
-            visible,
+            visible: new.is_some_and(|f| f.visible),
         });
     }
 
     /// Whether a press outside focusable targets should blur the focus.
     pub(crate) fn press_blurs(&self, hit: Option<NodeId>) -> bool {
-        let Some(focus) = self.focus.target else {
+        let Some(focus) = self.focus.target() else {
             return false;
         };
         let Some(hit) = hit else {
@@ -226,10 +245,8 @@ impl Model {
 
     /// Reveal focus moved automatically by a tree mutation.
     pub(crate) fn move_focus_to(&mut self, target: Option<FocusTarget>) {
-        self.set_focus(target);
-        if target.is_some() {
-            self.focus.reveal_focus = true;
-        }
+        let left = self.tree.chain(self.focus.target().map(|t| t.node));
+        self.change_focus(target, self.focus.visible(), &left, true);
     }
 
     /// The focus is in `removed`, which goes now: the nodes styled by the
@@ -251,10 +268,7 @@ impl Model {
     /// and its ancestors, nearest first, were `left`: the groups it was in
     /// restyle the nodes below them.
     pub(crate) fn move_focus_off_removed(&mut self, left: &[NodeId], target: Option<FocusTarget>) {
-        self.change_focus(target, self.focus.visible, left);
-        if target.is_some() {
-            self.focus.reveal_focus = true;
-        }
+        self.change_focus(target, self.focus.visible(), left, true);
     }
 
     /// The next target outside a removed subtree and within the remaining modal.
@@ -275,7 +289,7 @@ impl Model {
 
     /// Revalidate an exact target after props or scenes change.
     pub(crate) fn revalidate_focus(&mut self) {
-        let Some(focus) = self.focus.target else {
+        let Some(focus) = self.focus.target() else {
             return;
         };
         if self.is_focus_target(focus) {

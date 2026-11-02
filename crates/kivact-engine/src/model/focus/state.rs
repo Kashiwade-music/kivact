@@ -1,17 +1,24 @@
-//! Role: The focus group's state: the focus target, its modality and pending reveals.
+//! Role: The focus group's state: the focus target with its modality and pending reveal.
 
 use crate::tree::NodeTree;
 use kivact_wire::{FocusTarget, NodeId};
 
-/// The focus group: the keyboard focus target, whether its indicator
-/// shows, and the nodes to scroll into view after the next layout pass.
+/// The keyboard focus.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Focused {
+    pub(crate) target: FocusTarget,
+    /// Its indicator shows (`:focus-visible`).
+    pub(crate) visible: bool,
+    /// The host moved it on its own: it is scrolled into view at the commit.
+    pub(super) reveal_at_commit: bool,
+}
+
+/// The focus group: the keyboard focus, and the nodes to scroll into view
+/// after the next layout pass.
 #[derive(Default)]
 pub(crate) struct Focus {
-    pub(super) target: Option<FocusTarget>,
-    pub(super) visible: bool,
+    pub(super) focused: Option<Focused>,
     pub(super) reveal: Vec<NodeId>,
-    /// The host moved the focus on its own: reveal it at the commit.
-    pub(super) reveal_focus: bool,
 }
 
 impl Focus {
@@ -20,9 +27,14 @@ impl Focus {
         std::mem::take(&mut self.reveal)
     }
 
+    /// The exact keyboard focus target.
+    pub(crate) fn target(&self) -> Option<FocusTarget> {
+        self.focused.map(|f| f.target)
+    }
+
     /// Whether the focus is shown (`:focus-visible`).
     pub(crate) fn visible(&self) -> bool {
-        self.visible
+        self.focused.is_some_and(|f| f.visible)
     }
 
     /// Drop removed and leaving nodes.
