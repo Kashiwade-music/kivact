@@ -51,7 +51,7 @@ pub use descriptor::{IntoView, View};
 pub use input::{
     A11yEvent, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
     KeyHandlerResult, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId, PointerKind,
-    PointerPhase, WheelEvent,
+    PointerPhase, WheelEvent, current_modifiers,
 };
 #[doc(inline)]
 pub use kivact_reactive::HandlerResult;

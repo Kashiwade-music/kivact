@@ -153,6 +153,11 @@ pub enum HostEvent {
         /// first entered. A touch or pen contact does not move it.
         pointer: Option<Point>,
     },
+    /// The modifier keys held changed between events: a modifier key went
+    /// down or up, or the window lost the keyboard (none are held). Sent
+    /// only when they differ from the last ones; key, pointer and wheel
+    /// events also carry the modifiers held for them.
+    ModifiersChanged(Modifiers),
     /// Default action by pointer click (a tap included) or assistive
     /// technology (UI Automation's Invoke) only. Enter/Space arrive as
     /// `Key` and are turned into activation by the core.

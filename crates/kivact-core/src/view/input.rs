@@ -1,4 +1,4 @@
-//! Role: Public input values and handler events: keyboard, pointer, wheel and a11y.
+//! Role: Public input values and handler events (keyboard, pointer, wheel, a11y) and the latest modifier keys.
 //!
 //! Public input values and handler events: keyboard, pointer, wheel and
 //! accessibility device actions, delivered to handlers with their regions.
@@ -20,8 +20,35 @@ pub use kivact_wire::{
 /// contact's `Leave`.
 pub use kivact_wire::PointerKind;
 
+use std::panic::Location;
+
 use kivact_reactive::Result;
 use kivact_style::draw::{Point, RegionId};
+
+use crate::view::state::ViewState;
+
+/// The modifier keys held, as the host reported them last (with the
+/// latest key, pointer or wheel event, or when they changed between
+/// events). Untracked: it is a reading at the call, like
+/// `KeyboardEvent.getModifierState` in the DOM. Read it in a handler
+/// that gets no event (`on_press`, a control's `Binding` write) to see
+/// whether Ctrl or Meta is held at that activation.
+///
+/// Like the reads of `kivact::platform`, it resolves the nearest owner
+/// at the call (setup, handler, task or effect); a located `SetupOnly`
+/// misuse outside every owner.
+///
+/// ```ignore
+/// button("Open").on_press(move || {
+///     let held = current_modifiers();
+///     open_panel(held.ctrl || held.meta);
+/// })
+/// ```
+#[track_caller]
+pub fn current_modifiers() -> Modifiers {
+    let rt = kivact_reactive::Owner::ambient("current_modifiers", Location::caller()).runtime();
+    ViewState::of(&rt).modifiers()
+}
 
 /// The input that requested dismissal. Unmounting an overlay does not
 /// produce a dismissal event; applications close it explicitly themselves.

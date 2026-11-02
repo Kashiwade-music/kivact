@@ -16,7 +16,7 @@ use kivact_reactive::Selector;
 use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owner, Runtime};
 use kivact_reactive::{Signal, Value};
-use kivact_wire::{HostEnv, NodeId, PlatformResult};
+use kivact_wire::{HostEnv, Modifiers, NodeId, PlatformResult};
 
 use super::tree::Tree;
 use kivact_style::draw::Rect;
@@ -230,6 +230,8 @@ pub(crate) struct ViewState {
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<bool>,
+    /// The modifier keys the host reported last (`view::current_modifiers`).
+    modifiers: Cell<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(super) requests: RefCell<Requests>,
 }
@@ -248,6 +250,7 @@ impl ViewState {
             noted_missing: RefCell::new(std::collections::BTreeSet::new()),
             hover: Cell::new(Hover::Plain(None)),
             pointer_modality: Cell::new(false),
+            modifiers: Cell::new(Modifiers::default()),
             requests: RefCell::new(Requests::default()),
         }
     }
@@ -339,6 +342,16 @@ impl ViewState {
     /// Record the modality of a key press (`false`) or pointer press (`true`).
     pub(crate) fn set_pointer_modality(&self, pointer: bool) {
         self.pointer_modality.set(pointer);
+    }
+
+    /// The modifier keys the host reported last.
+    pub(crate) fn modifiers(&self) -> Modifiers {
+        self.modifiers.get()
+    }
+
+    /// Record the modifier keys the host reported.
+    pub(crate) fn set_modifiers(&self, modifiers: Modifiers) {
+        self.modifiers.set(modifiers);
     }
 
     /// The node the host reported under the pointer last.
