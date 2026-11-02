@@ -121,14 +121,14 @@ fn a_checkbox_and_a_switch_publish_their_role_and_state_and_flip_on_space_and_cl
     });
     let check = screen.get_by_role(Role::CheckBox, "Agree");
     let on = screen.get_by_role(Role::Switch, "Notify");
-    assert_eq!(check.is_checked(), Some(false));
-    assert_eq!(on.is_checked(), Some(true));
+    assert_eq!(check.checked(), Some(CheckedState::Unchecked));
+    assert_eq!(on.checked(), Some(CheckedState::Checked));
     check.click();
     on.click();
     assert!(agreed.get_untracked());
     assert!(!notify.get_untracked());
-    assert_eq!(check.is_checked(), Some(true));
-    assert_eq!(on.is_checked(), Some(false));
+    assert_eq!(check.checked(), Some(CheckedState::Checked));
+    assert_eq!(on.checked(), Some(CheckedState::Unchecked));
     check.press_key(Key::Space);
     on.press_key(Key::Space);
     assert!(!agreed.get_untracked());
@@ -144,7 +144,7 @@ fn a_checkbox_and_a_switch_publish_their_role_and_state_and_flip_on_space_and_cl
     // A change of the bound signal shows in the state.
     notify.set(true);
     screen.run_until_idle();
-    assert_eq!(on.is_checked(), Some(true));
+    assert_eq!(on.checked(), Some(CheckedState::Checked));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

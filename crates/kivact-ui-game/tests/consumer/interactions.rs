@@ -172,7 +172,7 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
         ("-9999999999", 1.0),
         ("4", 4.0),
     ] {
-        field.a11y_with_value(A11yAction::SetValue, text);
+        field.a11y_set_value(text);
         assert_eq!(number.get_untracked(), expected);
     }
     field.a11y(A11yAction::Increment);

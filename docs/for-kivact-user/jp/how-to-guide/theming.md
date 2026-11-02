@@ -235,6 +235,7 @@ fn main() -> kivact::Result<()> {
 - `hover` はポインターが node かその子孫の上にある間、`pressed` は押している間、`focus` はフォーカスがある間、`focus_visible` はフォーカスを見せるべき間(キーボード操作時)、`disabled` は node が無効な間に適用されます。
 - フォーカスできる要素に `focus` も `focus_visible` もなければ、テーマのフォーカスリングが自動で付きます。無効な要素はテーマの `disabled_opacity` で描かれます。消すには `style().focus_visible(style().ring_none())` や `style().disabled(style().opacity(1.0))` を使います。
 - `group()` と `group_hover(..)`(`group_focus(..)` も)は、祖先の状態に反応します。ポインターのハンドラーを書く必要はありません。
+- 状態スタイルが変えられるのは見た目だけです(背景、枠線、リング、角丸、不透明度、影、変形、カーソル、フィルター、色)。それ以外を書くと報告され、無視されます。`disabled` と `selected` はどのプロパティも変えられます。
 - recipe の中で hover 状態を読んで分岐することはしません。状態ごとにスタイルを書けば、エンジンが適用します。
 
 ## アイコン

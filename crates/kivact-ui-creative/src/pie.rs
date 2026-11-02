@@ -11,7 +11,7 @@ use kivact::prelude::{
 use kivact::primitive::NodeExt;
 use kivact::style::{Icon, Position};
 use kivact::view::Handled;
-use kivact::view::{MouseButton, Placement, PointerPhase, callback, overlay_at};
+use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, callback, overlay_at};
 use kivact::{Binding, binding};
 
 /// A directional command, in clockwise degrees from the positive horizontal axis.
@@ -125,7 +125,7 @@ pub fn pie_menu<R: HandlerResult>(
                         next.pointer(event.window_pos, &button_entries.get());
                         state.set(next);
                     }
-                    if event.phase == PointerPhase::Down {
+                    if matches!(event.phase, PointerPhase::Down(_)) {
                         Handled::Yes
                     } else {
                         Handled::No
@@ -162,9 +162,13 @@ pub fn pie_menu<R: HandlerResult>(
                         let mut next = current.get();
                         next.pointer(event.window_pos, &pointer_entries.get());
                         state.set(next);
-                    } else if event.phase == PointerPhase::Down
-                        && event.button == Some(MouseButton::Primary)
-                    {
+                    } else if matches!(
+                        event.phase,
+                        PointerPhase::Down(ButtonPress {
+                            button: MouseButton::Primary,
+                            ..
+                        })
+                    ) {
                         if let Some(index) = current.get().hot {
                             choose(index);
                         }

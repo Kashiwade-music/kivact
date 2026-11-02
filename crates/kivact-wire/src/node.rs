@@ -7,10 +7,10 @@ use std::path::PathBuf;
 
 use super::ids::{FocusTarget, NodeId};
 use super::measure::LeafMeasure;
-use super::semantics::{A11yAction, Role, SemanticsProperties};
+use super::semantics::{A11yAction, CheckedState, Role, SemanticsProperties};
 use super::style::{LayoutProps, PaintProps, StateStyles};
 use super::text::{TextProps, TextSpan};
-use super::{Placement, Point, Size};
+use super::{OverlayAlign, Placement, Point, Size};
 use kivact_types::Key;
 use kivact_types::{Asset, ImageFit};
 
@@ -91,8 +91,9 @@ pub struct NodeInput {
     pub focusable: Option<bool>,
     /// Request routed pointer events.
     pub listen_pointer: Option<bool>,
-    /// Override the press focus target; an inner None suppresses focusing.
-    pub focus_on_press: Option<Option<FocusTarget>>,
+    /// Where a press moves the focus instead of this node; `None`: the host
+    /// default.
+    pub focus_on_press: Option<FocusTarget>,
     /// Request wheel events for the node.
     pub listen_wheel: Option<bool>,
     /// Request native file drag-and-drop events.
@@ -115,10 +116,10 @@ pub struct NodeSemantics {
     pub value: Option<String>,
     /// Accessible selection state.
     pub selected: Option<bool>,
-    /// Checked state, with an inner None representing mixed.
-    pub checked: Option<Option<bool>>,
+    /// Checked state; `None`: not a toggle.
+    pub checked: Option<CheckedState>,
     /// Accessible expansion state.
-    pub expanded: Option<Option<bool>>,
+    pub expanded: Option<bool>,
     /// Whether the accessible value is invalid.
     pub invalid: Option<bool>,
     /// Additional structured accessibility properties.
@@ -235,38 +236,48 @@ impl NodeProperties {
     }
 }
 
-/// Where an overlay sits along its anchor's side: its start, centre or
-/// end (`Below` with `End`: right edges aligned).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum PlacementAlign {
-    #[default]
-    Start,
-    Center,
-    End,
+/// Where an overlay is placed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum OverlayAt {
+    /// On a side of the drawn box of `node`; `None` (the `NodeRef` is bound to
+    /// no node, or the node is gone): centred in the window. `at_least_width`:
+    /// lay the overlay out at least as wide as `node`'s layout box (its
+    /// minimum width is raised to it).
+    Anchor {
+        node: Option<NodeId>,
+        at_least_width: bool,
+    },
+    /// At a window point (an empty anchor rectangle there).
+    Point(Point),
 }
 
 /// Props of an `Overlay` node. While it is shown, a host sends
-/// `HostEvent::OverlayDismiss` to an overlay whose `Actions`
-/// offer `Dismiss` when a pointer press lands outside its subtree and its
-/// anchor's subtree. A `modal` overlay confines input to its subtree.
+/// `HostEvent::A11y` with `A11yRequest::Dismiss(DismissReason::OutsidePress)`
+/// to an overlay whose `Actions` offer `Dismiss` when a pointer press lands
+/// outside its subtree and its anchor's subtree. A `modal` overlay confines
+/// input to its subtree.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OverlayProps {
-    /// Node whose bounds anchor the overlay.
-    pub anchor: Option<NodeId>,
-    /// A window point to place it at instead of a node (wins over
-    /// `anchor`).
-    pub point: Option<Point>,
+    /// Where it is placed.
+    pub at: OverlayAt,
     /// Requested side of the anchor.
     pub placement: Placement,
     /// Alignment along the requested anchor side.
-    pub align: PlacementAlign,
+    pub align: OverlayAlign,
     /// The gap between the anchor and the overlay (logical px).
     pub offset: f32,
     /// Confine interaction to this overlay while shown.
     pub modal: bool,
-    /// Lay the overlay out at least as wide as its anchor node's layout
-    /// box (not a point's): its minimum width is raised to that width.
-    pub at_least_anchor_width: bool,
+}
+
+impl OverlayProps {
+    /// The node it is anchored to, if any (a point overlay has none).
+    pub fn anchor(&self) -> Option<NodeId> {
+        match self.at {
+            OverlayAt::Anchor { node, .. } => node,
+            OverlayAt::Point(_) => None,
+        }
+    }
 }
 
 pub use kivact_types::IntrinsicSize;

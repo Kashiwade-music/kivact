@@ -194,10 +194,10 @@ pub trait NodeExt: NodeBuilder {
     /// this is true (the mixed state wins over `.checked(..)`); the
     /// binary `.checked(..)` value of the App is preserved. The
     /// component decides how to draw and clear its mixed state (a
-    /// click clearing it, say). `kivact::test`'s
-    /// `Element::is_indeterminate` reads what the host published.
+    /// click clearing it, say). `kivact::test`'s `Element::checked` reads
+    /// `Some(CheckedState::Indeterminate)`.
     fn indeterminate(mut self, value: impl IntoValue<bool>) -> Self {
-        self.node_mut().common.semantics_mut().indeterminate = Some(value.into_prop());
+        self.node_mut().common.indeterminate = Some(value.into_prop());
         self
     }
 
@@ -380,12 +380,12 @@ pub trait NodeExt: NodeBuilder {
         self
     }
 
-    /// Offer an action while preserving the requested drawn region's
-    /// identity and optional value. The root node reports `region: None`;
-    /// a region reports the `RegionId` its `Draw::region` declared.
-    /// `Activate` is supported here for canvas regions; use `on_press` for
-    /// ordinary activation. The later handler for an action wins.
-    /// A `SetValue` hands the requested text over as it came: parsing it,
+    /// Offer an action and receive its [`A11yEvent`]: the region the request
+    /// names (`None` for the node itself, else the `RegionId` its
+    /// `Draw::region` declared) and the request (a `SetValue`'s text, a
+    /// `Dismiss`'s reason). `Activate` is supported here for canvas regions;
+    /// use `on_press` for ordinary activation. The later handler for an
+    /// action wins. A `SetValue` hands the requested text over as it came: parsing it,
     /// checking it is finite and clamping it to the range are the
     /// component's.
     fn on_a11y_event<F, R>(mut self, action: A11yAction, f: F) -> Self

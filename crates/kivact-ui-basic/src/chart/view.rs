@@ -232,7 +232,7 @@ impl IntoView for Chart {
                         return;
                     }
                     match event.phase {
-                        PointerPhase::Down | PointerPhase::Move | PointerPhase::Enter => {
+                        PointerPhase::Down(_) | PointerPhase::Move | PointerPhase::Enter => {
                             let next = data.with_untracked(|rows| {
                                 let frame = options.frame(&config, rows, "", &*format);
                                 hit_test(plot.get(), &frame, event.pos)
@@ -241,7 +241,7 @@ impl IntoView for Chart {
                             hit.set(next);
                         }
                         PointerPhase::Leave | PointerPhase::Cancel => hit.set(None),
-                        PointerPhase::Up => {}
+                        PointerPhase::Up(_) => {}
                     }
                 }
             });

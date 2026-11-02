@@ -5,7 +5,7 @@ use crate::theme_access::tokens;
 use kivact::Value;
 use kivact::control::icon;
 use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::motion::{Animated, Easing, Transition};
+use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::view::{IntoText, IntoValue, IntoView, NodeRef, Orientation, Role, View};
@@ -177,7 +177,7 @@ pub fn spinner() -> Node {
         0.0f32,
         360.0f32,
         Transition::tween(1000, Easing::Linear)
-            .repeat(None)
+            .repeat(Repeat::Forever)
             .decorative(false),
     );
     node()
@@ -222,7 +222,7 @@ impl IntoView for Skeleton {
             1.0f32,
             0.5f32,
             Transition::tween(1000, Easing::EaseInOut)
-                .repeat(None)
+                .repeat(Repeat::Forever)
                 .alternate(),
         );
         self.root

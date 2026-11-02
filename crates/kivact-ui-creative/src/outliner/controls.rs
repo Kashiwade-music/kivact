@@ -9,7 +9,7 @@ use kivact::interaction::EditSession;
 use kivact::primitive::NodeExt;
 use kivact::style::style;
 use kivact::view::MouseButton;
-use kivact::view::{A11yAction, Handled, NodeRef, PointerPhase};
+use kivact::view::{A11yAction, ButtonPress, Handled, NodeRef, PointerPhase};
 use kivact::{Binding, Callback, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -120,7 +120,10 @@ pub(super) fn restriction(
         })
         .on_pointer_default(move |event| {
             match event.phase {
-                PointerPhase::Down if event.button == Some(MouseButton::Primary) => {
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    ..
+                }) => {
                     let value = !flag(&item.get(), column);
                     let touched = ids(&context, id);
                     context.session.begin(());
@@ -154,7 +157,7 @@ pub(super) fn restriction(
                         }
                     }
                 }
-                PointerPhase::Up => {
+                PointerPhase::Up(_) => {
                     painting.set(None);
                     context.session.commit();
                 }
@@ -212,13 +215,19 @@ pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> Node {
         })
         .on_a11y(A11yAction::Toggle, move || expand(false))
         .on_pointer_default(move |event| {
-            if event.phase == PointerPhase::Down && event.button == Some(MouseButton::Primary) {
+            if matches!(
+                event.phase,
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    ..
+                })
+            ) {
                 expand(event.modifiers.shift);
                 return Handled::Yes;
             }
             if matches!(
                 event.phase,
-                PointerPhase::Up | PointerPhase::Move | PointerPhase::Cancel
+                PointerPhase::Up(_) | PointerPhase::Move | PointerPhase::Cancel
             ) {
                 Handled::Yes
             } else {

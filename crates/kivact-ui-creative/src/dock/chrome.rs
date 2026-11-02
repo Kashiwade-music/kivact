@@ -15,8 +15,8 @@ use kivact::interaction::{
 };
 use kivact::style::{Align, Cursor, Direction, Overflow, style};
 use kivact::view::{
-    Handled, IntoView, Key, MouseButton, PointerPhase, Role, View, callback, dynamic, for_each,
-    node_ref, show,
+    ButtonPress, Handled, IntoView, Key, MouseButton, PointerPhase, Role, View, callback, dynamic,
+    for_each, node_ref, show,
 };
 use kivact::{Callback, Value, binding, memo, var};
 
@@ -246,7 +246,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     .style(style().size(16, 16).padding(0).radius(4))
     // Presses on the close button never start a tab drag or rename.
     .on_pointer_default(|event| {
-        if event.phase == PointerPhase::Down {
+        if matches!(event.phase, PointerPhase::Down(_)) {
             Handled::Yes
         } else {
             Handled::No
@@ -271,10 +271,13 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         .part(member)
         .child((glyph, label, editor, close))
         .on_pointer_default(move |event| {
-            if event.phase == PointerPhase::Down
-                && event.button == Some(MouseButton::Primary)
-                && event.click_count > 1
-            {
+            if matches!(
+                event.phase,
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    clicks: 2..
+                })
+            ) {
                 tab_drag.cancel();
                 cx.drag.set(None);
                 // The panel's icon maximizes, its title renames.

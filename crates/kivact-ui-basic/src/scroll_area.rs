@@ -1,18 +1,17 @@
 //! Role: The Lyra scroll area: a scroll container with a slim border-colored bar.
 
-use kivact::control::{Node, NodeBuilder, node, scroll};
+use kivact::control::{Node, NodeBuilder, Scroll, ScrollAxes, node, scroll};
 use kivact::style::{Color, Direction, pct, style};
-use kivact::view::{IntoView, Orientation, View};
+use kivact::view::{IntoView, View};
 
 /// A scrolling region (scroll-area.tsx). Created by [`scroll_area`].
 ///
 /// Give the area a height (or a maximum height) with `.style(..)`; content
-/// taller than that scrolls.
+/// taller than that scrolls. The modifiers apply to the scroll container
+/// itself.
 pub struct ScrollArea {
-    root: Node,
-    child: View,
-    orientation: Orientation,
-    both_axes: bool,
+    /// The scroll container; the caller's modifiers apply to it.
+    viewport: Scroll,
 }
 
 /// A scroll area around `child`.
@@ -29,45 +28,7 @@ pub struct ScrollArea {
 #[track_caller]
 pub fn scroll_area(child: impl IntoView) -> ScrollArea {
     ScrollArea {
-        root: node().style(style().direction(Direction::Column)),
-        child: child.into_view(),
-        orientation: Orientation::Vertical,
-        both_axes: false,
-    }
-}
-
-impl ScrollArea {
-    /// The direction that scrolls (default [`Orientation::Vertical`]), as
-    /// the core [`Scroll::orientation`](kivact::control::Scroll::orientation);
-    /// [`Orientation::Unspecified`] means the default. It shadows the
-    /// accessibility setter of the same name on purpose. A constant: fixed
-    /// when the scroll container is built.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
-        self
-    }
-
-    /// Scroll in both directions, as the core
-    /// [`Scroll::both_axes`](kivact::control::Scroll::both_axes).
-    pub fn both_axes(mut self) -> Self {
-        self.both_axes = true;
-        self
-    }
-}
-
-impl NodeBuilder for ScrollArea {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for ScrollArea {
-    fn into_view(self) -> View {
-        let mut viewport = scroll(self.child).orientation(self.orientation);
-        if self.both_axes {
-            viewport = viewport.both_axes();
-        }
-        let viewport = viewport.style(
+        viewport: scroll(child).style(
             style()
                 .grow(1)
                 .shrink(1)
@@ -76,7 +37,30 @@ impl IntoView for ScrollArea {
                 .width(pct(100))
                 .scrollbar_width(10)
                 .scrollbar_color(crate::Color::Border, Color::TRANSPARENT),
-        );
-        self.root.child(viewport).into_view()
+        ),
+    }
+}
+
+impl ScrollArea {
+    /// The axes that scroll (default [`ScrollAxes::Vertical`]), as the core
+    /// [`Scroll::axes`](kivact::control::Scroll::axes).
+    pub fn axes(mut self, axes: ScrollAxes) -> Self {
+        self.viewport = self.viewport.axes(axes);
+        self
+    }
+}
+
+impl NodeBuilder for ScrollArea {
+    fn node_mut(&mut self) -> &mut Node {
+        self.viewport.node_mut()
+    }
+}
+
+impl IntoView for ScrollArea {
+    fn into_view(self) -> View {
+        node()
+            .style(style().direction(Direction::Column))
+            .child(self.viewport)
+            .into_view()
     }
 }

@@ -2,7 +2,7 @@
 
 use super::state::{AnimPhase, StateAnimation};
 use crate::model::Model;
-use kivact_wire::motion::Kind;
+use kivact_wire::motion::SpringRun;
 use kivact_wire::{NodeId, PaintProps, PaintVec};
 
 impl Model {
@@ -51,7 +51,10 @@ impl Model {
             transition,
             target: paint,
             current,
-            velocity: vec![0.0; len],
+            spring: SpringRun {
+                velocity: vec![0.0; len],
+                ..SpringRun::default()
+            },
             colors_text,
             phase: AnimPhase::Captured,
         };
@@ -92,11 +95,11 @@ impl Model {
                 n.place.transformed |=
                     !a.current_paint().transform.is_none() || !a.target.transform.is_none();
             }
+            a.spring.restart(now);
             a.phase = AnimPhase::Running {
                 from: a.current.clone(),
                 to,
                 start: now,
-                last: now,
             };
             true
         });
@@ -118,36 +121,18 @@ impl Model {
                 transition,
                 target,
                 current,
-                velocity,
+                spring,
                 phase,
                 ..
             } = a;
-            let AnimPhase::Running {
-                from,
-                to,
-                start,
-                last,
-            } = phase
-            else {
+            let AnimPhase::Running { from, to, start } = phase else {
                 return true;
             };
-            let elapsed = now.saturating_sub(*start) as f32 / 1e6;
             let done = if reduced && transition.decorative {
                 true
             } else {
-                match transition.kind {
-                    Kind::Spring(s) => {
-                        if elapsed < transition.delay_ms {
-                            false
-                        } else {
-                            let dt = now.saturating_sub(*last) as f32 / 1e9;
-                            kivact_wire::motion::spring_step(s, current, velocity, to, dt)
-                        }
-                    }
-                    _ => transition.sample_timed(from, to, elapsed, current),
-                }
+                transition.step(from, to, *start, now, current, spring)
             };
-            *last = now;
             self.repaint(*id);
             if target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
@@ -170,13 +155,13 @@ impl Model {
 
     pub(crate) fn shift_state_times(&mut self, paused: u64, now: u64) {
         for a in self.motion.0.values_mut() {
-            if let AnimPhase::Running { start, last, .. } = &mut a.phase {
+            if let AnimPhase::Running { start, .. } = &mut a.phase {
                 *start = if *start <= paused {
                     start.saturating_add(now.saturating_sub(paused))
                 } else {
                     now
                 };
-                *last = now;
+                a.spring.last_ns = now;
             }
         }
     }

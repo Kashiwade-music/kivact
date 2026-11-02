@@ -14,7 +14,9 @@ use kivact::primitive::{NodeExt, NodeRefExt, part};
 use kivact::style::{ColorToken, Overflow, style};
 use kivact::ui::{EditPhase, ListItem};
 use kivact::view::HandlerResult;
-use kivact::view::{A11yAction, Handled, IntoValue, IntoView, Key, Role, View, callback, node_ref};
+use kivact::view::{
+    A11yAction, A11yRequest, Handled, IntoValue, IntoView, Key, Role, View, callback, node_ref,
+};
 use kivact::{Callback, Value, effect, memo, signal, var};
 
 /// An editor for typed nodes, sockets, controls and links.
@@ -300,8 +302,8 @@ impl IntoView for NodeEditor {
                         (Role::SpinButton, _) => control
                             .on_a11y_event(A11yAction::SetValue, move |event| {
                                 if let Target::Control(id, index, _) = target
-                                    && let Some(value) =
-                                        event.value.and_then(|value| value.parse().ok())
+                                    && let A11yRequest::SetValue(text) = event.request
+                                    && let Some(value) = text.parse().ok()
                                 {
                                     state.change(id, index, Some(value), 0.0);
                                 }

@@ -260,21 +260,11 @@ impl Registry {
             .filter_map(|(order, entry)| {
                 let adopted = entry.adopted.borrow().clone()?;
                 let common = &adopted.common;
-                let mut properties = common
+                let properties = common
                     .semantics
                     .as_ref()
                     .map(|sources| super::semantics::resolve(sources, self.at))
                     .unwrap_or_default();
-                properties.checked = common.checked.as_ref().map(kivact_reactive::Prop::get);
-                properties.selected = common
-                    .selected
-                    .as_ref()
-                    .is_some_and(kivact_reactive::Prop::get);
-                properties.expanded = common.expanded.as_ref().map(kivact_reactive::Prop::get);
-                properties.invalid = common
-                    .invalid
-                    .as_ref()
-                    .is_some_and(kivact_reactive::Prop::get);
                 Some((
                     entry.id,
                     RegionSemantics {
@@ -287,6 +277,22 @@ impl Registry {
                         description: common.description.as_ref().map(kivact_reactive::Prop::get),
                         value: common.value.as_ref().map(kivact_reactive::Prop::get),
                         actions: adopted.target.actions.actions(),
+                        checked: super::semantics::checked_state(
+                            common.checked.as_ref().map(kivact_reactive::Prop::get),
+                            common
+                                .indeterminate
+                                .as_ref()
+                                .map(kivact_reactive::Prop::get),
+                        ),
+                        selected: common
+                            .selected
+                            .as_ref()
+                            .is_some_and(kivact_reactive::Prop::get),
+                        expanded: common.expanded.as_ref().map(kivact_reactive::Prop::get),
+                        invalid: common
+                            .invalid
+                            .as_ref()
+                            .is_some_and(kivact_reactive::Prop::get),
                         properties: Some(Box::new(properties)),
                         disabled: adopted.target.constraints.disabled.get(),
                         hidden: adopted.target.constraints.hidden.get(),

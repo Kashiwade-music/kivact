@@ -90,8 +90,7 @@ pub use table::{
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
 pub use toaster::{Toast, ToastId, ToastState, Toaster, toaster};
 pub use toggle::{
-    ButtonApi, CheckedState, Toggle, ToggleState, use_button, use_checkbox, use_switch,
-    use_toggle_button,
+    ButtonApi, Toggle, ToggleState, use_button, use_checkbox, use_switch, use_toggle_button,
 };
 pub use tone::Tone;
 pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip};

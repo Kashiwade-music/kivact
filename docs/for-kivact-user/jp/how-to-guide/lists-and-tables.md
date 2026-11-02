@@ -79,8 +79,8 @@ mod tests {
 
         screen.get_by_role(Role::CheckBox, "牛乳を買う").click();
         assert_eq!(
-            screen.get_by_role(Role::CheckBox, "牛乳を買う").is_checked(),
-            Some(true)
+            screen.get_by_role(Role::CheckBox, "牛乳を買う").checked(),
+            Some(CheckedState::Checked)
         );
     }
 }

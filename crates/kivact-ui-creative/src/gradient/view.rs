@@ -13,8 +13,8 @@ use kivact::style::{Color, pct, style};
 use kivact::ui::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View, callback,
-    node_ref,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
+    callback, node_ref,
 };
 use kivact::{Binding, Callback, binding, effect, memo, var};
 use std::rc::Rc;
@@ -223,7 +223,7 @@ impl IntoView for GradientEditor {
                         if !state.enabled() {
                             return;
                         }
-                        if matches!(event.action, A11yAction::Select | A11yAction::Activate) {
+                        if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                             if !state.edit.is_active() {
                                 selection.set(Some(id));
                                 target.focus();
@@ -233,14 +233,12 @@ impl IntoView for GradientEditor {
                         let current = stops.with_untracked(|stops| {
                             stops.get(id).map_or(0.0, |s| position_value(s.position))
                         });
-                        let next = match event.action {
-                            A11yAction::SetValue => event
-                                .value
-                                .as_deref()
-                                .and_then(|text| text.trim().parse::<f64>().ok())
-                                .filter(|v| v.is_finite()),
-                            A11yAction::Increment => Some(current + 0.01),
-                            A11yAction::Decrement => Some(current - 0.01),
+                        let next = match &event.request {
+                            A11yRequest::SetValue(text) => {
+                                text.trim().parse::<f64>().ok().filter(|v| v.is_finite())
+                            }
+                            A11yRequest::Increment => Some(current + 0.01),
+                            A11yRequest::Decrement => Some(current - 0.01),
                             _ => None,
                         };
                         if let Some(next) = next {

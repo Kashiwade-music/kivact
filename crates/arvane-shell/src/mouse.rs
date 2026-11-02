@@ -6,7 +6,9 @@
 //! host.
 
 use kivact_types::protocol::PointerInput;
-use kivact_types::{MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase};
+use kivact_types::{
+    ButtonPress, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,
+};
 
 /// One window's mouse: where it last was (logical pixels) and the buttons
 /// held. Leaving the window keeps both, so a button released outside is
@@ -29,7 +31,7 @@ impl Mouse {
         if self.buttons.is_empty() {
             return None;
         }
-        self.event(PointerPhase::Cancel, None, None)
+        self.event(PointerPhase::Cancel, None)
     }
 
     /// Note a complete mouse event made elsewhere (one injected into a
@@ -41,41 +43,50 @@ impl Mouse {
         }
     }
 
+    /// The `Down` (`pressed`) or `Up` of `button` at `position` (`None`: where
+    /// the mouse last was), counted as a single click until a `ClickCounter`
+    /// counts it. `None` as for [`event`](Self::event).
+    pub fn button(
+        &mut self,
+        button: MouseButton,
+        pressed: bool,
+        position: Option<Point>,
+    ) -> Option<PointerInput> {
+        let press = ButtonPress { button, clicks: 1 };
+        let phase = if pressed {
+            PointerPhase::Down(press)
+        } else {
+            PointerPhase::Up(press)
+        };
+        self.event(phase, position)
+    }
+
     /// The mouse event of `phase` at `position` (`None`: where the mouse
-    /// last was), with `button` pressed by a `Down` or released by an
-    /// `Up`; other phases ignore `button`. Its click count is 1 until a
-    /// `ClickCounter` counts it.
+    /// last was). A `Down` adds its button to the held ones, an `Up` removes
+    /// it, a `Cancel` releases all.
     ///
     /// Returns `None` when `position` is `None` and no position arrived yet: the platform reported a
     /// button or leave of a mouse it never placed in the window, so there is no point to report it at
     /// (its buttons stay unchanged).
-    pub fn event(
-        &mut self,
-        phase: PointerPhase,
-        position: Option<Point>,
-        button: Option<MouseButton>,
-    ) -> Option<PointerInput> {
+    pub fn event(&mut self, phase: PointerPhase, position: Option<Point>) -> Option<PointerInput> {
         if let Some(position) = position {
             self.position = Some(position);
         }
         let at = self.position?;
-        let button = button.filter(|_| matches!(phase, PointerPhase::Down | PointerPhase::Up));
-        match (phase, button) {
-            (PointerPhase::Down, Some(button)) => self.buttons = self.buttons.with(button, true),
-            (PointerPhase::Up, Some(button)) => self.buttons = self.buttons.with(button, false),
-            (PointerPhase::Cancel, _) => self.buttons = PointerButtons::NONE,
-            _ => {}
+        match phase {
+            PointerPhase::Down(press) => self.buttons = self.buttons.with(press.button, true),
+            PointerPhase::Up(press) => self.buttons = self.buttons.with(press.button, false),
+            PointerPhase::Cancel => self.buttons = PointerButtons::NONE,
+            PointerPhase::Move | PointerPhase::Enter | PointerPhase::Leave => {}
         }
         Some(PointerInput {
             id: PointerId::MOUSE,
             kind: PointerKind::Mouse,
             phase,
             buttons: self.buttons,
-            button,
             position: at,
             pressure: None,
             tilt: None,
-            clicks: 1,
         })
     }
 }

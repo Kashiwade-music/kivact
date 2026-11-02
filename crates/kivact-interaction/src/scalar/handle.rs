@@ -8,8 +8,8 @@ use crate::edit::EditPhase;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{
-    A11yAction, A11yEvent, Handled, HandlerResult, IntoValue, Key, KeyEvent, Modifiers,
-    Orientation, Role,
+    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoValue, Key, KeyEvent,
+    Modifiers, Orientation, Role,
 };
 use kivact_core::{Binding, Value, memo};
 
@@ -287,14 +287,10 @@ impl Scalar {
     /// whether the writer was offered a value; an invalid or missing value is not.
     #[track_caller]
     pub(crate) fn a11y(self, event: &A11yEvent) -> bool {
-        match event.action {
-            A11yAction::Increment => self.step_by(1.0),
-            A11yAction::Decrement => self.step_by(-1.0),
-            A11yAction::SetValue => event
-                .value
-                .as_deref()
-                .and_then(|v| v.parse::<f64>().ok())
-                .is_some_and(|v| self.set(v)),
+        match &event.request {
+            A11yRequest::Increment => self.step_by(1.0),
+            A11yRequest::Decrement => self.step_by(-1.0),
+            A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(|v| self.set(v)),
             _ => false,
         }
     }
@@ -400,12 +396,10 @@ impl Scalar {
             control = control.on_a11y_event(action, move |event: A11yEvent| {
                 // Only an action that will write is an edit: a value that is
                 // not a number reports nothing.
-                let writes = event.action != A11yAction::SetValue
-                    || event
-                        .value
-                        .as_deref()
-                        .and_then(|v| v.parse::<f64>().ok())
-                        .is_some_and(f64::is_finite);
+                let writes = match &event.request {
+                    A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(f64::is_finite),
+                    _ => true,
+                };
                 if writes {
                     self.once(|| self.a11y(&event));
                 }

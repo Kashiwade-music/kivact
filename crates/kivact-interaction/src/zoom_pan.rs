@@ -278,10 +278,8 @@ impl ZoomPan {
                 {
                     return handled;
                 }
-                if event.phase == PointerPhase::Down {
-                    let Some(button) = event.button else {
-                        return Handled::No;
-                    };
+                if let PointerPhase::Down(press) = event.phase {
+                    let button = press.button;
                     if gesture()
                         || state.get().disabled
                         || !finite(event.pos)
@@ -315,7 +313,7 @@ impl ZoomPan {
                         space.set(false);
                         edit.cancel();
                     }
-                    PointerPhase::Up if event.button == Some(active.button) => {
+                    PointerPhase::Up(press) if press.button == active.button => {
                         if finite(event.pos) {
                             binding.set(ViewTransform {
                                 scale: valid_scale(active.transform.scale),
@@ -432,7 +430,7 @@ impl ZoomPan {
     ) -> Option<Handled> {
         let finite = finite(event.pos);
         match event.phase {
-            PointerPhase::Down => {
+            PointerPhase::Down(_) => {
                 if finite {
                     touches.update(|t| t.push((event.id, event.pos)));
                 }
@@ -487,12 +485,12 @@ impl ZoomPan {
                 }
                 Some(Handled::Yes)
             }
-            PointerPhase::Up | PointerPhase::Cancel => {
+            PointerPhase::Up(_) | PointerPhase::Cancel => {
                 touches.update(|t| t.retain(|(id, _)| *id != event.id));
                 let mut active = pinch.get()?;
                 let finger = active.fingers.iter_mut().find(|f| f.pointer == event.id)?;
                 pinch.set(None);
-                if event.phase == PointerPhase::Up {
+                if matches!(event.phase, PointerPhase::Up(_)) {
                     if finite {
                         finger.now = event.pos;
                         self.transform.set(self.pinched(active));

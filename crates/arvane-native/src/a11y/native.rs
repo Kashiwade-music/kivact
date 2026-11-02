@@ -47,10 +47,10 @@ struct Actions {
 
 impl accesskit::ActionHandler for Actions {
     fn do_action(&mut self, request: accesskit::ActionRequest) {
-        let Some((node, action, value)) = translate_action(&request) else {
+        let Some((node, asked)) = translate_action(&request) else {
             return;
         };
-        if self.shared.queue_action(node, action, value.as_deref()) {
+        if self.shared.queue_action(node, asked) {
             self.waker.wake();
         }
     }
@@ -231,18 +231,22 @@ fn scale_root(update: &mut accesskit::TreeUpdate, scale: f64) {
 /// Decode native vocabulary only; the shell validates and queues the request.
 pub(crate) fn translate_action(
     request: &accesskit::ActionRequest,
-) -> Option<(u64, kivact_types::A11yAction, Option<String>)> {
+) -> Option<(u64, kivact_types::A11yRequest)> {
     if request.target_tree != accesskit::TreeId::ROOT {
         return None;
     }
     let action = conversion::action(request)?;
-    let value = match &request.data {
-        Some(accesskit::ActionData::Value(value)) => Some(value.to_string()),
-        Some(accesskit::ActionData::NumericValue(value)) if value.is_finite() => {
-            Some(value.to_string())
+    let asked = match action {
+        kivact_types::A11yAction::SetValue => {
+            kivact_types::A11yRequest::SetValue(match &request.data {
+                Some(accesskit::ActionData::Value(value)) => value.to_string(),
+                Some(accesskit::ActionData::NumericValue(value)) if value.is_finite() => {
+                    value.to_string()
+                }
+                _ => return None,
+            })
         }
-        Some(accesskit::ActionData::NumericValue(_)) => return None,
-        _ => None,
+        action => kivact_types::A11yRequest::from_action(action)?,
     };
-    Some((request.target_node.0, action, value))
+    Some((request.target_node.0, asked))
 }

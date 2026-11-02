@@ -25,8 +25,9 @@
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
 use kivact_core::primitive::PartState;
+use kivact_core::view::CheckedState;
 use kivact_core::view::Orientation;
-use kivact_interaction::{CheckedState, DialogKind};
+use kivact_interaction::DialogKind;
 
 /// What a button does, which its recipe draws (shadcn's `variant`).
 ///

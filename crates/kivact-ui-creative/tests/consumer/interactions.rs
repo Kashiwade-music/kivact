@@ -194,7 +194,7 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
     assert!(!check.get_untracked() && !switch.get_untracked());
     button.press_key(Key::Enter);
     assert!(bold.get_untracked(), "Enter flips a toggle button");
-    assert_eq!(button.is_checked(), Some(true));
+    assert_eq!(button.checked(), Some(CheckedState::Checked));
     for node in [&check_box, &switch_node, &button] {
         node.press_key(Key::Space);
         assert_eq!(node.value(), None, "role and checked, no On/Off text");
@@ -206,7 +206,7 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
     let locked = screen.get_by_role(Role::CheckBox, "Locked");
     locked.force_click();
     locked.a11y(A11yAction::Toggle);
-    assert_eq!(locked.is_checked(), Some(false));
+    assert_eq!(locked.checked(), Some(CheckedState::Unchecked));
 
     let transform = screen.get_by_role(Role::Button, "Transform");
     assert_eq!(transform.is_expanded(), Some(false));

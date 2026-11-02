@@ -17,8 +17,8 @@ impl accesskit::ActivationHandler for Activation {
 struct Actions(PlatformTree, ShellWaker);
 impl accesskit::ActionHandler for Actions {
     fn do_action(&mut self, request: accesskit::ActionRequest) {
-        if let Some((node, action, value)) = translate_action(&request)
-            && self.0.queue_action(node, action, value.as_deref())
+        if let Some((node, request)) = translate_action(&request)
+            && self.0.queue_action(node, request)
         {
             self.1.wake();
         }

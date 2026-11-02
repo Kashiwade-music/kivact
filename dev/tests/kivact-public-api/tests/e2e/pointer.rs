@@ -95,9 +95,8 @@ fn enter_leave_click_counts_and_the_release_outside_the_window() {
                 .test_id("listener")
                 .on_pointer(move |e: PointerEvent| {
                     let what = match e.phase {
-                        PointerPhase::Down | PointerPhase::Up => {
-                            format!("{:?} {}", e.phase, e.click_count)
-                        }
+                        PointerPhase::Down(press) => format!("Down {}", press.clicks),
+                        PointerPhase::Up(press) => format!("Up {}", press.clicks),
                         phase => format!("{phase:?}"),
                     };
                     if e.phase != PointerPhase::Move {
@@ -222,7 +221,7 @@ fn the_cursor_shows_text_fields_and_what_a_click_activates() {
 }
 
 /// A pointer listener's log of the events it gets: phase, kind, whether it
-/// is the mouse, the button and the click count (moves included).
+/// is the mouse (a press's button and click count are in the phase).
 fn contact_log(out: Log) -> impl Fn(PointerEvent) -> Handled + 'static {
     move |e: PointerEvent| {
         let mouse = if e.id == PointerId(1) {
@@ -230,10 +229,8 @@ fn contact_log(out: Log) -> impl Fn(PointerEvent) -> Handled + 'static {
         } else {
             "own id"
         };
-        out.borrow_mut().push(format!(
-            "{:?} {:?} {mouse} {:?} {}",
-            e.phase, e.kind, e.button, e.click_count
-        ));
+        out.borrow_mut()
+            .push(format!("{:?} {:?} {mouse}", e.phase, e.kind));
         Handled::No
     }
 }
@@ -274,10 +271,10 @@ fn a_touch_tap_activates_a_button_and_leaves_no_hover() {
     assert_eq!(
         std::mem::take(&mut *log.borrow_mut()),
         [
-            "Enter Touch own id None 0",
-            "Down Touch own id Some(Primary) 1",
-            "Up Touch own id Some(Primary) 1",
-            "Leave Touch own id None 0",
+            "Enter Touch own id",
+            "Down(ButtonPress { button: Primary, clicks: 1 }) Touch own id",
+            "Up(ButtonPress { button: Primary, clicks: 1 }) Touch own id",
+            "Leave Touch own id",
         ]
     );
 

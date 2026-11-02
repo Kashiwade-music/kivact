@@ -13,8 +13,8 @@ use kivact::style::{Color, pct, style};
 use kivact::ui::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View, callback,
-    node_ref, show,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
+    callback, node_ref, show,
 };
 use kivact::{Binding, Callback, Value, effect};
 
@@ -261,25 +261,22 @@ impl IntoView for ColorWheel {
                     });
                 let target = part.node_ref();
                 let action = move |event: A11yEvent| {
-                    if matches!(event.action, A11yAction::Select | A11yAction::Activate) {
+                    if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                         active.set(channel);
                         target.focus();
                         return;
                     }
                     let (x, y) = state.channel(channel);
                     let step = if channel == Channel::Hue { 1.0 } else { 0.01 };
-                    let next = match event.action {
-                        A11yAction::SetValue if channel == Channel::Sv => {
-                            event.value.as_deref().and_then(pair)
-                        }
-                        A11yAction::SetValue => event
-                            .value
-                            .as_deref()
-                            .and_then(|s| s.parse::<f64>().ok())
+                    let next = match &event.request {
+                        A11yRequest::SetValue(text) if channel == Channel::Sv => pair(text),
+                        A11yRequest::SetValue(text) => text
+                            .parse::<f64>()
+                            .ok()
                             .filter(|v| v.is_finite())
                             .map(|x| (x, y)),
-                        A11yAction::Increment => Some((x + step, y)),
-                        A11yAction::Decrement => Some((x - step, y)),
+                        A11yRequest::Increment => Some((x + step, y)),
+                        A11yRequest::Decrement => Some((x - step, y)),
                         _ => None,
                     };
                     if let Some((x, y)) = next {

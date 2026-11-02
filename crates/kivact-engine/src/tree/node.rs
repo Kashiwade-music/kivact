@@ -283,7 +283,7 @@ impl HostNode {
 
     /// The declared native pointer focus destination, if currently bound.
     pub(crate) fn focus_on_press(&self) -> Option<kivact_wire::FocusTarget> {
-        self.properties.input.focus_on_press.flatten()
+        self.properties.input.focus_on_press
     }
 
     /// Offers `Activate` and is not disabled: a click activates it.

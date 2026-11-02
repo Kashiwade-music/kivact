@@ -6,7 +6,7 @@ use crate::theme_access::tokens;
 use crate::tokens::CodeColors;
 use crate::typography::MONO;
 use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
+use kivact::control::{Node, NodeBuilder, ScrollAxes, column, node, row, scroll, text};
 use kivact::interaction::text_edit_policy;
 use kivact::primitive::{
     EditContext, EditOutcome, EditRequest, EditState, TextEditing, TextHighlight, part,
@@ -378,7 +378,7 @@ impl IntoView for CodeBlock {
                 .min_width(kivact::style::pct(100)),
         );
         let max_height = self.max_height;
-        let content = scroll(body).both_axes().style(move || {
+        let content = scroll(body).axes(ScrollAxes::Both).style(move || {
             let s = style()
                 .min_height(0)
                 .padding_x(pad)

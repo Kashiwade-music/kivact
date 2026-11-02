@@ -215,7 +215,7 @@ fn disabled_nodes_offer_no_actions_and_lose_the_focus() {
 
     let field = screen.get_by_role(Role::TextBox, "Name");
     field.compose("かな");
-    field.a11y_with_value(A11yAction::SetValue, "new");
+    field.a11y_set_value("new");
     assert_eq!(value.get_untracked(), "new");
     field.compose("");
     field.type_text("x");

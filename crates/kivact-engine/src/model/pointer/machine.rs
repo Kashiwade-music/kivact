@@ -4,8 +4,8 @@ use super::space::PointerSpace;
 use super::state::{Gesture, PointerSource, Press, Route, Track};
 use crate::model::Model;
 use kivact_wire::{
-    A11yAction, FocusTarget, HostEvent, Modifiers, MouseButton, NodeId, Point, PointerButtons,
-    PointerEvent, PointerId, PointerPhase, RegionId,
+    A11yAction, ButtonPress, FocusTarget, HostEvent, Modifiers, MouseButton, NodeId, Point,
+    PointerButtons, PointerEvent, PointerId, PointerPhase, RegionId,
 };
 
 /// Which of a pointer's two chains a change is about.
@@ -18,15 +18,12 @@ enum Chain {
 }
 
 impl Model {
-    #[expect(clippy::too_many_arguments, reason = "one pointer event's fields")]
     fn send_pointer(
         &mut self,
         pointer: PointerId,
         node: NodeId,
         phase: PointerPhase,
-        button: Option<MouseButton>,
         modifiers: Modifiers,
-        click_count: u8,
         at: Point,
     ) {
         let pos = self.to_local(node, at);
@@ -40,18 +37,12 @@ impl Model {
                 phase,
                 pos,
                 window_pos: at,
-                button: if matches!(phase, PointerPhase::Down | PointerPhase::Up) {
-                    button
-                } else {
-                    None
-                },
                 buttons: if phase == PointerPhase::Cancel {
                     PointerButtons::NONE
                 } else {
                     source.buttons
                 },
                 modifiers,
-                click_count,
                 kind: source.kind,
                 pressure: source.pressure,
                 tilt: source.tilt,
@@ -223,26 +214,10 @@ impl Model {
         let old = std::mem::replace(&mut self.pointer.state.track_mut(pointer).over, over);
         if over != old {
             if let Some(o) = old.filter(|o| self.tree.contains(*o)) {
-                self.send_pointer(
-                    pointer,
-                    o,
-                    PointerPhase::Leave,
-                    None,
-                    modifiers,
-                    0,
-                    space.window(),
-                );
+                self.send_pointer(pointer, o, PointerPhase::Leave, modifiers, space.window());
             }
             if let Some(n) = over {
-                self.send_pointer(
-                    pointer,
-                    n,
-                    PointerPhase::Enter,
-                    None,
-                    modifiers,
-                    0,
-                    space.window(),
-                );
+                self.send_pointer(pointer, n, PointerPhase::Enter, modifiers, space.window());
             }
         }
     }
@@ -268,16 +243,15 @@ impl Model {
         &mut self,
         pointer: PointerId,
         hit: Option<NodeId>,
-        button: MouseButton,
+        press: ButtonPress,
         modifiers: Modifiers,
-        click_count: u8,
         space: &PointerSpace<'_>,
     ) {
         let hit = self.scoped(hit);
         self.track_hover(pointer, hit, modifiers, space);
         let capture = self.pointer.state.track(pointer).capture();
         if self.pointer.state.track(pointer).source.primary {
-            self.primary_press(pointer, hit, button, modifiers, capture, space);
+            self.primary_press(pointer, hit, press.button, modifiers, capture, space);
         }
         let target =
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
@@ -286,10 +260,8 @@ impl Model {
             self.send_pointer(
                 pointer,
                 t,
-                PointerPhase::Down,
-                Some(button),
+                PointerPhase::Down(press),
                 modifiers,
-                click_count,
                 space.window(),
             );
         }
@@ -402,16 +374,15 @@ impl Model {
         &mut self,
         pointer: PointerId,
         hit: Option<NodeId>,
-        button: MouseButton,
+        press: ButtonPress,
         modifiers: Modifiers,
-        click_count: u8,
         space: &PointerSpace<'_>,
     ) {
         let hit = self.scoped(hit);
         let hit_chain = self.tree.chain(hit);
         let capture = self.pointer.state.track(pointer).capture();
         let released = self.pointer.state.track(pointer).source.buttons.is_empty();
-        let press = if button == MouseButton::Primary {
+        let pressed = if press.button == MouseButton::Primary {
             self.set_chain(pointer, Chain::Pressed, Vec::new());
             match &mut self.pointer.state.track_mut(pointer).gesture {
                 Gesture::Route(route) => route.press.take().and_then(|press| press.target),
@@ -429,14 +400,12 @@ impl Model {
             self.send_pointer(
                 pointer,
                 t,
-                PointerPhase::Up,
-                Some(button),
+                PointerPhase::Up(press),
                 modifiers,
-                click_count,
                 space.window(),
             );
         }
-        if let Some(a) = press.filter(|a| hit_chain.contains(&a.node))
+        if let Some(a) = pressed.filter(|a| hit_chain.contains(&a.node))
             && a.region.is_none_or(|region| {
                 self.region_activatable(a.node, region)
                     && space.region(self, a.node, space.local(self, a.node)) == Some(region)
@@ -485,15 +454,7 @@ impl Model {
             .capture()
             .or(track.over.filter(|o| before == Some(*o)))
         {
-            self.send_pointer(
-                pointer,
-                t,
-                PointerPhase::Move,
-                None,
-                modifiers,
-                0,
-                space.window(),
-            );
+            self.send_pointer(pointer, t, PointerPhase::Move, modifiers, space.window());
         }
         // A primary drag that started in the focused text input selects.
         let selecting = self
@@ -532,15 +493,7 @@ impl Model {
             capture: Some(t), ..
         }) = std::mem::take(&mut track.gesture)
         {
-            self.send_pointer(
-                pointer,
-                t,
-                PointerPhase::Cancel,
-                None,
-                Modifiers::default(),
-                0,
-                at,
-            );
+            self.send_pointer(pointer, t, PointerPhase::Cancel, Modifiers::default(), at);
         }
     }
 

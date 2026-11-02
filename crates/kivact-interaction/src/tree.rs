@@ -27,8 +27,8 @@ use kivact_core::primitive::{Owned, Owner, Part, PartState};
 use super::{List, ListItem, ListPolicy, ListRangePolicy, ListSelection, use_list};
 use kivact_core::view::A11yAction;
 use kivact_core::view::{
-    Handled, IntoText, IntoValue, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Reactive,
-    Role, callback,
+    ButtonPress, Handled, IntoText, IntoValue, Key, KeyEvent, MouseButton, PointerEvent,
+    PointerPhase, Reactive, Role, callback,
 };
 use kivact_core::{Binding, Callback, Signal, Value, memo, signal};
 
@@ -591,10 +591,13 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
             })
             .on_key(move |event: KeyEvent| this.on_key(&for_key, &event))
             .on_pointer(move |event: PointerEvent| {
-                if event.phase == PointerPhase::Down
-                    && event.button == Some(MouseButton::Primary)
-                    && event.click_count == 2
-                {
+                if matches!(
+                    event.phase,
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        clicks: 2
+                    })
+                ) {
                     this.activate(&for_pointer);
                 }
                 Handled::No

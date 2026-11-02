@@ -104,8 +104,7 @@ impl Model {
         let result = self.request_focus(id, visible);
         self.push(HostEvent::FocusResult {
             request,
-            ok: result.is_ok(),
-            reason: result.err().map(String::from),
+            result: result.map_err(String::from),
         });
     }
 

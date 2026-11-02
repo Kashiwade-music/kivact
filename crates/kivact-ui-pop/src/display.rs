@@ -6,7 +6,7 @@ use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Stroke};
 use kivact::draw::{Shadow, Transform, linear_gradient};
 use kivact::i18n::message;
-use kivact::motion::{Animated, Easing, Transition, animated};
+use kivact::motion::{Animated, Easing, Repeat, Transition, animated};
 use kivact::primitive::NodeExt;
 use kivact::style::current_theme;
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, pct, style};
@@ -220,7 +220,7 @@ impl IntoView for Avatar {
                 0.0f32,
                 -3.0f32,
                 Transition::tween(1600, Easing::EaseInOut)
-                    .repeat(None)
+                    .repeat(Repeat::Forever)
                     .alternate(),
             );
             node().style(move || {
@@ -773,7 +773,7 @@ pub fn spinner() -> Node {
         0.0f32,
         360.0f32,
         Transition::tween(700, Easing::Linear)
-            .repeat(None)
+            .repeat(Repeat::Forever)
             .decorative(false),
     );
     node()
@@ -829,7 +829,7 @@ pub fn dots_loader() -> Node {
         0.0f32,
         std::f32::consts::TAU,
         Transition::tween(1000, Easing::Linear)
-            .repeat(None)
+            .repeat(Repeat::Forever)
             .decorative(false),
     );
     node()
@@ -884,7 +884,7 @@ impl IntoView for Skeleton {
             1.0f32,
             0.5f32,
             Transition::tween(1000, Easing::EaseInOut)
-                .repeat(None)
+                .repeat(Repeat::Forever)
                 .alternate(),
         );
         self.root

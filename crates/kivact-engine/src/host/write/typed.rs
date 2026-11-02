@@ -34,9 +34,10 @@ use super::Writer;
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
 use kivact_wire::{
-    A11yAction, Asset, EditingData, FocusTarget, ImageData, ImageFit, ImeSession, IntrinsicSize,
-    Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties, NodeSemantics, OverlayProps,
-    PaintProps, Role, SemanticsProperties, StateStyles, TextData, TextProps, TextSpan,
+    A11yAction, Asset, CheckedState, EditingData, FocusTarget, ImageData, ImageFit, ImeSession,
+    IntrinsicSize, Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties, NodeSemantics,
+    OverlayProps, PaintProps, Role, SemanticsProperties, StateStyles, TextData, TextProps,
+    TextSpan,
 };
 
 fn semantics(p: &mut NodeProperties) -> &mut NodeSemantics {
@@ -197,7 +198,7 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's focus on press when its value differs.
     FocusOnPress: set_focus_on_press(v: Option<FocusTarget>)
-        => field(Some(v), |p| Some(&mut p.input.focus_on_press)),
+        => field(v, |p| Some(&mut p.input.focus_on_press)),
         mut = Mut::NONE;
     /// Replace the node's listen wheel when its value differs.
     ListenWheel: set_listen_wheel(v: bool)
@@ -228,11 +229,11 @@ props! {
         => field(Some(v), |p| Some(&mut semantics(p).selected)),
         mut = Mut::NONE;
     /// Replace the node's checked when its value differs.
-    Checked: set_checked(v: Option<bool>)
-        => field(Some(v), |p| Some(&mut semantics(p).checked)),
+    Checked: set_checked(v: Option<CheckedState>)
+        => field(v, |p| Some(&mut semantics(p).checked)),
         mut = Mut::NONE;
     /// Replace the node's expanded when its value differs.
-    Expanded: set_expanded(v: Option<bool>)
+    Expanded: set_expanded(v: bool)
         => field(Some(v), |p| Some(&mut semantics(p).expanded)),
         mut = Mut::NONE;
     /// Replace the node's invalid when its value differs.
@@ -330,7 +331,7 @@ props! {
         => field(Some(v), |p| Some(&mut image(p)?.monochrome)),
         mut = Mut::NONE;
     /// Replace the node's overlay when its value differs (`STYLE`: a
-    /// layout pass applies `at_least_anchor_width`).
+    /// layout pass applies `OverlayAt::Anchor::at_least_width`).
     Overlay: set_overlay(v: OverlayProps)
         => field(Some(v), |p| match &mut p.kind {
             NodeKind::Overlay(data) => Some(data),

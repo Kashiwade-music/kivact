@@ -11,8 +11,8 @@ use kivact::primitive::NodeExt;
 use kivact::style::current_theme;
 use kivact::style::{Align, Color, Icon, Position, rgba, style};
 use kivact::view::{
-    A11yAction, Handled, HandlerResult, IntoText, IntoValue, IntoView, LiveRegion, MouseButton,
-    NodeRef, Placement, PointerPhase, Role, View, node_ref, overlay, show,
+    A11yAction, ButtonPress, Handled, HandlerResult, IntoText, IntoValue, IntoView, LiveRegion,
+    MouseButton, NodeRef, Placement, PointerPhase, Role, View, node_ref, overlay, show,
 };
 use kivact::{Binding, Value, signal, var};
 use std::hash::Hash;
@@ -560,7 +560,7 @@ fn window_layer<V: IntoView>(
                     .hide_label(true)
                     .icon(kivact::control::icon("chevron-down"))
                     .on_pointer_default(|event| {
-                        if event.phase == PointerPhase::Down {
+                        if matches!(event.phase, PointerPhase::Down(_)) {
                             Handled::Yes
                         } else {
                             Handled::No
@@ -573,7 +573,7 @@ fn window_layer<V: IntoView>(
                 .hide_label(true)
                 .icon(kivact::control::icon("x"))
                 .on_pointer_default(|event| {
-                    if event.phase == PointerPhase::Down {
+                    if matches!(event.phase, PointerPhase::Down(_)) {
                         Handled::Yes
                     } else {
                         Handled::No
@@ -608,10 +608,13 @@ fn window_layer<V: IntoView>(
                 .expanded(move || !collapsed.get())
                 .on_a11y(A11yAction::Toggle, move || collapsed.update(|v| *v = !*v))
                 .on_pointer_default(move |e| {
-                    if e.phase == PointerPhase::Down
-                        && e.button == Some(MouseButton::Primary)
-                        && e.click_count > 1
-                    {
+                    if matches!(
+                        e.phase,
+                        PointerPhase::Down(ButtonPress {
+                            button: MouseButton::Primary,
+                            clicks: 2..
+                        })
+                    ) {
                         mover.cancel();
                         collapsed.update(|v| *v = !*v);
                         return Handled::Yes;

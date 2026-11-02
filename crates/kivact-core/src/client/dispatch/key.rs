@@ -3,14 +3,14 @@
 //! activation, Escape dismissal).
 
 use kivact_reactive::Runtime;
-use kivact_wire::{A11yAction, HostEvent};
+use kivact_wire::{A11yRequest, DismissReason, HostEvent, KeyPhase};
 
 use super::a11y::run_a11y;
 use super::common::{handler, is_disabled, node_owner, run_handler, stale};
 use super::pointer::activate;
 use crate::view::input::{Handled, Key as UKey, KeyEvent, Modifiers};
+use crate::view::overlays;
 use crate::view::state::ViewState;
-use crate::view::{DismissReason, overlays};
 
 pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     let HostEvent::Key {
@@ -18,14 +18,17 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         region,
         key,
         code,
-        released,
+        phase,
         modifiers,
-        repeat,
-        text,
         pointer,
     } = host_event
     else {
         unreachable!("`dispatch` routes only `HostEvent::Key` here");
+    };
+    let released = matches!(phase, KeyPhase::Up);
+    let (repeat, text) = match phase {
+        KeyPhase::Down { repeat, text } => (*repeat, text.clone()),
+        KeyPhase::Up => (false, None),
     };
     let route = overlays::key_route(rt, *node);
     let target = route.target;
@@ -41,8 +44,8 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         key: *key,
         code: *code,
         modifiers: *modifiers,
-        repeat: *repeat,
-        text: text.clone(),
+        repeat,
+        text,
         pointer: *pointer,
         target_role: region
             .and_then(|region| {
@@ -68,7 +71,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     let mut cur = Some(target);
     while let Some(id) = cur {
         if let Some(h) = handler(rt, id, |h| {
-            if *released {
+            if released {
                 h.key_up.if_set()
             } else {
                 h.key.if_set()
@@ -92,8 +95,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     let default = handled == Handled::No;
     if default
         && route.activates
-        && !*released
-        && !*repeat
+        && matches!(phase, KeyPhase::Down { repeat: false, .. })
         && matches!(e.key, UKey::Enter | UKey::Space)
         && e.modifiers == Modifiers::default()
     {
@@ -105,17 +107,10 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         activate(rt, target, region);
     }
     if default
-        && !*released
+        && !released
         && let Some(o) = overlays::escape_dismisses(rt, &e)
     {
         // Nobody handled Escape: dismiss the topmost overlay.
-        run_a11y(
-            rt,
-            o,
-            A11yAction::Dismiss,
-            None,
-            None,
-            Some(DismissReason::Escape),
-        );
+        run_a11y(rt, o, None, A11yRequest::Dismiss(DismissReason::Escape));
     }
 }

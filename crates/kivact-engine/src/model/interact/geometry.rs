@@ -40,7 +40,7 @@
 //! - Reports go out in id order: every changed scroll container's
 //!   `ScrollChanged`, then every changed observed node's `LayoutChanged`.
 
-use kivact_wire::{HostEvent, NodeId, NodeType, Point, Rect};
+use kivact_wire::{HostEvent, NodeId, NodeType, OverlayAt, Point, Rect};
 
 use crate::measure::leaf::Measure;
 use crate::model::Model;
@@ -167,15 +167,14 @@ impl Model {
         let Some(o) = self.tree.get(id).and_then(|n| n.overlay()) else {
             return Point::default();
         };
-        let anchor = match o.point {
-            Some(p) => Some(Rect {
+        let anchor = match o.at {
+            OverlayAt::Point(p) => Some(Rect {
                 x: p.x,
                 y: p.y,
                 width: 0.0,
                 height: 0.0,
             }),
-            None => o
-                .anchor
+            OverlayAt::Anchor { node, .. } => node
                 .filter(|a| !self.placed_by(*a, id))
                 .and_then(|a| self.bounds(a)),
         };
@@ -214,7 +213,7 @@ impl Model {
                 .tree
                 .get(o)
                 .and_then(|n| n.overlay())
-                .and_then(|p| p.anchor);
+                .and_then(|p| p.anchor());
         }
         false
     }

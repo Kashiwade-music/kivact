@@ -598,10 +598,11 @@ impl IntoView for Outliner {
                     })
                     .part(kivact::primitive::part(|input| input).on_pointer(
                         move |e: PointerEvent| {
-                            let primary = e.button == Some(MouseButton::Primary);
-                            if e.phase == PointerPhase::Down && primary {
+                            if let PointerPhase::Down(press) = e.phase
+                                && press.button == MouseButton::Primary
+                            {
                                 pressed.set(Some(id));
-                                if e.click_count == 2
+                                if press.clicks == 2
                                     && !has_activation
                                     && renaming.get() != Some(id)
                                 {
@@ -610,7 +611,7 @@ impl IntoView for Outliner {
                                     return Handled::Yes;
                                 }
                             }
-                            if matches!(e.phase, PointerPhase::Up | PointerPhase::Cancel) {
+                            if matches!(e.phase, PointerPhase::Up(_) | PointerPhase::Cancel) {
                                 released.set(None);
                             }
                             Handled::No

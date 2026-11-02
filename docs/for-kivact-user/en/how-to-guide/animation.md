@@ -59,8 +59,9 @@ same numbers as CSS) or `Easing::steps_end(n)` / `steps_start(n)`.
 There is no fixed duration: it settles when it settles, and an interrupted spring
 keeps its velocity. `Spring::GENTLE`, `WOBBLY` and `STIFF` are presets, and you
 can set `stiffness`, `damping` and `mass` yourself. Every transition accepts
-`.delay(ms)`. Tweens and keyframes also accept `.repeat(Some(3))` (`None`
-repeats forever) and `.alternate()` (every other repeat plays backwards).
+`.delay(ms)`, `.repeat(Repeat::Times(3))` (`Repeat::Forever` repeats until the
+target changes) and `.alternate()` (every other iteration plays backwards); a
+spring's iteration ends when it settles.
 `Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` passes
 through values at offsets between 0 and 1 and ends at the target.
 

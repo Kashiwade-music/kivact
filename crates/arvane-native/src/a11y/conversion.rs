@@ -20,7 +20,7 @@
 //!   `set_size_of_set` and `set_position_in_set` as they are (1-based, as
 //!   ARIA's; hosts leave a 0 level or position out), and `multiselectable`
 //!   is set only for `Some(true)`.
-//! - `indeterminate` is `Toggled::Mixed` whatever `checked` says; the
+//! - `checked` is the toggle state (`Indeterminate` is `Toggled::Mixed`); the
 //!   label of a text node is also its value (AccessKit names a label from
 //!   its value); `Dismiss` is a custom action.
 //! - A text's runs become `TextRun` children ([`text_run`]): a CR LF pair
@@ -32,7 +32,7 @@
 //!   no word boundaries (AccessKit's word starts) are given.
 
 use kivact_types::protocol::SemanticsNode;
-use kivact_types::{A11yAction, NodeId, Role};
+use kivact_types::{A11yAction, CheckedState, NodeId, Role};
 
 /// The id of the one custom action, `Dismiss`.
 const DISMISS: i32 = 1;
@@ -187,14 +187,11 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
     if source.focusable {
         node.add_action(accesskit::Action::Focus);
     }
-    if source.properties.as_ref().is_some_and(|p| p.indeterminate) {
-        node.set_toggled(accesskit::Toggled::Mixed);
-    } else if let Some(checked) = source.checked {
-        node.set_toggled(if checked {
-            accesskit::Toggled::True
-        } else {
-            accesskit::Toggled::False
-        });
+    match source.checked {
+        Some(CheckedState::Indeterminate) => node.set_toggled(accesskit::Toggled::Mixed),
+        Some(CheckedState::Checked) => node.set_toggled(accesskit::Toggled::True),
+        Some(CheckedState::Unchecked) => node.set_toggled(accesskit::Toggled::False),
+        None => {}
     }
     if source.selected
         || matches!(

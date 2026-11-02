@@ -2,7 +2,7 @@
 use kivact::control::{Node, NodeBuilder, node};
 use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Stroke};
 use kivact::i18n::message;
-use kivact::motion::{Animated, Easing, Transition};
+use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::style::{Color, style};
 use kivact::view::Role;
 use kivact_ui_pop::Tokens;
@@ -13,7 +13,7 @@ pub(super) fn halo_loader() -> Node {
         0.0f32,
         1.0f32,
         Transition::tween(800, Easing::EaseInOut)
-            .repeat(None)
+            .repeat(Repeat::Forever)
             .alternate()
             .decorative(false),
     );

@@ -8,7 +8,7 @@
 //!   `Start`↔`End`) if that side fits, or if neither fits and the
 //!   opposite side has more room. `Center` centers it over the anchor.
 //! - Along the side it is aligned to the anchor's start, centre or end
-//!   (`PlacementAlign`). A start or end alignment that overflows the
+//!   (`OverlayAlign`). A start or end alignment that overflows the
 //!   window flips to the other one when that fits (a right-aligned menu
 //!   near the left edge opens rightwards; a menu at the pointer near the
 //!   right edge opens leftwards).
@@ -17,7 +17,7 @@
 //! - The result is then clamped into the window; an overlay larger than
 //!   the window is aligned to its top-left corner.
 
-use kivact_wire::{Placement, PlacementAlign, Point, Rect, Size};
+use kivact_wire::{OverlayAlign, Placement, Point, Rect, Size};
 
 /// Window-space origin of an overlay of `size` placed at `placement` of
 /// `anchor` (its window-space rect, `None` when unanchored), aligned by
@@ -25,7 +25,7 @@ use kivact_wire::{Placement, PlacementAlign, Point, Rect, Size};
 /// module invariants).
 pub fn place_overlay(
     placement: Placement,
-    align: PlacementAlign,
+    align: OverlayAlign,
     offset: f32,
     anchor: Option<Rect>,
     size: Size,
@@ -89,15 +89,15 @@ fn side(after: bool, start: f32, end: f32, size: f32, limit: f32) -> f32 {
 
 /// Start coordinate along the anchor's side (`start`, `length`) of an
 /// overlay of `size` aligned by `align`, flipped as the module says.
-fn along(align: PlacementAlign, start: f32, length: f32, size: f32, limit: f32) -> f32 {
+fn along(align: OverlayAlign, start: f32, length: f32, size: f32, limit: f32) -> f32 {
     let at_start = start;
     let at_end = start + length - size;
     match align {
-        PlacementAlign::Center => start + (length - size) / 2.0,
-        PlacementAlign::Start if at_start + size > limit && at_end >= 0.0 => at_end,
-        PlacementAlign::Start => at_start,
-        PlacementAlign::End if at_end < 0.0 && at_start + size <= limit => at_start,
-        PlacementAlign::End => at_end,
+        OverlayAlign::Center => start + (length - size) / 2.0,
+        OverlayAlign::Start if at_start + size > limit && at_end >= 0.0 => at_end,
+        OverlayAlign::Start => at_start,
+        OverlayAlign::End if at_end < 0.0 && at_start + size <= limit => at_start,
+        OverlayAlign::End => at_end,
     }
 }
 

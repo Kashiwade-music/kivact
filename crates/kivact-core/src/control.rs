@@ -30,6 +30,8 @@ pub use crate::view::node::{Node, NodeBuilder};
 #[doc(inline)]
 pub use crate::view::span::{Span, span};
 pub use container::{Scroll, column, grid, row, scroll, spacer, stack};
+#[doc(inline)]
+pub use kivact_wire::ScrollAxes;
 pub use node::{canvas, icon, image, node};
 pub use text::{rich_text, text};
 

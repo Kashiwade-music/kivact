@@ -10,7 +10,7 @@ use kivact_wire::{self as p, SceneLayer};
 use super::model::{Element, Query};
 use crate::diagnostics::Why;
 use crate::view::state::ViewState;
-use crate::view::{A11yAction, Role};
+use crate::view::{A11yAction, CheckedState, Role};
 use kivact_style::draw::RegionId;
 
 impl<'a> Element<'a> {
@@ -250,29 +250,20 @@ impl<'a> Element<'a> {
         }
     }
 
-    pub fn is_checked(&self) -> Option<bool> {
+    /// The checked state the host publishes (`None`: not a toggle). A mixed
+    /// control is `Some(CheckedState::Indeterminate)`; its binary value is
+    /// the App's binding.
+    pub fn checked(&self) -> Option<CheckedState> {
         match self.published() {
             Some(n) => n.checked,
-            _ => ViewState::tree(&self.screen.rt)
-                .checked(self.node)
-                .flatten(),
+            _ => ViewState::tree(&self.screen.rt).checked(self.node),
         }
-    }
-
-    /// Whether the host publishes a partially checked control to AT.
-    /// Its binary value is still available through `is_checked`.
-    pub fn is_indeterminate(&self) -> bool {
-        self.published()
-            .and_then(|n| n.properties)
-            .is_some_and(|p| p.indeterminate)
     }
 
     pub fn is_expanded(&self) -> Option<bool> {
         match self.published() {
             Some(n) => n.expanded,
-            _ => ViewState::tree(&self.screen.rt)
-                .expanded(self.node)
-                .flatten(),
+            _ => ViewState::tree(&self.screen.rt).expanded(self.node),
         }
     }
 

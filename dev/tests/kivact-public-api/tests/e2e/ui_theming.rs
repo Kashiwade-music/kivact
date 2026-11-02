@@ -113,8 +113,8 @@ fn a_menu_slot_replaces_item_rows_and_the_default_shows_headings_and_description
     screen.find_by_text("Align");
     screen.find_by_text("As a PNG image");
     assert_eq!(
-        screen.get_by_role(Role::MenuItemRadio, "Left").is_checked(),
-        Some(true)
+        screen.get_by_role(Role::MenuItemRadio, "Left").checked(),
+        Some(CheckedState::Checked)
     );
     screen.press_key(Key::Escape);
     screen.get_by_role(Role::Button, "File").click();

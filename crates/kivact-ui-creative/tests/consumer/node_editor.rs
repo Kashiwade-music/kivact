@@ -105,22 +105,22 @@ fn node_parameters_accept_finite_set_value_drag_and_toggle() {
         )
     });
     let value = screen.get_by_role(Role::SpinButton, "Mix Factor");
-    value.a11y_with_value(A11yAction::SetValue, "0.75");
+    value.a11y_set_value("0.75");
     assert_eq!(value.value_range().2, Some(0.75));
-    value.a11y_with_value(A11yAction::SetValue, "NaN");
+    value.a11y_set_value("NaN");
     assert_eq!(value.value_range().2, Some(0.75));
-    value.a11y_with_value(A11yAction::SetValue, "8");
+    value.a11y_set_value("8");
     assert_eq!(value.value_range().2, Some(1.0));
     let alpha = screen.get_by_role(Role::Button, "Mix Use Alpha");
-    assert_eq!(alpha.is_checked(), Some(true));
+    assert_eq!(alpha.checked(), Some(CheckedState::Checked));
     alpha.a11y(A11yAction::Toggle);
-    assert_eq!(alpha.is_checked(), Some(false));
+    assert_eq!(alpha.checked(), Some(CheckedState::Unchecked));
     assert!(matches!(
         data.get_untracked()[0].controls[1].value,
         ui::NodeControlValue::Toggle(false)
     ));
     alpha.a11y(A11yAction::Activate);
-    assert_eq!(alpha.is_checked(), Some(true));
+    assert_eq!(alpha.checked(), Some(CheckedState::Checked));
     value.drag(Point::new(60.0, 90.0), Point::new(40.0, 90.0));
     assert_eq!(value.value_range().2, Some(0.8));
     clean(&screen);

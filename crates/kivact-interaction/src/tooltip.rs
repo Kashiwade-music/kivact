@@ -261,7 +261,7 @@ impl TooltipApi {
         .reference(self.anchor)
         .described_by(self.surface)
         .on_pointer(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down {
+            if matches!(event.phase, PointerPhase::Down(_)) {
                 self.dismiss();
             }
             Handled::No

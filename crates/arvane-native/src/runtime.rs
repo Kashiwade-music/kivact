@@ -784,7 +784,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                     let at = logical(at, scale);
                     before = self
                         .mouse
-                        .event(PointerPhase::Move, Some(at), None)
+                        .event(PointerPhase::Move, Some(at))
                         .map(ShellEvent::Pointer);
                 }
             }
@@ -854,7 +854,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                     }),
                     Dnd::Idle | Dnd::Dropped(_) => self
                         .mouse
-                        .event(PointerPhase::Move, Some(at), None)
+                        .event(PointerPhase::Move, Some(at))
                         .map(ShellEvent::Pointer),
                 }
             }
@@ -862,7 +862,7 @@ impl ApplicationHandler<()> for Runner<'_> {
             // its capture and is released outside.
             WindowEvent::CursorLeft { .. } => self
                 .mouse
-                .event(PointerPhase::Leave, None, None)
+                .event(PointerPhase::Leave, None)
                 .map(ShellEvent::Pointer),
             WindowEvent::MouseInput { state, button, .. } => match button {
                 winit::event::MouseButton::Left => Some(ShellButton::Primary),
@@ -874,15 +874,7 @@ impl ApplicationHandler<()> for Runner<'_> {
             }
             .and_then(|button| {
                 self.mouse
-                    .event(
-                        if state == ElementState::Pressed {
-                            PointerPhase::Down
-                        } else {
-                            PointerPhase::Up
-                        },
-                        None,
-                        Some(button),
-                    )
+                    .button(button, state == ElementState::Pressed, None)
                     .map(ShellEvent::Pointer)
             }),
             WindowEvent::MouseWheel { delta, .. } => {

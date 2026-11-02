@@ -5,13 +5,11 @@ use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection, Role, View,
-    callback, current_direction, for_each,
+    CheckedState, HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection,
+    Role, View, callback, current_direction, for_each,
 };
 use kivact_core::{Binding, Callback, Value, binding};
-use kivact_interaction::{
-    CheckedState, EditPhase, EditSession, ListItem, ListPolicy, ListSelection, use_list,
-};
+use kivact_interaction::{EditPhase, EditSession, ListItem, ListPolicy, ListSelection, use_list};
 use std::cell::Cell;
 use std::hash::Hash;
 use std::rc::Rc;

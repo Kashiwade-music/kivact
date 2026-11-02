@@ -65,8 +65,8 @@ use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
 use crate::view::owner::Owner;
 use crate::view::part_data::{PartBinding, PartMount};
 use crate::view::{
-    A11yAction, A11yEvent, Key, LiveRegion, MouseButton, NodeRef, Orientation, PointerPhase, Role,
-    SortDirection, node_ref,
+    A11yAction, A11yEvent, ButtonPress, Key, LiveRegion, MouseButton, NodeRef, Orientation,
+    PointerPhase, Role, SortDirection, node_ref,
 };
 use crate::{Signal, Value, memo, on_cleanup, signal};
 
@@ -206,10 +206,16 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
         .handlers
         .pointer
         .observer(move |event| match event.phase {
-            PointerPhase::Down if event.button == Some(MouseButton::Primary) && input.enabled() => {
+            PointerPhase::Down(ButtonPress {
+                button: MouseButton::Primary,
+                ..
+            }) if input.enabled() => {
                 input.pointer_pressed.set(true);
             }
-            PointerPhase::Up if event.button == Some(MouseButton::Primary) => {
+            PointerPhase::Up(ButtonPress {
+                button: MouseButton::Primary,
+                ..
+            }) => {
                 input.pointer_pressed.set(false);
             }
             PointerPhase::Cancel => input.clear(),
@@ -473,7 +479,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     ///
     /// Same as [`NodeExt::indeterminate`](crate::primitive::NodeExt::indeterminate).
     pub fn indeterminate(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.semantics_mut().indeterminate = Some(value.into_prop());
+        self.common.indeterminate = Some(value.into_prop());
         self
     }
 
@@ -670,7 +676,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
         self
     }
 
-    /// Offer an action while preserving the requested drawn region's identity and optional value.
+    /// Offer an action and receive its [`A11yEvent`]: the region the request names and the request.
     ///
     /// Same as [`NodeExt::on_a11y_event`](crate::primitive::NodeExt::on_a11y_event).
     pub fn on_a11y_event<F, R>(mut self, action: A11yAction, f: F) -> Self

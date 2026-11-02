@@ -298,7 +298,7 @@ fn menu_item(
                     }
                     hover.set(Some(at));
                 }
-                PointerPhase::Down => arm_pin(),
+                PointerPhase::Down(_) => arm_pin(),
                 PointerPhase::Leave => pin_next.set(false),
                 _ => {}
             }

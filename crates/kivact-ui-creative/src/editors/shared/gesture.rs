@@ -5,7 +5,7 @@
 use super::selection::merge_marquee;
 use kivact::draw::{Point, Rect};
 use kivact::interaction::{Drag, DragPhase, DragUpdate};
-use kivact::view::{Modifiers, MouseButton, PointerEvent};
+use kivact::view::{ButtonPress, Modifiers, MouseButton, PointerEvent, PointerPhase};
 use kivact::{Signal, signal};
 use std::rc::Rc;
 
@@ -51,7 +51,13 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
                 payload,
                 pending,
                 modifiers: event.modifiers,
-                double: event.button == Some(MouseButton::Primary) && event.click_count == 2,
+                double: matches!(
+                    event.phase,
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        clicks: 2
+                    })
+                ),
                 moved: false,
             })
         });

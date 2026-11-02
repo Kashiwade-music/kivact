@@ -111,10 +111,8 @@ pub enum ShellEvent {
     Accessibility {
         /// Stable semantics identity.
         node: u64,
-        /// Requested portable action; a native click arrives as `Activate` and
-        /// is resolved against the node's declared actions by the receiver.
-        action: kivact_types::A11yAction,
-        /// Optional requested text value.
-        value: Option<String>,
+        /// The request; a native click arrives as `Activate` and is resolved
+        /// against the node's declared actions by the receiver.
+        request: kivact_types::A11yRequest,
     },
 }

@@ -6,7 +6,7 @@ use crate::editors::node::model::{NodeControlValue, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
 use kivact::draw::{Point, Rect};
 use kivact::interaction::{Drag as Gesture, ListGesture};
-use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
+use kivact::view::{ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
 
 fn moved(state: State, point: Point) {
     let start = state.point(state.press.origin());
@@ -78,16 +78,20 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
     if state.pan_active.get() {
         return Handled::No;
     }
-    if event.button == Some(MouseButton::Middle) {
+    if event.phase.press().map(|press| press.button) == Some(MouseButton::Middle) {
         return if state.busy() {
             Handled::Yes
         } else {
             Handled::No
         };
     }
-    if event.phase == PointerPhase::Down
-        && event.button == Some(MouseButton::Primary)
-        && state.space.get()
+    if matches!(
+        event.phase,
+        PointerPhase::Down(ButtonPress {
+            button: MouseButton::Primary,
+            ..
+        })
+    ) && state.space.get()
     {
         return if state.busy() {
             Handled::Yes
@@ -100,7 +104,10 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
         .region()
         .and_then(|id| state.scene.get().ok()?.target(id).copied());
     match event.phase {
-        PointerPhase::Down if event.button == Some(MouseButton::Primary) => {
+        PointerPhase::Down(ButtonPress {
+            button: MouseButton::Primary,
+            ..
+        }) => {
             if state.busy() {
                 return Handled::Yes;
             }
@@ -178,7 +185,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
             state.press.begin(&event, target, (drag, initial), pending);
             Handled::No
         }
-        PointerPhase::Up => {
+        PointerPhase::Up(_) => {
             // A link ends on the socket under the release.
             state.released.set(target);
             Handled::No

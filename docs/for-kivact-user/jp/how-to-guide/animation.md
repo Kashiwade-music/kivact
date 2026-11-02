@@ -42,7 +42,7 @@ fn main() -> kivact::Result<()> {
 
 目標には、シグナル、クロージャ（`move || if open.get() { 240.0 } else { 0.0 }`）、定数のどれでも渡せます。満たす途中で「空にする」を押すと、値は今の位置から折り返します。途中で止められたアニメーションが飛ぶことはありません。
 
-`Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps_end(n)` / `steps_start(n)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)` を付けられます。トゥイーンとキーフレームには、`.repeat(Some(3))`（`None` なら無限に繰り返し）と `.alternate()`（1 回おきに逆再生）も使えます。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
+`Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps_end(n)` / `steps_start(n)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
 
 ### 値をスタイルで使う
 

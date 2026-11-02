@@ -10,7 +10,7 @@
 
 use super::transform::Transform;
 use crate::geometry::{NodeId, Point, Rect};
-use crate::semantics::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
+use crate::semantics::{A11yAction, CheckedState, LiveRegion, Orientation, Role, SortDirection};
 use crate::semantics_text::SemanticsText;
 
 /// One accessibility node, usable on any thread.
@@ -45,8 +45,8 @@ pub struct SemanticsNode {
     pub hidden: bool,
     /// Whether keyboard focus is allowed.
     pub focusable: bool,
-    /// Toggle state, with None for non-toggle nodes.
-    pub checked: Option<bool>,
+    /// Toggle state; `None` for a node that is not a toggle.
+    pub checked: Option<CheckedState>,
     /// Selection state.
     pub selected: bool,
     /// Expansion state.
@@ -115,9 +115,6 @@ pub struct SemanticsUpdate {
 pub struct SemanticsProperties {
     /// Native editing text, selection and geometry. Omit for protected text.
     pub text: Option<SemanticsText>,
-    /// A partially checked control. Takes precedence over `checked` in
-    /// the platform's accessible toggle state.
-    pub indeterminate: bool,
     /// Numeric lower bound.
     pub value_min: Option<f64>,
     /// Numeric upper bound.

@@ -5,8 +5,8 @@ use super::order::Movement;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
 use kivact_core::view::{
-    A11yAction, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation, PointerEvent,
-    PointerPhase,
+    A11yAction, ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation,
+    PointerEvent, PointerPhase,
 };
 use std::hash::Hash;
 
@@ -26,8 +26,13 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
     event: PointerEvent,
 ) -> Handled {
     if state.policy.get().action != A11yAction::Select
-        || event.phase != PointerPhase::Down
-        || event.button != Some(MouseButton::Primary)
+        || !matches!(
+            event.phase,
+            PointerPhase::Down(ButtonPress {
+                button: MouseButton::Primary,
+                ..
+            })
+        )
         || state.target(key).is_none()
     {
         return Handled::No;

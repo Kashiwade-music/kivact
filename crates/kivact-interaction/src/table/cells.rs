@@ -7,7 +7,9 @@ use crate::policy::grid::GridMove;
 use crate::roving::Member;
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{NodeRefExt, Owner, Part, part};
-use kivact_core::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Role};
+use kivact_core::view::{
+    ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Role,
+};
 use kivact_core::{Value, Var, memo, var};
 use std::hash::Hash;
 use std::panic::Location;
@@ -81,7 +83,13 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
     .focusable(is_active)
     .on_key(move |event: KeyEvent| key_down(&keys, &id.get(), &event))
     .on_pointer(move |event: PointerEvent| {
-        if event.phase == PointerPhase::Down && event.button == Some(MouseButton::Primary) {
+        if matches!(
+            event.phase,
+            PointerPhase::Down(ButtonPress {
+                button: MouseButton::Primary,
+                ..
+            })
+        ) {
             let (key, column) = id.get();
             pointers
                 .list

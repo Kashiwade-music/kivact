@@ -57,10 +57,9 @@ fn table_search_sort_selection_paging_are_external_consumer_behavior() {
     screen.get_by_text("Alpha");
     screen.get_by_role(Role::CheckBox, "Select Alpha").click();
     assert_eq!(selected.get_untracked(), vec![2]);
-    assert!(
-        screen
-            .get_by_role(Role::CheckBox, "Select all")
-            .is_indeterminate()
+    assert_eq!(
+        screen.get_by_role(Role::CheckBox, "Select all").checked(),
+        Some(CheckedState::Indeterminate)
     );
     screen.get_by_role(Role::Button, "Next").click();
     screen.get_by_text("Gamma");

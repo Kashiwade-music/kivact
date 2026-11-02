@@ -1,25 +1,19 @@
 //! Role: Accessibility semantics carried by nodes and scene regions.
 
-pub use kivact_types::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
+pub use kivact_types::{
+    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
+    SortDirection,
+};
 /// Optional semantics used by advanced controls.
 ///
 /// A node keeps them in one box (`NodeSemantics::accessibility`) that only
 /// the nodes using them allocate: numeric values, live regions, sorting,
 /// orientation, the active descendant, the relations, list and tree
-/// positions, and invalid, read-only and protected text. The engine hands
+/// positions. The engine hands
 /// them to Arvane's snapshot and native validation as they are, except
 /// what it must not publish (see the fields).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SemanticsProperties {
-    /// Binary state of a drawn region; ordinary nodes carry this in their props.
-    pub checked: Option<bool>,
-    /// Selection state of a drawn region.
-    pub selected: bool,
-    /// Disclosure state of a drawn region.
-    pub expanded: Option<bool>,
-    /// A partially checked control. Overrides the binary checked state
-    /// for assistive technology without changing its application value.
-    pub indeterminate: bool,
     /// Numeric lower bound.
     pub value_min: Option<f64>,
     /// Numeric upper bound.
@@ -56,12 +50,6 @@ pub struct SemanticsProperties {
     /// Whether the node allows more than one selected item
     /// (`aria-multiselectable`). `None` leaves it unstated.
     pub multiselectable: Option<bool>,
-    /// Invalid value.
-    pub invalid: bool,
-    /// Read-only text.
-    pub read_only: bool,
-    /// Password text.
-    pub protected: bool,
     /// The text of a node that draws and edits its own (not a native
     /// editor), as runs for assistive technology, in the node's own
     /// coordinates. The engine moves the rectangles into the window's and

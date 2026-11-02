@@ -187,7 +187,7 @@ where
     root.child(toolbar)
         .child(
             scroll(grid)
-                .orientation(kivact_core::view::Orientation::Horizontal)
+                .axes(kivact_core::control::ScrollAxes::Horizontal)
                 // The rows keep their height in a bounded parent: the
                 // caller's own scroll view carries them.
                 .style(style().shrink(0)),
