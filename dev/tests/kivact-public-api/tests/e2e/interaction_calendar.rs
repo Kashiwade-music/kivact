@@ -1,7 +1,7 @@
 //! Role: Calendar grid parts share day focus, selection, disabled days and month paging.
 
 use crate::support::mount_with;
-use kivact::i18n::{CalendarDate, CalendarMonth, Locale, Weekday};
+use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Locale, Weekday};
 use kivact::interaction::{CalendarGrid, CalendarPolicy, CalendarSelection, use_calendar_grid};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
@@ -181,5 +181,70 @@ fn the_selected_day_holds_the_tab_stop_and_arrows_home_and_end_move_it() {
     // Tab leaves the grid; there is one stop in it.
     screen.press_tab(false);
     assert!(!cell(&screen, "2026-10-17").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A range calendar over October 2026 starting from `initial`.
+fn range(initial: Option<DateRange>) -> (Screen, Signal<Option<DateRange>>) {
+    mount_with(
+        RenderOptions {
+            locale: Some(Locale::new("en-US")),
+            ..Default::default()
+        },
+        move || {
+            let value = signal(initial);
+            let month = signal(day(2026, 10, 1).month_of());
+            let calendar = use_calendar_grid(
+                month,
+                CalendarSelection::Range(value.into()),
+                CalendarPolicy::new().week_start(Weekday::Monday),
+            );
+            (value, drawn(calendar, month, 1, true))
+        },
+    )
+}
+
+#[test]
+fn a_write_to_the_range_from_elsewhere_starts_the_next_choice_over() {
+    let (screen, value) = range(None);
+    cell(&screen, "2026-10-05").click();
+    assert_eq!(
+        value.get_untracked(),
+        Some(DateRange::new(day(2026, 10, 5), day(2026, 10, 5)))
+    );
+    value.set(Some(DateRange::new(day(2026, 10, 20), day(2026, 10, 22))));
+    screen.run_until_idle();
+    cell(&screen, "2026-10-08").click();
+    assert_eq!(
+        value.get_untracked(),
+        Some(DateRange::new(day(2026, 10, 8), day(2026, 10, 8))),
+        "the stale first choice is not completed"
+    );
+    cell(&screen, "2026-10-09").click();
+    assert_eq!(
+        value.get_untracked(),
+        Some(DateRange::new(day(2026, 10, 8), day(2026, 10, 9)))
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn escape_during_a_range_choice_puts_back_the_range_from_before_it() {
+    let before = DateRange::new(day(2026, 10, 1), day(2026, 10, 3));
+    let (screen, value) = range(Some(before));
+    cell(&screen, "2026-10-14").click();
+    assert_eq!(
+        value.get_untracked(),
+        Some(DateRange::new(day(2026, 10, 14), day(2026, 10, 14)))
+    );
+    cell(&screen, "2026-10-14").focus();
+    screen.press_key(Key::Escape);
+    assert_eq!(value.get_untracked(), Some(before));
+    cell(&screen, "2026-10-20").click();
+    assert_eq!(
+        value.get_untracked(),
+        Some(DateRange::new(day(2026, 10, 20), day(2026, 10, 20))),
+        "the next choice starts a range again"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

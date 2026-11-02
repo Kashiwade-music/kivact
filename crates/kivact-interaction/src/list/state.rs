@@ -1,13 +1,13 @@
 //! Role: List state shares one registry, selection writer and focus authority.
 
-use super::data::{ListGesture, ListItem, ListPolicy, ListSelection};
+use super::data::{ListGesture, ListItem, ListMode, ListPolicy, ListSelection};
 use super::order::Order;
 use super::selection::selection_transition;
 use super::typeahead::Typeahead;
 use crate::roving::{Observation, Roving};
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{NodeRefExt, NodeToken, Owned, Owner};
-use kivact_core::view::{A11yAction, IntoValue, NodeRef};
+use kivact_core::view::{IntoValue, NodeRef};
 use kivact_core::{Binding, Callback, Signal, Value, Var, effect, memo, signal, var};
 use std::cell::{Cell, RefCell};
 use std::hash::Hash;
@@ -41,20 +41,18 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static> {
     /// The App's root when the list was created: an item of another App has
     /// another root.
     pub(super) root: Owner,
-    /// Resolves while the list's owner is alive and not being disposed.
-    pub(super) alive: Owned<()>,
     pub(super) items: Value<Vec<ListItem<K>>>,
     pub(super) order: Value<Order<K>>,
     pub(super) selection: ListSelection<K>,
     pub(super) selected: Value<Vec<K>>,
     pub(super) anchor_value: Value<Option<K>>,
-    pub(super) anchor: Rc<Cell<Binding<Option<K>>>>,
+    pub(super) anchor: Signal<Binding<Option<K>>>,
     /// The mounted items, the requested key and the focus bookkeeping.
     pub(super) roving: Roving<K>,
     pub(super) active: Value<Option<K>>,
-    pub(super) revision: Signal<u64>,
-    pub(super) policy: Rc<Cell<ListPolicy>>,
-    pub(super) started: Cell<bool>,
+    /// What choosing an item does; fixed by `use_list`.
+    pub(super) mode: ListMode,
+    pub(super) policy: Signal<ListPolicy>,
     pub(super) page: Cell<Value<usize>>,
     pub(super) leave: Rc<RefCell<Option<Leave<K>>>>,
     pub(super) scroll: RefCell<Option<Scroll<K>>>,
@@ -73,6 +71,7 @@ pub(super) fn selected<K: Clone + PartialEq + 'static>(selection: ListSelection<
 pub(super) fn create<K: Clone + Eq + Hash + 'static>(
     items: Value<Vec<ListItem<K>>>,
     selection: ListSelection<K>,
+    policy: ListPolicy,
     at: &'static Location<'static>,
 ) -> Owned<State<K>> {
     let owner = Owner::current("list");
@@ -82,27 +81,24 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
     let selected_value = memo(move || selected(selection));
     let roving = Roving::<K>::new();
     let requested = roving.requested;
-    let revision = signal(0u64);
-    let anchor = Rc::new(Cell::new(Binding::from(signal(None))));
-    let anchor_source = anchor.clone();
-    let anchor_value = memo(move || {
-        revision.get();
-        anchor_source.get().get()
-    });
-    let targets = roving.members.clone();
-    let policy = Rc::new(Cell::new(ListPolicy::default()));
-    let policy_active = policy.clone();
+    let anchor = signal(Binding::from(signal(None::<K>)));
+    let anchor_value = memo(move || anchor.get().get());
+    let mode = policy.mode;
+    let policy = signal(policy);
+    let targets = roving.clone();
     let leave = Rc::new(RefCell::new(None::<Leave<K>>));
     let leave_active = leave.clone();
     let position = Cell::new(0usize);
     let active = memo(move || {
         alive.try_get()?;
-        revision.get();
+        targets.track();
         let requested = requested.get();
         let selected = selected_value.get();
-        let targets = targets.borrow();
         order.with(|order| {
-            let available = |key: &K| targets.get(key).is_some_and(|entry| entry.available());
+            let available = |key: &K| {
+                targets
+                    .with_members(|targets| targets.get(key).is_some_and(|entry| entry.available()))
+            };
             if let Some(key) = requested.as_ref() {
                 if order.enabled(key) && available(key) {
                     if let Some(at) = order.position(key) {
@@ -110,7 +106,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
                     }
                     return Some(key.clone());
                 }
-                if policy_active.get().action == A11yAction::Select {
+                if mode == ListMode::Select {
                     let moved = leave_active.borrow().as_ref().and_then(|leave| leave(key));
                     if let Some(moved) = moved.filter(|key| order.enabled(key) && available(key)) {
                         return Some(moved);
@@ -129,7 +125,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
                         });
                 }
             }
-            let preference = if policy_active.get().action == A11yAction::Select {
+            let preference = if mode == ListMode::Select {
                 selected
                     .iter()
                     .rev()
@@ -150,7 +146,6 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
     let state = Rc::new(State {
         owner,
         root,
-        alive,
         items,
         order,
         selection,
@@ -159,9 +154,8 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
         anchor_value,
         roving,
         active,
-        revision,
+        mode,
         policy,
-        started: Cell::new(false),
         page: Cell::new((10).into_value()),
         leave,
         scroll: RefCell::new(None),
@@ -195,6 +189,10 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
 }
 
 impl<K: Clone + Eq + Hash + 'static> State<K> {
+    /// The policy as set now (untracked).
+    pub(super) fn policy(&self) -> ListPolicy {
+        self.policy.get_untracked()
+    }
     /// Whether the order lets `key` take the focus or a selection.
     fn enabled(&self, key: &K) -> bool {
         self.order.with_untracked(|order| order.enabled(key))
@@ -206,7 +204,7 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         if !self.order.with_untracked(|order| order.enabled(&key)) {
             return false;
         }
-        let anchor = self.anchor.get();
+        let anchor = self.anchor.get_untracked();
         match self.selection {
             ListSelection::Single(binding) => {
                 binding.set(Some(key.clone()));
@@ -227,7 +225,7 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
                         &visible,
                         &key,
                         gesture,
-                        self.policy.get().range.missing_anchor,
+                        self.policy().range.missing_anchor,
                     )
                 });
                 binding.set(next.selected);
@@ -237,8 +235,7 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         true
     }
     pub(super) fn focus_available(&self, key: &K) -> bool {
-        self.target(key).is_some()
-            || (self.scroll.borrow().is_some() && !self.roving.members.borrow().contains_key(key))
+        self.target(key).is_some() || (self.scroll.borrow().is_some() && !self.roving.contains(key))
     }
     pub(super) fn focus(&self, key: K) -> bool {
         if !self.order.with_untracked(|order| order.enabled(&key)) {
@@ -261,13 +258,12 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
             }
             None => {
                 let origin = self.owner.focused_node();
-                let origin_ref = self
-                    .roving
-                    .members
-                    .borrow()
-                    .values()
-                    .find(|entry| origin.is_some() && entry.node.mounted_node() == origin)
-                    .map(|entry| entry.node);
+                let origin_ref = self.roving.with_members(|members| {
+                    members
+                        .values()
+                        .find(|entry| origin.is_some() && entry.node.mounted_node() == origin)
+                        .map(|entry| entry.node)
+                });
                 *self.pending.borrow_mut() = Some(Pending {
                     key: key.clone(),
                     origin,
@@ -288,11 +284,11 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         self.focus(key)
     }
     pub(super) fn holds_focus(&self, key: &K) -> bool {
-        self.roving
-            .members
-            .borrow()
-            .get(key)
-            .is_some_and(|entry| entry.node.holds_focus())
+        self.roving.with_members(|members| {
+            members
+                .get(key)
+                .is_some_and(|entry| entry.node.holds_focus())
+        })
     }
     pub(super) fn pending_mounted(&self, key: &K) {
         let pending = self.pending.borrow().clone();

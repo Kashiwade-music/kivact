@@ -1,7 +1,8 @@
 //! Role: Keep Win32 identity, message ids and the host-facing Backend below dispatch.
 use crate::embed::child::{Backend, Shared};
+use std::num::NonZeroIsize;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::ThreadId;
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -11,13 +12,13 @@ pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
 pub(super) const TIMER: usize = 1;
 pub(super) struct Native {
-    pub(super) hwnd: AtomicIsize,
+    pub(super) hwnd: NonZeroIsize,
     pub(super) ui_thread: ThreadId,
     pub(super) wake_pending: AtomicBool,
 }
 impl Native {
     pub(super) fn hwnd(&self) -> HWND {
-        self.hwnd.load(Ordering::Acquire)
+        self.hwnd.get()
     }
 }
 /// Largest physical dimension a Win32 child window accepts (`i32` extents).
@@ -34,7 +35,7 @@ impl Backend for Arc<Native> {
         // The App runs on the host GUI thread; its panic is kept by `wndproc`.
     }
     fn close(&self, shared: &Shared) {
-        if !shared.alive.load(Ordering::Acquire) {
+        if !shared.alive() {
             return;
         }
         // `request_close` already ran; the window procedure's stop check turns
@@ -60,13 +61,13 @@ impl Backend for Arc<Native> {
                     &mut result,
                 )
             };
-            if sent == 0 && shared.alive.load(Ordering::Acquire) {
+            if sent == 0 && shared.alive() {
                 crate::detached::DETACHED.store(true, Ordering::Release);
                 crate::module::retain_module();
                 tracing::warn!(target: "kivact", "embedded Win32 UI thread did not stop within two seconds; detaching");
             }
         }
-        if shared.alive.load(Ordering::Acquire) {
+        if shared.alive() {
             // Cleanup still runs our code after this drop returns (a busy App
             // callback defers it), so keep the module mapped even if the host
             // unloads immediately.

@@ -1,6 +1,6 @@
 //! Role: List parts bind and unregister exact mounted focus targets.
 
-use super::data::{ListGesture, ListItemState, ListSelection};
+use super::data::{ListGesture, ListItemState, ListMode, ListSelection};
 use super::state::{State, selected};
 use crate::roving::Member;
 use kivact_core::diagnostics::ErrorKind;
@@ -12,15 +12,23 @@ use std::panic::Location;
 use std::rc::Rc;
 
 pub(super) fn container<K: Clone + Eq + Hash + 'static>(state: Rc<State<K>>) -> Part<PartState> {
-    state.started.set(true);
-    let result = part(|input| input)
+    let policy = state.policy;
+    part(|input| input)
         .role(Role::ListBox)
-        .multiselectable(matches!(state.selection, ListSelection::Multiple(_)));
-    match state.policy.get().axis {
-        Some(Orientation::Horizontal) => result.orientation(Orientation::Horizontal),
-        Some(Orientation::Vertical) => result.orientation(Orientation::Vertical),
-        Some(Orientation::Unspecified) | None => result,
-    }
+        .multiselectable(matches!(state.selection, ListSelection::Multiple(_)))
+        .orientation(move || {
+            policy
+                .with(|policy| policy.axis)
+                .unwrap_or(Orientation::Unspecified)
+        })
+}
+
+/// How a list item's part is bound.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ItemMount {
+    Unbound,
+    Admitted,
+    Rejected,
 }
 
 pub(super) fn item<K: Clone + Eq + Hash + 'static>(
@@ -28,10 +36,8 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
     key: K,
     at: &'static Location<'static>,
 ) -> Part<ListItemState> {
-    state.started.set(true);
     let key = var(key);
-    let admitted = signal(false);
-    let rejected = signal(false);
+    let bound = signal(ItemMount::Unbound);
     let selected_state = {
         let state = state.clone();
         memo(move || key.with(|key| selected(state.selection).contains(key)))
@@ -39,12 +45,16 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
     let active = {
         let active = state.active;
         memo(move || {
-            admitted.get() && key.with(|key| active.with(|active| active.as_ref() == Some(key)))
+            bound.get() == ItemMount::Admitted
+                && key.with(|key| active.with(|active| active.as_ref() == Some(key)))
         })
     };
     let disabled = {
         let order = state.order;
-        memo(move || rejected.get() || key.with(|key| !order.with(|order| order.enabled(key))))
+        memo(move || {
+            bound.get() == ItemMount::Rejected
+                || key.with(|key| !order.with(|order| order.enabled(key)))
+        })
     };
     let name = {
         let items = state.items;
@@ -69,7 +79,7 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
     let keys = state.clone();
     let pointers = state.clone();
     let actions = state.clone();
-    let policy = state.policy.get();
+    let mode = state.mode;
     let attachment = attachment
         .role(Role::Option)
         .name(name)
@@ -79,31 +89,32 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
         .on_key(move |event| super::input::key(&keys, &key.get(), event))
         .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
     let invoke = move || {
-        if !admitted.get_untracked() || rejected.get_untracked() {
+        if bound.get_untracked() != ItemMount::Admitted {
             return;
         }
         let key = key.get();
-        if policy.action == A11yAction::Activate {
+        if mode == ListMode::Activate {
             actions.choose(key);
         } else if actions.target(&key).is_some() {
             actions.select(key, ListGesture::Replace);
         }
     };
-    let attachment = if policy.action == A11yAction::Activate {
-        attachment.on_press(invoke)
-    } else {
-        attachment.on_a11y(policy.action, invoke)
+    let attachment = match mode {
+        ListMode::Activate => attachment.on_press(invoke),
+        ListMode::Select => attachment.on_a11y(A11yAction::Select, invoke),
     };
     attachment.on_bind(move |mount| {
         let owner = Owner::current("List::item");
+        // The bound state is reset when the owner goes, on every path below.
+        owner.on_cleanup(move || bound.set(ItemMount::Unbound));
         if Owner::root("List::item") != state.root {
-            rejected.set(true);
+            bound.set(ItemMount::Rejected);
             owner.report(ErrorKind::WrongApp, "List item belongs to another App", at);
             return;
         }
         let item_key = key.get();
-        if state.roving.members.borrow().contains_key(&item_key) {
-            rejected.set(true);
+        if state.roving.contains(&item_key) {
+            bound.set(ItemMount::Rejected);
             owner.report(
                 ErrorKind::Message,
                 "List: an item with this key is already mounted",
@@ -111,7 +122,7 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
             );
             return;
         }
-        state.roving.members.borrow_mut().insert(
+        state.roving.insert(
             item_key.clone(),
             Member {
                 node: mount.node,
@@ -120,33 +131,19 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
                 hidden: mount.hidden,
             },
         );
-        admitted.set(true);
-        state.revision.update(|revision| *revision += 1);
+        bound.set(ItemMount::Admitted);
         let id = node.mounted_node();
         let weak = Rc::downgrade(&state);
         owner.on_cleanup(move || {
             let Some(state) = weak.upgrade() else {
                 return;
             };
-            if !state
-                .roving
-                .members
-                .borrow()
-                .get(&item_key)
-                .is_some_and(|entry| entry.node.same_ref(node))
-            {
+            if !state.roving.remove(&item_key, node) {
                 return;
             }
             let current = kivact_core::primitive::focused_node();
             if id.is_some() && current == id {
                 state.roving.restore_from.set(current);
-            }
-            state.roving.members.borrow_mut().remove(&item_key);
-            if state.alive.try_get().is_some() {
-                if admitted.try_get().is_some() {
-                    admitted.set(false);
-                }
-                state.revision.update(|revision| *revision += 1);
             }
         });
         state.pending_mounted(&key.get());

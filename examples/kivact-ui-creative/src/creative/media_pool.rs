@@ -6,7 +6,8 @@ use kivact::interaction::{
     ListGesture, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection, use_list,
 };
 use kivact::prelude::{
-    IntoView, NodeBuilder, for_each, grid, node, rgb, row, scroll, show, signal, spacer, text,
+    IntoView, NodeBuilder, ScrollAxes, for_each, grid, node, rgb, row, scroll, show, signal,
+    spacer, text,
 };
 use kivact::primitive::NodeExt;
 use kivact::style::current_theme;
@@ -15,14 +16,14 @@ use kivact::style::{Align, style};
 use kivact::style::{Overflow, Track};
 use kivact::ui::ListItem;
 use kivact::view::{A11yAction, Handled};
-use kivact::view::{IntoValue, MouseButton, PointerPhase};
+use kivact::view::{ButtonPress, IntoValue, MouseButton, PointerPhase};
 use kivact_ui_creative as ui;
 
 pub(super) fn media() -> impl IntoView {
     let query = signal(String::new());
     let mode = signal(Some("tiles".to_owned()));
     let selected = signal(vec![1u64]);
-    let sort = signal(Some((1, kivact::view::SortDirection::Ascending)));
+    let sort = signal(Some((1, kivact::interaction::SortOrder::Ascending)));
     let rows = signal(fixtures());
     let tile_size = signal(120.0);
     let widths = signal(vec![
@@ -50,14 +51,14 @@ pub(super) fn media() -> impl IntoView {
             })
         },
         ListSelection::Multiple(selected.into()),
-    )
-    .policy(ListPolicy {
-        range: ListRangePolicy {
-            shift: ListRangeMode::Add,
-            ..ListRangePolicy::default()
+        ListPolicy {
+            range: ListRangePolicy {
+                shift: ListRangeMode::Add,
+                ..ListRangePolicy::default()
+            },
+            ..ListPolicy::default()
         },
-        ..ListPolicy::default()
-    });
+    );
     let pick = move |id: u64, shift: bool, ctrl: bool| {
         selection_control.select(
             id,
@@ -159,7 +160,7 @@ pub(super) fn media() -> impl IntoView {
                             .into_view()
                     }),
                 )
-                .both_axes()
+                .axes(ScrollAxes::Both)
                 .style(style().height(360))
             },
         ),
@@ -216,15 +217,14 @@ pub(super) fn media() -> impl IntoView {
                                     PointerPhase::Enter | PointerPhase::Move => {
                                         scrub.set(Some(e.pos.x))
                                     }
-                                    PointerPhase::Down
-                                        if e.button == Some(MouseButton::Primary) =>
-                                    {
-                                        pick(
-                                            id,
-                                            e.modifiers.shift,
-                                            e.modifiers.ctrl || e.modifiers.meta,
-                                        )
-                                    }
+                                    PointerPhase::Down(ButtonPress {
+                                        button: MouseButton::Primary,
+                                        ..
+                                    }) => pick(
+                                        id,
+                                        e.modifiers.shift,
+                                        e.modifiers.ctrl || e.modifiers.meta,
+                                    ),
                                     PointerPhase::Leave => scrub.set(None),
                                     _ => {}
                                 };
@@ -238,9 +238,13 @@ pub(super) fn media() -> impl IntoView {
                         .selected(move || selected.with(|s| s.contains(&id)))
                         .on_a11y(A11yAction::Select, move || pick(id, false, false))
                         .on_pointer(move |event| {
-                            if event.phase == PointerPhase::Down
-                                && event.button == Some(MouseButton::Primary)
-                            {
+                            if matches!(
+                                event.phase,
+                                PointerPhase::Down(ButtonPress {
+                                    button: MouseButton::Primary,
+                                    ..
+                                })
+                            ) {
                                 pick(
                                     id,
                                     event.modifiers.shift,

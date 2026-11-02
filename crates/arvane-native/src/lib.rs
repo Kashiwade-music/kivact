@@ -59,6 +59,7 @@ pub mod embed;
 
 mod a11y;
 mod contacts;
+mod cpu;
 mod detached;
 mod display;
 mod key_code;

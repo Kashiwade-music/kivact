@@ -1,5 +1,5 @@
 //! Role: Win32 dispatch with an independently retained Rc on every entry.
-use super::state::State;
+use super::state::{Phase, ScaleSource, State};
 use arvane_shell::{ShellError, ShellEvent};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
@@ -53,11 +53,14 @@ pub(super) unsafe extern "system" fn wndproc(
             0
         }
     };
-    if state.shared.stopped() && !state.busy.get() && !state.closing.get() {
+    if state.shared.stopped()
+        && !state.in_callback.get()
+        && matches!(state.phase.get(), Phase::Opening | Phase::Live)
+    {
         state.stop();
     }
     if message == WM_NCDESTROY {
-        state.shared.alive.store(false, Ordering::Release);
+        state.shared.window_gone();
         detach(&state, hwnd);
         return original(&state, hwnd, message, w, l);
     }
@@ -120,8 +123,8 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             0
         }
         WM_DPICHANGED_AFTERPARENT => {
-            if !state.explicit_scale.get() {
-                state.shared.set_scale_value(super::dpi::scale(hwnd));
+            if state.scale_source.get() == ScaleSource::System {
+                state.shared.set_scale(super::dpi::scale(hwnd));
                 state.event(ShellEvent::Resized);
             }
             0
@@ -167,21 +170,15 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             state.event(ShellEvent::Focused(focused));
             0
         }
-        WM_DESTROY | WM_NCDESTROY => {
-            if message == WM_DESTROY {
-                super::a11y::disconnect(state);
-            }
-            state.closing.set(true);
-            if !state.busy.get() {
-                state.dispose();
-            }
-            state.shared.alive.store(false, Ordering::Release);
-            if message == WM_NCDESTROY {
-                0
-            } else {
-                original(state, hwnd, message, w, l)
-            }
+        WM_DESTROY => {
+            // Dispose first: the handler's close (GPU shutdown) still sees a live window.
+            super::a11y::disconnect(state);
+            state.dispose();
+            state.shared.window_gone();
+            original(state, hwnd, message, w, l)
         }
+        // The tail of `wndproc` ends the child's life.
+        WM_NCDESTROY => 0,
         _ => {
             // The system control class can emit double-click messages. Our
             // ClickCounter counts repeated presses itself, so retain each down.
@@ -203,7 +200,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
 /// Fall through to the system procedure after App code ran; the host may have
 /// destroyed the window meanwhile, and a dead HWND takes no further processing.
 fn original_if_alive(state: &State, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
-    if state.shared.alive.load(Ordering::Acquire) {
+    if state.shared.alive() {
         original(state, hwnd, message, w, l)
     } else {
         0

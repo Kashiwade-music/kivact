@@ -44,16 +44,12 @@ impl Owner {
     #[track_caller]
     pub fn focused_node(self) -> Option<NodeToken> {
         let rt = self.runtime();
-        ViewState::of(&rt)
-            .focus_keys()
-            .and_then(|keys| keys.node.get())
-            .map(|node| NodeToken {
-                app: self.0.app(),
-                node,
-                visible: ViewState::of(&rt)
-                    .focus_keys()
-                    .is_some_and(|keys| keys.visible.get()),
-            })
+        let keys = ViewState::of(&rt).focus_keys();
+        keys.node.get().map(|node| NodeToken {
+            app: self.0.app(),
+            node,
+            visible: keys.visible.get(),
+        })
     }
 }
 
@@ -65,9 +61,7 @@ pub fn focused_node() -> Option<NodeToken> {
     focus::focused(&rt).map(|node| NodeToken {
         app: rt.id(),
         node,
-        visible: ViewState::of(&rt)
-            .focus_keys()
-            .is_some_and(|keys| keys.visible.get_untracked()),
+        visible: ViewState::of(&rt).focus_keys().visible.get_untracked(),
     })
 }
 
@@ -180,7 +174,7 @@ impl NodeRefExt for NodeRef {
             return None;
         }
         let rt = Runtime::get(target.app)?;
-        ViewState::tree(&rt).reader()?.edit_state(target.node.node)
+        ViewState::tree(&rt).reader().edit_state(target.node.node)
     }
     fn edit_session(&self) -> Option<super::TextSession> {
         let target = self.mounted_node()?;
@@ -188,9 +182,7 @@ impl NodeRefExt for NodeRef {
             return None;
         }
         let rt = Runtime::get(target.app)?;
-        ViewState::tree(&rt)
-            .reader()?
-            .edit_session(target.node.node)
+        ViewState::tree(&rt).reader().edit_session(target.node.node)
     }
     fn text_layout(&self, lines: std::ops::Range<usize>) -> Option<super::TextLayout> {
         let target = self.mounted_node()?;
@@ -199,7 +191,7 @@ impl NodeRefExt for NodeRef {
         }
         let rt = Runtime::get(target.app)?;
         ViewState::tree(&rt)
-            .reader()?
+            .reader()
             .text_layout(target.node.node, lines)
     }
     #[track_caller]

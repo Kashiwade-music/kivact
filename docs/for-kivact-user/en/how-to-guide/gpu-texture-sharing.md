@@ -200,7 +200,7 @@ impl Engine {
 
         // SAFETY: the pool comes from `kivact_gpu_share`, which keeps the contract of
         // `SharedTextures`; this engine draws into a texture only after `wait_ready`
-        // and only through `Pool::submit`.
+        // and only through `Target::submit`.
         unsafe { link.provide(&request, textures) }.map_err(|e| e.to_string())?;
         link.wait_ready(&request, Duration::from_secs(5)).map_err(|e| e.to_string())?;
         Ok(Engine { request, pool, device, queue })
@@ -212,7 +212,7 @@ impl Engine {
         let mut encoder = self.device.create_command_encoder(&Default::default());
         draw_scene(&mut encoder, &view); // the engine's own render pass
         // SAFETY: `queue` is the pool's queue and only this thread uses it.
-        let ready: FrameReady = unsafe { self.pool.submit(&self.queue, target, [encoder.finish()]) }
+        let ready: FrameReady = unsafe { target.submit(&self.queue, [encoder.finish()]) }
             .map_err(|e| ShareError::Failed(e.to_string()))?;
         link.publish(&self.request, ready.slot, ready.value);
         Ok(())
@@ -237,17 +237,18 @@ What each step guarantees:
    `kivact_gpu_share`'s pools keep nearly all of it for you.
 5. **`wait_ready`** returns `Ok` when the window finished importing. Draw before that and
    the textures are not yours yet.
-6. **`acquire` / `submit`** hand a texture over, wait for the GPU-side release of its last
-   frame and put the hand-off barriers around your commands. The texture holds the frame
-   from `slots` frames ago, so `LoadOp::Load` keeps it.
+6. **`acquire` / `submit`** hand a texture over (the `Target` that `acquire` returns
+   borrows the pool until `submit`), wait for the GPU-side release of its last frame and
+   put the hand-off barriers around your commands. The texture holds the frame from
+   `slots` frames ago, so `LoadOp::Load` keeps it.
 7. **`publish(request, slot, value)`** tells the UI a frame is ready. It wakes the UI thread.
    The newest frame wins: if the UI is slower than the engine, older frames are skipped
    and released together. A publish for a stale request, a request that is not ready or a
    closed link is ignored.
 
 The same steps work on raw Vulkan or Direct3D 12 with `kivact_gpu_share::vulkan::Pool`
-and `d3d12::Pool` (`acquire`, `record_acquire`, your commands, `record_release`,
-`submit`). See the crate's rustdoc.
+and `d3d12::Pool` (`acquire`, then on its target `record_acquire`, your commands,
+`record_release`, `submit`). See the crate's rustdoc.
 
 ### Pictures on the CPU
 
@@ -282,6 +283,7 @@ Show `image.status()` while you develop. It is tracked, like a signal.
 | `Ready` | Frames draw. | Publish frames. |
 | `Pixels` | The window cannot import: it draws on the CPU, its GPU device is not up yet, or the platform is not Windows or Linux. | Serve with `publish_pixels`. |
 | `Failed(error)` | The window refused the pool. `error.kind()` is `Unsupported` (no importing GPU device) or `Platform` (the textures do not match the adapter, the API or the size they say, or a device failure). The message is Arvane's. | Fix the pool. The state stays until the next request. |
+| `Closed` | The image's owner is gone (its `show` turned false, its row went, the App closed). Nothing draws and the link is closed. | Stop the engine thread when `is_closed` says so. |
 
 A **new request** comes by itself in three cases: the window's adapter changes (a new
 device after a device loss, or the GPU appears after the first frames), the size changes,
@@ -348,8 +350,8 @@ preference.
   because Kivact cannot check that the engine writes only where it may. Breaking the
   contract is undefined behavior of the graphics API, including a broken picture, a lost
   device or a crashed process.
-- **In order, one at a time.** A pool hands textures out round robin, and a frame that is
-  acquired is submitted or canceled before the next acquire.
+- **In order, one at a time.** A pool hands textures out round robin. The target of a
+  frame borrows its pool until it is submitted; drop it to give the frame up.
 - **One export per import.** Some drivers (NVIDIA on Vulkan) refuse to import memory whose
   handle was exported before. Make a new pool for each request.
 - **Use a pool only after the window imported it.** On Vulkan, its textures start in the

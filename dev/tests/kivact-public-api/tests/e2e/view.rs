@@ -269,6 +269,34 @@ fn node_ref_focus() {
 }
 
 #[test]
+fn node_ref_rect_follows_a_node_bound_again() {
+    let (screen, shown) = mount(move || {
+        let target = node_ref();
+        let rect = target.rect();
+        let shown = signal(true);
+        (
+            shown,
+            column((
+                show(shown, move || {
+                    node().style(style().size(40, 30)).node_ref(target)
+                }),
+                text(move || match rect.get() {
+                    Some(r) => format!("width {}", r.width),
+                    None => "unbound".to_string(),
+                }),
+            )),
+        )
+    });
+    screen.get_by_text("width 40");
+    shown.set(false);
+    screen.run_until_idle();
+    screen.get_by_text("unbound");
+    shown.set(true);
+    screen.run_until_idle();
+    screen.get_by_text("width 40");
+}
+
+#[test]
 fn keyboard_activation_disabled_and_bubbling() {
     let l = log();
     let (l2, l3) = (l.clone(), l.clone());

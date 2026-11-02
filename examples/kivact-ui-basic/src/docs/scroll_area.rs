@@ -22,13 +22,13 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "horizontal",
                 "Horizontal",
-                ".orientation(Orientation::Horizontal) を渡すと、横にスクロールします。",
+                ".axes(ScrollAxes::Horizontal) を渡すと、横にスクロールします。",
                 horizontal,
             ),
             Example::new(
                 "both",
                 "Both",
-                ".both_axes() は縦横の両方にスクロールします。",
+                ".axes(ScrollAxes::Both) は縦横の両方にスクロールします。",
                 both,
             ),
         ],
@@ -54,7 +54,7 @@ fn horizontal() -> impl IntoView {
         })
         .collect::<Vec<_>>();
     basic::scroll_area(row(tiles).style(style().gap(12).padding_bottom(12)))
-        .orientation(Orientation::Horizontal)
+        .axes(ScrollAxes::Horizontal)
         .style(style().width(420))
 }
 // end example
@@ -70,7 +70,7 @@ fn both() -> impl IntoView {
         })
         .collect::<Vec<_>>();
     basic::scroll_area(column(rows))
-        .both_axes()
+        .axes(ScrollAxes::Both)
         .style(style().height(180).width(240))
 }
 // end example

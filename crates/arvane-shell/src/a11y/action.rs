@@ -2,7 +2,7 @@
 
 use super::state::AcceptedTree;
 use crate::events::ShellEvent;
-use kivact_types::{A11yAction, NodeId};
+use kivact_types::{A11yAction, A11yRequest, NodeId};
 
 fn normalized(action: A11yAction) -> A11yAction {
     match action {
@@ -11,15 +11,10 @@ fn normalized(action: A11yAction) -> A11yAction {
     }
 }
 
-pub(super) fn accept(
-    tree: &AcceptedTree,
-    node: u64,
-    action: A11yAction,
-    value: Option<&str>,
-) -> Option<ShellEvent> {
+pub(super) fn accept(tree: &AcceptedTree, node: u64, request: A11yRequest) -> Option<ShellEvent> {
     let id = NodeId(node);
     let target = tree.node(id)?;
-    let action = normalized(action);
+    let action = normalized(request.action());
     let supported = (action == A11yAction::Focus && target.focusable)
         || target
             .actions
@@ -38,11 +33,9 @@ pub(super) fn accept(
     }
     Some(ShellEvent::Accessibility {
         node,
-        action,
-        value: if action == A11yAction::Dismiss {
-            None
-        } else {
-            value.map(str::to_owned)
+        request: match request {
+            A11yRequest::Toggle | A11yRequest::Select => A11yRequest::Activate,
+            other => other,
         },
     })
 }

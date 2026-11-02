@@ -20,14 +20,14 @@
 
 use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{
-    A11yAction, Handled, IntoValue, Key, KeyEvent, Orientation, PointerPhase, ReadingDirection,
-    Role, current_direction,
+    Handled, IntoValue, Key, KeyEvent, Orientation, PointerPhase, ReadingDirection, Role,
+    current_direction,
 };
 use kivact_core::{Value, Var, memo, signal, var};
 
 use super::{
-    List, ListActivation, ListBoundary, ListItem, ListItemState, ListPolicy, ListSelection,
-    MenuApi, use_list,
+    List, ListActivation, ListBoundary, ListItem, ListItemState, ListMode, ListPolicy,
+    ListSelection, MenuApi, use_list,
 };
 
 /// A row of menu triggers that moves the open menu, without a look of its own.
@@ -87,13 +87,17 @@ pub fn use_menubar<K: Clone + Eq + std::hash::Hash + 'static>(
     });
     // The triggers are a horizontal list: the arrows move the focus along it.
     let focus = signal(None::<usize>);
-    let list = use_list(items, ListSelection::Single(focus.into())).policy(ListPolicy {
-        axis: Some(Orientation::Horizontal),
-        boundary: ListBoundary::Wrap,
-        activation: ListActivation::Manual,
-        action: A11yAction::Activate,
-        ..ListPolicy::default()
-    });
+    let list = use_list(
+        items,
+        ListSelection::Single(focus.into()),
+        ListPolicy {
+            axis: Some(Orientation::Horizontal),
+            boundary: ListBoundary::Wrap,
+            activation: ListActivation::Manual,
+            mode: ListMode::Activate,
+            ..ListPolicy::default()
+        },
+    );
     Menubar {
         list,
         menus: var(menus),

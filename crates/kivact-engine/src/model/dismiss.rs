@@ -2,7 +2,7 @@
 //!
 //! Invariants:
 //! - On every pointer press, each shown overlay whose actions offer
-//!   `Dismiss` gets `OverlayDismiss` when the pressed node lies
+//!   `Dismiss` gets `A11y` `Dismiss(OutsidePress)` when the pressed node lies
 //!   outside the overlay's subtree and outside its anchor's subtree. A
 //!   press that hits no node (an empty spot, or the backdrop of a modal) is
 //!   outside every overlay.
@@ -14,7 +14,7 @@
 //!   is delivered. Only the overlay list is scanned; the tree is walked
 //!   only when several overlays are dismissed at once.
 
-use kivact_wire::{HostEvent, NodeId};
+use kivact_wire::{A11yRequest, DismissReason, HostEvent, NodeId};
 
 use crate::model::Model;
 
@@ -30,7 +30,7 @@ impl Model {
             let anchor = tree
                 .get(*o)
                 .and_then(|n| n.overlay())
-                .and_then(|p| p.anchor);
+                .and_then(|p| p.anchor());
             hit.is_none_or(|h| {
                 !tree.is_in_subtree(h, *o) && anchor.is_none_or(|a| !tree.is_in_subtree(h, a))
             })
@@ -40,7 +40,11 @@ impl Model {
             targets.sort_by_key(|t| std::cmp::Reverse(order.iter().position(|x| x == t)));
         }
         for node in targets {
-            self.push(HostEvent::OverlayDismiss { node });
+            self.push(HostEvent::A11y {
+                node,
+                region: None,
+                request: A11yRequest::Dismiss(DismissReason::OutsidePress),
+            });
         }
     }
 }

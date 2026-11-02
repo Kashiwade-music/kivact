@@ -13,8 +13,6 @@ pub(super) struct NodeFacts {
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style, styled or not (see `Style::compile`).
     pub(super) focus_stop: bool,
-    /// A draw effect is needed: an explicit layer or the style's local paint.
-    pub(super) has_draw: bool,
     pub(super) local_paint: Option<LocalPaintSource>,
 }
 

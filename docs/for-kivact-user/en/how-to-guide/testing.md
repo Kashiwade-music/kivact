@@ -118,13 +118,15 @@ element or a modal's backdrop).
 | choose an option in a select | `select_option("Large")` |
 | drag | `drag(from, to)` in the element's own coordinates |
 | scroll | `scroll(dx, dy)` |
-| assistive technology | `a11y(A11yAction::…)`, `a11y_with_value(action, "text")` |
+| assistive technology | `a11y(A11yAction::…)`, `a11y_set_value("text")` |
 | IME composition | `compose("preedit")`, `commit("text")` |
 
 For a click that is *meant* to do nothing, or a press outside a popup, skip the
 checks with `force_click()` or the screen-level `click_at(x, y)`, `mouse_move`,
-`mouse_down` and `mouse_up`. `contact_down/move/up` run several touch contacts
-at once. `Key`, `Modifiers`, `MouseButton` and `PointerKind` are in
+`mouse_down` and `mouse_up`. Place the pointer first (`mouse_move`, or a click
+or hover): `mouse_down`, `mouse_up` and `mouse_leave` before that panic, as a
+real window has no pointer to press. `contact_down/move/up` run several touch
+contacts at once. `Key`, `Modifiers`, `MouseButton` and `PointerKind` are in
 `kivact::view` (`Key` is also in the prelude).
 
 ```rust,test_harness
@@ -181,7 +183,7 @@ gets, not about internal variables.
 | text, name, description | `text()`, `name()`, `description()` |
 | role | `role()` |
 | input value, slider range | `value()`, `value_range()` |
-| state | `is_disabled()`, `is_checked()` (`Option`: `None` if not checkable), `is_selected()`, `is_expanded()`, `is_focused()`, `invalid()`, `read_only()` |
+| state | `is_disabled()`, `checked()` (`Option<CheckedState>`: `None` if not checkable), `is_selected()`, `is_expanded()`, `is_focused()`, `invalid()`, `read_only()` |
 | position in a set | `level()`, `set_size()`, `pos_in_set()` |
 | geometry | `rect()`, `accessibility_bounds()` |
 | shown | `exists()`, `is_visible()` |
@@ -219,10 +221,10 @@ mod tests {
         assert!(proceed.is_disabled());
 
         let terms = screen.get_by_role(Role::CheckBox, "I accept the terms");
-        assert_eq!(terms.is_checked(), Some(false));
+        assert_eq!(terms.checked(), Some(CheckedState::Unchecked));
         terms.toggle();
 
-        assert_eq!(terms.is_checked(), Some(true));
+        assert_eq!(terms.checked(), Some(CheckedState::Checked));
         assert!(!proceed.is_disabled());
         screen.assert_layout();
     }

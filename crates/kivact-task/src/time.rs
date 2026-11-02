@@ -15,9 +15,10 @@ use kivact_reactive::{ErrorKind, UiError, raise};
 /// Future returned by [`sleep`].
 pub(crate) struct Sleep {
     rt: Weak<Runtime>,
-    duration: u64,
-    deadline: Option<u64>,
-    id: Option<(u64, u64)>,
+    /// When it is due on the App's clock (ns), fixed when it is made.
+    deadline: u64,
+    /// The timer it registered while it waits.
+    timer: Option<(u64, u64)>,
 }
 
 impl Future for Sleep {
@@ -28,26 +29,27 @@ impl Future for Sleep {
             return Poll::Ready(());
         };
         let now = rt.now_ns();
+        let deadline = self.deadline;
         let mut t = super::TaskState::of(&rt).time.borrow_mut();
-        let dur = self.duration;
-        let deadline = *self.deadline.get_or_insert(now.saturating_add(dur));
         if now >= deadline {
-            if let Some(k) = self.id.take() {
-                t.timers.remove(&k);
-            }
+            let fired = self.timer.take().and_then(|k| t.timers.remove(&k));
+            drop(t);
+            // A waker is dropped outside the timer table's borrow.
+            drop(fired);
             return Poll::Ready(());
         }
-        let key = match self.id {
+        let key = match self.timer {
             Some(k) => k,
             None => {
                 t.next_id += 1;
                 let k = (deadline, t.next_id);
-                self.id = Some(k);
+                self.timer = Some(k);
                 k
             }
         };
-        t.timers.insert(key, cx.waker().clone());
+        let old = t.timers.insert(key, cx.waker().clone());
         drop(t);
+        drop(old);
         rt.request_turn();
         Poll::Pending
     }
@@ -55,7 +57,7 @@ impl Future for Sleep {
 
 impl Drop for Sleep {
     fn drop(&mut self) {
-        if let (Some(k), Some(rt)) = (self.id.take(), self.rt.upgrade())
+        if let (Some(k), Some(rt)) = (self.timer.take(), self.rt.upgrade())
             && let Ok(mut t) = super::TaskState::of(&rt).time.try_borrow_mut()
         {
             t.timers.remove(&k);
@@ -66,13 +68,12 @@ impl Drop for Sleep {
 pub(crate) fn sleep_ns(rt: &Rc<Runtime>, ns: u64) -> Sleep {
     Sleep {
         rt: Rc::downgrade(rt),
-        duration: ns,
-        deadline: None,
-        id: None,
+        deadline: rt.now_ns().saturating_add(ns),
+        timer: None,
     }
 }
 
-/// Wait for `d` on the host clock (virtual in tests).
+/// Wait for `d` on the host clock (virtual in tests), counted from this call.
 /// Must be created in a running App's frame; otherwise raises a located `WrongApp`.
 #[track_caller]
 pub fn sleep(d: Duration) -> impl Future<Output = ()> {
@@ -111,7 +112,7 @@ impl<F: Future> Future for Timeout<F> {
     }
 }
 
-/// Run `fut` with a deadline; `Err(Timeout)` if `d` passes first.
+/// Run `fut` with a deadline `d` after this call; `Err(Timeout)` if it passes first.
 /// Must be created in a running App's frame; otherwise raises a located `WrongApp`.
 #[track_caller]
 pub fn timeout<F: Future>(d: Duration, fut: F) -> impl Future<Output = Result<F::Output, UiError>> {

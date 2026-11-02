@@ -3,7 +3,6 @@ use crate::choice::{Boxed, ChoiceCard, Navigation, Segmented};
 use crate::choice_style;
 use crate::tokens::Tokens;
 use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Shadow, Stroke, TextStyle, Transform};
-use kivact::interaction::CheckedState;
 use kivact::interaction::{
     ListItemState, MenuItemState, PopupState, TabListState, TabState, ToastState,
 };
@@ -16,6 +15,7 @@ use kivact::ui::{
     AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DialogState, TextInputState,
     ToggleButtonState, Tone, UiRecipes,
 };
+use kivact::view::CheckedState;
 use kivact::view::Orientation;
 use std::sync::OnceLock;
 

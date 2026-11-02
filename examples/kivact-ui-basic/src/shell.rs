@@ -3,7 +3,7 @@
 use crate::docs::PAGES;
 use crate::look::tokens;
 use crate::page::page_view;
-use kivact::interaction::{ListSelection, use_list};
+use kivact::interaction::{ListPolicy, ListSelection, use_list};
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_basic as basic;
@@ -107,7 +107,11 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
             .collect::<Vec<_>>()
     })
     .into_value();
-    let nav = use_list(items, ListSelection::Single(selected.into()));
+    let nav = use_list(
+        items,
+        ListSelection::Single(selected.into()),
+        ListPolicy::default(),
+    );
     let rows = for_each(
         items,
         |item| *item.key(),

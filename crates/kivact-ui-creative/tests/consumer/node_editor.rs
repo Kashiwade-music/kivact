@@ -86,6 +86,52 @@ fn typed_multiple_sockets_validate_reconnect_and_delete_nodes() {
 }
 
 #[test]
+fn a_keyboard_connection_ends_when_the_editor_loses_focus() {
+    let (screen, links) = kivact::test::render_with_handle(crate::support::options(), || {
+        let socket = ui::NodeSocket::new;
+        let data = signal(vec![
+            test_node(
+                1,
+                "Image",
+                30.0,
+                vec![],
+                vec![socket("Image", "Image", kivact::style::rgb(0xffd25a))],
+            ),
+            test_node(
+                2,
+                "Mix",
+                300.0,
+                vec![socket("Image", "Image", kivact::style::rgb(0xffd25a))],
+                vec![],
+            ),
+        ]);
+        let links = signal(Vec::<ui::NodeLink>::new());
+        (
+            links,
+            column((
+                app_node_editor(data, links, ui::NodeState::new())
+                    .style(style().height(300))
+                    .test_id("nodes"),
+                kivact::ui::button("Outside"),
+            )),
+        )
+    });
+    screen.get_by_test_id("nodes").focus();
+    screen
+        .get_by_role(Role::Button, "Image output Image")
+        .a11y(A11yAction::Activate);
+    screen.get_by_role(Role::Button, "Outside").focus();
+    screen
+        .get_by_role(Role::Button, "Mix input Image")
+        .a11y(A11yAction::Activate);
+    assert!(
+        links.get_untracked().is_empty(),
+        "the pending connection ended with the focus"
+    );
+    clean(&screen);
+}
+
+#[test]
 fn node_parameters_accept_finite_set_value_drag_and_toggle() {
     let (screen, data) = kivact::test::render_with_handle(crate::support::options(), || {
         let data = signal(vec![
@@ -105,22 +151,22 @@ fn node_parameters_accept_finite_set_value_drag_and_toggle() {
         )
     });
     let value = screen.get_by_role(Role::SpinButton, "Mix Factor");
-    value.a11y_with_value(A11yAction::SetValue, "0.75");
+    value.a11y_set_value("0.75");
     assert_eq!(value.value_range().2, Some(0.75));
-    value.a11y_with_value(A11yAction::SetValue, "NaN");
+    value.a11y_set_value("NaN");
     assert_eq!(value.value_range().2, Some(0.75));
-    value.a11y_with_value(A11yAction::SetValue, "8");
+    value.a11y_set_value("8");
     assert_eq!(value.value_range().2, Some(1.0));
     let alpha = screen.get_by_role(Role::Button, "Mix Use Alpha");
-    assert_eq!(alpha.is_checked(), Some(true));
+    assert_eq!(alpha.checked(), Some(CheckedState::Checked));
     alpha.a11y(A11yAction::Toggle);
-    assert_eq!(alpha.is_checked(), Some(false));
+    assert_eq!(alpha.checked(), Some(CheckedState::Unchecked));
     assert!(matches!(
         data.get_untracked()[0].controls[1].value,
         ui::NodeControlValue::Toggle(false)
     ));
     alpha.a11y(A11yAction::Activate);
-    assert_eq!(alpha.is_checked(), Some(true));
+    assert_eq!(alpha.checked(), Some(CheckedState::Checked));
     value.drag(Point::new(60.0, 90.0), Point::new(40.0, 90.0));
     assert_eq!(value.value_range().2, Some(0.8));
     clean(&screen);

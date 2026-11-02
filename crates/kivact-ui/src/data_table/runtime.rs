@@ -4,9 +4,9 @@ use super::types::{DataTable, DataTableContext, RowName};
 use kivact_core::control::{NodeBuilder, column, scroll, text};
 use kivact_core::i18n::message;
 use kivact_core::style::{Length, pct, style};
-use kivact_core::view::{IntoValue, IntoView, Role, SortDirection, View, for_each, show};
+use kivact_core::view::{IntoValue, IntoView, Role, View, for_each, show};
 use kivact_core::{Binding, binding, memo, signal};
-use kivact_interaction::{ListSelection, ScalarRange, use_table, use_table_model};
+use kivact_interaction::{ListSelection, ScalarRange, SortOrder, use_table, use_table_model};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -49,7 +49,6 @@ where
         details,
         cells,
         focus,
-        policy,
         row_height,
         row_color,
         variants,
@@ -86,9 +85,8 @@ where
         move |row| table_key(row),
         model.columns(),
         ListSelection::Multiple(chosen),
-    )
-    .focus(focus)
-    .policy(policy);
+        focus,
+    );
     // A row is named by the caller's label, else by its first column.
     let label: RowName<R> = match row_label {
         Some(label) => label,
@@ -108,7 +106,7 @@ where
     });
     // The model sorts by the table's sort: the caller's, or the table's own,
     // which the headers write. A new sort shows the first page.
-    let sort: Binding<Option<(usize, SortDirection)>> = sort.unwrap_or_else(|| signal(None).into());
+    let sort: Binding<Option<(usize, SortOrder)>> = sort.unwrap_or_else(|| signal(None).into());
     behavior = behavior.sort(binding(sort, move |next| {
         sort.set(next);
         if let Some((index, _)) = page {
@@ -187,7 +185,7 @@ where
     root.child(toolbar)
         .child(
             scroll(grid)
-                .orientation(kivact_core::view::Orientation::Horizontal)
+                .axes(kivact_core::control::ScrollAxes::Horizontal)
                 // The rows keep their height in a bounded parent: the
                 // caller's own scroll view carries them.
                 .style(style().shrink(0)),

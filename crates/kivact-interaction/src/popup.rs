@@ -6,7 +6,8 @@
 //! watches the focus range, the anchor's removal and the initial focus, under
 //! the surface mount's owner, so the watchers end when it closes. A dismissal
 //! is taken after the caller's own handlers (an error stops it) and becomes a
-//! [`PopupCloseReason`]. One popup has one surface at a time.
+//! [`PopupCloseReason`]. One popup has one surface at a time: a second
+//! simultaneous surface is a usage error.
 //!
 //! The popup owns the one [`FocusReturn`] policy of its surface: where the
 //! focus goes (the anchor, or the node that had it before the surface
@@ -33,8 +34,13 @@
 
 use std::panic::Location;
 
-use kivact_core::primitive::{NodeRefExt, NodeToken, Owner, Part, PartState, focused_node, part};
-use kivact_core::view::{A11yAction, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref};
+use kivact_core::diagnostics::ErrorKind;
+use kivact_core::primitive::{
+    NodeRefExt, NodeToken, Owner, Part, PartState, focused_node, part, raise,
+};
+use kivact_core::view::{
+    A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
+};
 use kivact_core::{Binding, Value, Var, effect, on_cleanup, on_mount, var};
 
 use super::disclosure::{Disclosure, use_disclosure};
@@ -55,10 +61,13 @@ pub struct PopupState {
 /// trigger part's `node_ref()`. [`show`](kivact_core::view::show) mounts the caller's content
 /// in a fresh owner on every opening; the popup itself renders nothing.
 ///
-/// One popup supports one mounted surface at a time. Copies share the same open
-/// binding, anchor and surface reference; create separate popups for
-/// simultaneous surfaces. Reopening rebinds the surface reference after the
-/// previous branch is disposed.
+/// One popup supports one mounted surface at a time; a second simultaneous
+/// surface is a usage error. Copies share the same open binding, anchor and
+/// surface reference; create separate popups for simultaneous surfaces.
+/// Reopening rebinds the surface reference after the previous branch is
+/// disposed. [`anchor`](Self::anchor), [`initial_focus`](Self::initial_focus)
+/// and [`focus_return`](Self::focus_return) may be called before or after the
+/// parts are made.
 ///
 /// Once focus enters the surface, moving to a concrete target outside both the
 /// surface and the exact anchor closes it as [`PopupCloseReason::Tab`] without
@@ -92,16 +101,32 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct Popup {
     disclosure: Disclosure,
-    anchor: NodeRef,
-    initial: Option<NodeRef>,
-    /// The caller's policy; `None` restores the anchor on `DISMISS`.
-    focus_return: Var<Option<FocusReturn>>,
+    /// The reference the trigger part binds.
+    own_anchor: NodeRef,
+    settings: Var<PopupSettings>,
+    opening: Var<Option<Opening>>,
+}
+
+/// What the setters of a [`Popup`] store; read when a surface binds.
+#[derive(Clone, Copy, Default)]
+struct PopupSettings {
+    anchor: Option<NodeRef>,
+    initial_focus: Option<NodeRef>,
+    focus_return: Option<FocusReturn>,
+}
+
+/// What one opening of the surface remembers, from its bind to its removal.
+#[derive(Clone, Copy)]
+struct Opening {
     /// The node that had the focus when this opening's surface bound.
-    opener: Var<Option<NodeToken>>,
+    opener: Option<NodeToken>,
+    /// This opening's policy: the caller's (or the default) at bind, replaced
+    /// by `set_opening_policy`.
+    policy: FocusReturn,
     /// The accepted close reason of this opening, once there is one.
-    closed_by: Var<Option<PopupCloseReason>>,
+    closed_by: Option<PopupCloseReason>,
     /// Whether this opening's restoration was already requested.
-    returned: Var<bool>,
+    returned: bool,
 }
 
 /// Create a popup whose open state is `open`, the sole writer.
@@ -112,31 +137,30 @@ pub struct Popup {
 pub fn use_popup(open: impl Into<Binding<bool>>) -> Popup {
     Popup {
         disclosure: use_disclosure(open),
-        anchor: node_ref(),
-        initial: None,
-        focus_return: var(None),
-        opener: var(None),
-        closed_by: var(None),
-        returned: var(false),
+        own_anchor: node_ref(),
+        settings: var(PopupSettings::default()),
+        opening: var(None),
     }
 }
 
 impl Popup {
-    /// Use this node as the anchor instead of only the trigger part.
+    /// Use this node as the anchor instead of the trigger part's node.
     ///
     /// The anchor is the node focus returns to and part of the popup's focus
-    /// range; the trigger part binds the same reference. Use it when the node
-    /// that opens the popup carries no [`trigger`](Self::trigger), or leave it
-    /// unbound to give the popup no anchor. Setup only.
-    pub fn anchor(mut self, anchor: NodeRef) -> Self {
-        self.anchor = anchor;
+    /// range; it may be called before or after the parts are made. Use it
+    /// when the node that opens the popup carries no [`trigger`](Self::trigger).
+    /// Setup only.
+    pub fn anchor(self, anchor: NodeRef) -> Self {
+        self.settings
+            .update(|settings| settings.anchor = Some(anchor));
         self
     }
 
     /// Request this mounted node's focus after each opening is acknowledged.
     /// Without an initial target the popup preserves the current focus.
-    pub fn initial_focus(mut self, node: NodeRef) -> Self {
-        self.initial = Some(node);
+    pub fn initial_focus(self, node: NodeRef) -> Self {
+        self.settings
+            .update(|settings| settings.initial_focus = Some(node));
         self
     }
 
@@ -145,34 +169,46 @@ impl Popup {
     /// and assistive technology's dismissal. A modal's restoration stays the
     /// overlay's own. Copies of the popup share the policy.
     pub fn focus_return(self, policy: FocusReturn) -> Self {
-        self.set_focus_return(policy);
+        self.settings
+            .update(|settings| settings.focus_return = Some(policy));
         self
     }
 
-    /// Replace the shared policy, for the next close.
-    pub(crate) fn set_focus_return(self, policy: FocusReturn) {
-        self.focus_return.set(Some(policy));
+    /// Replace the policy of the opening in progress, for its close. Runs
+    /// while the surface is bound.
+    pub(crate) fn set_opening_policy(self, policy: FocusReturn) {
+        self.opening.update(|opening| {
+            opening
+                .as_mut()
+                .expect("invariant: set_opening_policy runs while the surface is bound")
+                .policy = policy;
+        });
     }
 
-    fn policy(self) -> FocusReturn {
-        self.focus_return
-            .get()
-            .unwrap_or_else(|| FocusReturn::anchor(self.anchor))
+    /// The caller's policy, or the anchor on `DISMISS`.
+    fn base_policy(self) -> FocusReturn {
+        self.settings
+            .with(|settings| settings.focus_return)
+            .unwrap_or_else(|| FocusReturn::anchor(self.anchor_ref()))
     }
 
     /// Submit the policy's restoration for this opening's `reason`, once.
     fn request_return(self, reason: PopupCloseReason) {
-        if self.returned.get() {
+        let Some(opening) = self.opening.get() else {
+            return;
+        };
+        if opening.returned || !opening.policy.restores(reason) {
             return;
         }
-        let policy = self.policy();
-        if policy.restores(reason) {
-            self.returned.set(true);
-            policy.request(
-                reason,
-                self.opener.get().or_else(|| self.anchor.mounted_node()),
-            );
-        }
+        self.opening.update(|opening| {
+            if let Some(opening) = opening {
+                opening.returned = true;
+            }
+        });
+        opening.policy.request(
+            reason,
+            opening.opener.or_else(|| self.anchor_ref().mounted_node()),
+        );
     }
 
     /// The application's authoritative open state.
@@ -180,9 +216,12 @@ impl Popup {
         self.disclosure.shown()
     }
 
-    /// The anchor the [`trigger`](Self::trigger) part binds.
+    /// The anchor: the node given to [`anchor`](Self::anchor), else the
+    /// trigger part's.
     pub(crate) fn anchor_ref(self) -> NodeRef {
-        self.anchor
+        self.settings
+            .with(|settings| settings.anchor)
+            .unwrap_or(self.own_anchor)
     }
 
     pub(crate) fn open_binding(self) -> Binding<bool> {
@@ -214,7 +253,11 @@ impl Popup {
         if open.get_untracked() || modal {
             return;
         }
-        self.closed_by.set(Some(reason));
+        self.opening.update(|opening| {
+            if let Some(opening) = opening {
+                opening.closed_by = Some(reason);
+            }
+        });
         // A dismissal restores now, as the surface is still mounted. The
         // other reasons wait for the surface's removal, which knows whether
         // the focus was inside it.
@@ -247,7 +290,7 @@ impl Popup {
     pub fn trigger(self) -> Part<PopupState> {
         self.disclosure
             .base_trigger(|input, open| PopupState { input, open })
-            .reference(self.anchor)
+            .reference(self.own_anchor)
             // The host consumes Tab to move focus, so only its release is
             // seen, by the element that has the focus now. Shift+Tab from the
             // surface back to the trigger leaves the surface, which stays open
@@ -292,7 +335,9 @@ impl Popup {
         })
         .reference(self.content_ref())
         .on_a11y_event(A11yAction::Dismiss, move |event| {
-            let reason = event.dismiss_reason.unwrap_or(DismissReason::Accessibility);
+            let A11yRequest::Dismiss(reason) = event.request else {
+                unreachable!("invariant: the Dismiss slot receives only Dismiss requests")
+            };
             if !allow(reason) {
                 return;
             }
@@ -311,10 +356,20 @@ impl Popup {
     /// Per-mount focus range, anchor removal and initial focus. Setup only,
     /// under the mounted surface's owner.
     fn watch(self, at: &'static Location<'static>) {
+        if self.opening.with(Option::is_some) {
+            raise(
+                ErrorKind::Message,
+                "Popup: one surface at a time; create one popup per simultaneous surface",
+                at,
+            );
+        }
         let owner = Owner::current("Popup::watch");
-        self.opener.set(focused_node());
-        self.closed_by.set(None);
-        self.returned.set(false);
+        self.opening.set(Some(Opening {
+            opener: focused_node(),
+            policy: self.base_policy(),
+            closed_by: None,
+            returned: false,
+        }));
         let surface = self.content_ref();
         let panel = surface.mounted_node();
         // A modal's restoration is the overlay's own; known once mounted.
@@ -322,11 +377,16 @@ impl Popup {
         on_mount(move || modal.set(surface.is_modal()));
         on_cleanup(move || {
             if !modal.get() && panel.is_some_and(|node| surface.focus_was_in(node)) {
-                self.request_return(self.closed_by.get().unwrap_or(PopupCloseReason::Unmount));
+                let closed_by = self
+                    .opening
+                    .with(|opening| opening.and_then(|opening| opening.closed_by));
+                self.request_return(closed_by.unwrap_or(PopupCloseReason::Unmount));
             }
+            self.opening.set(None);
         });
         let within = self.content_ref().focus_within();
-        let anchor_focused = self.anchor.focused();
+        let anchor = self.anchor_ref();
+        let anchor_focused = anchor.focused();
         let open = self.shown();
         let entered = var(false);
         let anchor_seen = var(false);
@@ -335,7 +395,7 @@ impl Popup {
                 return;
             }
             let focused = owner.focused_node();
-            if self.anchor.tracked_node(at).is_some() {
+            if anchor.tracked_node(at).is_some() {
                 anchor_seen.set(true);
             } else if anchor_seen.get() {
                 self.close(PopupCloseReason::AnchorRemoved);
@@ -347,7 +407,7 @@ impl Popup {
                 self.close(PopupCloseReason::Tab);
             }
         });
-        if let Some(initial) = self.initial {
+        if let Some(initial) = self.settings.with(|settings| settings.initial_focus) {
             on_mount(move || {
                 if open.get() && initial.mounted_node().is_some() {
                     initial.focus();

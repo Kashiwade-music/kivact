@@ -2,7 +2,7 @@
 //! the lookup of a node's handler and owner, and the failure-safe handler run.
 
 use kivact_reactive::{Owner, Runtime, UiError};
-use kivact_wire::{HostEvent, NodeId, PointerPhase};
+use kivact_wire::{HostEvent, KeyPhase, NodeId, PointerPhase};
 
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
@@ -12,14 +12,30 @@ use crate::view::tree::Handlers;
 /// press to keyboard.
 pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
-        HostEvent::Pointer { event, .. } if event.phase == PointerPhase::Down => {
+        HostEvent::Pointer { event, .. } if matches!(event.phase, PointerPhase::Down(_)) => {
             ViewState::of(rt).set_pointer_modality(true);
         }
         HostEvent::Key {
-            released: false, ..
+            phase: KeyPhase::Down { .. },
+            ..
         } => ViewState::of(rt).set_pointer_modality(false),
         _ => {}
     }
+}
+
+/// Note the modifier keys the host reported last (`view::current_modifiers`):
+/// key, pointer and wheel events carry them, and `ModifiersChanged` reports a
+/// change between events. Recorded before admission, so an event a modal
+/// drops still updates them.
+pub(super) fn track_modifiers(rt: &Runtime, host_event: &HostEvent) {
+    let modifiers = match host_event {
+        HostEvent::Key { modifiers, .. }
+        | HostEvent::Wheel { modifiers, .. }
+        | HostEvent::ModifiersChanged(modifiers) => *modifiers,
+        HostEvent::Pointer { event, .. } => event.modifiers,
+        _ => return,
+    };
+    ViewState::of(rt).set_modifiers(modifiers);
 }
 
 pub(super) fn node_owner(rt: &Runtime, id: NodeId) -> Option<Owner> {
@@ -36,10 +52,9 @@ pub(super) fn stale(rt: &Runtime, what: &str, id: NodeId) {
 /// not admit is dropped and counted like a stale event. Asked exactly once
 /// per event, immediately before the event is dispatched, so a modal an
 /// earlier event of the turn opened already applies (and the engine records
-/// the pointer drag the event admits). Without an engine nothing is open.
+/// the pointer drag the event admits).
 pub(super) fn admitted(rt: &Runtime, event: &HostEvent, what: &str, id: NodeId) -> bool {
-    let reader = ViewState::tree(rt).reader();
-    if reader.is_none_or(|reader| reader.admit_input(event)) {
+    if ViewState::tree(rt).reader().admit_input(event) {
         return true;
     }
     drop_outside_modal(rt, what, id);

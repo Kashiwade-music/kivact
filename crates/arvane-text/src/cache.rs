@@ -1,6 +1,8 @@
-//! Role: Bounded text snapshots and font queries owned by one text engine.
+//! Role: Everything a text engine computes from its fonts, replaced as a whole.
 //! Snapshot keys preserve text, style, width and caret distinctions.
 
+use crate::layouts;
+use crate::output;
 use kivact_types::protocol::{FontFeature, RichText, TextDecoration, TextStyle, TextWrap};
 use kivact_types::{
     DecorationLines, FontKerning, LineHeight, Rgba, TextAlign, TextOverflow, TextTransform,
@@ -46,11 +48,6 @@ impl<K: Hash + Eq, V: Clone> Generations<K, V> {
             self.previous = std::mem::take(&mut self.current);
         }
         self.current.insert(key, value);
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.current.clear();
-        self.previous.clear();
     }
 }
 
@@ -229,7 +226,9 @@ const SHAPED_ENTRIES: usize = 1024;
 /// Measured extents kept per cache generation.
 const MEASURED_ENTRIES: usize = 4096;
 
-/// All snapshots and font queries owned by one text engine.
+/// Everything one text engine computes from its font collection: replaced as
+/// a whole when a font is registered, so no answer of the old collection
+/// survives.
 pub(crate) struct Cache {
     pub(crate) shaped: Generations<
         TextKey,
@@ -238,6 +237,10 @@ pub(crate) struct Cache {
     pub(crate) measured: Generations<TextKey, Result<kivact_types::TextMetrics, crate::TextError>>,
     pub(crate) families: HashMap<String, bool>,
     pub(crate) font_names: Option<Vec<String>>,
+    /// Shaped paragraphs, broken into lines again for each width.
+    pub(crate) paragraphs: layouts::Shaped,
+    /// "…" shaped per paragraph style, for ellipses.
+    pub(crate) ellipses: HashMap<layouts::Key, output::Ellipsis>,
 }
 
 impl Default for Cache {
@@ -247,6 +250,8 @@ impl Default for Cache {
             measured: Generations::new(MEASURED_ENTRIES),
             families: HashMap::new(),
             font_names: None,
+            paragraphs: layouts::Shaped::default(),
+            ellipses: HashMap::new(),
         }
     }
 }

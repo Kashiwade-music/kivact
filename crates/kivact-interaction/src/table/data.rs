@@ -1,5 +1,6 @@
 //! Role: Passive table inputs, the focus pattern and observable part state.
 
+use crate::{ListPolicy, ListRangePolicy};
 use kivact_core::primitive::PartState;
 use kivact_core::view::{Reactive, SortDirection};
 
@@ -16,24 +17,65 @@ pub(super) struct Header<C> {
     pub(super) width: Option<f64>,
 }
 
-/// Which elements of a [`Table`](crate::Table) take the keyboard focus.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// The direction rows are sorted in. The announced semantics is
+/// [`SortDirection`] (`SortOrder::Ascending` is `SortDirection::Ascending`);
+/// an unsorted column is `None` of an `Option<SortOrder>`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SortOrder {
+    /// Smallest first.
+    Ascending,
+    /// Largest first.
+    Descending,
+}
+
+impl SortOrder {
+    /// The other direction.
+    pub fn reversed(self) -> Self {
+        match self {
+            Self::Ascending => Self::Descending,
+            Self::Descending => Self::Ascending,
+        }
+    }
+}
+
+impl From<SortOrder> for SortDirection {
+    fn from(order: SortOrder) -> Self {
+        match order {
+            SortOrder::Ascending => Self::Ascending,
+            SortOrder::Descending => Self::Descending,
+        }
+    }
+}
+
+/// Which elements of a [`Table`](crate::Table) take the keyboard focus, with
+/// the policy they use.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TableFocus {
     /// A data grid: one cell is the tab stop and the grid keys move between
     /// cells. Use it when cells hold data a user reads or edits one by one.
-    #[default]
-    Cells,
+    /// `range` reads the selection modifiers; the cell keys replace the list's
+    /// navigation.
+    Cells(ListRangePolicy),
     /// A list of rows: one row is the tab stop, the list keys move between
     /// rows and select them, and the pointer selects rows. Use it when a row
-    /// is the unit a user picks, like files or layers.
-    Rows,
+    /// is the unit a user picks, like files or layers. The policy's mode must
+    /// be [`ListMode::Select`](crate::ListMode::Select); a different mode is a
+    /// usage error.
+    Rows(ListPolicy),
+}
+
+impl Default for TableFocus {
+    fn default() -> Self {
+        Self::Cells(ListRangePolicy::default())
+    }
 }
 
 /// The sort state and actual input state of a column header.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableHeaderState {
     pub input: PartState,
-    pub sort: SortDirection,
+    /// The column's sort direction; `None` while the table is not sorted by it.
+    pub sort: Option<SortOrder>,
     pub sortable: bool,
 }
 

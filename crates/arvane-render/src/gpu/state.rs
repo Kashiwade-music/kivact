@@ -119,7 +119,6 @@ pub(crate) struct Images {
     pub(crate) next: u64,
     /// Pattern images in the atlas, by their pixels' identity and size.
     pub(crate) atlas: HashMap<(usize, u32, u32), AtlasImage>,
-    pub(crate) frame: u64,
 }
 
 impl Images {
@@ -129,7 +128,6 @@ impl Images {
             bindings: TextureBindings::new(),
             next: 0,
             atlas: HashMap::new(),
-            frame: 0,
         }
     }
 }
@@ -148,13 +146,27 @@ pub enum Presentation {
 /// cannot draw into the swapchain's.
 pub struct GpuSurface {
     pub(crate) surface: wgpu::Surface<'static>,
-    pub(crate) config: Option<wgpu::SurfaceConfiguration>,
+    pub(crate) swapchain: Swapchain,
     /// The frame drawn for a copy to the surface.
     pub(crate) raster: Option<wgpu::Texture>,
-    /// The copy to the surface's format.
-    pub(crate) blitter: Option<(wgpu::TextureFormat, wgpu::util::TextureBlitter)>,
     /// Draw every frame into `raster`, for [`GpuContext::read_back`].
     pub(crate) keep: bool,
-    /// The last frame was skipped (no buffer).
+}
+
+/// Whether a surface's swapchain is configured yet.
+pub(crate) enum Swapchain {
+    /// Made, not configured yet: a frame or [`GpuContext::configure`]
+    /// configures it.
+    Unconfigured,
+    Configured(Configured),
+}
+
+/// A configured swapchain.
+pub(crate) struct Configured {
+    pub(crate) config: wgpu::SurfaceConfiguration,
+    /// The copy to the swapchain's format (fixed by the first configuration).
+    pub(crate) blitter: wgpu::util::TextureBlitter,
+    /// The last acquire found no buffer (timeout, occluded window): the next
+    /// frame takes the buffer before recording.
     pub(crate) skipped: bool,
 }

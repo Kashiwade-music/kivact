@@ -59,8 +59,8 @@ fn a_radio_group_chooses_by_keys_pointer_and_invoke_each_choice_one_edit() {
     let group = screen.get_by_role(Role::RadioGroup, "Size");
     assert_eq!(group.children().len(), 4);
     assert_eq!(
-        screen.get_by_role(Role::RadioButton, "Medium").is_checked(),
-        Some(true)
+        screen.get_by_role(Role::RadioButton, "Medium").checked(),
+        Some(CheckedState::Checked)
     );
     screen.find_by_text("The usual");
     // Tab enters at the chosen option; the arrows choose and skip the
@@ -111,7 +111,7 @@ fn a_slider_steps_by_keys_and_actions_and_a_canceled_drag_writes_the_start_back(
     assert_eq!(value.get_untracked(), 100.0);
     thumb.a11y(A11yAction::Decrement);
     assert_eq!(value.get_untracked(), 99.0);
-    thumb.a11y_with_value(A11yAction::SetValue, "25");
+    thumb.a11y_set_value("25");
     assert_eq!(value.get_untracked(), 25.0);
     assert_eq!(
         *log.borrow(),
@@ -152,7 +152,7 @@ fn a_range_slider_names_its_thumbs_keeps_them_apart_and_cancels_both() {
     let minimum = screen.get_by_role(Role::Slider, "Minimum");
     screen.get_by_role(Role::Slider, "Maximum");
     minimum.focus();
-    minimum.a11y_with_value(A11yAction::SetValue, "90");
+    minimum.a11y_set_value("90");
     assert_eq!(
         low.get_untracked(),
         60.0,

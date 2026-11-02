@@ -1,6 +1,6 @@
 //! Role: AssetStore: schedules asset jobs and answers images and pixels from its cache.
 
-use super::entry::{Entry, Stamp, State, Variant, VariantKey};
+use super::entry::{Entry, Recheck, Residency, Stamp, State, Variant, VariantKey};
 use super::image_state::ImageState;
 use super::job::{Done, Job, Loaded};
 use super::worker::Worker;
@@ -14,6 +14,7 @@ use kivact_types::Asset;
 use kivact_types::{Rgba, Size};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -38,8 +39,9 @@ pub(super) enum Runner {
 pub struct AssetStore {
     pub(super) runner: Runner,
     pub(super) entries: HashMap<Asset, Entry>,
-    /// The current frame (`begin_frame`); starts at 1.
-    pub(super) frame: u64,
+    /// The host's current frame (`begin_frame`, counted from 1); `None`
+    /// before the first: nothing is protected.
+    pub(super) frame: Option<NonZeroU64>,
     /// Ticks once per use; orders uses within a frame.
     pub(super) tick: u64,
     pub(super) next_id: u64,
@@ -71,7 +73,7 @@ impl AssetStore {
         AssetStore {
             runner,
             entries: HashMap::new(),
-            frame: 1,
+            frame: None,
             tick: 0,
             next_id: 1,
             next_generation: 1,
@@ -87,8 +89,13 @@ impl AssetStore {
     /// image it shows (each frame for a host that rebuilds its frame, each
     /// redraw of all images for one that caches drawings). What the current
     /// and the previous frame used stays in the cache, even over budget.
+    /// Until the first call nothing is protected: the cache is a plain LRU
+    /// within its budget.
     pub fn begin_frame(&mut self) {
-        self.frame += 1;
+        self.frame = Some(match self.frame {
+            Some(frame) => frame.checked_add(1).expect("invariant: frames fit u64"),
+            None => NonZeroU64::MIN,
+        });
     }
 
     /// What the cache knows about `asset`, starting nothing and using
@@ -106,7 +113,7 @@ impl AssetStore {
         let now = self.stamp();
         if let Some(entry) = self.entries.get_mut(asset) {
             entry.used = now;
-            if entry.check_due(asset) {
+            if entry.check_due() {
                 self.start_check(asset);
             }
         } else {
@@ -176,21 +183,20 @@ impl AssetStore {
         let max_bytes = self.budget / RETAINED_SHARE;
         let entry = self.entries.get_mut(asset)?;
         match &mut entry.state {
-            State::Raster {
-                pixels,
-                drawn,
-                reloading,
-                ..
-            } => {
-                *drawn = now;
-                if pixels.is_none() && !*reloading {
-                    *reloading = true;
-                    self.start_reload(asset);
+            State::Raster { residency, .. } => {
+                match residency {
+                    Residency::Resident { drawn, .. } => *drawn = now,
+                    Residency::Evicted => {
+                        *residency = Residency::Reloading;
+                        self.start_reload(asset);
+                    }
+                    Residency::Reloading => {}
                 }
                 let source = match &self.entries.get(asset)?.state {
                     State::Raster {
-                        pixels: Some(p), ..
-                    } => p.clone(),
+                        residency: Residency::Resident { pixels, .. },
+                        ..
+                    } => pixels.clone(),
                     _ => return None,
                 };
                 let base = VariantKey {
@@ -222,7 +228,7 @@ impl AssetStore {
                     None => self.fallback(asset, tint, whole),
                 }
             }
-            State::Pending | State::Failed(_) => None,
+            State::Pending | State::Failed { .. } => None,
         }
     }
 
@@ -264,7 +270,7 @@ impl AssetStore {
     }
 
     fn submit(&mut self, job: Job) {
-        match &self.runner {
+        match &mut self.runner {
             Runner::Worker(worker) => worker.submit(job),
             Runner::Inline => {
                 let done = super::worker::run_on_job_stack(job);
@@ -312,11 +318,17 @@ impl AssetStore {
         let Some(entry) = self.entries.get_mut(asset) else {
             return;
         };
-        entry.checking = true;
+        let State::Failed { recheck, .. } = &mut entry.state else {
+            return;
+        };
+        let Recheck::Due { version, .. } = *recheck else {
+            return;
+        };
+        *recheck = Recheck::Checking { version };
         let job = Job::Recheck {
             asset: asset.clone(),
             generation: entry.generation,
-            version: entry.version,
+            version,
             budget: self.budget,
         };
         self.submit(job);
@@ -352,39 +364,44 @@ impl AssetStore {
                 if self.entries.get(&asset).map(|e| e.generation) != Some(generation) {
                     return false;
                 }
-                let state = match result {
+                let loaded = match result {
                     Ok(Loaded::Raster(bitmap)) => self.admit_source(&asset, bitmap),
                     Ok(Loaded::Vector(svg)) => {
                         self.make_room(svg.bytes());
                         let natural = svg.natural();
-                        State::Vector { svg, natural }
+                        Ok(State::Vector { svg, natural })
                     }
-                    Err(e) => State::Failed(e),
+                    Err(error) => Err(error),
                 };
-                if let State::Failed(e) = &state {
-                    self.failures.push((asset.clone(), e.clone()));
-                }
-                let next_check = Instant::now() + self.recheck_interval;
+                let state = match loaded {
+                    Ok(state) => state,
+                    Err(error) => {
+                        self.failures.push((asset.clone(), error.clone()));
+                        let at = Instant::now() + self.recheck_interval;
+                        State::Failed {
+                            recheck: Recheck::after(&asset, &error, version, at),
+                            error,
+                        }
+                    }
+                };
                 let Some(entry) = self.entries.get_mut(&asset) else {
                     return false;
                 };
                 self.bytes -= entry.state.bytes();
                 self.bytes += state.bytes();
                 entry.state = state;
-                entry.version = version;
-                entry.checking = false;
-                entry.next_check = Some(next_check);
                 true
             }
             Done::Unchanged { asset, generation } => {
-                let next_check = Instant::now() + self.recheck_interval;
+                let at = Instant::now() + self.recheck_interval;
                 if let Some(entry) = self
                     .entries
                     .get_mut(&asset)
                     .filter(|e| e.generation == generation)
+                    && let State::Failed { recheck, .. } = &mut entry.state
+                    && let Recheck::Checking { version } = *recheck
                 {
-                    entry.checking = false;
-                    entry.next_check = Some(next_check);
+                    *recheck = Recheck::Due { at, version };
                 }
                 false
             }
@@ -411,10 +428,10 @@ impl AssetStore {
     /// The state for a decoded raster source (first load or reload): ready
     /// when it fits the budget (making room for it), else a `TooLarge`
     /// failure. The pixels count as drawn now: they were asked for.
-    fn admit_source(&mut self, asset: &Asset, bitmap: Bitmap) -> State {
+    fn admit_source(&mut self, asset: &Asset, bitmap: Bitmap) -> Result<State, AssetError> {
         let retained = self.entries.get(asset).map_or(0, |e| e.retained);
         if ENTRY_BYTES + retained + bitmap.bytes() > self.budget {
-            return State::Failed(super::job::over_budget(
+            return Err(super::job::over_budget(
                 asset,
                 bitmap.width,
                 bitmap.height,
@@ -428,12 +445,13 @@ impl AssetStore {
             height: bitmap.height as f32,
         };
         let drawn = self.stamp();
-        State::Raster {
+        Ok(State::Raster {
             natural,
-            pixels: Some(self.new_pixels(bitmap)),
-            drawn,
-            reloading: false,
-        }
+            residency: Residency::Resident {
+                pixels: self.new_pixels(bitmap),
+                drawn,
+            },
+        })
     }
 
     /// Stores an SVG raster that landed, stamped with the last request for

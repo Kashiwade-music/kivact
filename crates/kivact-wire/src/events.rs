@@ -8,12 +8,12 @@ use std::path::PathBuf;
 use super::check::LayoutRule;
 use super::ids::{NodeId, RequestId, Revision};
 use super::motion::MotionClock;
-use super::semantics::A11yAction;
+use super::semantics::A11yRequest;
 use super::{ImeEvent, LifecycleEvent, Point, Rect, RegionId, Size};
 
 pub use kivact_types::{FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerId, PointerKind};
 
-pub use kivact_types::{PointerButtons, PointerPhase};
+pub use kivact_types::{ButtonPress, PointerButtons, PointerPhase};
 
 /// Pointer event with node-local position. The host owns hit testing and
 /// capture: while a pointer holds a button (a touch or pen is in contact),
@@ -26,21 +26,17 @@ pub use kivact_types::{PointerButtons, PointerPhase};
 pub struct PointerEvent {
     /// The mouse's is 1; each touch or pen contact has its own.
     pub id: PointerId,
-    /// Transition represented by this pointer event.
+    /// Transition represented by this pointer event; a `Down` or `Up` carries
+    /// its button and click count.
     pub phase: PointerPhase,
     /// Where the pointer is, in the node's untransformed local coordinates.
     pub pos: Point,
     /// The same point in the window (logical pixels).
     pub window_pos: Point,
-    /// Button responsible for the transition, when applicable.
-    pub button: Option<MouseButton>,
     /// Buttons held after this event, independent of its changed button.
     pub buttons: PointerButtons,
     /// Modifier keys held for the event.
     pub modifiers: Modifiers,
-    /// The clicks (taps for a contact) Arvane counted for this press; a
-    /// release has its press's: a double click or double tap is 2.
-    pub click_count: u8,
     /// Mouse, touch or pen.
     pub kind: PointerKind,
     /// Pressure from 0 to 1, when the device reports it.
@@ -104,14 +100,24 @@ pub enum PlatformResult {
     Fonts(Vec<String>),
 }
 
+/// A key's press or release (`HostEvent::Key`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyPhase {
+    /// The key went down. `repeat`: the system repeats a held key. `text`:
+    /// the text the press produces (a character or a space), `None` for other
+    /// keys.
+    Down { repeat: bool, text: Option<String> },
+    /// The key was released.
+    Up,
+}
+
 /// What the engine tells the client. Every kind goes into one ordered
 /// queue, in the order produced (never one list per kind), handed whole to
 /// each turn: input (`Pointer`, `Wheel`, `File`, `Key`, `Activate`), focus
 /// and hover (`FocusChanged`, `FocusResult`, `HoverChanged`), text editing
 /// (`TextChanged`, `SelectionChanged`), the input method of a node with an
 /// IME session (`Ime`), geometry (`ScrollChanged`,
-/// `LayoutChanged`), assistive technology and dismissal (`A11y`,
-/// `OverlayDismiss`), time and platform answers (`FrameTick`,
+/// `LayoutChanged`), assistive technology and dismissal (`A11y`), time and platform answers (`FrameTick`,
 /// `EffectResult`), the window and the platform (`EnvChanged`,
 /// `Lifecycle`, `CloseRequested`), the GPU texture sharing
 /// (`ExternalImported`, `GpuAdapterChanged`; a host or client built without its
@@ -138,21 +144,25 @@ pub enum HostEvent {
         pos: Point,
         window_pos: Point,
     },
-    /// Key down (with `repeat`), sent to the focused node (None = window).
+    /// A key press or release (`phase`), sent to the focused node (None =
+    /// window).
     Key {
         node: Option<NodeId>,
         region: Option<RegionId>,
         key: Key,
         code: KeyCode,
-        released: bool,
+        phase: KeyPhase,
         modifiers: Modifiers,
-        repeat: bool,
-        text: Option<String>,
         /// Where the mouse was in the window (logical pixels) when the key
         /// arrived; `None` while it is outside the window and before it
         /// first entered. A touch or pen contact does not move it.
         pointer: Option<Point>,
     },
+    /// The modifier keys held changed between events: a modifier key went
+    /// down or up, or the window lost the keyboard (none are held). Sent
+    /// only when they differ from the last ones; key, pointer and wheel
+    /// events also carry the modifiers held for them.
+    ModifiersChanged(Modifiers),
     /// Default action by pointer click (a tap included) or assistive
     /// technology (UI Automation's Invoke) only. Enter/Space arrive as
     /// `Key` and are turned into activation by the core.
@@ -212,16 +222,13 @@ pub enum HostEvent {
         rect: Rect,
         size: Size,
     },
+    /// A request for an offered action: from assistive technology, or a
+    /// `Dismiss(OutsidePress)` when a pointer press lands outside a shown
+    /// overlay offering `Dismiss` and outside its anchor's subtree.
     A11y {
         node: NodeId,
         region: Option<RegionId>,
-        action: A11yAction,
-        value: Option<String>,
-    },
-    /// An outside pointer press requested the overlay's offered Dismiss action.
-    /// This preserves its origin separately from an accessibility request.
-    OverlayDismiss {
-        node: NodeId,
+        request: A11yRequest,
     },
     FrameTick {
         now_ns: u64,
@@ -233,10 +240,11 @@ pub enum HostEvent {
         request: RequestId,
         result: PlatformResult,
     },
+    /// The answer to a focus request: `Err` names why the target did not take
+    /// the focus.
     FocusResult {
         request: RequestId,
-        ok: bool,
-        reason: Option<String>,
+        result: Result<(), String>,
     },
     /// Lifecycle notification after updated environment and host cache release.
     Lifecycle(LifecycleEvent),

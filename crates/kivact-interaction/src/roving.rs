@@ -55,15 +55,20 @@ pub(crate) struct Observation<'a, Id> {
     pub(crate) reject_refused: bool,
 }
 
+/// A clone shares the registry and the focus bookkeeping, so a memo can follow
+/// the members without borrowing its owner's state.
+#[derive(Clone)]
 pub(crate) struct Roving<Id: Clone + Eq + Hash + 'static> {
-    /// The mounted members.
-    pub(crate) members: Rc<RefCell<HashMap<Id, Member>>>,
+    /// The mounted members; changed only through `insert` and `remove`.
+    members: Rc<RefCell<HashMap<Id, Member>>>,
+    /// Notified by every insertion and removal of a member.
+    changed: Signal<()>,
     /// The member the keyboard or pointer last moved to.
     pub(crate) requested: Signal<Option<Id>>,
     /// The focus as last seen by `reconcile`.
-    observed: Cell<Option<NodeToken>>,
+    observed: Rc<Cell<Option<NodeToken>>>,
     /// A focused member was removed; the tab stop takes the focus once it settles.
-    pub(crate) restore_from: Cell<Option<NodeToken>>,
+    pub(crate) restore_from: Rc<Cell<Option<NodeToken>>>,
 }
 
 impl<Id: Clone + Eq + Hash + 'static> Roving<Id> {
@@ -72,10 +77,53 @@ impl<Id: Clone + Eq + Hash + 'static> Roving<Id> {
     pub(crate) fn new() -> Self {
         Self {
             members: Rc::new(RefCell::new(HashMap::new())),
+            changed: signal(()),
             requested: signal(None),
-            observed: Cell::new(None),
-            restore_from: Cell::new(None),
+            observed: Rc::new(Cell::new(None)),
+            restore_from: Rc::new(Cell::new(None)),
         }
+    }
+
+    /// Follow the membership: a memo or an effect that calls it reruns when a
+    /// member is inserted or removed (tracked).
+    pub(crate) fn track(&self) {
+        self.changed.get();
+    }
+
+    pub(crate) fn contains(&self, id: &Id) -> bool {
+        self.members.borrow().contains_key(id)
+    }
+
+    /// Add a mounted member and notify the followers of the membership.
+    pub(crate) fn insert(&self, id: Id, member: Member) {
+        self.members.borrow_mut().insert(id, member);
+        self.changed.notify();
+    }
+
+    /// Remove `id` if its entry is still `node` (the same mounted reference);
+    /// whether it was removed. The followers are notified only then.
+    pub(crate) fn remove(&self, id: &Id, node: NodeRef) -> bool {
+        let removed = {
+            let mut members = self.members.borrow_mut();
+            if members
+                .get(id)
+                .is_some_and(|entry| entry.node.same_ref(node))
+            {
+                members.remove(id);
+                true
+            } else {
+                false
+            }
+        };
+        if removed {
+            self.changed.notify();
+        }
+        removed
+    }
+
+    /// Read the members; no registry borrow outlives `f`.
+    pub(crate) fn with_members<R>(&self, f: impl FnOnce(&HashMap<Id, Member>) -> R) -> R {
+        f(&self.members.borrow())
     }
 
     /// The mounted node of `id` if the owner's `enabled` rule admits it and it
@@ -84,7 +132,7 @@ impl<Id: Clone + Eq + Hash + 'static> Roving<Id> {
         if !enabled(id) {
             return None;
         }
-        let member = self.members.borrow().get(id).copied();
+        let member = self.with_members(|members| members.get(id).copied());
         member
             .filter(|member| member.available_untracked())
             .map(|member| member.node)
@@ -101,11 +149,12 @@ impl<Id: Clone + Eq + Hash + 'static> Roving<Id> {
     /// The member `token` is the focus of, with its entry.
     fn member_of(&self, token: Option<NodeToken>) -> Option<(Id, Member)> {
         let token = token?;
-        self.members
-            .borrow()
-            .iter()
-            .find(|(_, member)| member.node.mounted_node() == Some(token))
-            .map(|(id, member)| (id.clone(), *member))
+        self.with_members(|members| {
+            members
+                .iter()
+                .find(|(_, member)| member.node.mounted_node() == Some(token))
+                .map(|(id, member)| (id.clone(), *member))
+        })
     }
 
     /// Follow focus that reaches a member by other means, and give the focus

@@ -1,13 +1,14 @@
 //! Role: The `Table` handle: options, sort, widths, and its grid, row and cell parts.
 
-use super::data::{TableCellState, TableFocus, TableHeaderState, TableRowState};
+use super::data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
 use super::model::ColumnDef;
 use super::state::State;
 use super::{cells, state};
+use crate::axis::check_list_axis;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use crate::{ListGesture, ListPolicy, ListSelection, SplitterState, use_splitter};
+use crate::{ListGesture, ListMode, ListSelection, SplitterState, use_splitter};
 use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{Owned, Part, PartState, part, require_setup};
+use kivact_core::primitive::{Owned, Part, PartState, part, raise, require_setup};
 use kivact_core::view::{IntoValue, Orientation, Role, SortDirection};
 use kivact_core::{Binding, Value, binding, memo, var};
 use std::collections::HashMap;
@@ -38,8 +39,9 @@ use std::rc::Rc;
 /// toggles it, Shift+ArrowUp/Down extend the selection and Ctrl+A or Cmd+A
 /// selects every row. With [`Rows`](TableFocus::Rows) the rows are the items
 /// of a list: one row is the tab stop and the list keys, pointer selection
-/// and typeahead apply to rows. Configure during setup, before creating any
-/// part.
+/// and typeahead apply to rows. The variant carries the policy and is the
+/// fifth argument of [`use_table`]; the other setters may be called before or
+/// after the parts are made.
 ///
 /// ```no_run
 /// # mod kivact {
@@ -47,7 +49,7 @@ use std::rc::Rc;
 /// #     pub use kivact_core::{control, prelude, view};
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
-/// use kivact::interaction::{ColumnDef, ListSelection, use_table};
+/// use kivact::interaction::{ColumnDef, ListSelection, TableFocus, use_table};
 /// use kivact::prelude::*;
 /// use kivact::view::for_each;
 /// #[derive(Clone, PartialEq)]
@@ -59,7 +61,7 @@ use std::rc::Rc;
 ///     ColumnDef::new("age", "Age").compare(|a: &Person, b: &Person| a.age.cmp(&b.age)),
 /// ];
 /// let t = use_table(people, |p: &Person| p.id, columns.clone(),
-///     ListSelection::Multiple(selected.into()));
+///     ListSelection::Multiple(selected.into()), TableFocus::default());
 /// let head = row(columns.iter().map(|c| {
 ///     node().part(t.header(*c.key())).child(text(c.label())).into_view()
 /// }).collect::<Vec<_>>());
@@ -90,20 +92,35 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Clone for T
 /// identity, `columns` the column definitions in display order (a
 /// [`TableModel`](super::TableModel)'s [`columns`](super::TableModel::columns) are the shown ones) and
 /// `selection` the
-/// caller's authoritative row selection. Rows whose key repeats are
-/// reported, and the first one wins, as in a [`List`](crate::List).
+/// caller's authoritative row selection. `focus` chooses the keyboard
+/// pattern with the policy it uses ([`TableFocus`]); `TableFocus::Rows` with a
+/// policy whose mode is not `ListMode::Select` is a usage error. Rows whose
+/// key repeats are reported, and the first one wins, as in a
+/// [`List`](crate::List). Setup only.
 #[track_caller]
 pub fn use_table<R, K, C>(
     rows: impl IntoValue<Vec<R>>,
     key: impl Fn(&R) -> K + 'static,
     columns: impl IntoValue<Vec<ColumnDef<R, C>>>,
     selection: ListSelection<K>,
+    focus: TableFocus,
 ) -> Table<K, C>
 where
     R: Clone + PartialEq + 'static,
     K: Clone + Eq + Hash + 'static,
     C: Clone + Eq + Hash + 'static,
 {
+    let at = Location::caller();
+    if let TableFocus::Rows(policy) = focus {
+        if policy.mode != ListMode::Select {
+            raise(
+                ErrorKind::Message,
+                "use_table: TableFocus::Rows needs ListMode::Select",
+                at,
+            );
+        }
+        check_list_axis(policy.axis, "use_table");
+    }
     let rows = rows.into_value();
     let keys = memo(move || rows.with(|rows| rows.iter().map(&key).collect::<Vec<_>>()));
     let definitions = columns.into_value();
@@ -116,7 +133,7 @@ where
         })
     });
     Table {
-        state: state::create(keys, headers, selection, Location::caller()),
+        state: state::create(keys, headers, selection, focus, at),
     }
 }
 
@@ -125,56 +142,16 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     fn state(self) -> Rc<State<K, C>> {
         self.state.get()
     }
-    #[track_caller]
-    fn configure(self, name: &'static str) -> Option<Rc<State<K, C>>> {
-        let state = self.state();
-        require_setup(name);
-        if state.started.get() {
-            state.owner.report(
-                ErrorKind::Message,
-                "Table must be configured before creating parts",
-                Location::caller(),
-            );
-            None
-        } else {
-            Some(state)
-        }
-    }
-
-    /// Choose the keyboard pattern; [`TableFocus::Cells`] is the default.
-    /// Setup only, before creating any Part.
-    #[track_caller]
-    pub fn focus(self, focus: TableFocus) -> Self {
-        if let Some(state) = self.configure("Table::focus") {
-            state.focus.set(focus);
-        }
-        self
-    }
-
-    /// Configure the row list's selection range and typeahead policy.
-    ///
-    /// With [`TableFocus::Rows`] the whole policy applies to the rows. With
-    /// [`TableFocus::Cells`] only the range policy applies, and the
-    /// cell keys replace the policy's navigation. Setup only, before creating
-    /// any Part.
-    #[track_caller]
-    pub fn policy(self, policy: ListPolicy) -> Self {
-        if let Some(state) = self.configure("Table::policy") {
-            state.list.policy(policy);
-        }
-        self
-    }
-
     /// Name each row, for its accessible name and for typeahead.
     ///
     /// The function may read reactive data; names follow it. Without one,
-    /// rows have no name. Setup only, before creating any Part.
+    /// rows have no name. Setup only.
     #[track_caller]
     pub fn row_label(self, label: impl Fn(&K) -> String + 'static) -> Self {
-        if let Some(state) = self.configure("Table::row_label") {
-            *state.label.borrow_mut() = Some(Rc::new(label));
-            state.labels.update(|revision| *revision += 1);
-        }
+        let state = self.state();
+        require_setup("Table::row_label");
+        let label: Rc<dyn Fn(&K) -> String> = Rc::new(label);
+        state.label.update(|current| *current = Some(label));
         self
     }
 
@@ -182,25 +159,26 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     ///
     /// Header activation offers the next state to the binding's writer. Use it
     /// to start sorted, or to order the rows before creating the table. Setup
-    /// only, before creating any Part.
+    /// only.
     #[track_caller]
-    pub fn sort(self, sort: impl Into<Binding<Option<(C, SortDirection)>>>) -> Self {
-        if let Some(state) = self.configure("Table::sort") {
-            state.sort.set(sort.into());
-        }
+    pub fn sort(self, sort: impl Into<Binding<Option<(C, SortOrder)>>>) -> Self {
+        let state = self.state();
+        require_setup("Table::sort");
+        let sort = sort.into();
+        state.sort.update(|current| *current = sort);
         self
     }
 
     /// Keep the column widths in the caller's binding instead of the table's own.
     ///
     /// The table's own widths start from each [`ColumnDef::width`]. Resize parts
-    /// offer the whole next map to the binding's writer. Setup only, before
-    /// creating any Part.
+    /// offer the whole next map to the binding's writer. Setup only.
     #[track_caller]
     pub fn widths(self, widths: impl Into<Binding<HashMap<C, f64>>>) -> Self {
-        if let Some(state) = self.configure("Table::widths") {
-            state.widths.set(widths.into());
-        }
+        let state = self.state();
+        require_setup("Table::widths");
+        let widths = widths.into();
+        state.widths.update(|current| *current = widths);
         self
     }
 
@@ -208,7 +186,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     ///
     /// The default is 16 to 4096 logical pixels in steps of 10. A non-finite
     /// or non-positive step is rejected as [`ScalarRange::with_step`] does.
-    /// Setup only, before creating any Part.
+    /// Setup only.
     #[track_caller]
     pub fn resize_limits(
         self,
@@ -218,22 +196,24 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         if !key_step.is_finite() || key_step <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
-        if let Some(state) = self.configure("Table::resize_limits") {
-            state.resize.set((range, key_step));
-        }
+        let state = self.state();
+        require_setup("Table::resize_limits");
+        state.resize.set((range, key_step));
         Ok(self)
     }
 
     /// Read the sort column and direction; `None` is the caller's own order.
     #[track_caller]
-    pub fn sort_value(self) -> Value<Option<(C, SortDirection)>> {
-        self.state().sort.get().into_value()
+    pub fn sort_value(self) -> Value<Option<(C, SortOrder)>> {
+        let sort = self.state().sort;
+        (move || sort.with(|sort| sort.get())).into_value()
     }
 
     /// Read the column widths, in the caller's unit, by column key.
     #[track_caller]
     pub fn widths_value(self) -> Value<HashMap<C, f64>> {
-        self.state().widths.get().into_value()
+        let widths = self.state().widths;
+        (move || widths.with(|widths| widths.get())).into_value()
     }
 
     /// Offer a selection gesture for a row, without moving the focus.
@@ -247,10 +227,9 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     pub fn grid(self) -> Part<PartState> {
         let state = self.state();
         require_setup("Table::grid");
-        state.started.set(true);
-        match state.focus.get() {
-            TableFocus::Rows => state.list.list().role(Role::Grid),
-            TableFocus::Cells => part(|input| input)
+        match state.focus {
+            TableFocus::Rows(_) => state.list.list().role(Role::Grid),
+            TableFocus::Cells(_) => part(|input| input)
                 .role(Role::Grid)
                 .multiselectable(matches!(state.selection, ListSelection::Multiple(_))),
         }
@@ -261,9 +240,8 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     pub fn header(self, column: C) -> Part<TableHeaderState> {
         let state = self.state();
         require_setup("Table::header");
-        state.started.set(true);
         let reference = state.header_ref(&column);
-        let (columns, sort) = (state.columns, state.sort.get());
+        let (columns, sort) = (state.columns, state.sort);
         let key = var(column);
         let info = memo(move || {
             key.with(|key| {
@@ -278,9 +256,11 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         let sortable = memo(move || info.with(|info| info.as_ref().is_some_and(|info| info.1)));
         let direction = memo(move || {
             key.with(|key| {
-                sort.with(|sort| match sort {
-                    Some((column, direction)) if column == key => *direction,
-                    _ => SortDirection::None,
+                sort.with(|sort| {
+                    sort.with(|sort| match sort {
+                        Some((column, order)) if column == key => Some(*order),
+                        _ => None,
+                    })
                 })
             })
         });
@@ -294,17 +274,21 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
             info.with(|info| info.as_ref().map(|info| info.0.clone()))
                 .unwrap_or_default()
         })
-        .sort(direction)
+        .sort(move || {
+            direction
+                .get()
+                .map_or(SortDirection::None, SortDirection::from)
+        })
         .focusable(sortable)
         .on_press(move || {
             if !sortable.get() {
                 return;
             }
             let next = match direction.get() {
-                SortDirection::Ascending => SortDirection::Descending,
-                _ => SortDirection::Ascending,
+                Some(SortOrder::Ascending) => SortOrder::Descending,
+                _ => SortOrder::Ascending,
             };
-            sort.set(Some((key.get(), next)));
+            sort.get_untracked().set(Some((key.get(), next)));
         })
         .reference(reference)
     }
@@ -315,8 +299,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     pub fn row(self, key: K) -> Part<TableRowState> {
         let state = self.state();
         require_setup("Table::row");
-        state.started.set(true);
-        if state.focus.get() == TableFocus::Rows {
+        if matches!(state.focus, TableFocus::Rows(_)) {
             return state
                 .list
                 .item(key)
@@ -338,7 +321,6 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     pub fn cell(self, key: K, column: C) -> Part<TableCellState> {
         let state = self.state();
         require_setup("Table::cell");
-        state.started.set(true);
         cells::cell(state, key, column, Location::caller())
     }
 
@@ -352,14 +334,14 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     pub fn resize(self, column: C) -> Part<SplitterState> {
         let state = self.state();
         require_setup("Table::resize");
-        state.started.set(true);
         let rect = state.header_ref(&column).rect();
-        let (columns, widths) = (state.columns, state.widths.get());
+        let (columns, widths) = (state.columns, state.widths);
+        let resize = state.resize;
         let key = var(column);
         let value = memo(move || {
             key.with(|key| {
                 widths
-                    .with(|widths| widths.get(key).copied())
+                    .with(|widths| widths.with(|widths| widths.get(key).copied()))
                     .or_else(|| {
                         columns.with(|columns| {
                             columns
@@ -374,15 +356,19 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         });
         let write = move |width: f64| {
             if width.is_finite() {
+                let widths = widths.get_untracked();
                 let mut next = widths.get_untracked();
                 next.insert(key.get(), width);
                 widths.set(next);
             }
         };
-        let (range, step) = state.resize.get();
-        use_splitter(binding(value, write), range, Orientation::Horizontal)
-            .key_step(step)
-            .expect("invariant: Table::resize_limits validated the step")
-            .handle()
+        let step = memo(move || resize.with(|limits| limits.1));
+        use_splitter(
+            binding(value, write),
+            move || resize.with(|limits| limits.0),
+            Orientation::Horizontal,
+        )
+        .key_step_value(step)
+        .handle()
     }
 }

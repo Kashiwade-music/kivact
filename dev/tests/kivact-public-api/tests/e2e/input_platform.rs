@@ -6,7 +6,36 @@ use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::{Align, Color};
 use kivact::task::spawn;
-use kivact::view::{LiveRegion, Orientation, SortDirection, callback};
+use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection, callback};
+
+#[test]
+fn a_press_handler_reads_the_modifiers_held_at_the_press() {
+    let (screen, seen) = mount(|| {
+        let seen = signal(None::<bool>);
+        let view =
+            button("Open").on_press(move || seen.set(Some(kivact::view::current_modifiers().ctrl)));
+        (seen, view)
+    });
+    let ctrl = Modifiers {
+        ctrl: true,
+        ..Modifiers::default()
+    };
+    screen.key_down(Key::Unidentified, KeyCode::ControlLeft, ctrl);
+    screen.get_by_role(Role::Button, "Open").click();
+    assert_eq!(
+        seen.get_untracked(),
+        Some(true),
+        "Ctrl is held at the press"
+    );
+    screen.key_up(
+        Key::Unidentified,
+        KeyCode::ControlLeft,
+        Modifiers::default(),
+    );
+    screen.get_by_role(Role::Button, "Open").click();
+    assert_eq!(seen.get_untracked(), Some(false), "Ctrl was released");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn input_alignment_keeps_pixels_pointer_selection_and_ime_in_the_same_place() {

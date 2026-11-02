@@ -12,8 +12,13 @@
 //!   ready variant.
 //! - A raster source whose pixels were evicted keeps its natural size, so
 //!   layout never waits for a reload; the pixels come back when drawn.
+//! - A raster source's evicted pixels are loaded again by its next draw;
+//!   that load always lands, so an entry never stays `Reloading`. A reload
+//!   that fails (the file changed or went) turns the entry `Failed` and
+//!   reports the failure once, like a first load.
 
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -29,24 +34,18 @@ use crate::svg::Svg;
 use super::image_state::ImageState;
 use crate::limits::ENTRY_BYTES;
 
-/// When an item was last used: the frame (see `AssetStore::begin_frame`)
-/// and a tick within it. Orders the LRU; the frame also protects what the
-/// current and the previous frame used.
+/// When an item was last used: the frame (`None`: before the host's first
+/// `AssetStore::begin_frame`) and a tick within it. Orders the LRU; the
+/// frame also protects what the current and the previous frame used.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Stamp {
-    pub(crate) frame: u64,
+    pub(crate) frame: Option<NonZeroU64>,
     pub(crate) tick: u64,
 }
 
 pub(crate) struct Entry {
     pub(crate) generation: u64,
     pub(crate) state: State,
-    /// The file version the state was loaded from (files only).
-    pub(crate) version: FileVersion,
-    /// A failed file: when it may be checked for a change next, and
-    /// whether a check is in flight.
-    pub(crate) next_check: Option<Instant>,
-    pub(crate) checking: bool,
     /// Encoded bytes the key keeps alive.
     pub(crate) retained: usize,
     /// The last `image` or `pixels` call for the asset.
@@ -57,20 +56,59 @@ pub(crate) struct Entry {
 pub(crate) enum State {
     /// The first load is in flight.
     Pending,
-    /// A raster image: its natural size, and its pixels unless evicted
-    /// (`drawn` is their last use; `reloading` while a load brings them
-    /// back).
+    /// A raster image: its natural size, and where its pixels are.
     Raster {
         natural: Size,
-        pixels: Option<Pixels>,
-        drawn: Stamp,
-        reloading: bool,
+        residency: Residency,
     },
     Vector {
         svg: Arc<Svg>,
         natural: Size,
     },
-    Failed(AssetError),
+    /// The load failed; `recheck` says whether and when it is tried again.
+    Failed {
+        error: AssetError,
+        recheck: Recheck,
+    },
+}
+
+/// Where a raster source's pixels are.
+pub(crate) enum Residency {
+    /// In the cache; `drawn` is their last use.
+    Resident { pixels: Pixels, drawn: Stamp },
+    /// Evicted; the next draw loads them again.
+    Evicted,
+    /// A load brings them back. It always lands: the worker answers every
+    /// job it is given (`Worker::submit`).
+    Reloading,
+}
+
+/// Whether a failed asset is checked for a change.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Recheck {
+    /// Never: a URL, embedded or shared bytes.
+    Never,
+    /// Once `at` passes; `version` is the file's version when it failed.
+    Due { at: Instant, version: FileVersion },
+    /// A check (on the worker) is in flight; `version` as for `Due`.
+    Checking { version: FileVersion },
+}
+
+impl Recheck {
+    /// How a failure (`error`) of `asset`, whose file was at `version`, is
+    /// checked again: a file other than a URL from `at` on, anything else
+    /// never.
+    pub(crate) fn after(
+        asset: &Asset,
+        error: &AssetError,
+        version: FileVersion,
+        at: Instant,
+    ) -> Self {
+        match asset {
+            Asset::Path(_) if error.kind() != AssetErrorKind::Url => Self::Due { at, version },
+            _ => Self::Never,
+        }
+    }
 }
 
 /// A derived raster: an SVG at a device size (or the part `crop` of it),
@@ -111,9 +149,12 @@ impl State {
     /// Bytes the state holds in the budget.
     pub(crate) fn bytes(&self) -> usize {
         match self {
-            State::Raster { pixels, .. } => pixels.as_ref().map_or(0, Pixels::bytes),
+            State::Raster {
+                residency: Residency::Resident { pixels, .. },
+                ..
+            } => pixels.bytes(),
             State::Vector { svg, .. } => svg.bytes(),
-            State::Pending | State::Failed(_) => 0,
+            State::Raster { .. } | State::Pending | State::Failed { .. } => 0,
         }
     }
 }
@@ -124,9 +165,6 @@ impl Entry {
         Entry {
             generation,
             state: State::Pending,
-            version: None,
-            next_check: None,
-            checking: false,
             retained,
             used,
             variants: HashMap::new(),
@@ -135,15 +173,11 @@ impl Entry {
 
     /// Whether this is a failed file due for a check for a change (never a
     /// URL, never while a check is in flight).
-    pub(crate) fn check_due(&self, asset: &Asset) -> bool {
-        match (&self.state, asset) {
-            (State::Failed(e), Asset::Path(_)) => {
-                e.kind() != AssetErrorKind::Url
-                    && !self.checking
-                    && self.next_check.is_none_or(|t| Instant::now() >= t)
-            }
-            _ => false,
-        }
+    pub(crate) fn check_due(&self) -> bool {
+        matches!(
+            &self.state,
+            State::Failed { recheck: Recheck::Due { at, .. }, .. } if Instant::now() >= *at
+        )
     }
 
     pub(crate) fn state(&self) -> ImageState {
@@ -152,7 +186,7 @@ impl Entry {
             State::Raster { natural, .. } | State::Vector { natural, .. } => {
                 ImageState::Ready { natural: *natural }
             }
-            State::Failed(e) => ImageState::Failed(e.clone()),
+            State::Failed { error, .. } => ImageState::Failed(error.clone()),
         }
     }
 
@@ -161,13 +195,11 @@ impl Entry {
     pub(crate) fn is_idle(&self) -> bool {
         let busy = match &self.state {
             State::Pending => true,
-            State::Raster {
-                pixels, reloading, ..
-            } => pixels.is_some() || *reloading,
-            State::Vector { .. } | State::Failed(_) => false,
+            State::Raster { residency, .. } => !matches!(residency, Residency::Evicted),
+            State::Vector { .. } => false,
+            State::Failed { recheck, .. } => matches!(recheck, Recheck::Checking { .. }),
         };
         !busy
-            && !self.checking
             && self
                 .variants
                 .values()

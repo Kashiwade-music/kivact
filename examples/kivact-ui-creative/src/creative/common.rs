@@ -214,7 +214,7 @@ pub(super) fn text_table(
     columns: &[(&str, f32)],
     rows: impl IntoValue<Vec<TextRow>>,
     selected: impl Into<Binding<Vec<u64>>>,
-    sort: impl Into<Binding<Option<(usize, kivact::view::SortDirection)>>>,
+    sort: impl Into<Binding<Option<(usize, kivact::interaction::SortOrder)>>>,
 ) -> kivact::ui::DataTable<TextRow, u64> {
     let columns = columns
         .iter()
@@ -235,15 +235,16 @@ pub(super) fn text_table(
     kivact::ui::data_table(rows, |row: &TextRow| row.id, columns)
         .selection(selected)
         .sort(sort)
-        .focus(kivact::interaction::TableFocus::Rows)
-        .policy(kivact::interaction::ListPolicy {
-            typeahead: true,
-            range: kivact::interaction::ListRangePolicy {
-                missing_anchor: kivact::interaction::ListMissingAnchor::FirstSelected,
+        .focus(kivact::interaction::TableFocus::Rows(
+            kivact::interaction::ListPolicy {
+                typeahead: true,
+                range: kivact::interaction::ListRangePolicy {
+                    missing_anchor: kivact::interaction::ListMissingAnchor::FirstSelected,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            ..Default::default()
-        })
+        ))
         .row_color(|row: &TextRow| row.color)
         // The editors' tables are dense: no selection summary, and the
         // filter text is set by the editor's own field.

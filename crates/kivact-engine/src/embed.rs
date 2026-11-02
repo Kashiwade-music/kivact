@@ -64,11 +64,13 @@ impl EmbeddedHost {
     }
 }
 
-/// Start a client inside a host window; build the client on its UI thread.
+/// Start a client inside a host window; build the client on its UI thread
+/// with the close flag the returned host sets when it is dropped (the client
+/// stops delivering the rest of its event batch once it is set).
 pub fn embed_native(
     parent: ParentWindow,
     options: EmbedOptions,
-    client: impl FnOnce() -> Client + Send + 'static,
+    client: impl FnOnce(Arc<AtomicBool>) -> Client + Send + 'static,
 ) -> Result<EmbeddedHost, HostError> {
     let size = options.window_size.unwrap_or(Size {
         width: 960.0,
@@ -87,7 +89,7 @@ pub fn embed_native(
             panic: options.panic,
         },
         move || {
-            let client = client();
+            let client = client(ui_closing.clone());
             let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
             let log = frame_log.clone();
             let host = host::new(client, size, arvane::Engine::new(), frame_log)

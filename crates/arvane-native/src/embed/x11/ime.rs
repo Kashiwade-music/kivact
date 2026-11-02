@@ -7,9 +7,10 @@
 //! downs. A canceled flight remains a tombstone until its old acknowledgement
 //! arrives. Only SyncReply is peeked here; normal transport handling and
 //! protocol acknowledgements belong to the locked client. XIM is an optional
-//! service: every failure of the server, the transport or the protocol (and
-//! every panic of the client library on server input) ends in `degrade`, which
-//! drops the client and gives the undelivered keys back to Keyboard in order.
+//! service: every failure of the server, the transport or the protocol ends in
+//! `degrade`, which drops the client and gives the undelivered keys back to
+//! Keyboard in order. Degrading drops the whole connection (`Xim::Off`) for the
+//! rest of the window's life.
 
 use super::conn::Native;
 use arvane_shell::{ShellError, ShellEvent};
@@ -17,7 +18,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use x11rb::connection::Connection;
+use x11rb::connection::Connection as _;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, KeyPressEvent};
 use x11rb::x11_utils::X11Error;
@@ -42,325 +43,377 @@ fn locale() -> String {
 }
 
 pub(super) struct Ime {
-    client: Option<ClientConnection>,
-    handler: Handler,
+    xim: Xim,
+    app: App,
+}
+/// What the App asked for and what goes back to the window loop; kept across XIM's life.
+struct App {
+    window: u32,
+    locale: String,
+    allowed: bool,
+    focused: bool,
+    spot: xim::Point,
+    events: Vec<ShellEvent>,
+    returned: Vec<KeyPressEvent>,
+    cancelled_releases: Vec<KeyPressEvent>,
+}
+enum Xim {
+    /// No XIM server, or XIM was given up: keys go to Keyboard.
+    Off,
+    On(Box<Connection>),
+}
+struct Connection {
+    client: ClientConnection,
     protocol: u32,
     xconnect: u32,
     protocol_window: Option<u32>,
     server_window: Option<u32>,
     pending: VecDeque<(KeyPressEvent, bool)>,
     flight: Option<Flight>,
-    cancelled_releases: Vec<KeyPressEvent>,
+    session: Session,
 }
-struct Flight {
-    im: u16,
-    ic: u16,
-    canceled: bool,
-    event: KeyPressEvent,
-    down: bool,
-    deadline: Instant,
-}
-struct Handler {
-    window: u32,
-    locale: String,
-    im: u16,
-    ic: u16,
-    allowed: bool,
-    focused: bool,
+/// What the server's callbacks change.
+struct Session {
+    context: Context,
     forward: u32,
-    spot: xim::Point,
     /// The spot the server last learned of, by IC creation or SetIcValues.
     sent_spot: Option<(i16, i16)>,
     preedit: String,
     caret: i32,
-    disconnected: bool,
-    events: Vec<ShellEvent>,
-    returned: Vec<KeyPressEvent>,
+}
+enum Context {
+    /// Connected; the input method is not open yet.
+    Connecting,
+    Open,
+    Ready {
+        im: u16,
+        ic: u16,
+    },
+    /// The server ended the connection (`handle_disconnect`); `filter` degrades.
+    Disconnected,
+}
+impl Context {
+    /// The input method and context ids, once the context exists.
+    fn ids(&self) -> Option<(u16, u16)> {
+        match self {
+            Self::Ready { im, ic } => Some((*im, *ic)),
+            Self::Connecting | Self::Open | Self::Disconnected => None,
+        }
+    }
+}
+enum Flight {
+    /// A forwarded key waiting for its acknowledgement.
+    Live {
+        im: u16,
+        ic: u16,
+        event: KeyPressEvent,
+        down: bool,
+        deadline: Instant,
+    },
+    /// Canceled by a focus or allow change; kept until its old acknowledgement arrives.
+    Canceled { im: u16, ic: u16, deadline: Instant },
+}
+impl Flight {
+    fn ids(&self) -> (u16, u16) {
+        match self {
+            Self::Live { im, ic, .. } | Self::Canceled { im, ic, .. } => (*im, *ic),
+        }
+    }
+    fn deadline(&self) -> Instant {
+        match self {
+            Self::Live { deadline, .. } | Self::Canceled { deadline, .. } => *deadline,
+        }
+    }
+}
+/// The handler handed to the client for one `filter_event` call.
+struct Callbacks<'a> {
+    app: &'a mut App,
+    session: &'a mut Session,
 }
 impl Ime {
     /// IME is optional: when the server cannot be reached the window opens
     /// without it.
     pub(super) fn new(native: &Native) -> RefCell<Self> {
-        let (client, protocol, xconnect) = match connect(native) {
-            Ok(parts) => parts,
+        let xim = match connect(native) {
+            Ok(Some(connection)) => Xim::On(Box::new(connection)),
+            Ok(None) => Xim::Off,
             Err(error) => {
                 tracing::warn!(target: "kivact", "X11 IME unavailable: {error}");
-                (None, 0, 0)
+                Xim::Off
             }
         };
         RefCell::new(Self {
-            client,
-            protocol,
-            xconnect,
-            protocol_window: None,
-            server_window: None,
-            pending: VecDeque::new(),
-            flight: None,
-            cancelled_releases: Vec::new(),
-            handler: Handler {
+            xim,
+            app: App {
                 window: native.id.get(),
                 locale: locale(),
-                im: 0,
-                ic: 0,
                 allowed: false,
                 focused: false,
-                forward: u32::from(x11rb::protocol::xproto::EventMask::KEY_PRESS),
                 spot: xim::Point { x: 0, y: 0 },
-                sent_spot: None,
-                preedit: String::new(),
-                caret: 0,
-                disconnected: false,
                 events: Vec::new(),
                 returned: Vec::new(),
+                cancelled_releases: Vec::new(),
             },
         })
     }
     /// Gives up XIM for the rest of the window's life: warns once, drops the
-    /// client, reports IME disabled and hands the in-flight and queued keys to
+    /// connection, reports IME disabled and hands the in-flight and queued keys to
     /// Keyboard in their original order.
     pub(super) fn degrade(&mut self, reason: &str) {
-        if self.client.take().is_none() {
+        let Xim::On(connection) = std::mem::replace(&mut self.xim, Xim::Off) else {
             return;
-        }
+        };
         tracing::warn!(target: "kivact", "X11 IME disabled, using the keyboard directly: {reason}");
-        self.protocol_window = None;
-        self.server_window = None;
-        let h = &mut self.handler;
-        h.im = 0;
-        h.ic = 0;
-        h.sent_spot = None;
-        h.preedit.clear();
-        h.disconnected = false;
-        h.events.push(ShellEvent::ImeDisabled);
-        if let Some(flight) = self.flight.take()
-            && !flight.canceled
+        self.app.events.push(ShellEvent::ImeDisabled);
+        let Connection {
+            flight, pending, ..
+        } = *connection;
+        if let Some(Flight::Live { event, .. }) = flight
             // A server that already returned the key must not have it twice.
-            && !h.returned.iter().any(|key| same_key(key, &flight.event))
+            && !self.app.returned.iter().any(|key| same_key(key, &event))
         {
-            h.returned.push(flight.event);
+            self.app.returned.push(event);
         }
-        h.returned
-            .extend(self.pending.drain(..).map(|(event, _)| event));
+        self.app
+            .returned
+            .extend(pending.into_iter().map(|(event, _)| event));
     }
     /// A lost XIM server surfaces as an X error on its window.
     pub(super) fn x_error(&mut self, error: &X11Error) {
-        if self.client.is_some()
-            && error.error_kind == x11rb::protocol::ErrorKind::Window
-            && self.server_window == Some(error.bad_value)
+        let Xim::On(connection) = &self.xim else {
+            return;
+        };
+        if error.error_kind == x11rb::protocol::ErrorKind::Window
+            && connection.server_window == Some(error.bad_value)
         {
             self.degrade("XIM server window is gone");
         }
     }
     /// Nanoseconds until the in-flight request is given up, if one is waiting.
     pub(super) fn remaining_ns(&self) -> Option<u64> {
-        let flight = self.flight.as_ref()?;
-        let remaining = flight.deadline.saturating_duration_since(Instant::now());
+        let Xim::On(connection) = &self.xim else {
+            return None;
+        };
+        let flight = connection.flight.as_ref()?;
+        let remaining = flight.deadline().saturating_duration_since(Instant::now());
         Some(u64::try_from(remaining.as_nanos()).unwrap_or(u64::MAX))
     }
     pub(super) fn filter(&mut self, event: &Event) -> bool {
-        let Some(client) = &mut self.client else {
+        let Xim::On(connection) = &mut self.xim else {
             return false;
         };
-        let observe = self.flight.is_some()
+        let observe = connection.flight.is_some()
             && matches!(event, Event::ClientMessage(message)
-            if Some(message.window) == self.protocol_window);
-        let protocol = self.protocol;
-        let handler = &mut self.handler;
-        let mut filter = || -> Result<_, ClientError> {
-            let reply = if observe {
-                sync_reply(client, protocol, event)?
-            } else {
-                None
-            };
-            let filtered = client.filter_event(event, handler)?;
-            Ok((reply, filtered))
-        };
-        let result = filter().map_err(|e| e.to_string());
-        let (reply, filtered) = match result {
+            if Some(message.window) == connection.protocol_window);
+        let (reply, filtered) = match feed(connection, &mut self.app, event, observe) {
             Ok(parts) => parts,
-            Err(reason) => {
-                self.degrade(&reason);
+            Err(error) => {
+                self.degrade(&error.to_string());
                 return false;
             }
         };
-        if self.handler.disconnected {
+        if matches!(connection.session.context, Context::Disconnected) {
             self.degrade("XIM server disconnected");
             return filtered;
         }
         if filtered && let Event::ClientMessage(message) = event {
-            self.protocol_window = Some(message.window);
-            if message.type_ == self.xconnect && message.format == 32 {
-                self.server_window = Some(message.data.as_data32()[0]);
+            connection.protocol_window = Some(message.window);
+            if message.type_ == connection.xconnect && message.format == 32 {
+                connection.server_window = Some(message.data.as_data32()[0]);
             }
         }
-        let canceled = self.flight.as_ref().is_some_and(|flight| flight.canceled);
         // A canceled request's delayed output must not edit the newly focused input.
-        if canceled {
-            self.handler
+        if matches!(connection.flight, Some(Flight::Canceled { .. })) {
+            self.app
                 .events
                 .retain(|event| matches!(event, ShellEvent::ImeDisabled));
             // Known canceled releases were reconciled at cancellation time.
             // Delayed output must not release a newer local down of that key.
-            self.handler.returned.clear();
-            self.handler.preedit.clear();
+            self.app.returned.clear();
+            connection.session.preedit.clear();
         }
         if filtered
-            && let Some((im, ic)) = reply
-            && self
+            && let Some(replied) = reply
+            && connection
                 .flight
                 .as_ref()
-                .is_some_and(|flight| flight.im == im && flight.ic == ic)
+                .is_some_and(|flight| flight.ids() == replied)
         {
-            self.flight = None;
+            connection.flight = None;
             self.advance();
         }
         filtered
     }
     /// Whether XIM took the key; a refused key goes to Keyboard directly.
     pub(super) fn forward(&mut self, event: &KeyPressEvent, down: bool) -> bool {
-        let h = &self.handler;
-        if self.client.is_none() || h.ic == 0 || !h.allowed || !h.focused {
+        let Xim::On(connection) = &mut self.xim else {
+            return false;
+        };
+        if connection.session.context.ids().is_none() || !self.app.allowed || !self.app.focused {
             return false;
         }
         let mask = if down { 1 } else { 2 };
-        if self.flight.is_none() && self.pending.is_empty() && h.forward & mask == 0 {
+        if connection.flight.is_none()
+            && connection.pending.is_empty()
+            && connection.session.forward & mask == 0
+        {
             return false;
         }
-        if self.pending.len() >= 1024 {
+        if connection.pending.len() >= 1024 {
             // The new key follows the queued ones it was waiting behind.
             self.degrade("XIM pending key queue exceeded 1024 events");
-            self.handler.returned.push(*event);
+            self.app.returned.push(*event);
             return true;
         }
-        self.pending.push_back((*event, down));
+        connection.pending.push_back((*event, down));
         self.advance();
         true
     }
     fn advance(&mut self) {
-        while self.flight.is_none() {
-            let Some((event, down)) = self.pending.pop_front() else {
-                break;
+        loop {
+            let Xim::On(connection) = &mut self.xim else {
+                return;
             };
-            let h = &mut self.handler;
-            if !h.allowed || !h.focused || h.ic == 0 {
-                self.pending.clear();
-                break;
+            if connection.flight.is_some() {
+                return;
             }
+            let Some((event, down)) = connection.pending.pop_front() else {
+                return;
+            };
+            let ids = connection
+                .session
+                .context
+                .ids()
+                .filter(|_| self.app.allowed && self.app.focused);
+            let Some((im, ic)) = ids else {
+                connection.pending.clear();
+                return;
+            };
             let mask = if down { 1 } else { 2 };
-            if h.forward & mask == 0 {
+            if connection.session.forward & mask == 0 {
                 // Local releases wait behind the forwarded press, then use the
                 // same returned-key path without ever being sent back to XIM.
-                h.returned.push(event);
+                self.app.returned.push(event);
                 continue;
             }
-            let Some(client) = &mut self.client else {
-                break;
-            };
-            let (im, ic) = (h.im, h.ic);
+            let client = &mut connection.client;
             let mut forward = || -> Result<(), ClientError> {
                 client.forward_event(im, ic, ForwardEventFlag::SYNCHRONOUS, &event)?;
                 client.conn().flush()?;
                 Ok(())
             };
-            let sent = forward().map_err(|e| e.to_string());
-            match sent {
+            match forward() {
                 Ok(()) => {
-                    self.flight = Some(Flight {
+                    connection.flight = Some(Flight::Live {
                         im,
                         ic,
-                        canceled: false,
                         event,
                         down,
                         deadline: Instant::now() + FLIGHT_TIMEOUT,
                     });
                 }
-                Err(reason) => {
-                    self.pending.push_front((event, down));
-                    self.degrade(&reason);
+                Err(error) => {
+                    connection.pending.push_front((event, down));
+                    self.degrade(&error.to_string());
                     return;
                 }
             }
         }
     }
     fn collect_returned_releases(&mut self) {
-        self.cancelled_releases
-            .extend(self.handler.returned.drain(..).filter(|event| {
+        self.app
+            .cancelled_releases
+            .extend(self.app.returned.drain(..).filter(|event| {
                 event.response_type & 0x7f == x11rb::protocol::xproto::KEY_RELEASE_EVENT
             }));
     }
     fn cancel_pending(&mut self) {
         // The in-flight event precedes the queued events; preserve release
         // order so their native modifier masks are applied in the same order.
-        if let Some(flight) = &mut self.flight {
-            if !flight.canceled && !flight.down {
-                self.cancelled_releases.push(flight.event);
-            }
-            flight.canceled = true;
+        if let Xim::On(connection) = &mut self.xim {
+            connection.flight = match connection.flight.take() {
+                Some(Flight::Live {
+                    im,
+                    ic,
+                    event,
+                    down,
+                    deadline,
+                }) => {
+                    if !down {
+                        self.app.cancelled_releases.push(event);
+                    }
+                    Some(Flight::Canceled { im, ic, deadline })
+                }
+                other => other,
+            };
         }
         self.collect_returned_releases();
-        self.cancelled_releases.extend(
-            self.pending
-                .drain(..)
-                .filter_map(|(event, down)| (!down).then_some(event)),
-        );
-        self.handler
+        if let Xim::On(connection) = &mut self.xim {
+            self.app.cancelled_releases.extend(
+                connection
+                    .pending
+                    .drain(..)
+                    .filter_map(|(event, down)| (!down).then_some(event)),
+            );
+            connection.session.preedit.clear();
+        }
+        self.app
             .events
             .retain(|event| matches!(event, ShellEvent::ImeDisabled));
-        self.handler.preedit.clear();
     }
     pub(super) fn drain(&mut self) -> (Vec<ShellEvent>, Vec<KeyPressEvent>, Vec<KeyPressEvent>) {
         // The loop drains once per pass and wakes for the flight deadline, so
         // a reply that never comes is noticed here.
-        if self
-            .flight
-            .as_ref()
-            .is_some_and(|flight| Instant::now() >= flight.deadline)
+        if let Xim::On(connection) = &self.xim
+            && connection
+                .flight
+                .as_ref()
+                .is_some_and(|flight| Instant::now() >= flight.deadline())
         {
             self.degrade("XIM server did not answer");
         }
         (
-            std::mem::take(&mut self.handler.events),
-            std::mem::take(&mut self.handler.returned),
-            std::mem::take(&mut self.cancelled_releases),
+            std::mem::take(&mut self.app.events),
+            std::mem::take(&mut self.app.returned),
+            std::mem::take(&mut self.app.cancelled_releases),
         )
     }
     pub(super) fn focus(&mut self, focused: bool) {
-        if self.handler.focused == focused {
+        if self.app.focused == focused {
             return;
         }
         if !focused {
             self.cancel_pending();
         }
-        self.handler.focused = focused;
+        self.app.focused = focused;
         self.sync_focus();
     }
     // Never fails: a broken server is degraded away. The window's shared call
     // site still takes a Result.
     pub(super) fn allow(&mut self, allowed: bool) -> Result<(), ShellError> {
-        if self.handler.allowed == allowed {
+        if self.app.allowed == allowed {
             return Ok(());
         }
         if !allowed {
             self.cancel_pending();
         }
-        self.handler.allowed = allowed;
+        self.app.allowed = allowed;
         self.sync_focus();
         Ok(())
     }
     fn sync_focus(&mut self) {
-        let h = &mut self.handler;
-        let Some(client) = &mut self.client else {
+        let Xim::On(connection) = &mut self.xim else {
             return;
         };
-        if h.ic == 0 {
+        let Some((im, ic)) = connection.session.context.ids() else {
             return;
-        }
-        let on = h.allowed && h.focused;
+        };
+        let on = self.app.allowed && self.app.focused;
         if !on {
-            h.preedit.clear();
-            h.events.push(ShellEvent::ImeDisabled);
+            connection.session.preedit.clear();
+            self.app.events.push(ShellEvent::ImeDisabled);
         }
-        let (im, ic) = (h.im, h.ic);
+        let client = &mut connection.client;
         let mut focus = || -> Result<(), ClientError> {
             if on {
                 client.set_focus(im, ic)?;
@@ -370,9 +423,8 @@ impl Ime {
             client.conn().flush()?;
             Ok(())
         };
-        let result = focus().map_err(|e| e.to_string());
-        if let Err(reason) = result {
-            self.degrade(&reason);
+        if let Err(error) = focus() {
+            self.degrade(&error.to_string());
         }
     }
     // Never fails, like `allow`.
@@ -386,32 +438,33 @@ impl Ime {
             y: ((area.y + area.height) * scale).clamp(i16::MIN as f32, i16::MAX as f32) as i16,
         };
         let key = (spot.x, spot.y);
-        self.handler.spot = spot.clone();
+        self.app.spot = spot.clone();
+        let Xim::On(connection) = &mut self.xim else {
+            return Ok(());
+        };
         // The engine reports the cursor area on every turn; the server needs
         // to hear only about a change.
-        if self.handler.sent_spot == Some(key) {
+        if connection.session.sent_spot == Some(key) {
             return Ok(());
         }
-        let (im, ic) = (self.handler.im, self.handler.ic);
-        if let Some(client) = &mut self.client
-            && ic != 0
-        {
-            let mut place = || -> Result<(), ClientError> {
-                let attrs = client
-                    .build_ic_attributes()
-                    .nested_list(AttributeName::PreeditAttributes, |b| {
-                        b.push(AttributeName::SpotLocation, spot.clone());
-                    })
-                    .build();
-                client.set_ic_values(im, ic, attrs)?;
-                client.conn().flush()?;
-                Ok(())
-            };
-            let result = place().map_err(|e| e.to_string());
-            match result {
-                Ok(()) => self.handler.sent_spot = Some(key),
-                Err(reason) => self.degrade(&reason),
-            }
+        let Some((im, ic)) = connection.session.context.ids() else {
+            return Ok(());
+        };
+        let client = &mut connection.client;
+        let mut place = || -> Result<(), ClientError> {
+            let attrs = client
+                .build_ic_attributes()
+                .nested_list(AttributeName::PreeditAttributes, |b| {
+                    b.push(AttributeName::SpotLocation, spot.clone());
+                })
+                .build();
+            client.set_ic_values(im, ic, attrs)?;
+            client.conn().flush()?;
+            Ok(())
+        };
+        match place() {
+            Ok(()) => connection.session.sent_spot = Some(key),
+            Err(error) => self.degrade(&error.to_string()),
         }
         Ok(())
     }
@@ -419,8 +472,27 @@ impl Ime {
 fn same_key(a: &KeyPressEvent, b: &KeyPressEvent) -> bool {
     a.detail == b.detail && a.time == b.time && a.response_type & 0x7f == b.response_type & 0x7f
 }
-/// The client with its protocol atoms, or `None` when no server is announced.
-fn connect(native: &Native) -> Result<(Option<ClientConnection>, u32, u32), ShellError> {
+/// Hand one X event to the client; the observed SyncReply (if any) and whether the client took it.
+fn feed(
+    connection: &mut Connection,
+    app: &mut App,
+    event: &Event,
+    observe: bool,
+) -> Result<(Option<(u16, u16)>, bool), ClientError> {
+    let reply = if observe {
+        sync_reply(&connection.client, connection.protocol, event)?
+    } else {
+        None
+    };
+    let mut callbacks = Callbacks {
+        app,
+        session: &mut connection.session,
+    };
+    let filtered = connection.client.filter_event(event, &mut callbacks)?;
+    Ok((reply, filtered))
+}
+/// The connection with its protocol atoms, or `None` when no server is announced.
+fn connect(native: &Native) -> Result<Option<Connection>, ShellError> {
     let connection = native.connection.clone();
     let root = connection.setup().roots[native.screen as usize].root;
     let servers = connection
@@ -440,11 +512,11 @@ fn connect(native: &Native) -> Result<(Option<ClientConnection>, u32, u32), Shel
         reply.type_ == u32::from(AtomEnum::ATOM) && reply.format == 32 && !reply.value.is_empty()
     };
     if !present {
-        return Ok((None, 0, 0));
+        return Ok(None);
     }
     let client = match ClientConnection::init(connection, native.screen as usize, None) {
         Ok(client) => client,
-        Err(ClientError::NoXimServer) => return Ok((None, 0, 0)),
+        Err(ClientError::NoXimServer) => return Ok(None),
         Err(error) => return Err(super::error::platform(error)),
     };
     let atom = |name: &[u8]| -> Result<u32, ShellError> {
@@ -458,7 +530,22 @@ fn connect(native: &Native) -> Result<(Option<ClientConnection>, u32, u32), Shel
     };
     let protocol = atom(b"_XIM_PROTOCOL")?;
     let xconnect = atom(b"_XIM_XCONNECT")?;
-    Ok((Some(client), protocol, xconnect))
+    Ok(Some(Connection {
+        client,
+        protocol,
+        xconnect,
+        protocol_window: None,
+        server_window: None,
+        pending: VecDeque::new(),
+        flight: None,
+        session: Session {
+            context: Context::Connecting,
+            forward: u32::from(x11rb::protocol::xproto::EventMask::KEY_PRESS),
+            sent_spot: None,
+            preedit: String::new(),
+            caret: 0,
+        },
+    }))
 }
 // The locked client consumes SyncReply without a handler callback. Observe
 // only that request; the library remains the owner of parsing and transport.
@@ -499,12 +586,12 @@ fn byte(text: &str, character: i32) -> usize {
         .nth(character.max(0) as usize)
         .map_or(text.len(), |(index, _)| index)
 }
-impl ClientHandler<ClientConnection> for Handler {
+impl ClientHandler<ClientConnection> for Callbacks<'_> {
     fn handle_connect(&mut self, client: &mut ClientConnection) -> Result<(), ClientError> {
-        client.open(&self.locale)
+        client.open(&self.app.locale)
     }
     fn handle_open(&mut self, client: &mut ClientConnection, im: u16) -> Result<(), ClientError> {
-        self.im = im;
+        self.session.context = Context::Open;
         client.get_im_values(im, &[AttributeName::QueryInputStyle])
     }
     fn handle_get_im_values(
@@ -529,13 +616,13 @@ impl ClientHandler<ClientConnection> for Handler {
                 AttributeName::InputStyle,
                 InputStyle::PREEDIT_CALLBACKS | InputStyle::STATUS_NOTHING,
             )
-            .push(AttributeName::ClientWindow, self.window)
-            .push(AttributeName::FocusWindow, self.window)
+            .push(AttributeName::ClientWindow, self.app.window)
+            .push(AttributeName::FocusWindow, self.app.window)
             .nested_list(AttributeName::PreeditAttributes, |b| {
-                b.push(AttributeName::SpotLocation, self.spot.clone());
+                b.push(AttributeName::SpotLocation, self.app.spot.clone());
             })
             .build();
-        self.sent_spot = Some((self.spot.x, self.spot.y));
+        self.session.sent_spot = Some((self.app.spot.x, self.app.spot.y));
         client.create_ic(im, attrs)
     }
     fn handle_create_ic(
@@ -544,8 +631,8 @@ impl ClientHandler<ClientConnection> for Handler {
         im: u16,
         ic: u16,
     ) -> Result<(), ClientError> {
-        self.ic = ic;
-        if self.allowed && self.focused {
+        self.session.context = Context::Ready { im, ic };
+        if self.app.allowed && self.app.focused {
             client.set_focus(im, ic)?;
         }
         Ok(())
@@ -558,7 +645,7 @@ impl ClientHandler<ClientConnection> for Handler {
         forward: u32,
         _: u32,
     ) -> Result<(), ClientError> {
-        self.forward = forward;
+        self.session.forward = forward;
         Ok(())
     }
     fn handle_forward_event(
@@ -569,7 +656,7 @@ impl ClientHandler<ClientConnection> for Handler {
         _: ForwardEventFlag,
         event: KeyPressEvent,
     ) -> Result<(), ClientError> {
-        self.returned.push(event);
+        self.app.returned.push(event);
         Ok(())
     }
     fn handle_commit(
@@ -579,8 +666,8 @@ impl ClientHandler<ClientConnection> for Handler {
         _: u16,
         text: &str,
     ) -> Result<(), ClientError> {
-        self.preedit.clear();
-        self.events.push(ShellEvent::Commit(text.into()));
+        self.session.preedit.clear();
+        self.app.events.push(ShellEvent::Commit(text.into()));
         Ok(())
     }
     fn handle_preedit_start(
@@ -589,7 +676,7 @@ impl ClientHandler<ClientConnection> for Handler {
         im: u16,
         ic: u16,
     ) -> Result<(), ClientError> {
-        self.preedit.clear();
+        self.session.preedit.clear();
         client.send_req(xim::Request::PreeditStartReply {
             input_method_id: im,
             input_context_id: ic,
@@ -608,13 +695,14 @@ impl ClientHandler<ClientConnection> for Handler {
         text: &str,
         _: Vec<xim::Feedback>,
     ) -> Result<(), ClientError> {
-        let start = byte(&self.preedit, first);
-        let end = byte(&self.preedit, first.saturating_add(length.max(0)));
-        self.preedit.replace_range(start..end.max(start), text);
-        self.caret = caret.clamp(0, self.preedit.chars().count() as i32);
-        let cursor = byte(&self.preedit, caret);
-        self.events.push(ShellEvent::Preedit {
-            text: self.preedit.clone(),
+        let session = &mut *self.session;
+        let start = byte(&session.preedit, first);
+        let end = byte(&session.preedit, first.saturating_add(length.max(0)));
+        session.preedit.replace_range(start..end.max(start), text);
+        session.caret = caret.clamp(0, session.preedit.chars().count() as i32);
+        let cursor = byte(&session.preedit, caret);
+        self.app.events.push(ShellEvent::Preedit {
+            text: session.preedit.clone(),
             selection: Some((cursor, cursor)),
         });
         Ok(())
@@ -628,20 +716,21 @@ impl ClientHandler<ClientConnection> for Handler {
         direction: xim::CaretDirection,
         _: xim::CaretStyle,
     ) -> Result<(), ClientError> {
-        let length = self.preedit.chars().count() as i32;
-        self.caret = match direction {
-            xim::CaretDirection::ForwardChar => self.caret.saturating_add(1),
-            xim::CaretDirection::BackwardChar => self.caret.saturating_sub(1),
+        let session = &mut *self.session;
+        let length = session.preedit.chars().count() as i32;
+        session.caret = match direction {
+            xim::CaretDirection::ForwardChar => session.caret.saturating_add(1),
+            xim::CaretDirection::BackwardChar => session.caret.saturating_sub(1),
             xim::CaretDirection::LineStart => 0,
             xim::CaretDirection::LineEnd => length,
             xim::CaretDirection::AbsolutePosition => *position,
-            _ => self.caret,
+            _ => session.caret,
         }
         .clamp(0, length);
-        *position = self.caret;
-        let cursor = byte(&self.preedit, self.caret);
-        self.events.push(ShellEvent::Preedit {
-            text: self.preedit.clone(),
+        *position = session.caret;
+        let cursor = byte(&session.preedit, session.caret);
+        self.app.events.push(ShellEvent::Preedit {
+            text: session.preedit.clone(),
             selection: Some((cursor, cursor)),
         });
         Ok(())
@@ -652,8 +741,8 @@ impl ClientHandler<ClientConnection> for Handler {
         _: u16,
         _: u16,
     ) -> Result<(), ClientError> {
-        self.preedit.clear();
-        self.events.push(ShellEvent::Preedit {
+        self.session.preedit.clear();
+        self.app.events.push(ShellEvent::Preedit {
             text: String::new(),
             selection: None,
         });
@@ -662,6 +751,6 @@ impl ClientHandler<ClientConnection> for Handler {
     // We never send Disconnect, so this is the server ending the connection.
     // The handler cannot degrade the Ime that owns it; `filter` does.
     fn handle_disconnect(&mut self) {
-        self.disconnected = true;
+        self.session.context = Context::Disconnected;
     }
 }

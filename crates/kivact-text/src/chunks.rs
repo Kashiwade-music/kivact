@@ -46,10 +46,10 @@ pub(crate) fn split(
 impl EditLines {
     /// Every line of `text` split again, none shaped.
     pub(crate) fn rebuild(&mut self, text: &str, height: f32, blank: f32) {
-        let key = self.key().clone();
+        let multiline = self.key.multiline;
         self.height = height;
         self.blank = blank;
-        let lines = split(text, 0, text.len(), key.multiline, true);
+        let lines = split(text, 0, text.len(), multiline, true);
         self.chunks = lines
             .chunks(CHUNK)
             .map(|rows| {
@@ -83,7 +83,7 @@ impl EditLines {
         let m = self.line_of(old_end).max(k);
         let from = self.range(k).start;
         let to = (self.range(m).end as isize + delta) as usize;
-        let multiline = self.key().multiline;
+        let multiline = self.key.multiline;
         let bounded = from <= to
             && to <= text.len()
             && text.is_char_boundary(from)
@@ -191,12 +191,10 @@ impl EditLines {
 
     /// The lines show the value (masked or not), not the placeholder.
     pub fn shows_value(&self) -> bool {
-        self.key
-            .as_ref()
-            .is_some_and(|k| !matches!(k.shown, Shown::Placeholder(_)))
+        !matches!(self.key.shown, Shown::Placeholder(_))
     }
 
-    /// The number of lines. This is zero before the first refresh and at least one afterward.
+    /// The number of lines (at least one: an empty text is one empty line).
     #[inline]
     pub fn len(&self) -> usize {
         self.before.last().map_or(0, |b| b.line)
@@ -283,7 +281,7 @@ impl EditLines {
         }
         self.counts_before(i).0 as u32
     }
-    /// Whether there are no retained lines (before the first refresh).
+    /// Whether there are no lines: never true (kept with `len`).
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0

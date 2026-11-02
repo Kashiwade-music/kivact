@@ -32,7 +32,7 @@ impl Screen {
     /// The App's counters ([`Stats`] says how to read them): `batches` and
     /// `ops` count the revisions the client committed and their writes, and
     /// `core_ns` the time in the core's turns, `on_mount` work included.
-    /// Notes recorded during setup go to a record of their own (turn 0), so
+    /// Notes recorded during setup go to a record of their own (`Turn::Setup`), so
     /// they add no turn.
     pub fn stats(&self) -> Stats {
         let rec = &self.record;
@@ -68,21 +68,7 @@ impl Screen {
     /// Semantic tree of the whole screen.
     pub fn snapshot(&self) -> SemanticNode {
         let root = ViewState::tree(&self.rt).root;
-        match root {
-            Some(r) => self.semantic(r, None),
-            None => SemanticNode {
-                role: None,
-                name: String::new(),
-                value: None,
-                test_id: None,
-                focused: false,
-                disabled: false,
-                selected: false,
-                checked: None,
-                at: None,
-                children: Vec::new(),
-            },
-        }
+        self.semantic(root, None)
     }
 
     /// The semantic node of `id`; `parent_at` is the location of its nearest
@@ -118,7 +104,7 @@ impl Screen {
             node.value = tree.input_value(id).or_else(|| tree.value(id));
             node.disabled = tree.disabled(id).unwrap_or(false);
             node.selected = tree.selected(id).unwrap_or(false);
-            node.checked = tree.checked(id).flatten();
+            node.checked = tree.checked(id);
             let scenes = [SceneLayer::Draw, SceneLayer::DrawOver].map(|l| tree.scene(id, l));
             for s in scenes.iter().flatten() {
                 for r in &s.regions {

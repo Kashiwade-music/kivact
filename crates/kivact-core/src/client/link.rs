@@ -12,11 +12,11 @@
 //!   first turn anyway), and neither does one during a turn: the turn
 //!   itself settles what was requested, and the client asks again at its
 //!   end if work is left (`AppClient::turn`). A wake from inside the turn
-//!   would cost the host one more, empty, turn. The waker runs with no
-//!   borrow of the link held, so a waker that reaches the link again is
-//!   fine.
+//!   would cost the host one more, empty, turn. The waker is read from a
+//!   `OnceCell`, so a waker that reaches the link again finds no borrow
+//!   held.
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, OnceCell};
 
 use kivact_engine::bridge::HostWaker;
 use kivact_reactive::Driver;
@@ -26,9 +26,9 @@ use kivact_reactive::Driver;
 pub(crate) struct HostLink {
     /// The host clock (ns).
     now_ns: Cell<u64>,
-    /// Wakes the host for a turn (from the host's `start`).
-    waker: RefCell<Option<HostWaker>>,
-    /// A turn is running.
+    /// Wakes the host for a turn; set once by the host's `start`.
+    waker: OnceCell<HostWaker>,
+    /// A turn is running ([`HostLink::enter_turn`]).
     in_turn: Cell<bool>,
 }
 
@@ -36,17 +36,32 @@ impl HostLink {
     /// The host started: its clock reads `now_ns`, and `waker` wakes it.
     pub(crate) fn start(&self, now_ns: u64, waker: HostWaker) {
         self.now_ns.set(now_ns);
-        *self.waker.borrow_mut() = Some(waker);
+        self.waker
+            .set(waker)
+            .expect("invariant: the host starts an App once");
     }
 
-    /// A turn starts (`true`) or ends.
-    pub(crate) fn set_in_turn(&self, on: bool) {
-        self.in_turn.set(on);
+    /// A turn runs until the returned scope drops; turn requests meanwhile
+    /// wake nobody.
+    pub(crate) fn enter_turn(&self) -> TurnScope<'_> {
+        debug_assert!(!self.in_turn.get(), "invariant: turns do not nest");
+        self.in_turn.set(true);
+        TurnScope(self)
     }
 
     /// Move the clock forward to `ns`; it never goes back.
     pub(crate) fn advance_clock(&self, ns: u64) {
         self.now_ns.set(self.now_ns.get().max(ns));
+    }
+}
+
+/// A running turn ([`HostLink::enter_turn`]); dropping it ends the turn.
+#[must_use = "the turn ends when the scope drops"]
+pub(crate) struct TurnScope<'a>(&'a HostLink);
+
+impl Drop for TurnScope<'_> {
+    fn drop(&mut self) {
+        self.0.in_turn.set(false);
     }
 }
 
@@ -59,11 +74,10 @@ impl Driver for HostLink {
         if self.in_turn.get() {
             return;
         }
-        // Wake outside the borrow: a waker is the host's code and may reach
-        // this link again (a host that runs the turn in place, a test).
-        let waker = self.waker.borrow().clone();
-        if let Some(w) = waker {
-            w.wake();
+        // The waker is the host's code and may reach this link again (a
+        // host that runs the turn in place, a test).
+        if let Some(waker) = self.waker.get() {
+            waker.wake();
         }
     }
 }

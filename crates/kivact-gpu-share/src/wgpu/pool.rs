@@ -1,8 +1,10 @@
 //! Role: The engine's wgpu pool: shared textures, their format, usage and hand-off.
 
 use crate::common::Error;
-use crate::pool::{DROP_WAIT, FrameReady, PoolConfig};
+use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig};
 use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
+use std::fmt;
+use std::mem::ManuallyDrop;
 use std::time::Duration;
 
 /// The pool textures' format in wgpu (premultiplied alpha).
@@ -54,107 +56,154 @@ enum Raw {
 }
 
 impl Raw {
-    /// Step 1 of a frame of `target`: the GPU-side wait for `release`,
-    /// then the texture taken (`first`: wgpu never drew it).
-    ///
-    /// # Safety
-    /// No other thread uses the device's queue during the call.
-    unsafe fn take(&mut self, target: &Inner, first: bool) -> Result<(), Error> {
-        match (self, target) {
-            // SAFETY: as the caller says.
+    /// The next frame's texture, once its last frame signaled `ready`
+    /// (waited at most `timeout`).
+    fn begin(&self, timeout: Duration) -> Result<Acquired, Error> {
+        match self {
             #[cfg(windows)]
-            (Self::D3d12(raw), Inner::D3d12(target)) => unsafe { raw.take(target, first) },
-            (Self::Vulkan(raw), Inner::Vulkan(target)) => {
-                // Vulkan takes a texture the same way in its first frame
-                // (wgpu's first barrier then starts from `UNDEFINED`).
-                let _ = first;
-                // SAFETY: as above.
-                unsafe { raw.take(target) }
-            }
-            #[cfg(windows)]
-            _ => unreachable!("invariant: a pool's targets are of its backend"),
+            Self::D3d12(raw) => raw.pool().begin(timeout),
+            Self::Vulkan(raw) => raw.pool().begin(timeout),
         }
     }
 
-    /// Step 4 of a frame of `target`: the texture given back and `ready`
+    /// Step 1 of the frame `acquired`: the GPU-side wait for `release`,
+    /// then the texture taken (a texture without a frame yet is taken the
+    /// same way on Vulkan, and not moved on Direct3D 12).
+    ///
+    /// # Safety
+    /// No other thread uses the device's queue during the call.
+    unsafe fn take(&mut self, acquired: Acquired) -> Result<(), Error> {
+        match self {
+            // SAFETY: as the caller says.
+            #[cfg(windows)]
+            Self::D3d12(raw) => unsafe { raw.take(acquired) },
+            // SAFETY: as above.
+            Self::Vulkan(raw) => unsafe { raw.take(acquired) },
+        }
+    }
+
+    /// Step 4 of the frame `acquired`: the texture given back and `ready`
     /// signaled.
     ///
     /// # Safety
     /// As [`Raw::take`].
-    unsafe fn give(&mut self, target: Inner) -> Result<FrameReady, Error> {
-        match (self, target) {
+    unsafe fn give(&mut self, acquired: Acquired) -> Result<FrameReady, Error> {
+        match self {
             // SAFETY: as the caller says.
             #[cfg(windows)]
-            (Self::D3d12(raw), Inner::D3d12(target)) => unsafe { raw.give(target) },
+            Self::D3d12(raw) => unsafe { raw.give(acquired) },
             // SAFETY: as above.
-            (Self::Vulkan(raw), Inner::Vulkan(target)) => unsafe { raw.give(target) },
-            #[cfg(windows)]
-            _ => unreachable!("invariant: a pool's targets are of its backend"),
-        }
-    }
-
-    /// Keep the raw objects for the process (the GPU may still use them).
-    fn leak(&mut self) {
-        match self {
-            #[cfg(windows)]
-            Self::D3d12(raw) => raw.leak(),
-            Self::Vulkan(raw) => raw.leak(),
+            Self::Vulkan(raw) => unsafe { raw.give(acquired) },
         }
     }
 }
 
-/// The backend half of a target.
-#[derive(Debug)]
-enum Inner {
-    #[cfg(windows)]
-    D3d12(crate::d3d12::Target),
-    Vulkan(crate::vulkan::Target),
-}
-
-/// The texture the next frame is drawn into, from [`Pool::acquire`], until
-/// [`Pool::submit`] or [`Pool::cancel`] takes it.
+/// The texture the next frame is drawn into, from [`Pool::acquire`]. It
+/// borrows the pool until [`Target::submit`] takes it; dropping it gives
+/// the frame up (the next acquire gives the same texture again).
 ///
 /// The texture is the pool's: the engine uses it only in the command
-/// buffers it hands to [`Pool::submit`] with this target (a clone used
-/// after that, or in another submission, finds the texture with the
-/// window: undefined pictures).
-#[derive(Debug)]
-pub struct Target {
-    texture: ::wgpu::Texture,
-    slot: u32,
-    inner: Inner,
+/// buffers it hands to [`Target::submit`] (a clone used after that, or in
+/// another submission, finds the texture with the window: undefined
+/// pictures).
+#[must_use = "draw into the target, then submit it; dropping it gives the frame up"]
+pub struct Target<'pool> {
+    pool: &'pool mut Pool,
+    acquired: Acquired,
 }
 
-impl Target {
+impl fmt::Debug for Target<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Target")
+            .field("slot", &self.acquired.slot)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Target<'_> {
     /// The texture's index in the pool.
     pub fn slot(&self) -> u32 {
-        self.slot
+        self.acquired.slot
     }
 
     /// The texture to draw into, of [`FORMAT`] and the pool's [`usage`].
     pub fn texture(&self) -> &::wgpu::Texture {
-        &self.texture
+        &self.pool.textures[self.acquired.slot as usize]
     }
 
     /// A view of the texture (`desc` as for any texture).
     pub fn create_view(&self, desc: &::wgpu::TextureViewDescriptor<'_>) -> ::wgpu::TextureView {
-        self.texture.create_view(desc)
+        self.texture().create_view(desc)
     }
 
     /// The texture's size: width and height.
     pub fn size(&self) -> (u32, u32) {
-        (self.texture.width(), self.texture.height())
+        (self.texture().width(), self.texture().height())
+    }
+
+    /// Submit `command_buffers` (the engine's drawing into the texture,
+    /// recorded on the pool's device) on `queue` between the hand-off (see
+    /// the module documentation): the frame to publish. An error before
+    /// wgpu's submission gives the frame up; one after it (a lost device)
+    /// leaves the pool unusable (later acquires fail).
+    ///
+    /// Writes with `Queue::write_texture` to the texture, made after
+    /// [`Pool::acquire`], run in this submission (wgpu flushes them
+    /// first); no other `Queue::submit` may run between them.
+    ///
+    /// # Safety
+    /// `queue` is the queue of the pool's device. No other thread uses
+    /// that queue during the call (`Queue::submit`, `Surface::present`,
+    /// `Device::poll` and the like): the raw submissions go to wgpu's
+    /// `VkQueue` or `ID3D12CommandQueue`, which Vulkan requires to be
+    /// externally synchronized and whose order the hand-off needs.
+    pub unsafe fn submit(
+        self,
+        queue: &::wgpu::Queue,
+        command_buffers: impl IntoIterator<Item = ::wgpu::CommandBuffer>,
+    ) -> Result<FrameReady, Error> {
+        let Self { pool, acquired } = self;
+        // 1. The window's release, then the texture taken from it.
+        // SAFETY: wgpu's queue, not used meanwhile (the caller).
+        unsafe { pool.raw.take(acquired) }?;
+        // 2. and 3. The engine's commands, then wgpu's tracker back to
+        // the state of the hand-off.
+        let texture = &pool.textures[acquired.slot as usize];
+        let mut encoder = pool
+            .device
+            .create_command_encoder(&::wgpu::CommandEncoderDescriptor {
+                label: Some("kivact shared texture hand-off"),
+            });
+        encoder.transition_resources(
+            std::iter::empty(),
+            std::iter::once(::wgpu::TextureTransition {
+                texture,
+                selector: None,
+                state: ::wgpu::TextureUses::RESOURCE,
+            }),
+        );
+        queue.submit(
+            command_buffers
+                .into_iter()
+                .chain(std::iter::once(encoder.finish())),
+        );
+        // 4. The texture given back, `ready` signaled.
+        // SAFETY: as above.
+        let given = unsafe { pool.raw.give(acquired) };
+        if given.is_err() {
+            pool.failed = true;
+        }
+        given
     }
 }
 
 /// A pool of shared textures as `wgpu::Texture`s, on an engine's wgpu
 /// device (see the module documentation for a frame).
 pub struct Pool {
-    raw: Raw,
+    /// Dropped by the pool's drop once the last frame finished; kept for
+    /// the process otherwise.
+    raw: ManuallyDrop<Raw>,
     textures: Vec<::wgpu::Texture>,
-    /// Whether wgpu drew each texture yet (its tracker left
-    /// `UNINITIALIZED`).
-    drawn: Vec<bool>,
     /// A raw submission failed after wgpu's: the hand-off is broken.
     failed: bool,
     /// Keeps the native device alive while the raw objects live.
@@ -192,8 +241,7 @@ impl Pool {
             }
         };
         let pool = Self {
-            raw,
-            drawn: vec![false; textures.len()],
+            raw: ManuallyDrop::new(raw),
             textures,
             failed: false,
             device: device.clone(),
@@ -203,7 +251,7 @@ impl Pool {
 
     /// The texture of the next frame, once its last frame's submission
     /// signaled `ready` (waited at most `timeout` on the CPU); the GPU
-    /// waits for the window's release in [`Pool::submit`].
+    /// waits for the window's release in [`Target::submit`].
     ///
     /// The texture holds the last frame drawn into it (the frame of
     /// `slots` frames ago), so the engine may load it
@@ -211,105 +259,23 @@ impl Pool {
     /// A [`Error::Timeout`] means the texture's last submission did not
     /// finish, usually because it still waits for a release the window
     /// never gives.
-    pub fn acquire(&mut self, timeout: Duration) -> Result<Target, Error> {
+    pub fn acquire(&mut self, timeout: Duration) -> Result<Target<'_>, Error> {
         if self.failed {
             return Err(Error::Mismatch(
                 "a submission of the pool failed: make a new pool".into(),
             ));
         }
-        let inner = match &mut self.raw {
-            #[cfg(windows)]
-            Raw::D3d12(raw) => Inner::D3d12(raw.pool_mut().acquire(timeout)?),
-            Raw::Vulkan(raw) => Inner::Vulkan(raw.pool_mut().acquire(timeout)?),
-        };
-        let slot = match &inner {
-            #[cfg(windows)]
-            Inner::D3d12(target) => target.slot(),
-            Inner::Vulkan(target) => target.slot(),
-        };
+        let acquired = self.raw.begin(timeout)?;
         Ok(Target {
-            texture: self.textures[slot as usize].clone(),
-            slot,
-            inner,
+            pool: self,
+            acquired,
         })
-    }
-
-    /// Give `target` up without a frame (nothing of it was submitted).
-    pub fn cancel(&mut self, target: Target) {
-        match (&mut self.raw, target.inner) {
-            #[cfg(windows)]
-            (Raw::D3d12(raw), Inner::D3d12(target)) => raw.pool_mut().cancel(target),
-            (Raw::Vulkan(raw), Inner::Vulkan(target)) => raw.pool_mut().cancel(target),
-            #[cfg(windows)]
-            _ => unreachable!("invariant: a pool's targets are of its backend"),
-        }
-    }
-
-    /// Submit `command_buffers` (the engine's drawing into `target`'s
-    /// texture, recorded on the pool's device) on `queue` between the
-    /// hand-off (see the module documentation): the frame to publish.
-    /// An error before wgpu's submission gives the frame up; one after it
-    /// (a lost device) leaves the pool unusable (later acquires fail).
-    ///
-    /// Writes with `Queue::write_texture` to the target, made after
-    /// [`Pool::acquire`], run in this submission (wgpu flushes them
-    /// first); no other `Queue::submit` may run between them.
-    ///
-    /// # Safety
-    /// `queue` is the queue of the pool's device. No other thread uses
-    /// that queue during the call (`Queue::submit`, `Surface::present`,
-    /// `Device::poll` and the like): the raw submissions go to wgpu's
-    /// `VkQueue` or `ID3D12CommandQueue`, which Vulkan requires to be
-    /// externally synchronized and whose order the hand-off needs.
-    pub unsafe fn submit(
-        &mut self,
-        queue: &::wgpu::Queue,
-        target: Target,
-        command_buffers: impl IntoIterator<Item = ::wgpu::CommandBuffer>,
-    ) -> Result<FrameReady, Error> {
-        let slot = target.slot as usize;
-        let first = !self.drawn[slot];
-        // 1. The window's release, then the texture taken from it.
-        // SAFETY: wgpu's queue, not used meanwhile (the caller).
-        let taken = unsafe { self.raw.take(&target.inner, first) };
-        if let Err(error) = taken {
-            self.cancel(target);
-            return Err(error);
-        }
-        // 2. and 3. The engine's commands, then wgpu's tracker back to
-        // the state of the hand-off.
-        let mut encoder = self
-            .device
-            .create_command_encoder(&::wgpu::CommandEncoderDescriptor {
-                label: Some("kivact shared texture hand-off"),
-            });
-        encoder.transition_resources(
-            std::iter::empty(),
-            std::iter::once(::wgpu::TextureTransition {
-                texture: &target.texture,
-                selector: None,
-                state: ::wgpu::TextureUses::RESOURCE,
-            }),
-        );
-        queue.submit(
-            command_buffers
-                .into_iter()
-                .chain(std::iter::once(encoder.finish())),
-        );
-        self.drawn[slot] = true;
-        // 4. The texture given back, `ready` signaled.
-        // SAFETY: as above.
-        let given = unsafe { self.raw.give(target.inner) };
-        if given.is_err() {
-            self.failed = true;
-        }
-        given
     }
 
     /// The `release` value now: the window reads no frame of this value
     /// or less again.
     pub fn release_value(&self) -> Result<u64, Error> {
-        match &self.raw {
+        match &*self.raw {
             #[cfg(windows)]
             Raw::D3d12(raw) => raw.pool().release_value(),
             Raw::Vulkan(raw) => raw.pool().release_value(),
@@ -318,7 +284,7 @@ impl Pool {
 
     /// Wait at most `timeout` on the CPU for `release` to reach `value`.
     pub fn wait_release(&self, value: u64, timeout: Duration) -> Result<(), Error> {
-        match &self.raw {
+        match &*self.raw {
             #[cfg(windows)]
             Raw::D3d12(raw) => raw.pool().wait_release(value, timeout),
             Raw::Vulkan(raw) => raw.pool().wait_release(value, timeout),
@@ -328,7 +294,7 @@ impl Pool {
     /// Wait at most `timeout` on the CPU for every submitted frame's
     /// `ready` (the pool's work finished).
     pub fn wait_idle(&self, timeout: Duration) -> Result<(), Error> {
-        match &self.raw {
+        match &*self.raw {
             #[cfg(windows)]
             Raw::D3d12(raw) => raw.pool().wait_idle(timeout),
             Raw::Vulkan(raw) => raw.pool().wait_idle(timeout),
@@ -342,12 +308,12 @@ impl Pool {
     ///
     /// # Safety
     /// - No other thread uses the pool's device's queue during the call
-    ///   (as [`Pool::submit`]).
+    ///   (as [`Target::submit`]).
     /// - No window uses the texture meanwhile: its frame is released, or
     ///   the pool was never imported (then, on Vulkan, the texture was
     ///   never in the hand-off state; see the crate documentation).
     pub unsafe fn read_back(&self, slot: u32, timeout: Duration) -> Result<Vec<u8>, Error> {
-        match &self.raw {
+        match &*self.raw {
             // SAFETY: wgpu's queue, not used meanwhile; the texture's use
             // as the caller says.
             #[cfg(windows)]
@@ -360,13 +326,15 @@ impl Pool {
 
 impl Drop for Pool {
     fn drop(&mut self) {
-        if self.wait_idle(DROP_WAIT).is_err() {
+        if self.wait_idle(DROP_WAIT).is_ok() {
+            // SAFETY: dropped once, here; not used after.
+            unsafe { ManuallyDrop::drop(&mut self.raw) };
+        } else {
             // A submission may still wait for a release: the textures and
-            // raw objects stay for the process.
+            // the raw objects (`raw`, never dropped) stay for the process.
             for texture in &self.textures {
                 std::mem::forget(texture.clone());
             }
-            self.raw.leak();
         }
     }
 }

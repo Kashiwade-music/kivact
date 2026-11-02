@@ -4,9 +4,7 @@
 //! take the kit's look from `recipes_controls`.
 use crate::Color;
 use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Shadow, Stroke};
-use kivact::interaction::{
-    CheckedState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
-};
+use kivact::interaction::{ListItemState, MenuItemState, PopupState, TabListState, TabState};
 use kivact::primitive::PartState;
 use kivact::style::{Align, Direction, Justify, Position, Style, Theme, pct, rgba, style};
 use kivact::ui::Look;
@@ -14,6 +12,7 @@ use kivact::ui::{
     ButtonState, ButtonVariant, CheckState, ControlSize, DialogKind, DialogState,
     SelectTriggerState, TextInputState, ToggleButtonState, UiRecipes,
 };
+use kivact::view::CheckedState;
 
 use crate::tokens::Tokens;
 

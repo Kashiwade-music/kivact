@@ -17,7 +17,7 @@ use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::{HandlerResult, IntoText, IntoValue, IntoView, NodeRef, View, callback};
 use kivact_core::{Binding, binding};
-use kivact_interaction::{EditPhase, TextEdit, use_text_edit};
+use kivact_interaction::{EditPhase, TextEdit, use_text_area, use_text_edit};
 
 use super::layer::recipes;
 use super::text_draft::{self, Draft};
@@ -39,9 +39,13 @@ pub struct TextInput {
     commit: Option<kivact_core::Callback<String>>,
     on_edit: Option<kivact_core::Callback<EditPhase>>,
     return_focus: Option<NodeRef>,
+    /// Called once the draft has ended with a commit or a cancel.
+    ended: Option<kivact_core::Callback<()>>,
     /// Called before each edit of the user is written, once the field is
     /// drafting.
     edited: Rc<OnceCell<Rc<dyn Fn()>>>,
+    /// Several lines: Enter breaks the line, so there is no submit.
+    multiline: bool,
 }
 
 /// A text input named `label` (its accessible name; a later `.name(..)`
@@ -87,7 +91,11 @@ fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: 
         }
         value.set(text);
     });
-    let editing = use_text_edit(typed).multiline(multiline);
+    let editing = if multiline {
+        use_text_area(typed)
+    } else {
+        use_text_edit(typed)
+    };
     let part = editing.control();
     let input = part.state();
     let variants = Variants::default();
@@ -119,7 +127,9 @@ fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: 
         commit: None,
         on_edit: None,
         return_focus: None,
+        ended: None,
         edited,
+        multiline,
     }
 }
 
@@ -261,6 +271,13 @@ impl TextInput {
         self
     }
 
+    /// Called once the draft has ended with a commit or a cancel (not at
+    /// its `Begin`): an inline field uses it to remove itself.
+    pub(crate) fn on_draft_end(mut self, ended: kivact_core::Callback<()>) -> Self {
+        self.ended = Some(ended);
+        self
+    }
+
     /// Observe transitions into and out of native composition.
     pub fn on_composition_change<F, R>(mut self, f: F) -> Self
     where
@@ -297,12 +314,15 @@ impl TextInput {
             commit,
             on_edit: self.on_edit,
             return_focus: self.return_focus,
+            ended: self.ended,
         };
         let invalid = invalid.unwrap_or_else(|| Rc::new(|| false));
         let drafting = text_draft::install(draft, self.value, invalid);
         let _ = self.edited.set(drafting.edited);
         let submit = drafting.submit;
-        let _ = self.editing.on_submit(move || submit());
+        if !self.multiline {
+            let _ = self.editing.on_submit(move || submit());
+        }
         self.field.part(drafting.part)
     }
 }

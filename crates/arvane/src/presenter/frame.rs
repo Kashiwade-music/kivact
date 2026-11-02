@@ -49,7 +49,7 @@ pub enum Presented {
     /// GPU surface configuration): nothing new was shown. Draw again at
     /// `retry_at_ns` in [`crate::Window::now_ns`]'s clock, or as soon as the
     /// window is focused again. Consecutive skips back off from one display
-    /// period to sixteen; a shown frame resets that backoff.
+    /// period to sixteen; a shown frame or a lost surface resets that backoff.
     Skipped {
         /// When to draw the frame again.
         retry_at_ns: u64,
@@ -61,7 +61,7 @@ pub enum Presented {
     Dropped(Error),
     /// The window's surface failed and was made again: nothing new was
     /// shown. Request another frame immediately; Arvane has already
-    /// performed the recovery. A shown frame resets the failure count.
+    /// performed the recovery. A shown or skipped frame resets the failure count.
     SurfaceLost(Error),
 }
 

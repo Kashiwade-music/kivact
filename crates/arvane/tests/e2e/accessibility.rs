@@ -6,7 +6,7 @@
 
 use arvane::{ShellEvent, Window as _};
 use kivact_types::protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate, Transform};
-use kivact_types::{A11yAction, NodeId, Point, Role};
+use kivact_types::{A11yAction, A11yRequest, DismissReason, NodeId, Point, Role};
 
 use crate::support::{open, rect};
 
@@ -106,13 +106,9 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
 #[test]
 fn requests_of_assistive_technology_are_checked_against_the_tree() {
     let mut window = open(100.0, 100.0);
-    let event = |node: u64, action: A11yAction, value: Option<&str>| ShellEvent::Accessibility {
-        node,
-        action,
-        value: value.map(str::to_owned),
-    };
+    let event = |node: u64, request: A11yRequest| ShellEvent::Accessibility { node, request };
     assert_eq!(
-        window.accessibility_action(3, A11yAction::Activate, None),
+        window.accessibility_action(3, A11yRequest::Activate),
         None,
         "no tree yet"
     );
@@ -128,35 +124,33 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
     });
     tree.nodes[0].children.push(NodeId(6));
     window.replace_accessibility(&tree).expect("a valid tree");
-    let request = |node: u64, action: A11yAction, value: Option<&str>| {
-        window.accessibility_action(node, action, value)
-    };
+    let request = |node: u64, request: A11yRequest| window.accessibility_action(node, request);
     assert_eq!(
-        request(3, A11yAction::Activate, None),
-        Some(event(3, A11yAction::Activate, None))
+        request(3, A11yRequest::Activate),
+        Some(event(3, A11yRequest::Activate))
     );
     assert_eq!(
-        request(3, A11yAction::Focus, None),
-        Some(event(3, A11yAction::Focus, None))
+        request(3, A11yRequest::Focus),
+        Some(event(3, A11yRequest::Focus))
     );
     // One default action: a toggle arrives as Activate.
     assert_eq!(
-        request(6, A11yAction::Toggle, None),
-        Some(event(6, A11yAction::Activate, None))
+        request(6, A11yRequest::Toggle),
+        Some(event(6, A11yRequest::Activate))
     );
     assert_eq!(
-        request(6, A11yAction::SetValue, Some("on")),
-        Some(event(6, A11yAction::SetValue, Some("on")))
+        request(6, A11yRequest::SetValue("on".to_string())),
+        Some(event(6, A11yRequest::SetValue("on".to_string())))
     );
     assert_eq!(
-        request(6, A11yAction::Dismiss, None),
-        Some(event(6, A11yAction::Dismiss, None))
+        request(6, A11yRequest::Dismiss(DismissReason::Accessibility)),
+        Some(event(6, A11yRequest::Dismiss(DismissReason::Accessibility)))
     );
     // Not declared, not focusable, absent.
-    assert_eq!(request(3, A11yAction::Increment, None), None);
-    assert_eq!(request(5, A11yAction::Focus, None), None);
-    assert_eq!(request(6, A11yAction::Focus, None), None);
-    assert_eq!(request(42, A11yAction::Activate, None), None);
+    assert_eq!(request(3, A11yRequest::Increment), None);
+    assert_eq!(request(5, A11yRequest::Focus), None);
+    assert_eq!(request(6, A11yRequest::Focus), None);
+    assert_eq!(request(42, A11yRequest::Activate), None);
     // A disabled or hidden ancestor drops the request.
     for change in [
         SemanticsNode {
@@ -178,17 +172,11 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
                 nodes: vec![change],
             })
             .expect("a valid update");
-        assert_eq!(
-            window.accessibility_action(3, A11yAction::Activate, None),
-            None
-        );
-        assert_eq!(
-            window.accessibility_action(4, A11yAction::Focus, None),
-            None
-        );
+        assert_eq!(window.accessibility_action(3, A11yRequest::Activate), None);
+        assert_eq!(window.accessibility_action(4, A11yRequest::Focus), None);
         assert!(
             window
-                .accessibility_action(6, A11yAction::Toggle, None)
+                .accessibility_action(6, A11yRequest::Toggle)
                 .is_some()
         );
     }
@@ -204,8 +192,5 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
             }],
         })
         .expect("a valid update");
-    assert_eq!(
-        window.accessibility_action(6, A11yAction::Toggle, None),
-        None
-    );
+    assert_eq!(window.accessibility_action(6, A11yRequest::Toggle), None);
 }

@@ -4,14 +4,16 @@ use std::hash::Hash;
 use std::time::Duration;
 
 use super::order::{Rows, edge_item, rows};
-use super::state::{Edge, MenuItemState, Session, Want};
+use super::state::{
+    Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
+};
 use crate::{
-    List, ListItem, ListPolicy, ListSelection, PopupCloseReason, PopupState, use_disclosure,
+    Delays, List, ListItem, ListPolicy, ListSelection, PopupCloseReason, PopupState, use_delayed,
     use_list,
 };
 use kivact_core::primitive::Part;
 use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
-use kivact_core::{Value, binding, effect, memo, on_mount, signal};
+use kivact_core::{Value, effect, memo, on_mount, signal};
 
 /// How long the pointer rests on a submenu item before it opens.
 const HOVER_OPEN: Duration = Duration::from_millis(140);
@@ -51,10 +53,10 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             level_rows.with(|rows| {
                 rows.iter()
                     .filter_map(|(_, entry)| {
-                        entry.key.clone().map(|key| ListItem {
+                        entry.key().cloned().map(|key| ListItem {
                             key,
                             label: entry.label.clone(),
-                            disabled: entry.disabled,
+                            disabled: entry.is_disabled(),
                             icon: None,
                             description: None,
                         })
@@ -62,9 +64,12 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     .collect::<Vec<_>>()
             })
         });
-        let group = use_list(items, ListSelection::Single(signal(None::<K>).into()))
-            .policy(ListPolicy::menu())
-            .shared_typeahead(session.typed);
+        let group = use_list(
+            items,
+            ListSelection::Single(signal(None::<K>).into()),
+            ListPolicy::menu(),
+        )
+        .shared_typeahead(session.typed);
         Self {
             session,
             depth,
@@ -99,10 +104,14 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 }
             })
             .on_bind(move |_| {
-                // The top level takes the focus on its first enabled item
-                // unless the opener asked for another one.
-                if depth == 0 && session.want.with_untracked(Option::is_none) {
-                    session.request(0, Edge::First);
+                if depth == 0 {
+                    // Where the focus returns for this opening.
+                    session.popup.set_opening_policy(session.focus_return());
+                    // The top level takes the focus on its first enabled item
+                    // unless the opener asked for another one.
+                    if session.want.with_untracked(Option::is_none) {
+                        session.request(0, Edge::First);
+                    }
                 }
                 // Focus requests addressed to this level wait for its nodes
                 // to be live.
@@ -115,15 +124,21 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     let Some(want) = session.want.get() else {
                         return;
                     };
-                    match want {
-                        Want::Edge(at, edge) if at == depth => {
+                    if want.depth() != depth {
+                        return;
+                    }
+                    let target = match want {
+                        Want::Command { target, .. } => target,
+                        Want::Hover { key, .. } => Target::Key(key),
+                    };
+                    match target {
+                        Target::Edge(edge) => {
                             let target = rows.with_untracked(|rows| edge_item(rows, edge));
                             if let Some(key) = target {
                                 group.focus(key);
                             }
-                            session.want.set(None);
                         }
-                        Want::Key(at, key) if at == depth => {
+                        Target::Key(key) => {
                             if !group.focus(key) {
                                 let target =
                                     rows.with_untracked(|rows| edge_item(rows, Edge::First));
@@ -131,10 +146,9 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                                     group.focus(key);
                                 }
                             }
-                            session.want.set(None);
                         }
-                        _ => {}
                     }
+                    session.want.set(None);
                 });
             })
     }
@@ -155,24 +169,26 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             memo(move || {
                 rows.with(|rows| {
                     rows.iter()
-                        .find(|(_, entry)| entry.key.as_ref() == Some(&key))
+                        .find(|(_, entry)| entry.key() == Some(&key))
                         .map(|(_, entry)| entry.clone())
                 })
             })
         };
         // The kind of an item is part of its row's identity.
-        let (submenu, check, radio) = entry.with_untracked(|entry| {
-            entry.as_ref().map_or((false, false, false), |e| {
-                (e.children.is_some(), e.checked.is_some(), e.radio)
+        let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
+        let submenu = kind == Some(MenuItemKind::Submenu);
+        let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(MenuEntry::is_disabled)));
+        let shortcut = memo(move || {
+            entry.with(|e| {
+                e.as_ref()
+                    .map(|e| e.shortcut_value().to_string())
+                    .unwrap_or_default()
             })
         });
-        let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(|e| e.disabled)));
-        let shortcut = memo(move || {
-            entry.with(|e| e.as_ref().map(|e| e.shortcut.clone()).unwrap_or_default())
-        });
-        let checked = memo(move || entry.with(|e| e.as_ref().and_then(|e| e.checked)));
-        let destructive = memo(move || entry.with(|e| e.as_ref().is_some_and(|e| e.destructive)));
-        let keep_open = memo(move || entry.with(|e| e.as_ref().is_some_and(|e| e.keep_open)));
+        let check = memo(move || entry.with(|e| e.as_ref().and_then(MenuEntry::check)));
+        let destructive =
+            memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::is_destructive)));
+        let keep_open = memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::keeps_open)));
         let expanded = {
             let key = key.clone();
             memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
@@ -186,16 +202,22 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         if submenu {
             let key = key.clone();
             let resting = memo(move || hovered.get() && !expanded.get() && !disabled.get());
-            let disclosure = use_disclosure(binding(resting, |_| {})).delay(HOVER_OPEN);
+            let rest = use_delayed(
+                resting,
+                Delays {
+                    open: HOVER_OPEN,
+                    close: Duration::ZERO,
+                },
+            );
             effect(move || {
-                if disclosure.shown().get() {
+                if rest.shown().get() {
                     session.open_hover(depth, key.clone());
                 }
             });
             // A submenu closed by key stays closed under a resting pointer.
             effect(move || {
                 if !expanded.get() {
-                    disclosure.close();
+                    rest.dismiss();
                 }
             });
         } else {
@@ -223,14 +245,13 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         let member = member
             .map_state(move |state| MenuItemState {
                 input: state.input,
-                checked: checked.get(),
-                radio,
+                check: check.get(),
                 expanded: expanded.get(),
                 destructive: destructive.get(),
             })
-            .role(match (check, radio) {
-                (true, true) => Role::MenuItemRadio,
-                (true, false) => Role::MenuItemCheckBox,
+            .role(match kind {
+                Some(MenuItemKind::Radio) => Role::MenuItemRadio,
+                Some(MenuItemKind::Checkbox) => Role::MenuItemCheckBox,
                 _ => Role::MenuItem,
             })
             .description(shortcut)
@@ -244,7 +265,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                         // could be sent. The level's effect carries it out
                         // after the events, and a closed level never does.
                         if !disabled.get() {
-                            session.want.set(Some(Want::Key(depth, hover_key.clone())));
+                            session.hover(depth, hover_key.clone());
                         }
                     }
                     PointerPhase::Leave => hovered.set(false),
@@ -266,8 +287,8 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 }
                 Ok::<_, kivact_core::UiError>(())
             });
-        let member = if check {
-            member.checked(move || checked.get().unwrap_or(false))
+        let member = if matches!(kind, Some(MenuItemKind::Checkbox | MenuItemKind::Radio)) {
+            member.checked(move || check.get().is_some_and(MenuCheck::is_checked))
         } else {
             member
         };
@@ -304,7 +325,9 @@ fn on_key<K: Clone + Eq + Hash + 'static>(
             };
             let opens = rows.with(|rows| {
                 rows.iter().any(|(_, entry)| {
-                    entry.key.as_ref() == Some(&key) && entry.children.is_some() && !entry.disabled
+                    entry.key() == Some(&key)
+                        && entry.item_kind() == Some(MenuItemKind::Submenu)
+                        && !entry.is_disabled()
                 })
             });
             if opens {

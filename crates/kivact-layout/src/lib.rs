@@ -13,9 +13,8 @@
 //!    zero for the synthetic viewport; do not append another viewport slot.
 //! 2. Call [`NodeLayoutColumns::push`] only for fresh structural slots, then
 //!    [`NodeLayoutColumns::rebuild_style`] from each new live node's raw props.
-//! 3. Call [`LayoutState::topology_changed`] after initial population, and after
-//!    every parent/child link, root, overlay or fixed-membership edit. This
-//!    initial notification is required even before the first computation.
+//! 3. Call [`LayoutState::topology_changed`] after every parent/child link, root,
+//!    overlay or fixed-membership edit.
 //! 4. Consume [`LayoutState::take_changed`] when deciding whether to call
 //!    [`NodeLayoutColumns::compute`], then consume the results from
 //!    [`NodeLayoutColumns::drain_geometry_changes`].
@@ -23,8 +22,8 @@
 //!    that existing slot rather than appending columns for it.
 //!
 //! Keep the same initialization and topology notifications when rebuilding
-//! derived state. Default cursors and the state's epoch both start at zero;
-//! omitting the initial notification can leave fixed-child counts cached as zero.
+//! derived state. A new state has its first computation pending and counts
+//! every cursor on first use.
 //!
 //! Results are neutral; the integration decides rendering and accessibility.
 //! Taffy types and caches remain private. Geometry/rebuild comparisons are
@@ -49,7 +48,7 @@ mod traversal;
 mod tree;
 
 pub use borrowed_tree::{Flow, LayoutTree, LeafMeasure};
-pub(crate) use columns::{ChildCursor, NodeLayoutState, NodeLayoutValues};
+pub(crate) use columns::{ChildCursor, Counted, NodeLayoutState, NodeLayoutValues};
 pub use columns::{
     GeometryChange, GeometryChangeKind, GeometryChanges, NodeLayout, NodeLayoutColumns,
 };

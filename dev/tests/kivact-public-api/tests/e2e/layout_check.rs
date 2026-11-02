@@ -110,7 +110,7 @@ fn an_ellipsis_a_scrolling_axis_and_a_text_that_fits_are_not_violations() {
                     .style(style().text_wrap(false))
                     .test_id("sideways"),
             )
-            .orientation(Orientation::Horizontal)
+            .axes(ScrollAxes::Horizontal)
             .style(style().width(100).background(rgb(GRAY))),
             scroll(column(
                 (0..12)

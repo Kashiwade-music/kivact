@@ -9,9 +9,10 @@
 //! commands; it does not certify a complete scene. Arvane rendering validation
 //! remains the authoritative scene boundary. Resource callbacks and borrowed
 //! contexts are UI-thread-local and must not re-enter their owner.
-//! Each output owner retains one [`SceneCache`] and calls its `begin_frame`
-//! before building a fresh append-only draw output. Resource revisions and
-//! per-hit resolution protect cached pixels; failures and drops are not cached.
+//! Each output owner retains one [`SceneCache`] for cached payloads; draw
+//! output is built in a [`SceneOut`], which is append-only and counts its open
+//! groups. Resource revisions and per-hit resolution protect cached pixels;
+//! failures and drops are not cached.
 #![forbid(unsafe_code)]
 
 pub mod assets;
@@ -25,6 +26,8 @@ pub mod path;
 pub mod sanitize;
 pub mod scene;
 mod scene_cache;
+mod scene_out;
 pub use scene_cache::SceneCache;
+pub use scene_out::SceneOut;
 pub mod scene_shape;
 pub mod shape;

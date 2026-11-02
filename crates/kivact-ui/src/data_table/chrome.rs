@@ -10,9 +10,9 @@ use kivact_core::control::{NodeBuilder, node, row, text};
 use kivact_core::i18n::{message, message_with};
 use kivact_core::primitive::PartState;
 use kivact_core::style::{pct, style};
+use kivact_core::view::CheckedState;
 use kivact_core::view::{IntoView, Role, View};
 use kivact_core::{Binding, Value, binding, memo};
-use kivact_interaction::CheckedState;
 use std::hash::Hash;
 
 /// The row above the grid: the filter field, when the table has a filter.

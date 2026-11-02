@@ -30,11 +30,8 @@ impl Presenter {
     /// finished).
     pub(crate) fn renderer(&mut self) -> Renderer {
         #[cfg(feature = "gpu")]
-        {
-            self.gpu.advance(&mut self.notes, None);
-            if self.gpu.ready() {
-                return Renderer::Gpu;
-            }
+        if self.gpu.ready() {
+            return Renderer::Gpu;
         }
         Renderer::Cpu
     }
@@ -122,8 +119,7 @@ impl Presenter {
         if let Some(rendered) = self.gpu.render(scene, size, scale) {
             match rendered {
                 Ok(frame) => return Ok(frame),
-                // Offscreen frames have no surface (key 0 names none).
-                Err(e) => self.gpu_failed(0, e)?,
+                Err(e) => self.gpu_failed(e)?,
             }
         }
         self.cpu.render(scene, size, scale).map_err(error::render)
@@ -143,22 +139,21 @@ impl Presenter {
     ) -> Result<(Drawn, CpuFrame), Error> {
         #[cfg(feature = "gpu")]
         if self.gpu.ready() {
-            let key = window.key();
             window.release_cpu_surface();
             let started = Instant::now();
             let make = |context: &arvane_render::GpuContext| make_surface(window, context, true);
-            let presented = self.gpu.present(key, &make, scene, size, scale, physical);
+            let presented = self.gpu.present(&make, scene, size, scale, physical);
             let (presentation, present) = match presented {
                 Some(Ok(presented)) => presented,
                 Some(Err(e)) => {
-                    self.gpu_failed(key, e)?;
+                    self.gpu_failed(e)?;
                     return Err(Error::with(ErrorKind::Backend, "the GPU frame failed"));
                 }
                 None => return Err(Error::with(ErrorKind::Backend, "the GPU device failed")),
             };
             let frame = self
                 .gpu
-                .read_back(key)
+                .read_back()
                 .ok_or_else(|| Error::with(ErrorKind::Backend, "the GPU device failed"))?
                 .map_err(error::render)?;
             let drawn = Drawn {

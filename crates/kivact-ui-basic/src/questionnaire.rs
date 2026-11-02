@@ -8,7 +8,7 @@ use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
 use kivact::ui::{ButtonVariant, ListItem, button, text_input};
 use kivact::view::HandlerResult;
 use kivact::view::{IntoValue, IntoView, Role, View, callback, dynamic, for_each};
-use kivact::{Binding, Callback, Value, binding, memo};
+use kivact::{Binding, Callback, Value, binding, effect, memo, signal};
 
 /// One choice of a [`QuestionnaireStep`].
 #[derive(Clone, Debug, PartialEq)]
@@ -33,6 +33,29 @@ impl QuestionnaireChoice {
         self.description = Some(text.into());
         self
     }
+}
+
+/// The answer to one step of a [`Questionnaire`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum QuestionnaireAnswer {
+    /// The step has not been answered or skipped.
+    #[default]
+    Unanswered,
+    /// The user skipped the (optional) step.
+    Skipped,
+    /// The value of the chosen choice, or the text typed.
+    Answered(String),
+}
+
+/// Where a questionnaire is in its life: asking, or submitted at `at` with
+/// `answers` (any later change of either asks again).
+#[derive(PartialEq)]
+enum Phase {
+    Asking,
+    Submitted {
+        at: usize,
+        answers: Vec<QuestionnaireAnswer>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -98,10 +121,12 @@ impl QuestionnaireStep {
 ///
 /// Created by [`questionnaire`]. The step shown is the caller's `current`
 /// binding, and the answers are the caller's `answers` binding, one
-/// `Option<String>` per step (`None` is unanswered or skipped). It writes a
-/// whole list into that binding, and the list grows as the steps are
-/// answered: a questionnaire is a form whose result is its answer sheet, so
-/// the application can read it back, restore it or reset it.
+/// [`QuestionnaireAnswer`] per step (unanswered, skipped or answered). It
+/// writes a whole list into that binding, and the list grows as the steps
+/// are answered: a questionnaire is a form whose result is its answer sheet,
+/// so the application can read it back, restore it or reset it. Submitting
+/// reports the sheet once; the Submit button stays disabled until a step or
+/// an answer changes.
 /// The root is a `Role::Group` named by the message `questionnaire.label`
 /// ("Questionnaire") unless the caller names it. The texts are messages:
 /// `questionnaire.previous`, `questionnaire.skip`, `questionnaire.next`,
@@ -110,8 +135,8 @@ pub struct Questionnaire {
     root: Node,
     steps: Value<Vec<QuestionnaireStep>>,
     current: Binding<usize>,
-    answers: Binding<Vec<Option<String>>>,
-    submit: Option<Callback<Vec<Option<String>>>>,
+    answers: Binding<Vec<QuestionnaireAnswer>>,
+    submit: Option<Callback<Vec<QuestionnaireAnswer>>>,
 }
 
 /// A questionnaire over `steps` whose shown step is `current` (zero-based)
@@ -123,7 +148,7 @@ pub struct Questionnaire {
 ///
 /// fn survey() -> impl IntoView {
 ///     let step = signal(0usize);
-///     let answers = signal(Vec::new());
+///     let answers = signal(Vec::<basic::QuestionnaireAnswer>::new());
 ///     let steps = vec![basic::QuestionnaireStep::choices(
 ///         "How did you hear about us?",
 ///         vec![
@@ -131,7 +156,7 @@ pub struct Questionnaire {
 ///             basic::QuestionnaireChoice::new("friend", "A friend"),
 ///         ],
 ///     )];
-///     basic::questionnaire(steps, step, answers).on_submit(|answers: Vec<Option<String>>| {
+///     basic::questionnaire(steps, step, answers).on_submit(|answers: Vec<basic::QuestionnaireAnswer>| {
 ///         println!("{answers:?}");
 ///     })
 /// }
@@ -140,7 +165,7 @@ pub struct Questionnaire {
 pub fn questionnaire(
     steps: impl IntoValue<Vec<QuestionnaireStep>>,
     current: impl Into<Binding<usize>>,
-    answers: impl Into<Binding<Vec<Option<String>>>>,
+    answers: impl Into<Binding<Vec<QuestionnaireAnswer>>>,
 ) -> Questionnaire {
     Questionnaire {
         root: node()
@@ -165,7 +190,7 @@ impl Questionnaire {
     /// Called with the answers when the last step is submitted.
     pub fn on_submit<R: HandlerResult>(
         mut self,
-        f: impl Fn(Vec<Option<String>>) -> R + 'static,
+        f: impl Fn(Vec<QuestionnaireAnswer>) -> R + 'static,
     ) -> Self {
         self.submit = Some(callback(f));
         self
@@ -179,20 +204,23 @@ impl NodeBuilder for Questionnaire {
 }
 
 /// Write the answer of step `at`, growing the answer list.
-fn set_answer(answers: Binding<Vec<Option<String>>>, at: usize, value: Option<String>) {
+fn set_answer(answers: Binding<Vec<QuestionnaireAnswer>>, at: usize, value: QuestionnaireAnswer) {
     let mut all = answers.get();
     if all.len() <= at {
-        all.resize(at + 1, None);
+        all.resize(at + 1, QuestionnaireAnswer::Unanswered);
     }
     all[at] = value;
     answers.set(all);
 }
 
 /// The answer of step `at` as a binding that grows the answer list.
-fn answer_of(answers: Binding<Vec<Option<String>>>, at: usize) -> Binding<Option<String>> {
+fn answer_of(
+    answers: Binding<Vec<QuestionnaireAnswer>>,
+    at: usize,
+) -> Binding<QuestionnaireAnswer> {
     binding(
-        move || answers.with(|a| a.get(at).cloned().flatten()),
-        move |value: Option<String>| set_answer(answers, at, value),
+        move || answers.with(|a| a.get(at).cloned().unwrap_or_default()),
+        move |value: QuestionnaireAnswer| set_answer(answers, at, value),
     )
 }
 
@@ -288,7 +316,7 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::primitive::Part<ListI
 }
 
 /// The question of one step: its title, description and answer control.
-fn question(step: &QuestionnaireStep, answer: Binding<Option<String>>) -> Node {
+fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> Node {
     let title = step.title.clone();
     let mut parts = vec![
         text(title.clone())
@@ -315,7 +343,20 @@ fn question(step: &QuestionnaireStep, answer: Binding<Option<String>>) -> Node {
                 .map(|c| ListItem::new(c.value.clone(), c.label.clone()))
                 .collect();
             let items = items.into_value();
-            let group = use_list(items, ListSelection::Single(answer)).policy(ListPolicy::radio());
+            let chosen = binding(
+                move || {
+                    answer.with(|a| match a {
+                        QuestionnaireAnswer::Answered(value) => Some(value.clone()),
+                        _ => None,
+                    })
+                },
+                move |value: Option<String>| {
+                    answer.set(value.map_or(QuestionnaireAnswer::Unanswered, |value| {
+                        QuestionnaireAnswer::Answered(value)
+                    }));
+                },
+            );
+            let group = use_list(items, ListSelection::Single(chosen), ListPolicy::radio());
             let choices = choices.clone();
             let rows = for_each(
                 items,
@@ -343,8 +384,19 @@ fn question(step: &QuestionnaireStep, answer: Binding<Option<String>>) -> Node {
         }
         StepKind::Input { placeholder } => {
             let text_value = binding(
-                move || answer.with(|a| a.clone().unwrap_or_default()),
-                move |s: String| answer.set((!s.is_empty()).then_some(s)),
+                move || {
+                    answer.with(|a| match a {
+                        QuestionnaireAnswer::Answered(text) => text.clone(),
+                        _ => String::new(),
+                    })
+                },
+                move |s: String| {
+                    answer.set(if s.is_empty() {
+                        QuestionnaireAnswer::Unanswered
+                    } else {
+                        QuestionnaireAnswer::Answered(s)
+                    });
+                },
             );
             let mut input = text_input(title, text_value).style(style().min_height(32));
             if let Some(hint) = placeholder {
@@ -386,16 +438,38 @@ impl IntoView for Questionnaire {
                     .unwrap_or_else(node)
             },
         );
-        let answered =
-            memo(move || answers.with(|a| a.get(index.get()).is_some_and(Option::is_some)));
+        let answered = memo(move || {
+            answers.with(|a| matches!(a.get(index.get()), Some(QuestionnaireAnswer::Answered(_))))
+        });
         let optional =
             memo(move || steps.with(|all| all.get(index.get()).is_some_and(|s| s.optional)));
         let first = memo(move || index.get() == 0);
         let last = memo(move || index.get() + 1 >= total.get());
-        let finish = move || {
-            if let Some(submit) = submit {
-                submit.call(answers.get_untracked());
+        // Submitting reports the answer sheet once; a changed step or answer
+        // asks again.
+        let phase = signal(Phase::Asking);
+        let submitted = memo(move || phase.with(|p| matches!(p, Phase::Submitted { .. })));
+        effect(move || {
+            let (at, all) = (index.get(), answers.get());
+            let stale = phase.with_untracked(
+                |p| matches!(p, Phase::Submitted { at: a, answers: l } if *a != at || *l != all),
+            );
+            if stale {
+                phase.set(Phase::Asking);
             }
+        });
+        let finish = move || {
+            if submitted.get_untracked() {
+                return;
+            }
+            let all = answers.get_untracked();
+            if let Some(submit) = submit {
+                submit.call(all.clone());
+            }
+            phase.set(Phase::Submitted {
+                at: index.get_untracked(),
+                answers: all,
+            });
         };
         let previous = kivact::view::show(memo(move || !first.get()), move || {
             button(message("basic.questionnaire.previous", "Previous"))
@@ -406,8 +480,9 @@ impl IntoView for Questionnaire {
         let skip = kivact::view::show(optional, move || {
             button(message("basic.questionnaire.skip", "Skip"))
                 .variant(ButtonVariant::Outline)
+                .disabled(memo(move || last.get() && submitted.get()))
                 .on_press(move || {
-                    set_answer(answers, index.get(), None);
+                    set_answer(answers, index.get(), QuestionnaireAnswer::Skipped);
                     if last.get() {
                         finish();
                     } else {
@@ -421,7 +496,7 @@ impl IntoView for Questionnaire {
                 let blocked = memo(move || !answered.get() && !optional.get());
                 if is_last {
                     button(message("basic.questionnaire.submit", "Submit"))
-                        .disabled(blocked)
+                        .disabled(memo(move || blocked.get() || submitted.get()))
                         .on_press(finish)
                 } else {
                     button(message("basic.questionnaire.next", "Next"))

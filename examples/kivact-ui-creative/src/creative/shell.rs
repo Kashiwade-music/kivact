@@ -339,7 +339,7 @@ pub fn catalog() -> impl IntoView {
             .on_pointer(move |e| {
                 if matches!(
                     e.phase,
-                    PointerPhase::Move | PointerPhase::Enter | PointerPhase::Down
+                    PointerPhase::Move | PointerPhase::Enter | PointerPhase::Down(_)
                 ) {
                     pointer.set(e.window_pos);
                     if pie.get().open {

@@ -75,8 +75,7 @@ fn checkboxes() -> impl IntoView {
         vec![(
             "View".to_string(),
             vec![
-                MenuEntry::item("bookmarks", "Always Show Bookmarks Bar")
-                    .checked(bookmarks.get())
+                MenuEntry::checkbox("bookmarks", "Always Show Bookmarks Bar", bookmarks.get())
                     .keep_open(true),
                 MenuEntry::separator(),
                 MenuEntry::heading("Profiles"),

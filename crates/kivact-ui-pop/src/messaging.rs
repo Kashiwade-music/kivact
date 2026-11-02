@@ -4,7 +4,7 @@ use crate::{Hue, Tokens, avatar, badge};
 use kivact::Value;
 use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::i18n;
-use kivact::motion::{Animated, Easing, Transition};
+use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::primitive::NodeExt;
 use kivact::style::current_theme;
 use kivact::style::{Align, Color, ColorToken, TextOverflow, pct, style};
@@ -133,7 +133,7 @@ pub fn typing_message(initials: impl IntoText) -> Node {
         0.0f32,
         std::f32::consts::TAU,
         Transition::tween(1000, Easing::Linear)
-            .repeat(None)
+            .repeat(Repeat::Forever)
             .decorative(false),
     );
     row((

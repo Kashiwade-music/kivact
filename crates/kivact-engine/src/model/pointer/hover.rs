@@ -84,7 +84,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .any(|t| t.pressed.contains(&id) && t.hover.contains(&id))
+            .any(|t| t.pressed().contains(&id) && t.hover.contains(&id))
     }
 
     /// The node under the pointer: the head of the first non-empty hover
@@ -104,7 +104,11 @@ impl Model {
     /// pointing hand for an activatable node; with none, the arrow.
     pub(crate) fn cursor(&self) -> CursorKind {
         let mouse = self.pointer.state.track(PointerId::MOUSE);
-        for id in mouse.capture.into_iter().chain(mouse.hover.iter().copied()) {
+        for id in mouse
+            .capture()
+            .into_iter()
+            .chain(mouse.hover.iter().copied())
+        {
             if let Some(n) = self.tree.get(id) {
                 let specified = self.effective_paint(id).cursor;
                 if specified != CursorKind::Auto {

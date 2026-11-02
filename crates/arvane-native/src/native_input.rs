@@ -62,6 +62,8 @@ mod system;
 
 #[cfg(windows)]
 mod windows;
+#[cfg(target_os = "linux")]
+mod x11;
 #[cfg(windows)]
 pub(crate) use windows::Subclass;
 #[cfg(all(windows, feature = "embed"))]

@@ -2,13 +2,15 @@
 
 use std::panic::Location;
 
-use crate::view::common::{Common, SemanticSources};
+use crate::view::NodeRef;
+use crate::view::common::SemanticSources;
 use crate::view::descriptor::Mcx;
 use crate::view::state::ViewState;
 use kivact_engine::bridge::PropValue;
 use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{EffectKind, ErrorKind, UiError};
-use kivact_wire::NodeId;
+use kivact_style::asset::ImageFit;
+use kivact_wire::{CheckedState, NodeId};
 
 use kivact_wire::SemanticsProperties;
 /// The nodes `refs` are bound to now, in order, leaving out a reference
@@ -23,14 +25,10 @@ fn bound(
 pub(super) fn bind(
     cx: &Mcx<'_>,
     id: kivact_wire::NodeId,
-    mut sources: SemanticSources,
+    sources: SemanticSources,
     at: &'static std::panic::Location<'static>,
 ) {
-    if let Some(source) = sources.focusable.take() {
-        cx.bind(id, source, PropValue::Focusable, at);
-    }
-    if sources.indeterminate.is_none()
-        && sources.value_min.is_none()
+    if sources.value_min.is_none()
         && sources.value_max.is_none()
         && sources.value_now.is_none()
         && sources.live_region.is_none()
@@ -74,18 +72,31 @@ pub(super) fn bind(
     });
 }
 
-/// Stage 8: bind the semantic sources that include the node's own text, in
+/// Stage 6: bind the semantic sources that include the node's own text, in
 /// the existing effect order after draw layers for retained paint consumers.
 /// Text geometry may instead use `primitive::shape_paragraph` directly. A value that
 /// reads what the drawing just made sees it in the same turn.
 pub(super) fn bind_late(
     cx: &Mcx<'_>,
     id: kivact_wire::NodeId,
-    c: &mut Common,
+    sources: Option<Box<SemanticSources>>,
     at: &'static std::panic::Location<'static>,
 ) {
-    if let Some(s) = c.semantics.take() {
-        bind(cx, id, *s, at);
+    if let Some(sources) = sources {
+        bind(cx, id, *sources, at);
+    }
+}
+
+/// The published checked state of a node or region: mixed wins, else the
+/// binary value, else not a toggle.
+pub(super) fn checked_state(
+    checked: Option<bool>,
+    indeterminate: Option<bool>,
+) -> Option<CheckedState> {
+    match (checked, indeterminate) {
+        (_, Some(true)) => Some(CheckedState::Indeterminate),
+        (Some(checked), _) => Some(CheckedState::from_bool(checked)),
+        (None, _) => None,
     }
 }
 
@@ -95,11 +106,6 @@ pub(super) fn resolve(
     at: &'static std::panic::Location<'static>,
 ) -> SemanticsProperties {
     SemanticsProperties {
-        indeterminate: sources
-            .indeterminate
-            .as_ref()
-            .map(kivact_reactive::Prop::get)
-            .unwrap_or(false),
         value_min: sources.value_min.as_ref().map(kivact_reactive::Prop::get),
         value_max: sources.value_max.as_ref().map(kivact_reactive::Prop::get),
         value_now: sources.value_now.as_ref().map(kivact_reactive::Prop::get),
@@ -126,7 +132,6 @@ pub(super) fn resolve(
         controls: bound(&sources.controls, at),
         labelled_by: bound(&sources.labelled_by, at),
         text: sources.text.as_ref().map(kivact_reactive::Prop::get),
-        ..Default::default()
     }
 }
 
@@ -144,36 +149,68 @@ fn bind_prop<T: Clone + 'static>(
     }
 }
 
-/// Stage 4: bind the semantic properties (name, description, value, checked,
+/// Stage 2's input: the semantic and image properties.
+pub(super) struct SemanticProps {
+    pub(super) name: Option<InputProp<String>>,
+    pub(super) description: Option<InputProp<String>>,
+    pub(super) value: Option<InputProp<String>>,
+    pub(super) checked: Option<InputProp<bool>>,
+    /// Mixed checked state; wins over `checked`.
+    pub(super) indeterminate: Option<InputProp<bool>>,
+    pub(super) expanded: Option<InputProp<bool>>,
+    pub(super) invalid: Option<InputProp<bool>>,
+    /// Final: the caller's, or combined with the parts' requirements.
+    pub(super) hidden: Option<InputProp<bool>>,
+    pub(super) image_fit: Option<InputProp<ImageFit>>,
+    pub(super) monochrome: Option<InputProp<bool>>,
+    pub(super) focus_on_press: Option<NodeRef>,
+    /// The extra semantic sources without the node's own text (those wait for `bind_late`).
+    pub(super) sources: Option<Box<SemanticSources>>,
+}
+
+/// Stage 2: bind the semantic properties (name, description, value, checked,
 /// expanded, the extra semantic sources, the press focus destination,
 /// invalid, hidden) and the image properties (fit, monochrome).
-pub(super) fn bind_props(cx: &Mcx<'_>, id: NodeId, c: &mut Common, at: &'static Location<'static>) {
-    bind_prop(cx, id, c.name.take(), PropValue::Name, at);
-    bind_prop(cx, id, c.description.take(), PropValue::Description, at);
-    bind_prop(cx, id, c.value.take(), PropValue::Value, at);
-    bind_prop(
-        cx,
-        id,
-        c.checked.take(),
-        |b| PropValue::Checked(Some(b)),
-        at,
-    );
-    bind_prop(
-        cx,
-        id,
-        c.expanded.take(),
-        |b| PropValue::Expanded(Some(b)),
-        at,
-    );
-    // Sources with the node's own text wait for the draw stage
-    // (`bind_late`) preserves ordering for retained paint consumers. Text
-    // geometry can shape directly and does not require a preceding draw.
-    if c.semantics.as_ref().is_some_and(|s| s.text.is_none())
-        && let Some(s) = c.semantics.take()
-    {
-        bind(cx, id, *s, at);
+pub(super) fn bind_props(
+    cx: &Mcx<'_>,
+    id: NodeId,
+    props: SemanticProps,
+    at: &'static Location<'static>,
+) {
+    let SemanticProps {
+        name,
+        description,
+        value,
+        checked,
+        indeterminate,
+        expanded,
+        invalid,
+        hidden,
+        image_fit,
+        monochrome,
+        focus_on_press,
+        sources,
+    } = props;
+    bind_prop(cx, id, name, PropValue::Name, at);
+    bind_prop(cx, id, description, PropValue::Description, at);
+    bind_prop(cx, id, value, PropValue::Value, at);
+    if checked.is_some() || indeterminate.is_some() {
+        let weak = cx.weak();
+        cx.effect(EffectKind::Render, at, move || {
+            let state = checked_state(
+                checked.as_ref().map(kivact_reactive::Prop::get),
+                indeterminate.as_ref().map(kivact_reactive::Prop::get),
+            );
+            if let Some(rt) = weak.upgrade() {
+                ViewState::tree_mut(&rt).update(id, PropValue::Checked(state), rt.running_effect());
+            }
+        });
     }
-    if let Some(destination) = c.focus_on_press.take() {
+    bind_prop(cx, id, expanded, PropValue::Expanded, at);
+    if let Some(sources) = sources {
+        bind(cx, id, *sources, at);
+    }
+    if let Some(destination) = focus_on_press {
         let weak = cx.weak();
         cx.effect(EffectKind::Render, at, move || {
             let target = destination.target_value(at);
@@ -186,8 +223,8 @@ pub(super) fn bind_props(cx: &Mcx<'_>, id: NodeId, c: &mut Common, at: &'static 
             }
         });
     }
-    bind_prop(cx, id, c.invalid.take(), PropValue::Invalid, at);
-    bind_prop(cx, id, c.hidden.take(), PropValue::Hidden, at);
-    bind_prop(cx, id, c.image_fit.take(), PropValue::ImageFit, at);
-    bind_prop(cx, id, c.monochrome.take(), PropValue::Monochrome, at);
+    bind_prop(cx, id, invalid, PropValue::Invalid, at);
+    bind_prop(cx, id, hidden, PropValue::Hidden, at);
+    bind_prop(cx, id, image_fit, PropValue::ImageFit, at);
+    bind_prop(cx, id, monochrome, PropValue::Monochrome, at);
 }

@@ -25,7 +25,7 @@
 //! - Mounting 100 rows or more under an unconstrained size is warned
 //!   about.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::panic::Location;
@@ -164,11 +164,40 @@ struct VRow<T: 'static> {
     top: f32,
 }
 
+/// What the host reported of the list's scroll box.
+#[derive(Clone, Copy, PartialEq)]
+struct Viewport {
+    offset: f32,
+    height: f32,
+}
+
+/// The viewport height the visible range assumes until the host reports one.
+const UNREPORTED_HEIGHT: f32 = 600.0;
+
+/// The `scroll_to` request in progress.
+enum Seek<K> {
+    Idle,
+    /// The row `key` is to be scrolled into view, until the host has done it.
+    Pending {
+        key: K,
+        issued: Option<Issued>,
+        /// How many scrolls were asked for in this request.
+        steps: u8,
+    },
+}
+
+/// The last scroll the list asked for in a request: the offset it was at and the one it asked for.
+#[derive(Clone, Copy)]
+struct Issued {
+    from: f32,
+    to: f32,
+}
+
 struct VState<K: 'static, T: 'static> {
     rows: HashMap<K, VRow<T>>,
     measured: HashMap<K, f32>,
-    /// The row `scroll_to` named, until the host has scrolled it into view.
-    pending: Option<K>,
+    /// The `scroll_to` request in progress.
+    seek: Seek<K>,
     /// The row that holds the keyboard focus (`keep_focused`).
     held: Option<K>,
 }
@@ -213,12 +242,15 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
             let mut common = root.into_modifiers(cx, "a virtual list", at);
             // `.at(..)` relocates the spacer and row wrappers too.
             let at = common.at.unwrap_or(at);
-            // viewport (offset_y, height)
-            let viewport: Signal<(f32, f32)> = cx.owner.signal((0.0f32, 0.0f32), at);
+            // What the host reported (`None` before the first report).
+            let viewport: Signal<Option<Viewport>> = cx.owner.signal(None, at);
             let measured_version = cx.owner.trigger(at);
-            common.handlers.scroll = Some(Rc::new(move |s| {
-                viewport.set((s.offset.y, s.viewport.height))
-            }));
+            common.handlers.observe_scroll(move |s| {
+                viewport.set(Some(Viewport {
+                    offset: s.offset.y,
+                    height: s.viewport.height,
+                }))
+            });
             // The style resolves like every node's (state styles and
             // paint transitions included), but overflow is always a
             // vertical scroll.
@@ -241,13 +273,14 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
             let state: Rc<RefCell<VState<K, T>>> = Rc::new(RefCell::new(VState {
                 rows: HashMap::new(),
                 measured: HashMap::new(),
-                pending: None,
+                seek: Seek::Idle,
                 held: None,
             }));
             // Which row holds the focus changes rarely: only then does the
             // visible range run again, not at every focus move.
             let held_version = cx.owner.trigger(at);
-            if keep_focused && let Some(keys) = ViewState::of(cx.rt).focus_keys() {
+            if keep_focused {
+                let keys = ViewState::of(cx.rt).focus_keys();
                 let weak = cx.weak();
                 let st = state.clone();
                 cx.effect(EffectKind::Internal, at, move || {
@@ -260,30 +293,25 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                     }
                 });
             }
-            let seek = Rc::new(Seek {
+            let seeker = Rc::new(Seeker {
                 items: items.clone(),
                 key: key.clone(),
                 height,
                 state: state.clone(),
                 viewport,
                 outer,
-                issued: Cell::new(None),
-                steps: Cell::new(0),
             });
             let weak = cx.weak();
             let parent = cx.owner;
             let st = state.clone();
             let warned = std::cell::Cell::new(false);
-            let range_seek = seek.clone();
+            let range_seeker = seeker.clone();
             cx.effect(EffectKind::Internal, at, move || {
-                let (offset, reported_vh) = viewport.get();
+                let reported = viewport.get();
+                let (offset, vh) =
+                    reported.map_or((0.0, UNREPORTED_HEIGHT), |v| (v.offset, v.height));
                 measured_version.track();
                 let Some(rt) = weak.upgrade() else { return };
-                let vh = if reported_vh <= 0.0 {
-                    600.0
-                } else {
-                    reported_vh
-                };
                 held_version.track();
                 let focused_key = st.borrow().held.clone();
                 let lo = (offset - overscan).max(0.0);
@@ -364,13 +392,15 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                 // The host reported a viewport as tall as the content: the
                 // list is not height-constrained and every row is mounted
                 // (typically a flex ancestor without `min_height(0)`).
-                if reported_vh > 0.0
-                    && reported_vh + 0.5 >= total
+                if let Some(v) = reported
+                    && v.height > 0.0
+                    && v.height + 0.5 >= total
                     && visible.len() >= UNCONSTRAINED_ROWS
                     && !warned.replace(true)
                 {
                     let msg = format!(
-                        "virtual_list at {at}: viewport ({reported_vh:.0}px) is as tall as its                          content ({total:.0}px), so all {} rows are mounted; give the list a                          bounded height (e.g. `min_height(0)` on flex ancestors or a fixed height)",
+                        "virtual_list at {at}: viewport ({:.0}px) is as tall as its                          content ({total:.0}px), so all {} rows are mounted; give the list a                          bounded height (e.g. `min_height(0)` on flex ancestors or a fixed height)",
+                        v.height,
                         visible.len()
                     );
                     rt.warn(msg);
@@ -403,7 +433,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                     measured_version,
                     at,
                 );
-                range_seek.run(&rt);
+                range_seeker.run(&rt);
             });
             // Scroll to the row `scroll_to` names, at mount and after each
             // change of the request.
@@ -418,10 +448,12 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                     }
                     last.borrow_mut().clone_from(&request);
                     let Some(request) = request else { return };
-                    seek.state.borrow_mut().pending = Some(request);
-                    seek.issued.set(None);
-                    seek.steps.set(0);
-                    untrack(|| seek.run(&rt));
+                    seeker.state.borrow_mut().seek = Seek::Pending {
+                        key: request,
+                        issued: None,
+                        steps: 0,
+                    };
+                    untrack(|| seeker.run(&rt));
                 });
             }
             outer
@@ -468,47 +500,46 @@ fn reveal_offset(top: f32, height: f32, offset: f32, view: f32) -> f32 {
 /// What carries out `scroll_to`: the pending request becomes a scroll of the
 /// list to the position of the row and, once the row is mounted, a scroll of
 /// the host that brings the row into view.
-struct Seek<K: 'static, T: 'static> {
+struct Seeker<K: 'static, T: 'static> {
     items: InputProp<Vec<T>>,
     key: Rc<dyn Fn(&T) -> K>,
     height: RowHeight,
     state: Rc<RefCell<VState<K, T>>>,
-    viewport: Signal<(f32, f32)>,
+    viewport: Signal<Option<Viewport>>,
     outer: NodeId,
-    /// The last scroll the list was asked for in this request: the offset
-    /// it was at and the one asked for.
-    issued: Cell<Option<(f32, f32)>>,
-    /// How many scrolls were asked for in this request.
-    steps: Cell<u8>,
 }
 
 /// Scrolls one request may take before it gives up (a `Measured` list whose
 /// rows keep changing height under the target).
 const MAX_STEPS: u8 = 8;
 
-impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seek<K, T> {
+impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seeker<K, T> {
     /// Advance the pending request, if any.
     fn run(&self, rt: &Rc<Runtime>) {
-        let Some(want) = self.state.borrow().pending.clone() else {
-            return;
+        let (want, issued, steps) = match &self.state.borrow().seek {
+            Seek::Idle => return,
+            Seek::Pending { key, issued, steps } => (key.clone(), *issued, *steps),
         };
-        if !ViewState::tree(rt).is_live(self.outer) {
+        if !ViewState::tree(rt).contains(self.outer) {
             return;
         }
         // The row is mounted: the host can bring it into view exactly.
         let mounted = self.state.borrow().rows.get(&want).map(|r| r.wrapper);
-        if let Some(wrapper) = mounted.filter(|w| ViewState::tree(rt).is_live(*w)) {
+        if let Some(wrapper) = mounted.filter(|w| ViewState::tree(rt).contains(*w)) {
             self.finish();
             ViewState::tree(rt).engine().scroll_into_view(wrapper);
             rt.request_turn();
             return;
         }
-        let (offset, view) = self.viewport.get_untracked();
         // The host has not reported a viewport yet.
-        if view <= 0.0 {
+        let Some(Viewport {
+            offset,
+            height: view,
+        }) = self.viewport.get_untracked()
+        else {
             return;
-        }
-        if let Some((from, to)) = self.issued.get() {
+        };
+        if let Some(Issued { from, to }) = issued {
             // The host has not reported the scroll yet.
             if offset == from && offset != to {
                 return;
@@ -545,12 +576,18 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seek<K, T> {
             return;
         };
         let target = reveal_offset(top, height, offset, view).min((total - view).max(0.0));
-        if target == offset || self.steps.get() >= MAX_STEPS {
+        if target == offset || steps >= MAX_STEPS {
             self.finish();
             return;
         }
-        self.steps.set(self.steps.get() + 1);
-        self.issued.set(Some((offset, target)));
+        self.state.borrow_mut().seek = Seek::Pending {
+            key: want,
+            issued: Some(Issued {
+                from: offset,
+                to: target,
+            }),
+            steps: steps + 1,
+        };
         ViewState::tree(rt)
             .engine()
             .scroll(self.outer, Point { x: 0.0, y: target }, false, false);
@@ -558,9 +595,7 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seek<K, T> {
     }
 
     fn finish(&self) {
-        self.state.borrow_mut().pending = None;
-        self.issued.set(None);
-        self.steps.set(0);
+        self.state.borrow_mut().seek = Seek::Idle;
     }
 }
 
@@ -634,13 +669,13 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
                     let mut tree = ViewState::tree_mut(rt);
                     tree.set_observe(wrapper, true);
                     if let Some(hd) = tree.handlers_mut(wrapper) {
-                        hd.layout = Some(Rc::new(move |_, size| {
+                        hd.observe_layout(move |_, size| {
                             let Some(st) = st.upgrade() else { return };
                             let prev = st.borrow_mut().measured.insert(key.clone(), size.height);
                             if prev != Some(size.height) {
                                 measured_version.notify();
                             }
-                        }));
+                        });
                     }
                 }
                 let content = mount_in(rt, owner, || row(k.clone(), sig.into_value()));
@@ -695,7 +730,7 @@ fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]
             stable[kept[j].0] = true;
         }
     }
-    let live = tree.is_live(spacer);
+    let live = tree.contains(spacer);
     tree.set_children(spacer, order.clone());
     if !live {
         return;

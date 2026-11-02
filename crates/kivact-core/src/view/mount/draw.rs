@@ -8,41 +8,38 @@ use kivact_reactive::{EffectKind, Signal, UiError};
 use kivact_style::draw::{Draw, Recording, Size};
 use kivact_wire::{NodeId, SceneLayer};
 
-use super::facts::NodeFacts;
-use crate::view::common::{Common, Registry};
+use super::facts::LocalPaintSource;
+use crate::view::common::{DrawFn, Registry};
 use crate::view::descriptor::Mcx;
 use crate::view::state::ViewState;
 
-/// Stage 7: bind the node's draw effect: `.draw`, `.draw_over` and the local
+/// Stage 5's input: the draw layers, the style's local paint and the canvas regions.
+pub(super) struct DrawInput {
+    pub(super) below: Option<DrawFn>,
+    pub(super) over: Option<DrawFn>,
+    pub(super) local_paint: Option<LocalPaintSource>,
+    pub(super) regions: Option<Rc<Registry>>,
+    /// The node's layout size, written by the layout observer `resolve` installed.
+    pub(super) size: Signal<Size>,
+}
+
+/// Stage 5: bind the node's draw effect: `.draw`, `.draw_over` and the local
 /// paint of its style, with the regions its canvas declares. The layers are
 /// re-recorded when the node's size or anything they read changes.
-pub(super) fn bind(
-    cx: &Mcx<'_>,
-    id: NodeId,
-    c: &mut Common,
-    facts: &NodeFacts,
-    regions: Option<Rc<Registry>>,
-    at: &'static Location<'static>,
-) {
-    if !facts.has_draw {
-        return;
-    }
+pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Location<'static>) {
     let owner = cx.owner;
-    let local_paint = &facts.local_paint;
-    let size: Signal<Size> = cx.owner.signal(Size::new(0.0, 0.0), at);
-    if let Some(h) = ViewState::tree_mut(cx.rt).handlers_mut(id) {
-        h.layout = Some(Rc::new(move |_, s| size.set(s)));
-    }
+    let DrawInput {
+        below,
+        over,
+        local_paint,
+        regions,
+        size,
+    } = input;
     let theme = cx.theme();
-    for (layer, f) in [
-        (SceneLayer::Draw, c.draw.take()),
-        (SceneLayer::DrawOver, c.draw_over.take()),
+    for (layer, f, paint) in [
+        (SceneLayer::Draw, below, local_paint),
+        (SceneLayer::DrawOver, over, None),
     ] {
-        let paint = if layer == SceneLayer::Draw {
-            local_paint.clone()
-        } else {
-            None
-        };
         if f.is_none() && paint.is_none() {
             continue;
         }
@@ -53,11 +50,9 @@ pub(super) fn bind(
         cx.effect(EffectKind::Render, at, move || {
             let sz = size.get();
             let theme = theme.map(|t| t.get()).unwrap_or_default();
-            let measurer = weak.upgrade().and_then(|rt| {
-                ViewState::tree_mut(&rt)
-                    .reader()
-                    .and_then(|reader| reader.text_measurer(id))
-            });
+            let measurer = weak
+                .upgrade()
+                .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
             let Recording {
                 scene,
                 unsupported: issues,

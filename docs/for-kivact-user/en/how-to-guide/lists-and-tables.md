@@ -86,8 +86,8 @@ mod tests {
 
         screen.get_by_role(Role::CheckBox, "Buy milk").click();
         assert_eq!(
-            screen.get_by_role(Role::CheckBox, "Buy milk").is_checked(),
-            Some(true)
+            screen.get_by_role(Role::CheckBox, "Buy milk").checked(),
+            Some(CheckedState::Checked)
         );
     }
 }
@@ -371,7 +371,7 @@ Each feature appears only when you give it a binding:
 | Call | What you get |
 | --- | --- |
 | `.selection(Signal<Vec<K>>)` | check boxes in each row and the header, and a "selected" count |
-| `.sort(Binding<Option<(usize, SortDirection)>>)` | read or set the sorted column (by position) and direction; without it the header still sorts by itself |
+| `.sort(Binding<Option<(usize, SortOrder)>>)` | read or set the sorted column (by position) and direction; without it the header still sorts by itself |
 | `.filter(Signal<String>)` | a filter box that keeps rows whose `DataColumn::filter` matches |
 | `.page(Signal<usize>, size)` | pages of `size` rows with Previous and Next |
 | `.resizable(Signal<Vec<f32>>)` | resize handles on the header; the widths are yours |
@@ -386,7 +386,7 @@ accessible name. `.numeric(true)` right-aligns, `.width(px)` fixes the width and
 the other columns share the rest, and `.visible(..)` hides a column.
 
 By default the keyboard moves a focus between cells and Space selects the row.
-`.focus(TableFocus::Rows)` makes a whole row the focus stop instead. For a table
+`.focus(TableFocus::Rows(ListPolicy::default()))` makes a whole row the focus stop instead. For a table
 with many thousands of rows, combine `.page(..)` with data you already
 filtered, because every row of the current page is mounted.
 

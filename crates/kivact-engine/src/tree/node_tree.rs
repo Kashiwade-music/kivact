@@ -1,7 +1,7 @@
 //! Role: The node tree: root, overlays, structural queries and writes over the store.
 
 use super::store::NodeStore;
-use crate::tree::node::{HostNode, NodeIndex, Presence};
+use crate::tree::node::{HostNode, NodeIndex, Place, Presence};
 use kivact_wire::{NodeId, NodeType};
 use std::collections::BTreeSet;
 
@@ -202,8 +202,21 @@ impl NodeTree {
         self.track_position(id, place.sticky, place.fixed);
     }
 
+    /// Derive the place of the node at `index` again from its props, keeping the
+    /// sticky, fixed and scroller indexes with it; the place it had.
+    pub(crate) fn update_place(&mut self, index: NodeIndex) -> Place {
+        let id = self.nodes.id_at(index);
+        let n = self.nodes.at_mut(index);
+        let old = n.place;
+        n.update_place();
+        let (place, scrolls) = (n.place, n.scroll_axes() != (false, false));
+        self.track_scroller(id, scrolls);
+        self.track_position(id, place.sticky, place.fixed);
+        old
+    }
+
     /// Note whether `id` is sticky or fixed.
-    pub(crate) fn track_position(&mut self, id: NodeId, sticky: bool, fixed: bool) {
+    fn track_position(&mut self, id: NodeId, sticky: bool, fixed: bool) {
         for (set, on) in [(&mut self.sticky, sticky), (&mut self.fixed, fixed)] {
             if on {
                 set.insert(id);
@@ -213,7 +226,7 @@ impl NodeTree {
         }
     }
 
-    pub(crate) fn track_scroller(&mut self, id: NodeId, scrolls: bool) {
+    fn track_scroller(&mut self, id: NodeId, scrolls: bool) {
         if scrolls {
             self.scrollers.insert(id);
         } else {
@@ -223,20 +236,18 @@ impl NodeTree {
 
     /// Observe `id`'s layout while `on`; `false` when nothing changed.
     pub(crate) fn set_observed(&mut self, id: NodeId, on: bool) -> bool {
-        let Some(n) = self.nodes.get_mut(&id) else {
-            return false;
-        };
-        if n.observed == on {
+        if !self.nodes.contains_key(&id) {
             return false;
         }
-        n.observed = on;
-        n.sent_layout = None;
-        if on {
-            self.observed.insert(id);
+        let changed = if on {
+            self.observed.insert(id)
         } else {
-            self.observed.remove(&id);
+            self.observed.remove(&id)
+        };
+        if changed && let Some(n) = self.nodes.get_mut(&id) {
+            n.sent_layout = None;
         }
-        true
+        changed
     }
 
     /// Link the detached `id` under `parent` before `before` (appended

@@ -82,13 +82,19 @@ pub use gpu_interop::{
 };
 pub use image::ImageFit;
 pub use input::{FilePhase, ImeEvent, Key, KeyCode, Modifiers, MouseButton};
-pub use layout::{Align, FlexDirection, Justify, Overflow, Placement, Position};
-pub use motion::{Easing, Spring, StepPosition};
+pub use layout::{
+    Align, FlexDirection, Justify, Overflow, OverlayAlign, Placement, Position, ScrollAxes,
+};
+pub use motion::{Easing, Repeat, Spring, StepPosition};
 pub use paint::Extend;
 pub use platform::{
-    Capabilities, Insets, LifecycleEvent, PointerButtons, PointerId, PointerKind, PointerPhase,
+    ButtonPress, Capabilities, Insets, LifecycleEvent, PointerButtons, PointerId, PointerKind,
+    PointerPhase,
 };
-pub use semantics::{A11yAction, LiveRegion, Orientation, Role, SortDirection};
+pub use semantics::{
+    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
+    SortDirection,
+};
 pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
 pub use shape::{BorderStyle, FillRule, LineCap, LineJoin, Stroke};
 pub use style::Rgba;

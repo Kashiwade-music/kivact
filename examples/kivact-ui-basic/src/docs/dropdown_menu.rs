@@ -79,12 +79,8 @@ fn checkboxes() -> impl IntoView {
         vec![
             MenuEntry::heading("Appearance"),
             MenuEntry::separator(),
-            MenuEntry::item("status", "Status Bar")
-                .checked(status.get())
-                .keep_open(true),
-            MenuEntry::item("activity", "Activity Bar")
-                .checked(activity.get())
-                .keep_open(true),
+            MenuEntry::checkbox("status", "Status Bar", status.get()).keep_open(true),
+            MenuEntry::checkbox("activity", "Activity Bar", activity.get()).keep_open(true),
         ]
     };
     menu("Appearance", entries, move |key: &'static str| match key {

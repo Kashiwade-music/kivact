@@ -384,7 +384,7 @@ impl TestParent {
                     Ok(Some(x11rb::protocol::Event::DestroyNotify(event)))
                         if event.window == self.native.id.get() =>
                     {
-                        self.native.alive.store(false, Ordering::Release);
+                        self.native.exists.store(false, Ordering::Release);
                     }
                     Ok(Some(x11rb::protocol::Event::Expose(event)))
                         if event.window == self.native.id.get() =>
@@ -403,7 +403,7 @@ impl TestParent {
                     Ok(Some(_)) => {}
                     Ok(None) => break,
                     Err(_) => {
-                        self.native.alive.store(false, Ordering::Release);
+                        self.native.exists.store(false, Ordering::Release);
                         break;
                     }
                 }
@@ -659,7 +659,7 @@ impl TestParent {
     }
     /// Destroy the host and its children, then wait boundedly for its WM frame.
     pub fn close(&self) {
-        if self.native.alive.swap(false, Ordering::AcqRel) {
+        if self.native.exists.swap(false, Ordering::AcqRel) {
             let destroyed = self
                 .native
                 .connection
@@ -710,7 +710,7 @@ impl TestParent {
     }
     /// Whether this host has been explicitly closed.
     pub fn is_closed(&self) -> bool {
-        !self.native.alive.load(Ordering::Acquire)
+        !self.native.exists.load(Ordering::Acquire)
     }
 
     fn child(&self) -> Result<u32, ShellError> {

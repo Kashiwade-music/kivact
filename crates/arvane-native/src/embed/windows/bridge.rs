@@ -20,30 +20,22 @@ struct Actions {
 }
 impl accesskit::ActionHandler for Actions {
     fn do_action(&mut self, request: accesskit::ActionRequest) {
-        if let Some((node, action, value)) = translate_action(&request)
-            && self.tree.queue_action(node, action, value.as_deref())
+        if let Some((node, request)) = translate_action(&request)
+            && self.tree.queue_action(node, request)
         {
             self.waker.wake();
         }
     }
 }
-pub(super) struct Bridge {
-    pub(super) tree: PlatformTree,
-    pub(super) adapter: accesskit_windows::Adapter,
-}
-impl Bridge {
-    pub(super) fn new(hwnd: isize, waker: ShellWaker, scale: f64) -> Self {
-        let tree = PlatformTree::new(scale);
-        Self {
-            adapter: accesskit_windows::Adapter::new(
-                accesskit_windows::HWND(hwnd as *mut _),
-                false,
-                Actions {
-                    tree: tree.clone(),
-                    waker,
-                },
-            ),
-            tree,
-        }
-    }
+/// The UIA adapter of `hwnd` over the child's accepted `tree`.
+pub(super) fn adapter(
+    hwnd: isize,
+    tree: PlatformTree,
+    waker: ShellWaker,
+) -> accesskit_windows::Adapter {
+    accesskit_windows::Adapter::new(
+        accesskit_windows::HWND(hwnd as *mut _),
+        false,
+        Actions { tree, waker },
+    )
 }

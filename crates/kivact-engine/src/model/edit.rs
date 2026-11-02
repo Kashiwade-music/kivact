@@ -10,9 +10,9 @@
 //!   editing state, and it keeps the index of text inputs with it: the
 //!   index lists exactly the live nodes with one.
 //! - A controlled value replaces the value but keeps the composition
-//!   (`EditState::set_controlled`); one given while composing is held and
+//!   (`Editor::set_controlled`); one given while composing is held and
 //!   taken, as a recorded change in the same `TextChanged`, by the edit
-//!   that ends the composition (`Model::adopt_held`). A node's first value
+//!   that ends the composition (`EditorNode::adopt_pending_controlled`). A node's first value
 //!   starts with the caret at the end.
 //! - A controlled value is known by its `Rc`: the same one given again
 //!   while the text keeps the revision it was given at changes nothing
@@ -38,7 +38,7 @@
 //! - The IME is given its text only when the text's revision, the session
 //!   or the geometry changed since the last time. The offsets the IME
 //!   answers with are in the text it was last given, which starts at
-//!   `Edits::ime_start` in the value.
+//!   `ImeGiven::Input::start` in the value.
 //! - The range the IME takes for reconversion (`ShellEvent::ImeSelection`,
 //!   [`Model::ime_select`]) becomes the selection, which the composition
 //!   that follows replaces. It is ignored while composing, and in a

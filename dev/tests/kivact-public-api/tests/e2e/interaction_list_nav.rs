@@ -67,21 +67,19 @@ fn mount_list_kind(
             ListSelection::Multiple(selected.into())
         };
 
-        let nav = configure(
-            use_list(
-                move || {
-                    rows.get()
-                        .into_iter()
-                        .map(|key| ListItem::new(key, key))
-                        .collect::<Vec<_>>()
-                },
-                selection,
-            )
-            .policy(ListPolicy {
+        let nav = configure(use_list(
+            move || {
+                rows.get()
+                    .into_iter()
+                    .map(|key| ListItem::new(key, key))
+                    .collect::<Vec<_>>()
+            },
+            selection,
+            ListPolicy {
                 typeahead: true,
                 ..ListPolicy::default()
-            }),
-        );
+            },
+        ));
         let list = for_each(
             rows,
             |name| *name,

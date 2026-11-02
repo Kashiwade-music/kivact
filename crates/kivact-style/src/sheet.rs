@@ -18,6 +18,10 @@
 //!   focus is visible); `enter` and `exit` are deltas of the same kind, on
 //!   top right after mounting and while leaving (`kivact::motion`).
 //!   `disabled` and `selected` are merged when the style is compiled.
+//!   A state style changes paint only (see [`TransitionProp::Paint`]); a
+//!   layout or text property other than `color` set in a delta state is
+//!   reported as `Unsupported` and ignored. `selected` and `disabled` apply
+//!   any property.
 //! - Hover is CSS `:hover`: the pointer is over the node or a descendant
 //!   (the node is on the host's hover chain), so a hovered child keeps its
 //!   parent hovered. There is no `hovered` style; `NodeRef::hovered` reads
@@ -51,8 +55,8 @@
 //! - `clip(true)` clips drawing only; `overflow(Overflow::Hidden)` also
 //!   changes layout overflow. `Overflow::Scroll` sets the overflow of both
 //!   axes, while `scroll(child)` limits the axis (vertical by default,
-//!   `.orientation(..)` or `.both_axes()` otherwise) and adds the
-//!   `ScrollView` role.
+//!   `.axes(ScrollAxes::Horizontal)` or `.axes(ScrollAxes::Both)` otherwise)
+//!   and adds the `ScrollView` role.
 //!
 //! Layout vocabulary:
 //! - `node()` and `column` are vertical flex boxes, `row` horizontal; `gap`
@@ -83,7 +87,7 @@
 //!   `Length` and duplicate diagnostics; one side never sets another, so an
 //!   asymmetric layout needs only the public `Style`.
 
-use kivact_wire::{Align, Cursor, TextAlign};
+use kivact_wire::{Align, Cursor, ScrollAxes, TextAlign};
 
 use super::color::Color;
 use super::draw::{Draw, LocalPaint, Size};
@@ -202,8 +206,8 @@ pub struct Style {
     pub(super) wrap: Option<bool>,
     pub(super) position: Option<Position>,
     pub(super) overflow: Option<Overflow>,
-    /// Scroll axes set by `scroll(..)` (x, y).
-    pub(super) scroll_axes: Option<(bool, bool)>,
+    /// Scroll axes set by `scroll(..)`.
+    pub(super) scroll_axes: Option<ScrollAxes>,
     pub(super) background: Option<Background>,
     /// Border widths and colors, top, right, bottom, left.
     pub(super) border_width: [Option<f32>; 4],
@@ -242,7 +246,7 @@ pub struct Style {
     /// overflow, clamps, case, shadows, input colors: boxed).
     pub(super) text: Option<Box<TextExtras>>,
     pub(super) hover: Option<Box<Style>>,
-    pub(super) group: Option<bool>,
+    pub(super) group: bool,
     pub(super) group_hover: Option<Box<Style>>,
     pub(super) group_focus: Option<Box<Style>>,
     pub(super) pressed: Option<Box<Style>>,
@@ -755,6 +759,11 @@ impl Style {
 
     /// The style while the pointer is over the node or a node below it
     /// (CSS `:hover`, which a hovered child keeps on its parents).
+    ///
+    /// A state style changes paint only (see [`TransitionProp::Paint`]); a
+    /// layout or text property other than `color` set in it is reported as
+    /// `Unsupported` and ignored. `selected` and `disabled` apply any
+    /// property.
     pub fn hover(mut self, s: Style) -> Self {
         self.hover = Some(Box::new(s));
         self
@@ -764,7 +773,7 @@ impl Style {
     /// and [`group_focus`](Self::group_focus) styles below it (Tailwind's
     /// `group`).
     pub fn group(mut self) -> Self {
-        self.group = Some(true);
+        self.group = true;
         self
     }
 
@@ -896,11 +905,11 @@ impl Style {
         self
     }
 
-    /// Make this a scroll container along the selected axes: an overflow of
-    /// `x` scrolls horizontally and of `y` vertically, and an axis left
-    /// out clips (the base style of the `scroll(..)` container).
-    pub fn with_scroll_axes(mut self, x: bool, y: bool) -> Style {
-        self.scroll_axes = Some((x, y));
+    /// Make this a scroll container along `axes`: content overflowing a
+    /// scrolling axis scrolls, the other axis clips (the base style of the
+    /// `scroll(..)` container).
+    pub fn with_scroll_axes(mut self, axes: ScrollAxes) -> Style {
+        self.scroll_axes = Some(axes);
         self
     }
 
@@ -1006,9 +1015,9 @@ impl Style {
             text_wrap,
             text_align,
             font_family,
-            italic,
-            group
+            italic
         );
+        self.group |= o.group;
         for (a, b) in [
             (&mut self.hover, &o.hover),
             (&mut self.group_hover, &o.group_hover),

@@ -17,8 +17,8 @@ impl accesskit::ActivationHandler for Activation {
 struct Actions(PlatformTree, ShellWaker);
 impl accesskit::ActionHandler for Actions {
     fn do_action(&mut self, request: accesskit::ActionRequest) {
-        if let Some((node, action, value)) = translate_action(&request)
-            && self.0.queue_action(node, action, value.as_deref())
+        if let Some((node, request)) = translate_action(&request)
+            && self.0.queue_action(node, request)
         {
             self.1.wake();
         }
@@ -76,7 +76,7 @@ impl Bridge {
                 // The host can destroy its parent after the event queue was
                 // drained. A checked reply can observe that before DestroyNotify.
                 native
-                    .alive
+                    .exists
                     .store(false, std::sync::atomic::Ordering::Release);
                 return Ok(());
             }
@@ -93,7 +93,7 @@ impl Bridge {
             self.adapter.update_if_active(|| {
                 self.tree
                     .pending_with(true, convert_update)
-                    .expect("active publication retains its accepted tree")
+                    .expect(crate::a11y::native::TREE_KEPT)
             });
         }
         Ok(())

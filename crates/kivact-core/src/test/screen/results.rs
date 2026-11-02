@@ -1,6 +1,6 @@
 //! Role: Define passive results returned by screen inspection.
 
-use crate::view::Role;
+use crate::view::{CheckedState, Role};
 use kivact_engine::testing::{ShellImeText, TestFrame};
 use kivact_style::draw::Rect;
 use kivact_wire as p;
@@ -301,7 +301,7 @@ pub struct SemanticNode {
     pub focused: bool,
     pub disabled: bool,
     pub selected: bool,
-    pub checked: Option<bool>,
+    pub checked: Option<CheckedState>,
     /// Where the node was created: the call of the builder that created it
     /// (`text(..)`, `button(..)`, ...). Nodes a builder creates internally
     /// or from a plain string child (a button's label, `"a"` in a tuple) and

@@ -37,17 +37,32 @@ pub enum PointerKind {
     Pen,
 }
 
+/// The button a `Down` pressed or an `Up` released, and which click of a
+/// multi-click the press is. A touch or pen contact presses
+/// [`MouseButton::Primary`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ButtonPress {
+    /// The button.
+    pub button: MouseButton,
+    /// Which click of a multi-click the press is: 1 a single click, 2 a
+    /// double click, ..; never 0. An `Up` has the count of the press it
+    /// ends. The window counts it from the system's double-click time and
+    /// distance (per axis) from the last press of the same button; a
+    /// contact's taps count the same way from the last contact's `Down`.
+    pub clicks: u8,
+}
+
 /// The phase of a pointer event (Pointer Events' `pointerdown` ..
 /// `pointerleave`), shared by the window's input and the events a node's
 /// listener receives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PointerPhase {
     /// A button was pressed, or a touch or pen contact began.
-    Down,
+    Down(ButtonPress),
     /// The pointer moved, with or without buttons held.
     Move,
     /// A button was released, or a contact ended normally (lifted).
-    Up,
+    Up(ButtonPress),
     /// The gesture ended without a release the application should act on
     /// (the window lost focus with buttons held, the platform took a
     /// contact over for a gesture or rejected a palm).
@@ -58,6 +73,17 @@ pub enum PointerPhase {
     /// The pointer left a listener, or the mouse left the window. Held
     /// buttons keep their capture.
     Leave,
+}
+
+impl PointerPhase {
+    /// The press of a `Down` or the release of an `Up`; `None` for the other
+    /// phases.
+    pub fn press(self) -> Option<ButtonPress> {
+        match self {
+            Self::Down(press) | Self::Up(press) => Some(press),
+            Self::Move | Self::Cancel | Self::Enter | Self::Leave => None,
+        }
+    }
 }
 
 /// The set of mouse buttons held (Pointer Events' `buttons`). A touch or

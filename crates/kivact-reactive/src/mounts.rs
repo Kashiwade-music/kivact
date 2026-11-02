@@ -16,13 +16,17 @@
 //! - Each callback runs in a handler frame of its owner; a panic propagates.
 
 use crate::arena::Key;
-use crate::data::Runtime;
+use crate::data::{PendingMount, Runtime};
 
 impl Runtime {
     /// Queue `f` to run for `owner` once the next token the driver stamps is
     /// acknowledged.
     pub(crate) fn push_mount(&self, owner: Key, f: Box<dyn FnOnce()>) {
-        self.mounts.borrow_mut().push((owner, None, f));
+        self.mounts.borrow_mut().push(PendingMount {
+            owner,
+            token: None,
+            run: f,
+        });
     }
 
     /// Make every queued callback without a token wait for `token`; returns
@@ -30,9 +34,12 @@ impl Runtime {
     pub(crate) fn defer_mounts_until(&self, token: u64) -> bool {
         let mut stamped = false;
         for m in self.mounts.borrow_mut().iter_mut() {
-            if m.1.is_none() {
-                m.1 = Some(token);
-                stamped = true;
+            match m.token {
+                None => {
+                    m.token = Some(token);
+                    stamped = true;
+                }
+                Some(t) => assert!(t <= token, "invariant: mount tokens only grow"),
             }
         }
         stamped
@@ -47,9 +54,9 @@ impl Runtime {
             let all = std::mem::take(&mut *mounts);
             let (due, keep): (Vec<_>, Vec<_>) = all
                 .into_iter()
-                .partition(|(_, t, _)| t.is_some_and(|t| t <= token));
+                .partition(|m| m.token.is_some_and(|t| t <= token));
             *mounts = keep;
-            due.into_iter().map(|(o, _, f)| (o, f)).collect()
+            due.into_iter().map(|m| (m.owner, m.run)).collect()
         };
         for (owner, f) in due {
             if self.owner_alive(owner) {
@@ -65,6 +72,6 @@ impl Runtime {
         self.mounts
             .borrow()
             .iter()
-            .any(|(_, t, _)| t.is_some_and(|t| t <= token))
+            .any(|m| m.token.is_some_and(|t| t <= token))
     }
 }

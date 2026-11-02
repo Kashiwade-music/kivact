@@ -3,7 +3,6 @@
 //! Positions are logical window pixels, times nanoseconds.
 
 use crate::geometry::Point;
-use crate::input::MouseButton;
 use crate::platform::{Insets, PointerButtons, PointerId, PointerKind, PointerPhase};
 
 /// One event of the mouse, a touch or a pen, as a window delivers it
@@ -15,14 +14,14 @@ pub struct PointerInput {
     pub id: PointerId,
     /// Mouse, touch or pen.
     pub kind: PointerKind,
-    /// What happened.
+    /// What happened; a `Down`'s or `Up`'s button and click count are in it. A
+    /// window creates a `Down` or `Up` with `clicks: 1` and its click counter
+    /// (`arvane_shell::ClickCounter`) replaces the count; what is given to a
+    /// test window is replaced by its count.
     pub phase: PointerPhase,
     /// The buttons held after this event: a `Down` adds its button, an `Up`
     /// removes it, a `Cancel` holds none.
     pub buttons: PointerButtons,
-    /// The button a `Down` pressed or an `Up` released; `None` for every
-    /// other phase.
-    pub button: Option<MouseButton>,
     /// Where the pointer is, in logical window pixels. A mouse event whose
     /// platform message has no position carries the last one.
     pub position: Point,
@@ -31,14 +30,6 @@ pub struct PointerInput {
     /// The pen's tilt from the vertical (degrees, along x and y), when the
     /// device reports it.
     pub tilt: Option<(f32, f32)>,
-    /// Which click of a multi-click a `Down` is (1 single, 2 double ..),
-    /// counted by the window from the system's double-click time and
-    /// distance (per axis) from the last press of the same button; an `Up`
-    /// carries the count of the press it ends, each held button its own.
-    /// A contact's `Down` counts up from the last contact's `Down` the same
-    /// way and its other events carry that count. What is given to a test
-    /// window is replaced by its count.
-    pub clicks: u8,
 }
 
 /// The system's mouse settings.

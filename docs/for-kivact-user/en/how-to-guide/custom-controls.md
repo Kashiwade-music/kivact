@@ -26,14 +26,15 @@ official kits are built from the same ones.
 | a search box with suggestions | `use_combobox` | `input()`, `content()`, `item(key)` |
 | a command palette | `use_command_palette` | `content()`, `input()`, `list()`, `item(key)` |
 | an open/close body, a popover, a tooltip | `use_disclosure`, `use_popup`, `use_tooltip` | `trigger()`, `content()` |
+| a hover card, a delayed hint, a flashing confirmation | `use_delayed` | `shown()`, `dismiss()`, `pulse()` |
 | a dialog | `use_dialog` | `trigger()`, `content()`, `title()`, `description()`, `close_trigger()` |
 | tabs | `use_tabs` | `list()`, `item(key)`, `panel(key)` |
 | a tree | `use_tree` | `list()`, `item(key)` |
 | a table | `use_table` | `grid()`, `header(column)`, `row(key)`, `cell(key, column)` |
 | a slider, a number field | `use_scalar`, `use_range_scalar` | `thumb()`, `track(axis)`, `input()` |
 | a resizable divider | `use_splitter` | `handle()` |
-| a drag, zoom and pan | `use_drag`, `use_zoom_pan` | `source(..)`, `viewport()` |
-| native text editing | `use_text_edit` | `control()` |
+| a drag, zoom and pan | `use_drag`, `use_zoom_pan`, `use_space_pan` | `source(..)`, `viewport()`, `control()` |
+| native text editing | `use_text_edit`, `use_text_area` | `control()` |
 
 Controllers whose name is not listed here, and the details of each, are in
 `cargo doc -p kivact-interaction --open`.
@@ -93,14 +94,14 @@ mod tests {
     fn the_part_brings_the_role_the_keys_and_the_state() {
         let screen = kivact::test::render(app);
         let switch = screen.get_by_role(Role::Switch, "Notifications");
-        assert_eq!(switch.is_checked(), Some(false));
+        assert_eq!(switch.checked(), Some(CheckedState::Unchecked));
 
         switch.click();
-        assert_eq!(switch.is_checked(), Some(true));
+        assert_eq!(switch.checked(), Some(CheckedState::Checked));
         screen.get_by_text("On");
 
         switch.press_key(Key::Space);
-        assert_eq!(switch.is_checked(), Some(false));
+        assert_eq!(switch.checked(), Some(CheckedState::Unchecked));
     }
 
     #[test]
@@ -109,7 +110,7 @@ mod tests {
         let switch = screen.get_by_role(Role::Switch, "Locked");
         assert!(switch.is_disabled());
         switch.force_click();
-        assert_eq!(switch.is_checked(), Some(false));
+        assert_eq!(switch.checked(), Some(CheckedState::Unchecked));
     }
 }
 ```
@@ -160,10 +161,14 @@ pub fn segmented<K: Clone + Eq + Hash + 'static>(
     selected: impl Into<Binding<Option<K>>>,
 ) -> Node {
     let options = options.into_value();
-    let list = use_list(options, ListSelection::Single(selected.into())).policy(ListPolicy {
-        axis: Some(Orientation::Horizontal),
-        ..ListPolicy::default()
-    });
+    let list = use_list(
+        options,
+        ListSelection::Single(selected.into()),
+        ListPolicy {
+            axis: Some(Orientation::Horizontal),
+            ..ListPolicy::default()
+        },
+    );
     let rows = for_each(
         options,
         |option| option.key().clone(),
@@ -242,7 +247,7 @@ What the list gives you:
 - **Navigation.** `ListPolicy` picks the axis, wrapping at the ends, whether moving
   selects, typeahead and whether the choice happens on activation. The presets
   `ListPolicy::tabs()`, `radio()`, `menu()` and `listbox()` cover the common
-  widgets. Configure the policy before you create the first Part.
+  widgets. The policy is the third argument of `use_list`.
 - **Only one tab stop.** The row is one stop of Tab, and the arrow keys move inside.
   Disabled items (`ListItem::disabled(true)`) are skipped.
 
@@ -487,7 +492,7 @@ pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
         .value_text(move || format!("{} of {max}", value.get()))
         .focusable(true)
         .on_pointer(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down {
+            if matches!(event.phase, PointerPhase::Down(_)) {
                 value.set(((event.pos.x / CELL) as u32 + 1).min(max));
             }
         })
@@ -618,7 +623,7 @@ mod tests {
 The binding receives each committed value; during IME composition the editor keeps the
 preedit text to itself and the binding sees the final text. To run code on every
 change, pass `binding(read, write)` instead of a signal. A few more settings:
-`.multiline(true)` before `control()`, `.password(..)`, `.read_only(..)`,
+`use_text_area(value)` for several lines, `.password(..)`, `.read_only(..)`,
 `.on_submit(..)` for Enter in a single line, and `.forward_keys([...])` to hand
 arrow, Tab or Escape keys to your own handlers (a suggestion list, say).
 

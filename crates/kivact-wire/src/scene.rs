@@ -120,6 +120,14 @@ pub struct Region {
     pub disabled: bool,
     pub hidden: bool,
     pub description: Option<String>,
+    /// Checked state of the region (`None`: not a toggle).
+    pub checked: Option<super::CheckedState>,
+    /// Selection state.
+    pub selected: bool,
+    /// Disclosure state (`None`: not expandable).
+    pub expanded: Option<bool>,
+    /// The region's value is invalid.
+    pub invalid: bool,
     pub properties: Option<Box<super::SemanticsProperties>>,
     pub shape: Option<super::DrawingShape>,
     pub transform: [f32; 6],

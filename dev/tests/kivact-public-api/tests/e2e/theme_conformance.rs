@@ -275,21 +275,21 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             screen.press_key(Key::Enter);
             assert_eq!(count.get_untracked(), 1, "{kit} {mode:?}");
             let check = screen.get_by_role(Role::CheckBox, "Check");
-            assert_eq!(check.is_checked(), Some(true));
+            assert_eq!(check.checked(), Some(CheckedState::Checked));
             check.click();
             assert!(!checked.get_untracked());
             assert_eq!(
-                screen.get_by_role(Role::Switch, "Switch").is_checked(),
-                Some(false)
+                screen.get_by_role(Role::Switch, "Switch").checked(),
+                Some(CheckedState::Unchecked)
             );
             assert!(screen.get_by_role(Role::Switch, "Locked").is_disabled());
             assert_eq!(
-                screen.get_by_role(Role::Switch, "Locked").is_checked(),
-                Some(true)
+                screen.get_by_role(Role::Switch, "Locked").checked(),
+                Some(CheckedState::Checked)
             );
             assert_eq!(
-                screen.get_by_role(Role::RadioButton, "Alpha").is_checked(),
-                Some(true)
+                screen.get_by_role(Role::RadioButton, "Alpha").checked(),
+                Some(CheckedState::Checked)
             );
             assert!(screen.get_by_role(Role::RadioButton, "Beta").is_disabled());
             let combo = screen.get_by_role(Role::ComboBox, "Choice");

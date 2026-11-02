@@ -139,7 +139,7 @@ use kivact::prelude::*;
 
 fn save_form() -> impl IntoView {
     let name = signal(String::new());
-    let save = action(|name: String| async move {
+    let save = action(ActionPolicy::Latest, |name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
             Err(UiError::msg("Name is empty"))
@@ -185,10 +185,11 @@ mod tests {
 }
 ```
 
-The closure you give to `action` takes the input (`|name: String|`) or no
-input at all (`|| async { … }`, run with `save.run(())`). Rust cannot infer an
-argument's type before it sees how you use it, so write the type when you call
-a method on the input.
+The first argument of `action` says what a new `run` does while one is still
+going (see below); `ActionPolicy::Latest` cancels the old one. The closure
+takes the input (`|name: String|`) or no input at all (`|| async { … }`, run
+with `save.run(())`). Rust cannot infer an argument's type before it sees how
+you use it, so write the type when you call a method on the input.
 
 Create `resource` and `action` while the component is being set up, not inside
 an event handler. Inside handlers, call `run`, `refetch` and `cancel` on the
@@ -196,11 +197,11 @@ handles you already have.
 
 ### What happens when the user clicks twice
 
-The `policy` decides how a new `run` treats one that is still going:
+The `ActionPolicy` you pass to `action` decides how a new `run` treats one that is still going:
 
 | Policy | Behaviour |
 |---|---|
-| `ActionPolicy::Latest` (default) | The new run starts at once and cancels the old one. |
+| `ActionPolicy::Latest` | The new run starts at once and cancels the old one. |
 | `ActionPolicy::Queue` | Runs go one at a time, in order. |
 | `ActionPolicy::QueueLatest` | Like `Queue`, but a new run replaces the one that is waiting. The running one is never interrupted. |
 
@@ -208,11 +209,10 @@ The `policy` decides how a new `run` treats one that is still going:
 # use kivact::prelude::*;
 fn drafts() -> impl IntoView {
     let draft = signal(String::new());
-    let save = action(|text: String| async move {
+    let save = action(ActionPolicy::QueueLatest, |text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
-    })
-    .policy(ActionPolicy::QueueLatest);
+    });
     save.on_done(|result| println!("saved: {result:?}"));
     column((
         text_input("Draft", draft),

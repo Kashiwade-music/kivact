@@ -142,21 +142,21 @@ pub(super) fn check(t: &Theme, _: &DataTableCheckState) -> Style {
 /// the column is sorted in, and nothing for a column that is not sorted or
 /// does not sort.
 pub(super) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
-    let direction = state.sort;
+    let order = state.sort;
     let s = style().size(12, 12).shrink(0);
     if !state.sortable {
         return style().size(0, 0).shrink(0);
     }
     s.paint(move |d, size| {
-        use kivact_core::view::SortDirection;
+        use kivact_interaction::SortOrder;
         let (w, h) = (size.width, size.height);
         let at = |x: f32, y: f32| Point::new(w * x, h * y);
         let stroke = Stroke::new(1.5).cap(LineCap::Round).join(LineJoin::Round);
         let up = [at(0.2, 0.62), at(0.5, 0.3), at(0.8, 0.62)];
         let down = [at(0.2, 0.38), at(0.5, 0.7), at(0.8, 0.38)];
-        match direction {
-            SortDirection::Ascending => d.polyline(up, &stroke, ColorToken::Text),
-            SortDirection::Descending => d.polyline(down, &stroke, ColorToken::Text),
+        match order {
+            Some(SortOrder::Ascending) => d.polyline(up, &stroke, ColorToken::Text),
+            Some(SortOrder::Descending) => d.polyline(down, &stroke, ColorToken::Text),
             _ => {
                 let faint = kivact_core::style::Color::token(ColorToken::TextMuted).with_alpha(0.6);
                 d.polyline(

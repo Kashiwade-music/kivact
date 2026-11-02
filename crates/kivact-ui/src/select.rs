@@ -1,5 +1,5 @@
 //! Role: Render a themed select using the shared keyed selection parts.
-use super::layer::with_recipe_style;
+use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, SelectTriggerState};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
@@ -11,7 +11,6 @@ use kivact_core::view::{
 };
 use kivact_core::{Binding, Callback, Value};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
-use std::cell::Cell;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -27,7 +26,6 @@ pub struct Select<K: Clone + Eq + Hash + 'static> {
     preview: Option<Callback<Option<K>>>,
     icon: Option<View>,
     size: ControlSize,
-    state: Rc<Cell<Option<Value<SelectTriggerState>>>>,
     option: Option<OptionContent<K>>,
     variants: Variants,
 }
@@ -44,20 +42,9 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
     selected: impl Into<Binding<Option<K>>>,
 ) -> Select<K> {
     let label = label.into_text_value();
-    let state = Rc::new(Cell::new(None::<Value<SelectTriggerState>>));
-    let read = state.clone();
     let variants = Variants::default();
     Select {
-        root: with_recipe_style(
-            node().name(label),
-            |r| r.select_recipes().trigger_recipe(),
-            &variants,
-            move || {
-                read.get()
-                    .expect("invariant: select trigger prepared")
-                    .get()
-            },
-        ),
+        root: node().name(label),
         label,
         options: options.into_value(),
         selected: selected.into(),
@@ -65,7 +52,6 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
         preview: None,
         icon: None,
         size: ControlSize::Medium,
-        state,
         option: None,
         variants,
     }
@@ -152,7 +138,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
         let trigger = behavior.trigger();
         let state = trigger.state();
         let (options, selected, size) = (self.options, self.selected.into_value(), self.size);
-        self.state.set(Some(kivact_core::memo(move || {
+        let trigger_state = kivact_core::memo(move || {
             let PopupState { input, open } = state.get();
             let placeholder = selected.with(|key| {
                 key.as_ref()
@@ -164,7 +150,13 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                 placeholder,
                 size,
             }
-        })));
+        });
+        self.root = with_base_recipe_style(
+            self.root,
+            |r| r.select_recipes().trigger_recipe(),
+            &self.variants,
+            move || trigger_state.get(),
+        );
         let anchor = trigger.node_ref();
         let name = self.root.accessible_name();
         let fallback = self.label;

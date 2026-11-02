@@ -143,17 +143,18 @@ impl IntoView for Dropzone {
             .on_press(move || {
                 let title = picker_title.get();
                 let filters = filters.get_untracked();
+                // A picker failure goes to the nearest error handler.
                 kivact::task::spawn(async move {
-                    if let Ok(Some(paths)) =
-                        kivact::platform::pick_files(kivact::platform::FileDialog {
-                            title,
-                            filters,
-                            ..Default::default()
-                        })
-                        .await
-                    {
+                    let picked = kivact::platform::pick_files(kivact::platform::FileDialog {
+                        title,
+                        filters,
+                        ..Default::default()
+                    })
+                    .await?;
+                    if let Some(paths) = picked {
                         callback.call(paths);
                     }
+                    Ok::<(), kivact::UiError>(())
                 });
             })
             .style(move || {

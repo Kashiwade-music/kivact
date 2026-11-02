@@ -11,23 +11,34 @@
 //! - A turn keeps at most 64 entries of each kind (causes, writes, re-runs,
 //!   notes) and the ring keeps the last 256 turns.
 //! - Notes recorded during the App's setup are sealed, when the setup
-//!   ends, into a record of their own (turn 0, notes only) instead of
+//!   ends, into a record of their own (`Turn::Setup`, notes only) instead of
 //!   making a host turn.
+//! - What is recorded between two turns (a write from a test or a host
+//!   callback) belongs to the next turn and is stamped with it.
 
 use std::panic::Location;
 
-use crate::data::{Diag, EffectKind, Kind, Runtime};
-use crate::data::{TraceRun, TraceWrite, TurnRecord};
+use crate::data::{Diag, Runtime};
+use crate::data::{TraceRun, TraceWrite, Turn, TurnRecord};
 use crate::error::UiError;
 
 const RING: usize = 256;
 const PER_TURN: usize = 64;
 
+impl std::fmt::Display for Turn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Turn::Setup => f.write_str("setup"),
+            Turn::Number(n) => write!(f, "turn {n}"),
+        }
+    }
+}
+
 impl std::fmt::Display for TurnRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "turn {}: {} op(s), {} re-run(s), causes {:?}",
+            "{}: {} op(s), {} re-run(s), causes {:?}",
             self.turn, self.ops, self.runs, self.causes
         )?;
         for w in &self.writes {
@@ -77,8 +88,8 @@ impl Diag {
         }
     }
 
-    /// The turn being recorded (0 before the first turn: mount).
-    pub(crate) fn turn(&self) -> u64 {
+    /// The turn being recorded (`Setup` until the setup is sealed).
+    pub(crate) fn turn(&self) -> Turn {
         self.current.turn
     }
 
@@ -102,55 +113,58 @@ impl Diag {
     }
 
     /// A memo or effect re-evaluation.
-    pub(crate) fn record_run(&mut self, kind: Kind, at: &'static Location<'static>) {
+    pub(crate) fn record_run(&mut self, kind: &'static str, at: &'static Location<'static>) {
         self.current.runs += 1;
         if self.current.reruns.len() < PER_TURN {
-            let kind = match kind {
-                Kind::Memo => "memo",
-                Kind::Effect(EffectKind::Render) => "render",
-                Kind::Effect(EffectKind::Internal) => "internal",
-                Kind::Effect(EffectKind::User) | Kind::Source => "effect",
-            };
             self.current.reruns.push(TraceRun { kind, at });
         }
     }
 
-    /// Seal mount notes before the first host event can arrive.
-    fn finish_setup_notes(&mut self) {
-        let notes = std::mem::take(&mut self.current.notes);
-        if notes.is_empty() {
-            return;
-        }
+    fn push_record(&mut self, record: TurnRecord) {
         if self.turns.len() == RING {
             self.turns.pop_front();
         }
-        self.turns.push_back(TurnRecord {
-            notes,
-            ..TurnRecord::default()
-        });
+        self.turns.push_back(record);
     }
 
-    /// Start recording turn `turn_no + 1`; notes recorded between turns
-    /// carry over into it.
-    pub(crate) fn begin_turn(&mut self, events: usize) {
-        self.turn_no += 1;
+    /// Seal the setup's notes into a record of their own (none when there are
+    /// no notes); the setup's writes and re-runs are not kept. Afterwards the
+    /// record being filled is turn 1. A no-op once sealed.
+    fn finish_setup_notes(&mut self) {
+        if self.current.turn != Turn::Setup {
+            return;
+        }
         let notes = std::mem::take(&mut self.current.notes);
+        if !notes.is_empty() {
+            self.push_record(TurnRecord {
+                notes,
+                ..TurnRecord::default()
+            });
+        }
         self.current = TurnRecord {
-            turn: self.turn_no,
-            events,
-            notes,
+            turn: Turn::Number(1),
             ..TurnRecord::default()
         };
     }
 
+    /// Start recording the next turn, delivering `events` host events; what
+    /// was recorded since the last turn stays in it.
+    pub(crate) fn begin_turn(&mut self, events: usize) {
+        self.finish_setup_notes();
+        self.current.events = events;
+    }
+
     /// Finish the current turn and push it into the ring.
     pub(crate) fn end_turn(&mut self, ops: usize, duration_ns: u64) {
+        let Turn::Number(n) = self.current.turn else {
+            unreachable!("invariant: begin_turn sealed the setup record")
+        };
         self.current.ops = ops;
         self.current.duration_ns = duration_ns;
         let c = &self.current;
         tracing::trace!(
             target: "kivact",
-            turn = c.turn,
+            turn = n,
             events = c.events,
             writes = c.writes.len(),
             runs = c.runs,
@@ -158,10 +172,12 @@ impl Diag {
             duration_ns,
             "turn"
         );
-        if self.turns.len() == RING {
-            self.turns.pop_front();
-        }
-        self.turns.push_back(std::mem::take(&mut self.current));
+        let next = TurnRecord {
+            turn: Turn::Number(n + 1),
+            ..TurnRecord::default()
+        };
+        let done = std::mem::replace(&mut self.current, next);
+        self.push_record(done);
     }
 }
 

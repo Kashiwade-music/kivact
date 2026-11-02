@@ -92,8 +92,8 @@ mod tests {
 
         screen.get_by_role(Role::CheckBox, "Buy milk").click();
         assert_eq!(
-            screen.get_by_role(Role::CheckBox, "Buy milk").is_checked(),
-            Some(true)
+            screen.get_by_role(Role::CheckBox, "Buy milk").checked(),
+            Some(CheckedState::Checked)
         );
         screen.get_by_text("1 left");
 

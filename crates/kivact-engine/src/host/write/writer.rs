@@ -249,7 +249,9 @@ impl Writer {
                     .assets
                     .borrow_mut()
                     .register_font(&mut self.engine.borrow_mut(), &font);
-                m.fonts_pending |= matches!(result, PlatformResult::Fonts(_));
+                if matches!(result, PlatformResult::Fonts(_)) {
+                    m.fonts_added();
+                }
                 m.push(HostEvent::EffectResult { request, result });
             }
             effect => m.effects.push((request, effect)),
@@ -306,11 +308,8 @@ impl Writer {
     pub fn commit(&self) -> Revision {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
-        let revision = m.commit_revision(&mut self.engine.borrow_mut());
+        let revision = m.commit_revision();
         m.writes.commit(revision);
-        if std::mem::take(&mut m.fonts_pending) {
-            m.fonts_added();
-        }
         m.sync();
         revision
     }

@@ -5,9 +5,11 @@ use std::rc::Rc;
 
 use super::paint::{BLUE, GREEN, RED, WHITE, at, canvas_of, expect};
 use super::support::mount;
+use kivact::diagnostics::ErrorKind;
 use kivact::draw::Rect;
 use kivact::prelude::*;
 use kivact::primitive::NodeExt;
+use kivact::test::render;
 use kivact::view::provide_theme;
 
 #[test]
@@ -156,4 +158,29 @@ fn merged_paint_runs_between_caller_draw_and_children_and_clears_independently()
     expect(&shot, 30, 10, WHITE, 0, "draw_over retained");
     expect(&shot, 60, 10, RED, 0, "only stale style commands cleared");
     assert!(screen.errors().is_empty());
+}
+
+/// A state style can change paint only; a layout property or a nested state in it is reported once.
+#[test]
+fn a_property_its_state_cannot_change_is_reported() {
+    let screen = render(|| {
+        node().style(
+            style()
+                .size(40, 40)
+                .hover(style().width(80).opacity(0.5).hover(style().opacity(1.0))),
+        )
+    });
+    let errors = screen.errors();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(*errors[0].kind(), ErrorKind::Unsupported);
+    assert!(
+        errors[0].message().contains("hover.width"),
+        "{}",
+        errors[0].message()
+    );
+    assert!(
+        errors[0].message().contains("hover.hover"),
+        "{}",
+        errors[0].message()
+    );
 }

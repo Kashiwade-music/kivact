@@ -128,11 +128,9 @@ fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
     screen.run_until_idle();
     assert!(checked.get_untracked());
     assert_ne!(screen.screenshot().hash(), before);
-    assert!(
-        screen
-            .get_by_role(Role::CheckBox, "Sync")
-            .is_checked()
-            .unwrap_or(false)
+    assert_eq!(
+        screen.get_by_role(Role::CheckBox, "Sync").checked(),
+        Some(CheckedState::Checked)
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

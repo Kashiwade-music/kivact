@@ -1,23 +1,20 @@
 //! Role: The App's record of its imports and the adapter signal.
 
+use kivact_reactive::Runtime;
 use kivact_reactive::Signal;
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owner, Runtime};
 use kivact_wire::{ExternalImageId, ExternalImport, GpuAdapter};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::panic::Location;
 
-/// What `gpu_interop` keeps per App: the imports and the adapter signal.
-/// The client installs it as a runtime extension when the App is created
-/// (`install_adapter` runs once the root owner exists).
+use crate::view::state::ViewState;
+
+/// What `gpu_interop` keeps per App: its imports. The client installs it as
+/// a runtime extension when the App is created.
 #[derive(Default)]
 pub(crate) struct State {
     imports: RefCell<Imports>,
-    /// The adapter of the window's GPU device that can import shared
-    /// textures (`None` until the host reports one); the signal is made
-    /// by [`State::install_adapter`].
-    adapter: Cell<Option<Signal<Option<GpuAdapter>>>>,
 }
 
 impl State {
@@ -25,11 +22,6 @@ impl State {
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &State {
         rt.ext::<State>()
-    }
-
-    /// Make the adapter signal in the root owner `owner`, created at `at`.
-    pub(crate) fn install_adapter(&self, owner: Owner, at: &'static Location<'static>) {
-        self.adapter.set(Some(owner.signal(None::<GpuAdapter>, at)));
     }
 }
 
@@ -41,11 +33,34 @@ struct Imports {
     images: HashMap<ExternalImageId, Import>,
 }
 
+/// Where an import stands inside the App: the public [`ImportStatus`],
+/// with the device generation of a `Ready` one.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum ImportPhase {
+    Pending,
+    /// Imported into the device of this `generation`.
+    Ready {
+        generation: u64,
+    },
+    Failed(UiError),
+    Lost,
+}
+
+impl ImportPhase {
+    /// The status the App reads.
+    pub(super) fn status(&self) -> ImportStatus {
+        match self {
+            ImportPhase::Pending => ImportStatus::Pending,
+            ImportPhase::Ready { .. } => ImportStatus::Ready,
+            ImportPhase::Failed(error) => ImportStatus::Failed(error.clone()),
+            ImportPhase::Lost => ImportStatus::Lost,
+        }
+    }
+}
+
 /// One import the App asked for and has not dropped.
 struct Import {
-    status: Signal<ImportStatus>,
-    /// The generation of the device it was imported into, while `Ready`.
-    generation: Option<u64>,
+    status: Signal<ImportPhase>,
     /// Where `import` was called: its failure is located there.
     at: &'static Location<'static>,
 }
@@ -54,20 +69,13 @@ impl State {
     /// Record a new import with `status` and give it its id.
     pub(super) fn register(
         &self,
-        status: Signal<ImportStatus>,
+        status: Signal<ImportPhase>,
         at: &'static Location<'static>,
     ) -> ExternalImageId {
         let mut imports = self.imports.borrow_mut();
         imports.last += 1;
         let id = ExternalImageId(imports.last);
-        imports.images.insert(
-            id,
-            Import {
-                status,
-                generation: None,
-                at,
-            },
-        );
+        imports.images.insert(id, Import { status, at });
         id
     }
 
@@ -93,8 +101,10 @@ impl State {
 ///   call.
 /// - `Lost`: a `Ready` import whose device is gone: the adapter
 ///   ([`adapter`]) has a new [`GpuAdapter::generation`] or is `None`.
-///   Make new textures on the new adapter and import them again. Also what
-///   [`ExternalImage::status`](super::ExternalImage::status) reads once the import's owner is gone.
+///   Make new textures on the new adapter and import them again.
+/// - `Dropped`: the owner [`import`](super::import) was called in is gone;
+///   the window dropped the image and signals its release fence past every
+///   frame.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ImportStatus {
     /// Not answered yet.
@@ -105,6 +115,8 @@ pub enum ImportStatus {
     Failed(UiError),
     /// Its device is gone: import again.
     Lost,
+    /// The import's owner is gone: the window dropped the image.
+    Dropped,
 }
 
 /// The adapter of the GPU device drawing the App's window, when the
@@ -122,30 +134,29 @@ pub enum ImportStatus {
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
     let rt = kivact_reactive::Owner::ambient("adapter", Location::caller()).runtime();
-    let adapter = State::of(&rt).adapter.get();
+    let signal = ViewState::of(&rt).adapter();
     drop(rt);
-    adapter.and_then(|adapter| adapter.get())
+    signal.get()
 }
 
 /// The window answered the import `image` (`HostEvent::ExternalImported`).
 pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalImport) {
-    let mut imports = State::of(rt).imports.borrow_mut();
+    let imports = State::of(rt).imports.borrow();
     // Dropped meanwhile (its owner is gone).
-    let Some(import) = imports.images.get_mut(&image) else {
+    let Some(import) = imports.images.get(&image) else {
         return;
     };
     let failed = |kind: ErrorKind, message: &str| {
-        ImportStatus::Failed(UiError::new(
+        ImportPhase::Failed(UiError::new(
             kind,
             format!("gpu_interop::import: {message}"),
             Some(import.at),
         ))
     };
     let status = match result {
-        ExternalImport::Ready { generation } => {
-            import.generation = Some(*generation);
-            ImportStatus::Ready
-        }
+        ExternalImport::Ready { generation } => ImportPhase::Ready {
+            generation: *generation,
+        },
         ExternalImport::Unavailable(message) => failed(ErrorKind::Unsupported, message),
         ExternalImport::Failed(message) => failed(ErrorKind::Platform, message),
     };
@@ -161,26 +172,24 @@ pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalIm
 /// imports of another device are lost.
 pub(crate) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
     let generation = adapter.map(|a| a.generation);
-    let state = State::of(rt);
-    let lost: Vec<Signal<ImportStatus>> = state
+    let statuses: Vec<Signal<ImportPhase>> = State::of(rt)
         .imports
-        .borrow_mut()
+        .borrow()
         .images
-        .values_mut()
-        .filter(|import| import.generation.is_some_and(|g| Some(g) != generation))
-        .map(|import| {
-            import.generation = None;
-            import.status
-        })
+        .values()
+        .map(|import| import.status)
         .collect();
-    let signal = state.adapter.get();
+    let signal = ViewState::of(rt).adapter();
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
-        if let Some(signal) = signal {
-            signal.set(adapter.cloned());
-        }
-        for status in lost {
-            status.set(ImportStatus::Lost);
+        signal.set(adapter.cloned());
+        for status in statuses {
+            let lost = status.with_untracked(|phase| {
+                matches!(phase, ImportPhase::Ready { generation: g } if Some(*g) != generation)
+            });
+            if lost {
+                status.set(ImportPhase::Lost);
+            }
         }
     })
 }

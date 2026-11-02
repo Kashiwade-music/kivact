@@ -19,7 +19,7 @@ fn ms(n: u64) -> Duration {
 #[test]
 fn async_state_helpers_and_direct_errors_follow_each_state() {
     let (screen, (act, res)) = mount(|| {
-        let act = action(|n: u32| async move {
+        let act = action(ActionPolicy::Latest, |n: u32| async move {
             sleep(ms(10)).await;
             if n == 0 {
                 Err(UiError::msg("zero"))
@@ -166,7 +166,7 @@ fn action_latest_wins_retry_cancel_and_multiple_done_handlers() {
     let (screen, (act, counter)) = mount(move || {
         let attempts = var(0u32);
         let counter = signal(0u32);
-        let act = action(move |delay: u64| async move {
+        let act = action(ActionPolicy::Latest, move |delay: u64| async move {
             sleep(ms(delay)).await;
             attempts.update(|a| *a += 1);
             if delay == 13 {
@@ -221,7 +221,7 @@ fn queue_orders_coalesces_recovers_and_drains() {
     let l2 = log.clone();
     let (screen, (fifo, latest)) = mount(move || {
         let (la, lb) = (l2.clone(), l2.clone());
-        let fifo = action(move |n: u32| {
+        let fifo = action(ActionPolicy::Queue, move |n: u32| {
             let la = la.clone();
             async move {
                 sleep(ms(10)).await;
@@ -231,17 +231,15 @@ fn queue_orders_coalesces_recovers_and_drains() {
                 la.borrow_mut().push(format!("fifo {n}"));
                 Ok(())
             }
-        })
-        .policy(ActionPolicy::Queue);
-        let latest = action(move |n: u32| {
+        });
+        let latest = action(ActionPolicy::QueueLatest, move |n: u32| {
             let lb = lb.clone();
             async move {
                 sleep(ms(10)).await;
                 lb.borrow_mut().push(format!("latest {n}"));
                 Ok(())
             }
-        })
-        .policy(ActionPolicy::QueueLatest);
+        });
         let results = var(Vec::<bool>::new());
         fifo.on_done(move |r| results.update(|v| v.push(r.is_ok())));
         (

@@ -213,6 +213,25 @@ fn main() -> kivact::Result<()> {
 
 `callback` が必要な理由は Rust の事情です。キャプチャしたデータを所有するクロージャーは、1 か所にしか move できず、`Fn` の境界ではクローンもできません。`callback(f)` は `f` をアプリのアリーナに保存して `Callback` を返します。`Callback` は `Copy` なので、いくつの `move` クロージャーからでも持てます。呼び出しは `.call(引数)` です。入力のないコールバックには、上のように引数として `()` を渡します。
 
+押下のハンドラーはイベントを受け取りません。React の `event.getModifierState("Control")` のように修飾キーが押されているかを知るには、`current_modifiers()` を読みます。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::view::current_modifiers;
+
+/// Opens its panel; Ctrl+click (Cmd+click) opens only this one.
+fn open_button(open: impl Fn(bool) + 'static) -> impl IntoView {
+    button("Open").on_press(move || {
+        let held = current_modifiers();
+        open(held.ctrl || held.meta);
+    })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Open").run(|| open_button(|only| println!("only this panel: {only}")))
+}
+```
+
 呼び出し側のクロージャーが失敗するかもしれない場合は、`?` が使えるように境界を広げます。`impl Fn() -> R + 'static where R: HandlerResult` は `()` と `Result<(), UiError>` の両方を受け取り、`callback` もどちらも受け取れます。失敗は一番近い `error_boundary` に報告されます ([エラーや更新の原因を調べる](diagnostics.md))。
 
 ## props が増えたらビルダーにする

@@ -34,10 +34,7 @@ impl Screen {
     pub(crate) fn structure_mismatch(&self) -> Vec<String> {
         use std::collections::HashSet;
         let mut errs = Vec::new();
-        let root = match ViewState::tree(&self.rt).root {
-            Some(r) => r,
-            None => return errs,
-        };
+        let root = ViewState::tree(&self.rt).root;
         // every core record is reachable from the root (no detached leftovers)
         let core_hosts = {
             let tree = ViewState::tree(&self.rt);
@@ -52,9 +49,6 @@ impl Screen {
                 reach += 1;
                 if n.is_host() {
                     hosts.push(id);
-                    if !n.live {
-                        errs.push(format!("core host node {} reachable but not live", id.0));
-                    }
                 }
                 stack.extend(n.children.iter().copied());
             }

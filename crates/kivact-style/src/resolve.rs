@@ -30,7 +30,7 @@
 use kivact_wire as p;
 use kivact_wire::{
     Border, Corners, Edges, Effects, ElementTransform, Fill, LayoutProps, PaintDelta, PaintProps,
-    Ring, StateStyles, TextProps,
+    Ring, ScrollAxes, StateStyles, TextProps,
 };
 
 use super::color::ColorToken;
@@ -76,8 +76,10 @@ pub struct CompiledStyle {
     /// ASCII characters, a text shadow's spread or inset), dropped and
     /// reported as `Unsupported`.
     pub unsupported_text: u32,
-    /// Local paint callbacks nested in state styles, ignored and reported.
-    pub unsupported_local_paint: u32,
+    /// Properties set in a state style that the state cannot change, as
+    /// `state.property` (`"hover.width"`, `"disabled.hover.font_size"`):
+    /// ignored and reported as `Unsupported`.
+    pub unsupported_in_states: Vec<String>,
 }
 
 fn dim(l: Option<Length>, default: p::Dimension) -> p::Dimension {
@@ -97,18 +99,9 @@ fn layout(s: &Style) -> LayoutProps {
     let zero = p::Dimension::Px(0.0);
     let ov = s.overflow.unwrap_or(p::Overflow::Visible);
     let (ov_x, ov_y) = match s.scroll_axes {
-        Some((x, y)) => (
-            if x {
-                p::Overflow::Scroll
-            } else {
-                p::Overflow::Hidden
-            },
-            if y {
-                p::Overflow::Scroll
-            } else {
-                p::Overflow::Hidden
-            },
-        ),
+        Some(ScrollAxes::Vertical) => (p::Overflow::Hidden, p::Overflow::Scroll),
+        Some(ScrollAxes::Horizontal) => (p::Overflow::Scroll, p::Overflow::Hidden),
+        Some(ScrollAxes::Both) => (p::Overflow::Scroll, p::Overflow::Scroll),
         None => (ov, ov),
     };
     LayoutProps {
@@ -251,7 +244,8 @@ impl Style {
 fn compile(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
     let retained_paint = s.local_paint.clone();
     let mut s = s.clone();
-    let unsupported_local_paint = strip_state_paint(&mut s);
+    let unsupported_in_states = unsupported_in_states(&s);
+    strip_state_paint(&mut s);
     if state.focusable {
         interactive_defaults(&mut s, theme, state.disabled);
     }
@@ -268,7 +262,7 @@ fn compile(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
     let states = if s.hover.is_some()
         || s.group_hover.is_some()
         || s.group_focus.is_some()
-        || s.group.is_some_and(|g| g)
+        || s.group
         || s.pressed.is_some()
         || s.focus.is_some()
         || s.focus_visible.is_some()
@@ -289,7 +283,7 @@ fn compile(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
             }),
             group_hover: s.group_hover.as_ref().map(|h| paint_delta(&s, h, theme)),
             group_focus: s.group_focus.as_ref().map(|h| paint_delta(&s, h, theme)),
-            group: s.group.unwrap_or(false),
+            group: s.group,
             enter: s.enter.as_ref().map(|h| paint_delta(&s, h, theme)),
             exit: s.exit.as_ref().map(|h| paint_delta(&s, h, theme)),
         })
@@ -322,12 +316,12 @@ fn compile(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
         duplicates: s.duplicates,
         misplaced_content: misplaced_content(&s),
         unsupported_text,
-        unsupported_local_paint,
+        unsupported_in_states,
     }
 }
 
 /// State styles only carry declarative host properties, never callbacks.
-fn strip_state_paint(style: &mut Style) -> u32 {
+fn strip_state_paint(style: &mut Style) {
     [
         &mut style.hover,
         &mut style.group_hover,
@@ -342,8 +336,247 @@ fn strip_state_paint(style: &mut Style) -> u32 {
     ]
     .into_iter()
     .flatten()
-    .map(|state| u32::from(state.local_paint.take().is_some()) + strip_state_paint(state))
-    .sum()
+    .for_each(|state| {
+        state.local_paint = None;
+        strip_state_paint(state);
+    });
+}
+
+/// What a hover, pressed, focus, focus-visible, group-hover, group-focus,
+/// enter or exit style can change: the fields `paint_delta` reads.
+const DELTA: &[&str] = &[
+    "background",
+    "border_width",
+    "border_color",
+    "border_style",
+    "ring",
+    "radius",
+    "opacity",
+    "shadow",
+    "translate",
+    "rotate",
+    "scale",
+    "transform",
+    "transform_origin",
+    "z_index",
+    "scrollbar",
+    "cursor",
+    "filter",
+    "backdrop_filter",
+    "blend",
+    "mask",
+    "clip_path",
+    "color",
+];
+
+/// The properties `s` sets, by the name of the setter that sets them. Every
+/// field of `Style` is named in the destructure, so a new field must be
+/// classified here.
+fn set_properties(s: &Style) -> Vec<&'static str> {
+    let Style {
+        local_paint,
+        padding,
+        margin,
+        inset,
+        row_gap,
+        column_gap,
+        width,
+        height,
+        min_width,
+        min_height,
+        max_width,
+        max_height,
+        grow,
+        shrink,
+        basis,
+        aspect_ratio,
+        direction,
+        align,
+        align_self,
+        justify,
+        align_content,
+        grid_box,
+        grid,
+        wrap,
+        position,
+        overflow,
+        scroll_axes,
+        background,
+        border_width,
+        border_color,
+        border_style,
+        ring,
+        radius,
+        shadows,
+        opacity,
+        translate,
+        rotate,
+        scale,
+        transform,
+        transform_origin,
+        scrollbar,
+        cursor,
+        z_index,
+        clip,
+        filter,
+        backdrop_filter,
+        blend,
+        mask,
+        clip_path,
+        font_size,
+        weight,
+        color,
+        line_height,
+        text_wrap,
+        text_align,
+        font_family,
+        italic,
+        text,
+        hover,
+        group,
+        group_hover,
+        group_focus,
+        pressed,
+        focus,
+        focus_visible,
+        disabled,
+        selected,
+        enter,
+        exit,
+        transitions,
+        duplicates: _,
+    } = s;
+    let sides = Sides::default();
+    let mut out = Vec::new();
+    let mut add = |set: bool, name: &'static str| {
+        if set {
+            out.push(name);
+        }
+    };
+    add(local_paint.is_some(), "paint");
+    add(*padding != sides, "padding");
+    add(*margin != sides, "margin");
+    add(*inset != sides, "inset");
+    add(row_gap.is_some(), "row_gap");
+    add(column_gap.is_some(), "column_gap");
+    add(width.is_some(), "width");
+    add(height.is_some(), "height");
+    add(min_width.is_some(), "min_width");
+    add(min_height.is_some(), "min_height");
+    add(max_width.is_some(), "max_width");
+    add(max_height.is_some(), "max_height");
+    add(grow.is_some(), "grow");
+    add(shrink.is_some(), "shrink");
+    add(basis.is_some(), "basis");
+    add(aspect_ratio.is_some(), "aspect_ratio");
+    add(direction.is_some(), "direction");
+    add(align.is_some(), "align_items");
+    add(align_self.is_some(), "align_self");
+    add(justify.is_some(), "justify_content");
+    add(align_content.is_some(), "align_content");
+    add(grid_box.is_some(), "display_grid");
+    add(grid.is_some(), "grid");
+    add(wrap.is_some(), "wrap");
+    add(position.is_some(), "position");
+    add(overflow.is_some(), "overflow");
+    add(scroll_axes.is_some(), "with_scroll_axes");
+    add(background.is_some(), "background");
+    add(border_width.iter().any(Option::is_some), "border_width");
+    add(border_color.iter().any(Option::is_some), "border_color");
+    add(border_style.is_some(), "border_style");
+    add(ring.is_some(), "ring");
+    add(radius.iter().any(Option::is_some), "radius");
+    add(shadows.is_some(), "shadow");
+    add(opacity.is_some(), "opacity");
+    add(translate.iter().any(Option::is_some), "translate");
+    add(rotate.is_some(), "rotate");
+    add(scale.is_some(), "scale");
+    add(transform.is_some(), "transform");
+    add(transform_origin.is_some(), "transform_origin");
+    add(scrollbar.is_some(), "scrollbar");
+    add(cursor.is_some(), "cursor");
+    add(z_index.is_some(), "z_index");
+    add(clip.is_some(), "clip");
+    add(filter.is_some(), "filter");
+    add(backdrop_filter.is_some(), "backdrop_filter");
+    add(blend.is_some(), "blend");
+    add(mask.is_some(), "mask");
+    add(clip_path.is_some(), "clip_path");
+    add(font_size.is_some(), "font_size");
+    add(weight.is_some(), "weight");
+    add(color.is_some(), "color");
+    add(line_height.is_some(), "line_height");
+    add(text_wrap.is_some(), "text_wrap");
+    add(text_align.is_some(), "text_align");
+    add(font_family.is_some(), "font_family");
+    add(italic.is_some(), "italic");
+    add(text.is_some(), "text");
+    add(hover.is_some(), "hover");
+    add(*group, "group");
+    add(group_hover.is_some(), "group_hover");
+    add(group_focus.is_some(), "group_focus");
+    add(pressed.is_some(), "pressed");
+    add(focus.is_some(), "focus");
+    add(focus_visible.is_some(), "focus_visible");
+    add(disabled.is_some(), "disabled");
+    add(selected.is_some(), "selected");
+    add(enter.is_some(), "enter");
+    add(exit.is_some(), "exit");
+    add(!transitions.is_empty(), "transition");
+    out
+}
+
+/// Push `prefix` + `state.property` for every property the delta states
+/// (hover, pressed, focus, ..) of `s` set that a delta cannot change.
+fn delta_misuse(prefix: &str, s: &Style, out: &mut Vec<String>) {
+    for (name, state) in [
+        ("hover", &s.hover),
+        ("group_hover", &s.group_hover),
+        ("group_focus", &s.group_focus),
+        ("pressed", &s.pressed),
+        ("focus", &s.focus),
+        ("focus_visible", &s.focus_visible),
+        ("enter", &s.enter),
+        ("exit", &s.exit),
+    ] {
+        if let Some(state) = state {
+            out.extend(
+                set_properties(state)
+                    .into_iter()
+                    .filter(|property| !DELTA.contains(property))
+                    .map(|property| format!("{prefix}{name}.{property}")),
+            );
+        }
+    }
+}
+
+/// The properties set in `s`'s state styles that their state cannot change
+/// (see `CompiledStyle::unsupported_in_states`).
+fn unsupported_in_states(s: &Style) -> Vec<String> {
+    let mut out = Vec::new();
+    delta_misuse("", s, &mut out);
+    if let Some(selected) = &s.selected {
+        if selected.local_paint.is_some() {
+            out.push("selected.paint".to_string());
+        }
+        if selected.selected.is_some() {
+            out.push("selected.selected".to_string());
+        }
+        delta_misuse("selected.", selected, &mut out);
+    }
+    if let Some(disabled) = &s.disabled {
+        if disabled.local_paint.is_some() {
+            out.push("disabled.paint".to_string());
+        }
+        if disabled.disabled.is_some() {
+            out.push("disabled.disabled".to_string());
+        }
+        if disabled.selected.is_some() {
+            out.push("disabled.selected".to_string());
+        }
+        delta_misuse("disabled.", disabled, &mut out);
+    }
+    out
 }
 
 /// A background as the engine fills it: one color covering the box stays a

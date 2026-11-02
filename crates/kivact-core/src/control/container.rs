@@ -1,7 +1,8 @@
 //! Role: Layout containers: column, row, grid, stack, scroll and spacer (box nodes).
 
 use kivact_engine::bridge::PropValue;
-use kivact_wire::{Dimension, Edges, LayoutProps, NodeType, Position};
+use kivact_reactive::{ErrorKind, UiError};
+use kivact_wire::{Dimension, Edges, LayoutProps, NodeType, Position, ScrollAxes};
 
 use super::node::node;
 use crate::view::descriptor::Mcx;
@@ -56,16 +57,18 @@ pub fn grid(children: impl IntoView) -> Node {
 
 /// A scroll container. Wheel at the edge of a short area passes to the parent.
 ///
-/// It scrolls vertically; [`orientation`](Scroll::orientation) scrolls
-/// horizontally instead and [`both_axes`](Scroll::both_axes) in both
-/// directions. The modifiers of [`NodeBuilder`] apply to the container.
+/// It scrolls vertically; [`axes`](Scroll::axes) scrolls horizontally or both
+/// ways. Its accessibility orientation follows the axes (vertical,
+/// horizontal, none for both); an `.orientation(..)` on it that disagrees is
+/// reported and ignored. The modifiers of [`NodeBuilder`] apply to the
+/// container.
 ///
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::prelude::*;
 ///
 /// let list = scroll(column((text("A"), text("B")))).style(style().height(120));
-/// let strip = scroll(row((text("A"), text("B")))).orientation(Orientation::Horizontal);
+/// let strip = scroll(row((text("A"), text("B")))).axes(ScrollAxes::Horizontal);
 /// # let _ = (list, strip);
 /// ```
 #[track_caller]
@@ -73,8 +76,7 @@ pub fn scroll(child: impl IntoView) -> Scroll {
     Scroll {
         root: node().role(Role::ScrollView),
         child: child.into_view(),
-        orientation: Orientation::Vertical,
-        both_axes: false,
+        axes: ScrollAxes::Vertical,
     }
 }
 
@@ -82,24 +84,16 @@ pub fn scroll(child: impl IntoView) -> Scroll {
 pub struct Scroll {
     root: Node,
     child: View,
-    orientation: Orientation,
-    both_axes: bool,
+    axes: ScrollAxes,
 }
 
 impl Scroll {
-    /// The direction the content scrolls in (default
-    /// [`Orientation::Vertical`]). [`Orientation::Horizontal`] lays the
-    /// content out in a row and scrolls sideways; [`Orientation::Unspecified`]
-    /// means the default, vertical. [`both_axes`](Self::both_axes) takes
-    /// precedence.
-    ///
-    /// This is the scroll direction, not an accessibility property: it
-    /// deliberately shadows [`NodeExt::orientation`](crate::primitive::NodeExt::orientation),
-    /// which sets the orientation published to assistive technology and
-    /// which a scroll container does not publish by default. A constant:
-    /// the direction is fixed when the container is built.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    /// The axes the content scrolls along (default [`ScrollAxes::Vertical`]):
+    /// `Horizontal` lays the content out in a row and scrolls sideways, `Both`
+    /// scrolls both ways (a table or a code block wider and taller than the
+    /// container). A constant: fixed when the container is built.
+    pub fn axes(mut self, axes: ScrollAxes) -> Self {
+        self.axes = axes;
         self
     }
 
@@ -109,13 +103,6 @@ impl Scroll {
     /// Same as [`NodeExt::role`](crate::primitive::NodeExt::role).
     pub fn role(mut self, r: crate::view::Role) -> Self {
         self.root = self.root.role(r);
-        self
-    }
-
-    /// Scroll in both directions (a table or a code block wider and taller
-    /// than the container). The content is laid out in a column.
-    pub fn both_axes(mut self) -> Self {
-        self.both_axes = true;
         self
     }
 }
@@ -128,23 +115,53 @@ impl NodeBuilder for Scroll {
 
 impl IntoView for Scroll {
     fn into_view(mut self) -> View {
-        let base = if self.both_axes {
-            style()
-                .direction(Direction::Column)
-                .with_scroll_axes(true, true)
-        } else if self.orientation == Orientation::Horizontal {
-            style()
-                .direction(Direction::Row)
-                .with_scroll_axes(true, false)
-        } else {
-            style()
-                .direction(Direction::Column)
-                .with_scroll_axes(false, true)
+        let direction = match self.axes {
+            ScrollAxes::Horizontal => Direction::Row,
+            ScrollAxes::Vertical | ScrollAxes::Both => Direction::Column,
         };
+        let base = style().direction(direction).with_scroll_axes(self.axes);
         // The base style is the first layer, so the caller's `.style(..)`
         // wins whatever the order of the calls.
         self.root.common.prepend_style(base.into_prop());
-        self.root.child(self.child).into_view()
+        let derived = match self.axes {
+            ScrollAxes::Vertical => Some(Orientation::Vertical),
+            ScrollAxes::Horizontal => Some(Orientation::Horizontal),
+            ScrollAxes::Both => None,
+        };
+        // The caller's `.orientation(..)` (NodeExt) is taken out and replaced
+        // by the axes' value.
+        let caller = self
+            .root
+            .common
+            .semantics
+            .as_mut()
+            .and_then(|sources| sources.orientation.take());
+        if let Some(orientation) = derived {
+            self.root.common.semantics_mut().orientation = Some(orientation.into_prop());
+        }
+        let at = self
+            .root
+            .at
+            .expect("invariant: `scroll` is #[track_caller] and locates its root");
+        let view = self.root.child(self.child).into_view();
+        let Some(caller) = caller else {
+            return view;
+        };
+        view_fn(move |cx| {
+            // A value that agrees with the axes (a list part names its own
+            // orientation) is redundant; one that disagrees is reported.
+            if Some(kivact_reactive::untrack(|| caller.get())) != derived {
+                cx.rt.report(
+                    Some(cx.owner),
+                    UiError::new(
+                        ErrorKind::Unsupported,
+                        "`.orientation(..)` on a scroll container disagrees with `.axes(..)`: its accessibility orientation follows the axes                          (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
+                        Some(at),
+                    ),
+                );
+            }
+            mount(view, cx)
+        })
     }
 }
 

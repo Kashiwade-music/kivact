@@ -294,3 +294,59 @@ fn the_trigger_is_a_combo_box_and_the_list_a_list_box_of_options() {
     assert!(!option(&screen, "Cherry").is_selected());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_preview_given_after_the_content_part_is_reported() {
+    let log = std::rc::Rc::new(std::cell::RefCell::new(Vec::<Option<&'static str>>::new()));
+    let seen = log.clone();
+    let (screen, _selected) = mount_with(real_window(), move || {
+        let selected = signal(None::<&'static str>);
+        let options = fruit().into_value();
+        let api = use_select(options, selected);
+        // The surface part exists before the preview is given.
+        let content = std::cell::RefCell::new(Some(api.content()));
+        let api = api.on_preview(move |key| seen.borrow_mut().push(key));
+        let part = api.trigger();
+        let anchor = part.node_ref();
+        let label = api.label();
+        let list = show(api.shown(), move || {
+            let rows = for_each(
+                options,
+                |option| *option.key(),
+                move |key, option| {
+                    node()
+                        .part(api.item(key))
+                        .style(style().height(28).shrink(0))
+                        .child(text(move || option.with(|option| option.label())))
+                },
+            );
+            let content = content
+                .borrow_mut()
+                .take()
+                .expect("invariant: the list opens once");
+            overlay(anchor, Placement::Below, column(rows))
+                .part(content)
+                .name("Fruit")
+        });
+        (
+            selected,
+            column((
+                node()
+                    .part(part)
+                    .name("Fruit")
+                    .style(style().size(160, 28))
+                    .child(text(label)),
+                list,
+            )),
+        )
+    });
+    trigger(&screen).click();
+    assert_eq!(log.borrow().last(), Some(&Some("apple")));
+    screen.press_key(Key::Escape);
+    assert_eq!(
+        log.borrow().last(),
+        Some(&None),
+        "the preview ends with the list"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

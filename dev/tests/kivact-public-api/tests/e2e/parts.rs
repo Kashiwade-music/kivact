@@ -110,12 +110,11 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
     screen.mouse_up(MouseButton::Primary);
     assert!(!first.get().pressed && !second.get().pressed);
     assert!(calls.borrow().iter().any(|(id, phase, region)| *id == 1
-        && *phase == PointerPhase::Up
+        && matches!(phase, PointerPhase::Up(_))
         && *region == Some(RegionId(1))));
     assert!(
-        !calls.borrow().iter().any(
-            |(id, phase, _)| *id == 2 && matches!(phase, PointerPhase::Down | PointerPhase::Up)
-        )
+        !calls.borrow().iter().any(|(id, phase, _)| *id == 2
+            && matches!(phase, PointerPhase::Down(_) | PointerPhase::Up(_)))
     );
     screen.mouse_move(rect.x + 20.0, rect.y + 20.0);
     screen.mouse_down(MouseButton::Primary);

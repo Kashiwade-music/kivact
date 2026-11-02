@@ -14,15 +14,27 @@ use kivact_wire::NodeId;
 use crate::client::link::HostLink;
 use kivact_reactive::Runtime;
 
+/// Where the App stands toward its exit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum ExitPhase {
+    /// No close was requested.
+    #[default]
+    Running,
+    /// The host asked to close: queued actions drain until `deadline_ns`
+    /// (the first request's time plus `kivact_task::DEFAULT_DRAIN_NS`); a
+    /// later request keeps it.
+    Draining { deadline_ns: u64 },
+    /// The App told the host to exit.
+    Exited,
+}
+
 /// Everything the client keeps per App about the host link.
 #[derive(Default)]
 pub(crate) struct HostState {
     /// The host clock and waker; also the runtime's driver.
     pub(super) link: Rc<HostLink>,
-    /// The host asked to close the window.
-    pub(super) close_requested: Cell<bool>,
-    /// Deadline of the exit drain after a close request (ns).
-    pub(super) exit_deadline: Cell<Option<u64>>,
+    /// Where the App stands toward its exit.
+    pub(super) exit: Cell<ExitPhase>,
     /// Turns run so far.
     pub(super) turns: Cell<u64>,
     /// Events dropped because their node no longer exists.
@@ -43,6 +55,16 @@ impl HostState {
     /// Move the host clock forward to `ns` (a turn, a `FrameTick`).
     pub(super) fn advance_clock(&self, ns: u64) {
         self.link.advance_clock(ns);
+    }
+
+    /// The host asked to close at `now_ns`: the drain starts. A repeated
+    /// request keeps the first deadline.
+    pub(super) fn request_close(&self, now_ns: u64) {
+        if self.exit.get() == ExitPhase::Running {
+            self.exit.set(ExitPhase::Draining {
+                deadline_ns: now_ns.saturating_add(kivact_task::DEFAULT_DRAIN_NS),
+            });
+        }
     }
 
     /// Turns run so far.

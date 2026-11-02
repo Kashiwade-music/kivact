@@ -47,7 +47,7 @@ pub(crate) fn refresh_lines<'a>(
     let editor = &node.editor;
     let edit = editor.state();
     let style = crate::measure::input_style(tree, columns, id, engine);
-    let Ok(mut lines) = node.lines.try_borrow_mut() else {
+    let Ok(mut slot) = node.lines.try_borrow_mut() else {
         return Ok(None);
     };
     let source = Source {
@@ -60,6 +60,12 @@ pub(crate) fn refresh_lines<'a>(
     };
     #[cfg(all(debug_assertions, feature = "testing"))]
     let reference_style = (mode == RefreshMode::Verify).then(|| style.clone());
+    if slot.is_none() {
+        *slot = Some(EditLines::new(source, style.clone(), engine));
+    }
+    let mut lines = RefMut::map(slot, |slot| {
+        slot.as_mut().expect("invariant: the lines were made above")
+    });
     lines.refresh(source, style, engine, mode)?;
     Ok(Some(RefreshedLines {
         lines,

@@ -6,9 +6,10 @@
 //! [`API_VERSION`] and the `timelineSemaphore` feature). [`Pool::new`]
 //! makes the images and the two timeline semaphores as
 //! [`kivact_types::SharedTextures`] says and exports them once. A frame:
-//! [`Pool::acquire`], [`Pool::record_acquire`], the engine's own drawing,
-//! [`Pool::record_release`], then [`Pool::submit`] (or the engine's own
-//! submission with [`Pool::finish`]'s semaphores).
+//! [`Pool::acquire`] gives a [`Target`]; [`Target::record_acquire`], the
+//! engine's own drawing, [`Target::record_release`], then
+//! [`Target::submit`] (or the engine's own submission with
+//! [`Target::finish`]'s semaphores).
 //!
 //! Invariants:
 //! - A texture is written again only after the GPU waited for `release`

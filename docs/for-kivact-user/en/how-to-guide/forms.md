@@ -298,32 +298,58 @@ it. `text_input(..).draft(on_commit)` turns the field into a draft: Enter or
 leaving the field calls `on_commit` with the text, Escape restores the text from
 before the edit.
 
+An inline rename also needs to know which item is being renamed, to open the
+field with its text selected and to close it again. `use_inline_edit` keeps
+that: `open(id)` starts a rename, `is_open(&id)` tells whether it runs, and
+`field(..)` builds the field.
+
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::EditPhase;
+use kivact::ui::use_inline_edit;
 
-fn rename(title: Signal<String>) -> impl IntoView {
-    let text_draft = signal(title.get_untracked());
-    let editing = signal(true);
-    show(editing, move || {
-        text_input("Title", text_draft)
-            .draft(move |text| title.set(text))
-            .on_edit(move |phase| {
-                if phase != EditPhase::Begin {
-                    editing.set(false);
-                }
-            })
-    })
+fn names() -> impl IntoView {
+    let items = signal(vec![(1u32, "Intro".to_owned()), (2, "Outro".to_owned())]);
+    let rename = use_inline_edit(signal(None::<u32>));
+    column(for_each(
+        items,
+        |(id, _)| *id,
+        move |id, item| {
+            row((
+                text(move || item.get().1),
+                show(
+                    move || !rename.is_open(&id),
+                    move || button("Rename").on_press(move || rename.open(id)),
+                ),
+                show(
+                    move || rename.is_open(&id),
+                    move || {
+                        rename.field(id, "Name", signal(item.get_untracked().1), move |name| {
+                            items.update(|all| {
+                                if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
+                                    row.1 = name;
+                                }
+                            });
+                        })
+                    },
+                ),
+            ))
+        },
+    ))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("Rename").run(|| rename(signal("Untitled".to_owned())))
+    App::new("Rename").run(names)
 }
 ```
 
-`on_edit` reports `Begin`, `Commit` and `Cancel`, so the field can close itself.
-An input marked `invalid` does not commit. `draft` replaces `on_submit`, because
-Enter belongs to the draft.
+The field takes the focus with its text selected when it appears. Enter or
+leaving it changed calls the commit function with the text, Escape drops the
+edit, and either one closes the field. The field also closes when its row is
+removed, so a rename never outlives its item. An input marked `invalid` does
+not commit. For a field that stays on screen, use
+`text_input(..).draft(on_commit)` alone: `draft` replaces `on_submit`, because
+Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
+`Cancel`.
 
 ## See also
 

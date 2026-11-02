@@ -115,7 +115,7 @@ impl Subclass {
             drop(unsafe { Rc::from_raw(data) });
             return None;
         }
-        input.subclassed.set(true);
+        input.subclass_installed.set(true);
         Some(Subclass {
             hwnd,
             input: Rc::clone(input),
@@ -125,7 +125,7 @@ impl Subclass {
 
 impl Drop for Subclass {
     fn drop(&mut self) {
-        if self.input.subclassed.replace(false) {
+        if self.input.subclass_installed.replace(false) {
             release(self.hwnd, Rc::as_ptr(&self.input));
         }
     }
@@ -244,7 +244,7 @@ unsafe extern "system" fn subclass(
             debug_dpi_change(hwnd, wparam);
             return 0;
         }
-        WM_NCDESTROY if input.subclassed.replace(false) => {
+        WM_NCDESTROY if input.subclass_installed.replace(false) => {
             // SAFETY: forwards the message down the chain, as every
             // subclass procedure must.
             let result = unsafe { DefSubclassProc(hwnd, message, wparam, lparam) };

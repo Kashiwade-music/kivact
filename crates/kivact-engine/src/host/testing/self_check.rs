@@ -54,7 +54,7 @@ impl ArvaneTestHost {
                 Some((slot, std::mem::replace(node.lines.get_mut(), independent)))
             })
             .collect();
-        let rebuilt = model.build_semantics(&mut engine);
+        let rebuilt = Some(model.build_semantics(&mut engine));
         model.a11y = state;
         for (slot, original) in lines {
             *model.editors[slot]

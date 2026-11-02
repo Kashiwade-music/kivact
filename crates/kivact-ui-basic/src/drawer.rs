@@ -124,46 +124,46 @@ impl IntoView for Drawer {
             let rect = panel_ref.rect();
             let last = var((0.0f32, 0u64));
             let speed = var(0.0f32);
-            let session =
-                use_drag::<()>(DragCoordinates::Window)
-                    .on_start(move |_| {
-                        last.set((0.0, clock_now()));
-                        speed.set(0.0);
-                    })
-                    .on_update(move |update: kivact::interaction::DragUpdate<()>| {
-                        let toward = match direction {
-                            Side::Bottom => update.delta.y,
-                            Side::Top => -update.delta.y,
-                            Side::Right => update.delta.x,
-                            Side::Left => -update.delta.x,
-                        }
-                        .max(0.0);
-                        let now = clock_now();
-                        let (before, at) = last.get();
-                        if now > at {
-                            let millis = (now - at) as f32 / 1_000_000.0;
-                            speed.set((toward - before) / millis);
-                        }
-                        last.set((toward, now));
-                        if update.phase == DragPhase::Cancel {
-                            pulled.set(0.0);
-                        } else {
-                            pulled.set(toward);
-                        }
-                    })
-                    .on_end(move |update: kivact::interaction::DragUpdate<()>| {
-                        let size = rect.get().map_or(0.0, |rect| {
-                            if horizontal { rect.width } else { rect.height }
-                        });
-                        let toward = pulled.get();
-                        let far = size > 0.0 && toward > size * CLOSE_FRACTION;
-                        let flick = toward > 4.0 && speed.get() > FLICK_SPEED;
-                        if update.phase == DragPhase::End && (far || flick) {
-                            open.set(false);
-                        } else {
-                            pulled.set(0.0);
-                        }
-                    });
+            let session = use_drag::<()>(DragCoordinates::Window)
+                .on_start(move |_| {
+                    last.set((0.0, clock_now()));
+                    speed.set(0.0);
+                })
+                .on_update(move |update: kivact::interaction::DragUpdate<()>| {
+                    let toward = match direction {
+                        Side::Bottom => update.delta.y,
+                        Side::Top => -update.delta.y,
+                        Side::Right => update.delta.x,
+                        Side::Left => -update.delta.x,
+                    }
+                    .max(0.0);
+                    let now = clock_now();
+                    let (before, at) = last.get();
+                    if now > at {
+                        let millis = (now - at) as f32 / 1_000_000.0;
+                        speed.set((toward - before) / millis);
+                    }
+                    last.set((toward, now));
+                    if update.phase == DragPhase::Cancel {
+                        pulled.set(0.0);
+                    } else {
+                        pulled.set(toward);
+                    }
+                })
+                .on_end(move |update: kivact::interaction::DragUpdate<()>| {
+                    let toward = pulled.get();
+                    // Not measured yet: no distance is far enough.
+                    let far = rect
+                        .get()
+                        .map(|rect| if horizontal { rect.width } else { rect.height })
+                        .is_some_and(|size| size > 0.0 && toward > size * CLOSE_FRACTION);
+                    let flick = toward > 4.0 && speed.get() > FLICK_SPEED;
+                    if update.phase == DragPhase::End && (far || flick) {
+                        open.set(false);
+                    } else {
+                        pulled.set(0.0);
+                    }
+                });
             let source = session.source(());
             let swiping = source.state();
             let handle = node()

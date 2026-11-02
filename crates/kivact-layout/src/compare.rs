@@ -34,7 +34,7 @@ impl NodeLayoutColumns {
     /// A value within capacity does not prove that the slot contains a live node;
     /// callers needing identity must resolve it in the paired authoritative tree.
     pub fn geometry(&self, slot: usize) -> Option<Geometry> {
-        let values = self.values.borrow();
+        let values = &self.values;
         let at = slot.checked_add(1)?;
         Some(Geometry {
             rounded: values.final_layout.get(at)?.map(geometry),
@@ -42,22 +42,16 @@ impl NodeLayoutColumns {
         })
     }
     /// Revalidate every recorded request only when the record is complete.
-    /// No record borrow spans the measurement callback, and no result is copied back.
+    /// No result is copied back.
     /// `slot` must be live and allocated in this instance's domain, and `id` must
     /// identify that same node. The measurer must describe its current content.
     pub fn remeasures_same(&self, slot: usize, id: NodeId, measure: &mut dyn LeafMeasure) -> bool {
         let record = &self.states[slot + 1].measured;
-        let count = {
-            let kept = record.borrow();
-            if kept.incomplete {
-                return false;
-            }
-            kept.sizes.len()
-        };
-        (0..count).all(|i| {
-            let (request, retained) = record.borrow().sizes[i];
-            measure.measure(id, request) == retained
-        })
+        !record.incomplete
+            && record
+                .sizes
+                .iter()
+                .all(|(request, retained)| measure.measure(id, *request) == *retained)
     }
     /// Compare retained requests with current content, including bounded incomplete records.
     /// This diagnostic operation never updates retained measurements or repairs layout.
@@ -74,12 +68,9 @@ impl NodeLayoutColumns {
             let Some(id) = tree.id_at(slot) else {
                 continue;
             };
-            let record = &self.states[slot + 1].measured;
-            let count = record.borrow().sizes.len();
-            for i in 0..count {
-                let (request, retained) = record.borrow().sizes[i];
-                let rebuilt = measure.measure(id, request);
-                if retained != rebuilt {
+            for (request, retained) in &self.states[slot + 1].measured.sizes {
+                let rebuilt = measure.measure(id, *request);
+                if *retained != rebuilt {
                     errors.push(LayoutDifference {
                         id,
                         detail: format!(
@@ -96,25 +87,23 @@ impl NodeLayoutColumns {
     /// results for detached nodes or replace any authoritative source state.
     /// Tree, state and columns must be paired within the same slot allocation
     /// domain, including vacant slots; this never migrates or remaps an allocation.
-    pub fn rebuild_all(&self, tree: &dyn LayoutTree, state: &mut LayoutState) {
+    pub fn rebuild_all(&mut self, tree: &dyn LayoutTree, state: &mut LayoutState) {
         for slot in 0..self.states.len().saturating_sub(1) {
             if let Some(id) = tree.id_at(slot) {
                 self.rebuild_style(tree, state, id);
             }
         }
         for cursor in &self.cursors {
-            cursor.epoch.set(state.epoch.wrapping_add(1));
-            cursor.at.set(None);
+            cursor.forget();
         }
         state.relayout.clear();
-        for record in &self.states {
-            *record.measured.borrow_mut() = Default::default();
+        for record in &mut self.states {
+            record.measured = Default::default();
         }
-        let mut values = self.values.borrow_mut();
-        for cache in &mut values.caches {
+        for cache in &mut self.values.caches {
             cache.clear();
         }
-        values.performed.fill(None);
+        self.values.performed.fill(None);
     }
     /// Compare full geometry and available parent-visible outputs for identical inputs.
     /// None/None is the sole geometry skip. This is strict equality, distinct from
@@ -124,8 +113,8 @@ impl NodeLayoutColumns {
     /// This compares derived results, not arbitrary unrelated or reordered trees.
     pub fn compare(&self, other: &Self, tree: &dyn LayoutTree) -> Vec<LayoutDifference> {
         let mut errors = Vec::new();
-        let before = self.values.borrow();
-        let after = other.values.borrow();
+        let before = &self.values;
+        let after = &other.values;
         for slot in 0..self.states.len().saturating_sub(1) {
             let Some(id) = tree.id_at(slot) else {
                 continue;

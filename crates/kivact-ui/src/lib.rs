@@ -8,7 +8,7 @@
 //! | Component | First argument | Behavior and semantics from |
 //! |---|---|---|
 //! | [`button`] | the visible text, also the name | `Role::Button`; click, Enter, Space and the accessibility `Activate` action activate it |
-//! | [`checkbox`], [`switch`] | the visible label, also the name | [`Toggle`](kivact_interaction::Toggle) of kind `Checkbox` or `Switch` |
+//! | [`checkbox`], [`switch`] | the visible label, also the name | [`CheckboxApi`](kivact_interaction::CheckboxApi) and [`Toggle`](kivact_interaction::Toggle) of kind `Switch` |
 //! | [`select`] | the assistive name; not drawn | shared interaction parts |
 //! | [`menu`] | the visible label of the trigger, also the name | shared interaction parts |
 //! | [`dialog`] | the title, drawn unless hidden, and the dialog's name | shared interaction parts |
@@ -132,6 +132,7 @@ mod data_table;
 mod disclosure;
 mod field;
 mod helpers;
+mod inline_edit;
 mod layer;
 mod list;
 mod look;
@@ -159,6 +160,7 @@ pub use data_column::DataColumn;
 pub use data_table::{DataTable, DataTableContext, data_table};
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};
+pub use inline_edit::{InlineEdit, use_inline_edit};
 /// The values and data the standard components and the official kits take,
 /// so an app needs no `kivact::interaction` import (that module is the
 /// component author's).

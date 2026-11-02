@@ -21,10 +21,6 @@ pub struct TextEngine {
     pub(crate) fonts: FontContext,
     pub(crate) layouts: LayoutContext<u32>,
     pub(super) font_bytes: HashMap<u64, Arc<[u8]>>,
-    /// Shaped paragraphs, broken into lines again for each width.
-    pub(super) shaped: layouts::Shaped,
-    /// "…" shaped per paragraph style, for ellipses.
-    pub(super) ellipses: HashMap<layouts::Key, output::Ellipsis>,
 }
 
 /// Ellipses kept before they are all forgotten.
@@ -54,8 +50,6 @@ impl TextEngine {
             },
             layouts: LayoutContext::new(),
             font_bytes: HashMap::new(),
-            shaped: layouts::Shaped::default(),
-            ellipses: HashMap::new(),
         };
         let mut families = Vec::new();
         for bytes in fonts {
@@ -98,13 +92,8 @@ impl TextEngine {
         if faces.is_empty() {
             return Err(TextError::InvalidFont);
         }
-        // A successful registration can change every cached fallback answer.
-        self.cache.shaped.clear();
-        self.cache.measured.clear();
-        self.cache.families.clear();
-        self.cache.font_names = None;
-        self.shaped.clear();
-        self.ellipses.clear();
+        // A successful registration can change every answer computed from the fonts.
+        self.cache = Cache::default();
         Ok(faces
             .into_iter()
             .filter_map(|(id, _)| self.fonts.collection.family_name(id).map(str::to_owned))
@@ -153,8 +142,6 @@ impl TextEngine {
             font_names,
             ..Cache::default()
         };
-        self.shaped = layouts::Shaped::default();
-        self.ellipses = HashMap::new();
         self.font_bytes = HashMap::new();
         self.fonts.source_cache.prune(0, true);
         self.layouts = LayoutContext::new();
@@ -196,7 +183,7 @@ impl TextEngine {
         }
         let ellipsis = self.ellipsis_for(text, style, max_width, height);
         let layout = layout_at(
-            &mut self.shaped,
+            &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
             text,
@@ -276,7 +263,7 @@ impl TextEngine {
             return None;
         }
         let layout = layout_at(
-            &mut self.shaped,
+            &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
             text,
@@ -297,7 +284,7 @@ impl TextEngine {
             ..style.clone()
         };
         let key = layouts::Key::new(ELLIPSIS, &[], &own, height);
-        if let Some(e) = self.ellipses.get(&key) {
+        if let Some(e) = self.cache.ellipses.get(&key) {
             return Some(e.clone());
         }
         let mut layout = build::shape_layout(
@@ -310,10 +297,10 @@ impl TextEngine {
         );
         layout.break_all_lines(None);
         let ellipsis = output::Ellipsis::of(&layout, &mut self.font_bytes);
-        if self.ellipses.len() >= ELLIPSES {
-            self.ellipses.clear();
+        if self.cache.ellipses.len() >= ELLIPSES {
+            self.cache.ellipses.clear();
         }
-        self.ellipses.insert(key, ellipsis.clone());
+        self.cache.ellipses.insert(key, ellipsis.clone());
         Some(ellipsis)
     }
 
@@ -351,7 +338,7 @@ impl TextEngine {
         }
         let ellipsis = self.ellipsis_for(text, style, max_width, height);
         let layout = layout_at(
-            &mut self.shaped,
+            &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
             text,

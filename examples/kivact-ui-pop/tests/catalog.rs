@@ -234,13 +234,14 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     assert_eq!(
         screen
             .get_by_role(Role::CheckBox, "通知を受け取る")
-            .is_checked(),
-        Some(false)
+            .checked(),
+        Some(CheckedState::Unchecked)
     );
-    assert!(
+    assert_eq!(
         screen
             .get_by_role(Role::CheckBox, "部分選択（indeterminate）")
-            .is_indeterminate()
+            .checked(),
+        Some(CheckedState::Indeterminate)
     );
     let volume = screen.get_by_role(Role::Slider, "BGM音量");
     let track = screen.get_by_test_id("pop-volume");
@@ -290,8 +291,8 @@ fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
     assert_eq!(
         screen
             .get_by_role(Role::CheckBox, "今後この確認を表示しない")
-            .is_checked(),
-        Some(true)
+            .checked(),
+        Some(CheckedState::Checked)
     );
     evidence(&screen, "pop-state-confirm-modal");
     screen.press_key(Key::Escape);

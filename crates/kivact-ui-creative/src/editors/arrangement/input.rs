@@ -15,15 +15,15 @@ use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPha
 /// The press decides what the arrangement's drag does; the drag's sources
 /// (the canvas and its regions) then follow the pointer until it ends.
 pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
-    if e.phase != PointerPhase::Down {
+    let PointerPhase::Down(press) = e.phase else {
         return Handled::No;
-    }
+    };
     if state.gesture.is_active() {
         return Handled::Yes;
     }
-    match e.button {
-        Some(MouseButton::Middle) => start(state, Drag::Pan, &e, None),
-        Some(MouseButton::Primary) => {
+    match press.button {
+        MouseButton::Middle => start(state, Drag::Pan, &e, None),
+        MouseButton::Primary => {
             if let Some(region) = e.region() {
                 let target = state.regions.with(|map| map.target(region.0));
                 let (id, trim) = match target {

@@ -6,9 +6,7 @@ use crate::records::Before;
 
 impl EditLines {
     pub(crate) fn discrepancies(&self, text: &str) -> Vec<String> {
-        let Some(key) = &self.key else {
-            return Vec::new();
-        };
+        let key = &self.key;
         let mut errors = Vec::new();
         let expected = split(text, 0, text.len(), key.multiline, true);
         let mut prefix = Before::default();

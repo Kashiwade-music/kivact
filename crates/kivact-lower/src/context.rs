@@ -15,7 +15,8 @@
 //!   or gradient stop, ...) is dropped and counted, never skipped silently:
 //!   a window reports the count to the client, image output returns it as
 //!   an error.
-//! - What is counted: a non-finite coordinate; a size, radius or stroke
+//! - What is counted: a `PopClip`, `PopTransform` or `PopLayer` that does not
+//!   close the innermost group its scene opened; a non-finite coordinate; a size, radius or stroke
 //!   width that is non-finite or negative; a path whose points or arcs are not finite (or
 //!   that draws before it moves), a text run whose origin or size is not
 //!   finite, a fill Arvane cannot draw (a resolved gradient's stops or
@@ -48,7 +49,8 @@ pub struct Context<'a> {
     /// Device pixels per logical pixel of what is painted now.
     pub(crate) raster: &'a Cell<f32>,
     pub(crate) scene_cache: &'a RefCell<SceneCache>,
-    pub(crate) dependencies: RefCell<Option<Vec<Dependency>>>,
+    /// Every resource resolved so far, in order; a scene lowering keeps the ones it resolved.
+    pub(crate) dependencies: RefCell<Vec<Dependency>>,
     error: RefCell<Option<String>>,
     dropped: Cell<u32>,
     failures: Cell<u32>,
@@ -65,8 +67,6 @@ pub(crate) struct Checkpoint {
 impl<'a> Context<'a> {
     /// Borrow resources, device scale and the host-owned retained scene cache.
     /// Resource revisions invalidate cached payloads before this operation.
-    /// The owner calls `SceneCache::begin_frame` before a fresh output scene
-    /// and appends to that output without mutating its existing commands.
     /// The context and its operations cannot outlive either borrowed value.
     pub fn new(
         assets: &'a RefCell<ArvaneAssets>,
@@ -80,7 +80,7 @@ impl<'a> Context<'a> {
             assets,
             raster,
             scene_cache,
-            dependencies: RefCell::new(None),
+            dependencies: RefCell::new(Vec::new()),
             error: RefCell::new(None),
             dropped: Cell::new(0),
             failures: Cell::new(0),
@@ -108,9 +108,7 @@ impl<'a> Context<'a> {
     }
 
     fn record(&self, dependency: Dependency) {
-        if let Some(dependencies) = self.dependencies.borrow_mut().as_mut() {
-            dependencies.push(dependency);
-        }
+        self.dependencies.borrow_mut().push(dependency);
     }
 
     /// Keep `error` unless an earlier failure is kept. Every call counts.

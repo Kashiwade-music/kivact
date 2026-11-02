@@ -2,6 +2,7 @@
 
 use crate::common::Error;
 use kivact_types::{ExternalFrame, ExternalImageId};
+use std::num::NonZeroU64;
 use std::time::Duration;
 
 /// Textures in a pool unless asked otherwise: one the window shows, one
@@ -84,22 +85,38 @@ impl FrameReady {
     }
 }
 
+/// The texture the next frame is drawn into, as [`Slots::next`] gives it:
+/// what a pool's target holds.
+#[cfg_attr(
+    not(any(windows, target_os = "linux")),
+    allow(dead_code, reason = "no backend on this platform")
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Acquired {
+    /// The texture's index in the pool.
+    pub(crate) slot: u32,
+    /// The value of the texture's last frame: the window's `release`
+    /// reaches it before the texture is written again (`None`: the texture
+    /// has no frame yet).
+    pub(crate) wait: Option<NonZeroU64>,
+}
+
 /// Which texture the next frame goes into and which values the frames of
-/// each texture had: round robin, values counting up from 1.
+/// each texture had: round robin, values counting up from 1. A pool's
+/// target borrows the pool until it is submitted or dropped, so one frame
+/// is drawn at a time and the frame finished is the one acquired.
 #[cfg_attr(
     not(any(windows, target_os = "linux")),
     allow(dead_code, reason = "no backend on this platform")
 )]
 #[derive(Debug)]
 pub(crate) struct Slots {
-    /// The value of the last frame drawn into each texture (0: none).
-    drawn: Vec<u64>,
+    /// The value of the last frame drawn into each texture.
+    drawn: Vec<Option<NonZeroU64>>,
     /// The texture of the next frame.
     next: usize,
-    /// The last value given out (0: none).
-    value: u64,
-    /// A frame was acquired and not finished.
-    pending: bool,
+    /// The last value given out.
+    last: Option<NonZeroU64>,
 }
 
 #[cfg_attr(
@@ -109,60 +126,60 @@ pub(crate) struct Slots {
 impl Slots {
     pub(crate) fn new(slots: u32) -> Self {
         Self {
-            drawn: vec![0; slots as usize],
+            drawn: vec![None; slots as usize],
             next: 0,
-            value: 0,
-            pending: false,
+            last: None,
         }
     }
 
-    /// The next frame's texture and the value its last frame had; an
-    /// error when a frame is acquired and not finished yet.
-    pub(crate) fn acquire(&mut self) -> Result<(u32, u64), Error> {
-        if self.pending {
-            return Err(Error::Mismatch(
-                "a frame was acquired and not finished".into(),
-            ));
+    /// The next frame's texture and its last frame's value.
+    pub(crate) fn next(&self) -> Acquired {
+        Acquired {
+            slot: self.next as u32,
+            wait: self.drawn[self.next],
         }
-        self.pending = true;
-        Ok((self.next as u32, self.drawn[self.next]))
     }
 
-    /// The acquired frame of texture `slot` is submitted: its value.
-    pub(crate) fn finish(&mut self, slot: u32) -> FrameReady {
-        self.value += 1;
-        self.drawn[slot as usize] = self.value;
-        self.next = (slot as usize + 1) % self.drawn.len();
-        self.pending = false;
+    /// The value the next finished frame gets.
+    pub(crate) fn next_value(&self) -> NonZeroU64 {
+        match self.last {
+            Some(last) => last
+                .checked_add(1)
+                .expect("invariant: frame values fit u64"),
+            None => NonZeroU64::MIN,
+        }
+    }
+
+    /// The frame `acquired` (the one [`Slots::next`] gave) was submitted:
+    /// its value.
+    pub(crate) fn finish(&mut self, acquired: Acquired) -> FrameReady {
+        assert_eq!(
+            acquired.slot as usize, self.next,
+            "invariant: the frame finished is the one `next` gave (a target borrows its pool)"
+        );
+        let value = self.next_value();
+        self.last = Some(value);
+        self.drawn[self.next] = Some(value);
+        self.next = (self.next + 1) % self.drawn.len();
         FrameReady {
-            slot,
-            value: self.value,
+            slot: acquired.slot,
+            value: value.get(),
         }
     }
 
-    /// The acquired frame is given up without a submission.
-    pub(crate) fn cancel(&mut self) {
-        self.pending = false;
-    }
-
-    /// The value of the last frame drawn into `slot`, when the slot is
-    /// not being drawn now.
-    pub(crate) fn drawn(&self, slot: u32) -> Result<u64, Error> {
-        let Some(&value) = self.drawn.get(slot as usize) else {
-            return Err(Error::Mismatch(format!(
+    /// The value of the last frame drawn into `slot`.
+    pub(crate) fn drawn(&self, slot: u32) -> Result<Option<NonZeroU64>, Error> {
+        self.drawn.get(slot as usize).copied().ok_or_else(|| {
+            Error::Mismatch(format!(
                 "no texture {slot} in a pool of {}",
                 self.drawn.len()
-            )));
-        };
-        if self.pending && slot as usize == self.next {
-            return Err(Error::Mismatch(format!("texture {slot} is being drawn")));
-        }
-        Ok(value)
+            ))
+        })
     }
 
     /// The last value given out.
-    pub(crate) fn last(&self) -> u64 {
-        self.value
+    pub(crate) fn last(&self) -> Option<NonZeroU64> {
+        self.last
     }
 }
 

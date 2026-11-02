@@ -46,7 +46,8 @@
 //!   up to 8,192 device px per edge and a quarter of the budget (only the
 //!   visible part of a clipped SVG is rasterized), retained pixels within
 //!   the store's budget (256 MiB by default) except what the current and
-//!   the previous frame draw ([`AssetStore::begin_frame`]).
+//!   the previous frame draw once the host begins frames
+//!   ([`AssetStore::begin_frame`]).
 //! - Depends on `kivact-types` alone among Arvane crates and on no Kivact
 //!   crate; no external type (image, resvg, skrifa) appears in its API.
 //! - The store lives on its host's UI thread; only its worker thread runs

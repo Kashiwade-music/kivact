@@ -1,37 +1,90 @@
 //! Role: View state and reactive composition.
 //!
-//! Per-App state of the view layer (the retained metadata and engine writer,
-//! the environment signals, the keyboard focus source, the last hovered node,
-//! the pointer drag the overlay policy tracks, outstanding host requests),
-//! installed as a runtime extension when the App is created.
+//! Per-App state of the view layer (what the host's start established: the
+//! retained metadata and engine writer, the environment signals, the keyboard
+//! focus source; and the last hovered node, the pointer drag the overlay
+//! policy tracks, outstanding host requests), installed as a runtime
+//! extension when the App is created.
 
 use std::any::Any;
-use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_reactive::Selector;
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owned, Owner, Runtime};
+use kivact_reactive::{Owner, Runtime};
 use kivact_reactive::{Signal, Value};
-use kivact_wire::{HostEnv, NodeId, PlatformResult};
+use kivact_wire::{HostEnv, Modifiers, NodeId, PlatformResult};
 
 use super::tree::Tree;
 use kivact_style::draw::Rect;
 use kivact_task::Completion;
 use kivact_wire::Capabilities;
 
+/// What a [`NodeRef`](super::NodeRef) is bound to.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Bound {
+    /// A host node.
+    Node(NodeId),
+    /// A canvas region of a host node, with that region's pointer hover.
+    Region {
+        node: NodeId,
+        region: kivact_style::draw::RegionId,
+        hovered: Value<bool>,
+    },
+}
+
+impl Bound {
+    /// The host node, whole or by region.
+    pub(crate) fn node(self) -> NodeId {
+        match self {
+            Bound::Node(node) | Bound::Region { node, .. } => node,
+        }
+    }
+
+    /// The focus target the binding names.
+    pub(crate) fn target(self) -> kivact_wire::FocusTarget {
+        match self {
+            Bound::Node(node) => kivact_wire::FocusTarget { node, region: None },
+            Bound::Region { node, region, .. } => kivact_wire::FocusTarget {
+                node,
+                region: Some(region),
+            },
+        }
+    }
+}
+
 /// What a [`NodeRef`](super::NodeRef) stores under its owner: the bound
 /// target and its reactive readers.
 pub(crate) struct NodeRefState {
     pub(crate) owner: Owner,
-    pub(crate) node: Cell<Option<kivact_wire::FocusTarget>>,
-    /// The binding for reactive readers and region bindings.
-    pub(crate) node_sig: Signal<Option<kivact_wire::FocusTarget>>,
+    /// The one source of the binding (`None` while unbound). Tracked readers `get` it;
+    /// untracked paths use `try_get_untracked`, where a disposed signal reads as unbound.
+    pub(crate) bound: Signal<Option<Bound>>,
+    /// `NodeRef::rect` was called: every node the ref binds to has its layout observed.
+    pub(crate) observes_layout: Cell<bool>,
     pub(crate) rect_value: Value<Option<Rect>>,
     pub(crate) scroll_value: Value<crate::draw::Point>,
-    pub(crate) regional_hover: Cell<Option<Value<bool>>>,
+}
+
+/// The node the host last reported under the pointer (`view::hover`).
+#[derive(Clone, Copy)]
+pub(crate) enum Hover {
+    /// No `NodeRef::hovered` asked yet: the last report as a plain value.
+    Plain(Option<NodeId>),
+    /// The graph source the first `NodeRef::hovered` created; it holds the last report.
+    Reactive(Signal<Option<NodeId>>),
+}
+
+/// A focus request made in this turn and not sent to the host yet.
+pub(crate) struct QueuedFocus {
+    pub(crate) id: u64,
+    pub(crate) target: kivact_wire::FocusTarget,
+    /// Whether the host shows a focus indicator for it.
+    pub(crate) visible: bool,
+    pub(crate) waiter: FocusWaiter,
 }
 
 /// The App's host environment: one signal holding the whole `HostEnv` the
@@ -129,12 +182,11 @@ pub(crate) enum EffectWaiter {
 #[derive(Default)]
 pub(crate) struct Requests {
     pub(crate) next_request: u64,
-    pub(crate) focus_waiters: HashMap<u64, FocusWaiter>,
-    /// Focus requests not sent yet: (node, request id).
-    pub(crate) pending_focus: Vec<(kivact_wire::FocusTarget, u64, bool)>,
+    /// Focus requests of this turn, in request order (`requests::flush_focus` sends or cancels each).
+    pub(crate) queued_focus: Vec<QueuedFocus>,
+    /// Focus requests sent to the host, by request id, until it answers.
+    pub(crate) sent_focus: HashMap<u64, FocusWaiter>,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
-    /// `NodeRef`s whose node is observed as soon as they are bound.
-    pub(crate) observe_on_bind: Vec<Owned<NodeRefState>>,
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_wire::FocusTarget>,
@@ -147,27 +199,39 @@ impl Requests {
     }
 }
 
+/// What the host's start establishes for the App's whole life
+/// ([`ViewState::start`]): set once, before any App code or host event runs.
+pub(crate) struct Started {
+    /// The retained metadata and direct engine access of the whole App.
+    pub(super) tree: RefCell<Tree>,
+    /// The host environment.
+    pub(super) env: Rc<EnvState>,
+    /// What the host's platform can do (fixed for the App's life).
+    pub(super) capabilities: Capabilities,
+    /// The keyboard focus source.
+    pub(super) focus: FocusKeys,
+    /// The window's minimum size (`None`: no minimum).
+    pub(super) min_window_size: Option<kivact_wire::Size>,
+    /// The adapter of the window's GPU device that can import shared
+    /// textures (`None` until the host reports one).
+    #[cfg(feature = "gpu-interop")]
+    pub(super) adapter: Signal<Option<kivact_wire::GpuAdapter>>,
+}
+
 /// Everything the view layer keeps per App. Fields drop in declaration
 /// order.
 pub(crate) struct ViewState {
-    /// The retained metadata and direct engine access of the whole App.
-    tree: RefCell<Tree>,
-    min_window_size: Cell<Option<kivact_wire::Size>>,
-    /// The host environment, once the root is mounted.
-    env: RefCell<Option<Rc<EnvState>>>,
-    /// What the host's platform can do, once the root is mounted.
-    capabilities: Cell<Capabilities>,
+    /// What the host's start established (`Started`).
+    started: OnceCell<Started>,
     /// Missing capabilities the App relied on and that were noted.
     noted_missing: RefCell<std::collections::BTreeSet<&'static str>>,
-    /// The keyboard focus source, once the root is mounted.
-    focus: Cell<Option<FocusKeys>>,
     /// The node the host reported under the pointer last.
-    hovered: Cell<Option<NodeId>>,
-    /// The hover source, once the first `NodeRef::hovered` created it.
-    hover: Cell<Option<Signal<Option<NodeId>>>>,
+    hover: Cell<Hover>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<bool>,
+    /// The modifier keys the host reported last (`view::current_modifiers`).
+    modifiers: Cell<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(super) requests: RefCell<Requests>,
 }
@@ -179,38 +243,40 @@ impl Default for ViewState {
 }
 
 impl ViewState {
-    /// An empty tree.
+    /// A view state the host has not started yet.
     pub(crate) fn new() -> Self {
         ViewState {
-            tree: RefCell::new(Tree::new()),
-            min_window_size: Cell::new(None),
-            env: RefCell::new(None),
-            capabilities: Cell::new(Capabilities::default()),
+            started: OnceCell::new(),
             noted_missing: RefCell::new(std::collections::BTreeSet::new()),
-            focus: Cell::new(None),
-            hovered: Cell::new(None),
-            hover: Cell::new(None),
+            hover: Cell::new(Hover::Plain(None)),
             pointer_modality: Cell::new(false),
+            modifiers: Cell::new(Modifiers::default()),
             requests: RefCell::new(Requests::default()),
         }
     }
 
-    pub(crate) fn min_window_size(&self) -> Option<kivact_wire::Size> {
-        self.min_window_size.get()
+    /// Install what the host's start established (`view::root::start`).
+    pub(crate) fn start(&self, started: Started) {
+        assert!(
+            self.started.set(started).is_ok(),
+            "invariant: the host starts an App once"
+        );
     }
-    pub(crate) fn set_min_window_size(&self, size: Option<kivact_wire::Size>) {
-        self.min_window_size.set(size);
+
+    fn started(&self) -> &Started {
+        self.started
+            .get()
+            .expect("invariant: App code and host events run only after the host started the App")
     }
 
     /// Release spare request/tree capacity. Environment memos and live
     /// reactive/user resources are authority, not rebuildable caches.
     pub(crate) fn release_capacity(&self) {
-        self.tree.borrow_mut().release_capacity();
+        self.started().tree.borrow_mut().release_capacity();
         let mut requests = self.requests.borrow_mut();
-        requests.focus_waiters.shrink_to_fit();
-        requests.pending_focus.shrink_to_fit();
+        requests.queued_focus.shrink_to_fit();
+        requests.sent_focus.shrink_to_fit();
         requests.effects.shrink_to_fit();
-        requests.observe_on_bind.shrink_to_fit();
         requests.pending_activations.shrink_to_fit();
     }
 
@@ -223,30 +289,25 @@ impl ViewState {
     /// Read the retained tree of `rt`'s App.
     #[inline]
     pub(crate) fn tree(rt: &Runtime) -> Ref<'_, Tree> {
-        Self::of(rt).tree.borrow()
+        Self::of(rt).started().tree.borrow()
     }
 
     /// Change the retained tree of `rt`'s App. A prop written through the
     /// borrow names its writer, `rt.running_effect()` (`Tree::update`).
     #[inline]
     pub(crate) fn tree_mut(rt: &Runtime) -> RefMut<'_, Tree> {
-        Self::of(rt).tree.borrow_mut()
+        Self::of(rt).started().tree.borrow_mut()
     }
 
-    /// The host environment (`None` before the root is mounted).
+    /// The host environment.
     #[inline]
-    pub(crate) fn env(&self) -> Option<Rc<EnvState>> {
-        self.env.borrow().clone()
+    pub(crate) fn env(&self) -> Rc<EnvState> {
+        self.started().env.clone()
     }
 
-    /// Install the host environment (root mount).
-    pub(crate) fn set_env(&self, env: Rc<EnvState>) {
-        *self.env.borrow_mut() = Some(env);
-    }
-
-    /// What the host's platform can do (none before the root is mounted).
+    /// What the host's platform can do.
     pub(crate) fn capabilities(&self) -> Capabilities {
-        self.capabilities.get()
+        self.started().capabilities
     }
 
     /// Whether the missing capability `name` has not been noted yet (it
@@ -255,30 +316,22 @@ impl ViewState {
         self.noted_missing.borrow_mut().insert(name)
     }
 
-    /// Record what the host's platform can do (root mount).
-    pub(crate) fn set_capabilities(&self, capabilities: Capabilities) {
-        self.capabilities.set(capabilities);
-    }
-
-    /// The keyboard focus source (`None` before the root is mounted).
+    /// The keyboard focus source.
     #[inline]
-    pub(crate) fn focus_keys(&self) -> Option<FocusKeys> {
-        self.focus.get()
+    pub(crate) fn focus_keys(&self) -> FocusKeys {
+        self.started().focus
     }
 
-    /// Install the keyboard focus source (root mount).
-    pub(crate) fn set_focus_keys(&self, keys: FocusKeys) {
-        self.focus.set(Some(keys));
+    /// The window's minimum size (`None`: no minimum).
+    pub(crate) fn min_window_size(&self) -> Option<kivact_wire::Size> {
+        self.started().min_window_size
     }
 
-    /// The node the host reported under the pointer last.
-    pub(crate) fn hovered(&self) -> Option<NodeId> {
-        self.hovered.get()
-    }
-
-    /// Record the node the host reported under the pointer.
-    pub(crate) fn set_hovered(&self, node: Option<NodeId>) {
-        self.hovered.set(node);
+    /// The adapter of the window's GPU device that can import shared
+    /// textures.
+    #[cfg(feature = "gpu-interop")]
+    pub(crate) fn adapter(&self) -> Signal<Option<kivact_wire::GpuAdapter>> {
+        self.started().adapter
     }
 
     /// Whether the last key or pointer press was a pointer press.
@@ -291,13 +344,23 @@ impl ViewState {
         self.pointer_modality.set(pointer);
     }
 
-    /// The hover source (`None` until the first `NodeRef::hovered`).
-    pub(crate) fn hover(&self) -> Option<Signal<Option<NodeId>>> {
+    /// The modifier keys the host reported last.
+    pub(crate) fn modifiers(&self) -> Modifiers {
+        self.modifiers.get()
+    }
+
+    /// Record the modifier keys the host reported.
+    pub(crate) fn set_modifiers(&self, modifiers: Modifiers) {
+        self.modifiers.set(modifiers);
+    }
+
+    /// The node the host reported under the pointer last.
+    pub(crate) fn hover(&self) -> Hover {
         self.hover.get()
     }
 
-    /// Install the hover source (its first use).
-    pub(crate) fn set_hover(&self, node: Signal<Option<NodeId>>) {
-        self.hover.set(Some(node));
+    /// Replace the hover record (a report, or the first `NodeRef::hovered`).
+    pub(crate) fn set_hover(&self, hover: Hover) {
+        self.hover.set(hover);
     }
 }

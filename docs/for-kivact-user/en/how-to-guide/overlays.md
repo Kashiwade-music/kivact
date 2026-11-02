@@ -206,7 +206,7 @@ fn app() -> impl IntoView {
             MenuEntry::item("new", "New").shortcut("Ctrl N"),
             MenuEntry::item("open", "Open"),
             MenuEntry::separator(),
-            MenuEntry::item("grid", "Show grid").checked(show_grid.get()).keep_open(true),
+            MenuEntry::checkbox("grid", "Show grid", show_grid.get()).keep_open(true),
             MenuEntry::submenu(
                 "export",
                 "Export",
@@ -246,10 +246,13 @@ mod tests {
 }
 ```
 
-- Entries are built with `MenuEntry::item`, `submenu`, `separator`, `heading`,
-  `group`, and `radio`. Modifiers add `.shortcut("Ctrl N")` (text only; the menu
-  binds no key), `.icon(..)`, `.description(..)`, `.checked(bool)`,
-  `.disabled(bool)`, `.destructive(true)` and `.keep_open(true)`.
+- Entries are built with `MenuEntry::item`, `checkbox(key, label, checked)`,
+  `radio`, `submenu`, `separator`, `heading` and `group`. The constructor
+  chooses the kind of the row. Modifiers add `.shortcut("Ctrl N")` (text only;
+  the menu binds no key), `.icon(..)`, `.description(..)`, `.disabled(bool)`,
+  `.destructive(true)` and `.keep_open(true)`. A modifier that does not apply to
+  the entry's kind (a `shortcut` on a separator, `keep_open` on a submenu) is a
+  usage error.
 - Pass a closure for `entries` (as above) when check marks or labels depend on
   signals; the menu re-reads it. A plain `Vec` is fine for a fixed menu.
 - The keys are yours. Use `&'static str` or an enum with `Clone + Eq + Hash`.

@@ -20,15 +20,6 @@ pub struct Reader {
 }
 
 impl Reader {
-    /// Repack at an external geometry read when no outer read callback is active.
-    /// Nested reads from with_node already hold an immutable model borrow; every
-    /// semantic order reader supports the active representation in that case.
-    fn prepare_geometry_read(&self) {
-        if let Ok(mut model) = self.model.try_borrow_mut() {
-            model.tree.pack_child_orders();
-        }
-    }
-
     /// Registered and system font family names, sorted and unique, preserving case.
     pub fn font_families(&self) -> Vec<String> {
         self.engine.borrow().font_families()
@@ -37,9 +28,7 @@ impl Reader {
     /// A copy of the editing state of the text input `id` (its text
     /// included), recording the changes made to it from here.
     pub fn edit_state(&self, id: NodeId) -> Option<kivact_editing::EditState> {
-        let mut state = kivact_editing::Editor::new(self.model.borrow().edit(id).cloned()?);
-        state.start_log();
-        Some(state.into_state())
+        Some(self.model.borrow().editor_node(id)?.editor.snapshot())
     }
 
     /// The editing session of the text input `id`, without its text.
@@ -54,7 +43,6 @@ impl Reader {
         id: NodeId,
         lines: std::ops::Range<usize>,
     ) -> Option<kivact_editing::TextLayout> {
-        self.prepare_geometry_read();
         let model = self.model.borrow();
         crate::model::interact::text_geometry::text_layout(
             &model,
@@ -75,13 +63,11 @@ impl Reader {
 
     /// A window point in a node's untransformed local coordinates.
     pub fn local_point(&self, id: NodeId, point: Point) -> Point {
-        self.prepare_geometry_read();
         self.model.borrow().to_local(id, point)
     }
 
     /// Map node-local region bounds into logical window coordinates.
     pub fn region_bounds(&self, id: NodeId, rect: kivact_wire::Rect) -> Option<kivact_wire::Rect> {
-        self.prepare_geometry_read();
         let model = self.model.borrow();
         let bounds = model.rect(id)?;
         let own = kivact_wire::Rect {
@@ -95,7 +81,6 @@ impl Reader {
 
     /// Whether the frontmost hit belongs to this subtree.
     pub fn hit_test(&self, id: NodeId, point: Point) -> bool {
-        self.prepare_geometry_read();
         let m = self.model.borrow();
         m.hit(point)
             .is_some_and(|hit| m.tree().is_in_subtree(hit, id))
@@ -176,16 +161,16 @@ impl Reader {
     }
 
     /// The measurer for a draw callback of node `id`'s scene: runs without
-    /// a family or a line height take the node's inherited ones. `None`
-    /// while the model is borrowed (the engine measures or lays out; never
-    /// so in kivact's turn), when nothing can be measured.
-    pub fn text_measurer(&self, id: NodeId) -> Option<crate::text_measure::TextMeasurer> {
-        let inherited =
-            kivact_wire::ComputedText::clone(&self.model.try_borrow().ok()?.text_props(id));
-        Some(crate::text_measure::TextMeasurer::new(
-            Rc::clone(&self.engine),
-            inherited,
-        ))
+    /// a family or a line height take the node's inherited ones. Called in
+    /// kivact's turn, never while the engine holds the model.
+    pub fn text_measurer(&self, id: NodeId) -> crate::text_measure::TextMeasurer {
+        let inherited = {
+            let model = self.model.try_borrow().expect(
+                "invariant: draw callbacks run in kivact's turn, never while the engine holds the model",
+            );
+            kivact_wire::ComputedText::clone(&model.text_props(id))
+        };
+        crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
 }
 

@@ -6,7 +6,7 @@
 //! cancel writes the starting text back are the ones every other edit has.
 use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{Handled, Key, KeyEvent, Modifiers, NodeRef, callback};
-use kivact_core::{Binding, Callback, UiError, Var, effect, var};
+use kivact_core::{Binding, Callback, UiError, effect_on};
 use kivact_interaction::{EditPhase, EditSession};
 use std::rc::Rc;
 
@@ -17,6 +17,8 @@ pub(super) struct Draft {
     pub(super) commit: Callback<String>,
     pub(super) on_edit: Option<Callback<EditPhase>>,
     pub(super) return_focus: Option<NodeRef>,
+    /// Called once the draft has ended with a commit or a cancel.
+    pub(super) ended: Option<Callback<()>>,
 }
 
 /// The drafting of one field: its session, and the way out of it.
@@ -27,15 +29,12 @@ struct Drafting {
     session: EditSession<String>,
     value: Binding<String>,
     return_focus: Option<NodeRef>,
-    /// The text the session started from.
-    started: Var<String>,
 }
 
 impl Drafting {
     /// Start a session from `text`, unless one is running.
     fn begin(self, text: String) {
         if !self.session.is_active() {
-            self.started.set(text.clone());
             self.session.begin(text);
         }
     }
@@ -81,32 +80,39 @@ pub(super) fn install(
     invalid: Rc<dyn Fn() -> bool>,
 ) -> Installed {
     let session = EditSession::new(move |text: String| value.set(text));
-    if let Some(on_edit) = draft.on_edit {
-        session.on_edit(move |phase| on_edit.call(phase));
-    }
+    let (on_edit, ended) = (draft.on_edit, draft.ended);
+    session.on_edit(move |phase| {
+        if let Some(on_edit) = on_edit {
+            on_edit.call(phase);
+        }
+        if phase != EditPhase::Begin
+            && let Some(ended) = ended
+        {
+            ended.call(());
+        }
+    });
     let drafting = Drafting {
         commit: draft.commit,
         failed: callback(Err::<(), UiError>),
         session,
         value,
         return_focus: draft.return_focus,
-        started: var(String::new()),
     };
     let attachment = part(|input| input);
     let focused = attachment.node_ref().focused();
-    let was_focused = var(false);
     let blur_invalid = invalid.clone();
-    effect(move || {
-        let now = focused.get();
-        let had = was_focused.update(|had| std::mem::replace(had, now));
-        if now && !had {
+    effect_on(focused, move |&now| {
+        if now {
             // The focus came in: the draft starts from the text as it is.
             drafting.begin(value.get_untracked());
-        } else if !now && had && session.is_active() {
+        } else if session.is_active() {
             // The focus left. An unchanged draft ends without a write, a
             // changed and valid one is committed, and an invalid one stays
             // pending until Escape or until the field is gone.
-            if value.get_untracked() == drafting.started.get() {
+            let unchanged = session
+                .with_initial(|started| *started == value.get_untracked())
+                .unwrap_or(false);
+            if unchanged {
                 session.cancel();
             } else if !blur_invalid() {
                 drafting.commit();

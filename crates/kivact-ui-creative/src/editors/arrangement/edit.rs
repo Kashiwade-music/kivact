@@ -6,7 +6,7 @@ use crate::editors::arrangement::model::ArrangementRequest;
 use crate::editors::shared::region_parts::bounded_range;
 use kivact::Callback;
 use kivact::draw::Point;
-use kivact::view::{A11yAction, A11yEvent};
+use kivact::view::{A11yEvent, A11yRequest};
 
 /// Restores only bound scalar and view values; the application restores items.
 pub(crate) fn restore(s: Restore, snapshot: Snapshot) {
@@ -94,15 +94,15 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
     else {
         return;
     };
-    match event.action {
-        A11yAction::Select => match target {
+    match event.request {
+        A11yRequest::Select => match target {
             Target::Item(id) => select(id, kivact::interaction::ListGesture::Replace),
             Target::Automation(track, id) => {
                 active_auto.set(Some((track, id)));
             }
             _ => {}
         },
-        A11yAction::Activate => match target {
+        A11yRequest::Activate => match target {
             Target::AddTrack => {
                 if let Some(callback) = add_track {
                     callback.call(());
@@ -134,12 +134,8 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
             Target::Trim(id, _) => select(id, kivact::interaction::ListGesture::Replace),
             _ => {}
         },
-        A11yAction::SetValue => {
-            let Some(value) = event
-                .value
-                .and_then(|s| s.parse::<f64>().ok())
-                .filter(|v| v.is_finite())
-            else {
+        A11yRequest::SetValue(text) => {
+            let Some(value) = text.parse::<f64>().ok().filter(|v| v.is_finite()) else {
                 return;
             };
             match target {

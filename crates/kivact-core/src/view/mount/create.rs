@@ -1,63 +1,68 @@
 //! Role: Mounting writes a host node's first properties and listener flags.
 
-use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::bridge::PropValue;
-use kivact_wire::{NodeId, NodeType};
+use kivact_reactive::Prop as InputProp;
+use kivact_wire::{IntrinsicSize, NodeId, Role};
 
 use super::editing;
-use super::facts::{LocalPaintSource, NodeFacts};
-use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
+use crate::view::editing_data::EditorProps;
 use crate::view::state::ViewState;
+use crate::view::tree::Handlers;
 
-/// Stage 3: decide the listener flags and what the style and draw stages
-/// need, then write the node's first properties (test id, role, focusable,
-/// hit_testable, actions, listeners, intrinsic size, text editing). This is
-/// the only stage that borrows the engine tree for its writes at once.
-pub(super) fn write(
-    cx: &Mcx<'_>,
-    id: NodeId,
-    kind: NodeType,
-    c: &mut Common,
-    actions: Vec<crate::view::A11yAction>,
-    at: &'static Location<'static>,
-) -> NodeFacts {
-    let listen_file = !c.handlers.file.is_empty();
-    let listen_pointer = !c.handlers.pointer.is_empty();
-    let listen_wheel = !c.handlers.wheel.is_empty();
-    let has_style = !c.style.is_empty();
-    // A focus stop gets the theme's focus ring and disabled look (see
-    // `Style::compile`), styled or not.
-    let focus_stop = c.focusable == Some(true)
-        || c.text_editing.is_some()
-        || c.semantics.as_ref().is_some_and(|s| s.focusable.is_some());
-    let has_local_paint = has_style && kind == NodeType::Box && c.text_editing.is_none();
-    let has_explicit_draw = c.draw.is_some() || c.draw_over.is_some();
-    let has_draw = has_explicit_draw || has_local_paint;
-    let local_paint = has_local_paint.then(|| LocalPaintSource {
-        value: Rc::new(RefCell::new(None)),
-        revision: cx.owner.trigger(at),
-    });
+/// The node's first write.
+pub(super) struct FirstWrite {
+    pub(super) test_id: Option<Rc<str>>,
+    pub(super) role: Option<Role>,
+    pub(super) focusable: Option<InputProp<bool>>,
+    pub(super) hit_testable: Option<bool>,
+    /// The accessibility actions the node offers, its own and its parts'.
+    pub(super) actions: Vec<crate::view::A11yAction>,
+    /// The final handlers (routed through the parts' defaults when the node has parts).
+    pub(super) handlers: Handlers,
+    pub(super) intrinsic: Option<IntrinsicSize>,
+    /// The node has an explicit draw layer: its layout is observed for the layer's size.
+    pub(super) observe_layout: bool,
+    pub(super) editing: Option<EditorProps>,
+}
+
+/// Stage 1: decide the listener flags from the final handlers, then write the node's first
+/// properties (test id, role, focusable, hit_testable, actions, listeners, intrinsic size, text
+/// editing). This is the only stage that borrows the engine tree for its writes at once.
+pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Location<'static>) {
+    let FirstWrite {
+        test_id,
+        role,
+        focusable,
+        hit_testable,
+        actions,
+        handlers,
+        intrinsic,
+        observe_layout,
+        editing,
+    } = first;
+    let listen_file = !handlers.file.is_empty();
+    let listen_pointer = !handlers.pointer.is_empty();
+    let listen_wheel = !handlers.wheel.is_empty();
+    // The engine reports the selection sessions of a node that has a session handler.
+    let report_session = handlers.selection.is_some();
     {
         let writer = cx.rt.running_effect();
         let mut tree = ViewState::tree_mut(cx.rt);
-        if let Some(t) = c.test_id.take() {
+        if let Some(t) = test_id {
             tree.update(id, PropValue::TestId(t.to_string()), writer);
         }
         if let Some(n) = tree.get_mut(id) {
             n.at = Some(at);
-            n.handlers = Some(Box::new(std::mem::take(&mut c.handlers)));
+            n.handlers = Some(Box::new(handlers));
         }
-        if let Some(r) = c.role {
+        if let Some(r) = role {
             tree.update(id, PropValue::Role(r), writer);
         }
-        if let Some(f) = c.focusable {
-            tree.update(id, PropValue::Focusable(f), writer);
-        }
-        if let Some(h) = c.hit_testable {
+        if let Some(h) = hit_testable {
             tree.update(id, PropValue::HitTestable(h), writer);
         }
         if !actions.is_empty() {
@@ -72,20 +77,17 @@ pub(super) fn write(
         if listen_wheel {
             tree.update(id, PropValue::ListenWheel(true), writer);
         }
-        if let Some(i) = c.intrinsic {
+        if let Some(i) = intrinsic {
             tree.update(id, PropValue::Intrinsic(i), writer);
         }
-        if has_explicit_draw {
+        if observe_layout {
             tree.set_observe(id, true);
         }
     }
-    if let Some(editing) = c.text_editing.take() {
-        editing::bind(cx, id, *editing, at);
+    if let Some(f) = focusable {
+        cx.bind(id, f, PropValue::Focusable, at);
     }
-    NodeFacts {
-        kind,
-        focus_stop,
-        has_draw,
-        local_paint,
+    if let Some(props) = editing {
+        editing::bind(cx, id, props, report_session, at);
     }
 }

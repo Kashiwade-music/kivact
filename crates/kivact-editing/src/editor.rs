@@ -1,14 +1,15 @@
-//! Role: Native editor ownership and controlled-value change bookkeeping.
+//! Role: Native editor ownership: the document, its edits and the states given back.
 
-use crate::change::{Damage, TextChange};
+use crate::change::Damage;
 use crate::edit_state::{EditState, Taken};
-use crate::session::TextSession;
+use crate::journal::{Incoming, Journal};
 
-/// A native host's editor, owning the behavior-facing document and its journal.
+/// A native host's editor, owning the behavior-facing document. The host changes it by
+/// recorded edits ([`Editor::journal`]), controlled values ([`Editor::set_controlled`]) and
+/// states kivact gives back ([`Editor::incoming`]).
 ///
-/// Behaviors receive only the state. The host controls recording, controlled
-/// values and pending damage through this owner. Cloning copies the document,
-/// journal and damage independently; no mutable editor state is shared.
+/// Behaviors receive only the state. Cloning copies the document, journal and damage
+/// independently; no mutable editor state is shared.
 #[derive(Clone, Debug)]
 pub struct Editor {
     state: EditState,
@@ -19,70 +20,71 @@ impl Editor {
     pub fn new(state: EditState) -> Self {
         Self { state }
     }
+
     /// The behavior-facing document.
     pub fn state(&self) -> &EditState {
         &self.state
     }
-    /// Lend the document to a behavior, preserving the host's current limit.
-    pub fn state_mut(&mut self) -> &mut EditState {
-        &mut self.state
-    }
-    /// Return the document with its revision and journal intact.
-    pub fn into_state(self) -> EditState {
-        self.state
-    }
+
     /// The document's current revision.
     pub fn revision(&self) -> u64 {
         self.state.revision()
     }
-    /// The sole limit enforced by behavior-facing document mutations.
-    pub fn max_length(&self) -> Option<usize> {
-        self.state.max_length
-    }
-    /// Set the document's mutation limit without truncating existing content.
-    pub fn set_max_length(&mut self, limit: Option<usize>) {
-        self.state.max_length = limit;
-    }
+
     /// Take a controlled value unless the IME currently owns the document.
     pub fn set_controlled(&mut self, value: &str) -> bool {
         self.state.set_controlled(value)
     }
-    /// Adopt a formerly held controlled value as a recorded minimal edit.
-    pub fn adopt(&mut self, value: &str) -> bool {
-        self.state.adopt(value)
-    }
-    /// Trim the document as a recorded edit, clamping `end` to its length
-    /// and rounding down to a UTF-8 character boundary. The session is
-    /// clamped into the remaining text.
-    pub fn truncate(&mut self, end: usize) {
-        self.state.truncate(end);
-    }
-    /// Start the host's change journal at the current revision.
-    pub fn start_log(&mut self) {
-        self.state.start_log();
-    }
-    /// Whether the journal contains every change since the supplied revision.
-    pub fn recorded_since(&self, revision: u64) -> bool {
-        self.state.recorded_since(revision)
-    }
-    /// Drain recorded changes and begin a new journal at the current revision.
-    pub fn take_changes(&mut self) -> Vec<TextChange> {
-        self.state.take_changes()
-    }
-    /// Revert the journal and restore the session captured before a behavior.
-    /// `revision` and `session` must be those captured when [`Self::start_log`]
-    /// began this journal; the journal must not have been drained since then.
-    pub fn revert(&mut self, revision: u64, session: TextSession) {
-        self.state.revert(revision, session);
-    }
-    /// Adopt a behavior's document using the host's revision classification.
-    /// With [`Taken::Recorded`], `state` must have recorded every change
-    /// since this editor's current revision (`state` was read from it).
-    pub fn take(&mut self, state: EditState, how: Taken) {
-        self.state.take(state, how);
-    }
+
     /// Consume the damage accumulated since the line cache last refreshed.
     pub fn take_damage(&self) -> Option<Damage> {
         self.state.take_damage()
+    }
+
+    /// A copy of the document that records the changes made to it from here, so it can be
+    /// given back by range ([`Editor::incoming`]).
+    pub fn snapshot(&self) -> EditState {
+        let mut copy = self.state.clone();
+        copy.start_log();
+        copy
+    }
+
+    /// Open the journal of one edit, its mutations held to `max_length` scalars.
+    pub fn journal(&mut self, max_length: Option<usize>) -> Journal<'_> {
+        self.state.max_length = max_length;
+        self.state.start_log();
+        let (revision, session) = (self.state.revision(), self.state.session().clone());
+        Journal {
+            state: &mut self.state,
+            revision,
+            session,
+        }
+    }
+
+    /// `state`, given back by kivact: cut to `max_length` scalars unless composing, and
+    /// classified against this editor's text.
+    pub fn incoming(&self, mut state: EditState, max_length: Option<usize>) -> Incoming {
+        state.max_length = max_length;
+        if !state.is_composing()
+            && let Some(max) = max_length
+            && let Some((end, _)) = state.value().char_indices().nth(max)
+        {
+            state.truncate(end);
+        }
+        let revision = self.state.revision();
+        let how = if state.revision() == revision {
+            Taken::Same
+        } else if state.recorded_since(revision) {
+            Taken::Recorded
+        } else if state.value() == self.state.value() {
+            Taken::Same
+        } else {
+            Taken::Whole
+        };
+        Incoming {
+            state,
+            how,
+            against: revision,
+        }
     }
 }

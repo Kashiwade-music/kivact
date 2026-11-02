@@ -22,7 +22,7 @@ pub(crate) mod why;
 #[doc(inline)]
 pub use kivact_reactive::ErrorKind;
 #[doc(inline)]
-pub use kivact_reactive::{TraceRun, TraceWrite, TurnRecord};
+pub use kivact_reactive::{TraceRun, TraceWrite, Turn, TurnRecord};
 #[doc(inline)]
 pub use why::{Why, WhyDep, WhyProp, why};
 

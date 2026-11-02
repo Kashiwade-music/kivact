@@ -10,18 +10,25 @@
 
 use crate::native_input::state::ContactNote;
 use kivact_types::protocol::PointerInput;
-use kivact_types::{MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase};
+use kivact_types::{
+    ButtonPress, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,
+};
 use winit::event::{Touch, TouchPhase};
 
 /// Map physical native coordinates and cancellation metadata before normalization.
 pub(crate) fn map(touch: Touch, scale: f64, notes: &[ContactNote]) -> PointerInput {
     let note = notes.iter().find(|n| n.id == touch.id).copied();
     let canceled = touch.phase == TouchPhase::Cancelled || note.is_some_and(|n| n.canceled);
+    // A contact presses the primary button while it lasts.
+    let press = ButtonPress {
+        button: MouseButton::Primary,
+        clicks: 1,
+    };
     let phase = match touch.phase {
-        TouchPhase::Started => PointerPhase::Down,
+        TouchPhase::Started => PointerPhase::Down(press),
         TouchPhase::Moved => PointerPhase::Move,
         TouchPhase::Ended | TouchPhase::Cancelled if canceled => PointerPhase::Cancel,
-        TouchPhase::Ended | TouchPhase::Cancelled => PointerPhase::Up,
+        TouchPhase::Ended | TouchPhase::Cancelled => PointerPhase::Up(press),
     };
     PointerInput {
         id: PointerId(touch.id),
@@ -31,15 +38,11 @@ pub(crate) fn map(touch: Touch, scale: f64, notes: &[ContactNote]) -> PointerInp
             x: (touch.location.x / scale) as f32,
             y: (touch.location.y / scale) as f32,
         },
-        // A contact presses the primary button while it lasts.
         buttons: PointerButtons::NONE.with(
             MouseButton::Primary,
-            matches!(phase, PointerPhase::Down | PointerPhase::Move),
+            matches!(phase, PointerPhase::Down(_) | PointerPhase::Move),
         ),
-        button: matches!(phase, PointerPhase::Down | PointerPhase::Up)
-            .then_some(MouseButton::Primary),
         pressure: touch.force.map(|force| force.normalized() as f32),
         tilt: note.and_then(|n| n.tilt),
-        clicks: 1,
     }
 }

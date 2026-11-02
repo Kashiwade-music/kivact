@@ -1,6 +1,6 @@
 //! Role: VirtualWindow: an in-memory test window and the controls tests drive.
 
-use super::shell::{VirtualShell, physical};
+use super::shell::{TestSurface, VirtualShell, physical};
 use crate::env::Env;
 use crate::presentation::Notes;
 use crate::presenter::Presenter;
@@ -16,6 +16,7 @@ use kivact_types::{Capabilities, Cursor, GpuPreference, Insets, Rect, Size};
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
+use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -163,7 +164,9 @@ impl VirtualWindow {
                 contacts: arvane_shell::Contacts::default(),
                 occluded: false,
                 failing: 0,
-                surface: (Some(1), 1),
+                surface: TestSurface::Live {
+                    generation: NonZeroU64::MIN,
+                },
                 cpu_frame: Cell::new(false),
             },
             renderer: None,
@@ -200,15 +203,18 @@ impl VirtualWindow {
 
     /// The mouse event of `phase` as a native window makes it: at
     /// `position` (`None`: where the mouse last was), with the buttons held
-    /// before it plus a `Down`'s `button` or less an `Up`'s. Deliver it
-    /// through [`Self::input`], which counts its clicks.
+    /// before it plus a `Down`'s button or less an `Up`'s. Deliver it
+    /// through [`Self::input`], which counts its clicks. `None` when `position` is `None` and the mouse
+    /// was never placed: a native window reports nothing then.
     pub fn mouse(
         &mut self,
         phase: kivact_types::PointerPhase,
         position: Option<kivact_types::Point>,
-        button: Option<kivact_types::MouseButton>,
-    ) -> crate::ShellEvent {
-        crate::ShellEvent::Pointer(self.shell.mouse.event(phase, position, button))
+    ) -> Option<crate::ShellEvent> {
+        self.shell
+            .mouse
+            .event(phase, position)
+            .map(crate::ShellEvent::Pointer)
     }
 
     /// A touch or pen contact as the platform reports it, delivered as a
@@ -251,8 +257,8 @@ impl VirtualWindow {
         events
     }
 
-    /// Assistive technology asks for `action` on the accessibility node
-    /// `node` (with `value`): the event the window delivers, checked
+    /// Assistive technology makes `request` of the accessibility node
+    /// `node`: the event the window delivers, checked
     /// against its accepted tree as a native window checks it (`None`: the
     /// window drops the request, because the node is absent, it or an
     /// ancestor is hidden or disabled, or it does not declare the action).
@@ -261,10 +267,9 @@ impl VirtualWindow {
     pub fn accessibility_action(
         &self,
         node: u64,
-        action: kivact_types::A11yAction,
-        value: Option<&str>,
+        request: kivact_types::A11yRequest,
     ) -> Option<crate::ShellEvent> {
-        self.accessibility().request_action(node, action, value)
+        self.accessibility().request_action(node, request)
     }
 
     /// The platform hides (`true`) or shows the window, as when it is
@@ -335,18 +340,20 @@ impl VirtualWindow {
     /// [`crate::ShellEvent::SurfaceDestroyed`] after it): nothing is
     /// presented until [`VirtualWindow::create_surface`].
     pub fn destroy_surface(&mut self) {
-        if self.shell.surface.0.take().is_some() {
-            let key = self.shell.real.as_ref().map_or(0, TestWindow::key);
-            self.presenter.surface_destroyed(key);
+        if let TestSurface::Live { generation } = self.shell.surface {
+            self.shell.surface = TestSurface::Destroyed { last: generation };
+            self.presenter.surface_destroyed();
         }
     }
 
     /// The platform gives the window a new surface, the next generation
     /// (deliver [`crate::ShellEvent::SurfaceCreated`] after it).
     pub fn create_surface(&mut self) {
-        if self.shell.surface.0.is_none() {
-            self.shell.surface.1 += 1;
-            self.shell.surface.0 = Some(self.shell.surface.1);
+        if let TestSurface::Destroyed { last } = self.shell.surface {
+            let generation = last
+                .checked_add(1)
+                .expect("invariant: surface generations fit u64");
+            self.shell.surface = TestSurface::Live { generation };
         }
     }
 
@@ -476,12 +483,6 @@ impl VirtualWindow {
         )
     }
 
-    /// The key the presenter knows the window by.
-    #[cfg(feature = "gpu-interop")]
-    fn key(&self) -> u64 {
-        self.shell.real.as_ref().map_or(0, TestWindow::key)
-    }
-
     /// The accessibility tree: the real window's, else the headless one.
     pub fn accessibility(&self) -> &Accessibility {
         self.shell.accessibility()
@@ -595,7 +596,7 @@ impl Window for VirtualWindow {
         FramePlan::new(self.physical(), self.shell.scale)
     }
     fn present(&mut self, scene: &Scene, plan: FramePlan) -> Result<Presented, Error> {
-        if self.shell.surface.0.is_none() {
+        if self.shell.surface.generation().is_none() {
             return Ok(crate::presenter::no_surface());
         }
         if let Some(dropped) = crate::presenter::no_pixels(self.physical()) {
@@ -676,7 +677,7 @@ impl Window for VirtualWindow {
     }
     #[cfg(feature = "gpu-interop")]
     fn gpu_adapter(&self) -> Option<GpuAdapter> {
-        self.presenter.gpu_adapter(self.key())
+        self.presenter.gpu_adapter()
     }
     #[cfg(feature = "gpu-interop")]
     fn import_external_image(
@@ -684,8 +685,7 @@ impl Window for VirtualWindow {
         id: ExternalImageId,
         textures: SharedTextures,
     ) -> Result<(), Error> {
-        let key = self.key();
-        self.presenter.import_external(key, id, textures)
+        self.presenter.import_external(id, textures)
     }
     #[cfg(feature = "gpu-interop")]
     fn drop_external_image(&mut self, id: ExternalImageId) {

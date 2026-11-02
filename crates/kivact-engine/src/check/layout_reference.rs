@@ -6,7 +6,7 @@ impl Model {
         let mut fresh = self.tree.clone();
         fresh.pack_child_orders();
         let mut state = self.layout_state.clone();
-        let columns = self.layout_columns.clone();
+        let mut columns = self.layout_columns.clone();
         columns.rebuild_all(&fresh, &mut state);
         let cache = self.measure.clone();
         for extents in &cache.extents {

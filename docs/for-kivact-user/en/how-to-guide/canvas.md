@@ -483,7 +483,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 }
 
 fn exporter() -> impl IntoView {
-    let export = action(|(width, height): (u32, u32)| async move {
+    let export = action(ActionPolicy::Latest, |(width, height): (u32, u32)| async move {
         let image = blocking(move || Offscreen::new().render(width, height, artwork)).await?;
         // Write `image` to disk here, still off the UI thread.
         Ok(image.rgba.len())

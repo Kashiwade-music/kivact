@@ -7,7 +7,7 @@ use kivact::interaction::use_splitter;
 use kivact::signal;
 use kivact::style::{ColorToken, Cursor, Position, pct, style};
 use kivact::ui::ScalarRange;
-use kivact::view::{Handled, MouseButton, Orientation, PointerPhase, node_ref};
+use kivact::view::{ButtonPress, Handled, MouseButton, Orientation, PointerPhase, node_ref};
 
 /// The tallest a resizable field becomes, in logical pixels. A minimum above
 /// this raises the maximum to the minimum.
@@ -70,7 +70,13 @@ pub fn resizable_text_area(
                 .cursor(Cursor::NsResize),
         )
         .on_pointer(move |event| {
-            if event.phase == PointerPhase::Down && event.button == Some(MouseButton::Primary) {
+            if matches!(
+                event.phase,
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    ..
+                })
+            ) {
                 editor.focus();
             }
             Handled::No

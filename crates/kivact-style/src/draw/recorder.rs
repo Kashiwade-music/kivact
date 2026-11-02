@@ -159,7 +159,16 @@ pub struct RegionSemantics {
     pub value: Option<String>,
     /// Actions the leaf accepts.
     pub actions: Vec<A11yAction>,
-    /// Typed semantic properties (checked, selected, expanded, ...), if any.
+    /// Checked state of the region (`None`: not a toggle).
+    pub checked: Option<p::CheckedState>,
+    /// Selection state.
+    pub selected: bool,
+    /// Disclosure state (`None`: not expandable).
+    pub expanded: Option<bool>,
+    /// The region's value is invalid.
+    pub invalid: bool,
+    /// Typed extra semantic properties (value range, live region, relations,
+    /// ..), if any.
     pub properties: Option<Box<p::SemanticsProperties>>,
     /// The region is disabled.
     pub disabled: bool,

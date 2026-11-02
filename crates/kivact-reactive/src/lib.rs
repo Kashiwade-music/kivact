@@ -61,7 +61,7 @@ mod turn;
 
 pub use data::{
     Binding, Callback, Driver, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
-    TraceRun, TraceWrite, TurnRecord, UiThreadOnly, Value, Var,
+    TraceRun, TraceWrite, Turn, TurnRecord, UiThreadOnly, Value, Var,
 };
 pub use driver::clock_now;
 pub use error::{ErrorKind, HandlerResult, Result, UiError, raise};
