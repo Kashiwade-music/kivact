@@ -266,25 +266,18 @@ impl Model {
             return;
         };
         let parent = self.tree.nodes.links(index).parent;
-        let n = self.tree.nodes.at_mut(index);
-        let old_place = n.place;
-        n.update_place();
+        let old_place = self.tree.update_place(index);
+        let n = self.tree.nodes.at(index);
         // Where it lists among its siblings and whether it moves: only a
         // change of these (and of its paint's stacking facts, `derive`)
         // builds the list again.
         self.changes.restack |= n.place != old_place;
         let stacks = parent.filter(|_| n.place.has_z());
         if style {
-            let scrolls = n.scroll_axes() != (false, false);
             let place = n.place;
-            let was = (
-                self.tree.sticky.contains(&id),
-                self.tree.fixed.contains(&id),
-            );
+            let was = (old_place.sticky, old_place.fixed);
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
             self.changes.mark(id, Dirty::LAYOUT_STYLE);
-            self.tree.track_scroller(id, scrolls);
-            self.tree.track_position(id, place.sticky, place.fixed);
             if place.fixed != was.1 {
                 self.changes.layout_changed = true;
             }

@@ -109,10 +109,10 @@ impl NodeStore {
         self.links.push(NodeLinks::default());
         (index, true)
     }
-    pub(crate) fn install(&mut self, id: NodeId, mut node: HostNode, slot: NodeIndex) {
+    pub(crate) fn install(&mut self, id: NodeId, node: HostNode, slot: NodeIndex) {
         debug_assert!(!self.by_id.contains_key(&id));
         debug_assert!(self.entries[slot.0].is_none());
-        node.index = slot;
+        debug_assert_eq!(node.index, slot);
         self.links[slot.0] = NodeLinks::default();
         self.entries[slot.0] = Some((id, node));
         self.by_id.insert(id, slot);

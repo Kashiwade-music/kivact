@@ -14,7 +14,7 @@ impl Model {
             self.paint.push_slot();
             self.editors.push(None);
         }
-        self.tree.install(id, HostNode::new(kind), index);
+        self.tree.install(id, HostNode::new(kind, index), index);
     }
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
         let Self {

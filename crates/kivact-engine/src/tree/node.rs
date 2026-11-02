@@ -20,12 +20,11 @@ pub(crate) struct NodeIndex(pub(crate) usize);
 /// A retained node's primary slot, typed inputs and structural/input metadata.
 #[derive(Clone, Debug)]
 pub(crate) struct HostNode {
-    /// The primary slot assigned when the node enters NodeStore.
+    /// The primary slot it was made for, assigned by `NodeStore::reserve`.
     pub(crate) index: NodeIndex,
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<Scene>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) observed: bool,
     pub(crate) sent_layout: Option<(Rect, Size)>,
     pub(crate) sent_scroll: Option<(Point, Size, Size)>,
     /// Where its paint and layout place it (`model::transform`), read when
@@ -83,14 +82,13 @@ impl Place {
 }
 
 impl HostNode {
-    pub(crate) fn new(kind: NodeKind) -> Self {
+    pub(crate) fn new(kind: NodeKind, index: NodeIndex) -> Self {
         let properties = NodeProperties::new(kind);
         let mut node = HostNode {
             properties,
-            index: NodeIndex(usize::MAX),
+            index,
             scenes: [None, None],
             scroll: Point::default(),
-            observed: false,
             sent_layout: None,
             sent_scroll: None,
             place: Place::default(),
