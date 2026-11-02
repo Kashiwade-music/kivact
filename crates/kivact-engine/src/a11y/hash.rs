@@ -40,7 +40,6 @@ fn text(t: &SemanticsText, h: &mut DefaultHasher) {
 fn props(p: &SemanticsProperties, h: &mut DefaultHasher) {
     let SemanticsProperties {
         text: t,
-        indeterminate,
         value_min,
         value_max,
         value_now,
@@ -63,7 +62,6 @@ fn props(p: &SemanticsProperties, h: &mut DefaultHasher) {
     if let Some(t) = t {
         text(t, h);
     }
-    indeterminate.hash(h);
     for v in [value_min, value_max, value_now] {
         v.map(f64::to_bits).hash(h);
     }

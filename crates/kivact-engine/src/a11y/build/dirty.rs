@@ -188,7 +188,7 @@ impl Model {
                 if let Some(anchor) = self
                     .node(overlay)
                     .and_then(|n| n.overlay())
-                    .and_then(|o| o.anchor)
+                    .and_then(|o| o.anchor())
                     && self
                         .tree()
                         .chain(Some(anchor))

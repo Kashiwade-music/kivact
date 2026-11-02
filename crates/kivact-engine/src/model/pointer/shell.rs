@@ -34,7 +34,9 @@ use super::state::{Gesture, PointerSource, ScrollDrag};
 use crate::PointerSpace;
 use crate::model::Model;
 use kivact_types::protocol::PointerInput;
-use kivact_wire::{FilePhase, HostEvent, MouseButton, Point, PointerId, PointerKind, PointerPhase};
+use kivact_wire::{
+    ButtonPress, FilePhase, HostEvent, MouseButton, Point, PointerId, PointerKind, PointerPhase,
+};
 
 impl Model {
     /// One pointer event of the window: the mouse's go to the mouse's
@@ -56,14 +58,12 @@ impl Model {
         match input.phase {
             PointerPhase::Move | PointerPhase::Enter => self.mouse_moved(input.position, engine),
             PointerPhase::Leave => self.mouse_left(engine),
-            PointerPhase::Down | PointerPhase::Up => {
+            PointerPhase::Down(press) | PointerPhase::Up(press) => {
                 // Where the press or release is; a release outside the
                 // window does not bring the mouse back into it.
                 self.pointer.state.track_mut(PointerId::MOUSE).at = input.position;
-                if let Some(button) = input.button {
-                    let pressed = input.phase == PointerPhase::Down;
-                    self.mouse_button(button, pressed, input.clicks, engine);
-                }
+                let pressed = matches!(input.phase, PointerPhase::Down(_));
+                self.mouse_button(press, pressed, engine);
             }
             // The window lost the mouse's gesture (its focus): it ends as
             // a `Cancel` where the mouse was, and nothing stays hovered.
@@ -141,14 +141,10 @@ impl Model {
     }
 
     /// A mouse button pressed or released at the mouse's position, the
-    /// `clicks`-th click of a multi-click (a release: its press's count).
-    fn mouse_button(
-        &mut self,
-        button: MouseButton,
-        pressed: bool,
-        clicks: u8,
-        engine: &mut arvane::Engine,
-    ) {
+    /// `press.clicks`-th click of a multi-click (a release: its press's
+    /// count).
+    fn mouse_button(&mut self, press: ButtonPress, pressed: bool, engine: &mut arvane::Engine) {
+        let button = press.button;
         if matches!(
             self.pointer.state.track(PointerId::MOUSE).gesture,
             Gesture::Scrollbar(_)
@@ -207,23 +203,9 @@ impl Model {
         }
         let space = PointerSpace::new(at, engine);
         if pressed {
-            self.pointer_down(
-                PointerId::MOUSE,
-                hit,
-                button,
-                self.modifiers,
-                clicks,
-                &space,
-            );
+            self.pointer_down(PointerId::MOUSE, hit, press, self.modifiers, &space);
         } else {
-            self.pointer_up(
-                PointerId::MOUSE,
-                hit,
-                button,
-                self.modifiers,
-                clicks,
-                &space,
-            );
+            self.pointer_up(PointerId::MOUSE, hit, press, self.modifiers, &space);
         }
         self.sync();
     }
@@ -262,7 +244,7 @@ impl Model {
         let at = input.position;
         let known = self.pointer.state.tracks.contains_key(&id.0);
         match input.phase {
-            PointerPhase::Down => {
+            PointerPhase::Down(press) => {
                 if id == PointerId::MOUSE {
                     return;
                 }
@@ -292,14 +274,7 @@ impl Model {
                 );
                 let hit = self.hit(at);
                 let space = PointerSpace::new(at, engine);
-                self.pointer_down(
-                    id,
-                    hit,
-                    MouseButton::Primary,
-                    self.modifiers,
-                    input.clicks,
-                    &space,
-                );
+                self.pointer_down(id, hit, press, self.modifiers, &space);
                 if input.kind == PointerKind::Touch {
                     self.touch_candidate(id, hit, at);
                 }
@@ -315,18 +290,11 @@ impl Model {
                 let space = PointerSpace::new(at, engine);
                 self.pointer_move(id, hit, self.modifiers, &space);
             }
-            PointerPhase::Up => {
+            PointerPhase::Up(press) => {
                 self.contact_at(id, at, input);
                 let hit = self.hit(at);
                 let space = PointerSpace::new(at, engine);
-                self.pointer_up(
-                    id,
-                    hit,
-                    MouseButton::Primary,
-                    self.modifiers,
-                    input.clicks,
-                    &space,
-                );
+                self.pointer_up(id, hit, press, self.modifiers, &space);
                 self.end_contact(id, &space);
             }
             // A window reports no hovering contact (`Contacts`).

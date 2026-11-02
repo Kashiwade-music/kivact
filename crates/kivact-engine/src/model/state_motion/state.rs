@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use kivact_wire::motion::Transition;
+use kivact_wire::motion::{SpringRun, Transition};
 use kivact_wire::{NodeId, PaintProps, PaintVec, Rgba};
 
 /// The state motion group: the transitions of the nodes whose state
@@ -38,12 +38,11 @@ pub(super) enum AnimPhase {
     /// The shown value was captured before a state change; the next retarget
     /// starts it from `current` or drops it. Never stepped.
     Captured,
-    /// Moving from `from` to `to` since `start` (host ns); last stepped at `last`.
+    /// Moving from `from` to `to` since `start` (host ns).
     Running {
         from: Vec<f32>,
         to: Vec<f32>,
         start: u64,
-        last: u64,
     },
 }
 
@@ -52,7 +51,9 @@ pub(crate) struct StateAnimation {
     pub(super) transition: std::sync::Arc<Transition>,
     pub(super) target: PaintProps,
     pub(super) current: Vec<f32>,
-    pub(super) velocity: Vec<f32>,
+    /// A spring's velocity, step time and iteration; it survives a
+    /// re-capture, so an interrupted spring goes on with its velocity.
+    pub(super) spring: SpringRun,
     pub(super) colors_text: bool,
     pub(super) phase: AnimPhase,
 }

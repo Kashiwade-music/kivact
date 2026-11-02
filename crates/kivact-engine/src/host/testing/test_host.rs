@@ -135,14 +135,13 @@ impl ArvaneTestHost {
     /// Deliver the mouse event of `phase` as the test window makes it
     /// (`VirtualWindow::mouse`): at `position` (`None`: where the mouse
     /// last was), with the buttons held so far and a `Down`'s or `Up`'s
-    /// `button`. Panics when nothing placed the mouse yet.
+    /// button. Panics when nothing placed the mouse yet.
     pub fn mouse(
         &mut self,
         phase: kivact_types::PointerPhase,
         position: Option<kivact_types::Point>,
-        button: Option<kivact_types::MouseButton>,
     ) {
-        let Some(event) = self.window.mouse(phase, position, button) else {
+        let Some(event) = self.window.mouse(phase, position) else {
             panic!(
                 "kivact::test: a mouse button or leave was injected before the mouse was in the window; move it there first (Screen::mouse_move, or an element's click/hover)"
             );

@@ -61,7 +61,7 @@
 
 use std::ops::Range;
 
-use kivact_wire::{A11yAction, HostEvent, Key, KeyCode, Modifiers, NodeId, Role};
+use kivact_wire::{A11yAction, HostEvent, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
 
 use crate::measure::editor::EditorNode;
 use crate::model::Model;
@@ -154,10 +154,8 @@ impl Model {
             region: node.and_then(|f| f.region),
             key,
             code,
-            released: true,
+            phase: KeyPhase::Up,
             modifiers: self.modifiers,
-            repeat: false,
-            text: None,
             pointer: self.pointer.mouse(),
         });
     }
@@ -386,10 +384,8 @@ impl Model {
             region: self.focused().and_then(|f| f.region),
             key,
             code,
-            released: false,
+            phase: KeyPhase::Down { repeat, text },
             modifiers,
-            repeat,
-            text,
             pointer: self.pointer.mouse(),
         });
         KeyResult::Reported

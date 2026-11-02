@@ -164,9 +164,9 @@ impl Model {
             disabled,
             hidden,
             focusable,
-            checked: n.semantics().and_then(|s| s.checked).flatten(),
+            checked: n.semantics().and_then(|s| s.checked),
             selected: n.selected(),
-            expanded: n.semantics().and_then(|s| s.expanded).flatten(),
+            expanded: n.semantics().and_then(|s| s.expanded),
             test_id: n.semantics().and_then(|s| s.test_id.clone()),
             actions,
         };
@@ -186,10 +186,6 @@ impl Model {
         }
         let mut leaves = Vec::new();
         for (region_id, region) in scene_regions {
-            let state = region.properties.as_deref();
-            let checked = state.and_then(|s| s.checked);
-            let selected = state.is_some_and(|s| s.selected);
-            let expanded = state.and_then(|s| s.expanded);
             let native_id = self.region_identity(id, region_id);
             regions.insert(native_id);
             output.children.push(kivact_types::NodeId(native_id));
@@ -204,22 +200,24 @@ impl Model {
                 && !region.disabled
                 && region.focusable
                 && self.in_scope(id);
+            let mut props = region
+                .properties
+                .as_deref()
+                .map(|props| properties(props, |t| self.semantic_target(t)));
+            if region.invalid {
+                props.get_or_insert_with(Default::default).invalid = true;
+            }
+            if let Some(props) = &mut props {
+                self.validate_relations(
+                    wire::FocusTarget {
+                        node: id,
+                        region: Some(region_id),
+                    },
+                    props,
+                );
+            }
             leaves.push(kivact_types::protocol::SemanticsNode {
-                properties: region
-                    .properties
-                    .as_deref()
-                    .map(|props| {
-                        let mut props = properties(props, |t| self.semantic_target(t));
-                        self.validate_relations(
-                            wire::FocusTarget {
-                                node: id,
-                                region: Some(region_id),
-                            },
-                            &mut props,
-                        );
-                        props
-                    })
-                    .map(Box::new),
+                properties: props.map(Box::new),
                 id: kivact_types::NodeId(native_id),
                 role: region.role,
                 children: Vec::new(),
@@ -237,9 +235,9 @@ impl Model {
                 disabled: disabled || region.disabled,
                 hidden: hidden || region.hidden,
                 focusable: region_focusable,
-                checked,
-                selected,
-                expanded,
+                checked: region.checked,
+                selected: region.selected,
+                expanded: region.expanded,
                 test_id: None,
                 actions: offered,
             });
@@ -385,7 +383,6 @@ pub(super) fn properties(
         .filter(|&v| v != 0 && p.set_size.is_none_or(|size| v <= size));
     kivact_types::protocol::SemanticsProperties {
         text: None,
-        indeterminate: p.indeterminate,
         value_min: p.value_min,
         value_max: p.value_max,
         value_now: p.value_now,
@@ -404,9 +401,9 @@ pub(super) fn properties(
         set_size: p.set_size,
         pos_in_set,
         multiselectable: p.multiselectable,
-        invalid: p.invalid,
-        read_only: p.read_only,
-        protected: p.protected,
+        invalid: false,
+        read_only: false,
+        protected: false,
     }
 }
 

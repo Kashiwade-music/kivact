@@ -75,8 +75,9 @@ pub use kivact_types::protocol::{
     PointerInput, SemanticsNode, SemanticsProperties, SemanticsTree, Transform,
 };
 pub use kivact_types::{
-    A11yAction, Cursor, FilePhase, Insets, Key, KeyCode, LiveRegion, Modifiers, MouseButton,
-    Orientation, Point, PointerId, PointerKind, PointerPhase, Role, SortDirection,
+    A11yAction, A11yRequest, ButtonPress, CheckedState, Cursor, DismissReason, FilePhase, Insets,
+    Key, KeyCode, LiveRegion, Modifiers, MouseButton, Orientation, Point, PointerId, PointerKind,
+    PointerPhase, Role, SortDirection,
 };
 
 pub use display_probe::{display_stats, gpu_unavailable};

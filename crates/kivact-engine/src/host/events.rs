@@ -28,7 +28,7 @@
 //!   asked for and no frame tick is sent (the client's frame clock stops);
 //!   a resume and a new surface draw again.
 //! - A press and a release carry the click count Arvane counted
-//!   (`PointerInput::clicks`; a release has its press's), and a
+//!   (the `ButtonPress` of the phase; a release has its press's), and a
 //!   wheel the amount Arvane made logical pixels; the model is given them
 //!   as they are. A wheel's native scroll runs the layout pass at once, so
 //!   `ScrollChanged` is reported without waiting for the next frame.
@@ -347,14 +347,9 @@ impl Host {
             }
             ShellEvent::ImeDisabled => self.model.borrow_mut().ime_disabled(),
             ShellEvent::EnvironmentChanged => self.environment_changed(window),
-            ShellEvent::Accessibility {
-                node,
-                action,
-                value,
-            } => self
-                .model
-                .borrow_mut()
-                .accessibility_action(node, action, value),
+            ShellEvent::Accessibility { node, request } => {
+                self.model.borrow_mut().accessibility_action(node, request)
+            }
         }
         if self.closing() {
             return Ok(ShellControl::Wait);
@@ -419,7 +414,7 @@ fn stops_smooth_scrolls(event: &ShellEvent) -> bool {
     match event {
         ShellEvent::Wheel { .. } => true,
         ShellEvent::Pointer(input) => {
-            input.kind != PointerKind::Mouse || input.phase == PointerPhase::Down
+            input.kind != PointerKind::Mouse || matches!(input.phase, PointerPhase::Down(_))
         }
         _ => false,
     }

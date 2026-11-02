@@ -234,7 +234,7 @@ impl Model {
                     .tree
                     .get(*o)
                     .and_then(|n| n.overlay())
-                    .and_then(|p| p.anchor)
+                    .and_then(|p| p.anchor())
                     .is_some_and(|a| self.tree.is_in_subtree(focus.node, a))
         })
     }

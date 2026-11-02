@@ -3,7 +3,7 @@
 use crate::tree::NodeTree;
 use crate::tree::node::NodeIndex;
 use kivact_layout::{Flow, LayoutTree};
-use kivact_wire::{LayoutProps, NodeId, NodeType};
+use kivact_wire::{LayoutProps, NodeId, NodeType, OverlayAt};
 
 impl LayoutTree for NodeTree {
     #[inline]
@@ -57,8 +57,12 @@ impl LayoutTree for NodeTree {
     #[inline]
     fn overlay_width_anchor(&self, slot: usize) -> Option<NodeId> {
         let overlay = self.nodes.at(NodeIndex(slot)).overlay()?;
-        overlay
-            .anchor
-            .filter(|_| overlay.at_least_anchor_width && overlay.point.is_none())
+        match overlay.at {
+            OverlayAt::Anchor {
+                node,
+                at_least_width: true,
+            } => node,
+            _ => None,
+        }
     }
 }

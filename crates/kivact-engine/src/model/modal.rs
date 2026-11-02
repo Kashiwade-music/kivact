@@ -21,7 +21,7 @@
 //! - Admission ([`Model::admit_input`]) is decided once per event, when
 //!   kivact is about to dispatch it, so a modal an earlier event of the
 //!   same turn opened already applies. A node event (`Activate`, `A11y`,
-//!   `Wheel`, `File`, `TextChanged`, `SelectionChanged`, `OverlayDismiss`)
+//!   `Wheel`, `File`, `TextChanged`, `SelectionChanged`)
 //!   is admitted exactly when its node is in scope. A pointer event that
 //!   starts something (a `Down`, an `Enter`, a `Move` with no button held)
 //!   needs scope; the later `Move`, `Up` and `Cancel` of a gesture

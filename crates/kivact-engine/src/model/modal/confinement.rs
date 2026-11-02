@@ -84,7 +84,7 @@ impl Model {
     pub(crate) fn admit_input(&self, event: &HostEvent) -> bool {
         match event {
             HostEvent::Pointer { node, event, .. } => {
-                self.admit_pointer(*node, event.id, event.phase, event.button, event.buttons)
+                self.admit_pointer(*node, event.id, event.phase, event.buttons)
             }
             HostEvent::Wheel { node, .. }
             | HostEvent::File { node, .. }
@@ -92,34 +92,32 @@ impl Model {
             | HostEvent::TextChanged { node, .. }
             | HostEvent::SelectionChanged { node, .. }
             | HostEvent::Ime { node, .. }
-            | HostEvent::A11y { node, .. }
-            | HostEvent::OverlayDismiss { node } => self.in_scope(*node),
+            | HostEvent::A11y { node, .. } => self.in_scope(*node),
             _ => true,
         }
     }
 
     /// Admit or drop a pointer event of `pointer` and `phase` aimed at
-    /// `node`, updating that pointer's admitted drag. `button` is the
-    /// changed button of a `Down` or `Up` and `buttons` the buttons held
-    /// after the event: a `Move` with none held is a hover, which a modal
-    /// judges like a new press.
+    /// `node`, updating that pointer's admitted drag. `buttons` is the
+    /// buttons held after the event: a `Move` with none held is a hover,
+    /// which a modal judges like a new press.
     fn admit_pointer(
         &self,
         node: NodeId,
         pointer: PointerId,
         phase: PointerPhase,
-        button: Option<kivact_wire::MouseButton>,
         buttons: kivact_wire::PointerButtons,
     ) -> bool {
         let admission = &self.admission;
         admission.forget_missing(|n| self.tree.live(n));
         let continuing = admission.drag(pointer) == Some(node);
         let starts = match phase {
-            PointerPhase::Down | PointerPhase::Enter => true,
+            PointerPhase::Down(_) | PointerPhase::Enter => true,
             PointerPhase::Move => buttons.is_empty(),
-            PointerPhase::Up | PointerPhase::Cancel | PointerPhase::Leave => false,
+            PointerPhase::Up(_) | PointerPhase::Cancel | PointerPhase::Leave => false,
         };
-        if starts && !(continuing && phase == PointerPhase::Down) && !self.in_scope(node) {
+        if starts && !(continuing && matches!(phase, PointerPhase::Down(_))) && !self.in_scope(node)
+        {
             return false;
         }
         if !starts && phase != PointerPhase::Leave && !continuing && !self.in_scope(node) {
@@ -128,17 +126,15 @@ impl Model {
             return false;
         }
         match phase {
-            PointerPhase::Down => {
-                if let Some(button) = button {
-                    admission.press(pointer, node);
-                    // A new primary press ends the pointer's earlier gesture
-                    // whose release never came.
-                    if button == kivact_wire::MouseButton::Primary {
-                        admission.forget_adoption(pointer);
-                    }
+            PointerPhase::Down(press) => {
+                admission.press(pointer, node);
+                // A new primary press ends the pointer's earlier gesture
+                // whose release never came.
+                if press.button == kivact_wire::MouseButton::Primary {
+                    admission.forget_adoption(pointer);
                 }
             }
-            PointerPhase::Up if buttons.is_empty() => admission.end(pointer, node),
+            PointerPhase::Up(_) if buttons.is_empty() => admission.end(pointer, node),
             PointerPhase::Cancel => {
                 admission.end(pointer, node);
                 admission.forget_adoption(pointer);
