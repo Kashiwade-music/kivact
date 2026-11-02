@@ -213,7 +213,7 @@ impl<'a> Element<'a> {
                     .is_some_and(|p| p.text.is_some() || p.protected);
             if editor {
                 return ViewState::tree(&self.screen.rt)
-                    .reader()?
+                    .reader()
                     .edit_value(self.node);
             }
             return n.value;

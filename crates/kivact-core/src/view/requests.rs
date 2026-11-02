@@ -197,12 +197,9 @@ pub(crate) fn flush_focus(rt: &Runtime) {
     }
 }
 
-/// Whether the engine lets `target` take a restored focus now. Before the
-/// App started there is no engine and nothing to restore to.
+/// Whether the engine lets `target` take a restored focus now.
 fn can_take_focus(rt: &Runtime, target: kivact_wire::FocusTarget) -> bool {
-    ViewState::tree(rt)
-        .reader()
-        .is_some_and(|reader| reader.can_take_focus(target))
+    ViewState::tree(rt).reader().can_take_focus(target)
 }
 
 /// Ask the host to give the focus back to `node` (a popup or modal overlay

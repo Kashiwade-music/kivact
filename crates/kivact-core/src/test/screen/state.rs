@@ -68,21 +68,7 @@ impl Screen {
     /// Semantic tree of the whole screen.
     pub fn snapshot(&self) -> SemanticNode {
         let root = ViewState::tree(&self.rt).root;
-        match root {
-            Some(r) => self.semantic(r, None),
-            None => SemanticNode {
-                role: None,
-                name: String::new(),
-                value: None,
-                test_id: None,
-                focused: false,
-                disabled: false,
-                selected: false,
-                checked: None,
-                at: None,
-                children: Vec::new(),
-            },
-        }
+        self.semantic(root, None)
     }
 
     /// The semantic node of `id`; `parent_at` is the location of its nearest

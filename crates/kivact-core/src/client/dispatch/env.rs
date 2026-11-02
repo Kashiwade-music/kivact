@@ -13,9 +13,7 @@ use crate::view::tree::ScrollState;
 /// The host reports its environment, whole: the one signal changes, and
 /// only the readers of the fields that differ run again.
 pub(super) fn env_changed(rt: &Runtime, env: &HostEnv) {
-    let Some(state) = ViewState::of(rt).env() else {
-        return;
-    };
+    let state = ViewState::of(rt).env();
     // Only the env signal is written here: no owner applies.
     rt.enter(|| state.set(env.clone()));
     // Reduced motion ends the running decorative values in this turn, not

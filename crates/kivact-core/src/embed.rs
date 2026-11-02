@@ -108,7 +108,6 @@ impl Parent {
 pub struct Embedded {
     host: Option<kivact_engine::embed::EmbeddedHost>,
     panic: kivact_engine::embed::PanicSlot,
-    closed: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 impl Embedded {
     fn host(&self) -> &kivact_engine::embed::EmbeddedHost {
@@ -154,9 +153,8 @@ impl Embedded {
 }
 impl Drop for Embedded {
     fn drop(&mut self) {
-        // Inside an App callback, stop the rest of the current event batch.
-        self.closed
-            .store(true, std::sync::atomic::Ordering::Release);
+        // Dropping the host sets its close flag first: inside an App
+        // callback, the rest of the current event batch is not delivered.
         drop(self.host.take());
         if kivact_task::detached_threads() || kivact_engine::embed::detached_threads() {
             kivact_engine::embed::retain_module();
@@ -218,11 +216,9 @@ impl App {
             gpu_preference: Default::default(),
             panic: panic.clone(),
         };
-        let closed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let ui_closed = closed.clone();
-        let opened = kivact_engine::embed::embed_native(window, options, move || {
+        let opened = kivact_engine::embed::embed_native(window, options, move |closing| {
             self.app_client(root, at)
-                .with_embed_closed(ui_closed)
+                .with_embed_closing(closing)
                 .into_client(None)
         });
         match opened {
@@ -230,7 +226,6 @@ impl App {
                 let embedded = Embedded {
                     host: Some(host),
                     panic: panic.clone(),
-                    closed,
                 };
                 // A pending payload unwinds from here; dropping `embedded`
                 // closes the host first.

@@ -15,7 +15,7 @@ use kivact_engine::testing::{ArvaneTestHost, TestFonts as HostFonts, TestHostOpt
 use kivact_wire as p;
 
 use super::model::{FIND_TIMEOUT, Record, Screen};
-use crate::client::AppClient;
+use crate::client::{AppClient, AppConfig};
 use crate::test::options::{RenderOptions, TestFonts, WindowMode};
 use crate::view::View;
 use kivact_style::asset::Asset;
@@ -35,9 +35,11 @@ impl Screen {
         root: Box<dyn FnOnce() -> View>,
         at: &'static Location<'static>,
     ) -> Screen {
-        let client = AppClient::new("test".into(), options.theme.clone(), Some(2), root, at)
-            .with_i18n(options.locale.clone(), options.messages.clone())
-            .with_fonts(fonts);
+        let mut config = AppConfig::new("test".into(), options.theme.clone(), root);
+        config.settings.locale = options.locale.clone();
+        config.settings.messages = options.messages.clone();
+        config.fonts = fonts;
+        let client = AppClient::new(config, Some(2), at);
         Screen::start_client(options, gpu, client, at)
     }
 

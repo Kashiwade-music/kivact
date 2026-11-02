@@ -178,16 +178,16 @@ impl App {
         root: impl FnOnce() -> V + 'static,
         at: &'static Location<'static>,
     ) -> crate::client::AppClient {
-        crate::client::AppClient::new(
+        let mut config = crate::client::AppConfig::new(
             self.title,
             self.theme,
-            self.threads,
             Box::new(move || root().into_view()),
-            at,
-        )
-        .with_i18n(self.locale, self.messages)
-        .with_fonts(self.fonts)
-        .with_min_window_size(self.min_window_size)
+        );
+        config.settings.locale = self.locale;
+        config.settings.messages = self.messages;
+        config.fonts = self.fonts;
+        config.min_window_size = self.min_window_size;
+        crate::client::AppClient::new(config, self.threads, at)
     }
 }
 

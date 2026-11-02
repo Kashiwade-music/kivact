@@ -1,23 +1,20 @@
 //! Role: The App's record of its imports and the adapter signal.
 
+use kivact_reactive::Runtime;
 use kivact_reactive::Signal;
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owner, Runtime};
 use kivact_wire::{ExternalImageId, ExternalImport, GpuAdapter};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::panic::Location;
 
-/// What `gpu_interop` keeps per App: the imports and the adapter signal.
-/// The client installs it as a runtime extension when the App is created
-/// (`install_adapter` runs once the root owner exists).
+use crate::view::state::ViewState;
+
+/// What `gpu_interop` keeps per App: its imports. The client installs it as
+/// a runtime extension when the App is created.
 #[derive(Default)]
 pub(crate) struct State {
     imports: RefCell<Imports>,
-    /// The adapter of the window's GPU device that can import shared
-    /// textures (`None` until the host reports one); the signal is made
-    /// by [`State::install_adapter`].
-    adapter: Cell<Option<Signal<Option<GpuAdapter>>>>,
 }
 
 impl State {
@@ -25,11 +22,6 @@ impl State {
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &State {
         rt.ext::<State>()
-    }
-
-    /// Make the adapter signal in the root owner `owner`, created at `at`.
-    pub(crate) fn install_adapter(&self, owner: Owner, at: &'static Location<'static>) {
-        self.adapter.set(Some(owner.signal(None::<GpuAdapter>, at)));
     }
 }
 
@@ -122,9 +114,9 @@ pub enum ImportStatus {
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
     let rt = kivact_reactive::Owner::ambient("adapter", Location::caller()).runtime();
-    let adapter = State::of(&rt).adapter.get();
+    let signal = ViewState::of(&rt).adapter();
     drop(rt);
-    adapter.and_then(|adapter| adapter.get())
+    signal.get()
 }
 
 /// The window answered the import `image` (`HostEvent::ExternalImported`).
@@ -173,12 +165,10 @@ pub(crate) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
             import.status
         })
         .collect();
-    let signal = state.adapter.get();
+    let signal = ViewState::of(rt).adapter();
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
-        if let Some(signal) = signal {
-            signal.set(adapter.cloned());
-        }
+        signal.set(adapter.cloned());
         for status in lost {
             status.set(ImportStatus::Lost);
         }

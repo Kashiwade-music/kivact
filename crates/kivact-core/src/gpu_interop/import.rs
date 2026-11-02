@@ -13,9 +13,8 @@
 //!   cleanup of the owner it was called in writes `Writer::drop_external`,
 //!   whatever handles to it are left, and forgets it (a later answer is
 //!   ignored).
-//! - The adapter signal lives in the App's [`State`] (a runtime extension
-//!   the client installs; the root owner makes the signal before the root
-//!   is mounted). It starts `None` and follows
+//! - The adapter signal is part of what the host's start establishes
+//!   (`ViewState::adapter`), made in the root owner. It starts `None` and follows
 //!   `HostEvent::GpuAdapterChanged`. An import that is `Ready` is `Lost`
 //!   once the adapter's generation is not the one it was imported into
 //!   (a new device, or none).

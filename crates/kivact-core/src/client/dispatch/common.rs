@@ -36,10 +36,9 @@ pub(super) fn stale(rt: &Runtime, what: &str, id: NodeId) {
 /// not admit is dropped and counted like a stale event. Asked exactly once
 /// per event, immediately before the event is dispatched, so a modal an
 /// earlier event of the turn opened already applies (and the engine records
-/// the pointer drag the event admits). Without an engine nothing is open.
+/// the pointer drag the event admits).
 pub(super) fn admitted(rt: &Runtime, event: &HostEvent, what: &str, id: NodeId) -> bool {
-    let reader = ViewState::tree(rt).reader();
-    if reader.is_none_or(|reader| reader.admit_input(event)) {
+    if ViewState::tree(rt).reader().admit_input(event) {
         return true;
     }
     drop_outside_modal(rt, what, id);

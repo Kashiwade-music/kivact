@@ -32,17 +32,18 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_engine::bridge::Boundary;
-use kivact_engine::bridge::{Client, HostWaker, Writer};
+use kivact_engine::bridge::{Boundary, Client, HostWaker, Writer};
 use kivact_wire::{HostEvent, HostInfo, Size, TurnOutput};
 
 use crate::client::phases::{self, Phase};
 use crate::client::settle::settle_async;
 use crate::client::state::{ExitPhase, HostState};
-use crate::i18n::{Locale, Messages};
+use crate::i18n::Messages;
 use crate::view::View;
 use crate::view::requests;
+use crate::view::root::AppSettings;
 use crate::view::state::ViewState;
+use crate::view::tree::TextEditsAhead;
 use kivact_motion::MotionState;
 use kivact_reactive::{ErrorKind, Extensions, Runtime, TurnRecorder, UiError};
 use kivact_style::Theme;
@@ -53,37 +54,70 @@ use kivact_task::TaskState;
 /// the rest is cut as a `Cycle`.
 const USER_EFFECT_ROUNDS: usize = 100;
 
+/// What an App starts with (its `App` settings and root view);
+/// `AppClient::start` consumes it.
+pub(crate) struct AppConfig {
+    pub(crate) title: String,
+    pub(crate) settings: AppSettings,
+    /// Fonts registered before the root is mounted (`App::font`): their
+    /// `RegisterFont` effects come first in the first revision, so the first
+    /// layout measures with them. A rejected font is reported as
+    /// `ErrorKind::Asset`.
+    pub(crate) fonts: Vec<(Asset, &'static Location<'static>)>,
+    /// The window's minimum size (`None`: no minimum), validated by `App::run`.
+    pub(crate) min_window_size: Option<Size>,
+    /// Builds the root view, in a setup frame of the root owner.
+    pub(crate) root: Box<dyn FnOnce() -> View>,
+}
+
+impl AppConfig {
+    /// An App titled `title` with `theme`, the host's locale, the default
+    /// messages, no fonts and no minimum size.
+    pub(crate) fn new(title: String, theme: Theme, root: Box<dyn FnOnce() -> View>) -> Self {
+        AppConfig {
+            title,
+            settings: AppSettings {
+                theme,
+                locale: None,
+                messages: Messages::new(),
+            },
+            fonts: Vec::new(),
+            min_window_size: None,
+            root,
+        }
+    }
+}
+
+/// Whether the host started the App.
+enum Launch {
+    /// Waiting for the host's `start`, which consumes the config.
+    Waiting(Box<AppConfig>),
+    /// The host started the App.
+    Started,
+}
+
 /// The App side of the host boundary: owns the App's runtime and implements
 /// concrete callbacks for the engine window loop or test driver.
 pub(crate) struct AppClient {
     rt: Rc<Runtime>,
-    root: Option<Box<dyn FnOnce() -> View>>,
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
-    title: String,
-    theme: Theme,
-    /// `None`: the App speaks the host's locale.
-    locale: Option<Locale>,
-    messages: Messages,
-    /// Set by `Embedded::drop`: the turn in progress finishes, but the rest
-    /// of its event batch is not delivered.
+    launch: Launch,
+    /// The embedder's close flag, set by `Embedded::drop`: the turn in
+    /// progress finishes, but the rest of its event batch is not delivered.
+    /// `None`: the App has a window of its own.
     #[cfg(feature = "embed")]
-    embed_closed: Option<Arc<std::sync::atomic::AtomicBool>>,
-    /// Fonts registered before the root is mounted (`App::font`).
-    fonts: Vec<(Asset, &'static Location<'static>)>,
+    embed_closing: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl AppClient {
-    /// An App titled `title` whose root is built by `root` when the host
-    /// starts, in a setup frame of the root owner; `threads` sizes the
-    /// blocking pool (default `min(4, CPUs)`). `at` is where the App was
-    /// started (`App::run`, `test::render`): diagnostics name the root
+    /// An App started with `config` when the host starts; `threads` sizes
+    /// the blocking pool (default `min(4, CPUs)`). `at` is where the App
+    /// was started (`App::run`, `test::render`): diagnostics name the root
     /// owner by it.
     pub(crate) fn new(
-        title: String,
-        theme: Theme,
+        config: AppConfig,
         threads: Option<usize>,
-        root: Box<dyn FnOnce() -> View>,
         at: &'static Location<'static>,
     ) -> Self {
         let host = HostState::default();
@@ -101,54 +135,28 @@ impl AppClient {
         );
         AppClient {
             rt,
-            root: Some(root),
             at,
-            title,
-            theme,
-            locale: None,
-            messages: Messages::new(),
-            fonts: Vec::new(),
+            launch: Launch::Waiting(Box::new(config)),
             #[cfg(feature = "embed")]
-            embed_closed: None,
+            embed_closing: None,
         }
     }
 
     #[cfg(feature = "embed")]
-    pub(crate) fn with_embed_closed(mut self, closed: Arc<std::sync::atomic::AtomicBool>) -> Self {
-        self.embed_closed = Some(closed);
+    pub(crate) fn with_embed_closing(
+        mut self,
+        closing: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Self {
+        self.embed_closing = Some(closing);
         self
     }
 
-    fn embed_closed(&self) -> bool {
+    fn embed_closing(&self) -> bool {
         #[cfg(feature = "embed")]
-        if let Some(closed) = &self.embed_closed {
-            return closed.load(std::sync::atomic::Ordering::Acquire);
+        if let Some(closing) = &self.embed_closing {
+            return closing.load(std::sync::atomic::Ordering::Acquire);
         }
         false
-    }
-
-    /// Start the App with `locale` (`None`: the host's) and `messages`
-    /// (`App::locale`, `App::messages`).
-    pub(crate) fn with_i18n(mut self, locale: Option<Locale>, messages: Messages) -> Self {
-        self.locale = locale;
-        self.messages = messages;
-        self
-    }
-
-    /// Register `fonts` (each located at its `App::font` call) when the
-    /// host starts: their `RegisterFont` effects come first in the first
-    /// revision, before the root's mount, so the first layout measures with
-    /// them. A rejected font is reported as `ErrorKind::Asset`.
-    pub(crate) fn with_fonts(mut self, fonts: Vec<(Asset, &'static Location<'static>)>) -> Self {
-        self.fonts = fonts;
-        self
-    }
-
-    /// Keep the window at least `size` logical pixels (`None`: no
-    /// minimum). The size is used as given: `App::run` validated it.
-    pub(crate) fn with_min_window_size(self, size: Option<Size>) -> Self {
-        ViewState::of(&self.rt).set_min_window_size(size);
-        self
     }
 
     /// The App's runtime (the Testing Library reads the tree and the
@@ -178,12 +186,7 @@ impl AppClient {
     /// Deliver `events` in order; a revision's `on_mount` callbacks run
     /// once the events before its boundary ran.
     fn dispatch_all(&self, turn: &TurnRecorder<'_>, events: &[HostEvent], boundaries: &[Boundary]) {
-        ViewState::tree_mut(&self.rt).count_text_edits(events.iter().filter_map(
-            |event| match event {
-                kivact_wire::HostEvent::TextChanged { node, .. } => Some(*node),
-                _ => None,
-            },
-        ));
+        let edits = TextEditsAhead::count(&self.rt, events);
         let mut boundaries = boundaries.iter().peekable();
         let mut acknowledge = |delivered: usize| {
             while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
@@ -199,12 +202,10 @@ impl AppClient {
         acknowledge(0);
         let mut delivered = 0;
         for e in events {
-            if self.embed_closed() {
+            if self.embed_closing() {
                 break;
             }
-            if let kivact_wire::HostEvent::TextChanged { node, .. } = e {
-                ViewState::tree_mut(&self.rt).consume_text_edit(*node);
-            }
+            edits.deliver(e);
             turn.cause(describe(e));
             crate::client::dispatch::dispatch(&self.rt, e);
             phases::drain(&self.rt, Phase::AfterHandler { settle: None });
@@ -212,40 +213,38 @@ impl AppClient {
             delivered += 1;
             acknowledge(delivered);
         }
-        acknowledge(usize::MAX);
-        ViewState::tree_mut(&self.rt).clear_text_edits();
+        // Every boundary lies within the batch: those after an embedder's
+        // close are released too.
+        acknowledge(events.len());
     }
 }
 
 impl AppClient {
-    fn start(&mut self, info: &HostInfo, waker: HostWaker, tree: Writer) {
+    fn start(&mut self, info: &HostInfo, waker: HostWaker, writer: Writer) {
+        let config = match std::mem::replace(&mut self.launch, Launch::Started) {
+            Launch::Waiting(config) => *config,
+            Launch::Started => unreachable!("invariant: the host starts an App once"),
+        };
         let rt = self.rt.clone();
         let ready = waker.clone();
         TaskState::of(&rt).set_waker(Arc::new(move || ready.wake()));
         HostState::of(&rt).link.start(info.now_ns, waker);
-        // Install the owned writer before setup creates detached host nodes.
-        ViewState::tree_mut(&rt).set_engine(tree.clone());
-        ViewState::tree(&rt)
-            .engine()
-            .set_window(self.title.clone(), ViewState::of(&rt).min_window_size());
-        // The App's fonts precede the root's mount (the engine registers
-        // a font when it is written, so the first layout uses them).
-        requests::register_app_fonts(&rt, std::mem::take(&mut self.fonts));
         let root_owner = rt.create_root(self.at);
-        #[cfg(feature = "gpu-interop")]
-        crate::gpu_interop::State::of(&rt).install_adapter(root_owner, self.at);
-        crate::view::root::mount_root(
+        // The tree (with the root node), the environment, the focus source
+        // and the capabilities exist before anything writes or reads them.
+        crate::view::root::start(
             &rt,
             root_owner,
             info,
-            crate::view::root::AppSettings {
-                theme: self.theme.clone(),
-                locale: self.locale.clone(),
-                messages: self.messages.clone(),
-            },
-            self.root.take(),
+            writer.clone(),
+            config.min_window_size,
             self.at,
         );
+        writer.set_window(config.title, config.min_window_size);
+        // The App's fonts precede the root's mount (the engine registers
+        // a font when it is written, so the first layout uses them).
+        requests::register_app_fonts(&rt, config.fonts);
+        crate::view::root::mount_root(&rt, root_owner, config.settings, config.root, self.at);
         // What the platform cannot do is diagnosed, not silently ignored:
         // `tracing` says it at start, and the turn trace when the App
         // relies on it (`platform::safe_area`).
@@ -254,7 +253,7 @@ impl AppClient {
             super::notice::inform(&format!("the platform lacks: {}", missing.join(", ")));
         }
         rt.stabilize();
-        let written = phases::commit(&rt, &tree);
+        let written = phases::commit(&rt, &writer);
         debug_assert!(written > 0, "the first revision sets the window");
         rt.finish_setup_notes();
         let pending = rt.pending().user || TaskState::of(&rt).has_ready();
@@ -423,7 +422,7 @@ impl Drop for AppClient {
         // Opening may fail before an Embedded is returned, or its drop may
         // precede deferred callback cleanup. Record task retention here too.
         #[cfg(feature = "embed")]
-        if self.embed_closed.is_some() && kivact_task::detached_threads() {
+        if self.embed_closing.is_some() && kivact_task::detached_threads() {
             kivact_engine::embed::retain_module();
         }
     }

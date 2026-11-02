@@ -34,13 +34,7 @@ pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Opt
         Hover::Reactive(source) => return source,
         Hover::Plain(last) => last,
     };
-    let owner = {
-        let tree = ViewState::tree(rt);
-        tree.root
-            .and_then(|root| tree.get(root))
-            .expect("invariant: the App root exists before a hover source is read")
-            .owner
-    };
+    let owner = ViewState::tree(rt).root_owner();
     let source = owner.signal(last, at);
     state.set_hover(Hover::Reactive(source));
     source
