@@ -110,8 +110,10 @@ mod pieces;
 mod records;
 mod refresh;
 mod shaping;
+mod source;
 
 pub use edit_lines::EditLines;
 pub use line_metrics::{line_height, line_offset};
-pub use refresh::{RefreshError, RefreshMode, Source};
+pub use refresh::{RefreshError, RefreshMode};
 pub use shaping::{Published, Shaping};
+pub use source::Source;

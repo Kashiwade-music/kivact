@@ -1,4 +1,4 @@
-//! Role: An edit session: the selection's anchor and caret and the IME composition, holding no text.
+//! Role: An edit session: selection anchor, caret and IME composition, holding no text.
 
 use std::ops::Range;
 

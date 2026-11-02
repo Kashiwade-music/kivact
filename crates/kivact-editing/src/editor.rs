@@ -1,4 +1,4 @@
-//! Role: Native editor ownership: recorded edits, controlled values and states kivact gives back.
+//! Role: Native editor ownership: the document, its edits and the states given back.
 
 use crate::change::Damage;
 use crate::edit_state::{EditState, Taken};
@@ -12,7 +12,7 @@ use crate::journal::{Incoming, Journal};
 /// independently; no mutable editor state is shared.
 #[derive(Clone, Debug)]
 pub struct Editor {
-    pub(crate) state: EditState,
+    state: EditState,
 }
 
 impl Editor {
@@ -55,7 +55,7 @@ impl Editor {
         self.state.start_log();
         let (revision, session) = (self.state.revision(), self.state.session().clone());
         Journal {
-            editor: self,
+            state: &mut self.state,
             revision,
             session,
         }

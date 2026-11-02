@@ -1,6 +1,6 @@
 //! Role: Passive line, chunk, cache-key and prefix records.
 
-use crate::refresh::Source;
+use crate::source::Source;
 use kivact_editing::LineState;
 use kivact_types::{Point, Rgba};
 use std::ops::Range;

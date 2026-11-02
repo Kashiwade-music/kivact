@@ -1,7 +1,7 @@
 //! Role: `EditLines`: the retained, lazily shaped lines of one text input.
 
 use crate::records::{Before, Chunk, Key};
-use crate::refresh::Source;
+use crate::source::Source;
 use kivact_editing::LineColors;
 use std::ops::Range;
 
