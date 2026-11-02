@@ -30,17 +30,17 @@ use kivact_core::{Binding, Signal, on_cleanup, on_mount};
 ///     ))
 /// }
 /// ```
-pub struct InlineEdit<K: Clone + PartialEq + 'static> {
+pub struct InlineEdit<K: 'static> {
     editing: Binding<Option<K>>,
 }
 
-impl<K: Clone + PartialEq + 'static> Clone for InlineEdit<K> {
+impl<K: 'static> Clone for InlineEdit<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<K: Clone + PartialEq + 'static> Copy for InlineEdit<K> {}
+impl<K: 'static> Copy for InlineEdit<K> {}
 
 /// Track which item is being renamed. `editing` holds the key of that item
 /// (`None` while none is); the application may own it, for instance to start
