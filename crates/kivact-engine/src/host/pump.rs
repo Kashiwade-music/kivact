@@ -13,23 +13,46 @@ use std::time::Instant;
 /// events); the cut is reported (`HostEvent::TurnsCut`).
 const TURN_LIMIT: u32 = 64;
 
+/// Where the host is in its life.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Phase {
+    /// Inside the shell's start (`Host::begin`): the client starts and the first
+    /// pump's turns run. Platform effects wait: an embedding host is still inside
+    /// its editor's open call and its window takes no size request or dialog then.
+    /// The first entry after the start carries them out (`Host::enter`), and the
+    /// host asks for that entry at once (`ShellControl::WakeAt(now)` while effects
+    /// are queued).
+    Starting,
+    /// Handling the shell's events.
+    Running,
+    /// The client finished (`TurnOutput::exit`): no more turns; every return asks
+    /// the shell to exit.
+    Exiting,
+}
+
+/// What became of the last frame presented.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LastFrame {
+    /// Shown, dropped or lost: nothing is retried (a change or a surface loss
+    /// redraws).
+    Settled,
+    /// The window had no buffer (occluded, timed out): the frame is drawn again at
+    /// `retry_at_ns`, or at once when the window regains the focus.
+    Skipped { retry_at_ns: u64 },
+}
+
 pub(crate) struct Host {
     pub(super) client: Client,
-    pub(super) starting: bool,
+    pub(super) phase: Phase,
     /// Shared with the client's reader (`write::Reader`): borrowed for one
     /// call at a time, never across a call into the client.
     pub(super) model: Rc<RefCell<Model>>,
     /// Arvane's text, shared with the client's reader (`write::Reader`), which
     /// measures text for drawing: borrowed for one call at a time.
     pub(super) engine: Rc<RefCell<arvane::Engine>>,
-    /// When to draw a frame the window skipped again
-    /// (`Presented::Skipped`).
-    pub(super) repaint_at: Option<u64>,
-    /// The window skipped the last frame drawn (no buffer: occluded, timed
-    /// out); a focused window draws again at once.
-    pub(super) skipping: bool,
+    /// What became of the last frame presented (`Presented`).
+    pub(super) last_frame: LastFrame,
     pub(super) next_wake: Option<u64>,
-    pub(super) exit: bool,
     /// Embedded handle destruction can occur inside a platform callback while
     /// this Host is borrowed. Stop new turns before deferred native cleanup;
     /// an already-running client turn still settles under the normal rules.
@@ -39,7 +62,7 @@ pub(crate) struct Host {
     /// the host's own, not the snapshot's).
     pub(super) environment: kivact_types::protocol::Environment,
     /// The platform suspended the application (in the background):
-    /// nothing is drawn until it resumes.
+    /// nothing is drawn until it resumes. Independent of `phase`.
     pub(super) suspended: bool,
     /// The software keyboard was asked for (an editable text input has
     /// the focus).
@@ -69,8 +92,34 @@ impl Host {
             .as_ref()
             .is_some_and(|closing| closing.load(std::sync::atomic::Ordering::Acquire))
     }
+    /// The first step of every entry after the shell's start (`handle`, the test
+    /// driver's `inject`): the start is over, and the platform effects queued
+    /// meanwhile are carried out.
+    pub(super) fn enter<W: Window>(&mut self, window: &mut W) {
+        if self.phase == Phase::Starting {
+            self.phase = Phase::Running;
+        }
+        self.effects(window);
+    }
+    /// Queue `event` and pump (the test driver's injection).
+    #[cfg(feature = "testing")]
+    pub(super) fn inject<W: Window>(
+        &mut self,
+        event: HostEvent,
+        window: &mut W,
+    ) -> Result<ShellControl, ShellError> {
+        if self.closing() {
+            return Ok(ShellControl::Wait);
+        }
+        self.enter(window);
+        if self.closing() {
+            return Ok(ShellControl::Wait);
+        }
+        self.model.borrow_mut().push(event);
+        self.pump(window)
+    }
     pub(super) fn effects<W: Window>(&mut self, window: &mut W) {
-        if self.starting || self.closing() {
+        if self.phase == Phase::Starting || self.closing() {
             return;
         }
         let effects = std::mem::take(&mut self.model.borrow_mut().effects);
@@ -226,7 +275,9 @@ impl Host {
             return Ok(());
         }
         self.next_wake = output.next_wake_ns;
-        self.exit = output.exit;
+        if output.exit {
+            self.phase = Phase::Exiting;
+        }
         self.effects(window);
         if self.closing() {
             return Ok(());
@@ -262,7 +313,7 @@ impl Host {
                 let mut model = self.model.borrow_mut();
                 model.poll_assets();
                 model.relayout(&mut self.engine.borrow_mut());
-                if self.exit || !model.has_events() {
+                if self.phase == Phase::Exiting || !model.has_events() {
                     None
                 } else if turns == TURN_LIMIT {
                     // Every turn left more events: the client keeps answering
@@ -377,6 +428,13 @@ impl Host {
         let model = self.model.borrow();
         model.paint.needs_redraw() && model.frame.surface_active()
     }
+    /// When the skipped frame is drawn again.
+    fn retry_at(&self) -> Option<u64> {
+        match self.last_frame {
+            LastFrame::Settled => None,
+            LastFrame::Skipped { retry_at_ns } => Some(retry_at_ns),
+        }
+    }
     fn control<W: Window>(&self, window: &W) -> ShellControl {
         let model = self.model.borrow();
         let frame_deadline = if model.frame.surface_active() {
@@ -387,12 +445,12 @@ impl Host {
         let next = if model.has_events() || !model.effects.is_empty() {
             Some(window.now_ns())
         } else {
-            [self.next_wake, frame_deadline, self.repaint_at]
+            [self.next_wake, frame_deadline, self.retry_at()]
                 .into_iter()
                 .flatten()
                 .min()
         };
-        if self.exit {
+        if self.phase == Phase::Exiting {
             ShellControl::Exit
         } else {
             next.map_or(ShellControl::Wait, ShellControl::WakeAt)

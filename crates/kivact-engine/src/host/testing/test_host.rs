@@ -368,15 +368,7 @@ impl ArvaneTestHost {
         if self.failure.is_some() {
             return;
         }
-        self.host.model.borrow_mut().push(event);
-        self.pump();
-    }
-
-    fn pump(&mut self) {
-        if self.failure.is_some() {
-            return;
-        }
-        match self.host.pump(&mut self.window) {
+        match self.host.inject(event, &mut self.window) {
             Ok(control) => self.control = control,
             Err(e) => self.failure = Some(e),
         }

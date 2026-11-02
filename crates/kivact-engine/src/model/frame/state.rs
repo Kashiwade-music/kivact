@@ -69,6 +69,7 @@ impl Frame {
 
     /// The theme the environment starts with (light unless a test driver
     /// starts dark); `Model::start_env` keeps it.
+    #[cfg(feature = "testing")]
     pub(crate) fn start_theme(&mut self, theme: ThemeHint) {
         self.env.theme_hint = theme;
     }
