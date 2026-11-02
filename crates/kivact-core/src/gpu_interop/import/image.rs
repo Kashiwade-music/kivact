@@ -1,7 +1,7 @@
 //! Role: Import an external image: its handle, status, frames and frame publisher.
 
 use super::inbox::Inbox;
-use super::registry::{ImportStatus, State};
+use super::registry::{ImportPhase, ImportStatus, State};
 use crate::view::state::ViewState;
 use kivact_reactive::Signal;
 use kivact_reactive::{Owner, Runtime, require_effectful};
@@ -25,7 +25,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ExternalImage {
     id: ExternalImageId,
-    status: Signal<ImportStatus>,
+    status: Signal<ImportPhase>,
     /// The size in pixels of the imported textures.
     size: (u32, u32),
     /// The newest frame a [`FramePublisher`] published.
@@ -35,11 +35,13 @@ pub struct ExternalImage {
 
 impl ExternalImage {
     /// Where the import stands ([`ImportStatus`]), tracked: a view or
-    /// effect that reads it follows its changes. `Lost` once its owner is
-    /// gone.
+    /// effect that reads it follows its changes. `Dropped` once its owner
+    /// is gone.
     #[track_caller]
     pub fn status(&self) -> ImportStatus {
-        self.status.try_get().unwrap_or(ImportStatus::Lost)
+        self.status
+            .try_get()
+            .map_or(ImportStatus::Dropped, |phase| phase.status())
     }
 
     /// The frame the engine drew into the pool's texture `slot` (an index
@@ -79,12 +81,12 @@ impl ExternalImage {
 }
 
 /// What the engine's threads publish for an import.
-#[derive(Default)]
-struct Published {
+enum Published {
+    /// The import's owner lives; the newest `(slot, value)` the UI has not
+    /// taken yet.
+    Open { newest: Option<(u32, u64)> },
     /// The import's owner is gone.
-    closed: bool,
-    /// The newest `(slot, value)` the UI has not taken yet.
-    newest: Option<(u32, u64)>,
+    Closed,
 }
 
 /// Publishes the frames of an [`ExternalImage`] from the engine's thread
@@ -111,8 +113,8 @@ impl FramePublisher {
     /// it), from any thread. Nothing once closed.
     pub fn publish(&self, slot: u32, value: u64) {
         self.published.update(|p| {
-            if !p.closed {
-                p.newest = Some((slot, value));
+            if let Published::Open { newest } = p {
+                *newest = Some((slot, value));
             }
         });
     }
@@ -120,7 +122,7 @@ impl FramePublisher {
     /// Whether the import's owner is gone: the image was dropped, and
     /// the engine may stop drawing for it.
     pub fn is_closed(&self) -> bool {
-        self.published.read(|p| p.closed)
+        self.published.read(|p| matches!(p, Published::Closed))
     }
 }
 
@@ -184,18 +186,23 @@ pub(crate) fn import_in(
     at: &'static Location<'static>,
 ) -> ExternalImage {
     let size = (textures.width, textures.height);
-    let status: Signal<ImportStatus> = owner.signal(ImportStatus::Pending, at);
+    let status: Signal<ImportPhase> = owner.signal(ImportPhase::Pending, at);
     let id = State::of(rt).register(status, at);
     ViewState::tree(rt).engine().import_external(id, textures);
     rt.request_turn();
     let latest: Signal<Option<GpuFrame>> = owner.signal(None::<GpuFrame>, at);
-    let published = Arc::new(Inbox::new(Published::default()));
+    let published = Arc::new(Inbox::new(Published::Open { newest: None }));
     let inbox = published.clone();
     spawn_in(
         owner,
         async move {
             loop {
-                let (slot, value) = inbox.next(|p| p.newest.take()).await;
+                let (slot, value) = inbox
+                    .next(|p| match p {
+                        Published::Open { newest } => newest.take(),
+                        Published::Closed => None,
+                    })
+                    .await;
                 latest.set(Some(GpuFrame::new(
                     ExternalFrame {
                         image: id,
@@ -212,10 +219,7 @@ pub(crate) fn import_in(
     let weak = Rc::downgrade(rt);
     let closing = published.clone();
     owner.on_cleanup(move || {
-        closing.update(|p| {
-            p.closed = true;
-            p.newest = None;
-        });
+        closing.update(|p| *p = Published::Closed);
         let Some(rt) = weak.upgrade() else { return };
         State::of(&rt).forget(id);
         ViewState::tree(&rt).engine().drop_external(id);

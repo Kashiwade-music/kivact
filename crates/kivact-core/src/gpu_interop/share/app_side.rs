@@ -252,7 +252,7 @@ impl SharedImage {
     /// Mirror the status of the import of request `token`.
     fn follow(&self, token: u64, image: &ExternalImage) {
         let (phase, status) = match image.status() {
-            ImportStatus::Pending => return,
+            ImportStatus::Pending | ImportStatus::Dropped => return,
             ImportStatus::Ready => (Phase::Ready, ShareStatus::Ready),
             ImportStatus::Failed(error) => (
                 Phase::Failed(error.message().to_owned()),
