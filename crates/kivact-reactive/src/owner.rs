@@ -138,7 +138,8 @@ impl Runtime {
     }
 
     pub(crate) fn add_effect_cleanup(&self, effect: Key, f: Box<dyn FnOnce()>) {
-        if let Some(NodeData::Effect(e)) = self.graph.borrow_mut().get_mut(effect).map(|n| &mut n.data)
+        if let Some(NodeData::Effect(e)) =
+            self.graph.borrow_mut().get_mut(effect).map(|n| &mut n.data)
         {
             e.cleanups.push(f);
         }

@@ -536,7 +536,12 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
     }
 
     /// Start or queue a run, per the policy.
-    fn submit(self: &Rc<Self>, rt: &Runtime, submitted: Submitted<I>, at: &'static Location<'static>) {
+    fn submit(
+        self: &Rc<Self>,
+        rt: &Runtime,
+        submitted: Submitted<I>,
+        at: &'static Location<'static>,
+    ) {
         if self.lifecycle.get() != Lifecycle::Open {
             rt.report(
                 None,
@@ -566,14 +571,7 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
         let at = Location::caller();
         let (rt, cell) = self.cell(at);
         require_effectful(api);
-        cell.submit(
-            &rt,
-            Submitted {
-                input,
-                attempt: 1,
-            },
-            at,
-        );
+        cell.submit(&rt, Submitted { input, attempt: 1 }, at);
     }
 
     /// State of the latest run (tracked). A queue shows `Pending` while it

@@ -234,7 +234,6 @@ impl AppClient {
         let ready = waker.clone();
         TaskState::of(&rt).set_waker(Arc::new(move || ready.wake()));
         HostState::of(&rt).link.start(info.now_ns, waker);
-        MotionState::of(&rt).set_frame_period(info.env.frame_period_ns.max(1));
         // Install the owned writer before setup creates detached host nodes.
         ViewState::tree_mut(&rt).set_engine(tree.clone());
         ViewState::tree(&rt)

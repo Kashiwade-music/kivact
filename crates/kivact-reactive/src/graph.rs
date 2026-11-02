@@ -33,7 +33,7 @@ use std::rc::Rc;
 use super::arena::Tomb;
 use crate::NodeId;
 use crate::arena::Key;
-use crate::data::{Color, Compute, Computation, EffectCell, MemoCell, RNode, Runtime};
+use crate::data::{Color, Computation, Compute, EffectCell, MemoCell, RNode, Runtime};
 use crate::data::{EffectKind, EffectNode, MemoNode, NodeData, NodeInfo, SourceCell, SourceNode};
 use crate::error::{ErrorKind, misuse_at, new_error};
 
@@ -398,11 +398,11 @@ impl Runtime {
     fn recompute(&self, key: Key) {
         // A memo whose value is borrowed by a running `with` cannot be
         // replaced: report a structured misuse and keep it dirty.
-        let busy = self.graph.borrow().get(key).and_then(|n| {
-            n.computation()
-                .filter(|c| c.compute.busy())
-                .map(|_| n.at)
-        });
+        let busy = self
+            .graph
+            .borrow()
+            .get(key)
+            .and_then(|n| n.computation().filter(|c| c.compute.busy()).map(|_| n.at));
         if let Some(at) = busy {
             misuse_at(
                 ErrorKind::BorrowedWrite,
@@ -475,7 +475,9 @@ impl Runtime {
                     NodeData::Effect(e) => Some((e.kind, e.seq)),
                     _ => None,
                 };
-                let Some(c) = n.computation_mut() else { continue };
+                let Some(c) = n.computation_mut() else {
+                    continue;
+                };
                 // A running subscriber is pulling this memo right now and
                 // reads the new value; do not re-mark it.
                 if c.state != Color::Dirty && !c.running {

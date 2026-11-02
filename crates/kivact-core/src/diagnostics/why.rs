@@ -143,9 +143,7 @@ impl fmt::Display for Why {
                 )?;
                 match x.last_write {
                     Some((at, Turn::Setup)) => write!(f, ", last written at {at} (mount)")?,
-                    Some((at, Turn::Number(n))) => {
-                        write!(f, ", last written at {at} (turn {n})")?
-                    }
+                    Some((at, Turn::Number(n))) => write!(f, ", last written at {at} (turn {n})")?,
                     None if x.kind == "signal" => write!(f, ", never written")?,
                     None => {}
                 }

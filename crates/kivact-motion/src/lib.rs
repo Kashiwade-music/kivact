@@ -22,9 +22,9 @@
 //!   current value and heads for the new target after `resume`.
 //! - `on_complete` (registered in setup) reports a natural completion and
 //!   one that reduced motion forces: once for a whole finite repeat, never
-//!   for an infinite repeat, a superseded target, a `jump_to` or a disposed
-//!   owner. It runs as an effect after the interpolation and the registry
-//!   borrow ended.
+//!   for an infinite repeat, a superseded target, a target equal to the
+//!   current value (no run starts), a `jump_to` or a disposed owner. It runs
+//!   as an effect after the interpolation and the registry borrow ended.
 //! - Reduced motion finishes decorative transitions at once.
 //! - [`Transition::repeat`] (`None`: forever) and
 //!   [`Transition::alternate`] (every other iteration backwards) write the
@@ -73,6 +73,6 @@ mod values;
 pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
 pub use kivact_wire::motion::{Easing, Spring};
-pub use state::{MotionState, MotionStats};
+pub use state::{MotionEnv, MotionState, MotionStats};
 pub use transition::Transition;
 pub use values::{Animatable, FrameInfo, FrameRate};
