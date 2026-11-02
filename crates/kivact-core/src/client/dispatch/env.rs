@@ -58,9 +58,5 @@ pub(super) fn layout_changed(rt: &Runtime, node: NodeId, rect: Rect, size: Size)
 }
 
 pub(super) fn close_requested(rt: &Runtime) {
-    let now = rt.now_ns();
-    let host = HostState::of(rt);
-    host.close_requested.set(true);
-    host.exit_deadline
-        .set(Some(now.saturating_add(kivact_task::DEFAULT_DRAIN_NS)));
+    HostState::of(rt).request_close(rt.now_ns());
 }

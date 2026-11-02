@@ -38,7 +38,7 @@ use kivact_wire::{HostEvent, HostInfo, Size, TurnOutput};
 
 use crate::client::phases::{self, Phase};
 use crate::client::settle::settle_async;
-use crate::client::state::HostState;
+use crate::client::state::{ExitPhase, HostState};
 use crate::i18n::{Locale, Messages};
 use crate::view::View;
 use crate::view::requests;
@@ -289,7 +289,7 @@ impl AppClient {
             .first()
             .map_or(tree.stats().revision, |b| b.revision.0.saturating_sub(1));
         rt.clear_turn_request();
-        host.link.set_in_turn(true);
+        let in_turn = host.link.enter_turn();
         host.turns.set(host.turns.get() + 1);
         let turn = rt.turn(events.len());
         phases::drain(&rt, Phase::AfterCommit { revision: before });
@@ -348,7 +348,7 @@ impl AppClient {
         turn.finish(writes);
         // Requests made during the turn woke nobody (`HostLink`): ask again
         // only for work the turn left.
-        host.link.set_in_turn(false);
+        drop(in_turn);
         let pending = rt.pending().user
             || TaskState::of(&rt).has_ready()
             || rt.pending().later
@@ -365,14 +365,11 @@ impl AppClient {
     /// must wake next.
     fn output(&self, rt: &Runtime) -> TurnOutput {
         let host = HostState::of(rt);
-        let now = rt.now_ns();
-        let mut exit = false;
-        let (close, deadline) = (host.close_requested.get(), host.exit_deadline.get());
-        if close {
-            if !TaskState::of(rt).queues_busy() {
-                exit = true;
-            } else if deadline.is_some_and(|d| now >= d) {
-                let n = TaskState::of(rt).abandon_all_queues();
+        let tasks = TaskState::of(rt);
+        let phase = match host.exit.get() {
+            ExitPhase::Draining { .. } if !tasks.queues_busy() => ExitPhase::Exited,
+            ExitPhase::Draining { deadline_ns } if rt.now_ns() >= deadline_ns => {
+                let n = tasks.abandon_all_queues();
                 rt.report(
                     None,
                     UiError::new(
@@ -381,17 +378,23 @@ impl AppClient {
                         None,
                     ),
                 );
-                exit = true;
+                ExitPhase::Exited
             }
+            phase => phase,
+        };
+        host.exit.set(phase);
+        let next_wake_ns = match phase {
+            ExitPhase::Draining { deadline_ns } => Some(
+                tasks
+                    .next_deadline()
+                    .map_or(deadline_ns, |t| t.min(deadline_ns)),
+            ),
+            ExitPhase::Running | ExitPhase::Exited => tasks.next_deadline(),
+        };
+        TurnOutput {
+            next_wake_ns,
+            exit: phase == ExitPhase::Exited,
         }
-        let next_wake_ns = [
-            TaskState::of(rt).next_deadline(),
-            if close && !exit { deadline } else { None },
-        ]
-        .into_iter()
-        .flatten()
-        .min();
-        TurnOutput { next_wake_ns, exit }
     }
 }
 
