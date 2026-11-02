@@ -65,8 +65,6 @@ pub(crate) struct Checkpoint {
 impl<'a> Context<'a> {
     /// Borrow resources, device scale and the host-owned retained scene cache.
     /// Resource revisions invalidate cached payloads before this operation.
-    /// The owner calls `SceneCache::begin_frame` before a fresh output scene
-    /// and appends to that output without mutating its existing commands.
     /// The context and its operations cannot outlive either borrowed value.
     pub fn new(
         assets: &'a RefCell<ArvaneAssets>,

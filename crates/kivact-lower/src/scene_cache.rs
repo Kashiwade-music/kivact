@@ -12,29 +12,12 @@ use std::sync::{Arc, Weak};
 pub struct SceneCache {
     entries: Vec<Arc<Entry>>,
     revision: u64,
-    cursor: usize,
-    open: usize,
 }
 impl SceneCache {
     /// Create an empty local scene cache.
     pub fn new() -> Self {
         Self::default()
     }
-    /// Start a fresh append-only output scene while retaining reusable entries.
-    /// Call before using a new, replaced or mutated output with Context.
-    pub fn begin_frame(&mut self) {
-        self.cursor = 0;
-        self.open = 0;
-    }
-
-    pub(crate) fn prefix_depth(&mut self, out: &kivact_types::protocol::Scene) -> usize {
-        for cmd in &out.commands[self.cursor..] {
-            step(cmd, &mut self.open);
-        }
-        self.cursor = out.commands.len();
-        self.open
-    }
-
     /// Release rebuildable payloads without changing live resource owners.
     pub fn clear(&mut self) {
         self.entries.clear();
@@ -104,21 +87,4 @@ pub(crate) enum Dependency {
         height: u32,
         pixels: Weak<[u8]>,
     },
-}
-
-fn step(command: &kivact_types::protocol::DrawCommand, depth: &mut usize) {
-    use kivact_types::protocol::DrawCommand as D;
-    match command {
-        D::PushClip(_) | D::PushTransform(_) | D::PushLayer(_) => *depth += 1,
-        D::PopClip | D::PopTransform | D::PopLayer => *depth = depth.saturating_sub(1),
-        _ => {}
-    }
-}
-pub(crate) fn payload_depth(scene: &kivact_types::protocol::Scene) -> usize {
-    let (mut depth, mut max) = (0, 0);
-    for cmd in &scene.commands {
-        step(cmd, &mut depth);
-        max = max.max(depth);
-    }
-    max
 }

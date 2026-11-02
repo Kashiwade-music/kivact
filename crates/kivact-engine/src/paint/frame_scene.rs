@@ -18,8 +18,7 @@ impl Model {
     pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> kivact_types::protocol::Scene {
         self.paint_list();
         self.assets.borrow_mut().begin_frame();
-        let mut out = kivact_types::protocol::Scene::default();
-        self.paint.scene_cache.borrow_mut().begin_frame();
+        let mut out = kivact_lower::SceneOut::default();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
         let mut zoom: Vec<f32> = Vec::new();
@@ -55,7 +54,7 @@ impl Model {
         for (node, count) in self.paint.dropped_draws.take() {
             self.push(HostEvent::DrawDropped { node, count });
         }
-        out
+        out.into_scene()
     }
 
     /// The color matrix at `index` of the paint list.
@@ -134,12 +133,12 @@ impl Model {
         &self,
         step: &Step,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let host = &self;
         let id = step.id;
         if let Some(t) = self.paint.list.transforms.get(step.transform as usize) {
-            out.commands.push(D::PushTransform(*t));
+            out.push(D::PushTransform(*t));
         }
         let Some(n) = host.node(id) else {
             return;
@@ -160,7 +159,7 @@ impl Model {
         }
         if step.layers > 0 {
             for layer in self.paint_layers(step, &p, bounds) {
-                out.commands.push(D::PushLayer(layer));
+                out.push(D::PushLayer(layer));
             }
         }
         if step.own {
@@ -171,13 +170,12 @@ impl Model {
             let padding =
                 BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
             if step.rounded {
-                out.commands
-                    .push(D::PushLayer(kivact_types::protocol::Layer {
-                        clip: Some(padding.shape()),
-                        ..kivact_types::protocol::Layer::default()
-                    }));
+                out.push(D::PushLayer(kivact_types::protocol::Layer {
+                    clip: Some(padding.shape()),
+                    ..kivact_types::protocol::Layer::default()
+                }));
             } else {
-                out.commands.push(D::PushClip(padding.rect()));
+                out.push(D::PushClip(padding.rect()));
             }
         }
         if !step.own {
@@ -220,13 +218,13 @@ impl Model {
         outline: &BoxShape,
         clip_path: bool,
         tint: &Tint,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
         let parent = self.matrix(step.parent_matrix);
         if let Some(b) = effects::backdrop(p, outline.shape(), parent.as_ref()) {
-            out.commands.push(D::Backdrop(b));
+            out.push(D::Backdrop(b));
         }
         if let Some(fill) = &p.background {
             let area = outline.rect();
@@ -253,7 +251,7 @@ impl Model {
         &self,
         step: &Step,
         engine: &mut arvane::Engine,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let id = step.id;
         if step.own
@@ -280,7 +278,7 @@ impl Model {
                         width: rect.width,
                         height: rect.height,
                     };
-                    out.commands.push(D::FillShape {
+                    out.push(D::FillShape {
                         shape: kivact_types::protocol::Shape::Rect(rect),
                         paint: kivact_types::protocol::Paint::Solid(tint.color(color)),
                     });
@@ -288,16 +286,15 @@ impl Model {
             }
         }
         if step.clips {
-            out.commands.push(if step.rounded {
+            out.push(if step.rounded {
                 D::PopLayer
             } else {
                 D::PopClip
             });
         }
-        out.commands
-            .extend(std::iter::repeat_n(D::PopLayer, usize::from(step.layers)));
+        out.extend(std::iter::repeat_n(D::PopLayer, usize::from(step.layers)));
         if step.transform != NO_TRANSFORM {
-            out.commands.push(D::PopTransform);
+            out.push(D::PopTransform);
         }
     }
 
@@ -311,7 +308,7 @@ impl Model {
         source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut kivact_lower::SceneOut,
     ) {
         let mut assets = self.assets.borrow_mut();
         let Some(natural) = assets.natural(source) else {
@@ -338,16 +335,16 @@ impl Model {
         };
         drop(assets);
         if placed.clip {
-            out.commands.push(D::PushClip(canvas));
+            out.push(D::PushClip(canvas));
         }
-        out.commands.push(D::Image {
+        out.push(D::Image {
             image,
             rect: region.place(placed.rect),
             opacity: tint.alpha,
             color_matrix: tint.matrix,
         });
         if placed.clip {
-            out.commands.push(D::PopClip);
+            out.push(D::PopClip);
         }
     }
 }

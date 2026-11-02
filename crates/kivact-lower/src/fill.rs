@@ -52,33 +52,29 @@ const FEW: u32 = 4;
 
 impl BoxShape {
     /// Fill the outline with `paint`.
-    pub(crate) fn fill(
-        &self,
-        out: &mut kivact_types::protocol::Scene,
-        paint: kivact_types::protocol::Paint,
-    ) {
+    pub(crate) fn fill(&self, out: &mut crate::SceneOut, paint: kivact_types::protocol::Paint) {
         match *self {
-            BoxShape::Rect(rect) => out.commands.push(D::RoundedRect {
+            BoxShape::Rect(rect) => out.push(D::RoundedRect {
                 rect,
                 radius: 0.0,
                 fill: paint,
             }),
             BoxShape::Circular(rect, radii) => {
                 if radii.iter().all(|r| *r == radii[0]) {
-                    out.commands.push(D::RoundedRect {
+                    out.push(D::RoundedRect {
                         rect,
                         radius: radii[0],
                         fill: paint,
                     });
                 } else {
-                    out.commands.push(D::RoundedRectCorners {
+                    out.push(D::RoundedRectCorners {
                         rect,
                         radii,
                         fill: paint,
                     });
                 }
             }
-            BoxShape::Rounded(_) => out.commands.push(D::FillShape {
+            BoxShape::Rounded(_) => out.push(D::FillShape {
                 shape: self.shape(),
                 paint,
             }),
@@ -171,7 +167,7 @@ impl Context<'_> {
     /// `origin` is what coordinate gradients' points are against.
     pub fn fill(
         &self,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut crate::SceneOut,
         shape: &BoxShape,
         fill: &Fill,
         tint: &Tint,
@@ -194,7 +190,7 @@ impl Context<'_> {
     /// reject it: one rejected command fails the whole frame.
     fn put(
         &self,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut crate::SceneOut,
         shape: &BoxShape,
         paint: kivact_types::protocol::Paint,
     ) {
@@ -247,7 +243,7 @@ impl Context<'_> {
     /// One background layer over `shape`.
     fn fill_layer(
         &self,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut crate::SceneOut,
         shape: &BoxShape,
         layer: &FillLayer,
         tint: &Tint,
@@ -325,7 +321,7 @@ impl Context<'_> {
     /// Each copy of a tile, clipped to it, filled with its own paint.
     fn fill_copies(
         &self,
-        out: &mut kivact_types::protocol::Scene,
+        out: &mut crate::SceneOut,
         shape: &BoxShape,
         tiles: &Tiles,
         paint: impl Fn(Rect) -> Option<kivact_types::protocol::Paint>,
@@ -336,9 +332,9 @@ impl Context<'_> {
                 continue;
             }
             let Some(paint) = paint(copy) else { continue };
-            out.commands.push(D::PushClip(copy));
+            out.push(D::PushClip(copy));
             self.put(out, shape, paint);
-            out.commands.push(D::PopClip);
+            out.push(D::PopClip);
         }
     }
 

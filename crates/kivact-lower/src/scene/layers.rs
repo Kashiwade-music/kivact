@@ -63,18 +63,12 @@ impl Context<'_> {
                 state.current_tint.matrix = state
                     .current_tint
                     .then_own(crate::effects::color_matrix(&layer.filter));
-                state
-                    .out
-                    .commands
-                    .extend(layers.into_iter().map(D::PushLayer));
+                state.out.extend(layers.into_iter().map(D::PushLayer));
                 return true;
             }
             SceneCmd::PopLayer => {
                 if let Some((count, old)) = state.layer_stack.pop() {
-                    state
-                        .out
-                        .commands
-                        .extend(std::iter::repeat_n(D::PopLayer, count));
+                    state.out.extend(std::iter::repeat_n(D::PopLayer, count));
                     state.current_tint = old;
                 }
                 return true;
@@ -90,7 +84,7 @@ impl Context<'_> {
                 state.raster_stack.push(self.raster.get());
                 self.raster
                     .set(self.raster.get() * crate::scene::raster_zoom(transform.max_scale()));
-                state.out.commands.push(D::PushTransform(transform));
+                state.out.push(D::PushTransform(transform));
                 return true;
             }
             SceneCmd::PopTransform => {
@@ -99,7 +93,7 @@ impl Context<'_> {
                     if let Some(raster) = state.raster_stack.pop() {
                         self.raster.set(raster);
                     }
-                    state.out.commands.push(D::PopTransform);
+                    state.out.push(D::PopTransform);
                 }
                 return true;
             }
@@ -107,7 +101,7 @@ impl Context<'_> {
             SceneCmd::PopClip => {
                 if state.clips > 0 {
                     state.clips -= 1;
-                    state.out.commands.push(D::PopClip);
+                    state.out.push(D::PopClip);
                 }
                 return true;
             }
@@ -115,7 +109,7 @@ impl Context<'_> {
         };
         if sanitize::drawable(&command) {
             state.clips += usize::from(matches!(command, D::PushClip(_)));
-            state.out.commands.push(command);
+            state.out.push(command);
         } else {
             self.drop_command();
         }
