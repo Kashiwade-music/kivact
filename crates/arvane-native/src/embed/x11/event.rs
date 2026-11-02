@@ -54,25 +54,25 @@ impl Input {
             Event::FocusOut(_) => self.blur(&mut out),
             Event::MotionNotify(e) => {
                 self.sync_modifiers(e.state.into(), &mut out);
-                out.push(ShellEvent::Pointer(self.mouse.event(
-                    PointerPhase::Move,
-                    point(e.event_x, e.event_y),
-                    None,
-                )));
+                out.extend(
+                    self.mouse
+                        .event(PointerPhase::Move, point(e.event_x, e.event_y), None)
+                        .map(ShellEvent::Pointer),
+                );
             }
             Event::EnterNotify(e) => {
                 self.sync_modifiers(e.state.into(), &mut out);
-                out.push(ShellEvent::Pointer(self.mouse.event(
-                    PointerPhase::Move,
-                    point(e.event_x, e.event_y),
-                    None,
-                )));
+                out.extend(
+                    self.mouse
+                        .event(PointerPhase::Move, point(e.event_x, e.event_y), None)
+                        .map(ShellEvent::Pointer),
+                );
             }
-            Event::LeaveNotify(_) => out.push(ShellEvent::Pointer(self.mouse.event(
-                PointerPhase::Leave,
-                None,
-                None,
-            ))),
+            Event::LeaveNotify(_) => out.extend(
+                self.mouse
+                    .event(PointerPhase::Leave, None, None)
+                    .map(ShellEvent::Pointer),
+            ),
             Event::ButtonPress(e) => {
                 self.sync_modifiers(e.state.into(), &mut out);
                 if (4..=7).contains(&e.detail) {
@@ -82,11 +82,12 @@ impl Input {
                         6 => (1.0, 0.0),
                         _ => (-1.0, 0.0),
                     };
-                    let previous = self.mouse.event(PointerPhase::Move, None, None).position;
-                    let event =
+                    let previous = self.mouse.position();
+                    if let Some(event) =
                         self.mouse
-                            .event(PointerPhase::Move, point(e.event_x, e.event_y), None);
-                    if event.position != previous {
+                            .event(PointerPhase::Move, point(e.event_x, e.event_y), None)
+                        && Some(event.position) != previous
+                    {
                         out.push(ShellEvent::Pointer(event));
                     }
                     let settings = kivact_types::protocol::MouseSettings::default();
@@ -111,21 +112,21 @@ impl Input {
                         .connection
                         .flush()
                         .map_err(super::error::platform)?;
-                    out.push(ShellEvent::Pointer(self.mouse.event(
-                        PointerPhase::Down,
-                        point(e.event_x, e.event_y),
-                        Some(button),
-                    )));
+                    out.extend(
+                        self.mouse
+                            .event(PointerPhase::Down, point(e.event_x, e.event_y), Some(button))
+                            .map(ShellEvent::Pointer),
+                    );
                 }
             }
             Event::ButtonRelease(e) => {
                 self.sync_modifiers(e.state.into(), &mut out);
                 if let Some(button) = button(e.detail) {
-                    out.push(ShellEvent::Pointer(self.mouse.event(
-                        PointerPhase::Up,
-                        point(e.event_x, e.event_y),
-                        Some(button),
-                    )));
+                    out.extend(
+                        self.mouse
+                            .event(PointerPhase::Up, point(e.event_x, e.event_y), Some(button))
+                            .map(ShellEvent::Pointer),
+                    );
                 }
             }
             Event::KeyPress(e) => {

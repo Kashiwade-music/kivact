@@ -66,8 +66,12 @@ fn position(state: &State, l: LPARAM) -> Point {
 }
 fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM, button: Option<MouseButton>) {
     let mut mouse = state.mouse.get();
-    let mut event = ShellEvent::Pointer(mouse.event(phase, Some(position(state, l)), button));
+    let input = mouse.event(phase, Some(position(state, l)), button);
     state.mouse.set(mouse);
+    let Some(input) = input else {
+        return;
+    };
+    let mut event = ShellEvent::Pointer(input);
     let settings = crate::native_input::state::MouseSettings::read();
     let scale = state.shared.scale();
     state.clicks.borrow_mut().count(
@@ -118,7 +122,9 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             let mut mouse = state.mouse.get();
             let event = mouse.event(PointerPhase::Leave, None, None);
             state.mouse.set(mouse);
-            state.event(ShellEvent::Pointer(event));
+            if let Some(event) = event {
+                state.event(ShellEvent::Pointer(event));
+            }
             Some(0)
         }
         // lParam names the window gaining capture: ours means we re-captured
@@ -207,7 +213,9 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 None,
             );
             state.mouse.set(mouse);
-            if Some(event.position) != previous {
+            if let Some(event) = event
+                && Some(event.position) != previous
+            {
                 state.event(ShellEvent::Pointer(event));
             }
             let notch = (w >> 16) as u16 as i16 as f32 / 120.0;

@@ -183,14 +183,16 @@ impl Screen {
         self.run_until_idle();
     }
 
-    /// Press `button` where the pointer is.
+    /// Press `button` where the pointer is. Panics when the pointer was never placed in the window (call
+    /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_down(&self, button: MouseButton) {
         self.log(format!("{button:?} down"));
         self.mouse_button(button, true);
         self.run_until_idle();
     }
 
-    /// Release `button` where the pointer is.
+    /// Release `button` where the pointer is. Panics when the pointer was never placed in the window (call
+    /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_up(&self, button: MouseButton) {
         self.log(format!("{button:?} up"));
         self.mouse_button(button, false);
@@ -322,7 +324,8 @@ impl Screen {
         });
     }
 
-    /// The pointer leaves the window.
+    /// The pointer leaves the window. Panics when the pointer was never placed in the window (call
+    /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_leave(&self) {
         self.log("pointer leaves".into());
         self.host

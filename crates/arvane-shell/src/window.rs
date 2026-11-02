@@ -60,7 +60,8 @@ pub trait ShellWindow {
     /// Recover after a presentation failure; the next presentation may recreate resources.
     fn recover_surface(&mut self) -> Result<(), ShellError>;
 
-    /// Whether the most recently committed presentation used the CPU surface.
+    /// Whether the most recently committed presentation used the CPU surface. An offer that was declined
+    /// or failed does not change it.
     fn shows_cpu_frame(&self) -> bool;
 
     /// Release CPU presentation resources before another presenter takes ownership.
@@ -173,7 +174,8 @@ pub trait ShellWindow {
 /// Neither the handler nor data it borrows needs a `'static` lifetime.
 pub trait ShellHandler {
     /// Finish work needing this window's thread before the handler drops.
-    /// Called once on close; no subsequent event is delivered.
+    /// Called exactly once for every handler whose `start` was called, also when `start` failed or the
+    /// handler asked to exit; no event follows it.
     fn close(&mut self, window: &mut dyn ShellWindow);
 
     /// Initialize state after the backend creates its window.
@@ -182,7 +184,8 @@ pub trait ShellHandler {
         window: &mut dyn ShellWindow,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError>;
-    /// Consume one ordered backend event and choose its next wake deadline.
+    /// Consume one ordered backend event and choose what the loop does next. After
+    /// [`ShellControl::Exit`] or an error, no further event is delivered.
     fn event(
         &mut self,
         event: ShellEvent,

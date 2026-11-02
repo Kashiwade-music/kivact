@@ -204,14 +204,18 @@ impl VirtualWindow {
     /// The mouse event of `phase` as a native window makes it: at
     /// `position` (`None`: where the mouse last was), with the buttons held
     /// before it plus a `Down`'s `button` or less an `Up`'s. Deliver it
-    /// through [`Self::input`], which counts its clicks.
+    /// through [`Self::input`], which counts its clicks. `None` when `position` is `None` and the mouse
+    /// was never placed: a native window reports nothing then.
     pub fn mouse(
         &mut self,
         phase: kivact_types::PointerPhase,
         position: Option<kivact_types::Point>,
         button: Option<kivact_types::MouseButton>,
-    ) -> crate::ShellEvent {
-        crate::ShellEvent::Pointer(self.shell.mouse.event(phase, position, button))
+    ) -> Option<crate::ShellEvent> {
+        self.shell
+            .mouse
+            .event(phase, position, button)
+            .map(crate::ShellEvent::Pointer)
     }
 
     /// A touch or pen contact as the platform reports it, delivered as a

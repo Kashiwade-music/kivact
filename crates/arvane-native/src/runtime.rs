@@ -739,11 +739,10 @@ impl ApplicationHandler<()> for Runner<'_> {
                 {
                     self.cursor = Some(at);
                     let at = logical(at, scale);
-                    before = Some(ShellEvent::Pointer(self.mouse.event(
-                        PointerPhase::Move,
-                        Some(at),
-                        None,
-                    )));
+                    before = self
+                        .mouse
+                        .event(PointerPhase::Move, Some(at), None)
+                        .map(ShellEvent::Pointer);
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
@@ -814,19 +813,16 @@ impl ApplicationHandler<()> for Runner<'_> {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let at = logical((position.x, position.y), scale);
-                Some(ShellEvent::Pointer(self.mouse.event(
-                    PointerPhase::Move,
-                    Some(at),
-                    None,
-                )))
+                self.mouse
+                    .event(PointerPhase::Move, Some(at), None)
+                    .map(ShellEvent::Pointer)
             }
             // The mouse keeps its position and buttons: a button held keeps
             // its capture and is released outside.
-            WindowEvent::CursorLeft { .. } => Some(ShellEvent::Pointer(self.mouse.event(
-                PointerPhase::Leave,
-                None,
-                None,
-            ))),
+            WindowEvent::CursorLeft { .. } => self
+                .mouse
+                .event(PointerPhase::Leave, None, None)
+                .map(ShellEvent::Pointer),
             WindowEvent::MouseInput { state, button, .. } => match button {
                 winit::event::MouseButton::Left => Some(ShellButton::Primary),
                 winit::event::MouseButton::Right => Some(ShellButton::Secondary),
@@ -835,16 +831,18 @@ impl ApplicationHandler<()> for Runner<'_> {
                 winit::event::MouseButton::Forward => Some(ShellButton::Forward),
                 _ => None,
             }
-            .map(|button| {
-                ShellEvent::Pointer(self.mouse.event(
-                    if state == ElementState::Pressed {
-                        PointerPhase::Down
-                    } else {
-                        PointerPhase::Up
-                    },
-                    None,
-                    Some(button),
-                ))
+            .and_then(|button| {
+                self.mouse
+                    .event(
+                        if state == ElementState::Pressed {
+                            PointerPhase::Down
+                        } else {
+                            PointerPhase::Up
+                        },
+                        None,
+                        Some(button),
+                    )
+                    .map(ShellEvent::Pointer)
             }),
             WindowEvent::MouseWheel { delta, .. } => {
                 let (x, y) = match delta {
