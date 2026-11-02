@@ -203,18 +203,17 @@ impl VirtualWindow {
 
     /// The mouse event of `phase` as a native window makes it: at
     /// `position` (`None`: where the mouse last was), with the buttons held
-    /// before it plus a `Down`'s `button` or less an `Up`'s. Deliver it
+    /// before it plus a `Down`'s button or less an `Up`'s. Deliver it
     /// through [`Self::input`], which counts its clicks. `None` when `position` is `None` and the mouse
     /// was never placed: a native window reports nothing then.
     pub fn mouse(
         &mut self,
         phase: kivact_types::PointerPhase,
         position: Option<kivact_types::Point>,
-        button: Option<kivact_types::MouseButton>,
     ) -> Option<crate::ShellEvent> {
         self.shell
             .mouse
-            .event(phase, position, button)
+            .event(phase, position)
             .map(crate::ShellEvent::Pointer)
     }
 
@@ -258,8 +257,8 @@ impl VirtualWindow {
         events
     }
 
-    /// Assistive technology asks for `action` on the accessibility node
-    /// `node` (with `value`): the event the window delivers, checked
+    /// Assistive technology makes `request` of the accessibility node
+    /// `node`: the event the window delivers, checked
     /// against its accepted tree as a native window checks it (`None`: the
     /// window drops the request, because the node is absent, it or an
     /// ancestor is hidden or disabled, or it does not declare the action).
@@ -268,10 +267,9 @@ impl VirtualWindow {
     pub fn accessibility_action(
         &self,
         node: u64,
-        action: kivact_types::A11yAction,
-        value: Option<&str>,
+        request: kivact_types::A11yRequest,
     ) -> Option<crate::ShellEvent> {
-        self.accessibility().request_action(node, action, value)
+        self.accessibility().request_action(node, request)
     }
 
     /// The platform hides (`true`) or shows the window, as when it is

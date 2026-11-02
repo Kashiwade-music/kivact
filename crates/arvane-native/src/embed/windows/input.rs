@@ -2,7 +2,7 @@
 use super::state::State;
 use crate::key_code;
 use arvane_shell::ShellEvent;
-use kivact_types::{Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
+use kivact_types::{ButtonPress, Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
 use std::rc::Rc;
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
@@ -64,9 +64,9 @@ fn position(state: &State, l: LPARAM) -> Point {
         y: ((l as u32 >> 16) as u16 as i16) as f32 / scale,
     }
 }
-fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM, button: Option<MouseButton>) {
+fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM) {
     let mut mouse = state.mouse.get();
-    let input = mouse.event(phase, Some(position(state, l)), button);
+    let input = mouse.event(phase, Some(position(state, l)));
     state.mouse.set(mouse);
     let Some(input) = input else {
         return;
@@ -115,12 +115,12 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 };
                 TrackMouseEvent(&mut request);
             }
-            pointer(state, PointerPhase::Move, l, None);
+            pointer(state, PointerPhase::Move, l);
             Some(0)
         }
         WM_MOUSELEAVE => {
             let mut mouse = state.mouse.get();
-            let event = mouse.event(PointerPhase::Leave, None, None);
+            let event = mouse.event(PointerPhase::Leave, None);
             state.mouse.set(mouse);
             if let Some(event) = event {
                 state.event(ShellEvent::Pointer(event));
@@ -167,15 +167,15 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                     }
                 }
             }
+            let press = ButtonPress { button, clicks: 1 };
             pointer(
                 state,
                 if down {
-                    PointerPhase::Down
+                    PointerPhase::Down(press)
                 } else {
-                    PointerPhase::Up
+                    PointerPhase::Up(press)
                 },
                 l,
-                Some(button),
             );
             if !down
                 && w & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2) as usize
@@ -211,7 +211,6 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                     x: point.x as f32 / scale,
                     y: point.y as f32 / scale,
                 }),
-                None,
             );
             state.mouse.set(mouse);
             if let Some(event) = event

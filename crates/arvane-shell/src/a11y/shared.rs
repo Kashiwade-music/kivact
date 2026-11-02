@@ -353,26 +353,20 @@ impl PlatformTree {
     pub fn request_action(
         &self,
         node: u64,
-        action: kivact_types::A11yAction,
-        value: Option<&str>,
+        request: kivact_types::A11yRequest,
     ) -> Option<crate::events::ShellEvent> {
         let shared = lock(&self.shared);
-        super::action::accept(shared.tree.as_ref()?, node, action, value)
+        super::action::accept(shared.tree.as_ref()?, node, request)
     }
 
     /// Atomically validate and queue a native request using the same contract as
     /// [`Self::request_action`]. Wake the UI thread only after this returns true.
-    pub fn queue_action(
-        &self,
-        node: u64,
-        action: kivact_types::A11yAction,
-        value: Option<&str>,
-    ) -> bool {
+    pub fn queue_action(&self, node: u64, request: kivact_types::A11yRequest) -> bool {
         let mut shared = lock(&self.shared);
         let Some(event) = shared
             .tree
             .as_ref()
-            .and_then(|tree| super::action::accept(tree, node, action, value))
+            .and_then(|tree| super::action::accept(tree, node, request))
         else {
             return false;
         };

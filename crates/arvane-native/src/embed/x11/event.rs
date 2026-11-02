@@ -59,7 +59,7 @@ impl Input {
                 self.sync_modifiers(e.state.into(), &mut out);
                 out.extend(
                     self.mouse
-                        .event(PointerPhase::Move, point(e.event_x, e.event_y), None)
+                        .event(PointerPhase::Move, point(e.event_x, e.event_y))
                         .map(ShellEvent::Pointer),
                 );
             }
@@ -67,13 +67,13 @@ impl Input {
                 self.sync_modifiers(e.state.into(), &mut out);
                 out.extend(
                     self.mouse
-                        .event(PointerPhase::Move, point(e.event_x, e.event_y), None)
+                        .event(PointerPhase::Move, point(e.event_x, e.event_y))
                         .map(ShellEvent::Pointer),
                 );
             }
             Event::LeaveNotify(_) => out.extend(
                 self.mouse
-                    .event(PointerPhase::Leave, None, None)
+                    .event(PointerPhase::Leave, None)
                     .map(ShellEvent::Pointer),
             ),
             Event::ButtonPress(e) => {
@@ -86,9 +86,9 @@ impl Input {
                         _ => (-1.0, 0.0),
                     };
                     let previous = self.mouse.position();
-                    if let Some(event) =
-                        self.mouse
-                            .event(PointerPhase::Move, point(e.event_x, e.event_y), None)
+                    if let Some(event) = self
+                        .mouse
+                        .event(PointerPhase::Move, point(e.event_x, e.event_y))
                         && Some(event.position) != previous
                     {
                         out.push(ShellEvent::Pointer(event));
@@ -117,11 +117,7 @@ impl Input {
                         .map_err(super::error::platform)?;
                     out.extend(
                         self.mouse
-                            .event(
-                                PointerPhase::Down,
-                                point(e.event_x, e.event_y),
-                                Some(button),
-                            )
+                            .button(button, true, point(e.event_x, e.event_y))
                             .map(ShellEvent::Pointer),
                     );
                 }
@@ -131,7 +127,7 @@ impl Input {
                 if let Some(button) = button(e.detail) {
                     out.extend(
                         self.mouse
-                            .event(PointerPhase::Up, point(e.event_x, e.event_y), Some(button))
+                            .button(button, false, point(e.event_x, e.event_y))
                             .map(ShellEvent::Pointer),
                     );
                 }

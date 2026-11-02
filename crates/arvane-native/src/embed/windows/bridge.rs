@@ -20,8 +20,8 @@ struct Actions {
 }
 impl accesskit::ActionHandler for Actions {
     fn do_action(&mut self, request: accesskit::ActionRequest) {
-        if let Some((node, action, value)) = translate_action(&request)
-            && self.tree.queue_action(node, action, value.as_deref())
+        if let Some((node, request)) = translate_action(&request)
+            && self.tree.queue_action(node, request)
         {
             self.waker.wake();
         }

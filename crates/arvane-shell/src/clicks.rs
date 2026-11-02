@@ -12,7 +12,7 @@
 //! 500 ms and 4 px ([`DEFAULT_DOUBLE_CLICK`], which test windows count
 //! with too). Each held button keeps the count it was pressed with for its
 //! release, so the buttons of a chord release with their own counts. A
-//! contact's later events carry the count of its `Down`.
+//! contact's `Up` carries the count of its `Down`.
 
 use crate::events::ShellEvent;
 use kivact_types::{MouseButton, Point, PointerId, PointerKind, PointerPhase};
@@ -97,29 +97,37 @@ impl ClickCounter {
             return;
         };
         if input.kind != PointerKind::Mouse {
-            if input.phase == PointerPhase::Down {
-                let (now, settings) = (now_ns(), double_click());
-                let count = self
-                    .tap
-                    .filter(|tap| follows(input.position, now, tap.at, tap.time_ns, settings))
-                    .map_or(1, |tap| tap.count.saturating_add(1));
-                self.tap = Some(Tap {
-                    id: input.id,
-                    at: input.position,
-                    time_ns: now,
-                    count,
-                });
-                input.clicks = count;
-            } else {
-                input.clicks = self
-                    .tap
-                    .filter(|tap| tap.id == input.id)
-                    .map_or(1, |tap| tap.count);
+            match &mut input.phase {
+                PointerPhase::Down(press) => {
+                    let (now, settings) = (now_ns(), double_click());
+                    let count = self
+                        .tap
+                        .filter(|tap| follows(input.position, now, tap.at, tap.time_ns, settings))
+                        .map_or(1, |tap| tap.count.saturating_add(1));
+                    self.tap = Some(Tap {
+                        id: input.id,
+                        at: input.position,
+                        time_ns: now,
+                        count,
+                    });
+                    press.clicks = count;
+                }
+                PointerPhase::Up(press) => {
+                    press.clicks = self
+                        .tap
+                        .filter(|tap| tap.id == input.id)
+                        .map_or(1, |tap| tap.count);
+                }
+                PointerPhase::Move
+                | PointerPhase::Cancel
+                | PointerPhase::Enter
+                | PointerPhase::Leave => {}
             }
             return;
         }
-        match (input.phase, input.button) {
-            (PointerPhase::Down, Some(button)) => {
+        match &mut input.phase {
+            PointerPhase::Down(press) => {
+                let button = press.button;
                 let (now, settings) = (now_ns(), double_click());
                 let count = self
                     .last
@@ -135,16 +143,13 @@ impl ClickCounter {
                     count,
                 });
                 self.pressed[slot(button)] = Some(count);
-                input.clicks = count;
+                press.clicks = count;
             }
-            (PointerPhase::Up, Some(button)) => {
-                input.clicks = self.pressed[slot(button)].take().unwrap_or(1);
+            PointerPhase::Up(press) => {
+                press.clicks = self.pressed[slot(press.button)].take().unwrap_or(1);
             }
-            (PointerPhase::Cancel, _) => {
-                self.pressed = [None; 5];
-                input.clicks = 1;
-            }
-            _ => input.clicks = 1,
+            PointerPhase::Cancel => self.pressed = [None; 5],
+            PointerPhase::Move | PointerPhase::Enter | PointerPhase::Leave => {}
         }
     }
 }
