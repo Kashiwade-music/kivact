@@ -8,7 +8,8 @@ use std::rc::Rc;
 
 use super::{parts, region_template};
 use crate::view::common::{
-    Adopted, Common, Constraints, Declaration, Entry, Registry, State, Target,
+    Adopted, Common, Declaration, Entry, Gestures, Registry, RegistryPhase, State, Target,
+    TargetId,
 };
 use crate::view::descriptor::Mcx;
 use kivact_reactive::{EffectKind, ErrorKind, Owner, Runtime, UiError};
@@ -18,7 +19,7 @@ use kivact_wire::NodeId;
 impl Registry {
     pub(super) fn entry(&self, id: RegionId, mut template: Common, item_owner: Owner) -> Rc<Entry> {
         if template.text_editing.take().is_some()
-            && let Some(rt) = self.runtime.upgrade()
+            && let Some(rt) = self.root.runtime.upgrade()
         {
             rt.report(
                 Some(item_owner),
@@ -44,19 +45,17 @@ impl Registry {
         self.state.borrow().by_id.get(&id).cloned()
     }
 
-    pub(super) fn cancel(&self, generation: u64) {
-        let callback = self.cancel.borrow().clone();
-        if let Some(callback) = callback {
-            callback(generation);
-        }
+    /// End the pointer gestures that target `id` (it was disabled, hidden or retired).
+    pub(super) fn cancel(&self, id: TargetId) {
+        super::part_pointer::cancel(self, id);
     }
 
     pub(super) fn duplicate_key(&self, hash: u64) {
         if self.state.borrow_mut().duplicate_keys.insert(hash)
-            && let Some(rt) = self.runtime.upgrade()
+            && let Some(rt) = self.root.runtime.upgrade()
         {
             rt.report(
-                Some(self.owner),
+                Some(self.root.owner),
                 UiError::new(
                     ErrorKind::DuplicateKey { key_hash: hash },
                     format!("duplicate canvas region key (hash {hash:#x}); later item dropped"),
@@ -77,7 +76,7 @@ impl Registry {
 
     /// Adoption changes dispose old attachment owners before new refs bind.
     pub(super) fn reconcile(self: &Rc<Self>) {
-        let Some(rt) = self.runtime.upgrade() else {
+        let Some(rt) = self.root.runtime.upgrade() else {
             return;
         };
         kivact_reactive::untrack(|| {
@@ -102,7 +101,7 @@ impl Registry {
             };
             for id in duplicates {
                 if self.state.borrow_mut().duplicates.insert(id) {
-                    rt.report(Some(self.owner), UiError::new(ErrorKind::Message,
+                    rt.report(Some(self.root.owner), UiError::new(ErrorKind::Message,
                     format!("canvas region {} has duplicate setup declarations; later attachment dropped", id.0), Some(self.at)));
                 }
             }
@@ -111,7 +110,7 @@ impl Registry {
                 if !retained.contains(&entry.generation) {
                     let adopted = entry.adopted.borrow_mut().take();
                     if let Some(adopted) = adopted {
-                        self.cancel(adopted.target.generation);
+                        self.cancel(adopted.target.id);
                         adopted.owner.dispose();
                     }
                 }
@@ -152,7 +151,7 @@ impl Registry {
             let cx = Mcx { rt, owner };
             let mut common = region_template::instantiate(&entry.template);
             parts::reject_modal(&mut common, &cx, self.at);
-            let constraints = parts::constraints(&mut common, &cx, self.at, Some(self.parent));
+            let constraints = parts::constraints(&mut common, &cx, self.at, Some(self.root.constraints));
             let mut handlers = std::mem::take(&mut common.handlers);
             let mut actions = handlers.take_part_actions();
             actions.compose(std::mem::take(&mut common.part_actions));
@@ -162,9 +161,12 @@ impl Registry {
                 state.next += 1;
                 state.next
             };
-            let target = Rc::new(Target {
+            let id = TargetId::Region {
+                region: entry.id,
                 generation,
-                region: Some(entry.id),
+            };
+            let target = Rc::new(Target {
+                id,
                 owner,
                 runtime: Rc::downgrade(rt),
                 handlers,
@@ -179,7 +181,7 @@ impl Registry {
                     if (constraints.disabled.get() || constraints.hidden.get())
                         && let Some(registry) = weak.upgrade()
                     {
-                        registry.cancel(generation);
+                        registry.cancel(id);
                     }
                 },
                 self.at,
@@ -190,7 +192,7 @@ impl Registry {
                 target,
                 bound: Cell::new(false),
             });
-            if self.ready.get() {
+            if self.phase.get() == RegistryPhase::Mounted {
                 self.bind_adopted(rt, &adopted);
             }
             adopted
@@ -198,7 +200,7 @@ impl Registry {
     }
 
     fn bind_adopted(&self, rt: &Rc<Runtime>, adopted: &Adopted) {
-        let Some(region) = adopted.target.region else {
+        let Some(region) = adopted.target.region() else {
             return;
         };
         if adopted.bound.replace(true) {
@@ -229,8 +231,8 @@ impl Registry {
 
     /// Initial refs bind only after the canvas has installed every handler.
     pub(super) fn bind(&self) {
-        self.ready.set(true);
-        let Some(rt) = self.runtime.upgrade() else {
+        self.phase.set(RegistryPhase::Mounted);
+        let Some(rt) = self.root.runtime.upgrade() else {
             return;
         };
         let entries = self.state.borrow().active.clone();
@@ -292,22 +294,20 @@ impl Registry {
 
 pub(super) fn prepare(
     declarations: Vec<Declaration>,
-    parent: Constraints,
+    root: Rc<Target>,
     cx: &Mcx<'_>,
     node: NodeId,
     at: &'static Location<'static>,
 ) -> Rc<Registry> {
     let registry = Rc::new(Registry {
         node,
-        owner: cx.owner,
-        runtime: cx.weak(),
-        parent,
+        root,
         at,
         state: RefCell::new(State::default()),
         revision: cx.owner.signal(0u64, at),
         changed: cx.owner.signal(0u64, at),
-        ready: Cell::new(false),
-        cancel: RefCell::new(None),
+        phase: Cell::new(RegistryPhase::Mounting),
+        gestures: RefCell::new(Gestures::default()),
     });
     registry
         .state
@@ -330,6 +330,16 @@ pub(super) fn prepare(
         if let Some(registry) = weak.upgrade() {
             registry.changed.get();
             registry.reconcile();
+        }
+    });
+    // The node itself ends its gestures when it is disabled or hidden.
+    let weak = Rc::downgrade(&registry);
+    let constraints = registry.root.constraints;
+    cx.effect(EffectKind::Internal, at, move || {
+        if (constraints.disabled.get() || constraints.hidden.get())
+            && let Some(registry) = weak.upgrade()
+        {
+            registry.cancel(TargetId::Root);
         }
     });
     registry

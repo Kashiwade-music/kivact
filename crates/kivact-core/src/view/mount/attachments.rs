@@ -32,24 +32,24 @@ pub(super) fn bind(
     let has_parts = !c.part_bindings.is_empty() || !c.regions.is_empty();
     let constraints = has_parts.then(|| parts::constraints(c, cx, at, None));
     let bindings = constraints.map(|_| Rc::new(std::mem::take(&mut c.part_bindings)));
-    let regions = constraints.map(|constraints| {
-        regions::prepare(std::mem::take(&mut c.regions), constraints, cx, id, at)
-    });
     let mut actions = c.handlers.actions();
     for action in c.part_actions.actions() {
         if !actions.contains(&action) {
             actions.push(action);
         }
     }
-
-    if let (Some(constraints), Some(regions)) = (constraints, &regions) {
-        c.handlers = part_input::route(
-            id,
-            std::mem::take(&mut c.handlers),
+    let regions = constraints.map(|constraints| {
+        let root = part_input::root_target(
+            &c.handlers,
             std::mem::take(&mut c.part_actions),
-            regions.clone(),
             constraints,
+            cx,
         );
+        regions::prepare(std::mem::take(&mut c.regions), root, cx, id, at)
+    });
+
+    if let Some(regions) = &regions {
+        c.handlers = part_input::route(id, std::mem::take(&mut c.handlers), regions.clone());
     }
     Attachments {
         constraints,

@@ -6,12 +6,12 @@
 //! node, or the canvas region the event carries) and hands the lists of
 //! node, target and region fallback to `handler_layers::deliver`.
 
-use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact_style::draw::RegionId;
 
-use crate::view::common::{Constraints, Registry, Target};
+use crate::view::common::{Constraints, Registry, Target, TargetId};
+use crate::view::descriptor::Mcx;
 use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver, open};
 use crate::view::tree::{Handlers, PartActions};
 use crate::view::{A11yAction, Handled, KeyEvent, WheelEvent};
@@ -44,22 +44,17 @@ struct Selected {
 
 /// Region identifiers belong to their original canvas. Ancestors receive
 /// bubbling through node defaults without retargeting.
-fn select(
-    registry: &Registry,
-    root: &Rc<Target>,
-    own_canvas: bool,
-    region: Option<RegionId>,
-) -> Selected {
+fn select(registry: &Registry, own_canvas: bool, region: Option<RegionId>) -> Selected {
     let found = region
         .filter(|_| own_canvas)
         .and_then(|id| registry.lookup(id));
     let observed = match &found {
         Some(target) => Some(target.clone()),
-        None if region.is_none() && own_canvas => Some(root.clone()),
+        None if region.is_none() && own_canvas => Some(registry.root.clone()),
         None => None,
     };
     let target = if !own_canvas || region.is_none() {
-        Some(root.clone())
+        Some(registry.root.clone())
     } else {
         found
     };
@@ -81,7 +76,6 @@ fn deliver_selected<E: Clone + 'static>(
     selected: &Selected,
     event: &E,
 ) -> crate::Result<Handled> {
-    let target_enabled = Cell::new(None);
     let observing = || {
         selected
             .observed
@@ -89,14 +83,12 @@ fn deliver_selected<E: Clone + 'static>(
             .is_some_and(|target| target.live())
     };
     let target_ready = || {
-        let enabled = selected
+        selected
             .target
             .as_ref()
-            .is_some_and(|target| target.enabled());
-        target_enabled.set(Some(enabled));
-        enabled
+            .is_some_and(|target| target.enabled())
     };
-    let fallback_ready = || target_enabled.get() == Some(true) && root.enabled();
+    let fallback_ready = || target_ready() && root.enabled();
     let mut sources = vec![Source::new(own, &Layer::NODE, &open)];
     if let Some(target) = &selected.observed {
         sources.push(Source::new(
@@ -111,7 +103,7 @@ fn deliver_selected<E: Clone + 'static>(
             &[Layer::PartDefault],
             &target_ready,
         ));
-        if selected.own_canvas && target.region.is_some() {
+        if selected.own_canvas && target.region().is_some() {
             sources.push(Source::new(
                 list(&root.handlers),
                 &[Layer::RegionDefault],
@@ -122,51 +114,52 @@ fn deliver_selected<E: Clone + 'static>(
     deliver(&sources, event)
 }
 
-/// The routed lists of a node's own target, and the node's own lists.
-fn split<E: 'static>(own: &EventHandlers<E>) -> (EventHandlers<E>, EventHandlers<E>) {
-    (own.only(&Layer::NODE), own.only(&TARGET_LAYERS))
+/// The node's own target: its share of the node's lists (observers, part defaults and the region
+/// fallback) and the parts' action defaults.
+pub(super) fn root_target(
+    handlers: &Handlers,
+    actions: PartActions,
+    constraints: Constraints,
+    cx: &Mcx<'_>,
+) -> Rc<Target> {
+    Rc::new(Target {
+        id: TargetId::Root,
+        owner: cx.owner,
+        runtime: cx.weak(),
+        handlers: Handlers {
+            key: handlers.key.only(&TARGET_LAYERS),
+            key_up: handlers.key_up.only(&TARGET_LAYERS),
+            pointer: handlers.pointer.only(&TARGET_LAYERS),
+            wheel: handlers.wheel.only(&TARGET_LAYERS),
+            ..Default::default()
+        },
+        actions,
+        bindings: Vec::new(),
+        constraints,
+    })
 }
 
 /// Wrapping happens after every caller modifier, before refs bind at mount end.
 pub(super) fn route(
     node: kivact_wire::NodeId,
     mut caller: Handlers,
-    part_actions: PartActions,
     registry: Rc<Registry>,
-    constraints: Constraints,
 ) -> Handlers {
-    let (own_key, root_key) = split(&caller.key);
-    let (own_key_up, root_key_up) = split(&caller.key_up);
-    let (own_pointer, root_pointer) = split(&caller.pointer);
-    let (own_wheel, root_wheel) = split(&caller.wheel);
-    let root = Rc::new(Target {
-        generation: 0,
-        region: None,
-        owner: registry.owner,
-        runtime: registry.runtime.clone(),
-        handlers: Handlers {
-            key: root_key,
-            key_up: root_key_up,
-            pointer: root_pointer,
-            wheel: root_wheel,
-            ..Default::default()
-        },
-        actions: part_actions,
-        bindings: Vec::new(),
-        constraints,
-    });
+    let own_key = caller.key.only(&Layer::NODE);
+    let own_key_up = caller.key_up.only(&Layer::NODE);
+    let own_pointer = caller.pointer.only(&Layer::NODE);
+    let own_wheel = caller.wheel.only(&Layer::NODE);
     for up in [false, true] {
         let (own, list) = if up {
             (own_key_up.clone(), key_up_list as KeyList)
         } else {
             (own_key.clone(), key_list as KeyList)
         };
-        let root = root.clone();
         let registry = registry.clone();
         let router = EventHandlers::router(move |event: KeyEvent| {
             let own_canvas = event.origin.is_some_and(|origin| origin.node == node);
-            let selected = select(&registry, &root, own_canvas, event.region);
-            deliver_selected(list, &own, &root, &selected, &event)
+            let selected = select(&registry, own_canvas, event.region);
+            deliver_selected(list, &own, &registry.root, &selected, &event)
         });
         if up {
             caller.key_up = router;
@@ -174,20 +167,20 @@ pub(super) fn route(
             caller.key = router;
         }
     }
-    caller.pointer = super::part_pointer::route(registry.clone(), root.clone(), own_pointer);
-    let wheel_root = root.clone();
+    caller.pointer = super::part_pointer::route(registry.clone(), own_pointer);
     let wheel_registry = registry.clone();
     caller.wheel = EventHandlers::router(move |event: WheelEvent| {
-        let selected = select(
-            &wheel_registry,
-            &wheel_root,
-            event.origin.node == node,
-            event.region(),
-        );
-        deliver_selected(wheel_list, &own_wheel, &wheel_root, &selected, &event)
+        let selected = select(&wheel_registry, event.origin.node == node, event.region());
+        deliver_selected(
+            wheel_list,
+            &own_wheel,
+            &wheel_registry.root,
+            &selected,
+            &event,
+        )
     });
     let custom = caller.text.take();
-    let text_root = root.clone();
+    let text_root = registry.root.clone();
     if custom.is_some() || text_root.actions.text.is_some() {
         caller.text = Some(Rc::new(move |event| {
             if let Some(custom) = &custom {
@@ -202,7 +195,7 @@ pub(super) fn route(
         }));
     }
     let custom = caller.activate.take();
-    let action_root = root.clone();
+    let action_root = registry.root.clone();
     let action_registry = registry.clone();
     // Dynamic region actions may appear after mounting; each action dispatches
     // through the current registry, while root advertised actions stay separate.
@@ -239,7 +232,7 @@ pub(super) fn route(
         A11yAction::Dismiss,
     ] {
         let custom = custom.clone();
-        let root = root.clone();
+        let root = registry.root.clone();
         let registry = registry.clone();
         caller.a11y.push((
             action,
