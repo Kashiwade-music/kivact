@@ -279,6 +279,9 @@ fn main() -> kivact::Result<()> {
   or `style().disabled(style().opacity(1.0))`.
 - `group()` and `group_hover(..)` (also `group_focus(..)`) react to an ancestor's
   state with no pointer handler in your code.
+- A state style changes paint only (background, border, ring, radius, opacity,
+  shadow, transform, cursor, filters, color); anything else set in it is
+  reported and ignored. `disabled` and `selected` can change any property.
 - You do not read hover state in a recipe and branch on it. Describe each state
   as a style and the engine applies it.
 

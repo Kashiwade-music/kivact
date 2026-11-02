@@ -214,13 +214,13 @@ fn log() -> impl IntoView {
 
 fn strip() -> impl IntoView {
     scroll(row(vec![button("one"), button("two"), button("three")]))
-        .orientation(Orientation::Horizontal)
+        .axes(ScrollAxes::Horizontal)
         .style(style().width(160))
 }
 
 fn table() -> impl IntoView {
     scroll(column(vec![text("a very wide and tall table")]))
-        .both_axes()
+        .axes(ScrollAxes::Both)
         .style(style().size(300, 200))
 }
 
@@ -229,9 +229,11 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-- The default scrolls vertically. `.orientation(Orientation::Horizontal)` lays
-  the content out in a row and scrolls sideways. `.both_axes()` scrolls both
-  ways.
+- The default scrolls vertically. `.axes(ScrollAxes::Horizontal)` lays the
+  content out in a row and scrolls sideways. `.axes(ScrollAxes::Both)` scrolls
+  both ways.
+- A scroll container's accessibility orientation follows its axes (vertical,
+  horizontal, none for both); `.orientation(..)` on it is reported and ignored.
 - `scroll` returns a `Scroll` builder: `.style(..)`, `.name(..)` and the other
   node modifiers apply to the scroll area itself.
 - The wheel and touch drag scroll the area; at the edge, the wheel passes to the

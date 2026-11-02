@@ -82,14 +82,14 @@ mod tests {
     fn the_part_brings_the_role_the_keys_and_the_state() {
         let screen = kivact::test::render(app);
         let switch = screen.get_by_role(Role::Switch, "Notifications");
-        assert_eq!(switch.is_checked(), Some(false));
+        assert_eq!(switch.checked(), Some(CheckedState::Unchecked));
 
         switch.click();
-        assert_eq!(switch.is_checked(), Some(true));
+        assert_eq!(switch.checked(), Some(CheckedState::Checked));
         screen.get_by_text("On");
 
         switch.press_key(Key::Space);
-        assert_eq!(switch.is_checked(), Some(false));
+        assert_eq!(switch.checked(), Some(CheckedState::Unchecked));
     }
 
     #[test]
@@ -98,7 +98,7 @@ mod tests {
         let switch = screen.get_by_role(Role::Switch, "Locked");
         assert!(switch.is_disabled());
         switch.force_click();
-        assert_eq!(switch.is_checked(), Some(false));
+        assert_eq!(switch.checked(), Some(CheckedState::Unchecked));
     }
 }
 ```
@@ -431,7 +431,7 @@ pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
         .value_text(move || format!("{} of {max}", value.get()))
         .focusable(true)
         .on_pointer(move |event: PointerEvent| {
-            if event.phase == PointerPhase::Down {
+            if matches!(event.phase, PointerPhase::Down(_)) {
                 value.set(((event.pos.x / CELL) as u32 + 1).min(max));
             }
         })

@@ -99,7 +99,7 @@ screen.within(row).get_by_role(Role::Button, "削除").click();
 | セレクトの選択肢を選ぶ | `select_option("大")` |
 | ドラッグ | `drag(from, to)`（要素自身の座標） |
 | スクロール | `scroll(dx, dy)` |
-| 支援技術 | `a11y(A11yAction::…)`、`a11y_with_value(action, "text")` |
+| 支援技術 | `a11y(A11yAction::…)`、`a11y_set_value("text")` |
 | IME の変換 | `compose("preedit")`、`commit("text")` |
 
 何も起きないことを確かめるためのクリックや、ポップアップの外側を押す操作では、`force_click()` か、画面レベルの `click_at(x, y)`・`mouse_move`・`mouse_down`・`mouse_up` で検査を省けます。ポインターを先に置いてください（`mouse_move`、またはクリックやホバー）。置く前の `mouse_down`・`mouse_up`・`mouse_leave` は、実際の window と同じく押す位置がないため panic します。`contact_down/move/up` は、複数のタッチを同時に動かします。`Key`・`Modifiers`・`MouseButton`・`PointerKind` は `kivact::view` にあります（`Key` はプレリュードにもあります）。
@@ -157,7 +157,7 @@ mod tests {
 | テキスト、名前、説明 | `text()`、`name()`、`description()` |
 | ロール | `role()` |
 | 入力値、スライダーの範囲 | `value()`、`value_range()` |
-| 状態 | `is_disabled()`、`is_checked()`（`Option`: チェックできないものは `None`）、`is_selected()`、`is_expanded()`、`is_focused()`、`invalid()`、`read_only()` |
+| 状態 | `is_disabled()`、`checked()`（`Option<CheckedState>`: チェックできないものは `None`）、`is_selected()`、`is_expanded()`、`is_focused()`、`invalid()`、`read_only()` |
 | 集合の中の位置 | `level()`、`set_size()`、`pos_in_set()` |
 | 位置と大きさ | `rect()`、`accessibility_bounds()` |
 | 表示 | `exists()`、`is_visible()` |
@@ -192,10 +192,10 @@ mod tests {
         assert!(proceed.is_disabled());
 
         let terms = screen.get_by_role(Role::CheckBox, "利用規約に同意する");
-        assert_eq!(terms.is_checked(), Some(false));
+        assert_eq!(terms.checked(), Some(CheckedState::Unchecked));
         terms.toggle();
 
-        assert_eq!(terms.is_checked(), Some(true));
+        assert_eq!(terms.checked(), Some(CheckedState::Checked));
         assert!(!proceed.is_disabled());
         screen.assert_layout();
     }

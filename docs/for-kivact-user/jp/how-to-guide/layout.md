@@ -179,13 +179,13 @@ fn log() -> impl IntoView {
 
 fn strip() -> impl IntoView {
     scroll(row(vec![button("一"), button("二"), button("三")]))
-        .orientation(Orientation::Horizontal)
+        .axes(ScrollAxes::Horizontal)
         .style(style().width(160))
 }
 
 fn table() -> impl IntoView {
     scroll(column(vec![text("横にも縦にも大きい表")]))
-        .both_axes()
+        .axes(ScrollAxes::Both)
         .style(style().size(300, 200))
 }
 
@@ -194,7 +194,8 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-- 既定は縦スクロールです。`.orientation(Orientation::Horizontal)` は内容を row に並べて横にスクロールし、`.both_axes()` は縦横の両方にスクロールします。
+- 既定は縦スクロールです。`.axes(ScrollAxes::Horizontal)` は内容を row に並べて横にスクロールし、`.axes(ScrollAxes::Both)` は縦横の両方にスクロールします。
+- スクロール領域のアクセシビリティ上の向きは軸に従います（縦、横、両方なら指定なし）。そこに付けた `.orientation(..)` は報告されて無視されます。
 - `scroll` は `Scroll` ビルダーを返します。`.style(..)`、`.name(..)` などの node 用メソッドは、スクロール領域そのものに効きます。
 - ホイールとタッチのドラッグでスクロールします。端まで来ると、ホイールは親へ引き継がれます。
 - 何百行もある場合は、見えている行だけをマウントする `virtual_list` を使います([一覧と表](lists-and-tables.md)を参照)。
