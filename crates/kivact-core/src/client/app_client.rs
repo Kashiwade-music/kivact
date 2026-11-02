@@ -10,9 +10,9 @@
 //!      `AfterCommit` of its revision
 //!   2. timers, ready tasks, stabilise (≤ 1000 rounds, then a Cycle
 //!      diagnostic and the rest in the next turn)
-//!   3. `AfterHandler`, then `BeforeCommit` (frame request, focus requests,
-//!      removed nodes, the mount token) and the commit of the engine's
-//!      pending changes (revision + 1; nothing if empty)
+//!   3. `AfterHandler`, then `phases::commit` (frame request, focus
+//!      requests, removed nodes, the commit of the engine's pending changes
+//!      and the mount token; revision + 1, nothing if empty)
 //!   4. `AfterCommit` of laid-out revisions, user effects; their changes
 //!      loop back to step 3 for a further revision (≤ 100 rounds, then a
 //!      Cycle diagnostic)
@@ -52,17 +52,6 @@ use kivact_task::TaskState;
 /// Rounds of `on_mount` callbacks and user effects one turn runs before
 /// the rest is cut as a `Cycle`.
 const USER_EFFECT_ROUNDS: usize = 100;
-
-/// Commit directly applied changes as the next revision.
-/// Returns the engine's operation count (0: nothing to commit).
-fn flush(rt: &Runtime, tree: &Writer) -> usize {
-    let count = phases::drain(rt, Phase::BeforeCommit { writer: tree }).writes;
-    if count != 0 {
-        tree.commit();
-    }
-
-    count
-}
 
 /// The App side of the host boundary: owns the App's runtime and implements
 /// concrete callbacks for the engine window loop or test driver.
@@ -265,7 +254,7 @@ impl AppClient {
             super::notice::inform(&format!("the platform lacks: {}", missing.join(", ")));
         }
         rt.stabilize();
-        let written = flush(&rt, &tree);
+        let written = phases::commit(&rt, &tree);
         debug_assert!(written > 0, "the first revision sets the window");
         rt.finish_setup_notes();
         let pending = rt.pending().user || TaskState::of(&rt).has_ready();
@@ -322,7 +311,7 @@ impl AppClient {
                     settle: Some(&turn),
                 },
             );
-            writes += flush(&rt, &tree);
+            writes += phases::commit(&rt, &tree);
             // A setup that wrote nothing waits for a revision laid out
             // already: its callbacks run in this turn.
             let mounts = rt.mounts().due(done);
