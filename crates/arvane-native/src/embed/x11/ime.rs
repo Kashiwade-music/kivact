@@ -84,7 +84,7 @@ struct Session {
 enum Context {
     /// Connected; the input method is not open yet.
     Connecting,
-    Open { im: u16 },
+    Open,
     Ready { im: u16, ic: u16 },
     /// The server ended the connection (`handle_disconnect`); `filter` degrades.
     Disconnected,
@@ -94,7 +94,7 @@ impl Context {
     fn ids(&self) -> Option<(u16, u16)> {
         match self {
             Self::Ready { im, ic } => Some((*im, *ic)),
-            Self::Connecting | Self::Open { .. } | Self::Disconnected => None,
+            Self::Connecting | Self::Open | Self::Disconnected => None,
         }
     }
 }
@@ -588,7 +588,7 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         client.open(&self.app.locale)
     }
     fn handle_open(&mut self, client: &mut ClientConnection, im: u16) -> Result<(), ClientError> {
-        self.session.context = Context::Open { im };
+        self.session.context = Context::Open;
         client.get_im_values(im, &[AttributeName::QueryInputStyle])
     }
     fn handle_get_im_values(

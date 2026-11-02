@@ -44,6 +44,7 @@ pub(crate) struct NativeInput {
     pub(crate) file_pointer: Cell<Option<kivact_types::Point>>,
     /// The subclass has not been removed yet (by `WM_NCDESTROY` or the guard's drop); only the
     /// subclass reads it.
+    #[cfg(windows)]
     pub(crate) subclass_installed: Cell<bool>,
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
