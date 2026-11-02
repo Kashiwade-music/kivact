@@ -18,6 +18,26 @@ pub(super) struct Metadata {
     pub modal: Option<NodeId>,
 }
 
+/// What changed since the last accepted publication.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum Dirt {
+    /// Published as accepted.
+    Clean,
+    /// Only the payloads of `nodes` changed, by proven local text writes: the
+    /// accepted identity metadata is reused.
+    LocalText { nodes: BTreeSet<NodeId> },
+    /// The identity and order metadata is enumerated again; besides what it
+    /// finds, `nodes` (own payloads), `subtrees` (whole subtrees) and `removed`
+    /// are dirty.
+    Metadata {
+        nodes: BTreeSet<NodeId>,
+        subtrees: BTreeSet<NodeId>,
+        removed: BTreeSet<NodeId>,
+    },
+    /// A complete replacement (initial, reactivated, new root, rejected).
+    Full,
+}
+
 #[derive(Clone)]
 pub(crate) struct A11yState {
     pub(super) native_regions: BTreeMap<u64, (NodeId, RegionId)>,
@@ -28,15 +48,9 @@ pub(crate) struct A11yState {
     pub(super) root: Option<kivact_types::NodeId>,
     pub(super) empty_root: Option<u64>,
     pub(super) focus: Option<kivact_types::NodeId>,
-    pub(super) pending: bool,
-    pub(super) full: bool,
-    /// Consumed by the builder: unclassified dirt requires current metadata.
-    pub(super) metadata_refresh: bool,
-    pub(super) nodes: BTreeSet<NodeId>,
-    pub(super) subtrees: BTreeSet<NodeId>,
-    pub(super) removed: BTreeSet<NodeId>,
+    /// What changed since the last accepted publication.
+    pub(super) dirt: Dirt,
     pub(super) metadata: Rc<Metadata>,
-    pub(super) prepared: Option<Metadata>,
     #[cfg(feature = "testing")]
     pub(crate) constructed: u64,
     #[cfg(feature = "testing")]
@@ -53,14 +67,8 @@ impl Default for A11yState {
             root: None,
             empty_root: None,
             focus: None,
-            pending: true,
-            full: true,
-            metadata_refresh: true,
-            nodes: BTreeSet::new(),
-            subtrees: BTreeSet::new(),
-            removed: BTreeSet::new(),
+            dirt: Dirt::Full,
             metadata: Rc::default(),
-            prepared: None,
             #[cfg(feature = "testing")]
             constructed: 0,
             #[cfg(feature = "testing")]
@@ -71,31 +79,77 @@ impl Default for A11yState {
 impl A11yState {
     #[cfg(all(debug_assertions, feature = "testing"))]
     pub(crate) fn publication_pending(&self) -> bool {
-        self.pending
+        self.dirt != Dirt::Clean
     }
     pub(crate) fn invalidate(&mut self) {
-        self.pending = true;
-        self.full = true;
-        self.metadata_refresh = true;
+        self.dirt = Dirt::Full;
     }
     pub(crate) fn local_text(&mut self, id: NodeId) {
-        self.nodes.insert(id);
-        self.pending = true;
+        match &mut self.dirt {
+            Dirt::Clean => {
+                self.dirt = Dirt::LocalText {
+                    nodes: BTreeSet::from([id]),
+                };
+            }
+            Dirt::LocalText { nodes } | Dirt::Metadata { nodes, .. } => {
+                nodes.insert(id);
+            }
+            Dirt::Full => {}
+        }
     }
     pub(crate) fn node(&mut self, id: NodeId) {
-        self.metadata_refresh = true;
-        self.nodes.insert(id);
-        self.pending = true;
+        if let Some((nodes, _, _)) = self.metadata_dirt() {
+            nodes.insert(id);
+        }
     }
     pub(crate) fn subtree(&mut self, id: NodeId) {
-        self.metadata_refresh = true;
-        self.subtrees.insert(id);
-        self.pending = true;
+        if let Some((_, subtrees, _)) = self.metadata_dirt() {
+            subtrees.insert(id);
+        }
     }
     pub(crate) fn request_publication(&mut self, removed: impl Iterator<Item = NodeId>) {
-        self.metadata_refresh = true;
-        self.pending = true;
-        self.removed.extend(removed);
+        if let Some((_, _, gone)) = self.metadata_dirt() {
+            gone.extend(removed);
+        }
+    }
+    /// Raise the dirt to `Metadata` (keeping a local-text level's nodes); its
+    /// sets (own payloads, subtrees, removed), or `None` at `Full`.
+    #[allow(
+        clippy::type_complexity,
+        reason = "the three sets of Dirt::Metadata, borrowed together"
+    )]
+    fn metadata_dirt(
+        &mut self,
+    ) -> Option<(
+        &mut BTreeSet<NodeId>,
+        &mut BTreeSet<NodeId>,
+        &mut BTreeSet<NodeId>,
+    )> {
+        match std::mem::replace(&mut self.dirt, Dirt::Clean) {
+            Dirt::Clean => {
+                self.dirt = Dirt::Metadata {
+                    nodes: BTreeSet::new(),
+                    subtrees: BTreeSet::new(),
+                    removed: BTreeSet::new(),
+                };
+            }
+            Dirt::LocalText { nodes } => {
+                self.dirt = Dirt::Metadata {
+                    nodes,
+                    subtrees: BTreeSet::new(),
+                    removed: BTreeSet::new(),
+                };
+            }
+            other => self.dirt = other,
+        }
+        match &mut self.dirt {
+            Dirt::Metadata {
+                nodes,
+                subtrees,
+                removed,
+            } => Some((nodes, subtrees, removed)),
+            _ => None,
+        }
     }
     #[cfg(feature = "testing")]
     pub(crate) fn region_of(&self, native: u64) -> Option<(NodeId, RegionId)> {
