@@ -34,11 +34,14 @@ pub struct Mounts<'a> {
     rt: &'a Runtime,
 }
 
-/// Records one turn of the trace ring, from [`Runtime::turn`] to
-/// [`TurnRecorder::finish`]. Notes recorded between turns go to the next
-/// turn.
+/// Records one turn of the trace ring, from [`Runtime::turn`] until it is
+/// finished ([`TurnRecorder::finish`]) or dropped; its duration is the wall
+/// time in between. What is recorded between turns goes to the next turn.
+#[must_use = "the turn is recorded when its TurnRecorder is finished or dropped"]
 pub struct TurnRecorder<'a> {
     rt: &'a Runtime,
+    started: std::time::Instant,
+    ops: usize,
 }
 
 impl Runtime {
@@ -116,7 +119,11 @@ impl Runtime {
     /// Start recording a turn that delivers `events` host events.
     pub fn turn(&self, events: usize) -> TurnRecorder<'_> {
         self.begin_turn(events);
-        TurnRecorder { rt: self }
+        TurnRecorder {
+            rt: self,
+            started: std::time::Instant::now(),
+            ops: 0,
+        }
     }
 
     /// Route `err` to the nearest error boundary of `owner`, or, without an
@@ -188,9 +195,16 @@ impl TurnRecorder<'_> {
         self.rt.record_cause(cause);
     }
 
-    /// Finish the record with the number of writes committed and the time
-    /// the turn took, and push it into the ring ([`Runtime::turns`]).
-    pub fn finish(self, ops: usize, duration_ns: u64) {
-        self.rt.end_turn(ops, duration_ns);
+    /// Finish the record with the number of writes committed in the turn and
+    /// push it into the ring ([`Runtime::turns`]).
+    pub fn finish(mut self, ops: usize) {
+        self.ops = ops;
+    }
+}
+
+impl Drop for TurnRecorder<'_> {
+    fn drop(&mut self) {
+        let duration_ns = self.started.elapsed().as_nanos() as u64;
+        self.rt.end_turn(self.ops, duration_ns);
     }
 }

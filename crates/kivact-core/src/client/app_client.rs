@@ -303,7 +303,6 @@ impl AppClient {
         rt.clear_turn_request();
         host.link.set_in_turn(true);
         host.turns.set(host.turns.get() + 1);
-        let started = std::time::Instant::now();
         let turn = rt.turn(events.len());
         phases::drain(&rt, Phase::AfterCommit { revision: before });
         // Errors the engine's last layout raised (a primitive's measure
@@ -358,8 +357,7 @@ impl AppClient {
         }
 
         let output = self.output(&rt);
-        let took = started.elapsed().as_nanos() as u64;
-        turn.finish(writes, took);
+        turn.finish(writes);
         // Requests made during the turn woke nobody (`HostLink`): ask again
         // only for work the turn left.
         host.link.set_in_turn(false);

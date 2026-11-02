@@ -7,6 +7,7 @@
 use std::fmt;
 use std::panic::Location;
 
+use kivact_reactive::Turn;
 use kivact_wire::NodeId;
 
 use crate::view::NodeRef;
@@ -47,8 +48,9 @@ pub struct WhyDep {
     pub ty: &'static str,
     /// Where the signal or memo was created.
     pub created_at: &'static Location<'static>,
-    /// Last value-changing write: location and turn (0 = during mount).
-    pub last_write: Option<(&'static Location<'static>, u64)>,
+    /// Last value-changing write: its location and turn (`Turn::Setup` while
+    /// the App was set up).
+    pub last_write: Option<(&'static Location<'static>, Turn)>,
     /// What a memo read during its last run (empty for signals).
     pub reads: Vec<WhyDep>,
 }
@@ -140,8 +142,10 @@ impl fmt::Display for Why {
                     x.created_at
                 )?;
                 match x.last_write {
-                    Some((at, 0)) => write!(f, ", last written at {at} (mount)")?,
-                    Some((at, turn)) => write!(f, ", last written at {at} (turn {turn})")?,
+                    Some((at, Turn::Setup)) => write!(f, ", last written at {at} (mount)")?,
+                    Some((at, Turn::Number(n))) => {
+                        write!(f, ", last written at {at} (turn {n})")?
+                    }
                     None if x.kind == "signal" => write!(f, ", never written")?,
                     None => {}
                 }

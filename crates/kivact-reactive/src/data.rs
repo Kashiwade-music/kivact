@@ -160,7 +160,7 @@ pub(crate) struct SourceNode {
     /// Write epoch of the last change.
     pub(crate) changed_at: u64,
     /// Location and turn of the last value-changing write (why chains).
-    pub(crate) written: Option<(&'static Location<'static>, u64)>,
+    pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
 
 pub(crate) struct MemoNode {
@@ -266,7 +266,7 @@ pub struct NodeInfo {
     /// Where the node was created.
     pub at: &'static Location<'static>,
     /// Location and turn of the last value-changing write (sources).
-    pub written: Option<(&'static Location<'static>, u64)>,
+    pub written: Option<(&'static Location<'static>, Turn)>,
     /// What the node read during its last run, in read order.
     pub deps: Vec<NodeId>,
 }
@@ -360,11 +360,22 @@ pub struct TraceRun {
     pub at: &'static Location<'static>,
 }
 
+/// Which turn something happened in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Turn {
+    /// While the App was set up (its first mount), before the first turn.
+    #[default]
+    Setup,
+    /// A turn, numbered from 1.
+    Number(u64),
+}
+
 /// One turn of the structured trace.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TurnRecord {
-    /// Ordinary turns increase from 1; setup-only notes use 0.
-    pub turn: u64,
+    /// Which turn: `Turn::Setup` for the notes recorded while the App was set
+    /// up, else the turn's number.
+    pub turn: Turn,
     /// Host events delivered in this turn.
     pub events: usize,
     /// What started the work: host events (`"Activate n5"`), `"timer"`, `"task"`.
@@ -390,8 +401,9 @@ pub(crate) struct Diag {
     pub(crate) errors: VecDeque<UiError>,
     pub(crate) diagnostics: VecDeque<UiError>,
     pub(crate) turns: VecDeque<TurnRecord>,
+    /// The record being filled: the setup's, then always the next turn's
+    /// (what happens between two turns belongs to the next one).
     pub(crate) current: TurnRecord,
-    pub(crate) turn_no: u64,
     pub(crate) total_errors: u64,
 }
 
