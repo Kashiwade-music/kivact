@@ -202,7 +202,7 @@ mod splitter;
 mod tabs;
 mod toast;
 mod tooltip;
-pub use dialog::{Dialog, dialog};
+pub use dialog::{Dialog, DialogCenter, dialog};
 pub use menu::{Menu, menu};
 pub use radio_group::{RadioGroup, radio_group};
 pub use select::{Select, select};
