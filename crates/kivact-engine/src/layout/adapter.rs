@@ -3,7 +3,7 @@
 use crate::tree::NodeTree;
 use crate::tree::node::NodeIndex;
 use kivact_layout::{Flow, LayoutTree};
-use kivact_wire::{LayoutProps, NodeId, NodeType, OverlayAt};
+use kivact_wire::{LayoutProps, NodeId, NodeType, OverlayAt, OverlayFit};
 
 impl LayoutTree for NodeTree {
     #[inline]
@@ -64,5 +64,10 @@ impl LayoutTree for NodeTree {
             } => node,
             _ => None,
         }
+    }
+
+    #[inline]
+    fn overlay_fit(&self, slot: usize) -> Option<OverlayFit> {
+        self.nodes.at(NodeIndex(slot)).overlay()?.fit
     }
 }

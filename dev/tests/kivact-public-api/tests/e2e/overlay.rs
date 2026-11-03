@@ -12,8 +12,69 @@ use std::rc::Rc;
 use kivact::diagnostics::ErrorKind;
 use kivact::draw::{Point, Rect};
 use kivact::prelude::*;
-use kivact::test::render;
-use kivact::view::{A11yAction, Handled, Placement, overlay, overlay_at};
+use kivact::style::Position;
+use kivact::test::{RenderOptions, render, render_with};
+use kivact::view::{
+    A11yAction, Handled, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at,
+};
+
+#[test]
+fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
+    let screen = render_with(
+        RenderOptions {
+            width: 240.0,
+            height: 180.0,
+            theme: Theme::light().with(OverlayViewport::new(16.0)),
+            ..RenderOptions::from_env()
+        },
+        || {
+            let anchor = node_ref();
+            let middle = node_ref();
+            (
+                node().node_ref(anchor).style(
+                    style()
+                        .position(Position::Fixed)
+                        .left(208)
+                        .top(126)
+                        .size(16, 20),
+                ),
+                overlay(anchor, Placement::Below, node())
+                    .align(OverlayAlign::Center)
+                    .offset(4)
+                    .style(style().size(104, 44))
+                    .test_id("popup"),
+                overlay_at(Point::new(0.0, 0.0), Placement::Center, node())
+                    .style(style().size(400, 40))
+                    .test_id("wide"),
+                node().node_ref(middle).style(
+                    style()
+                        .position(Position::Fixed)
+                        .left(110)
+                        .top(80)
+                        .size(20, 20),
+                ),
+                overlay(middle, Placement::Below, node())
+                    .align(OverlayAlign::Center)
+                    .keep_anchor_clear(true)
+                    .offset(4)
+                    .style(style().size(190, 110))
+                    .test_id("tooltip"),
+            )
+        },
+    );
+    let popup = screen.get_by_test_id("popup").rect().expect("popup layout");
+    assert!(popup.x >= 16.0 && popup.x + popup.width <= 224.0);
+    assert!(popup.y + popup.height <= 122.0, "flips above the anchor");
+    let wide = screen.get_by_test_id("wide").rect().expect("wide layout");
+    assert!(wide.x >= 16.0 && wide.x + wide.width <= 224.0);
+    assert!(wide.y >= 16.0);
+    let tooltip = screen
+        .get_by_test_id("tooltip")
+        .rect()
+        .expect("tooltip layout");
+    assert!(tooltip.height > 0.0 && tooltip.height < 110.0);
+    assert!(tooltip.y >= 104.0 || tooltip.y + tooltip.height <= 76.0);
+}
 
 /// Counts calls of the handlers it makes.
 #[derive(Clone, Default)]

@@ -114,6 +114,7 @@ impl Tooltip {
             )
             .part(part)
             .name(self.label)
+            .keep_anchor_clear(true)
             .offset(self.offset);
             match self.align {
                 Some(align) => layer.align(align),

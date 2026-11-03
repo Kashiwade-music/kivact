@@ -44,8 +44,8 @@ use crate::{
 use kivact_wire::{AvailableSpace, Baseline, MeasureRequest, NodeId, Point, Rect, Size};
 use taffy::{
     CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
-    LayoutInput, LayoutOutput, LayoutPartialTree, NodeId as TId, ResolveOrZero, RoundTree, RunMode,
-    TraversePartialTree, TraverseTree,
+    LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,
+    ResolveOrZero, RoundTree, RunMode, TraversePartialTree, TraverseTree,
 };
 
 struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
@@ -574,9 +574,7 @@ impl NodeLayoutColumns {
             let root = taffy_id(tree.index_of(root).expect("invariant: layout node exists"));
             self.compute_at(tree, state, root, available, true, measure);
             for id in tree.overlays().iter().copied() {
-                self.floor_overlay_width(tree, id);
-                let overlay = taffy_id(tree.index_of(id).expect("invariant: overlay exists"));
-                self.compute_at(tree, state, overlay, available, false, measure);
+                self.compute_overlay(tree, state, id, available, None, measure);
             }
             let traversal = Traversal {
                 tree,
@@ -588,16 +586,61 @@ impl NodeLayoutColumns {
             }
         }
     }
-    fn floor_overlay_width<Tree: LayoutTree + ?Sized>(&mut self, tree: &Tree, id: NodeId) {
+    /// Compute one overlay root again with an optional limit from anchor placement.
+    pub fn compute_overlay<Tree: LayoutTree + ?Sized>(
+        &mut self,
+        tree: &Tree,
+        state: &LayoutState,
+        id: NodeId,
+        available: Size,
+        limit: Option<Size>,
+        measure: &mut dyn LeafMeasure,
+    ) {
         let slot = tree.index_of(id).expect("invariant: overlay exists");
+        let overlay = taffy_id(slot);
         let floor = tree
             .overlay_width_anchor(slot)
             .and_then(|anchor| self.computed_layout(tree, anchor))
             .map_or(0.0, |layout| layout.size.width);
-        let values = &mut self.values;
-        if values.styles[slot + 1].set_min_width_floor(floor) {
-            values.caches[slot + 1].clear();
-        }
+        let index = usize::from(overlay);
+        let Some(fit) = tree.overlay_fit(slot) else {
+            let values = &mut self.values;
+            if values.styles[index].set_min_width_floor(floor) {
+                values.caches[index].clear();
+            }
+            self.compute_at(tree, state, overlay, available, false, measure);
+            return;
+        };
+        let rect = fit.viewport(available);
+        let limit = limit.unwrap_or(Size::new(rect.width, rect.height));
+        let bounds = Size {
+            width: limit.width.min(rect.width).floor(),
+            height: limit.height.min(rect.height).floor(),
+        };
+        let style = &mut self.values.styles[index];
+        let (min, max) = (style.min_size, style.max_size);
+        let cap = |length: LengthPercentageAuto, limit, fallback| {
+            LengthPercentageAuto::length(
+                length
+                    .resolve_to_option(limit, |handle, basis| self.calcs.resolve(handle, basis))
+                    .unwrap_or(fallback)
+                    .clamp(0.0, limit),
+            )
+        };
+        style.set_min_width_floor(floor.min(bounds.width));
+        style.set_size_bounds(
+            taffy::Size {
+                width: cap(min.width, bounds.width, 0.0),
+                height: cap(min.height, bounds.height, 0.0),
+            },
+            taffy::Size {
+                width: cap(max.width, bounds.width, bounds.width),
+                height: cap(max.height, bounds.height, bounds.height),
+            },
+        );
+        self.values.caches[index].clear();
+        self.compute_at(tree, state, overlay, bounds, false, measure);
+        self.values.styles[index].set_size_bounds(min, max);
     }
     fn compute_at<Tree: LayoutTree + ?Sized>(
         &mut self,

@@ -10,7 +10,7 @@ use super::measure::LeafMeasure;
 use super::semantics::{A11yAction, CheckedState, Role, SemanticsProperties};
 use super::style::{LayoutProps, PaintProps, StateStyles};
 use super::text::{TextProps, TextSpan};
-use super::{OverlayAlign, Placement, Point, Size};
+use super::{OverlayAlign, Placement, Point, Rect, Size};
 use kivact_types::Key;
 use kivact_types::{Asset, ImageFit};
 
@@ -251,6 +251,33 @@ pub enum OverlayAt {
     Point(Point),
 }
 
+/// Viewport fitting parameters for an overlay that opts into edge insets.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OverlayFit {
+    pub margin: f32,
+    pub keep_anchor_clear: bool,
+    pub rtl: bool,
+}
+
+impl OverlayFit {
+    /// Inset each axis by as much of the requested margin as fits.
+    pub fn viewport(self, size: Size) -> Rect {
+        let margin = if self.margin.is_finite() {
+            self.margin.max(0.0)
+        } else {
+            0.0
+        };
+        let x = margin.min(size.width / 2.0);
+        let y = margin.min(size.height / 2.0);
+        Rect {
+            x,
+            y,
+            width: size.width - 2.0 * x,
+            height: size.height - 2.0 * y,
+        }
+    }
+}
+
 /// Props of an `Overlay` node. While it is shown, a host sends
 /// `HostEvent::A11y` with `A11yRequest::Dismiss(DismissReason::OutsidePress)`
 /// to an overlay whose `Actions` offer `Dismiss` when a pointer press lands
@@ -266,6 +293,8 @@ pub struct OverlayProps {
     pub align: OverlayAlign,
     /// The gap between the anchor and the overlay (logical px).
     pub offset: f32,
+    /// Optional viewport bounds and ordered placement fallback.
+    pub fit: Option<OverlayFit>,
     /// Confine interaction to this overlay while shown.
     pub modal: bool,
 }

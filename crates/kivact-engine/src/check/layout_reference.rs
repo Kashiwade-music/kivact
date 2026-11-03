@@ -22,6 +22,13 @@ impl Model {
             .layout_columns
             .compare_measurements(&self.tree, &mut leaves);
         columns.compute(&fresh, &mut state, self.viewport, &mut leaves);
+        // Placement reads anchor bounds from the model. Give it the fresh
+        // geometry during the second pass, then restore the retained owners.
+        std::mem::swap(&mut self.layout_columns, &mut columns);
+        std::mem::swap(&mut self.layout_state, &mut state);
+        self.refit_tooltips(engine, false);
+        std::mem::swap(&mut self.layout_columns, &mut columns);
+        std::mem::swap(&mut self.layout_state, &mut state);
         differences.extend(self.layout_columns.compare(&columns, &self.tree));
         differences
             .into_iter()

@@ -165,6 +165,11 @@ Every standard component picks the new accent up. The same works for
 family), `with_control_height` and `with_icons`. Starting from a kit's theme
 instead of `Theme::light()` keeps the kit's recipes and tokens.
 
+Install `kivact::view::OverlayViewport::new(16.0)` with `Theme::with`
+to fit overlays inside a 16 px viewport margin. Anchored overlays try
+flips, spans and slides before clamping. Use `Overlay::viewport_margin`
+to set the margin on an individual layer.
+
 ## Change how one standard component looks
 
 Tokens change everything at once. To change one part of one component, wrap its

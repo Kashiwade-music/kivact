@@ -141,6 +141,11 @@ fn main() -> kivact::Result<()> {
 
 標準コンポーネントはすべて新しいアクセントを使います。`with_space`、`with_radius`、`with_text`(文字サイズと既定のフォントファミリー)、`with_control_height`、`with_icons` も同じように使えます。`Theme::light()` ではなくキットのテーマから始めると、キットの recipe とトークンが保たれます。
 
+`Theme::with` で `kivact::view::OverlayViewport::new(16.0)` を設定すると、
+オーバーレイをウィンドウ端から 16 px 内側に配置します。アンカー付きの
+オーバーレイは反転、整列範囲の拡張、スライドの順に試します。
+個別の余白は `Overlay::viewport_margin` で指定できます。
+
 ## 標準コンポーネントの見た目を 1 つ変える
 
 トークンは全体を一度に変えます。1 つのコンポーネントの 1 つの部位だけを変えるには、その **recipe** を包みます。recipe は、テーマと部位の状態から `Style` を返す関数です。recipe の表が `UiRecipes` で、`Theme::with` で載せます。
