@@ -138,7 +138,7 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
         &grid.variants,
         move || state.get(),
     );
-    let handle = grid.widths.map(|_| {
+    let handle = (grid.widths.is_some() && column.is_resizable()).then(|| {
         node()
             .part(grid.behavior.resize(index))
             .name(message_with(

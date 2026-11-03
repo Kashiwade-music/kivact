@@ -121,6 +121,7 @@ pub struct SplitterApi {
 #[derive(Clone, Copy, Default)]
 struct SplitterSettings {
     key_step: Option<Value<f64>>,
+    shift_step_factor: Option<f64>,
     reset: Option<Value<Option<f64>>>,
     scale: Option<Value<f64>>,
     disabled: Option<Value<bool>>,
@@ -172,6 +173,13 @@ impl SplitterApi {
     pub(crate) fn key_step_value(self, step: Value<f64>) -> Self {
         self.settings
             .update(|settings| settings.key_step = Some(step));
+        self
+    }
+
+    /// Multiply the step for shifted arrow keys (used by column resizers).
+    pub(crate) fn shift_step_factor(self, factor: f64) -> Self {
+        self.settings
+            .update(|settings| settings.shift_step_factor = Some(factor));
         self
     }
 
@@ -348,9 +356,15 @@ impl SplitterApi {
             if self.is_disabled() {
                 return Handled::No;
             }
+            let factor = if event.modifiers.shift {
+                self.settings
+                    .with_untracked(|settings| settings.shift_step_factor.unwrap_or(1.0))
+            } else {
+                1.0
+            };
             let accepted = match event.key {
-                key if key == shrink_key => once(&|ops, step| ops.step_by(-1.0, step)),
-                key if key == grow_key => once(&|ops, step| ops.step_by(1.0, step)),
+                key if key == shrink_key => once(&|ops, step| ops.step_by(-1.0, step * factor)),
+                key if key == grow_key => once(&|ops, step| ops.step_by(1.0, step * factor)),
                 Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),
                 Key::End => once(&|ops, _| ops.set(range.get_untracked().max())),
                 Key::Enter => reset(),

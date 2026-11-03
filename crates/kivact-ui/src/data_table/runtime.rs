@@ -41,11 +41,13 @@ where
         page,
         filter,
         widths,
+        resize_range,
         row_label,
         actions,
         reorder,
         toolbar,
         footer,
+        empty,
         details,
         cells,
         focus,
@@ -115,7 +117,10 @@ where
     }));
     model.sort(sort);
     if let Some(sizes) = widths {
-        behavior = share_widths(behavior, sizes, columns.len());
+        let range = resize_range.unwrap_or_else(|| {
+            ScalarRange::new(MIN_WIDTH, MAX_WIDTH).expect("invariant: finite column bounds")
+        });
+        behavior = share_widths(behavior, sizes, columns.len(), range);
     }
     let visible = memo(move || {
         model
@@ -163,17 +168,24 @@ where
         move |row| key(row),
         move |id, item| rows::body(&grid, id, item),
     );
-    let empty = show(
+    let empty_view = show(
         move || display.with(Vec::is_empty),
-        || {
-            text(message("data_table.empty", "No results found.")).style(
-                style()
-                    .padding(24)
-                    .color(kivact_core::style::ColorToken::TextMuted),
+        move || {
+            empty.as_ref().map_or_else(
+                || {
+                    text(message("data_table.empty", "No results found."))
+                        .style(
+                            style()
+                                .padding(24)
+                                .color(kivact_core::style::ColorToken::TextMuted),
+                        )
+                        .into_view()
+                },
+                |empty| empty(),
             )
         },
     );
-    let grid = column((head, column((body, empty)).role(Role::RowGroup)))
+    let grid = column((head, column((body, empty_view)).role(Role::RowGroup)))
         .part(behavior.grid())
         .name(message("data_table.label", "Data table"))
         .style(
@@ -200,6 +212,7 @@ fn share_widths<K: Clone + Eq + Hash + 'static>(
     behavior: kivact_interaction::Table<K, usize>,
     sizes: Binding<Vec<f32>>,
     count: usize,
+    range: ScalarRange,
 ) -> kivact_interaction::Table<K, usize> {
     let current = sizes.into_value();
     behavior
@@ -225,9 +238,6 @@ fn share_widths<K: Clone + Eq + Hash + 'static>(
                 sizes.set(next);
             },
         ))
-        .resize_limits(
-            ScalarRange::new(MIN_WIDTH, MAX_WIDTH).expect("invariant: finite column bounds"),
-            KEY_STEP,
-        )
+        .resize_limits(range, KEY_STEP)
         .expect("invariant: positive finite column key step")
 }

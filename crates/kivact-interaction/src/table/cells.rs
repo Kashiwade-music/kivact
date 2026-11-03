@@ -40,14 +40,18 @@ pub(super) fn row<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static
     let is_active = memo(move || {
         key.with(|key| active.with(|active| active.as_ref().is_some_and(|(row, _)| row == key)))
     });
-    part(move |input| TableRowState {
+    let row = part(move |input| TableRowState {
         input,
         selected: is_selected.get(),
         active: is_active.get(),
     })
     .role(Role::Row)
-    .name(row_name(&state, key))
-    .selected(is_selected)
+    .name(row_name(&state, key));
+    if state.focus == TableFocus::None {
+        row
+    } else {
+        row.selected(is_selected)
+    }
 }
 
 /// A cell: with cell focus it is a grid cell with the roving tab stop.
@@ -60,13 +64,18 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
     let id = var((key, column));
     let selected = state.list.selected();
     let is_selected = memo(move || id.with(|(key, _)| selected.with(|s| s.contains(key))));
-    if matches!(state.focus, TableFocus::Rows(_)) {
+    if !matches!(state.focus, TableFocus::Cells(_)) {
+        let role = if state.focus == TableFocus::None {
+            Role::Cell
+        } else {
+            Role::GridCell
+        };
         return part(move |input| TableCellState {
             input,
             selected: is_selected.get(),
             active: false,
         })
-        .role(Role::GridCell);
+        .role(role);
     }
     let active = state.active;
     let is_active = memo(move || id.with(|id| active.with(|active| active.as_ref() == Some(id))));

@@ -45,6 +45,7 @@ pub struct DataColumn<R> {
     text: RowText<R>,
     cell: Option<CellView<R>>,
     numeric: bool,
+    resizable: bool,
 }
 
 impl<R> Clone for DataColumn<R> {
@@ -54,6 +55,7 @@ impl<R> Clone for DataColumn<R> {
             text: self.text.clone(),
             cell: self.cell.clone(),
             numeric: self.numeric,
+            resizable: self.resizable,
         }
     }
 }
@@ -66,6 +68,7 @@ impl<R: 'static> DataColumn<R> {
             text: Rc::new(text),
             cell: None,
             numeric: false,
+            resizable: true,
         }
     }
 
@@ -122,6 +125,16 @@ impl<R: 'static> DataColumn<R> {
     pub fn width(mut self, width: f32) -> Self {
         self.def = self.def.width((width > 0.0).then_some(f64::from(width)));
         self
+    }
+
+    /// Whether to show a resize handle when the table has bound widths.
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
+        self
+    }
+
+    pub(crate) fn is_resizable(&self) -> bool {
+        self.resizable
     }
 
     /// The title as a value of the current owner. Setup only.

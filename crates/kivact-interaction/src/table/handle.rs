@@ -222,12 +222,13 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         self.state().list.select(key, gesture)
     }
 
-    /// Grid semantics and multiselection, without appearance or children.
+    /// Table or grid semantics, without appearance or children.
     #[track_caller]
     pub fn grid(self) -> Part<PartState> {
         let state = self.state();
         require_setup("Table::grid");
         match state.focus {
+            TableFocus::None => part(|input| input).role(Role::Table),
             TableFocus::Rows(_) => state.list.list().role(Role::Grid),
             TableFocus::Cells(_) => part(|input| input)
                 .role(Role::Grid)
@@ -313,7 +314,8 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         cells::row(state, key)
     }
 
-    /// A cell; with [`TableFocus::Cells`] it takes the roving focus and the
+    /// A cell; with [`TableFocus::None`] it has the native `Cell` role. With
+    /// [`TableFocus::Cells`] it takes the roving focus and the
     /// grid keys. With [`TableFocus::Rows`], callers normally render passive
     /// cells with `Role::GridCell` and attach only [`row`](Self::row) as the
     /// input target, so pointer selection and dragging reach the row.
@@ -369,6 +371,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
             Orientation::Horizontal,
         )
         .key_step_value(step)
+        .shift_step_factor(5.0)
         .handle()
     }
 }

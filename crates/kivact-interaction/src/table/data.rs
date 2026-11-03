@@ -51,6 +51,9 @@ impl From<SortOrder> for SortDirection {
 /// the policy they use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TableFocus {
+    /// A semantic table with passive rows and cells. Controls placed in a
+    /// header or cell still use their own keyboard focus rules.
+    None,
     /// A data grid: one cell is the tab stop and the grid keys move between
     /// cells. Use it when cells hold data a user reads or edits one by one.
     /// `range` reads the selection modifiers; the cell keys replace the list's
@@ -95,6 +98,6 @@ pub struct TableCellState {
     pub input: PartState,
     /// The cell's row is selected.
     pub selected: bool,
-    /// The cell holds the tab stop; always false with [`TableFocus::Rows`].
+    /// The cell holds the tab stop only with [`TableFocus::Cells`].
     pub active: bool,
 }

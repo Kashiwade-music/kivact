@@ -6,10 +6,10 @@
 //! public API.
 
 use crate::support::mount_with;
-use kivact::interaction::SortOrder;
+use kivact::interaction::{ScalarRange, SortOrder, TableFocus};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, WindowMode};
-use kivact::view::SortDirection;
+use kivact::view::{A11yAction, Modifiers, SortDirection};
 
 #[derive(Clone, Debug, PartialEq)]
 struct Person {
@@ -81,6 +81,63 @@ fn a_table_names_its_grid_headers_rows_and_cells() {
     assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     screen.assert_layout();
+}
+
+#[test]
+fn passive_data_table_uses_table_roles_and_a_caller_supplied_empty_state() {
+    let (screen, rows) = mount_with(options(), || {
+        let rows = signal(Vec::<Person>::new());
+        (
+            rows,
+            data_table(rows, |p: &Person| p.id, columns())
+                .focus(TableFocus::None)
+                .empty(|| text("No people")),
+        )
+    });
+    screen.get_by_role(Role::Table, "Data table");
+    screen.get_by_text("No people");
+    rows.set(people());
+    screen.run_until_idle();
+    screen.get_by_role(Role::Row, "Ada");
+    assert!(
+        !screen
+            .get_by_role(Role::Cell, "Grace")
+            .a11y_actions()
+            .contains(&A11yAction::Focus)
+    );
+    assert!(screen.query_by_role(Role::Grid, "Data table").is_none());
+    assert!(screen.query_by_role(Role::Text, "No people").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn column_resize_has_shift_steps_and_respects_columns_without_handles() {
+    let (screen, widths) = mount_with(options(), || {
+        let widths = signal(vec![120.0, 80.0]);
+        let mut columns = columns();
+        columns[1] = columns[1].clone().resizable(false);
+        (
+            widths,
+            data_table(people(), |p: &Person| p.id, columns)
+                .resizable(widths)
+                .resize_range(ScalarRange::new(50.0, 400.0).expect("valid column range")),
+        )
+    });
+    assert!(screen.query_by_role(Role::Splitter, "Resize Age").is_none());
+    let handle = screen.get_by_role(Role::Splitter, "Resize Name");
+    handle.press_key_with(
+        Key::ArrowRight,
+        Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        },
+    );
+    assert_eq!(widths.get_untracked(), [170.0, 80.0]);
+    handle.press_key(Key::Home);
+    assert_eq!(widths.get_untracked(), [50.0, 80.0]);
+    handle.press_key(Key::End);
+    assert_eq!(widths.get_untracked(), [400.0, 80.0]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]

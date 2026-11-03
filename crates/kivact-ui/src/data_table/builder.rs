@@ -8,7 +8,7 @@ use kivact_core::primitive::PartState;
 use kivact_core::style::Color;
 use kivact_core::view::{HandlerResult, IntoValue, IntoView, Role, callback};
 use kivact_core::{Binding, Value};
-use kivact_interaction::{SortOrder, TableFocus};
+use kivact_interaction::{ScalarRange, SortOrder, TableFocus};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -108,11 +108,13 @@ where
         page: None,
         filter: None,
         widths: None,
+        resize_range: None,
         row_label: None,
         actions: None,
         reorder: None,
         toolbar: None,
         footer: None,
+        empty: None,
         details: None,
         cells: None,
         focus: TableFocus::default(),
@@ -185,6 +187,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Limit column resize operations to the given logical pixel range.
+    /// The default range is 18 to 2048 pixels.
+    pub fn resize_range(mut self, range: ScalarRange) -> Self {
+        self.resize_range = Some(range);
+        self
+    }
+
     /// Name each row with `label`: the accessible name of the row, of its
     /// check box and its typeahead text. Without it a row is named by its
     /// first column's text.
@@ -238,6 +247,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Replace the message shown when filtering or paging leaves no rows.
+    /// The factory runs each time the empty state appears.
+    pub fn empty<V: IntoView>(mut self, empty: impl Fn() -> V + 'static) -> Self {
+        self.empty = Some(Box::new(move || empty().into_view()));
+        self
+    }
+
     /// Put the view `details` builds under each row, built once per keyed
     /// row from its reactive value, so it stays mounted while the row is
     /// edited, sorted or paged. The caller controls whether it is shown.
@@ -265,7 +281,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Choose what takes the keyboard focus: a cell ([`TableFocus::Cells`],
     /// the default, with a check box for each row when the table has a
-    /// selection) or a row ([`TableFocus::Rows`]). The variant carries the
+    /// selection), a row ([`TableFocus::Rows`]), or neither in a semantic
+    /// table ([`TableFocus::None`]). The variant carries the
     /// selection range policy (and, for rows, the whole list policy) of the
     /// shared table.
     pub fn focus(mut self, focus: TableFocus) -> Self {

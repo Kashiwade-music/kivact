@@ -5,7 +5,7 @@ use kivact_core::control::Node;
 use kivact_core::style::Color;
 use kivact_core::view::View;
 use kivact_core::{Binding, Callback, Value};
-use kivact_interaction::{SortOrder, TableFocus, TableModel};
+use kivact_interaction::{ScalarRange, SortOrder, TableFocus, TableModel};
 use std::rc::Rc;
 
 /// The sorted column (an index into the columns) and its direction.
@@ -60,11 +60,13 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) page: Option<Paging>,
     pub(super) filter: Option<Binding<String>>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
+    pub(super) resize_range: Option<ScalarRange>,
     pub(super) row_label: Option<RowName<R>>,
     pub(super) actions: Option<(f32, RowSlot<R>)>,
     pub(super) reorder: Option<Callback<(K, usize)>>,
     pub(super) toolbar: Option<Slot<R, K>>,
     pub(super) footer: Option<Slot<R, K>>,
+    pub(super) empty: Option<Box<dyn Fn() -> View>>,
     pub(super) details: Option<RowSlot<R>>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) focus: TableFocus,

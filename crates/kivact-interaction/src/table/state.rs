@@ -67,6 +67,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
         })
     });
     let policy = match focus {
+        TableFocus::None => ListPolicy::default(),
         TableFocus::Rows(policy) => policy,
         TableFocus::Cells(range) => ListPolicy {
             range,
