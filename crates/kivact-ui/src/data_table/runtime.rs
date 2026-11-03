@@ -38,6 +38,7 @@ where
         columns,
         selection,
         sort,
+        multi_sort,
         page,
         filter,
         widths,
@@ -57,7 +58,7 @@ where
     } = table;
     // A reorder keeps the caller's order, which a sort the table cannot
     // clear would break.
-    let sortable = sort.is_some() || reorder.is_none();
+    let sortable = sort.is_some() || multi_sort.is_some() || reorder.is_none();
     let definitions = columns
         .iter()
         .enumerate()
@@ -108,14 +109,31 @@ where
     });
     // The model sorts by the table's sort: the caller's, or the table's own,
     // which the headers write. A new sort shows the first page.
-    let sort: Binding<Option<(usize, SortOrder)>> = sort.unwrap_or_else(|| signal(None).into());
-    behavior = behavior.sort(binding(sort, move |next| {
-        sort.set(next);
-        if let Some((index, _)) = page {
-            index.set(0);
-        }
-    }));
-    model.sort(sort);
+    let sort: Binding<Option<(usize, SortOrder)>> = if let Some(multi_sort) = multi_sort {
+        let multi_sort = binding(multi_sort, move |next| {
+            multi_sort.set(next);
+            if let Some((index, _)) = page {
+                index.set(0);
+            }
+        });
+        behavior = behavior.multi_sort(multi_sort);
+        model.multi_sort(multi_sort.into_value());
+        // Existing toolbar/footer and row reordering use the primary sort.
+        binding(
+            move || multi_sort.with(|keys| keys.first().copied()),
+            move |next: Option<(usize, SortOrder)>| multi_sort.set(next.into_iter().collect()),
+        )
+    } else {
+        let sort = sort.unwrap_or_else(|| signal(None).into());
+        behavior = behavior.sort(binding(sort, move |next| {
+            sort.set(next);
+            if let Some((index, _)) = page {
+                index.set(0);
+            }
+        }));
+        model.sort(sort);
+        sort
+    };
     if let Some(sizes) = widths {
         let range = resize_range.unwrap_or_else(|| {
             ScalarRange::new(MIN_WIDTH, MAX_WIDTH).expect("invariant: finite column bounds")

@@ -81,6 +81,8 @@ pub struct TableHeaderState {
     /// The column's sort direction; `None` while the table is not sorted by it.
     pub sort: Option<SortOrder>,
     pub sortable: bool,
+    /// One-based priority in an active multi-column sort.
+    pub sort_rank: Option<usize>,
 }
 
 /// The selection, roving focus and actual input state of a row.

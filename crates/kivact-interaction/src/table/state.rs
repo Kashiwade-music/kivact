@@ -30,6 +30,7 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + '
     pub(super) focus: TableFocus,
     pub(super) label: Signal<Option<Label<K>>>,
     pub(super) sort: Signal<Binding<Option<(C, SortOrder)>>>,
+    pub(super) multi_sort: Signal<Option<Binding<Vec<(C, SortOrder)>>>>,
     pub(super) widths: Signal<Binding<HashMap<C, f64>>>,
     pub(super) resize: Signal<(ScalarRange, f64)>,
     headers: RefCell<HashMap<C, NodeRef>>,
@@ -127,6 +128,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
         focus,
         label,
         sort,
+        multi_sort: signal(None),
         widths: signal(Binding::from(widths)),
         resize: signal((
             ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),

@@ -57,6 +57,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     pub(super) selection: Option<Binding<Vec<K>>>,
     pub(super) sort: Option<Sort>,
+    pub(super) multi_sort: Option<Binding<Vec<(usize, SortOrder)>>>,
     pub(super) page: Option<Paging>,
     pub(super) filter: Option<Binding<String>>,
     pub(super) widths: Option<Binding<Vec<f32>>>,

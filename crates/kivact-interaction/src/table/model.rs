@@ -11,7 +11,7 @@ type Compare<R> = Rc<dyn Fn(&R, &R) -> Ordering>;
 type Matches<R> = Rc<dyn Fn(&R, &str) -> bool>;
 type KeyOf<R, K> = Rc<dyn Fn(&R) -> K>;
 /// The caller's sort column and direction.
-type Sort<C> = Binding<Option<(C, SortOrder)>>;
+type Sort<C> = Value<Vec<(C, SortOrder)>>;
 
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack Table's column definition), and
@@ -297,7 +297,7 @@ where
                 .get()
                 .map(|query| query.get().trim().to_string())
                 .unwrap_or_default();
-            let sort = sort.get().and_then(|sort| sort.get());
+            let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
             rows.with(|rows| {
                 let mut kept: Vec<usize> = if query.is_empty() {
                     (0..rows.len()).collect()
@@ -310,18 +310,27 @@ where
                         .filter(|&i| matchers.iter().any(|matches| matches(&rows[i], &query)))
                         .collect()
                 };
-                let compare = sort.and_then(|(key, direction)| {
-                    let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
-                    Some((compare, direction))
-                });
-                if let Some((compare, direction)) = compare {
+                let comparisons: Vec<_> = sort
+                    .into_iter()
+                    .filter_map(|(key, direction)| {
+                        let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
+                        Some((compare, direction))
+                    })
+                    .collect();
+                if !comparisons.is_empty() {
                     kept.sort_by(|&a, &b| {
-                        let order = compare(&rows[a], &rows[b]);
-                        if direction == SortOrder::Descending {
-                            order.reverse()
-                        } else {
-                            order
-                        }
+                        comparisons
+                            .iter()
+                            .find_map(|(compare, direction)| {
+                                let order = compare(&rows[a], &rows[b]);
+                                let order = if *direction == SortOrder::Descending {
+                                    order.reverse()
+                                } else {
+                                    order
+                                };
+                                (order != Ordering::Equal).then_some(order)
+                            })
+                            .unwrap_or(Ordering::Equal)
                     });
                 }
                 kept
@@ -387,7 +396,13 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     #[track_caller]
     pub fn sort(self, sort: impl Into<Binding<Option<(C, SortOrder)>>>) -> Self {
         let sort = sort.into();
-        self.sort.update(|current| *current = Some(sort));
+        self.multi_sort(move || sort.get().into_iter().collect())
+    }
+
+    /// Sort by an ordered list of column keys, with the first key primary.
+    /// Rows equal on every key retain their original order. Setup only.
+    pub fn multi_sort(self, sort: impl IntoValue<Vec<(C, SortOrder)>>) -> Self {
+        self.sort.set(Some(sort.into_value()));
         self
     }
 

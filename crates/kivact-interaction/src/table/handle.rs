@@ -9,7 +9,7 @@ use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use crate::{ListGesture, ListMode, ListSelection, SplitterState, use_splitter};
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{Owned, Part, PartState, part, raise, require_setup};
-use kivact_core::view::{IntoValue, Orientation, Role, SortDirection};
+use kivact_core::view::{IntoValue, Orientation, Role, SortDirection, current_modifiers};
 use kivact_core::{Binding, Value, binding, memo, var};
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -166,6 +166,19 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         require_setup("Table::sort");
         let sort = sort.into();
         state.sort.update(|current| *current = sort);
+        state.multi_sort.update(|current| *current = None);
+        self
+    }
+
+    /// Use ordered sort keys. Shift-activation updates one key; ordinary
+    /// activation replaces the list. Each key cycles ascending, descending,
+    /// and unsorted. Setup only.
+    #[track_caller]
+    pub fn multi_sort(self, sort: impl Into<Binding<Vec<(C, SortOrder)>>>) -> Self {
+        require_setup("Table::multi_sort");
+        self.state()
+            .multi_sort
+            .update(|current| *current = Some(sort.into()));
         self
     }
 
@@ -242,7 +255,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         let state = self.state();
         require_setup("Table::header");
         let reference = state.header_ref(&column);
-        let (columns, sort) = (state.columns, state.sort);
+        let (columns, sort, multi_sort) = (state.columns, state.sort, state.multi_sort);
         let key = var(column);
         let info = memo(move || {
             key.with(|key| {
@@ -257,6 +270,14 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         let sortable = memo(move || info.with(|info| info.as_ref().is_some_and(|info| info.1)));
         let direction = memo(move || {
             key.with(|key| {
+                if let Some(multi_sort) = multi_sort.get() {
+                    return multi_sort.with(|items| {
+                        items
+                            .iter()
+                            .find(|(column, _)| column == key)
+                            .map(|(_, order)| *order)
+                    });
+                }
                 sort.with(|sort| {
                     sort.with(|sort| match sort {
                         Some((column, order)) if column == key => Some(*order),
@@ -265,10 +286,34 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                 })
             })
         });
+        let rank = memo(move || {
+            multi_sort.get().and_then(|sort| {
+                sort.with(|items| {
+                    if items.len() < 2 {
+                        return None;
+                    }
+                    key.with(|key| {
+                        items
+                            .iter()
+                            .position(|(column, _)| column == key)
+                            .map(|index| (index + 1, items.len()))
+                    })
+                })
+            })
+        });
+        let priority = kivact_core::i18n::message_with(
+            "data_table.sort_priority",
+            "Priority {rank} of {total}",
+            move || {
+                let (rank, total) = rank.get().unwrap_or_default();
+                [("rank", rank.to_string()), ("total", total.to_string())]
+            },
+        );
         part(move |input| TableHeaderState {
             input,
             sort: direction.get(),
             sortable: sortable.get(),
+            sort_rank: rank.get().map(|(rank, _)| rank),
         })
         .role(Role::ColumnHeader)
         .name(move || {
@@ -281,8 +326,39 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                 .map_or(SortDirection::None, SortDirection::from)
         })
         .focusable(sortable)
+        .description(move || {
+            if rank.get().is_some() {
+                priority.get()
+            } else {
+                String::new()
+            }
+        })
         .on_press(move || {
             if !sortable.get() {
+                return;
+            }
+            if let Some(binding) = multi_sort.get_untracked() {
+                let column = key.get();
+                let mut keys = binding.get_untracked();
+                let index = keys.iter().position(|(key, _)| *key == column);
+                let next = match index.map(|index| keys[index].1) {
+                    None => Some(SortOrder::Ascending),
+                    Some(SortOrder::Ascending) => Some(SortOrder::Descending),
+                    Some(SortOrder::Descending) => None,
+                };
+                if !current_modifiers().shift {
+                    keys.clear();
+                    keys.extend(next.map(|next| (column, next)));
+                } else if let Some(index) = index {
+                    if let Some(next) = next {
+                        keys[index].1 = next;
+                    } else {
+                        keys.remove(index);
+                    }
+                } else if let Some(next) = next {
+                    keys.push((column, next));
+                }
+                binding.set(keys);
                 return;
             }
             let next = match direction.get() {

@@ -105,6 +105,7 @@ where
         columns: Rc::new(columns),
         selection: None,
         sort: None,
+        multi_sort: None,
         page: None,
         filter: None,
         widths: None,
@@ -158,6 +159,17 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// [`on_reorder`](Self::on_reorder), which then keeps the caller's order.
     pub fn sort(mut self, sort: impl Into<Binding<Option<(usize, SortOrder)>>>) -> Self {
         self.sort = Some(sort.into());
+        self.multi_sort = None;
+        self
+    }
+
+    /// Opt in to ordered multi-column sorting. Shift-click or Shift-activate
+    /// a header to append or cycle that column without replacing the other
+    /// keys. Normal activation replaces the sort. Each key cycles ascending,
+    /// descending, and unsorted. Column indices refer to the original order.
+    pub fn multi_sort(mut self, sort: impl Into<Binding<Vec<(usize, SortOrder)>>>) -> Self {
+        self.multi_sort = Some(sort.into());
+        self.sort = None;
         self
     }
 

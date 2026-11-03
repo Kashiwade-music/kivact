@@ -255,3 +255,45 @@ fn proportional_columns_share_space_and_resizing_respects_the_column_minimum() {
     assert!((first.rect().expect("laid out resized header").width - 130.0).abs() < 1.0);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn multi_sort_keeps_stable_ties_and_shift_cycles_the_secondary_key() {
+    let (screen, sort) = mount_with(options(), || {
+        let sort = signal(vec![(1, SortOrder::Ascending)]);
+        let mut columns = columns();
+        columns[1] = columns[1]
+            .clone()
+            .compare(|a, b| (a.age / 10).cmp(&(b.age / 10)));
+        (
+            sort,
+            data_table(people(), |p: &Person| p.id, columns).multi_sort(sort),
+        )
+    });
+    assert_eq!(names(&screen), ["Linus", "Ada", "Grace", "Alan", "Edsger"]);
+
+    let name = screen.get_by_role(Role::ColumnHeader, "Name");
+    let shift = Modifiers {
+        shift: true,
+        ..Modifiers::default()
+    };
+    name.press_key_with(Key::Enter, shift);
+    assert_eq!(
+        sort.get_untracked(),
+        [(1, SortOrder::Ascending), (0, SortOrder::Ascending)]
+    );
+    assert_eq!(names(&screen), ["Linus", "Ada", "Alan", "Grace", "Edsger"]);
+    assert_eq!(name.sort(), SortDirection::Ascending);
+
+    name.press_key_with(Key::Enter, shift);
+    assert_eq!(
+        sort.get_untracked(),
+        [(1, SortOrder::Ascending), (0, SortOrder::Descending)]
+    );
+    name.press_key_with(Key::Enter, shift);
+    assert_eq!(sort.get_untracked(), [(1, SortOrder::Ascending)]);
+    assert_eq!(name.sort(), SortDirection::None);
+
+    name.click();
+    assert_eq!(sort.get_untracked(), [(0, SortOrder::Ascending)]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
