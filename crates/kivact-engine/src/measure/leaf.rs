@@ -431,4 +431,20 @@ impl kivact_wire::TextShaper for LeafText<'_> {
         let inherited = self.inherited(run);
         kivact_lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
     }
+
+    fn shape_inline(
+        &self,
+        run: &kivact_wire::TextRun,
+        max_width: Option<f32>,
+        boxes: &[kivact_wire::InlineBox],
+    ) -> Option<kivact_wire::ShapedInlineText> {
+        let inherited = self.inherited(run);
+        kivact_lower::glyphs::shape_inline_run(
+            &mut self.engine.borrow_mut(),
+            run,
+            inherited,
+            max_width,
+            boxes,
+        )
+    }
 }

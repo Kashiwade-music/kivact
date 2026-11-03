@@ -36,6 +36,37 @@ use super::recorder::Draw;
 use super::text_run::{TextRun, TextStyle};
 use crate::geometry::{Point, Rect, Size};
 
+/// A shaped paragraph with positions for measured in-flow objects.
+///
+/// Draw the text with [`Draw::paragraph`] and position each object using
+/// [`Self::boxes`]. This does not mount nodes or define text selection
+/// across objects. The paragraph's caret APIs are unavailable.
+#[derive(Clone, Debug)]
+pub struct InlineParagraph {
+    text: TextParagraph,
+    boxes: Vec<p::InlineBoxPlacement>,
+}
+
+impl InlineParagraph {
+    /// Convert a host shaping snapshot into a drawable paragraph and object positions.
+    pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f32>) -> Self {
+        Self {
+            text: TextParagraph::from_shaped(text, shaped.text, max_width),
+            boxes: shaped.boxes,
+        }
+    }
+
+    /// The glyph and line layout, drawable with [`Draw::paragraph`].
+    pub fn paragraph(&self) -> &TextParagraph {
+        &self.text
+    }
+
+    /// The objects' logical boxes in visual line order.
+    pub fn boxes(&self) -> &[p::InlineBoxPlacement] {
+        &self.boxes
+    }
+}
+
 /// Text shaped by the host in a style, at a width.
 ///
 /// Made by `Constraints::measure_paragraph` (in a measure function) or
@@ -270,6 +301,30 @@ impl Draw {
             .and_then(|shaper| shaper.shape(run.as_wire(), max_width))
             .unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
+    }
+
+    /// Shape text around measured inline objects with the window's engine.
+    /// Returns `None` when the host cannot shape the input.
+    pub fn layout_inline_paragraph(
+        &self,
+        text: &str,
+        style: &TextStyle,
+        max_width: Option<f32>,
+        boxes: &[p::InlineBox],
+    ) -> Option<InlineParagraph> {
+        let run = TextRun::from_style(
+            text,
+            p::Point::default(),
+            style,
+            1.0,
+            p::Rgba::TRANSPARENT,
+            None,
+        );
+        let shaped = self
+            .measurer
+            .as_ref()?
+            .shape_inline(run.as_wire(), max_width, boxes)?;
+        Some(InlineParagraph::from_shaped(text, shaped, max_width))
     }
 
     /// Draw `paragraph` with its top left at `origin`, in `color`: the glyphs

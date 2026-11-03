@@ -60,6 +60,32 @@ fn shaped<'t>(
 }
 
 #[test]
+fn capsize_uses_shaped_cap_height_and_last_visible_baseline() {
+    let mut engine = inter();
+    let normal_style = TextStyle {
+        max_lines: Some(2),
+        ..style(24.0)
+    };
+    let cap_style = TextStyle {
+        capsize: true,
+        ..normal_style.clone()
+    };
+    let text = "AHoy\nAXgy\nClamped";
+    let plain = shaped(&mut engine, text, &normal_style, Some(160.0));
+    let trimmed = shaped(&mut engine, text, &cap_style, Some(160.0));
+    assert_eq!(trimmed.lines.len(), 2);
+    assert!(trimmed.lines[1].cut);
+    let cap = plain.lines[0].cap_height;
+    assert!(cap > 0.0);
+    let shift = plain.lines[0].baseline - cap;
+    assert!((trimmed.baseline - cap).abs() < 0.01);
+    assert!((trimmed.size.height - (plain.lines[1].baseline - shift)).abs() < 0.01);
+    assert!((trimmed.lines[1].baseline - trimmed.size.height).abs() < 0.01);
+    assert!((trimmed.runs[0].glyphs[0].y - (plain.runs[0].glyphs[0].y - shift)).abs() < 0.01);
+    assert_eq!(trimmed.size.width, plain.size.width);
+}
+
+#[test]
 fn letter_spacing_adds_its_space_after_every_character() {
     let mut engine = engine();
     let plain = shaped(&mut engine, "spacing", &style(16.0), None);

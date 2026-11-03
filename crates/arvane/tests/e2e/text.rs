@@ -4,7 +4,8 @@
 //! families are known and registered, unknown families fall back, white
 //! space alone never wraps, and bad input is classified.
 
-use kivact_types::protocol::{TextStyle, TextWrap};
+use kivact_types::Size;
+use kivact_types::protocol::{InlineBox, TextStyle, TextWrap};
 
 use crate::support::engine;
 
@@ -16,6 +17,37 @@ fn style(font_size: f32) -> TextStyle {
 }
 
 const PARAGRAPH: &str = "Arvane draws the frames, shapes the text and keeps the tree.";
+
+#[test]
+fn inline_box_offsets_follow_utf8_and_normalized_hard_breaks() {
+    let mut engine = engine();
+    let text = "é\r\nNext";
+    let style = style(14.0);
+    let valid = InlineBox {
+        id: 1,
+        offset: 4,
+        size: Size::new(16.0, 20.0),
+    };
+    let paragraph = engine
+        .shape_inline(text, &style, None, &[valid])
+        .expect("inline");
+    assert_eq!(paragraph.boxes.len(), 1);
+    let placed = paragraph.boxes[0];
+    assert_eq!(placed.id, 1);
+    assert_eq!(placed.line, 1);
+    assert_eq!(paragraph.text.lines[1].range.start, 4);
+    assert!((placed.rect.bottom() - paragraph.text.lines[1].baseline).abs() < 0.01);
+    assert!(
+        engine
+            .shape_inline(text, &style, None, &[InlineBox { offset: 1, ..valid }])
+            .is_err()
+    );
+    assert!(
+        engine
+            .shape_inline(text, &style, None, &[valid, valid])
+            .is_err()
+    );
+}
 
 #[test]
 fn measuring_gives_the_shaped_size() {

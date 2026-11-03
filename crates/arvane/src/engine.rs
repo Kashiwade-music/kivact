@@ -2,7 +2,7 @@
 
 use crate::asset;
 use crate::error::{self, Error};
-use kivact_types::protocol::{RichText, ShapedText, TextStyle};
+use kivact_types::protocol::{InlineBox, RichText, ShapedInlineText, ShapedText, TextStyle};
 use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -152,6 +152,21 @@ impl Engine {
         self.text
             .get_mut()
             .shape_glyphs(text.into(), style, max_width)
+            .map_err(error::text)
+    }
+
+    /// Shape a paragraph around measured objects, using text's normal line breaking.
+    /// The snapshot owns the text and the objects' positions independently of the engine.
+    pub fn shape_inline<'t>(
+        &mut self,
+        text: impl Into<RichText<'t>>,
+        style: &TextStyle,
+        max_width: Option<f32>,
+        boxes: &[InlineBox],
+    ) -> Result<ShapedInlineText, Error> {
+        self.text
+            .get_mut()
+            .shape_inline(text.into(), style, max_width, boxes)
             .map_err(error::text)
     }
 

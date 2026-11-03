@@ -1181,6 +1181,9 @@ impl Style {
         /// "…" when more follow (the box is as high as the lines shown).
         line_clamp, line_clamp, u32, |v| v);
     text_setter!(
+        /// Trim the first line to the measured cap height and the last to its baseline.
+        text_capsize, capsize, bool, |v| v);
+    text_setter!(
         /// CSS `text-transform`: draw the text in upper case, lower case
         /// or capitalized; its accessible name keeps it as written.
         text_transform, transform, TextTransform, |v| v);

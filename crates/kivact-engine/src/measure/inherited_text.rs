@@ -19,7 +19,13 @@ pub(crate) fn text_props(tree: &crate::tree::NodeTree, id: NodeId) -> ComputedTe
                     own.inherit(t);
                     own
                 }
-                None => props.insert(t.clone()),
+                None => {
+                    let mut own = t.clone();
+                    if x != id {
+                        own.capsize = None;
+                    }
+                    props.insert(own)
+                }
             };
             if own.is_complete() {
                 break;
@@ -63,6 +69,7 @@ pub(crate) fn input_style(
     style.decoration = kivact_types::protocol::TextDecoration::default();
     style.overflow = kivact_types::TextOverflow::Clip;
     style.max_lines = None;
+    style.capsize = false;
     style.transform = kivact_types::TextTransform::None;
     style
 }

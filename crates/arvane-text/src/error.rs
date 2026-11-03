@@ -13,6 +13,10 @@ pub enum TextError {
     MissingFont,
     /// Rich text spans overlap, are out of order, or cut a character.
     InvalidSpans,
+    /// An inline object cuts a character, has invalid size, or repeats an identity.
+    InvalidInlineBoxes,
+    /// The inline paragraph asks for ellipsis or a line clamp.
+    UnsupportedInlineStyle,
 }
 
 impl fmt::Display for TextError {
@@ -21,6 +25,8 @@ impl fmt::Display for TextError {
             Self::InvalidMetrics => "invalid text metrics",
             Self::InvalidFont => "font data contains no usable faces",
             Self::MissingFont => "no usable font available for text",
+            Self::InvalidInlineBoxes => "invalid inline object metrics, identity, or byte offset",
+            Self::UnsupportedInlineStyle => "inline paragraphs cannot be ellipsized or clamped",
             Self::InvalidSpans => "text spans overlap, are out of order or cut a character",
         })
     }

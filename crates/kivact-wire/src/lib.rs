@@ -52,7 +52,9 @@ pub use grid::{
 /// across updates for the same run (the host gives the platform its own
 /// identity).
 pub use kivact_types::NodeId as TextRunId;
-pub use kivact_types::protocol::{PathCmd, ShapedText, TextLine};
+pub use kivact_types::protocol::{
+    InlineBox, InlineBoxPlacement, PathCmd, ShapedInlineText, ShapedText, TextLine,
+};
 /// GPU texture sharing: kivact-types' vocabulary.
 pub use kivact_types::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,

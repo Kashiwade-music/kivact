@@ -37,6 +37,7 @@
 mod build;
 mod cache;
 mod error;
+mod inline;
 mod layouts;
 mod metrics;
 mod output;

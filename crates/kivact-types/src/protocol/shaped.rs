@@ -40,6 +40,38 @@ pub struct GlyphRun {
     pub normalized_coords: Vec<f32>,
 }
 
+/// A measured atomic object inserted at a UTF-8 boundary in a paragraph.
+/// Its bottom edge aligns with the line's baseline.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InlineBox {
+    /// Stable caller identity returned with the object's placement.
+    pub id: u64,
+    /// Byte offset in the original text, before the character at that offset.
+    pub offset: usize,
+    /// Logical size to reserve in the paragraph.
+    pub size: Size,
+}
+
+/// The logical placement of one measured object.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InlineBoxPlacement {
+    /// Identity supplied by the caller.
+    pub id: u64,
+    /// The object's box relative to the paragraph's origin.
+    pub rect: Rect,
+    /// The line containing this object, numbered from zero.
+    pub line: usize,
+}
+
+/// One paragraph and the placements of its inline objects.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ShapedInlineText {
+    /// Shaped glyphs and lines, with the objects' space reserved.
+    pub text: Arc<ShapedText>,
+    /// Objects in visual line order.
+    pub boxes: Vec<InlineBoxPlacement>,
+}
+
 /// Owned shaping snapshot; usable on any thread, independent of the
 /// engine's lifetime. All positions are logical pixels from its layout
 /// origin, before any scene transform or device raster scale.

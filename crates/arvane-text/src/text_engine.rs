@@ -204,10 +204,15 @@ impl TextEngine {
             return Err(TextError::MissingFont);
         }
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
-        Ok(TextMetrics {
+        let mut metrics = TextMetrics {
             size: plan.size,
             baseline: plan.baseline,
-        })
+        };
+        if let Some((top, bottom)) = plan.cap_edges(layout, style) {
+            metrics.size.height = bottom - top;
+            metrics.baseline -= top;
+        }
+        Ok(metrics)
     }
 
     /// Shapes, wraps, and aligns text in logical pixels using actual font glyphs.
@@ -408,7 +413,7 @@ impl TextEngine {
         } else {
             Vec::new()
         };
-        Ok(ShapedText {
+        let mut shaped = ShapedText {
             size: plan.size,
             runs: drawn.runs,
             carets,
@@ -417,7 +422,34 @@ impl TextEngine {
             decorations: drawn.decorations,
             highlights: drawn.highlights,
             lines,
-        })
+        };
+        if let Some((top, bottom)) = plan.cap_edges(layout, style) {
+            trim_capsize(&mut shaped, top, bottom);
+        }
+        Ok(shaped)
+    }
+}
+
+fn trim_capsize(shaped: &mut ShapedText, top: f32, bottom: f32) {
+    shaped.size.height = bottom - top;
+    shaped.baseline -= top;
+    for run in &mut shaped.runs {
+        for glyph in &mut Arc::make_mut(run).glyphs {
+            glyph.y -= top;
+        }
+    }
+    for line in &mut shaped.lines {
+        line.baseline -= top;
+        line.rect.y -= top;
+    }
+    for caret in &mut shaped.carets {
+        caret.rect.y -= top;
+    }
+    for decoration in &mut shaped.decorations {
+        decoration.rect.y -= top;
+    }
+    for highlight in &mut shaped.highlights {
+        highlight.rect.y -= top;
     }
 }
 
@@ -481,7 +513,7 @@ fn layout_at<'a>(
 /// Parley breaks a line at both CR and LF; a CR before LF becomes an
 /// invisible zero width space so CRLF breaks once while every scalar keeps
 /// its offset (and caret).
-fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
+pub(super) fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
     if !text.contains("\r\n") {
         return std::borrow::Cow::Borrowed(text);
     }
@@ -500,7 +532,7 @@ fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// Span ranges follow [`crlf_as_one_break`]. A CR before an LF grows from one
 /// byte to three there, so every range after it moves by two bytes. Ranges
 /// are in `text`, the layout is built on the normalized text.
-fn crlf_spans<'a>(
+pub(super) fn crlf_spans<'a>(
     text: &str,
     spans: std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]>,
 ) -> std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]> {

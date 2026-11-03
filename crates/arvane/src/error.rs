@@ -59,9 +59,10 @@ impl std::error::Error for Error {}
 
 pub(crate) fn text_kind(error: &arvane_text::TextError) -> ErrorKind {
     match error {
-        arvane_text::TextError::InvalidMetrics | arvane_text::TextError::InvalidSpans => {
-            ErrorKind::Content
-        }
+        arvane_text::TextError::InvalidMetrics
+        | arvane_text::TextError::InvalidSpans
+        | arvane_text::TextError::InvalidInlineBoxes
+        | arvane_text::TextError::UnsupportedInlineStyle => ErrorKind::Content,
         arvane_text::TextError::InvalidFont | arvane_text::TextError::MissingFont => {
             ErrorKind::Resource
         }

@@ -70,6 +70,7 @@ pub(crate) fn text(p: &wire::ComputedText) -> kivact_types::protocol::TextStyle 
         style.decoration = decoration(m.decoration, font_size);
         style.overflow = m.overflow;
         style.max_lines = m.max_lines;
+        style.capsize = m.capsize;
         style.transform = m.transform;
     }
     style

@@ -108,6 +108,28 @@ impl Constraints<'_> {
             .unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
+
+    /// Measure a paragraph around atomic inline objects with the same typography as drawing.
+    pub fn measure_inline_paragraph(
+        &self,
+        text: &str,
+        style: &TextStyle,
+        max_width: Option<f32>,
+        boxes: &[wire::InlineBox],
+    ) -> Option<kivact_style::draw::InlineParagraph> {
+        let run = TextRun::from_style(
+            text,
+            wire::Point::default(),
+            style,
+            1.0,
+            wire::Rgba::TRANSPARENT,
+            None,
+        );
+        let shaped = self.text.shape_inline(run.as_wire(), max_width, boxes)?;
+        Some(kivact_style::draw::InlineParagraph::from_shaped(
+            text, shaped, max_width,
+        ))
+    }
 }
 
 impl PartialEq for Constraints<'_> {

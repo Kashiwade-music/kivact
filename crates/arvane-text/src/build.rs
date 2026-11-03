@@ -26,6 +26,18 @@ pub(crate) fn shape_layout(
     style: &TextStyle,
     height: f32,
 ) -> parley::Layout<u32> {
+    shape_inline_layout(fonts, contexts, text, spans, style, height, &[])
+}
+
+pub(crate) fn shape_inline_layout(
+    fonts: &mut FontContext,
+    contexts: &mut LayoutContext<u32>,
+    text: &str,
+    spans: &[TextSpan],
+    style: &TextStyle,
+    height: f32,
+    boxes: &[parley::InlineBox],
+) -> parley::Layout<u32> {
     let mut builder = contexts.ranged_builder(fonts, text, 1.0, true);
     builder.push_default(StyleProperty::FontSize(style.font_size));
     builder.push_default(StyleProperty::FontWeight(FontWeight::new(f32::from(
@@ -114,6 +126,9 @@ pub(crate) fn shape_layout(
                 range,
             );
         }
+    }
+    for item in boxes {
+        builder.push_inline_box(item.clone());
     }
     builder.build(text)
 }

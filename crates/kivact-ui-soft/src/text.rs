@@ -113,6 +113,7 @@ pub struct Text {
     justify: TextJustify,
     strikethrough: Value<bool>,
     tabular_numbers: bool,
+    capsize: bool,
 }
 
 /// Show a string or a reactive text value.
@@ -133,6 +134,7 @@ pub fn text(value: impl IntoText) -> Text {
         justify: TextJustify::default(),
         strikethrough: false.into_value(),
         tabular_numbers: false,
+        capsize: false,
     }
 }
 
@@ -196,9 +198,9 @@ impl Text {
         self
     }
 
-    /// Request cap-height trim. The native line box is retained.
-    pub fn capsize(self, _on: bool) -> Self {
-        // TODO(soft-core: C-38): trim the line box to the font cap height.
+    /// Trim the text box to the first line’s cap height and last baseline.
+    pub fn capsize(mut self, on: bool) -> Self {
+        self.capsize = on;
         self
     }
 
@@ -242,10 +244,14 @@ impl IntoView for Text {
             justify,
             strikethrough,
             tabular_numbers,
+            capsize,
         } = self;
         let root = root.base_style(move || {
             let tokens = tokens();
             let mut look = type_style(&tokens, kind, heading, size, color, weight);
+            if capsize {
+                look = look.text_capsize(true);
+            }
             look = look.text_align(match (justify, current_direction()) {
                 (TextJustify::Start, ReadingDirection::Ltr)
                 | (TextJustify::End, ReadingDirection::Rtl) => TextAlign::Start,

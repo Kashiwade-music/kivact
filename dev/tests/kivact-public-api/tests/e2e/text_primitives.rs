@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::draw::{Point, Rect, TextParagraph, TextStyle};
+use kivact::draw::{InlineBox, InlineParagraph, Point, Rect, Size, TextParagraph, TextStyle};
 use kivact::prelude::*;
 use kivact::primitive::{Constraints, Primitive, primitive};
 use kivact::style::Align;
@@ -82,6 +82,55 @@ fn a_paragraph_measures_and_lays_out_the_same_shaping() {
         (rect.height - measured.size().height).abs() < 1.0,
         "{rect:?}"
     );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn measured_inline_boxes_wrap_and_share_the_text_baseline_in_draw() {
+    type Pair = (Option<InlineParagraph>, Option<InlineParagraph>);
+    let (screen, seen) = mount(|| {
+        let seen = Rc::new(RefCell::new(Pair::default()));
+        let measure = seen.clone();
+        let draw = seen.clone();
+        let item = InlineBox {
+            id: 42,
+            offset: 6,
+            size: Size::new(60.0, 32.0),
+        };
+        let text = "First word after";
+        let width = Some(68.0);
+        let view = primitive()
+            .measure(text.to_owned(), move |text: &String, c: Constraints| {
+                let result = c
+                    .measure_inline_paragraph(text, &style_14(), width, &[item])
+                    .expect("host supports inline paragraphs");
+                let size = result.paragraph().size();
+                measure.borrow_mut().0 = Some(result);
+                size
+            })
+            .draw(move |d, _| {
+                let result = d
+                    .layout_inline_paragraph(text, &style_14(), width, &[item])
+                    .expect("same inline layout during drawing");
+                d.paragraph(result.paragraph(), Point::default(), ColorToken::Text);
+                for placement in result.boxes() {
+                    d.fill_rect(placement.rect, ColorToken::Accent);
+                }
+                draw.borrow_mut().1 = Some(result);
+            });
+        (seen, column(view).style(style().align_items(Align::Start)))
+    });
+    let seen = seen.borrow();
+    let measured = seen.0.as_ref().expect("measured");
+    let drawn = seen.1.as_ref().expect("drawn");
+    assert_eq!(measured.boxes(), drawn.boxes());
+    assert_eq!(measured.paragraph().lines(), drawn.paragraph().lines());
+    let item = measured.boxes()[0];
+    assert_eq!(item.id, 42);
+    assert!(item.line > 0, "the 60 px object cannot fit after First");
+    let line = &measured.paragraph().lines()[item.line];
+    assert!((item.rect.bottom() - line.baseline).abs() < 0.01);
+    assert!(line.rect.height >= 32.0);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

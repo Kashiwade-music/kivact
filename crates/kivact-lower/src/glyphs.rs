@@ -218,3 +218,17 @@ pub fn shape_run(
     let max_width = max_width.filter(|w| w.is_finite()).map(|w| w.max(0.0));
     engine.shape(run.text.as_str(), &style, max_width).ok()
 }
+
+/// Shape a scene's text around measured objects using its inherited typography.
+pub fn shape_inline_run(
+    engine: &mut arvane::Engine,
+    run: &TextRun,
+    inherited: Option<&ComputedText>,
+    max_width: Option<f32>,
+    boxes: &[kivact_wire::InlineBox],
+) -> Option<kivact_wire::ShapedInlineText> {
+    let style = run_style(engine, run, inherited);
+    engine
+        .shape_inline(run.text.as_str(), &style, max_width, boxes)
+        .ok()
+}

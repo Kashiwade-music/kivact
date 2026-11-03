@@ -123,6 +123,22 @@ pub(crate) struct Plan {
     pub(crate) baseline: f32,
 }
 
+impl Plan {
+    /// Vertical edges of the visible cap-to-baseline box in layout coordinates.
+    pub(crate) fn cap_edges(&self, layout: &Layout<u32>, style: &TextStyle) -> Option<(f32, f32)> {
+        if !style.capsize {
+            return None;
+        }
+        let first = layout.get(0)?;
+        let last = layout.get(self.visible.checked_sub(1)?)?;
+        let cap = first
+            .runs()
+            .filter_map(|run| run.metrics().cap_height)
+            .fold(0.0f32, f32::max);
+        (cap > 0.0).then(|| (first.metrics().baseline - cap, last.metrics().baseline))
+    }
+}
+
 /// The lines `style` shows of `layout`.
 fn visible_lines(layout: &Layout<u32>, style: &TextStyle) -> usize {
     let total = layout.len();
@@ -145,11 +161,12 @@ fn justified_width(line: &parley::Line<'_, u32>) -> f32 {
     let m = line.metrics();
     let advance: f32 = line
         .items()
-        .filter_map(|item| match item {
-            PositionedLayoutItem::GlyphRun(run) => {
-                Some(run.glyphs().map(|g| g.advance).sum::<f32>())
+        .map(|item| match item {
+            PositionedLayoutItem::GlyphRun(run) => run.glyphs().map(|g| g.advance).sum::<f32>(),
+            PositionedLayoutItem::InlineBox(item) if item.kind == parley::InlineBoxKind::InFlow => {
+                item.width
             }
-            _ => None,
+            PositionedLayoutItem::InlineBox(_) => 0.0,
         })
         .sum();
     advance - m.trailing_whitespace
