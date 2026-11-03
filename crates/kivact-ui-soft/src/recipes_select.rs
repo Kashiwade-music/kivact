@@ -4,7 +4,7 @@ use crate::tokens::Tokens;
 use kivact::interaction::{ListItemState, PopupState};
 use kivact::motion::Transition;
 use kivact::style::{Align, Direction, Justify, Style, Theme, TransitionProp, pct, style};
-use kivact::ui::{Look, SelectRecipes, SelectTriggerState};
+use kivact::ui::{ControlSize, Look, SelectRecipes, SelectSheetOption, SelectTriggerState};
 
 pub(super) fn select(r: SelectRecipes) -> SelectRecipes {
     r.trigger(|_| trigger)
@@ -13,13 +13,13 @@ pub(super) fn select(r: SelectRecipes) -> SelectRecipes {
         .check(|_| check)
         .indicator(|_| indicator)
         .description(|_| {
-            |theme, _| {
+            |theme, look| {
                 let t = theme.get::<Tokens>();
-                text(
-                    style().single_line(),
-                    t.typography.supporting,
-                    t.colors.text_secondary,
-                )
+                let mut role = t.typography.supporting;
+                if look.variant::<SelectSheetOption>().is_some() {
+                    role.size_px = 14.0;
+                }
+                text(style().single_line(), role, t.colors.text_secondary)
             }
         })
 }
@@ -75,13 +75,27 @@ fn option(theme: &Theme, s: &Look<ListItemState>) -> Style {
     if s.selected {
         role.weight = t.typography.weight_medium;
     }
-    let base = text(style(), role, t.colors.text_primary)
+    let mut base = style();
+    let padding_y = if let Some(SelectSheetOption(size)) = s.variant::<SelectSheetOption>() {
+        role.size_px = 16.0;
+        role.line_height_px = 24.0;
+        let height = match size {
+            ControlSize::ExtraSmall | ControlSize::Small => 32.0,
+            ControlSize::Medium => 36.0,
+            ControlSize::Large => 40.0,
+        };
+        base = base.min_height(height);
+        (height - role.line_height_px) / 2.0
+    } else {
+        t.spacing.s1_5
+    };
+    let base = text(base, role, t.colors.text_primary)
         .width(pct(100))
         .direction(Direction::Row)
         .align_items(Align::Center)
         .justify_content(Justify::SpaceBetween)
         .padding_x(t.spacing.s2)
-        .padding_y(t.spacing.s1_5)
+        .padding_y(padding_y)
         .gap(t.spacing.s2)
         .radius(t.radius.element);
     if s.active && !s.input.disabled {

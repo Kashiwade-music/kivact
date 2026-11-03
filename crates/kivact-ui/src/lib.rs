@@ -213,7 +213,7 @@ mod tooltip;
 pub use dialog::{Dialog, DialogCenter, dialog};
 pub use menu::{Menu, menu};
 pub use radio_group::{RadioGroup, radio_group};
-pub use select::{Select, select};
+pub use select::{Select, SelectSheetOption, select};
 pub use slider::{Slider, SliderTouchMotion, range_slider, slider};
 pub use splitter::{Splitter, splitter};
 pub use tabs::{Tabs, tabs};

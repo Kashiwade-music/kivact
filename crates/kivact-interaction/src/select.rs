@@ -255,6 +255,20 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
         self.popup.shown()
     }
 
+    /// The binding shared with an alternative select surface.
+    pub fn open_binding(self) -> Binding<bool> {
+        self.popup.open_binding()
+    }
+
+    /// Activate the trigger using the ordinary popup's toggle policy.
+    pub fn toggle(self) {
+        if self.shown().get_untracked() {
+            self.popup.close(PopupCloseReason::Programmatic);
+        } else {
+            self.open_binding().set(true);
+        }
+    }
+
     /// The combo box: a focusable `Role::ComboBox` that publishes the label
     /// as its value, `expanded` and the list it `controls`, and opens the
     /// list. Its key and activation handling runs after the caller's own
@@ -334,6 +348,21 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
     /// name and placement stay the caller's. Setup only.
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
+        self.content_in(false)
+    }
+
+    /// The listbox inside a modal surface that handles its own dismissal.
+    /// Its options take physical focus and are rendered with [`Self::sheet_item`].
+    #[track_caller]
+    pub fn sheet_content(self) -> Part<PopupState> {
+        Self {
+            retain_trigger_focus: false,
+            ..self
+        }
+        .content_in(true)
+    }
+
+    fn content_in(self, sheet: bool) -> Part<PopupState> {
         let SelectApi {
             selected,
             options,
@@ -345,11 +374,21 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
             retain_trigger_focus,
             ..
         } = self;
-        let content = popup
-            .content()
+        list.retain_focus(retain_trigger_focus);
+        let content = if sheet {
+            let shown = popup.shown();
+            kivact_core::primitive::part(move |input| PopupState {
+                input,
+                open: shown.get(),
+            })
+            .reference(popup.content_ref())
+        } else {
+            popup.content()
+        };
+        let content = content
             .role(Role::ListBox)
             .on_key(move |event: KeyEvent| {
-                if event.key == Key::Escape || is_alt_up(&event) {
+                if !sheet && (event.key == Key::Escape || is_alt_up(&event)) {
                     popup.close(PopupCloseReason::Escape);
                     return Handled::Yes;
                 }
@@ -358,7 +397,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
             // The host consumes Tab to move focus, so the list sees only its
             // release, aimed at the option that has the focus now.
             .on_key_up(move |event: KeyEvent| {
-                if event.key == Key::Tab {
+                if !sheet && event.key == Key::Tab {
                     popup.close(PopupCloseReason::Tab);
                     Handled::Yes
                 } else {
@@ -421,6 +460,20 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
     /// only, in the option's row.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
+        self.item_in(key, false)
+    }
+
+    /// An option in the modal listbox; choosing it closes that surface.
+    #[track_caller]
+    pub fn sheet_item(self, key: K) -> Part<ListItemState> {
+        Self {
+            retain_trigger_focus: false,
+            ..self
+        }
+        .item_in(key, true)
+    }
+
+    fn item_in(self, key: K, sheet: bool) -> Part<ListItemState> {
         let SelectApi {
             popup,
             list,
@@ -435,7 +488,11 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
         member
             .on_press(move || {
                 if list.select_mounted(invoke_key.clone()) {
-                    popup.close(PopupCloseReason::Selection);
+                    if sheet {
+                        popup.open_binding().set(false);
+                    } else {
+                        popup.close(PopupCloseReason::Selection);
+                    }
                 }
             })
             .on_pointer(move |event: PointerEvent| {

@@ -3,19 +3,30 @@ use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, SelectTriggerState};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
+use kivact_core::draw::Point;
 use kivact_core::primitive::NodeExt;
 use kivact_core::style::style;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    IntoText, IntoValue, IntoView, Placement, View, callback, for_each, overlay, show,
+    Handled, IntoText, IntoValue, IntoView, NodeRef, Placement, PointerId, PointerKind,
+    PointerPhase, PopupKind, View, callback, for_each, overlay, show,
 };
-use kivact_core::{Binding, Callback, Value};
+use kivact_core::{Binding, Callback, Value, binding, effect_on, signal, var};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
 use std::hash::Hash;
 use std::rc::Rc;
 
 /// What an option row shows, from its item and its state.
 type OptionContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<ListItemState>) -> View>;
+
+/// Recipe variant supplied to options mounted in a select's touch sheet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SelectSheetOption(pub ControlSize);
+
+impl Variant for SelectSheetOption {}
+
+type SheetContent = Rc<dyn Fn() -> Node>;
+type SheetFactory = Rc<dyn Fn(Value<String>, Binding<bool>, NodeRef, SheetContent) -> View>;
 
 pub struct Select<K: Clone + Eq + Hash + 'static> {
     root: Node,
@@ -30,6 +41,7 @@ pub struct Select<K: Clone + Eq + Hash + 'static> {
     variants: Variants,
     arrow_open: bool,
     retain_trigger_focus: bool,
+    touch_sheet: Option<(Rc<dyn Fn() -> bool>, SheetFactory)>,
 }
 /// A themed keyed select whose value, focus and keys belong to interaction.
 ///
@@ -58,6 +70,7 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
         variants,
         arrow_open: false,
         retain_trigger_focus: false,
+        touch_sheet: None,
     }
 }
 impl<K: Clone + Eq + Hash + 'static> Select<K> {
@@ -86,6 +99,23 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
     /// Keep keyboard focus on the trigger while highlighting options.
     pub fn retain_trigger_focus(mut self, enabled: bool) -> Self {
         self.retain_trigger_focus = enabled;
+        self
+    }
+
+    /// Present touch taps in an alternate modal surface when eligible.
+    /// Mouse and keyboard always use the regular popup. The modal factory
+    /// receives the label, its open binding, trigger ref, and listbox builder.
+    pub fn touch_sheet<V: IntoView>(
+        mut self,
+        eligible: impl Fn() -> bool + 'static,
+        factory: impl Fn(Value<String>, Binding<bool>, NodeRef, Rc<dyn Fn() -> Node>) -> V + 'static,
+    ) -> Self {
+        self.touch_sheet = Some((
+            Rc::new(eligible),
+            Rc::new(move |label, open, anchor, content| {
+                factory(label, open, anchor, content).into_view()
+            }),
+        ));
         self
     }
 
@@ -191,6 +221,87 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
             move || state.get(),
         )
         .child(kivact_core::control::icon("chevron-down"));
+        let shown = behavior.shown();
+        let open = behavior.open_binding();
+        let sheet_open = signal(false);
+        let (trigger, sheet_factory) = if let Some((eligible, factory)) = self.touch_sheet {
+            let disabled = self.root.accessible_disabled();
+            let contact = var(None::<(PointerId, Point, bool)>);
+            // Native activation is a separate event after pointer release.
+            // Consume the decision there so a touch never toggles twice.
+            let released = var(None::<bool>);
+            let bounds = anchor.rect();
+            effect_on(shown, move |shown| {
+                if !shown {
+                    sheet_open.set(false);
+                }
+            });
+            let trigger = trigger
+                .on_pointer(move |event| {
+                    if matches!(event.phase, PointerPhase::Down(_)) {
+                        released.set(None);
+                        if event.kind == PointerKind::Touch
+                            && event.is_primary
+                            && !shown.get()
+                            && !disabled.as_ref().is_some_and(|read| read())
+                        {
+                            contact.set(Some((event.id, event.window_pos, false)));
+                        }
+                        return Handled::No;
+                    }
+                    let Some((id, start, moved)) =
+                        contact.get().filter(|(id, _, _)| *id == event.id)
+                    else {
+                        return Handled::No;
+                    };
+                    let pos = event.window_pos;
+                    let moved = moved || (pos.x - start.x).hypot(pos.y - start.y) > 10.0;
+                    match event.phase {
+                        PointerPhase::Move => contact.set(Some((id, start, moved))),
+                        PointerPhase::Up(_) => {
+                            contact.set(None);
+                            released.set(
+                                bounds
+                                    .get()
+                                    .is_some_and(|rect| rect.contains(pos))
+                                    .then_some(!moved),
+                            );
+                        }
+                        PointerPhase::Cancel => {
+                            contact.set(None);
+                            released.set(None);
+                        }
+                        _ => {}
+                    }
+                    Handled::No
+                })
+                .on_key(move |_| {
+                    released.set(None);
+                    Handled::No
+                })
+                .on_press(move || {
+                    let choice = released.get();
+                    released.set(None);
+                    match choice {
+                        Some(true) if eligible() => {
+                            sheet_open.set(true);
+                            open.set(true);
+                        }
+                        Some(false) => {}
+                        _ => behavior.toggle(),
+                    }
+                })
+                .has_popup(move || {
+                    Some(if sheet_open.get() {
+                        PopupKind::Dialog
+                    } else {
+                        PopupKind::ListBox
+                    })
+                });
+            (trigger, Some(factory))
+        } else {
+            (trigger, None)
+        };
         let trigger = self
             .root
             .part(trigger)
@@ -199,18 +310,25 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
             .child(indicator);
         let options = self.options;
         let slot = self.option;
-        let surface = show(behavior.shown(), move || {
+        let body_variants = variants.clone();
+        let build = Rc::new(move |sheet: bool| {
             let slot = slot.clone();
-            let part = behavior.content();
-            let state = part.state();
-            let rows = variants.clone();
-            let body = for_each(
+            let rows = if sheet {
+                body_variants.with(SelectSheetOption(size))
+            } else {
+                body_variants.clone()
+            };
+            for_each(
                 options,
                 |item| item.key().clone(),
                 move |key, item| {
                     let variants = &rows;
                     let lines = rows.clone();
-                    let part = behavior.item(key);
+                    let part = if sheet {
+                        behavior.sheet_item(key)
+                    } else {
+                        behavior.item(key)
+                    };
                     let state = part.state();
                     let content = match &slot {
                         Some(slot) => slot(item, state),
@@ -249,22 +367,50 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                     )
                     .child(content)
                 },
-            );
-            overlay(
-                anchor,
-                Placement::Below,
-                with_recipe_style(
-                    scroll(column(body)),
-                    |r| r.select_recipes().surface_recipe(),
-                    &variants,
-                    move || state.get(),
-                ),
             )
-            .part(part)
-            .name(label)
-            .offset(4.0)
-            .at_least_anchor_width(true)
         });
-        (trigger, surface).into_view()
+        let popup_build = build.clone();
+        let surface = show(
+            move || shown.get() && !sheet_open.get(),
+            move || {
+                let part = behavior.content();
+                let state = part.state();
+                overlay(
+                    anchor,
+                    Placement::Below,
+                    with_recipe_style(
+                        scroll(column(popup_build(false))),
+                        |r| r.select_recipes().surface_recipe(),
+                        &variants,
+                        move || state.get(),
+                    ),
+                )
+                .part(part)
+                .name(label)
+                .offset(4.0)
+                .at_least_anchor_width(true)
+            },
+        );
+        let sheet = sheet_factory.map(|factory| {
+            let visible = binding(
+                move || shown.get() && sheet_open.get(),
+                move |show| {
+                    if !show {
+                        open.set(false);
+                    }
+                },
+            );
+            factory(
+                label,
+                visible,
+                anchor,
+                Rc::new(move || {
+                    column(build(true))
+                        .part(behavior.sheet_content())
+                        .name(label)
+                }),
+            )
+        });
+        (trigger, surface, sheet).into_view()
     }
 }

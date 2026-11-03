@@ -207,7 +207,9 @@ pub use section::{Edges, Section, SectionVariant, section};
 pub use segmented_control::{
     Segmented, SegmentedControl, SegmentedIconOnly, SegmentedLayout, segmented_control,
 };
-pub use selector::{MultiSelector, Selector, complex_selector, multi_selector, selector};
+pub use selector::{
+    MultiSelector, Selector, SelectorPresentation, complex_selector, multi_selector, selector,
+};
 pub use shadows::Shadows;
 pub use side_nav::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
