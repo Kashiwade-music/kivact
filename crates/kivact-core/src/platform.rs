@@ -21,8 +21,8 @@ mod window_loop;
 pub(crate) use env::missing_capabilities;
 #[doc(inline)]
 pub use env::{
-    capabilities, font_families, fullscreen, reduced_motion, safe_area, scale_factor,
-    surface_active, window_size,
+    capabilities, font_families, fullscreen, is_initial_render, reduced_motion, safe_area,
+    scale_factor, surface_active, window_size,
 };
 #[doc(inline)]
 pub use services::{

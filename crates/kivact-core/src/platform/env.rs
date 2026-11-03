@@ -29,6 +29,18 @@ fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) 
     state(api, Location::caller()).field(api, f).get()
 }
 
+/// Whether the App is still building its first host revision.
+///
+/// Read this during mount setup to distinguish content present on the first
+/// screen from content mounted later. This is an untracked snapshot.
+#[track_caller]
+pub fn is_initial_render() -> bool {
+    let rt = kivact_reactive::Owner::ambient("platform::is_initial_render", Location::caller())
+        .runtime();
+    let revision = ViewState::tree(&rt).engine().stats().revision;
+    revision == 0
+}
+
 /// The window's available font families, sorted by name without duplicates.
 ///
 /// Names retain their original case and include fonts registered with

@@ -288,6 +288,7 @@ pub(crate) struct Tree {
     removes: bool,
     /// Lazily installed for choice candidates; only Hidden changes notify it.
     visibility_revision: Option<Trigger>,
+    live_region_revision: Option<Trigger>,
 }
 
 impl Tree {
@@ -308,6 +309,7 @@ impl Tree {
             exit_callbacks: IdMap::default(),
             removes: false,
             visibility_revision: None,
+            live_region_revision: None,
         }
     }
 
@@ -377,6 +379,16 @@ impl Tree {
         revision
     }
 
+    /// Lazily track changes to live-region ancestry.
+    pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Trigger {
+        if let Some(revision) = self.live_region_revision {
+            return revision;
+        }
+        let revision = self.root_owner().trigger(at);
+        self.live_region_revision = Some(revision);
+        revision
+    }
+
     /// Create the host-owned record before any reference publishes its binding.
     pub(crate) fn observe_node(
         &mut self,
@@ -425,6 +437,41 @@ impl Tree {
             };
             id = parent;
         }
+    }
+
+    fn is_live_region(&self, id: NodeId) -> bool {
+        self.with_node(id, |node| {
+            let semantics = node.and_then(|node| node.semantics.as_deref());
+            semantics.is_some_and(|semantics| {
+                matches!(
+                    semantics.role,
+                    Some(
+                        kivact_wire::Role::Alert
+                            | kivact_wire::Role::Status
+                            | kivact_wire::Role::Log
+                    )
+                ) || matches!(
+                    semantics
+                        .accessibility
+                        .as_deref()
+                        .and_then(|a| a.live_region),
+                    Some(kivact_wire::LiveRegion::Polite | kivact_wire::LiveRegion::Assertive)
+                )
+            })
+        })
+    }
+
+    pub(crate) fn is_in_live_region(&self, mut id: NodeId) -> bool {
+        while let Some(node) = self.get(id) {
+            if self.is_live_region(id) {
+                return true;
+            }
+            let Some(parent) = node.parent else {
+                return false;
+            };
+            id = parent;
+        }
+        false
     }
 
     fn notify_visibility(&self, changed: bool) {
@@ -555,8 +602,18 @@ impl Tree {
         }
         let hides = prop == Prop::Hidden;
         let was_hidden = hides && self.hidden(id) == Some(true);
+        let tracks_live = self
+            .live_region_revision
+            .filter(|_| matches!(prop, Prop::Role | Prop::Accessibility));
+        let was_live = tracks_live.is_some() && self.is_live_region(id);
         let changed = self.engine().set(id, value);
         self.notify_visibility(hides && was_hidden != (self.hidden(id) == Some(true)));
+        if let Some(revision) = tracks_live
+            && changed
+            && was_live != self.is_live_region(id)
+        {
+            revision.notify_from_render();
+        }
         changed
     }
 

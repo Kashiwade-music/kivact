@@ -1,14 +1,14 @@
 //! Role: Present a centered empty-state title, description, and actions.
 
-use crate::{TextColor, TextJustify, TextKind, text, tokens, visually_hidden};
+use crate::{TextColor, TextJustify, TextKind, text, tokens};
 use kivact::control::{Node, NodeBuilder, column, node};
-use kivact::primitive::NodeExt;
+use kivact::interaction::announcer;
+use kivact::primitive::{NodeExt, NodeRefExt, part};
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::view::{
-    IntoText, IntoValue, IntoView, LiveRegion, ReadingDirection, View, current_direction,
+    IntoText, IntoValue, IntoView, LiveRegion, ReadingDirection, View, current_direction, node_ref,
 };
-use kivact::{Value, effect, signal};
-use std::cell::Cell;
+use kivact::{Value, effect, on_mount, signal, var};
 
 /// A centered message for a region with no content.
 pub struct EmptyState {
@@ -83,19 +83,37 @@ impl IntoView for EmptyState {
             heading_level,
             compact,
         } = self;
-        let announcement = signal(String::new());
-        let initial = Cell::new(true);
-        // TODO(soft-core: C-19): distinguish late mounts and detect ancestor live regions.
+        let notices = announcer();
+        let source = node_ref();
+        let mounted = signal(None::<bool>);
+        let first = var(true);
+        let spoken = var(String::new());
+        let has_notice = var(false);
         effect(move || {
-            let title = title.get();
-            let description = description.map(|value| value.get());
-            if !initial.replace(false) {
-                announcement.set(match description {
-                    Some(description) if !description.is_empty() => {
-                        format!("{title}. {description}")
-                    }
-                    _ => title,
-                });
+            let Some(initial) = mounted.get() else {
+                return;
+            };
+            let initial = first.update(|first| std::mem::replace(first, false)) && initial;
+            let visible = source.is_visible();
+            if !visible {
+                spoken.set(String::new());
+            }
+            let eligible = visible && !source.is_in_live_region();
+            let message = if eligible {
+                announcement_text(&title.get(), description.map(|text| text.get()).as_deref())
+            } else {
+                String::new()
+            };
+            if message.is_empty() {
+                if has_notice.update(|has_notice| std::mem::replace(has_notice, false)) {
+                    notices.announce("", LiveRegion::Polite);
+                }
+            } else if spoken.with(|spoken| *spoken != message) {
+                spoken.set(message.clone());
+                if !initial {
+                    notices.announce(message, LiveRegion::Polite);
+                    has_notice.set(true);
+                }
             }
         });
         let text_group = column((
@@ -123,6 +141,12 @@ impl IntoView for EmptyState {
                     })
             }),
         ))
+        .node_ref(source)
+        .part(part(|input| input).on_bind(move |_| {
+            let initial = kivact::platform::is_initial_render();
+            // Establish the empty live region before placing any text in it.
+            on_mount(move || mounted.set(Some(initial)));
+        }))
         .style(
             style()
                 .align_items(Align::Center)
@@ -171,7 +195,22 @@ impl IntoView for EmptyState {
         .child(icon.map(|icon| icon()))
         .child(text_group)
         .child(actions)
-        .child(visually_hidden(announcement).live(LiveRegion::Polite))
+        .child(notices.outlet())
         .into_view()
+    }
+}
+
+fn announcement_text(title: &str, description: Option<&str>) -> String {
+    let normalize = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let title = normalize(title);
+    let description = description.map(normalize).unwrap_or_default();
+    if title.is_empty() {
+        description
+    } else if description.is_empty() {
+        title
+    } else if title.ends_with(['.', '!', '?']) {
+        format!("{title} {description}")
+    } else {
+        format!("{title}. {description}")
     }
 }

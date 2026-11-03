@@ -127,6 +127,10 @@ pub trait NodeRefExt {
     /// Track mount and inherited visibility, including while unmounted.
     #[track_caller]
     fn is_visible(&self) -> bool;
+    /// Track whether this mounted node is itself a live region or is inside one.
+    /// Unbound references return false.
+    #[track_caller]
+    fn is_in_live_region(&self) -> bool;
     /// Whether this node itself holds focus, without subscribing.
     #[track_caller]
     fn holds_focus(&self) -> bool;
@@ -264,6 +268,15 @@ impl NodeRefExt for NodeRef {
         revision.track();
         self.tracked_node(Location::caller())
             .is_some_and(|token| ViewState::tree(&rt).is_visible(token.node.node))
+    }
+    #[track_caller]
+    fn is_in_live_region(&self) -> bool {
+        let at = Location::caller();
+        let (rt, _) = self.state(at);
+        let revision = ViewState::tree_mut(&rt).live_region_revision(at);
+        revision.track();
+        self.tracked_node(at)
+            .is_some_and(|token| ViewState::tree(&rt).is_in_live_region(token.node.node))
     }
     #[track_caller]
     fn holds_focus(&self) -> bool {
