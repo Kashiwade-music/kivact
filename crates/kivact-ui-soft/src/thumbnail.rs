@@ -10,7 +10,7 @@ use kivact::view::{
     IntoText, IntoValue, IntoView, LiveRegion, ReadingDirection, Role, View, current_direction,
     node_ref, show,
 };
-use kivact::{Asset, Value};
+use kivact::{Asset, Value, signal};
 
 const PLACEHOLDER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-5.5z"/></svg>"#;
 const SPINNER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="white" opacity=".3" stroke-width="2"/><path d="M7 2a5 5 0 0 1 3.5355 8.5355" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>"#;
@@ -140,7 +140,7 @@ impl IntoView for Thumbnail {
                 .role(Role::Button)
                 .name(label)
                 .focusable(true)
-                // TODO(soft-core: C-11): preserve keyboard focus on disabled controls.
+                .focusable_when_disabled(true)
                 .disabled(move || loading.get() || disabled.get())
                 .part(interaction)
                 .style(|| {
@@ -291,8 +291,12 @@ fn thumbnail_media(
                 .color(p.colors.icon_secondary)
         }));
     if let Some(source) = source {
-        // TODO(soft-core: C-23): choose the placeholder on actual image failure.
-        let mut photo = image(source).fit(ImageFit::Cover).style(fill());
+        let failed = signal(false);
+        let mut photo = image(source)
+            .fit(ImageFit::Cover)
+            .style(fill())
+            .hidden(failed)
+            .on_image_error(move |_| failed.set(true));
         if let Some(alt) = alt {
             photo = photo.name(alt);
         }

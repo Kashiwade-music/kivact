@@ -2,19 +2,48 @@
 use kivact::control::{NodeBuilder, column, row};
 use kivact::signal;
 use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, WindowMode, render_with};
-use kivact::ui::button;
+use kivact::test::{RenderOptions, render_with};
+use kivact::ui::{MenuEntry, button, menu};
 use kivact::view::{Key, Role, node_ref};
 use kivact_ui_soft::{DialogPurpose, ShowOn, bottom_sheet, media_overlay};
 use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Duration;
 
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
-        window: WindowMode::Headless,
-        ..RenderOptions::default()
+        ..RenderOptions::from_env()
     }
+}
+
+#[test]
+fn soft_submenus_delay_opening_and_remain_open_briefly_over_a_sibling() {
+    let screen = render_with(options(), || {
+        menu(
+            "Actions",
+            vec![
+                MenuEntry::submenu("export", "Export", vec![MenuEntry::item("pdf", "PDF")]),
+                MenuEntry::item("rename", "Rename"),
+            ],
+            |_| {},
+        )
+    });
+    screen
+        .get_by_role(Role::Button, "Actions")
+        .press_key(Key::ArrowDown);
+    let export = screen.get_by_role(Role::MenuItem, "Export");
+    export.hover();
+    screen.advance(Duration::from_millis(100));
+    assert_eq!(export.is_expanded(), Some(false));
+    screen.advance(Duration::from_millis(100));
+    assert_eq!(export.is_expanded(), Some(true));
+    screen.get_by_role(Role::MenuItem, "Rename").hover();
+    screen.advance(Duration::from_millis(100));
+    assert_eq!(export.is_expanded(), Some(true));
+    screen.advance(Duration::from_millis(150));
+    assert_eq!(export.is_expanded(), Some(false));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]

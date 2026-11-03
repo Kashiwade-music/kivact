@@ -8,7 +8,7 @@ use kivact::motion::{Easing, Transition};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Justify, Overflow, Position, Style, TransitionProp, pct, rgb, style};
 use kivact::ui::{ButtonVariant, DialogKind, button};
-use kivact::view::{Handled, Key};
+use kivact::view::{Handled, Key, LiveRegion};
 use kivact::view::{IntoValue, IntoView, Placement, Role, View, node_ref, overlay, show};
 use kivact::{Asset, Binding, Signal, Value, signal};
 
@@ -135,21 +135,26 @@ impl IntoView for Lightbox {
             };
             let content = kivact::view::dynamic(selected, move |item| {
                 item.map(|item| {
-                    let photo = image(item.image).name(item.alt).style(move || {
-                        let (x, y) = pan.get();
-                        let scale = if zoomed.get() { 2.0 } else { 1.0 };
-                        style()
-                            .width(pct(100))
-                            .min_height(0)
-                            .grow(1)
-                            .shrink(1)
-                            .translate(x, y)
-                            .scale_xy(scale, scale)
-                            .transition(
-                                TransitionProp::Paint,
-                                Transition::tween(200, Easing::EaseOut),
-                            )
-                    });
+                    let failed = signal(false);
+                    let photo = image(item.image)
+                        .name(item.alt)
+                        .hidden(failed)
+                        .on_image_error(move |_| failed.set(true))
+                        .style(move || {
+                            let (x, y) = pan.get();
+                            let scale = if zoomed.get() { 2.0 } else { 1.0 };
+                            style()
+                                .width(pct(100))
+                                .min_height(0)
+                                .grow(1)
+                                .shrink(1)
+                                .translate(x, y)
+                                .scale_xy(scale, scale)
+                                .transition(
+                                    TransitionProp::Paint,
+                                    Transition::tween(200, Easing::EaseOut),
+                                )
+                        });
                     let photo = if zoom {
                         let drag_start = kivact::var((0.0f32, 0.0f32));
                         let drag = kivact::interaction::use_drag::<()>(
@@ -203,7 +208,25 @@ impl IntoView for Lightbox {
                             .max_width(600)
                             .color(rgb(0xffffff)),
                     );
-                    column((photo, caption)).style(
+                    let error = kivact::i18n::message(
+                        "soft.lightbox.image_unavailable",
+                        "Image unavailable",
+                    );
+                    let fallback = text(move || {
+                        if failed.get() {
+                            error.get()
+                        } else {
+                            String::new()
+                        }
+                    })
+                    .role(Role::Status)
+                    .live_region(LiveRegion::Polite)
+                    .style(move || {
+                        body_text(&tokens())
+                            .color(rgb(0xffffff))
+                            .position(Position::Absolute)
+                    });
+                    column((photo, fallback, caption)).style(
                         style()
                             .width(pct(100))
                             .height(pct(100))

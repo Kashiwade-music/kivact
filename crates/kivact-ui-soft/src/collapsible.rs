@@ -2,8 +2,8 @@
 use crate::stack::rtl;
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact::interaction::use_disclosure;
-use kivact::motion::{Spring, Transition, animated};
+use kivact::interaction::{use_content_reveal, use_disclosure};
+use kivact::motion::{Spring, Transition};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Direction, TransitionProp, pct, style};
 use kivact::view::{IntoText, IntoValue, IntoView, View, node_ref, provide, show, try_context};
@@ -178,9 +178,9 @@ impl IntoView for Collapsible {
             let open = state.open;
             let mut disclosure = use_disclosure(open).disabled(disabled);
             let shown = disclosure.shown();
-            let progress = animate_layout.then(|| {
-                animated(
-                    move || if shown.get() { 1.0_f32 } else { 0.0 },
+            let reveal = animate_layout.then(|| {
+                use_content_reveal(
+                    shown,
                     Transition::spring(Spring {
                         stiffness: 157.91,
                         damping: 25.13,
@@ -188,11 +188,11 @@ impl IntoView for Collapsible {
                     }),
                 )
             });
-            if let Some(progress) = progress {
-                disclosure = disclosure.leaving(move || !shown.get() && progress.get() > 0.0);
+            if let Some(reveal) = reveal {
+                disclosure = disclosure.leaving(move || reveal.leaving());
             }
             let present =
-                memo(move || shown.get() || progress.is_some_and(|progress| progress.get() > 0.0));
+                memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
             let chevron = icon(match position {
                 ChevronPosition::Start => "chevron-right",
                 ChevronPosition::End => "chevron-down",
@@ -263,19 +263,12 @@ impl IntoView for Collapsible {
                             .padding_bottom(padding_for(density))
                     })
                     .child(content.as_ref().map(|content| content()));
-                if let Some(progress) = progress {
+                if let Some(reveal) = reveal {
                     let measured = node_ref();
-                    let natural = measured.rect();
+                    let height = reveal.container_style(measured);
                     region
-                        .style(move || {
-                            let base = style().clip(true);
-                            let share = progress.get().clamp(0.0, 1.0);
-                            if share < 1.0 {
-                                base.height(natural.get().map_or(0.0, |rect| rect.height) * share)
-                            } else {
-                                base
-                            }
-                        })
+                        .style(style().clip(true))
+                        .style(move || height.get())
                         .child(details.node_ref(measured))
                 } else {
                     region.child(details)

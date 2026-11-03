@@ -2,7 +2,7 @@
 use kivact::control::{NodeBuilder, column, icon, node, row, text};
 use kivact::signal;
 use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, WindowMode, render_with};
+use kivact::test::{RenderOptions, render_with};
 use kivact::view::{IntoView, Role, node_ref};
 use kivact_ui_soft as soft;
 
@@ -10,9 +10,8 @@ fn options(width: f32) -> RenderOptions {
     RenderOptions {
         width,
         height: 650.0,
-        window: WindowMode::Headless,
         theme: soft::theme(ThemeMode::Light),
-        ..RenderOptions::default()
+        ..RenderOptions::from_env()
     }
 }
 

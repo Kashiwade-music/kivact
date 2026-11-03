@@ -28,9 +28,6 @@ pub(crate) fn tooltip(r: TooltipRecipes) -> TooltipRecipes {
 }
 
 pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
-    // TODO(soft-core: C-12): Keep the standard toaster's queue and callbacks.
-    // TODO(soft-core: C-19): Use the standard live regions.
-    // TODO(soft-core: C-27): Keep standard keyboard focus restoration.
     r.region(|_| {
         |t: &Theme, _: &Look<PartState>| {
             let p = t.get::<Tokens>();

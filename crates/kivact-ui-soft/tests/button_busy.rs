@@ -1,10 +1,44 @@
 //! Role: Verify that the Soft busy reveal uses the standard button's opt-in theme timing.
 
+use kivact::control::NodeBuilder;
+use kivact::signal;
 use kivact::style::{Position, Theme, ThemeMode, rgb, style};
 use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{ButtonBusyMotion, UiRecipes, button};
-use kivact::view::Role;
+use kivact::ui::{ButtonBusyMotion, UiRecipes, button, tooltip};
+use kivact::view::{Key, Role};
 use std::time::Duration;
+
+#[test]
+fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
+    let screen = render_with(
+        RenderOptions {
+            theme: kivact_ui_soft::theme(ThemeMode::Light),
+            ..RenderOptions::from_env()
+        },
+        || {
+            let attempts = signal(0);
+            kivact::control::column((
+                tooltip("Select an item first").attach(
+                    button("Remove")
+                        .disabled(true)
+                        .on_press(move || attempts.update(|count| *count += 1)),
+                ),
+                kivact::control::text(move || format!("Attempts {}", attempts.get())),
+            ))
+        },
+    );
+    let remove = screen.get_by_role(Role::Button, "Remove");
+    screen.press_tab(false);
+    assert!(remove.is_focused());
+    assert!(remove.is_disabled());
+    assert_eq!(remove.description(), "Select an item first");
+    let before_tooltip = screen.screenshot().hash();
+    screen.advance(Duration::from_millis(1000));
+    assert_ne!(screen.screenshot().hash(), before_tooltip);
+    remove.press_key(Key::Enter);
+    screen.get_by_text("Attempts 0");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn soft_delays_the_spinner_but_disables_input_immediately() {

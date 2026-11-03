@@ -280,7 +280,8 @@ fn avatar_content(
     fallback: Option<Asset>,
     photo: Option<Asset>,
 ) -> Node {
-    let picture = |asset| {
+    let failed = signal(photo.is_none());
+    let picture = move |asset| {
         image(asset).fit(ImageFit::Cover).hit_testable(false).style(
             style()
                 .position(Position::Absolute)
@@ -324,8 +325,16 @@ fn avatar_content(
                     .style(style().size(side * 0.6, side * 0.6))
             },
         ))
-        .child(fallback.map(picture))
-        .child(photo.map(picture))
+        .child(fallback.map(|asset| {
+            kivact::view::show(failed, move || {
+                picture(asset.clone()).on_image_error(|_| {})
+            })
+        }))
+        .child(photo.map(|asset| {
+            picture(asset)
+                .hidden(failed)
+                .on_image_error(move |_| failed.set(true))
+        }))
 }
 
 fn meaningful(value: Option<Value<String>>) -> Option<String> {

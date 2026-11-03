@@ -123,6 +123,7 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.banner.expand` | Expand |
 | `soft.breadcrumbs.label` | Breadcrumb |
 | `soft.calendar.caption` | {month} {year} |
+| `soft.calendar.chosen` | Date selected |
 | `soft.calendar.fri` | Fr |
 | `soft.calendar.mon` | Mo |
 | `soft.calendar.month_1` | January |
@@ -139,6 +140,9 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.calendar.month_9` | September |
 | `soft.calendar.next` | Next month |
 | `soft.calendar.previous` | Previous month |
+| `soft.calendar.range_cancelled` | Range selection cancelled |
+| `soft.calendar.range_chosen` | Date range selected |
+| `soft.calendar.range_started` | Start date selected |
 | `soft.calendar.sat` | Sa |
 | `soft.calendar.sun` | Su |
 | `soft.calendar.thu` | Th |
@@ -148,7 +152,16 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.carousel.scroll_left` | Scroll left |
 | `soft.carousel.scroll_right` | Scroll right |
 | `soft.carousel.slide` | Slide {current} of {total} |
+| `soft.chat.tool_calls.complete` | Complete |
+| `soft.chat.tool_calls.detail` | Details for {name} |
+| `soft.chat.tool_calls.details` | Details |
+| `soft.chat.tool_calls.error` | Error: {message} |
+| `soft.chat.tool_calls.failed` | Failed |
+| `soft.chat.tool_calls.group_label` | {count} tool calls |
+| `soft.chat.tool_calls.pending` | Pending |
+| `soft.chat.tool_calls.running` | Running |
 | `soft.chat_composer.input` | Message input |
+| `soft.chat_composer.placeholder` | Type a message… |
 | `soft.chat_composer_drawer.items` | Items |
 | `soft.chat_dictation_button.label` | Dictation |
 | `soft.chat_layout_scroll_button.scroll_to_bottom` | Scroll to bottom |
@@ -184,6 +197,7 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.kbd.key.up` | Up arrow |
 | `soft.kbd.shortcut` | {shortcut} + {key} |
 | `soft.keyboard_hint.to_navigate` | to navigate |
+| `soft.lightbox.image_unavailable` | Image unavailable |
 | `soft.lightbox.media_viewer` | Media viewer |
 | `soft.lightbox.zoom` | Zoom |
 | `soft.link.new_tab` | (opens in new tab) |
@@ -265,9 +279,10 @@ dev/tools/window-lock.sh -- cargo test -p kivact-ui-soft -p kivact-ui-soft-catal
 ## Current native behavior
 
 Toolbar sets a default control size for descendants. An explicit control size
-takes precedence. Input Group still sets its child sizes directly. Standard
-menus open by activation and use the native
-submenu timing. Touch-specific date pickers and adaptive selector sheets remain
+takes precedence. Input Group still sets its child sizes directly. Menus open
+by activation. Submenus wait 150 ms to open on hover and 200 ms to close when
+the pointer moves over a sibling item. Diagonal pointer tracking remains
+pending. Touch-specific date pickers and adaptive selector sheets remain
 pending. Some layout changes update immediately, while Collapsible supports an
 optional height animation. The rich text editor offers source editing and
 formatted preview. Inline Markdown decoration uses native text and view
@@ -282,6 +297,11 @@ trimming uses the native line box.
 Chat Layout follows new messages while the viewport is near the end. Pass
 `.history_revision(..)` and update it in the same batch as a history prepend
 to preserve the reader's position.
+
+Toast uses the standard queue. Pass `ToastOptions` to `Toaster::push_with(..)`
+to deduplicate by key or register a callback when a visible toast is dismissed.
+Hovering or focusing one toast pauses its timer. Dismissing a focused toast
+restores the last available focus outside it.
 
 Typeahead and Tokenizer accept a debounced asynchronous source through
 `.search(..)`. The source publishes one batch for each query. Power Search

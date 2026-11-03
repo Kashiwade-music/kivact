@@ -2,7 +2,7 @@
 use kivact::control::NodeBuilder;
 use kivact::style::{ThemeMode, style};
 use kivact::task::sleep;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{RenderOptions, render_with_handle};
 use kivact::ui::ListItem;
 use kivact::view::{Key, Role};
 use kivact::{UiError, signal};
@@ -13,8 +13,7 @@ use std::time::Duration;
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
-        window: WindowMode::Headless,
-        ..RenderOptions::default()
+        ..RenderOptions::from_env()
     }
 }
 

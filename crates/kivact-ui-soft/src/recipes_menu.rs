@@ -10,7 +10,7 @@ const MENU_MIN_FLYOUT_WIDTH: f32 = 160.0;
 const MENU_MAX_HEIGHT: f32 = 300.0;
 
 pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
-    // TODO(soft-core: C-17): Keep the standard submenu hover timing and dismissal.
+    // TODO(soft-core: C-17): Preserve submenus through a diagonal pointer path.
     // TODO(soft-core: C-18): Keep click activation.
     // TODO(soft-core: C-11): Keep disabled rows out of keyboard focus.
     r.trigger(|_| trigger)

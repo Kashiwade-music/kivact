@@ -3,8 +3,10 @@ use crate::recipes_dialog::{body_text, motion, shadows};
 use crate::theme_access::tokens;
 use kivact::control::NodeBuilder;
 use kivact::control::{column, node, scroll};
-use kivact::interaction::{Dismiss, DragCoordinates, DragPhase, DragUpdate, use_dialog, use_drag};
-use kivact::primitive::NodeExt;
+use kivact::interaction::{
+    Dismiss, DragCoordinates, DragPhase, DragUpdate, DragVelocity, use_dialog, use_drag,
+};
+use kivact::primitive::{NodeExt, clock_now};
 use kivact::style::{Align, Justify, Overflow, Position, pct, style};
 use kivact::ui::DialogKind;
 use kivact::view::{
@@ -12,7 +14,15 @@ use kivact::view::{
 };
 use kivact::{Binding, binding, signal, var};
 use std::rc::Rc;
-use std::time::Instant;
+use std::time::Duration;
+
+const VELOCITY_WINDOW: Duration = Duration::from_millis(100);
+const PROJECTION_MIN_TRAVEL: f32 = 48.0;
+const PROJECTION_DECAY_MS: f32 = 499.0;
+const DISMISS_FRACTION: f32 = 0.4;
+const OVERSHOOT_RESISTANCE: f32 = 0.35;
+const OVERSHOOT_LIMIT: f32 = 48.0;
+const SNAP_PULL_RADIUS: f32 = 40.0;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum SheetHeight {
@@ -150,7 +160,7 @@ impl IntoView for BottomSheet {
         show(open, move || {
             let dragged = signal(None::<f32>);
             let selected = signal(0usize);
-            let samples = var(Vec::<(Instant, f32)>::new());
+            let velocity = var(DragVelocity::new(VELOCITY_WINDOW));
             let body_ref = node_ref();
             let body_rect = body_ref.rect();
             let height = self.height;
@@ -165,24 +175,20 @@ impl IntoView for BottomSheet {
             let scrim_detents = detents.clone();
             let end_detents = detents.clone();
             let drag = use_drag::<()>(DragCoordinates::Window)
-                .on_start(move |_| {
-                    samples.set(vec![(Instant::now(), 0.0)]);
+                .on_start(move |update| {
+                    velocity.update(|velocity| velocity.reset(clock_now(), update.pos));
                     let (_, detents) = detents();
                     dragged.set(Some(detents[selected.get().min(detents.len() - 1)]));
                 })
                 .on_update(move |update: DragUpdate<()>| {
-                    let now = Instant::now();
-                    let mut recent = samples.get();
-                    recent.retain(|(time, _)| now.duration_since(*time).as_millis() <= 100);
-                    recent.push((now, update.delta.y));
-                    samples.set(recent);
+                    velocity.update(|velocity| velocity.record(clock_now(), update.pos));
                     let (full, detents) = update_detents();
                     let start = detents[selected.get().min(detents.len() - 1)];
                     let raw = start + update.delta.y;
                     let shortest = detents[detents.len() - 1];
-                    let dismiss_line = shortest + (full - shortest) * 0.4;
+                    let dismiss_line = shortest + (full - shortest) * DISMISS_FRACTION;
                     let offset = if raw < 0.0 {
-                        (raw * 0.35).max(-48.0)
+                        (raw * OVERSHOOT_RESISTANCE).max(-OVERSHOOT_LIMIT)
                     } else if raw < dismiss_line {
                         let nearest = detents
                             .iter()
@@ -190,7 +196,7 @@ impl IntoView for BottomSheet {
                             .min_by(|a, b| (a - raw).abs().total_cmp(&(b - raw).abs()))
                             .unwrap_or(0.0);
                         let distance = (nearest - raw).abs();
-                        let pull = (1.0 - (distance / 40.0).powi(2)).max(0.0);
+                        let pull = (1.0 - (distance / SNAP_PULL_RADIUS).powi(2)).max(0.0);
                         raw + (nearest - raw) * pull
                     } else {
                         raw
@@ -203,29 +209,16 @@ impl IntoView for BottomSheet {
                         let current = selected.get().min(detents.len() - 1);
                         let start = detents[current];
                         let travel = update.delta.y;
-                        let recent = samples.get();
-                        let now = Instant::now();
-                        let speed =
-                            recent
-                                .first()
-                                .zip(recent.last())
-                                .map_or(0.0, |(first, last)| {
-                                    let ms = last.0.duration_since(first.0).as_secs_f32() * 1000.0;
-                                    if ms > 0.0 && now.duration_since(last.0).as_millis() <= 100 {
-                                        (last.1 - first.1) / ms
-                                    } else {
-                                        0.0
-                                    }
-                                });
+                        let speed = velocity.with(|velocity| velocity.pixels_per_ms(clock_now()).y);
                         let projected = start
                             + travel
-                            + if travel.abs() > 48.0 {
-                                speed * 499.0
+                            + if travel.abs() > PROJECTION_MIN_TRAVEL {
+                                speed * PROJECTION_DECAY_MS
                             } else {
                                 0.0
                             };
                         let shortest = detents[detents.len() - 1];
-                        let line = shortest + (full - shortest) * 0.4;
+                        let line = shortest + (full - shortest) * DISMISS_FRACTION;
                         if purpose == DialogPurpose::Info && travel > 0.0 && projected > line {
                             open.set(false);
                         } else {

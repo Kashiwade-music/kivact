@@ -8,7 +8,7 @@ use crate::stack::rtl;
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Delays, use_delayed, use_dialog, use_disclosure};
+use kivact::interaction::{Delays, use_content_reveal, use_delayed, use_dialog, use_disclosure};
 use kivact::motion::{Spring, Transition, animated};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Direction, Justify, Position, TransitionProp, auto, pct, style};
@@ -540,10 +540,19 @@ impl IntoView for SideNavItem {
             let open = collapse.map(|collapse: Binding<bool>| {
                 binding(move || !collapse.get(), move |open| collapse.set(!open))
             });
-            let disclosure = if children.is_some() {
-                open.map(|open| use_disclosure(open).disabled(disabled))
+            let (disclosure, reveal) = if let Some(open) = open.filter(|_| has_children) {
+                let disclosure = use_disclosure(open).disabled(disabled);
+                let motion = tokens().motion;
+                let reveal = use_content_reveal(
+                    disclosure.shown(),
+                    Transition::tween(motion.medium as f64, motion.ease_standard),
+                );
+                (
+                    Some(disclosure.leaving(move || reveal.leaving())),
+                    Some(reveal),
+                )
             } else {
-                None
+                (None, None)
             };
             let independent = disclosure.is_some() && action.is_some();
             let anchor = node_ref();
@@ -702,11 +711,7 @@ impl IntoView for SideNavItem {
                 side_row_style(size, cx.depth, cx.rail(), selected.get(), disabled.get())
             });
             let nested = show(
-                move || {
-                    !cx.rail()
-                        && disclosure.is_none_or(|disclosure| disclosure.shown().get())
-                        && has_children
-                },
+                move || !cx.rail() && has_children && reveal.is_none_or(|reveal| reveal.present()),
                 move || {
                     let child = child_slot.clone();
                     let cx = SideNavCx {
@@ -715,12 +720,16 @@ impl IntoView for SideNavItem {
                     };
                     provide(cx, move || {
                         let group = column(child.map(|slot| slot()))
-                            .role(Role::Group)
                             .style(|| style().gap(tokens().spacing.s0_5));
-                        if let Some(disclosure) = disclosure {
-                            group.part(disclosure.content())
+                        if let Some((disclosure, reveal)) = disclosure.zip(reveal) {
+                            let measured = node_ref();
+                            let height = reveal.container_style(measured);
+                            column(group.node_ref(measured).style(style().shrink(0)))
+                                .role(Role::Group)
+                                .part(disclosure.content())
+                                .style(move || height.get())
                         } else {
-                            group
+                            group.role(Role::Group)
                         }
                     })
                 },
