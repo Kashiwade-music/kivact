@@ -121,7 +121,11 @@ fn range_stages_anchor_cancels_and_commits_reverse_with_span_constraints() {
 fn date_input_commits_draft_and_calendar_returns_focus() {
     let (screen, selected) = render_with_handle(options(), || {
         let selected = signal(None::<CalendarDate>);
-        (selected, kivact_ui_soft::date_input("Due", selected))
+        (
+            selected,
+            kivact_ui_soft::date_input("Due", selected)
+                .presentation(kivact_ui_soft::DatePresentation::Desktop),
+        )
     });
     screen
         .get_by_role(Role::TextBox, "Due")
