@@ -4,12 +4,16 @@ use kivact::control::{
     Node, NodeBuilder, ScrollAxes, Span, column, node, rich_text, row, scroll, span, text,
 };
 use kivact::i18n::message;
+use kivact::interaction::{use_content_reveal, use_disclosure};
+use kivact::motion::Transition;
 use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, Length, TextAlign, pct, style};
+use kivact::style::{Align, Direction, Justify, Length, TextAlign, TransitionProp, pct, style};
 use kivact::task::{sleep, spawn};
 use kivact::ui::{ButtonVariant, ControlSize, button, tooltip};
-use kivact::view::{IntoText, IntoValue, IntoView, LiveRegion, Role, View, dynamic, show};
-use kivact::{Signal, Value, memo, signal};
+use kivact::view::{
+    IntoText, IntoValue, IntoView, LiveRegion, Role, View, dynamic, node_ref, show,
+};
+use kivact::{Signal, Value, binding, memo, signal};
 use std::cell::Cell;
 use std::ops::Range;
 use std::rc::Rc;
@@ -322,6 +326,16 @@ impl IntoView for CodeBlock {
         let can_collapse = memo(move || {
             has_header && collapsible && code.get().lines().count() >= collapsible_threshold
         });
+        let disclosure = use_disclosure(binding(
+            move || !can_collapse.get() || expanded.get(),
+            move |open| expanded.set(open),
+        ));
+        let motion = tokens().motion;
+        let reveal = use_content_reveal(
+            disclosure.shown(),
+            Transition::tween(motion.medium as f64, motion.ease_standard),
+        );
+        let disclosure = disclosure.leaving(move || reveal.leaving());
         let copied = signal(false);
         let copied_label = message("soft.code_block.copied", "Copied");
         let controls = row((
@@ -346,16 +360,17 @@ impl IntoView for CodeBlock {
                     }
                 };
                 row((
-                    icon("chevron-right")
-                        .size(IconSize::Xs)
-                        .style(move || style().rotate(if expanded.get() { 90 } else { 0 })),
+                    icon("chevron-right").size(IconSize::Xs).style(move || {
+                        style()
+                            .rotate(if expanded.get() { 90 } else { 0 })
+                            .transition(
+                                TransitionProp::Paint,
+                                Transition::tween(motion.fast as f64, motion.ease_standard),
+                            )
+                    }),
                     label,
                 ))
-                .role(Role::Button)
-                .focusable(true)
-                .name(disclosure_label)
-                .expanded(expanded)
-                .on_press(move || expanded.update(|open| *open = !*open))
+                .part(disclosure.trigger().name(disclosure_label))
                 .style(|| style().gap(tokens().spacing.s1).align_items(Align::Center))
             } else {
                 label
@@ -396,12 +411,19 @@ impl IntoView for CodeBlock {
                     None => style(),
                 })
         };
-        let body = dynamic(wrap, move |_| {
-            show(
-                move || !can_collapse.get() || expanded.get(),
-                content.clone(),
-            )
-        });
+        let measured = node_ref();
+        let body = column(show(
+            move || reveal.present(),
+            move || {
+                let content = content.clone();
+                column(dynamic(wrap, move |_| content()))
+                    .node_ref(measured)
+                    .style(style().shrink(0))
+            },
+        ))
+        .part(disclosure.content())
+        .style(style().clip(true))
+        .style(reveal.container_style(measured));
         let inside = if has_header {
             column((
                 row((header_title, controls)).style(move || {

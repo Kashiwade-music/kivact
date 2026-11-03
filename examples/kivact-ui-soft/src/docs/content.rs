@@ -110,8 +110,13 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "code-block" => specimen(
             "Rust example",
-            kivact_ui_soft::code_block("fn main() {\n    println!(\"Hello\");\n}").language("rust"),
-            "code_block(source).language(\"rust\")",
+            kivact_ui_soft::code_block("fn main() {\n    println!(\"Hello\");\n}")
+                .language("rust")
+                .title("Example source")
+                .language_label(false)
+                .collapsible(true)
+                .collapsible_threshold(3),
+            "code_block(source).language(\"rust\").title(\"Example source\").collapsible(true).collapsible_threshold(3)",
         ),
         "markdown" => specimen(
             "Formatted content",

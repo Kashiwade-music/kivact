@@ -7,11 +7,45 @@ use kivact::test::{RenderOptions, render_with, render_with_handle};
 use kivact::ui::{ControlSize, button};
 use kivact::view::{Key, Role};
 use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, heading, icon,
-    input_group_with, status_dot,
+    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, code_block, heading,
+    icon, input_group_with, status_dot,
 };
 use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Duration;
+
+#[test]
+fn code_block_disclosure_releases_its_height_as_it_closes() {
+    let screen = render_with(
+        RenderOptions {
+            theme: kivact_ui_soft::theme(ThemeMode::Light),
+            reduced_motion: false,
+            ..RenderOptions::from_env()
+        },
+        || {
+            column((
+                code_block("let a = 1;\nlet b = 2;\nlet c = 3;".to_owned())
+                    .title("Snippet")
+                    .language_label(false)
+                    .collapsible(true)
+                    .collapsible_threshold(2),
+                button("After code"),
+            ))
+        },
+    );
+    let snippet = screen.get_by_role(Role::Button, "Snippet");
+    let after = screen.get_by_role(Role::Button, "After code");
+    let open_y = after.rect().expect("laid out sibling").y;
+    assert_eq!(snippet.controls().len(), 1);
+    snippet.press_key(Key::Enter);
+    assert_eq!(snippet.is_expanded(), Some(false));
+    screen.advance(Duration::from_millis(85));
+    let intermediate_y = after.rect().expect("laid out sibling").y;
+    screen.advance(Duration::from_millis(300));
+    let closed_y = after.rect().expect("laid out sibling").y;
+    assert!(closed_y < intermediate_y && intermediate_y < open_y);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn input_group_inherits_size_without_overriding_an_explicit_member() {

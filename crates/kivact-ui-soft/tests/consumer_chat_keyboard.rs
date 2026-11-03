@@ -2,6 +2,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 
 use kivact::signal;
 use kivact::style::ThemeMode;
@@ -85,6 +86,7 @@ fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
     group.press_key(Key::Enter);
     assert_eq!(group.is_expanded(), Some(true));
     assert_eq!(group.controls().len(), 1);
+    screen.advance(Duration::from_millis(320));
     screen.get_by_text("! Failed");
     screen.get_by_text("Error: Access denied");
 
@@ -105,6 +107,15 @@ fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
     assert!(
         screen
             .query_by_role(Role::Button, "Inspect output")
+            .is_none()
+    );
+    group.press_key(Key::Space);
+    assert_eq!(group.is_expanded(), Some(false));
+    screen.advance(Duration::from_millis(320));
+    screen.get_by_text("Check path");
+    assert!(
+        screen
+            .query_by_role(Role::Button, "Details for Read file")
             .is_none()
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());

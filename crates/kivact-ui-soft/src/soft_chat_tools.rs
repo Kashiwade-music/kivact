@@ -7,7 +7,8 @@ use std::time::Duration;
 use crate::{SpinnerShade, SpinnerSize, spinner, tokens};
 use kivact::control::{Node, NodeBuilder, Span, column, icon, node, rich_text, row, span, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::use_disclosure;
+use kivact::interaction::{use_content_reveal, use_disclosure};
+use kivact::motion::Transition;
 use kivact::primitive::{EditState, NodeExt};
 use kivact::style::{Align, Direction, style};
 use kivact::task::{Task, sleep, spawn};
@@ -261,6 +262,12 @@ impl IntoView for ChatToolCalls {
             move |shown| open.set(shown),
         );
         let disclosure = use_disclosure(rows_open);
+        let motion = tokens().motion;
+        let reveal = use_content_reveal(
+            disclosure.shown(),
+            Transition::tween(motion.medium as f64, motion.ease_standard),
+        );
+        let disclosure = disclosure.leaving(move || reveal.leaving());
         let title = label.unwrap_or_else(|| {
             message_with(
                 "soft.chat.tool_calls.group_label",
@@ -327,7 +334,7 @@ impl IntoView for ChatToolCalls {
                 .style(move || style().padding_left(22).color(tokens().colors.text_error));
                 let summary = if let Some(detail) = &detail {
                     let expanded = signal(false);
-                    let disclosure = use_disclosure(expanded);
+                    let disclosure = use_disclosure(expanded).disabled(move || !rows_visible.get());
                     let detail_label = message_with(
                         "soft.chat.tool_calls.detail",
                         "Details for {name}",
@@ -343,6 +350,7 @@ impl IntoView for ChatToolCalls {
                         .role(Role::Group)
                         .name(detail_label)
                         .part(disclosure.content())
+                        .hidden(move || !rows_visible.get() || !expanded.get())
                         .on_key(move |event: KeyEvent| {
                             if event.key == Key::Escape {
                                 expanded.set(false);
@@ -361,11 +369,16 @@ impl IntoView for ChatToolCalls {
                 summary.role(Role::ListItem)
             },
         );
+        let measured = node_ref();
         let items = column(items)
             .role(Role::List)
             .name(title)
+            .node_ref(measured)
+            .style(style().gap(2).shrink(0));
+        let items = column(items)
             .part(disclosure.content())
-            .style(style().gap(2));
+            .style(style().clip(true))
+            .style(reveal.container_style(measured));
         root.hidden(move || calls.with(Vec::is_empty))
             .base_style(
                 style()

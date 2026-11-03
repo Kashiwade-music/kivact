@@ -50,6 +50,7 @@ fn capture_catalog() {
                 capture_button_states(&screen, &output, name);
             }
             capture_overlay_states(&screen, &output, page.slug, name);
+            capture_disclosure_states(&screen, &output, page.slug, name);
             if page.slug == "spinner" {
                 screen.set_reduced_motion(true);
                 screen.advance(Duration::from_millis(750));
@@ -112,6 +113,24 @@ fn capture_overlay_states(screen: &Screen, output: &Path, slug: &str, mode: &str
         screen.press_key(Key::Escape);
         screen.advance(Duration::from_millis(34));
         save("exiting");
+    }
+}
+
+fn capture_disclosure_states(screen: &Screen, output: &Path, slug: &str, mode: &str) {
+    let trigger = match slug {
+        "chat-tool-calls" => "2 tool calls",
+        "code-block" => "Example source",
+        _ => return,
+    };
+    screen
+        .get_by_role(Role::Button, trigger)
+        .press_key(Key::Enter);
+    for (elapsed, state) in [(85, "closing"), (300, "closed")] {
+        screen.advance(Duration::from_millis(elapsed));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("{slug}-{mode}-{state}.png")))
+            .expect("disclosure state screenshot");
     }
 }
 
