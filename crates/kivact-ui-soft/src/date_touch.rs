@@ -6,15 +6,18 @@ use crate::theme_access::tokens;
 use crate::time_of_day::TimeOfDay;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{CalendarDate, CalendarMonth, message};
-use kivact::primitive::{NodeExt, PartState, part};
-use kivact::style::{Align, Direction, Justify, pct, style};
+use kivact::interaction::{DragVelocity, nearest_snap, project_release};
+use kivact::motion::{Spring, Transition, animated};
+use kivact::primitive::{NodeExt, PartState, clock_now, part};
+use kivact::style::{Align, Direction, Justify, Position, pct, style};
 use kivact::ui::{ButtonVariant, button};
 use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, NodeRef, PointerEvent, PointerId,
-    PointerPhase, Role, WheelEvent, dynamic,
+    A11yAction, Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, NodeRef, PointerEvent,
+    PointerId, PointerPhase, Role, WheelEvent, dynamic,
 };
 use kivact::{Binding, Signal, Value, binding, memo, signal, var};
 use std::rc::Rc;
+use std::time::Duration;
 
 /// The date and time picker surface.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -292,10 +295,15 @@ fn two_digits(value: i32) -> String {
 struct Contact {
     pointer: PointerId,
     y: f32,
-    stepped: bool,
+    dragging: bool,
 }
 
-const WHEEL_ROW: f32 = 44.0;
+const WHEEL_ROW: f32 = 28.0;
+const WHEEL_HEIGHT: f32 = 264.0;
+const RELEASE_STOPS: [f32; 17] = [
+    -224.0, -196.0, -168.0, -140.0, -112.0, -84.0, -56.0, -28.0, 0.0, 28.0, 56.0, 84.0, 112.0,
+    140.0, 168.0, 196.0, 224.0,
+];
 
 fn wheel(
     label: Value<String>,
@@ -320,34 +328,74 @@ fn wheel(
         }
     };
     let contact = var(None::<Contact>);
+    let velocity = var(DragVelocity::new(Duration::from_millis(100)));
+    let release = signal(0u64);
+    let offset = animated(
+        move || {
+            release.get();
+            0.0f32
+        },
+        Transition::spring(Spring {
+            stiffness: 246.7,
+            damping: 31.4,
+            mass: 1.0,
+        }),
+    );
+    let settle = move |from: f32| {
+        if kivact::platform::reduced_motion() {
+            offset.jump_to(0.0);
+        } else {
+            offset.jump_to(from.clamp(-112.0, 112.0));
+            release.update(|release| *release = release.wrapping_add(1));
+        }
+    };
     let interaction = part(|input| input)
         .focusable(true)
+        .value_min(f64::from(min))
+        .value_max(f64::from(max))
+        .value_now(move || f64::from(value.get()))
         .value_text(move || format(value.get()))
+        .on_a11y(A11yAction::Increment, move || step(1))
+        .on_a11y(A11yAction::Decrement, move || step(-1))
         .on_key(move |event: KeyEvent| {
+            if event.modifiers.ctrl || event.modifiers.meta || event.modifiers.alt {
+                return Handled::No;
+            }
             match event.key {
                 Key::ArrowUp => step(-1),
                 Key::ArrowDown => step(1),
+                Key::PageUp => step(-10),
+                Key::PageDown => step(10),
                 Key::Home => value.set(min),
                 Key::End => value.set(max),
                 _ => return Handled::No,
             }
+            offset.jump_to(0.0);
             Handled::Yes
         })
         .on_wheel(move |event: WheelEvent| {
-            if event.delta.y == 0.0 {
+            if !event.delta.y.is_finite() || event.delta.y == 0.0 {
                 return Handled::No;
             }
             step(event.delta.y.signum() as i32);
+            offset.jump_to(0.0);
             Handled::Yes
         })
         .on_pointer(move |event: PointerEvent| {
-            let y = event.window_pos.y;
+            let pos = event.window_pos;
+            let now = clock_now();
+            if !pos.y.is_finite() {
+                return Handled::No;
+            }
             match event.phase {
                 PointerPhase::Down(_) if event.is_primary => {
+                    event.reserve_touch_gesture();
+                    offset.jump_to(0.0);
+                    velocity.update(|velocity| velocity.reset(now, pos));
                     contact.set(Some(Contact {
                         pointer: event.id,
-                        y,
-                        stepped: false,
+                        y: pos.y,
+                        dragging: false,
                     }));
                 }
                 PointerPhase::Move => {
@@ -355,34 +403,77 @@ fn wheel(
                     else {
                         return Handled::No;
                     };
-                    let steps = ((drag.y - y) / WHEEL_ROW).trunc() as i32;
-                    if steps != 0 {
-                        step(steps);
-                        drag.y -= steps as f32 * WHEEL_ROW;
-                        drag.stepped = true;
-                        contact.set(Some(drag));
+                    let travel = drag.y - pos.y;
+                    drag.dragging |= travel.abs() >= 4.0;
+                    velocity.update(|velocity| velocity.record(now, pos));
+                    if drag.dragging {
+                        let steps = (travel / WHEEL_ROW).trunc() as i32;
+                        if steps != 0 {
+                            step(steps);
+                            drag.y -= steps as f32 * WHEEL_ROW;
+                        }
+                        offset.jump_to(pos.y - drag.y);
                     }
+                    contact.set(Some(drag));
                 }
                 PointerPhase::Up(_) => {
                     let Some(drag) = contact.get().filter(|drag| drag.pointer == event.id) else {
                         return Handled::No;
                     };
                     contact.set(None);
-                    if !drag.stepped {
-                        let delta = ((event.pos.y - 132.0) / WHEEL_ROW).round() as i32;
-                        step(delta.clamp(-2, 2));
+                    if drag.dragging {
+                        velocity.update(|velocity| velocity.record(now, pos));
+                        let speed = velocity.with(|velocity| velocity.pixels_per_ms(now).y);
+                        let residual = drag.y - pos.y;
+                        let projected =
+                            project_release(residual, -speed, Duration::from_millis(499));
+                        let steps = nearest_snap(projected, &RELEASE_STOPS)
+                            .map_or(0, |index| index as i32 - 8);
+                        let before = value.get_untracked();
+                        step(steps);
+                        let after = value.get_untracked();
+                        let applied = if before == after {
+                            0
+                        } else if wraps {
+                            steps
+                        } else {
+                            after - before
+                        };
+                        settle(applied as f32 * WHEEL_ROW - residual);
+                    } else {
+                        let delta = ((event.pos.y - WHEEL_HEIGHT / 2.0) / WHEEL_ROW).round() as i32;
+                        let steps = delta.clamp(-4, 4);
+                        let before = value.get_untracked();
+                        step(steps);
+                        if before != value.get_untracked() {
+                            settle(steps as f32 * WHEEL_ROW);
+                        }
                     }
                 }
                 PointerPhase::Cancel => {
                     if contact.get().is_some_and(|drag| drag.pointer == event.id) {
                         contact.set(None);
+                        settle(offset.get_untracked());
                     }
                 }
                 _ => return Handled::No,
             }
             Handled::Yes
         });
-    let rows = (-2..=2)
+    // The band stays fixed while the labels move. Extra labels prevent a
+    // projected release from exposing the ends of the rendered strip.
+    let band = node().hit_testable(false).style(move || {
+        let t = tokens();
+        style()
+            .position(Position::Absolute)
+            .left(0)
+            .right(0)
+            .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0)
+            .height(WHEEL_ROW)
+            .radius(t.radius.element)
+            .background(t.colors.neutral)
+    });
+    let rows = (-8i32..=8)
         .map(|delta| {
             let shown = memo(move || {
                 let raw = value.get() + delta;
@@ -392,37 +483,55 @@ fn wheel(
                     format(normalize(raw))
                 }
             });
-            node().child(text(shown)).style(move || {
-                let t = tokens();
-                let base = style()
-                    .height(WHEEL_ROW)
-                    .width(pct(100))
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .font_size(20);
-                if delta == 0 {
-                    base.background(t.colors.accent_muted)
-                        .radius(t.radius.element)
-                        .weight(600)
-                } else {
-                    base.color(t.colors.text_secondary)
-                        .opacity(if delta.abs() == 2 { 0.5 } else { 0.8 })
-                }
-            })
+            node()
+                .hit_testable(false)
+                .child(text(shown))
+                .style(move || {
+                    let t = tokens();
+                    let distance = delta as f32 * WHEEL_ROW + offset.get();
+                    let falloff = (distance.abs() / 146.0).min(1.0);
+                    let selected = distance.abs() <= WHEEL_ROW / 2.0;
+                    let base = style()
+                        .position(Position::Absolute)
+                        .left(0)
+                        .right(0)
+                        .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0 + delta as f32 * WHEEL_ROW)
+                        .height(WHEEL_ROW)
+                        .translate_y(offset.get())
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .font_size(17)
+                        .opacity(1.0 - 0.7 * falloff)
+                        .weight(if selected { 600 } else { 400 })
+                        .color(if selected {
+                            t.colors.text_accent
+                        } else {
+                            t.colors.text_primary
+                        });
+                    if kivact::platform::reduced_motion() {
+                        base
+                    } else {
+                        let scale = 1.0 - 0.14 * falloff;
+                        base.scale_xy(scale, scale * (52.0 * falloff).to_radians().cos())
+                    }
+                })
         })
         .collect::<Vec<_>>();
-    column(rows)
+    node()
+        .child(band)
+        .child(rows)
         .role(Role::SpinButton)
         .name(label)
         .part(interaction)
         .style(move || {
             let t = tokens();
             style()
+                .position(Position::Relative)
                 .direction(Direction::Column)
                 .grow(1)
                 .min_width(48)
-                .height(264)
-                .padding_y(22)
+                .height(WHEEL_HEIGHT)
+                .clip(true)
                 .focus_visible(style().ring_with_offset(2, 3, t.colors.accent))
         })
 }

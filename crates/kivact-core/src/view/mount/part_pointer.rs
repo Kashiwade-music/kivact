@@ -13,6 +13,19 @@ use crate::view::state::ViewState;
 use crate::view::{Handled, MouseButton, PointerButtons, PointerEvent, PointerId, PointerPhase};
 
 impl PointerEvent {
+    /// Keep this touch press routed to its control instead of starting native scrolling.
+    /// Call during `Down` for controls that directly manipulate the same axis.
+    pub fn reserve_touch_gesture(&self) {
+        if self.kind == crate::view::PointerKind::Touch
+            && matches!(self.phase, PointerPhase::Down(_))
+            && let Some(runtime) = kivact_reactive::Runtime::current()
+        {
+            ViewState::tree(&runtime)
+                .engine()
+                .reserve_touch_gesture(self.id);
+        }
+    }
+
     /// Suppress the click activation of this primary gesture at its target.
     /// Call from a pointer handler when it takes over the press or drag.
     /// Keyboard and accessibility activations are independent.

@@ -160,3 +160,42 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
+
+#[test]
+fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
+    use kivact::view::{A11yAction, PointerKind};
+    let (screen, selected) = render_with_handle(options(), || {
+        let selected = signal(TimeOfDay::new(12, 20, 0));
+        (
+            selected,
+            time_input("Reminder", selected).presentation(DatePresentation::BottomSheet),
+        )
+    });
+    screen
+        .get_by_role(Role::ComboBox, "Reminder")
+        .press_key(Key::ArrowDown);
+    screen.advance(Duration::from_millis(600));
+    let minute = screen.get_by_role(Role::SpinButton, "Minute");
+    assert_eq!(minute.value_range(), (Some(0.0), Some(59.0), Some(20.0)));
+    let bounds = minute.accessibility_bounds().unwrap();
+    let x = bounds.x + bounds.width / 2.0;
+    let y = bounds.y + bounds.height / 2.0;
+    let contact = screen.contact_down(PointerKind::Touch, x, y);
+    screen.advance(Duration::from_millis(16));
+    screen.contact_move(contact, x, y - 35.0);
+    assert_eq!(selected.get_untracked(), TimeOfDay::new(12, 21, 0));
+    screen.advance(Duration::from_millis(16));
+    screen.contact_up(contact);
+    let snapped = selected.get_untracked().unwrap().minute();
+    assert!(
+        snapped > 21,
+        "release should advance beyond the crossed detent"
+    );
+    screen.advance(Duration::from_secs(1));
+    assert_eq!(selected.get_untracked().unwrap().minute(), snapped);
+    minute.a11y(A11yAction::Increment);
+    assert_eq!(selected.get_untracked().unwrap().minute(), snapped + 1);
+    minute.press_key(Key::PageUp);
+    assert_eq!(selected.get_untracked().unwrap().minute(), snapped - 9);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

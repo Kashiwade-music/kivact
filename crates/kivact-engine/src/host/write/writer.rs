@@ -65,6 +65,11 @@ impl Writer {
         self.model.borrow().admission.forget_adoption(pointer);
     }
 
+    /// Keep an active touch contact routed to its initial control.
+    pub fn reserve_touch_gesture(&self, pointer: PointerId) {
+        self.model.borrow_mut().reserve_touch_gesture(pointer);
+    }
+
     /// Totals of the client's mutations and the last committed revision.
     pub fn stats(&self) -> WriteStats {
         let model = self.model.borrow();
