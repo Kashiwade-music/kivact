@@ -324,19 +324,20 @@ provide native table semantics. The standard data table supports sorting,
 selection, proportional widths, column resizing with per-column minimums,
 header context menus, and a custom empty state. Use `.expanded_rows(..)` with
 `.row_details(..)` for keyboard-operated row details, and `.column_filters(..)`
-for per-column queries. Grouped rows, sticky columns, typed filter popovers,
+for per-column queries. Use `.row_selectable(..)` to exclude rows from
+selection while keeping them in keyboard navigation. Grouped rows, sticky columns, typed filter popovers,
 and column reordering remain pending (C-29). Use `.multi_sort(..)`
 to enable multi-column sorting. Shift activation changes one column while
 preserving the other sort keys.
 
 | Work-order item | Current behavior |
 | --- | --- |
-| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. Native views can opt in to releasing their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
+| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `TreeList::animated(true)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
 | C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
 | C-09, C-37 | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel uses native scrolling. Toast and Slider use their standard dismissal and input controls. |
 | C-11, C-17, C-18, C-39 | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus use activation to open. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. Drag-to-select remains pending. |
 | C-15 | Inline Markdown uses native text and view composition. The rich text editor has source and preview modes. Its toolbar applies bold, italic, strikethrough, and code marks to Markdown source. |
-| C-20, C-21, C-24, C-35, C-36 | The application supplies the appearance. Date and time use the desktop input flow and its formatting. Soft Selector opens from a bare arrow and commits on selection. Touch wheels, adaptive sheets, and keeping focus on the trigger while an option is active remain pending. |
+| C-20, C-21, C-24, C-35, C-36 | The application supplies the appearance. Date and time use the desktop input flow and its formatting. Soft Selector opens from a bare arrow, keeps focus on its trigger while highlighting an option, and commits on selection. Touch wheels and adaptive sheets remain pending. |
 | C-22, C-25, C-38 | Truncation hints can appear whenever truncation is enabled. Citation and timestamp use solid underlines. Text uses the native line box. |
 | C-26 | Soft respects Kivact's reduced-motion preference and the application's override. System detection depends on the platform. |
 | C-33, C-34 | The kit supplies its own static list. Overflow List measures mounted items and uses provisional widths before layout. |
