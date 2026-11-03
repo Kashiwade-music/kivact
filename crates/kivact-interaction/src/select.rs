@@ -117,6 +117,8 @@ pub struct SelectApi<K: Clone + Eq + Hash + 'static> {
     popup: Popup,
     /// Moves the selection while the list is closed.
     closed: List<K>,
+    arrow_open: bool,
+    arrow_edge: Signal<Option<Key>>,
     /// The open list's options.
     list: List<K>,
     /// The option the pointer rests on, for the preview.
@@ -155,12 +157,23 @@ pub fn use_select<K: Clone + Eq + Hash + 'static>(
         // The closed trigger moves the selection through the logical order,
         // including options that are not mounted.
         closed: group(options, selected).shared_typeahead(typed),
+        arrow_open: false,
+        arrow_edge: signal(None),
         list: group(options, selected).shared_typeahead(typed),
         hovered,
     }
 }
 
 impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
+    /// Open on a bare arrow instead of changing the closed selection.
+    ///
+    /// ArrowDown focuses the first enabled option and ArrowUp focuses the last.
+    /// The selected value changes only when the user commits an option.
+    pub fn open_on_arrow(mut self, enabled: bool) -> Self {
+        self.arrow_open = enabled;
+        self
+    }
+
     /// What the trigger shows while no option is selected. Setup only.
     #[track_caller]
     pub fn placeholder(self, text: impl IntoText) -> Self {
@@ -240,6 +253,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
         let label = self.label();
         let popup = self.popup;
         let closed = self.closed;
+        let (arrow_open, arrow_edge) = (self.arrow_open, self.arrow_edge);
         popup
             .trigger()
             .role(Role::ComboBox)
@@ -268,6 +282,11 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                 if m.ctrl || m.alt || m.meta {
                     return Handled::No;
                 }
+                if arrow_open && !m.shift && matches!(event.key, Key::ArrowDown | Key::ArrowUp) {
+                    arrow_edge.set(Some(event.key));
+                    popup.open_binding().set(true);
+                    return Handled::Yes;
+                }
                 closed.key_selection(&event)
             })
     }
@@ -288,6 +307,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
             popup,
             list,
             hovered,
+            arrow_edge,
             ..
         } = self;
         popup
@@ -315,6 +335,23 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                     track_preview(list, hovered, preview);
                 }
                 on_mount(move || {
+                    let edge = arrow_edge.get_untracked();
+                    if let Some(edge) = edge {
+                        arrow_edge.set(None);
+                        let key = options.with(|options| {
+                            let mut enabled = options.iter().filter(|option| !option.disabled);
+                            let option = if edge == Key::ArrowUp {
+                                enabled.next_back()
+                            } else {
+                                enabled.next()
+                            };
+                            option.map(|option| option.key.clone())
+                        });
+                        if let Some(key) = key {
+                            list.focus(key);
+                        }
+                        return;
+                    }
                     if selected.get().is_some_and(|key| list.focus(key)) {
                         return;
                     }

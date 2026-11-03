@@ -28,6 +28,7 @@ pub struct Select<K: Clone + Eq + Hash + 'static> {
     size: ControlSize,
     option: Option<OptionContent<K>>,
     variants: Variants,
+    arrow_open: bool,
 }
 /// A themed keyed select whose value, focus and keys belong to interaction.
 ///
@@ -54,6 +55,7 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
         size: super::values::default_control_size(),
         option: None,
         variants,
+        arrow_open: false,
     }
 }
 impl<K: Clone + Eq + Hash + 'static> Select<K> {
@@ -73,6 +75,12 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
     }
 }
 impl<K: Clone + Eq + Hash + 'static> Select<K> {
+    /// Open the options on a bare ArrowDown or ArrowUp without selecting.
+    pub fn open_on_arrow(mut self, enabled: bool) -> Self {
+        self.arrow_open = enabled;
+        self
+    }
+
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
@@ -128,7 +136,8 @@ impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Select<K> {
 }
 impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
     fn into_view(mut self) -> View {
-        let mut behavior = kivact_interaction::use_select(self.options, self.selected);
+        let mut behavior = kivact_interaction::use_select(self.options, self.selected)
+            .open_on_arrow(self.arrow_open);
         if let Some(text) = self.placeholder {
             behavior = behavior.placeholder(text);
         }
