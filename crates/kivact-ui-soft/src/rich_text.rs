@@ -114,6 +114,7 @@ impl IntoView for RichTextEditor {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Verify the editor preserves Markdown source.
     use super::RichDoc;
 
     #[test]

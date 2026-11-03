@@ -36,6 +36,7 @@ pub struct ScrollableArea {
     full_bleed: bool,
     bleed_top: bool,
     bleed_bottom: bool,
+    force_focusable: Option<Value<bool>>,
 }
 
 pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> ScrollableArea {
@@ -47,11 +48,16 @@ pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> Scrollable
         full_bleed: false,
         bleed_top: false,
         bleed_bottom: false,
+        force_focusable: None,
     }
 }
 
 impl ScrollableArea {
     padding_options!();
+    pub(crate) fn force_focusable(mut self, value: Value<bool>) -> Self {
+        self.force_focusable = Some(value);
+        self
+    }
     pub fn axis(mut self, axis: ScrollAxis) -> Self {
         self.axis = axis;
         self
@@ -86,6 +92,7 @@ impl IntoView for ScrollableArea {
             full_bleed,
             bleed_top,
             bleed_bottom,
+            force_focusable,
         } = self;
         provide((), move || {
             let viewport = node_ref();
@@ -132,7 +139,9 @@ impl IntoView for ScrollableArea {
                     base
                 })
                 .focusable(move || {
-                    state.inline.is_scrollable.get() || state.block.is_scrollable.get()
+                    force_focusable.is_some_and(|force| force.get())
+                        || state.inline.is_scrollable.get()
+                        || state.block.is_scrollable.get()
                 })
                 .on_key(move |event| {
                     if focused.get() {

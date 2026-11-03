@@ -1,33 +1,21 @@
-//! Role: Demonstrate the tabs, disclosure, list, table and split recipes.
+//! Role: Demonstrate Soft layout, collection, table and chat components.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, text};
-use kivact::interaction::ListActivation;
+use kivact::control::{Node, NodeBuilder, column, row, text};
+use kivact::interaction::TreeNode;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, ListItem, data_table, disclosure, split, tabs};
+use kivact::ui::{DataColumn, data_table, disclosure, split};
 use kivact_ui_soft::{
-    ChatSender, GridColumns, Space, aspect_ratio, breadcrumb_item, breadcrumbs, card, chat_bubble,
-    chat_composer, chat_layout, chat_message, chat_system_message, divider, grid, hstack, item,
-    list, list_item, metadata_item, metadata_list, overflow_list, pagination, section, stack_item,
+    ChatSender, DictationState, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio,
+    breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
+    chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
+    clickable_card, divider, form_layout, form_row, grid, hstack, item, layout, layout_content,
+    layout_header, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
+    pagination, scrollable_area, section, selectable_card, stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
-        "tab-list" | "tab" => specimen(
-            "Manual activation",
-            tabs(
-                "Project views",
-                vec![
-                    ListItem::new("summary", "Summary"),
-                    ListItem::new("activity", "Activity"),
-                    ListItem::new("settings", "Settings"),
-                ],
-                signal("summary"),
-            )
-            .activation(ListActivation::Manual)
-            .content(|key| text(format!("Selected view: {key}"))),
-            "tabs(\"Project views\", options, selected).activation(ListActivation::Manual)",
-        ),
         "collapsible" | "collapsible-group" => specimen(
             "Open by default",
             disclosure("Delivery details", signal(true), || {
@@ -50,10 +38,64 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             card(text("Project notes")),
             "card(text(\"Project notes\"))",
         ),
+        "clickable-card" => specimen(
+            "Open project",
+            clickable_card("Open project", text("Project notes")).on_press(|| {}),
+            "clickable_card(\"Open project\", content, open_project)",
+        ),
+        "selectable-card" => specimen(
+            "Select project",
+            selectable_card("Select project", signal(false), text("Project notes")),
+            "selectable_card(\"Select project\", selected, content)",
+        ),
+        "carousel" => specimen(
+            "Browse slides",
+            carousel(
+                "Project highlights",
+                [card(text("Design")), card(text("Documentation"))],
+            )
+            .style(style().width(320)),
+            "carousel(\"Project highlights\", slides)",
+        ),
         "section" => specimen(
             "Section content",
             section(text("Workspace settings")),
             "section(text(\"Workspace settings\"))",
+        ),
+        "center" => specimen(
+            "Center content",
+            center(text("Centered content")).style(style().size(240, 96)),
+            "center(text(\"Centered content\"))",
+        ),
+        "form-layout" => specimen(
+            "Aligned fields",
+            form_layout(form_row(
+                text("Project"),
+                kivact::ui::text_input("Project", signal("Design notes".to_owned())),
+            ))
+            .style(style().width(320)),
+            "form_layout(form_row(label, input))",
+        ),
+        "layout" => specimen(
+            "Header and content",
+            layout()
+                .header(|| layout_header(text("Project notes")).divider(true))
+                .content(|| layout_content(text("Workspace content")))
+                .style(style().width(320).height(144)),
+            "layout().header(header).content(content)",
+        ),
+        "scrollable-area" => specimen(
+            "Scroll with the keyboard",
+            scrollable_area(
+                "Activity",
+                column(
+                    (0..12)
+                        .map(|index| text(format!("Activity {}", index + 1)))
+                        .collect::<Vec<_>>(),
+                ),
+            )
+            .style(style().width(240).height(96)),
+            "scrollable_area(\"Activity\", events)",
         ),
         "divider" => specimen(
             "Separate related content",
@@ -101,6 +143,29 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             )),
             "metadata_list((metadata_item(\"Owner\", text(\"Avery Morgan\")), status))",
         ),
+        "tree-list" => specimen(
+            "Expandable files",
+            tree_list(
+                "Files",
+                vec![
+                    TreeNode::new("src", None, "src"),
+                    TreeNode::new("main.rs", Some("src"), "main.rs"),
+                    TreeNode::new("README.md", None, "README.md"),
+                ],
+                signal(vec!["src"]),
+            )
+            .style(style().width(240)),
+            "tree_list(\"Files\", files, expanded)",
+        ),
+        "nav-icon" => specimen(
+            "Navigation icon",
+            row((
+                nav_icon(kivact_ui_soft::icon("file-text")),
+                text("Documents"),
+            ))
+            .style(style().gap(8)),
+            "nav_icon(\"file-text\")",
+        ),
         "overflow-list" => specimen(
             "Items in a narrow space",
             overflow_list(
@@ -127,6 +192,23 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             .composer(|| chat_composer(signal(String::new())))
             .style(style().width(440).height(300)),
             "chat_layout(messages).composer(|| chat_composer(draft))",
+        ),
+        "chat-dictation-button" => specimen(
+            "Dictation available",
+            chat_dictation_button(signal(DictationState {
+                supported: true,
+                ..DictationState::default()
+            })),
+            "chat_dictation_button(dictation_state)",
+        ),
+        "chat-tool-calls" => specimen(
+            "Tool activity",
+            chat_tool_calls(vec![
+                ToolCall::new("read", "Read notes").target("notes.md"),
+                ToolCall::new("review", "Review notes").status(ToolStatus::Running),
+            ])
+            .expanded(signal(true)),
+            "chat_tool_calls(calls).expanded(expanded)",
         ),
         "table" => specimen(
             "Sortable columns",

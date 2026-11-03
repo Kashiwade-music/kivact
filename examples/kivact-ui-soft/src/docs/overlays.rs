@@ -1,14 +1,15 @@
 //! Role: Demonstrate the standard anchored layers, dialogs and notifications.
 use super::specimen::specimen;
 use kivact::control::{Node, NodeBuilder, row, text};
-use kivact::signal;
 use kivact::style::style;
 use kivact::ui::{
     ButtonVariant, Command, DialogKind, MenuEntry, Side, Toast, button, command_palette, dialog,
     menu, toast_region, toaster, tooltip,
 };
+use kivact::{Binding, signal};
 use kivact_ui_soft::{
-    alert_dialog, bottom_sheet, dialog_header, drawer_header, hover_card, media_overlay,
+    LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, dialog_header, drawer_header,
+    hover_card, lightbox, media_overlay,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -49,7 +50,22 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 "bottom_sheet(\"Document details\", open).content(sheet_content)",
             )
         }
-        "popover" => dialog_example(DialogKind::Popover, "Open popover", "Popover"),
+        "bottom-sheet-switcher" => {
+            let step = signal(None);
+            let selected: Binding<Option<u8>> = step.into();
+            specimen(
+                "Two sheet steps",
+                (
+                    button("Start review").on_press(move || step.set(Some(1))),
+                    bottom_sheet_flow("Review notes", selected, 1)
+                        .content(move || button("Continue").on_press(move || step.set(Some(2)))),
+                    bottom_sheet_flow("Confirm review", selected, 2)
+                        .content(move || button("Done").on_press(move || step.set(None))),
+                ),
+                "bottom_sheet_flow(\"Review notes\", step, 1).content(review)",
+            )
+        }
+        "popover" | "layer" => dialog_example(DialogKind::Popover, "Open popover", "Popover"),
         "hover-card" => specimen(
             "Preview on hover",
             hover_card(|| text("Workspace member")).attach(button("Avery Morgan")),
@@ -60,6 +76,22 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             media_overlay(|| text("Document preview")).attach(button("Cover")),
             "media_overlay(|| text(\"Document preview\")).attach(button(\"Cover\"))",
         ),
+        "lightbox" => {
+            static PREVIEW: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><rect width="320" height="180" fill="#dce9f4"/><circle cx="246" cy="56" r="26" fill="#f3b85a"/><path d="M0 180 112 58l80 93 41-46 87 75Z" fill="#517983"/></svg>"##;
+            let open = signal(false);
+            specimen(
+                "Open an image preview",
+                (
+                    button("Open image").on_press(move || open.set(true)),
+                    lightbox(
+                        open,
+                        vec![LightboxMedia::image(PREVIEW, "Mountain landscape")],
+                    )
+                    .zoom(true),
+                ),
+                "lightbox(open, media).zoom(true)",
+            )
+        }
         "tooltip" => specimen(
             "Keyboard focus and hover",
             tooltip("Save your changes").attach(button("Save")),

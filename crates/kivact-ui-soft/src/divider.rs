@@ -49,6 +49,8 @@ impl Divider {
         self
     }
     pub fn label_text(mut self, label: impl IntoText) -> Self {
+        let label = label.into_text_value();
+        self.root = self.root.name(label);
         self.label = Some(text(label).into_view());
         self
     }

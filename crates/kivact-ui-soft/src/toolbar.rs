@@ -109,6 +109,8 @@ impl NodeBuilder for Toolbar {
 struct Registration {
     slot: usize,
     item: RovingItem,
+    focused: kivact::Value<bool>,
+    focus_visible: kivact::Value<bool>,
 }
 
 #[derive(Clone, Copy)]
@@ -122,6 +124,8 @@ pub fn toolbar_item<T: NodeBuilder>(mut item: T) -> T {
         return item;
     };
     let reference = node_ref();
+    let focused = reference.focused();
+    let focus_visible = reference.focus_visible();
     let disabled = item.accessible_disabled();
     let disabled = (move || disabled.as_ref().is_some_and(|read| read())).into_value();
     let slot = next.get_untracked();
@@ -129,6 +133,8 @@ pub fn toolbar_item<T: NodeBuilder>(mut item: T) -> T {
     items.update(|items| {
         items.push(Registration {
             slot,
+            focused,
+            focus_visible,
             item: RovingItem {
                 reference,
                 disabled,
@@ -207,9 +213,7 @@ impl IntoView for Toolbar {
                 items.with(|items| {
                     items.iter().find_map(|registered| {
                         registered
-                            .item
-                            .reference
-                            .focus_visible()
+                            .focus_visible
                             .get()
                             .then_some(registered.item.reference)
                     })
@@ -227,10 +231,7 @@ impl IntoView for Toolbar {
                         hint_anchor.set(None);
                     }
                     let current = items.get();
-                    let Some(index) = current
-                        .iter()
-                        .position(|item| item.item.reference.focused().get())
-                    else {
+                    let Some(index) = current.iter().position(|item| item.focused.get()) else {
                         return Handled::No;
                     };
                     let step = navigation_index(&current, index, event.key, vertical, rtl);

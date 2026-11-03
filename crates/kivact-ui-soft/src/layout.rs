@@ -32,7 +32,7 @@ use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, scroll};
 use kivact::primitive::NodeExt;
 use kivact::style::{Direction, Length, pct, style};
-use kivact::view::{IntoView, View, provide, try_context};
+use kivact::view::{IntoView, NodeRef, View, node_ref, provide, try_context};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LayoutHeight {
@@ -131,6 +131,7 @@ impl NodeBuilder for Layout {
 
 #[derive(Clone, Copy, Default)]
 struct LayoutSlots {
+    root_ref: Option<NodeRef>,
     header_divider: Option<bool>,
     footer_divider: Option<bool>,
     has_start: bool,
@@ -164,7 +165,9 @@ impl IntoView for Layout {
             for region in [&mut header, &mut footer].into_iter().flatten() {
                 region.divider.get_or_insert(default_dividers);
             }
+            let root_ref = node_ref();
             let slots = LayoutSlots {
+                root_ref: Some(root_ref),
                 header_divider: header.as_ref().and_then(|region| region.divider),
                 footer_divider: footer.as_ref().and_then(|region| region.divider),
                 has_start: start.is_some(),
@@ -183,40 +186,66 @@ impl IntoView for Layout {
                 .margin_top(-parent.top)
                 .margin_bottom(-parent.bottom);
             let base = match height {
-                LayoutHeight::Fill => base.grow(1).min_height(0).height(pct(100)),
+                LayoutHeight::Fill => base
+                    .grow(1)
+                    .min_height(0)
+                    .height(pct(100) + parent.top + parent.bottom),
                 LayoutHeight::Auto => base.min_height(pct(100)),
             };
-            root.base_style(base).child(provide(insets, move || {
-                provide(ContainerInset::default(), move || {
-                    provide(slots, move || {
-                        (
-                            header,
-                            node()
-                                .base_style(move || {
-                                    let direction = if rtl() {
-                                        Direction::RowReverse
-                                    } else {
-                                        Direction::Row
-                                    };
-                                    let mut base = style()
-                                        .direction(direction)
-                                        .grow(1)
-                                        .min_height(0)
-                                        .min_width(0);
-                                    if let Some(width) = content_width {
-                                        base = base
-                                            .width(pct(100))
-                                            .max_width(width)
-                                            .margin_x(kivact::style::auto());
-                                    }
-                                    base
-                                })
-                                .child((start, start_resize, content, end_resize, end)),
-                            footer,
-                        )
+            root.node_ref(root_ref)
+                .base_style(base)
+                .child(provide(insets, move || {
+                    provide(ContainerInset::default(), move || {
+                        provide(slots, move || {
+                            (
+                                header,
+                                node()
+                                    .base_style(move || {
+                                        let direction = if rtl() {
+                                            Direction::RowReverse
+                                        } else {
+                                            Direction::Row
+                                        };
+                                        let mut base = style()
+                                            .direction(direction)
+                                            .grow(1)
+                                            .min_height(0)
+                                            .min_width(0);
+                                        match content_width {
+                                            Some(Length::Px(width))
+                                                if !(slots.has_start && slots.has_end) =>
+                                            {
+                                                let gutter = center_gutter(root_ref, width);
+                                                if slots.has_start {
+                                                    base = if rtl() {
+                                                        base.padding_right(gutter)
+                                                    } else {
+                                                        base.padding_left(gutter)
+                                                    };
+                                                } else if slots.has_end {
+                                                    base = if rtl() {
+                                                        base.padding_left(gutter)
+                                                    } else {
+                                                        base.padding_right(gutter)
+                                                    };
+                                                }
+                                            }
+                                            Some(width) => {
+                                                base = base
+                                                    .width(pct(100))
+                                                    .max_width(width)
+                                                    .margin_x(kivact::style::auto());
+                                            }
+                                            None => {}
+                                        }
+                                        base
+                                    })
+                                    .child((start, start_resize, content, end_resize, end)),
+                                footer,
+                            )
+                        })
                     })
-                })
-            }))
+                }))
         })
     }
 }
@@ -377,6 +406,18 @@ impl IntoView for LayoutRegion {
             }
             let content = column(provide(inset, move || children)).base_style(move || {
                 let mut base = inset.apply(style().min_width(0));
+                if kind == Region::Content
+                    && !slots.has_start
+                    && !slots.has_end
+                    && let (Some(root), Some(Length::Px(width))) =
+                        (slots.root_ref, slots.content_width)
+                {
+                    let gutter = center_gutter(root, width);
+                    let (left, right) = inset.sides();
+                    base = base
+                        .padding_left(left + gutter)
+                        .padding_right(right + gutter);
+                }
                 if matches!(kind, Region::Header | Region::Footer)
                     && let Some(width) = slots.content_width
                 {
@@ -430,4 +471,10 @@ impl IntoView for LayoutRegion {
             }
         })
     }
+}
+
+fn center_gutter(root: NodeRef, width: f32) -> f32 {
+    root.rect()
+        .get()
+        .map_or(0.0, |rect| ((rect.width - width) / 2.0).max(0.0))
 }

@@ -1,0 +1,107 @@
+//! Role: Scope Neutral media contrast and syntax palettes to a subtree.
+use crate::{SyntaxColors, Tokens, theme};
+use kivact::memo;
+use kivact::style::{Color, ThemeMode, current_theme};
+use kivact::view::{IntoView, View, provide_theme};
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MediaMode {
+    Dark,
+    Light,
+    /// Use the supplied surface color, including its alpha over the current surface.
+    Auto {
+        surface: Color,
+    },
+    Off,
+}
+
+/// Draw content using Neutral colors suited to the media underneath it.
+pub fn media_theme<V: IntoView>(mode: MediaMode, content: impl FnOnce() -> V + 'static) -> View {
+    provide_theme(
+        memo(move || {
+            let outer = current_theme();
+            let mode = match mode {
+                MediaMode::Dark => ThemeMode::Dark,
+                MediaMode::Light => ThemeMode::Light,
+                MediaMode::Off => return outer,
+                MediaMode::Auto { surface } => {
+                    let t = outer.get::<Tokens>();
+                    let foreground = t.colors.text_primary.resolve(&outer);
+                    let surface = surface.resolve(&outer);
+                    let background = t.colors.bg_surface.resolve(&outer);
+                    let mix = |channel: f32, background: f32| {
+                        channel * surface.a + background * (1.0 - surface.a)
+                    };
+                    let surface_luminance = luminance(
+                        mix(surface.r, background.r),
+                        mix(surface.g, background.g),
+                        mix(surface.b, background.b),
+                    );
+                    if contrast(
+                        surface_luminance,
+                        luminance(foreground.r, foreground.g, foreground.b),
+                    ) >= 3.0
+                    {
+                        return outer;
+                    }
+                    let on_light = t.colors.on_light.resolve(&outer);
+                    if contrast(surface_luminance, 1.0)
+                        >= contrast(
+                            surface_luminance,
+                            luminance(on_light.r, on_light.g, on_light.b),
+                        )
+                    {
+                        ThemeMode::Dark
+                    } else {
+                        ThemeMode::Light
+                    }
+                }
+            };
+            let media = theme(mode);
+            let mut tokens = (*media.get::<Tokens>()).clone();
+            let ink = match mode {
+                ThemeMode::Dark => tokens.colors.on_dark,
+                ThemeMode::Light => tokens.colors.on_light,
+            };
+            tokens.colors.text_primary = ink;
+            tokens.colors.icon_primary = ink;
+            tokens.colors.accent = ink;
+            let mut palette = media.colors().clone();
+            palette.text = ink;
+            palette.accent = ink;
+            media.with_colors(palette).with(tokens)
+        }),
+        content,
+    )
+}
+
+/// Replace only the syntax colors of the active Neutral theme.
+pub fn syntax_theme<V: IntoView>(
+    colors: SyntaxColors,
+    content: impl FnOnce() -> V + 'static,
+) -> View {
+    provide_theme(
+        memo(move || {
+            let outer = current_theme();
+            let mut tokens = (*outer.get::<Tokens>()).clone();
+            tokens.colors.syntax = colors;
+            outer.with(tokens)
+        }),
+        content,
+    )
+}
+
+fn luminance(r: f32, g: f32, b: f32) -> f32 {
+    let linear = |channel: f32| {
+        if channel <= 0.04045 {
+            channel / 12.92
+        } else {
+            ((channel + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+}
+
+fn contrast(first: f32, second: f32) -> f32 {
+    (first.max(second) + 0.05) / (first.min(second) + 0.05)
+}

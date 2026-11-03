@@ -661,7 +661,9 @@ fn page_input(model: Model, total: u32, size: ControlSize) -> impl IntoView {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cell::*, page_window};
+    //! Role: Verify page-window boundary and gap rules.
+    use super::Cell::{LeftGap, Page, RightGap};
+    use super::page_window;
 
     #[test]
     fn page_window_reserves_gap_slots_and_keeps_edges() {

@@ -5,6 +5,7 @@ use kivact::view::{MouseButton, Role};
 use kivact_ui_soft_catalog::{catalog_at, fonts, pages};
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[test]
 #[ignore = "captures screenshots for manual visual review"]
@@ -34,6 +35,20 @@ fn capture_catalog() {
             if page.slug == "button" {
                 capture_button_states(&screen, &output, name);
             }
+            if page.slug == "spinner" {
+                screen.set_reduced_motion(true);
+                screen.advance(Duration::from_millis(750));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("spinner-{name}-reduced.png")))
+                    .expect("reduced-motion spinner screenshot");
+            }
+            assert!(
+                screen.errors().is_empty(),
+                "{} ({name}): {:?}",
+                page.slug,
+                screen.errors()
+            );
         }
     }
 }

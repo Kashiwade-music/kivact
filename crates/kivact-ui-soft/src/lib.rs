@@ -1,5 +1,6 @@
 //! Role: Expose Astryx Neutral as an official Kivact UI kit.
 mod alert_dialog;
+mod app_shell;
 mod aspect_ratio;
 mod avatar;
 mod avatar_group;
@@ -13,6 +14,7 @@ mod breadcrumbs;
 mod button_group;
 mod calendar;
 mod card;
+mod carousel;
 mod choice_list;
 mod citation;
 mod code;
@@ -46,8 +48,11 @@ mod markdown;
 mod markdown_parser;
 mod media_overlay;
 mod media_query;
+mod mobile_nav;
 mod more_menu;
+mod nav_heading;
 mod nav_icon;
+mod outline;
 mod pagination;
 mod power_search;
 mod recipe_style;
@@ -69,6 +74,7 @@ mod section;
 mod segmented_control;
 mod selector;
 mod shadows;
+mod side_nav;
 mod soft_chat;
 mod soft_chat_composer;
 mod soft_chat_tools;
@@ -79,9 +85,12 @@ mod soft_table;
 mod soft_tree;
 mod spinner;
 mod stack;
+mod stepper;
+mod tab_list;
 mod text;
 mod theme;
 mod theme_access;
+mod theme_scope;
 mod thumbnail;
 mod time_input;
 mod timer;
@@ -91,10 +100,14 @@ mod token;
 mod tokenizer;
 mod tokens;
 mod toolbar;
+mod top_nav;
 mod typeahead;
 mod visually_hidden;
 
 pub use alert_dialog::{AlertDialog, alert_dialog};
+pub use app_shell::{
+    AppShell, MobileNavConfig, MobileNavMode, ShellHeight, ShellVariant, app_shell,
+};
 pub use aspect_ratio::aspect_ratio;
 pub use avatar::{Avatar, AvatarTooltip, avatar};
 pub use avatar_group::{AvatarGroup, avatar_group};
@@ -112,6 +125,7 @@ pub use breadcrumbs::{
 pub use button_group::{ButtonGroup, GroupMember, GroupMembers, button_group};
 pub use calendar::{Calendar, calendar, calendar_range};
 pub use card::{Card, CardVariant, card, clickable_card, selectable_card};
+pub use carousel::{Carousel, CarouselHandle, carousel, use_carousel};
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};
@@ -162,8 +176,17 @@ pub use link::{Link, LinkColor, link, link_with};
 pub use markdown::{ContentAlign, HeadingLinks, Markdown, MarkdownDensity, markdown};
 pub use media_overlay::{MediaOverlay, OverlayPosition, OverlayScrim, ShowOn, media_overlay};
 pub use media_query::{Breakpoint, container_below, is_compact, viewport_below, viewport_from};
+pub use mobile_nav::{
+    AppShellMobile, DrawerSide, MobileNav, MobileNavToggle, mobile_nav, mobile_nav_toggle,
+    use_app_shell_mobile,
+};
 pub use more_menu::{MoreMenu, more_menu};
+pub use nav_heading::{
+    NavHeadingMenu, NavHeadingMenuItem, SideNavHeading, TopNavHeading, nav_heading_menu,
+    nav_heading_menu_item, side_nav_heading, top_nav_heading,
+};
 pub use nav_icon::nav_icon;
+pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use resizable::{
@@ -181,6 +204,10 @@ pub use segmented_control::{
 };
 pub use selector::{MultiSelector, Selector, complex_selector, multi_selector, selector};
 pub use shadows::Shadows;
+pub use side_nav::{
+    ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
+    SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
+};
 pub use soft_chat::{
     BubbleGroup, BubbleVariant, ChatBubble, ChatDensity, ChatLayout, ChatListAlign, ChatMessage,
     ChatMessageList, ChatMetadata, ChatSender, ChatSystemMessage, MessageStatus,
@@ -198,7 +225,7 @@ pub use soft_chat_tools::{
 };
 pub use soft_list::{
     IntoListItems, Item, ItemAlign, ItemDensity, ItemLayout, List, ListDensity, ListEdge,
-    ListMarker, item, list, list_item,
+    ListMarker, item, list, list_item, list_items,
 };
 pub use soft_metadata::{
     IntoMetadataItems, LabelPosition, MetadataColumns, MetadataItem, MetadataList, metadata_item,
@@ -216,12 +243,21 @@ pub use stack::{
     ContainerInset, Space, Stack, StackItem, StackItemSize, center, hstack, stack, stack_item,
     vstack,
 };
+pub use stepper::{
+    Step, StepCollapsedVariant, StepDensity, StepIndicator, StepIndicatorPosition, StepStatus,
+    Stepper, step, stepper,
+};
+pub use tab_list::{
+    Tab, TabEntry, TabLayout, TabList, TabMenu, TabMenuOption, TabOverflow, TabPattern, tab,
+    tab_list, tab_menu,
+};
 pub use text::{
     Text, TextColor, TextJustify, TextKind, TextSize, TextWeight, TextWrap, TruncateTooltip,
     WordBreak, text,
 };
 pub use theme::theme;
 pub use theme_access::tokens;
+pub use theme_scope::{MediaMode, media_theme, syntax_theme};
 pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
 pub use time_input::{TimeInput, TimeOfDay, time_input};
 pub use timer::{Timer, TimerFormat, timer};
@@ -233,5 +269,10 @@ pub use token::{Token, TokenColor, token};
 pub use tokenizer::{Tokenizer, tokenizer};
 pub use tokens::{Motion, Radius, Sizes, Spacing, TextStyle, Tokens, Typography};
 pub use toolbar::{Edge, Toolbar, toolbar, toolbar_item};
+pub use top_nav::{
+    TopNav, TopNavItem, TopNavMegaMenu, TopNavMegaMenuFeaturedCard, TopNavMegaMenuItem, TopNavMenu,
+    TopNavMenuItem, top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu,
+    top_nav_mega_menu_item, top_nav_menu, top_nav_menu_item,
+};
 pub use typeahead::{Typeahead, base_typeahead, typeahead};
 pub use visually_hidden::{VisuallyHidden, visually_hidden};

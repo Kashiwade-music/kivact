@@ -126,7 +126,6 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
     };
     let base = fast(&t, base.background(bg));
     if s.loading {
-        // TODO(soft-core: C-03): The mounted busy part uses the core 700 ms clock.
         // Busy also sets the behavior's disabled state, so preserve its full opacity.
         base.disabled(style().opacity(1.0).cursor(Cursor::Default))
     } else if variant == ButtonVariant::Link {
@@ -175,7 +174,7 @@ fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
         &t,
         s.variant::<ButtonVariant>().copied().unwrap_or_default(),
     );
-    let radius = t.typography.size_xs / 2.0;
+    let radius = t.sizes.icon_xsm / 2.0 - t.spacing.s0_5 / 2.0;
     let stroke_width = t.spacing.s0_5;
     let side = radius * 2.0 + stroke_width * 2.0;
     style()
@@ -187,7 +186,7 @@ fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
             let center = Point::new(size.width / 2.0, size.height / 2.0);
             let stroke = Stroke::new(stroke_width).cap(LineCap::Round);
             let track = Path::new().arc(center, radius, 0.0, 360.0, false);
-            let arc = Path::new().arc(center, radius, 0.0, 270.0, false);
+            let arc = Path::new().arc(center, radius, -90.0, 45.0, false);
             d.stroke_path(&track, &stroke, ink.with_alpha(0.3));
             d.stroke_path(&arc, &stroke, ink);
         })
@@ -200,8 +199,6 @@ fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
     } else {
         Color::TRANSPARENT
     };
-    // TODO(soft-core: C-40): The root recipe cannot reserve the semibold
-    // label width while the child renders at medium weight.
     let weight = if s.pressed {
         t.typography.weight_semibold
     } else {

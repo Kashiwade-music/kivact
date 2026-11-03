@@ -35,6 +35,7 @@ pub enum GroupMode {
 pub struct Collapsible {
     root: Node,
     label: View,
+    label_name: Value<String>,
     open: Binding<bool>,
     disabled: Value<bool>,
     content: Option<Rc<dyn Fn() -> View>>,
@@ -43,9 +44,11 @@ pub struct Collapsible {
 }
 
 pub fn collapsible(trigger: impl IntoText, open: impl Into<Binding<bool>>) -> Collapsible {
+    let label_name = trigger.into_text_value();
     Collapsible {
         root: node(),
-        label: text(trigger).into_view(),
+        label: text(label_name).into_view(),
+        label_name,
         open: open.into(),
         disabled: false.into_value(),
         content: None,
@@ -92,6 +95,7 @@ impl IntoView for Collapsible {
         let Self {
             root,
             label,
+            label_name,
             open,
             disabled,
             content,
@@ -138,6 +142,7 @@ impl IntoView for Collapsible {
                 ChevronPosition::Start => (chevron.into_view(), label.into_view()),
                 ChevronPosition::End => (label.into_view(), chevron.into_view()),
             })
+            .name(label_name)
             .part(disclosure.trigger())
             .disabled(disabled)
             .style(move || {

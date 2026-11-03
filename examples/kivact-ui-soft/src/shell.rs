@@ -4,7 +4,9 @@ use crate::model::CatalogState;
 use crate::page::page_view;
 use crate::pages::pages;
 use kivact::control::{Node, NodeBuilder, column, row, scroll, spacer, text};
+use kivact::platform::{reduced_motion, set_reduced_motion};
 use kivact::style::{Align, ColorToken, Justify, ThemeMode, style};
+use kivact::task::spawn;
 use kivact::ui::{ButtonVariant, button, text_input};
 use kivact::view::{IntoView, dynamic, provide_theme};
 
@@ -54,6 +56,13 @@ fn top_bar(state: CatalogState) -> Node {
         button("Toggle appearance")
             .test_id("catalog-theme")
             .on_press(move || state.dark.update(|dark| *dark = !*dark)),
+        button("Reduce motion")
+            .variant(ButtonVariant::Ghost)
+            .selected(reduced_motion)
+            .test_id("catalog-motion")
+            .on_press(|| {
+                spawn(set_reduced_motion(Some(!reduced_motion())));
+            }),
     ))
     .style(
         style()

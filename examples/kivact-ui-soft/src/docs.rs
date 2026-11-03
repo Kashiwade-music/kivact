@@ -6,7 +6,9 @@ mod dates;
 mod examples;
 mod feedback;
 mod forms;
+mod navigation;
 mod overlays;
 mod specimen;
+mod utilities;
 
 pub(super) use examples::examples;

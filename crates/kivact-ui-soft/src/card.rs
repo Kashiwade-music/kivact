@@ -238,7 +238,7 @@ impl IntoView for Card {
                 }
                 base
             });
-            if height.is_some() {
+            if height.is_some_and(|height| height != Length::Auto) {
                 root = root.child(
                     scroll(content)
                         .axes(ScrollAxes::Vertical)

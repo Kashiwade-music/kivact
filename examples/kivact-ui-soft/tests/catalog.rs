@@ -21,6 +21,11 @@ fn search_opens_a_page_and_the_appearance_toggle_keeps_it_open() {
     screen.get_by_test_id("catalog-theme").click();
     screen.get_by_text("Dark");
     assert_eq!(screen.get_by_test_id("catalog-title").name(), "Tooltip");
+    let motion = screen.get_by_test_id("catalog-motion");
+    assert!(!motion.is_selected());
+    motion.click();
+    assert!(motion.is_selected());
+    assert_eq!(screen.get_by_test_id("catalog-title").name(), "Tooltip");
     assert!(pages().iter().any(|page| page.slug == "rich-text-editor"));
 }
 

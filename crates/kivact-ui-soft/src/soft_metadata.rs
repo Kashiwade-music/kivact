@@ -5,8 +5,8 @@ use kivact::control::{Node, NodeBuilder, column, grid, node, row, text};
 use kivact::interaction::use_disclosure;
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Track, style};
-use kivact::view::{IntoText, IntoView, Orientation, Role, View, node_ref};
-use kivact::{Binding, Value, signal};
+use kivact::view::{IntoText, IntoValue, IntoView, NodeRef, Orientation, Role, View, node_ref};
+use kivact::{Binding, Value, memo, signal};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MetadataColumns {
@@ -27,6 +27,7 @@ pub struct MetadataItem {
     label: Value<String>,
     value: View,
     icon: Option<View>,
+    label_ref: NodeRef,
 }
 
 pub fn metadata_item(label: impl IntoText, value: impl IntoView) -> MetadataItem {
@@ -35,6 +36,7 @@ pub fn metadata_item(label: impl IntoText, value: impl IntoView) -> MetadataItem
         label: label.into_text_value(),
         value: value.into_view(),
         icon: None,
+        label_ref: node_ref(),
     }
 }
 
@@ -50,7 +52,7 @@ impl MetadataItem {
         self
     }
 
-    fn render(self, position: LabelPosition, width: Option<f32>) -> View {
+    fn render(self, position: LabelPosition, width: Value<Option<f32>>) -> View {
         let (root, label, value) = self.parts();
         root.base_style(
             style()
@@ -67,12 +69,15 @@ impl MetadataItem {
                 .min_width(0),
         )
         .child((
-            label.style(move || {
-                let mut style = style();
-                if let Some(width) = width {
-                    style = style.width(width).shrink(0);
+            row(label).style(move || {
+                let mut box_style = style().align_items(Align::Start);
+                if position == LabelPosition::Start {
+                    box_style = box_style.shrink(0);
+                    if let Some(width) = width.get() {
+                        box_style = box_style.width(width);
+                    }
                 }
-                style
+                box_style
             }),
             value,
         ))
@@ -80,7 +85,7 @@ impl MetadataItem {
     }
 
     fn parts(self) -> (Node, Node, Node) {
-        let label_ref = node_ref();
+        let label_ref = self.label_ref;
         let label = row((
             self.icon,
             text(self.label).style(move || {
@@ -92,7 +97,7 @@ impl MetadataItem {
             }),
         ))
         .node_ref(label_ref)
-        .style(style().gap(4).align_items(Align::Center));
+        .style(style().gap(4).align_items(Align::Center).shrink(0));
         let value = node()
             .part(part(|state| state).role(Role::Group).labelled_by(label_ref))
             .style(move || {
@@ -108,7 +113,7 @@ impl MetadataItem {
 
 impl IntoView for MetadataItem {
     fn into_view(self) -> View {
-        self.render(LabelPosition::Top, None)
+        self.render(LabelPosition::Top, None.into_value())
     }
 }
 
@@ -258,11 +263,26 @@ impl IntoView for MetadataList {
                 .filter(|&limit| limit < items.len())
                 .map_or_else(Vec::new, |limit| items.split_off(limit))
         };
+        let label_width = if position == LabelPosition::Start && label_width.is_none() {
+            let rects: Vec<_> = items
+                .iter()
+                .chain(&extra)
+                .map(|item| item.label_ref.rect())
+                .collect();
+            memo(move || {
+                rects
+                    .iter()
+                    .filter_map(|rect| rect.get().map(|rect| rect.width))
+                    .reduce(f32::max)
+            })
+        } else {
+            label_width.into_value()
+        };
         let render = |items: Vec<MetadataItem>| {
             if horizontal {
                 let items = items
                     .into_iter()
-                    .map(|item| item.render(position, None))
+                    .map(|item| item.render(position, label_width))
                     .collect::<Vec<_>>();
                 return row(items).style(style().wrap(true).gap(16));
             }
@@ -289,7 +309,11 @@ impl IntoView for MetadataList {
             let disclosure = use_disclosure(open);
             let content = render(extra).part(disclosure.content());
             let trigger = node()
-                .part(disclosure.trigger())
+                .part(
+                    disclosure
+                        .trigger()
+                        .name(move || if open.get() { "Show less" } else { "Show more" }),
+                )
                 .base_style(move || {
                     let p = tokens();
                     style()

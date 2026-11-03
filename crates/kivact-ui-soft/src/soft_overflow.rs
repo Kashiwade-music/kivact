@@ -1,5 +1,6 @@
 //! Role: Width-bounded keyed overflow lists.
 
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -10,7 +11,7 @@ use kivact::style::{Align, Direction, Overflow, style};
 use kivact::view::{
     HandlerResult, IntoValue, IntoView, NodeRef, View, callback, for_each, node_ref, show,
 };
-use kivact::{Callback, Value, effect_on, memo};
+use kivact::{Callback, Value, effect_on, memo, signal};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CollapseFrom {
@@ -28,6 +29,7 @@ pub enum OverflowMeasure {
 }
 
 type ItemRenderer<T> = Box<dyn Fn(Value<T>) -> View>;
+type ItemWidth<T> = Box<dyn Fn(&T) -> f32>;
 type OverflowRenderer<T> = Box<dyn Fn(Value<Vec<T>>) -> View>;
 
 pub struct OverflowList<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> {
@@ -35,7 +37,7 @@ pub struct OverflowList<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + '
     items: Value<Vec<T>>,
     key: Rc<dyn Fn(&T) -> K>,
     render: ItemRenderer<T>,
-    item_width: Box<dyn Fn(&T) -> f32>,
+    item_width: Option<ItemWidth<T>>,
     indicator_width: Box<dyn Fn(usize) -> f32>,
     indicator: OverflowRenderer<T>,
     on_overflow_change: Option<Callback<Vec<K>>>,
@@ -62,7 +64,7 @@ where
         items: items.into_value(),
         key: Rc::new(key),
         render: Box::new(move |value| item(value).into_view()),
-        item_width: Box::new(|_| 80.0),
+        item_width: None,
         indicator_width: Box::new(|count| 18.0 + count.to_string().len() as f32 * 8.0),
         indicator: Box::new(|hidden| {
             text(move || format!("+{}", hidden.with(Vec::len)))
@@ -93,9 +95,10 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> NodeBuilder
 }
 
 impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowList<T, K> {
-    /// Provide each item's natural width in pixels. Defaults to 80 px.
+    /// Provide item widths up front. By default, mounted items are measured and
+    /// a provisional width of 80 px is used until each measurement arrives.
     pub fn item_width(mut self, width: impl Fn(&T) -> f32 + 'static) -> Self {
-        self.item_width = Box::new(width);
+        self.item_width = Some(Box::new(width));
         self
     }
 
@@ -198,6 +201,9 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
             OverflowMeasure::OwnWidth => own.rect(),
             OverflowMeasure::ParentWidth(parent) => parent.rect(),
         };
+        let measure_items = item_width.is_none();
+        let widths_cache = signal(HashMap::<K, f32>::new());
+        let widths_key = key.clone();
         let split = memo(move || {
             items.with(|items| {
                 let floor = min_visible.min(items.len());
@@ -205,7 +211,15 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
                 let Some(rect) = rect.get() else {
                     return ceiling;
                 };
-                let widths: Vec<_> = items.iter().map(&item_width).collect();
+                let widths: Vec<_> = match &item_width {
+                    Some(width) => items.iter().map(width).collect(),
+                    None => widths_cache.with(|cache| {
+                        items
+                            .iter()
+                            .map(|item| cache.get(&widths_key(item)).copied().unwrap_or(80.0))
+                            .collect()
+                    }),
+                };
                 for count in (floor..=ceiling).rev() {
                     let hidden = items.len() - count;
                     let marker = (hidden > 0).then(|| indicator_width(hidden));
@@ -250,14 +264,45 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
         });
         if let Some(notify) = on_overflow_change {
             let key = key.clone();
-            let hidden_keys =
-                memo(move || hidden.with(|items| items.iter().map(|item| key(item)).collect()));
-            effect_on(hidden_keys, move |keys: &Vec<K>| notify.call(keys.clone()));
+            let hidden_keys = memo(move || {
+                rect.get()?;
+                Some(hidden.with(|items| items.iter().map(|item| key(item)).collect()))
+            });
+            effect_on(hidden_keys, move |keys: &Option<Vec<K>>| {
+                if let Some(keys) = keys {
+                    notify.call(keys.clone());
+                }
+            });
+        }
+        if measure_items {
+            let active_key = key.clone();
+            effect_on(items, move |items| {
+                let active: std::collections::HashSet<_> =
+                    items.iter().map(|item| active_key(item)).collect();
+                widths_cache.update(|cache| cache.retain(|key, _| active.contains(key)));
+            });
         }
         let rows = for_each(
             visible,
             move |item| key(item),
-            move |_, item| node().style(style().shrink(0)).child(render(item)),
+            move |key, item| {
+                let root = node().style(style().shrink(0)).child(render(item));
+                if measure_items {
+                    let item_ref = node_ref();
+                    let rect = item_ref.rect();
+                    let width = memo(move || rect.get().map(|rect| rect.width));
+                    effect_on(width, move |width| {
+                        if let Some(width) = *width {
+                            widths_cache.update(|cache| {
+                                cache.insert(key.clone(), width);
+                            });
+                        }
+                    });
+                    root.node_ref(item_ref)
+                } else {
+                    root
+                }
+            },
         );
         let marker = show(
             move || hidden.with(|items| !items.is_empty()),

@@ -102,18 +102,20 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
     let indeterminate = s.value.is_none();
     let rtl = current_direction() == ReadingDirection::Rtl;
     style().size(pct(100), pct(100)).paint(move |d, size| {
-        // TODO(soft-core: C-41): Configure the standard progress clock and
-        // determinate transition, and expose its reduced-motion pulse.
-        let (start, length) = if indeterminate {
+        let ease = Easing::CubicBezier(0.42, 0.0, 0.58, 1.0);
+        let (start, length, ink) = if indeterminate {
             const BAND: f32 = 0.4;
+            let phase = phase.get();
             if reduced_motion() {
-                (0.0, 1.0)
+                // The 4000 ms cycle alternates two 2000 ms opacity passes.
+                let down_and_back = 1.0 - (2.0 * phase - 1.0).abs();
+                let opacity = 1.0 - 0.16 * ease.apply(down_and_back);
+                (0.0, 1.0, ink.with_alpha(opacity))
             } else {
-                let ease = Easing::CubicBezier(0.42, 0.0, 0.58, 1.0);
-                (-BAND + (1.0 + BAND) * ease.apply(phase.get()), BAND)
+                (-BAND + (1.0 + BAND) * ease.apply(phase), BAND, ink)
             }
         } else {
-            (0.0, shown.get().clamp(0.0, 1.0) as f32)
+            (0.0, shown.get().clamp(0.0, 1.0) as f32, ink)
         };
         if length > 0.0 {
             let start = if rtl { 1.0 - start - length } else { start };

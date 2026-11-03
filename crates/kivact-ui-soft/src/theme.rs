@@ -2,6 +2,7 @@
 use crate::tokens::Tokens;
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{LineHeight, Theme, ThemeMode};
+use kivact::ui::{ButtonBusyMotion, ProgressMotion, ToggleLabelReservation};
 use kivact::view::OverlayViewport;
 
 /// Astryx Neutral in the requested appearance.
@@ -60,6 +61,24 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_control_height(tokens.sizes.control_md)
         .with_disabled_opacity(tokens.sizes.disabled_opacity)
         .with(OverlayViewport::new(tokens.spacing.layer_viewport_gutter))
+        .with(ButtonBusyMotion {
+            spin_ms: tokens.motion.slow_min,
+            reduced_spin_ms: 3000,
+            reveal_delay_ms: tokens.motion.medium_min,
+            reveal_fade_ms: tokens.motion.fast,
+        })
+        .with(ProgressMotion {
+            animate_initial: false,
+            determinate_ms: tokens.motion.medium,
+            determinate_easing: tokens.motion.ease_standard,
+            period_ms: 1500,
+            reduced_period_ms: Some(4000),
+        })
+        .with(ToggleLabelReservation::Reserve {
+            weight: tokens.typography.weight_semibold,
+            size: tokens.typography.label.size_px,
+            extra_small_size: tokens.typography.supporting.size_px,
+        })
         .with_icons(crate::icons::set())
         .with(tokens)
         .with(crate::recipes::recipes())

@@ -1,11 +1,17 @@
-//! Role: Compose static lists and Neutral item rows.
+//! Role: Static lists and neutral item rows.
+
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::rc::Rc;
 
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, text};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Cursor, Direction, Justify, TextOverflow, style};
-use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, NodeRef, Role, View, node_ref};
-use kivact::{Callback, Value};
+use kivact::view::{
+    HandlerResult, IntoText, IntoValue, IntoView, NodeRef, Role, View, for_each, node_ref,
+};
+use kivact::{Callback, Value, memo};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ItemDensity {
@@ -350,6 +356,12 @@ pub trait IntoListItems {
     fn into_list_items(self) -> Vec<Item>;
 }
 
+impl IntoListItems for () {
+    fn into_list_items(self) -> Vec<Item> {
+        Vec::new()
+    }
+}
+
 impl IntoListItems for Item {
     fn into_list_items(self) -> Vec<Item> {
         vec![self]
@@ -389,9 +401,23 @@ list_tuples!(A, B, C, D);
 list_tuples!(A, B, C, D, E);
 list_tuples!(A, B, C, D, E, F);
 
+enum ListRows {
+    Static(Vec<Item>),
+    Reactive(Box<dyn FnOnce(ListAppearance) -> View>),
+}
+
+#[derive(Clone, Copy)]
+struct ListAppearance {
+    density: ListDensity,
+    dividers: bool,
+    edge: ListEdge,
+    marker: ListMarker,
+    start: u32,
+}
+
 pub struct List {
     root: Node,
-    items: Vec<Item>,
+    items: ListRows,
     header: Option<Slot>,
     density: ListDensity,
     dividers: bool,
@@ -403,13 +429,54 @@ pub struct List {
 pub fn list(items: impl IntoListItems) -> List {
     List {
         root: node(),
-        items: items.into_list_items(),
+        items: ListRows::Static(items.into_list_items()),
         header: None,
         density: ListDensity::Balanced,
         dividers: false,
         edge: ListEdge::Padded,
         marker: ListMarker::None,
         start: 1,
+    }
+}
+
+/// Render a static-semantics list from a keyed reactive source.
+pub fn list_items<T, K>(
+    items: impl IntoValue<Vec<T>>,
+    key: impl Fn(&T) -> K + 'static,
+    render: impl Fn(Value<T>) -> Item + 'static,
+) -> List
+where
+    T: Clone + PartialEq + 'static,
+    K: Clone + Eq + Hash + 'static,
+{
+    let items = items.into_value();
+    let key = Rc::new(key);
+    List {
+        items: ListRows::Reactive(Box::new(move |appearance| {
+            let order_key = key.clone();
+            let order = memo(move || {
+                items.with(|items| {
+                    items
+                        .iter()
+                        .enumerate()
+                        .map(|(index, item)| (order_key(item), index))
+                        .collect::<HashMap<_, _>>()
+                })
+            });
+            for_each(
+                items,
+                move |item| key(item),
+                move |key, item| {
+                    let position = memo(move || {
+                        order.with(|order| {
+                            (order.get(&key).copied().unwrap_or_default(), order.len())
+                        })
+                    });
+                    appearance.decorate(render(item), position)
+                },
+            )
+        })),
+        ..list(())
     }
 }
 
@@ -463,59 +530,32 @@ impl IntoView for List {
             marker,
             start,
         } = self;
-        let count = items.len();
-        let marker_width = (start as u64 + count.saturating_sub(1) as u64)
-            .to_string()
-            .len()
-            .max(1) as f32
-            * 8.0
-            + 8.0;
+        let appearance = ListAppearance {
+            density,
+            dividers,
+            edge,
+            marker,
+            start,
+        };
         let header_ref = node_ref();
         let mut semantics = part(|state| state).role(Role::List);
         if header.is_some() {
             semantics = semantics.labelled_by(header_ref);
         }
-        let rows = items
-            .into_iter()
-            .enumerate()
-            .map(|(index, mut item)| {
-                item.list_item = true;
-                item.density = density;
-                if marker != ListMarker::None {
-                    let glyph = match marker {
-                        ListMarker::None => String::new(),
-                        ListMarker::Disc => "•".to_owned(),
-                        ListMarker::Circle => "◦".to_owned(),
-                        ListMarker::Decimal => format!("{}.", start as u64 + index as u64),
-                    };
-                    item = item.marker(move || {
-                        node()
-                            .style(
-                                style()
-                                    .direction(Direction::Row)
-                                    .justify_content(Justify::End)
-                                    .width(marker_width)
-                                    .shrink(0),
-                            )
-                            .child(text(glyph))
-                    });
-                }
-                item.style(move || {
-                    let mut row = style();
-                    if matches!(edge, ListEdge::Flush) {
-                        row = row.padding_x(0);
-                    }
-                    if matches!(edge, ListEdge::Bleed) {
-                        row = row.radius(0);
-                    }
-                    if dividers && index + 1 < count {
-                        row = row.border_bottom(1, tokens().colors.border);
-                    }
-                    row
-                })
-                .into_view()
-            })
-            .collect::<Vec<_>>();
+        let rows = match items {
+            ListRows::Static(items) => {
+                let count = items.len();
+                items
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, item)| {
+                        appearance.decorate(item, (move || (index, count)).into_value())
+                    })
+                    .collect::<Vec<_>>()
+                    .into_view()
+            }
+            ListRows::Reactive(render) => render(appearance),
+        };
         column((
             header.map(|content| node().node_ref(header_ref).child(content())),
             root.part(semantics)
@@ -526,6 +566,55 @@ impl IntoView for List {
                 )
                 .child(rows),
         ))
+        .into_view()
+    }
+}
+
+impl ListAppearance {
+    fn decorate(self, mut item: Item, position: Value<(usize, usize)>) -> View {
+        item.list_item = true;
+        item.density = self.density;
+        if self.marker != ListMarker::None {
+            let marker = self.marker;
+            let start = u64::from(self.start);
+            item = item.marker(move || {
+                node()
+                    .style(move || {
+                        let (_, count) = position.get();
+                        let width = if marker == ListMarker::Decimal {
+                            let digits = (start + count.saturating_sub(1) as u64).to_string().len();
+                            digits as f32 * 8.0 + 8.0
+                        } else {
+                            16.0
+                        };
+                        style()
+                            .direction(Direction::Row)
+                            .justify_content(Justify::End)
+                            .width(width)
+                            .shrink(0)
+                    })
+                    .child(text(move || match marker {
+                        ListMarker::None => String::new(),
+                        ListMarker::Disc => "•".to_owned(),
+                        ListMarker::Circle => "◦".to_owned(),
+                        ListMarker::Decimal => format!("{}.", start + position.get().0 as u64),
+                    }))
+            });
+        }
+        item.style(move || {
+            let mut row = style();
+            if self.edge == ListEdge::Flush {
+                row = row.padding_x(0);
+            }
+            if self.edge == ListEdge::Bleed {
+                row = row.radius(0);
+            }
+            let (index, count) = position.get();
+            if self.dividers && index + 1 < count {
+                row = row.border_bottom(1, tokens().colors.border);
+            }
+            row
+        })
         .into_view()
     }
 }
