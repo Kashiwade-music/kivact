@@ -12,6 +12,7 @@
     reason = "handler and effect closures are stored as boxed trait objects throughout"
 )]
 
+pub(crate) mod announcer;
 pub(crate) mod boundary;
 pub(crate) mod common;
 pub(crate) mod descriptor;
@@ -42,6 +43,8 @@ pub use crate::view::flow::{
     ErrorBoundary, RowHeight, Show, ShowSome, VirtualList, dynamic, error_boundary, for_each,
     for_index, show, show_some, virtual_list,
 };
+#[doc(inline)]
+pub use announcer::{Announcer, announcer};
 #[doc(inline)]
 pub use boundary::{
     ReadingDirection, current_direction, provide, provide_direction, provide_locale,
