@@ -23,8 +23,8 @@ use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, for_each, overlay,
-    overlay_at,
+    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, PopupKind, View, for_each,
+    overlay, overlay_at,
 };
 use kivact_interaction::{
     MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
@@ -169,7 +169,7 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
         let part = if context {
             self.behavior.context_trigger()
         } else {
-            self.behavior.trigger()
+            self.behavior.trigger().has_popup(Some(PopupKind::Menu))
         };
         let anchor = part.node_ref();
         let (name, trigger) = match trigger {

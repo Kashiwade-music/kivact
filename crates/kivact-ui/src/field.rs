@@ -24,6 +24,7 @@ pub struct Field<C> {
     label: Value<String>,
     control: C,
     hint: Option<Value<String>>,
+    required: Option<Value<bool>>,
     error: Option<Value<Option<String>>>,
     variants: Variants,
 }
@@ -62,6 +63,7 @@ pub fn field<C: NodeBuilder + IntoView>(label: impl IntoText, control: C) -> Fie
         label: label.into_text_value(),
         control,
         hint: None,
+        required: None,
         error: None,
         variants: Variants::default(),
     }
@@ -71,6 +73,12 @@ impl<C> Field<C> {
     /// Text under the control that describes it (`described_by`).
     pub fn hint(mut self, hint: impl IntoText) -> Self {
         self.hint = Some(hint.into_text_value());
+        self
+    }
+
+    /// Report that the control requires a value. Validation is owned by the app.
+    pub fn required(mut self, required: impl IntoValue<bool>) -> Self {
+        self.required = Some(required.into_value());
         self
     }
 
@@ -113,6 +121,7 @@ impl<C: NodeBuilder + IntoView> IntoView for Field<C> {
             label,
             mut control,
             hint,
+            required,
             error,
             variants,
         } = self;
@@ -122,6 +131,9 @@ impl<C: NodeBuilder + IntoView> IntoView for Field<C> {
             .name(label)
             .labelled_by(label_ref)
             .node_ref(control_ref);
+        if let Some(required) = required {
+            control = control.required(required);
+        }
         if hint.is_some() {
             control = control.described_by(hint_ref);
         }

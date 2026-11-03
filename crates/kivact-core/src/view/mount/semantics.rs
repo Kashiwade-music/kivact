@@ -39,6 +39,11 @@ pub(super) fn bind(
         && sources.set_size.is_none()
         && sources.pos_in_set.is_none()
         && sources.multiselectable.is_none()
+        && sources.busy.is_none()
+        && sources.required.is_none()
+        && sources.read_only.is_none()
+        && sources.has_popup.is_none()
+        && sources.current_item.is_none()
         && sources.described_by.is_empty()
         && sources.controls.is_empty()
         && sources.labelled_by.is_empty()
@@ -128,6 +133,17 @@ pub(super) fn resolve(
             .multiselectable
             .as_ref()
             .map(kivact_reactive::Prop::get),
+        busy: sources.busy.as_ref().map(kivact_reactive::Prop::get),
+        required: sources.required.as_ref().map(kivact_reactive::Prop::get),
+        read_only: sources.read_only.as_ref().map(kivact_reactive::Prop::get),
+        has_popup: sources
+            .has_popup
+            .as_ref()
+            .and_then(kivact_reactive::Prop::get),
+        current_item: sources
+            .current_item
+            .as_ref()
+            .and_then(kivact_reactive::Prop::get),
         described_by: bound(&sources.described_by, at),
         controls: bound(&sources.controls, at),
         labelled_by: bound(&sources.labelled_by, at),

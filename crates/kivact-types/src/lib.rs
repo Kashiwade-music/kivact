@@ -92,8 +92,8 @@ pub use platform::{
     PointerPhase,
 };
 pub use semantics::{
-    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
-    SortDirection,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, LiveRegion, Orientation,
+    PopupKind, Role, SortDirection,
 };
 pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
 pub use shape::{BorderStyle, FillRule, LineCap, LineJoin, Stroke};

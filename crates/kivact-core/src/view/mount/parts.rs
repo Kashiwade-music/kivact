@@ -107,6 +107,11 @@ fn merge_semantics(target: &mut SemanticSources, mut part: SemanticSources) {
     replace(&mut target.set_size, part.set_size.take());
     replace(&mut target.pos_in_set, part.pos_in_set.take());
     replace(&mut target.multiselectable, part.multiselectable.take());
+    replace(&mut target.busy, part.busy.take());
+    replace(&mut target.required, part.required.take());
+    replace(&mut target.read_only, part.read_only.take());
+    replace(&mut target.has_popup, part.has_popup.take());
+    replace(&mut target.current_item, part.current_item.take());
     target.described_by.append(&mut part.described_by);
     target.controls.append(&mut part.controls);
     target.labelled_by.append(&mut part.labelled_by);

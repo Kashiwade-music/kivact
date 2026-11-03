@@ -114,7 +114,8 @@ pub use kivact_reactive::constant_value;
 pub use kivact_reactive::{context, try_context};
 #[doc(inline)]
 pub use kivact_wire::{
-    A11yAction, A11yRequest, CheckedState, LiveRegion, Orientation, Role, SortDirection,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
+    SortDirection,
 };
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};

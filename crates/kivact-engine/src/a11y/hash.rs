@@ -54,6 +54,10 @@ fn props(p: &SemanticsProperties, h: &mut DefaultHasher) {
         set_size,
         pos_in_set,
         multiselectable,
+        busy,
+        required,
+        has_popup,
+        current_item,
         invalid,
         read_only,
         protected,
@@ -76,6 +80,10 @@ fn props(p: &SemanticsProperties, h: &mut DefaultHasher) {
     set_size.hash(h);
     pos_in_set.hash(h);
     multiselectable.hash(h);
+    busy.hash(h);
+    required.hash(h);
+    has_popup.hash(h);
+    current_item.hash(h);
     invalid.hash(h);
     read_only.hash(h);
     protected.hash(h);

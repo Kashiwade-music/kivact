@@ -86,8 +86,8 @@ pub use paint::{
 pub use paint_vec::PaintVec;
 pub use scene::{Region, Scene, SceneCmd, TextRun};
 pub use semantics::{
-    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
-    SemanticsProperties, SortDirection, check_text,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, LiveRegion, Orientation,
+    PopupKind, Role, SemanticsProperties, SortDirection, check_text,
 };
 pub use style::{
     Cursor, ElementTransform, LayoutProps, PaintDelta, PaintProps, ScrollbarDelta, ScrollbarProps,

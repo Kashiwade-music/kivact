@@ -1,8 +1,8 @@
 //! Role: Accessibility semantics carried by nodes and scene regions.
 
 pub use kivact_types::{
-    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
-    SortDirection,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, LiveRegion, Orientation,
+    PopupKind, Role, SortDirection,
 };
 /// Optional semantics used by advanced controls.
 ///
@@ -50,6 +50,16 @@ pub struct SemanticsProperties {
     /// Whether the node allows more than one selected item
     /// (`aria-multiselectable`). `None` leaves it unstated.
     pub multiselectable: Option<bool>,
+    /// Whether assistive technology should wait for updates to finish.
+    pub busy: Option<bool>,
+    /// Whether a value is required.
+    pub required: Option<bool>,
+    /// Whether assistive technology should report the value as read-only.
+    pub read_only: Option<bool>,
+    /// The type of popup this control opens.
+    pub has_popup: Option<PopupKind>,
+    /// The meaning of the current item in a related set.
+    pub current_item: Option<CurrentItem>,
     /// The text of a node that draws and edits its own (not a native
     /// editor), as runs for assistive technology, in the node's own
     /// coordinates. The engine moves the rectangles into the window's and

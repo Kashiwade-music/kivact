@@ -32,7 +32,7 @@
 //!   no word boundaries (AccessKit's word starts) are given.
 
 use kivact_types::protocol::SemanticsNode;
-use kivact_types::{A11yAction, CheckedState, NodeId, Role};
+use kivact_types::{A11yAction, CheckedState, CurrentItem, NodeId, PopupKind, Role};
 
 /// The id of the one custom action, `Dismiss`.
 const DISMISS: i32 = 1;
@@ -272,6 +272,31 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
         if props.multiselectable == Some(true) {
             node.set_multiselectable();
         }
+        if props.busy {
+            node.set_busy();
+        }
+        if props.required {
+            node.set_required();
+        }
+        if let Some(popup) = props.has_popup {
+            node.set_has_popup(match popup {
+                PopupKind::Menu => accesskit::HasPopup::Menu,
+                PopupKind::ListBox => accesskit::HasPopup::Listbox,
+                PopupKind::Tree => accesskit::HasPopup::Tree,
+                PopupKind::Grid => accesskit::HasPopup::Grid,
+                PopupKind::Dialog => accesskit::HasPopup::Dialog,
+            });
+        }
+        if let Some(current) = props.current_item {
+            node.set_aria_current(match current {
+                CurrentItem::True => accesskit::AriaCurrent::True,
+                CurrentItem::Page => accesskit::AriaCurrent::Page,
+                CurrentItem::Step => accesskit::AriaCurrent::Step,
+                CurrentItem::Location => accesskit::AriaCurrent::Location,
+                CurrentItem::Date => accesskit::AriaCurrent::Date,
+                CurrentItem::Time => accesskit::AriaCurrent::Time,
+            });
+        }
         if props.invalid {
             node.set_invalid(accesskit::Invalid::True);
         }
@@ -349,6 +374,10 @@ fn role(source: Role) -> accesskit::Role {
         Role::GridCell => accesskit::Role::Cell,
         Role::RowGroup => accesskit::Role::RowGroup,
         Role::Navigation => accesskit::Role::Navigation,
+        Role::Log => accesskit::Role::Log,
+        Role::Article => accesskit::Role::Article,
+        Role::Main => accesskit::Role::Main,
+        Role::Region => accesskit::Role::Region,
     }
 }
 

@@ -160,8 +160,10 @@ impl Button {
     }
     /// Show the busy indicator and ignore presses while true (constant or
     /// reactive). Its spin and reveal use the theme's [`ButtonBusyMotion`].
-    pub fn loading(self, loading: impl IntoValue<bool>) -> Self {
-        self.loading.set(loading.into_value());
+    pub fn loading(mut self, loading: impl IntoValue<bool>) -> Self {
+        let loading = loading.into_value();
+        self.root = self.root.busy(loading);
+        self.loading.set(loading);
         self
     }
     /// A view before the label, in a box the theme's

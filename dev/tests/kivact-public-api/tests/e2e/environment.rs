@@ -148,3 +148,48 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
     screen.get_by_text("safe 0 0 21 44");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn advanced_semantics_publish_roles_and_reactive_states() {
+    use kivact::primitive::NodeExt;
+    use kivact::view::{CurrentItem, PopupKind};
+
+    let screen = render(|| {
+        let current = signal(true);
+        column((
+            node()
+                .role(Role::Log)
+                .name("Message log")
+                .busy(current)
+                .child(
+                    node()
+                        .role(Role::Article)
+                        .name("First message")
+                        .semantics_read_only(true)
+                        .child(text("Hello")),
+                ),
+            button("Choose")
+                .has_popup(Some(PopupKind::ListBox))
+                .current_item(move || current.get().then_some(CurrentItem::Page)),
+            field("Email", text_input("Email", signal(String::new()))).required(true),
+            button("Working").loading(current),
+            button("Clear").on_press(move || current.set(false)),
+        ))
+    });
+    let log = screen.get_by_role(Role::Log, "Message log");
+    let message = screen.get_by_role(Role::Article, "First message");
+    let choose = screen.get_by_role(Role::Button, "Choose");
+    assert!(log.is_busy());
+    assert!(message.is_read_only());
+    assert!(screen.get_by_role(Role::TextBox, "Email").is_required());
+    let working = screen.get_by_role(Role::Button, "Working");
+    assert!(working.is_busy());
+    assert_eq!(choose.popup_kind(), Some(PopupKind::ListBox));
+    assert_eq!(choose.current_item(), Some(CurrentItem::Page));
+
+    screen.get_by_role(Role::Button, "Clear").click();
+    assert!(!log.is_busy());
+    assert!(!working.is_busy());
+    assert_eq!(choose.current_item(), None);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

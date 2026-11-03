@@ -298,6 +298,41 @@ impl<'a> Element<'a> {
             .is_some_and(|p| p.multiselectable == Some(true))
     }
 
+    /// Whether the host reports that this element is updating.
+    pub fn is_busy(&self) -> bool {
+        self.published()
+            .and_then(|n| n.properties)
+            .is_some_and(|p| p.busy)
+    }
+
+    /// Whether the host reports that this element requires a value.
+    pub fn is_required(&self) -> bool {
+        self.published()
+            .and_then(|n| n.properties)
+            .is_some_and(|p| p.required)
+    }
+
+    /// Whether the host reports that this element is read-only.
+    pub fn is_read_only(&self) -> bool {
+        self.published()
+            .and_then(|n| n.properties)
+            .is_some_and(|p| p.read_only)
+    }
+
+    /// The kind of popup that this element opens.
+    pub fn popup_kind(&self) -> Option<crate::view::PopupKind> {
+        self.published()
+            .and_then(|n| n.properties)
+            .and_then(|p| p.has_popup)
+    }
+
+    /// The meaning of the current item that the host reports.
+    pub fn current_item(&self) -> Option<crate::view::CurrentItem> {
+        self.published()
+            .and_then(|n| n.properties)
+            .and_then(|p| p.current_item)
+    }
+
     /// Whether the element has the keyboard focus.
     pub fn is_focused(&self) -> bool {
         self.screen.host.borrow().focused()

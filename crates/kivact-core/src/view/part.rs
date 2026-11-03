@@ -571,6 +571,39 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
         self
     }
 
+    /// Whether assistive technology should wait for updates to finish.
+    pub fn busy(mut self, value: impl IntoValue<bool>) -> Self {
+        self.common.semantics_mut().busy = Some(value.into_prop());
+        self
+    }
+
+    /// Whether a value is required.
+    pub fn required(mut self, value: impl IntoValue<bool>) -> Self {
+        self.common.semantics_mut().required = Some(value.into_prop());
+        self
+    }
+
+    /// Whether assistive technology should report the value as read-only.
+    /// This changes semantics only; configure editing behavior on the editor.
+    pub fn semantics_read_only(mut self, value: impl IntoValue<bool>) -> Self {
+        self.common.semantics_mut().read_only = Some(value.into_prop());
+        self
+    }
+
+    /// The type of popup this control opens.
+    /// Pass `None` to leave it unstated.
+    pub fn has_popup(mut self, value: impl IntoValue<Option<crate::view::PopupKind>>) -> Self {
+        self.common.semantics_mut().has_popup = Some(value.into_prop());
+        self
+    }
+
+    /// The meaning of the current item in a related set.
+    /// Pass `None` to leave it unstated.
+    pub fn current_item(mut self, value: impl IntoValue<Option<crate::view::CurrentItem>>) -> Self {
+        self.common.semantics_mut().current_item = Some(value.into_prop());
+        self
+    }
+
     /// Name a node that describes this one (`aria-describedby`), for text such as a dialog's message or a field's hint.
     ///
     /// Same as [`NodeExt::described_by`](crate::primitive::NodeExt::described_by).
