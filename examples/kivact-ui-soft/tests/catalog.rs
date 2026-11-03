@@ -1,8 +1,28 @@
 //! Role: Exercise the Soft catalog through its public navigation and appearance controls.
+use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};
-use kivact_ui_soft_catalog::{catalog, fonts, pages};
+use kivact_ui_soft_catalog::{catalog, catalog_at, fonts, pages};
 use std::sync::Arc;
+
+#[test]
+fn table_example_filters_and_expands_projects() {
+    let screen = render_with(RenderOptions::from_env(), || {
+        catalog_at(ThemeMode::Light, "table")
+    });
+    screen
+        .get_by_role(Role::Button, "Show active projects")
+        .click();
+    assert!(screen.query_by_role(Role::Row, "Archive").is_none());
+    screen
+        .get_by_role(Role::Button, "Design details")
+        .press_key(Key::Enter);
+    screen.get_by_text("Design is Active");
+    screen.get_by_role(Role::Button, "Clear filter").click();
+    screen.get_by_role(Role::Row, "Archive");
+    screen.get_by_text("Design is Active");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn every_page_opens_through_search_in_both_appearances() {

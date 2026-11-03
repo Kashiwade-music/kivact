@@ -51,6 +51,18 @@ fn capture_catalog() {
             }
             capture_overlay_states(&screen, &output, page.slug, name);
             capture_disclosure_states(&screen, &output, page.slug, name);
+            if page.slug == "table" {
+                screen
+                    .get_by_role(Role::Button, "Show active projects")
+                    .click();
+                screen
+                    .get_by_role(Role::Button, "Design details")
+                    .press_key(Key::Enter);
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("table-{name}-filtered-expanded.png")))
+                    .expect("table state screenshot");
+            }
             if page.slug == "spinner" {
                 screen.set_reduced_motion(true);
                 screen.advance(Duration::from_millis(750));

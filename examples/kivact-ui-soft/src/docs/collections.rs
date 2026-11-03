@@ -4,7 +4,7 @@ use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::interaction::TreeNode;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, data_table};
+use kivact::ui::{DataColumn, button, data_table};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
     ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
@@ -240,9 +240,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             .expanded(signal(true)),
             "chat_tool_calls(calls).expanded(expanded)",
         ),
-        "table" => specimen(
-            "Sortable columns",
-            data_table(
+        "table" => {
+            let filters = signal(Vec::<(usize, String)>::new());
+            let expanded = signal(Vec::new());
+            let sort = signal(Vec::new());
+            let table = data_table(
                 vec![
                     ("Design", "Active"),
                     ("Documentation", "Review"),
@@ -250,13 +252,35 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 ],
                 |row| row.0,
                 vec![
-                    DataColumn::new("Project", |row: &(&str, &str)| row.0.to_owned()).sortable(),
-                    DataColumn::new("Status", |row: &(&str, &str)| row.1.to_owned()),
+                    DataColumn::new("Project", |row: &(&str, &str)| row.0.to_owned())
+                        .sortable()
+                        .flex(2.0),
+                    DataColumn::new("Status", |row: &(&str, &str)| row.1.to_owned())
+                        .sortable()
+                        .filter(|row, query| row.1 == query)
+                        .flex(1.0),
                 ],
             )
-            .style(style().width(440)),
-            "data_table(rows, |row| row.0, columns)",
-        ),
+            .multi_sort(sort)
+            .column_filters(filters)
+            .row_details(|item| text(move || item.with(|row| format!("{} is {}", row.0, row.1))))
+            .expanded_rows(expanded)
+            .style(style().width(440));
+            specimen(
+                "Sort, filter, and expand rows",
+                column((
+                    row((
+                        button("Show active projects")
+                            .on_press(move || filters.set(vec![(1, "Active".into())])),
+                        button("Clear filter").on_press(move || filters.set(Vec::new())),
+                    ))
+                    .style(style().gap(8)),
+                    table,
+                ))
+                .style(style().gap(8)),
+                "data_table(rows, |row| row.0, columns)\n    .multi_sort(sort)\n    .column_filters(filters)\n    .row_details(render_details)\n    .expanded_rows(expanded)",
+            )
+        }
         "resizable" | "resize-handle" => {
             let state = use_resizable(ResizableConfig {
                 default_size: ResizeSize::Px(144.0),
