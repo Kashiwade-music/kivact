@@ -35,6 +35,10 @@ where
         root,
         rows: data,
         grouping,
+        tree,
+        tree_column,
+        tree_indent,
+        tree_expand_all,
         key,
         columns,
         column_order,
@@ -84,6 +88,21 @@ where
         .collect();
     let model_key = key.clone();
     let mut model = use_table_model(data, move |row| model_key(row), definitions);
+    let tree = tree.map(|config| {
+        let (key_for_order, parent, expanded) =
+            (key.clone(), config.parent.clone(), config.expanded);
+        model = model.arrange_rows(move |rows, order| {
+            super::tree::arrange(rows, order, &key_for_order, &parent, expanded)
+        });
+        super::tree::Plan::new(
+            data,
+            key.clone(),
+            config,
+            tree_column,
+            tree_indent,
+            tree_expand_all,
+        )
+    });
     if let Some(query) = filter {
         model = model.filter(query.into_value());
     }
@@ -265,6 +284,7 @@ where
         })
     });
     let grid = Grid {
+        tree,
         behavior,
         keys: selectable_keys,
         indexed,

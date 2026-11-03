@@ -102,6 +102,10 @@ where
         root,
         rows: rows.into_value(),
         grouping: None,
+        tree: None,
+        tree_column: 0,
+        tree_indent: super::tree::DataTableTreeIndent::default(),
+        tree_expand_all: false,
         key: Rc::new(key),
         columns: Rc::new(columns),
         column_order: None,
@@ -153,6 +157,37 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
             key: Rc::new(move |row| group(row).into()),
             collapsed: collapsed.into(),
         });
+        self
+    }
+
+    /// Display rows as a tree. A row whose parent key is absent becomes a root.
+    pub fn tree(
+        mut self,
+        parent: impl Fn(&R) -> Option<K> + 'static,
+        expanded: impl Into<Binding<Vec<K>>>,
+    ) -> Self {
+        self.tree = Some(super::tree::Config {
+            parent: Rc::new(parent),
+            expanded: expanded.into(),
+        });
+        self
+    }
+
+    /// Choose the original column index that displays the tree controls.
+    pub fn tree_column(mut self, index: usize) -> Self {
+        self.tree_column = index;
+        self
+    }
+
+    /// Choose the horizontal space added at each tree level.
+    pub fn tree_indent(mut self, indent: super::tree::DataTableTreeIndent) -> Self {
+        self.tree_indent = indent;
+        self
+    }
+
+    /// Show the expand/collapse-all control in the tree column header.
+    pub fn tree_expand_all(mut self, show: bool) -> Self {
+        self.tree_expand_all = show;
         self
     }
 

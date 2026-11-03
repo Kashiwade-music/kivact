@@ -13,10 +13,12 @@ mod row_status;
 mod rows;
 mod runtime;
 mod sticky_paint;
+mod tree;
 mod types;
 
 pub use builder::data_table;
 pub use grouped::DataTableGroupState;
 pub use row_status::{DataTableRowStatusPaint, RowStatus};
 pub use sticky_paint::DataTableStickyPaint;
+pub use tree::DataTableTreeIndent;
 pub use types::{DataTable, DataTableContext, DataTableDensity};

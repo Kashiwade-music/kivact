@@ -209,6 +209,17 @@ impl<K: Clone + Eq + Hash> Forest<K> {
 /// The shown rows: depth first, the children of a closed node left out. With
 /// a `query`, only the nodes whose label contains it and their ancestors,
 /// all open.
+/// Flatten a forest in depth-first order, retaining the input order of siblings.
+pub fn flatten_tree_rows<K: Clone + Eq + Hash>(
+    nodes: &[TreeNode<K>],
+    expanded: &HashSet<K>,
+) -> Vec<TreeRow<K>> {
+    flatten(nodes, expanded, "")
+        .into_iter()
+        .map(|entry| entry.row)
+        .collect()
+}
+
 fn flatten<K: Clone + Eq + Hash>(
     nodes: &[TreeNode<K>],
     expanded: &HashSet<K>,

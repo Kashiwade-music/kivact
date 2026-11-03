@@ -13,6 +13,7 @@ type KeyOf<R, K> = Rc<dyn Fn(&R) -> K>;
 /// The caller's sort column and direction.
 type Sort<C> = Value<Vec<(C, SortOrder)>>;
 type ColumnQueries<C> = Value<Vec<(C, String)>>;
+type RowArrangement<R> = Rc<dyn Fn(&[R], Vec<usize>) -> Vec<usize>>;
 
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack Table's column definition), and
@@ -248,6 +249,7 @@ pub struct TableModel<R: 'static, K: 'static, C: 'static> {
     sort: Signal<Option<Sort<C>>>,
     query: Signal<Option<Value<String>>>,
     column_queries: Signal<Option<ColumnQueries<C>>>,
+    arrangement: Signal<Option<RowArrangement<R>>>,
     paging: Signal<Option<Paging>>,
 }
 
@@ -281,6 +283,7 @@ where
     let sort = signal(None::<Sort<C>>);
     let query = signal(None::<Value<String>>);
     let column_queries = signal(None::<Value<Vec<(C, String)>>>);
+    let arrangement = signal(None::<RowArrangement<R>>);
     let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();
@@ -359,7 +362,10 @@ where
                             .unwrap_or(Ordering::Equal)
                     });
                 }
-                kept
+                match arrangement.get() {
+                    Some(arrange) => arrange(rows, kept),
+                    None => kept,
+                }
             })
         })
     };
@@ -410,6 +416,7 @@ where
         sort,
         query,
         column_queries,
+        arrangement,
         paging,
     }
 }
@@ -450,6 +457,14 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     #[track_caller]
     pub fn column_filters(self, queries: impl IntoValue<Vec<(C, String)>>) -> Self {
         self.column_queries.set(Some(queries.into_value()));
+        self
+    }
+
+    /// Arrange or remove matched source indices after sorting, before paging.
+    /// The arrangement must return only indices from the supplied order.
+    pub fn arrange_rows(self, arrange: impl Fn(&[R], Vec<usize>) -> Vec<usize> + 'static) -> Self {
+        self.arrangement
+            .update(|current| *current = Some(Rc::new(arrange)));
         self
     }
 

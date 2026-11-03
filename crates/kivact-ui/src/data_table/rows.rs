@@ -29,6 +29,7 @@ use std::rc::Rc;
 
 /// What the header and the rows of one table share.
 pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
+    pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: Table<K, usize>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
@@ -113,6 +114,7 @@ impl StickyColumns {
 impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
     fn clone(&self) -> Self {
         Self {
+            tree: self.tree,
             behavior: self.behavior,
             keys: self.keys,
             indexed: self.indexed,
@@ -374,6 +376,11 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
     .style(grid.width(index, column.is_numeric()))
     .style(grid.sticky_style(index, true, None, None))
     .child(grid.sticky_shadow(index))
+    .child(
+        grid.tree
+            .filter(|tree| tree.column == index && tree.show_all)
+            .map(|tree| tree.header()),
+    )
     .child(text(title).style(crate::helpers::single_line_text()))
     .child(mark)
     .child(handle);
@@ -445,7 +452,28 @@ where
     R: Clone + PartialEq + 'static,
     K: Clone + Eq + Hash + 'static,
 {
-    let part = grid.behavior.row(id.clone());
+    if let Some(tree) = grid.tree {
+        let grid = grid.clone();
+        dynamic(tree.is_parent(id.clone()), move |branch| {
+            body_row(&grid, id.clone(), item, branch)
+        })
+    } else {
+        body_row(grid, id, item, false)
+    }
+}
+
+fn body_row<R, K>(grid: &Grid<R, K>, id: K, item: Value<R>, branch: bool) -> View
+where
+    R: Clone + PartialEq + 'static,
+    K: Clone + Eq + Hash + 'static,
+{
+    let mut part = grid.behavior.row(id.clone());
+    if let Some(tree) = grid.tree {
+        part = part.level(tree.level(id.clone()));
+        if branch {
+            part = part.expanded(tree.open(id.clone()));
+        }
+    }
     let state = part.state();
     let check = grid
         .checks()
@@ -636,6 +664,10 @@ where
                 .style(crate::helpers::single_line_text())
                 .into_view()
         }
+    };
+    let content = match grid.tree {
+        Some(tree) if tree.column == index => tree.cell(id.clone(), content),
+        _ => content,
     };
     let numeric = def.is_numeric();
     let named = def.clone();

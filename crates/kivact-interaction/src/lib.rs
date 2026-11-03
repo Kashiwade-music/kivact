@@ -118,7 +118,7 @@ pub use toggle::{
 };
 pub use tone::Tone;
 pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip, use_tooltip_when};
-pub use tree::{Tree, TreeBranch, TreeItemState, TreeNode, TreeRow, use_tree};
+pub use tree::{Tree, TreeBranch, TreeItemState, TreeNode, TreeRow, flatten_tree_rows, use_tree};
 
 pub use text_edit::{TextEdit, text_edit_policy, use_text_area, use_text_edit};
 
