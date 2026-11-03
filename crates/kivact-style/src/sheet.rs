@@ -148,7 +148,7 @@ pub use kivact_wire::Overflow;
 /// Property group animated by `Style::transition`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransitionProp {
-    /// Paint: opacity, a solid background color, border colors, the
+    /// Paint: opacity, a solid background color, border and text colors, the
     /// transform (its translate, rotate, skew and scale parts and its
     /// origin: `rotate(0)` to `rotate(360)` turns once), the first two
     /// shadows (offset, blur, spread, color) and the filter's amounts

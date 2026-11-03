@@ -161,6 +161,7 @@ impl Model {
         field: impl Fn(&mut NodeProperties) -> Option<&mut Option<T>>,
         mut mutation: Mutation,
     ) -> bool {
+        let animate_text = mutation.text && self.tree.attached(id);
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };
@@ -203,6 +204,13 @@ impl Model {
                 old_states || node.states().is_some_and(crate::tree::states_place)
             };
             mutation.restack |= before.is_some_and(|before| before != self.paint_stacking(id));
+        } else if animate_text {
+            self.prepare_state_motion(id);
+            let node = self
+                .tree
+                .get_mut(id)
+                .expect("invariant: text transition preparation keeps node");
+            *field(&mut node.properties).expect("invariant: setter field keeps its kind") = value;
         } else {
             *old = value;
         }

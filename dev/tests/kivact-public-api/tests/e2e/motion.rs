@@ -212,3 +212,56 @@ fn zero_iterations_end_at_once_and_springs_repeat() {
     }
     assert_eq!(shown.get_untracked(), 100.0, "both iterations ended");
 }
+
+#[test]
+fn reactive_text_color_transitions_on_inheriting_children() {
+    use kivact::style::TransitionProp;
+
+    let (screen, switched) = mount_with(fast_display(), || {
+        let switched = signal(false);
+        let ink = move || {
+            if switched.get() {
+                rgb(0x0000ff)
+            } else {
+                rgb(0xff0000)
+            }
+        };
+        let child = text("MMMM").test_id("inherited-ink");
+        let explicit = text("MMMM")
+            .test_id("explicit-ink")
+            .style(style().color(rgb(0x008000)));
+        (
+            switched,
+            row((child, explicit)).style(move || {
+                style().font_size(48).weight(700).color(ink()).transition(
+                    TransitionProp::Paint,
+                    Transition::tween(200, Easing::Linear),
+                )
+            }),
+        )
+    });
+
+    let inherited = screen.get_by_test_id("inherited-ink");
+    let explicit = screen.get_by_test_id("explicit-ink");
+    let first = inherited.screenshot();
+    let at = first
+        .pixels
+        .iter()
+        .position(|&pixel| {
+            let (r, g, b) = ((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255);
+            r > 220 && g < 40 && b < 40
+        })
+        .expect("a fully covered red glyph pixel");
+    let explicit_before = explicit.screenshot();
+
+    switched.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(95));
+    let middle = inherited.screenshot().pixels[at];
+    assert!((middle >> 16) & 255 > 15 && middle & 255 > 15);
+    assert_eq!(explicit.screenshot().pixels, explicit_before.pixels);
+    screen.advance(ms(160));
+    let settled = inherited.screenshot().pixels[at];
+    assert!(settled & 255 > 220 && (settled >> 16) & 255 < 40);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
