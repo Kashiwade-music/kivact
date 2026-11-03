@@ -1,6 +1,6 @@
 //! Role: Install the Astryx Neutral tokens and recipes on the Kivact theme.
 use crate::tokens::Tokens;
-use kivact::interaction::SubmenuTiming;
+use kivact::interaction::{DisabledMenuFocus, SubmenuTiming};
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{LineHeight, Theme, ThemeMode};
 use kivact::ui::{
@@ -65,6 +65,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_disabled_opacity(tokens.sizes.disabled_opacity)
         .with(OverlayViewport::new(tokens.spacing.layer_viewport_gutter))
         .with(DisabledButtonFocus::Retain)
+        .with(DisabledMenuFocus::Retain)
         .with(DialogCenter::Window)
         .with(SubmenuTiming {
             open: std::time::Duration::from_millis(150),

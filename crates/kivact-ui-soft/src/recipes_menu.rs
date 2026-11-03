@@ -11,7 +11,6 @@ const MENU_MAX_HEIGHT: f32 = 300.0;
 
 pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
     // TODO(soft-core: C-18): Keep click activation.
-    // TODO(soft-core: C-11): Keep disabled rows out of keyboard focus.
     r.trigger(|_| trigger)
         .surface(|_| {
             |t: &Theme, _: &Look<PopupState>| {
