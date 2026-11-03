@@ -151,6 +151,7 @@ mod text_input;
 mod toggle;
 mod toggle_button;
 mod toggle_parts;
+mod tree;
 mod values;
 mod variants;
 
@@ -176,13 +177,14 @@ pub use recipes::{
     CommandPaletteRecipes, DataTableRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
     ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,
     SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes, TagInputRecipes,
-    ToastRecipes, TooltipRecipes, UiRecipes,
+    ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
 };
 pub use split::{Split, split};
 pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
 pub use toggle_button::{Toggle, ToggleLabelReservation, toggle};
+pub use tree::{TreeView, tree, tree_rows};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,

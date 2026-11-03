@@ -1,10 +1,41 @@
 //! Role: Standard compound components apply recipes to shared interaction parts.
 
 use crate::support::mount;
+use kivact::interaction::ListSelection;
 use kivact::prelude::*;
-use kivact::ui::{self, ListItem, MenuEntry};
+use kivact::ui::{self, ListItem, MenuEntry, TreeNode};
 use kivact::view::Placement;
 use std::time::Duration;
+
+#[test]
+fn standard_tree_expands_and_moves_focus_into_the_branch() {
+    let (screen, expanded) = mount(|| {
+        let expanded = signal(Vec::<u32>::new());
+        let selected = signal(None);
+        let nodes = vec![
+            TreeNode::new(1, None, "Folder"),
+            TreeNode::new(2, Some(1), "Document"),
+        ];
+        (
+            expanded,
+            ui::tree(
+                "Files",
+                nodes,
+                expanded,
+                ListSelection::Single(selected.into()),
+            ),
+        )
+    });
+    screen.get_by_role(Role::Tree, "Files");
+    let folder = screen.get_by_role(Role::TreeItem, "Folder");
+    assert_eq!(folder.is_expanded(), Some(false));
+    assert!(screen.query_by_role(Role::TreeItem, "Document").is_none());
+    folder.press_key(Key::ArrowRight);
+    assert_eq!(expanded.get_untracked(), [1]);
+    folder.press_key(Key::ArrowRight);
+    assert!(screen.get_by_role(Role::TreeItem, "Document").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn select_keeps_reactive_options_placeholder_and_keyboard_selection() {

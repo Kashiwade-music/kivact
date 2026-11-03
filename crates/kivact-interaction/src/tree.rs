@@ -129,6 +129,13 @@ pub struct TreeRow<K> {
     pub branch: TreeBranch,
 }
 
+impl<K> TreeRow<K> {
+    /// Whether this is the last visible sibling.
+    pub fn is_last(&self) -> bool {
+        self.pos_in_set == self.set_size
+    }
+}
+
 /// A shown row with the parts of its node that a row reads.
 #[derive(Clone, PartialEq)]
 struct Entry<K> {
@@ -534,6 +541,37 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
     #[track_caller]
     pub fn rows(self) -> Value<Vec<TreeRow<K>>> {
         self.state().rows
+    }
+
+    /// The visible row's label. Setup only.
+    #[track_caller]
+    pub fn label(self, key: K) -> Value<String> {
+        let info = self.state().info;
+        memo(move || {
+            info.with(|info| {
+                info.get(&key)
+                    .map_or_else(String::new, |row| row.label.clone())
+            })
+        })
+    }
+
+    /// For each visible row, whether each ancestor is its last sibling.
+    /// The flags run from the root to the immediate parent. Setup only.
+    #[track_caller]
+    pub fn ancestor_last(self) -> Value<HashMap<K, Vec<bool>>> {
+        let rows = self.rows();
+        memo(move || {
+            rows.with(|rows| {
+                let mut ancestors = Vec::new();
+                let mut result = HashMap::with_capacity(rows.len());
+                for row in rows {
+                    ancestors.truncate(row.level.saturating_sub(1) as usize);
+                    result.insert(row.key.clone(), ancestors.clone());
+                    ancestors.push(row.is_last());
+                }
+                result
+            })
+        })
     }
 
     /// The row that has the focus, or had it last: the only row that is a

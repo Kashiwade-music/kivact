@@ -56,7 +56,7 @@ use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
 use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
-    TableHeaderState, ToastState,
+    TableHeaderState, ToastState, TreeItemState,
 };
 use std::sync::{Arc, OnceLock};
 
@@ -357,6 +357,16 @@ recipe_table! {
 }
 
 recipe_table! {
+    /// The recipes of a [`tree`](super::tree).
+    TreeRecipes {
+        /// The column containing the visible rows.
+        root(root_recipe): PartState = look_collections::list,
+        /// A row with the expansion indicator and its content.
+        item(item_recipe): TreeItemState = look_collections::tree_item,
+    }
+}
+
+recipe_table! {
     /// The recipes of a [`split`](super::split), besides its handles'
     /// [`SplitterRecipes::handle`].
     SplitRecipes {
@@ -544,6 +554,7 @@ recipe_table! {
         field(field_recipes): FieldRecipes,
         splitter(splitter_recipes): SplitterRecipes,
         list(list_recipes): ListRecipes,
+        tree(tree_recipes): TreeRecipes,
         data_table(data_table_recipes): DataTableRecipes,
         split(split_recipes): SplitRecipes,
         progress(progress_recipes): ProgressRecipes,
