@@ -1,6 +1,7 @@
 //! Role: Capture the Soft catalog pages in both appearances for visual review.
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, TestFonts, render_with};
+use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
+use kivact::view::{MouseButton, Role};
 use kivact_ui_soft_catalog::{catalog_at, fonts, pages};
 use std::path::Path;
 use std::sync::Arc;
@@ -30,6 +31,29 @@ fn capture_catalog() {
                 .screenshot()
                 .save_png(output.join(format!("{}-{name}.png", page.slug)))
                 .expect("catalog screenshot");
+            if page.slug == "button" {
+                capture_button_states(&screen, &output, name);
+            }
         }
     }
+}
+
+fn capture_button_states(screen: &Screen, output: &Path, mode: &str) {
+    let primary = screen.get_by_role(Role::Button, "Primary");
+    let save = |state: &str| {
+        screen
+            .screenshot()
+            .save_png(output.join(format!("button-{mode}-{state}.png")))
+            .expect("button state screenshot");
+    };
+    primary.hover();
+    save("hover");
+    screen.mouse_down(MouseButton::Primary);
+    save("pressed");
+    screen.mouse_up(MouseButton::Primary);
+    screen.mouse_leave();
+    primary.focus();
+    screen.press_tab(false);
+    screen.press_tab(true);
+    save("focus");
 }

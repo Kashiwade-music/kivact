@@ -1,10 +1,14 @@
 //! Role: Demonstrate standard form recipes through controlled public components.
-use super::examples::specimen;
+use super::specimen::specimen;
 use kivact::control::{Node, NodeBuilder, column};
 use kivact::interaction::ScalarRange;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{ListItem, field, number_input, select, tag_input, text_area, text_input};
+use kivact::ui::{ListItem, field, number_input, text_area, text_input};
+use kivact_ui_soft::{
+    checkbox_list, complex_selector, file_input, input_group, input_group_text, multi_selector,
+    power_search, rich_text_editor, selector, tokenizer, typeahead,
+};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
@@ -40,18 +44,63 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "selector" => specimen(
             "Placeholder and disabled option",
-            select(
-                "Team",
-                vec![
-                    ListItem::new("design", "Design"),
-                    ListItem::new("engineering", "Engineering"),
-                    ListItem::new("archive", "Archive").disabled(true),
-                ],
-                signal(None::<&str>),
+            selector("Team", teams(), signal(None))
+                .placeholder("Choose a team")
+                .style(style().width(220)),
+            "selector(\"Team\", options, selected).placeholder(\"Choose a team\")",
+        ),
+        "complex-selector" => specimen(
+            "Custom selector content",
+            complex_selector("Workspace", "Design", || {
+                kivact::control::text("Workspace details")
+            }),
+            "complex_selector(\"Workspace\", \"Design\", content)",
+        ),
+        "multi-selector" => specimen(
+            "Multiple selections",
+            multi_selector("Teams", teams(), signal(vec!["design"])).style(style().width(280)),
+            "multi_selector(\"Teams\", options, selected)",
+        ),
+        "typeahead" | "base-typeahead" => specimen(
+            "Search suggestions",
+            typeahead("Team", teams(), signal(None)).style(style().width(280)),
+            "typeahead(\"Team\", options, selected)",
+        ),
+        "power-search" => specimen(
+            "Editable filters",
+            power_search("Team filters", teams(), signal(Vec::new())),
+            "power_search(\"Team filters\", fields, filters)",
+        ),
+        "checkbox-list" | "checkbox-list-item" => specimen(
+            "Choose several teams",
+            checkbox_list("Teams", teams(), signal(vec!["design"])),
+            "checkbox_list(\"Teams\", options, selected)",
+        ),
+        "input-group" | "input-group-text" => specimen(
+            "Address with prefix",
+            input_group(
+                "Website",
+                (
+                    input_group_text("https://"),
+                    text_input("Domain", signal("example.com".to_owned())),
+                ),
             )
-            .placeholder("Choose a team")
-            .style(style().width(220)),
-            "select(\"Team\", options, selected).placeholder(\"Choose a team\")",
+            .style(style().width(280)),
+            "input_group(\"Website\", (input_group_text(\"https://\"), domain))",
+        ),
+        "file-input" => specimen(
+            "Choose or drop a file",
+            file_input("Attachment", signal(Vec::new())).style(style().width(280)),
+            "file_input(\"Attachment\", files)",
+        ),
+        "rich-text-editor" => specimen(
+            "Markdown source and preview",
+            rich_text_editor(
+                "Notes",
+                signal("# Project notes\n\n**Ready for review.**".to_owned()),
+            )
+            .style(style().width(440)),
+            "rich_text_editor(\"Notes\", source)",
         ),
         "number-input" => specimen(
             "Stepped input",
@@ -63,26 +112,19 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             .style(style().width(160)),
             "number_input(\"Quantity\", quantity, range)",
         ),
-        "tokenizer" => {
-            let values = signal(vec!["Design".to_owned(), "Engineering".to_owned()]);
-            specimen(
-                "Add and remove tags",
-                tag_input(
-                    "Teams",
-                    values,
-                    move |tag| values.update(|values| values.push(tag)),
-                    move |index| {
-                        values.update(|values| {
-                            if index < values.len() {
-                                values.remove(index);
-                            }
-                        });
-                    },
-                )
-                .style(style().width(320)),
-                "tag_input(\"Teams\", values, add_tag, remove_tag)",
-            )
-        }
+        "tokenizer" => specimen(
+            "Add and remove tags",
+            tokenizer("Teams", teams(), signal(vec!["design"])).style(style().width(320)),
+            "tokenizer(\"Teams\", options, selected)",
+        ),
         _ => return None,
     })
+}
+
+fn teams() -> Vec<ListItem<&'static str>> {
+    vec![
+        ListItem::new("design", "Design"),
+        ListItem::new("engineering", "Engineering"),
+        ListItem::new("archive", "Archive").disabled(true),
+    ]
 }

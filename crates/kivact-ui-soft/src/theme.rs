@@ -38,7 +38,6 @@ pub fn theme(mode: ThemeMode) -> Theme {
         weight: body.weight,
         weight_strong: tokens.typography.weight_semibold,
         line_height: LineHeight::Scale(body.line_height_px / body.size_px),
-        ..Theme::light().text().clone()
     };
     Theme::light()
         .with_mode(mode)

@@ -1,10 +1,10 @@
 //! Role: Style the standard Soft action controls and register their recipes.
+use super::recipe_style::{fast, overlay, ring};
 use crate::Tokens;
 use kivact::draw::{LineCap, Path, Point, Stroke};
-use kivact::motion::Transition;
 use kivact::style::{
-    Align, Color, Cursor, Direction, Justify, Position, Style, TextDecorationLine, Theme,
-    TransitionProp, pct, style,
+    Align, Color, Cursor, Direction, Justify, Position, Style, TextDecorationLine, Theme, pct,
+    style,
 };
 use kivact::ui::{ButtonState, ButtonVariant, ControlSize, Look, ToggleButtonState, UiRecipes};
 
@@ -27,36 +27,6 @@ pub(crate) fn register(recipes: UiRecipes) -> UiRecipes {
         .radio_group(choice::radio_group)
         .slider(value::slider)
         .progress(value::progress)
-}
-
-pub(super) fn fast(t: &Tokens, base: Style) -> Style {
-    base.transition(
-        TransitionProp::Paint,
-        Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
-    )
-}
-
-pub(super) fn ring(t: &Tokens, color: Color) -> Style {
-    style().ring_with_offset(t.sizes.focus_ring_width, t.sizes.focus_ring_offset, color)
-}
-
-// CSS overlays are alpha-composited over the fill. Preserve transparency on
-// secondary, ghost and danger so they also work over non-default surfaces.
-pub(super) fn overlay(theme: &Theme, base: Color, top: Color) -> Color {
-    let base = base.resolve(theme);
-    let top = top.resolve(theme);
-    let alpha = top.a + base.a * (1.0 - top.a);
-    if alpha == 0.0 {
-        return Color::TRANSPARENT;
-    }
-    let amount = top.a / alpha;
-    let mix = |under, over| under * (1.0 - amount) + over * amount;
-    Color::from_rgba_f32(
-        mix(base.r, top.r),
-        mix(base.g, top.g),
-        mix(base.b, top.b),
-        alpha,
-    )
 }
 
 fn action(t: &Tokens, size: ControlSize, square: bool) -> Style {

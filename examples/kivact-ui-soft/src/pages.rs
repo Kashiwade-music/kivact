@@ -13,7 +13,7 @@ pub fn pages() -> &'static [PageInfo] {
     &PAGES
 }
 
-const PAGES: [PageInfo; 111] = [
+const PAGES: [PageInfo; 112] = [
     PageInfo {
         slug: "button",
         name: "Button",
@@ -137,6 +137,11 @@ const PAGES: [PageInfo; 111] = [
     PageInfo {
         slug: "empty-state",
         name: "Empty State",
+        category: "Content",
+    },
+    PageInfo {
+        slug: "heading",
+        name: "Heading",
         category: "Content",
     },
     PageInfo {

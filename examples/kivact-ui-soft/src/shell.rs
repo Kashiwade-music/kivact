@@ -4,8 +4,8 @@ use crate::model::CatalogState;
 use crate::page::page_view;
 use crate::pages::pages;
 use kivact::control::{Node, NodeBuilder, column, row, scroll, spacer, text};
-use kivact::style::{Align, ColorToken, ThemeMode, style};
-use kivact::ui::{button, text_input};
+use kivact::style::{Align, ColorToken, Justify, ThemeMode, style};
+use kivact::ui::{ButtonVariant, button, text_input};
 use kivact::view::{IntoView, dynamic, provide_theme};
 
 /// Mount the catalog with the light appearance.
@@ -59,6 +59,7 @@ fn top_bar(state: CatalogState) -> Node {
         style()
             .height(56)
             .shrink(0)
+            .gap(8)
             .align_items(Align::Center)
             .padding_x(16)
             .border_bottom(1, ColorToken::Border),
@@ -88,6 +89,16 @@ fn navigation(state: CatalogState) -> Node {
                     }
                     items.push(
                         button(page.name)
+                            .variant(ButtonVariant::Ghost)
+                            .selected(move || state.selected.get() == index)
+                            .style(move || {
+                                let base = style().justify_content(Justify::Start);
+                                if state.selected.get() == index {
+                                    base.background(ColorToken::Hover).weight(600)
+                                } else {
+                                    base
+                                }
+                            })
                             .on_press(move || state.selected.set(index))
                             .into_view(),
                     );

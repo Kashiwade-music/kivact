@@ -8,7 +8,7 @@ use kivact::style::{Color, Cursor, Overflow, Style, Theme, pct, style};
 use kivact::ui::{AxisState, Look, ProgressRecipes, ProgressState, SliderRecipes};
 use kivact::view::{Orientation, ReadingDirection, current_direction};
 
-use super::recipes_controls::{fast, overlay, ring};
+use super::recipe_style::{fast, overlay, ring};
 
 pub(super) fn slider(r: SliderRecipes) -> SliderRecipes {
     r.track(|_| track).range(|_| range).thumb(|_| thumb)

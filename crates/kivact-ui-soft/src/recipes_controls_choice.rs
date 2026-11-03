@@ -5,7 +5,7 @@ use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pc
 use kivact::ui::{CheckState, ControlSize, Look, RadioGroupRecipes};
 use kivact::view::{CheckedState, Orientation, ReadingDirection, current_direction};
 
-use super::recipes_controls::{fast, overlay, ring};
+use super::recipe_style::{fast, overlay, ring};
 
 fn small(size: ControlSize) -> bool {
     matches!(size, ControlSize::ExtraSmall | ControlSize::Small)
@@ -230,6 +230,9 @@ pub(super) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
 }
 
 fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
+    if orientation.variant::<crate::Segmented>().is_some() {
+        return crate::segmented_control::track(theme, orientation);
+    }
     let t = theme.get::<Tokens>();
     if **orientation == Orientation::Horizontal {
         style().direction(Direction::Row).gap(t.spacing.s5)
@@ -239,6 +242,9 @@ fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
 }
 
 fn item(theme: &Theme, s: &Look<CheckState>) -> Style {
+    if s.variant::<crate::Segmented>().is_some() {
+        return crate::segmented_control::segment(theme, s);
+    }
     let t = theme.get::<Tokens>();
     let text = t.typography.body;
     style()
@@ -255,6 +261,9 @@ fn item(theme: &Theme, s: &Look<CheckState>) -> Style {
 }
 
 fn indicator(theme: &Theme, s: &Look<CheckState>) -> Style {
+    if s.variant::<crate::Segmented>().is_some() {
+        return style().size(0, 0).clip(true);
+    }
     let t = theme.get::<Tokens>();
     check_surface(theme, &t, s, t.radius.full)
         .position(Position::Relative)
@@ -263,6 +272,9 @@ fn indicator(theme: &Theme, s: &Look<CheckState>) -> Style {
 }
 
 fn mark(theme: &Theme, s: &Look<CheckState>) -> Style {
+    if s.variant::<crate::Segmented>().is_some() {
+        return style().size(0, 0).clip(true);
+    }
     let t = theme.get::<Tokens>();
     let side = if small(s.size) {
         t.spacing.s2

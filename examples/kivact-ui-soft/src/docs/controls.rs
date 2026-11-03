@@ -1,5 +1,5 @@
 //! Role: Demonstrate the action, feedback and choice recipes in the Soft catalog.
-use super::examples::specimen;
+use super::specimen::specimen;
 use kivact::control::{Node, NodeBuilder, column, icon, row};
 use kivact::signal;
 use kivact::style::style;
@@ -8,10 +8,57 @@ use kivact::ui::{
     slider, switch, toggle,
 };
 use kivact::view::Orientation;
+use kivact_ui_soft::{
+    button_group, check_indicator, radio_indicator, segmented_control, toggle_button_group,
+    toolbar, toolbar_item,
+};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
         "button" => buttons(),
+        "button-group" => specimen(
+            "Joined actions",
+            button_group("History", (button("Undo"), button("Redo"))),
+            "button_group(\"History\", (button(\"Undo\"), button(\"Redo\")))",
+        ),
+        "toggle-button-group" => specimen(
+            "Independent formatting choices",
+            toggle_button_group(
+                "Formatting",
+                vec![
+                    ListItem::new("bold", "Bold"),
+                    ListItem::new("italic", "Italic"),
+                ],
+                signal(vec!["bold"]),
+            ),
+            "toggle_button_group(\"Formatting\", items, selection)",
+        ),
+        "segmented-control" => specimen(
+            "Choose a view",
+            segmented_control(
+                "View",
+                vec![ListItem::new("list", "List"), ListItem::new("grid", "Grid")],
+                signal(Some("list")),
+            ),
+            "segmented_control(\"View\", items, selection)",
+        ),
+        "toolbar" => specimen(
+            "Keyboard navigation between tools",
+            toolbar("Editing")
+                .start(|| toolbar_item(button("Undo")))
+                .end(|| toolbar_item(button("Redo"))),
+            "toolbar(\"Editing\").start(|| toolbar_item(button(\"Undo\")))",
+        ),
+        "indicator" => specimen(
+            "Selection marks",
+            row((
+                check_indicator(true),
+                radio_indicator(true),
+                radio_indicator(false),
+            ))
+            .style(style().gap(12)),
+            "radio_indicator(true)",
+        ),
         "icon-button" => specimen(
             "Icon-only actions",
             row((

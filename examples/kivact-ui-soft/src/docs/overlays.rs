@@ -1,5 +1,5 @@
 //! Role: Demonstrate the standard anchored layers, dialogs and notifications.
-use super::examples::specimen;
+use super::specimen::specimen;
 use kivact::control::{Node, NodeBuilder, row, text};
 use kivact::signal;
 use kivact::style::style;
@@ -7,13 +7,59 @@ use kivact::ui::{
     ButtonVariant, Command, DialogKind, MenuEntry, Side, Toast, button, command_palette, dialog,
     menu, toast_region, toaster, tooltip,
 };
+use kivact_ui_soft::{
+    alert_dialog, bottom_sheet, dialog_header, drawer_header, hover_card, media_overlay,
+};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
         "dialog" => dialog_example(DialogKind::Modal, "Open dialog", "Modal"),
-        "alert-dialog" => dialog_example(DialogKind::AlertModal, "Delete file", "AlertModal"),
+        "alert-dialog" => {
+            let open = signal(false);
+            specimen(
+                "Confirm deletion",
+                (
+                    button("Delete file").on_press(move || open.set(true)),
+                    alert_dialog("Delete file?", "This action is permanent.", open)
+                        .action("Delete", move || open.set(false)),
+                ),
+                "alert_dialog(title, description, open).action(\"Delete\", delete_file)",
+            )
+        }
         "drawer" => dialog_example(DialogKind::Drawer(Side::Right), "Open drawer", "Drawer"),
+        "dialog-header" => specimen(
+            "Title and description",
+            dialog_header("Document settings").subtitle("Manage access to the document."),
+            "dialog_header(\"Document settings\").subtitle(\"Manage access to the document.\")",
+        ),
+        "drawer-header" => specimen(
+            "Drawer title and description",
+            drawer_header("Filters").subtitle("Narrow the results."),
+            "drawer_header(\"Filters\").subtitle(\"Narrow the results.\")",
+        ),
+        "bottom-sheet" => {
+            let open = signal(false);
+            specimen(
+                "Sheet actions",
+                (
+                    button("Open sheet").on_press(move || open.set(true)),
+                    bottom_sheet("Document details", open)
+                        .content(move || button("Done").on_press(move || open.set(false))),
+                ),
+                "bottom_sheet(\"Document details\", open).content(sheet_content)",
+            )
+        }
         "popover" => dialog_example(DialogKind::Popover, "Open popover", "Popover"),
+        "hover-card" => specimen(
+            "Preview on hover",
+            hover_card(|| text("Workspace member")).attach(button("Avery Morgan")),
+            "hover_card(|| text(\"Workspace member\")).attach(button(\"Avery Morgan\"))",
+        ),
+        "overlay" => specimen(
+            "Overlay on a preview",
+            media_overlay(|| text("Document preview")).attach(button("Cover")),
+            "media_overlay(|| text(\"Document preview\")).attach(button(\"Cover\"))",
+        ),
         "tooltip" => specimen(
             "Keyboard focus and hover",
             tooltip("Save your changes").attach(button("Save")),
@@ -78,6 +124,17 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 "toasts.push(Toast::new(\"Changes saved\"))",
             )
         }
+        "more-menu" => specimen(
+            "Compact action trigger",
+            kivact_ui_soft::more_menu(
+                vec![
+                    MenuEntry::item("duplicate", "Duplicate"),
+                    MenuEntry::item("archive", "Archive"),
+                ],
+                |_| {},
+            ),
+            "more_menu(entries, on_pick)",
+        ),
         _ => return None,
     })
 }
