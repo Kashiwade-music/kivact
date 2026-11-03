@@ -299,8 +299,7 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
 }
 
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
-    // TODO(soft-core: C-29): retain standard grid semantics and supported
-    // features until the table exposes static semantics, density and row index.
+    // TODO(soft-core: C-29): expose the appendix's density and row index options.
     r.frame(|_| {
         |_: &Theme, _: &_| {
             style()

@@ -286,8 +286,9 @@ Toolbar and `input_group_with(..)` provide a default size to their control
 factories. An explicit control size takes precedence. `input_group(..)` joins
 already built controls at a shared height. Menus open
 by activation. Submenus wait 150 ms to open on hover and 200 ms to close when
-the pointer moves over a sibling item. Diagonal pointer tracking remains
-pending. Touch-specific date pickers and adaptive selector sheets remain
+the pointer moves over a sibling item. Submenus and navigation flyouts retain
+their open state while the mouse moves diagonally toward the surface.
+Touch-specific date pickers and adaptive selector sheets remain
 pending. Some layout changes update immediately, while Collapsible supports an
 optional height animation. The rich text editor offers source editing and
 formatted preview. Inline Markdown decoration uses native text and view
@@ -316,17 +317,19 @@ Typeahead and Tokenizer accept a debounced asynchronous source through
 `.search(..)`. The source publishes one batch for each query. Power Search
 supports editable text filters. The static table builders and `TableFocus::None`
 provide native table semantics. The standard data table supports sorting,
-selection, column resizing, and a custom empty state. Grouped, expandable, and sticky
+selection, proportional widths, column resizing with per-column minimums,
+header context menus, and a custom empty state. Grouped, expandable, and sticky
 data-table rows and columns require additional integration. Advanced column
-filtering, multi-column sorting, relative widths, and column reordering remain
-pending (C-29).
+filtering and column reordering remain pending (C-29). Use `.multi_sort(..)`
+to enable multi-column sorting. Shift activation changes one column while
+preserving the other sort keys.
 
 | Work-order item | Current behavior |
 | --- | --- |
-| C-06, C-07 | Collapsible and Side Nav use the shared content-height reveal. Other layout changes can be immediate. An exiting toast can retain its row until the card transition finishes. Toast dismissal callbacks run when dismissal starts. |
+| C-06, C-07 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. Native views can opt in to releasing their layout slot during an exit and receive a completion callback. A standard toast still retains its row until the card transition finishes. Toast dismissal callbacks run when dismissal starts. |
 | C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
-| C-09, C-37 | Bottom Sheet combines native drag tracking with local detent and release logic. Carousel uses native scrolling. Toast and Slider use their standard dismissal and input controls. |
-| C-11, C-17, C-18, C-39 | Disabled Soft buttons can receive focus for tooltips. Menus skip disabled rows, use activation to open, and use timed hover for submenus. The safe triangle and drag-to-select behavior remain pending. |
+| C-09, C-37 | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel uses native scrolling. Toast and Slider use their standard dismissal and input controls. |
+| C-11, C-17, C-18, C-39 | Disabled Soft buttons can receive focus for tooltips. Menus skip disabled rows and use activation to open. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. Drag-to-select remains pending. |
 | C-15 | Inline Markdown uses native text and view composition. The rich text editor has source and preview modes. |
 | C-20, C-21, C-24, C-35, C-36 | The application supplies the appearance. Date and time use the desktop input flow and its formatting. Touch wheels and adaptive selector sheets remain pending. |
 | C-22, C-25, C-38 | Truncation hints can appear whenever truncation is enabled. Citation and timestamp use solid underlines. Text uses the native line box. |
