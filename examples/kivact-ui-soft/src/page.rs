@@ -12,7 +12,8 @@ pub(super) fn page_view(info: &PageInfo) -> Scroll {
                 .test_id("catalog-title"),
             crate::docs::examples(info),
         ))
-        .style(style().padding(24).gap(12)),
+        .style(style().padding(24).gap(12))
+        .test_id("catalog-page-content"),
     )
     .style(style().grow(1).min_width(0).min_height(0))
 }

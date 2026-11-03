@@ -3,6 +3,7 @@ use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Key, MouseButton, Role};
 use kivact_ui_soft_catalog::{catalog_at, fonts, pages};
+use std::fmt::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,6 +15,7 @@ fn capture_catalog() {
     std::fs::create_dir_all(&output).expect("lookbook output directory");
     let filter = std::env::var("KIVACT_SOFT_LOOKBOOK_PAGES").ok();
     let mut diagnostics = Vec::new();
+    let mut layout = String::new();
     for page in pages().iter().filter(|page| {
         filter
             .as_deref()
@@ -33,6 +35,17 @@ fn capture_catalog() {
                 .screenshot()
                 .save_png(output.join(format!("{}-{name}.png", page.slug)))
                 .expect("catalog screenshot");
+            let findings = screen.get_by_test_id("catalog-page-content").check_layout();
+            writeln!(
+                layout,
+                "{} ({name}) — {} findings",
+                page.slug,
+                findings.len()
+            )
+            .expect("write layout heading");
+            for finding in findings {
+                writeln!(layout, "  {finding}").expect("write layout finding");
+            }
             if page.slug == "button" {
                 capture_button_states(&screen, &output, name);
             }
@@ -51,6 +64,12 @@ fn capture_catalog() {
             }
         }
     }
+    let report = if filter.is_some() {
+        "layout-report-filtered.txt"
+    } else {
+        "layout-report.txt"
+    };
+    std::fs::write(output.join(report), layout).expect("save lookbook layout report");
     assert!(diagnostics.is_empty(), "{}", diagnostics.join("\n"));
 }
 
@@ -66,6 +85,7 @@ fn capture_overlay_states(screen: &Screen, output: &Path, slug: &str, mode: &str
         "bottom-sheet" => "Open sheet",
         "bottom-sheet-switcher" => "Start review",
         "command-palette" => "Open commands",
+        "date-range-input" => "Booking dates",
         "dialog" => "Open dialog",
         "drawer" => "Open drawer",
         "dropdown-menu" => "Actions",

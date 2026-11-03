@@ -52,7 +52,7 @@ fn top_bar(state: CatalogState) -> Node {
     row((
         text("Kivact UI · Soft").style(style().weight(600)),
         spacer(),
-        text(move || if state.dark.get() { "Dark" } else { "Light" }),
+        text(move || if state.dark.get() { "Dark" } else { "Light" }).test_id("catalog-mode"),
         button("Toggle appearance")
             .test_id("catalog-theme")
             .on_press(move || state.dark.update(|dark| *dark = !*dark)),
@@ -98,6 +98,7 @@ fn navigation(state: CatalogState) -> Node {
                     }
                     items.push(
                         button(page.name)
+                            .test_id(page.slug)
                             .variant(ButtonVariant::Ghost)
                             .selected(move || state.selected.get() == index)
                             .style(move || {
