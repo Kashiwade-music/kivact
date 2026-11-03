@@ -207,11 +207,22 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
     /// draws the list while [`shown`](Self::shown). Setup only.
     #[track_caller]
     pub fn popup(self, open: impl Into<Binding<bool>>) -> Self {
+        self.popup_with_focus_transfer(open, false)
+    }
+
+    /// Allow a separate presentation to own focus while the list is open.
+    #[track_caller]
+    pub fn popup_with_focus_transfer(
+        self,
+        open: impl Into<Binding<bool>>,
+        transferred: impl IntoValue<bool>,
+    ) -> Self {
         let open = open.into();
+        let transferred = transferred.into_value();
         self.popup.update(|slot| *slot = Some(open));
         let focused = self.input_ref.focused();
         effect(move || {
-            if !focused.get() && open.get_untracked() {
+            if !focused.get() && !transferred.get() && open.get_untracked() {
                 open.set(false);
             }
         });
@@ -485,6 +496,13 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
                     }
                 });
             })
+    }
+
+    /// Present the same combobox state with a different editor anchor.
+    /// Mount one list surface at a time when using the alternate editor.
+    pub fn with_input_ref(mut self, reference: NodeRef) -> Self {
+        self.input_ref = reference;
+        self
     }
 
     /// The node the input part binds, for a surrounding dialog's initial
