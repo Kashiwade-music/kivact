@@ -2,9 +2,10 @@
 use crate::calendar::{Calendar, calendar};
 use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::{CalendarDate, message};
+use kivact::primitive::NodeExt;
 use kivact::style::{Align, Length, style};
 use kivact::ui::{ButtonVariant, DialogKind, button, dialog, text_input};
-use kivact::view::{IntoText, IntoView, View, node_ref};
+use kivact::view::{Handled, IntoText, IntoView, Key, KeyEvent, View, node_ref};
 use kivact::{Binding, Value, memo, signal};
 use std::rc::Rc;
 
@@ -83,6 +84,7 @@ impl IntoView for DateInput {
         } = self;
         let open = signal(false);
         let invalid = signal(false);
+        let opened_from_input = signal(false);
         let input_ref = node_ref();
         let formatted = memo(move || value.get().map(|date| date.to_string()).unwrap_or_default());
         let draft = signal(formatted.get_untracked());
@@ -92,6 +94,17 @@ impl IntoView for DateInput {
         });
         let input = text_input(label, draft)
             .placeholder("YYYY-MM-DD")
+            .expanded(open)
+            .forward_keys(vec![Key::ArrowDown])
+            .on_key(move |event: KeyEvent| {
+                if event.key == Key::ArrowDown {
+                    opened_from_input.set(true);
+                    open.set(true);
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
             .invalid(move || {
                 invalid.get()
                     && !draft.get().trim().is_empty()
@@ -100,10 +113,12 @@ impl IntoView for DateInput {
             .draft(move |text| {
                 if text.trim().is_empty() {
                     value.set(None);
+                    open.set(false);
                     invalid.set(false);
                     draft.set(String::new());
                 } else if let Some(date) = parse_date(&text) {
                     value.set(Some(date));
+                    open.set(false);
                     invalid.set(false);
                     draft.set(formatted.get_untracked());
                 } else {
@@ -115,7 +130,11 @@ impl IntoView for DateInput {
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("calendar"))
-            .on_press(move || open.set(!open.get_untracked()));
+            .expanded(open)
+            .on_press(move || {
+                opened_from_input.set(false);
+                open.set(!open.get_untracked());
+            });
         let trigger =
             root.child(row((toggle, input)).style(style().align_items(Align::Center).gap(4)));
         dialog(label, open)
@@ -123,8 +142,17 @@ impl IntoView for DateInput {
             .hide_title(true)
             .width(Length::Auto)
             .content(move || {
-                let calendar = calendar(value).autofocus(true).on_commit(move || {
+                if opened_from_input.get_untracked() {
+                    kivact::on_mount(move || input_ref.focus());
+                }
+                let calendar = calendar(value).on_commit(move || {
                     invalid.set(false);
+                    draft.set(
+                        value
+                            .get_untracked()
+                            .map(|date| date.to_string())
+                            .unwrap_or_default(),
+                    );
                     open.set(false);
                     input_ref.restore_focus();
                 });

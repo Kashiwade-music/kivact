@@ -7,7 +7,7 @@ use kivact::primitive::NodeExt;
 use kivact::style::{Align, Color, Justify, Length, Position, pct, style};
 use kivact::ui::{ButtonVariant, button};
 use kivact::view::{IntoView, Role, View, dynamic};
-use kivact::{Binding, on_mount, signal};
+use kivact::{Binding, binding, on_mount, signal};
 use std::rc::Rc;
 
 pub struct Calendar {
@@ -18,6 +18,8 @@ pub struct Calendar {
     count: usize,
     min: Option<CalendarDate>,
     max: Option<CalendarDate>,
+    min_span: u32,
+    max_span: Option<u32>,
     variable_rows: bool,
     outside: bool,
     week_start: Option<Weekday>,
@@ -39,6 +41,8 @@ fn new(selection: CalendarSelection) -> Calendar {
         count: 1,
         min: None,
         max: None,
+        min_span: 1,
+        max_span: None,
         variable_rows: false,
         outside: true,
         week_start: None,
@@ -72,6 +76,13 @@ impl Calendar {
     pub fn bounds(mut self, min: Option<CalendarDate>, max: Option<CalendarDate>) -> Self {
         self.min = min;
         self.max = max;
+        self
+    }
+
+    /// Limit the inclusive span of a completed range, in days.
+    pub fn range_span(mut self, min: u32, max: Option<u32>) -> Self {
+        self.min_span = min.max(1);
+        self.max_span = max.map(|max| max.max(self.min_span));
         self
     }
 
@@ -155,6 +166,8 @@ impl IntoView for Calendar {
             count,
             min,
             max,
+            min_span,
+            max_span,
             variable_rows,
             outside,
             week_start,
@@ -169,12 +182,22 @@ impl IntoView for Calendar {
         .unwrap_or(today);
         let focus = min.map_or(focus, |min| focus.max(min));
         let focus = max.map_or(focus, |max| focus.min(max));
-        let month: Binding<CalendarMonth> = signal(month.unwrap_or(focus.month_of())).into();
+        let month = month.unwrap_or(focus.month_of());
+        let month = min.map_or(month, |min| month.max(min.month_of()));
+        let month = max.map_or(month, |max| month.min(max.month_of()));
+        let month: Binding<CalendarMonth> = signal(month).into();
+        let pending = signal(None::<CalendarDate>);
         let mut policy = CalendarPolicy::new()
             .disabled(move |day| {
                 min.is_some_and(|min| day < min)
                     || max.is_some_and(|max| day > max)
                     || disabled(day)
+                    || pending.get().is_some_and(|anchor| {
+                        let span = anchor.to_epoch_days().abs_diff(day.to_epoch_days()) + 1;
+                        day != anchor
+                            && (span < u64::from(min_span)
+                                || max_span.is_some_and(|max| span > u64::from(max)))
+                    })
             })
             .months(count)
             .initial_focus(focus);
@@ -190,14 +213,33 @@ impl IntoView for Calendar {
             }
             CalendarSelection::Range(value) => {
                 let local = signal(value.get_untracked());
-                kivact::effect(move || local.set(value.get()));
+                kivact::effect(move || {
+                    local.set(value.get());
+                    pending.set(None);
+                });
+                let staged = binding(local, move |next: Option<DateRange>| {
+                    local.set(next);
+                    // The grid writes once for the anchor, then once more for
+                    // either a completed choice or Escape's restored range.
+                    let anchor = if pending.get_untracked().is_none() {
+                        next.map(|range| range.start())
+                    } else {
+                        None
+                    };
+                    pending.set(anchor);
+                });
                 policy = policy.on_commit(move |_| {
-                    value.set(local.get_untracked());
+                    let next = local.get_untracked();
+                    if min_span > 1 && next.is_some_and(|range| range.start() == range.end()) {
+                        local.set(value.get_untracked());
+                        return;
+                    }
+                    value.set(next);
                     if let Some(commit) = &on_commit {
                         commit();
                     }
                 });
-                CalendarSelection::Range(local.into())
+                CalendarSelection::Range(staged)
             }
         };
         let grid = use_calendar_grid(month, selection, policy);
@@ -318,7 +360,13 @@ impl IntoView for Calendar {
                                                 CalendarSpan::None => band.width(0),
                                             }
                                         });
-                                        let mut day = node().part(part);
+                                        let mut day = node().part(part).on_press(move || {
+                                            // A pointer can choose a day outside the current tab
+                                            // stop. Focus the new tab stop after the grid updates.
+                                            kivact::task::spawn(async move {
+                                                grid.focus_active();
+                                            });
+                                        });
                                         if date == today {
                                             day = day.description(message(
                                                 "soft.calendar.today",

@@ -66,7 +66,6 @@ impl IntoView for DateRangeInput {
             .child(icon("calendar"))
             .child(text(shown))
             .node_ref(trigger_ref)
-            .on_press(move || open.set(!open.get_untracked()))
             .style(move || {
                 let t = tokens();
                 frame(&t, &PartState::default(), false)
@@ -81,7 +80,7 @@ impl IntoView for DateRangeInput {
                         t.colors.text_secondary
                     })
             });
-        dialog(label, open)
+        let picker = dialog(label, open)
             .kind(DialogKind::Popover)
             .hide_title(true)
             .width(Length::Auto)
@@ -98,6 +97,7 @@ impl IntoView for DateRangeInput {
                     None => calendar,
                 }
             })
-            .attach(root.child(trigger))
+            .attach(trigger);
+        root.child(picker).into_view()
     }
 }
