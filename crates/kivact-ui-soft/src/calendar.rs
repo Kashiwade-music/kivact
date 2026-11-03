@@ -89,6 +89,36 @@ impl Calendar {
         self
     }
 
+    pub(super) fn gate_disabled(mut self, off: kivact::Value<bool>) -> Self {
+        let disabled = self.disabled;
+        self.disabled = Rc::new(move |date| off.get() || disabled(date));
+        self
+    }
+
+    pub(super) fn with_constraints(
+        mut self,
+        accept: impl Fn(CalendarDate) -> bool + 'static,
+    ) -> Self {
+        let disabled = self.disabled;
+        self.disabled = Rc::new(move |date| !accept(date) || disabled(date));
+        self
+    }
+
+    pub(super) fn range_validator(&self) -> impl Fn(DateRange) -> bool + use<> {
+        let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
+        let disabled = self.disabled.clone();
+        move |range| {
+            let (start, end) = (range.start(), range.end());
+            let span = start.to_epoch_days().abs_diff(end.to_epoch_days()) + 1;
+            min.is_none_or(|min| start >= min)
+                && max.is_none_or(|max| end <= max)
+                && span >= u64::from(min_span)
+                && max_span.is_none_or(|max| span <= u64::from(max))
+                && !disabled(start)
+                && !disabled(end)
+        }
+    }
+
     /// Allow the number of displayed weeks to vary by month.
     pub fn variable_rows(mut self, variable: bool) -> Self {
         self.variable_rows = variable;
@@ -202,9 +232,17 @@ impl IntoView for Calendar {
             CalendarSelection::Range(value) => value.get_untracked().map(|range| range.start()),
         }
         .unwrap_or(today);
+        let focus_after_maximum = max.is_some_and(|max| focus > max);
         let focus = min.map_or(focus, |min| focus.max(min));
         let focus = max.map_or(focus, |max| focus.min(max));
-        let month = month.unwrap_or(focus.month_of());
+        let month = month.unwrap_or_else(|| {
+            let focused_month = focus.month_of();
+            if focus_after_maximum && matches!(selection, CalendarSelection::Range(_)) {
+                focused_month.add_months(1 - count as i32)
+            } else {
+                focused_month
+            }
+        });
         let month = min.map_or(month, |min| month.max(min.month_of()));
         let month = max.map_or(month, |max| month.min(max.month_of()));
         let month: Binding<CalendarMonth> = signal(month).into();
@@ -413,7 +451,8 @@ impl IntoView for Calendar {
                                                 {
                                                     let (start, end) =
                                                         (anchor.min(end), anchor.max(end));
-                                                    if (start..=end).contains(&date) {
+                                                    if start != end && (start..=end).contains(&date)
+                                                    {
                                                         let lead = date == start
                                                             || date.weekday() == first
                                                             || date == month.first_day();

@@ -4,7 +4,8 @@ use kivact::control::Node;
 use kivact::i18n::{CalendarDate, DateRange};
 use kivact::signal;
 use kivact_ui_soft::{
-    DateTime, TimeOfDay, calendar, date_input, date_range_input, date_time_input, time_input,
+    DateRangePreset, DateTime, TimeOfDay, calendar, date_input, date_range_input, date_time_input,
+    time_input,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -19,11 +20,16 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             date_input("Due date", signal(None::<CalendarDate>)),
             "date_input(\"Due date\", date)",
         ),
-        "date-range-input" => specimen(
-            "Choose a start and end",
-            date_range_input("Booking dates", signal(None::<DateRange>)),
-            "date_range_input(\"Booking dates\", dates)",
-        ),
+        "date-range-input" => {
+            let date = |day| CalendarDate::new(2026, 10, day);
+            let week = DateRange::new(date(12), date(18));
+            specimen(
+                "Choose a start and end or pick a preset",
+                date_range_input("Booking dates", signal(None::<DateRange>))
+                    .presets(vec![DateRangePreset::new("Example week", move || week)]),
+                "date_range_input(\"Booking dates\", dates).presets(presets)",
+            )
+        }
         "date-time-input" => specimen(
             "Edit date and time",
             date_time_input("Starts at", signal(None::<DateTime>)),

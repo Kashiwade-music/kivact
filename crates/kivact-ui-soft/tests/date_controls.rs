@@ -167,3 +167,59 @@ fn date_range_input_closes_and_returns_focus_after_second_choice() {
     assert!(screen.get_by_role(Role::Button, "Window").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn range_presets_validate_endpoints_and_publish_only_on_activation() {
+    let initial = DateRange::new(date(8), date(12));
+    let (screen, selected) = render_with_handle(options(), move || {
+        let selected = signal(Some(initial));
+        use kivact_ui_soft::{DateRangePreset, date_range_input};
+        (
+            selected,
+            date_range_input("Preset window", selected)
+                .min(date(6))
+                .max(date(24))
+                .min_range_span(3)
+                .max_range_span(5)
+                .date_constraint(|day| day != date(22))
+                .presets(vec![
+                    DateRangePreset::new("Current range", move || initial),
+                    DateRangePreset::new("Before minimum", || DateRange::new(date(3), date(7))),
+                    DateRangePreset::new("After maximum", || DateRange::new(date(22), date(26))),
+                    DateRangePreset::new("Too short", || DateRange::new(date(15), date(16))),
+                    DateRangePreset::new("Too long", || DateRange::new(date(15), date(20))),
+                    DateRangePreset::new("Disabled endpoint", || {
+                        DateRange::new(date(19), date(22))
+                    }),
+                    DateRangePreset::new("New range", || DateRange::new(date(16), date(19))),
+                ]),
+        )
+    });
+    screen.get_by_role(Role::Button, "Preset window").click();
+    let current = screen.get_by_role(Role::Button, "Current range");
+    assert!(current.is_focused());
+    assert!(current.is_selected());
+    for label in [
+        "Before minimum",
+        "After maximum",
+        "Too short",
+        "Too long",
+        "Disabled endpoint",
+    ] {
+        assert!(screen.get_by_role(Role::Button, label).is_disabled());
+    }
+    screen.get_by_role(Role::GridCell, "2026-10-14").click();
+    assert_eq!(selected.get_untracked(), Some(initial));
+    screen.get_by_role(Role::Button, "New range").click();
+    assert_eq!(
+        selected.get_untracked(),
+        Some(DateRange::new(date(16), date(19)))
+    );
+    assert!(
+        screen
+            .get_by_role(Role::Button, "Preset window")
+            .is_focused()
+    );
+    assert!(screen.query_by_role(Role::Button, "New range").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

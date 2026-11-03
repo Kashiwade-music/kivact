@@ -143,7 +143,7 @@ pub use container_reveal::{
     RevealContent, RevealForce, RevealVisibility, reveal_container, reveal_content,
 };
 pub use date_input::{DateInput, date_input};
-pub use date_range_input::{DateRangeInput, date_range_input};
+pub use date_range_input::{DateRangeInput, DateRangePreset, date_range_input};
 pub use date_time_input::{DateTime, DateTimeInput, date_time_input};
 pub use dialog_header::{
     DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
