@@ -17,6 +17,7 @@ pub struct Calendar {
     root: Node,
     selection: CalendarSelection,
     month: Option<CalendarMonth>,
+    displayed_month: Option<Binding<CalendarMonth>>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: usize,
     min: Option<CalendarDate>,
@@ -40,6 +41,7 @@ fn new(selection: CalendarSelection) -> Calendar {
         ),
         selection,
         month: None,
+        displayed_month: None,
         disabled: Rc::new(|_| false),
         count: 1,
         min: None,
@@ -65,6 +67,26 @@ pub fn calendar_range(value: impl Into<Binding<Option<DateRange>>>) -> Calendar 
 }
 
 impl Calendar {
+    pub(super) fn sheet_months(
+        &self,
+        initial: CalendarMonth,
+    ) -> (CalendarMonth, CalendarMonth, CalendarMonth) {
+        let initial = self.month.unwrap_or(initial);
+        let min = self
+            .min
+            .map_or_else(|| initial.add_months(-600), CalendarDate::month_of);
+        let max = self
+            .max
+            .map_or_else(|| initial.add_months(600), CalendarDate::month_of)
+            .max(min);
+        (initial.clamp(min, max), min, max)
+    }
+
+    pub(super) fn displayed_month(mut self, month: Binding<CalendarMonth>) -> Self {
+        self.displayed_month = Some(month);
+        self
+    }
+
     pub fn default_month(mut self, month: CalendarMonth) -> Self {
         self.month = Some(month);
         self
@@ -189,7 +211,7 @@ pub(super) fn calendar_status(message: impl kivact::view::IntoText) -> Node {
         .style(style().position(Position::Absolute).size(1, 1).opacity(0.0))
 }
 
-fn memo_month_title(month: kivact::Value<CalendarMonth>) -> kivact::Value<String> {
+pub(super) fn month_title(month: kivact::Value<CalendarMonth>) -> kivact::Value<String> {
     let names = MONTHS.map(|(key, default)| message(key, default));
     message_with("soft.calendar.caption", "{month} {year}", move || {
         let month = month.get();
@@ -214,6 +236,7 @@ impl IntoView for Calendar {
             root,
             selection,
             month,
+            displayed_month,
             disabled,
             count,
             min,
@@ -245,7 +268,7 @@ impl IntoView for Calendar {
         });
         let month = min.map_or(month, |min| month.max(min.month_of()));
         let month = max.map_or(month, |max| month.min(max.month_of()));
-        let month: Binding<CalendarMonth> = signal(month).into();
+        let month: Binding<CalendarMonth> = displayed_month.unwrap_or_else(|| signal(month).into());
         let pending = signal(None::<CalendarDate>);
         let hovered = signal(None::<CalendarDate>);
         let announcement = signal(String::new());
@@ -257,7 +280,7 @@ impl IntoView for Calendar {
         let month_value = month.into_value();
         let initial_month = month.get_untracked();
         let previous_month = std::cell::Cell::new(initial_month);
-        let month_label = memo_month_title(month_value);
+        let month_label = month_title(month_value);
         kivact::effect(move || {
             let current = month_value.get();
             if previous_month.replace(current) != current {

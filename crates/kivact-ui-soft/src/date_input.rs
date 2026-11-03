@@ -1,5 +1,6 @@
 //! Role: Typed date field and its attached calendar.
 use crate::calendar::{Calendar, calendar, calendar_status};
+use crate::date_touch::{self, DatePresentation};
 use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::{CalendarDate, message};
 use kivact::primitive::NodeExt;
@@ -12,6 +13,7 @@ use std::rc::Rc;
 pub struct DateInput {
     root: Node,
     label: Value<String>,
+    presentation: DatePresentation,
     value: Binding<Option<CalendarDate>>,
     configure: Option<Rc<dyn Fn(Calendar) -> Calendar>>,
 }
@@ -25,11 +27,18 @@ pub fn date_input(
         root: node(),
         label: label.into_text_value(),
         value: value.into(),
+        presentation: DatePresentation::Adaptive,
         configure: None,
     }
 }
 
 impl DateInput {
+    /// Choose how the picker opens.
+    pub fn presentation(mut self, presentation: DatePresentation) -> Self {
+        self.presentation = presentation;
+        self
+    }
+
     pub fn calendar(mut self, configure: impl Fn(Calendar) -> Calendar + 'static) -> Self {
         self.configure = Some(Rc::new(configure));
         self
@@ -81,7 +90,29 @@ impl IntoView for DateInput {
             label,
             value,
             configure,
+            presentation,
         } = self;
+        if presentation.sheet() {
+            let open = signal(false);
+            let target = node_ref();
+            let shown = move || {
+                value
+                    .get()
+                    .map(|date| date.to_string())
+                    .unwrap_or_else(|| "YYYY-MM-DD".to_owned())
+            };
+            let trigger =
+                date_touch::trigger(label, shown, "calendar", open.into(), target, move || {
+                    open.set(true)
+                });
+            let sheet = date_touch::sheet(
+                message("soft.date.open", "Choose date"),
+                open,
+                Some(target),
+                move || date_touch::date_panel(value, configure.clone()),
+            );
+            return root.child((trigger, sheet)).into_view();
+        }
         let open = signal(false);
         let announcement = signal(String::new());
         let chosen = message("soft.calendar.chosen", "Date selected");

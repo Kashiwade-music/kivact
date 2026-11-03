@@ -1,9 +1,10 @@
 //! Role: Typed wall-clock time, independent of time zone.
+use crate::date_touch::{self, DatePresentation};
 use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::message;
 use kivact::style::{Align, style};
 use kivact::ui::text_input;
-use kivact::view::{IntoText, IntoView, View};
+use kivact::view::{IntoText, IntoView, View, node_ref};
 use kivact::{Binding, Value, memo, signal};
 
 /// A time on a 24-hour clock with second precision.
@@ -86,6 +87,7 @@ fn parse_time(input: &str, seconds: bool) -> Option<TimeOfDay> {
 pub struct TimeInput {
     root: Node,
     label: Value<String>,
+    presentation: DatePresentation,
     value: Binding<Option<TimeOfDay>>,
     seconds: bool,
 }
@@ -95,11 +97,18 @@ pub fn time_input(label: impl IntoText, value: impl Into<Binding<Option<TimeOfDa
         root: node(),
         label: label.into_text_value(),
         value: value.into(),
+        presentation: DatePresentation::Adaptive,
         seconds: false,
     }
 }
 
 impl TimeInput {
+    /// Choose how the picker opens.
+    pub fn presentation(mut self, presentation: DatePresentation) -> Self {
+        self.presentation = presentation;
+        self
+    }
+
     pub fn show_seconds(mut self, show: bool) -> Self {
         self.seconds = show;
         self
@@ -119,7 +128,24 @@ impl IntoView for TimeInput {
             label,
             value,
             seconds,
+            presentation,
         } = self;
+        if presentation.sheet() {
+            let open = signal(false);
+            let target = node_ref();
+            let trigger = date_touch::trigger(
+                label,
+                move || date_touch::time_label(value.get(), seconds),
+                "clock",
+                open.into(),
+                target,
+                move || open.set(true),
+            );
+            let sheet = date_touch::sheet(label, open, Some(target), move || {
+                date_touch::time_panel(value, seconds)
+            });
+            return root.child((trigger, sheet)).into_view();
+        }
         let invalid = signal(false);
         let formatted = memo(move || {
             value

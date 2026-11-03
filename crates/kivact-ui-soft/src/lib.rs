@@ -25,6 +25,7 @@ mod container_reveal;
 mod date_input;
 mod date_range_input;
 mod date_time_input;
+mod date_touch;
 mod dialog_header;
 mod divider;
 mod elevation;
@@ -145,6 +146,7 @@ pub use container_reveal::{
 pub use date_input::{DateInput, date_input};
 pub use date_range_input::{DateRangeInput, DateRangePreset, date_range_input};
 pub use date_time_input::{DateTime, DateTimeInput, date_time_input};
+pub use date_touch::DatePresentation;
 pub use dialog_header::{
     DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
 };
