@@ -8,7 +8,7 @@ use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{LineHeight, Theme, ThemeMode};
 use kivact::ui::{
     ButtonBusyMotion, DialogCenter, DisabledButtonFocus, ProgressMotion, SliderTouchMotion,
-    ToastRowMotion, ToggleLabelReservation,
+    ToastRowMotion, ToastSwipe, ToastSwipeEdge, ToggleLabelReservation,
 };
 use kivact::view::OverlayViewport;
 
@@ -80,6 +80,10 @@ pub fn theme(mode: ThemeMode) -> Theme {
             reduced_spin_ms: 3000,
             reveal_delay_ms: tokens.motion.medium_min,
             reveal_fade_ms: tokens.motion.fast,
+        })
+        .with(ToastSwipe::Enabled {
+            edge: ToastSwipeEdge::Bottom,
+            transition: Transition::tween(tokens.motion.fast as f64, tokens.motion.ease_standard),
         })
         .with(ToastRowMotion {
             transition: Some(Transition::tween(

@@ -64,7 +64,6 @@ fn card(t: &Theme, s: &Look<ToastState>) -> Style {
         .radius(p.radius.container)
         .background(fill)
         .color(foreground(t, s, &p));
-    // TODO(soft-core: C-09): Keep the standard close button as the dismiss gesture.
     let hidden = style().opacity(0.0).translate_y(p.spacing.s2);
     motion(base, &p, p.motion.fast)
         .enter(hidden.clone())

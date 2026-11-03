@@ -508,6 +508,16 @@ impl Toaster {
     /// row.
     #[track_caller]
     pub fn item(self, id: ToastId) -> Part<ToastState> {
+        self.item_with_hold(id, None)
+    }
+
+    /// Attach a toast with an additional, per-item reason to pause its timer.
+    #[track_caller]
+    pub fn item_while(self, id: ToastId, held: impl IntoValue<bool>) -> Part<ToastState> {
+        self.item_with_hold(id, Some(held.into_value()))
+    }
+
+    fn item_with_hold(self, id: ToastId, held: Option<Value<bool>>) -> Part<ToastState> {
         let toast = self.shown(id);
         let tone = toast.as_ref().map_or(Tone::Neutral, |toast| toast.tone);
         let duration = toast.as_ref().and_then(|toast| toast.duration);
@@ -549,7 +559,9 @@ impl Toaster {
                 let focus = anchor.focus_within();
                 self.track_focus(id, focus);
                 let within = memo(move || hover.get() || focus.get());
-                let stopped = memo(move || within.get() || self.holds.get() > 0);
+                let stopped = memo(move || {
+                    within.get() || self.holds.get() > 0 || held.is_some_and(|held| held.get())
+                });
                 effect(move || engaged.set(stopped.get()));
                 count_down(self, id, duration, stopped);
             })

@@ -1,10 +1,12 @@
 //! Role: Render the App's toasts in themed live regions.
 use super::layer::with_recipe_style;
+use super::toast_swipe::{Swipe, ToastSwipe};
 use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{NodeBuilder, column, node, text};
 use kivact_core::motion::Transition;
 use kivact_core::primitive::part;
+use kivact_core::signal;
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
 use kivact_interaction::{ToastId, Toaster, Tone};
@@ -179,7 +181,17 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
     let Some(content) = toaster.toast(id) else {
         return ().into_view();
     };
-    let part = toaster.item(id);
+    let swipe = current_theme().get::<ToastSwipe>();
+    let (part, swipe) = match swipe.as_ref() {
+        ToastSwipe::Disabled => (toaster.item(id), None),
+        ToastSwipe::Enabled { edge, transition } => {
+            let held = signal(false);
+            let part = toaster.item_while(id, held);
+            let swipe = Swipe::new(*edge, part.node_ref().rect(), held, toaster, id);
+            (part, Some((swipe, transition.clone())))
+        }
+    };
+    let gesture = swipe.as_ref().map(|(gesture, _)| *gesture);
     let state = part.state();
     let title = with_recipe_style(
         text(content.title.clone()),
@@ -209,22 +221,33 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
     };
     let action = content.action.as_ref().map(|(label, _)| {
         let activate = content.clone();
-        super::button(label.clone())
+        let action = super::button(label.clone())
             .variant(ButtonVariant::Outline)
             .size(super::ControlSize::Small)
-            .on_press(move || activate.activate(id))
+            .on_press(move || activate.activate(id));
+        if let Some(gesture) = gesture {
+            action.on_pointer(move |event| gesture.protect_action(event))
+        } else {
+            action
+        }
     });
+    let close = node()
+        .part(kivact_interaction::use_button().control())
+        .name(kivact_core::i18n::message("toast.close", "Close"))
+        .on_press(move || toaster.dismiss(id))
+        .child(kivact_core::control::icon("x"));
+    let close = if let Some(gesture) = gesture {
+        close.on_pointer(move |event| gesture.protect_action(event))
+    } else {
+        close
+    };
     let close = with_recipe_style(
-        node()
-            .part(kivact_interaction::use_button().control())
-            .name(kivact_core::i18n::message("toast.close", "Close"))
-            .on_press(move || toaster.dismiss(id))
-            .child(kivact_core::control::icon("x")),
+        close,
         |r| r.toast_recipes().close_recipe(),
         variants,
         move || state.get(),
     );
-    with_recipe_style(
+    let card = with_recipe_style(
         node()
             .part(part)
             .child(icon)
@@ -234,6 +257,12 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
         |r| r.toast_recipes().toast_recipe(),
         variants,
         move || state.get(),
-    )
-    .into_view()
+    );
+    if let Some((gesture, transition)) = swipe {
+        card.on_pointer(move |event| gesture.event(event))
+            .style(move || gesture.style(&transition))
+            .into_view()
+    } else {
+        card.into_view()
+    }
 }
