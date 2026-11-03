@@ -6,9 +6,8 @@
 //! menu or disclosure trigger part was attached or the caller set
 //! `.expanded`, `None` otherwise. The `.icon` and `.trailing_icon` views go
 //! into `button_icon` boxes, where a kit sizes the icon by the button's size.
-//! While loading, the busy part turns once every 0.7 s, also under reduced
-//! motion: it says that work is going on (essential motion, as the
-//! platforms' own spinners), not decoration. A [`ButtonVariant`] is only a meaning,
+//! While loading, the busy part uses the theme's [`ButtonBusyMotion`].
+//! A [`ButtonVariant`] is only a meaning,
 //! given with `.variant(..)` like a kit's tone or slanted shape and read by
 //! the recipe with `look.variant::<ButtonVariant>()` (a button without one is
 //! the default, `Primary`). A kit drawing its own part as a button calls the
@@ -20,14 +19,49 @@ use super::layer::with_recipe_style;
 use super::values::{ButtonState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node, row};
-use kivact_core::motion::{FrameRate, frame_loop};
+use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::primitive::NodeExt;
-use kivact_core::style::style;
+use kivact_core::style::{Theme, ThemeExtension, current_theme, style};
+use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{IntoText, IntoValue, IntoView, View, show};
-use kivact_core::{Value, signal};
+use kivact_core::{Value, on_cleanup, signal};
 use kivact_interaction::use_button;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::time::Duration;
+
+/// Timing for the standard button's busy indicator. Install it with
+/// [`Theme::with`]; the default turns every 700 ms and reveals immediately.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ButtonBusyMotion {
+    /// Milliseconds per revolution. A zero period is treated as 1 ms.
+    pub spin_ms: u64,
+    /// Milliseconds per revolution when reduced motion is active.
+    pub reduced_spin_ms: u64,
+    /// Milliseconds to wait before revealing. During this time the content
+    /// recipe still sees the idle look. Skipped under reduced motion.
+    pub reveal_delay_ms: u64,
+    /// Milliseconds for the opacity fade. Zero reveals at once after the delay.
+    pub reveal_fade_ms: u64,
+}
+
+impl Default for ButtonBusyMotion {
+    fn default() -> Self {
+        Self {
+            spin_ms: 700,
+            reduced_spin_ms: 700,
+            reveal_delay_ms: 0,
+            reveal_fade_ms: 0,
+        }
+    }
+}
+
+impl ThemeExtension for ButtonBusyMotion {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
+    }
+}
+
 pub struct Button {
     root: Node,
     label: Value<String>,
@@ -39,7 +73,6 @@ pub struct Button {
     loading: Rc<Cell<Value<bool>>>,
     expanded: Rc<Cell<Option<Value<bool>>>>,
     state: Value<ButtonState>,
-    phase: kivact_core::Signal<f32>,
     hide_label: Rc<Cell<Option<Value<bool>>>>,
 }
 /// What the builder knows of the button once it is configured.
@@ -62,7 +95,6 @@ pub fn button(label: impl IntoText) -> Button {
     let busy = (move || read_loading.get().get()).into_value();
     let part = use_button().control().disabled(busy);
     let input = part.state();
-    let phase = signal(0.0f32);
     let read = settings.clone();
     let state = kivact_core::memo(move || {
         let settings = read.borrow().clone();
@@ -86,20 +118,8 @@ pub fn button(label: impl IntoText) -> Button {
         &variants,
         move || state.get(),
     );
-    // The clock is mounted only while busy; idle buttons have no loop. The
-    // turn is essential motion, so reduced motion does not stop it.
-    let animation = show(busy, move || {
-        let clock = frame_loop(move |frame| phase.set((frame.now.as_secs_f32() / 0.7).fract()));
-        kivact_core::effect(move || {
-            if kivact_core::platform::surface_active() {
-                clock.start(FrameRate::Hz(60.0));
-            } else {
-                clock.stop();
-            }
-        });
-    });
     Button {
-        root: root.child(animation),
+        root,
         label,
         icon: None,
         trailing: None,
@@ -109,7 +129,6 @@ pub fn button(label: impl IntoText) -> Button {
         loading,
         expanded,
         state,
-        phase,
         hide_label,
     }
 }
@@ -140,8 +159,7 @@ impl Button {
         self.configure(|s| s.size = size)
     }
     /// Show the busy indicator and ignore presses while true (constant or
-    /// reactive). The indicator turns once every 0.7 s, also under reduced
-    /// motion (it is essential motion: it shows that work goes on).
+    /// reactive). Its spin and reveal use the theme's [`ButtonBusyMotion`].
     pub fn loading(self, loading: impl IntoValue<bool>) -> Self {
         self.loading.set(loading.into_value());
         self
@@ -214,6 +232,7 @@ impl Button {
                 move || state.get(),
             )
         };
+        let reveal_pending = signal(false);
         let content = with_recipe_style(
             row((
                 self.icon.map(slot),
@@ -223,19 +242,77 @@ impl Button {
             )),
             |r| r.button_content_recipe(),
             &variants,
-            move || state.get(),
+            move || {
+                let mut state = state.get();
+                state.loading &= !reveal_pending.get();
+                state
+            },
         );
-        let phase = self.phase;
         let busy = show(
             move || state.get().loading,
             move || {
+                let phase = signal(0.0f32);
+                let period = kivact_core::memo(|| {
+                    let motion = current_theme().get::<ButtonBusyMotion>();
+                    if kivact_core::platform::reduced_motion() {
+                        motion.reduced_spin_ms
+                    } else {
+                        motion.spin_ms
+                    }
+                    .max(1) as f64
+                });
+                let clock = frame_loop(move |frame| {
+                    let period = period.get();
+                    let elapsed = frame.now.as_secs_f64() * 1000.0;
+                    phase.set((elapsed.rem_euclid(period) / period) as f32);
+                });
+                kivact_core::effect(move || {
+                    if kivact_core::platform::surface_active() {
+                        clock.start(FrameRate::Hz(60.0));
+                    } else {
+                        clock.stop();
+                    }
+                });
+                let motion = current_theme().get::<ButtonBusyMotion>();
+                let delay = if kivact_core::platform::reduced_motion() {
+                    0
+                } else {
+                    motion.reveal_delay_ms
+                };
+                if delay != 0 {
+                    reveal_pending.set(true);
+                    on_cleanup(move || reveal_pending.set(false));
+                    spawn(async move {
+                        sleep(Duration::from_millis(delay)).await;
+                        reveal_pending.set(false);
+                    });
+                }
+                let fade = (delay != 0 || motion.reveal_fade_ms != 0).then(|| {
+                    Animated::from(
+                        0.0f32,
+                        1.0f32,
+                        Transition::tween(
+                            motion.reveal_fade_ms as f64,
+                            Easing::CubicBezier(0.25, 0.1, 0.25, 1.0),
+                        )
+                        .delay(delay as f64)
+                        .decorative(false),
+                    )
+                });
                 with_recipe_style(
                     node(),
                     |r| r.button_busy_recipe(),
                     &variants,
                     move || state.get(),
                 )
-                .style(move || style().rotate(phase.get() * 360.0))
+                .style(move || {
+                    let base = style().rotate(phase.get() * 360.0);
+                    if let Some(fade) = fade {
+                        base.opacity(fade.get())
+                    } else {
+                        base
+                    }
+                })
             },
         );
         self.root.child(content).child(busy)

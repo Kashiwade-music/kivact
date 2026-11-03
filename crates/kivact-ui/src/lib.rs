@@ -154,7 +154,7 @@ mod toggle_parts;
 mod values;
 mod variants;
 
-pub use button::{Button, button};
+pub use button::{Button, ButtonBusyMotion, button};
 pub use children::IntoChildren;
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
