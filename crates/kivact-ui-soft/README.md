@@ -322,9 +322,10 @@ Typeahead and Tokenizer accept a debounced asynchronous source through
 supports editable text filters. The static table builders and `TableFocus::None`
 provide native table semantics. The standard data table supports sorting,
 selection, proportional widths, column resizing with per-column minimums,
-header context menus, and a custom empty state. Grouped, expandable, and sticky
-data-table rows and columns require additional integration. Advanced column
-filtering and column reordering remain pending (C-29). Use `.multi_sort(..)`
+header context menus, and a custom empty state. Use `.expanded_rows(..)` with
+`.row_details(..)` for keyboard-operated row details, and `.column_filters(..)`
+for per-column queries. Grouped rows, sticky columns, typed filter popovers,
+and column reordering remain pending (C-29). Use `.multi_sort(..)`
 to enable multi-column sorting. Shift activation changes one column while
 preserving the other sort keys.
 
