@@ -10,10 +10,13 @@
 //! binding, but the factory is not called for it. A kit's domain tab bar
 //! (close, reorder, icons, counters) moves and selects with the same
 //! interaction parts and draws its ordinary parts with `UiRecipes::tabs`.
-use super::layer::{with_base_recipe_style, with_recipe_style};
+use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column, node, row, text};
-use kivact_core::view::{IntoText, IntoValue, IntoView, Orientation, View, dynamic, for_each};
+use kivact_core::style::current_theme;
+use kivact_core::view::{
+    IntoText, IntoValue, IntoView, Orientation, View, dynamic, for_each, show,
+};
 use kivact_core::{Binding, Value};
 use kivact_interaction::TabState;
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
@@ -148,6 +151,22 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
                     )
                         .into_view(),
                 };
+                let indicator_variants = variants.clone();
+                let indicator = show(
+                    || {
+                        recipes(&current_theme())
+                            .tabs_recipes()
+                            .has_custom_indicator()
+                    },
+                    move || {
+                        with_recipe_style(
+                            node().hit_testable(false),
+                            |r| r.tabs_recipes().indicator_recipe(),
+                            &indicator_variants,
+                            move || state.get(),
+                        )
+                    },
+                );
                 with_recipe_style(
                     node().part(part),
                     |r| r.tabs_recipes().tab_recipe(),
@@ -155,6 +174,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
                     move || state.get(),
                 )
                 .child(content)
+                .child(indicator)
             },
         );
         let root = with_base_recipe_style(

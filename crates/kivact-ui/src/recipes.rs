@@ -264,6 +264,9 @@ recipe_table! {
         list(list_recipe): TabListState = look_extra::tabs_list,
         /// A tab, which knows whether it is selected and the list's orientation.
         tab(tab_recipe): TabState = look_extra::tab,
+        /// An optional, persistent decorative layer per tab. It receives
+        /// both selected and unselected states so its paint can transition.
+        indicator(indicator_recipe): TabState = look_extra::no_tab_indicator,
         panel(panel_recipe): TabState = look_extra::panel,
     }
 }
@@ -589,5 +592,11 @@ impl UiRecipes {
 impl RadioGroupRecipes {
     pub(super) fn has_custom_mark(&self) -> bool {
         !Arc::ptr_eq(&self.mark, &Self::default_table().mark)
+    }
+}
+
+impl TabsRecipes {
+    pub(super) fn has_custom_indicator(&self) -> bool {
+        !Arc::ptr_eq(&self.indicator, &Self::default_table().indicator)
     }
 }
