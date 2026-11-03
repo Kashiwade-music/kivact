@@ -43,13 +43,29 @@ pub(super) fn scroll_changed(rt: &Runtime, node: NodeId, offset: Point, viewport
     }
 }
 
-pub(super) fn layout_changed(rt: &Runtime, node: NodeId, rect: Rect, size: Size) {
-    if ViewState::tree(rt).get(node).is_none() {
-        return stale(rt, "layout", node);
-    }
-    if let Some(h) = handler(rt, node, |h| h.layout.clone()) {
+pub(super) fn layout_changed(
+    rt: &Runtime,
+    node: NodeId,
+    rect: Rect,
+    size: Size,
+    text_truncated: bool,
+) {
+    let observation = {
+        let tree = ViewState::tree(rt);
+        let Some(node) = tree.get(node) else {
+            return stale(rt, "layout", node);
+        };
+        node.observation
+    };
+    let layout = handler(rt, node, |h| h.layout.clone());
+    if observation.is_some() || layout.is_some() {
         run_handler(rt, node_owner(rt, node), || {
-            h(rect, size);
+            if let Some(observation) = observation {
+                observation.text_truncated.set(text_truncated);
+            }
+            if let Some(layout) = layout {
+                layout(rect, size);
+            }
             Ok(())
         });
     }

@@ -440,6 +440,24 @@ impl NodeRef {
         }
     }
 
+    /// Whether the native text layout omitted text with an ellipsis or line
+    /// clamp. False for an unbound reference or a node without shaped text.
+    #[track_caller]
+    pub fn text_truncated(&self) -> Value<bool> {
+        let _ = self.rect();
+        let app = self.app;
+        let binding = self.state(Location::caller()).1.bound;
+        kivact_reactive::memo(move || {
+            binding
+                .try_get()
+                .flatten()
+                .filter(|bound| bound.target().region.is_none())
+                .and_then(|bound| observation(app, bound.target()))
+                .and_then(|observation| observation.text_truncated.try_get())
+                .unwrap_or(false)
+        })
+    }
+
     /// Window-space rect of the bound node, updated by the host. The first call starts
     /// observing the layout; the value follows the ref when it is bound again to a new node,
     /// and is `None` while it is unbound.

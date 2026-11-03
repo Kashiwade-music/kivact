@@ -227,6 +227,8 @@ pub enum HostEvent {
         node: NodeId,
         rect: Rect,
         size: Size,
+        /// A native ellipsis or line clamp cut this node's text.
+        text_truncated: bool,
     },
     /// A request for an offered action: from assistive technology, or a
     /// `Dismiss(OutsidePress)` when a pointer press lands outside a shown

@@ -103,7 +103,7 @@ impl Model {
             // Set pass flags even when no local ink dependency changed.
             self.changes.laid_out(repaint);
         }
-        self.report_geometry();
+        self.report_geometry(engine);
         true
     }
 
@@ -546,7 +546,7 @@ impl Model {
         }
     }
 
-    fn report_geometry(&mut self) {
+    fn report_geometry(&mut self, engine: &mut arvane::Engine) {
         let scrollers: Vec<NodeId> = self.tree.scrollers.iter().copied().collect();
         for id in scrollers {
             let Some(l) = self.computed_layout(id) else {
@@ -578,14 +578,16 @@ impl Model {
                 continue;
             };
             let size = l.size;
+            let text_truncated = crate::check::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
-                && n.sent_layout != Some((rect, size))
+                && n.sent_layout != Some((rect, size, text_truncated))
             {
-                n.sent_layout = Some((rect, size));
+                n.sent_layout = Some((rect, size, text_truncated));
                 self.push(HostEvent::LayoutChanged {
                     node: id,
                     rect,
                     size,
+                    text_truncated,
                 });
             }
         }

@@ -25,7 +25,7 @@ pub(crate) struct HostNode {
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<Scene>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) sent_layout: Option<(Rect, Size)>,
+    pub(crate) sent_layout: Option<(Rect, Size, bool)>,
     pub(crate) sent_scroll: Option<(Point, Size, Size)>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.

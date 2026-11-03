@@ -8,6 +8,7 @@ use kivact::style::{Style, TextAlign, TextDecorationLine, style};
 use kivact::ui::tooltip;
 use kivact::view::{
     IntoText, IntoValue, IntoView, Placement, ReadingDirection, Role, View, current_direction,
+    node_ref,
 };
 
 /// The text kind option.
@@ -274,9 +275,14 @@ impl IntoView for Text {
             TruncateTooltip::Start => Some(Placement::Start),
             TruncateTooltip::End => Some(Placement::End),
         };
-        // TODO(soft-core: C-22): show the full text only on measured overflow.
         match placement.filter(|_| max_lines > 0) {
-            Some(placement) => tooltip(value).placement(placement).attach(root),
+            Some(placement) => {
+                let anchor = node_ref();
+                tooltip(value)
+                    .placement(placement)
+                    .enabled(anchor.text_truncated())
+                    .attach(root.node_ref(anchor))
+            }
             None => root.into_view(),
         }
     }

@@ -108,9 +108,12 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             viewport,
             ..
         } => env::scroll_changed(rt, *node, *offset, *viewport),
-        HostEvent::LayoutChanged { node, rect, size } => {
-            env::layout_changed(rt, *node, *rect, *size)
-        }
+        HostEvent::LayoutChanged {
+            node,
+            rect,
+            size,
+            text_truncated,
+        } => env::layout_changed(rt, *node, *rect, *size, *text_truncated),
         HostEvent::CloseRequested => env::close_requested(rt),
         HostEvent::EffectResult { request, result } => {
             platform::effect_result(rt, *request, result)

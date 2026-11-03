@@ -208,6 +208,7 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
     pub(crate) rect: Signal<Option<crate::draw::Rect>>,
+    pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::draw::Point>,
     pub(crate) scene_revision: Trigger,
 }
@@ -401,6 +402,7 @@ impl Tree {
         }
         let observation = NodeObservation {
             rect: node.owner.signal(None::<crate::draw::Rect>, at),
+            text_truncated: node.owner.signal(false, at),
             scroll: node.owner.signal(crate::draw::Point::default(), at),
             scene_revision: node.owner.trigger(at),
         };
