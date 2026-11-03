@@ -237,3 +237,33 @@ fn a_paragraph_answers_carets_hits_and_selection_bands() {
     assert_eq!(inside.len(), 1);
     assert_eq!(inside[0].x, 0.0);
 }
+
+/// Atomic controls stay mounted and occupy the shaped line after a hard break.
+#[test]
+fn retained_inline_control_receives_pointer_input() {
+    let (screen, pressed) = mount(|| {
+        let pressed = Rc::new(std::cell::Cell::new(false));
+        let flag = Rc::clone(&pressed);
+        let item = node()
+            .role(Role::Button)
+            .name("Inline action")
+            .focusable(true)
+            .style(style().size(32, 18))
+            .on_press(move || flag.set(true));
+        (
+            pressed,
+            column(kivact::primitive::inline_view(
+                "First line\n ",
+                style_14(),
+                [(11, item.into_view())],
+            ))
+            .style(style().width(150))
+            .test_id("paragraph-container"),
+        )
+    });
+    let container = screen.get_by_test_id("paragraph-container").rect().unwrap();
+    let action = screen.get_by_role(Role::Button, "Inline action");
+    assert!(action.rect().unwrap().y > container.y + 8.0);
+    action.click();
+    assert!(pressed.get());
+}
