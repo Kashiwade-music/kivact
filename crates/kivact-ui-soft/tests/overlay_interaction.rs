@@ -5,7 +5,7 @@ use kivact::style::{ThemeMode, style};
 use kivact::test::{RenderOptions, render_with};
 use kivact::ui::{MenuEntry, button, menu};
 use kivact::view::{Key, Role, node_ref};
-use kivact_ui_soft::{DialogPurpose, ShowOn, bottom_sheet, media_overlay};
+use kivact_ui_soft::{DialogPurpose, LightboxMedia, ShowOn, bottom_sheet, lightbox, media_overlay};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -15,6 +15,36 @@ fn options() -> RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
         ..RenderOptions::from_env()
     }
+}
+
+#[test]
+fn lightbox_exposes_zoom_and_replaces_a_failed_image_with_status() {
+    static PHOTO: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"><rect width="32" height="16"/></svg>"#;
+    let screen = render_with(options(), || {
+        let open = signal(false);
+        column((
+            button("Open gallery").on_press(move || open.set(true)),
+            lightbox(
+                open,
+                vec![
+                    LightboxMedia::image(PHOTO, "Example photo"),
+                    LightboxMedia::image("missing-soft-gallery-image.png", "Missing photo"),
+                ],
+            )
+            .zoom(true),
+        ))
+    });
+    screen.get_by_role(Role::Button, "Open gallery").click();
+    screen.get_by_role(Role::Image, "Example photo");
+    let zoom = screen.get_by_role(Role::Button, "Zoom");
+    zoom.press_key(Key::Enter);
+    assert!(zoom.is_selected());
+    zoom.press_key(Key::Enter);
+    assert!(!zoom.is_selected());
+    screen.get_by_role(Role::Button, "Next").click();
+    screen.get_by_text("Image unavailable");
+    assert!(screen.query_by_role(Role::Image, "Missing photo").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]

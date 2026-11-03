@@ -169,32 +169,15 @@ impl IntoView for Lightbox {
                                 }
                             },
                         );
-                        photo
-                            .part(drag.source(()))
-                            .role(Role::Button)
-                            .focusable(true)
-                            .name(kivact::i18n::message("soft.lightbox.zoom", "Zoom"))
-                            .selected(zoomed)
-                            .on_key(move |event| {
-                                if matches!(event.key, Key::Enter | Key::Space) {
-                                    set_zoom(!zoomed.get());
-                                    Handled::Yes
-                                } else {
-                                    Handled::No
-                                }
-                            })
-                            .on_a11y(kivact::view::A11yAction::Activate, move || {
-                                set_zoom(!zoomed.get())
-                            })
-                            .on_pointer(move |event| {
-                                if let kivact::view::PointerPhase::Up(press) = event.phase
-                                    && press.clicks == 2
-                                    && press.button == kivact::view::MouseButton::Primary
-                                {
-                                    set_zoom(!zoomed.get());
-                                }
-                                Handled::No
-                            })
+                        photo.part(drag.source(())).on_pointer(move |event| {
+                            if let kivact::view::PointerPhase::Up(press) = event.phase
+                                && press.clicks == 2
+                                && press.button == kivact::view::MouseButton::Primary
+                            {
+                                set_zoom(!zoomed.get());
+                            }
+                            Handled::No
+                        })
                     } else {
                         photo
                     };
@@ -241,6 +224,12 @@ impl IntoView for Lightbox {
                 .node_ref(close_ref)
                 .on_press(move || open.set(false))
                 .style(control_position().top(12).right(12));
+            let zoom_control = zoom.then(|| {
+                icon_button("search", "soft.lightbox.zoom", "Zoom")
+                    .selected(zoomed)
+                    .on_press(move || set_zoom(!zoomed.get()))
+                    .style(control_position().top(12).right(52))
+            });
             let controls = show(
                 move || media.get().len() > 1,
                 move || {
@@ -265,9 +254,10 @@ impl IntoView for Lightbox {
                 },
             );
             let backdrop = node()
+                .role(Role::Generic)
                 .style(|| scrim(&tokens()))
                 .on_press(move || open.set(false));
-            let frame = column((backdrop, content, close, controls))
+            let frame = column((backdrop, content, close, zoom_control, controls))
                 .style(style().width(pct(100)).height(pct(100)))
                 .on_key(move |event| {
                     let (dx, dy) = match event.key {
