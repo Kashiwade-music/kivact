@@ -74,6 +74,30 @@ fn a_change_of_one_environment_field_notifies_only_its_readers() {
 }
 
 #[test]
+fn app_motion_override_survives_system_changes_and_can_be_cleared() {
+    let screen = render(|| {
+        column((
+            text(move || format!("motion {}", platform::reduced_motion())),
+            button("Reduce").on_press(|| {
+                spawn(platform::set_reduced_motion(Some(true)));
+            }),
+            button("Follow system").on_press(|| {
+                spawn(platform::set_reduced_motion(None));
+            }),
+        ))
+    });
+    screen.get_by_text("motion false");
+    screen.get_by_role(Role::Button, "Reduce").click();
+    screen.get_by_text("motion true");
+    screen.set_reduced_motion(true);
+    screen.set_reduced_motion(false);
+    screen.get_by_text("motion true");
+    screen.get_by_role(Role::Button, "Follow system").click();
+    screen.get_by_text("motion false");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn the_safe_area_starts_at_zero_and_follows_the_platform() {
     let screen = render(|| {
         let safe = move || {

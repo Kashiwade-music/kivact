@@ -62,6 +62,7 @@ pub(crate) struct Host {
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
     pub(super) environment: kivact_types::protocol::Environment,
+    pub(super) reduced_motion_override: Option<bool>,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes. Independent of `phase`.
     pub(super) suspended: bool,
@@ -140,6 +141,14 @@ impl Host {
                             .update_env(|env| env.fullscreen = fullscreen);
                         PlatformResult::Done
                     })
+                }
+                PlatformRequest::ReducedMotion(override_value) => {
+                    self.reduced_motion_override = override_value;
+                    self.model.borrow_mut().update_env(|env| {
+                        env.reduced_motion =
+                            override_value.unwrap_or(self.environment.reduced_motion);
+                    });
+                    Ok(PlatformResult::Done)
                 }
                 PlatformRequest::CopyText(text) => {
                     window.copy_text(&text).map(|()| PlatformResult::Done)

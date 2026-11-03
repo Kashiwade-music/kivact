@@ -392,7 +392,7 @@ impl Host {
                     ThemeHint::Light
                 };
             }
-            env.reduced_motion = now.reduced_motion;
+            env.reduced_motion = self.reduced_motion_override.unwrap_or(now.reduced_motion);
             // Another monitor: the frame period follows its refresh rate.
             env.frame_period_ns = now.frame_period_ns;
             env.safe_area = c::insets(now.safe_area);

@@ -49,7 +49,8 @@ pub fn fullscreen() -> bool {
     env_field("fullscreen", |e| e.fullscreen)
 }
 
-/// Whether the system asks for reduced motion, tracked.
+/// Whether reduced motion is active, tracked. Uses the system preference
+/// unless the app sets an override with [`super::set_reduced_motion`].
 #[track_caller]
 pub fn reduced_motion() -> bool {
     env_field("reduced_motion", |e| e.reduced_motion)

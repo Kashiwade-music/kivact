@@ -348,6 +348,8 @@ pub enum PlatformRequest {
     /// Request logical content dimensions.
     RequestWindowSize(Size),
     Fullscreen(bool),
+    /// Override the window's reduced-motion preference, or follow the system.
+    ReducedMotion(Option<bool>),
     CopyText(String),
     ReadText,
     PickFile(FileDialogRequest),

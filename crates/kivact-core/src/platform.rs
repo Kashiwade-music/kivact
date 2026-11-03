@@ -27,7 +27,7 @@ pub use env::{
 #[doc(inline)]
 pub use services::{
     FileDialog, copy_text, open_path, pick_file, pick_files, pick_folder, read_text,
-    request_window_size, reveal_path, save_file, set_fullscreen,
+    request_window_size, reveal_path, save_file, set_fullscreen, set_reduced_motion,
 };
 pub(crate) use window_loop::run_native;
 
