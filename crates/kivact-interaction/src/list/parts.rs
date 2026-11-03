@@ -5,7 +5,7 @@ use super::state::{State, selected};
 use crate::roving::Member;
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{NodeRefExt, Owner, Part, PartState, part};
-use kivact_core::view::{A11yAction, Orientation, Role};
+use kivact_core::view::{A11yAction, IntoValue, Orientation, Role};
 use kivact_core::{memo, signal, var};
 use std::hash::Hash;
 use std::panic::Location;
@@ -35,6 +35,7 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
     state: Rc<State<K>>,
     key: K,
     at: &'static Location<'static>,
+    retain_disabled_focus: bool,
 ) -> Part<ListItemState> {
     let key = var(key);
     let bound = signal(ItemMount::Unbound);
@@ -86,6 +87,7 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
         .selected(selected_state)
         .disabled(disabled)
         .focusable(active)
+        .focusable_when_disabled(retain_disabled_focus)
         .on_key(move |event| super::input::key(&keys, &key.get(), event))
         .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
     let invoke = move || {
@@ -127,7 +129,11 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
             Member {
                 node: mount.node,
                 eligible: mount.eligible,
-                disabled: mount.disabled,
+                disabled: if retain_disabled_focus {
+                    false.into_value()
+                } else {
+                    mount.disabled
+                },
                 hidden: mount.hidden,
             },
         );

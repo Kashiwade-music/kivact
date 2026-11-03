@@ -365,6 +365,9 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
         let state = part.state();
         let slot = slot.clone();
         let looks = variants.clone();
+        let retain_disabled_focus = *kivact_core::style::current_theme()
+            .get::<kivact_interaction::DisabledMenuFocus>()
+            == kivact_interaction::DisabledMenuFocus::Retain;
         let rows = for_each(
             behavior.entries(),
             |(key, _)| key.clone(),
@@ -388,6 +391,27 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
                         &looks,
                         move || item_state.get(),
                     );
+                    let row = if retain_disabled_focus {
+                        let reason = kivact_core::memo(move || {
+                            data.with(|entry| {
+                                if entry.is_disabled() {
+                                    entry.disabled_reason_value()
+                                } else {
+                                    None
+                                }
+                            })
+                        });
+                        crate::tooltip(move || reason.get().unwrap_or_default())
+                            .enabled(move || {
+                                reason.with(|reason| {
+                                    reason.as_ref().is_some_and(|reason| !reason.is_empty())
+                                })
+                            })
+                            .placement(Placement::End)
+                            .attach(row)
+                    } else {
+                        row.into_view()
+                    };
                     let child = submenu.then(|| {
                         surface(
                             Level {

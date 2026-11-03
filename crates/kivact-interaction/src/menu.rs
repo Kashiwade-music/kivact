@@ -42,5 +42,5 @@ mod session;
 mod state;
 
 pub use handle::{MenuApi, use_menu};
-pub use level::SubmenuTiming;
+pub use level::{DisabledMenuFocus, SubmenuTiming};
 pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};

@@ -22,8 +22,8 @@ use kivact_core::view::try_context;
 use super::delayed::{Delayed, delayed};
 use super::popup::PopupState;
 use kivact_core::view::{
-    A11yAction, Handled, Key, KeyEvent, Modifiers, NodeRef, PointerEvent, PointerPhase, Role,
-    node_ref,
+    A11yAction, Handled, IntoValue, Key, KeyEvent, Modifiers, NodeRef, PointerEvent, PointerPhase,
+    Role, node_ref,
 };
 use kivact_core::{Signal, Value, effect, memo, on_cleanup, signal};
 
@@ -212,6 +212,14 @@ pub struct TooltipApi {
 /// Setup only.
 #[track_caller]
 pub fn use_tooltip() -> TooltipApi {
+    use_tooltip_when(true)
+}
+
+/// Create a tooltip that participates in the shared delay and visibility
+/// policy only while enabled.
+#[track_caller]
+pub fn use_tooltip_when(enabled: impl IntoValue<bool>) -> TooltipApi {
+    let enabled = enabled.into_value();
     let config = try_context::<TooltipConfig>().unwrap_or_default();
     let hub = Hub::of_app();
     let id = hub.take_id();
@@ -219,7 +227,7 @@ pub fn use_tooltip() -> TooltipApi {
     let anchor = node_ref();
     let hover = anchor.hovered();
     let focus = anchor.focus_within();
-    let engaged = memo(move || hover.get() || focus.get());
+    let engaged = memo(move || enabled.get() && (hover.get() || focus.get()));
 
     // The delay, or none while another tooltip is warm; both end with the
     // engagement.

@@ -93,8 +93,8 @@ pub use list::{
     use_list,
 };
 pub use menu::{
-    MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow, SubmenuTiming,
-    use_menu,
+    DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin,
+    MenuRow, SubmenuTiming, use_menu,
 };
 pub use menubar::{Menubar, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPalette, filter_commands, use_command_palette};
@@ -117,7 +117,7 @@ pub use toggle::{
     use_toggle_button,
 };
 pub use tone::Tone;
-pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip};
+pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip, use_tooltip_when};
 pub use tree::{Tree, TreeBranch, TreeItemState, TreeNode, TreeRow, use_tree};
 
 pub use text_edit::{TextEdit, text_edit_policy, use_text_area, use_text_edit};

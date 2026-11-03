@@ -169,9 +169,18 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     /// An item's label, selection, exact input state and mounted roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
+        self.item_with_disabled_focus(key, false)
+    }
+
+    #[track_caller]
+    pub(crate) fn item_with_disabled_focus(self, key: K, retain: bool) -> Part<ListItemState> {
         let state = self.state();
         require_setup("List::item");
-        parts::item(state, key, Location::caller())
+        parts::item(state, key, Location::caller(), retain)
+    }
+
+    pub(crate) fn route_focused_key(self, key: &K, event: KeyEvent) -> Handled {
+        input::key(&self.state(), key, event)
     }
     #[track_caller]
     pub(crate) fn select_mounted(self, key: K) -> bool {

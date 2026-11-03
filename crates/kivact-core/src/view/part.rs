@@ -435,6 +435,13 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
         self
     }
 
+    /// Keep a focusable node in keyboard navigation while disabled.
+    /// Pointer, key and accessibility activation remain disabled.
+    pub fn focusable_when_disabled(mut self, on: bool) -> Self {
+        self.common.focusable_when_disabled = on;
+        self
+    }
+
     /// Hide the node and its subtree.
     ///
     /// Same as [`NodeBuilder::hidden`](crate::control::NodeBuilder::hidden).

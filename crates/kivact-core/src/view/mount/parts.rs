@@ -37,6 +37,7 @@ impl Common {
             .wheel
             .absorb_part(std::mem::take(&mut part.handlers.wheel), region_events);
         self.part_modal |= part.part_modal;
+        self.focusable_when_disabled |= part.focusable_when_disabled;
         self.part_constraints.disabled.extend(part.disabled.take());
         self.part_constraints
             .disabled

@@ -12,10 +12,24 @@ use crate::{
     use_hover_corridor, use_list,
 };
 use kivact_core::draw::Rect;
-use kivact_core::primitive::Part;
+use kivact_core::primitive::{Part, part};
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 use kivact_core::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
+
+/// Whether disabled menu entries participate in roving keyboard focus.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DisabledMenuFocus {
+    #[default]
+    Skip,
+    Retain,
+}
+
+impl ThemeExtension for DisabledMenuFocus {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
+    }
+}
 
 /// Pointer delays for opening a submenu or leaving it for a sibling item.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,6 +59,7 @@ pub(super) struct Level<K: Clone + Eq + Hash + 'static> {
     anchors: Signal<Vec<(K, Rect)>>,
     aiming: Value<bool>,
     timing: SubmenuTiming,
+    retain_disabled_focus: bool,
 }
 
 impl<K: Clone + Eq + Hash + 'static> Clone for Level<K> {
@@ -61,6 +76,8 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         let depth = prefix.len();
         let entries = session.entries;
         let prefix = prefix.into_value();
+        let retain_disabled_focus =
+            *current_theme().get::<DisabledMenuFocus>() == DisabledMenuFocus::Retain;
         let level_rows = memo(move || prefix.with(|prefix| entries.with(|e| rows(e, prefix))));
         // A level the entries no longer keep offers no items, so its group does not
         // move focus to a sibling that is about to go away with it.
@@ -74,7 +91,8 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                         entry.key().cloned().map(|key| ListItem {
                             key,
                             label: entry.label.clone(),
-                            disabled: entry.is_disabled(),
+                            // Menu activation is independently guarded by the row part.
+                            disabled: entry.is_disabled() && !retain_disabled_focus,
                             icon: None,
                             description: None,
                         })
@@ -127,6 +145,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             anchors,
             aiming,
             timing,
+            retain_disabled_focus,
         }
     }
 
@@ -140,6 +159,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             group,
             prefix,
             timing,
+            retain_disabled_focus,
             ..
         } = self;
         if depth > 0 && !timing.close.is_zero() {
@@ -150,7 +170,21 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             );
         }
         base.role(Role::Menu)
-            .on_key(move |event: KeyEvent| on_key(session, depth, rows, event))
+            .on_key(move |event: KeyEvent| {
+                // Core skips handlers on a disabled row itself. Its menu still
+                // routes navigation through the same roving list from that row.
+                if retain_disabled_focus
+                    && let Some(key) = session.focused_at(depth)
+                    && rows.with(|rows| {
+                        rows.iter()
+                            .any(|(_, entry)| entry.key() == Some(&key) && entry.is_disabled())
+                    })
+                    && group.route_focused_key(&key, event.clone()) == Handled::Yes
+                {
+                    return Handled::Yes;
+                }
+                on_key(session, depth, rows, event)
+            })
             // The host consumes Tab to move focus, so the menu sees only its
             // release, aimed at the item that has the focus now. Tab inside the
             // menu (to another level) leaves it just as Tab out of it does.
@@ -192,15 +226,18 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     };
                     match target {
                         Target::Edge(edge) => {
-                            let target = rows.with_untracked(|rows| edge_item(rows, edge));
+                            let target = rows.with_untracked(|rows| {
+                                edge_item(rows, edge, retain_disabled_focus)
+                            });
                             if let Some(key) = target {
                                 group.focus(key);
                             }
                         }
                         Target::Key(key) => {
                             if !group.focus(key) {
-                                let target =
-                                    rows.with_untracked(|rows| edge_item(rows, Edge::First));
+                                let target = rows.with_untracked(|rows| {
+                                    edge_item(rows, Edge::First, retain_disabled_focus)
+                                });
                                 if let Some(key) = target {
                                     group.focus(key);
                                 }
@@ -236,6 +273,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         // The kind of an item is part of its row's identity.
         let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
         let submenu = kind == Some(MenuItemKind::Submenu);
+        let retain_disabled_focus = self.retain_disabled_focus;
         let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(MenuEntry::is_disabled)));
         let shortcut = memo(move || {
             entry.with(|e| {
@@ -243,6 +281,16 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     .map(|e| e.shortcut_value().to_string())
                     .unwrap_or_default()
             })
+        });
+        let description = memo(move || {
+            if retain_disabled_focus
+                && disabled.get()
+                && let Some(reason) =
+                    entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason_value))
+            {
+                return reason;
+            }
+            shortcut.get()
         });
         let check = memo(move || entry.with(|e| e.as_ref().and_then(MenuEntry::check)));
         let destructive =
@@ -253,7 +301,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
         };
 
-        let member = group.item(key.clone());
+        let member = group.item_with_disabled_focus(key.clone(), self.retain_disabled_focus);
         let item_ref = member.node_ref();
 
         // The pointer focuses the item it rests on; a submenu opens after a rest.
@@ -330,7 +378,8 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 Some(MenuItemKind::Checkbox) => Role::MenuItemCheckBox,
                 _ => Role::MenuItem,
             })
-            .description(shortcut)
+            .with(part(|input| input).disabled(disabled))
+            .description(description)
             .on_pointer(move |event: PointerEvent| {
                 match event.phase {
                     PointerPhase::Enter => hovered.set(true),
