@@ -90,7 +90,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
 | Token / Tokenizer / Toolbar | `token`, `tokenizer`, `toolbar`, `toolbar_item` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
-| Tree List | `tree_list` over `kivact::interaction::use_tree` |
+| Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
 | Typeahead | `typeahead`, `base_typeahead`, standard `ListItem`. The Kivact interaction layer supplies combobox state. |
 | VisuallyHidden | `visually_hidden` |
 | Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::i18n`, `kivact::platform::window_size`, `kivact::platform::copy_text`, Kivact interaction and overlay APIs. Links use application callbacks on native. React ref merging and React development warnings are unnecessary for native nodes. |
@@ -173,6 +173,7 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.code_block.copy_code` | Copy code |
 | `soft.date.open` | Choose date |
 | `soft.date_range.placeholder` | Select date range |
+| `soft.date_range_input.presets` | Preset date ranges |
 | `soft.date_time.date` | Date |
 | `soft.date_time.time` | Time |
 | `soft.dialog.close` | Close |
@@ -305,7 +306,7 @@ restores the last available focus outside it.
 
 Typeahead and Tokenizer accept a debounced asynchronous source through
 `.search(..)`. The source publishes one batch for each query. Power Search
-supports editable text filters. The static table builders provide native
-table semantics, and the standard data table provides its existing sorting,
-selection, and column resizing behavior. Grouped, expandable, and sticky
+supports editable text filters. The static table builders and `TableFocus::None`
+provide native table semantics. The standard data table supports sorting,
+selection, column resizing, and a custom empty state. Grouped, expandable, and sticky
 data-table rows and columns require additional integration.
