@@ -32,3 +32,5 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
 For fields with validation errors, keep the error visible next to the field and explain how to correct it. Validate the submitted values again at the persistence boundary.
 
 Use `soft::input_group_with` to create related controls at the group's default size. A control's own `.size(..)` takes precedence. Use `soft::DateRangePreset` with `soft::date_range_input(..).presets(..)` to offer named ranges alongside calendar selection.
+
+Bind `soft::rich_text_editor` to a Markdown string. In Write mode, the toolbar applies bold, italic, strikethrough, or inline code to the selection and returns focus to the editor. Switch to Preview to read the formatted result while keeping the same source binding.
