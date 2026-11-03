@@ -63,6 +63,8 @@ pub fn resist_overshoot(overshoot: f32, resistance: f32, limit: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Verify constrained drag, snap, and overshoot calculations.
+
     use super::*;
 
     #[test]
