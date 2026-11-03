@@ -177,11 +177,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "nav-icon" => specimen(
             "Navigation icon",
             row((
-                nav_icon(kivact_ui_soft::icon("file-text")),
+                nav_icon(kivact_ui_soft::icon("columns-2")),
                 text("Documents"),
             ))
             .style(style().gap(8)),
-            "nav_icon(\"file-text\")",
+            "nav_icon(icon(\"columns-2\"))",
         ),
         "overflow-list" => specimen(
             "Items in a narrow space",

@@ -257,6 +257,7 @@ impl IntoView for TopNavItem {
             let root = root
                 .name(label)
                 .selected(selected)
+                .current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
                 .disabled(disabled)
                 .base_style(move || {
                     if drawer {

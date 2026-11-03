@@ -477,6 +477,7 @@ fn page_button(model: Model, page: u32, size: ControlSize) -> impl IntoView {
         .size(size)
         .disabled(model.disabled)
         .selected(move || model.page() == page)
+        .current_item(move || (model.page() == page).then_some(kivact::view::CurrentItem::Page))
         .style(move || {
             if model.page() == page {
                 style().background(tokens().colors.neutral)
@@ -563,6 +564,9 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
                     move || [("page", page.to_string())],
                 ))
                 .selected(move || model.page() == page)
+                .current_item(move || {
+                    (model.page() == page).then_some(kivact::view::CurrentItem::Page)
+                })
                 .focusable(move || !model.disabled.get() && model.page() == page)
                 .disabled(model.disabled)
                 .on_press(move || model.set(page))

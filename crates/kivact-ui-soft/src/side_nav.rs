@@ -642,6 +642,7 @@ impl IntoView for SideNavItem {
                 })
                 .disabled(disabled)
                 .selected(selected)
+                .current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
                 .style(move || {
                     style()
                         .direction(logical_row())

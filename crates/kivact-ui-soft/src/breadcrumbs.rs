@@ -173,6 +173,12 @@ impl BreadcrumbItem {
         let actionable = popup.is_some() || action.is_some();
         let hover_ref = node_ref();
         let hovered = hover_ref.hovered();
+        let title = text(label);
+        let title = if current {
+            title.current_item(Some(kivact::view::CurrentItem::Page))
+        } else {
+            title
+        };
         let content = root
             .node_ref(hover_ref)
             .base_style(move || {
@@ -204,7 +210,7 @@ impl BreadcrumbItem {
             })
             .child((
                 leading,
-                text(label),
+                title,
                 popup.as_ref().map(|_| {
                     icon("chevron-down").style(|| {
                         let size = tokens().sizes.icon_xsm;

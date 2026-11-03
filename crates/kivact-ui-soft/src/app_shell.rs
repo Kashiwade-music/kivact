@@ -423,13 +423,14 @@ impl IntoView for AppShell {
                 });
                 let main = if height == ShellHeight::Fill {
                     scrollable_area(main_name, contents)
+                        .role(Role::Main)
                         .node_ref(main_ref)
                         .force_focusable(skip_requested.into_value())
                         .style(main_style)
                         .into_view()
                 } else {
                     node()
-                        .role(Role::Group)
+                        .role(Role::Main)
                         .name(main_name)
                         .node_ref(main_ref)
                         .focusable(skip_requested)

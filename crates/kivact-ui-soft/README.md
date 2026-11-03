@@ -264,8 +264,9 @@ dev/tools/window-lock.sh -- cargo test -p kivact-ui-soft -p kivact-ui-soft-catal
 
 ## Current native behavior
 
-Toolbar item sizes are explicit where needed. Some reactive text color changes
-take effect immediately. Standard menus open by activation and use the native
+Toolbar sets a default control size for descendants. An explicit control size
+takes precedence. Input Group still sets its child sizes directly. Standard
+menus open by activation and use the native
 submenu timing. Touch-specific date pickers and adaptive selector sheets remain
 pending. Some layout changes update immediately, while Collapsible supports an
 optional height animation. The rich text editor offers source editing and
@@ -277,6 +278,10 @@ Date and time formatting uses the desktop input path. Truncation hints can
 show the full label on hover. Citation and timestamp underlines are solid.
 Carousel scrolls to slides in response to its controls. Font cap-height
 trimming uses the native line box.
+
+Chat Layout follows new messages while the viewport is near the end. Pass
+`.history_revision(..)` and update it in the same batch as a history prepend
+to preserve the reader's position.
 
 Typeahead and Tokenizer accept a debounced asynchronous source through
 `.search(..)`. The source publishes one batch for each query. Power Search

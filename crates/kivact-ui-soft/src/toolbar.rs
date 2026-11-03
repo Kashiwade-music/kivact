@@ -170,7 +170,8 @@ impl IntoView for Toolbar {
         let orientation = self.orientation;
         let gap = self.gap;
         let has_center = self.center.is_some();
-        let height = match self.size {
+        let size = self.size;
+        let height = match size {
             ControlSize::ExtraSmall | ControlSize::Small => 28,
             ControlSize::Medium => 32,
             ControlSize::Large => 36,
@@ -182,14 +183,16 @@ impl IntoView for Toolbar {
                 _ => Direction::Row,
             };
             let make = |slot: Option<Slot>, alignment| {
-                row(slot.map(|slot| slot())).base_style(
-                    style()
-                        .direction(direction)
-                        .gap(gap)
-                        .min_width(0)
-                        .align_items(Align::Center)
-                        .justify_content(alignment),
-                )
+                kivact::ui::provide_control_size(size, move || {
+                    row(slot.map(|slot| slot())).base_style(
+                        style()
+                            .direction(direction)
+                            .gap(gap)
+                            .min_width(0)
+                            .align_items(Align::Center)
+                            .justify_content(alignment),
+                    )
+                })
             };
             let start = make(
                 self.start,

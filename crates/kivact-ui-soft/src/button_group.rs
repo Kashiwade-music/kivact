@@ -251,7 +251,7 @@ impl IntoView for ButtonGroup {
                 let button = if member.keep_size {
                     member.button
                 } else {
-                    member.button.size(size)
+                    member.button.default_size(size)
                 };
                 roving_item(
                     button.disabled(items[index].disabled),

@@ -59,7 +59,6 @@ fn tab(t: &Theme, s: &Look<TabState>) -> Style {
         .font_size(p.typography.label.size_px)
         .line_height(p.typography.label.line_height_px / p.typography.label.size_px)
         .text_wrap(false)
-        // TODO(soft-core: C-05): interpolate tab text color.
         .color(ink)
         .weight(if s.selected {
             p.typography.weight_semibold

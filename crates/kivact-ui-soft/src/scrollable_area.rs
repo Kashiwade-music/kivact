@@ -41,7 +41,7 @@ pub struct ScrollableArea {
 
 pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> ScrollableArea {
     ScrollableArea {
-        root: node().name(label).role(Role::Group),
+        root: node().name(label).role(Role::Region),
         child: child.into_view(),
         axis: ScrollAxis::Block,
         padding: Padding::default(),

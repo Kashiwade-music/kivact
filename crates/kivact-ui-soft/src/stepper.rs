@@ -577,6 +577,7 @@ impl Step {
             }
         })
         .selected(move || cx.active.get() == index)
+        .current_item(move || (cx.active.get() == index).then_some(kivact::view::CurrentItem::Step))
         .child((bar, track, body))
     }
 }

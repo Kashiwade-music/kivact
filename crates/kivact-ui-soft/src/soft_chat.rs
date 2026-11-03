@@ -3,16 +3,16 @@
 use std::hash::Hash;
 
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll, stack, text};
-use kivact::draw::Point;
+use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::i18n::message;
+use kivact::interaction::use_follow_end;
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, Length, Position, pct, style};
 use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Role, ScrollBehavior, View, for_each, node_ref,
-    show,
+    HandlerResult, IntoText, IntoValue, IntoView, LiveRegion, NodeRef, Role, View, for_each,
+    node_ref, show,
 };
-use kivact::{Value, effect_on, memo};
+use kivact::{Value, memo};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ChatDensity {
@@ -134,7 +134,7 @@ impl IntoView for ChatMessage {
                     Align::Start
                 }),
         );
-        root.role(Role::ListItem)
+        root.role(Role::Article)
             .base_style(
                 style()
                     .direction(if user {
@@ -596,7 +596,9 @@ impl IntoView for ChatMessageList {
             gap,
             align,
         } = self;
-        root.role(Role::List)
+        root.role(Role::Log)
+            .live_region(LiveRegion::Polite)
+            .busy(move || streaming.get() || loading_top.get())
             .base_style(
                 style()
                     .direction(Direction::Column)
@@ -628,6 +630,8 @@ pub struct ChatLayout {
     composer: Option<View>,
     density: ChatDensity,
     scroll_button: bool,
+    viewport: Option<NodeRef>,
+    history_revision: Option<Value<u64>>,
 }
 
 pub fn chat_layout(messages: impl IntoView) -> ChatLayout {
@@ -637,6 +641,8 @@ pub fn chat_layout(messages: impl IntoView) -> ChatLayout {
         composer: None,
         density: ChatDensity::Balanced,
         scroll_button: true,
+        viewport: None,
+        history_revision: None,
     }
 }
 
@@ -655,6 +661,19 @@ impl ChatLayout {
         self.density = density;
         self
     }
+    /// Share the viewport reference with application scrolling or observation.
+    pub fn viewport_ref(mut self, viewport: NodeRef) -> Self {
+        self.viewport = Some(viewport);
+        self
+    }
+
+    /// Increment this revision in the same update that prepends earlier messages.
+    /// The layout compensates for the inserted height to keep the current messages in view.
+    pub fn history_revision(mut self, revision: impl IntoValue<u64>) -> Self {
+        self.history_revision = Some(revision.into_value());
+        self
+    }
+
     pub fn scroll_button(mut self, show: bool) -> Self {
         self.scroll_button = show;
         self
@@ -703,33 +722,16 @@ impl IntoView for ChatLayout {
             composer,
             density,
             scroll_button,
+            viewport,
+            history_revision,
         } = self;
-        let scroller = node_ref();
+        let scroller = viewport.unwrap_or_else(node_ref);
         let content = node_ref();
-        let viewport_rect = scroller.rect();
-        let content_rect = content.rect();
-        let offset = scroller.scroll_offset();
-        let scroll_end = memo(move || {
-            content_rect
-                .get()
-                .zip(viewport_rect.get())
-                .map(|(content, viewport)| (content.height - viewport.height).max(0.0))
-        });
-        let can_jump = memo(move || {
-            scroll_end
-                .get()
-                .is_some_and(|end| end - offset.get().y > 24.0)
-        });
-        let target = scroller;
-        let last_end = std::cell::Cell::new(None);
-        effect_on(scroll_end, move |end| {
-            if let Some(end) = *end {
-                let previous = last_end.replace(Some(end));
-                if previous.is_none_or(|previous| previous - offset.get_untracked().y <= 24.0) {
-                    target.scroll_to(Point::new(0.0, end), ScrollBehavior::Instant);
-                }
-            }
-        });
+        const REATTACH: f32 = 10.0;
+        const SHOW_BUTTON: f32 = 100.0;
+        let follow = use_follow_end(scroller, content, REATTACH, history_revision);
+        let distance = follow.distance();
+        let can_jump = memo(move || distance.get() > SHOW_BUTTON);
         let scroll_view = scroll(
             column(messages)
                 .node_ref(content)
@@ -738,14 +740,16 @@ impl IntoView for ChatLayout {
         .node_ref(scroller)
         .style(style().grow(1).min_height(0).min_width(0));
         let button = scroll_button.then(|| {
-            chat_scroll_button(can_jump, move || {
-                if let Some(end) = scroll_end.get() {
-                    scroller.scroll_to(Point::new(0.0, end), ScrollBehavior::Instant);
-                }
-            })
-            .style(style().position(Position::Absolute).right(12).bottom(12))
+            chat_scroll_button(can_jump, move || follow.jump_to_end())
+                .style(style().position(Position::Absolute).right(12).bottom(12))
         });
-        let area = stack((scroll_view, button)).style(style().grow(1).min_height(0).min_width(0));
+        let area = column((scroll_view, button)).style(
+            style()
+                .position(Position::Relative)
+                .grow(1)
+                .min_height(0)
+                .min_width(0),
+        );
         let composer = composer.map(|composer| {
             row(composer).style(
                 style()

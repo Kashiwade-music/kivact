@@ -173,7 +173,7 @@ pub fn carousel<V: IntoView>(
 ) -> Carousel {
     let label = label.into_text_value();
     Carousel {
-        root: node().role(Role::Group).name(label),
+        root: node().role(Role::Region).name(label),
         label,
         slides: slides.into_iter().map(IntoView::into_view).collect(),
         gap: Space::S1,
