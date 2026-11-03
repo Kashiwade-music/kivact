@@ -192,10 +192,11 @@ impl Border {
     }
 }
 
-/// The focus ring: a line of `width` outside the border box.
+/// A focus ring of `width` separated from the border box by `offset`.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Ring {
     pub width: f32,
+    pub offset: f32,
     pub color: Rgba,
 }
 

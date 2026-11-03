@@ -176,6 +176,7 @@ pub struct Theme {
     radius: Radii,
     text: Typography,
     focus_ring: f32,
+    focus_ring_offset: f32,
     disabled_opacity: f32,
     control_height: f32,
     icons: IconSet,
@@ -230,6 +231,11 @@ impl Theme {
     /// `style().focus_visible(style().ring_none())` draws none).
     pub fn focus_ring(&self) -> f32 {
         self.focus_ring
+    }
+
+    /// The gap in logical pixels between the border box and the theme focus ring.
+    pub fn focus_ring_offset(&self) -> f32 {
+        self.focus_ring_offset
     }
 
     /// The opacity a disabled focusable element is drawn with, unless its
@@ -295,6 +301,12 @@ impl Theme {
     #[must_use]
     pub fn with_focus_ring(mut self, focus_ring: f32) -> Self {
         self.focus_ring = focus_ring;
+        self
+    }
+
+    /// Set the gap in logical pixels before the theme focus ring.
+    pub fn with_focus_ring_offset(mut self, offset: f32) -> Self {
+        self.focus_ring_offset = offset;
         self
     }
 
@@ -380,6 +392,7 @@ impl Theme {
                 line_height: LineHeight::Scale(1.35),
             },
             focus_ring: 2.0,
+            focus_ring_offset: 0.0,
             disabled_opacity: 0.5,
             control_height: 28.0,
             icons: IconSet::standard(),

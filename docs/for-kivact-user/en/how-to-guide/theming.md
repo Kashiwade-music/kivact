@@ -131,8 +131,8 @@ fn main() -> kivact::Result<()> {
   `Shadow`, `Selection`, `Hover`, `Pressed` and `Raised`. `rgb(0x2563eb)` and
   `rgba(..)` give fixed colors.
 - Other tokens are read with accessors: `theme.space().md`, `theme.radius().lg`,
-  `theme.text().size`, `theme.focus_ring()`, `theme.disabled_opacity()` and
-  `theme.control_height()`.
+  `theme.text().size`, `theme.focus_ring()`, `theme.focus_ring_offset()`,
+  `theme.disabled_opacity()` and `theme.control_height()`.
 - Read `current_theme()` **inside** a style closure, not once in setup. A copy
   taken in setup is a fixed snapshot and misses theme switches.
 
@@ -146,7 +146,7 @@ use kivact::style::rgb;
 use kivact::style::theme::Palette;
 
 fn brand() -> Theme {
-    let base = Theme::light().with_focus_ring(3.0);
+    let base = Theme::light().with_focus_ring(3.0).with_focus_ring_offset(2.0);
     let colors = Palette {
         accent: rgb(0x7c3aed),
         focus: rgb(0x7c3aed),

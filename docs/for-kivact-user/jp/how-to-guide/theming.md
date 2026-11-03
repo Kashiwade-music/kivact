@@ -112,7 +112,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 - 色のトークンは `Surface`、`SurfaceAlt`、`Text`、`TextMuted`、`Accent`、`AccentText`、`Border`、`Focus`、`Danger`、`Success`、`Warning`、`Overlay`、`Shadow`、`Selection`、`Hover`、`Pressed`、`Raised` です。固定の色には `rgb(0x2563eb)` や `rgba(..)` を使います。
-- そのほかのトークンはアクセサーで読みます。`theme.space().md`、`theme.radius().lg`、`theme.text().size`、`theme.focus_ring()`、`theme.disabled_opacity()`、`theme.control_height()` です。
+- そのほかのトークンはアクセサーで読みます。`theme.space().md`、`theme.radius().lg`、`theme.text().size`、`theme.focus_ring()`、`theme.focus_ring_offset()`、`theme.disabled_opacity()`、`theme.control_height()` です。
 - `current_theme()` は、セットアップで 1 回読むのではなく、スタイルのクロージャの**中**で読みます。セットアップで取ったコピーは固定のスナップショットなので、テーマの切り替えに追従できません。
 
 ## トークンを変える
@@ -125,7 +125,7 @@ use kivact::style::rgb;
 use kivact::style::theme::Palette;
 
 fn brand() -> Theme {
-    let base = Theme::light().with_focus_ring(3.0);
+    let base = Theme::light().with_focus_ring(3.0).with_focus_ring_offset(2.0);
     let colors = Palette {
         accent: rgb(0x7c3aed),
         focus: rgb(0x7c3aed),

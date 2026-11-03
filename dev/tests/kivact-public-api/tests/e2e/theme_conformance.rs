@@ -21,10 +21,11 @@ fn focus_pixels(screen: &Screen, theme: &Theme) {
     let button = screen.get_by_role(Role::Button, "Save");
     let rect = button.rect().expect("button geometry");
     let width = theme.focus_ring();
+    let offset = theme.focus_ring_offset();
     assert!(width > 0.0);
     let x = (rect.x + rect.width / 2.0).floor() as u32;
-    let y = (rect.y - (width / 2.0).ceil()).floor() as u32;
-    let outside_y = (rect.y - width.ceil() - 2.0).floor() as u32;
+    let y = (rect.y - offset - (width / 2.0).ceil()).floor() as u32;
+    let outside_y = (rect.y - offset - width.ceil() - 2.0).floor() as u32;
     let before = screen.screenshot();
     let background = before.pixel(x, y).expect("ring margin is in the frame");
     screen.press_tab(false);
@@ -55,6 +56,15 @@ fn focus_pixels(screen: &Screen, theme: &Theme) {
         after.pixel(x, outside_y),
         "ring respects the actual theme width"
     );
+    if offset >= 2.0 {
+        let gap_y = (rect.y - offset / 2.0).floor() as u32;
+        let gap_before = before.pixel(x, gap_y).expect("gap is in the frame");
+        let gap_after = after.pixel(x, gap_y).expect("gap is in the frame");
+        assert!(
+            distance(gap_before, gap_after) <= 2,
+            "the gap between the ring and the button stays clear"
+        );
+    }
 }
 
 type Handles = (
@@ -255,6 +265,13 @@ fn kit_recipes_paint(kit: &str, mode: ThemeMode, theme: &Theme, screen: &Screen)
             "{kit} {mode:?} {name}: kit recipe not applied"
         );
     }
+}
+
+#[test]
+fn standard_button_respects_the_theme_focus_ring_offset() {
+    let theme = Theme::light().with_focus_ring_offset(3.0);
+    let (screen, _) = render_with_handle(options(theme.clone()), contract_view);
+    focus_pixels(&screen, &theme);
 }
 
 #[test]

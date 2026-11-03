@@ -127,6 +127,7 @@ pub fn paint(p: &mut PaintProps) {
     }
     if let Some(ring) = &mut p.ring {
         ring.width = extent(ring.width);
+        ring.offset = extent(ring.offset);
     }
     corners(&mut p.radius);
     if let Some(Fill::Layers(layers)) = &mut p.background {

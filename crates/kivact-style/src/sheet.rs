@@ -213,7 +213,7 @@ pub struct Style {
     pub(super) border_width: [Option<f32>; 4],
     pub(super) border_color: [Option<Color>; 4],
     pub(super) border_style: Option<BorderStyle>,
-    pub(super) ring: Option<(f32, Color)>,
+    pub(super) ring: Option<(f32, f32, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(super) radius: [Option<CornerRadius>; 4],
     pub(super) shadows: Option<Vec<Shadow>>,
@@ -742,11 +742,22 @@ impl Style {
     /// Focus ring (drawn outside the border box); usually inside
     /// `focus_visible(..)`. A focusable element without a focus look of its
     /// own draws the theme's ([`Theme::focus_ring`](crate::Theme::focus_ring)).
-    pub fn ring(mut self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
+    pub fn ring(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
+        self.ring_with_offset(width, 0, color)
+    }
+
+    /// Draw a focus ring with a gap in logical pixels from the border box.
+    /// A positive offset follows the border box even if the node has a clip path.
+    pub fn ring_with_offset(
+        mut self,
+        width: impl Into<f64>,
+        offset: impl Into<f64>,
+        color: impl ThemeColor,
+    ) -> Self {
         if self.ring.is_some() {
             self.duplicates += 1;
         }
-        self.ring = Some((width.into() as f32, Color::of(color)));
+        self.ring = Some((width.into() as f32, offset.into() as f32, Color::of(color)));
         self
     }
 

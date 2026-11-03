@@ -17,8 +17,9 @@ pub(super) fn tag_root(t: &Theme, state: &PartState) -> Style {
         .background(ColorToken::Surface)
         .color(ColorToken::Text);
     if state.focused {
-        s.border_color(ColorToken::Focus).ring(
+        s.border_color(ColorToken::Focus).ring_with_offset(
             t.focus_ring(),
+            t.focus_ring_offset(),
             Color::token(ColorToken::Focus).with_alpha(0.35),
         )
     } else {

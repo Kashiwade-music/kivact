@@ -219,7 +219,11 @@ fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
         s.pressed = None;
     }
     if s.focus.is_none() && s.focus_visible.is_none() {
-        let ring = Style::default().ring(theme.focus_ring(), ColorToken::Focus);
+        let ring = Style::default().ring_with_offset(
+            theme.focus_ring(),
+            theme.focus_ring_offset(),
+            ColorToken::Focus,
+        );
         s.focus_visible = Some(Box::new(ring));
     }
     let disabled = s.disabled.get_or_insert_with(Default::default);
@@ -712,8 +716,9 @@ fn paint(s: &Style, theme: &Theme) -> PaintProps {
         transition: None,
         background: s.background.as_ref().map(|b| fill(b, theme)),
         border: border(s, theme),
-        ring: s.ring.map(|(w, c)| Ring {
-            width: w,
+        ring: s.ring.map(|(width, offset, c)| Ring {
+            width,
+            offset,
             color: c.resolve(theme),
         }),
         radius: corners(s),

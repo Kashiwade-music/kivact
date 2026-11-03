@@ -18,9 +18,9 @@
 //!   hard edge); an inset one lies inside the box. A background is opaque
 //!   only as one opaque color with no fade and no color filter; a shadow
 //!   whose color is transparent is left out.
-//! - The focus ring is a band of its width outside the border box,
-//!   following its corners (or, with a clip path, the clip path's
-//!   outline).
+//! - The focus ring is a band outside the border box, following its
+//!   corners with an optional gap. With zero offset, a clip path
+//!   supplies the outline.
 
 use crate::effects::Tint;
 use crate::shape::BoxShape;
@@ -219,8 +219,8 @@ pub fn shadows(
     }
 }
 
-/// The focus ring around `shape` (or around `clip`, a clip path's
-/// outline, which the ring straddles beneath the node's paint).
+/// The focus ring around `shape`. At zero offset it straddles a clip
+/// path's outline beneath the node's paint.
 pub fn focus_ring(
     out: &mut crate::SceneOut,
     shape: &BoxShape,
@@ -233,7 +233,8 @@ pub fn focus_ring(
         return;
     }
     let color = tint.color(ring_.color);
-    if let Some(clip) = clip {
+    let offset = ring_.offset;
+    if let Some(clip) = clip.filter(|_| offset == 0.0) {
         out.push(D::StrokeShape {
             shape: clip.clone(),
             stroke: Stroke::new(2.0 * width),
@@ -241,12 +242,13 @@ pub fn focus_ring(
         });
         return;
     }
-    let outer = shape.grown(width);
+    let inner = shape.grown(offset);
+    let outer = shape.grown(offset + width);
     match outer {
         BoxShape::Rect(r) => push_stroke(out, r, [0.0; 4], width, color),
         BoxShape::Circular(r, radii) => push_stroke(out, r, radii, width, color),
         BoxShape::Rounded(_) => out.push(D::FillShape {
-            shape: ring(&outer, shape),
+            shape: ring(&outer, &inner),
             paint: kivact_types::protocol::Paint::Solid(color),
         }),
     }
