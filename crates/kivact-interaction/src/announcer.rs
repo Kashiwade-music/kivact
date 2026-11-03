@@ -1,9 +1,9 @@
 //! Role: Expose reusable live regions for imperative announcements.
-use crate::control::{Node, NodeBuilder, node, text};
-use crate::primitive::NodeExt;
-use crate::view::{IntoView, LiveRegion, Role, View, dynamic};
-use crate::{Signal, signal};
-use kivact_style::{Position, style};
+use kivact_core::control::{Node, NodeBuilder, node, text};
+use kivact_core::primitive::NodeExt;
+use kivact_core::style::{Position, style};
+use kivact_core::view::{IntoView, LiveRegion, Role, View, dynamic};
+use kivact_core::{Signal, signal};
 
 #[derive(Clone, Default, PartialEq, Eq)]
 struct Notice {

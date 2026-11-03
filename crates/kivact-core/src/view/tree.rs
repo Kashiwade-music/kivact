@@ -85,6 +85,8 @@ pub(crate) struct Handlers {
     pub text: Option<Rc<dyn Fn(crate::view::editing_data::TextEditEvent) -> Result<(), UiError>>>,
     /// Session changes of a TextInput (`TextEditing::on_selection`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
+    /// Loading or decoding failed for the node's image source.
+    pub image_error: Option<Rc<dyn Fn(&str) -> Result<(), UiError>>>,
     /// Scroll reports.
     pub scroll: Option<Rc<dyn Fn(ScrollState)>>,
     /// Layout reports (observed nodes): where the box is drawn (window
@@ -878,13 +880,16 @@ impl Tree {
             .find_map(|child| self.first_focus_target(*child))
     }
 
-    /// Focusable (a text input by default) and not disabled.
+    /// Focusable (a text input by default) and eligible while disabled.
     fn is_focusable(&self, id: NodeId) -> bool {
         if self.get(id).is_none() {
             return false;
         }
         let text_input = self.with_node(id, |node| node.is_some_and(|node| node.editing.is_some()));
-        self.focusable(id).unwrap_or(text_input) && self.disabled(id) != Some(true)
+        let retain = self.with_node(id, |node| {
+            node.is_some_and(|n| n.input.focusable_when_disabled == Some(true))
+        });
+        self.focusable(id).unwrap_or(text_input) && (retain || self.disabled(id) != Some(true))
     }
 
     /// The topmost shown modal overlay (the engine's answer) when `id` lies

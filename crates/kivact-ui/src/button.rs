@@ -62,6 +62,20 @@ impl ThemeExtension for ButtonBusyMotion {
     }
 }
 
+/// Whether a theme keeps disabled buttons in keyboard focus order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DisabledButtonFocus {
+    #[default]
+    Skip,
+    Retain,
+}
+
+impl ThemeExtension for DisabledButtonFocus {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
+    }
+}
+
 pub struct Button {
     root: Node,
     label: Value<String>,
@@ -117,6 +131,10 @@ pub fn button(label: impl IntoText) -> Button {
         node()
             .style(super::helpers::single_line_text())
             .part(part)
+            .focusable_when_disabled(matches!(
+                *current_theme().get::<DisabledButtonFocus>(),
+                DisabledButtonFocus::Retain
+            ))
             .name(label),
         |r| r.button_recipe(),
         &variants,

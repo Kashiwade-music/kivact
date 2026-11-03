@@ -3,6 +3,7 @@
 use std::hash::Hash;
 use std::time::Duration;
 
+use super::SubmenuTiming;
 use super::order::{Rows, edge_item, rows};
 use super::state::{
     Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
@@ -12,11 +13,9 @@ use crate::{
     use_list,
 };
 use kivact_core::primitive::Part;
+use kivact_core::style::current_theme;
 use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 use kivact_core::{Value, effect, memo, on_mount, signal};
-
-/// How long the pointer rests on a submenu item before it opens.
-const HOVER_OPEN: Duration = Duration::from_millis(140);
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: Clone + Eq + Hash + 'static> {
@@ -199,13 +198,14 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
 
         // The pointer focuses the item it rests on; a submenu opens after a rest.
         let hovered = signal(false);
+        let timing = current_theme().get::<SubmenuTiming>();
         if submenu {
             let key = key.clone();
             let resting = memo(move || hovered.get() && !expanded.get() && !disabled.get());
             let rest = use_delayed(
                 resting,
                 Delays {
-                    open: HOVER_OPEN,
+                    open: timing.open,
                     close: Duration::ZERO,
                 },
             );
@@ -225,8 +225,15 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             // submenus of this level. A disabled item receives no pointer
             // events, so this follows the item's hover instead.
             let over = item_ref.hovered();
+            let rest = use_delayed(
+                over,
+                Delays {
+                    open: timing.close,
+                    close: Duration::ZERO,
+                },
+            );
             effect(move || {
-                if over.get() && shown.get_untracked() {
+                if rest.shown().get() && shown.get_untracked() {
                     session.close_below(depth);
                 }
             });

@@ -192,6 +192,10 @@ props! {
     Focusable: set_focusable(v: bool)
         => field(Some(v), |p| Some(&mut p.input.focusable)),
         mut = Mut::NONE;
+    /// Whether a disabled node can still take keyboard focus.
+    FocusableWhenDisabled: set_focusable_when_disabled(v: bool)
+        => field(Some(v), |p| Some(&mut p.input.focusable_when_disabled)),
+        mut = Mut::NONE;
     /// Replace the node's listen pointer when its value differs.
     ListenPointer: set_listen_pointer(v: bool)
         => field(Some(v), |p| Some(&mut p.input.listen_pointer)),

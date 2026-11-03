@@ -5,15 +5,16 @@
 //! visible limit and its waiting line, live regions and roles by tone, Escape,
 //! the action and dismissal by id.
 
-use kivact::view::View;
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::Duration;
 
 use crate::support::mount;
 use kivact::interaction::ToastId;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::{Toast, Toaster, toaster};
-use kivact::view::LiveRegion;
+use kivact::ui::{Toast, ToastOptions, Toaster, toaster};
+use kivact::view::{LiveRegion, View};
 
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
@@ -99,6 +100,50 @@ fn shown(screen: &Screen, title: &str) -> bool {
 
 fn ok(screen: &Screen) {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn dismissing_a_focused_toast_restores_the_previous_external_focus() {
+    let (screen, toaster) = mount_app();
+    let other = screen.get_by_role(Role::Button, "Other");
+    other.focus();
+    toaster.push(toast("Saved", None));
+    screen.run_until_idle();
+    let close = screen.get_by_role(Role::Button, "Close Saved");
+    close.focus();
+    assert!(close.is_focused());
+    close.press_key(Key::Escape);
+    assert!(!shown(&screen, "Saved"));
+    assert!(other.is_focused());
+    ok(&screen);
+}
+
+#[test]
+fn keyed_toasts_deduplicate_and_only_a_shown_toast_runs_its_hide_callback() {
+    let (screen, toaster) = mount_app();
+    toaster.max_visible(1);
+    let hidden = Rc::new(Cell::new(0));
+    let options = {
+        let hidden = hidden.clone();
+        ToastOptions::default()
+            .key("saved")
+            .on_hide(move || hidden.set(hidden.get() + 1))
+    };
+    let first = toaster.push_with(toast("Saved", Some(ms(80))), options.clone());
+    let second = toaster.push_with(toast("Duplicate", None), options.clone());
+    assert_eq!(first, second);
+    let waiting = toaster.push_with(toast("Queued", None), options.clone().key("queued"));
+    screen.run_until_idle();
+    assert!(shown(&screen, "Saved"));
+    assert!(!shown(&screen, "Duplicate"));
+    toaster.dismiss(waiting);
+    assert_eq!(hidden.get(), 0);
+    screen.advance(ms(80));
+    assert_eq!(hidden.get(), 1);
+    toaster.dismiss(first);
+    assert_eq!(hidden.get(), 1);
+    assert_ne!(toaster.push_with(toast("Saved", None), options), first);
+    ok(&screen);
 }
 
 #[test]

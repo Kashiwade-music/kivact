@@ -19,8 +19,8 @@
 //! A submenu is a child level of the same session; its `shown`, `origin`
 //! and `show` mount the content in a new owner while it is open. A level
 //! moves with the list's menu policy (vertical, wrapping, manual activation)
-//! plus typeahead, and hovering a submenu item opens it after a
-//! 140 ms [`Delayed`](crate::Delayed). A context menu is the same [`MenuApi`] through
+//! plus typeahead, and hovering a submenu item opens it after a delay.
+//! A context menu is the same [`MenuApi`] through
 //! [`MenuApi::context_trigger`]; there is no separate context menu type. A
 //! pointer request reports `MenuOrigin::Pointer` (a window point) and keys
 //! and assistive technology report `MenuOrigin::Anchor`, so the caller picks
@@ -41,5 +41,25 @@ mod order;
 mod session;
 mod state;
 
+use std::time::Duration;
+
+use kivact_core::style::{Theme, ThemeExtension};
+
 pub use handle::{MenuApi, use_menu};
 pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};
+
+/// Pointer delays for opening a submenu or leaving it for a sibling item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SubmenuTiming {
+    pub open: Duration,
+    pub close: Duration,
+}
+
+impl ThemeExtension for SubmenuTiming {
+    fn fallback(_: &Theme) -> Self {
+        Self {
+            open: Duration::from_millis(140),
+            close: Duration::ZERO,
+        }
+    }
+}

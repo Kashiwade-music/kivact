@@ -89,6 +89,8 @@ pub struct NodeInput {
     pub hidden: Option<bool>,
     /// Allow the node to receive keyboard focus.
     pub focusable: Option<bool>,
+    /// Keep an otherwise focusable node in focus order while disabled.
+    pub focusable_when_disabled: Option<bool>,
     /// Request routed pointer events.
     pub listen_pointer: Option<bool>,
     /// Where a press moves the focus instead of this node; `None`: the host

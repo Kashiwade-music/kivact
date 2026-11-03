@@ -31,13 +31,16 @@
 
 #![forbid(unsafe_code)]
 
+mod announcer;
 mod axis;
 mod calendar;
 mod combobox;
+mod content_reveal;
 mod delayed;
 mod dialog;
 mod disclosure;
 mod drag;
+mod drag_velocity;
 mod edit;
 mod focus_return;
 mod follow_end;
@@ -65,15 +68,18 @@ mod tooltip;
 mod tree;
 mod zoom_pan;
 
+pub use announcer::{Announcer, announcer};
 pub use calendar::{
     CalendarDayState, CalendarGrid, CalendarPolicy, CalendarSelection, CalendarSpan,
     use_calendar_grid,
 };
 pub use combobox::{Combobox, use_combobox};
+pub use content_reveal::{ContentReveal, use_content_reveal};
 pub use delayed::{Delayed, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogKind, Dismiss, Side, use_dialog};
 pub use disclosure::{Disclosure, DisclosureState, use_disclosure};
 pub use drag::{Drag, DragCoordinates, DragPhase, DragStart, DragState, DragUpdate, use_drag};
+pub use drag_velocity::DragVelocity;
 pub use edit::{EditPhase, EditSession};
 pub use focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 pub use follow_end::{FollowEnd, use_follow_end};
@@ -83,7 +89,8 @@ pub use list::{
     use_list,
 };
 pub use menu::{
-    MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow, use_menu,
+    MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow, SubmenuTiming,
+    use_menu,
 };
 pub use menubar::{Menubar, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPalette, filter_commands, use_command_palette};
@@ -100,7 +107,7 @@ pub use table::{
     TableRowState, use_table, use_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
-pub use toaster::{Toast, ToastId, ToastState, Toaster, toaster};
+pub use toaster::{Toast, ToastId, ToastOptions, ToastState, Toaster, toaster};
 pub use toggle::{
     ButtonApi, CheckboxApi, Toggle, ToggleState, use_button, use_checkbox, use_switch,
     use_toggle_button,

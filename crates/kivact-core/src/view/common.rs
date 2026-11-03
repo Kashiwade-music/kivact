@@ -58,6 +58,7 @@ pub(crate) struct Common {
     /// Focusability, constant or reactive (a builder sets its own before the
     /// user's modifiers).
     pub focusable: Option<InputProp<bool>>,
+    pub focusable_when_disabled: bool,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<bool>,
     /// Native pointer focus destination, resolved through the reference binding.

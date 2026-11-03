@@ -5,9 +5,10 @@ use std::rc::Rc;
 
 use crate::support::mount;
 use kivact::diagnostics::ErrorKind;
+use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::{Handled, KeyEvent, LiveRegion, RowHeight, announcer};
+use kivact::view::{Handled, KeyEvent, LiveRegion, RowHeight};
 
 type Log = Rc<RefCell<Vec<String>>>;
 

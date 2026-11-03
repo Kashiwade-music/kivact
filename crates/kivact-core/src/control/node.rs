@@ -218,6 +218,20 @@ impl Node {
         self.common.monochrome = Some(on.into_prop());
         self
     }
+
+    /// Handle a failed image load or decode in the image's owner.
+    ///
+    /// A handler replaces the default asset diagnostic. It may use the reason
+    /// to show a fallback. This modifier only applies to image nodes.
+    pub fn on_image_error<R: crate::view::HandlerResult>(
+        mut self,
+        handler: impl Fn(&str) -> R + 'static,
+    ) -> Self {
+        self.common.handlers.image_error = Some(std::rc::Rc::new(move |reason| {
+            handler(reason).into_result()
+        }));
+        self
+    }
 }
 
 impl IntoView for Node {
@@ -291,6 +305,9 @@ fn drop_misused(
     if kind != NodeType::Image && common.monochrome.take().is_some() {
         misused.push("monochrome");
     }
+    if kind != NodeType::Image && common.handlers.image_error.take().is_some() {
+        misused.push("on_image_error");
+    }
     if !misused.is_empty() {
         let what = match kind {
             NodeType::Text => "a text",
@@ -335,7 +352,7 @@ pub fn canvas(
 /// `<img alt="">`) unless it has actions (`.on_a11y(..)`) or draws scene
 /// regions; a test id alone does not expose it. A failed image draws
 /// nothing and is reported once as `ErrorKind::Asset`, located here, to
-/// the App's default sink (not to an `error_boundary`). [`Node::fit`] and
+/// the App's default sink unless [`Node::on_image_error`] handles it. [`Node::fit`] and
 /// [`Node::monochrome`] set how it is painted.
 #[track_caller]
 pub fn image(src: impl IntoValue<Asset>) -> Node {

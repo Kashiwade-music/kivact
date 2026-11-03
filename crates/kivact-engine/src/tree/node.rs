@@ -284,11 +284,13 @@ impl HostNode {
     }
 
     /// Focusable by its own props: `Focusable` (a text input by default),
-    /// neither disabled nor hidden. A tab stop must also be shown
+    /// not hidden and eligible while disabled. A tab stop must also be shown
     /// ([`crate::model::Model::is_tab_stop`]).
     pub(crate) fn focusable(&self, editor_present: bool) -> bool {
         let focusable = self.properties.input.focusable.unwrap_or(editor_present);
-        focusable && !self.disabled() && !self.hidden()
+        focusable
+            && (!self.disabled() || self.properties.input.focusable_when_disabled == Some(true))
+            && !self.hidden()
     }
 
     /// The declared native pointer focus destination, if currently bound.

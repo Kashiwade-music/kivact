@@ -31,7 +31,7 @@ use std::time::Duration;
 
 use kivact_core::UiError;
 use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{Part, PartState, app_state, part, raise};
+use kivact_core::primitive::{NodeToken, Owner, Part, PartState, app_state, part, raise};
 
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{
@@ -48,6 +48,41 @@ const DEFAULT_DURATION: Duration = Duration::from_secs(5);
 const DEFAULT_MAX_VISIBLE: usize = 3;
 
 type Entries = Vec<(ToastId, Toast)>;
+
+struct QueuedToast {
+    id: ToastId,
+    toast: Toast,
+    options: ToastOptions,
+    focus: Rc<Cell<Option<ToastFocus>>>,
+}
+
+#[derive(Clone, Copy)]
+struct ToastFocus {
+    within: Value<bool>,
+    previous: Signal<Option<NodeToken>>,
+}
+
+/// Optional deduplication and dismissal behavior for a toast.
+#[derive(Clone, Default)]
+pub struct ToastOptions {
+    key: Option<String>,
+    on_hide: Option<Rc<dyn Fn()>>,
+}
+
+impl ToastOptions {
+    /// Give the toast a key unique among the shown and waiting toasts.
+    pub fn key(mut self, key: impl Into<String>) -> Self {
+        self.key = Some(key.into());
+        self
+    }
+
+    /// Run `on_hide` once after a shown toast is removed from the queue.
+    /// Removing a waiting toast does not run this callback.
+    pub fn on_hide(mut self, on_hide: impl Fn() + 'static) -> Self {
+        self.on_hide = Some(Rc::new(on_hide));
+        self
+    }
+}
 
 /// The identity of a pushed toast, to [`dismiss`](Toaster::dismiss) it or to
 /// tell the toasts a kit draws apart.
@@ -249,7 +284,7 @@ impl Toast {
 #[derive(Clone, Copy)]
 pub struct Toaster {
     /// Every toast not yet gone, shown or waiting, oldest first.
-    queue: Signal<Entries>,
+    queue: Signal<Vec<QueuedToast>>,
     /// The first `limit` of `queue`.
     visible: Value<Entries>,
     next: Signal<u64>,
@@ -270,13 +305,19 @@ pub struct Toaster {
 #[track_caller]
 pub fn toaster() -> Toaster {
     app_state("toaster", || {
-        let queue = signal(Entries::new());
+        let queue = signal(Vec::<QueuedToast>::new());
         let limit = signal(DEFAULT_MAX_VISIBLE);
         Toaster {
             queue,
             visible: memo(move || {
                 let limit = limit.get();
-                queue.with(|queue| queue.iter().take(limit).cloned().collect())
+                queue.with(|queue| {
+                    queue
+                        .iter()
+                        .take(limit)
+                        .map(|entry| (entry.id, entry.toast.clone()))
+                        .collect()
+                })
             }),
             next: signal(0u64),
             limit,
@@ -290,21 +331,57 @@ impl Toaster {
     /// [`max_visible`](Self::max_visible) are shown, and when the ones before
     /// it have gone otherwise.
     pub fn push(self, toast: Toast) -> ToastId {
+        self.push_with(toast, ToastOptions::default())
+    }
+
+    /// Queue a toast with options. If a toast with the supplied key is shown
+    /// or waiting, return its id and leave its original content and timer in place.
+    pub fn push_with(self, toast: Toast, options: ToastOptions) -> ToastId {
+        if let Some(key) = options.key.as_deref()
+            && let Some(id) = self.queue.with_untracked(|queue| {
+                queue
+                    .iter()
+                    .find(|entry| entry.options.key.as_deref() == Some(key))
+                    .map(|entry| entry.id)
+            })
+        {
+            return id;
+        }
         let id = ToastId(self.next.get_untracked());
         self.next.set(id.0 + 1);
-        self.queue.update(|queue| queue.push((id, toast)));
+        self.queue.update(|queue| {
+            queue.push(QueuedToast {
+                id,
+                toast,
+                options,
+                focus: Rc::new(Cell::new(None)),
+            })
+        });
         id
     }
 
-    /// Remove a toast, shown or waiting. Nothing happens when it is already
-    /// gone.
+    /// Remove a toast, shown or waiting. If focus is inside it, request its
+    /// return to the last focused element outside the toast.
     pub fn dismiss(self, id: ToastId) {
-        let queued = self
-            .queue
-            .with_untracked(|queue| queue.iter().any(|(queued, _)| *queued == id));
-        if queued {
-            self.queue
-                .update(|queue| queue.retain(|(queued, _)| *queued != id));
+        let Some((index, focus)) = self.queue.with_untracked(|queue| {
+            queue
+                .iter()
+                .enumerate()
+                .find(|(_, entry)| entry.id == id)
+                .map(|(index, entry)| (index, entry.focus.get()))
+        }) else {
+            return;
+        };
+        let shown = index < self.limit.get_untracked();
+        let previous = focus
+            .filter(|focus| focus.within.get_untracked())
+            .and_then(|focus| focus.previous.get_untracked());
+        let entry = self.queue.update(|queue| queue.remove(index));
+        if let Some(previous) = previous {
+            previous.restore_focus();
+        }
+        if shown && let Some(on_hide) = entry.options.on_hide {
+            on_hide();
         }
     }
 
@@ -353,6 +430,27 @@ impl Toaster {
                 .find(|(shown, _)| *shown == id)
                 .map(|(_, toast)| toast.clone())
         })
+    }
+
+    fn track_focus(self, id: ToastId, within: Value<bool>) {
+        let slot = self.queue.with_untracked(|queue| {
+            queue
+                .iter()
+                .find(|entry| entry.id == id)
+                .map(|entry| entry.focus.clone())
+        });
+        let Some(slot) = slot else { return };
+        let owner = Owner::current("toast focus return");
+        let previous = signal(None);
+        slot.set(Some(ToastFocus { within, previous }));
+        on_cleanup(move || slot.set(None));
+        effect(move || {
+            let inside = within.get();
+            let focused = owner.focused_node();
+            if !inside && focused.is_some() {
+                previous.set(focused);
+            }
+        });
     }
 }
 
@@ -449,6 +547,7 @@ impl Toaster {
             .on_bind(move |_| {
                 let hover = anchor.hovered();
                 let focus = anchor.focus_within();
+                self.track_focus(id, focus);
                 let within = memo(move || hover.get() || focus.get());
                 let stopped = memo(move || within.get() || self.holds.get() > 0);
                 effect(move || engaged.set(stopped.get()));

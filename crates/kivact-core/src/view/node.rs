@@ -269,6 +269,14 @@ pub trait NodeBuilder: Sized {
         self
     }
 
+    /// Keep an otherwise focusable control in keyboard focus order while it
+    /// is disabled, so users can reach its label and any attached tooltip.
+    /// Activation and editing remain disabled.
+    fn focusable_when_disabled(mut self, on: bool) -> Self {
+        self.node_mut().common.focusable_when_disabled = on;
+        self
+    }
+
     /// Handle keys reported by the host before existing key handlers,
     /// default activation and Escape dismissal. IME, Tab and editing keys
     /// consumed by the host do not reach this callback. A key starts at

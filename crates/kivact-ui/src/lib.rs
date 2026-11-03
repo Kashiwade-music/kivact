@@ -154,7 +154,7 @@ mod toggle_parts;
 mod values;
 mod variants;
 
-pub use button::{Button, ButtonBusyMotion, button};
+pub use button::{Button, ButtonBusyMotion, DisabledButtonFocus, button};
 pub use children::IntoChildren;
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
@@ -167,7 +167,7 @@ pub use inline_edit::{InlineEdit, use_inline_edit};
 /// component author's).
 pub use kivact_interaction::{
     Command, DialogKind, Dismiss, EditPhase, ListActivation, ListItem, MenuEntry, ScalarRange,
-    ScalarRangeError, Side, Toast, Toaster, Tone, TreeNode, toaster,
+    ScalarRangeError, Side, Toast, ToastOptions, Toaster, Tone, TreeNode, toaster,
 };
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};

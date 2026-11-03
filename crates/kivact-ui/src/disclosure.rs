@@ -9,12 +9,12 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, icon, node, text};
-use kivact_core::motion::{Easing, Transition, animated};
+use kivact_core::motion::{Easing, Transition};
 use kivact_core::primitive::NodeExt;
 use kivact_core::style::{Overflow, style};
 use kivact_core::view::{IntoText, IntoView, View, node_ref, show};
 use kivact_core::{Binding, Value, memo};
-use kivact_interaction::use_disclosure;
+use kivact_interaction::{use_content_reveal, use_disclosure};
 use std::rc::Rc;
 
 /// A trigger and the content it opens, created by [`disclosure`].
@@ -135,16 +135,12 @@ impl IntoView for Disclosure {
             details = details.disabled(move || disabled());
         }
         let shown = details.shown();
-        // 0 closed, 1 open: the share of the content's height shown. While a
-        // closing runs the content stays, hidden only when it has finished.
-        let progress = animated(
-            move || if shown.get() { 1.0f32 } else { 0.0 },
-            Transition::tween(200, Easing::EaseOut),
-        );
-        let animate = self.animated;
-        let present = memo(move || shown.get() || (animate && progress.get() > 0.0));
-        if animate {
-            details = details.leaving(move || !shown.get() && progress.get() > 0.0);
+        let reveal = self
+            .animated
+            .then(|| use_content_reveal(shown, Transition::tween(200, Easing::EaseOut)));
+        let present = memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
+        if let Some(reveal) = reveal {
+            details = details.leaving(move || reveal.leaving());
         }
         let variants = self.variants;
         let part = details.trigger();
@@ -178,24 +174,14 @@ impl IntoView for Disclosure {
                     &variants,
                     move || content_state.get(),
                 );
-                if !animate {
+                let Some(reveal) = reveal else {
                     return region.child(build());
-                }
-                // `overflow-hidden`; while it moves the height is the shown
-                // share of the content's own, and at rest it is the content's.
+                };
                 let measured = node_ref();
-                let natural = measured.rect();
+                let height = reveal.container_style(measured);
                 region
-                    .style(move || {
-                        let s = style().overflow(Overflow::Hidden);
-                        let share = progress.get();
-                        if share < 1.0 {
-                            let full = natural.get().map_or(0.0, |rect| rect.height);
-                            s.height(full * share)
-                        } else {
-                            s
-                        }
-                    })
+                    .style(style().overflow(Overflow::Hidden))
+                    .style(move || height.get())
                     .child(
                         node()
                             .node_ref(measured)
