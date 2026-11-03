@@ -273,7 +273,7 @@ pub(super) fn select_all<K: Clone + Eq + Hash + 'static>(state: &State<K>) {
             order
                 .keys()
                 .into_iter()
-                .filter(|key| order.enabled(key))
+                .filter(|key| order.enabled(key) && state.can_select(key))
                 .collect()
         });
         binding.set(keys);

@@ -37,6 +37,7 @@ where
         key,
         columns,
         selection,
+        row_selectable,
         sort,
         multi_sort,
         page,
@@ -95,6 +96,23 @@ where
         ListSelection::Multiple(chosen),
         focus,
     );
+    let eligible = row_selectable.as_ref().map(|selectable| {
+        let selectable = selectable.clone();
+        let key = key.clone();
+        memo(move || display.with(|rows| {
+            rows.iter().filter(|row| selectable(row)).map(|row| key(row)).collect::<std::collections::HashSet<_>>()
+        }))
+    });
+    if let Some(eligible) = eligible {
+        behavior = behavior.row_selectable(move |key| eligible.with(|keys| keys.contains(key)));
+    }
+    let page_keys = model.keys();
+    let selectable_keys = memo(move || match eligible {
+        Some(eligible) => page_keys.with(|keys| eligible.with(|eligible| {
+            keys.iter().filter(|key| eligible.contains(*key)).cloned().collect::<Vec<_>>()
+        })),
+        None => page_keys.get(),
+    });
     // A row is named by the caller's label, else by its first column.
     let label: RowName<R> = match row_label {
         Some(label) => label,
@@ -168,7 +186,8 @@ where
     };
     let grid = Grid {
         behavior,
-        keys: model.keys(),
+        keys: selectable_keys,
+        row_selectable,
         columns,
         visible,
         selection,

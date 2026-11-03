@@ -170,7 +170,8 @@ pub(super) fn select_page<K: Clone + Eq + Hash + 'static>(
             binding(all, move |on| select.try_call(on)),
         )
         .hide_label(true)
-        .indeterminate(mixed),
+        .indeterminate(mixed)
+        .disabled(move || keys.with(Vec::is_empty)),
     )
     .into_view()
 }

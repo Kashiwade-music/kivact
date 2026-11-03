@@ -237,6 +237,12 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         self.state().list.select(key, gesture)
     }
 
+    /// Limit which row keys can be selected without changing focus. Setup only.
+    pub fn row_selectable(self, test: impl Fn(&K) -> bool + 'static) -> Self {
+        self.state().list.selectable(test);
+        self
+    }
+
     /// Table or grid semantics, without appearance or children.
     #[track_caller]
     pub fn grid(self) -> Part<PartState> {

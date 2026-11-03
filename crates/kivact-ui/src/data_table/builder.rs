@@ -104,6 +104,7 @@ where
         key: Rc::new(key),
         columns: Rc::new(columns),
         selection: None,
+        row_selectable: None,
         sort: None,
         multi_sort: None,
         page: None,
@@ -151,6 +152,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// selects the row, Ctrl toggles and Shift extends.
     pub fn selection(mut self, selection: impl Into<Binding<Vec<K>>>) -> Self {
         self.selection = Some(selection.into());
+        self
+    }
+
+    /// Choose which rows can be selected. All rows remain navigable, and
+    /// the caller's existing selection is left intact when eligibility changes.
+    pub fn row_selectable(mut self, test: impl Fn(&R) -> bool + 'static) -> Self {
+        self.row_selectable = Some(Rc::new(test));
         self
     }
 

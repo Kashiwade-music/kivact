@@ -36,6 +36,8 @@ fn pending_kept<K>(pending: &Pending<K>, current: Option<NodeToken>) -> bool {
             .is_some_and(|node| node.mounted_node().is_none())
 }
 
+type Selectable<K> = Rc<dyn Fn(&K) -> bool>;
+
 pub(super) struct State<K: Clone + Eq + Hash + 'static> {
     pub(super) owner: Owner,
     /// The App's root when the list was created: an item of another App has
@@ -44,6 +46,7 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static> {
     pub(super) items: Value<Vec<ListItem<K>>>,
     pub(super) order: Value<Order<K>>,
     pub(super) selection: ListSelection<K>,
+    pub(super) selectable: Signal<Option<Selectable<K>>>,
     pub(super) selected: Value<Vec<K>>,
     pub(super) anchor_value: Value<Option<K>>,
     pub(super) anchor: Signal<Binding<Option<K>>>,
@@ -150,6 +153,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
         items,
         order,
         selection,
+        selectable: signal(None),
         selected: selected_value,
         anchor,
         anchor_value,
@@ -204,8 +208,13 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
     pub(super) fn target(&self, key: &K) -> Option<NodeRef> {
         self.roving.target(key, |key| self.enabled(key))
     }
+    pub(super) fn can_select(&self, key: &K) -> bool {
+        self.selectable
+            .with_untracked(|test| test.as_ref().is_none_or(|test| test(key)))
+    }
+
     pub(super) fn select(&self, key: K, gesture: ListGesture) -> bool {
-        if !self.order.with_untracked(|order| order.enabled(&key)) {
+        if !self.order.with_untracked(|order| order.enabled(&key)) || !self.can_select(&key) {
             return false;
         }
         let anchor = self.anchor.get_untracked();
@@ -219,7 +228,7 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
                     order
                         .keys()
                         .into_iter()
-                        .filter(|key| order.enabled(key))
+                        .filter(|key| order.enabled(key) && self.can_select(key))
                         .collect::<Vec<_>>()
                 });
                 let next = kivact_core::untrack(|| {

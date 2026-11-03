@@ -166,6 +166,16 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         require_setup("List::container");
         parts::container(state)
     }
+    /// Limit selection gestures and select-all while preserving focus and navigation.
+    /// Setup only.
+    pub fn selectable(self, test: impl Fn(&K) -> bool + 'static) -> Self {
+        require_setup("List::selectable");
+        self.state()
+            .selectable
+            .update(|current| *current = Some(std::rc::Rc::new(test)));
+        self
+    }
+
     /// An item's label, selection, exact input state and mounted roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {

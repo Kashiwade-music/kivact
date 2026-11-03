@@ -1,5 +1,5 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
-use super::types::{CellSlot, Key, RowColor, RowName, RowSlot, Sort};
+use super::types::{CellSlot, Key, RowColor, RowName, RowSelectable, RowSlot, Sort};
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
@@ -28,6 +28,7 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
     pub(super) selection: Option<Binding<Vec<K>>>,
+    pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
     pub(super) actions: Option<(f32, RowSlot<R>)>,
     pub(super) row_label: RowName<R>,
@@ -52,6 +53,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
             columns: self.columns.clone(),
             visible: self.visible,
             selection: self.selection,
+            row_selectable: self.row_selectable.clone(),
             widths: self.widths,
             actions: self.actions.clone(),
             row_label: self.row_label.clone(),
@@ -235,7 +237,12 @@ where
         &grid.variants,
         state,
     )
-    .child(checkbox(name, binding(chosen, move |on| toggle.try_call(on))).hide_label(true))
+    .child({
+        let selectable = grid.row_selectable.clone();
+        checkbox(name, binding(chosen, move |on| toggle.try_call(on)))
+            .hide_label(true)
+            .disabled(move || selectable.as_ref().is_some_and(|test| !item.with(|row| test(row))))
+    })
     .into_view()
 }
 

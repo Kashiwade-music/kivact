@@ -333,3 +333,45 @@ fn expanded_details_follow_row_keys_across_sorting() {
     assert_eq!(expanded.get_untracked(), [2]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn ineligible_rows_keep_focus_but_are_skipped_by_selection_gestures() {
+    let (screen, selected) = mount_with(options(), || {
+        let selected = signal(Vec::<u32>::new());
+        (
+            selected,
+            data_table(people(), |p: &Person| p.id, columns())
+                .focus(TableFocus::Rows(kivact::interaction::ListPolicy::default()))
+                .selection(selected)
+                .row_selectable(|person| person.id != 2),
+        )
+    });
+    let grace = screen.get_by_role(Role::Row, "Grace");
+    grace.click();
+    assert!(grace.is_focused());
+    assert!(selected.get_untracked().is_empty());
+    grace.press_key(Key::Space);
+    assert!(selected.get_untracked().is_empty());
+    grace.press_key(Key::ArrowDown);
+    assert!(screen.get_by_role(Role::Row, "Linus").is_focused());
+    screen.press_key_with(Key::Char('a'), Modifiers { ctrl: true, ..Modifiers::default() });
+    assert_eq!(selected.get_untracked(), [1, 3, 4, 5]);
+}
+
+#[test]
+fn the_page_checkbox_selects_only_eligible_rows() {
+    let (screen, selected) = mount_with(options(), || {
+        let selected = signal(Vec::<u32>::new());
+        (
+            selected,
+            data_table(people(), |p: &Person| p.id, columns())
+                .selection(selected)
+                .row_selectable(|person| person.id % 2 == 0),
+        )
+    });
+    assert!(screen.get_by_role(Role::CheckBox, "Select Ada").is_disabled());
+    screen.get_by_role(Role::CheckBox, "Select all").click();
+    assert_eq!(selected.get_untracked(), [2, 4]);
+    screen.get_by_role(Role::CheckBox, "Select all").click();
+    assert!(selected.get_untracked().is_empty());
+}
