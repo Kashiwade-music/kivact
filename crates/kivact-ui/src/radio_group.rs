@@ -95,7 +95,7 @@ pub fn radio_group<K: Clone + Eq + Hash + 'static>(
         value: value.into(),
         orientation: Orientation::Vertical,
         layout,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         on_edit: None,
         item: None,
         variants,

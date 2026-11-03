@@ -91,7 +91,7 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
         root: node().role(Role::ProgressBar),
         value,
         fixed_indeterminate,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         moving: false.into_value(),
         variants: Variants::default(),
     }

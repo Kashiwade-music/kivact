@@ -79,13 +79,17 @@ pub struct Button {
 #[derive(Clone, Default)]
 struct Settings {
     size: ControlSize,
+    size_explicit: bool,
     leading_icon: bool,
     trailing_icon: bool,
 }
 /// A themed button activated through the shared button part ([`use_button`]).
 pub fn button(label: impl IntoText) -> Button {
     let label = label.into_text_value();
-    let settings = Rc::new(RefCell::new(Settings::default()));
+    let settings = Rc::new(RefCell::new(Settings {
+        size: super::values::default_control_size(),
+        ..Settings::default()
+    }));
     let expanded = Rc::new(Cell::new(None::<Value<bool>>));
     let read_expanded = expanded.clone();
     let loading = Rc::new(Cell::new(false.into_value()));
@@ -155,8 +159,21 @@ impl Button {
         self
     }
 
+    /// Set the size explicitly, overriding a size provider or group default.
     pub fn size(self, size: ControlSize) -> Self {
-        self.configure(|s| s.size = size)
+        self.configure(|settings| {
+            settings.size = size;
+            settings.size_explicit = true;
+        })
+    }
+
+    /// Set the default for this button when composing it into a group.
+    pub fn default_size(self, size: ControlSize) -> Self {
+        self.configure(|settings| {
+            if !settings.size_explicit {
+                settings.size = size;
+            }
+        })
     }
     /// Show the busy indicator and ignore presses while true (constant or
     /// reactive). Its spin and reveal use the theme's [`ButtonBusyMotion`].

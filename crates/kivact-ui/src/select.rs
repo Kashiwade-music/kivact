@@ -51,7 +51,7 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
         placeholder: None,
         preview: None,
         icon: None,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         option: None,
         variants,
     }

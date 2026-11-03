@@ -89,7 +89,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
         range: None,
         step: None,
         orientation: Orientation::Horizontal,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         on_edit: None,
         variants,
     }

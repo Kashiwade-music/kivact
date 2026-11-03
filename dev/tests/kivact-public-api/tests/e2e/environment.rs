@@ -193,3 +193,33 @@ fn advanced_semantics_publish_roles_and_reactive_states() {
     assert_eq!(choose.current_item(), None);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn control_size_provider_prefers_the_nearest_default_and_explicit_sizes() {
+    use kivact::ui::{ControlSize, provide_control_size};
+
+    let screen = render(|| {
+        column((
+            button("Ordinary"),
+            provide_control_size(ControlSize::Small, || {
+                column((
+                    button("Small"),
+                    button("Explicit medium").size(ControlSize::Medium),
+                    provide_control_size(ControlSize::Large, || button("Large")),
+                ))
+            }),
+        ))
+    });
+
+    let height = |name| {
+        screen
+            .get_by_role(Role::Button, name)
+            .rect()
+            .expect("mounted button")
+            .height
+    };
+    assert!(height("Small") < height("Ordinary"));
+    assert_eq!(height("Explicit medium"), height("Ordinary"));
+    assert!(height("Large") > height("Ordinary"));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

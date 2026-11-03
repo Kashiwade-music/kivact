@@ -79,7 +79,7 @@ pub fn text_area(label: impl IntoText, value: impl Into<Binding<String>>) -> Tex
     create(label.into_text_value(), value.into(), true)
 }
 fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: bool) -> TextInput {
-    let size = Rc::new(Cell::new(ControlSize::default()));
+    let size = Rc::new(Cell::new(super::values::default_control_size()));
     let read = size.clone();
     let invalid = Rc::new(OnceCell::<Rc<dyn Fn() -> bool>>::new());
     let read_invalid = invalid.clone();

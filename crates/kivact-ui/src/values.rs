@@ -77,6 +77,24 @@ pub enum ControlSize {
     Large,
 }
 
+#[derive(Clone, Copy)]
+struct InheritedControlSize(ControlSize);
+
+/// Set the default size of standard controls created in `content`.
+/// A control's explicit `.size(..)` wins, including `ControlSize::Medium`.
+/// Nested providers use the nearest default.
+pub fn provide_control_size<V: kivact_core::view::IntoView>(
+    size: ControlSize,
+    content: impl FnOnce() -> V + 'static,
+) -> kivact_core::view::View {
+    kivact_core::view::provide(InheritedControlSize(size), content)
+}
+
+pub(super) fn default_control_size() -> ControlSize {
+    kivact_core::view::try_context::<InheritedControlSize>()
+        .map_or_else(ControlSize::default, |size| size.0)
+}
+
 /// What a button's recipes know of it: its root, its content row, its
 /// icon boxes and its busy indicator get the same state.
 #[derive(Clone, Debug, PartialEq)]

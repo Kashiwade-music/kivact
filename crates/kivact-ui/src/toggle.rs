@@ -34,7 +34,7 @@ macro_rules! toggle_builder {
                     state,
                     mixed: None,
                     hide_label: None,
-                    size: ControlSize::Medium,
+                    size: super::values::default_control_size(),
                     variants: Variants::default(),
                 }
             }

@@ -187,7 +187,7 @@ pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
     ProgressState, SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState,
-    TooltipArrowState,
+    TooltipArrowState, provide_control_size,
 };
 pub use variants::{Look, Variant};
 

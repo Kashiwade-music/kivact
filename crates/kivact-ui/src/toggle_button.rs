@@ -128,7 +128,7 @@ pub fn toggle(label: impl IntoText, pressed: impl Into<Binding<bool>>) -> Toggle
         pressed: pressed.into(),
         icon: None,
         hide_label: None,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         variants: Variants::default(),
     }
 }
