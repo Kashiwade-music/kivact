@@ -8,6 +8,7 @@
 //! widths stay the caller's: the table keeps no copy of them.
 mod builder;
 mod chrome;
+mod filters;
 mod grouped;
 mod row_status;
 mod rows;
@@ -17,6 +18,7 @@ mod tree;
 mod types;
 
 pub use builder::data_table;
+pub use filters::{FilterField, FilterUi};
 pub use grouped::DataTableGroupState;
 pub use row_status::{DataTableRowStatusPaint, RowStatus};
 pub use sticky_paint::DataTableStickyPaint;

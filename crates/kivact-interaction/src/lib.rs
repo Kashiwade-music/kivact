@@ -107,8 +107,8 @@ pub use select::{SelectApi, use_select};
 pub use space_pan::{SpacePan, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use table::{
-    ColumnDef, SortOrder, Table, TableCellState, TableFocus, TableHeaderState, TableModel,
-    TableRowState, use_table, use_table_model,
+    ColumnDef, FilterValue, SortOrder, Table, TableCellState, TableFocus, TableHeaderState,
+    TableModel, TableRowState, use_table, use_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
 pub use toaster::{Toast, ToastId, ToastOptions, ToastState, Toaster, toaster};

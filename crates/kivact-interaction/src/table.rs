@@ -36,4 +36,4 @@ mod state;
 
 pub use data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
 pub use handle::{Table, use_table};
-pub use model::{ColumnDef, TableModel, use_table_model};
+pub use model::{ColumnDef, FilterValue, TableModel, use_table_model};

@@ -119,6 +119,8 @@ where
         row_index: None,
         filter: None,
         column_filters: None,
+        typed_column_filters: None,
+        filter_ui: crate::FilterUi::default(),
         sticky: None,
         widths: None,
         resize_range: None,
@@ -284,6 +286,22 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     pub fn page(mut self, page: impl Into<Binding<usize>>, size: impl IntoValue<usize>) -> Self {
         self.page = Some((page.into(), size.into_value()));
         self.has_more = None;
+        self
+    }
+
+    /// Edit the committed typed values keyed by the original column index.
+    /// A column needs `DataColumn::filter_field` to participate.
+    pub fn typed_column_filters(
+        mut self,
+        filters: impl Into<Binding<std::collections::HashMap<usize, crate::FilterValue>>>,
+    ) -> Self {
+        self.typed_column_filters = Some(filters.into());
+        self
+    }
+
+    /// Choose how the typed filter controls appear in column headers.
+    pub fn filter_ui(mut self, ui: crate::FilterUi) -> Self {
+        self.filter_ui = ui;
         self
     }
 

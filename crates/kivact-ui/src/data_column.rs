@@ -46,6 +46,7 @@ type HeaderMenu = Rc<dyn Fn(Node) -> View>;
 /// ```
 pub struct DataColumn<R> {
     def: ColumnDef<R, ()>,
+    filter_field: Option<crate::FilterField>,
     text: RowText<R>,
     cell: Option<CellView<R>>,
     header_menu: Option<HeaderMenu>,
@@ -59,6 +60,7 @@ impl<R> Clone for DataColumn<R> {
     fn clone(&self) -> Self {
         Self {
             def: self.def.clone(),
+            filter_field: self.filter_field.clone(),
             text: self.text.clone(),
             cell: self.cell.clone(),
             header_menu: self.header_menu.clone(),
@@ -75,6 +77,7 @@ impl<R: 'static> DataColumn<R> {
     pub fn new(title: impl IntoText, text: impl Fn(&R) -> String + 'static) -> Self {
         Self {
             def: ColumnDef::new((), title),
+            filter_field: None,
             text: Rc::new(text),
             cell: None,
             header_menu: None,
@@ -132,6 +135,25 @@ impl<R: 'static> DataColumn<R> {
     pub fn filter(mut self, matches: impl Fn(&R, &str) -> bool + 'static) -> Self {
         self.def = self.def.filter(matches);
         self
+    }
+
+    /// Supply a typed filter editor and its predicate for committed values.
+    /// The caller decides how to match the chosen operator against a row.
+    pub fn filter_field(
+        mut self,
+        field: crate::FilterField,
+        matches: impl Fn(&R, &crate::FilterValue) -> bool + 'static,
+    ) -> Self {
+        let kind = field.clone();
+        self.def = self
+            .def
+            .filter_value(move |row, value| !kind.accepts(value) || matches(row, value));
+        self.filter_field = Some(field);
+        self
+    }
+
+    pub(crate) fn filter_editor(&self) -> Option<crate::FilterField> {
+        self.filter_field.clone()
     }
 
     /// Show the column while true (a constant or a reactive value). A hidden

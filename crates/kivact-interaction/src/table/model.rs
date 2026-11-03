@@ -4,16 +4,51 @@ use super::data::{Header, SortOrder};
 use kivact_core::view::{IntoText, IntoValue, Reactive};
 use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
 type Compare<R> = Rc<dyn Fn(&R, &R) -> Ordering>;
 type Matches<R> = Rc<dyn Fn(&R, &str) -> bool>;
+type MatchesValue<R> = Rc<dyn Fn(&R, &FilterValue) -> bool>;
 type KeyOf<R, K> = Rc<dyn Fn(&R) -> K>;
 /// The caller's sort column and direction.
 type Sort<C> = Value<Vec<(C, SortOrder)>>;
 type ColumnQueries<C> = Value<Vec<(C, String)>>;
 type RowArrangement<R> = Rc<dyn Fn(&[R], Vec<usize>) -> Vec<usize>>;
+type TypedQueries<C> = Value<HashMap<C, FilterValue>>;
+
+/// A committed typed column filter.
+#[derive(Clone, Debug, PartialEq)]
+pub enum FilterValue {
+    /// A text query.
+    Text(String),
+    /// A finite number.
+    Number(f64),
+    /// The key of a selected choice.
+    Choice(String),
+    /// The keys of the selected choices.
+    Choices(Vec<String>),
+    /// A calendar date without a time zone.
+    Date(kivact_core::i18n::CalendarDate),
+    /// A local time of day.
+    Time { hour: u8, minute: u8 },
+    /// A list of text tokens.
+    Tokens(Vec<String>),
+}
+
+impl FilterValue {
+    /// Whether this value has no effective query.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Text(text) => text.trim().is_empty(),
+            Self::Number(value) => !value.is_finite(),
+            Self::Choices(values) | Self::Tokens(values) => values.is_empty(),
+            Self::Time { hour, minute } => *hour >= 24 || *minute >= 60,
+            Self::Choice(_) | Self::Date(_) => false,
+        }
+    }
+}
 
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack Table's column definition), and
@@ -31,6 +66,7 @@ pub struct ColumnDef<R, C> {
     pub(super) min_width: Option<f64>,
     compare: Option<Compare<R>>,
     matches: Option<Matches<R>>,
+    matches_value: Option<MatchesValue<R>>,
     visible: Reactive<bool>,
 }
 
@@ -43,6 +79,7 @@ impl<R, C: Clone> Clone for ColumnDef<R, C> {
             min_width: self.min_width,
             compare: self.compare.clone(),
             matches: self.matches.clone(),
+            matches_value: self.matches_value.clone(),
             visible: self.visible.clone(),
         }
     }
@@ -58,6 +95,7 @@ impl<R, C> ColumnDef<R, C> {
             min_width: None,
             compare: None,
             matches: None,
+            matches_value: None,
             visible: Reactive::new(true),
         }
     }
@@ -74,6 +112,12 @@ impl<R, C> ColumnDef<R, C> {
     /// given, trimmed of surrounding white space.
     pub fn filter(mut self, matches: impl Fn(&R, &str) -> bool + 'static) -> Self {
         self.matches = Some(Rc::new(matches));
+        self
+    }
+
+    /// Match this column's committed typed filter value.
+    pub fn filter_value(mut self, matches: impl Fn(&R, &FilterValue) -> bool + 'static) -> Self {
+        self.matches_value = Some(Rc::new(matches));
         self
     }
 
@@ -106,6 +150,7 @@ impl<R, C> ColumnDef<R, C> {
             min_width: self.min_width,
             compare: self.compare,
             matches: self.matches,
+            matches_value: self.matches_value,
             visible: self.visible,
         }
     }
@@ -141,7 +186,7 @@ impl<R, C> ColumnDef<R, C> {
 
     /// Whether the column takes part in filtering ([`filter`](Self::filter)).
     pub fn is_filtered(&self) -> bool {
-        self.matches.is_some()
+        self.matches.is_some() || self.matches_value.is_some()
     }
 
     /// The starting width ([`width`](Self::width)).
@@ -182,6 +227,7 @@ impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
             && self.visible == other.visible
             && same(self.compare.as_ref(), other.compare.as_ref())
             && same(self.matches.as_ref(), other.matches.as_ref())
+            && same(self.matches_value.as_ref(), other.matches_value.as_ref())
     }
 }
 
@@ -250,6 +296,7 @@ pub struct TableModel<R: 'static, K: 'static, C: 'static> {
     query: Signal<Option<Value<String>>>,
     column_queries: Signal<Option<ColumnQueries<C>>>,
     arrangement: Signal<Option<RowArrangement<R>>>,
+    typed_queries: Signal<Option<TypedQueries<C>>>,
     paging: Signal<Option<Paging>>,
 }
 
@@ -284,6 +331,7 @@ where
     let query = signal(None::<Value<String>>);
     let column_queries = signal(None::<Value<Vec<(C, String)>>>);
     let arrangement = signal(None::<RowArrangement<R>>);
+    let typed_queries = signal(None::<TypedQueries<C>>);
     let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();
@@ -308,7 +356,11 @@ where
                 .get()
                 .map(|queries| queries.get())
                 .unwrap_or_default();
-            let shown = if query.is_empty() && column_queries.is_empty() {
+            let typed = typed_queries
+                .get()
+                .map(|queries| queries.get())
+                .unwrap_or_default();
+            let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
                 Vec::new()
             } else {
                 shown()
@@ -328,6 +380,13 @@ where
                     Some((column.matches.as_ref()?, text))
                 })
                 .collect();
+            let typed_matchers: Vec<_> = shown
+                .iter()
+                .filter_map(|column| {
+                    let value = typed.get(&column.key).filter(|value| !value.is_empty())?;
+                    Some((column.matches_value.as_ref()?, value))
+                })
+                .collect();
             rows.with(|rows| {
                 let mut kept: Vec<usize> = (0..rows.len())
                     .filter(|&i| {
@@ -337,6 +396,9 @@ where
                             && column_matchers
                                 .iter()
                                 .all(|(matches, text)| matches(row, text))
+                            && typed_matchers
+                                .iter()
+                                .all(|(matches, value)| matches(row, value))
                     })
                     .collect();
                 let comparisons: Vec<_> = sort
@@ -417,6 +479,7 @@ where
         query,
         column_queries,
         arrangement,
+        typed_queries,
         paging,
     }
 }
@@ -465,6 +528,13 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     pub fn arrange_rows(self, arrange: impl Fn(&[R], Vec<usize>) -> Vec<usize> + 'static) -> Self {
         self.arrangement
             .update(|current| *current = Some(Rc::new(arrange)));
+        self
+    }
+
+    /// Require each typed value to match its shown column, in addition to
+    /// text queries. Empty values and columns without a predicate are ignored.
+    pub fn typed_column_filters(self, values: impl IntoValue<HashMap<C, FilterValue>>) -> Self {
+        self.typed_queries.set(Some(values.into_value()));
         self
     }
 

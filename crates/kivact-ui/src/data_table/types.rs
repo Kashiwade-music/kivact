@@ -11,6 +11,7 @@ use std::rc::Rc;
 /// The sorted column (an index into the columns) and its direction.
 pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
 pub(super) type ColumnFilters = Binding<Vec<(usize, String)>>;
+pub(super) type TypedFilters = Binding<std::collections::HashMap<usize, crate::FilterValue>>;
 /// The page shown and the rows on a page.
 pub(super) type Paging = (Binding<usize>, Value<usize>);
 pub(super) type Key<R, K> = Rc<dyn Fn(&R) -> K>;
@@ -42,6 +43,8 @@ pub struct DataTableContext<R: 'static, K: 'static> {
     pub filter: Option<Binding<String>>,
     /// The caller's queries by column index, when supplied.
     pub column_filters: Option<Binding<Vec<(usize, String)>>>,
+    /// Committed typed values keyed by the column's original position.
+    pub typed_column_filters: Option<Binding<std::collections::HashMap<usize, crate::FilterValue>>>,
     /// The caller's page number and the rows on a page, when the table
     /// pages.
     pub page: Option<(Binding<usize>, Value<usize>)>,
@@ -94,6 +97,8 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) row_index: Option<usize>,
     pub(super) filter: Option<Binding<String>>,
     pub(super) column_filters: Option<ColumnFilters>,
+    pub(super) typed_column_filters: Option<TypedFilters>,
+    pub(super) filter_ui: crate::FilterUi,
     pub(super) sticky: Option<StickyEdges>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
     pub(super) resize_range: Option<ScalarRange>,

@@ -162,11 +162,12 @@ pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
 pub use data_table::{
     DataTable, DataTableContext, DataTableDensity, DataTableGroupState, DataTableRowStatusPaint,
-    DataTableStickyPaint, DataTableTreeIndent, RowStatus, data_table,
+    DataTableStickyPaint, DataTableTreeIndent, FilterField, FilterUi, RowStatus, data_table,
 };
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};
 pub use inline_edit::{InlineEdit, use_inline_edit};
+pub use kivact_interaction::FilterValue;
 /// The values and data the standard components and the official kits take,
 /// so an app needs no `kivact::interaction` import (that module is the
 /// component author's).

@@ -52,6 +52,8 @@ where
         row_index,
         filter,
         column_filters,
+        typed_column_filters,
+        filter_ui,
         sticky,
         widths,
         resize_range,
@@ -108,6 +110,9 @@ where
     }
     if let Some(queries) = column_filters {
         model = model.column_filters(queries.into_value());
+    }
+    if let Some(filters) = typed_column_filters {
+        model = model.typed_column_filters(filters);
     }
     let page_size = page.and_then(|(index, _)| {
         page_sizes.map(|(size, _)| {
@@ -249,6 +254,7 @@ where
         sort,
         filter,
         column_filters,
+        typed_column_filters,
         page,
         page_size,
         has_more,
@@ -286,6 +292,11 @@ where
     let grid = Grid {
         tree,
         behavior,
+        filters: typed_column_filters.map(|values| super::filters::Filters {
+            values,
+            ui: filter_ui,
+            page: page.map(|(index, _)| index),
+        }),
         keys: selectable_keys,
         indexed,
         row_selectable,

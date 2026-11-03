@@ -31,6 +31,7 @@ use std::rc::Rc;
 pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: Table<K, usize>,
+    pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
     pub(super) indexed: Option<Value<HashMap<K, usize>>>,
@@ -116,6 +117,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
         Self {
             tree: self.tree,
             behavior: self.behavior,
+            filters: self.filters,
             keys: self.keys,
             indexed: self.indexed,
             columns: self.columns.clone(),
@@ -362,7 +364,18 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
                     .cursor(Cursor::EwResize),
             )
     });
+    let field = grid.filters.and_then(|_| column.filter_editor());
+    let inline = grid
+        .filters
+        .is_some_and(|filters| filters.ui != crate::FilterUi::Popover);
+    let filter_anchor = (!inline && field.is_some()).then(kivact_core::view::node_ref);
+    let filter = grid
+        .filters
+        .map(|filters| filters.control(index, field, title, filter_anchor));
     let mut header = node().part(part).name(title);
+    if let Some(anchor) = filter_anchor {
+        header = header.node_ref(anchor);
+    }
     if let Some(sticky) = &grid.sticky {
         header = header.node_ref(sticky.headers[index]);
     }
@@ -380,11 +393,23 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
         grid.tree
             .filter(|tree| tree.column == index && tree.show_all)
             .map(|tree| tree.header()),
-    )
-    .child(text(title).style(crate::helpers::single_line_text()))
-    .child(mark)
-    .child(handle);
-    column.render_header(header)
+    );
+    let title = text(title).style(crate::helpers::single_line_text());
+    let header = if inline {
+        use kivact_core::style::{Align, Direction};
+        header
+            .style(
+                style()
+                    .direction(Direction::Column)
+                    .align_items(Align::Stretch)
+                    .gap(4),
+            )
+            .child(row((title, mark)).style(style().gap(4)))
+            .child(filter)
+    } else {
+        header.child(title).child(mark).child(filter)
+    };
+    column.render_header(header.child(handle))
 }
 
 /// A primary press on a data cell must not replace the row selection when
