@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use kivact_core::draw::Point;
 use kivact_core::view::{NodeRef, ScrollBehavior};
-use kivact_core::{Value, effect_on, memo};
+use kivact_core::{Value, effect, memo};
 
 /// Queries and commands for a vertical viewport that follows growing content.
 pub struct FollowEnd {
@@ -64,19 +64,14 @@ pub fn use_follow_end(
     });
     let end = memo(move || geometry.get().map(|(end, _)| end));
     let distance = memo(move || end.get().map_or(0.0, |end| (end - offset.get().y).max(0.0)));
-    let observation = memo(move || {
-        (
-            geometry.get(),
-            offset.get(),
-            history_revision.map(|revision| revision.get()),
-        )
-    });
     let state = Rc::new(Cell::new(FollowState::default()));
     let observer = state.clone();
-    effect_on(observation, move |&(geometry, offset, revision)| {
-        let Some((end, height)) = geometry else {
+    effect(move || {
+        let Some((end, height)) = geometry.get() else {
             return;
         };
+        let offset = offset.get();
+        let revision = history_revision.map(|revision| revision.get());
         let mut state = observer.get();
         let target = state.observe(end, height, offset.y, revision, reattach_distance);
         observer.set(state);
