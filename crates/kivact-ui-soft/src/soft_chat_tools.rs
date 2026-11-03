@@ -376,6 +376,7 @@ impl IntoView for ChatToolCalls {
             .node_ref(measured)
             .style(style().gap(2).shrink(0));
         let items = column(items)
+            .role(Role::Group)
             .part(disclosure.content())
             .style(style().clip(true))
             .style(reveal.container_style(measured));

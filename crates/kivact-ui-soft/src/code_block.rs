@@ -404,8 +404,6 @@ impl IntoView for CodeBlock {
                 } else {
                     ScrollAxes::Both
                 })
-                .role(Role::Group)
-                .name(viewport_label)
                 .style(move || match max_height {
                     Some(height) => style().max_height(height),
                     None => style(),
@@ -421,6 +419,8 @@ impl IntoView for CodeBlock {
                     .style(style().shrink(0))
             },
         ))
+        .role(Role::Group)
+        .name(viewport_label)
         .part(disclosure.content())
         .style(style().clip(true))
         .style(reveal.container_style(measured));
