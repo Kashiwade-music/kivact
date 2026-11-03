@@ -288,8 +288,9 @@ dev/tools/window-lock.sh -- cargo test -p kivact-ui-soft -p kivact-ui-soft-catal
 
 Toolbar and `input_group_with(..)` provide a default size to their control
 factories. An explicit control size takes precedence. `input_group(..)` joins
-already built controls at a shared height. Menus open
-by activation. Submenus wait 150 ms to open on hover and 200 ms to close when
+already built controls at a shared height. Soft menus support mouse press and
+drag selection, touch and pen long press, and keyboard activation. Submenus
+wait 150 ms to open on hover and 200 ms to close when
 the pointer moves over a sibling item. Submenus and navigation flyouts retain
 their open state while the mouse moves diagonally toward the surface.
 On touch-capable platforms, date and time fields can open a bottom sheet
@@ -297,8 +298,9 @@ with a calendar or picker wheels. `SelectorPresentation::Adaptive` opens a
 sheet for touch activation on compact viewports. Some layout changes update
 immediately, while Collapsible supports an
 optional height animation. The rich text editor offers source editing and
-formatted preview. Inline Markdown decoration uses native text and view
-composition. The application chooses the appearance. Overflow lists measure
+formatted preview. `.block_editing(true)` adds wrapped native editors for
+headings, prose, lists, tasks, quotes, and code. Inline Markdown decoration uses
+native text and view composition. The application chooses the appearance. Overflow lists measure
 mounted items and use provisional widths until measurements arrive.
 
 Toolbar slots use one Tab stop. Arrow keys move among eligible controls and
@@ -309,8 +311,8 @@ Date and time wheels currently use numeric labels. Truncation hints show
 the full label on hover when native layout cuts the text. Citation and
 timestamp underlines are solid.
 Carousel scrolls to slides in response to its controls. Enable `.snap(true)`
-to settle to a slide after scrolling. Font cap-height trimming uses the native
-line box.
+to settle to a slide after scrolling. `text(..).capsize(true)` trims to the
+first visible line's measured cap height and the last visible baseline.
 
 Chat Layout follows new messages while the viewport is near the end. Pass
 `.history_revision(..)` and update it in the same batch as a history prepend
@@ -347,9 +349,9 @@ Number, date, and time filter fields validate values entered as text.
 | C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `TreeList::animated(true)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
 | C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
 | C-09, C-37 | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel snaps after native scrolling settles. Slider uses relative touch tracking and release coast. Native scrolling can take over a same-axis Slider drag inside a scroll view. Toast pauses its timer during touch or pen swipes. Switch uses touch lift and drag with one paint transition per phase. |
-| C-11, C-17, C-18, C-39 | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus use activation to open. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. Drag-to-select remains pending. |
-| C-15 | Inline Markdown uses native text and view composition. The rich text editor has source and preview modes. Its toolbar applies bold, italic, strikethrough, and code marks to Markdown source. |
+| C-11, C-17, C-18, C-39 | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus support press and drag selection. Edge autoscroll remains pending. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. |
+| C-15 | Inline Markdown uses native text and view composition. The rich text editor supports source, block, and preview modes. Inline marks remain visible as Markdown delimiters while editing. Native selections are local to a block, and complex blocks use source and preview modes. |
 | C-20, C-21, C-24, C-35, C-36 | The application supplies the appearance. Date and time offer a desktop path and a touch sheet. Soft Selector opens from a bare arrow and retains trigger focus while highlighting an option in the popup. The compact touch sheet moves focus into its modal and returns it on close. MultiSelector and ComplexSelector use the popup path. |
-| C-22, C-25, C-38 | Text shows a hint when native shaping reports truncation. Citation and timestamp use solid underlines. Text uses the native line box. |
+| C-22, C-25, C-38 | Text shows a hint when native shaping reports truncation. Citation and timestamp use solid underlines. Text supports measured cap-height trimming. `form_row(..)` places labels and fields in the shared tracks of a horizontal-label form. |
 | C-26 | Soft respects Kivact's reduced-motion preference and the application's override. System detection depends on the platform. |
 | C-33, C-34 | The kit supplies its own static list. Overflow List measures mounted items and uses provisional widths before layout. |
