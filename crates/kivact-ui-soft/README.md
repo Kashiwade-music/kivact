@@ -42,9 +42,9 @@ The standard APIs in this table come from `kivact::ui`.
 | Aspect Ratio | `aspect_ratio` |
 | Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
 | Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
-| Bottom Sheet | `bottom_sheet`, `bottom_sheet_flow` |
+| Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
-| Button | Standard `button` and `toggle`, `button_group`, `toggle_button_group` |
+| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_button_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | `calendar`, `calendar_range` |
 | Card | `card`, `clickable_card`, `selectable_card` |
 | Carousel | `carousel`, `use_carousel` |
@@ -52,27 +52,27 @@ The standard APIs in this table come from `kivact::ui`.
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code / Code Block | `citation`, `code`, `code_block` |
 | Collapsible | `collapsible`, `collapsible_group`. Disclosure state belongs to the binding. |
-| Command Palette | Standard `command_palette` and `Command` |
-| Context Menu | Standard `menu(...).attach_context(...)` and `MenuEntry` |
+| Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
+| Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
 | Date Input | `date_input`, `date_range_input`, `date_time_input` |
 | Dialog | Standard `dialog`, `dialog_header`, `alert_dialog`. Signals own imperative open state. |
 | Divider | `divider` |
 | Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
-| Dropdown Menu | Standard `menu` and `MenuEntry` |
+| Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
 | Empty State | `empty_state` |
-| Field | Standard `field`, `field_status`, `input_group`, `input_group_text`, `file_input` |
+| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and `file_input` for the surrounding controls. |
 | Heading | `heading` |
 | Hover Card | `hover_card`. The builder owns delayed visibility. |
 | Icon | `icon`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
 | Item / Kbd | `item`, `kbd` |
-| Layout | `center`, `form_layout`, `grid`, `grid_span`, `hstack`, `layout` and its regions, `section`, `stack`, `stack_item`, `vstack` |
+| Layout | `center`, `form_layout`, `grid`, `grid_span`, `hstack`, `layout`, `layout_content`, `layout_footer`, `layout_header`, `layout_panel`, `section`, `stack`, `stack_item`, `vstack` |
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
 | List | `list`, `list_items`, `list_item` |
 | Markdown | `markdown` |
 | Metadata List | `metadata_list`, `metadata_item` |
 | More Menu | `more_menu` |
-| Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav` and its slots, `top_nav` and its menu and mega-menu builders |
+| Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav`, `side_nav_collapse_button`, `side_nav_heading`, `side_nav_item`, `side_nav_section`, `top_nav`, `top_nav_heading`, `top_nav_item`, `top_nav_menu`, `top_nav_mega_menu`, `top_nav_mega_menu_item`, `top_nav_featured_card` |
 | Number Input / Outline / Overflow List / Overlay / Pagination | Standard `number_input`, `outline`, `pagination`, `overflow_list`, `media_overlay` |
 | Popover | Standard `dialog(...).kind(DialogKind::Popover)` and `kivact::view::overlay` |
 | Power Search / Progress Bar | `power_search`, standard `progress` |
@@ -93,7 +93,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
 | Typeahead | `typeahead`, `base_typeahead`, standard `ListItem`. The Kivact interaction layer supplies combobox state. |
 | VisuallyHidden | `visually_hidden` |
-| Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::i18n`, `kivact::platform::window_size`, `kivact::platform::copy_text`, Kivact interaction and overlay APIs. Links use application callbacks on native. React ref merging and React development warnings are unnecessary for native nodes. |
+| Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::platform::window_size`, and `kivact::platform::copy_text`. Internationalization Provider maps to `App::locale` and `App::messages`, Layer Provider to `kivact::view::overlay`, and Link Provider to `link_with` with an application callback. Kivact handles node references and diagnostics. |
 
 ## Theme, tokens, fonts, and icons
 

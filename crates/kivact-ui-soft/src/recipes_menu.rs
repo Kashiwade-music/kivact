@@ -10,7 +10,6 @@ const MENU_MIN_FLYOUT_WIDTH: f32 = 160.0;
 const MENU_MAX_HEIGHT: f32 = 300.0;
 
 pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
-    // TODO(soft-core: C-18): Keep click activation.
     r.trigger(|_| trigger)
         .surface(|_| {
             |t: &Theme, _: &Look<PopupState>| {
