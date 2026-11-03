@@ -208,9 +208,15 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     pub fn trigger(self) -> Part<PopupState> {
         self.top_level("trigger", Location::caller());
         let session = self.session;
-        session
-            .popup
-            .trigger()
+        let trigger = session.popup.trigger();
+        let trigger = if let Some(press) = session.press {
+            trigger.on_pointer(move |event| {
+                press.event(session, super::press_state::Source::Trigger, event)
+            })
+        } else {
+            trigger
+        };
+        trigger
             .on_key(move |event: KeyEvent| {
                 let m = event.modifiers;
                 if m.ctrl || m.alt || m.meta {
@@ -303,9 +309,24 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
         })
         .region_events();
         let trigger = if fallback {
-            trigger.on_secondary_context(pointer)
+            let trigger = trigger.on_secondary_context(pointer);
+            if let Some(press) = session.press {
+                trigger.on_pointer(move |event| {
+                    press.event(session, super::press_state::Source::Context, event)
+                })
+            } else {
+                trigger
+            }
         } else {
-            trigger.on_pointer(pointer)
+            trigger.on_pointer(move |event| {
+                if let Some(press) = session.press {
+                    let handled = press.event(session, super::press_state::Source::Context, event);
+                    if handled == Handled::Yes {
+                        return handled;
+                    }
+                }
+                pointer(event)
+            })
         };
         trigger
             .on_key(move |event: KeyEvent| {

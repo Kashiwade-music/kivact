@@ -2,7 +2,7 @@
 use std::time::Duration;
 
 use crate::tokens::Tokens;
-use kivact::interaction::{DisabledMenuFocus, SubmenuTiming, TouchSliderGesture};
+use kivact::interaction::{DisabledMenuFocus, MenuPress, SubmenuTiming, TouchSliderGesture};
 use kivact::motion::{Spring, Transition};
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{LineHeight, Theme, ThemeMode};
@@ -71,6 +71,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with(DisabledButtonFocus::Retain)
         .with(DisabledMenuFocus::Retain)
         .with(DialogCenter::Window)
+        .with(MenuPress(true))
         .with(SubmenuTiming {
             open: std::time::Duration::from_millis(150),
             close: std::time::Duration::from_millis(200),

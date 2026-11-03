@@ -169,6 +169,14 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 base.node_ref().rect(),
             );
         }
+        let surface = base.node_ref();
+        let base = if let Some(press) = session.press {
+            base.on_pointer(move |event| {
+                press.event(session, super::press_state::Source::Menu, event)
+            })
+        } else {
+            base
+        };
         base.role(Role::Menu)
             .on_key(move |event: KeyEvent| {
                 // Core skips handlers on a disabled row itself. Its menu still
@@ -197,6 +205,9 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 }
             })
             .on_bind(move |_| {
+                if let Some(press) = session.press {
+                    press.surface(surface);
+                }
                 if depth == 0 {
                     // Where the focus returns for this opening.
                     session.popup.set_opening_policy(session.focus_return());
@@ -303,6 +314,11 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
 
         let member = group.item_with_disabled_focus(key.clone(), self.retain_disabled_focus);
         let item_ref = member.node_ref();
+        if let Some(press) = session.press {
+            press.row(item_ref, disabled);
+        }
+        let pressed_over =
+            memo(move || session.press.and_then(|press| press.highlighted(item_ref)));
 
         // The pointer focuses the item it rests on; a submenu opens after a rest.
         let hovered = signal(false);
@@ -313,7 +329,11 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 observe_rect(self.anchors, key.clone(), item_ref.rect());
             }
             let key = key.clone();
-            let resting = memo(move || hovered.get() && !expanded.get() && !disabled.get());
+            let resting = memo(move || {
+                pressed_over.get().unwrap_or_else(|| hovered.get())
+                    && !expanded.get()
+                    && !disabled.get()
+            });
             let rest = use_delayed(
                 resting,
                 Delays {
@@ -338,7 +358,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             // events, so this follows the item's hover instead.
             let over = item_ref.hovered();
             let rest = use_delayed(
-                over,
+                move || pressed_over.get().unwrap_or_else(|| over.get()),
                 Delays {
                     open: timing.close,
                     close: Duration::ZERO,
@@ -368,6 +388,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         let invoke_key = key;
         let member = member
             .map_state(move |state| MenuItemState {
+                pressed_over: pressed_over.get(),
                 input: state.input,
                 check: check.get(),
                 expanded: expanded.get(),
@@ -381,6 +402,12 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             .with(part(|input| input).disabled(disabled))
             .description(description)
             .on_pointer(move |event: PointerEvent| {
+                if let Some(press) = session.press {
+                    let handled = press.event(session, super::press_state::Source::Menu, event);
+                    if handled == Handled::Yes {
+                        return handled;
+                    }
+                }
                 match event.phase {
                     PointerPhase::Enter => hovered.set(true),
                     PointerPhase::Leave => hovered.set(false),

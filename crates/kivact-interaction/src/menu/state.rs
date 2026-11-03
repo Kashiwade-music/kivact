@@ -53,6 +53,9 @@ pub enum MenuItemKind {
 /// The state of a menu item for the caller's drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
+    /// Which row is under the held pointer during menu press tracking.
+    /// None leaves highlighting to the ordinary focus and hover states.
+    pub pressed_over: Option<bool>,
     pub input: PartState,
     /// The checked state of a check or radio item; `None` for other items.
     pub check: Option<MenuCheck>,
@@ -631,6 +634,7 @@ pub(super) struct Session<K: 'static> {
     pub(super) kept: Value<usize>,
     pub(super) want: Signal<Option<Want<K>>>,
     pub(super) typed: Var<Typeahead>,
+    pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::draw::Rect)>>,
 }
 

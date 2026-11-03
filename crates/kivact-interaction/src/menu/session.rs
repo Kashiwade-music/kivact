@@ -3,6 +3,7 @@
 use std::hash::Hash;
 
 use super::order::{item_enabled, kept_levels};
+use super::press_state::{MenuPress, Press};
 use super::state::{Edge, MenuEntry, MenuOrigin, Opened, Session, Target, Want};
 use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupCloseReason, ReasonSet, use_popup};
@@ -45,11 +46,18 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
             want,
             typed: var(Typeahead::default()),
             surface_rects: signal(Vec::new()),
+            press: kivact_core::style::current_theme()
+                .get::<MenuPress>()
+                .0
+                .then(Press::new),
         };
         // A closed menu forgets its submenus, its focus, any request and
         // where it was asked to appear.
         effect(move || {
             if !open.get() {
+                if let Some(press) = this.press {
+                    press.cancel_open();
+                }
                 path.set(Vec::new());
                 want.set(None);
                 focus_key.set(None);
@@ -107,6 +115,9 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
     pub(super) fn close(&self, reason: PopupCloseReason) {
         if !self.shown().get_untracked() {
             return;
+        }
+        if let Some(press) = self.press {
+            press.cancel();
         }
         self.popup.close(reason);
     }

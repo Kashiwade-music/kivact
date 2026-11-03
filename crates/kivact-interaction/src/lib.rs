@@ -94,7 +94,7 @@ pub use list::{
 };
 pub use menu::{
     DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin,
-    MenuRow, SubmenuTiming, use_menu,
+    MenuPress, MenuRow, SubmenuTiming, use_menu,
 };
 pub use menubar::{Menubar, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPalette, filter_commands, use_command_palette};

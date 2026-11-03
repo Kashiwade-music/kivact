@@ -146,6 +146,12 @@ fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
         });
     let base = if s.input.disabled {
         base.opacity(p.sizes.disabled_opacity)
+    } else if let Some(pressed) = s.pressed_over {
+        if pressed {
+            base.background(p.colors.overlay_hover)
+        } else {
+            base
+        }
     } else {
         base.hover(highlight.clone())
             .focus(highlight.clone())
