@@ -4,7 +4,9 @@ use crate::Tokens;
 use kivact::draw::{LineCap, Point, Rect, Stroke};
 use kivact::interaction::{SortOrder, TabState, TableHeaderState, TreeItemState};
 use kivact::motion::Transition;
-use kivact::style::{Align, Cursor, Direction, Justify, Style, Theme, TransitionProp, pct, style};
+use kivact::style::{
+    Align, Cursor, Direction, Justify, Position, Style, Theme, TransitionProp, pct, style,
+};
 use kivact::ui::{
     AxisState, DataTableRecipes, DisclosureRecipes, ListRecipes, Look, SplitRecipes,
     SplitterRecipes, TabsRecipes, TreeRecipes,
@@ -63,6 +65,7 @@ pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {
         }
     })
     .tab(|_| tab)
+    .indicator(|_| tab_indicator)
 }
 
 fn tab(t: &Theme, s: &Look<TabState>) -> Style {
@@ -74,9 +77,8 @@ fn tab(t: &Theme, s: &Look<TabState>) -> Style {
         p.colors.text_secondary
     };
     let inset = p.spacing.s3;
-    let bar = p.colors.accent;
-    let vertical = s.orientation == Orientation::Vertical;
     let mut tab = style()
+        .position(Position::Relative)
         .direction(Direction::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
@@ -101,24 +103,31 @@ fn tab(t: &Theme, s: &Look<TabState>) -> Style {
             .hover(style().background(p.colors.overlay_hover))
             .pressed(style().background(p.colors.overlay_pressed));
     }
-    // TODO(soft-core: C-02): the standard tab needs a separate indicator node
-    // or a reactive paint value to fade this inset bar independently.
-    if s.selected {
-        tab = tab.paint(move |draw, size| {
-            let rect = if vertical {
-                Rect::new(0.0, inset, 2.0, (size.height - inset * 2.0).max(0.0))
-            } else {
-                Rect::new(
-                    inset,
-                    size.height - 1.0,
-                    (size.width - inset * 2.0).max(0.0),
-                    2.0,
-                )
-            };
-            draw.rounded_rect(rect, 1.0, bar);
-        });
-    }
     tab
+}
+
+fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
+    let p = t.get::<Tokens>();
+    let inset = p.spacing.s3;
+    let indicator = style()
+        .position(Position::Absolute)
+        .radius(1)
+        .background(p.colors.accent)
+        .opacity(if s.selected { 1.0 } else { 0.0 })
+        .transition(
+            TransitionProp::Paint,
+            paint_transition(&p, p.motion.fast).decorative(false),
+        );
+    if s.orientation == Orientation::Vertical {
+        let indicator = indicator.top(inset).bottom(inset).width(2);
+        if current_direction() == ReadingDirection::Rtl {
+            indicator.right(0)
+        } else {
+            indicator.left(0)
+        }
+    } else {
+        indicator.left(inset).right(inset).bottom(-1).height(2)
+    }
 }
 
 pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
