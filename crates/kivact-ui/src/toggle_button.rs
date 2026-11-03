@@ -10,10 +10,83 @@ use super::values::{ControlSize, ToggleButtonState};
 use super::variants::{Variant, Variants};
 use kivact_core::Binding;
 use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{IntoText, IntoValue, IntoView, View};
+use kivact_core::control::{Node, NodeBuilder, column, node, text};
+use kivact_core::draw::{Size, TextStyle};
+use kivact_core::primitive::{Constraints, NodeExt, primitive};
+use kivact_core::style::{Align, TextAlign, Theme, ThemeExtension, current_theme, style};
+use kivact_core::view::{IntoText, IntoValue, IntoView, View, dynamic, show};
 use kivact_interaction::{ToggleState, use_toggle_button};
+
+/// Opt-in text measurement for a toggle whose label changes weight when pressed.
+/// Install it with [`Theme::with`] and use the same size as the toggle recipe.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ToggleLabelReservation {
+    /// Let the visible label determine its own width.
+    #[default]
+    Natural,
+    /// Reserve space for the same label shaped at another weight.
+    Reserve {
+        /// The weight used in the pressed appearance.
+        weight: u16,
+        /// The recipe's font size in logical pixels.
+        size: f32,
+        /// The recipe's font size at [`ControlSize::ExtraSmall`].
+        extra_small_size: f32,
+    },
+}
+
+impl ThemeExtension for ToggleLabelReservation {
+    fn fallback(_: &Theme) -> Self {
+        Self::Natural
+    }
+}
+
+fn toggle_label(label: Value<String>, hidden: Option<Value<bool>>, size: ControlSize) -> View {
+    dynamic(
+        || *current_theme().get::<ToggleLabelReservation>(),
+        move |reservation| {
+            let ToggleLabelReservation::Reserve {
+                weight,
+                size: font_size,
+                extra_small_size,
+            } = reservation
+            else {
+                return super::helpers::visible_label(label, hidden);
+            };
+            let font_size = if size == ControlSize::ExtraSmall {
+                extra_small_size
+            } else {
+                font_size
+            };
+            let visible = move || {
+                let reservation = primitive()
+                    .measure(
+                        label,
+                        move |label: &String, constraints: Constraints<'_>| {
+                            let text = TextStyle {
+                                weight,
+                                size: font_size,
+                                ..TextStyle::default()
+                            };
+                            let width = constraints.measure_text(label, &text).size.width;
+                            Size::new(width, 0.0)
+                        },
+                    )
+                    .style(style().min_width(0).height(0))
+                    .hit_testable(false);
+                column((
+                    reservation,
+                    text(label).style(super::helpers::label_style().text_align(TextAlign::Center)),
+                ))
+                .style(style().min_width(0).align_items(Align::Stretch))
+            };
+            match hidden {
+                Some(hidden) => show(move || !hidden.get(), visible).into_view(),
+                None => visible().into_view(),
+            }
+        },
+    )
+}
 
 /// A button that stays pressed, created by [`toggle`]. Its behavior and
 /// semantics are those of [`use_toggle_button`].
@@ -136,7 +209,7 @@ impl IntoView for Toggle {
         )
         .part(part)
         .child(self.icon)
-        .child(super::helpers::visible_label(self.label, self.hide_label))
+        .child(toggle_label(self.label, self.hide_label, size))
         .into_view()
     }
 }
