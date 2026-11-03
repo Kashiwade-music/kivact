@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 /// The sorted column (an index into the columns) and its direction.
 pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
+pub(super) type ColumnFilters = Binding<Vec<(usize, String)>>;
 /// The page shown and the rows on a page.
 pub(super) type Paging = (Binding<usize>, Value<usize>);
 pub(super) type Key<R, K> = Rc<dyn Fn(&R) -> K>;
@@ -36,6 +37,8 @@ pub struct DataTableContext<R: 'static, K: 'static> {
     pub sort: Binding<Option<(usize, SortOrder)>>,
     /// The caller's filter text, when the table has one.
     pub filter: Option<Binding<String>>,
+    /// The caller's queries by column index, when supplied.
+    pub column_filters: Option<Binding<Vec<(usize, String)>>>,
     /// The caller's page number and the rows on a page, when the table
     /// pages.
     pub page: Option<(Binding<usize>, Value<usize>)>,
@@ -60,6 +63,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) multi_sort: Option<Binding<Vec<(usize, SortOrder)>>>,
     pub(super) page: Option<Paging>,
     pub(super) filter: Option<Binding<String>>,
+    pub(super) column_filters: Option<ColumnFilters>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
     pub(super) resize_range: Option<ScalarRange>,
     pub(super) row_label: Option<RowName<R>>,
@@ -69,6 +73,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) footer: Option<Slot<R, K>>,
     pub(super) empty: Option<Box<dyn Fn() -> View>>,
     pub(super) details: Option<RowSlot<R>>,
+    pub(super) expanded_rows: Option<Binding<Vec<K>>>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) focus: TableFocus,
     pub(super) row_height: Option<Value<f32>>,

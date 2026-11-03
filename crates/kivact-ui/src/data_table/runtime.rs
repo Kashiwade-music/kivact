@@ -41,6 +41,7 @@ where
         multi_sort,
         page,
         filter,
+        column_filters,
         widths,
         resize_range,
         row_label,
@@ -50,6 +51,7 @@ where
         footer,
         empty,
         details,
+        expanded_rows,
         cells,
         focus,
         row_height,
@@ -75,6 +77,9 @@ where
     let mut model = use_table_model(data, move |row| model_key(row), definitions);
     if let Some(query) = filter {
         model = model.filter(query.into_value());
+    }
+    if let Some(queries) = column_filters {
+        model = model.column_filters(queries.into_value());
     }
     if let Some((index, size)) = page {
         model = model.page(index, size);
@@ -150,6 +155,7 @@ where
         selection,
         sort,
         filter,
+        column_filters,
         page,
     };
     let toolbar = match toolbar {
@@ -171,6 +177,7 @@ where
         row_label: label,
         cells,
         details,
+        expanded_rows,
         reorder,
         source: data,
         key: key.clone(),

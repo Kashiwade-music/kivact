@@ -297,3 +297,39 @@ fn multi_sort_keeps_stable_ties_and_shift_cycles_the_secondary_key() {
     assert_eq!(sort.get_untracked(), [(0, SortOrder::Ascending)]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn expanded_details_follow_row_keys_across_sorting() {
+    let (screen, expanded) = mount_with(options(), || {
+        let expanded = signal(Vec::<u32>::new());
+        (
+            expanded,
+            data_table(people(), |p: &Person| p.id, columns())
+                .row_label(|person| person.name.to_owned())
+                .row_details(|person| {
+                    text(move || person.with(|person| format!("Details for {}", person.name)))
+                })
+                .expanded_rows(expanded),
+        )
+    });
+    let trigger = screen.get_by_role(Role::Button, "Grace details");
+    assert_eq!(trigger.is_expanded(), Some(false));
+    assert!(screen.query_by_text("Details for Grace").is_none());
+    trigger.press_key(Key::Enter);
+    assert_eq!(expanded.get_untracked(), [2]);
+    assert_eq!(trigger.is_expanded(), Some(true));
+    assert_eq!(trigger.controls().len(), 1);
+    assert!(screen.query_by_text("Details for Grace").is_some());
+    assert!(screen.query_by_text("Details for Ada").is_none());
+
+    screen.get_by_role(Role::ColumnHeader, "Name").click();
+    let trigger = screen.get_by_role(Role::Button, "Grace details");
+    assert_eq!(trigger.is_expanded(), Some(true));
+    assert!(screen.query_by_text("Details for Grace").is_some());
+    trigger.press_key(Key::Enter);
+    assert!(expanded.get_untracked().is_empty());
+    assert!(screen.query_by_text("Details for Grace").is_none());
+    trigger.click();
+    assert_eq!(expanded.get_untracked(), [2]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

@@ -12,6 +12,7 @@ type Matches<R> = Rc<dyn Fn(&R, &str) -> bool>;
 type KeyOf<R, K> = Rc<dyn Fn(&R) -> K>;
 /// The caller's sort column and direction.
 type Sort<C> = Value<Vec<(C, SortOrder)>>;
+type ColumnQueries<C> = Value<Vec<(C, String)>>;
 
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack Table's column definition), and
@@ -246,6 +247,7 @@ pub struct TableModel<R: 'static, K: 'static, C: 'static> {
     pages: Value<usize>,
     sort: Signal<Option<Sort<C>>>,
     query: Signal<Option<Value<String>>>,
+    column_queries: Signal<Option<ColumnQueries<C>>>,
     paging: Signal<Option<Paging>>,
 }
 
@@ -278,6 +280,7 @@ where
     let columns: Rc<[ColumnDef<R, C>]> = columns.into();
     let sort = signal(None::<Sort<C>>);
     let query = signal(None::<Value<String>>);
+    let column_queries = signal(None::<Value<Vec<(C, String)>>>);
     let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();
@@ -298,18 +301,41 @@ where
                 .map(|query| query.get().trim().to_string())
                 .unwrap_or_default();
             let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
+            let column_queries = column_queries
+                .get()
+                .map(|queries| queries.get())
+                .unwrap_or_default();
+            let shown = if query.is_empty() && column_queries.is_empty() {
+                Vec::new()
+            } else {
+                shown()
+            };
+            let global_matchers: Vec<_> = shown
+                .iter()
+                .filter_map(|column| column.matches.as_ref())
+                .collect();
+            let column_matchers: Vec<_> = column_queries
+                .iter()
+                .filter_map(|(key, text)| {
+                    let text = text.trim();
+                    if text.is_empty() {
+                        return None;
+                    }
+                    let column = shown.iter().find(|column| &column.key == key)?;
+                    Some((column.matches.as_ref()?, text))
+                })
+                .collect();
             rows.with(|rows| {
-                let mut kept: Vec<usize> = if query.is_empty() {
-                    (0..rows.len()).collect()
-                } else {
-                    let matchers: Vec<_> = shown()
-                        .into_iter()
-                        .filter_map(|column| column.matches)
-                        .collect();
-                    (0..rows.len())
-                        .filter(|&i| matchers.iter().any(|matches| matches(&rows[i], &query)))
-                        .collect()
-                };
+                let mut kept: Vec<usize> = (0..rows.len())
+                    .filter(|&i| {
+                        let row = &rows[i];
+                        (query.is_empty()
+                            || global_matchers.iter().any(|matches| matches(row, &query)))
+                            && column_matchers
+                                .iter()
+                                .all(|(matches, text)| matches(row, text))
+                    })
+                    .collect();
                 let comparisons: Vec<_> = sort
                     .into_iter()
                     .filter_map(|(key, direction)| {
@@ -383,6 +409,7 @@ where
         pages,
         sort,
         query,
+        column_queries,
         paging,
     }
 }
@@ -413,6 +440,16 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     pub fn filter(self, query: impl IntoValue<String>) -> Self {
         let query = query.into_value();
         self.query.update(|current| *current = Some(query));
+        self
+    }
+
+    /// Require each nonblank column query to match that shown column's
+    /// [predicate](ColumnDef::filter), in addition to the global filter.
+    /// Unknown, hidden and non-filterable columns are ignored. Repeated
+    /// queries for a column must all match. The model only reads the queries.
+    #[track_caller]
+    pub fn column_filters(self, queries: impl IntoValue<Vec<(C, String)>>) -> Self {
+        self.column_queries.set(Some(queries.into_value()));
         self
     }
 

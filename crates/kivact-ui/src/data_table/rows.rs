@@ -3,7 +3,7 @@ use super::types::{CellSlot, Key, RowColor, RowName, RowSlot, Sort};
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
-use kivact_core::control::{NodeBuilder, column, node, row, text};
+use kivact_core::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact_core::i18n::message_with;
 use kivact_core::primitive::Part;
 use kivact_core::style::{Cursor, Justify, Position, Style, pct, style};
@@ -14,7 +14,7 @@ use kivact_core::view::{
 use kivact_core::{Binding, Callback, Value, binding, memo, signal};
 use kivact_interaction::{
     DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState, TableFocus,
-    TableRowState, use_drag,
+    TableRowState, use_disclosure, use_drag,
 };
 use std::hash::Hash;
 use std::rc::Rc;
@@ -33,6 +33,7 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) row_label: RowName<R>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) details: Option<RowSlot<R>>,
+    pub(super) expanded_rows: Option<Binding<Vec<K>>>,
     pub(super) reorder: Option<Callback<(K, usize)>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
@@ -56,6 +57,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
             row_label: self.row_label.clone(),
             cells: self.cells.clone(),
             details: self.details.clone(),
+            expanded_rows: self.expanded_rows,
             reorder: self.reorder,
             source: self.source,
             key: self.key.clone(),
@@ -130,7 +132,14 @@ pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
             .map(|index| head_cell(&heads, index))
             .collect::<Vec<_>>()
     });
-    row((check, columns, actions)).role(Role::Row).into_view()
+    let disclosure = (grid.details.is_some() && grid.expanded_rows.is_some()).then(|| {
+        expansion_cell()
+            .role(Role::ColumnHeader)
+            .name(kivact_core::i18n::message("data_table.details", "Details"))
+    });
+    row((check, disclosure, columns, actions))
+        .role(Role::Row)
+        .into_view()
 }
 
 /// The header of column `index`: its title, the sort mark and, when the
@@ -265,9 +274,17 @@ where
             )
             .child(render(item))
     });
+    let (trigger, details) = match (&grid.details, grid.expanded_rows) {
+        (Some(render), Some(expanded)) => {
+            let (trigger, region) = row_disclosure(grid, id.clone(), item, expanded, render);
+            (Some(trigger), Some(region.into_view()))
+        }
+        (Some(render), None) => (None, Some(render(item))),
+        (None, _) => (None, None),
+    };
     let (color, height) = (grid.row_color.clone(), grid.row_height);
     let line = with_recipe_style(
-        row((check, cells, actions))
+        row((check, trigger, cells, actions))
             .style(style().group())
             .part(part),
         |r| r.data_table_recipes().row_recipe(),
@@ -282,10 +299,74 @@ where
         Some(reorder) => line.part(drag_source(grid, id, reorder)),
         None => line,
     };
-    match &grid.details {
-        Some(render) => column((line, render(item))).into_view(),
+    match details {
+        Some(details) => column((line, details)).into_view(),
         None => line.into_view(),
     }
+}
+
+fn expansion_cell() -> Node {
+    node().style(
+        style()
+            .width(32)
+            .shrink(0)
+            .direction(kivact_core::style::Direction::Row)
+            .align_items(kivact_core::style::Align::Center)
+            .justify_content(Justify::Center),
+    )
+}
+
+fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
+    grid: &Grid<R, K>,
+    key: K,
+    item: Value<R>,
+    expanded: Binding<Vec<K>>,
+    render: &RowSlot<R>,
+) -> (Node, Node) {
+    let current_key = key.clone();
+    let open = binding(
+        move || expanded.with(|keys| keys.contains(&current_key)),
+        move |open| {
+            let mut keys = expanded.get_untracked();
+            if open {
+                if keys.contains(&key) {
+                    return;
+                }
+                keys.push(key.clone());
+            } else {
+                keys.retain(|candidate| candidate != &key);
+            }
+            expanded.set(keys);
+        },
+    );
+    let disclosure = use_disclosure(open);
+    let shown = disclosure.shown();
+    let row_label = grid.row_label.clone();
+    let name = message_with("data_table.row_details", "{row} details", move || {
+        [("row", item.with(|row| row_label(row)))]
+    });
+    let role = if matches!(grid.focus, TableFocus::None) {
+        Role::Cell
+    } else {
+        Role::GridCell
+    };
+    let trigger = node()
+        .part(disclosure.trigger())
+        .name(name)
+        .on_pointer(keep_selection)
+        .style(style().size(28, 28).cursor(Cursor::Pointer))
+        .child(icon(move || {
+            kivact_core::style::Icon::named(if shown.get() {
+                "chevron-down"
+            } else {
+                "chevron-right"
+            })
+        }));
+    let region = column(render(item))
+        .role(Role::Group)
+        .name(name)
+        .part(disclosure.content());
+    (expansion_cell().role(role).child(trigger), region)
 }
 
 /// One body cell: the cell controls, the column's cell view or its text.

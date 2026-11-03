@@ -108,6 +108,7 @@ where
         multi_sort: None,
         page: None,
         filter: None,
+        column_filters: None,
         widths: None,
         resize_range: None,
         row_label: None,
@@ -117,6 +118,7 @@ where
         footer: None,
         empty: None,
         details: None,
+        expanded_rows: None,
         cells: None,
         focus: TableFocus::default(),
         row_height: None,
@@ -185,6 +187,14 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// page. An empty field keeps every row.
     pub fn filter(mut self, query: impl Into<Binding<String>>) -> Self {
         self.filter = Some(query.into());
+        self
+    }
+
+    /// Apply independent queries by column index alongside the global filter.
+    /// Only shown columns with filter predicates participate. Use the toolbar
+    /// context to build controls over this binding.
+    pub fn column_filters(mut self, queries: impl Into<Binding<Vec<(usize, String)>>>) -> Self {
+        self.column_filters = Some(queries.into());
         self
     }
 
@@ -271,6 +281,14 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// edited, sorted or paged. The caller controls whether it is shown.
     pub fn row_details<V: IntoView>(mut self, details: impl Fn(Value<R>) -> V + 'static) -> Self {
         self.details = Some(Rc::new(move |row| details(row).into_view()));
+        self
+    }
+
+    /// Add a disclosure control to each row with [`row_details`](Self::row_details).
+    /// The binding contains the expanded row keys, independent of sort and
+    /// paging. Details stay mounted while their row is mounted.
+    pub fn expanded_rows(mut self, expanded: impl Into<Binding<Vec<K>>>) -> Self {
+        self.expanded_rows = Some(expanded.into());
         self
     }
 
