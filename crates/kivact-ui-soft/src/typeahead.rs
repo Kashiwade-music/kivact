@@ -2,17 +2,18 @@
 use crate::recipes_field::{frame, text as text_style};
 use crate::theme_access::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
-use kivact::i18n::message;
-use kivact::interaction::{ListSelection, use_combobox};
+use kivact::i18n::{message, message_with};
+use kivact::interaction::{ListSelection, announcer, use_combobox};
 use kivact::primitive::{NodeExt, PartState, part};
 use kivact::style::{Align, Color, pct, style};
 use kivact::task::{AsyncState, resource, sleep};
 use kivact::ui::{ListItem, text_input};
 use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, OverlayAlign, Placement, PointerEvent,
-    PointerPhase, View, for_each, node_ref, overlay, show,
+    Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, LiveRegion, Modifiers, OverlayAlign,
+    Placement, PointerEvent, PointerPhase, View, for_each, node_ref, overlay, show,
 };
-use kivact::{Binding, Result, Value, binding, effect, memo, signal};
+use kivact::{Binding, Result, Value, binding, effect, effect_on, memo, signal};
+use std::cell::RefCell;
 use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
@@ -246,9 +247,30 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
         let input = text_input(label, edit)
             .placeholder(placeholder)
             .disabled(disabled)
-            .forward_keys(vec![Key::ArrowUp, Key::ArrowDown, Key::Enter, Key::Escape])
+            .forward_keys(move || {
+                let mut keys = vec![Key::ArrowUp, Key::ArrowDown, Key::Enter, Key::Escape];
+                if chips.is_some() && query.get().is_empty() {
+                    keys.push(Key::Backspace);
+                }
+                keys
+            })
             .part(input_part)
             .expanded(open)
+            .on_key(move |event: KeyEvent| {
+                if event.key == Key::Backspace
+                    && event.modifiers == Modifiers::default()
+                    && query.get_untracked().is_empty()
+                    && !disabled.get_untracked()
+                    && let Some(chips) = chips
+                {
+                    let mut selected = chips.get_untracked();
+                    if selected.pop().is_some() {
+                        chips.set(selected);
+                        return Handled::Yes;
+                    }
+                }
+                Handled::No
+            })
             .on_pointer(move |event: PointerEvent| {
                 if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
                     open.set(true);
@@ -403,6 +425,49 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                 .at_least_anchor_width(true)
                 .on_dismiss(move |_| open.set(false))
         });
-        root.child(field).child(popup).into_view()
+        root.child(field)
+            .child(popup)
+            .child(chips.map(|values| token_notices(values, labels)))
+            .into_view()
     }
+}
+
+fn token_notices<K: Clone + Eq + Hash + 'static>(
+    selected: Binding<Vec<K>>,
+    labels: Value<Vec<ListItem<K>>>,
+) -> View {
+    let notices = announcer();
+    let label = signal(String::new());
+    let added = message_with("soft.tokenizer.token_added", "Added {label}", move || {
+        [("label", label.get())]
+    });
+    let removed = message_with(
+        "soft.tokenizer.token_removed",
+        "Removed {label}",
+        move || [("label", label.get())],
+    );
+    let cleared = message("soft.tokenizer.all_removed", "All items removed");
+    let previous = RefCell::new(selected.get_untracked());
+    effect_on(selected.into_value(), move |next| {
+        let previous = previous.replace(next.clone());
+        if next.is_empty() && previous.len() > 1 {
+            notices.announce(cleared.get_untracked(), LiveRegion::Polite);
+            return;
+        }
+        let change = next
+            .iter()
+            .find(|key| !previous.contains(key))
+            .map(|key| (key, added))
+            .or_else(|| {
+                previous
+                    .iter()
+                    .find(|key| !next.contains(key))
+                    .map(|key| (key, removed))
+            });
+        if let Some((key, message)) = change {
+            label.set(label_of(labels, key));
+            notices.announce(message.get_untracked(), LiveRegion::Polite);
+        }
+    });
+    notices.outlet()
 }

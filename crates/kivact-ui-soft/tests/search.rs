@@ -82,6 +82,7 @@ fn tokenizer_keeps_remote_labels_and_excludes_selected_keys() {
     screen.get_by_role(Role::TextBox, "Members").click();
     screen.get_by_role(Role::Option, "Ada").click();
     assert_eq!(selected.get_untracked(), vec!["ada"]);
+    screen.get_by_text("Added Ada");
     screen.get_by_role(Role::Button, "Remove Ada");
     screen.get_by_role(Role::TextBox, "Members").click();
     assert!(screen.query_by_role(Role::Option, "Ada").is_none());
@@ -89,5 +90,13 @@ fn tokenizer_keeps_remote_labels_and_excludes_selected_keys() {
     screen.press_key(Key::Escape);
     screen.get_by_role(Role::Button, "Remove Ada").click();
     assert!(selected.get_untracked().is_empty());
+    screen.get_by_text("Removed Ada");
+    let input = screen.get_by_role(Role::TextBox, "Members");
+    input.click();
+    screen.get_by_role(Role::Option, "Grace").click();
+    assert_eq!(selected.get_untracked(), ["grace"]);
+    input.press_key(Key::Backspace);
+    assert!(selected.get_untracked().is_empty());
+    screen.get_by_text("Removed Grace");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

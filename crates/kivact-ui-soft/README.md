@@ -260,6 +260,9 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.thumbnail.open` | Open {name} |
 | `soft.thumbnail.remove` | Remove {name} |
 | `soft.time.icon` | Time |
+| `soft.tokenizer.all_removed` | All items removed |
+| `soft.tokenizer.token_added` | Added {label} |
+| `soft.tokenizer.token_removed` | Removed {label} |
 | `soft.token.remove` | Remove {label} |
 | `soft.top_nav.label` | Top navigation |
 | `soft.tree_list.toggle_children` | Toggle children |
@@ -279,8 +282,9 @@ dev/tools/window-lock.sh -- cargo test -p kivact-ui-soft -p kivact-ui-soft-catal
 
 ## Current native behavior
 
-Toolbar sets a default control size for descendants. An explicit control size
-takes precedence. Input Group still sets its child sizes directly. Menus open
+Toolbar and `input_group_with(..)` provide a default size to their control
+factories. An explicit control size takes precedence. `input_group(..)` joins
+already built controls at a shared height. Menus open
 by activation. Submenus wait 150 ms to open on hover and 200 ms to close when
 the pointer moves over a sibling item. Diagonal pointer tracking remains
 pending. Touch-specific date pickers and adaptive selector sheets remain
@@ -289,6 +293,10 @@ optional height animation. The rich text editor offers source editing and
 formatted preview. Inline Markdown decoration uses native text and view
 composition. The application chooses the appearance. Overflow lists measure
 mounted items and use provisional widths until measurements arrive.
+
+Toolbar slots use one Tab stop. Arrow keys move among eligible controls and
+respect the caret inside a text field. `toolbar_item(..)` registers a control
+for the keyboard hint.
 
 Date and time formatting uses the desktop input path. Truncation hints can
 show the full label on hover. Citation and timestamp underlines are solid.
