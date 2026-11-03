@@ -57,7 +57,8 @@ fn column_filters_combine_with_global_or_and_ignore_ineligible_columns() {
         .filter(query)
         .column_filters(filters)
         .footer(move |context| {
-            text(move || format!("Keys: {:?}", context.model.filtered_keys().get()))
+            let keys = context.model.filtered_keys();
+            text(move || format!("Keys: {:?}", keys.get()))
         });
         column((
             button("Apply queries").on_press(move || {
