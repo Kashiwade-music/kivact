@@ -2,12 +2,12 @@
 
 use crate::Tokens;
 use kivact::draw::{LineCap, Point, Rect, Stroke};
-use kivact::interaction::{SortOrder, TabState, TableHeaderState};
+use kivact::interaction::{SortOrder, TabState, TableHeaderState, TreeItemState};
 use kivact::motion::Transition;
 use kivact::style::{Align, Cursor, Direction, Justify, Style, Theme, TransitionProp, pct, style};
 use kivact::ui::{
     AxisState, DataTableRecipes, DisclosureRecipes, ListRecipes, Look, SplitRecipes,
-    SplitterRecipes, TabsRecipes,
+    SplitterRecipes, TabsRecipes, TreeRecipes,
 };
 use kivact::view::{Orientation, ReadingDirection, current_direction};
 
@@ -17,6 +17,35 @@ fn paint_transition(p: &Tokens, duration: u64) -> Transition {
 
 fn focus(p: &Tokens) -> Style {
     style().ring(p.sizes.focus_ring_width, p.colors.focus_ring)
+}
+
+pub(crate) fn tree(recipes: TreeRecipes) -> TreeRecipes {
+    recipes
+        .root(|_| |_: &Theme, _: &_| style().direction(Direction::Column).gap(2))
+        .item(|_| {
+            |theme: &Theme, row: &Look<TreeItemState>| {
+                let tokens = theme.get::<Tokens>();
+                let rtl = current_direction() == ReadingDirection::Rtl;
+                let indent = 8 + row.level.saturating_sub(1) * 16;
+                style()
+                    .direction(if rtl {
+                        Direction::RowReverse
+                    } else {
+                        Direction::Row
+                    })
+                    .align_items(Align::Center)
+                    .min_width(0)
+                    .gap(8)
+                    .padding_y(crate::ItemDensity::Balanced.padding())
+                    .padding_left(if rtl { 8 } else { indent })
+                    .padding_right(if rtl { indent } else { 8 })
+                    .radius(tokens.radius.element)
+                    .color(tokens.colors.text_primary)
+                    .hover(style().background(tokens.colors.overlay_hover))
+                    .selected(style().background(tokens.colors.accent_muted))
+                    .focus_visible(focus(&tokens))
+            }
+        })
 }
 
 pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {

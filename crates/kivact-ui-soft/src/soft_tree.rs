@@ -1,6 +1,5 @@
 //! Role: Neutral tree list over Kivact's public tree interaction.
 
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -10,10 +9,10 @@ use kivact::i18n::message;
 use kivact::interaction::{ListSelection, TreeItemState, TreeRow, use_tree};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, Position, TransitionProp, style};
-use kivact::ui::TreeNode;
+use kivact::ui::{TreeNode, tree_rows};
 use kivact::view::{
     HandlerResult, IntoText, IntoValue, IntoView, ReadingDirection, Role, View, callback,
-    current_direction, for_each, node_ref,
+    current_direction, node_ref,
 };
 use kivact::{Binding, Callback, Value, memo, signal};
 
@@ -129,36 +128,13 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
         let has_branches =
             memo(move || rows.with(|rows| rows.iter().any(|row| row.branch.has_children())));
         let rtl = current_direction() == ReadingDirection::Rtl;
-        let guides = (variant == TreeVariant::LineGuides).then(|| {
-            memo(move || {
-                rows.with(|rows| {
-                    let mut ancestors = Vec::new();
-                    let mut guides = HashMap::new();
-                    for row in rows {
-                        let level = row.level.saturating_sub(1) as usize;
-                        ancestors.truncate(level);
-                        let last = row.pos_in_set == row.set_size;
-                        let mut lines: Vec<_> = ancestors
-                            .iter()
-                            .skip(1)
-                            .map(|&continues: &bool| continues.then_some(true))
-                            .collect();
-                        if level > 0 {
-                            lines.push(Some(!last));
-                        }
-                        guides.insert(row.key.clone(), lines);
-                        ancestors.push(!last);
-                    }
-                    guides
-                })
-            })
-        });
-        let rows = for_each(
-            rows,
-            |row| (row.key.clone(), row.branch.has_children()),
-            move |(key, branch), row| {
-                let attachment = tree.item(key.clone());
+        let guides = (variant == TreeVariant::LineGuides).then(|| tree.ancestor_last());
+        let rows = tree_rows(
+            tree,
+            |_| (),
+            move |key, row, attachment| {
                 let state = attachment.state();
+                let branch = row.with_untracked(|row| row.branch.has_children());
                 let row_key = key.clone();
                 let chevron = branch.then(|| {
                     node()
@@ -205,19 +181,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
                 let label = if let Some(render) = &renderer {
                     render(row, state)
                 } else {
-                    text(move || {
-                        row.with(|row| {
-                            nodes.with(|nodes| {
-                                nodes
-                                    .iter()
-                                    .find(|node| node.key() == &row.key)
-                                    .map(TreeNode::label)
-                                    .unwrap_or_default()
-                            })
-                        })
-                    })
-                    .style(style().font_size(14).line_height(20.0 / 14.0).single_line())
-                    .into_view()
+                    text(tree.label(row_key.clone()))
+                        .style(style().font_size(14).line_height(20.0 / 14.0).single_line())
+                        .into_view()
                 };
                 node()
                     .part(attachment)
@@ -247,10 +213,16 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
                         if state.selected {
                             style = style.background(p.colors.accent_muted);
                         }
-                        if let Some(lines) = guides
+                        if let Some(ancestors) = guides
                             .and_then(|guides| guides.with(|guides| guides.get(&row_key).cloned()))
-                            && !lines.is_empty()
+                            && !ancestors.is_empty()
                         {
+                            let mut lines: Vec<_> = ancestors
+                                .into_iter()
+                                .skip(1)
+                                .map(|last| (!last).then_some(true))
+                                .collect();
+                            lines.push(Some(!row.with(|row| row.is_last())));
                             let guide = p.colors.border_emphasized;
                             style = style.paint(move |draw, size| {
                                 for (ancestor, extend) in lines.iter().enumerate() {

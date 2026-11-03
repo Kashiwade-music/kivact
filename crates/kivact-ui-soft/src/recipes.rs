@@ -23,6 +23,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .splitter(crate::recipes_collections::splitter)
                 .split(crate::recipes_collections::split)
                 .list(crate::recipes_collections::list)
+                .tree(crate::recipes_collections::tree)
                 .data_table(crate::recipes_collections::data_table)
         })
         .clone()
