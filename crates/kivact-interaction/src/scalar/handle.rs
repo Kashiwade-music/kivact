@@ -208,6 +208,7 @@ impl Scalar {
             range: self.ops.range,
             thumb: self.edit.thumb,
             rect: self.edit.thumb_rect,
+            bounds: self.edit.bounds,
         }
     }
 
@@ -250,6 +251,21 @@ impl Scalar {
         self.part(Role::SpinButton)
     }
 
+    /// Opt into direct manipulation and coast for touch pointers.
+    pub fn touch_gesture(self, config: super::TouchSliderGesture) -> Self {
+        self.edit.shared.enable_touch(config);
+        self
+    }
+
+    /// Whether this thumb is held by a touch contact, when opted in.
+    pub fn touch_lifted(self) -> Option<Value<bool>> {
+        self.edit
+            .shared
+            .touch
+            .get()
+            .map(|touch| touch.lifted(self.edit.index))
+    }
+
     /// Create the pointer attachment of the slider's track: a primary press
     /// on it moves the value to the pointer, focuses the thumb, and dragging
     /// follows the pointer until the release.
@@ -267,7 +283,7 @@ impl Scalar {
     pub fn track(self, axis: Orientation) -> Part<PartState> {
         let axis = Axis::of(axis, "Scalar::track");
         let edit = self.edit;
-        track::track(edit.shared.pointer, edit.shared.drag, edit.thumb, axis)
+        track::track(edit.shared, edit.thumb, axis)
     }
 
     #[track_caller]
@@ -286,7 +302,9 @@ impl Scalar {
         .focusable(true)
         .value_now(value)
         .on_key(move |event: KeyEvent| {
-            if event.key == Key::Escape && shared.drag.cancel().is_some() {
+            if event.key == Key::Escape
+                && (shared.finish_touch(true) || shared.drag.cancel().is_some())
+            {
                 return Handled::Yes;
             }
             if role == Role::SpinButton
@@ -337,7 +355,10 @@ impl Scalar {
             .disabled(move || shared.disabled.with(|d| d.is_some_and(|d| d.get())))
             .reference(self.edit.thumb);
         if role == Role::Slider {
-            control = control.with(shared.drag.source(Grip::Thumb(self.edit.index)));
+            let grip = Grip::Thumb(self.edit.index);
+            control = shared
+                .touch_source(control, grip)
+                .with(shared.drag.source(grip));
         }
         control
     }

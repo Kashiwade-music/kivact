@@ -1,11 +1,13 @@
 //! Role: Edit session, drag and focus count shared by the thumbs of one scalar.
 
+use super::touch::{Touch, TouchSliderGesture};
 use super::track::{self, Grip, Pointer};
 use crate::drag::Drag;
 use crate::edit::EditSession;
 use kivact_core::draw::Rect;
-use kivact_core::view::{NodeRef, node_ref};
-use kivact_core::{Signal, Value, Var, effect_on, memo, on_cleanup, signal, var};
+use kivact_core::primitive::Part;
+use kivact_core::view::{Handled, NodeRef, node_ref};
+use kivact_core::{Signal, Value, Var, effect, effect_on, memo, on_cleanup, signal, var};
 
 /// The edit plumbing one [`Scalar`] or both thumbs of a
 /// [`RangeScalar`](crate::RangeScalar) share: the session, what it restores,
@@ -16,6 +18,7 @@ pub(crate) struct Shared {
     pub(crate) snapshot: Value<[f64; 2]>,
     pub(crate) pointer: Pointer,
     pub(crate) drag: Drag<Grip>,
+    pub(crate) touch: Var<Option<Touch>>,
     /// The caller's disabled value, given to [`Scalar::disabled`].
     pub(crate) disabled: Signal<Option<Value<bool>>>,
     /// The keyboard increment given to `key_step`; the range's step else.
@@ -38,6 +41,7 @@ impl Shared {
             pointer,
             drag: track::drag(session, snapshot, pointer, disabled),
             disabled,
+            touch: var(None),
             key_step: var(None),
             thumb_focus,
         };
@@ -45,9 +49,44 @@ impl Shared {
         effect_on(any_focused, move |focused| {
             if !*focused {
                 shared.drag.cancel();
+                shared.finish_touch(true);
             }
         });
         shared
+    }
+
+    pub(crate) fn enable_touch(self, config: TouchSliderGesture) {
+        if self.touch.get().is_none() {
+            let touch = Touch::new(config, self.pointer, self.session, self.snapshot);
+            self.touch.set(Some(touch));
+            effect(move || {
+                if self.disabled.get().is_some_and(|disabled| disabled.get()) {
+                    touch.finish(false);
+                }
+            });
+        }
+    }
+
+    pub(crate) fn finish_touch(self, restore: bool) -> bool {
+        self.touch.get().is_some_and(|touch| touch.finish(restore))
+    }
+
+    pub(crate) fn touch_source<S: Clone + PartialEq + 'static>(
+        self,
+        part: Part<S>,
+        grip: Grip,
+    ) -> Part<S> {
+        if let Some(touch) = self.touch.get() {
+            part.on_pointer(move |event| {
+                if self.disabled.get().is_some_and(|disabled| disabled.get()) {
+                    Handled::No
+                } else {
+                    touch.event(grip, event)
+                }
+            })
+        } else {
+            part
+        }
     }
 
     /// Whether the arrows of a thumb mirror: a horizontal track in a
@@ -61,6 +100,7 @@ impl Shared {
 
     /// Run one whole edit around `write` (or join the active one).
     pub(crate) fn once(self, write: impl FnOnce() -> bool) -> bool {
+        self.finish_touch(false);
         let mut accepted = false;
         self.session
             .once(self.snapshot.get_untracked(), || accepted = write());

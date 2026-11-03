@@ -1,12 +1,14 @@
 //! Role: Install the Astryx Neutral tokens and recipes on the Kivact theme.
+use std::time::Duration;
+
 use crate::tokens::Tokens;
-use kivact::interaction::{DisabledMenuFocus, SubmenuTiming};
-use kivact::motion::Transition;
+use kivact::interaction::{DisabledMenuFocus, SubmenuTiming, TouchSliderGesture};
+use kivact::motion::{Spring, Transition};
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{LineHeight, Theme, ThemeMode};
 use kivact::ui::{
-    ButtonBusyMotion, DialogCenter, DisabledButtonFocus, ProgressMotion, ToastRowMotion,
-    ToggleLabelReservation,
+    ButtonBusyMotion, DialogCenter, DisabledButtonFocus, ProgressMotion, SliderTouchMotion,
+    ToastRowMotion, ToggleLabelReservation,
 };
 use kivact::view::OverlayViewport;
 
@@ -99,6 +101,24 @@ pub fn theme(mode: ThemeMode) -> Theme {
             extra_small_size: tokens.typography.supporting.size_px,
         })
         .with_icons(crate::icons::set())
+        .with(SliderTouchMotion::Direct {
+            gesture: TouchSliderGesture {
+                slop_px: 10.0,
+                projection: Duration::from_micros(99_600),
+                response: Duration::from_millis(400),
+            },
+            lifted_scale: 1.55,
+            lift: Spring {
+                stiffness: 854.0,
+                damping: 35.07,
+                mass: 1.0,
+            },
+            drop: Spring {
+                stiffness: 157.9,
+                damping: 17.59,
+                mass: 1.0,
+            },
+        })
         .with(kivact::ui::DataTableStickyPaint {
             surface: colors.bg_card,
             hover: colors.overlay_hover,

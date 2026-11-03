@@ -102,7 +102,7 @@ pub use policy::grid::GridMove;
 pub use policy::scalar::{ScalarRange, ScalarRangeError};
 pub use popup::{Popup, PopupState, use_popup};
 pub use range_scalar::{RangeScalar, RangeThumb, use_range_scalar};
-pub use scalar::{IntoScalarRange, Scalar, ScalarState, use_scalar};
+pub use scalar::{IntoScalarRange, Scalar, ScalarState, TouchSliderGesture, use_scalar};
 pub use select::{SelectApi, use_select};
 pub use space_pan::{SpacePan, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};

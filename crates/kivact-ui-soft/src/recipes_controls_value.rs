@@ -57,8 +57,6 @@ fn thumb(theme: &Theme, _: &Look<AxisState>) -> Style {
     let t = theme.get::<Tokens>();
     let c = &t.colors;
     let side = t.spacing.s5;
-    // TODO(soft-core: C-09): Keep the standard desktop pointer behavior
-    // until the touch lift, relative tracking and coast are available.
     let base = style()
         .size(side, side)
         .shrink(0)

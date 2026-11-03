@@ -195,8 +195,8 @@ impl RangeScalar {
     #[track_caller]
     pub fn body(self) -> Part<PartState> {
         let edit = self.low.edit;
-        part(|input| input)
-            .focus_on_press(edit.thumb)
+        edit.shared
+            .touch_source(part(|input| input).focus_on_press(edit.thumb), Grip::Body)
             .with(edit.shared.drag.source(Grip::Body))
     }
 }
