@@ -49,6 +49,9 @@ pub(super) fn bind(
         });
     }
     cx.update(id, PropValue::Multiline(editing.multiline));
+    if let Some(value) = editing.line_layout {
+        cx.bind(id, value, PropValue::EditLineLayout, at);
+    }
     if editing.report_text {
         cx.update(id, PropValue::ReportText(true));
     }

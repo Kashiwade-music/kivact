@@ -169,6 +169,36 @@ fn tooltip_uses_shared_delay_and_native_text_area_remains_controlled() {
 }
 
 #[test]
+fn a_soft_wrapping_text_area_grows_to_its_visual_row_limit() {
+    let (screen, value) = mount(|| {
+        let value = signal("alpha".to_owned());
+        (
+            value,
+            column((ui::text_area("Notes", value)
+                .wrap(true)
+                .rows(1..=3)
+                .style(style().width(104).font_size(16)),)),
+        )
+    });
+    let field = screen.get_by_role(Role::TextBox, "Notes");
+    let height = || field.rect().expect("text area layout").height;
+    let one = height();
+    value.set("alpha beta gamma".to_owned());
+    screen.run_until_idle();
+    assert!(height() > one, "soft rows increase the height");
+    value.set("alpha beta gamma ".repeat(8));
+    screen.run_until_idle();
+    let capped = height();
+    value.set("alpha beta gamma ".repeat(16));
+    screen.run_until_idle();
+    assert_eq!(height(), capped, "additional visual rows scroll");
+    assert!(!value.get_untracked().contains('\n'));
+    value.set("alpha".to_owned());
+    screen.run_until_idle();
+    assert_eq!(height(), one, "a shorter value shrinks the field");
+}
+
+#[test]
 fn context_menu_reuses_renderer_for_keyboard_and_pointer_origins() {
     use kivact::view::MouseButton;
     let (screen, chosen) = mount(|| {

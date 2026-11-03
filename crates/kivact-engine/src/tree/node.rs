@@ -273,6 +273,16 @@ impl HostNode {
         self.input_data().and_then(|s| s.multiline).unwrap_or(false)
     }
 
+    pub(crate) fn edit_line_layout(&self) -> kivact_wire::EditLineLayout {
+        if self.multiline() {
+            self.input_data()
+                .and_then(|s| s.line_layout)
+                .unwrap_or_default()
+        } else {
+            kivact_wire::EditLineLayout::default()
+        }
+    }
+
     /// Focusable by its own props: `Focusable` (a text input by default),
     /// neither disabled nor hidden. A tab stop must also be shown
     /// ([`crate::model::Model::is_tab_stop`]).

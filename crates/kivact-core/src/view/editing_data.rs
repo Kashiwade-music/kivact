@@ -92,6 +92,7 @@ pub(crate) struct EditorProps {
     pub(crate) forward_keys: Option<InputProp<Vec<kivact_wire::Key>>>,
     pub(crate) value: InputProp<Rc<str>>,
     pub(crate) multiline: bool,
+    pub(crate) line_layout: Option<InputProp<kivact_wire::EditLineLayout>>,
     pub(crate) report_text: bool,
     pub(crate) password: Option<InputProp<bool>>,
     pub(crate) read_only: Option<InputProp<bool>>,

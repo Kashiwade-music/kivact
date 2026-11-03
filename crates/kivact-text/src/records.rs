@@ -23,6 +23,7 @@ pub(crate) struct Key {
     pub(crate) style: kivact_types::protocol::TextStyle,
     pub(crate) shown: Shown,
     pub(crate) multiline: bool,
+    pub(crate) wrap_width: Option<f32>,
 }
 
 impl Key {
@@ -48,6 +49,7 @@ impl Key {
             style,
             shown,
             multiline: source.multiline,
+            wrap_width: source.wrap_width,
         };
         (key, align)
     }

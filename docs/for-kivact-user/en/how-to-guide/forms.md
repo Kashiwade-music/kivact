@@ -143,7 +143,7 @@ fn app() -> impl IntoView {
 
     column((
         field("Name", text_input("Name", name)).error(name_error),
-        field("Bio", text_area("Bio", bio).style(style().height(72))),
+        field("Bio", text_area("Bio", bio).wrap(true).rows(2..=5)),
         field(
             "Plan",
             select(

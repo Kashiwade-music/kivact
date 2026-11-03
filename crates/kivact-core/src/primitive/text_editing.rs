@@ -150,6 +150,7 @@ impl TextEditing {
                 forward_keys: None,
                 value: value.into_prop(),
                 multiline: false,
+                line_layout: None,
                 report_text: false,
                 password: None,
                 read_only: None,
@@ -161,9 +162,15 @@ impl TextEditing {
         }
     }
 
-    /// Accept line breaks. Native editors scroll horizontally and do not wrap.
+    /// Accept hard line breaks in the edited value.
     pub fn multiline(mut self, value: bool) -> Self {
         self.props.multiline = value;
+        self
+    }
+
+    /// Configure soft wrapping and automatic row limits for a multiline editor.
+    pub fn line_layout(mut self, value: impl IntoValue<kivact_wire::EditLineLayout>) -> Self {
+        self.props.line_layout = Some(value.into_prop());
         self
     }
     /// Also give every [`TextEditEvent`] the whole text after it

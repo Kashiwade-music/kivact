@@ -9,6 +9,8 @@ pub(crate) struct EditorNode {
     /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
     /// preserve the future crate DAG.
     pub(crate) lines: RefCell<Option<kivact_text::EditLines>>,
+    /// Width probes must not evict the geometry of the visible wrapped rows.
+    pub(crate) measure_lines: RefCell<Option<kivact_text::EditLines>>,
     /// A controlled value given while the IME composes, taken when the
     /// composition ends.
     pub(crate) pending_controlled: Option<Rc<str>>,
@@ -16,6 +18,8 @@ pub(crate) struct EditorNode {
     pub(crate) reported_session: Option<kivact_editing::TextSession>,
     /// Horizontal text scroll, independent of container scrolling.
     pub(crate) scroll_x: f32,
+    /// Vertical scroll of an automatically sized or wrapped field.
+    pub(crate) scroll_y: f32,
     /// Revision at which the current controlled Rc value was last considered.
     pub(crate) controlled_at: u64,
 }
@@ -24,9 +28,11 @@ impl EditorNode {
         Self {
             editor: Editor::new(state),
             lines: RefCell::default(),
+            measure_lines: RefCell::default(),
             pending_controlled: None,
             reported_session: None,
             scroll_x: 0.0,
+            scroll_y: 0.0,
             controlled_at: 0,
         }
     }

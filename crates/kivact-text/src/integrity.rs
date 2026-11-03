@@ -1,14 +1,12 @@
 //! Role: Compare retained editing chunks with a full split of the displayed text.
 
 use crate::EditLines;
-use crate::chunks::split;
 use crate::records::Before;
 
 impl EditLines {
-    pub(crate) fn discrepancies(&self, text: &str) -> Vec<String> {
-        let key = &self.key;
+    pub(crate) fn discrepancies(&self, text: &str, engine: &mut arvane::Engine) -> Vec<String> {
         let mut errors = Vec::new();
-        let expected = split(text, 0, text.len(), key.multiline, true);
+        let expected = self.split_rows(text, engine);
         let mut prefix = Before::default();
         for (chunk_index, chunk) in self.chunks.iter().enumerate() {
             let actual = self.before.get(chunk_index);

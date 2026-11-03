@@ -59,9 +59,15 @@ impl Model {
             .expect("invariant: editing node has editing state");
         let value = edit.value();
         let mut ids = || a11y.next_identity(tree);
-        let (mut lines, _) =
-            crate::measure::input::edit_lines(tree, &self.measure, &self.editors, id, engine)
-                .expect("invariant: editing node has lines");
+        let (mut lines, _) = crate::measure::input::edit_lines(
+            tree,
+            &self.measure,
+            &self.editors,
+            id,
+            crate::measure::input::LineViewport::Paint(line.width),
+            engine,
+        )
+        .expect("invariant: editing node has lines");
         let (runs, start, end) = if lines.shows_value() {
             let published = lines.published(value, edit.caret(), at, line.width, &mut ids, engine);
             (published.runs, published.start, published.end)

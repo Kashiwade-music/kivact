@@ -169,10 +169,19 @@ pub struct EditingData {
     pub placeholder: Option<String>,
     /// Allow line breaks in the editable value.
     pub multiline: Option<bool>,
+    /// Visual line layout of a multiline field.
+    pub line_layout: Option<EditLineLayout>,
     /// Request document-change events.
     pub report_text: Option<bool>,
     /// Request selection and composition-session events.
     pub report_session: Option<bool>,
+}
+
+/// Soft wrapping and automatic visual row bounds of a native multiline field.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct EditLineLayout {
+    pub wrap: bool,
+    pub rows: Option<(usize, usize)>,
 }
 
 /// Image content, fitting policy and optional intrinsic sizing.

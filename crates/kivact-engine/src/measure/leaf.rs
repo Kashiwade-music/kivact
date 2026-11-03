@@ -43,13 +43,10 @@
 //!   half a pixel of slack: the layout rounds boxes to
 //!   pixels, and a box narrower than the shaped line would make the paint
 //!   (which shapes at the box) wrap it.
-//! - A text input never wraps: one line (a single-line input shows its
-//!   line feeds as spaces), or the value's lines in a multiline one; it is
-//!   at least 120 wide and as high as its lines (at least three in a
-//!   multiline input). It is measured from its lines (`kivact-text`): its
-//!   width is the widest of the lines starting in its first 16 KiB (a
-//!   longer document's later lines scroll), so neither an edit nor
-//!   opening a long document shapes every line to measure it.
+//! - Native fields measure from their editing rows (`kivact-text`).
+//!   Multiline fields can wrap to the available width and clamp the
+//!   preferred height to a range of visual rows. Unwrapped fields measure
+//!   the widths of lines starting in the first 16 KiB.
 //! - Text that cannot be shaped (no font) measures as its minimum; an
 //!   image still loading or unreadable has no natural size, so the image
 //!   rule uses its `Intrinsic` preferred size. Neither fails the
@@ -227,11 +224,16 @@ impl Measure<'_> {
                 );
                 let style = crate::measure::input_style(tree, self.cache, id, self.engine);
                 let line = line_height(self.engine, &style);
+                let wrap_width = request.known_width.or(match request.available_width {
+                    AvailableSpace::Definite(width) => Some(width),
+                    _ => None,
+                });
                 let (count, width, first) = match crate::measure::input::edit_lines(
                     tree,
                     self.cache,
                     self.editors,
                     id,
+                    crate::measure::input::LineViewport::Measure(wrap_width),
                     self.engine,
                 ) {
                     Some((mut lines, text)) => (
@@ -241,10 +243,19 @@ impl Measure<'_> {
                     ),
                     None => (1, 0.0, 0.0),
                 };
-                let lines = if n.multiline() { count.max(3) } else { 1 };
+                let layout = n.edit_line_layout();
+                let rows = match layout.rows {
+                    Some((min, max)) => count.clamp(min.max(1), max.max(min.max(1))),
+                    None if n.multiline() => count.max(3),
+                    None => 1,
+                };
                 let min = Size {
-                    width: 120.0,
-                    height: lines as f32 * line,
+                    width: if layout.wrap {
+                        wrap_width.unwrap_or(120.0).min(120.0)
+                    } else {
+                        120.0
+                    },
+                    height: rows as f32 * line,
                 };
                 let size = slack(Size {
                     width,
@@ -263,7 +274,11 @@ impl Measure<'_> {
                 LeafSize {
                     size: Size {
                         width: size.width.max(min.width),
-                        height: size.height.max(min.height),
+                        height: if layout.rows.is_some() {
+                            min.height
+                        } else {
+                            size.height.max(min.height)
+                        },
                     },
                     baseline: Some(baseline),
                 }

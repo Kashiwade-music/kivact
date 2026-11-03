@@ -324,6 +324,10 @@ impl EditLines {
                     .map(|c| c.output.clone())
                     .unwrap_or_default(),
             };
+            if self.key.wrap_width.is_some() {
+                self.color_wrapped_line(text, colors, i, input);
+                continue;
+            }
             let content = self.content(i).unwrap_or(0..0);
             let line = self.line_mut(i).expect("invariant: colored lines exist");
             if line.colors().is_none_or(|c| c.input != input) {
@@ -340,6 +344,52 @@ impl EditLines {
             }
             self.colored += 1;
         }
+    }
+
+    fn color_wrapped_line(
+        &mut self,
+        text: &str,
+        colors: &LineColors,
+        first: usize,
+        input: LineState,
+    ) {
+        let mut last = first;
+        while last + 1 < self.len()
+            && self
+                .content(last)
+                .is_some_and(|content| content.end == self.range(last).end)
+        {
+            last += 1;
+        }
+        let start = self.range(first).start;
+        let end = self.content(last).map_or(start, |content| content.end);
+        let (spans, output) = colors.line(&text[start..end], &input);
+        for row in first..=last {
+            let content = self.content(row).unwrap_or(start..start);
+            let spans = spans
+                .iter()
+                .filter_map(|(span, color)| {
+                    let left = (start + span.start).max(content.start);
+                    let right = (start + span.end).min(content.end);
+                    (left < right).then(|| (left - content.start..right - content.start, *color))
+                })
+                .collect();
+            let line = self.line_mut(row).expect("invariant: colored rows exist");
+            let kept = line.kept();
+            if kept
+                .colors
+                .as_ref()
+                .is_none_or(|colors| colors.spans != spans)
+            {
+                kept.painted = None;
+            }
+            kept.colors = Some(Colored {
+                input: input.clone(),
+                spans,
+                output: output.clone(),
+            });
+        }
+        self.colored = last + 1;
     }
 
     /// Forget the colors (the input has none).

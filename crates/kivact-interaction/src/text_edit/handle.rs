@@ -3,7 +3,8 @@
 use super::policy::text_edit_policy;
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{
-    NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise, require_setup,
+    EditLineLayout, NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise,
+    require_setup,
 };
 use kivact_core::view::{Handled, HandlerResult, IntoText, IntoValue, Key, Role};
 use kivact_core::{Binding, Result, Signal, Value, on_cleanup, signal};
@@ -59,6 +60,7 @@ fn create(binding: Binding<String>, lines: Lines) -> TextEdit {
         binding,
         lines,
         forward_keys: signal(None),
+        line_layout: signal(EditLineLayout::default()),
         password: signal(None),
         read_only: signal(None),
         max_length: signal(None),
@@ -75,6 +77,24 @@ fn create(binding: Binding<String>, lines: Lines) -> TextEdit {
 }
 
 impl TextEdit {
+    /// Soft-wrap multiline content at the field's content width.
+    pub fn wrap(self, on: bool) -> Self {
+        self.setup("TextEdit::wrap")
+            .line_layout
+            .update(|layout| layout.wrap = on);
+        self
+    }
+
+    /// Grow a multiline field between these inclusive visual row counts.
+    pub fn rows(self, rows: std::ops::RangeInclusive<usize>) -> Self {
+        let min = (*rows.start()).max(1);
+        let max = (*rows.end()).max(min);
+        self.setup("TextEdit::rows")
+            .line_layout
+            .update(|layout| layout.rows = Some((min, max)));
+        self
+    }
+
     /// Give handlers ownership of selected control keys; the list may be reactive.
     ///
     /// Tab, arrows, Home, End, PageUp, PageDown, Escape and Enter can be forwarded.
@@ -203,6 +223,7 @@ impl TextEdit {
                     .with(|keys| keys.map_or_else(Vec::new, |keys| keys.get()))
             })
             .multiline(lines == Lines::Multiple)
+            .line_layout(owned.get().line_layout)
             .password(move || {
                 owned
                     .get()
@@ -296,6 +317,7 @@ struct Data {
     binding: Binding<String>,
     lines: Lines,
     forward_keys: Signal<Option<Value<Vec<Key>>>>,
+    line_layout: Signal<EditLineLayout>,
     password: Signal<Option<Value<bool>>>,
     read_only: Signal<Option<Value<bool>>>,
     max_length: Signal<Option<Value<usize>>>,

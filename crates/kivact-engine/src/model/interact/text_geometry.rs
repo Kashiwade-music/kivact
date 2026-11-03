@@ -87,7 +87,11 @@ fn caret_local(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
 /// box lower than the line overflows it evenly on both sides.
 pub(crate) fn line_box(host: &Model, id: NodeId, engine: &mut arvane::Engine, area: Rect) -> Rect {
     if host.node(id).is_none_or(|n| n.multiline()) {
-        return area;
+        let scroll_y = host.editor_node(id).map_or(0.0, |editor| editor.scroll_y);
+        return Rect {
+            y: area.y - scroll_y,
+            ..area
+        };
     }
     let style = host.input_style(id, engine);
     let height = line_height(engine, &style);
@@ -244,31 +248,47 @@ impl Model {
     /// the field: past the right edge less 2 px, or at the left edge.
     pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane::Engine) {
         for id in self.edits.inputs() {
-            let width = visual::text_box(self, id).width;
+            let area = visual::text_box(self, id);
+            let width = area.width;
             // Hidden or zero-width fields have no viewport to scroll into.
             if width <= 0.0 {
                 continue;
             }
-            let caret = caret_local(self, id, engine).x;
+            let caret = caret_local(self, id, engine);
             // Reveal or resize can fit the text again. Bound any retained
             // offset to the remaining overflow before keeping the caret visible.
-            let extent = self
+            let (extent_x, extent_y) = self
                 .edit_lines(id, engine)
                 .filter(|(lines, _)| lines.shows_value())
-                .map_or(0.0, |(lines, _)| lines.width())
-                .max(caret);
-            let max_scroll = (extent - width + 2.0).max(0.0);
+                .map_or((0.0, 0.0), |(lines, _)| {
+                    (lines.width(), lines.len() as f32 * lines.height())
+                });
+            let max_scroll = (extent_x.max(caret.x) - width + 2.0).max(0.0);
             let mut scroll = input_scroll(self, id).clamp(0.0, max_scroll);
-            if caret - scroll > width - 2.0 {
-                scroll = caret - width + 2.0;
-            } else if caret - scroll < 0.0 {
-                scroll = caret.max(0.0);
+            if caret.x - scroll > width - 2.0 {
+                scroll = caret.x - width + 2.0;
+            } else if caret.x - scroll < 0.0 {
+                scroll = caret.x.max(0.0);
             }
-            if let Some(x) = self.editor_node_mut(id)
-                && x.scroll_x != scroll
-            {
-                x.scroll_x = scroll;
-                self.invalidate_paint();
+            let vertical = self.node(id).is_some_and(|node| {
+                let layout = node.edit_line_layout();
+                layout.wrap || layout.rows.is_some()
+            });
+            if let Some(x) = self.editor_node_mut(id) {
+                let scroll_y = if vertical {
+                    let max = (extent_y - area.height).max(0.0);
+                    x.scroll_y
+                        .max(caret.bottom() - area.height)
+                        .min(caret.y)
+                        .clamp(0.0, max)
+                } else {
+                    0.0
+                };
+                if x.scroll_x != scroll || x.scroll_y != scroll_y {
+                    x.scroll_x = scroll;
+                    x.scroll_y = scroll_y;
+                    self.invalidate_paint();
+                }
             }
         }
         self.sync();

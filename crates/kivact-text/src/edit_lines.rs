@@ -54,7 +54,7 @@ impl EditLines {
             drawn: 0..0,
         };
         let text = lines.shown(source.value, source.placeholder);
-        lines.rebuild(text, height, blank);
+        lines.rebuild(text, height, blank, engine);
         lines
     }
 }
