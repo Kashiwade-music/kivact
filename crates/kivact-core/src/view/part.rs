@@ -669,6 +669,19 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Run before existing pointer behavior, in node-local coordinates.
     ///
+    /// Handle an unclaimed secondary button press or release within this subtree.
+    /// The nearest ordinary pointer handler runs first. The fallback sees the
+    /// original event, so use its window position when anchoring an overlay.
+    pub fn on_secondary_context<F, R>(mut self, handler: F) -> Self
+    where
+        F: Fn(PointerEvent) -> R + 'static,
+        R: KeyHandlerResult,
+    {
+        self.common.handlers.secondary_context =
+            Some(Rc::new(move |event| handler(event).into_handled()));
+        self
+    }
+
     /// Same as [`NodeBuilder::on_pointer`](crate::control::NodeBuilder::on_pointer).
     pub fn on_pointer<F, R>(mut self, f: F) -> Self
     where

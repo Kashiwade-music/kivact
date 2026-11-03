@@ -68,7 +68,30 @@ pub(super) fn pointer(
                     | kivact_wire::PointerPhase::Cancel
             ))
     {
-        run_handler(rt, node_owner(rt, id), || h.deliver(e));
+        let handled = run_handler(rt, node_owner(rt, id), || h.deliver(e));
+        if handled != Some(Handled::No) {
+            return;
+        }
+    }
+    if matches!(
+        e.phase,
+        crate::view::PointerPhase::Down(press) | crate::view::PointerPhase::Up(press)
+            if press.button == crate::view::MouseButton::Secondary
+    ) {
+        let fallback = {
+            let tree = ViewState::tree(rt);
+            let stop = tree.modal_boundary(node);
+            tree.find_up(node, stop, |n| {
+                n.handlers
+                    .as_ref()
+                    .and_then(|h| h.secondary_context.clone())
+            })
+        };
+        if let Some((id, handler)) = fallback
+            && !is_disabled(rt, id)
+        {
+            run_handler(rt, node_owner(rt, id), || handler(e));
+        }
     }
 }
 

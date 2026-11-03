@@ -259,15 +259,23 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// level only.
     #[track_caller]
     pub fn context_trigger(self) -> Part<PopupState> {
+        self.context_trigger_with_fallback(false)
+    }
+
+    /// Context trigger that handles secondary presses left unclaimed by a
+    /// descendant's pointer listener. Keyboard and accessibility use the
+    /// same trigger as [`context_trigger`](Self::context_trigger).
+    #[track_caller]
+    pub fn context_fallback_trigger(self) -> Part<PopupState> {
+        self.context_trigger_with_fallback(true)
+    }
+
+    #[track_caller]
+    fn context_trigger_with_fallback(self, fallback: bool) -> Part<PopupState> {
         self.top_level("context_trigger", Location::caller());
         let session = self.session;
         let open = session.shown();
-        part(move |input| PopupState {
-            input,
-            open: open.get(),
-        })
-        .region_events()
-        .on_pointer(move |event: PointerEvent| {
+        let pointer = move |event: PointerEvent| {
             // The overlay is anchored to the area, and the host does not
             // count a press on its anchor as outside it.
             if matches!(event.phase, PointerPhase::Down(_)) {
@@ -284,29 +292,42 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
             };
             if opens {
                 session.open_at(MenuOrigin::Pointer(event.window_pos));
-            }
-            Handled::No
-        })
-        .on_key(move |event: KeyEvent| {
-            let m = event.modifiers;
-            if event.repeat || m.ctrl || m.alt || m.meta {
-                return Handled::No;
-            }
-            let asked = match event.key {
-                Key::ContextMenu => true,
-                Key::F(10) => m.shift,
-                _ => false,
-            };
-            if asked {
-                session.open_at(MenuOrigin::Anchor);
                 Handled::Yes
             } else {
                 Handled::No
             }
+        };
+        let trigger = part(move |input| PopupState {
+            input,
+            open: open.get(),
         })
-        .on_a11y(A11yAction::ShowMenu, move || {
-            session.open_at(MenuOrigin::Anchor)
-        })
+        .region_events();
+        let trigger = if fallback {
+            trigger.on_secondary_context(pointer)
+        } else {
+            trigger.on_pointer(pointer)
+        };
+        trigger
+            .on_key(move |event: KeyEvent| {
+                let m = event.modifiers;
+                if event.repeat || m.ctrl || m.alt || m.meta {
+                    return Handled::No;
+                }
+                let asked = match event.key {
+                    Key::ContextMenu => true,
+                    Key::F(10) => m.shift,
+                    _ => false,
+                };
+                if asked {
+                    session.open_at(MenuOrigin::Anchor);
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+            .on_a11y(A11yAction::ShowMenu, move || {
+                session.open_at(MenuOrigin::Anchor)
+            })
     }
 
     /// The floating surface of this level, for the caller's `overlay(..)`.

@@ -36,6 +36,10 @@ impl Common {
         self.handlers
             .wheel
             .absorb_part(std::mem::take(&mut part.handlers.wheel), region_events);
+        replace(
+            &mut self.handlers.secondary_context,
+            part.handlers.secondary_context.take(),
+        );
         self.part_modal |= part.part_modal;
         self.focusable_when_disabled |= part.focusable_when_disabled;
         self.part_constraints.disabled.extend(part.disabled.take());

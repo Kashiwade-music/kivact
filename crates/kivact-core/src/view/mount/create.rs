@@ -53,7 +53,7 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         editing,
     } = first;
     let listen_file = !handlers.file.is_empty();
-    let listen_pointer = !handlers.pointer.is_empty();
+    let listen_pointer = !handlers.pointer.is_empty() || handlers.secondary_context.is_some();
     let listen_wheel = !handlers.wheel.is_empty();
     // The engine reports the selection sessions of a node that has a session handler.
     let report_session = handlers.selection.is_some();

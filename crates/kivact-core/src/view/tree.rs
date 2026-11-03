@@ -41,7 +41,7 @@ use kivact_wire::{
 };
 
 use crate::view::handler_layers::EventHandlers;
-use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
+use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
 use kivact_reactive::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
 use kivact_wire::A11yAction;
 
@@ -53,6 +53,8 @@ pub(crate) struct ScrollState {
     /// Size of the visible area.
     pub viewport: kivact_wire::Size,
 }
+
+type SecondaryContextHandler = Rc<dyn Fn(PointerEvent) -> Result<Handled, UiError>>;
 
 /// Event handlers of one host node.
 ///
@@ -71,6 +73,8 @@ pub(crate) struct Handlers {
     pub key_up: EventHandlers<KeyEvent>,
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
+    /// Fallback for an unclaimed secondary button event in this subtree.
+    pub secondary_context: Option<SecondaryContextHandler>,
     /// Wheel handlers.
     pub wheel: EventHandlers<WheelEvent>,
     /// The input method's events for the node's IME session.
