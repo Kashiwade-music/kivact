@@ -7,6 +7,11 @@ use kivact_core::style::{
 use kivact_core::view::Orientation;
 use kivact_interaction::{ToastState, Tone};
 
+/// The standard checkbox and switch draw their indicators in the root.
+pub(super) fn empty_toggle_part(_: &Theme, _: &CheckState) -> Style {
+    style().size(0, 0)
+}
+
 /// The options in a column, or a row when horizontal.
 pub(super) fn radio_group(t: &Theme, orientation: &Orientation) -> Style {
     let s = style().gap(t.space().md);
@@ -47,6 +52,14 @@ pub(super) fn radio_indicator(t: &Theme, state: &CheckState) -> Style {
         s.border(1, ColorToken::Danger)
     } else {
         s.border(1, ColorToken::Border)
+    }
+}
+
+pub(super) fn radio_mark(_: &Theme, state: &CheckState) -> Style {
+    if state.checked.is_checked() {
+        style()
+    } else {
+        style().size(0, 0).opacity(0.0)
     }
 }
 

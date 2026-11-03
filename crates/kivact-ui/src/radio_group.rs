@@ -1,12 +1,13 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
-use super::layer::with_recipe_style;
+use super::layer::{recipes, with_recipe_style};
 use super::values::{CheckState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
+use kivact_core::control::{Node, NodeBuilder, icon, node};
 use kivact_core::primitive::NodeExt;
+use kivact_core::style::current_theme;
 use kivact_core::view::{
     CheckedState, HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection,
-    Role, View, callback, current_direction, for_each,
+    Role, View, callback, current_direction, for_each, show,
 };
 use kivact_core::{Binding, Callback, Value, binding};
 use kivact_interaction::{EditPhase, EditSession, ListItem, ListPolicy, ListSelection, use_list};
@@ -219,15 +220,28 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
                     }
                 });
                 let lines = looks.clone();
+                let mark_looks = looks.clone();
                 let indicator = with_recipe_style(
                     node(),
                     |r| r.radio_group_recipes().indicator_recipe(),
                     &looks,
                     move || check.get(),
                 )
-                .child(kivact_core::view::show(
-                    move || check.get().checked.is_checked(),
-                    || kivact_core::control::icon("dot"),
+                .child(show(
+                    move || {
+                        recipes(&current_theme())
+                            .radio_group_recipes()
+                            .has_custom_mark()
+                            || check.get().checked.is_checked()
+                    },
+                    move || {
+                        with_recipe_style(
+                            icon("dot"),
+                            |r| r.radio_group_recipes().mark_recipe(),
+                            &mark_looks,
+                            move || check.get(),
+                        )
+                    },
                 ));
                 let content = match &slot {
                     Some(slot) => slot(item, check),

@@ -12,12 +12,14 @@ use crate::paint::{distance, pixel};
 use crate::support::mount;
 use kivact::control::icon;
 use kivact::interaction::{MenuItemState, TabState};
+use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
-use kivact::style::{Color, Icon, ThemeExtension, current_theme, rgb};
+use kivact::style::{Color, Icon, ThemeExtension, TransitionProp, current_theme, rgb};
 use kivact::test::Screen;
 use kivact::ui::Look;
 use kivact::ui::{ButtonState, UiRecipes};
 use kivact::view::provide_theme;
+use std::time::Duration;
 
 const RED: u32 = 0xff0000;
 const GREEN: u32 = 0x00ff00;
@@ -31,6 +33,52 @@ static SQUARE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 fn at(screen: &Screen, id: &str, dx: f32, dy: f32) -> u32 {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     pixel(&screen.screenshot(), (r.x + dx) as u32, (r.y + dy) as u32)
+}
+
+#[test]
+fn a_switch_thumb_recipe_animates_when_the_binding_changes() {
+    let recipes = UiRecipes::default()
+        .switch(|_| |_, _| style().size(120, 32).background(rgb(WHITE)))
+        .switch_track(|_| |_, _| style().size(112, 24).left(4).top(4))
+        .switch_thumb(|_| {
+            |_, state| {
+                style()
+                    .size(16, 16)
+                    .background(rgb(RED))
+                    .translate_x(if state.checked.is_checked() { 80 } else { 0 })
+                    .transition(
+                        TransitionProp::Paint,
+                        Transition::tween(400, Easing::Linear),
+                    )
+            }
+        });
+    let (screen, checked) = mount(move || {
+        let checked = signal(false);
+        (
+            checked,
+            provide_theme(Theme::light().with(recipes), move || {
+                kivact::ui::switch("Motion", checked)
+                    .hide_label(true)
+                    .test_id("motion-switch")
+            }),
+        )
+    });
+    screen.set_reduced_motion(false);
+    let thumb_at = |x| distance(at(&screen, "motion-switch", x, 12.0), RED) < 30;
+    assert!(thumb_at(12.0));
+    checked.set(true);
+    screen.run_until_idle();
+    screen.advance(Duration::from_millis(180));
+    let rect = screen
+        .get_by_test_id("motion-switch")
+        .rect()
+        .expect("laid out");
+    let moving = screen.screenshot();
+    let moving_at = |x| distance(pixel(&moving, rect.x as u32 + x, rect.y as u32 + 12), RED) < 30;
+    assert!(!moving_at(12) && !moving_at(92));
+    assert!((24..80).any(moving_at));
+    screen.advance(Duration::from_secs(1));
+    assert!(thumb_at(92.0));
 }
 
 // ---------------------------------------------------------------------------

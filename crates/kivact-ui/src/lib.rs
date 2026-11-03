@@ -150,6 +150,7 @@ mod text_draft;
 mod text_input;
 mod toggle;
 mod toggle_button;
+mod toggle_parts;
 mod values;
 mod variants;
 

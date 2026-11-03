@@ -201,6 +201,13 @@ fn main() -> kivact::Result<()> {
 - To change a single instance instead of a theme, add `.style(..)` to it. A
   style you set on a component comes after the recipe and wins.
 
+Themes can draw checkbox marks in the `checkbox_check` and `checkbox_mixed`
+recipes inside `checkbox_indicator`, and draw a switch thumb with
+`switch_thumb` inside `switch_track`. Replace the root recipe's drawing
+when drawing these parts separately. The radio group's `mark` recipe
+styles the dot icon. Custom parts stay mounted as the checked state changes,
+so a paint transition can animate opacity, translation or scale.
+
 ### Variants: the same component in another look
 
 `.variant(value)` passes a value to the recipes without changing the theme.

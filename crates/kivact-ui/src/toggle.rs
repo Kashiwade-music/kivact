@@ -14,7 +14,7 @@ use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_core::{Binding, Value};
 use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
-    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $text:expr) => {
+    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $text:expr) => {
         $(#[$doc])*
         pub struct $name {
             root: Node,
@@ -98,6 +98,7 @@ macro_rules! toggle_builder {
                     text,
                 });
                 let check_state = part.state();
+                let indicator = super::toggle_parts::$parts(&self.variants, check_state);
                 with_base_recipe_style(
                     self.root,
                     |recipes| recipes.$recipe(),
@@ -106,6 +107,7 @@ macro_rules! toggle_builder {
                 )
                     .part(part)
                     .child(super::helpers::visible_label(self.label, self.hide_label))
+                    .child(indicator)
                     .into_view()
             }
         }
@@ -120,6 +122,7 @@ toggle_builder!(
     Checkbox,
     checkbox_behavior,
     checkbox_recipe,
+    checkbox,
     None
 );
 
@@ -132,6 +135,7 @@ toggle_builder!(
     Switch,
     switch_behavior,
     switch_recipe,
+    switch,
     Some(switch_text)
 );
 

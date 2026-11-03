@@ -168,6 +168,13 @@ fn main() -> kivact::Result<()> {
 - 振る舞い(キー、フォーカス、アクセシビリティ)は recipe に含まれないので、見た目を変えても動作は変わりません。
 - テーマではなく 1 つのインスタンスだけ変えるなら、そこに `.style(..)` を付けます。コンポーネントに指定したスタイルは recipe の後に重なり、優先されます。
 
+テーマでは `checkbox_indicator` の内側に `checkbox_check` と
+`checkbox_mixed` の印を描けます。スイッチは `switch_track` の内側の
+`switch_thumb` でつまみを描けます。これらを個別に描く場合は、ルート
+recipe の描画も差し替えます。ラジオグループでは `mark` がドット
+アイコンの見た目を決めます。選択状態が変わっても追加した部品はマウントされた
+ままなので、paint transition で透明度、移動、拡大縮小を補間できます。
+
 ### variant: 同じコンポーネントの別の見た目
 
 `.variant(value)` は、テーマを変えずに recipe へ値を渡します。`ButtonVariant` が組み込みの variant です。
