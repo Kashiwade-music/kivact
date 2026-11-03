@@ -1,5 +1,5 @@
 //! Role: Typed date field and its attached calendar.
-use crate::calendar::{Calendar, calendar};
+use crate::calendar::{Calendar, calendar, calendar_status};
 use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::{CalendarDate, message};
 use kivact::primitive::NodeExt;
@@ -83,6 +83,8 @@ impl IntoView for DateInput {
             configure,
         } = self;
         let open = signal(false);
+        let announcement = signal(String::new());
+        let chosen = message("soft.calendar.chosen", "Date selected");
         let invalid = signal(false);
         let opened_from_input = signal(false);
         let input_ref = node_ref();
@@ -97,7 +99,12 @@ impl IntoView for DateInput {
             .expanded(open)
             .forward_keys(vec![Key::ArrowDown])
             .on_key(move |event: KeyEvent| {
-                if event.key == Key::ArrowDown {
+                if event.key == Key::ArrowDown
+                    && !event.modifiers.ctrl
+                    && !event.modifiers.meta
+                    && !event.modifiers.shift
+                    && !open.get_untracked()
+                {
                     opened_from_input.set(true);
                     open.set(true);
                     Handled::Yes
@@ -118,6 +125,7 @@ impl IntoView for DateInput {
                     draft.set(String::new());
                 } else if let Some(date) = parse_date(&text) {
                     value.set(Some(date));
+                    announcement.set(format!("{}: {date}", chosen.get_untracked()));
                     open.set(false);
                     invalid.set(false);
                     draft.set(formatted.get_untracked());
@@ -135,9 +143,8 @@ impl IntoView for DateInput {
                 opened_from_input.set(false);
                 open.set(!open.get_untracked());
             });
-        let trigger =
-            root.child(row((toggle, input)).style(style().align_items(Align::Center).gap(4)));
-        dialog(label, open)
+        let trigger = row((toggle, input)).style(style().align_items(Align::Center).gap(4));
+        let picker = dialog(label, open)
             .kind(DialogKind::Popover)
             .hide_title(true)
             .width(Length::Auto)
@@ -147,6 +154,9 @@ impl IntoView for DateInput {
                 }
                 let calendar = calendar(value).on_commit(move || {
                     invalid.set(false);
+                    if let Some(date) = value.get_untracked() {
+                        announcement.set(format!("{}: {date}", chosen.get_untracked()));
+                    }
                     draft.set(
                         value
                             .get_untracked()
@@ -161,6 +171,9 @@ impl IntoView for DateInput {
                     None => calendar,
                 }
             })
-            .attach(trigger)
+            .attach(trigger);
+        root.child(calendar_status(announcement))
+            .child(picker)
+            .into_view()
     }
 }

@@ -1,5 +1,5 @@
 //! Role: Date range field and its two-month popover.
-use crate::calendar::{Calendar, calendar_range};
+use crate::calendar::{Calendar, calendar_range, calendar_status};
 use crate::recipes_field::frame;
 use crate::theme_access::tokens;
 use kivact::control::{Node, NodeBuilder, icon, node, text};
@@ -52,6 +52,8 @@ impl IntoView for DateRangeInput {
             configure,
         } = self;
         let open = signal(false);
+        let announcement = signal(String::new());
+        let chosen = message("soft.calendar.range_chosen", "Date range selected");
         let trigger_ref = node_ref();
         let placeholder = message("soft.date_range.placeholder", "Select date range");
         let shown = move || {
@@ -89,6 +91,14 @@ impl IntoView for DateRangeInput {
                     .number_of_months(2)
                     .autofocus(true)
                     .on_commit(move || {
+                        if let Some(range) = value.get_untracked() {
+                            announcement.set(format!(
+                                "{}: {} – {}",
+                                chosen.get_untracked(),
+                                range.start(),
+                                range.end()
+                            ));
+                        }
                         open.set(false);
                         trigger_ref.restore_focus();
                     });
@@ -98,6 +108,8 @@ impl IntoView for DateRangeInput {
                 }
             })
             .attach(trigger);
-        root.child(picker).into_view()
+        root.child(calendar_status(announcement))
+            .child(picker)
+            .into_view()
     }
 }

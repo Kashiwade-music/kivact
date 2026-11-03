@@ -1,9 +1,9 @@
-//! Role: Verify keyboard selection and date-range staging through the public Soft controls.
+//! Role: Verify keyboard selection and date-range staging in Soft controls.
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
 use kivact::signal;
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, render_with_handle};
-use kivact::view::{Key, Role};
+use kivact::view::{Key, LiveRegion, Modifiers, Role};
 
 fn options() -> RenderOptions {
     RenderOptions {
@@ -56,9 +56,21 @@ fn calendar_keys_move_focus_and_enter_selects() {
             .get_by_role(Role::GridCell, "2026-11-18")
             .is_focused()
     );
+    assert_eq!(
+        screen
+            .get_by_role(Role::Status, "November 2026")
+            .live_region(),
+        LiveRegion::Polite
+    );
     screen.press_key(Key::PageUp);
     screen.press_key(Key::Enter);
     assert_eq!(selected.get_untracked(), Some(date(18)));
+    assert_eq!(
+        screen
+            .get_by_role(Role::Status, "Date selected: 2026-10-18")
+            .live_region(),
+        LiveRegion::Polite
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -81,7 +93,11 @@ fn range_stages_anchor_cancels_and_commits_reverse_with_span_constraints() {
             .get_by_role(Role::GridCell, "2026-10-12")
             .is_focused()
     );
+    screen.get_by_role(Role::GridCell, "2026-10-08").hover();
+    assert_eq!(selected.get_untracked(), Some(previous));
+    screen.get_by_role(Role::Status, "Start date selected: 2026-10-12");
     screen.press_key(Key::Escape);
+    screen.get_by_role(Role::Status, "Range selection cancelled");
     assert_eq!(selected.get_untracked(), Some(previous));
     screen.get_by_role(Role::GridCell, "2026-10-12").click();
     assert!(
@@ -112,13 +128,20 @@ fn date_input_commits_draft_and_calendar_returns_focus() {
         .type_text("2026-10-14");
     screen.press_key(Key::Enter);
     assert_eq!(selected.get_untracked(), Some(date(14)));
-    screen.press_key(Key::ArrowDown);
+    screen.press_key_with(
+        Key::ArrowDown,
+        Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        },
+    );
     screen.get_by_role(Role::GridCell, "2026-10-15");
     assert!(screen.get_by_role(Role::TextBox, "Due").is_focused());
     screen.get_by_role(Role::Button, "Choose date").click();
     screen.get_by_role(Role::Button, "Choose date").click();
     screen.get_by_role(Role::GridCell, "2026-10-15").click();
     assert_eq!(selected.get_untracked(), Some(date(15)));
+    screen.get_by_role(Role::Status, "Date selected: 2026-10-15");
     assert!(screen.get_by_role(Role::TextBox, "Due").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
