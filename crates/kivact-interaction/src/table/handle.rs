@@ -364,14 +364,29 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                 widths.set(next);
             }
         };
+        let range = memo(move || {
+            let range = resize.with(|limits| limits.0);
+            let minimum = key.with(|key| {
+                columns.with(|columns| {
+                    columns
+                        .iter()
+                        .find(|column| &column.key == key)
+                        .and_then(|column| column.min_width)
+                })
+            });
+            let Some(minimum) = minimum.filter(|minimum| *minimum > range.min()) else {
+                return range;
+            };
+            let bounded = ScalarRange::new(minimum, range.max().max(minimum))
+                .expect("invariant: finite ordered column bounds");
+            range
+                .step()
+                .map_or(bounded, |step| bounded.with_step(step).unwrap_or(bounded))
+        });
         let step = memo(move || resize.with(|limits| limits.1));
-        use_splitter(
-            binding(value, write),
-            move || resize.with(|limits| limits.0),
-            Orientation::Horizontal,
-        )
-        .key_step_value(step)
-        .shift_step_factor(5.0)
-        .handle()
+        use_splitter(binding(value, write), range, Orientation::Horizontal)
+            .key_step_value(step)
+            .shift_step_factor(5.0)
+            .handle()
     }
 }

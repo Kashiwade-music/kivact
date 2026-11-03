@@ -1,14 +1,18 @@
 //! Role: One data table column: title, cell text and view, order, match, width.
+use crate::menu::Menu;
 use kivact_core::Value;
+use kivact_core::control::Node;
 use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_interaction::ColumnDef;
 use std::cmp::Ordering;
+use std::hash::Hash;
 use std::rc::Rc;
 
 /// Names a row in text.
 type RowText<R> = Rc<dyn Fn(&R) -> String>;
 /// The view of one row's cell.
 type CellView<R> = Rc<dyn Fn(&R) -> View>;
+type HeaderMenu = Rc<dyn Fn(Node) -> View>;
 
 /// One column of a [`data_table`](crate::data_table): what its cells show, and
 /// how the rows sort and match a filter by it.
@@ -44,8 +48,11 @@ pub struct DataColumn<R> {
     def: ColumnDef<R, ()>,
     text: RowText<R>,
     cell: Option<CellView<R>>,
+    header_menu: Option<HeaderMenu>,
     numeric: bool,
     resizable: bool,
+    flex: Option<f32>,
+    min_width: Option<f32>,
 }
 
 impl<R> Clone for DataColumn<R> {
@@ -54,8 +61,11 @@ impl<R> Clone for DataColumn<R> {
             def: self.def.clone(),
             text: self.text.clone(),
             cell: self.cell.clone(),
+            header_menu: self.header_menu.clone(),
             numeric: self.numeric,
             resizable: self.resizable,
+            flex: self.flex,
+            min_width: self.min_width,
         }
     }
 }
@@ -67,8 +77,11 @@ impl<R: 'static> DataColumn<R> {
             def: ColumnDef::new((), title),
             text: Rc::new(text),
             cell: None,
+            header_menu: None,
             numeric: false,
             resizable: true,
+            flex: None,
+            min_width: None,
         }
     }
 
@@ -77,6 +90,22 @@ impl<R: 'static> DataColumn<R> {
     pub fn cell<V: IntoView>(mut self, cell: impl Fn(&R) -> V + 'static) -> Self {
         self.cell = Some(Rc::new(move |row| cell(row).into_view()));
         self
+    }
+
+    /// Open a menu from this column header's secondary click or context-menu key.
+    pub fn header_context_menu<K: Clone + Eq + Hash + 'static>(
+        mut self,
+        menu: impl Fn() -> Menu<K> + 'static,
+    ) -> Self {
+        self.header_menu = Some(Rc::new(move |header| menu().attach_context(header)));
+        self
+    }
+
+    pub(crate) fn render_header(&self, header: Node) -> View {
+        match &self.header_menu {
+            Some(menu) => menu(header),
+            None => header.into_view(),
+        }
     }
 
     /// Let the header sort the rows with `compare`, ascending; activating it
@@ -123,8 +152,32 @@ impl<R: 'static> DataColumn<R> {
     /// column resizing works in); a width that is not positive leaves the
     /// width to the table.
     pub fn width(mut self, width: f32) -> Self {
+        self.flex = None;
         self.def = self.def.width((width > 0.0).then_some(f64::from(width)));
         self
+    }
+
+    /// Share available space by this positive weight. Bound resize widths
+    /// take precedence. Invalid weights restore automatic sizing.
+    pub fn flex(mut self, weight: f32) -> Self {
+        self.flex = (weight.is_finite() && weight > 0.0).then_some(weight);
+        self.def = self.def.width(None);
+        self
+    }
+
+    /// Set the lower bound in logical pixels, including during resizing.
+    /// Flexible columns default to 120 pixels when no minimum is supplied.
+    pub fn min_width(mut self, width: f32) -> Self {
+        self.min_width = (width.is_finite() && width >= 0.0).then_some(width);
+        self
+    }
+
+    pub(crate) fn flex_weight(&self) -> Option<f32> {
+        self.flex
+    }
+
+    pub(crate) fn minimum_width(&self) -> Option<f32> {
+        self.min_width.or(self.flex.map(|_| 120.0))
     }
 
     /// Whether to show a resize handle when the table has bound widths.
@@ -185,7 +238,10 @@ impl<R: 'static> DataColumn<R> {
     /// the column's position): its title, width, ordering, match and
     /// visibility.
     pub fn definition<C: Clone>(&self, key: C) -> ColumnDef<R, C> {
-        self.def.clone().with_key(key)
+        self.def
+            .clone()
+            .min_width(self.minimum_width().map(f64::from))
+            .with_key(key)
     }
 }
 

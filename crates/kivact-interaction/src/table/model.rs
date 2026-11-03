@@ -26,6 +26,7 @@ pub struct ColumnDef<R, C> {
     key: C,
     label: Reactive<String>,
     width: Option<f64>,
+    pub(super) min_width: Option<f64>,
     compare: Option<Compare<R>>,
     matches: Option<Matches<R>>,
     visible: Reactive<bool>,
@@ -37,6 +38,7 @@ impl<R, C: Clone> Clone for ColumnDef<R, C> {
             key: self.key.clone(),
             label: self.label.clone(),
             width: self.width,
+            min_width: self.min_width,
             compare: self.compare.clone(),
             matches: self.matches.clone(),
             visible: self.visible.clone(),
@@ -51,6 +53,7 @@ impl<R, C> ColumnDef<R, C> {
             key,
             label: Reactive::new(label.into_text()),
             width: None,
+            min_width: None,
             compare: None,
             matches: None,
             visible: Reactive::new(true),
@@ -85,6 +88,12 @@ impl<R, C> ColumnDef<R, C> {
         self
     }
 
+    /// Set the column-specific lower bound for resizing.
+    pub fn min_width(mut self, width: Option<f64>) -> Self {
+        self.min_width = width.filter(|width| width.is_finite() && *width >= 0.0);
+        self
+    }
+
     /// This definition under another key; its label, width, ordering,
     /// match and visibility keep their identity.
     pub fn with_key<D>(self, key: D) -> ColumnDef<R, D> {
@@ -92,6 +101,7 @@ impl<R, C> ColumnDef<R, C> {
             key,
             label: self.label,
             width: self.width,
+            min_width: self.min_width,
             compare: self.compare,
             matches: self.matches,
             visible: self.visible,
@@ -146,6 +156,7 @@ impl<R, C: Clone> ColumnDef<R, C> {
             label: self.label.clone(),
             sortable: self.compare.is_some(),
             width: self.width,
+            min_width: self.min_width,
         }
     }
 }
@@ -165,6 +176,7 @@ impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
         self.key == other.key
             && self.label == other.label
             && self.width == other.width
+            && self.min_width == other.min_width
             && self.visible == other.visible
             && same(self.compare.as_ref(), other.compare.as_ref())
             && same(self.matches.as_ref(), other.matches.as_ref())

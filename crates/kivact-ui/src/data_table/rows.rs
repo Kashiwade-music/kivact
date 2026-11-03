@@ -79,15 +79,26 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
     /// The style that shares the width of column `index` between its header
     /// and its cells: the resized or own width, else what the recipe says.
     fn width(&self, index: usize, numeric: bool) -> impl Fn() -> Style + 'static {
-        let (widths, own) = (self.widths, self.columns[index].width_value());
+        let column = &self.columns[index];
+        let (widths, own) = (self.widths, column.width_value());
+        let flex = column.flex_weight();
+        let minimum = column.minimum_width();
         move || {
             let fixed = widths
                 .and_then(|widths| widths.with(|widths| widths.get(index).copied()))
                 .filter(|width| width.is_finite() && *width > 0.0)
                 .or(own);
             let s = match fixed {
-                Some(width) => style().width(width).min_width(width).grow(0).shrink(0),
-                None => style(),
+                Some(width) => {
+                    let width = width.max(minimum.unwrap_or(0.0));
+                    style().width(width).min_width(width).grow(0).shrink(0)
+                }
+                None if let Some(flex) = flex => style()
+                    .basis(0)
+                    .grow(flex)
+                    .min_width(minimum.unwrap_or(0.0))
+                    .shrink(1),
+                None => minimum.map_or_else(style, |min| style().min_width(min)),
             };
             if numeric {
                 s.justify_content(Justify::End)
@@ -156,8 +167,8 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
                     .cursor(Cursor::EwResize),
             )
     });
-    with_recipe_style(
-        node().part(part),
+    let header = with_recipe_style(
+        node().part(part).name(title),
         |r| r.data_table_recipes().header_recipe(),
         &grid.variants,
         move || state.get(),
@@ -166,8 +177,8 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
     .style(grid.width(index, column.is_numeric()))
     .child(text(title).style(crate::helpers::single_line_text()))
     .child(mark)
-    .child(handle)
-    .into_view()
+    .child(handle);
+    column.render_header(header)
 }
 
 /// A primary press on a data cell must not replace the row selection when

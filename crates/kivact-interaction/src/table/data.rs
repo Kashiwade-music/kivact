@@ -15,6 +15,7 @@ pub(super) struct Header<C> {
     pub(super) sortable: bool,
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,
+    pub(super) min_width: Option<f64>,
 }
 
 /// The direction rows are sorted in. The announced semantics is

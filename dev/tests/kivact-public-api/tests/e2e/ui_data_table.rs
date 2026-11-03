@@ -9,7 +9,7 @@ use crate::support::mount_with;
 use kivact::interaction::{ScalarRange, SortOrder, TableFocus};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, WindowMode};
-use kivact::view::{A11yAction, Modifiers, SortDirection};
+use kivact::view::{A11yAction, Modifiers, MouseButton, SortDirection};
 
 #[derive(Clone, Debug, PartialEq)]
 struct Person {
@@ -81,6 +81,42 @@ fn a_table_names_its_grid_headers_rows_and_cells() {
     assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     screen.assert_layout();
+}
+
+#[test]
+fn a_column_context_menu_preserves_header_sorting() {
+    let (screen, selected) = mount_with(options(), || {
+        let selected = signal(false);
+        let mut columns = columns();
+        columns[0] = columns[0].clone().header_context_menu(move || {
+            menu(
+                "Name options",
+                vec![MenuEntry::item("inspect", "Inspect names")],
+                move |_| {
+                    selected.set(true);
+                },
+            )
+        });
+        (selected, data_table(people(), |p: &Person| p.id, columns))
+    });
+    let name = screen.get_by_role(Role::ColumnHeader, "Name");
+    name.click_with(MouseButton::Secondary);
+    screen.get_by_role(Role::MenuItem, "Inspect names").click();
+    assert!(selected.get());
+    name.press_key(Key::ContextMenu);
+    screen.get_by_role(Role::MenuItem, "Inspect names");
+    screen.press_key(Key::Escape);
+    screen
+        .get_by_role(Role::ColumnHeader, "Age")
+        .click_with(MouseButton::Secondary);
+    assert!(
+        screen
+            .query_by_role(Role::MenuItem, "Inspect names")
+            .is_none()
+    );
+    name.click();
+    assert_eq!(names(&screen), ["Ada", "Alan", "Edsger", "Grace", "Linus"]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -185,5 +221,37 @@ fn the_grid_keys_move_between_cells_and_space_selects_the_row() {
     assert!(screen.get_by_role(Role::GridCell, "45").is_focused());
     screen.press_key(Key::Space);
     assert_eq!(selected.get_untracked(), [2]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn proportional_columns_share_space_and_resizing_respects_the_column_minimum() {
+    let (screen, widths) = mount_with(options(), || {
+        let widths = signal(vec![0.0, 0.0]);
+        let mut columns = columns();
+        columns[0] = columns[0].clone().flex(1.0).min_width(130.0);
+        columns[1] = columns[1].clone().flex(2.0).min_width(130.0);
+        (
+            widths,
+            data_table(people(), |p: &Person| p.id, columns)
+                .resizable(widths)
+                .resize_range(ScalarRange::new(50.0, 600.0).expect("valid column range")),
+        )
+    });
+    let first = screen.get_by_role(Role::ColumnHeader, "Name");
+    let second = screen.get_by_role(Role::ColumnHeader, "Age");
+    let first_width = first.rect().expect("laid out header").width;
+    let second_width = second.rect().expect("laid out header").width;
+    assert!(first_width >= 130.0);
+    assert!(second_width > first_width * 1.5);
+    let cell = screen.get_by_role(Role::GridCell, "Ada");
+    assert!((cell.rect().expect("laid out cell").width - first_width).abs() < 1.0);
+
+    let handle = screen.get_by_role(Role::Splitter, "Resize Name");
+    handle.press_key(Key::Home);
+    assert_eq!(widths.get_untracked(), [130.0, 0.0]);
+    handle.press_key(Key::ArrowLeft);
+    assert_eq!(widths.get_untracked(), [130.0, 0.0]);
+    assert!((first.rect().expect("laid out resized header").width - 130.0).abs() < 1.0);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
