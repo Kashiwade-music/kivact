@@ -121,9 +121,10 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "markdown" => specimen(
             "Formatted content",
             kivact_ui_soft::markdown(
-                "## Project notes\n\nUse **Soft** to style your interface.\n\n- Review the catalog\n- Try the controls",
-            ),
-            "markdown(source)",
+                "## Project notes\n\nUse **Soft** to style your interface.\n\nThe project reference lives in [the guide](https://example.com/guide) and wraps with the paragraph.\n\n- Review the catalog\n- Try the controls",
+            )
+            .content_width(Some(240.0)),
+            "markdown(source).content_width(Some(240.0))",
         ),
         "citation" => specimen(
             "Source reference",

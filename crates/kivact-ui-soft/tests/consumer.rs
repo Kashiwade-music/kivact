@@ -15,6 +15,34 @@ use std::rc::Rc;
 use std::time::Duration;
 
 #[test]
+fn markdown_wraps_a_live_link_with_the_surrounding_paragraph() {
+    let (screen, opened) = render_with_handle(
+        RenderOptions {
+            theme: kivact_ui_soft::theme(ThemeMode::Light),
+            ..RenderOptions::from_env()
+        },
+        || {
+            let opened = signal(String::new());
+            let paragraph = kivact_ui_soft::markdown(
+                "The project reference lives in [the guide](https://example.com/guide) today.",
+            )
+            .on_link(move |url| opened.set(url.to_owned()))
+            .style(kivact::style::style().width(150))
+            .test_id("markdown-paragraph");
+            (opened, paragraph)
+        },
+    );
+    let paragraph = screen.get_by_test_id("markdown-paragraph").rect().unwrap();
+    let link = screen.get_by_role(Role::Link, "the guide");
+    let bounds = link.rect().unwrap();
+    assert!(bounds.y > paragraph.y + 8.0);
+    assert!(bounds.x + bounds.width <= paragraph.x + paragraph.width + 1.0);
+    link.click();
+    assert_eq!(opened.get_untracked(), "https://example.com/guide");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn code_block_disclosure_releases_its_height_as_it_closes() {
     let screen = render_with(
         RenderOptions {

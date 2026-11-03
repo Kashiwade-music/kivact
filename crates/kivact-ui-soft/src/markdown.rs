@@ -235,7 +235,7 @@ impl IntoView for Markdown {
                 slugs: HashMap::new(),
             };
             if options.inline {
-                renderer.inline(source, false)
+                renderer.inline(source, false, true)
             } else {
                 renderer
                     .blocks(&parse(&lines, options.soft_breaks, 0), 0)
@@ -321,7 +321,7 @@ impl Renderer<'_> {
             Block::Heading(level, title) => {
                 self.heading((*level + self.options.level - 1).min(6), title)
             }
-            Block::Paragraph(source) => self.inline(source, false),
+            Block::Paragraph(source) => self.inline(source, false, true),
             Block::Quote(blocks) => {
                 let content = self.blocks(blocks, depth + 1).into_view();
                 blockquote(move || content).into_view()
@@ -491,7 +491,7 @@ impl Renderer<'_> {
                     .iter()
                     .enumerate()
                     .map(|(column, cell)| {
-                        let content = self.inline(cell, index == 0);
+                        let content = self.inline(cell, index == 0, false);
                         let width = widths[column] as f32;
                         let justify = match align[column] {
                             Alignment::Start => Justify::Start,
@@ -525,17 +525,16 @@ impl Renderer<'_> {
         .name(message("soft.table.label", "Table"))
     }
 
-    fn inline(&mut self, source: &str, strong: bool) -> View {
-        let mut nodes = Vec::new();
+    fn inline(&mut self, source: &str, strong: bool, paragraph: bool) -> View {
+        let mut parts = Vec::<Result<String, View>>::new();
         let mut plain = String::new();
         let mut rest = source;
         while !rest.is_empty() {
             if let Some((used, view)) = self.inline_object(rest) {
                 if !plain.is_empty() {
-                    nodes.push(inline_spans(&plain, strong).into_view());
-                    plain.clear();
+                    parts.push(Ok(std::mem::take(&mut plain)));
                 }
-                nodes.push(view);
+                parts.push(Err(view));
                 rest = &rest[used..];
             } else {
                 let Some(character) = rest.chars().next() else {
@@ -551,12 +550,44 @@ impl Renderer<'_> {
                 }
             }
         }
-        if nodes.is_empty() {
+        if parts.is_empty() {
             return inline_spans(&plain, strong).into_view();
         }
         if !plain.is_empty() {
-            nodes.push(inline_spans(&plain, strong).into_view());
+            parts.push(Ok(plain));
         }
+        // Keep marked, escaped and entity-containing spans on the existing renderer.
+        if paragraph
+            && !strong
+            && parts.iter().all(|part| {
+                !part
+                    .as_ref()
+                    .is_ok_and(|text| text.contains(['*', '_', '~', '`', '\\', '&']))
+            })
+        {
+            let p = tokens();
+            let mut text = String::new();
+            let mut objects = Vec::new();
+            for part in parts {
+                match part {
+                    Ok(plain) => text.push_str(&plain),
+                    Err(view) => objects.push((text.len(), view)),
+                }
+            }
+            let typography = kivact::draw::TextStyle {
+                family: Some(p.typography.family_body.into()),
+                size: p.typography.body.size_px,
+                ..Default::default()
+            };
+            return kivact::primitive::inline_view(text, typography, objects).into_view();
+        }
+        let nodes: Vec<_> = parts
+            .into_iter()
+            .map(|part| match part {
+                Ok(plain) => inline_spans(&plain, strong).into_view(),
+                Err(view) => view,
+            })
+            .collect();
         row(nodes)
             .style(style().wrap(true).align_items(Align::Baseline).min_width(0))
             .into_view()
