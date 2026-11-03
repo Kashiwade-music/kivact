@@ -44,6 +44,10 @@ pub struct DataTableContext<R: 'static, K: 'static> {
     /// The caller's page number and the rows on a page, when the table
     /// pages.
     pub page: Option<(Binding<usize>, Value<usize>)>,
+    /// The writable page size, when the table offers a size selector.
+    pub page_size: Option<Binding<usize>>,
+    /// Whether another remotely supplied page is available.
+    pub has_more: Option<Value<bool>>,
 }
 
 impl<R: 'static, K: 'static> Copy for DataTableContext<R, K> {}
@@ -54,19 +58,37 @@ impl<R: 'static, K: 'static> Clone for DataTableContext<R, K> {
     }
 }
 
+/// Cell spacing available to data table theme recipes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DataTableDensity {
+    Compact,
+    #[default]
+    Balanced,
+    Spacious,
+}
+
+impl crate::variants::Variant for DataTableDensity {}
+
+pub(super) type StickyEdges = (Vec<usize>, Vec<usize>);
+
 /// A table of the caller's rows, created by [`data_table`].
 pub struct DataTable<R: 'static, K: 'static> {
     pub(super) root: Node,
     pub(super) rows: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
+    pub(super) column_order: Option<Value<Vec<usize>>>,
     pub(super) selection: Option<Binding<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) sort: Option<Sort>,
     pub(super) multi_sort: Option<Binding<Vec<(usize, SortOrder)>>>,
     pub(super) page: Option<Paging>,
+    pub(super) has_more: Option<Value<bool>>,
+    pub(super) page_sizes: Option<(Binding<usize>, Value<Vec<usize>>)>,
+    pub(super) row_index: Option<usize>,
     pub(super) filter: Option<Binding<String>>,
     pub(super) column_filters: Option<ColumnFilters>,
+    pub(super) sticky: Option<StickyEdges>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
     pub(super) resize_range: Option<ScalarRange>,
     pub(super) row_label: Option<RowName<R>>,

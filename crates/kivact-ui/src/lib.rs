@@ -159,7 +159,9 @@ pub use button::{Button, ButtonBusyMotion, DisabledButtonFocus, button};
 pub use children::IntoChildren;
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
-pub use data_table::{DataTable, DataTableContext, data_table};
+pub use data_table::{
+    DataTable, DataTableContext, DataTableDensity, DataTableStickyPaint, data_table,
+};
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};
 pub use inline_edit::{InlineEdit, use_inline_edit};

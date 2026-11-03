@@ -1,23 +1,28 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
+use super::sticky_paint::{DataTableStickyPaint, surface};
 use super::types::{
-    CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, Sort,
+    CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, Sort, StickyEdges,
 };
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
 use kivact_core::control::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact_core::draw::{Rect, linear_gradient};
 use kivact_core::i18n::message_with;
 use kivact_core::primitive::Part;
-use kivact_core::style::{Cursor, Justify, Position, Style, pct, style};
+use kivact_core::style::{
+    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, current_theme, pct, style,
+};
 use kivact_core::view::{
-    ButtonPress, CheckedState, Handled, IntoView, MouseButton, PointerEvent, PointerPhase, Role,
-    View, dynamic,
+    ButtonPress, CheckedState, Handled, IntoView, MouseButton, NodeRef, PointerEvent, PointerPhase,
+    ReadingDirection, Role, View, current_direction, dynamic, node_ref,
 };
 use kivact_core::{Binding, Callback, Value, binding, memo, signal};
 use kivact_interaction::{
     DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState, TableFocus,
     TableRowState, use_disclosure, use_drag,
 };
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -26,11 +31,13 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) behavior: Table<K, usize>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
+    pub(super) indexed: Option<Value<HashMap<K, usize>>>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
     pub(super) selection: Option<Binding<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
+    pub(super) sticky: Option<Rc<StickyColumns>>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
     pub(super) actions: Option<(f32, RowSlot<R>)>,
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
@@ -48,15 +55,70 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) variants: Variants,
 }
 
+/// Shared header measurements let in-flow pins follow flex and resize.
+pub(super) struct StickyColumns {
+    edges: StickyEdges,
+    rtl: bool,
+    headers: Vec<NodeRef>,
+    widths: Vec<Value<f32>>,
+    pub(super) viewport: NodeRef,
+    pub(super) content: NodeRef,
+    overflow: Value<(bool, bool)>,
+}
+
+impl StickyColumns {
+    pub(super) fn new(edges: StickyEdges, count: usize) -> Self {
+        let headers: Vec<_> = (0..count).map(|_| node_ref()).collect();
+        let widths = headers
+            .iter()
+            .map(|header| {
+                let rect = header.rect();
+                memo(move || rect.get().map_or(0.0, |rect| rect.width))
+            })
+            .collect();
+        let viewport = node_ref();
+        let content = node_ref();
+        let (port_rect, content_rect, offset) =
+            (viewport.rect(), content.rect(), viewport.scroll_offset());
+        let overflow = memo(move || {
+            let width = port_rect.get().map_or(0.0, |rect| rect.width);
+            let total = content_rect.get().map_or(0.0, |rect| rect.width);
+            let x = offset.get().x;
+            (x > 1.0, x + width < total - 1.0)
+        });
+        Self {
+            edges,
+            rtl: current_direction() == ReadingDirection::Rtl,
+            headers,
+            widths,
+            viewport,
+            content,
+            overflow,
+        }
+    }
+
+    fn edge(&self, index: usize) -> Option<bool> {
+        if self.edges.0.contains(&index) {
+            Some(true)
+        } else if self.edges.1.contains(&index) {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
+
 impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
     fn clone(&self) -> Self {
         Self {
             behavior: self.behavior,
             keys: self.keys,
+            indexed: self.indexed,
             columns: self.columns.clone(),
             visible: self.visible,
             selection: self.selection,
             row_selectable: self.row_selectable.clone(),
+            sticky: self.sticky.clone(),
             widths: self.widths,
             actions: self.actions.clone(),
             row_context_menu: self.row_context_menu.clone(),
@@ -82,6 +144,109 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
     fn checks(&self) -> Option<Binding<Vec<K>>> {
         self.selection
             .filter(|_| matches!(self.focus, TableFocus::Cells(_)))
+    }
+
+    fn direction(&self) -> Style {
+        if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl) {
+            style().direction(Direction::RowReverse)
+        } else {
+            style()
+        }
+    }
+
+    fn sticky_style(
+        &self,
+        index: usize,
+        header: bool,
+        state: Option<Value<TableCellState>>,
+        color: Option<Value<Option<Color>>>,
+    ) -> impl Fn() -> Style + 'static {
+        let sticky = self.sticky.clone();
+        let visible = self.visible;
+        move || {
+            let Some(sticky) = &sticky else {
+                return style();
+            };
+            let Some(start) = sticky.edge(index) else {
+                return style();
+            };
+            let offset: f32 = visible.with(|visible| {
+                visible
+                    .iter()
+                    .copied()
+                    .filter(|&other| if start { other < index } else { other > index })
+                    .filter(|&other| sticky.edge(other) == Some(start))
+                    .map(|other| sticky.widths[other].get())
+                    .sum()
+            });
+            let base = surface(
+                header,
+                state.is_some_and(|state| state.get().selected),
+                color.and_then(|color| color.get()),
+            )
+            .position(Position::Sticky)
+            .z_index(if header { 3 } else { 1 });
+            if start != sticky.rtl {
+                base.left(offset)
+            } else {
+                base.right(offset)
+            }
+        }
+    }
+
+    fn sticky_shadow(&self, index: usize) -> Option<Node> {
+        let sticky = self.sticky.clone()?;
+        let start = sticky.edge(index)?;
+        let visible = self.visible;
+        let on_left = start != sticky.rtl;
+        Some(node().hit_testable(false).style(move || {
+            let paint = current_theme().get::<DataTableStickyPaint>();
+            let width = paint.shadow_width;
+            let boundary = visible.with(|columns| {
+                let mut pinned = columns
+                    .iter()
+                    .copied()
+                    .filter(|&index| sticky.edge(index) == Some(start));
+                if start {
+                    pinned.next_back()
+                } else {
+                    pinned.next()
+                }
+            });
+            let (before, after) = sticky.overflow.get();
+            let show = boundary == Some(index) && if on_left { before } else { after };
+            let shadow = paint.shadow;
+            let base = style()
+                .position(Position::Absolute)
+                .top(0)
+                .bottom(0)
+                .width(width)
+                .opacity(if show { 1.0 } else { 0.0 })
+                .paint(move |draw, size| {
+                    let gradient = linear_gradient(if on_left { 90 } else { 270 })
+                        .stop(shadow, 0)
+                        .stop(Color::TRANSPARENT, pct(100));
+                    draw.fill_rect(
+                        Rect {
+                            x: 0.0,
+                            y: 0.0,
+                            width: size.width,
+                            height: size.height,
+                        },
+                        gradient,
+                    );
+                });
+            let base = if on_left {
+                base.left(pct(100))
+            } else {
+                base.right(pct(100))
+            };
+            if let Some(transition) = paint.shadow_transition.clone() {
+                base.transition(TransitionProp::Paint, transition)
+            } else {
+                base
+            }
+        }))
     }
 
     /// The style that shares the width of column `index` between its header
@@ -143,7 +308,11 @@ pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
             .role(Role::ColumnHeader)
             .name(kivact_core::i18n::message("data_table.details", "Details"))
     });
-    row((check, disclosure, columns, actions))
+    let index = grid
+        .indexed
+        .map(|_| index_cell(Role::ColumnHeader, text("#")));
+    row((index, check, disclosure, columns, actions))
+        .style(grid.direction())
         .role(Role::Row)
         .into_view()
 }
@@ -182,14 +351,20 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
                     .cursor(Cursor::EwResize),
             )
     });
+    let mut header = node().part(part).name(title);
+    if let Some(sticky) = &grid.sticky {
+        header = header.node_ref(sticky.headers[index]);
+    }
     let header = with_recipe_style(
-        node().part(part).name(title),
+        header,
         |r| r.data_table_recipes().header_recipe(),
         &grid.variants,
         move || state.get(),
     )
     .style(style().position(Position::Relative))
     .style(grid.width(index, column.is_numeric()))
+    .style(grid.sticky_style(index, true, None, None))
+    .child(grid.sticky_shadow(index))
     .child(text(title).style(crate::helpers::single_line_text()))
     .child(mark)
     .child(handle);
@@ -297,10 +472,26 @@ where
         (Some(render), None) => (None, Some(render(item))),
         (None, _) => (None, None),
     };
+    let index = grid.indexed.map(|positions| {
+        let id = id.clone();
+        let role = if grid.focus == TableFocus::None {
+            Role::Cell
+        } else {
+            Role::GridCell
+        };
+        index_cell(
+            role,
+            text(move || {
+                positions
+                    .with(|positions| positions.get(&id).map(usize::to_string).unwrap_or_default())
+            }),
+        )
+    });
     let (color, height) = (grid.row_color.clone(), grid.row_height);
     let line = with_recipe_style(
-        row((check, trigger, cells, actions))
+        row((index, check, trigger, cells, actions))
             .style(style().group())
+            .style(grid.direction())
             .part(part),
         |r| r.data_table_recipes().row_recipe(),
         &grid.variants,
@@ -322,6 +513,24 @@ where
         Some(details) => column((line, details)).into_view(),
         None => line,
     }
+}
+
+fn index_cell(role: Role, text: Node) -> Node {
+    row(text.style(
+        style()
+            .tabular_nums()
+            .font_family("monospace")
+            .font_size(12)
+            .color(kivact_core::style::ColorToken::TextMuted),
+    ))
+    .role(role)
+    .style(
+        style()
+            .width(48)
+            .min_width(48)
+            .shrink(0)
+            .justify_content(Justify::End),
+    )
 }
 
 fn expansion_cell() -> Node {
@@ -434,6 +643,11 @@ where
         let state = part.state();
         (node().part(part), state)
     };
+    let tint = grid
+        .sticky
+        .as_ref()
+        .and(grid.row_color.clone())
+        .map(|color| memo(move || item.with(|row| color(row))));
     let cell = with_recipe_style(
         node,
         |r| r.data_table_recipes().cell_recipe(),
@@ -445,6 +659,8 @@ where
     )
     .name(move || item.with(|row| named.text_of(row)))
     .style(grid.width(index, numeric))
+    .style(grid.sticky_style(index, false, Some(state), tint))
+    .child(grid.sticky_shadow(index))
     .child(content);
     if checked {
         cell.on_pointer(keep_selection).into_view()

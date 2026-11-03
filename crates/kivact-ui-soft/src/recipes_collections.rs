@@ -8,8 +8,8 @@ use kivact::style::{
     Align, Cursor, Direction, Justify, Position, Style, Theme, TransitionProp, pct, style,
 };
 use kivact::ui::{
-    AxisState, DataTableRecipes, DisclosureRecipes, ListRecipes, Look, SplitRecipes,
-    SplitterRecipes, TabsRecipes, TreeRecipes,
+    AxisState, DataTableDensity, DataTableRecipes, DisclosureRecipes, ListRecipes, Look,
+    SplitRecipes, SplitterRecipes, TabsRecipes, TreeRecipes,
 };
 use kivact::view::{Orientation, ReadingDirection, current_direction};
 
@@ -330,17 +330,20 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     .header(|_| {
         |t: &Theme, s: &_| {
             let p = t.get::<Tokens>();
-            table_cell(&p)
-                .gap(p.spacing.s1)
-                .weight(p.typography.weight_semibold)
-                .color(p.colors.text_secondary)
-                .border_bottom(p.sizes.border_width, p.colors.border)
-                .cursor(if s.sortable {
-                    Cursor::Pointer
-                } else {
-                    Cursor::Default
-                })
-                .focus_visible(focus(&p))
+            table_cell(
+                &p,
+                s.variant::<DataTableDensity>().copied().unwrap_or_default(),
+            )
+            .gap(p.spacing.s1)
+            .weight(p.typography.weight_semibold)
+            .color(p.colors.text_secondary)
+            .border_bottom(p.sizes.border_width, p.colors.border)
+            .cursor(if s.sortable {
+                Cursor::Pointer
+            } else {
+                Cursor::Default
+            })
+            .focus_visible(focus(&p))
         }
     })
     .sort(|_| sort_mark)
@@ -358,14 +361,17 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     .cell(|_| {
         |t: &Theme, s: &_| {
             let p = t.get::<Tokens>();
-            table_cell(&p)
-                .justify_content(if s.numeric {
-                    Justify::End
-                } else {
-                    Justify::Start
-                })
-                .color(p.colors.text_primary)
-                .focus_visible(focus(&p))
+            table_cell(
+                &p,
+                s.variant::<DataTableDensity>().copied().unwrap_or_default(),
+            )
+            .justify_content(if s.numeric {
+                Justify::End
+            } else {
+                Justify::Start
+            })
+            .color(p.colors.text_primary)
+            .focus_visible(focus(&p))
         }
     })
     .check(|_| {
@@ -380,7 +386,12 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
 }
 
-fn table_cell(p: &Tokens) -> Style {
+fn table_cell(p: &Tokens, density: DataTableDensity) -> Style {
+    let (inline, block) = match density {
+        DataTableDensity::Compact => (p.spacing.s2, p.spacing.s1),
+        DataTableDensity::Balanced => (p.spacing.s3, p.spacing.s2),
+        DataTableDensity::Spacious => (p.spacing.s4, p.spacing.s3),
+    };
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -388,8 +399,8 @@ fn table_cell(p: &Tokens) -> Style {
         .basis(0)
         .shrink(0)
         .min_width(0)
-        .padding_x(p.spacing.s3)
-        .padding_y(p.spacing.s2)
+        .padding_x(inline)
+        .padding_y(block)
         .font_size(p.typography.body.size_px)
         .line_height(1.5)
 }

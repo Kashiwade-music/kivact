@@ -10,7 +10,9 @@ mod builder;
 mod chrome;
 mod rows;
 mod runtime;
+mod sticky_paint;
 mod types;
 
 pub use builder::data_table;
-pub use types::{DataTable, DataTableContext};
+pub use sticky_paint::DataTableStickyPaint;
+pub use types::{DataTable, DataTableContext, DataTableDensity};

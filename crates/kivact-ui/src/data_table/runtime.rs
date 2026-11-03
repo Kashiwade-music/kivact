@@ -36,13 +36,18 @@ where
         rows: data,
         key,
         columns,
+        column_order,
         selection,
         row_selectable,
         sort,
         multi_sort,
         page,
+        has_more,
+        page_sizes,
+        row_index,
         filter,
         column_filters,
+        sticky,
         widths,
         resize_range,
         row_label,
@@ -83,17 +88,45 @@ where
     if let Some(queries) = column_filters {
         model = model.column_filters(queries.into_value());
     }
-    if let Some((index, size)) = page {
+    let page_size = page.and_then(|(index, _)| {
+        page_sizes.map(|(size, _)| {
+            binding(size, move |next: usize| {
+                size.set(next.max(1));
+                index.set(0);
+            })
+        })
+    });
+    let page = page.map(|(index, size)| (index, page_size.map_or(size, |size| size.into_value())));
+    if let Some((index, size)) = page
+        && has_more.is_none()
+    {
         model = model.page(index, size);
     }
     let display = model.rows();
+    let shown = model.columns();
+    let shown = if let Some(order) = column_order {
+        memo(move || {
+            let ranks = order.with(|order| {
+                let mut ranks = HashMap::new();
+                for (rank, index) in order.iter().copied().enumerate() {
+                    ranks.entry(index).or_insert(rank);
+                }
+                ranks
+            });
+            let mut shown = shown.get();
+            shown.sort_by_key(|column| ranks.get(column.key()).copied().unwrap_or(usize::MAX));
+            shown
+        })
+    } else {
+        shown
+    };
     let table_key = key.clone();
     // Without the caller's selection, nothing is selected.
     let chosen = selection.unwrap_or_else(|| binding(Vec::new, |_| ()));
     let mut behavior = use_table(
         display,
         move |row| table_key(row),
-        model.columns(),
+        shown,
         ListSelection::Multiple(chosen),
         focus,
     );
@@ -175,9 +208,12 @@ where
         behavior = share_widths(behavior, sizes, columns.len(), range);
     }
     let visible = memo(move || {
-        model
-            .columns()
-            .with(|shown| shown.iter().map(|column| *column.key()).collect::<Vec<_>>())
+        shown.with(|columns| {
+            columns
+                .iter()
+                .map(|column| *column.key())
+                .collect::<Vec<_>>()
+        })
     });
     let context = DataTableContext {
         model,
@@ -186,6 +222,8 @@ where
         filter,
         column_filters,
         page,
+        page_size,
+        has_more,
     };
     let toolbar = match toolbar {
         Some(slot) => Some(slot(context)),
@@ -193,15 +231,39 @@ where
     };
     let footer = match footer {
         Some(slot) => Some(slot(context)),
-        None => super::chrome::footer(context, &variants),
+        None => super::chrome::footer(context, page_sizes.map(|(_, options)| options), &variants),
     };
+    let sticky = sticky.map(|edges| Rc::new(rows::StickyColumns::new(edges, columns.len())));
+    let indexed = row_index.map(|start| {
+        let keys = model.keys();
+        let pages = model.page_count();
+        memo(move || {
+            let offset = page.map_or(0, |(index, size)| {
+                let index = if has_more.is_some() {
+                    index.get()
+                } else {
+                    index.get().min(pages.get().saturating_sub(1))
+                };
+                index.saturating_mul(size.get().max(1))
+            });
+            keys.with(|keys| {
+                keys.iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(index, key)| (key, start.saturating_add(offset).saturating_add(index)))
+                    .collect::<HashMap<_, _>>()
+            })
+        })
+    });
     let grid = Grid {
         behavior,
         keys: selectable_keys,
+        indexed,
         row_selectable,
         columns,
         visible,
         selection,
+        sticky: sticky.clone(),
         widths,
         actions,
         row_context_menu,
@@ -241,7 +303,7 @@ where
             )
         },
     );
-    let grid = column((head, column((body, empty_view)).role(Role::RowGroup)))
+    let mut grid = column((head, column((body, empty_view)).role(Role::RowGroup)))
         .part(behavior.grid())
         .name(message("data_table.label", "Data table"))
         .style(
@@ -250,14 +312,19 @@ where
                 .min_width(pct(100))
                 .shrink(0),
         );
+    if let Some(sticky) = &sticky {
+        grid = grid.node_ref(sticky.content);
+    }
+    let mut scroller = scroll(grid)
+        .axes(kivact_core::control::ScrollAxes::Horizontal)
+        // The rows keep their height in a bounded parent: the caller's own
+        // scroll view carries them.
+        .style(style().shrink(0));
+    if let Some(sticky) = &sticky {
+        scroller = scroller.node_ref(sticky.viewport);
+    }
     root.child(toolbar)
-        .child(
-            scroll(grid)
-                .axes(kivact_core::control::ScrollAxes::Horizontal)
-                // The rows keep their height in a bounded parent: the
-                // caller's own scroll view carries them.
-                .style(style().shrink(0)),
-        )
+        .child(scroller)
         .child(footer)
         .into_view()
 }

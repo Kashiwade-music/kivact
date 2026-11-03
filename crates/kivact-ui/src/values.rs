@@ -366,6 +366,6 @@ pub struct DataTableCheckState {
 pub struct DataTablePageState {
     /// The page shown, from 0.
     pub index: usize,
-    /// How many pages the filtered rows fill; at least 1.
+    /// How many pages the filtered rows fill. Zero for a remote page with unknown total.
     pub pages: usize,
 }

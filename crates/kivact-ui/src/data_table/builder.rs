@@ -103,13 +103,18 @@ where
         rows: rows.into_value(),
         key: Rc::new(key),
         columns: Rc::new(columns),
+        column_order: None,
         selection: None,
         row_selectable: None,
         sort: None,
         multi_sort: None,
         page: None,
+        has_more: None,
+        page_sizes: None,
+        row_index: None,
         filter: None,
         column_filters: None,
+        sticky: None,
         widths: None,
         resize_range: None,
         row_label: None,
@@ -145,6 +150,19 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Select the density used by themes that style data table cells.
+    pub fn density(self, density: super::types::DataTableDensity) -> Self {
+        self.variant(density)
+    }
+
+    /// Pin visible data columns to the start and end of the horizontal viewport.
+    /// Indices are in declaration order; hidden or invalid indices are ignored.
+    /// When an index occurs on both sides, start takes precedence.
+    pub fn sticky_columns(mut self, start: Vec<usize>, end: Vec<usize>) -> Self {
+        self.sticky = (!start.is_empty() || !end.is_empty()).then_some((start, end));
+        self
+    }
+
     /// Show a check box for each row and one that checks the rows of the
     /// page, keeping the keys of the checked rows in `selection`. Checking
     /// the page adds and removes only its rows, so the selection of rows on
@@ -175,6 +193,15 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Set the visible columns' order by their original zero-based indices.
+    /// Hidden columns stay hidden. Duplicate and unknown indices are ignored,
+    /// and omitted columns follow in their original order. Sort and resize
+    /// bindings continue to use the original indices.
+    pub fn column_order(mut self, order: impl IntoValue<Vec<usize>>) -> Self {
+        self.column_order = Some(order.into_value());
+        self
+    }
+
     /// Keep the sorted column (an index into the columns) and its direction
     /// in `sort`, to start sorted or to show the sort elsewhere; the table
     /// reads the binding back, so the caller may set it too. Without it the
@@ -200,6 +227,40 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// page in `page`, with Previous and Next buttons under the table.
     pub fn page(mut self, page: impl Into<Binding<usize>>, size: impl IntoValue<usize>) -> Self {
         self.page = Some((page.into(), size.into_value()));
+        self.has_more = None;
+        self
+    }
+
+    /// Show caller-supplied page rows without slicing them again. The caller
+    /// loads the page indicated by the binding and supplies whether another
+    /// page is available.
+    pub fn remote_page(
+        mut self,
+        page: impl Into<Binding<usize>>,
+        size: impl IntoValue<usize>,
+        has_more: impl IntoValue<bool>,
+    ) -> Self {
+        self.page = Some((page.into(), size.into_value()));
+        self.has_more = Some(has_more.into_value());
+        self
+    }
+
+    /// Offer a writable page size and sizes to choose from. Applies with
+    /// [`page`](Self::page) or [`remote_page`](Self::remote_page). Choosing a size
+    /// resets the page to zero. Values of zero are omitted.
+    pub fn page_sizes(
+        mut self,
+        size: impl Into<Binding<usize>>,
+        options: impl IntoValue<Vec<usize>>,
+    ) -> Self {
+        self.page_sizes = Some((size.into(), options.into_value()));
+        self
+    }
+
+    /// Show a fixed-width display-position gutter starting at this number.
+    /// For paged tables, numbering includes the displayed page's offset.
+    pub fn row_index(mut self, start: usize) -> Self {
+        self.row_index = Some(start);
         self
     }
 

@@ -473,3 +473,98 @@ fn a_cell_that_claims_secondary_input_suppresses_the_row_menu() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn column_order_changes_visual_order_without_changing_sort_or_width_indices() {
+    let (screen, (order, sort, widths)) = mount_with(options(), || {
+        let order = signal(vec![1, 1, 99]);
+        let sort = signal(None::<(usize, SortOrder)>);
+        let widths = signal(vec![140.0, 90.0]);
+        (
+            (order, sort, widths),
+            data_table(people(), |p: &Person| p.id, columns())
+                .column_order(order)
+                .sort(sort)
+                .resizable(widths),
+        )
+    });
+    let header = |label| {
+        screen
+            .get_by_role(Role::ColumnHeader, label)
+            .rect()
+            .expect("laid out header")
+    };
+    assert!(header("Age").x < header("Name").x);
+    assert!((header("Age").width - 90.0).abs() < 1.0);
+    assert!((header("Name").width - 140.0).abs() < 1.0);
+    screen.get_by_role(Role::ColumnHeader, "Age").click();
+    assert_eq!(sort.get_untracked(), Some((1, SortOrder::Ascending)));
+
+    order.set(vec![0, 1]);
+    screen.run_until_idle();
+    assert!(header("Name").x < header("Age").x);
+    assert_eq!(
+        screen.get_by_role(Role::ColumnHeader, "Age").sort(),
+        SortDirection::Ascending
+    );
+    assert!((header("Age").width - 90.0).abs() < 1.0);
+    screen
+        .get_by_role(Role::Splitter, "Resize Age")
+        .press_key(Key::ArrowRight);
+    assert_eq!(widths.get_untracked(), [140.0, 100.0]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn row_numbers_follow_the_displayed_page_and_page_size_changes_reset_it() {
+    let (screen, (page, size)) = mount_with(options(), || {
+        let page = signal(1usize);
+        let size = signal(2usize);
+        (
+            (page, size),
+            data_table(people(), |p: &Person| p.id, columns())
+                .page(page, size)
+                .page_sizes(size, vec![2, 5])
+                .row_index(1),
+        )
+    });
+    screen.get_by_role(Role::ColumnHeader, "#");
+    screen.get_by_text("Page 2 of 3");
+    screen.get_by_text("3");
+    screen.get_by_text("4");
+    assert_eq!(names(&screen), ["Linus", "Alan"]);
+
+    screen.get_by_role(Role::ComboBox, "Rows per page").click();
+    screen.get_by_text("5").click();
+    assert_eq!(size.get_untracked(), 5);
+    assert_eq!(page.get_untracked(), 0);
+    assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
+    screen.get_by_text("Page 1 of 1");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_remote_page_does_not_slice_the_rows_again_and_uses_has_more() {
+    let (screen, (page, has_more)) = mount_with(options(), || {
+        let page = signal(3usize);
+        let has_more = signal(true);
+        (
+            (page, has_more),
+            data_table(people(), |p: &Person| p.id, columns())
+                .remote_page(page, 10usize, has_more)
+                .row_index(1),
+        )
+    });
+    assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
+    screen.get_by_text("31");
+    screen.get_by_text("Page 4");
+    screen.get_by_role(Role::Button, "Next").click();
+    assert_eq!(page.get_untracked(), 4);
+    screen.get_by_text("Page 5");
+    has_more.set(false);
+    screen.run_until_idle();
+    assert!(screen.get_by_role(Role::Button, "Next").is_disabled());
+    screen.get_by_role(Role::Button, "Previous").click();
+    assert_eq!(page.get_untracked(), 3);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

@@ -99,6 +99,21 @@ pub fn theme(mode: ThemeMode) -> Theme {
             extra_small_size: tokens.typography.supporting.size_px,
         })
         .with_icons(crate::icons::set())
+        .with(kivact::ui::DataTableStickyPaint {
+            surface: colors.bg_card,
+            hover: colors.overlay_hover,
+            selected: colors.accent_muted,
+            shadow: colors.shadow,
+            shadow_width: 6.0,
+            shadow_transition: Some(kivact::motion::Transition::tween(
+                150,
+                tokens.motion.ease_standard,
+            )),
+            overlay_transition: Some(kivact::motion::Transition::tween(
+                125,
+                tokens.motion.ease_standard,
+            )),
+        })
         .with(tokens)
         .with(crate::recipes::recipes())
 }
