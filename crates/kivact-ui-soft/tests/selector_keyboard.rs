@@ -33,7 +33,8 @@ fn soft_selector_arrows_open_at_the_edges_without_committing() {
 
     screen.press_key(Key::ArrowDown);
     assert_eq!(trigger.is_expanded(), Some(true));
-    assert!(screen.get_by_role(Role::Option, "First").is_focused());
+    assert!(trigger.is_focused());
+    assert!(trigger.has_active_descendant(&screen.get_by_role(Role::Option, "First")));
     assert_eq!(value.get_untracked(), Some("middle"));
 
     screen.press_key(Key::Escape);
@@ -43,7 +44,8 @@ fn soft_selector_arrows_open_at_the_edges_without_committing() {
 
     screen.press_key(Key::ArrowUp);
     assert_eq!(trigger.is_expanded(), Some(true));
-    assert!(screen.get_by_role(Role::Option, "Last").is_focused());
+    assert!(trigger.is_focused());
+    assert!(trigger.has_active_descendant(&screen.get_by_role(Role::Option, "Last")));
     assert_eq!(value.get_untracked(), Some("middle"));
 
     screen.press_key(Key::Enter);

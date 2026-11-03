@@ -19,7 +19,9 @@ pub fn selector<K: Clone + Eq + Hash + 'static>(
     options: impl IntoValue<Vec<ListItem<K>>>,
     value: impl Into<Binding<Option<K>>>,
 ) -> Selector<K> {
-    select(label, options, value).open_on_arrow(true)
+    select(label, options, value)
+        .open_on_arrow(true)
+        .retain_trigger_focus(true)
 }
 
 pub fn multi_selector<K: Clone + Eq + Hash + 'static>(
