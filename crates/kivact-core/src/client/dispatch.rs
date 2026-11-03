@@ -63,6 +63,7 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             pointer,
         } => pointer::activate_event(rt, host_event, *node, *region, *pointer),
         HostEvent::HoverChanged { node } => pointer::hover_changed(rt, *node),
+        HostEvent::MousePosition(position) => crate::view::hover::set_mouse_position(rt, *position),
         HostEvent::Key { .. } => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.
         HostEvent::ModifiersChanged(_) => {}

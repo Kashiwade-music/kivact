@@ -191,6 +191,8 @@ pub enum HostEvent {
     HoverChanged {
         node: Option<NodeId>,
     },
+    /// Passive mouse location in logical window pixels, even without a hit.
+    MousePosition(Option<Point>),
     /// Host-side edit of a TextInput: the changes of its text in order
     /// (byte ranges, each in the text the previous one left), its session
     /// after them, and its whole text when its `ReportText` prop is set.

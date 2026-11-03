@@ -50,6 +50,8 @@ pub use boundary::{
 #[doc(inline)]
 pub use descriptor::{IntoView, View};
 #[doc(inline)]
+pub use hover::mouse_position;
+#[doc(inline)]
 pub use input::{
     A11yEvent, ButtonPress, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
     KeyHandlerResult, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId, PointerKind,

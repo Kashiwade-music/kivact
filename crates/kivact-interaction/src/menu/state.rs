@@ -610,6 +610,7 @@ pub(super) struct Session<K: 'static> {
     pub(super) kept: Value<usize>,
     pub(super) want: Signal<Option<Want<K>>>,
     pub(super) typed: Var<Typeahead>,
+    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::draw::Rect)>>,
 }
 
 impl<K: 'static> Clone for Session<K> {

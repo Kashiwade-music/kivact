@@ -44,6 +44,7 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
             kept,
             want,
             typed: var(Typeahead::default()),
+            surface_rects: signal(Vec::new()),
         };
         // A closed menu forgets its submenus, its focus, any request and
         // where it was asked to appear.

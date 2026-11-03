@@ -9,12 +9,13 @@ use super::state::{
 };
 use crate::{
     Delays, List, ListItem, ListPolicy, ListSelection, PopupCloseReason, PopupState, use_delayed,
-    use_list,
+    use_hover_corridor, use_list,
 };
+use kivact_core::draw::Rect;
 use kivact_core::primitive::Part;
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
-use kivact_core::{Value, effect, memo, on_mount, signal};
+use kivact_core::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
 
 /// Pointer delays for opening a submenu or leaving it for a sibling item.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,6 +42,9 @@ pub(super) struct Level<K: Clone + Eq + Hash + 'static> {
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
     group: List<K>,
+    anchors: Signal<Vec<(K, Rect)>>,
+    aiming: Value<bool>,
+    timing: SubmenuTiming,
 }
 
 impl<K: Clone + Eq + Hash + 'static> Clone for Level<K> {
@@ -84,6 +88,35 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             ListPolicy::menu(),
         )
         .shared_typeahead(session.typed);
+        let anchors = signal(Vec::<(K, Rect)>::new());
+        let timing = *current_theme().get::<SubmenuTiming>();
+        let aiming = if timing.close.is_zero() {
+            false.into_value()
+        } else {
+            let anchor = memo(move || {
+                session.path.with(|path| {
+                    let key = path.get(depth)?;
+                    anchors.with(|anchors| {
+                        anchors
+                            .iter()
+                            .find(|(candidate, _)| candidate == key)
+                            .map(|(_, rect)| *rect)
+                    })
+                })
+            });
+            let surface = memo(move || {
+                session.path.with(|path| {
+                    let prefix = path.get(..=depth)?;
+                    session.surface_rects.with(|rects| {
+                        rects
+                            .iter()
+                            .find(|(candidate, _)| candidate == prefix)
+                            .map(|(_, rect)| *rect)
+                    })
+                })
+            });
+            use_hover_corridor(anchor, surface, shown, timing.close)
+        };
         Self {
             session,
             depth,
@@ -91,6 +124,9 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             shown,
             rows: level_rows,
             group,
+            anchors,
+            aiming,
+            timing,
         }
     }
 
@@ -102,8 +138,17 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             depth,
             rows,
             group,
+            prefix,
+            timing,
             ..
         } = self;
+        if depth > 0 && !timing.close.is_zero() {
+            observe_rect(
+                session.surface_rects,
+                prefix.get_untracked(),
+                base.node_ref().rect(),
+            );
+        }
         base.role(Role::Menu)
             .on_key(move |event: KeyEvent| on_key(session, depth, rows, event))
             // The host consumes Tab to move focus, so the menu sees only its
@@ -213,8 +258,12 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
 
         // The pointer focuses the item it rests on; a submenu opens after a rest.
         let hovered = signal(false);
-        let timing = current_theme().get::<SubmenuTiming>();
+        let timing = self.timing;
+        let aiming = self.aiming;
         if submenu {
+            if !timing.close.is_zero() {
+                observe_rect(self.anchors, key.clone(), item_ref.rect());
+            }
             let key = key.clone();
             let resting = memo(move || hovered.get() && !expanded.get() && !disabled.get());
             let rest = use_delayed(
@@ -225,7 +274,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 },
             );
             effect(move || {
-                if rest.shown().get() {
+                if rest.shown().get() && !aiming.get() {
                     session.open_hover(depth, key.clone());
                 }
             });
@@ -248,7 +297,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 },
             );
             effect(move || {
-                if rest.shown().get() && shown.get_untracked() {
+                if rest.shown().get() && !aiming.get() && shown.get_untracked() {
                     session.close_below(depth);
                 }
             });
@@ -263,6 +312,11 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         });
 
         let hover_key = key.clone();
+        effect(move || {
+            if hovered.get() && !aiming.get() && !disabled.get() && shown.get() {
+                session.hover(depth, hover_key.clone());
+            }
+        });
         let invoke_key = key;
         let member = member
             .map_state(move |state| MenuItemState {
@@ -279,17 +333,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             .description(shortcut)
             .on_pointer(move |event: PointerEvent| {
                 match event.phase {
-                    PointerPhase::Enter => {
-                        hovered.set(true);
-                        // Asked for, not requested here: a click delivers its
-                        // move, press and release in one turn, and the choice
-                        // closes the menu before a request for the hovered row
-                        // could be sent. The level's effect carries it out
-                        // after the events, and a closed level never does.
-                        if !disabled.get() {
-                            session.hover(depth, hover_key.clone());
-                        }
-                    }
+                    PointerPhase::Enter => hovered.set(true),
                     PointerPhase::Leave => hovered.set(false),
                     _ => {}
                 }
@@ -362,4 +406,22 @@ fn on_key<K: Clone + Eq + Hash + 'static>(
         Key::Char(c) if !c.is_control() => Handled::Yes,
         _ => Handled::No,
     }
+}
+
+fn observe_rect<K: Clone + PartialEq + 'static>(
+    rects: Signal<Vec<(K, Rect)>>,
+    key: K,
+    rect: Value<Option<Rect>>,
+) {
+    let cleanup = key.clone();
+    on_cleanup(move || rects.update(|rects| rects.retain(|(key, _)| key != &cleanup)));
+    effect(move || {
+        let rect = rect.get();
+        rects.update(|rects| {
+            rects.retain(|(candidate, _)| candidate != &key);
+            if let Some(rect) = rect {
+                rects.push((key.clone(), rect));
+            }
+        });
+    });
 }

@@ -68,6 +68,7 @@ impl Model {
             // The window lost the mouse's gesture (its focus): it ends as
             // a `Cancel` where the mouse was, and nothing stays hovered.
             PointerPhase::Cancel => {
+                self.report_mouse_position(None);
                 self.pointer.state.track_mut(PointerId::MOUSE).at = input.position;
                 self.cancel_pointer_input(PointerId::MOUSE);
                 let space = PointerSpace::new(input.position, engine);
@@ -82,10 +83,17 @@ impl Model {
         self.pointer.state.track(PointerId::MOUSE).at
     }
 
+    fn report_mouse_position(&mut self, position: Option<Point>) {
+        if self.pointer.state.mouse != position {
+            self.pointer.state.mouse = position;
+            self.push(HostEvent::MousePosition(position));
+        }
+    }
+
     /// The mouse moved to `at` (window coordinates).
     fn mouse_moved(&mut self, at: Point, engine: &mut arvane::Engine) {
         self.pointer.state.track_mut(PointerId::MOUSE).at = at;
-        self.pointer.state.mouse = Some(at);
+        self.report_mouse_position(Some(at));
         if let Gesture::Scrollbar(drag) = self.pointer.state.track(PointerId::MOUSE).gesture {
             let local = self.to_local(drag.node, at);
             if let Some(bar) = self
@@ -121,7 +129,7 @@ impl Model {
 
     /// The mouse left the window; a held button keeps its capture.
     fn mouse_left(&mut self, engine: &mut arvane::Engine) {
-        self.pointer.state.mouse = None;
+        self.report_mouse_position(None);
         if self
             .pointer
             .state
@@ -214,6 +222,7 @@ impl Model {
     /// pointer's drag ends with `Cancel` where that pointer last was,
     /// nothing stays hovered, and the contacts end.
     pub(crate) fn cancel_pointer(&mut self, engine: &mut arvane::Engine) {
+        self.report_mouse_position(None);
         let pointers: Vec<(PointerId, Point)> = self
             .pointer
             .state

@@ -44,6 +44,7 @@ mod drag_velocity;
 mod edit;
 mod focus_return;
 mod follow_end;
+mod hover_corridor;
 mod list;
 mod menu;
 mod menubar;
@@ -83,6 +84,7 @@ pub use drag_velocity::DragVelocity;
 pub use edit::{EditPhase, EditSession};
 pub use focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 pub use follow_end::{FollowEnd, use_follow_end};
+pub use hover_corridor::{use_hover_corridor, use_hover_surface};
 pub use list::{
     List, ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
     ListMissingAnchor, ListMode, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
