@@ -305,8 +305,9 @@ for the keyboard hint.
 
 Date and time formatting uses the desktop input path. Truncation hints can
 show the full label on hover. Citation and timestamp underlines are solid.
-Carousel scrolls to slides in response to its controls. Font cap-height
-trimming uses the native line box.
+Carousel scrolls to slides in response to its controls. Enable `.snap(true)`
+to settle to a slide after scrolling. Font cap-height trimming uses the native
+line box.
 
 Chat Layout follows new messages while the viewport is near the end. Pass
 `.history_revision(..)` and update it in the same batch as a history prepend
@@ -325,10 +326,15 @@ selection, proportional widths, column resizing with per-column minimums,
 header context menus, and a custom empty state. Use `.expanded_rows(..)` with
 `.row_details(..)` for keyboard-operated row details, and `.column_filters(..)`
 for per-column queries. Use `.row_selectable(..)` to exclude rows from
-selection while keeping them in keyboard navigation. Grouped rows, sticky columns, typed filter popovers,
-and column reordering remain pending (C-29). Use `.multi_sort(..)`
-to enable multi-column sorting. Shift activation changes one column while
-preserving the other sort keys.
+selection while keeping them in keyboard navigation. `.column_order(..)`
+sets the displayed order, `.sticky_columns(..)` pins columns to the logical
+edges, and `.density(..)` selects row spacing. `.row_index(..)` displays row
+numbers, `.row_status(..)` supplies named status markers, and `.group_by(..)`
+adds collapsible group headings with counts for the current page. Use
+`.page_sizes(..)` for a page-size control and `.remote_page(..)` when the
+application supplies one page at a time. `.multi_sort(..)` enables
+multi-column sorting. Shift activation changes one column while preserving the
+other sort keys. Typed filter popovers and table tree rows remain pending (C-29).
 
 | Work-order item | Current behavior |
 | --- | --- |

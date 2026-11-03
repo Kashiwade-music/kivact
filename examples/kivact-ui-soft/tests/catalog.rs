@@ -37,12 +37,14 @@ fn carousel_example_snaps_after_horizontal_wheel_input() {
     let first = screen.get_by_role(Role::Group, "Slide 1 of 4");
     let start = first.accessibility_bounds().expect("first slide").x;
     let second = screen.get_by_role(Role::Group, "Slide 2 of 4");
+    let second_start = second.accessibility_bounds().expect("second slide").x;
     first.scroll(100.0, 0.0);
     let unsettled = second
         .accessibility_bounds()
         .expect("partially scrolled slide")
         .x;
     assert!(unsettled > start + 20.0);
+    assert!(unsettled < second_start - 20.0);
     screen.advance(Duration::from_millis(250));
     let snapped = second.accessibility_bounds().expect("snapped slide").x;
     assert!(

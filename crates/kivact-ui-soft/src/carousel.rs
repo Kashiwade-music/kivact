@@ -257,7 +257,14 @@ impl IntoView for Carousel {
         provide((), move || {
             let handle = handle.unwrap_or_else(use_carousel);
             let count = slides.len();
-            let refs: Rc<[NodeRef]> = (0..count).map(|_| node_ref()).collect::<Vec<_>>().into();
+            let refs: Rc<[NodeRef]> = (0..count)
+                .map(|_| {
+                    let reference = node_ref();
+                    let _ = reference.rect();
+                    reference
+                })
+                .collect::<Vec<_>>()
+                .into();
             handle.slides.set(refs.clone());
             handle.options.set(options);
             handle.padding.set(padding);
