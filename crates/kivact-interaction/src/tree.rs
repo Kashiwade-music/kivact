@@ -618,6 +618,19 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
     /// A canvas caller likewise replaces declaration identity on that change.
     #[track_caller]
     pub fn item(self, key: K) -> Part<TreeItemState> {
+        self.item_part(key, true)
+    }
+
+    /// Attach a row that the presenter removes structurally as soon as it
+    /// leaves [`Self::rows`]. Allows the host to capture its painted exit
+    /// before removal. The presenter must never leave the live row mounted
+    /// when it is absent from the logical tree.
+    #[track_caller]
+    pub fn item_with_exit(self, key: K) -> Part<TreeItemState> {
+        self.item_part(key, false)
+    }
+
+    fn item_part(self, key: K, hide_absent: bool) -> Part<TreeItemState> {
         let this = self;
         let state = self.state();
         let info = state.info;
@@ -647,7 +660,7 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
                 level: live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.level)),
             })
             .role(Role::TreeItem)
-            .hidden(move || live.with(Option::is_none))
+            .hidden(move || hide_absent && live.with(Option::is_none))
             .level(move || live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.level)))
             .set_size(move || {
                 live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.set_size))
