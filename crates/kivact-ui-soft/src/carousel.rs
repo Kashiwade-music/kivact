@@ -9,12 +9,17 @@ use kivact::primitive::NodeExt;
 use kivact::style::{
     Align, Color, Direction, Length, Position, ScrollbarWidth, TransitionProp, pct, rgba, style,
 };
+use kivact::task::{sleep, spawn};
 use kivact::ui::{ButtonVariant, ControlSize, button};
 use kivact::view::{
     Handled, IntoText, IntoView, NodeRef, Role, ScrollBehavior, View, WheelEvent, node_ref, provide,
 };
-use kivact::{Signal, effect_on, signal};
+use kivact::{Signal, effect_on, on_cleanup, signal};
+use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Duration;
+
+const SNAP_IDLE: Duration = Duration::from_millis(120);
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 struct Options {
@@ -107,6 +112,20 @@ impl CarouselHandle {
         };
         let (offset, limit) = self.boundaries();
         Some((offset + delta).clamp(0.0, limit))
+    }
+
+    fn settle_snap(self) {
+        let (offset, limit) = self.boundaries();
+        if offset <= 1.0 || offset >= limit - 1.0 {
+            return;
+        }
+        let target = (0..self.slides.with(|slides| slides.len()))
+            .filter_map(|index| self.slide_offset(index))
+            .chain([0.0, limit])
+            .min_by(|a, b| (a - offset).abs().total_cmp(&(b - offset).abs()));
+        if let Some(target) = target.filter(|target| (target - offset).abs() > 1.0) {
+            self.go_to(target);
+        }
     }
 
     fn step(self, next: bool) {
@@ -279,6 +298,22 @@ impl IntoView for Carousel {
                     .gap(gap.px())
             });
             let overflow = use_scroll_overflow(handle.viewport, handle.content);
+            if options.snap {
+                let offset = handle.viewport.scroll_offset();
+                let last = Cell::new(0.0);
+                effect_on(
+                    move || offset.get().x,
+                    move |offset| {
+                        if last.replace(*offset) != *offset {
+                            let task = spawn(async move {
+                                sleep(SNAP_IDLE).await;
+                                handle.settle_snap();
+                            });
+                            on_cleanup(move || task.cancel());
+                        }
+                    },
+                );
+            }
             let viewport = crate::scrollable_area::scrollable_area(label, content)
                 .axis(ScrollAxis::Inline)
                 .node_ref(handle.viewport)

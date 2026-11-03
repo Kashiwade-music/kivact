@@ -4,6 +4,53 @@ use kivact::test::{RenderOptions, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_soft_catalog::{catalog, catalog_at, fonts, pages};
 use std::sync::Arc;
+use std::time::Duration;
+
+#[test]
+fn carousel_example_moves_the_slides_and_reveals_the_previous_control() {
+    let screen = render_with(RenderOptions::from_env(), || {
+        catalog_at(ThemeMode::Light, "carousel")
+    });
+    let second = screen.get_by_role(Role::Group, "Slide 2 of 4");
+    let before = second.accessibility_bounds().expect("visible slide").x;
+    screen.get_by_role(Role::Button, "Scroll right").click();
+    screen.advance(Duration::from_millis(800));
+    let after = second.accessibility_bounds().expect("scrolled slide").x;
+    assert!(after < before, "slide position {before} → {after}");
+    assert!(
+        !screen
+            .get_by_role(Role::Button, "Scroll left")
+            .is_disabled()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn carousel_example_snaps_after_horizontal_wheel_input() {
+    let screen = render_with(
+        RenderOptions {
+            reduced_motion: true,
+            ..RenderOptions::from_env()
+        },
+        || catalog_at(ThemeMode::Light, "carousel"),
+    );
+    let first = screen.get_by_role(Role::Group, "Slide 1 of 4");
+    let start = first.accessibility_bounds().expect("first slide").x;
+    let second = screen.get_by_role(Role::Group, "Slide 2 of 4");
+    first.scroll(100.0, 0.0);
+    let unsettled = second
+        .accessibility_bounds()
+        .expect("partially scrolled slide")
+        .x;
+    assert!(unsettled > start + 20.0);
+    screen.advance(Duration::from_millis(250));
+    let snapped = second.accessibility_bounds().expect("snapped slide").x;
+    assert!(
+        (snapped - start).abs() < 2.0,
+        "slide starts at {snapped}, expected {start}"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn table_example_filters_and_expands_projects() {

@@ -51,6 +51,14 @@ fn capture_catalog() {
             }
             capture_overlay_states(&screen, &output, page.slug, name);
             capture_disclosure_states(&screen, &output, page.slug, name);
+            if page.slug == "carousel" {
+                screen.get_by_role(Role::Button, "Scroll right").click();
+                screen.advance(Duration::from_millis(800));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("carousel-{name}-scrolled.png")))
+                    .expect("carousel scroll screenshot");
+            }
             if page.slug == "selector" {
                 screen
                     .get_by_role(Role::ComboBox, "Team")
@@ -82,6 +90,14 @@ fn capture_catalog() {
                     .screenshot()
                     .save_png(output.join(format!("table-{name}-filtered-expanded.png")))
                     .expect("table state screenshot");
+                screen
+                    .get_by_role(Role::ColumnHeader, "Workspace")
+                    .scroll(72.0, 0.0);
+                screen.advance(Duration::from_millis(220));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("table-{name}-pinned.png")))
+                    .expect("pinned column screenshot");
             }
             if page.slug == "spinner" {
                 screen.set_reduced_motion(true);
@@ -124,6 +140,7 @@ fn capture_overlay_states(screen: &Screen, output: &Path, slug: &str, mode: &str
         "dropdown-menu" => "Actions",
         "layer" | "popover" => "Open popover",
         "lightbox" => "Open image",
+        "mobile-nav" => "Open navigation",
         "toast" => "Show notification",
         "hover-card" => "Avery Morgan",
         "tooltip" => "Save",

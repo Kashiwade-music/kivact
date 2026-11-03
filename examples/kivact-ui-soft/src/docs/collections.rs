@@ -4,7 +4,7 @@ use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::interaction::TreeNode;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, button, data_table};
+use kivact::ui::{DataColumn, DataTableDensity, button, data_table};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
     ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
@@ -70,10 +70,12 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             "Browse slides",
             carousel(
                 "Project highlights",
-                [card(text("Design")), card(text("Documentation"))],
+                ["Design", "Documentation", "Research", "Release"]
+                    .map(|title| card(text(title)).style(style().size(148, 72))),
             )
+            .snap(true)
             .style(style().width(320)),
-            "carousel(\"Project highlights\", slides)",
+            "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .map(|title| card(text(title)).style(style().size(148, 72)));\ncarousel(\"Project highlights\", slides).snap(true).style(style().width(320))",
         ),
         "section" => specimen(
             "Section content",
@@ -267,7 +269,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             .row_details(|item| text(move || item.with(|row| format!("{} is {}", row.0, row.1))))
             .expanded_rows(expanded)
             .style(style().width(440));
-            specimen(
+            let controls = specimen(
                 "Sort, filter, and expand rows",
                 column((
                     row((
@@ -280,7 +282,30 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 ))
                 .style(style().gap(8)),
                 "data_table(rows, |row| row.0, columns)\n    .multi_sort(sort)\n    .column_filters(filters)\n    .row_details(render_details)\n    .expanded_rows(expanded)",
-            )
+            );
+            let pinned = specimen(
+                "Compact table with pinned edges",
+                data_table(
+                    vec![
+                        ["Design", "Kyoto", "Avery", "Active"],
+                        ["Research", "Tokyo", "Morgan", "Review"],
+                    ],
+                    |row| row[0],
+                    ["Workspace", "Office", "Owner", "State"]
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, label)| {
+                            DataColumn::new(label, move |row: &[&str; 4]| row[index].to_owned())
+                                .width(116.0)
+                        })
+                        .collect(),
+                )
+                .sticky_columns(vec![0], vec![3])
+                .density(DataTableDensity::Compact)
+                .style(style().width(350)),
+                "data_table(rows, |row| row[0], columns)\n    .sticky_columns(vec![0], vec![3])\n    .density(DataTableDensity::Compact)",
+            );
+            column((controls, pinned)).style(style().gap(12))
         }
         "resizable" | "resize-handle" => {
             let state = use_resizable(ResizableConfig {
