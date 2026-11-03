@@ -217,6 +217,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
                         size,
                         invalid: false,
                         text: None,
+                        switch_drag: None,
                     }
                 });
                 let lines = looks.clone();

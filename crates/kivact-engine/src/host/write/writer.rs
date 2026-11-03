@@ -51,6 +51,11 @@ impl Writer {
     /// that pointer's next primary `Down` or its `Cancel` (as dispatched,
     /// see [`Reader::admit_input`]), and when its activation is answered.
     pub fn adopt_pointer(&self, node: NodeId, region: RegionId, pointer: PointerId) {
+        self.adopt_pointer_target(node, Some(region), pointer);
+    }
+
+    /// Adopt a primary gesture on a node or one of its canvas regions.
+    pub fn adopt_pointer_target(&self, node: NodeId, region: Option<RegionId>, pointer: PointerId) {
         self.model.borrow().admission.adopt(pointer, node, region);
     }
 

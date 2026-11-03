@@ -207,6 +207,19 @@ impl PointerEvent {
     pub fn region(&self) -> Option<RegionId> {
         self.origin.region
     }
+
+    /// Suppress the click activation of this primary gesture at its target.
+    /// Call from a pointer handler when it takes over the press or drag.
+    /// Keyboard and accessibility activations are independent.
+    pub fn suppress_activation(&self) {
+        if self.is_primary
+            && let Some(runtime) = kivact_reactive::Runtime::current()
+        {
+            super::state::ViewState::tree(&runtime)
+                .engine()
+                .adopt_pointer_target(self.origin.node, self.origin.region, self.id);
+        }
+    }
 }
 
 /// The handler's [`PointerEvent`] for a protocol event hitting `region`.

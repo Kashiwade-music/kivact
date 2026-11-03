@@ -163,6 +163,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
             accent: colors.icon_accent,
             header_key: "soft.table.row_status.column_header",
         })
+        .with(kivact::ui::SwitchDrag(true))
         .with(tokens)
         .with(crate::recipes::recipes())
 }

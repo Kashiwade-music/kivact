@@ -167,9 +167,13 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckState>) -> Style {
     let t = theme.get::<Tokens>();
     let (width, height) = switch_size(&t, s);
     let c = &t.colors;
-    let on = s.checked.is_checked();
+    let drag = s.switch_drag;
+    let touch = drag.is_some_and(|drag| drag.touch);
+    let on = drag
+        .filter(|drag| drag.tracking)
+        .map_or_else(|| s.checked.is_checked(), |drag| drag.visually_on);
     let fill = if on { c.accent } else { c.border_emphasized };
-    let fill = if s.input.hovered && !s.input.disabled {
+    let fill = if s.input.hovered && !s.input.disabled && !touch {
         if on {
             c.accent_hover
         } else {
@@ -186,22 +190,34 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckState>) -> Style {
         } else {
             1.0
         });
-    fast(
-        &t,
-        if s.input.focus_visible {
-            base.merge(&ring(&t, c.focus_ring))
+    let base = if s.input.focus_visible {
+        base.merge(&ring(&t, c.focus_ring))
+    } else {
+        base
+    };
+    if touch {
+        let transition = if kivact::platform::reduced_motion() {
+            kivact::motion::Transition::tween(200, t.motion.ease_standard).decorative(false)
+        } else if on {
+            spring(85.377, 18.480)
         } else {
-            base
-        },
-    )
+            spring(246.740, 31.416)
+        };
+        base.transition(kivact::style::TransitionProp::Paint, transition)
+    } else {
+        fast(&t, base)
+    }
 }
 
 pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckState>) -> Style {
     let t = theme.get::<Tokens>();
-    let on = s.checked.is_checked();
+    let drag = s.switch_drag;
+    let on = drag
+        .filter(|drag| drag.tracking)
+        .map_or_else(|| s.checked.is_checked(), |drag| drag.visually_on);
     let (width, height) = switch_size(&t, s);
     let (base_side, inset, on_side) = if small(s.size) {
-        (t.typography.size_md, t.spacing.s0_5, t.spacing.s4)
+        (t.typography.size_md, 3.0, t.spacing.s4)
     } else {
         (t.spacing.s4, t.spacing.s1, t.spacing.s5)
     };
@@ -211,14 +227,54 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckState>) -> Style {
     } else {
         1.0
     };
+    let reduced = kivact::platform::reduced_motion();
+    let lifted = drag.is_some_and(|drag| drag.lifted) && !reduced;
+    let side = if on { on_side } else { base_side };
+    let lift = if lifted {
+        1.0 + if on { t.spacing.s0_5 } else { inset } / side
+    } else {
+        1.0
+    };
+    let offset =
+        drag.and_then(|drag| drag.offset)
+            .unwrap_or(if on { sign * movement } else { 0.0 });
     let base = inline_start(style().position(Position::Absolute), inset)
         .top((height - base_side) / 2.0)
         .size(base_side, base_side)
         .radius(t.radius.full)
         .background(pressed_fill(theme, &t, s, t.colors.bg_surface))
-        .translate_x(if on { sign * movement } else { 0.0 })
-        .scale(if on { on_side / base_side } else { 1.0 });
-    fast(&t, base)
+        .translate_x(offset)
+        .scale(side / base_side * lift);
+    let base = if lifted {
+        t.shadows.low.iter().copied().fold(base, Style::shadow)
+    } else {
+        base
+    };
+    if let Some(drag) = drag.filter(|drag| drag.touch) {
+        if reduced {
+            return base;
+        }
+        let transition = if drag.tracking {
+            spring(304.6, 34.91)
+        } else if !drag.lifted {
+            spring(157.9, 17.59)
+        } else if drag.released {
+            spring(438.6, 41.89)
+        } else {
+            spring(746.3, 30.05)
+        };
+        base.transition(kivact::style::TransitionProp::Paint, transition)
+    } else {
+        fast(&t, base)
+    }
+}
+
+fn spring(stiffness: f32, damping: f32) -> kivact::motion::Transition {
+    kivact::motion::Transition::spring(kivact::motion::Spring {
+        stiffness,
+        damping,
+        mass: 1.0,
+    })
 }
 
 pub(super) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {

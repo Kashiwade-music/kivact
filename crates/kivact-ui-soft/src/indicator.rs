@@ -112,6 +112,7 @@ impl IntoView for Indicator {
                 size,
                 invalid: false,
                 text: None,
+                switch_drag: None,
             })
         };
         match self.kind {

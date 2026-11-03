@@ -145,6 +145,7 @@ mod number_input;
 mod progress;
 mod recipes;
 mod split;
+mod switch_drag;
 mod tag_input;
 mod text_draft;
 mod text_input;
@@ -183,6 +184,7 @@ pub use recipes::{
     ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
 };
 pub use split::{Split, split};
+pub use switch_drag::{SwitchDrag, SwitchDragState};
 pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};

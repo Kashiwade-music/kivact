@@ -14,7 +14,7 @@ use kivact_core::view::{IntoText, IntoValue, IntoView, View};
 use kivact_core::{Binding, Value};
 use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
-    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $text:expr) => {
+    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $text:expr) => {
         $(#[$doc])*
         pub struct $name {
             root: Node,
@@ -90,12 +90,14 @@ macro_rules! toggle_builder {
                 let size = self.size;
                 let text: Option<fn(Value<bool>) -> Value<String>> = $text;
                 let text = text.map(|text| text(self.state.into_value()));
-                let part = behavior.control().map_state(move |state: ToggleState| CheckState {
+                let (control, drag) = $gesture(behavior.control(), self.state, size);
+                let part = control.map_state(move |state: ToggleState| CheckState {
                     input: state.input,
                     checked: state.checked,
                     size,
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid()),
                     text,
+                    switch_drag: drag.and_then(|drag| drag.get()),
                 });
                 let check_state = part.state();
                 let indicator = super::toggle_parts::$parts(&self.variants, check_state);
@@ -123,6 +125,7 @@ toggle_builder!(
     checkbox_behavior,
     checkbox_recipe,
     checkbox,
+    no_gesture,
     None
 );
 
@@ -136,8 +139,22 @@ toggle_builder!(
     switch_behavior,
     switch_recipe,
     switch,
+    switch_gesture,
     Some(switch_text)
 );
+
+use super::switch_drag::switch as switch_gesture;
+
+fn no_gesture(
+    control: kivact_core::primitive::Part<ToggleState>,
+    _: Binding<bool>,
+    _: ControlSize,
+) -> (
+    kivact_core::primitive::Part<ToggleState>,
+    super::switch_drag::Visual,
+) {
+    (control, None)
+}
 
 /// The behavior of a check box, with its mixed state when it has one.
 fn checkbox_behavior(state: Binding<bool>, mixed: Option<Value<bool>>) -> CheckboxApi {

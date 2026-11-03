@@ -8,12 +8,11 @@ use std::collections::BTreeMap;
 
 use kivact_wire::{NodeId, PointerId, RegionId};
 
-/// A pointer's primary gesture that a canvas region took over: its click
-/// activates nothing at that region.
+/// A primary gesture taken over by a node or a canvas region.
 #[derive(Clone, Copy)]
 struct Adoption {
     node: NodeId,
-    region: RegionId,
+    region: Option<RegionId>,
 }
 
 /// The node whose `Down` admitted each pointer's drag in progress, and the
@@ -43,15 +42,14 @@ impl Admission {
 
     /// Record that `pointer`'s current gesture was adopted at `region` of
     /// `node`, replacing the pointer's earlier adoption.
-    pub(crate) fn adopt(&self, pointer: PointerId, node: NodeId, region: RegionId) {
+    pub(crate) fn adopt(&self, pointer: PointerId, node: NodeId, region: Option<RegionId>) {
         self.adoptions
             .borrow_mut()
             .insert(pointer.0, Adoption { node, region });
     }
 
     /// End the adoption of `pointer`, if any; whether it covers the
-    /// activation of `region` of `node`. An activation of the node's own
-    /// action (no region) is never covered.
+    /// activation of `region` of `node`, or the node itself for `None`.
     pub(crate) fn take_adoption(
         &self,
         pointer: PointerId,
@@ -61,7 +59,7 @@ impl Admission {
         self.adoptions
             .borrow_mut()
             .remove(&pointer.0)
-            .is_some_and(|adoption| adoption.node == node && region == Some(adoption.region))
+            .is_some_and(|adoption| adoption.node == node && region == adoption.region)
     }
 
     /// End the adoption of `pointer`, if any.

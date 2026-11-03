@@ -242,6 +242,8 @@ pub struct CheckState {
     /// stays the same for the mounted control; read it in the paint, which
     /// follows its text. It is not part of the state's equality.
     pub text: Option<kivact_core::Value<String>>,
+    /// Live visual state for an opted-in Switch gesture.
+    pub switch_drag: Option<super::SwitchDragState>,
 }
 
 impl PartialEq for CheckState {
@@ -250,6 +252,7 @@ impl PartialEq for CheckState {
             && self.checked == other.checked
             && self.size == other.size
             && self.invalid == other.invalid
+            && self.switch_drag == other.switch_drag
     }
 }
 
