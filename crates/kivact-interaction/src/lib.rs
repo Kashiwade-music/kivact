@@ -40,6 +40,7 @@ mod disclosure;
 mod drag;
 mod edit;
 mod focus_return;
+mod follow_end;
 mod list;
 mod menu;
 mod menubar;
@@ -75,6 +76,7 @@ pub use disclosure::{Disclosure, DisclosureState, use_disclosure};
 pub use drag::{Drag, DragCoordinates, DragPhase, DragStart, DragState, DragUpdate, use_drag};
 pub use edit::{EditPhase, EditSession};
 pub use focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
+pub use follow_end::{FollowEnd, use_follow_end};
 pub use list::{
     List, ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
     ListMissingAnchor, ListMode, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
