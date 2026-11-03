@@ -2,6 +2,7 @@
 
 use crate::tree::NodeTree;
 use kivact_wire::{FocusTarget, NodeId};
+use std::collections::HashMap;
 
 /// The keyboard focus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,6 +20,7 @@ pub(crate) struct Focused {
 pub(crate) struct Focus {
     pub(super) focused: Option<Focused>,
     pub(super) reveal: Vec<NodeId>,
+    pub(super) roving: HashMap<NodeId, FocusTarget>,
 }
 
 impl Focus {
@@ -40,5 +42,7 @@ impl Focus {
     /// Drop removed and leaving nodes.
     pub(crate) fn forget_missing(&mut self, tree: &NodeTree) {
         self.reveal.retain(|r| tree.live(*r));
+        self.roving
+            .retain(|root, target| tree.live(*root) && tree.live(target.node));
     }
 }

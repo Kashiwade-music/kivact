@@ -2,7 +2,8 @@
 
 use super::state::Focused;
 use crate::model::Model;
-use kivact_wire::{FocusTarget, HostEvent, NodeId};
+use kivact_wire::{FocusTarget, HostEvent, NodeId, RovingFocus};
+use std::collections::HashSet;
 
 impl Model {
     /// Scroll every scrollable ancestor of `id` so that it is visible
@@ -89,9 +90,70 @@ impl Model {
 
     /// The eligible targets in tree and scene declaration order.
     pub(crate) fn tab_stops(&self) -> Vec<FocusTarget> {
-        self.focus_order()
+        self.grouped_tab_stops(None)
+    }
+
+    /// Arrow candidates in a group, including one representative per nested group.
+    pub(crate) fn roving_targets(&self, root: NodeId) -> Vec<FocusTarget> {
+        self.grouped_tab_stops(Some(root))
+    }
+
+    /// The nearest roving group, for the native editor's boundary keys.
+    pub(crate) fn roving_focus_for(&self, node: NodeId) -> Option<RovingFocus> {
+        self.tree
+            .chain(Some(node))
             .into_iter()
-            .filter(|t| self.is_focus_target(*t) && self.in_scope(t.node))
+            .find_map(|node| self.tree.get(node)?.roving_focus())
+    }
+
+    fn grouped_tab_stops(&self, root: Option<NodeId>) -> Vec<FocusTarget> {
+        let order = self.focus_order();
+        let has_groups = order.iter().any(|target| {
+            self.tree
+                .get(target.node)
+                .is_some_and(|node| node.roving_focus().is_some())
+        });
+        let eligible = order.into_iter().filter(|target| {
+            self.is_focus_target(*target)
+                && self.in_scope(target.node)
+                && root.is_none_or(|root| self.tree.is_in_subtree(target.node, root))
+        });
+        if !has_groups {
+            return eligible.collect();
+        }
+        let mut visited = HashSet::new();
+        eligible
+            .filter_map(|target| {
+                let group = self
+                    .tree
+                    .chain(Some(target.node))
+                    .into_iter()
+                    .take_while(|node| Some(*node) != root)
+                    .filter(|node| {
+                        self.tree
+                            .get(*node)
+                            .is_some_and(|node| node.roving_focus().is_some())
+                    })
+                    .last();
+                let Some(group) = group else {
+                    return Some(target);
+                };
+                if !visited.insert(group) {
+                    return None;
+                }
+                Some(
+                    self.focus
+                        .roving
+                        .get(&group)
+                        .copied()
+                        .filter(|active| {
+                            self.is_focus_target(*active)
+                                && self.in_scope(active.node)
+                                && self.tree.is_in_subtree(active.node, group)
+                        })
+                        .unwrap_or(target),
+                )
+            })
             .collect()
     }
 
@@ -199,6 +261,17 @@ impl Model {
         if old_target != target {
             // The groups the focus enters or leaves restyle the nodes below.
             let new = self.tree.chain(target.map(|t| t.node));
+            if let Some(target) = target {
+                for &id in &new {
+                    if self
+                        .tree
+                        .get(id)
+                        .is_some_and(|node| node.roving_focus().is_some())
+                    {
+                        self.focus.roving.insert(id, target);
+                    }
+                }
+            }
             let touched: Vec<NodeId> = left
                 .iter()
                 .filter(|x| !new.contains(x))

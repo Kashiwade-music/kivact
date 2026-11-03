@@ -196,6 +196,10 @@ props! {
     FocusableWhenDisabled: set_focusable_when_disabled(v: bool)
         => field(Some(v), |p| Some(&mut p.input.focusable_when_disabled)),
         mut = Mut::NONE;
+    /// Group native Tab stops at this node.
+    RovingFocus: set_roving_focus(v: kivact_wire::RovingFocus)
+        => field(Some(v), |p| Some(&mut p.input.roving_focus)),
+        mut = Mut::NONE;
     /// Replace the node's listen pointer when its value differs.
     ListenPointer: set_listen_pointer(v: bool)
         => field(Some(v), |p| Some(&mut p.input.listen_pointer)),

@@ -76,7 +76,7 @@ pub use motion::MotionClock;
 pub use node::{
     BoxData, EditLineLayout, EditingData, FileDialogRequest, ImageData, ImeSession, IntrinsicSize,
     NodeInput, NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayAt, OverlayFit,
-    OverlayProps, PlatformRequest, SceneLayer, TextData,
+    OverlayProps, PlatformRequest, RovingFocus, SceneLayer, TextData,
 };
 pub use paint::{
     BlendMode, Border, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners,

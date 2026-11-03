@@ -25,6 +25,13 @@ pub struct NodeRef {
     pub(crate) state: Owned<NodeRefState>,
 }
 
+pub(crate) enum RovingMove {
+    Previous,
+    Next,
+    First,
+    Last,
+}
+
 /// A reference to a node of the current setup owner, bound with
 /// `.node_ref(r)` on exactly one view; read its rect, focus it or scroll it
 /// into view. Setup only.
@@ -393,6 +400,30 @@ impl NodeRef {
         if let Some(node) = target {
             super::requests::request_restore_focus(&rt, node, None, true);
         }
+    }
+
+    pub(crate) fn move_roving_focus(&self, movement: RovingMove) -> bool {
+        let (Some(rt), Some(root)) = (Runtime::get(self.app), self.node()) else {
+            return false;
+        };
+        let Some(focus) = super::focus::focused(&rt) else {
+            return false;
+        };
+        let targets = ViewState::tree(&rt).reader().roving_targets(root);
+        let Some(index) = targets.iter().position(|target| *target == focus) else {
+            return false;
+        };
+        if targets.len() < 2 {
+            return false;
+        }
+        let next = match movement {
+            RovingMove::Previous => (index + targets.len() - 1) % targets.len(),
+            RovingMove::Next => (index + 1) % targets.len(),
+            RovingMove::First => 0,
+            RovingMove::Last => targets.len() - 1,
+        };
+        super::requests::request_restore_focus(&rt, targets[next], None, true);
+        true
     }
 
     /// Ask the host to scroll ancestors so the node is visible. Nothing

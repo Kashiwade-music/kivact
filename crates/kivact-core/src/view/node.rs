@@ -277,6 +277,40 @@ pub trait NodeBuilder: Sized {
         self
     }
 
+    /// Give this group one Tab stop and move between its eligible controls
+    /// with unhandled arrows along `orientation`, Home and End. A text field
+    /// keeps arrows that still move its caret or selection.
+    #[track_caller]
+    fn roving_focus(mut self, orientation: crate::view::Orientation) -> Self {
+        use crate::view::node_ref::RovingMove;
+        use crate::view::{Handled, Key, Modifiers, Orientation, ReadingDirection};
+        let rtl = crate::view::current_direction() == ReadingDirection::Rtl;
+        let reference = crate::view::node_ref();
+        let common = &mut self.node_mut().common;
+        common.roving_focus = Some(kivact_wire::RovingFocus { orientation, rtl });
+        common.node_ref.push(reference);
+        self.on_key(move |event| {
+            if event.modifiers != Modifiers::default() {
+                return Handled::No;
+            }
+            let movement = match (orientation, event.key) {
+                (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
+                (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,
+                (Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => RovingMove::Next,
+                (Orientation::Vertical, Key::ArrowUp) => RovingMove::Previous,
+                (Orientation::Vertical, Key::ArrowDown) => RovingMove::Next,
+                (_, Key::Home) => RovingMove::First,
+                (_, Key::End) => RovingMove::Last,
+                _ => return Handled::No,
+            };
+            if reference.move_roving_focus(movement) {
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
+    }
+
     /// Handle keys reported by the host before existing key handlers,
     /// default activation and Escape dismissal. IME, Tab and editing keys
     /// consumed by the host do not reach this callback. A key starts at

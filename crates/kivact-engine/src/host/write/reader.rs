@@ -113,6 +113,11 @@ impl Reader {
         self.model.borrow().can_take_focus(target)
     }
 
+    /// Eligible focus targets for an arrow key inside a roving group.
+    pub fn roving_targets(&self, root: NodeId) -> Vec<FocusTarget> {
+        self.model.borrow().roving_targets(root)
+    }
+
     /// Whether `event` may be dispatched while overlays are shown. Ask once
     /// per event, in event order, immediately before dispatching it (a
     /// modal an earlier event of the turn opened already applies): it also

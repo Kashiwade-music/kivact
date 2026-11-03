@@ -298,6 +298,10 @@ impl HostNode {
         self.properties.input.focus_on_press
     }
 
+    pub(crate) fn roving_focus(&self) -> Option<kivact_wire::RovingFocus> {
+        self.properties.input.roving_focus
+    }
+
     /// Offers `Activate` and is not disabled: a click activates it.
     pub(crate) fn activatable(&self) -> bool {
         self.actions().contains(&A11yAction::Activate) && !self.disabled()

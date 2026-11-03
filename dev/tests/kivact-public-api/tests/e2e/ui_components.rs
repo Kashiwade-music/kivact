@@ -4,8 +4,43 @@ use crate::support::mount;
 use kivact::interaction::ListSelection;
 use kivact::prelude::*;
 use kivact::ui::{self, ListItem, MenuEntry, TreeNode};
-use kivact::view::Placement;
+use kivact::view::{Orientation, Placement};
 use std::time::Duration;
+
+#[test]
+fn roving_group_has_one_tab_stop_and_leaves_editing_arrows_to_the_caret() {
+    let (screen, ()) = mount(|| {
+        let text = signal("ab".to_owned());
+        (
+            (),
+            column((
+                button("Before"),
+                row((button("First"), text_input("Edit", text), button("Last")))
+                    .roving_focus(Orientation::Horizontal),
+                button("After"),
+            )),
+        )
+    });
+    screen.press_tab(false);
+    screen.press_tab(false);
+    assert!(screen.get_by_role(Role::Button, "First").is_focused());
+    screen.press_key(Key::ArrowRight);
+    let editor = screen.get_by_role(Role::TextBox, "Edit");
+    assert!(editor.is_focused());
+    screen.press_key(Key::Home);
+    for _ in 0..2 {
+        screen.press_key(Key::ArrowRight);
+        assert!(editor.is_focused());
+    }
+    screen.press_key(Key::ArrowRight);
+    let last = screen.get_by_role(Role::Button, "Last");
+    assert!(last.is_focused());
+    screen.press_tab(false);
+    assert!(screen.get_by_role(Role::Button, "After").is_focused());
+    screen.press_tab(true);
+    assert!(last.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn standard_tree_expands_and_moves_focus_into_the_branch() {

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use super::ids::{FocusTarget, NodeId};
 use super::measure::LeafMeasure;
-use super::semantics::{A11yAction, CheckedState, Role, SemanticsProperties};
+use super::semantics::{A11yAction, CheckedState, Orientation, Role, SemanticsProperties};
 use super::style::{LayoutProps, PaintProps, StateStyles};
 use super::text::{TextProps, TextSpan};
 use super::{OverlayAlign, Placement, Point, Rect, Size};
@@ -91,6 +91,8 @@ pub struct NodeInput {
     pub focusable: Option<bool>,
     /// Keep an otherwise focusable node in focus order while disabled.
     pub focusable_when_disabled: Option<bool>,
+    /// Group descendants into one stop in the native Tab order.
+    pub roving_focus: Option<RovingFocus>,
     /// Request routed pointer events.
     pub listen_pointer: Option<bool>,
     /// Where a press moves the focus instead of this node; `None`: the host
@@ -103,6 +105,13 @@ pub struct NodeInput {
     /// `false`: the pointer passes through the node and its subtree to what
     /// lies behind (CSS `pointer-events: none`); `None` is `true`.
     pub hit_testable: Option<bool>,
+}
+
+/// Direction of a group whose active focus target moves with arrow keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RovingFocus {
+    pub orientation: Orientation,
+    pub rtl: bool,
 }
 
 /// Accessible identity, state and actions attached to a node.

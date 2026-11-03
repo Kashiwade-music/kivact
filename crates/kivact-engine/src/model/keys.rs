@@ -290,40 +290,60 @@ impl Model {
     ) -> KeyResult {
         let key = shortcut_key(key, physical, modifiers);
         let input = self.focused_input();
-        let composing = input
-            .and_then(|i| self.tree.get(i))
-            .and_then(|n| {
-                self.editors[n.index.0]
-                    .as_deref()
-                    .map(|editor| editor.editor.state())
-            })
-            .is_some_and(EditState::is_composing);
-        if composing {
+        let editor = input.and_then(|i| self.tree.get(i)).and_then(|n| {
+            self.editors[n.index.0]
+                .as_deref()
+                .map(|editor| editor.editor.state())
+        });
+        if editor.is_some_and(EditState::is_composing) {
             return KeyResult::Consumed;
         }
+        let roving_boundary = matches!(
+            key,
+            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
+        ) && input.zip(editor).is_some_and(|(input, editor)| {
+            let selection = editor.selection();
+            if !selection.is_empty() {
+                return false;
+            }
+            let Some(group) = self.roving_focus_for(input) else {
+                return false;
+            };
+            match (group.orientation, &key) {
+                (kivact_wire::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
+                    let end = (key == Key::ArrowRight) != group.rtl;
+                    selection.start == if end { editor.value().len() } else { 0 }
+                }
+                (kivact_wire::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
+                    self.tree.get(input).is_some_and(|node| !node.multiline())
+                }
+                _ => false,
+            }
+        });
         let forward = !modifiers.ctrl
             && !modifiers.alt
             && !modifiers.meta
             && (!modifiers.shift || key == Key::Tab)
-            && matches!(
-                key,
-                Key::Tab
-                    | Key::ArrowLeft
-                    | Key::ArrowRight
-                    | Key::ArrowUp
-                    | Key::ArrowDown
-                    | Key::Home
-                    | Key::End
-                    | Key::PageUp
-                    | Key::PageDown
-                    | Key::Escape
-                    | Key::Enter
-            )
-            && input
-                .and_then(|id| self.tree.get(id))
-                .and_then(|node| node.input_data())
-                .and_then(|data| data.forward_keys.as_ref())
-                .is_some_and(|keys| keys.contains(&key));
+            && (roving_boundary
+                || (matches!(
+                    key,
+                    Key::Tab
+                        | Key::ArrowLeft
+                        | Key::ArrowRight
+                        | Key::ArrowUp
+                        | Key::ArrowDown
+                        | Key::Home
+                        | Key::End
+                        | Key::PageUp
+                        | Key::PageDown
+                        | Key::Escape
+                        | Key::Enter
+                        | Key::Backspace
+                ) && input
+                    .and_then(|id| self.tree.get(id))
+                    .and_then(|node| node.input_data())
+                    .and_then(|data| data.forward_keys.as_ref())
+                    .is_some_and(|keys| keys.contains(&key))));
         let focus_key = !forward && key == Key::Tab && !modifiers.ctrl && !modifiers.alt;
         if let Some(i) = input.filter(|_| !forward) {
             let node = self.tree.get(i).expect("invariant: focused input exists");

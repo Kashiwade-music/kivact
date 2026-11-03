@@ -19,6 +19,7 @@ pub(super) struct FirstWrite {
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,
     pub(super) focusable_when_disabled: bool,
+    pub(super) roving_focus: Option<kivact_wire::RovingFocus>,
     pub(super) hit_testable: Option<bool>,
     /// The accessibility actions the node offers, its own and its parts'.
     pub(super) actions: Vec<crate::view::A11yAction>,
@@ -39,6 +40,7 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         role,
         focusable,
         focusable_when_disabled,
+        roving_focus,
         hit_testable,
         actions,
         handlers,
@@ -66,6 +68,9 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         }
         if focusable_when_disabled {
             tree.update(id, PropValue::FocusableWhenDisabled(true), writer);
+        }
+        if let Some(roving_focus) = roving_focus {
+            tree.update(id, PropValue::RovingFocus(roving_focus), writer);
         }
         if let Some(h) = hit_testable {
             tree.update(id, PropValue::HitTestable(h), writer);
