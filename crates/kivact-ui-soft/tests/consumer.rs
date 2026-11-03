@@ -4,14 +4,38 @@ use kivact::i18n::CalendarDate;
 use kivact::signal;
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, render_with, render_with_handle};
-use kivact::ui::button;
+use kivact::ui::{ControlSize, button};
 use kivact::view::{Key, Role};
 use kivact_ui_soft::{
     BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, heading, icon,
-    status_dot,
+    input_group_with, status_dot,
 };
 use std::cell::Cell;
 use std::rc::Rc;
+
+#[test]
+fn input_group_inherits_size_without_overriding_an_explicit_member() {
+    let screen = render_with(
+        RenderOptions {
+            theme: kivact_ui_soft::theme(ThemeMode::Light),
+            ..RenderOptions::from_env()
+        },
+        || {
+            input_group_with("Actions", || {
+                (
+                    button("Inherited"),
+                    button("Explicit").size(ControlSize::Small),
+                )
+            })
+            .size(ControlSize::Large)
+        },
+    );
+    let inherited = screen.get_by_role(Role::Button, "Inherited");
+    let explicit = screen.get_by_role(Role::Button, "Explicit");
+    assert_eq!(inherited.rect().expect("laid out").height, 36.0);
+    assert_eq!(explicit.rect().expect("laid out").height, 28.0);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn dismissing_a_banner_restores_the_previous_external_focus() {

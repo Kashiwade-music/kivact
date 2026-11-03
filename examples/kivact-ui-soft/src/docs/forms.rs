@@ -6,8 +6,8 @@ use kivact::signal;
 use kivact::style::style;
 use kivact::ui::{ListItem, field, number_input, text_area, text_input};
 use kivact_ui_soft::{
-    checkbox_list, complex_selector, file_input, input_group, input_group_text, multi_selector,
-    power_search, rich_text_editor, selector, tokenizer, typeahead,
+    checkbox_list, complex_selector, file_input, input_group_text, input_group_with,
+    multi_selector, power_search, rich_text_editor, selector, tokenizer, typeahead,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -78,15 +78,14 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "input-group" | "input-group-text" => specimen(
             "Address with prefix",
-            input_group(
-                "Website",
+            input_group_with("Website", || {
                 (
                     input_group_text("https://"),
                     text_input("Domain", signal("example.com".to_owned())),
-                ),
-            )
+                )
+            })
             .style(style().width(280)),
-            "input_group(\"Website\", (input_group_text(\"https://\"), domain))",
+            "input_group_with(\"Website\", || (input_group_text(\"https://\"), domain()))",
         ),
         "file-input" => specimen(
             "Choose or drop a file",

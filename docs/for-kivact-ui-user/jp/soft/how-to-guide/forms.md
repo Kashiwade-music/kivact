@@ -30,3 +30,5 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
 ```
 
 入力エラーは該当フィールドの近くに表示し、修正方法を伝えます。永続化の境界でも送信値を検証します。
+
+`soft::input_group_with` で作るコントロールには、グループの既定サイズが適用されます。個々のコントロールの `.size(..)` が優先されます。`soft::date_range_input(..).presets(..)` に `soft::DateRangePreset` を渡すと、カレンダーからの選択に加えて、名前付きの日付範囲を選べます。

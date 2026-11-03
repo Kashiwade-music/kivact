@@ -3,10 +3,16 @@ use crate::recipes_field::height;
 use crate::theme_access::tokens;
 use kivact::Value;
 use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Style, style};
-use kivact::ui::ControlSize;
-use kivact::view::{IntoText, IntoView, ReadingDirection, Role, View, current_direction, node_ref};
+use kivact::ui::{ControlSize, provide_control_size};
+use kivact::view::{
+    IntoText, IntoView, ReadingDirection, Role, View, current_direction, node_ref, provide,
+    try_context,
+};
+
+#[derive(Clone, Copy)]
+struct InheritMemberSize(bool);
 
 /// Controls that can have their shared edges styled by an input group.
 pub trait InputGroupItems {
@@ -21,14 +27,21 @@ fn join<V: NodeBuilder + IntoView>(
     last: bool,
 ) -> View {
     let (left, right) = if rtl { (last, first) } else { (first, last) };
+    let reference = node_ref();
+    let focus_within = reference.focus_within();
+    let size_style = move || style().height(height(&tokens(), size));
+    let child = if try_context::<InheritMemberSize>().is_some_and(|setting| setting.0) {
+        child.base_style(size_style)
+    } else {
+        child.style(size_style)
+    };
     child
+        .part(part(|_| ()).reference(reference))
         .style(move || {
             let t = tokens();
             let left = if left { t.radius.element } else { 0.0 };
             let right = if right { t.radius.element } else { 0.0 };
-            let s = style()
-                .height(height(&t, size))
-                .radius_corners(left, right, right, left);
+            let s = style().radius_corners(left, right, right, left);
             let s = if first {
                 s
             } else if rtl {
@@ -36,7 +49,7 @@ fn join<V: NodeBuilder + IntoView>(
             } else {
                 s.margin_left(-1)
             };
-            s.focus(style().z_index(1))
+            if focus_within.get() { s.z_index(1) } else { s }
         })
         .into_view()
 }
@@ -72,15 +85,34 @@ group_items!(A; B, C; D);
 pub struct InputGroup<C> {
     root: Node,
     label: Value<String>,
-    controls: C,
+    controls: Controls<C>,
     size: ControlSize,
+}
+
+enum Controls<C> {
+    Built(C),
+    Factory(Box<dyn FnOnce() -> C>),
 }
 
 pub fn input_group<C: InputGroupItems>(label: impl IntoText, controls: C) -> InputGroup<C> {
     InputGroup {
         root: node(),
         label: label.into_text_value(),
-        controls,
+        controls: Controls::Built(controls),
+        size: ControlSize::Medium,
+    }
+}
+
+/// Build the controls in the group's size scope. A control with its own size
+/// uses that size. Unstyled members still receive the group's default height.
+pub fn input_group_with<C: InputGroupItems>(
+    label: impl IntoText,
+    controls: impl FnOnce() -> C + 'static,
+) -> InputGroup<C> {
+    InputGroup {
+        root: node(),
+        label: label.into_text_value(),
+        controls: Controls::Factory(Box::new(controls)),
         size: ControlSize::Medium,
     }
 }
@@ -108,19 +140,29 @@ impl<C: InputGroupItems + 'static> IntoView for InputGroup<C> {
         } = self;
         let label_ref = node_ref();
         let rtl = current_direction() == ReadingDirection::Rtl;
-        let members = row(controls.joined(size, rtl))
-            .role(Role::Group)
-            .name(label)
-            .labelled_by(label_ref)
-            .style(
-                style()
-                    .direction(if rtl {
-                        Direction::RowReverse
-                    } else {
-                        Direction::Row
-                    })
-                    .align_items(Align::Stretch),
-            );
+        let members = move |controls: C| {
+            row(controls.joined(size, rtl))
+                .role(Role::Group)
+                .name(label)
+                .labelled_by(label_ref)
+                .style(
+                    style()
+                        .direction(if rtl {
+                            Direction::RowReverse
+                        } else {
+                            Direction::Row
+                        })
+                        .align_items(Align::Stretch),
+                )
+        };
+        let members = match controls {
+            Controls::Built(controls) => {
+                provide(InheritMemberSize(false), move || members(controls))
+            }
+            Controls::Factory(controls) => provide_control_size(size, move || {
+                provide(InheritMemberSize(true), move || members(controls()))
+            }),
+        };
         root.child(
             column((
                 text(label).node_ref(label_ref).style(move || {

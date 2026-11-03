@@ -166,7 +166,9 @@ pub use hover_card::{FocusTrigger, HoverCard, hover_card, hover_card_text};
 pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
-pub use input_group::{InputGroup, InputGroupItems, input_group, input_group_text};
+pub use input_group::{
+    InputGroup, InputGroupItems, input_group, input_group_text, input_group_with,
+};
 pub use kbd::kbd;
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_footer,
