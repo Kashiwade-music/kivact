@@ -70,6 +70,8 @@ mod recipes_popup;
 mod recipes_popup_command;
 mod recipes_select;
 mod resizable;
+mod rich_block_doc;
+mod rich_blocks;
 pub mod rich_text;
 mod scrollable_area;
 mod section;

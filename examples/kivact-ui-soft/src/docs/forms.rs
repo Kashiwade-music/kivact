@@ -198,13 +198,17 @@ selector("Locked team", teams(), signal(Some("engineering"))).disabled(true)"#,
         ))
         .style(style().gap(12)),
         "rich-text-editor" => specimen(
-            "Markdown source and preview",
+            "Edit blocks, switch to Markdown source, or preview",
             rich_text_editor(
                 "Notes",
-                signal("# Project notes\n\n**Ready for review.**".to_owned()),
+                signal(
+                    "# Project notes\n\n**Ready for review.**\n\n- [ ] Confirm the delivery date"
+                        .to_owned(),
+                ),
             )
+            .block_editing(true)
             .style(style().width(440)),
-            "rich_text_editor(\"Notes\", source)",
+            "rich_text_editor(\"Notes\", source).block_editing(true)",
         ),
         "number-input" => specimen(
             "Stepped input",

@@ -156,7 +156,7 @@ pub(crate) fn parse<'a>(lines: &[&'a str], soft_breaks: bool, depth: usize) -> V
     result
 }
 
-fn begins_block(line: &str) -> bool {
+pub(crate) fn begins_block(line: &str) -> bool {
     heading(line).is_some()
         || fence(line).is_some()
         || is_rule(line)
@@ -170,7 +170,7 @@ fn limited_indent(line: &str) -> Option<&str> {
     (line.len() - trimmed.len() <= 3).then_some(trimmed)
 }
 
-fn heading(line: &str) -> Option<(u32, &str)> {
+pub(crate) fn heading(line: &str) -> Option<(u32, &str)> {
     let line = limited_indent(line)?;
     let count = line.bytes().take_while(|byte| *byte == b'#').count();
     if !(1..=6).contains(&count) {
@@ -190,7 +190,7 @@ fn heading(line: &str) -> Option<(u32, &str)> {
     Some((count as u32, text))
 }
 
-fn fence(line: &str) -> Option<(char, usize, &str)> {
+pub(crate) fn fence(line: &str) -> Option<(char, usize, &str)> {
     let line = limited_indent(line)?;
     let first = line.chars().next()?;
     if !matches!(first, '`' | '~') {
@@ -200,12 +200,12 @@ fn fence(line: &str) -> Option<(char, usize, &str)> {
     (count >= 3).then(|| (first, count, line[count..].trim()))
 }
 
-fn quote(line: &str) -> Option<&str> {
+pub(crate) fn quote(line: &str) -> Option<&str> {
     let content = limited_indent(line)?.strip_prefix('>')?;
     Some(content.strip_prefix(' ').unwrap_or(content))
 }
 
-fn is_rule(line: &str) -> bool {
+pub(crate) fn is_rule(line: &str) -> bool {
     let Some(line) = limited_indent(line) else {
         return false;
     };
@@ -216,7 +216,7 @@ fn is_rule(line: &str) -> bool {
     marks.clone().count() >= 2 && marks.all(|character| character == first)
 }
 
-fn list_marker(line: &str) -> Option<(usize, Option<u32>, &str)> {
+pub(crate) fn list_marker(line: &str) -> Option<(usize, Option<u32>, &str)> {
     let trimmed = limited_indent(line)?;
     let indent = line.len() - trimmed.len();
     let first = trimmed.chars().next()?;
@@ -238,7 +238,7 @@ fn list_marker(line: &str) -> Option<(usize, Option<u32>, &str)> {
     ))
 }
 
-fn task(content: &str) -> (Option<bool>, &str) {
+pub(crate) fn task(content: &str) -> (Option<bool>, &str) {
     for (marker, checked) in [("[ ] ", false), ("[x] ", true), ("[X] ", true)] {
         if let Some(content) = content.strip_prefix(marker) {
             return (Some(checked), content);
@@ -254,7 +254,7 @@ fn table_cells(line: &str) -> Vec<&str> {
     line.split('|').map(str::trim).collect()
 }
 
-fn table_separator(line: &str) -> Option<Vec<Alignment>> {
+pub(crate) fn table_separator(line: &str) -> Option<Vec<Alignment>> {
     table_cells(line)
         .into_iter()
         .map(|cell| {
