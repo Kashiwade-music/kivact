@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, Span, column, node, rich_text, row, span, text};
+use kivact::i18n::{message, message_with};
 use kivact::interaction::use_disclosure;
 use kivact::primitive::{EditState, NodeExt};
 use kivact::style::{Align, Direction, style};
@@ -76,7 +77,7 @@ type ToolDetails = Box<dyn Fn(Value<ToolCall>) -> View>;
 pub struct ChatToolCalls {
     root: Node,
     calls: Value<Vec<ToolCall>>,
-    label: Value<String>,
+    label: Option<Value<String>>,
     expanded: Option<Binding<bool>>,
     detail: Option<ToolDetails>,
 }
@@ -85,7 +86,7 @@ pub fn chat_tool_calls(calls: impl IntoValue<Vec<ToolCall>>) -> ChatToolCalls {
     ChatToolCalls {
         root: node(),
         calls: calls.into_value(),
-        label: "Tool calls".into_text_value(),
+        label: None,
         expanded: None,
         detail: None,
     }
@@ -99,7 +100,7 @@ impl NodeBuilder for ChatToolCalls {
 
 impl ChatToolCalls {
     pub fn label(mut self, label: impl IntoText) -> Self {
-        self.label = label.into_text_value();
+        self.label = Some(label.into_text_value());
         self
     }
     pub fn expanded(mut self, expanded: impl Into<Binding<bool>>) -> Self {
@@ -137,26 +138,47 @@ impl IntoView for ChatToolCalls {
         } = self;
         let open = expanded.unwrap_or_else(|| signal(false).into());
         let disclosure = use_disclosure(open);
+        let count = label.map(|_| text(move || format!("({})", calls.with(Vec::len))));
+        let title = label.unwrap_or_else(|| {
+            message_with(
+                "soft.chat.tool_calls.group_label",
+                "{count} tool calls",
+                move || [("count", calls.with(Vec::len).to_string())],
+            )
+        });
         let trigger = node()
-            .part(disclosure.trigger().name(label))
+            .part(disclosure.trigger().name(title))
             .base_style(disclosure_style)
             .child((
                 text(move || if open.get() { "⌄" } else { "›" }),
-                text(label),
-                text(move || format!("({})", calls.with(Vec::len))),
+                text(title),
+                count,
             ));
         let items = for_each(
             calls,
             |call| call.key.clone(),
             move |_, call| {
-                let status = text(move || {
+                let pending = message("soft.chat.tool_calls.pending", "Pending");
+                let running = message("soft.chat.tool_calls.running", "Running");
+                let complete = message("soft.chat.tool_calls.complete", "Complete");
+                let failed = message("soft.chat.tool_calls.failed", "Failed");
+                let status_label = move || {
                     call.with(|call| match call.status {
-                        ToolStatus::Pending => "◷ Pending",
-                        ToolStatus::Running => "◷ Running",
-                        ToolStatus::Complete => "✓ Complete",
-                        ToolStatus::Error => "! Error",
+                        ToolStatus::Pending => pending.get(),
+                        ToolStatus::Running => running.get(),
+                        ToolStatus::Complete => complete.get(),
+                        ToolStatus::Error => failed.get(),
                     })
+                };
+                let status = text(move || {
+                    let glyph = call.with(|call| match call.status {
+                        ToolStatus::Pending | ToolStatus::Running => "◷",
+                        ToolStatus::Complete => "✓",
+                        ToolStatus::Error => "!",
+                    });
+                    format!("{glyph} {}", status_label())
                 })
+                .name(status_label)
                 .style(move || {
                     let p = tokens();
                     let ink = call.with(|call| match call.status {
@@ -191,18 +213,36 @@ impl IntoView for ChatToolCalls {
                         .align_items(Align::Center)
                         .wrap(true),
                 );
-                let error = text(move || call.with(|call| call.error.clone().unwrap_or_default()))
-                    .hidden(move || call.with(|call| call.error.is_none()))
-                    .style(move || style().color(tokens().colors.text_error));
+                let error = text(message_with(
+                    "soft.chat.tool_calls.error",
+                    "Error: {message}",
+                    move || {
+                        [(
+                            "message",
+                            call.with(|call| call.error.clone().unwrap_or_default()),
+                        )]
+                    },
+                ))
+                .hidden(move || call.with(|call| call.error.is_none()))
+                .style(move || style().color(tokens().colors.text_error));
                 let detail = detail.as_ref().map(|detail| {
                     let disclosure = use_disclosure(signal(false));
+                    let detail_label = message_with(
+                        "soft.chat.tool_calls.detail",
+                        "Details for {name}",
+                        move || [("name", call.with(|call| call.name.clone()))],
+                    );
                     let trigger = node()
-                        .part(disclosure.trigger().name("Tool call details"))
+                        .part(disclosure.trigger().name(detail_label))
                         .base_style(disclosure_style)
-                        .child(text("Details"));
+                        .child(text(message("soft.chat.tool_calls.details", "Details")));
                     column((
                         trigger,
-                        node().part(disclosure.content()).child(detail(call)),
+                        node()
+                            .role(Role::Group)
+                            .name(detail_label)
+                            .part(disclosure.content())
+                            .child(detail(call)),
                     ))
                     .style(style().gap(2))
                 });

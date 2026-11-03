@@ -1,21 +1,28 @@
 //! Role: Composer controls for application-owned chat state.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::{ChatDensity, tokens};
 use kivact::control::{Node, NodeBuilder, node, row, text};
 use kivact::i18n::message;
-use kivact::primitive::{NodeExt, part};
+use kivact::primitive::{EditState, NodeExt, NodeRefExt, part};
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::ui::{ControlSize, TextInput, text_area};
 use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, KeyEvent, Role, View, callback,
-    node_ref, show,
+    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, KeyEvent, Modifiers, Role, View,
+    callback, node_ref, show,
 };
 use kivact::{Binding, Callback, Value, signal};
+
+fn composer_placeholder() -> Value<String> {
+    message("soft.chat_composer.placeholder", "Type a message…")
+}
 
 pub fn chat_composer_input(label: impl IntoText, value: impl Into<Binding<String>>) -> TextInput {
     text_area(label, value)
         .rows(1..=8)
-        .placeholder("Type a message…")
+        .placeholder(composer_placeholder())
         .style(move || {
             let p = tokens();
             style()
@@ -194,6 +201,7 @@ pub struct ChatComposer {
     send_actions: Option<View>,
     status: Value<Option<ComposerStatus>>,
     status_position: ComposerStatusPosition,
+    history: bool,
 }
 
 pub fn chat_composer(value: impl Into<Binding<String>>) -> ChatComposer {
@@ -204,7 +212,7 @@ pub fn chat_composer(value: impl Into<Binding<String>>) -> ChatComposer {
         on_stop: None,
         stop_shown: false.into_value(),
         disabled: false.into_value(),
-        placeholder: "Type a message…".into_text_value(),
+        placeholder: composer_placeholder(),
         density: ChatDensity::Balanced,
         elevation: ComposerElevation::Low,
         drawer: None,
@@ -214,6 +222,7 @@ pub fn chat_composer(value: impl Into<Binding<String>>) -> ChatComposer {
         send_actions: None,
         status: None.into_value(),
         status_position: ComposerStatusPosition::Bottom,
+        history: true,
     }
 }
 
@@ -256,6 +265,12 @@ impl ChatComposer {
         self.status = status.into_value();
         self
     }
+    /// Enable navigating submitted messages at the edges of the draft with Up and Down.
+    pub fn history(mut self, enabled: bool) -> Self {
+        self.history = enabled;
+        self
+    }
+
     pub fn status_position(mut self, position: ComposerStatusPosition) -> Self {
         self.status_position = position;
         self
@@ -301,26 +316,48 @@ impl IntoView for ChatComposer {
             send_actions,
             status,
             status_position,
+            history,
         } = self;
-        let send = move || {
+        let history = history.then(|| Rc::new(RefCell::new(ComposerHistory::default())));
+        let sent_history = history.clone();
+        let send = callback(move |()| {
             if disabled.get_untracked() || stop_shown.get_untracked() {
                 return;
             }
             let draft = value.get_untracked();
             let message = draft.trim();
             if let Some(submit) = on_submit.filter(|_| !message.is_empty()) {
+                let message = message.to_owned();
+                if let Some(history) = &sent_history {
+                    let mut history = history.borrow_mut();
+                    history.submissions.push(message.clone());
+                    history.recall = None;
+                }
                 value.set(String::new());
-                submit.call(message.to_owned());
+                submit.call(message);
             }
-        };
+        });
+        let input_ref = node_ref();
         let input =
             chat_composer_input(message("soft.chat_composer.input", "Message input"), value)
                 .placeholder(placeholder)
                 .disabled(disabled)
+                .node_ref(input_ref)
                 .forward_keys(vec![Key::Enter])
                 .on_key(move |event: KeyEvent| {
-                    if event.key == Key::Enter {
-                        send();
+                    if event.key == Key::Enter && event.modifiers == Modifiers::default() {
+                        send.call(());
+                        Handled::Yes
+                    } else if event.modifiers == Modifiers::default()
+                        && matches!(event.key, Key::ArrowUp | Key::ArrowDown)
+                        && let Some(history) = &history
+                        && let Some(editor) = input_ref.edit_state()
+                        && let Some(mut recalled) =
+                            history.borrow_mut().navigate(event.key, &editor)
+                    {
+                        recalled.move_to(0, false);
+                        recalled.move_to(recalled.value().len(), true);
+                        input_ref.set_edit_state(recalled);
                         Handled::Yes
                     } else {
                         Handled::No
@@ -337,7 +374,7 @@ impl IntoView for ChatComposer {
                         || value.with(|value| value.trim().is_empty())
                 }
             })
-            .on_send(send)
+            .on_send(move || send.call(()))
             .on_stop(move || {
                 if let Some(stop) = on_stop {
                     stop.call(());
@@ -407,6 +444,41 @@ impl IntoView for ChatComposer {
             ComposerStatusPosition::Bottom => root.child((drawer, surface, status)),
         }
         .into_view()
+    }
+}
+
+#[derive(Default)]
+struct ComposerHistory {
+    submissions: Vec<String>,
+    recall: Option<(usize, String)>,
+}
+
+impl ComposerHistory {
+    fn navigate(&mut self, key: Key, editor: &EditState) -> Option<EditState> {
+        let text = editor.value();
+        let selection = editor.selection();
+        let at_start = selection.start == 0;
+        let at_end = selection.end == text.len();
+        let replacement = match key {
+            Key::ArrowUp if at_start && (selection.is_empty() || at_end) => {
+                let last = self.submissions.len().checked_sub(1)?;
+                let (index, _) = self
+                    .recall
+                    .get_or_insert_with(|| (last + 1, text.to_owned()));
+                *index = index.saturating_sub(1);
+                &self.submissions[*index]
+            }
+            Key::ArrowDown if at_end && (selection.is_empty() || at_start) => {
+                let (index, _) = self.recall.as_mut()?;
+                *index += 1;
+                match self.submissions.get(*index) {
+                    Some(submission) => submission,
+                    None => return self.recall.take().map(|(_, draft)| EditState::new(&draft)),
+                }
+            }
+            _ => return None,
+        };
+        Some(EditState::new(replacement))
     }
 }
 
