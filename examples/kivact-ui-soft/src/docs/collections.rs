@@ -184,8 +184,9 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 ],
                 signal(vec!["src"]),
             )
+            .animated(true)
             .style(style().width(240)),
-            "tree_list(\"Files\", files, expanded)",
+            "tree_list(\"Files\", files, expanded).animated(true)",
         ),
         "nav-icon" => specimen(
             "Navigation icon",

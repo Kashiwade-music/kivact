@@ -51,6 +51,26 @@ fn capture_catalog() {
             }
             capture_overlay_states(&screen, &output, page.slug, name);
             capture_disclosure_states(&screen, &output, page.slug, name);
+            if page.slug == "selector" {
+                screen
+                    .get_by_role(Role::ComboBox, "Team")
+                    .press_key(Key::ArrowDown);
+                screen.advance(Duration::from_millis(350));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("selector-{name}-highlighted.png")))
+                    .expect("selector highlight screenshot");
+            }
+            if page.slug == "tree-list" {
+                screen
+                    .get_by_role(Role::TreeItem, "src")
+                    .press_key(Key::ArrowLeft);
+                screen.advance(Duration::from_millis(120));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("tree-list-{name}-closing.png")))
+                    .expect("tree exit screenshot");
+            }
             if page.slug == "table" {
                 screen
                     .get_by_role(Role::Button, "Show active projects")
