@@ -3,7 +3,7 @@ use kivact::control::{NodeBuilder, column, icon, node, row, text};
 use kivact::signal;
 use kivact::style::{ThemeMode, style};
 use kivact::test::{RenderOptions, render_with};
-use kivact::view::{IntoView, Role, node_ref};
+use kivact::view::{IntoView, Key, ReadingDirection, Role, node_ref, provide_direction};
 use kivact_ui_soft as soft;
 
 fn options(width: f32) -> RenderOptions {
@@ -13,6 +13,29 @@ fn options(width: f32) -> RenderOptions {
         theme: soft::theme(ThemeMode::Light),
         ..RenderOptions::from_env()
     }
+}
+
+#[test]
+fn rtl_toolbar_moves_between_unwrapped_slots_in_visual_order() {
+    let screen = render_with(options(800.0), || {
+        provide_direction(ReadingDirection::Rtl, || {
+            soft::toolbar("Document tools")
+                .start(|| kivact::ui::button("Start"))
+                .center(|| kivact::ui::button("Center"))
+                .end(|| kivact::ui::button("End"))
+        })
+    });
+    let start = screen.get_by_role(Role::Button, "Start");
+    let center = screen.get_by_role(Role::Button, "Center");
+    let end = screen.get_by_role(Role::Button, "End");
+    assert!(start.rect().expect("laid out").x > end.rect().expect("laid out").x);
+    screen.press_tab(false);
+    assert!(start.is_focused());
+    screen.press_key(Key::ArrowLeft);
+    assert!(center.is_focused());
+    screen.press_key(Key::ArrowLeft);
+    assert!(end.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]

@@ -1,19 +1,18 @@
-//! Role: Neutral toolbar layout and opt-in roving focus registration.
+//! Role: Neutral toolbar layout, shared roving focus and keyboard hints.
 
 use std::time::Duration;
 
-use crate::button_group::RovingItem;
 use crate::{SectionVariant, kbd, tokens};
 use kivact::control::{Node, NodeBuilder, node, row, text};
 use kivact::motion::{Easing, Transition};
-use kivact::primitive::NodeExt;
+use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Color, Direction, Justify, Length, Track, TransitionProp, pct, style};
 use kivact::task::{sleep, spawn};
 use kivact::ui::ControlSize;
 use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, NodeRef, Orientation, OverlayAlign, Placement,
-    PointerPhase, ReadingDirection, Role, View, current_direction, node_ref, overlay, provide,
-    show_some, try_context,
+    Handled, IntoText, IntoView, Key, NodeRef, Orientation, OverlayAlign, Placement,
+    ReadingDirection, Role, View, current_direction, node_ref, overlay, provide, show_some,
+    try_context,
 };
 use kivact::{Signal, effect, on_cleanup, signal};
 
@@ -108,61 +107,38 @@ impl NodeBuilder for Toolbar {
 #[derive(Clone, Copy, PartialEq)]
 struct Registration {
     slot: usize,
-    item: RovingItem,
-    focused: kivact::Value<bool>,
+    reference: NodeRef,
     focus_visible: kivact::Value<bool>,
 }
 
 #[derive(Clone, Copy)]
-struct Registrations(Signal<Vec<Registration>>, Signal<usize>, Signal<usize>);
+struct Registrations(Signal<Vec<Registration>>, Signal<usize>);
 
-/// Register a button or similar control from within a toolbar slot closure.
-/// Editable children can be passed directly to the slot to keep their keys.
+/// Register a control for the toolbar's keyboard hint. All focusable controls
+/// in a slot participate in the toolbar's arrow navigation.
 #[track_caller]
-pub fn toolbar_item<T: NodeBuilder>(mut item: T) -> T {
-    let Some(Registrations(items, active, next)) = try_context::<Registrations>() else {
+pub fn toolbar_item<T: NodeBuilder>(item: T) -> T {
+    let Some(Registrations(items, next)) = try_context::<Registrations>() else {
         return item;
     };
     let reference = node_ref();
-    let focused = reference.focused();
     let focus_visible = reference.focus_visible();
-    let disabled = item.accessible_disabled();
-    let disabled = (move || disabled.as_ref().is_some_and(|read| read())).into_value();
     let slot = next.get_untracked();
     next.set(slot + 1);
     items.update(|items| {
         items.push(Registration {
             slot,
-            focused,
             focus_visible,
-            item: RovingItem {
-                reference,
-                disabled,
-            },
+            reference,
         })
     });
     on_cleanup(move || items.update(|items| items.retain(|item| item.slot != slot)));
-    item.node_ref(reference)
-        .focusable(move || {
-            items.with(|items| {
-                let active = active.get();
-                items
-                    .iter()
-                    .find(|item| item.slot == active && !item.item.disabled.get())
-                    .or_else(|| items.iter().find(|item| !item.item.disabled.get()))
-                    .is_some_and(|item| item.slot == slot)
-            })
-        })
-        .on_pointer(move |event| {
-            if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
-                active.set(slot);
-            }
-        })
+    item.part(part(|_| ()).reference(reference))
 }
 
 impl IntoView for Toolbar {
     fn into_view(self) -> View {
-        let registry = Registrations(signal(Vec::new()), signal(0), signal(0));
+        let registry = Registrations(signal(Vec::new()), signal(0));
         let vertical = self.orientation == Orientation::Vertical;
         let rtl = current_direction() == ReadingDirection::Rtl;
         let variant = self.variant;
@@ -182,16 +158,21 @@ impl IntoView for Toolbar {
                 (false, true) => Direction::RowReverse,
                 _ => Direction::Row,
             };
-            let make = |slot: Option<Slot>, alignment| {
+            let reverse_grid = has_center && rtl && !vertical;
+            let make = |slot: Option<Slot>, alignment, grid_column: i32| {
                 kivact::ui::provide_control_size(size, move || {
-                    row(slot.map(|slot| slot())).base_style(
-                        style()
-                            .direction(direction)
-                            .gap(gap)
-                            .min_width(0)
-                            .align_items(Align::Center)
-                            .justify_content(alignment),
-                    )
+                    let base = style()
+                        .direction(direction)
+                        .gap(gap)
+                        .min_width(0)
+                        .align_items(Align::Center)
+                        .justify_content(alignment);
+                    let base = if reverse_grid {
+                        base.grid_column(grid_column)
+                    } else {
+                        base
+                    };
+                    row(slot.map(|slot| slot())).base_style(base)
                 })
             };
             let start = make(
@@ -201,8 +182,9 @@ impl IntoView for Toolbar {
                 } else {
                     Justify::Start
                 },
+                3,
             );
-            let center = has_center.then(|| make(self.center, Justify::Center));
+            let center = has_center.then(|| make(self.center, Justify::Center, 2));
             let end = make(
                 self.end,
                 if rtl && !vertical {
@@ -210,15 +192,16 @@ impl IntoView for Toolbar {
                 } else {
                     Justify::End
                 },
+                1,
             );
-            let Registrations(items, active, _) = registry;
+            let Registrations(items, _) = registry;
             let focused = move || {
                 items.with(|items| {
                     items.iter().find_map(|registered| {
                         registered
                             .focus_visible
                             .get()
-                            .then_some(registered.item.reference)
+                            .then_some(registered.reference)
                     })
                 })
             };
@@ -226,6 +209,7 @@ impl IntoView for Toolbar {
             let root = self
                 .root
                 .orientation(orientation)
+                .roving_focus(orientation)
                 .on_key(move |event| {
                     if matches!(
                         event.key,
@@ -233,19 +217,7 @@ impl IntoView for Toolbar {
                     ) {
                         hint_anchor.set(None);
                     }
-                    let current = items.get();
-                    let Some(index) = current.iter().position(|item| item.focused.get()) else {
-                        return Handled::No;
-                    };
-                    let step = navigation_index(&current, index, event.key, vertical, rtl);
-                    if let Some(index) = step {
-                        let member = current[index];
-                        active.set(member.slot);
-                        member.item.reference.focus();
-                        Handled::Yes
-                    } else {
-                        Handled::No
-                    }
+                    Handled::No
                 })
                 .base_style(move || {
                     let t = tokens();
@@ -286,50 +258,9 @@ impl IntoView for Toolbar {
                     }
                     base
                 });
-            if has_center && rtl && !vertical {
-                root.child((end, center, start, hint))
-            } else {
-                root.child((start, center, end, hint))
-            }
+            root.child((start, center, end, hint))
         })
     }
-}
-
-fn navigation_index(
-    items: &[Registration],
-    current: usize,
-    key: Key,
-    vertical: bool,
-    rtl: bool,
-) -> Option<usize> {
-    let enabled = items
-        .iter()
-        .enumerate()
-        .filter(|(_, item)| !item.item.disabled.get());
-    let mut indices: Vec<_> = enabled.map(|(index, _)| index).collect();
-    let direction = match key {
-        Key::Home => return indices.first().copied(),
-        Key::End => return indices.last().copied(),
-        Key::ArrowRight if !vertical => !rtl,
-        Key::ArrowLeft if !vertical => rtl,
-        Key::ArrowDown if vertical => true,
-        Key::ArrowUp if vertical => false,
-        _ => return None,
-    };
-    if !direction {
-        indices.reverse();
-    }
-    indices
-        .iter()
-        .copied()
-        .find(|index| {
-            if direction {
-                *index > current
-            } else {
-                *index < current
-            }
-        })
-        .or_else(|| indices.first().copied())
 }
 
 pub(crate) fn keyboard_hint(
