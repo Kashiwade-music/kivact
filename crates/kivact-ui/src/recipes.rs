@@ -44,6 +44,7 @@
 //! `chevron-right` for a submenu, `chevron-down` and the selected option's
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
+use super::DataTableGroupState;
 use super::values::{
     AxisState, ButtonState, CheckState, DataTableCellState, DataTableCheckState,
     DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
@@ -400,6 +401,8 @@ recipe_table! {
         /// A body row; it knows whether it is selected and the caller's row
         /// height and accent.
         row(row_recipe): DataTableRowState = look_collections::row,
+        /// A group header spanning the visible columns.
+        group_header(group_header_recipe): DataTableGroupState = look_collections::group_header,
         /// A body cell.
         cell(cell_recipe): DataTableCellState = look_collections::cell,
         /// The box around a check box, in a header or a row.

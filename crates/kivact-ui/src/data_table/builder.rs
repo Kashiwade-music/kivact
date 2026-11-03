@@ -101,6 +101,7 @@ where
     DataTable {
         root,
         rows: rows.into_value(),
+        grouping: None,
         key: Rc::new(key),
         columns: Rc::new(columns),
         column_order: None,
@@ -129,12 +130,32 @@ where
         cells: None,
         focus: TableFocus::default(),
         row_height: None,
+        row_status: None,
         row_color: None,
         variants,
     }
 }
 
 impl<R: 'static, K: 'static> DataTable<R, K> {
+    /// Group the filtered, sorted rows on each page by a string key.
+    ///
+    /// Groups follow first appearance on that page and their rows keep the
+    /// sorted order. Collapsing hides a group's data rows without changing
+    /// the page, selection keys, or page counts. The header count is the
+    /// number of matching rows from that group on the current page. For
+    /// remote paging, groups are formed from the caller's supplied page.
+    pub fn group_by<G: Into<String>>(
+        mut self,
+        group: impl Fn(&R) -> G + 'static,
+        collapsed: impl Into<Binding<Vec<String>>>,
+    ) -> Self {
+        self.grouping = Some(super::grouped::Grouping {
+            key: Rc::new(move |row| group(row).into()),
+            collapsed: collapsed.into(),
+        });
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -406,6 +427,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// or a reactive value); the row recipe reads it.
     pub fn row_height(mut self, height: impl IntoValue<f32>) -> Self {
         self.row_height = Some(height.into_value());
+        self
+    }
+
+    /// Reserve a leading status lane and resolve each row's optional marker.
+    /// The lane is separate from the indexed data columns.
+    pub fn row_status(mut self, status: impl Fn(&R) -> Option<super::RowStatus> + 'static) -> Self {
+        self.row_status = Some(Rc::new(status));
         self
     }
 

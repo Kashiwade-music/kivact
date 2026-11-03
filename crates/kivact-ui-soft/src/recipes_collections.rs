@@ -358,6 +358,16 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
                 .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
         }
     })
+    .group_header(|_| {
+        |t: &Theme, _: &_| {
+            let p = t.get::<Tokens>();
+            style()
+                .direction(Direction::Row)
+                .background(p.colors.bg_muted)
+                .border_bottom(p.sizes.border_width, p.colors.border)
+                .font_size(p.typography.body.size_px)
+        }
+    })
     .cell(|_| {
         |t: &Theme, s: &_| {
             let p = t.get::<Tokens>();

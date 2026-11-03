@@ -160,7 +160,8 @@ pub use children::IntoChildren;
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
 pub use data_table::{
-    DataTable, DataTableContext, DataTableDensity, DataTableStickyPaint, data_table,
+    DataTable, DataTableContext, DataTableDensity, DataTableGroupState, DataTableRowStatusPaint,
+    DataTableStickyPaint, RowStatus, data_table,
 };
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};

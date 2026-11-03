@@ -22,6 +22,7 @@ pub(super) type CellSlot<R> = Rc<dyn Fn(Value<R>, usize) -> View>;
 pub(super) type Slot<R, K> = Box<dyn FnOnce(DataTableContext<R, K>) -> View>;
 pub(super) type RowContextMenu<R> = Rc<dyn Fn(Value<R>, Node) -> View>;
 pub(super) type RowSelectable<R> = Rc<dyn Fn(&R) -> bool>;
+pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<super::RowStatus>>;
 pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
 /// Names a row in text.
 pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
@@ -75,6 +76,7 @@ pub(super) type StickyEdges = (Vec<usize>, Vec<usize>);
 pub struct DataTable<R: 'static, K: 'static> {
     pub(super) root: Node,
     pub(super) rows: Value<Vec<R>>,
+    pub(super) grouping: Option<super::grouped::Grouping<R>>,
     pub(super) key: Key<R, K>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     pub(super) column_order: Option<Value<Vec<usize>>>,
@@ -103,6 +105,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) focus: TableFocus,
     pub(super) row_height: Option<Value<f32>>,
+    pub(super) row_status: Option<RowStatusOf<R>>,
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }

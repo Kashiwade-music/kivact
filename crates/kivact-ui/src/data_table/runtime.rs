@@ -34,6 +34,7 @@ where
     let DataTable {
         root,
         rows: data,
+        grouping,
         key,
         columns,
         column_order,
@@ -62,6 +63,7 @@ where
         cells,
         focus,
         row_height,
+        row_status,
         row_color,
         variants,
     } = table;
@@ -102,7 +104,9 @@ where
     {
         model = model.page(index, size);
     }
-    let display = model.rows();
+    let page_rows = model.rows();
+    let groups = grouping.map(|grouping| super::grouped::plan(page_rows, grouping));
+    let display = groups.map_or(page_rows, |plan| plan.rows());
     let shown = model.columns();
     let shown = if let Some(order) = column_order {
         memo(move || {
@@ -145,7 +149,12 @@ where
     if let Some(eligible) = eligible {
         behavior = behavior.row_selectable(move |key| eligible.with(|keys| keys.contains(key)));
     }
-    let page_keys = model.keys();
+    let page_keys = if groups.is_some() {
+        let key = key.clone();
+        memo(move || display.with(|rows| rows.iter().map(|row| key(row)).collect::<Vec<_>>()))
+    } else {
+        model.keys()
+    };
     let selectable_keys = memo(move || match eligible {
         Some(eligible) => page_keys.with(|keys| {
             eligible.with(|eligible| {
@@ -277,17 +286,22 @@ where
         sort,
         focus,
         row_height,
+        row_status,
         row_color,
         variants: variants.clone(),
     };
     let head = rows::header(&grid);
-    let body = for_each(
-        display,
-        move |row| key(row),
-        move |id, item| rows::body(&grid, id, item),
-    );
+    let body = if let Some(groups) = groups {
+        groups.view(grid, key)
+    } else {
+        for_each(
+            display,
+            move |row| key(row),
+            move |id, item| rows::body(&grid, id, item),
+        )
+    };
     let empty_view = show(
-        move || display.with(Vec::is_empty),
+        move || page_rows.with(Vec::is_empty),
         move || {
             empty.as_ref().map_or_else(
                 || {

@@ -1,4 +1,5 @@
 //! Role: Default recipes for the list and the data table.
+use super::DataTableGroupState;
 use super::values::{
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState,
 };
@@ -9,6 +10,13 @@ use kivact_core::style::{
 };
 use kivact_core::view::{ReadingDirection, current_direction};
 use kivact_interaction::{ListItemState, TableHeaderState, TreeItemState};
+
+pub(super) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
+    style()
+        .direction(Direction::Row)
+        .background(ColorToken::SurfaceAlt)
+        .border_bottom(1, ColorToken::Border)
+}
 
 /// The items in a column.
 pub(super) fn list(t: &Theme, _: &PartState) -> Style {

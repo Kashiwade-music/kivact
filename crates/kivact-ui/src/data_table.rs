@@ -8,11 +8,15 @@
 //! widths stay the caller's: the table keeps no copy of them.
 mod builder;
 mod chrome;
+mod grouped;
+mod row_status;
 mod rows;
 mod runtime;
 mod sticky_paint;
 mod types;
 
 pub use builder::data_table;
+pub use grouped::DataTableGroupState;
+pub use row_status::{DataTableRowStatusPaint, RowStatus};
 pub use sticky_paint::DataTableStickyPaint;
 pub use types::{DataTable, DataTableContext, DataTableDensity};

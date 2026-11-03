@@ -114,6 +114,31 @@ pub fn theme(mode: ThemeMode) -> Theme {
                 tokens.motion.ease_standard,
             )),
         })
+        .with(kivact::ui::DataTableRowStatusPaint {
+            neutral: colors.icon_secondary,
+            info: kivact::style::rgb(if mode == ThemeMode::Dark {
+                0x88bcff
+            } else {
+                0x003978
+            }),
+            success: kivact::style::rgb(if mode == ThemeMode::Dark {
+                0x90ca90
+            } else {
+                0x00490b
+            }),
+            warning: kivact::style::rgb(if mode == ThemeMode::Dark {
+                0xff9e55
+            } else {
+                0x622700
+            }),
+            danger: kivact::style::rgb(if mode == ThemeMode::Dark {
+                0xff9890
+            } else {
+                0x76000c
+            }),
+            accent: colors.icon_accent,
+            header_key: "soft.table.row_status.column_header",
+        })
         .with(tokens)
         .with(crate::recipes::recipes())
 }

@@ -1,7 +1,8 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
 use super::sticky_paint::{DataTableStickyPaint, surface};
 use super::types::{
-    CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, Sort, StickyEdges,
+    CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
+    StickyEdges,
 };
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
@@ -51,6 +52,7 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
     pub(super) row_height: Option<Value<f32>>,
+    pub(super) row_status: Option<RowStatusOf<R>>,
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
@@ -132,6 +134,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
             sort: self.sort,
             focus: self.focus,
             row_height: self.row_height,
+            row_status: self.row_status.clone(),
             row_color: self.row_color.clone(),
             variants: self.variants.clone(),
         }
@@ -147,7 +150,9 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
     }
 
     fn direction(&self) -> Style {
-        if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl) {
+        if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
+            || (self.row_status.is_some() && current_direction() == ReadingDirection::Rtl)
+        {
             style().direction(Direction::RowReverse)
         } else {
             style()
@@ -310,8 +315,12 @@ pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
     });
     let index = grid
         .indexed
-        .map(|_| index_cell(Role::ColumnHeader, text("#")));
-    row((index, check, disclosure, columns, actions))
+        .map(|_| index_cell(Role::ColumnHeader, text("#")).name("#"));
+    let status = grid
+        .row_status
+        .as_ref()
+        .map(|_| super::row_status::header());
+    row((status, index, check, disclosure, columns, actions))
         .style(grid.direction())
         .role(Role::Row)
         .into_view()
@@ -488,10 +497,13 @@ where
         )
     });
     let (color, height) = (grid.row_color.clone(), grid.row_height);
+    let status = grid.row_status.as_ref().map(|status| {
+        let status = status.clone();
+        super::row_status::cell(memo(move || item.with(|row| status(row))))
+    });
     let line = with_recipe_style(
-        row((index, check, trigger, cells, actions))
+        row((status, index, check, trigger, cells, actions))
             .style(style().group())
-            .style(grid.direction())
             .part(part),
         |r| r.data_table_recipes().row_recipe(),
         &grid.variants,
@@ -500,7 +512,8 @@ where
             color: color.as_ref().and_then(|color| item.with(|row| color(row))),
             height: height.map(|height| height.get().max(18.0)),
         },
-    );
+    )
+    .style(grid.direction());
     let line = match grid.reorder {
         Some(reorder) => line.part(drag_source(grid, id, reorder)),
         None => line,
