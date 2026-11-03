@@ -74,6 +74,8 @@ fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
         .detail(|_| kivact::ui::button("Inspect output"))
     });
     let group = screen.get_by_role(Role::Button, "2 tool calls");
+    screen.get_by_text("Check path");
+    assert!(screen.query_by_text("Read file").is_none());
     assert_eq!(group.is_expanded(), Some(false));
     assert!(
         screen
@@ -96,8 +98,10 @@ fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
     details.press_key(Key::Space);
     assert_eq!(details.is_expanded(), Some(true));
     assert_eq!(details.controls().len(), 1);
-    screen.get_by_role(Role::Button, "Inspect output");
-    details.press_key(Key::Space);
+    let inspect = screen.get_by_role(Role::Button, "Inspect output");
+    inspect.press_key(Key::Escape);
+    assert!(details.is_focused());
+    assert_eq!(details.is_expanded(), Some(false));
     assert!(
         screen
             .query_by_role(Role::Button, "Inspect output")
@@ -122,5 +126,22 @@ fn composer_does_not_submit_during_an_ime_composition() {
     input.commit("仮");
     input.press_key(Key::Enter);
     assert_eq!(submitted.borrow().as_slice(), ["仮"]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn one_tool_call_has_no_group_toggle_and_can_open_its_details() {
+    let screen = render_with(options(), || {
+        soft::chat_tool_calls(vec![
+            soft::ToolCall::new("read", "Read file").status(soft::ToolStatus::Running),
+        ])
+        .detail(|_| kivact::ui::button("Inspect output"))
+    });
+    assert!(screen.query_by_role(Role::Button, "1 tool calls").is_none());
+    screen.get_by_role(Role::Status, "Running");
+    let details = screen.get_by_role(Role::Button, "Details for Read file");
+    details.press_key(Key::Enter);
+    assert_eq!(details.is_expanded(), Some(true));
+    screen.get_by_role(Role::Button, "Inspect output");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
