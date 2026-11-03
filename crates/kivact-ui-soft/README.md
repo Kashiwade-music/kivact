@@ -317,4 +317,18 @@ Typeahead and Tokenizer accept a debounced asynchronous source through
 supports editable text filters. The static table builders and `TableFocus::None`
 provide native table semantics. The standard data table supports sorting,
 selection, column resizing, and a custom empty state. Grouped, expandable, and sticky
-data-table rows and columns require additional integration.
+data-table rows and columns require additional integration. Advanced column
+filtering, multi-column sorting, relative widths, and column reordering remain
+pending (C-29).
+
+| Work-order item | Current behavior |
+| --- | --- |
+| C-06, C-07 | Collapsible and Side Nav use the shared content-height reveal. Other layout changes can be immediate. An exiting toast can retain its row until the card transition finishes. Toast dismissal callbacks run when dismissal starts. |
+| C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
+| C-09, C-37 | Bottom Sheet combines native drag tracking with local detent and release logic. Carousel uses native scrolling. Toast and Slider use their standard dismissal and input controls. |
+| C-11, C-17, C-18, C-39 | Disabled Soft buttons can receive focus for tooltips. Menus skip disabled rows, use activation to open, and use timed hover for submenus. The safe triangle and drag-to-select behavior remain pending. |
+| C-15 | Inline Markdown uses native text and view composition. The rich text editor has source and preview modes. |
+| C-20, C-21, C-24, C-35, C-36 | The application supplies the appearance. Date and time use the desktop input flow and its formatting. Touch wheels and adaptive selector sheets remain pending. |
+| C-22, C-25, C-38 | Truncation hints can appear whenever truncation is enabled. Citation and timestamp use solid underlines. Text uses the native line box. |
+| C-26 | Soft respects Kivact's reduced-motion preference and the application's override. System detection depends on the platform. |
+| C-33, C-34 | The kit supplies its own static list. Overflow List measures mounted items and uses provisional widths before layout. |
