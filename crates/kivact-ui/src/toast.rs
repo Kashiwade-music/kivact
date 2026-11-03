@@ -3,7 +3,9 @@ use super::layer::with_recipe_style;
 use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{NodeBuilder, column, node, text};
+use kivact_core::motion::Transition;
 use kivact_core::primitive::part;
+use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
 use kivact_interaction::{ToastId, Toaster, Tone};
 
@@ -44,6 +46,24 @@ pub fn toast_region(toaster: Toaster) -> ToastRegion {
         toaster,
         variants: Variants::default(),
         hold_all: false,
+    }
+}
+
+/// A theme's optional toast row-height animation.
+///
+/// The region reads this at setup. With a transition, set the group
+/// recipe's fixed gap to zero so the space between cards can animate.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ToastRowMotion {
+    /// A decorative transition for showing and collapsing the row.
+    pub transition: Option<Transition>,
+    /// Space before each card, included in its animated height.
+    pub gap: f32,
+}
+
+impl ThemeExtension for ToastRowMotion {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
     }
 }
 
@@ -90,11 +110,17 @@ impl IntoView for ToastRegion {
             hold_all,
         } = self;
         let polite = toaster.visible(false);
+        let row_motion = current_theme().get::<ToastRowMotion>();
         let (rows, groups) = (variants.clone(), variants.clone());
         let group = move |assertive: bool, live: LiveRegion| {
             let rows = rows.clone();
             let shown = toaster.visible(assertive);
-            let items = for_each(shown, |id| *id, move |id, _| toast(toaster, id, &rows));
+            let build = move |id| toast(toaster, id, &rows);
+            let items = if let Some(transition) = row_motion.transition.clone() {
+                super::toast_rows::animate(shown, transition, row_motion.gap, build)
+            } else {
+                for_each(shown, |id| *id, move |id, _| build(id))
+            };
             let part = toaster.region(live);
             let input = part.state();
             with_recipe_style(
