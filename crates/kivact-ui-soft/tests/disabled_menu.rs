@@ -63,6 +63,7 @@ fn soft_disabled_menu_item_can_explain_why_but_cannot_activate() {
         bounds.y + bounds.height * 0.5,
     );
     assert_eq!(chosen.get(), 0);
+    screen.mouse_leave();
     screen.press_key(Key::ArrowDown);
     assert_eq!(screen.focused().unwrap().name(), "Copy");
     assert!(
