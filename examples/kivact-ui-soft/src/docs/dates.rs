@@ -19,8 +19,9 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "date-input" => column((
             specimen(
                 "Edit a date or open the calendar",
-                date_input("Due date", signal(None::<CalendarDate>)),
-                "date_input(\"Due date\", date)",
+                date_input("Due date", signal(None::<CalendarDate>))
+                    .presentation(DatePresentation::Desktop),
+                "date_input(\"Due date\", date).presentation(DatePresentation::Desktop)",
             ),
             specimen(
                 "Calendar and month or year wheels",

@@ -1,49 +1,12 @@
 //! Role: Typed wall-clock time, independent of time zone.
 use crate::date_touch::{self, DatePresentation};
+use crate::time_of_day::TimeOfDay;
 use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::message;
 use kivact::style::{Align, style};
 use kivact::ui::text_input;
 use kivact::view::{IntoText, IntoView, View, node_ref};
 use kivact::{Binding, Value, memo, signal};
-
-/// A time on a 24-hour clock with second precision.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct TimeOfDay {
-    hour: u8,
-    minute: u8,
-    second: u8,
-}
-
-impl TimeOfDay {
-    pub fn new(hour: u8, minute: u8, second: u8) -> Option<Self> {
-        (hour < 24 && minute < 60 && second < 60).then_some(Self {
-            hour,
-            minute,
-            second,
-        })
-    }
-
-    pub fn hour(self) -> u8 {
-        self.hour
-    }
-    pub fn minute(self) -> u8 {
-        self.minute
-    }
-    pub fn second(self) -> u8 {
-        self.second
-    }
-
-    pub fn adjust_minutes(self, delta: i32) -> Self {
-        let minutes = (i32::from(self.hour) * 60 + i32::from(self.minute) + delta.rem_euclid(1440))
-            .rem_euclid(1440);
-        Self {
-            hour: (minutes / 60) as u8,
-            minute: (minutes % 60) as u8,
-            second: self.second,
-        }
-    }
-}
 
 fn parse_time(input: &str, seconds: bool) -> Option<TimeOfDay> {
     let lower = input.trim().to_ascii_lowercase();
@@ -152,9 +115,14 @@ impl IntoView for TimeInput {
                 .get()
                 .map(|time| {
                     if seconds {
-                        format!("{:02}:{:02}:{:02}", time.hour, time.minute, time.second)
+                        format!(
+                            "{:02}:{:02}:{:02}",
+                            time.hour(),
+                            time.minute(),
+                            time.second()
+                        )
                     } else {
-                        format!("{:02}:{:02}", time.hour, time.minute)
+                        format!("{:02}:{:02}", time.hour(), time.minute())
                     }
                 })
                 .unwrap_or_default()

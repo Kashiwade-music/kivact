@@ -149,8 +149,10 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
             (
                 (date, time),
                 column((
-                    kivact_ui_soft::date_input("Due date", date),
-                    kivact_ui_soft::time_input("Reminder", time),
+                    kivact_ui_soft::date_input("Due date", date)
+                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
+                    kivact_ui_soft::time_input("Reminder", time)
+                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
                 )),
             )
         },

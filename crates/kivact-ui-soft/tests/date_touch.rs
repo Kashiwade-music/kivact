@@ -114,3 +114,49 @@ fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
     assert!(trigger.is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
+    use kivact::view::{PointerKind, ReadingDirection, provide_direction};
+    let start = CalendarDate::new(2026, 10, 14);
+    let bound = CalendarDate::new(2026, 11, 30);
+    for direction in [ReadingDirection::Ltr, ReadingDirection::Rtl] {
+        let (screen, selected) = render_with_handle(options(), move || {
+            let selected = signal(Some(start));
+            (
+                selected,
+                provide_direction(direction, move || {
+                    date_input("Due", selected)
+                        .presentation(DatePresentation::BottomSheet)
+                        .calendar(move |calendar| calendar.bounds(Some(start), Some(bound)))
+                }),
+            )
+        });
+        screen
+            .get_by_role(Role::ComboBox, "Due")
+            .press_key(Key::ArrowDown);
+        let day = screen.get_by_role(Role::GridCell, "2026-10-20");
+        let bounds = day.accessibility_bounds().unwrap();
+        assert!((bounds.width - 44.0).abs() < 1.0);
+        assert!((bounds.height - 44.0).abs() < 1.0);
+        let x = bounds.x + bounds.width / 2.0;
+        let y = bounds.y + bounds.height / 2.0;
+        let dx = if direction == ReadingDirection::Ltr {
+            -48.0
+        } else {
+            48.0
+        };
+        let finger = screen.contact_down(PointerKind::Touch, x, y);
+        screen.contact_move(finger, x + dx, y + 24.0);
+        screen.contact_up(finger);
+        assert_eq!(selected.get_untracked(), Some(start));
+        let next = screen.get_by_role(Role::GridCell, "2026-11-15");
+        screen.advance(std::time::Duration::from_millis(500));
+        next.tap();
+        assert_eq!(
+            selected.get_untracked(),
+            Some(CalendarDate::new(2026, 11, 15))
+        );
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
+}

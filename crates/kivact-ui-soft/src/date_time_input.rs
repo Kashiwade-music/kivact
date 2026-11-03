@@ -1,7 +1,8 @@
 //! Role: Combined local date and wall-clock time editor.
 use crate::date_input::date_input;
 use crate::date_touch::{self, DatePresentation};
-use crate::time_input::{TimeOfDay, time_input};
+use crate::time_input::time_input;
+use crate::time_of_day::TimeOfDay;
 use kivact::control::{Node, NodeBuilder, node, row};
 use kivact::i18n::{CalendarDate, message};
 use kivact::style::{Align, style};

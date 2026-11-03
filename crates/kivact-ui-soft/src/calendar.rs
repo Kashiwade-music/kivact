@@ -4,7 +4,7 @@ use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday, message, message_with};
 use kivact::interaction::{CalendarPolicy, CalendarSelection, CalendarSpan, use_calendar_grid};
 use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Justify, Length, Position, pct, style};
+use kivact::style::{Align, Color, Direction, Justify, Length, Position, pct, style};
 use kivact::ui::{ButtonVariant, button};
 use kivact::view::{
     Handled, IntoValue, IntoView, LiveRegion, PointerEvent, PointerKind, PointerPhase, Role, View,
@@ -18,6 +18,7 @@ pub struct Calendar {
     selection: CalendarSelection,
     month: Option<CalendarMonth>,
     displayed_month: Option<Binding<CalendarMonth>>,
+    touch_months: Option<(CalendarMonth, CalendarMonth)>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: usize,
     min: Option<CalendarDate>,
@@ -42,6 +43,7 @@ fn new(selection: CalendarSelection) -> Calendar {
         selection,
         month: None,
         displayed_month: None,
+        touch_months: None,
         disabled: Rc::new(|_| false),
         count: 1,
         min: None,
@@ -80,6 +82,17 @@ impl Calendar {
             .map_or_else(|| initial.add_months(600), CalendarDate::month_of)
             .max(min);
         (initial.clamp(min, max), min, max)
+    }
+
+    pub(super) fn touch_months(mut self, min: CalendarMonth, max: CalendarMonth) -> Self {
+        self.touch_months = Some((min, max));
+        self.min = self.min.or_else(|| Some(min.first_day()));
+        self.max = self
+            .max
+            .or_else(|| CalendarDate::checked(max.year(), max.month(), max.days()));
+        self.count = 1;
+        self.variable_rows = false;
+        self
     }
 
     pub(super) fn displayed_month(mut self, month: Binding<CalendarMonth>) -> Self {
@@ -237,6 +250,7 @@ impl IntoView for Calendar {
             selection,
             month,
             displayed_month,
+            touch_months,
             disabled,
             count,
             min,
@@ -269,6 +283,23 @@ impl IntoView for Calendar {
         let month = min.map_or(month, |min| month.max(min.month_of()));
         let month = max.map_or(month, |max| month.min(max.month_of()));
         let month: Binding<CalendarMonth> = displayed_month.unwrap_or_else(|| signal(month).into());
+        let rtl = kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
+        let swipe = touch_months
+            .map(|(min, max)| crate::month_swipe::MonthSwipe::new(month, min, max, rtl));
+        let touch = swipe.is_some();
+        let cell_size = if touch { 44 } else { 32 };
+        let puck_size = if touch { 36 } else { 28 };
+        let inset = (cell_size - puck_size) / 2;
+        let selection = match (selection, swipe) {
+            (CalendarSelection::Single(value), Some(swipe)) => {
+                CalendarSelection::Single(binding(value, move |next| {
+                    if !swipe.suppress_choice.get_untracked() {
+                        value.set(next);
+                    }
+                }))
+            }
+            (selection, _) => selection,
+        };
         let pending = signal(None::<CalendarDate>);
         let hovered = signal(None::<CalendarDate>);
         let announcement = signal(String::new());
@@ -424,7 +455,7 @@ impl IntoView for Calendar {
                                         .child(text(message(key, label)))
                                         .style(move || {
                                             style()
-                                                .size(32, 36)
+                                                .size(cell_size, 36)
                                                 .padding_bottom(4)
                                                 .align_items(Align::Center)
                                                 .justify_content(Justify::Center)
@@ -434,7 +465,12 @@ impl IntoView for Calendar {
                                         .into_view()
                                 })
                                 .collect::<Vec<_>>())
-                            .part(grid.row());
+                            .part(grid.row())
+                            .style(if touch && rtl {
+                                style().direction(Direction::RowReverse)
+                            } else {
+                                style()
+                            });
                             let weeks = month
                                 .weeks(first, if variable_rows { 0 } else { 6 })
                                 .into_iter()
@@ -451,7 +487,7 @@ impl IntoView for Calendar {
                                                     }))
                                                     .style(move || {
                                                         style()
-                                                            .size(32, 32)
+                                                            .size(cell_size, cell_size)
                                                             .align_items(Align::Center)
                                                             .justify_content(Justify::Center)
                                                             .font_size(14)
@@ -519,6 +555,11 @@ impl IntoView for Calendar {
                                             let mut day = node()
                                                 .part(part)
                                                 .on_pointer(move |event: PointerEvent| {
+                                                    if let Some(swipe) = swipe
+                                                        && event.kind == PointerKind::Touch
+                                                    {
+                                                        return swipe.pointer(event);
+                                                    }
                                                     if event.kind != PointerKind::Touch {
                                                         match event.phase {
                                                             PointerPhase::Enter
@@ -556,79 +597,127 @@ impl IntoView for Calendar {
                                                     "Today",
                                                 ));
                                             }
-                                            let day = day
-                                                .child(text(date.day().to_string()))
-                                                .style(move || {
-                                                    let t = tokens();
-                                                    let state = state.get();
-                                                    let selected = state.edge;
-                                                    let mut day = style()
-                                                        .position(Position::Absolute)
-                                                        .left(2)
-                                                        .top(2)
-                                                        .size(28, 28)
-                                                        .radius(9999)
-                                                        .font_size(14)
-                                                        .weight(400)
-                                                        .align_items(Align::Center)
-                                                        .justify_content(Justify::Center)
-                                                        .color(if selected {
-                                                            t.colors.on_accent
+                                            let puck = move || {
+                                                let t = tokens();
+                                                let state = state.get();
+                                                let selected = state.edge;
+                                                let mut day = style()
+                                                    .position(Position::Absolute)
+                                                    .left(inset)
+                                                    .top(inset)
+                                                    .size(puck_size, puck_size)
+                                                    .radius(9999)
+                                                    .font_size(14)
+                                                    .weight(
+                                                        if touch && (selected || date == today) {
+                                                            600
+                                                        } else {
+                                                            400
+                                                        },
+                                                    )
+                                                    .align_items(Align::Center)
+                                                    .justify_content(Justify::Center)
+                                                    .color(if selected {
+                                                        t.colors.on_accent
+                                                    } else {
+                                                        t.colors.text_primary
+                                                    })
+                                                    .background(if selected {
+                                                        t.colors.accent
+                                                    } else {
+                                                        Color::TRANSPARENT
+                                                    })
+                                                    .focus_visible(style().ring_with_offset(
+                                                        2,
+                                                        3,
+                                                        t.colors.accent,
+                                                    ));
+                                                if date == today {
+                                                    day = day.border(
+                                                        1,
+                                                        if state.span == CalendarSpan::None {
+                                                            t.colors.border_emphasized
                                                         } else {
                                                             t.colors.text_primary
-                                                        })
-                                                        .background(if selected {
-                                                            t.colors.accent
-                                                        } else {
-                                                            Color::TRANSPARENT
-                                                        })
-                                                        .focus_visible(style().ring_with_offset(
-                                                            2,
-                                                            3,
-                                                            t.colors.accent,
-                                                        ));
-                                                    if date == today {
-                                                        day = day.border(
-                                                            1,
-                                                            if state.span == CalendarSpan::None {
-                                                                t.colors.border_emphasized
-                                                            } else {
-                                                                t.colors.text_primary
-                                                            },
-                                                        );
-                                                    }
-                                                    if state.disabled {
-                                                        day.opacity(0.3)
-                                                    } else if selected {
-                                                        day
-                                                    } else {
-                                                        day.hover(
-                                                            style()
-                                                                .background(t.colors.overlay_hover),
-                                                        )
-                                                        .pressed(
-                                                            style().background(
-                                                                t.colors.overlay_pressed,
-                                                            ),
-                                                        )
-                                                    }
-                                                });
+                                                        },
+                                                    );
+                                                }
+                                                if state.disabled {
+                                                    day.opacity(0.3)
+                                                } else if selected {
+                                                    day
+                                                } else {
+                                                    day.hover(
+                                                        style().background(t.colors.overlay_hover),
+                                                    )
+                                                    .pressed(
+                                                        style()
+                                                            .background(t.colors.overlay_pressed),
+                                                    )
+                                                }
+                                            };
+                                            let day = if touch {
+                                                day.style(style().size(cell_size, cell_size)).child(
+                                                    node()
+                                                        .hit_testable(false)
+                                                        .child(text(date.day().to_string()))
+                                                        .style(puck),
+                                                )
+                                            } else {
+                                                day.child(text(date.day().to_string())).style(puck)
+                                            };
                                             node()
                                                 .child(band)
                                                 .child(day)
                                                 .style(
                                                     style()
                                                         .position(Position::Relative)
-                                                        .size(32, 32),
+                                                        .size(cell_size, cell_size),
                                                 )
                                                 .into_view()
                                         })
                                         .collect::<Vec<_>>())
                                     .part(grid.row())
+                                    .style(if touch && rtl {
+                                        style().direction(Direction::RowReverse)
+                                    } else {
+                                        style()
+                                    })
                                     .into_view()
                                 })
                                 .collect::<Vec<_>>();
-                            column((headers, weeks))
+                            let body = if let Some(swipe) = swipe {
+                                let entering = swipe.entering.get_untracked();
+                                on_mount(move || {
+                                    swipe.entering.set(0.0);
+                                    swipe.clear_after_input();
+                                });
+                                column(column(weeks).style(move || {
+                                    let base = style().translate_x(swipe.shift.get());
+                                    if entering == 0.0 {
+                                        base
+                                    } else {
+                                        base.enter(style().translate_x(entering)).transition(
+                                            kivact::style::TransitionProp::Paint,
+                                            kivact::motion::Transition::spring(
+                                                kivact::motion::Spring {
+                                                    stiffness: 246.7,
+                                                    damping: 31.4,
+                                                    mass: 1.0,
+                                                },
+                                            ),
+                                        )
+                                    }
+                                }))
+                                .style(style().clip(true))
+                                .into_view()
+                            } else {
+                                weeks.into_view()
+                            };
+                            column((headers, body))
+                                .on_pointer(move |event: PointerEvent| {
+                                    swipe.map_or(Handled::No, |swipe| swipe.pointer(event))
+                                })
                                 .part(grid.grid())
                                 .name(title(month))
                                 .into_view()

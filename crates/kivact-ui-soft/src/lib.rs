@@ -50,6 +50,7 @@ mod markdown_parser;
 mod media_overlay;
 mod media_query;
 mod mobile_nav;
+mod month_swipe;
 mod more_menu;
 mod nav_heading;
 mod nav_icon;
@@ -94,6 +95,7 @@ mod theme_access;
 mod theme_scope;
 mod thumbnail;
 mod time_input;
+mod time_of_day;
 mod timer;
 mod timestamp;
 mod toggle_button_group;
@@ -266,7 +268,8 @@ pub use theme::theme;
 pub use theme_access::tokens;
 pub use theme_scope::{MediaMode, media_theme, syntax_theme};
 pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
-pub use time_input::{TimeInput, TimeOfDay, time_input};
+pub use time_input::{TimeInput, time_input};
+pub use time_of_day::TimeOfDay;
 pub use timer::{Timer, TimerFormat, timer};
 pub use timestamp::{
     Instant, InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, timestamp,

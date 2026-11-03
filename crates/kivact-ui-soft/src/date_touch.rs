@@ -3,7 +3,7 @@ use crate::bottom_sheet::{SheetHeight, bottom_sheet};
 use crate::calendar::{Calendar, calendar, month_title};
 use crate::recipes_field::frame;
 use crate::theme_access::tokens;
-use crate::time_input::TimeOfDay;
+use crate::time_of_day::TimeOfDay;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{CalendarDate, CalendarMonth, message};
 use kivact::primitive::{NodeExt, PartState, part};
@@ -155,7 +155,7 @@ pub(super) fn date_panel(
                     Some(configure) => configure(calendar),
                     None => calendar,
                 };
-                return calendar.number_of_months(1).into_view();
+                return calendar.touch_months(min, max).into_view();
             }
             let month_number = binding(
                 move || i32::from(month.get().month()) - 1,
