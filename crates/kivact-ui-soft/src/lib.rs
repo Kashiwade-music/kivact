@@ -77,7 +77,6 @@ mod scrollable_area;
 mod section;
 mod segmented_control;
 mod selector;
-mod selector_surface;
 mod shadows;
 mod side_nav;
 mod soft_chat;
@@ -213,10 +212,8 @@ pub use segmented_control::{
     Segmented, SegmentedControl, SegmentedIconOnly, SegmentedLayout, segmented_control,
 };
 pub use selector::{
-    MultiSelector, Selector, complex_selector, complex_selector_with_presentation, multi_selector,
-    selector,
+    MultiSelector, Selector, SelectorPresentation, complex_selector, multi_selector, selector,
 };
-pub use selector_surface::SelectorPresentation;
 pub use shadows::Shadows;
 pub use side_nav::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,

@@ -487,13 +487,6 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
             })
     }
 
-    /// Present the same combobox state with a different editor anchor.
-    /// Mount one list surface at a time when using the alternate editor.
-    pub fn with_input_ref(mut self, reference: NodeRef) -> Self {
-        self.input_ref = reference;
-        self
-    }
-
     /// The node the input part binds, for a surrounding dialog's initial
     /// focus or a press that should leave the focus in the field.
     pub(crate) fn input_ref(self) -> NodeRef {

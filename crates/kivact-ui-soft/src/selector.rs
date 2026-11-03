@@ -1,21 +1,28 @@
 //! Role: Single and multiple option selection and custom selector popovers.
 use crate::recipes_field::frame;
-use crate::selector_surface::{SelectorPresentation, sheet, touch_tap};
 use crate::theme_access::tokens;
 use crate::typeahead::Typeahead;
-use kivact::control::{Node, NodeBuilder, icon, scroll, text};
+use crate::{DialogPurpose, SheetHeight, bottom_sheet, heading};
+use kivact::control::{Node, NodeBuilder, column, icon, scroll, text};
 use kivact::interaction::{ListItemState, ListSelection};
 use kivact::primitive::{NodeExt, PartState};
-use kivact::style::{Align, Direction, Length, style};
+use kivact::style::{Align, Direction, Length, pct, style};
 use kivact::ui::{
     ButtonVariant, ControlSize, DialogKind, ListItem, Select, Variant, button, dialog, select,
 };
-use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, PointerPhase, PopupKind, View, node_ref,
-};
-use kivact::{Binding, Value, binding, memo, signal};
+use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, PopupKind, View};
+use kivact::{Binding, Value, signal};
 use std::hash::Hash;
-use std::rc::Rc;
+
+/// How touch activation presents a Selector's list. Keyboard and mouse keep
+/// the anchored popup on every setting.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SelectorPresentation {
+    #[default]
+    Popover,
+    BottomSheet,
+    Adaptive,
+}
 
 pub struct Selector<K: Clone + Eq + Hash + 'static> {
     inner: Select<K>,
@@ -89,8 +96,33 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Selector<K> {
         }
         self.inner
             .touch_sheet(
-                move || presentation.uses_sheet(),
-                |label, open, trigger, list| sheet(label, open, trigger, move || list()),
+                move || {
+                    let viewport = kivact::platform::window_size();
+                    presentation == SelectorPresentation::BottomSheet
+                        || viewport.width < 768.0
+                        || viewport.height < 500.0
+                },
+                |label, open, trigger, list| {
+                    bottom_sheet(label, open)
+                        .purpose(DialogPurpose::Info)
+                        .height(SheetHeight::Hug)
+                        .padding(0)
+                        .final_focus(trigger)
+                        .content(move || {
+                            column((
+                                heading(3, label).style(
+                                    style()
+                                        .font_size(19)
+                                        .line_height(28.0 / 19.0)
+                                        .weight(700)
+                                        .margin_x(12)
+                                        .margin_bottom(8),
+                                ),
+                                list(),
+                            ))
+                            .style(style().width(pct(100)).padding_top(16).padding_x(4))
+                        })
+                },
             )
             .into_view()
     }
@@ -127,50 +159,16 @@ pub fn complex_selector<V: IntoView>(
     value_label: impl IntoText,
     content: impl Fn() -> V + 'static,
 ) -> View {
-    complex_selector_with_presentation(label, value_label, SelectorPresentation::Popover, content)
-}
-
-/// Use the same caller-owned content, including any search field, in an
-/// anchored popup or a compact touch sheet.
-pub fn complex_selector_with_presentation<V: IntoView>(
-    label: impl IntoText,
-    value_label: impl IntoText,
-    presentation: SelectorPresentation,
-    content: impl Fn() -> V + 'static,
-) -> View {
     let label = label.into_text_value();
     let value_label = value_label.into_text_value();
     let open = signal(false);
-    let sheet_open = signal(false);
-    let target = node_ref();
-    let released = signal(false);
-    let touch = touch_tap(target);
     let trigger = button(label)
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
         .child(text(value_label))
         .trailing_icon(icon("chevron-down"))
         .expanded(open)
-        .node_ref(target)
-        .on_pointer(move |event| {
-            if matches!(event.phase, PointerPhase::Down(_)) {
-                released.set(false);
-            }
-            if touch(event, !open.get_untracked() && presentation.uses_sheet()) {
-                released.set(true);
-            }
-            Handled::No
-        })
-        .on_key(move |_| {
-            released.set(false);
-            Handled::No
-        })
-        .on_press(move || {
-            let sheet = released.get_untracked();
-            released.set(false);
-            sheet_open.set(sheet);
-            open.set(!open.get_untracked());
-        })
+        .on_press(move || open.set(!open.get_untracked()))
         .style(move || {
             let t = tokens();
             frame(&t, &PartState::default(), false)
@@ -180,30 +178,10 @@ pub fn complex_selector_with_presentation<V: IntoView>(
                 .align_items(Align::Center)
                 .gap(8)
         });
-    let content = Rc::new(content);
-    let popup_body = content.clone();
-    let popup_open = binding(
-        memo(move || open.get() && !sheet_open.get()),
-        move |shown| {
-            open.set(shown);
-        },
-    );
-    let popup = dialog(label, popup_open)
+    dialog(label, open)
         .kind(DialogKind::Popover)
         .hide_title(true)
         .width(Length::Auto)
-        .content(move || scroll(popup_body()).style(style().max_height(480).padding(12)))
-        .attach(trigger);
-    let sheet = (presentation != SelectorPresentation::Popover).then(|| {
-        let shown = binding(memo(move || open.get() && sheet_open.get()), move |shown| {
-            if !shown {
-                open.set(false);
-                sheet_open.set(false);
-            }
-        });
-        sheet(label, shown, target, move || {
-            scroll(content()).style(style().max_height(480).padding(12))
-        })
-    });
-    (popup, sheet).into_view()
+        .content(move || scroll(content()).style(style().max_height(480).padding(12)))
+        .attach(trigger)
 }

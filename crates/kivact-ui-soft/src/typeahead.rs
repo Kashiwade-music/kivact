@@ -1,6 +1,5 @@
 //! Role: Searchable keyed suggestions with a native editor and an anchored list.
 use crate::recipes_field::{frame, text as text_style};
-use crate::selector_surface::{SelectorPresentation, sheet, touch_tap};
 use crate::theme_access::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
@@ -35,7 +34,6 @@ pub struct Typeahead<K: Clone + Eq + Hash + 'static> {
     search: Option<Search<K>>,
     debounce: Duration,
     exclude_selected: bool,
-    presentation: SelectorPresentation,
 }
 
 pub fn typeahead<K: Clone + Eq + Hash + 'static>(
@@ -72,7 +70,6 @@ impl<K: Clone + Eq + Hash + 'static> Typeahead<K> {
             search: None,
             debounce: Duration::from_millis(150),
             exclude_selected: false,
-            presentation: SelectorPresentation::Popover,
         }
     }
 
@@ -96,12 +93,6 @@ impl<K: Clone + Eq + Hash + 'static> Typeahead<K> {
 
     pub(super) fn exclude_selected(mut self) -> Self {
         self.exclude_selected = true;
-        self
-    }
-
-    /// Choose a compact touch sheet for the options and their search field.
-    pub fn presentation(mut self, presentation: SelectorPresentation) -> Self {
-        self.presentation = presentation;
         self
     }
 
@@ -146,7 +137,6 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             search,
             debounce,
             exclude_selected,
-            presentation,
         } = self;
         let off = root.accessible_disabled();
         let disabled = memo(move || off.as_ref().is_some_and(|off| off()));
@@ -155,7 +145,6 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             _ => None,
         };
         let open = signal(false);
-        let sheet_open = signal(false);
         let editing = signal(false);
         let typed = signal(String::new());
         let asynchronous = search.map(|search| {
@@ -233,7 +222,6 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
         let query = list.query();
         effect(move || {
             if !open.get() {
-                sheet_open.set(false);
                 editing.set(false);
                 query.set(
                     single
@@ -256,7 +244,6 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
         });
         let input_part = list.input();
         let input_ref = input_part.node_ref();
-        let touch = touch_tap(input_ref);
         let input = text_input(label, edit)
             .placeholder(placeholder)
             .disabled(disabled)
@@ -285,15 +272,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                 Handled::No
             })
             .on_pointer(move |event: PointerEvent| {
-                let enabled = !disabled.get();
-                let sheet_eligible = enabled && presentation.uses_sheet();
-                if touch(event, sheet_eligible && !open.get_untracked()) {
-                    sheet_open.set(true);
-                    open.set(true);
-                } else if matches!(event.phase, PointerPhase::Down(_))
-                    && enabled
-                    && !(sheet_eligible && event.kind == kivact::view::PointerKind::Touch)
-                {
+                if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
                     open.set(true);
                 }
                 Handled::No
@@ -380,7 +359,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                     s
                 }
             });
-        let surface = move |list: kivact::interaction::Combobox<K>, in_sheet: bool| {
+        let popup = show(open, move || {
             let rows = for_each(
                 list.visible(),
                 |key| key.clone(),
@@ -418,7 +397,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                 Some(AsyncState::Failed(_)) => failed.get(),
                 _ => empty.get(),
             };
-            column((
+            let surface = column((
                 scroll(column(rows))
                     .part(list.content())
                     .name(label)
@@ -430,49 +409,24 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             ))
             .style(move || {
                 let t = tokens();
-                let base = style().width(pct(100)).max_height(300).padding(4);
-                if in_sheet {
-                    return base;
-                }
                 t.shadows.low.iter().copied().fold(
-                    base.radius(t.radius.container)
+                    style()
+                        .width(pct(100))
+                        .max_height(300)
+                        .padding(4)
+                        .radius(t.radius.container)
                         .background(t.colors.bg_popover),
                     |s, shadow| s.shadow(shadow),
                 )
-            })
-        };
-        let popup_open = memo(move || open.get() && !sheet_open.get());
-        let popup = show(popup_open, move || {
-            overlay(anchor, Placement::Below, surface(list, false))
+            });
+            overlay(anchor, Placement::Below, surface)
                 .align(OverlayAlign::Start)
                 .offset(4)
                 .at_least_anchor_width(true)
                 .on_dismiss(move |_| open.set(false))
         });
-        let sheet = (presentation != SelectorPresentation::Popover).then(|| {
-            let shown = binding(memo(move || open.get() && sheet_open.get()), move |shown| {
-                if !shown {
-                    open.set(false);
-                }
-            });
-            let sheet_list = list.with_input_ref(node_ref());
-            sheet(label, shown, input_ref, move || {
-                column((
-                    text_input(message("soft.selector.search", "Search options"), edit)
-                        .placeholder(placeholder)
-                        .forward_keys(|| {
-                            vec![Key::ArrowUp, Key::ArrowDown, Key::Enter, Key::Escape]
-                        })
-                        .part(sheet_list.input())
-                        .style(style().margin_x(8)),
-                    surface(sheet_list, true),
-                ))
-                .style(style().gap(8))
-            })
-        });
         root.child(field)
             .child(popup)
-            .child(sheet)
             .child(chips.map(|values| token_notices(values, labels)))
             .into_view()
     }

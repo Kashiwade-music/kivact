@@ -4,11 +4,9 @@ use kivact::control::NodeBuilder;
 use kivact::signal;
 use kivact::style::{ThemeMode, style};
 use kivact::test::{RenderOptions, render_with_handle};
-use kivact::ui::{ListItem, text_input};
+use kivact::ui::ListItem;
 use kivact::view::{Key, PointerKind, PopupKind, Role};
-use kivact_ui_soft::{
-    SelectorPresentation, complex_selector_with_presentation, multi_selector, selector,
-};
+use kivact_ui_soft::{SelectorPresentation, selector};
 use std::time::Duration;
 
 #[test]
@@ -68,94 +66,4 @@ fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
     assert!(combo().is_focused());
     assert_eq!(selected.get(), Some("b"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn multi_selector_filters_and_commits_in_the_touch_sheet() {
-    let (screen, selected) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            width: 500.0,
-            height: 700.0,
-            ..RenderOptions::from_env()
-        },
-        || {
-            let selected = signal(vec!["a"]);
-            let field = multi_selector(
-                "Teams",
-                vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")],
-                selected,
-            )
-            .presentation(SelectorPresentation::Adaptive)
-            .style(style().width(280));
-            (selected, field)
-        },
-    );
-    let input = screen.get_by_role(Role::TextBox, "Teams");
-    let rect = input.rect().unwrap();
-    let touch = screen.contact_down(
-        PointerKind::Touch,
-        rect.x + rect.width / 2.0,
-        rect.y + rect.height / 2.0,
-    );
-    screen.contact_up(touch);
-    screen.advance(Duration::from_millis(350));
-    screen.get_by_role(Role::Dialog, "Teams");
-    screen.get_by_role(Role::TextBox, "Search options").click();
-    screen.type_text("bet");
-    assert!(screen.query_by_role(Role::Option, "Alpha").is_none());
-    screen.get_by_role(Role::Option, "Beta").click();
-    assert_eq!(selected.get(), vec!["a", "b"]);
-    screen.get_by_role(Role::Dialog, "Teams");
-    screen.press_key(Key::Escape);
-    assert!(screen.query_by_role(Role::Dialog, "Teams").is_none());
-    assert!(input.is_focused());
-}
-
-#[test]
-fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
-    let (screen, query) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            width: 500.0,
-            height: 700.0,
-            ..RenderOptions::from_env()
-        },
-        || {
-            let query = signal(String::new());
-            (
-                query,
-                complex_selector_with_presentation(
-                    "Workspace",
-                    "Design",
-                    SelectorPresentation::Adaptive,
-                    move || text_input("Filter workspaces", query),
-                ),
-            )
-        },
-    );
-    let trigger = screen.get_by_role(Role::Button, "Workspace");
-    let rect = trigger.rect().unwrap();
-    let touch = screen.contact_down(
-        PointerKind::Touch,
-        rect.x + rect.width / 2.0,
-        rect.y + rect.height / 2.0,
-    );
-    screen.contact_up(touch);
-    screen.advance(Duration::from_millis(350));
-    screen
-        .get_by_role(Role::TextBox, "Filter workspaces")
-        .click();
-    screen.type_text("des");
-    assert_eq!(query.get(), "des");
-    screen.press_key(Key::Escape);
-    screen.advance(Duration::from_millis(350));
-    trigger.press_key(Key::Enter);
-    assert_eq!(
-        screen
-            .get_by_role(Role::TextBox, "Filter workspaces")
-            .value()
-            .as_deref(),
-        Some("des"),
-    );
 }
