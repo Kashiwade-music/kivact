@@ -7,9 +7,10 @@ use crate::{ItemDensity, tokens};
 use kivact::control::{Node, NodeBuilder, column, icon, node, text};
 use kivact::i18n::message;
 use kivact::interaction::{ListSelection, TreeItemState, TreeRow, use_tree};
+use kivact::motion::{Easing, Transition};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, Position, TransitionProp, style};
-use kivact::ui::{TreeNode, tree_rows};
+use kivact::ui::{TreeNode, tree_rows, tree_rows_with_reveal};
 use kivact::view::{
     HandlerResult, IntoText, IntoValue, IntoView, ReadingDirection, Role, View, callback,
     current_direction, node_ref,
@@ -38,6 +39,7 @@ pub struct TreeList<K: Clone + Eq + Hash + 'static> {
     renderer: Option<TreeRenderer<K>>,
     density: TreeDensity,
     variant: TreeVariant,
+    animated: bool,
 }
 
 pub fn tree_list<K: Clone + Eq + Hash + 'static>(
@@ -56,6 +58,7 @@ pub fn tree_list<K: Clone + Eq + Hash + 'static>(
         renderer: None,
         density: TreeDensity::Balanced,
         variant: TreeVariant::LineGuides,
+        animated: false,
     }
 }
 
@@ -66,6 +69,12 @@ impl<K: Clone + Eq + Hash + 'static> NodeBuilder for TreeList<K> {
 }
 
 impl<K: Clone + Eq + Hash + 'static> TreeList<K> {
+    /// Enable animated branch reveals and retained exits.
+    pub fn animated(mut self, animated: bool) -> Self {
+        self.animated = animated;
+        self
+    }
+
     pub fn density(mut self, density: TreeDensity) -> Self {
         self.density = density;
         self
@@ -113,6 +122,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
             renderer,
             density,
             variant,
+            animated,
         } = self;
         let selection = selection.unwrap_or_else(|| ListSelection::Single(signal(None).into()));
         let mut tree = use_tree(nodes, expanded, selection);
@@ -129,10 +139,10 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
             memo(move || rows.with(|rows| rows.iter().any(|row| row.branch.has_children())));
         let rtl = current_direction() == ReadingDirection::Rtl;
         let guides = (variant == TreeVariant::LineGuides).then(|| tree.ancestor_last());
-        let rows = tree_rows(
-            tree,
-            |_| (),
-            move |key, row, attachment| {
+        let render =
+            move |key: K,
+                  row: Value<TreeRow<K>>,
+                  attachment: kivact::primitive::Part<TreeItemState>| {
                 let state = attachment.state();
                 let branch = row.with_untracked(|row| row.branch.has_children());
                 let row_key = key.clone();
@@ -258,8 +268,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
                         }),
                         label,
                     ))
-            },
-        );
+            };
+        let rows = if animated {
+            tree_rows_with_reveal(tree, 2.0, tree_reveal_transition(), render)
+        } else {
+            tree_rows(tree, |_| (), render)
+        };
         column((
             header.map(|header| node().node_ref(header_ref).child(header())),
             root.part(semantics)
@@ -268,4 +282,10 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
         ))
         .into_view()
     }
+}
+
+fn tree_reveal_transition() -> Transition {
+    // The critical spring's 734.77 ms response, approximated by a
+    // bounded monotonic Bézier so height and host exit finish together.
+    Transition::tween(734.77, Easing::CubicBezier(0.327, 0.694, 0.116, 1.0))
 }
