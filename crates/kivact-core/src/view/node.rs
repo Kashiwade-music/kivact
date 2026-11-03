@@ -27,15 +27,7 @@ use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{Callback, ErrorKind, UiError};
 use kivact_style::Style;
 
-/// How a removed host node participates in layout during its exit.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ExitLayout {
-    /// Keep the node in flow until its exit finishes.
-    #[default]
-    Keep,
-    /// Release its layout slot at removal, keeping its last local box for exit paint.
-    Pop,
-}
+use super::exit_layout::ExitLayout;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Draw, IntrinsicSize, Size};
 

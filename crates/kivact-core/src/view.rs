@@ -15,6 +15,7 @@
 pub(crate) mod boundary;
 pub(crate) mod common;
 pub(crate) mod descriptor;
+mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
 pub(crate) mod handler_layers;
@@ -113,14 +114,14 @@ pub use modifier_keys::current_modifiers;
 pub use kivact_reactive::constant_value;
 
 #[doc(inline)]
+pub use exit_layout::ExitLayout;
+#[doc(inline)]
 pub use kivact_reactive::{context, try_context};
 #[doc(inline)]
 pub use kivact_wire::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
     SortDirection,
 };
-#[doc(inline)]
-pub use node::ExitLayout;
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 #[doc(inline)]
