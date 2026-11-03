@@ -237,11 +237,11 @@ impl IntoView for Lightbox {
                         icon_button("chevron-left", "soft.lightbox.previous", "Previous")
                             .disabled(move || active() == 0)
                             .on_press(move || step(-1))
-                            .style(control_position().top(pct(50)).left(12).translate_y(-16));
+                            .style(control_position().top(pct(50)).left(12).margin_top(-16));
                     let next = icon_button("chevron-right", "soft.lightbox.next", "Next")
                         .disabled(move || active() + 1 >= media.get().len())
                         .on_press(move || step(1))
-                        .style(control_position().top(pct(50)).right(12).translate_y(-16));
+                        .style(control_position().top(pct(50)).right(12).margin_top(-16));
                     let counter = text(move || format!("{} / {}", active() + 1, media.get().len()))
                         .style(|| {
                             body_text(&tokens())
@@ -255,10 +255,13 @@ impl IntoView for Lightbox {
             );
             let backdrop = node()
                 .role(Role::Generic)
-                .style(|| scrim(&tokens()))
+                .style(|| scrim(&tokens()).position(Position::Absolute))
                 .on_press(move || open.set(false));
             let frame = column((backdrop, content, close, zoom_control, controls))
-                .style(style().width(pct(100)).height(pct(100)))
+                .style(|| {
+                    let viewport = kivact::platform::window_size();
+                    style().size(viewport.width, viewport.height)
+                })
                 .on_key(move |event| {
                     let (dx, dy) = match event.key {
                         Key::Char('+' | '=') if zoom => {

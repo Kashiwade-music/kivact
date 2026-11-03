@@ -334,13 +334,13 @@ impl IntoView for BottomSheet {
                         }
                     })
             });
-            let frame = column((scrim, panel)).style(
+            let frame = column((scrim, panel)).style(|| {
+                let viewport = kivact::platform::window_size();
                 style()
-                    .width(pct(100))
-                    .height(pct(100))
+                    .size(viewport.width, viewport.height)
                     .justify_content(Justify::End)
-                    .align_items(Align::Center),
-            );
+                    .align_items(Align::Center)
+            });
             let layer = overlay(node_ref(), Placement::Center, frame).viewport_margin(0.0);
             if modal {
                 layer.part(behavior.content()).name(self.label).into_view()

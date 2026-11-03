@@ -3,9 +3,11 @@ use kivact::control::{NodeBuilder, column, row};
 use kivact::signal;
 use kivact::style::{ThemeMode, style};
 use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{MenuEntry, button, menu};
+use kivact::ui::{MenuEntry, button, dialog, menu};
 use kivact::view::{Key, Role, node_ref};
-use kivact_ui_soft::{DialogPurpose, LightboxMedia, ShowOn, bottom_sheet, lightbox, media_overlay};
+use kivact_ui_soft::{
+    DialogPurpose, LightboxMedia, SheetHeight, ShowOn, bottom_sheet, lightbox, media_overlay,
+};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -13,8 +15,44 @@ use std::time::Duration;
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
+        width: 800.0,
+        height: 600.0,
         ..RenderOptions::from_env()
     }
+}
+
+#[test]
+fn modal_centers_on_the_window_and_sheet_stays_at_the_bottom() {
+    let screen = render_with(options(), || {
+        let modal = signal(false);
+        let sheet = signal(false);
+        column((
+            dialog("Window modal", modal).attach(button("Open modal")),
+            button("Open sheet").on_press(move || sheet.set(true)),
+            bottom_sheet("Window sheet", sheet)
+                .height(SheetHeight::Px(160.0))
+                .content(|| button("Inside sheet")),
+        ))
+    });
+    screen.get_by_role(Role::Button, "Open modal").click();
+    screen.advance(Duration::from_millis(450));
+    let modal = screen
+        .get_by_role(Role::Dialog, "Window modal")
+        .rect()
+        .expect("laid out modal");
+    assert!((modal.x + modal.width / 2.0 - 400.0).abs() <= 1.0);
+    assert!((modal.y + modal.height / 2.0 - 300.0).abs() <= 1.0);
+    screen.press_key(Key::Escape);
+    screen.advance(Duration::from_millis(450));
+    screen.get_by_role(Role::Button, "Open sheet").click();
+    screen.advance(Duration::from_millis(450));
+    let inside = screen
+        .get_by_role(Role::Button, "Inside sheet")
+        .rect()
+        .expect("laid out sheet content");
+    assert!(inside.y > 400.0, "{inside:?}");
+    assert!(inside.width > 400.0, "{inside:?}");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
