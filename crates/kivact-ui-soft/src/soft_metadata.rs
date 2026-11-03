@@ -2,6 +2,7 @@
 
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, grid, node, row, text};
+use kivact::i18n::message;
 use kivact::interaction::use_disclosure;
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Track, style};
@@ -306,14 +307,19 @@ impl IntoView for MetadataList {
         let main = render(items);
         let disclosure = (!extra.is_empty()).then(|| {
             let open = expanded.unwrap_or_else(|| signal(false).into());
+            let show_less = message("soft.metadata_list.show_less", "Show less");
+            let show_more = message("soft.metadata_list.show_more", "Show more");
+            let label = move || {
+                if open.get() {
+                    show_less.get()
+                } else {
+                    show_more.get()
+                }
+            };
             let disclosure = use_disclosure(open);
             let content = render(extra).part(disclosure.content());
             let trigger = node()
-                .part(
-                    disclosure
-                        .trigger()
-                        .name(move || if open.get() { "Show less" } else { "Show more" }),
-                )
+                .part(disclosure.trigger().name(label))
                 .base_style(move || {
                     let p = tokens();
                     style()
@@ -325,9 +331,7 @@ impl IntoView for MetadataList {
                         .hover(style().background(p.colors.overlay_hover))
                         .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
                 })
-                .child(text(
-                    move || if open.get() { "Show less" } else { "Show more" },
-                ));
+                .child(text(label));
             column((content, trigger)).style(style().gap(8))
         });
         root.base_style(style().direction(Direction::Column).gap(8))

@@ -112,32 +112,34 @@ impl IntoView for ScrollableArea {
                     }
                 });
             let focused = viewport.focused();
+            let root = root.base_style(move || {
+                let t = tokens();
+                let mut base = style()
+                    .min_height(0)
+                    .min_width(0)
+                    .max_width(pct(100))
+                    .max_height(pct(100))
+                    .scrollbar_color(t.colors.neutral, Color::TRANSPARENT)
+                    .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                if full_bleed {
+                    let (left, right) = parent.sides();
+                    base = base
+                        .margin_left(-left)
+                        .margin_right(-right)
+                        .max_width(pct(100) + left + right);
+                    if bleed_top {
+                        base = base.margin_top(-parent.top);
+                    }
+                    if bleed_bottom {
+                        base = base.margin_bottom(-parent.bottom);
+                    }
+                }
+                base
+            });
             let mut viewport_node = scroll(inner).axes(axis.native());
             *viewport_node.node_mut() = root;
             viewport_node
                 .node_ref(viewport)
-                .style(move || {
-                    let t = tokens();
-                    style()
-                        .max_width(pct(100))
-                        .max_height(pct(100))
-                        .scrollbar_color(t.colors.neutral, Color::TRANSPARENT)
-                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
-                })
-                .style(move || {
-                    let mut base = style().min_height(0).min_width(0);
-                    if full_bleed {
-                        let (left, right) = parent.sides();
-                        base = base.margin_left(-left).margin_right(-right);
-                        if bleed_top {
-                            base = base.margin_top(-parent.top);
-                        }
-                        if bleed_bottom {
-                            base = base.margin_bottom(-parent.bottom);
-                        }
-                    }
-                    base
-                })
                 .focusable(move || {
                     force_focusable.is_some_and(|force| force.get())
                         || state.inline.is_scrollable.get()

@@ -6,8 +6,8 @@ use kivact::control::{Node, NodeBuilder, ScrollAxes, column, node, scroll};
 use kivact::draw::Shadow;
 use kivact::interaction::{use_button, use_checkbox};
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{Color, Direction, Length, TransitionProp, current_theme, style};
+use kivact::primitive::{NodeExt, PartState};
+use kivact::style::{Color, Direction, Length, Position, TransitionProp, style};
 use kivact::view::{Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, View, provide};
 use kivact::{Binding, Value};
 
@@ -141,13 +141,20 @@ impl IntoView for Card {
                 CardAction::Checkbox(selected) => Some(selected),
                 _ => None,
             };
-            let root = match action {
-                CardAction::Plain => root,
-                CardAction::Button => root.part(use_button().disabled(disabled).control()),
-                CardAction::Checkbox(selected) => root
-                    .part(use_checkbox(selected).disabled(disabled).control())
-                    .on_key(move |event: KeyEvent| {
+            let (root, input) = match action {
+                CardAction::Plain => (root, None),
+                CardAction::Button => {
+                    let part = use_button().disabled(disabled).control();
+                    let state = part.state();
+                    (root.part(part), Some(state))
+                }
+                CardAction::Checkbox(selected) => {
+                    let part = use_checkbox(selected).disabled(disabled).control();
+                    let state = part.state();
+                    let input = kivact::memo(move || state.get().input);
+                    let root = root.part(part).on_key(move |event: KeyEvent| {
                         if event.key == Key::Enter
+                            && input.get().focused
                             && !event.repeat
                             && !disabled.get()
                             && !event.modifiers.alt
@@ -159,7 +166,9 @@ impl IntoView for Card {
                         } else {
                             Handled::No
                         }
-                    }),
+                    });
+                    (root, Some(input))
+                }
             };
             let mut root = root.base_style(move || {
                 let t = tokens();
@@ -181,6 +190,7 @@ impl IntoView for Card {
                 };
                 let mut base = style()
                     .direction(Direction::Column)
+                    .position(Position::Relative)
                     .min_width(0)
                     .radius(t.radius.container)
                     .clip(true)
@@ -205,8 +215,9 @@ impl IntoView for Card {
                     base =
                         base.border(t.sizes.border_width, if selected { ring } else { c.border });
                 }
-                if selected {
-                    base = base.shadow(Shadow::new(0, 0, 0, ring).spread(2).inset());
+                if checked.is_some() {
+                    let color = if selected { ring } else { Color::TRANSPARENT };
+                    base = base.shadow(Shadow::new(0, 0, 0, color).spread(2).inset());
                 }
                 if interactive {
                     base = base
@@ -217,19 +228,8 @@ impl IntoView for Card {
                         );
                     if disabled.get() {
                         base = base.opacity(t.sizes.disabled_opacity);
-                    } else {
-                        let theme = current_theme();
-                        let mut hover = style().background(crate::recipe_style::overlay(
-                            &theme,
-                            bg,
-                            c.overlay_hover,
-                        ));
-                        if clickable && bordered {
-                            hover = hover.border_color(c.border_emphasized);
-                        }
-                        base = base.hover(hover).pressed(style().background(
-                            crate::recipe_style::overlay(&theme, bg, c.overlay_pressed),
-                        ));
+                    } else if clickable && bordered {
+                        base = base.hover(style().border_color(c.border_emphasized));
                     }
                 }
                 base = elevation.apply(base, &t);
@@ -247,7 +247,35 @@ impl IntoView for Card {
             } else {
                 root = root.child(content);
             }
-            root
+            root.child(input.map(card_overlay))
         })
     }
+}
+
+fn card_overlay(input: Value<PartState>) -> Node {
+    node().hit_testable(false).style(move || {
+        let t = tokens();
+        let state = input.get();
+        let color = if state.disabled {
+            Color::TRANSPARENT
+        } else if state.pressed {
+            t.colors.overlay_pressed
+        } else if state.hovered {
+            t.colors.overlay_hover
+        } else {
+            Color::TRANSPARENT
+        };
+        style()
+            .position(Position::Absolute)
+            .top(0)
+            .bottom(0)
+            .left(0)
+            .right(0)
+            .radius(t.radius.container)
+            .background(color)
+            .transition(
+                TransitionProp::Paint,
+                Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            )
+    })
 }

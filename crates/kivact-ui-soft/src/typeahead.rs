@@ -6,13 +6,20 @@ use kivact::i18n::message;
 use kivact::interaction::{ListSelection, use_combobox};
 use kivact::primitive::{NodeExt, PartState, part};
 use kivact::style::{Align, Color, pct, style};
+use kivact::task::{AsyncState, resource, sleep};
 use kivact::ui::{ListItem, text_input};
 use kivact::view::{
     Handled, IntoText, IntoValue, IntoView, Key, OverlayAlign, Placement, PointerEvent,
     PointerPhase, View, for_each, node_ref, overlay, show,
 };
-use kivact::{Binding, Value, binding, effect, memo, signal};
+use kivact::{Binding, Result, Value, binding, effect, memo, signal};
+use std::future::Future;
 use std::hash::Hash;
+use std::pin::Pin;
+use std::rc::Rc;
+use std::time::Duration;
+
+type Search<K> = Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<Vec<ListItem<K>>>>>>>;
 
 pub struct Typeahead<K: Clone + Eq + Hash + 'static> {
     pub(super) root: Node,
@@ -23,6 +30,9 @@ pub struct Typeahead<K: Clone + Eq + Hash + 'static> {
     pub(super) chips: Option<Binding<Vec<K>>>,
     placeholder: Value<String>,
     empty: Value<String>,
+    search: Option<Search<K>>,
+    debounce: Duration,
+    exclude_selected: bool,
 }
 
 pub fn typeahead<K: Clone + Eq + Hash + 'static>(
@@ -56,7 +66,33 @@ impl<K: Clone + Eq + Hash + 'static> Typeahead<K> {
             chips: None,
             placeholder: message("soft.typeahead.placeholder", "Search"),
             empty: message("soft.typeahead.empty", "No results found."),
+            search: None,
+            debounce: Duration::from_millis(150),
+            exclude_selected: false,
         }
+    }
+
+    /// Fetch suggestions for the current query. The source runs immediately when
+    /// the list opens and after the debounce interval when the user types.
+    /// Closing the list or changing the query drops the previous future.
+    pub fn search<F, Fut>(mut self, search: F) -> Self
+    where
+        F: Fn(String) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<ListItem<K>>>> + 'static,
+    {
+        self.search = Some(Rc::new(move |query| Box::pin(search(query))));
+        self
+    }
+
+    /// Delay between the last keystroke and starting an asynchronous search.
+    pub fn debounce(mut self, delay: Duration) -> Self {
+        self.debounce = delay;
+        self
+    }
+
+    pub(super) fn exclude_selected(mut self) -> Self {
+        self.exclude_selected = true;
+        self
     }
 
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
@@ -97,6 +133,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             chip_labels,
             placeholder,
             empty,
+            search,
+            debounce,
+            exclude_selected,
         } = self;
         let off = root.accessible_disabled();
         let disabled = memo(move || off.as_ref().is_some_and(|off| off()));
@@ -106,10 +145,74 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
         };
         let open = signal(false);
         let editing = signal(false);
+        let typed = signal(String::new());
+        let asynchronous = search.map(|search| {
+            let request = memo(move || {
+                (open.get() && !disabled.get()).then(|| {
+                    if editing.get() {
+                        (typed.get(), debounce)
+                    } else {
+                        (String::new(), Duration::ZERO)
+                    }
+                })
+            });
+            resource(request, move |request| {
+                let search = search.clone();
+                async move {
+                    let Some((query, delay)) = request else {
+                        return Ok(None);
+                    };
+                    if !delay.is_zero() {
+                        sleep(delay).await;
+                    }
+                    search(query).await.map(Some)
+                }
+            })
+        });
+        let cached = signal(Vec::<ListItem<K>>::new());
+        if let Some(search) = asynchronous {
+            effect(move || {
+                if let Some(Some(results)) = search.latest() {
+                    let mut retained = results;
+                    let one = single.and_then(|value| value.get());
+                    let many = chips.map(|values| values.get()).unwrap_or_default();
+                    for item in cached.get_untracked() {
+                        if (one.as_ref() == Some(item.key()) || many.contains(item.key()))
+                            && !retained.iter().any(|result| result.key() == item.key())
+                        {
+                            retained.push(item);
+                        }
+                    }
+                    cached.set(retained);
+                }
+            });
+        }
+        let labels = chip_labels.unwrap_or(options);
+        let labels = memo(move || {
+            let mut known = cached.get();
+            for item in labels.get() {
+                if !known.iter().any(|result| result.key() == item.key()) {
+                    known.push(item);
+                }
+            }
+            known
+        });
+        let options = asynchronous.map_or(options, |search| {
+            memo(move || {
+                let AsyncState::Ready(Some(mut results)) = search.state() else {
+                    return Vec::new();
+                };
+                if exclude_selected && let Some(chips) = chips {
+                    chips.with(|chosen| results.retain(|item| !chosen.contains(item.key())));
+                }
+                results
+            })
+        });
         let list = use_combobox(options, selection)
             .popup(open)
             .filter(move |query, item| {
-                !editing.get()
+                asynchronous.is_some()
+                    || !editing.get()
                     || item
                         .label()
                         .to_lowercase()
@@ -122,7 +225,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                 query.set(
                     single
                         .and_then(|value| value.get())
-                        .map(|key| label_of(options, &key))
+                        .map(|key| label_of(labels, &key))
                         .unwrap_or_default(),
                 );
             }
@@ -134,6 +237,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
         });
         let edit = binding(query, move |text: String| {
             editing.set(true);
+            typed.set(text.clone());
             query.set(text);
             open.set(true);
         });
@@ -165,7 +269,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             });
         let anchor = node_ref();
         let focused = anchor.focus_within();
-        let chip_labels = chip_labels.unwrap_or(options);
+        let chip_labels = labels;
         let tokens_view = chips.map(|values| {
             for_each(
                 values.into_value(),
@@ -264,13 +368,20 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                 },
             );
             let no_results = memo(move || list.visible().with(Vec::is_empty));
+            let loading = message("soft.typeahead.loading", "Loading…");
+            let failed = message("soft.typeahead.failed", "Could not load suggestions.");
+            let status = move || match asynchronous.map(|search| search.state()) {
+                Some(AsyncState::Pending) => loading.get(),
+                Some(AsyncState::Failed(_)) => failed.get(),
+                _ => empty.get(),
+            };
             let surface = column((
                 scroll(column(rows))
                     .part(list.content())
                     .name(label)
                     .style(style().max_height(292)),
                 show(no_results, move || {
-                    text(empty)
+                    text(status)
                         .style(move || style().padding(8).color(tokens().colors.text_secondary))
                 }),
             ))

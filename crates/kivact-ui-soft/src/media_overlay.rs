@@ -1,9 +1,9 @@
 //! Role: Layer actions or labels within the bounds of their media.
-use crate::recipes_dialog::motion;
+use crate::recipes_dialog::{focus as focus_ring, motion};
 use crate::theme_access::tokens;
 use kivact::Value;
 use kivact::control::NodeBuilder;
-use kivact::control::{Node, column, stack};
+use kivact::control::{Node, column};
 use kivact::style::{Align, Justify, Overflow, Position, pct, rgba, style};
 use kivact::view::IntoValue;
 use kivact::view::{IntoView, OverlayAlign, node_ref};
@@ -83,46 +83,62 @@ impl MediaOverlay {
         let root = node_ref();
         let hover = root.hovered();
         let focus = root.focus_within();
-        let content = column((self.content)()).style(move || {
-            let p = tokens();
-            let visible = self.open.map_or_else(
-                || match self.show_on {
+        let mode = self.show_on;
+        let open = self.open;
+        let visible = kivact::memo(move || {
+            open.map_or_else(
+                || match mode {
                     ShowOn::Always => true,
                     ShowOn::Hover => hover.get() || focus.get(),
                     ShowOn::Focus => focus.get(),
                 },
                 |open| open.get(),
-            );
-            let background = match self.scrim {
-                OverlayScrim::Dark => p.colors.overlay_scrim,
-                OverlayScrim::Light => rgba(0xffffff, 0.6),
-                OverlayScrim::None => rgba(0, 0.0),
-            };
-            let (align, justify) = match self.align {
-                OverlayAlign::Start => (Align::Start, Justify::Start),
-                OverlayAlign::Center => (Align::Center, Justify::Center),
-                OverlayAlign::End => (Align::End, Justify::Start),
-            };
-            let layer = style()
-                .position(Position::Absolute)
-                .left(0)
-                .right(0)
-                .gap(8)
-                .padding(12)
-                .background(background)
-                .align_items(align)
-                .justify_content(justify);
-            let (layer, offset) = match self.position {
-                OverlayPosition::Fill => (layer.top(0).bottom(0), 0),
-                OverlayPosition::Top => (layer.top(0), -100),
-                OverlayPosition::Bottom => (layer.bottom(0), 100),
-            };
-            let hidden = style().opacity(0.0).translate_y(pct(offset));
-            let layer = motion(layer, &p, p.motion.fast).enter(hidden.clone());
-            if visible { layer } else { layer.merge(&hidden) }
+            )
         });
-        stack((base, content))
+        let reveal_from_keyboard = open.is_none() && mode != ShowOn::Always;
+        let content = column((self.content)())
+            .hidden(move || !visible.get())
+            .style(move || {
+                let p = tokens();
+                let background = match self.scrim {
+                    OverlayScrim::Dark => p.colors.overlay_scrim,
+                    OverlayScrim::Light => rgba(0xffffff, 0.6),
+                    OverlayScrim::None => rgba(0, 0.0),
+                };
+                let (align, justify) = match self.align {
+                    OverlayAlign::Start => (Align::Start, Justify::Start),
+                    OverlayAlign::Center => (Align::Center, Justify::Center),
+                    OverlayAlign::End => (Align::End, Justify::Start),
+                };
+                let layer = style()
+                    .position(Position::Absolute)
+                    .left(0)
+                    .right(0)
+                    .gap(8)
+                    .padding(12)
+                    .background(background)
+                    .align_items(align)
+                    .justify_content(justify);
+                let (layer, offset) = match self.position {
+                    OverlayPosition::Fill => (layer.top(0).bottom(0), 0),
+                    OverlayPosition::Top => (layer.top(0), -100),
+                    OverlayPosition::Bottom => (layer.bottom(0), 100),
+                };
+                let hidden = style().opacity(0.0).translate_y(pct(offset));
+                let layer = motion(layer, &p, p.motion.fast).enter(hidden.clone());
+                if visible.get() {
+                    layer
+                } else {
+                    layer.merge(&hidden)
+                }
+            });
+        column((base, content))
             .node_ref(root)
-            .style(style().overflow(Overflow::Hidden))
+            .focusable(reveal_from_keyboard)
+            .style(|| {
+                style()
+                    .overflow(Overflow::Hidden)
+                    .focus_visible(focus_ring(&tokens()))
+            })
     }
 }

@@ -3,11 +3,11 @@ use crate::stack::rtl;
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::interaction::use_disclosure;
-use kivact::motion::Transition;
+use kivact::motion::{Spring, Transition, animated};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Direction, TransitionProp, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, View, provide, show, try_context};
-use kivact::{Binding, Value, binding, signal};
+use kivact::view::{IntoText, IntoValue, IntoView, View, node_ref, provide, show, try_context};
+use kivact::{Binding, Value, binding, memo, signal};
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -32,6 +32,54 @@ pub enum GroupMode {
     Multiple,
 }
 
+pub struct CollapsibleConfig {
+    pub enabled: bool,
+    pub default_open: bool,
+    pub open: Option<Binding<bool>>,
+    pub value: Option<String>,
+}
+
+impl Default for CollapsibleConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_open: true,
+            open: None,
+            value: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct CollapsibleState {
+    pub is_enabled: bool,
+    pub is_open: Value<bool>,
+    open: Binding<bool>,
+}
+
+impl CollapsibleState {
+    pub fn toggle(self) {
+        if self.is_enabled {
+            self.open.set(!self.open.get());
+        }
+    }
+}
+
+pub fn use_collapsible(config: CollapsibleConfig) -> CollapsibleState {
+    let group = try_context::<GroupCx>();
+    let open = match (group, config.value) {
+        (Some(group), Some(key)) => group.open_binding(key),
+        _ => config
+            .open
+            .unwrap_or_else(|| signal(config.default_open).into()),
+    };
+    CollapsibleState {
+        is_enabled: config.enabled,
+        is_open: memo(move || !config.enabled || open.get()),
+        open,
+    }
+}
+
 pub struct Collapsible {
     root: Node,
     label: View,
@@ -41,6 +89,8 @@ pub struct Collapsible {
     content: Option<Rc<dyn Fn() -> View>>,
     chevron: Option<ChevronPosition>,
     key: Option<String>,
+    keep_mounted: bool,
+    animate_layout: bool,
 }
 
 pub fn collapsible(trigger: impl IntoText, open: impl Into<Binding<bool>>) -> Collapsible {
@@ -54,6 +104,8 @@ pub fn collapsible(trigger: impl IntoText, open: impl Into<Binding<bool>>) -> Co
         content: None,
         chevron: None,
         key: None,
+        keep_mounted: false,
+        animate_layout: false,
     }
 }
 
@@ -76,6 +128,14 @@ impl Collapsible {
     }
     pub fn trigger_view<V: IntoView>(mut self, trigger: impl FnOnce() -> V + 'static) -> Self {
         self.label = provide((), trigger);
+        self
+    }
+    pub fn keep_mounted(mut self, keep: bool) -> Self {
+        self.keep_mounted = keep;
+        self
+    }
+    pub fn animate_layout(mut self, animate: bool) -> Self {
+        self.animate_layout = animate;
         self
     }
     pub fn content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
@@ -101,6 +161,8 @@ impl IntoView for Collapsible {
             content,
             chevron,
             key,
+            keep_mounted,
+            animate_layout,
         } = self;
         provide((), move || {
             let group = try_context::<GroupCx>();
@@ -108,11 +170,29 @@ impl IntoView for Collapsible {
                 .or_else(|| group.as_ref().map(|group| group.chevron))
                 .unwrap_or_default();
             let density = group.as_ref().and_then(|group| group.density);
-            let open = match (group, key) {
-                (Some(group), Some(key)) => group.open_binding(key),
-                _ => open,
-            };
-            let disclosure = use_disclosure(open);
+            let state = use_collapsible(CollapsibleConfig {
+                open: Some(open),
+                value: key,
+                ..CollapsibleConfig::default()
+            });
+            let open = state.open;
+            let mut disclosure = use_disclosure(open).disabled(disabled);
+            let shown = disclosure.shown();
+            let progress = animate_layout.then(|| {
+                animated(
+                    move || if shown.get() { 1.0_f32 } else { 0.0 },
+                    Transition::spring(Spring {
+                        stiffness: 157.91,
+                        damping: 25.13,
+                        mass: 1.0,
+                    }),
+                )
+            });
+            if let Some(progress) = progress {
+                disclosure = disclosure.leaving(move || !shown.get() && progress.get() > 0.0);
+            }
+            let present =
+                memo(move || shown.get() || progress.is_some_and(|progress| progress.get() > 0.0));
             let chevron = icon(match position {
                 ChevronPosition::Start => "chevron-right",
                 ChevronPosition::End => "chevron-down",
@@ -164,23 +244,48 @@ impl IntoView for Collapsible {
                     .disabled(style().opacity(t.sizes.disabled_opacity))
                     .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
             });
-            let details = show(disclosure.shown(), move || {
-                node()
-                    .part(disclosure.content())
+            let body = move || {
+                let region = node().part(disclosure.content()).style(move || {
+                    let t = tokens();
+                    style()
+                        .direction(Direction::Column)
+                        .font_size(t.typography.body.size_px)
+                        .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
+                        .color(t.colors.text_primary)
+                });
+                let details = node()
                     .style(move || {
                         let t = tokens();
                         style()
                             .direction(Direction::Column)
+                            .shrink(0)
                             .padding_top(t.spacing.s1)
                             .padding_bottom(padding_for(density))
-                            .font_size(t.typography.body.size_px)
-                            .line_height(
-                                t.typography.body.line_height_px / t.typography.body.size_px,
-                            )
-                            .color(t.colors.text_primary)
                     })
-                    .child(content.as_ref().map(|content| content()))
-            });
+                    .child(content.as_ref().map(|content| content()));
+                if let Some(progress) = progress {
+                    let measured = node_ref();
+                    let natural = measured.rect();
+                    region
+                        .style(move || {
+                            let base = style().clip(true);
+                            let share = progress.get().clamp(0.0, 1.0);
+                            if share < 1.0 {
+                                base.height(natural.get().map_or(0.0, |rect| rect.height) * share)
+                            } else {
+                                base
+                            }
+                        })
+                        .child(details.node_ref(measured))
+                } else {
+                    region.child(details)
+                }
+            };
+            let details = if keep_mounted {
+                body().into_view()
+            } else {
+                show(present, body).into_view()
+            };
             root.base_style(style().direction(Direction::Column))
                 .child((trigger, details))
         })

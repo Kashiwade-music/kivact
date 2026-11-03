@@ -6,9 +6,36 @@ use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, render_with, render_with_handle};
 use kivact::ui::button;
 use kivact::view::{Key, Role};
-use kivact_ui_soft::{BadgeVariant, IconSize, StatusDotVariant, badge, heading, icon, status_dot};
+use kivact_ui_soft::{
+    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, heading, icon,
+    status_dot,
+};
 use std::cell::Cell;
 use std::rc::Rc;
+
+#[test]
+fn dismissing_a_banner_restores_the_previous_external_focus() {
+    let screen = render_with(
+        RenderOptions {
+            theme: kivact_ui_soft::theme(ThemeMode::Light),
+            ..RenderOptions::from_env()
+        },
+        || {
+            column((
+                button("Continue"),
+                banner(BannerStatus::Info, "Workspace updated").dismissable(true),
+                button("Other"),
+            ))
+        },
+    );
+    let outside = screen.get_by_role(Role::Button, "Continue");
+    outside.focus();
+    let dismiss = screen.get_by_role(Role::Button, "Dismiss Workspace updated");
+    dismiss.focus();
+    dismiss.press_key(Key::Enter);
+    assert!(outside.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn the_neutral_theme_mounts_standard_buttons_in_both_appearances() {

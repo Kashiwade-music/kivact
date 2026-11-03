@@ -5,6 +5,7 @@ use std::hash::Hash;
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, stack, text};
 use kivact::draw::Point;
+use kivact::i18n::message;
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, Length, Position, pct, style};
 use kivact::view::{
@@ -670,7 +671,10 @@ pub fn chat_scroll_button<R: HandlerResult>(
             part(|state| state)
                 .role(Role::Button)
                 .focusable(true)
-                .name("Scroll to latest message")
+                .name(message(
+                    "soft.chat_layout_scroll_button.scroll_to_bottom",
+                    "Scroll to bottom",
+                ))
                 .on_press(press),
         )
         .hidden(move || !visible.get())

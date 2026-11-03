@@ -2,6 +2,7 @@
 
 use crate::{ChatDensity, tokens};
 use kivact::control::{Node, NodeBuilder, node, row, text};
+use kivact::i18n::message;
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::ui::{ControlSize, TextInput, text_area};
@@ -114,12 +115,20 @@ impl IntoView for ChatSendButton {
         let stop = node()
             .hidden(move || !stop_shown.get())
             .child(stop_icon.unwrap_or_else(|| text("■").into_view()));
+        let send_label = message("soft.chat_send_button.send", "Send");
+        let stop_label = message("soft.chat_send_button.stop", "Stop");
         root.part(
             part(|state| state)
                 .role(Role::Button)
                 .focusable(true)
                 .disabled(disabled)
-                .name(move || if stop_shown.get() { "Stop" } else { "Send" })
+                .name(move || {
+                    if stop_shown.get() {
+                        stop_label.get()
+                    } else {
+                        send_label.get()
+                    }
+                })
                 .on_press(move || {
                     let action = if stop_shown.get() { on_stop } else { on_send };
                     if let Some(action) = action {
@@ -304,18 +313,19 @@ impl IntoView for ChatComposer {
                 submit.call(message.to_owned());
             }
         };
-        let input = chat_composer_input("Message input", value)
-            .placeholder(placeholder)
-            .disabled(disabled)
-            .forward_keys(vec![Key::Enter])
-            .on_key(move |event: KeyEvent| {
-                if event.key == Key::Enter {
-                    send();
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            });
+        let input =
+            chat_composer_input(message("soft.chat_composer.input", "Message input"), value)
+                .placeholder(placeholder)
+                .disabled(disabled)
+                .forward_keys(vec![Key::Enter])
+                .on_key(move |event: KeyEvent| {
+                    if event.key == Key::Enter {
+                        send();
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                });
         let send_button = chat_send_button()
             .stop_shown(stop_shown)
             .disabled(move || {
@@ -414,7 +424,7 @@ pub fn chat_composer_drawer(content: impl IntoView) -> ChatComposerDrawer {
         root: node(),
         content: content.into_view(),
         count: None,
-        label: "Items".into_text_value(),
+        label: message("soft.chat_composer_drawer.items", "Items"),
         collapsed: None,
         summary: None,
     }
@@ -529,7 +539,7 @@ pub fn chat_dictation_button(state: impl IntoValue<DictationState>) -> ChatDicta
         on_toggle: None,
         size: ControlSize::Medium,
         hide_when_unsupported: true,
-        label: "Dictation".into_text_value(),
+        label: message("soft.chat_dictation_button.label", "Dictation"),
     }
 }
 

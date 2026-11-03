@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::{ItemDensity, tokens};
 use kivact::control::{Node, NodeBuilder, column, icon, node, text};
+use kivact::i18n::message;
 use kivact::interaction::{ListSelection, TreeItemState, TreeRow, use_tree};
 use kivact::primitive::{NodeExt, part};
 use kivact::style::{Align, Direction, Justify, Position, TransitionProp, style};
@@ -166,13 +167,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
                                 .role(Role::Button)
                                 .disabled(move || state.get().input.disabled)
                                 .expanded(move || state.get().branch.is_expanded())
-                                .name(move || {
-                                    if state.get().branch.is_expanded() {
-                                        "Collapse"
-                                    } else {
-                                        "Expand"
-                                    }
-                                })
+                                .name(message("soft.tree_list.toggle_children", "Toggle children"))
                                 .on_press(move || tree.toggle(key.clone())),
                         )
                         .style(

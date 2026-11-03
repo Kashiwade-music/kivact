@@ -111,6 +111,7 @@ fn checkbox_row(
         .node_ref(control_ref)
         .description(move || description.get().unwrap_or_default());
     row((control, column((text(label), details))))
+        .role(Role::Generic)
         .on_press(move || {
             if !disabled.get_untracked() {
                 control_ref.activate();

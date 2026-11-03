@@ -4,24 +4,41 @@ use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::interaction::TreeNode;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, data_table, disclosure, split};
+use kivact::ui::{DataColumn, data_table, split};
 use kivact_ui_soft::{
     ChatSender, DictationState, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio,
     breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
     chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
-    clickable_card, divider, form_layout, form_row, grid, hstack, item, layout, layout_content,
-    layout_header, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
-    pagination, scrollable_area, section, selectable_card, stack_item, tree_list,
+    clickable_card, collapsible_default, collapsible_group, divider, form_layout, form_row, grid,
+    hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
+    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, selectable_card,
+    stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
-        "collapsible" | "collapsible-group" => specimen(
+        "collapsible" => specimen(
             "Open by default",
-            disclosure("Delivery details", signal(true), || {
-                text("Ships in two business days.")
-            }),
-            "disclosure(\"Delivery details\", signal(true), details)",
+            collapsible_default("Delivery details", true)
+                .animate_layout(true)
+                .content(|| text("Ships in two business days.")),
+            "collapsible_default(\"Delivery details\", true).animate_layout(true).content(details)",
+        ),
+        "collapsible-group" => specimen(
+            "One section open at a time",
+            collapsible_group(
+                signal(vec!["delivery".to_owned()]),
+                vec![
+                    collapsible_default("Delivery", false)
+                        .value("delivery")
+                        .content(|| text("Ships in two business days.")),
+                    collapsible_default("Returns", false)
+                        .value("returns")
+                        .content(|| text("Returns accepted within 30 days.")),
+                ],
+            )
+            .dividers(true),
+            "collapsible_group(open, sections).dividers(true)",
         ),
         "list" | "list-item" | "item" => specimen(
             "Workspace items",

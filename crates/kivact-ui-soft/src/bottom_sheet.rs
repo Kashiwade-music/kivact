@@ -128,16 +128,15 @@ impl IntoView for BottomSheet {
         let open = self.open;
         let purpose = self.purpose;
         let modal = self.scrim;
-        let target = self.final_focus;
-        let open_with_focus = binding(
-            move || open.get(),
-            move |value| {
-                open.set(value);
-                if !value && let Some(target) = target {
-                    target.focus();
+        // The modal overlay automatically restores its opener. An explicit
+        // target overrides that restoration after either kind of closure.
+        if let Some(target) = self.final_focus {
+            kivact::effect_on(open, move |shown| {
+                if !shown {
+                    target.restore_focus();
                 }
-            },
-        );
+            });
+        }
         let kind = if purpose == DialogPurpose::Required {
             DialogKind::AlertModal
         } else {
@@ -147,7 +146,7 @@ impl IntoView for BottomSheet {
             escape: purpose != DialogPurpose::Required,
             outside: purpose == DialogPurpose::Info,
         };
-        let behavior = use_dialog(open_with_focus, kind).dismiss(dismiss);
+        let behavior = use_dialog(open, kind).dismiss(dismiss);
         show(open, move || {
             let dragged = signal(None::<f32>);
             let selected = signal(0usize);
@@ -228,7 +227,7 @@ impl IntoView for BottomSheet {
                         let shortest = detents[detents.len() - 1];
                         let line = shortest + (full - shortest) * 0.4;
                         if purpose == DialogPurpose::Info && travel > 0.0 && projected > line {
-                            open_with_focus.set(false);
+                            open.set(false);
                         } else {
                             let nearest = detents
                                 .iter()
@@ -307,6 +306,7 @@ impl IntoView for BottomSheet {
             });
             let scrim = modal.then(|| {
                 node()
+                    .role(Role::Generic)
                     .style(move || {
                         let p = tokens();
                         let (full, detents) = scrim_detents();
@@ -337,7 +337,7 @@ impl IntoView for BottomSheet {
                     })
                     .on_press(move || {
                         if dismiss.outside {
-                            open_with_focus.set(false);
+                            open.set(false);
                         }
                     })
             });
@@ -361,7 +361,7 @@ impl IntoView for BottomSheet {
                     .name(self.label)
                     .on_dismiss(move |reason| {
                         if dismiss.escape && reason == DismissReason::Escape {
-                            open_with_focus.set(false);
+                            open.set(false);
                         }
                     })
                     .into_view()

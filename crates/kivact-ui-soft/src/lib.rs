@@ -134,8 +134,9 @@ pub use code_block::{
     SyntaxTheme, TokenKind, code_block,
 };
 pub use collapsible::{
-    ChevronPosition, Collapsible, CollapsibleGroup, DisclosureDensity, GroupMode, collapsible,
-    collapsible_default, collapsible_group,
+    ChevronPosition, Collapsible, CollapsibleConfig, CollapsibleGroup, CollapsibleState,
+    DisclosureDensity, GroupMode, collapsible, collapsible_default, collapsible_group,
+    use_collapsible,
 };
 pub use color::{Colors, DataColors, HueColors, Hues, SyntaxColors};
 pub use container_reveal::{
@@ -240,8 +241,8 @@ pub use soft_table::{
 pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
 pub use spinner::{Spinner, SpinnerShade, SpinnerSize, spinner};
 pub use stack::{
-    ContainerInset, Space, Stack, StackItem, StackItemSize, center, hstack, stack, stack_item,
-    vstack,
+    CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
+    center, hstack, stack, stack_item, vstack,
 };
 pub use stepper::{
     Step, StepCollapsedVariant, StepDensity, StepIndicator, StepIndicatorPosition, StepStatus,

@@ -38,7 +38,7 @@ pub fn tokenizer<K: Clone + Eq + Hash + 'static>(
             })
         })
     });
-    let mut field = Typeahead::new(label, available, ListSelection::Single(add));
+    let mut field = Typeahead::new(label, available, ListSelection::Single(add)).exclude_selected();
     field.chip_labels = Some(options);
     field.chips = Some(value);
     field

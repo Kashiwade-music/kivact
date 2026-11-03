@@ -13,6 +13,7 @@ fn capture_catalog() {
     let output = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/soft-lookbook");
     std::fs::create_dir_all(&output).expect("lookbook output directory");
     let filter = std::env::var("KIVACT_SOFT_LOOKBOOK_PAGES").ok();
+    let mut diagnostics = Vec::new();
     for page in pages().iter().filter(|page| {
         filter
             .as_deref()
@@ -35,6 +36,14 @@ fn capture_catalog() {
             if page.slug == "button" {
                 capture_button_states(&screen, &output, name);
             }
+            if page.slug == "dialog" {
+                screen.get_by_role(Role::Button, "Open dialog").click();
+                screen.advance(Duration::from_millis(34));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("dialog-{name}-entering.png")))
+                    .expect("dialog entrance screenshot");
+            }
             if page.slug == "spinner" {
                 screen.set_reduced_motion(true);
                 screen.advance(Duration::from_millis(750));
@@ -43,14 +52,13 @@ fn capture_catalog() {
                     .save_png(output.join(format!("spinner-{name}-reduced.png")))
                     .expect("reduced-motion spinner screenshot");
             }
-            assert!(
-                screen.errors().is_empty(),
-                "{} ({name}): {:?}",
-                page.slug,
-                screen.errors()
-            );
+            let errors = screen.errors();
+            if !errors.is_empty() {
+                diagnostics.push(format!("{} ({name}): {errors:?}", page.slug));
+            }
         }
     }
+    assert!(diagnostics.is_empty(), "{}", diagnostics.join("\n"));
 }
 
 fn capture_button_states(screen: &Screen, output: &Path, mode: &str) {

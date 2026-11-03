@@ -1,8 +1,11 @@
 //! Role: Reveal in-place actions on hover and keyboard focus.
 use crate::tokens;
+use kivact::interaction::{Delays, use_delayed};
+use kivact::memo;
 use kivact::motion::Transition;
 use kivact::style::{Position, Style, TransitionProp, style};
 use kivact::view::NodeRef;
+use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevealForce {
@@ -39,32 +42,55 @@ pub fn reveal_content(
     let hovered = container.hovered();
     let group_focused = container.focus_within();
     let content_focused = content.focus_within();
-    move || {
-        let t = tokens();
-        let touch = kivact::platform::capabilities().touch;
+    let touch = kivact::platform::capabilities().touch;
+    let hover_delay = if options.hover_delay_ms.is_finite() {
+        Duration::from_millis(options.hover_delay_ms.max(0.0) as u64)
+    } else {
+        Duration::ZERO
+    };
+    let hover = use_delayed(
+        hovered,
+        Delays {
+            open: hover_delay,
+            close: Duration::ZERO,
+        },
+    );
+    let visible = memo(move || {
         let hover = match options.container_force {
             Some(RevealForce::Active) => true,
             Some(RevealForce::Inactive) => false,
-            None => hovered.get(),
+            None => hover.shown().get(),
         };
         let focused = group_focused.get();
-        let visible = match options.force {
+        match options.force {
             Some(RevealVisibility::Shown) => true,
             Some(RevealVisibility::Hidden) => content_focused.get(),
             None if options.inverted => focused || touch || !hover,
             None => focused || touch || hover,
-        };
-        let delay = if hover && !focused && !touch && options.force.is_none() {
-            options.hover_delay_ms.max(0.0)
-        } else {
-            0.0
-        };
-        let transition =
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard).delay(delay);
+        }
+    });
+    let fade_out = if kivact::platform::reduced_motion() {
+        0
+    } else {
+        tokens().motion.fast
+    };
+    let in_flow = use_delayed(
+        visible,
+        Delays {
+            open: Duration::ZERO,
+            close: Duration::from_millis(fade_out),
+        },
+    );
+    move || {
+        let t = tokens();
         let base = style()
-            .opacity(if visible { 1.0 } else { 0.0 })
-            .transition(TransitionProp::Paint, transition);
-        if !visible && !options.inverted && !options.preserve_layout {
+            .opacity(if visible.get() { 1.0 } else { 0.0 })
+            .transition(
+                TransitionProp::Paint,
+                Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            );
+        if !visible.get() && !in_flow.shown().get() && !options.inverted && !options.preserve_layout
+        {
             base.position(Position::Absolute)
         } else {
             base

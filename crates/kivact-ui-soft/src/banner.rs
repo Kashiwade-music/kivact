@@ -5,13 +5,14 @@ use crate::{Elevation, tokens};
 use kivact::control::{Node, NodeBuilder, column, icon, row, text};
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
+use kivact::primitive::{NodeExt, Owner};
 use kivact::style::{Align, Direction, Justify, TransitionProp, pct, style};
 use kivact::ui::{ButtonVariant, ControlSize, button, tooltip};
 use kivact::view::{
-    HandlerResult, IntoText, IntoView, ReadingDirection, View, callback, current_direction, show,
+    HandlerResult, IntoText, IntoView, ReadingDirection, View, callback, current_direction,
+    node_ref, show,
 };
-use kivact::{Binding, Callback, Value, signal};
+use kivact::{Binding, Callback, Value, effect, signal};
 
 /// Semantic tone of a feedback banner.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -134,6 +135,19 @@ impl NodeBuilder for Banner {
 impl IntoView for Banner {
     fn into_view(self) -> View {
         let dismissed = signal(false);
+        let dismiss_focus = self.dismissable.then(|| {
+            let reference = node_ref();
+            let within = reference.focus_within();
+            let owner = Owner::current("banner");
+            let previous = signal(None);
+            effect(move || {
+                let focused = owner.focused_node();
+                if !dismissed.get() && !within.get() && focused.is_some() {
+                    previous.set(focused);
+                }
+            });
+            (reference, previous)
+        });
         let card = self.container == BannerContainer::Card;
         let status = self.status;
         let has_details = self.content.is_some();
@@ -208,6 +222,11 @@ impl IntoView for Banner {
                 .icon(icon("x").style(move || style().color(foreground())))
                 .on_press(move || {
                     dismissed.set(true);
+                    if let Some((_, previous)) = dismiss_focus
+                        && let Some(previous) = previous.get_untracked()
+                    {
+                        previous.restore_focus();
+                    }
                     if let Some(callback) = callback {
                         callback.call(());
                     }
@@ -295,8 +314,11 @@ impl IntoView for Banner {
                 area
             })
         });
-        self.root
-            .hidden(move || dismissed.get())
+        let mut root = self.root;
+        if let Some((reference, _)) = dismiss_focus {
+            root = root.node_ref(reference);
+        }
+        root.hidden(move || dismissed.get())
             .base_style(move || {
                 let t = tokens();
                 elevation.apply(

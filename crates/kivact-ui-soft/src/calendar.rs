@@ -4,7 +4,7 @@ use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday, message, message_with};
 use kivact::interaction::{CalendarPolicy, CalendarSelection, CalendarSpan, use_calendar_grid};
 use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Justify, Position, style};
+use kivact::style::{Align, Color, Justify, Length, Position, pct, style};
 use kivact::ui::{ButtonVariant, button};
 use kivact::view::{IntoView, Role, View, dynamic};
 use kivact::{Binding, on_mount, signal};
@@ -27,9 +27,12 @@ pub struct Calendar {
 
 fn new(selection: CalendarSelection) -> Calendar {
     Calendar {
-        root: node()
-            .role(Role::Group)
-            .style(style().padding(12).min_width(220)),
+        root: node().role(Role::Group).base_style(
+            style()
+                .padding(12)
+                .width(Length::MaxContent)
+                .max_width(pct(100)),
+        ),
         selection,
         month: None,
         disabled: Rc::new(|_| false),
@@ -238,6 +241,7 @@ impl IntoView for Calendar {
                         .style(move || {
                             style()
                                 .grow(1)
+                                .align_items(Align::Center)
                                 .justify_content(Justify::Center)
                                 .font_size(14)
                                 .weight(600)

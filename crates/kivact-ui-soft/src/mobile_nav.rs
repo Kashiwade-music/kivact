@@ -313,7 +313,7 @@ impl IntoView for MobileNavToggle {
         } = self;
         provide((), move || {
             let mobile = use_app_shell_mobile();
-            if !mobile.is_mobile() || !mobile.is_enabled() {
+            if !mobile.is_enabled() {
                 return View::empty();
             }
             let label = label.unwrap_or_else(|| {
@@ -332,7 +332,9 @@ impl IntoView for MobileNavToggle {
             if let Some(drawer) = mobile.drawer {
                 trigger = trigger.controls(drawer);
             }
-            root.child(trigger).into_view()
+            root.hidden(move || !mobile.is_mobile())
+                .child(trigger)
+                .into_view()
         })
     }
 }
