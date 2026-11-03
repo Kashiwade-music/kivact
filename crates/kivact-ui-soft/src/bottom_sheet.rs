@@ -4,7 +4,8 @@ use crate::theme_access::tokens;
 use kivact::control::NodeBuilder;
 use kivact::control::{column, node, scroll};
 use kivact::interaction::{
-    Dismiss, DragCoordinates, DragPhase, DragUpdate, DragVelocity, use_dialog, use_drag,
+    Dismiss, DragAxis, DragCoordinates, DragPhase, DragUpdate, DragVelocity, nearest_snap,
+    project_release, pull_to_snap, resist_overshoot, use_dialog, use_drag,
 };
 use kivact::primitive::{NodeExt, clock_now};
 use kivact::style::{Align, Justify, Overflow, Position, pct, style};
@@ -18,7 +19,8 @@ use std::time::Duration;
 
 const VELOCITY_WINDOW: Duration = Duration::from_millis(100);
 const PROJECTION_MIN_TRAVEL: f32 = 48.0;
-const PROJECTION_DECAY_MS: f32 = 499.0;
+const PROJECTION_DECAY: Duration = Duration::from_millis(499);
+const SHEET_AXIS: DragAxis = DragAxis::Vertical;
 const DISMISS_FRACTION: f32 = 0.4;
 const OVERSHOOT_RESISTANCE: f32 = 0.35;
 const OVERSHOOT_LIMIT: f32 = 48.0;
@@ -184,20 +186,13 @@ impl IntoView for BottomSheet {
                     velocity.update(|velocity| velocity.record(clock_now(), update.pos));
                     let (full, detents) = update_detents();
                     let start = detents[selected.get().min(detents.len() - 1)];
-                    let raw = start + update.delta.y;
+                    let raw = start + SHEET_AXIS.component(update.delta);
                     let shortest = detents[detents.len() - 1];
                     let dismiss_line = shortest + (full - shortest) * DISMISS_FRACTION;
                     let offset = if raw < 0.0 {
-                        (raw * OVERSHOOT_RESISTANCE).max(-OVERSHOOT_LIMIT)
+                        resist_overshoot(raw, OVERSHOOT_RESISTANCE, OVERSHOOT_LIMIT)
                     } else if raw < dismiss_line {
-                        let nearest = detents
-                            .iter()
-                            .copied()
-                            .min_by(|a, b| (a - raw).abs().total_cmp(&(b - raw).abs()))
-                            .unwrap_or(0.0);
-                        let distance = (nearest - raw).abs();
-                        let pull = (1.0 - (distance / SNAP_PULL_RADIUS).powi(2)).max(0.0);
-                        raw + (nearest - raw) * pull
+                        pull_to_snap(raw, &detents, SNAP_PULL_RADIUS)
                     } else {
                         raw
                     };
@@ -208,35 +203,31 @@ impl IntoView for BottomSheet {
                         let (full, detents) = end_detents();
                         let current = selected.get().min(detents.len() - 1);
                         let start = detents[current];
-                        let travel = update.delta.y;
-                        let speed = velocity.with(|velocity| velocity.pixels_per_ms(clock_now()).y);
-                        let projected = start
-                            + travel
-                            + if travel.abs() > PROJECTION_MIN_TRAVEL {
-                                speed * PROJECTION_DECAY_MS
-                            } else {
-                                0.0
-                            };
+                        let travel = SHEET_AXIS.component(update.delta);
+                        let position = start + travel;
+                        let projected = if SHEET_AXIS
+                            .past_slop(update.delta, PROJECTION_MIN_TRAVEL)
+                            .is_some()
+                        {
+                            let speed = velocity.with(|velocity| {
+                                SHEET_AXIS.component(velocity.pixels_per_ms(clock_now()))
+                            });
+                            project_release(position, speed, PROJECTION_DECAY)
+                        } else {
+                            position
+                        };
                         let shortest = detents[detents.len() - 1];
                         let line = shortest + (full - shortest) * DISMISS_FRACTION;
                         if purpose == DialogPurpose::Info && travel > 0.0 && projected > line {
                             open.set(false);
                         } else {
-                            let nearest = detents
-                                .iter()
-                                .enumerate()
-                                .filter(|(index, _)| {
-                                    if travel > 0.0 {
-                                        *index >= current
-                                    } else {
-                                        *index <= current
-                                    }
-                                })
-                                .min_by(|a, b| {
-                                    (a.1 - projected).abs().total_cmp(&(b.1 - projected).abs())
-                                });
-                            if let Some((index, _)) = nearest {
-                                selected.set(index);
+                            let (first, candidates) = if travel > 0.0 {
+                                (current, &detents[current..])
+                            } else {
+                                (0, &detents[..=current])
+                            };
+                            if let Some(index) = nearest_snap(projected, candidates) {
+                                selected.set(first + index);
                             }
                         }
                     }
