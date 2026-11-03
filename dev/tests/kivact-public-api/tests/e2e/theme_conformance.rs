@@ -192,7 +192,13 @@ const KIT_RECIPES: [(&str, &[&str]); 5] = [
             "Progress", "Details", "Items",
         ],
     ),
-    ("Soft", &[]),
+    (
+        "Soft",
+        &[
+            "Save", "Check", "Switch", "Mode", "Choice", "Sections", "Editor", "Field", "Level",
+            "Progress", "Details", "Items",
+        ],
+    ),
 ];
 
 /// Whether any pixel of `rect` differs visibly between the two frames.

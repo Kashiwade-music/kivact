@@ -2398,7 +2398,7 @@ reduced motion: animator の Reduce Motion 方針（ばねの代わりに 200ms 
   - range: accent 塗り。
   - thumb: 20px 円 accent、hover/pressed/disabled を state style で、focus ring は `focus_visible`（キーボード時のみ表示されることを確認）。
   - 参考: `crates/kivact-ui-basic/src/recipes_controls.rs:99-176`（slider recipes）。
-  - 端の 10px 内側インセット（thumb がトラック端からはみ出さない）: kivact::ui::slider の thumb 位置計算が同じ前提か要確認（**UNRESOLVED**）。違えば recipe の padding で調整。
+  - 端の 10px 内側インセットは標準 Slider の配置が確保する。移動距離の計算でトラック長からつまみの幅を引くため、20px のつまみに recipe の padding は不要。
 - wrapper が足すもの: Field ラベル/description/status/required、marks（track の `Style::paint` で棒を描き、ラベルは下に絶対配置のノード）、値 tooltip（`kivact::ui::tooltip` を thumb に attach、delay 0、ドラッグ中は強制 open — kivact::ui::Tooltip に controlled open があるか要確認）、text 表示、disabledMessage、minStepsBetweenThumbs。
 - フォーカスリングのキーボード限定表示: Astryx は modality 追跡で pointer フォーカス時に ring を出さない。kivact の `focus_visible` が同等なら recipe だけで済む。
 - タッチ物理（lift 1.55 / coast / 相対追従）: kivact::ui::slider が絶対追従なら、タッチ相対追従は core 変更なしでは再現困難 → **UNRESOLVED**。fallback: 絶対追従 + lift のみ（thumb の scale を `Transition::spring(Spring { stiffness: 854.0, damping: 35.07, mass: 1.0 })`）。

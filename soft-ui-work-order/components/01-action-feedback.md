@@ -1700,7 +1700,7 @@ md: ╭────────────────────╮ 24px
 7. **Toolbar の padding**: Neutral の section 上書きで全辺 12px になると判断したが(theme layer が StyleX より上位)、docsite 実測で 8px(block)/12px(inline)の可能性もある。要実測。edge compensation 量(−8px)も同様。
 8. **SegmentedControlItem の角丸 8px**: Neutral が track padding のみ 4px に上書きし private var(2px)は据え置きのため 10−2=8px。幾何的同心(6px)ではない。docsite で確認推奨。
 9. **SegmentedControl の上下矢印**: kivact `ListPolicy::radio()` は 4 方向キーで移動。Astryx は水平のみ。軽微として許容するか。
-10. **ProgressBar**: (a) kivact `ProgressState::shown` の移動時間/曲線が 300ms・ease-standard か、初回 0→値のアニメを Astryx(初回は即値)に合わせられるか。(b) 不確定の周期 1.5s vs kivact phase ≈1.3s。(c) reduced motion の 2s 脈動を frame_loop で動かせるか。
+10. **ProgressBar（C-41）**: 標準部品は初回 0→値、400ms の EaseOut、不確定表示は 1.3s 周期。Astryx の初回即値、300ms の standard 曲線、1.5s 周期、reduced motion 時の 2s 脈動に合わせるには、標準部品でモーション設定を公開する必要がある。
 11. **タッチ押下モデル**(onset 150ms / slop 10px / flash 100ms / release 200ms / scroll brake 150ms): engine 側の host press 判定で表現できるか。foundation/motion.md と整合を。
 12. **Link の行内(段落中)配置**: kivact の text に押下可能な inline span を埋め込めるか。
 13. **Token の focus-within リング**: 内側ボタンのフォーカスで外側 token にリングを描く state style の有無。
@@ -1709,4 +1709,5 @@ md: ╭────────────────────╮ 24px
 16. **useLongPress**: kit で実装するか `attach_context` 任せか。
 17. **ControlSize::ExtraSmall / ButtonVariant::Outline の値**: Astryx に無いため §2.4.6 の提案値(Astryx 由来ではない)。
 18. **ToggleButton doc と実装の不一致**: doc は icon-only で自動 tooltip と書くがコードは付与しない。本書はコードに従った。
+19. **ToggleButton の文字幅（C-40）**: 選択時に semibold になる文字の幅を未選択時から確保するには、標準部品がラベルの測定方法を公開する必要がある。
 

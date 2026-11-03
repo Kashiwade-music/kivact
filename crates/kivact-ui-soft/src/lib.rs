@@ -2,6 +2,16 @@
 mod color;
 mod icons;
 mod recipes;
+mod recipes_collections;
+mod recipes_controls;
+mod recipes_controls_choice;
+mod recipes_controls_value;
+mod recipes_dialog;
+mod recipes_field;
+mod recipes_menu;
+mod recipes_popup;
+mod recipes_popup_command;
+mod recipes_select;
 mod shadows;
 mod theme;
 mod theme_access;

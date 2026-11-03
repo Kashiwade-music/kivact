@@ -15,7 +15,12 @@ pub fn catalog() -> impl IntoView {
 
 /// Mount the catalog with an explicit initial appearance.
 pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
-    let state = CatalogState::new(mode);
+    catalog_at(mode, "button")
+}
+
+/// Open the catalog at a named page in the requested appearance.
+pub fn catalog_at(mode: ThemeMode, slug: &str) -> impl IntoView {
+    let state = CatalogState::new(mode, slug);
     provide_theme(
         move || {
             kivact_ui_soft::theme(if state.dark.get() {

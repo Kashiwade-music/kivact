@@ -11,10 +11,10 @@ pub(super) struct CatalogState {
 }
 
 impl CatalogState {
-    pub(super) fn new(mode: ThemeMode) -> Self {
+    pub(super) fn new(mode: ThemeMode, slug: &str) -> Self {
         let first = pages()
             .iter()
-            .position(|page| page.slug == "button")
+            .position(|page| page.slug == slug)
             .unwrap_or_default();
         Self {
             dark: signal(mode == ThemeMode::Dark),

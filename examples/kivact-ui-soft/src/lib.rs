@@ -9,4 +9,4 @@ mod shell;
 
 pub use fonts::fonts;
 pub use pages::{PageInfo, pages};
-pub use shell::{catalog, catalog_with_mode};
+pub use shell::{catalog, catalog_at, catalog_with_mode};
