@@ -167,3 +167,54 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
         kivact_ui_soft::TimeOfDay::new(14, 35, 0)
     );
 }
+
+#[test]
+fn rich_text_source_toolbar_wraps_and_unwraps_native_unicode_selection() {
+    let screen = render_with(
+        RenderOptions {
+            theme: kivact_ui_soft::theme(ThemeMode::Light),
+            ..RenderOptions::from_env()
+        },
+        || {
+            let source = signal("café 東京".to_owned());
+            kivact_ui_soft::rich_text_editor("Markdown source", source)
+        },
+    );
+    let editor = screen.get_by_role(Role::TextBox, "Markdown source");
+    editor.press_key(Key::End);
+    editor.press_key_with(
+        Key::Home,
+        kivact::view::Modifiers {
+            shift: true,
+            ..Default::default()
+        },
+    );
+    for (command, wrapped) in [
+        ("Bold", "**café 東京**"),
+        ("Italic", "*café 東京*"),
+        ("Strikethrough", "~~café 東京~~"),
+        ("Inline code", "`café 東京`"),
+    ] {
+        let button = screen.get_by_role(Role::Button, command);
+        button.click();
+        assert_eq!(editor.value().as_deref(), Some(wrapped));
+        assert!(editor.is_focused());
+        button.click();
+        assert_eq!(editor.value().as_deref(), Some("café 東京"));
+    }
+    screen.get_by_role(Role::Button, "Preview").click();
+    assert!(
+        screen
+            .query_by_role(Role::TextBox, "Markdown source")
+            .is_none()
+    );
+    screen.get_by_role(Role::Button, "Write").click();
+    assert_eq!(
+        screen
+            .get_by_role(Role::TextBox, "Markdown source")
+            .value()
+            .as_deref(),
+        Some("café 東京")
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
