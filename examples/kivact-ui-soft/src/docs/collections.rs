@@ -4,15 +4,16 @@ use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::interaction::TreeNode;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, data_table, split};
+use kivact::ui::{DataColumn, data_table};
 use kivact_ui_soft::{
-    ChatSender, DictationState, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio,
-    breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
-    chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
-    clickable_card, collapsible_default, collapsible_group, divider, form_layout, form_row, grid,
-    hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
-    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, selectable_card,
-    stack_item, tree_list,
+    ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
+    ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
+    chat_bubble, chat_composer, chat_dictation_button, chat_layout, chat_message,
+    chat_system_message, chat_tool_calls, clickable_card, collapsible_default, collapsible_group,
+    divider, form_layout, form_row, grid, hstack, item, layout, layout_content, layout_header,
+    layout_panel, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
+    pagination, resize_handle, scrollable_area, section, selectable_card, stack_item, tree_list,
+    use_resizable,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -85,13 +86,25 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             "center(text(\"Centered content\"))",
         ),
         "form-layout" => specimen(
-            "Aligned fields",
-            form_layout(form_row(
-                text("Project"),
-                kivact::ui::text_input("Project", signal("Design notes".to_owned())),
+            "Horizontal labels stack at window widths of 480 px or less",
+            form_layout((
+                form_row(
+                    text("Project"),
+                    kivact::ui::text_input("Project", signal("Design notes".to_owned())),
+                ),
+                form_row(
+                    text("Review owner"),
+                    kivact::ui::text_input("Review owner", signal("Avery Morgan".to_owned())),
+                ),
             ))
-            .style(style().width(320)),
-            "form_layout(form_row(label, input))",
+            .direction(FormDirection::HorizontalLabels)
+            .style(style().max_width(400)),
+            r#"form_layout((
+    form_row(text("Project"), text_input("Project", project)),
+    form_row(text("Review owner"), text_input("Review owner", owner)),
+))
+.direction(FormDirection::HorizontalLabels)
+.style(style().max_width(400))"#,
         ),
         "layout" => specimen(
             "Header and content",
@@ -244,15 +257,43 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             .style(style().width(440)),
             "data_table(rows, |row| row.0, columns)",
         ),
-        "resizable" | "resize-handle" => specimen(
-            "Split panes",
-            split(
-                (text("Navigation"), text("Content")),
-                signal(vec![140.0, 200.0]),
+        "resizable" | "resize-handle" => {
+            let state = use_resizable(ResizableConfig {
+                default_size: ResizeSize::Px(144.0),
+                min_size: ResizeSize::Px(88.0),
+                max_size: ResizeSize::Px(216.0),
+                collapsible: true,
+                snaps: vec![88.0, 144.0, 216.0],
+                ..ResizableConfig::default()
+            });
+            let panel = state.clone();
+            let status = state.clone();
+            specimen(
+                "Drag or use the arrow keys. Enter toggles collapse.",
+                (
+                    layout()
+                        .start(move || layout_panel(text("Navigation")).resizable(panel))
+                        .start_resize_handle(resize_handle(state).divider(true))
+                        .content(|| layout_content(text("Content")))
+                        .style(style().width(360).height(92)),
+                    text(move || format!("Navigation width: {:.0} px", status.size())),
+                ),
+                r#"let state = use_resizable(ResizableConfig {
+    default_size: ResizeSize::Px(144.0),
+    min_size: ResizeSize::Px(88.0),
+    max_size: ResizeSize::Px(216.0),
+    collapsible: true,
+    snaps: vec![88.0, 144.0, 216.0],
+    ..ResizableConfig::default()
+});
+let panel = state.clone();
+layout()
+    .start(move || layout_panel(text("Navigation")).resizable(panel))
+    .start_resize_handle(resize_handle(state).divider(true))
+    .content(|| layout_content(text("Content")))
+    .style(style().width(360).height(92))"#,
             )
-            .style(style().width(340).height(72)),
-            "split((navigation, content), sizes)",
-        ),
+        }
         _ => return None,
     })
 }
