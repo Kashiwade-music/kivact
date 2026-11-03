@@ -1,8 +1,10 @@
 //! Role: Exercise grouped standard table rows through the public facade.
 use kivact::interaction::{ListActivation, ListPolicy, SortOrder, TableFocus};
-use kivact::prelude::*;
+use kivact::signal;
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::ui::{DataColumn, data_table};
+use kivact::view::{Key, Role};
 
 #[derive(Clone, PartialEq)]
 struct Person {

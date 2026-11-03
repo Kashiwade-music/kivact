@@ -185,7 +185,7 @@ pub use recipes::{
     ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
 };
 pub use split::{Split, split};
-pub use switch_drag::{SwitchDrag, SwitchDragState};
+pub use switch_drag::SwitchDrag;
 pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
@@ -194,8 +194,8 @@ pub use tree::{TreeView, tree, tree_rows, tree_rows_with_reveal};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
-    ProgressState, SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState,
-    TooltipArrowState, provide_control_size,
+    ProgressState, SelectTriggerState, SwitchDragState, TextInputState, ToastGroupState,
+    ToggleButtonState, TooltipArrowState, provide_control_size,
 };
 pub use variants::{Look, Variant};
 

@@ -1,13 +1,11 @@
 //! Role: Map the pointer along a slider's track to the value of a thumb.
 
-use super::edit_state::Shared;
 use crate::axis::Axis;
 use crate::drag::{Drag, DragCoordinates, DragUpdate, use_drag};
 use crate::edit::EditSession;
 use crate::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use crate::policy::scalar::ScalarRange;
 use kivact_core::draw::{Point, Rect};
-use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{NodeRef, ReadingDirection, current_direction};
 use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 
@@ -139,6 +137,12 @@ pub(crate) struct Pointer {
 }
 
 impl Pointer {
+    pub(crate) fn attach_track(self, rect: Value<Option<Rect>>, axis: Axis) {
+        let rtl = axis.is_horizontal() && current_direction() == ReadingDirection::Rtl;
+        self.geometry.set(Some(Geometry { rect, axis, rtl }));
+        self.attached.set(true);
+    }
+
     /// Setup only.
     #[track_caller]
     pub(crate) fn new() -> Self {
@@ -275,23 +279,6 @@ pub(crate) fn drag(
         .on_start(move |update: DragUpdate<Grip>| pointer.start(&update))
         .on_update(move |update: DragUpdate<Grip>| pointer.follow(&update))
         .on_end(move |_: DragUpdate<Grip>| pointer.grab.set(None))
-}
-
-/// The track of the thumbs `pointer` and `drag` move; a press focuses
-/// `first_thumb`. Setup only.
-#[track_caller]
-pub(crate) fn track(shared: Shared, first_thumb: NodeRef, axis: Axis) -> Part<PartState> {
-    let rtl = axis.is_horizontal() && current_direction() == ReadingDirection::Rtl;
-    let surface = part(|input| input).focus_on_press(first_thumb);
-    let surface = shared.touch_source(surface, Grip::Track);
-    let pointer = shared.pointer;
-    pointer.geometry.set(Some(Geometry {
-        rect: surface.node_ref().rect(),
-        axis,
-        rtl,
-    }));
-    pointer.attached.set(true);
-    surface.with(shared.drag.source(Grip::Track))
 }
 
 /// The thumb whose value lies nearest to `pointer` (a fraction of the

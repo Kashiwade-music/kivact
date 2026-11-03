@@ -578,7 +578,7 @@ impl Model {
                 continue;
             };
             let size = l.size;
-            let text_truncated = crate::check::text_truncated(self, engine, id);
+            let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
                 && n.sent_layout != Some((rect, size, text_truncated))
             {

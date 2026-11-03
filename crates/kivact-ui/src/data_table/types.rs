@@ -75,14 +75,33 @@ impl crate::variants::Variant for DataTableDensity {}
 
 pub(super) type StickyEdges = (Vec<usize>, Vec<usize>);
 
+pub(super) struct Grouping<R> {
+    pub(super) key: Key<R, String>,
+    pub(super) collapsed: Binding<Vec<String>>,
+}
+
+pub(super) struct TreeConfig<R, K: 'static> {
+    pub(super) parent: Key<R, Option<K>>,
+    pub(super) expanded: Binding<Vec<K>>,
+}
+
+/// Horizontal space for each additional table tree level.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DataTableTreeIndent {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
+
 /// A table of the caller's rows, created by [`data_table`].
 pub struct DataTable<R: 'static, K: 'static> {
     pub(super) root: Node,
     pub(super) rows: Value<Vec<R>>,
-    pub(super) grouping: Option<super::grouped::Grouping<R>>,
-    pub(super) tree: Option<super::tree::Config<R, K>>,
+    pub(super) grouping: Option<Grouping<R>>,
+    pub(super) tree: Option<TreeConfig<R, K>>,
     pub(super) tree_column: usize,
-    pub(super) tree_indent: super::tree::DataTableTreeIndent,
+    pub(super) tree_indent: DataTableTreeIndent,
     pub(super) tree_expand_all: bool,
     pub(super) key: Key<R, K>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,

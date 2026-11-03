@@ -224,6 +224,19 @@ pub struct FieldState {
     pub invalid: bool,
 }
 
+/// The visual position of a switch thumb during an opt-in gesture.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SwitchDragState {
+    /// Physical translation along the writing direction, in logical pixels.
+    pub offset: Option<f32>,
+    /// The side the thumb is showing, before the binding commits.
+    pub visually_on: bool,
+    pub touch: bool,
+    pub tracking: bool,
+    pub lifted: bool,
+    pub released: bool,
+}
+
 /// The state of a check box, a switch or a radio item for its recipe.
 #[derive(Clone, Copy, Debug)]
 pub struct CheckState {
@@ -243,7 +256,7 @@ pub struct CheckState {
     /// follows its text. It is not part of the state's equality.
     pub text: Option<kivact_core::Value<String>>,
     /// Live visual state for an opted-in Switch gesture.
-    pub switch_drag: Option<super::SwitchDragState>,
+    pub switch_drag: Option<SwitchDragState>,
 }
 
 impl PartialEq for CheckState {

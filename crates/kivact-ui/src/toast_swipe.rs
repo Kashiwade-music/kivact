@@ -267,6 +267,7 @@ fn qualifies(travel: f32, height: f32, elapsed_ms: f32) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Check swipe intent and dismissal thresholds.
     use super::*;
 
     #[test]

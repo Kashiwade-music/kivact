@@ -1,5 +1,5 @@
 //! Role: The data table's constructor and the options a caller turns on.
-use super::types::{DataTable, DataTableContext};
+use super::types::{DataTable, DataTableContext, DataTableTreeIndent, Grouping, TreeConfig};
 use crate::DataColumn;
 use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
@@ -104,7 +104,7 @@ where
         grouping: None,
         tree: None,
         tree_column: 0,
-        tree_indent: super::tree::DataTableTreeIndent::default(),
+        tree_indent: DataTableTreeIndent::default(),
         tree_expand_all: false,
         key: Rc::new(key),
         columns: Rc::new(columns),
@@ -155,7 +155,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         group: impl Fn(&R) -> G + 'static,
         collapsed: impl Into<Binding<Vec<String>>>,
     ) -> Self {
-        self.grouping = Some(super::grouped::Grouping {
+        self.grouping = Some(Grouping {
             key: Rc::new(move |row| group(row).into()),
             collapsed: collapsed.into(),
         });
@@ -168,7 +168,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         parent: impl Fn(&R) -> Option<K> + 'static,
         expanded: impl Into<Binding<Vec<K>>>,
     ) -> Self {
-        self.tree = Some(super::tree::Config {
+        self.tree = Some(TreeConfig {
             parent: Rc::new(parent),
             expanded: expanded.into(),
         });
@@ -182,7 +182,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     }
 
     /// Choose the horizontal space added at each tree level.
-    pub fn tree_indent(mut self, indent: super::tree::DataTableTreeIndent) -> Self {
+    pub fn tree_indent(mut self, indent: DataTableTreeIndent) -> Self {
         self.tree_indent = indent;
         self
     }

@@ -289,6 +289,8 @@ fn coast_sample(from: f64, target: f64, velocity: f64, response: f64, elapsed: f
 
 #[cfg(test)]
 mod tests {
+    //! Role: Check touch-slider release calculations.
+
     use super::coast_sample;
 
     #[test]

@@ -1,4 +1,4 @@
-//! Role: Verify Soft Switch contact release, cancellation and unchanged keyboard behavior.
+//! Role: Verify Soft switch pointer gestures.
 use kivact::binding;
 use kivact::signal;
 use kivact::style::ThemeMode;

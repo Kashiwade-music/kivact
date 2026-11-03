@@ -1,5 +1,7 @@
 //! Role: Group already sorted and paged data without adding synthetic data keys.
+use super::group_state::DataTableGroupState;
 use super::rows::{self, Grid};
+use super::types::Grouping;
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, button};
 use kivact_core::control::{NodeBuilder, icon, node, row, text};
@@ -14,20 +16,6 @@ use kivact_interaction::TableFocus;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
-
-/// The state a group-header recipe draws.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DataTableGroupState {
-    /// Matching rows in this group on the current page, including collapsed rows.
-    pub count: usize,
-    /// Whether the group is collapsed.
-    pub collapsed: bool,
-}
-
-pub(super) struct Grouping<R> {
-    pub(super) key: super::types::Key<R, String>,
-    pub(super) collapsed: Binding<Vec<String>>,
-}
 
 #[derive(Clone, PartialEq)]
 enum Entry<R> {

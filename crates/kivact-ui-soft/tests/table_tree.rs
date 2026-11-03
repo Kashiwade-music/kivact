@@ -1,9 +1,11 @@
 //! Role: Exercise a hierarchy through the standard table in the Soft theme.
 use kivact::interaction::SortOrder;
-use kivact::prelude::*;
+use kivact::signal;
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::ui::{DataColumn, data_table};
 use kivact::view::CheckedState;
+use kivact::view::Role;
 
 #[test]
 fn tree_rows_keep_table_roles_and_expand_before_paging() {

@@ -3,7 +3,7 @@
 use super::edit_state::{Edit, Shared, register_focus};
 use super::ops::ScalarOps;
 use super::range::{IntoScalarRange, follow_range};
-use super::track::{self, Grip, Target, fraction};
+use super::track::{Grip, Target, fraction};
 use crate::axis::Axis;
 use crate::drag::Drag;
 use crate::edit::EditPhase;
@@ -283,7 +283,11 @@ impl Scalar {
     pub fn track(self, axis: Orientation) -> Part<PartState> {
         let axis = Axis::of(axis, "Scalar::track");
         let edit = self.edit;
-        track::track(edit.shared, edit.thumb, axis)
+        let shared = edit.shared;
+        let surface = part(|input| input).focus_on_press(edit.thumb);
+        let surface = shared.touch_source(surface, Grip::Track);
+        shared.pointer.attach_track(surface.node_ref().rect(), axis);
+        surface.with(shared.drag.source(Grip::Track))
     }
 
     #[track_caller]

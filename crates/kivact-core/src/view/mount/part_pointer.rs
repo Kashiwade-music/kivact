@@ -12,6 +12,23 @@ use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver};
 use crate::view::state::ViewState;
 use crate::view::{Handled, MouseButton, PointerButtons, PointerEvent, PointerId, PointerPhase};
 
+impl PointerEvent {
+    /// Suppress the click activation of this primary gesture at its target.
+    /// Call from a pointer handler when it takes over the press or drag.
+    /// Keyboard and accessibility activations are independent.
+    pub fn suppress_activation(&self) {
+        if self.is_primary
+            && let Some(runtime) = kivact_reactive::Runtime::current()
+        {
+            ViewState::tree(&runtime).engine().adopt_pointer_target(
+                self.origin.node,
+                self.origin.region,
+                self.id,
+            );
+        }
+    }
+}
+
 impl Gestures {
     fn capture(&mut self, pointer: PointerId) -> Option<&mut Capture> {
         self.captures.iter_mut().find(|c| c.pointer == pointer)

@@ -1,5 +1,5 @@
 //! Role: Opt-in direct manipulation for a standard switch.
-use crate::ControlSize;
+use crate::values::{ControlSize, SwitchDragState};
 use kivact_core::draw::Point;
 use kivact_core::primitive::{Part, clock_now};
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
@@ -19,19 +19,6 @@ impl ThemeExtension for SwitchDrag {
     fn fallback(_: &Theme) -> Self {
         Self(false)
     }
-}
-
-/// The visual position of a switch thumb during an opt-in gesture.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SwitchDragState {
-    /// Physical translation along the writing direction, in logical pixels.
-    pub offset: Option<f32>,
-    /// The side the thumb is showing, before the binding commits.
-    pub visually_on: bool,
-    pub touch: bool,
-    pub tracking: bool,
-    pub lifted: bool,
-    pub released: bool,
 }
 
 #[derive(Clone, Copy)]

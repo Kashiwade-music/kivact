@@ -1,5 +1,5 @@
 //! Role: Arrange hierarchical table rows and render their disclosure controls.
-use super::types::Key;
+use super::types::{DataTableTreeIndent, Key, TreeConfig};
 use crate::{Button, ButtonVariant, button};
 use kivact_core::control::{NodeBuilder, icon, node, row};
 use kivact_core::i18n::message;
@@ -12,15 +12,6 @@ use kivact_interaction::{TreeNode, TreeRow, flatten_tree_rows};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
-/// Horizontal space for each additional table tree level.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum DataTableTreeIndent {
-    Small,
-    #[default]
-    Medium,
-    Large,
-}
-
 impl DataTableTreeIndent {
     fn pixels(self) -> f32 {
         match self {
@@ -29,11 +20,6 @@ impl DataTableTreeIndent {
             Self::Large => 24.0,
         }
     }
-}
-
-pub(super) struct Config<R, K: 'static> {
-    pub(super) parent: Key<R, Option<K>>,
-    pub(super) expanded: Binding<Vec<K>>,
 }
 
 pub(super) struct Plan<K: 'static> {
@@ -81,12 +67,12 @@ impl<K: Clone + Eq + Hash + 'static> Plan<K> {
     pub(super) fn new<R: 'static>(
         source: Value<Vec<R>>,
         key: Key<R, K>,
-        config: Config<R, K>,
+        config: TreeConfig<R, K>,
         column: usize,
         indent: DataTableTreeIndent,
         show_all: bool,
     ) -> Self {
-        let Config { parent, expanded } = config;
+        let TreeConfig { parent, expanded } = config;
         let all = memo(move || {
             source.with(|rows| {
                 let nodes = rows

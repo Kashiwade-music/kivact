@@ -68,27 +68,6 @@ mod findings;
 mod layout_reference;
 mod shaped_lines;
 
-/// Whether the node's native text shaping cut any displayed line.
-pub(crate) fn text_truncated(
-    host: &crate::model::Model,
-    engine: &mut arvane::Engine,
-    id: kivact_wire::NodeId,
-) -> bool {
-    if !host
-        .node(id)
-        .is_some_and(|node| node.kind() == kivact_wire::NodeType::Text)
-    {
-        return false;
-    }
-    let props = host.text_props(id);
-    let more = props.more();
-    if more.max_lines.is_none() && more.overflow != kivact_types::TextOverflow::Ellipsis {
-        return false;
-    }
-    shaped_lines::shape(host, engine, id, false)
-        .is_some_and(|text| text.lines.iter().any(|line| line.cut))
-}
-
 #[cfg(debug_assertions)]
 pub(crate) use boxes::visual_parent_of;
 #[cfg(feature = "testing")]

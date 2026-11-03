@@ -1,4 +1,4 @@
-//! Role: Text input geometry shared by caret painting, IME positioning and the pointer.
+//! Role: Native text geometry shared by layout reporting, editing and diagnostics.
 //!
 //! Text input geometry shared by caret painting, IME positioning and the
 //! pointer: where the caret is, which caret the pointer is over, and the
@@ -49,6 +49,49 @@ use crate::model::interact::visual;
 use crate::model::transform::map_rect;
 
 use kivact_text::{line_height, line_offset};
+
+/// Shape a non-editor text node with the same width allowance and
+/// color-independent typography as the layout diagnostics.
+pub(crate) fn shape_static_text(
+    host: &Model,
+    id: NodeId,
+    engine: &mut arvane::Engine,
+    area_width: f32,
+) -> Option<std::sync::Arc<kivact_wire::ShapedText>> {
+    let node = host.node(id)?;
+    let mut style = kivact_lower::assets::text_style(engine, &host.text_props(id));
+    style.color = kivact_types::protocol::TextStyle::default().color;
+    style.decoration.color = None;
+    let width = Some(area_width.max(0.0) + 1.0);
+    let content = node.content().unwrap_or("");
+    if node.spans().is_empty() {
+        engine.shape_glyphs(content, &style, width).ok()
+    } else {
+        let spans = crate::measure::leaf::rich_spans(engine, node.spans(), &style);
+        let text = kivact_types::protocol::RichText {
+            text: content,
+            spans: &spans,
+        };
+        engine.shape_glyphs(text, &style, width).ok()
+    }
+}
+
+/// Whether native shaping cut any displayed line of an observed text node.
+pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: NodeId) -> bool {
+    if !host
+        .node(id)
+        .is_some_and(|node| node.kind() == kivact_wire::NodeType::Text)
+    {
+        return false;
+    }
+    let props = host.text_props(id);
+    let more = props.more();
+    if more.max_lines.is_none() && more.overflow != kivact_types::TextOverflow::Ellipsis {
+        return false;
+    }
+    shape_static_text(host, id, engine, visual::text_box(host, id).width)
+        .is_some_and(|text| text.lines.iter().any(|line| line.cut))
+}
 
 /// The horizontal text scroll of a text input.
 pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f32 {
