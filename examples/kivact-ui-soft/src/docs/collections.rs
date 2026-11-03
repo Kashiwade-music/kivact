@@ -4,7 +4,7 @@ use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::interaction::TreeNode;
 use kivact::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, DataTableDensity, button, data_table};
+use kivact::ui::{DataColumn, DataTableDensity, FilterField, FilterValue, button, data_table};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
     ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
@@ -247,6 +247,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             let filters = signal(Vec::<(usize, String)>::new());
             let expanded = signal(Vec::new());
             let sort = signal(Vec::new());
+            let typed = signal(std::collections::HashMap::new());
             let table = data_table(
                 vec![
                     ("Design", "Active"),
@@ -261,11 +262,20 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     DataColumn::new("Status", |row: &(&str, &str)| row.1.to_owned())
                         .sortable()
                         .filter(|row, query| row.1 == query)
+                        .filter_field(
+                            FilterField::Choice(
+                                ["Active", "Review", "Closed"]
+                                    .map(|value| (value.to_owned(), value.to_owned()))
+                                    .into(),
+                            ),
+                            |row, value| matches!(value, FilterValue::Choice(choice) if row.1 == choice),
+                        )
                         .flex(1.0),
                 ],
             )
             .multi_sort(sort)
             .column_filters(filters)
+            .typed_column_filters(typed)
             .row_details(|item| text(move || item.with(|row| format!("{} is {}", row.0, row.1))))
             .expanded_rows(expanded)
             .style(style().width(440));
@@ -281,7 +291,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     table,
                 ))
                 .style(style().gap(8)),
-                "data_table(rows, |row| row.0, columns)\n    .multi_sort(sort)\n    .column_filters(filters)\n    .row_details(render_details)\n    .expanded_rows(expanded)",
+                "data_table(rows, |row| row.0, columns)\n    .multi_sort(sort)\n    .typed_column_filters(typed)\n    .row_details(render_details)\n    .expanded_rows(expanded)",
             );
             let pinned = specimen(
                 "Compact table with pinned edges",
@@ -305,7 +315,26 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 .style(style().width(350)),
                 "data_table(rows, |row| row[0], columns)\n    .sticky_columns(vec![0], vec![3])\n    .density(DataTableDensity::Compact)",
             );
-            column((controls, pinned)).style(style().gap(12))
+            let folders = specimen(
+                "Folder hierarchy",
+                data_table(
+                    vec![
+                        (1, None, "Planning"),
+                        (2, Some(1), "Brief"),
+                        (3, None, "Delivery"),
+                    ],
+                    |row| row.0,
+                    vec![DataColumn::new(
+                        "Folder",
+                        |row: &(u32, Option<u32>, &str)| row.2.to_owned(),
+                    )],
+                )
+                .tree(|row| row.1, signal(vec![1]))
+                .tree_expand_all(true)
+                .style(style().width(350)),
+                "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .tree_expand_all(true)",
+            );
+            column((controls, pinned, folders)).style(style().gap(12))
         }
         "resizable" | "resize-handle" => {
             let state = use_resizable(ResizableConfig {

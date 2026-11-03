@@ -98,6 +98,28 @@ fn capture_catalog() {
                     .screenshot()
                     .save_png(output.join(format!("table-{name}-pinned.png")))
                     .expect("pinned column screenshot");
+                screen.get_by_role(Role::Button, "Filter Status").click();
+                screen.advance(Duration::from_millis(220));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("table-{name}-typed-filter.png")))
+                    .expect("typed filter screenshot");
+            }
+            if page.slug == "date-input" {
+                screen
+                    .get_by_role(Role::ComboBox, "Touch due date")
+                    .press_key(Key::ArrowDown);
+                screen.advance(Duration::from_millis(500));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("date-input-{name}-touch-calendar.png")))
+                    .expect("touch date screenshot");
+                screen.get_by_role(Role::Button, "October 2026").click();
+                screen.advance(Duration::from_millis(350));
+                screen
+                    .screenshot()
+                    .save_png(output.join(format!("date-input-{name}-touch-wheels.png")))
+                    .expect("touch date wheels screenshot");
             }
             if page.slug == "spinner" {
                 screen.set_reduced_motion(true);

@@ -1,11 +1,12 @@
 //! Role: Demonstrate the Soft calendar and controlled date and time fields.
 use super::specimen::specimen;
-use kivact::control::Node;
+use kivact::control::{Node, NodeBuilder, column};
 use kivact::i18n::{CalendarDate, DateRange};
 use kivact::signal;
+use kivact::style::style;
 use kivact_ui_soft::{
-    DateRangePreset, DateTime, TimeOfDay, calendar, date_input, date_range_input, date_time_input,
-    time_input,
+    DatePresentation, DateRangePreset, DateTime, TimeOfDay, calendar, date_input, date_range_input,
+    date_time_input, time_input,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -15,11 +16,23 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             calendar(signal(None::<CalendarDate>)),
             "calendar(date)",
         ),
-        "date-input" => specimen(
-            "Edit a date or open the calendar",
-            date_input("Due date", signal(None::<CalendarDate>)),
-            "date_input(\"Due date\", date)",
-        ),
+        "date-input" => column((
+            specimen(
+                "Edit a date or open the calendar",
+                date_input("Due date", signal(None::<CalendarDate>)),
+                "date_input(\"Due date\", date)",
+            ),
+            specimen(
+                "Calendar and month or year wheels",
+                date_input(
+                    "Touch due date",
+                    signal(Some(CalendarDate::new(2026, 10, 14))),
+                )
+                .presentation(DatePresentation::BottomSheet),
+                "date_input(\"Touch due date\", date).presentation(DatePresentation::BottomSheet)",
+            ),
+        ))
+        .style(style().gap(12)),
         "date-range-input" => {
             let date = |day| CalendarDate::new(2026, 10, day);
             let week = DateRange::new(date(12), date(18));
