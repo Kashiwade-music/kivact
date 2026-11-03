@@ -9,7 +9,9 @@ use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use crate::{ListGesture, ListMode, ListSelection, SplitterState, use_splitter};
 use kivact_core::diagnostics::ErrorKind;
 use kivact_core::primitive::{Owned, Part, PartState, part, raise, require_setup};
-use kivact_core::view::{IntoValue, Orientation, Role, SortDirection, current_modifiers};
+use kivact_core::view::{
+    Handled, IntoValue, Key, KeyEvent, Orientation, Role, SortDirection, current_modifiers,
+};
 use kivact_core::{Binding, Value, binding, memo, var};
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -309,6 +311,41 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                 [("rank", rank.to_string()), ("total", total.to_string())]
             },
         );
+        let activate = move |extend: bool| {
+            if !sortable.get() {
+                return;
+            }
+            if let Some(binding) = multi_sort.get_untracked() {
+                let column = key.get();
+                let mut keys = binding.get_untracked();
+                let index = keys.iter().position(|(key, _)| *key == column);
+                let next = match index.map(|index| keys[index].1) {
+                    None => Some(SortOrder::Ascending),
+                    Some(SortOrder::Ascending) => Some(SortOrder::Descending),
+                    Some(SortOrder::Descending) => None,
+                };
+                if !extend {
+                    keys.clear();
+                    keys.extend(next.map(|next| (column, next)));
+                } else if let Some(index) = index {
+                    if let Some(next) = next {
+                        keys[index].1 = next;
+                    } else {
+                        keys.remove(index);
+                    }
+                } else if let Some(next) = next {
+                    keys.push((column, next));
+                }
+                binding.set(keys);
+                return;
+            }
+            let next = match direction.get() {
+                Some(SortOrder::Ascending) => SortOrder::Descending,
+                _ => SortOrder::Ascending,
+            };
+            sort.get_untracked().set(Some((key.get(), next)));
+        };
+        let focused = reference.focused();
         part(move |input| TableHeaderState {
             input,
             sort: direction.get(),
@@ -333,39 +370,23 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                 String::new()
             }
         })
-        .on_press(move || {
-            if !sortable.get() {
-                return;
+        .on_press(move || activate(current_modifiers().shift))
+        .on_key(move |event: KeyEvent| {
+            let modifiers = event.modifiers;
+            if !event.repeat
+                && modifiers.shift
+                && !modifiers.ctrl
+                && !modifiers.alt
+                && !modifiers.meta
+                && matches!(event.key, Key::Enter | Key::Space)
+                && focused.get_untracked()
+                && multi_sort.get_untracked().is_some()
+            {
+                activate(true);
+                Handled::Yes
+            } else {
+                Handled::No
             }
-            if let Some(binding) = multi_sort.get_untracked() {
-                let column = key.get();
-                let mut keys = binding.get_untracked();
-                let index = keys.iter().position(|(key, _)| *key == column);
-                let next = match index.map(|index| keys[index].1) {
-                    None => Some(SortOrder::Ascending),
-                    Some(SortOrder::Ascending) => Some(SortOrder::Descending),
-                    Some(SortOrder::Descending) => None,
-                };
-                if !current_modifiers().shift {
-                    keys.clear();
-                    keys.extend(next.map(|next| (column, next)));
-                } else if let Some(index) = index {
-                    if let Some(next) = next {
-                        keys[index].1 = next;
-                    } else {
-                        keys.remove(index);
-                    }
-                } else if let Some(next) = next {
-                    keys.push((column, next));
-                }
-                binding.set(keys);
-                return;
-            }
-            let next = match direction.get() {
-                Some(SortOrder::Ascending) => SortOrder::Descending,
-                _ => SortOrder::Ascending,
-            };
-            sort.get_untracked().set(Some((key.get(), next)));
         })
         .reference(reference)
     }
