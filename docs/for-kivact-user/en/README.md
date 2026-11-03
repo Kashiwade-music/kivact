@@ -56,5 +56,5 @@ environment variable `ARVANE_RENDERER=cpu`.
 | --- | --- |
 | [getting-started/](getting-started/README.md) | The tutorial. Build a small to-do app, one page at a time. Start here. |
 | [how-to-guide/](how-to-guide/README.md) | Guides for specific goals, such as validating a form or showing a dialog. |
-| [UI kits](../../for-kivact-ui-user/en/README.md) | The four official component kits (`kivact-ui-basic`, `kivact-ui-pop`, `kivact-ui-game`, `kivact-ui-creative`) and their themes. |
+| [UI kits](../../for-kivact-ui-user/en/README.md) | The five official component kits (`kivact-ui-basic`, `kivact-ui-pop`, `kivact-ui-game`, `kivact-ui-creative`, `kivact-ui-soft`) and their themes. |
 | API reference | Run `cargo doc -p kivact --open` in a project that depends on Kivact, or in a clone of the repository. |

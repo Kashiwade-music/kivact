@@ -44,7 +44,7 @@ fn main() -> kivact::Result<()> {
   composition.
 - **Drawing.** A Canvas with an HTML Canvas–like vocabulary, frames from the
   application's own renderer, and off-screen image export.
-- **UI kits.** Four official kits restyle the standard components and add
+- **UI kits.** Five official kits restyle the standard components and add
   domain components, built only on the public API.
 
 ## Getting started
@@ -92,6 +92,7 @@ The API reference is the rustdoc: `cargo doc -p kivact --open`.
 | `kivact-ui-pop` | Calm business-application kit. |
 | `kivact-ui-game` | Game-style control panels and HUDs. |
 | `kivact-ui-creative` | Creative editing tools: timelines, node graphs, docks, inspectors. |
+| `kivact-ui-soft` | Astryx Neutral in light and dark appearances. |
 | `kivact-gpu-share` | Engine-side half of GPU texture sharing (experimental). |
 
 The other crates under [`crates/`](crates) are implementation details of

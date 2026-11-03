@@ -27,8 +27,8 @@ fn main() -> kivact::Result<()> {
 - `Theme::light()` is the default and `Theme::dark()` its dark counterpart.
   `theme.mode()` returns a `ThemeMode` (`Light` or `Dark`).
 - Every kit exposes `theme(mode: ThemeMode)`: `kivact_ui_basic::theme`,
-  `kivact_ui_pop::theme`, `kivact_ui_game::theme` and
-  `kivact_ui_creative::theme`. Pass the result to `App::theme`. The kit guides
+  `kivact_ui_pop::theme`, `kivact_ui_game::theme`, `kivact_ui_creative::theme`
+  and `kivact_ui_soft::theme`. Pass the result to `App::theme`. The kit guides
   (see the [kits index](../../../for-kivact-ui-user/en/README.md)) describe each
   look and the extra components that come with it.
 - Which mode to use, system or user setting, is your app's decision. Kivact does

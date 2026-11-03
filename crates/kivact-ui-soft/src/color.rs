@@ -1,0 +1,527 @@
+//! Role: Define the Astryx Neutral palette for light and dark appearances.
+use kivact::style::{Color, rgb, rgba};
+
+/// Neutral surface, semantic, categorical, data and syntax colors.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Colors {
+    pub bg_body: Color,
+    pub bg_surface: Color,
+    pub bg_card: Color,
+    pub bg_popover: Color,
+    pub bg_muted: Color,
+    pub bg_inverted: Color,
+    pub bg_error_inverted: Color,
+    pub neutral: Color,
+    pub accent: Color,
+    pub accent_muted: Color,
+    pub on_accent: Color,
+    pub on_dark: Color,
+    pub on_light: Color,
+    pub text_primary: Color,
+    pub text_secondary: Color,
+    pub text_disabled: Color,
+    pub text_accent: Color,
+    pub icon_primary: Color,
+    pub icon_secondary: Color,
+    pub icon_disabled: Color,
+    pub icon_accent: Color,
+    pub border: Color,
+    pub border_emphasized: Color,
+    pub skeleton: Color,
+    pub track: Color,
+    pub shadow: Color,
+    pub tint_hover: Color,
+    pub overlay_scrim: Color,
+    pub overlay_hover: Color,
+    pub overlay_pressed: Color,
+    pub focus_ring: Color,
+    pub info: Color,
+    pub on_info: Color,
+    pub info_muted: Color,
+    pub on_info_muted: Color,
+    pub text_info: Color,
+    pub success: Color,
+    pub on_success: Color,
+    pub success_muted: Color,
+    pub on_success_muted: Color,
+    pub text_success: Color,
+    pub warning: Color,
+    pub on_warning: Color,
+    pub warning_muted: Color,
+    pub on_warning_muted: Color,
+    pub text_warning: Color,
+    pub error: Color,
+    pub on_error: Color,
+    pub error_muted: Color,
+    pub on_error_muted: Color,
+    pub text_error: Color,
+    pub hue: Hues,
+    pub data: DataColors,
+    pub syntax: SyntaxColors,
+}
+
+impl Colors {
+    pub(super) fn light() -> Self {
+        Self {
+            bg_body: rgb(0xf1f1f1),
+            bg_surface: rgb(0xffffff),
+            bg_card: rgb(0xffffff),
+            bg_popover: rgb(0xffffff),
+            bg_muted: rgb(0xf1f1f1),
+            bg_inverted: rgb(0x0a1317),
+            bg_error_inverted: rgb(0xaa071e),
+            neutral: rgba(0x000000, 15.0 / 255.0),
+            accent: rgb(0x1b1b1b),
+            accent_muted: rgb(0xf1f1f1),
+            on_accent: rgb(0xffffff),
+            on_dark: rgb(0xffffff),
+            on_light: rgb(0x111111),
+            text_primary: rgb(0x000000),
+            text_secondary: rgb(0x474747),
+            text_disabled: rgb(0x919191),
+            text_accent: rgb(0x1b1b1b),
+            icon_primary: rgb(0x000000),
+            icon_secondary: rgb(0x6a6a6a),
+            icon_disabled: rgb(0x919191),
+            icon_accent: rgb(0x1b1b1b),
+            border: rgba(0x000000, 20.0 / 255.0),
+            border_emphasized: rgb(0xd4d4d4),
+            skeleton: rgb(0xf1f1f1),
+            track: rgb(0xccd3db),
+            shadow: rgba(0x000000, 26.0 / 255.0),
+            tint_hover: rgb(0x000000),
+            overlay_scrim: rgba(0x000000, 128.0 / 255.0),
+            overlay_hover: rgba(0x000000, 13.0 / 255.0),
+            overlay_pressed: rgba(0x000000, 26.0 / 255.0),
+            focus_ring: rgb(0x1b1b1b),
+            info: rgb(0x0074e2),
+            on_info: rgb(0xffffff),
+            info_muted: rgb(0xb9d7ff),
+            on_info_muted: rgb(0x003978),
+            text_info: rgb(0x0067ce),
+            success: rgb(0x198100),
+            on_success: rgb(0xffffff),
+            success_muted: rgb(0xbce0bb),
+            on_success_muted: rgb(0x00490b),
+            text_success: rgb(0x2f7d33),
+            warning: rgb(0xffce2f),
+            on_warning: rgb(0x111111),
+            warning_muted: rgb(0xfae19e),
+            on_warning_muted: rgb(0x4b3900),
+            text_warning: rgb(0x836700),
+            error: rgb(0xc9303a),
+            on_error: rgb(0xffffff),
+            error_muted: rgb(0xffc4be),
+            on_error_muted: rgb(0x76000c),
+            text_error: rgb(0xc0262c),
+            hue: Hues::light(),
+            data: DataColors::new(false),
+            syntax: SyntaxColors::light(),
+        }
+    }
+
+    pub(super) fn dark() -> Self {
+        Self {
+            bg_body: rgb(0x1b1b1b),
+            bg_surface: rgb(0x262626),
+            bg_card: rgb(0x1b1b1b),
+            bg_popover: rgb(0x1b1b1b),
+            bg_muted: rgb(0x1b1b1b),
+            bg_inverted: rgb(0xffffff),
+            bg_error_inverted: rgb(0xe3193b),
+            neutral: rgba(0xffffff, 26.0 / 255.0),
+            accent: rgb(0xf1f1f1),
+            accent_muted: rgb(0x262626),
+            on_accent: rgb(0x111111),
+            on_dark: rgb(0xffffff),
+            on_light: rgb(0x111111),
+            text_primary: rgb(0xffffff),
+            text_secondary: rgb(0x9e9e9e),
+            text_disabled: rgb(0x525252),
+            text_accent: rgb(0xf1f1f1),
+            icon_primary: rgb(0xffffff),
+            icon_secondary: rgb(0x9e9e9e),
+            icon_disabled: rgb(0x525252),
+            icon_accent: rgb(0xf1f1f1),
+            border: rgba(0xffffff, 26.0 / 255.0),
+            border_emphasized: rgb(0x525252),
+            skeleton: rgb(0x525252),
+            track: rgb(0x5a5e66),
+            shadow: rgba(0x000000, 77.0 / 255.0),
+            tint_hover: rgb(0xffffff),
+            overlay_scrim: rgba(0x000000, 204.0 / 255.0),
+            overlay_hover: rgba(0xffffff, 13.0 / 255.0),
+            overlay_pressed: rgba(0xffffff, 26.0 / 255.0),
+            focus_ring: rgb(0xf1f1f1),
+            info: rgb(0x6d9cfe),
+            on_info: rgb(0x111111),
+            info_muted: rgba(0x88bcff, 61.0 / 255.0),
+            on_info_muted: rgb(0xa1caff),
+            text_info: rgb(0xa1caff),
+            success: rgb(0x64af4c),
+            on_success: rgb(0x111111),
+            success_muted: rgba(0x90ca90, 61.0 / 255.0),
+            on_success_muted: rgb(0x90ca90),
+            text_success: rgb(0x90ca90),
+            warning: rgb(0xffce2f),
+            on_warning: rgb(0x111111),
+            warning_muted: rgba(0xe2b623, 61.0 / 255.0),
+            on_warning_muted: rgb(0xeec448),
+            text_warning: rgb(0xeec448),
+            error: rgb(0xff705d),
+            on_error: rgb(0x111111),
+            error_muted: rgba(0xff9890, 61.0 / 255.0),
+            on_error_muted: rgb(0xffaea7),
+            text_error: rgb(0xffaea7),
+            hue: Hues::dark(),
+            data: DataColors::new(true),
+            syntax: SyntaxColors::dark(),
+        }
+    }
+}
+
+/// Colors associated with one categorical hue.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HueColors {
+    pub bg: Color,
+    pub border: Color,
+    pub icon: Color,
+    pub text: Color,
+}
+
+/// Neutral categorical hue palettes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Hues {
+    pub red: HueColors,
+    pub orange: HueColors,
+    pub yellow: HueColors,
+    pub green: HueColors,
+    pub teal: HueColors,
+    pub cyan: HueColors,
+    pub blue: HueColors,
+    pub purple: HueColors,
+    pub pink: HueColors,
+    pub gray: HueColors,
+}
+
+impl Hues {
+    fn light() -> Self {
+        Self {
+            red: HueColors {
+                bg: rgb(0xffc4be),
+                border: rgb(0xffaea7),
+                icon: rgb(0x76000c),
+                text: rgb(0x76000c),
+            },
+            orange: HueColors {
+                bg: rgb(0xffc7a1),
+                border: rgb(0xffc7a1),
+                icon: rgb(0x622700),
+                text: rgb(0x622700),
+            },
+            yellow: HueColors {
+                bg: rgb(0xfae19e),
+                border: rgb(0xe3c36c),
+                icon: rgb(0x4b3900),
+                text: rgb(0x4b3900),
+            },
+            green: HueColors {
+                bg: rgb(0xbce0bb),
+                border: rgb(0xaad4a9),
+                icon: rgb(0x00490b),
+                text: rgb(0x00490b),
+            },
+            teal: HueColors {
+                bg: rgb(0xa9e2d6),
+                border: rgb(0x90d7c8),
+                icon: rgb(0x00463d),
+                text: rgb(0x00463d),
+            },
+            cyan: HueColors {
+                bg: rgb(0x9ae2f4),
+                border: rgb(0x85d5e9),
+                icon: rgb(0x004351),
+                text: rgb(0x004351),
+            },
+            blue: HueColors {
+                bg: rgb(0xb9d7ff),
+                border: rgb(0xa1caff),
+                icon: rgb(0x003978),
+                text: rgb(0x003978),
+            },
+            purple: HueColors {
+                bg: rgb(0xf7d5ff),
+                border: rgb(0xf3bfff),
+                icon: rgb(0x5c0e6c),
+                text: rgb(0x5c0e6c),
+            },
+            pink: HueColors {
+                bg: rgb(0xffc0d7),
+                border: rgb(0xffc0d7),
+                icon: rgb(0x70003f),
+                text: rgb(0x70003f),
+            },
+            gray: HueColors {
+                bg: rgb(0xe2e2e2),
+                border: rgb(0xd4d4d4),
+                icon: rgb(0x474747),
+                text: rgb(0x1b1b1b),
+            },
+        }
+    }
+
+    fn dark() -> Self {
+        Self {
+            red: HueColors {
+                bg: rgb(0x5b2b28),
+                border: rgb(0xfa6762),
+                icon: rgb(0xff9890),
+                text: rgb(0xffaea7),
+            },
+            orange: HueColors {
+                bg: rgb(0x503424),
+                border: rgb(0xdf843f),
+                icon: rgb(0xff9e55),
+                text: rgb(0xffb37e),
+            },
+            yellow: HueColors {
+                bg: rgb(0x453a1c),
+                border: rgb(0xc29900),
+                icon: rgb(0xe2b623),
+                text: rgb(0xeec448),
+            },
+            green: HueColors {
+                bg: rgb(0x2b422b),
+                border: rgb(0x6ab26b),
+                icon: rgb(0x90ca90),
+                text: rgb(0x90ca90),
+            },
+            teal: HueColors {
+                bg: rgb(0x28413c),
+                border: rgb(0x4fb1a0),
+                icon: rgb(0x81c9bb),
+                text: rgb(0x90d7c8),
+            },
+            cyan: HueColors {
+                bg: rgb(0x274046),
+                border: rgb(0x49adc4),
+                icon: rgb(0x71c7dd),
+                text: rgb(0x85d5e9),
+            },
+            blue: HueColors {
+                bg: rgb(0x253c5a),
+                border: rgb(0x5aa0f8),
+                icon: rgb(0x88bcff),
+                text: rgb(0xa1caff),
+            },
+            purple: HueColors {
+                bg: rgb(0x4a2f51),
+                border: rgb(0xd885eb),
+                icon: rgb(0xe496f6),
+                text: rgb(0xeaacf8),
+            },
+            pink: HueColors {
+                bg: rgb(0x572b3d),
+                border: rgb(0xfc78b1),
+                icon: rgb(0xfd92bd),
+                text: rgb(0xffa9ca),
+            },
+            gray: HueColors {
+                bg: rgb(0x303030),
+                border: rgb(0x262626),
+                icon: rgb(0x9e9e9e),
+                text: rgb(0xd4d4d4),
+            },
+        }
+    }
+}
+
+/// Neutral syntax and diff colors.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SyntaxColors {
+    pub keyword: Color,
+    pub r#type: Color,
+    pub string: Color,
+    pub comment: Color,
+    pub operator: Color,
+    pub punctuation: Color,
+    pub number: Color,
+    pub constant: Color,
+    pub function: Color,
+    pub variable: Color,
+    pub tag: Color,
+    pub attribute: Color,
+    pub property: Color,
+    pub background: Color,
+    pub added: Color,
+    pub removed: Color,
+    pub diff_header: Color,
+    pub added_marker: Color,
+    pub removed_marker: Color,
+}
+
+impl SyntaxColors {
+    fn light() -> Self {
+        Self {
+            keyword: rgb(0x6b187c),
+            r#type: rgb(0x6b187c),
+            string: rgb(0x0b5615),
+            comment: rgb(0x6a6a6a),
+            operator: rgb(0x6a6a6a),
+            punctuation: rgb(0x6a6a6a),
+            number: rgb(0x733100),
+            constant: rgb(0x733100),
+            function: rgb(0x00458c),
+            variable: rgb(0x111111),
+            tag: rgb(0x8a0011),
+            attribute: rgb(0x584400),
+            property: rgb(0x005348),
+            background: rgb(0xffffff),
+            added: rgba(0xbce0bb, 64.0 / 255.0),
+            removed: rgba(0xffc4be, 64.0 / 255.0),
+            diff_header: Color::TRANSPARENT,
+            added_marker: rgb(0x6a6a6a),
+            removed_marker: rgb(0x6a6a6a),
+        }
+    }
+
+    fn dark() -> Self {
+        Self {
+            keyword: rgb(0xefa8ff),
+            r#type: rgb(0xefa8ff),
+            string: rgb(0xa4d6a3),
+            comment: rgb(0x9e9e9e),
+            operator: rgb(0x9e9e9e),
+            punctuation: rgb(0x9e9e9e),
+            number: rgb(0xffb37e),
+            constant: rgb(0xffb37e),
+            function: rgb(0xa1caff),
+            variable: rgb(0xe2e2e2),
+            tag: rgb(0xffaea7),
+            attribute: rgb(0xeec448),
+            property: rgb(0x90d7c8),
+            background: rgb(0x111111),
+            added: rgba(0x90ca90, 15.0 / 255.0),
+            removed: rgba(0xff9890, 15.0 / 255.0),
+            diff_header: Color::TRANSPARENT,
+            added_marker: rgb(0x9e9e9e),
+            removed_marker: rgb(0x9e9e9e),
+        }
+    }
+}
+
+/// Categorical data colors and five-stop ramps, darkest stop first.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DataColors {
+    pub blue: Color,
+    pub cyan: Color,
+    pub orange: Color,
+    pub red: Color,
+    pub purple: Color,
+    pub teal: Color,
+    pub green: Color,
+    pub brown: Color,
+    pub pink: Color,
+    pub indigo: Color,
+    pub neutral: Color,
+    pub blue_ramp: [Color; 5],
+    pub shamrock_ramp: [Color; 5],
+    pub orange_ramp: [Color; 5],
+    pub pink_ramp: [Color; 5],
+    pub purple_ramp: [Color; 5],
+    pub red_ramp: [Color; 5],
+    pub teal_ramp: [Color; 5],
+    pub yellow_ramp: [Color; 5],
+    pub gray_ramp: [Color; 5],
+}
+
+impl DataColors {
+    fn new(dark: bool) -> Self {
+        Self {
+            blue: rgb(0x0171e3),
+            cyan: rgb(0x0171a4),
+            orange: rgb(0xeb6e00),
+            red: rgb(0xf5394f),
+            purple: rgb(0x6b1efd),
+            teal: rgb(0x08a3a3),
+            green: rgb(0x0b991f),
+            brown: rgb(0x965e03),
+            pink: rgb(0xf351c0),
+            indigo: rgb(0x6f8aff),
+            neutral: if dark { rgb(0x8c939b) } else { rgb(0x8494a3) },
+            blue_ramp: [
+                rgb(0x02165e),
+                rgb(0x004cbc),
+                rgb(0x2694fe),
+                rgb(0x78beff),
+                rgb(0xdbecff),
+            ],
+            shamrock_ramp: [
+                rgb(0x0b603d),
+                rgb(0x138546),
+                rgb(0x24bb5e),
+                rgb(0x8ef7aa),
+                rgb(0xd6fee4),
+            ],
+            orange_ramp: [
+                rgb(0xa13f04),
+                rgb(0xd66100),
+                rgb(0xfd9537),
+                rgb(0xfdb876),
+                rgb(0xffe6cf),
+            ],
+            pink_ramp: [
+                rgb(0x8e1073),
+                rgb(0xd123a1),
+                rgb(0xf989d3),
+                rgb(0xfeade3),
+                rgb(0xfce3f4),
+            ],
+            purple_ramp: [
+                rgb(0x3e0697),
+                rgb(0x6b1efd),
+                rgb(0x9081ff),
+                rgb(0xb3b0fe),
+                rgb(0xe8e8fb),
+            ],
+            red_ramp: [
+                rgb(0x9d0519),
+                rgb(0xd31130),
+                rgb(0xfb7d87),
+                rgb(0xffb2b8),
+                rgb(0xfee4e6),
+            ],
+            teal_ramp: [
+                rgb(0x08767d),
+                rgb(0x0c9293),
+                rgb(0x0db7af),
+                rgb(0x6ce6d8),
+                rgb(0xd7fcf8),
+            ],
+            yellow_ramp: [
+                rgb(0x8a5001),
+                rgb(0xd69804),
+                rgb(0xfbce03),
+                rgb(0xfcec85),
+                rgb(0xfdf6ba),
+            ],
+            gray_ramp: if dark {
+                [
+                    rgb(0x333338),
+                    rgb(0x666a72),
+                    rgb(0xb2b8be),
+                    rgb(0xd0d3d6),
+                    rgb(0xf2f4f6),
+                ]
+            } else {
+                [
+                    rgb(0x25363f),
+                    rgb(0x5d6c7b),
+                    rgb(0xafb9c4),
+                    rgb(0xccd3db),
+                    rgb(0xf1f4f7),
+                ]
+            },
+        }
+    }
+}

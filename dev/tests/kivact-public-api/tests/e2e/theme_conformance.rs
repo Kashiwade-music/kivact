@@ -163,7 +163,7 @@ fn components() -> [(Role, &'static str); 12] {
 /// the kit sets it), Level `slider`, Progress `progress`, Details
 /// `disclosure` and Items `list`. Add a name here when a kit starts to set
 /// the recipe.
-const KIT_RECIPES: [(&str, &[&str]); 4] = [
+const KIT_RECIPES: [(&str, &[&str]); 5] = [
     (
         "Basic",
         &[
@@ -192,6 +192,7 @@ const KIT_RECIPES: [(&str, &[&str]); 4] = [
             "Progress", "Details", "Items",
         ],
     ),
+    ("Soft", &[]),
 ];
 
 /// Whether any pixel of `rect` differs visibly between the two frames.
@@ -281,6 +282,7 @@ fn all_kit_themes_preserve_standard_component_contracts() {
         ("Game", kivact_ui_game::theme),
         ("Pop", kivact_ui_pop::theme),
         ("Creative", kivact_ui_creative::theme),
+        ("Soft", kivact_ui_soft::theme),
     ];
     for (kit, theme) in themes {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {

@@ -67,8 +67,9 @@ kivact-ui-basic-catalog = []
 kivact-ui-pop-catalog = []
 kivact-ui-game-catalog = []
 kivact-ui-creative-catalog = []
+kivact-ui-soft-catalog = []
 kivact-docs = []
-# Public API tests consume all four official kits for theme conformance.
+# Public API tests consume all five official kits for theme conformance.
 kivact-public-api-tests = []
 xtask = []
 
@@ -284,11 +285,11 @@ disabled_rules = ["missing-docs"]
 # semver の利点がなく、workspace の中の match から網羅性の検査を奪うだけになる。API が落ち着いたら
 # extra_rules に戻す。下の api_packages はそのときの対象。
 # 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-wire と kivact_types::protocol は workspace 内の protocol。
-# facade（kivact）から届く crate と、四つの公式キット。
+# facade（kivact）から届く crate と、五つの公式キット。
 api_packages = [
     "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
     "kivact-motion", "kivact-reactive", "kivact-style", "kivact-task", "kivact-types", "kivact-ui",
-    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-wire",
+    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-wire",
 ]
 # 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
 options_structs = [

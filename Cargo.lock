@@ -1829,6 +1829,7 @@ dependencies = [
  "kivact-ui-creative",
  "kivact-ui-game",
  "kivact-ui-pop",
+ "kivact-ui-soft",
 ]
 
 [[package]]
@@ -1951,6 +1952,7 @@ dependencies = [
  "kivact-ui-creative",
  "kivact-ui-game",
  "kivact-ui-pop",
+ "kivact-ui-soft",
  "windows",
  "windows-sys 0.52.0",
 ]
@@ -2075,6 +2077,21 @@ version = "0.1.0"
 dependencies = [
  "kivact",
  "kivact-ui-pop",
+]
+
+[[package]]
+name = "kivact-ui-soft"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+]
+
+[[package]]
+name = "kivact-ui-soft-catalog"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+ "kivact-ui-soft",
 ]
 
 [[package]]

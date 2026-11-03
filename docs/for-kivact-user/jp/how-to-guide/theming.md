@@ -21,7 +21,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 - `Theme::light()` が既定で、`Theme::dark()` がその暗いテーマです。`theme.mode()` は `ThemeMode`(`Light` か `Dark`)を返します。
-- どのキットにも `theme(mode: ThemeMode)` があります。`kivact_ui_basic::theme`、`kivact_ui_pop::theme`、`kivact_ui_game::theme`、`kivact_ui_creative::theme` です。結果を `App::theme` に渡します。それぞれの見た目と、付属の追加コンポーネントは、各キットのガイドで説明しています([キット一覧](../../../for-kivact-ui-user/jp/README.md)を参照)。
+- どのキットにも `theme(mode: ThemeMode)` があります。`kivact_ui_basic::theme`、`kivact_ui_pop::theme`、`kivact_ui_game::theme`、`kivact_ui_creative::theme`、`kivact_ui_soft::theme` です。結果を `App::theme` に渡します。それぞれの見た目と、付属の追加コンポーネントは、各キットのガイドで説明しています([キット一覧](../../../for-kivact-ui-user/jp/README.md)を参照)。
 - システム設定とユーザー設定のどちらでモードを決めるかは、アプリが決めることです。Kivact は代わりに選びません。
 
 ## アプリの実行中にテーマを切り替える

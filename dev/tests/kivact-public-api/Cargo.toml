@@ -24,6 +24,7 @@ kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
 kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
 kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
 kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
+kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
 
 # The render engine standing in for an application's in the GPU texture
 # sharing tests (tests/e2e/gpu_interop.rs).

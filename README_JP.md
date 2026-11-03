@@ -33,7 +33,7 @@ fn main() -> kivact::Result<()> {
 - **実ウィンドウのテスト。** `kivact::test` は `cargo test` から実際のウィンドウを開き、Testing Library のように役割と名前で要素を操作します。
 - **文字と入力。** CJK・結合文字・双方向テキスト・IME の変換を扱います。
 - **描画。** HTML Canvas に近い語彙の Canvas、アプリ自身の renderer が描いた frame の表示、ウィンドウなしの画像の書き出しを持ちます。
-- **UI キット。** 4 つの公式キットが標準コンポーネントの見た目を差し替え、分野別のコンポーネントを足します。キットは公開 API だけで作られています。
+- **UI キット。** 5 つの公式キットが標準コンポーネントの見た目を差し替え、分野別のコンポーネントを足します。キットは公開 API だけで作られています。
 
 ## はじめに
 
@@ -79,6 +79,7 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 | `kivact-ui-pop` | 落ち着いた配色の業務アプリ向けキット。 |
 | `kivact-ui-game` | ゲーム風の操作パネルと HUD。 |
 | `kivact-ui-creative` | 制作ツール向け: タイムライン、ノードグラフ、ドック、インスペクター。 |
+| `kivact-ui-soft` | Astryx Neutral のライトテーマとダークテーマ。 |
 | `kivact-gpu-share` | GPU texture 共有のエンジン側（実験的）。 |
 
 [`crates/`](crates) にあるその他の crate は `kivact` の内部実装（反応の核、engine、レイアウト、テキスト、ネイティブホストの Arvane）で、直接使うものではありません。[`architecture/`](architecture) には生成した依存関係の図があります。

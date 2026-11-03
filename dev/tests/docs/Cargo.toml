@@ -18,6 +18,7 @@ kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
 kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
 kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
 kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
+kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
 
 [lints]
 workspace = true

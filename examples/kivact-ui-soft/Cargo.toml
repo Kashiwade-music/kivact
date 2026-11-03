@@ -1,0 +1,21 @@
+[package]
+name = "kivact-ui-soft-catalog"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Astryx Neutral component catalog for kivact-ui-soft"
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../crates/kivact", default-features = false }
+kivact-ui-soft = { path = "../../crates/kivact-ui-soft" }
+
+[dev-dependencies]
+kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true
