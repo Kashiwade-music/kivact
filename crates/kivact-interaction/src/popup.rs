@@ -113,6 +113,7 @@ struct PopupSettings {
     anchor: Option<NodeRef>,
     initial_focus: Option<NodeRef>,
     focus_return: Option<FocusReturn>,
+    anchor_starts_focus_range: bool,
 }
 
 /// What one opening of the surface remembers, from its bind to its removal.
@@ -161,6 +162,12 @@ impl Popup {
     pub fn initial_focus(self, node: NodeRef) -> Self {
         self.settings
             .update(|settings| settings.initial_focus = Some(node));
+        self
+    }
+
+    pub(crate) fn anchor_starts_focus_range(self, enabled: bool) -> Self {
+        self.settings
+            .update(|settings| settings.anchor_starts_focus_range = enabled);
         self
     }
 
@@ -388,6 +395,9 @@ impl Popup {
         let anchor = self.anchor_ref();
         let anchor_focused = anchor.focused();
         let open = self.shown();
+        let anchor_starts = self
+            .settings
+            .with(|settings| settings.anchor_starts_focus_range);
         let entered = var(false);
         let anchor_seen = var(false);
         effect(move || {
@@ -401,7 +411,7 @@ impl Popup {
                 self.close(PopupCloseReason::AnchorRemoved);
                 return;
             }
-            if within.get() {
+            if within.get() || (anchor_starts && anchor_focused.get()) {
                 entered.set(true);
             } else if entered.get() && !anchor_focused.get() && focused.is_some() {
                 self.close(PopupCloseReason::Tab);

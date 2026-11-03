@@ -179,6 +179,31 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         parts::item(state, key, Location::caller(), retain)
     }
 
+    pub(crate) fn retain_focus(self, enabled: bool) {
+        self.state().retained_focus.set(enabled);
+    }
+
+    pub(crate) fn active_ref(self) -> Option<kivact_core::view::NodeRef> {
+        let state = self.state();
+        let key = state.active.get()?;
+        state
+            .roving
+            .with_members(|members| members.get(&key).map(|member| member.node))
+    }
+
+    pub(crate) fn highlight_mounted(self, key: K) {
+        let state = self.state();
+        if state.target(&key).is_some() {
+            state.roving.requested.set(Some(key));
+        }
+    }
+
+    pub(crate) fn reset_highlight(self) {
+        let state = self.state();
+        state.roving.requested.set(None);
+        state.typed.get().set(typeahead::Typeahead::default());
+    }
+
     pub(crate) fn route_focused_key(self, key: &K, event: KeyEvent) -> Handled {
         input::key(&self.state(), key, event)
     }

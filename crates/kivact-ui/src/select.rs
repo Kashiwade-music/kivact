@@ -29,6 +29,7 @@ pub struct Select<K: Clone + Eq + Hash + 'static> {
     option: Option<OptionContent<K>>,
     variants: Variants,
     arrow_open: bool,
+    retain_trigger_focus: bool,
 }
 /// A themed keyed select whose value, focus and keys belong to interaction.
 ///
@@ -56,6 +57,7 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
         option: None,
         variants,
         arrow_open: false,
+        retain_trigger_focus: false,
     }
 }
 impl<K: Clone + Eq + Hash + 'static> Select<K> {
@@ -78,6 +80,12 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
     /// Open the options on a bare ArrowDown or ArrowUp without selecting.
     pub fn open_on_arrow(mut self, enabled: bool) -> Self {
         self.arrow_open = enabled;
+        self
+    }
+
+    /// Keep keyboard focus on the trigger while highlighting options.
+    pub fn retain_trigger_focus(mut self, enabled: bool) -> Self {
+        self.retain_trigger_focus = enabled;
         self
     }
 
@@ -137,7 +145,8 @@ impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Select<K> {
 impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
     fn into_view(mut self) -> View {
         let mut behavior = kivact_interaction::use_select(self.options, self.selected)
-            .open_on_arrow(self.arrow_open);
+            .open_on_arrow(self.arrow_open)
+            .retain_trigger_focus(self.retain_trigger_focus);
         if let Some(text) = self.placeholder {
             behavior = behavior.placeholder(text);
         }

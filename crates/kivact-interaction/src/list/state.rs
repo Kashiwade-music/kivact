@@ -52,6 +52,7 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static> {
     pub(super) active: Value<Option<K>>,
     /// What choosing an item does; fixed by `use_list`.
     pub(super) mode: ListMode,
+    pub(super) retained_focus: Cell<bool>,
     pub(super) policy: Signal<ListPolicy>,
     pub(super) page: Cell<Value<usize>>,
     pub(super) leave: Rc<RefCell<Option<Leave<K>>>>,
@@ -155,6 +156,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
         roving,
         active,
         mode,
+        retained_focus: Cell::new(false),
         policy,
         page: Cell::new((10).into_value()),
         leave,
@@ -183,7 +185,9 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
             }
             *duplicates.borrow_mut() = next;
         }
-        reconcile(&state);
+        if !state.retained_focus.get() {
+            reconcile(&state);
+        }
     });
     stored
 }
@@ -235,7 +239,10 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         true
     }
     pub(super) fn focus_available(&self, key: &K) -> bool {
-        self.target(key).is_some() || (self.scroll.borrow().is_some() && !self.roving.contains(key))
+        self.target(key).is_some()
+            || (!self.retained_focus.get()
+                && self.scroll.borrow().is_some()
+                && !self.roving.contains(key))
     }
     pub(super) fn focus(&self, key: K) -> bool {
         if !self.order.with_untracked(|order| order.enabled(&key)) {
@@ -250,7 +257,9 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         *self.pending.borrow_mut() = None;
         match target {
             Some(node) => {
-                node.focus();
+                if !self.retained_focus.get() {
+                    node.focus();
+                }
                 match scroll {
                     Some(scroll) => scroll.call(key),
                     None => node.scroll_into_view(),

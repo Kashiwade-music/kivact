@@ -81,12 +81,13 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
     let pointers = state.clone();
     let actions = state.clone();
     let mode = state.mode;
+    let retained_focus = state.retained_focus.get();
     let attachment = attachment
         .role(Role::Option)
         .name(name)
         .selected(selected_state)
         .disabled(disabled)
-        .focusable(active)
+        .focusable(move || !retained_focus && active.get())
         .focusable_when_disabled(retain_disabled_focus)
         .on_key(move |event| super::input::key(&keys, &key.get(), event))
         .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
@@ -128,7 +129,11 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
             item_key.clone(),
             Member {
                 node: mount.node,
-                eligible: mount.eligible,
+                eligible: if retained_focus {
+                    true.into_value()
+                } else {
+                    mount.eligible
+                },
                 disabled: if retain_disabled_focus {
                     false.into_value()
                 } else {

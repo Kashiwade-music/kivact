@@ -82,7 +82,7 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
     from: &K,
     event: KeyEvent,
 ) -> Handled {
-    if !state.holds_focus(from) || state.target(from).is_none() {
+    if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
     let policy = state.policy();
@@ -153,7 +153,7 @@ pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
     event: &KeyEvent,
     consume_unmatched: bool,
 ) -> Handled {
-    if !state.holds_focus(from) || state.target(from).is_none() {
+    if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
     let modifiers = event.modifiers;
