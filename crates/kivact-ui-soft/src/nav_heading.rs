@@ -4,7 +4,7 @@ use crate::stack::rtl;
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Delays, use_delayed, use_menu};
+use kivact::interaction::{Delays, use_hover_surface, use_menu};
 use kivact::motion::Transition;
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Justify, TransitionProp, style};
@@ -116,11 +116,12 @@ pub(crate) fn nav_menu_view(
     let part = behavior.trigger();
     let anchor = part.node_ref();
     let panel_ref = node_ref();
-    let over_trigger = anchor.hovered();
-    let over_panel = panel_ref.hovered();
-    let wanted =
-        move || !kivact::platform::capabilities().touch && (over_trigger.get() || over_panel.get());
-    let delayed = use_delayed(wanted, delays);
+    let delayed = use_hover_surface(
+        anchor,
+        panel_ref,
+        || !kivact::platform::capabilities().touch,
+        delays,
+    );
     effect_on(delayed.shown(), move |open| {
         if *open {
             behavior.open();

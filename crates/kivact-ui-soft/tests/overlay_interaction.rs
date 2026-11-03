@@ -1,7 +1,8 @@
 //! Role: Verify overlay interaction through the Soft public API.
 use kivact::control::{NodeBuilder, column, row};
+use kivact::interaction::{Delays, use_hover_surface};
 use kivact::signal;
-use kivact::style::{ThemeMode, style};
+use kivact::style::{Position, ThemeMode, style};
 use kivact::test::{RenderOptions, render_with};
 use kivact::ui::{MenuEntry, button, dialog, menu};
 use kivact::view::{Key, Role, node_ref};
@@ -111,6 +112,117 @@ fn soft_submenus_delay_opening_and_remain_open_briefly_over_a_sibling() {
     assert_eq!(export.is_expanded(), Some(true));
     screen.advance(Duration::from_millis(150));
     assert_eq!(export.is_expanded(), Some(false));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_diagonal_path_over_a_sibling_keeps_the_open_submenu() {
+    let screen = render_with(options(), || {
+        menu(
+            "Actions",
+            vec![
+                MenuEntry::submenu(
+                    "export",
+                    "Export",
+                    vec![
+                        MenuEntry::item("pdf", "PDF"),
+                        MenuEntry::item("png", "PNG"),
+                        MenuEntry::item("svg", "SVG"),
+                        MenuEntry::item("csv", "CSV"),
+                        MenuEntry::item("txt", "Text file"),
+                    ],
+                ),
+                MenuEntry::item("rename", "Rename"),
+            ],
+            |_| {},
+        )
+    });
+    screen
+        .get_by_role(Role::Button, "Actions")
+        .press_key(Key::ArrowDown);
+    let export = screen.get_by_role(Role::MenuItem, "Export");
+    let start = export.rect().unwrap();
+    let rename = screen.get_by_role(Role::MenuItem, "Rename");
+    let sibling = rename.rect().unwrap();
+    screen.mouse_move(start.x + start.width * 0.35, start.y + start.height * 0.72);
+    screen.advance(Duration::from_millis(200));
+    assert_eq!(export.is_expanded(), Some(true));
+
+    screen.mouse_move(
+        sibling.x + sibling.width * 0.68,
+        sibling.y + sibling.height * 0.15,
+    );
+    screen.advance(Duration::from_millis(120));
+    screen.mouse_move(
+        sibling.x + sibling.width * 0.83,
+        sibling.y + sibling.height * 0.28,
+    );
+    screen.advance(Duration::from_millis(120));
+    assert_eq!(export.is_expanded(), Some(true));
+    assert!(!rename.is_focused());
+
+    screen.get_by_role(Role::MenuItem, "PNG").hover();
+    assert_eq!(export.is_expanded(), Some(true));
+    rename.hover();
+    screen.advance(Duration::from_millis(250));
+    assert_eq!(export.is_expanded(), Some(false));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn hover_surface_renews_its_close_delay_across_a_diagonal_gap() {
+    let screen = render_with(options(), || {
+        let anchor = node_ref();
+        let surface = node_ref();
+        let delayed = use_hover_surface(
+            anchor,
+            surface,
+            true,
+            Delays {
+                open: Duration::ZERO,
+                close: Duration::from_millis(200),
+            },
+        );
+        let shown = delayed.shown();
+        column((
+            button("Trigger").node_ref(anchor).style(
+                style()
+                    .position(Position::Absolute)
+                    .left(110)
+                    .top(20)
+                    .size(180, 48),
+            ),
+            button("Flyout")
+                .node_ref(surface)
+                .hidden(move || !shown.get())
+                .style(
+                    style()
+                        .position(Position::Absolute)
+                        .left(140)
+                        .top(160)
+                        .size(240, 70),
+                ),
+        ))
+        .style(style().position(Position::Relative).size(450, 320))
+    });
+    let trigger = screen.get_by_role(Role::Button, "Trigger");
+    trigger.hover();
+    let flyout = screen.get_by_role(Role::Button, "Flyout");
+    let origin = trigger.rect().unwrap();
+    let panel = flyout.rect().unwrap();
+    let origin_x = origin.x + origin.width * 0.5;
+    let origin_y = origin.y + origin.height * 0.5;
+    let target_x = panel.x + panel.width * 0.5;
+    for fraction in [0.35, 0.65] {
+        screen.mouse_move(
+            origin_x + (target_x - origin_x) * fraction,
+            origin_y + (panel.y - origin_y) * fraction,
+        );
+        screen.advance(Duration::from_millis(120));
+        screen.get_by_role(Role::Button, "Flyout");
+    }
+    screen.advance(Duration::from_millis(150));
+    assert!(screen.query_by_role(Role::Button, "Flyout").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

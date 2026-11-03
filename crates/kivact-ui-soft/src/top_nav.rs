@@ -10,7 +10,7 @@ use crate::side_nav::{SideNavItem, logical_row, side_nav_item, side_row_style};
 use crate::stack::{Space, rtl};
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
-use kivact::interaction::{Delays, use_delayed, use_dialog};
+use kivact::interaction::{Delays, use_dialog, use_hover_surface};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Direction, Justify, pct, style};
 use kivact::ui::{ControlSize, DialogKind};
@@ -513,13 +513,10 @@ impl IntoView for TopNavMegaMenu {
             }
             let trigger_ref = node_ref();
             let surface_ref = node_ref();
-            let trigger_hovered = trigger_ref.hovered();
-            let surface_hovered = surface_ref.hovered();
-            let delayed = use_delayed(
-                move || {
-                    !kivact::platform::capabilities().touch
-                        && (trigger_hovered.get() || surface_hovered.get())
-                },
+            let delayed = use_hover_surface(
+                trigger_ref,
+                surface_ref,
+                || !kivact::platform::capabilities().touch,
                 delays,
             );
             let pinned = signal(false);

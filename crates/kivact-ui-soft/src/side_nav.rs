@@ -8,7 +8,9 @@ use crate::stack::rtl;
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Delays, use_content_reveal, use_delayed, use_dialog, use_disclosure};
+use kivact::interaction::{
+    Delays, use_content_reveal, use_dialog, use_disclosure, use_hover_surface,
+};
 use kivact::motion::{Spring, Transition, animated};
 use kivact::primitive::NodeExt;
 use kivact::style::{Align, Direction, Justify, Position, TransitionProp, auto, pct, style};
@@ -557,11 +559,11 @@ impl IntoView for SideNavItem {
             let independent = disclosure.is_some() && action.is_some();
             let anchor = node_ref();
             let popup_ref = node_ref();
-            let hovered = anchor.hovered();
-            let popup_hovered = popup_ref.hovered();
             let popup = if children.is_some() && cx.collapsed.is_some() {
-                let delayed = use_delayed(
-                    move || cx.rail() && !disabled.get() && (hovered.get() || popup_hovered.get()),
+                let delayed = use_hover_surface(
+                    anchor,
+                    popup_ref,
+                    move || cx.rail() && !disabled.get(),
                     Delays {
                         open: Duration::from_millis(150),
                         close: Duration::from_millis(200),
