@@ -41,17 +41,7 @@ pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
                 .direction(Direction::Column)
         }
     })
-    .group(|_| {
-        |t: &Theme, s: &Look<ToastGroupState>| {
-            let p = t.get::<Tokens>();
-            let base = style().direction(Direction::Column).gap(p.spacing.s2);
-            if s.assertive && s.above > 0 && s.count > 0 {
-                base.margin_top(p.spacing.s2)
-            } else {
-                base
-            }
-        }
-    })
+    .group(|_| |_: &Theme, _: &Look<ToastGroupState>| style().direction(Direction::Column))
     .toast(|_| card)
     .title(|_| text)
     .body(|_| text)
@@ -74,8 +64,6 @@ fn card(t: &Theme, s: &Look<ToastState>) -> Style {
         .radius(p.radius.container)
         .background(fill)
         .color(foreground(t, s, &p));
-    // TODO(soft-core: C-06): Animate the card while the row keeps its layout size.
-    // TODO(soft-core: C-07): Let the standard region own the exit lifetime.
     // TODO(soft-core: C-09): Keep the standard close button as the dismiss gesture.
     let hidden = style().opacity(0.0).translate_y(p.spacing.s2);
     motion(base, &p, p.motion.fast)

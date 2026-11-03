@@ -1,10 +1,12 @@
 //! Role: Install the Astryx Neutral tokens and recipes on the Kivact theme.
 use crate::tokens::Tokens;
 use kivact::interaction::{DisabledMenuFocus, SubmenuTiming};
+use kivact::motion::Transition;
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
 use kivact::style::{LineHeight, Theme, ThemeMode};
 use kivact::ui::{
-    ButtonBusyMotion, DialogCenter, DisabledButtonFocus, ProgressMotion, ToggleLabelReservation,
+    ButtonBusyMotion, DialogCenter, DisabledButtonFocus, ProgressMotion, ToastRowMotion,
+    ToggleLabelReservation,
 };
 use kivact::view::OverlayViewport;
 
@@ -76,6 +78,13 @@ pub fn theme(mode: ThemeMode) -> Theme {
             reduced_spin_ms: 3000,
             reveal_delay_ms: tokens.motion.medium_min,
             reveal_fade_ms: tokens.motion.fast,
+        })
+        .with(ToastRowMotion {
+            transition: Some(Transition::tween(
+                tokens.motion.fast as f64,
+                tokens.motion.ease_standard,
+            )),
+            gap: tokens.spacing.s2,
         })
         .with(ProgressMotion {
             animate_initial: false,
