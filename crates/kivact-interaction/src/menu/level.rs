@@ -3,7 +3,6 @@
 use std::hash::Hash;
 use std::time::Duration;
 
-use super::SubmenuTiming;
 use super::order::{Rows, edge_item, rows};
 use super::state::{
     Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
@@ -13,9 +12,25 @@ use crate::{
     use_list,
 };
 use kivact_core::primitive::Part;
-use kivact_core::style::current_theme;
+use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 use kivact_core::{Value, effect, memo, on_mount, signal};
+
+/// Pointer delays for opening a submenu or leaving it for a sibling item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SubmenuTiming {
+    pub open: Duration,
+    pub close: Duration,
+}
+
+impl ThemeExtension for SubmenuTiming {
+    fn fallback(_: &Theme) -> Self {
+        Self {
+            open: Duration::from_millis(140),
+            close: Duration::ZERO,
+        }
+    }
+}
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: Clone + Eq + Hash + 'static> {

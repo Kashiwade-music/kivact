@@ -41,25 +41,6 @@ mod order;
 mod session;
 mod state;
 
-use std::time::Duration;
-
-use kivact_core::style::{Theme, ThemeExtension};
-
 pub use handle::{MenuApi, use_menu};
+pub use level::SubmenuTiming;
 pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};
-
-/// Pointer delays for opening a submenu or leaving it for a sibling item.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SubmenuTiming {
-    pub open: Duration,
-    pub close: Duration,
-}
-
-impl ThemeExtension for SubmenuTiming {
-    fn fallback(_: &Theme) -> Self {
-        Self {
-            open: Duration::from_millis(140),
-            close: Duration::ZERO,
-        }
-    }
-}
