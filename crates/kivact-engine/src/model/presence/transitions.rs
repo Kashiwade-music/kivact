@@ -1,8 +1,9 @@
 //! Role: Start entrance transitions and run exits before a node is removed.
 
 use crate::model::Model;
+use crate::mutation::Mutation;
 use crate::tree::node::Presence;
-use kivact_wire::NodeId;
+use kivact_wire::{Dimension, Edges, NodeId, NodeType, Position};
 
 impl Model {
     /// `id` was created: it enters at the first commit that finds it
@@ -59,7 +60,7 @@ impl Model {
 
     /// Start the exit of the subtree kivact removes at `id`: `false` when
     /// nothing in it has an exit to show, and the subtree goes at once.
-    pub(crate) fn begin_exit(&mut self, id: NodeId) -> bool {
+    pub(crate) fn begin_exit(&mut self, id: NodeId, pop_layout: bool) -> bool {
         if !self.tree.drawn(id) {
             return false;
         }
@@ -90,6 +91,9 @@ impl Model {
                 n.presence = Presence::Leaving;
             }
         }
+        if pop_layout {
+            self.pop_exit_layout(id);
+        }
         self.presence.leaving.insert(id);
         self.changes.a11y_subtrees.insert(id);
         self.changes.restack = true;
@@ -100,6 +104,55 @@ impl Model {
             self.move_focus_to(next);
         }
         true
+    }
+
+    /// Keep the old box in the same parent and paint layer, but release its slot.
+    fn pop_exit_layout(&mut self, id: NodeId) {
+        let Some(node) = self.tree.get(id) else {
+            return;
+        };
+        let mut layout = node.layout().cloned().unwrap_or_default();
+        if node.kind() == NodeType::Overlay
+            || matches!(layout.position, Position::Absolute | Position::Fixed)
+        {
+            return;
+        }
+        let Some(parent) = self.tree.parent_id(node) else {
+            return;
+        };
+        let Some(last) = self.computed_layout(id) else {
+            return;
+        };
+        let border = self
+            .tree
+            .get(parent)
+            .and_then(|parent| parent.layout())
+            .map_or(Edges::all(0.0), |parent| parent.border);
+        // Layout locations are parent border-box relative, while an absolute
+        // inset is relative to the inside of the parent's border.
+        let left = last.location.x + node.shift.x - border.left;
+        let top = last.location.y + node.shift.y - border.top;
+        layout.position = Position::Absolute;
+        layout.inset = Edges::all(Dimension::Auto);
+        layout.inset.left = Dimension::Px(left);
+        layout.inset.top = Dimension::Px(top);
+        layout.margin = Edges::all(Dimension::Px(0.0));
+        layout.width = Dimension::Px(last.size.width);
+        layout.height = Dimension::Px(last.size.height);
+        layout.min_width = Dimension::Auto;
+        layout.min_height = Dimension::Auto;
+        layout.max_width = Dimension::Auto;
+        layout.max_height = Dimension::Auto;
+        if let Some(grid) = &mut layout.grid {
+            grid.column = Default::default();
+            grid.row = Default::default();
+        }
+        // The client already dropped the host's core record and cannot write
+        // another layout. Reuse the ordinary style invalidation path.
+        if let Some(node) = self.tree.get_mut(id) {
+            node.properties.layout = Some(Box::new(layout));
+        }
+        self.changed(id, Mutation::STYLE.and(Mutation::RESTACK));
     }
 
     /// Remove the leaving subtrees in which nothing moves any more.

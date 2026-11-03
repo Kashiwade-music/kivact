@@ -118,6 +118,8 @@ pub use kivact_wire::{
     SortDirection,
 };
 #[doc(inline)]
+pub use node::ExitLayout;
+#[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 #[doc(inline)]
 pub use overlays::{Overlay, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at};

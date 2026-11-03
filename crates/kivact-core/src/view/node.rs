@@ -24,8 +24,18 @@ use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use crate::view::{HandlerResult, IntoText, IntoValue};
 use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_reactive::{Callback, ErrorKind, UiError};
 use kivact_style::Style;
+
+/// How a removed host node participates in layout during its exit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ExitLayout {
+    /// Keep the node in flow until its exit finishes.
+    #[default]
+    Keep,
+    /// Release its layout slot at removal, keeping its last local box for exit paint.
+    Pop,
+}
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Draw, IntrinsicSize, Size};
 
@@ -241,6 +251,22 @@ pub trait NodeBuilder: Sized {
     /// [`accessible_invalid`](crate::primitive::NodeExt::accessible_invalid).
     fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
         self.node_mut().common.invalid = Some(value.into_prop());
+        self
+    }
+
+    /// Set how this node lays out when it is the root of a removed subtree.
+    /// Absolute, fixed and overlay nodes already occupy no slot in normal flow.
+    fn exit_layout(mut self, layout: ExitLayout) -> Self {
+        self.node_mut().common.exit_layout = layout;
+        self
+    }
+
+    /// Run after this node, when directly removed, is no longer drawn.
+    /// The callback runs once even when the removal has no animation or an
+    /// ancestor cuts the animation short. Create it outside the removed
+    /// branch so its owner can still be alive when the exit finishes.
+    fn on_exit_complete(mut self, callback: Callback<()>) -> Self {
+        self.node_mut().common.exit_complete = Some(callback);
         self
     }
 

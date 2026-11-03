@@ -81,6 +81,12 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             region,
             visible,
         } => text::focus_changed(rt, *node, *region, *visible),
+        HostEvent::ExitComplete { node } => {
+            let callback = crate::view::state::ViewState::tree_mut(rt).take_exit_callback(*node);
+            if let Some(callback) = callback {
+                callback.call_if_alive(());
+            }
+        }
         HostEvent::FocusResult { request, result } => {
             text::focus_result(rt, *request, result.clone())
         }

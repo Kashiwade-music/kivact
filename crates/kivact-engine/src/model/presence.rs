@@ -22,10 +22,10 @@
 //!   it again. A subtree that is not drawn (detached, or hidden) goes at
 //!   once.
 //! - A leaving subtree is removed at the first sync after no node in it
-//!   moves; until then it keeps its place in the layout, so its siblings
-//!   do not move before (as with a CSS exit transition and Framer Motion's
-//!   `AnimatePresence`). One whose ancestor kivact removes goes with the
-//!   ancestor.
+//!   moves. By default it keeps its place in the layout until then. A
+//!   removal can instead pin the last local box outside flow so siblings
+//!   move immediately. One whose ancestor kivact removes goes with the
+//!   ancestor. A requested completion is reported on physical removal.
 //! - Without a paint transition, or under reduced motion with a decorative
 //!   one, a node neither enters nor leaves: it shows its paint and goes at
 //!   once.

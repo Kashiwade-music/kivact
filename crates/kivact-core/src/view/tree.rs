@@ -240,6 +240,8 @@ pub(crate) struct TNode {
     pub at: Option<&'static Location<'static>>,
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
+    pub(crate) exit_layout: crate::view::ExitLayout,
+    pub(crate) exit_complete: Option<kivact_reactive::Callback<()>>,
     /// The graph sources node references read (`Tree::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
     /// The effect that last set each dynamic prop (diagnostics::why).
@@ -257,6 +259,8 @@ impl TNode {
             owner,
             at: None,
             handlers: None,
+            exit_layout: Default::default(),
+            exit_complete: None,
             observation: None,
             origins: Vec::new(),
         }
@@ -276,6 +280,7 @@ pub(crate) struct Tree {
     pub root: NodeId,
     engine: Writer,
     future_text_edits: IdMap<usize>,
+    exit_callbacks: IdMap<kivact_reactive::Callback<()>>,
     removes: bool,
     /// Lazily installed for choice candidates; only Hidden changes notify it.
     visibility_revision: Option<Trigger>,
@@ -296,6 +301,7 @@ impl Tree {
             root,
             engine,
             future_text_edits: IdMap::default(),
+            exit_callbacks: IdMap::default(),
             removes: false,
             visibility_revision: None,
         }
@@ -739,8 +745,7 @@ impl Tree {
         let mut tops = Vec::new();
         self.top_hosts(id, &mut tops);
         for h in tops {
-            self.removes = true;
-            self.engine().remove(h);
+            self.remove_host(h);
         }
         if let Some(p) = parent.and_then(|p| self.nodes.get_mut(&p))
             && let Some(pos) = p.children.iter().position(|c| *c == id)
@@ -758,8 +763,7 @@ impl Tree {
         let mut tops = Vec::new();
         self.top_hosts(id, &mut tops);
         for h in tops {
-            self.removes = true;
-            self.engine().remove(h);
+            self.remove_host(h);
         }
         self.delete_records(id)
     }
@@ -767,6 +771,26 @@ impl Tree {
     /// First host node of a subtree (public to lists).
     pub(crate) fn first_host_of(&self, id: NodeId) -> Option<NodeId> {
         self.first_host(id)
+    }
+
+    fn remove_host(&mut self, id: NodeId) {
+        self.removes = true;
+        let Some(node) = self.nodes.get_mut(&id) else {
+            return;
+        };
+        let pop = node.exit_layout == crate::view::ExitLayout::Pop;
+        let callback = node.exit_complete.take();
+        if let Some(callback) = callback {
+            self.exit_callbacks.insert(id, callback);
+        }
+        self.engine().remove_with_exit(id, pop, callback.is_some());
+    }
+
+    pub(crate) fn take_exit_callback(
+        &mut self,
+        id: NodeId,
+    ) -> Option<kivact_reactive::Callback<()>> {
+        self.exit_callbacks.remove(&id)
     }
 
     /// Delete core bookkeeping after the engine subtree has been removed.

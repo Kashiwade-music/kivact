@@ -892,8 +892,8 @@ impl Style {
     /// A leaving node keeps its place in the layout until it goes, as with
     /// a CSS exit transition or Framer Motion's `AnimatePresence`: the
     /// nodes after it move into its place when it goes, not when it is
-    /// removed. A node that should leave without holding its place is
-    /// placed out of the flow (`.position(Position::Absolute)`).
+    /// removed. The node builder's `exit_layout(ExitLayout::Pop)` modifier
+    /// releases that space at removal while retaining its last local box.
     ///
     /// Without a paint transition, and under reduced motion with a
     /// decorative one, the node goes at once.

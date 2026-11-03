@@ -108,9 +108,14 @@ impl Writer {
 
     /// Remove and destroy `id` and its whole subtree.
     pub fn remove(&self, id: NodeId) {
+        self.remove_with_exit(id, false, false);
+    }
+
+    /// Remove a subtree, optionally freeing its layout slot and reporting physical removal.
+    pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
-        m.remove(id);
+        m.remove(id, pop_layout, notify);
         m.writes.structural(id);
     }
 

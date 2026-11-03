@@ -125,6 +125,10 @@ pub enum KeyPhase {
 /// (`HostFailure`, `TurnsCut`, `AssetFailed`, `DrawDropped`, `LayoutWarning`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostEvent {
+    /// A requested removal has finished, including any retained exit paint.
+    ExitComplete {
+        node: NodeId,
+    },
     Pointer {
         node: NodeId,
         region: Option<RegionId>,

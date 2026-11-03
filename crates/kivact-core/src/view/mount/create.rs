@@ -15,6 +15,8 @@ use crate::view::tree::Handlers;
 
 /// The node's first write.
 pub(super) struct FirstWrite {
+    pub(super) exit_layout: crate::view::ExitLayout,
+    pub(super) exit_complete: Option<kivact_reactive::Callback<()>>,
     pub(super) test_id: Option<Rc<str>>,
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,
@@ -36,6 +38,8 @@ pub(super) struct FirstWrite {
 /// editing). This is the only stage that borrows the engine tree for its writes at once.
 pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Location<'static>) {
     let FirstWrite {
+        exit_layout,
+        exit_complete,
         test_id,
         role,
         focusable,
@@ -61,6 +65,8 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         }
         if let Some(n) = tree.get_mut(id) {
             n.at = Some(at);
+            n.exit_layout = exit_layout;
+            n.exit_complete = exit_complete;
             n.handlers = Some(Box::new(handlers));
         }
         if let Some(r) = role {
