@@ -1,5 +1,7 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
-use super::types::{CellSlot, Key, RowColor, RowName, RowSelectable, RowSlot, Sort};
+use super::types::{
+    CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, Sort,
+};
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
@@ -31,6 +33,7 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) widths: Option<Binding<Vec<f32>>>,
     pub(super) actions: Option<(f32, RowSlot<R>)>,
+    pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) details: Option<RowSlot<R>>,
@@ -56,6 +59,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
             row_selectable: self.row_selectable.clone(),
             widths: self.widths,
             actions: self.actions.clone(),
+            row_context_menu: self.row_context_menu.clone(),
             row_label: self.row_label.clone(),
             cells: self.cells.clone(),
             details: self.details.clone(),
@@ -241,7 +245,11 @@ where
         let selectable = grid.row_selectable.clone();
         checkbox(name, binding(chosen, move |on| toggle.try_call(on)))
             .hide_label(true)
-            .disabled(move || selectable.as_ref().is_some_and(|test| !item.with(|row| test(row))))
+            .disabled(move || {
+                selectable
+                    .as_ref()
+                    .is_some_and(|test| !item.with(|row| test(row)))
+            })
     })
     .into_view()
 }
@@ -306,9 +314,13 @@ where
         Some(reorder) => line.part(drag_source(grid, id, reorder)),
         None => line,
     };
+    let line = match &grid.row_context_menu {
+        Some(menu) => menu(item, line),
+        None => line.into_view(),
+    };
     match details {
         Some(details) => column((line, details)).into_view(),
-        None => line.into_view(),
+        None => line,
     }
 }
 

@@ -114,6 +114,7 @@ where
         resize_range: None,
         row_label: None,
         actions: None,
+        row_context_menu: None,
         reorder: None,
         toolbar: None,
         footer: None,
@@ -152,6 +153,18 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// selects the row, Ctrl toggles and Shift extends.
     pub fn selection(mut self, selection: impl Into<Binding<Vec<K>>>) -> Self {
         self.selection = Some(selection.into());
+        self
+    }
+
+    /// Open a menu from a row's secondary click or context-menu key.
+    /// The menu receives the live row value, including updates while mounted.
+    pub fn row_context_menu<M: Clone + Eq + Hash + 'static>(
+        mut self,
+        menu: impl Fn(Value<R>) -> crate::Menu<M> + 'static,
+    ) -> Self {
+        self.row_context_menu = Some(Rc::new(move |row, target| {
+            menu(row).attach_context_fallback(target)
+        }));
         self
     }
 

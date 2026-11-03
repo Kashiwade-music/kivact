@@ -354,7 +354,13 @@ fn ineligible_rows_keep_focus_but_are_skipped_by_selection_gestures() {
     assert!(selected.get_untracked().is_empty());
     grace.press_key(Key::ArrowDown);
     assert!(screen.get_by_role(Role::Row, "Linus").is_focused());
-    screen.press_key_with(Key::Char('a'), Modifiers { ctrl: true, ..Modifiers::default() });
+    screen.press_key_with(
+        Key::Char('a'),
+        Modifiers {
+            ctrl: true,
+            ..Modifiers::default()
+        },
+    );
     assert_eq!(selected.get_untracked(), [1, 3, 4, 5]);
 }
 
@@ -369,9 +375,101 @@ fn the_page_checkbox_selects_only_eligible_rows() {
                 .row_selectable(|person| person.id % 2 == 0),
         )
     });
-    assert!(screen.get_by_role(Role::CheckBox, "Select Ada").is_disabled());
+    assert!(
+        screen
+            .get_by_role(Role::CheckBox, "Select Ada")
+            .is_disabled()
+    );
     screen.get_by_role(Role::CheckBox, "Select all").click();
     assert_eq!(selected.get_untracked(), [2, 4]);
     screen.get_by_role(Role::CheckBox, "Select all").click();
     assert!(selected.get_untracked().is_empty());
+}
+
+#[test]
+fn row_context_menu_opens_from_a_cell_without_changing_selection() {
+    let (screen, (selected, chosen)) = mount_with(options(), || {
+        let selected = signal(Vec::<u32>::new());
+        let chosen = signal(None::<u32>);
+        (
+            (selected, chosen),
+            data_table(people(), |p: &Person| p.id, columns())
+                .selection(selected)
+                .row_context_menu(move |person| {
+                    menu(
+                        "Person actions",
+                        move || {
+                            vec![MenuEntry::item(
+                                "inspect",
+                                person.with(|p| format!("Inspect {}", p.name)),
+                            )]
+                        },
+                        move |_| chosen.set(Some(person.with(|p| p.id))),
+                    )
+                }),
+        )
+    });
+    let ada = screen.get_by_role(Role::GridCell, "Ada");
+    ada.click_with(MouseButton::Secondary);
+    screen.get_by_role(Role::MenuItem, "Inspect Ada").click();
+    assert_eq!(chosen.get_untracked(), Some(1));
+    assert!(selected.get_untracked().is_empty());
+
+    ada.press_key_with(
+        Key::F(10),
+        Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        },
+    );
+    screen.get_by_role(Role::MenuItem, "Inspect Ada");
+    screen.press_key(Key::Escape);
+    assert!(
+        screen
+            .query_by_role(Role::MenuItem, "Inspect Ada")
+            .is_none()
+    );
+    assert!(selected.get_untracked().is_empty());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_cell_that_claims_secondary_input_suppresses_the_row_menu() {
+    let (screen, claimed) = mount_with(options(), || {
+        let claimed = signal(false);
+        let mut columns = columns();
+        columns[0] = columns[0].clone().cell(move |person| {
+            text(person.name).on_pointer(move |event| {
+                if matches!(
+                    event.phase,
+                    kivact::view::PointerPhase::Down(press)
+                        | kivact::view::PointerPhase::Up(press)
+                        if press.button == MouseButton::Secondary
+                ) {
+                    claimed.set(true);
+                    kivact::view::Handled::Yes
+                } else {
+                    kivact::view::Handled::No
+                }
+            })
+        });
+        (
+            claimed,
+            data_table(people(), |p: &Person| p.id, columns).row_context_menu(|_| {
+                menu(
+                    "Row options",
+                    vec![MenuEntry::item("inspect", "Inspect row")],
+                    |_| (),
+                )
+            }),
+        )
+    });
+    screen.get_by_text("Ada").click_with(MouseButton::Secondary);
+    assert!(claimed.get_untracked());
+    assert!(
+        screen
+            .query_by_role(Role::MenuItem, "Inspect row")
+            .is_none()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

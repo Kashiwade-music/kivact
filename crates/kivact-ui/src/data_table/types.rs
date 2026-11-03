@@ -20,6 +20,7 @@ pub(super) type RowSlot<R> = Rc<dyn Fn(Value<R>) -> View>;
 pub(super) type CellSlot<R> = Rc<dyn Fn(Value<R>, usize) -> View>;
 /// A region the caller fills, built once from the table's state.
 pub(super) type Slot<R, K> = Box<dyn FnOnce(DataTableContext<R, K>) -> View>;
+pub(super) type RowContextMenu<R> = Rc<dyn Fn(Value<R>, Node) -> View>;
 pub(super) type RowSelectable<R> = Rc<dyn Fn(&R) -> bool>;
 pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
 /// Names a row in text.
@@ -70,6 +71,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) resize_range: Option<ScalarRange>,
     pub(super) row_label: Option<RowName<R>>,
     pub(super) actions: Option<(f32, RowSlot<R>)>,
+    pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) reorder: Option<Callback<(K, usize)>>,
     pub(super) toolbar: Option<Slot<R, K>>,
     pub(super) footer: Option<Slot<R, K>>,
