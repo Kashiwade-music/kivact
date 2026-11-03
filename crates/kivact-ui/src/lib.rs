@@ -171,7 +171,7 @@ pub use kivact_interaction::{
 };
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
-pub use progress::{Progress, progress};
+pub use progress::{Progress, ProgressMotion, progress};
 pub use recipes::{
     CommandPaletteRecipes, DataTableRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
     ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,

@@ -154,14 +154,15 @@ pub struct ProgressState {
     pub size: ControlSize,
     /// The fraction the bar is shown at, from 0 to 1: it moves toward
     /// `value` over a short time (at once under reduced motion), starting
-    /// from 0 when the bar appears; 0 while indeterminate. A recipe that
+    /// from 0 by default when the bar appears; 0 while indeterminate. A recipe that
     /// paints the fill reads it in the paint, which follows it. The handle
     /// is made at setup and stays the same for the mounted bar; it is not
     /// part of the state's equality.
     pub shown: kivact_core::Value<f64>,
-    /// A clock from 0 to 1 that repeats about every 1.3 s while the bar is
-    /// indeterminate or [`Progress::moving`](super::Progress::moving) is true,
-    /// and rests at 0 otherwise (and under reduced motion). A recipe reads it
+    /// A clock from 0 to 1 that repeats with the theme's
+    /// [`ProgressMotion`](super::ProgressMotion) period while the bar is
+    /// indeterminate or [`Progress::moving`](super::Progress::moving) is true.
+    /// The clock rests at 0 under reduced motion by default. A recipe reads it
     /// in a paint that moves. The handle is made at setup and stays the same
     /// for the mounted bar; it is not part of the state's equality.
     pub phase: kivact_core::Value<f32>,
