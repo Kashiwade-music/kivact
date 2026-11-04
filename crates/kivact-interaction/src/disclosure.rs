@@ -12,6 +12,7 @@
 //! accordion's height) stays visible while [`DisclosureApi::leaving`] says the
 //! animation runs; the trigger's `expanded` follows the shown state at once.
 
+use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Signal, Value, signal};
@@ -55,14 +56,14 @@ pub struct DisclosureApi {
     shown: Value<bool>,
     trigger_state: Signal<Option<Value<DisclosureState>>>,
     content_state: Signal<Option<Value<DisclosureState>>>,
-    settings: Signal<DisclosureSettings>,
+    settings: OptionsCell<DisclosureOptions>,
     pub(crate) content: NodeRef,
 }
 
 /// What the setters store; read where the parts use it, so they work in any
 /// order.
 #[derive(Clone, Copy, Default)]
-struct DisclosureSettings {
+struct DisclosureOptions {
     disabled: Option<Value<bool>>,
     leaving: Option<Value<bool>>,
 }
@@ -78,7 +79,7 @@ pub fn use_disclosure(open: impl kivact_core::state::IntoBinding<bool>) -> Discl
         shown: open.into_value(),
         trigger_state: signal(None),
         content_state: signal(None),
-        settings: signal(DisclosureSettings::default()),
+        settings: OptionsCell::new(DisclosureOptions::default()),
         content: node_ref(),
     }
 }
@@ -143,8 +144,7 @@ impl DisclosureApi {
     }
 
     fn is_disabled(self) -> bool {
-        self.settings
-            .with_untracked(|settings| settings.disabled.is_some_and(|d| d.get()))
+        self.settings.get().disabled.is_some_and(|d| d.get())
     }
 
     fn write(self, open: Option<bool>) {
@@ -163,14 +163,18 @@ impl DisclosureApi {
         let shown = self.shown;
         let settings = self.settings;
         let disabled = move || {
-            settings.with(|settings| settings.disabled.is_some_and(|disabled| disabled.get()))
+            settings
+                .value()
+                .get()
+                .disabled
+                .is_some_and(|disabled| disabled.get())
         };
         let input = part(move |input| state(input, shown.get()));
         let part_state = input.state();
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-            let own_disabled = settings.get_untracked().disabled;
+            let own_disabled = settings.get().disabled;
             settings.update(|settings| {
                 settings.disabled = Some(kivact_core::state::memo(move || {
                     caller_disabled.is_some_and(|value| value.get())
@@ -224,7 +228,9 @@ impl DisclosureApi {
                 .node_ref(self.content)
                 .hidden(move || {
                     let leaving = settings
-                        .with(|settings| settings.leaving)
+                        .value()
+                        .get()
+                        .leaving
                         .is_some_and(|leaving| leaving.get());
                     !shown.get() && !leaving
                 })

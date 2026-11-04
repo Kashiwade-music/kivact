@@ -25,6 +25,7 @@ impl Common {
             ime,
             draw,
             draw_over,
+            draw_with_layout,
             intrinsic,
             image_fit,
             monochrome,

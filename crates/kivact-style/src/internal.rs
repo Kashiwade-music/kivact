@@ -49,3 +49,14 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
     };
     CompiledSpanStyle { props, unsupported }
 }
+
+/// Resolve an editing range's decoration using the current theme.
+pub fn compile_text_decoration(value: crate::TextDecoration, theme: &Theme) -> p::TextDecoration {
+    p::TextDecoration {
+        lines: value.lines,
+        color: value.color.map(|color| color.resolve(theme)),
+        thickness: value.thickness.map(TextLength::to_wire),
+        underline_offset: value.underline_offset.to_wire(),
+        style: value.style,
+    }
+}

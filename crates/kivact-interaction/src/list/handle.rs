@@ -6,8 +6,8 @@ use super::{input, parts, state, typeahead};
 use crate::Selection;
 use crate::axis::check_list_axis;
 use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
+use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoValue, callback};
-use kivact_core::state::{Value, Var};
 use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
 use std::rc::Rc;
 
@@ -294,7 +294,12 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         self.state().holds_focus(key)
     }
     #[track_caller]
-    pub(crate) fn shared_typeahead(self, typed: Var<typeahead::Typeahead>) -> Self {
+    pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
+        self.state().roving.requested.bind(highlight);
+        self
+    }
+    #[track_caller]
+    pub(crate) fn shared_typeahead(self, typed: Binding<typeahead::Typeahead>) -> Self {
         let state = self.state();
         require_setup("ListApi::shared_typeahead");
         state.typed.set(typed);

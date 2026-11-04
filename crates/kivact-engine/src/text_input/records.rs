@@ -2,8 +2,7 @@
 
 use crate::text_input::source::Source;
 use kivact_editing::LineState;
-use kivact_types::{Point, Rgba};
-use std::ops::Range;
+use kivact_types::Point;
 use std::sync::Arc;
 
 /// What the lines show.
@@ -59,7 +58,7 @@ impl Key {
 #[derive(Clone, Debug)]
 pub(crate) struct Colored {
     pub(crate) input: LineState,
-    pub(crate) spans: Vec<(Range<usize>, Rgba)>,
+    pub(crate) spans: Vec<kivact_editing::LineStyle>,
     pub(crate) output: LineState,
 }
 

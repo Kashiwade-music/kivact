@@ -8,7 +8,7 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::{PartState, raise};
 use kivact_core::geometry::Point;
 use kivact_core::state::IntoText;
-use kivact_core::state::{Callback, Signal, Value, Var};
+use kivact_core::state::{Callback, MachineHandle, Signal, Value, Var};
 use kivact_core::style::Icon;
 use kivact_core::view::NodeRef;
 
@@ -608,31 +608,32 @@ pub(super) enum Opened {
 }
 
 /// State shared by every level of one menu. All handles are `Copy`.
-pub(super) struct Session<K: 'static> {
+pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) entries: Value<Vec<MenuEntry<K>>>,
     pub(super) choose: Var<Callback<K>>,
     /// The top level's popup; its anchor is the trigger.
     pub(super) popup: PopupApi,
     pub(super) anchor: NodeRef,
     /// How the open menu was opened; `None` while it is closed.
-    pub(super) opened: Signal<Option<Opened>>,
+    pub(super) opened: Value<Option<Opened>>,
     /// Where the open menu was asked to appear, derived from `opened`.
     pub(super) origin: Value<Option<MenuOrigin>>,
     /// Keys of the submenu items that are open, outermost first.
-    pub(super) path: Signal<Vec<K>>,
+    pub(super) path: Value<Vec<K>>,
     /// The item that has the focus: its depth and key.
-    pub(super) focus_key: Signal<Option<(usize, K)>>,
+    pub(super) focus_key: Value<Option<(usize, K)>>,
     /// How many levels the current entries keep (see `super::order::kept_levels`).
     pub(super) kept: Value<usize>,
-    pub(super) want: Signal<Option<Want<K>>>,
-    pub(super) typed: Var<Typeahead>,
+    pub(super) want: Value<Option<Want<K>>>,
+    pub(super) machine: MachineHandle<super::session::SessionMachine<K>>,
+    pub(super) typed: kivact_core::state::Binding<Typeahead>,
     pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
 }
 
-impl<K: 'static> Clone for Session<K> {
+impl<K: kivact_core::state::ItemKey> Clone for Session<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: 'static> Copy for Session<K> {}
+impl<K: kivact_core::state::ItemKey> Copy for Session<K> {}

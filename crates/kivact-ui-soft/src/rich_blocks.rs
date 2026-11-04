@@ -8,7 +8,6 @@ use kivact::custom::EditRequest;
 use kivact::custom::EditState;
 use kivact::custom::NodeRefExt;
 use kivact::custom::TextEditing;
-use kivact::custom::TextHighlight;
 use kivact::custom::TextSession;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::text_edit_policy;
@@ -28,6 +27,7 @@ use kivact::state::var;
 use kivact::style::Align;
 use kivact::style::Justify;
 use kivact::style::Style;
+use kivact::style::StyledRange;
 use kivact::style::pct;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
@@ -206,16 +206,18 @@ impl Editor {
                     text_edit_policy(state, request, context)
                 }
             })
-            .highlight(
+            .line_styles(
                 move || tokens().colors.text_secondary,
                 move |color, line, &()| {
                     let marks = if prose {
                         line.char_indices()
                             .filter_map(|(at, character)| {
                                 matches!(character, '*' | '_' | '`' | '~' | '[' | ']').then_some(
-                                    TextHighlight {
+                                    StyledRange {
                                         range: at..at + 1,
-                                        color: *color,
+                                        color: Some(*color),
+                                        background: None,
+                                        decoration: None,
                                     },
                                 )
                             })

@@ -336,16 +336,38 @@ pub(crate) fn text_layout(
     rows: Range<usize>,
     engine: &mut arvane::Engine,
 ) -> Option<kivact_editing::TextLayout> {
+    layout_snapshot(host, id, rows, engine, false)
+}
+
+pub(crate) fn layout_snapshot(
+    host: &Model,
+    id: NodeId,
+    rows: Range<usize>,
+    engine: &mut arvane::Engine,
+    canvas_coordinates: bool,
+) -> Option<kivact_editing::TextLayout> {
     use kivact_editing::{EditCaret, EditLine, TextLayout};
     let value = host.edit(id)?.value();
     let origin = text_line(host, id, engine);
     let transform = host.transform_between(id, None);
     let scroll = input_scroll(host, id);
-    let mapped = |rect: Rect| map_rect(transform.as_ref(), rect);
-    let caret = map_rect(transform.as_ref(), caret_rect(host, id, engine));
+    let canvas = visual::padding_box(host.rect(id)?, &visual::paint(host, id));
+    let mapped = |rect: Rect| {
+        if canvas_coordinates {
+            Rect {
+                x: rect.x - canvas.x,
+                y: rect.y - canvas.y,
+                ..rect
+            }
+        } else {
+            map_rect(transform.as_ref(), rect)
+        }
+    };
+    let caret = mapped(caret_rect(host, id, engine));
     let (mut lines, _) = host.edit_lines(id, engine)?;
     let mut out = TextLayout {
         caret,
+        selection: Vec::new(),
         line_count: 0,
         lines: Vec::new(),
         carets: Vec::new(),
@@ -370,6 +392,20 @@ pub(crate) fn text_layout(
                 ..r
             })
         };
+        let selection = host.edit(id)?.selection();
+        for rect in lines.spans(
+            value,
+            i,
+            (selection.start, selection.end),
+            origin.width,
+            engine,
+        ) {
+            out.selection.push(mapped(Rect {
+                x: origin.x - scroll + rect.x,
+                y: origin.y + rect.y,
+                ..rect
+            }));
+        }
         let range = lines.range(i);
         let chars = value[range.clone()].chars().count() as u32;
         let shaped = lines.shaped(value, i, engine);

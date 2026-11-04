@@ -213,8 +213,8 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         if self.session.is_open().get_untracked() {
             return;
         }
-        self.session.request(0, Edge::First);
         self.session.open_from_button();
+        self.session.request(0, Edge::First);
     }
 
     /// Close every level of the menu without moving the focus, as
@@ -273,8 +273,14 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                         return Handled::No;
                     }
                     match event.key() {
-                        Key::ArrowDown => session.request(0, Edge::First),
-                        Key::ArrowUp => session.request(0, Edge::Last),
+                        Key::ArrowDown => {
+                            session.open_from_button();
+                            session.request(0, Edge::First);
+                        }
+                        Key::ArrowUp => {
+                            session.open_from_button();
+                            session.request(0, Edge::Last);
+                        }
                         _ => return Handled::No,
                     }
                     session.open_from_button();

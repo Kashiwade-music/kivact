@@ -1,13 +1,10 @@
 //! Role: Track a held menu pointer and activate the eligible row at release.
-use super::press_state::{Gesture, Phase, Press, Source};
+use super::press_state::{Input, Press, PressEvent, PressGesture, Source};
 use super::state::{MenuOrigin, Session};
 use crate::PopupCloseReason;
 use kivact_core::custom::clock_now;
-use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerKind, PointerPhase};
-use std::time::Duration;
 
-const HOLD: Duration = Duration::from_millis(500);
 const SETTLE_NS: u64 = 300_000_000;
 
 impl Press {
@@ -23,7 +20,9 @@ impl Press {
                 self.cancel();
                 return Handled::No;
             }
-            if press.button != MouseButton::Primary || self.gesture.get().is_some() {
+            if press.button != MouseButton::Primary
+                || !matches!(self.machine.get().gesture, PressGesture::Idle)
+            {
                 return Handled::No;
             }
             let opened = session.is_open().get_untracked();
@@ -32,112 +31,99 @@ impl Press {
             {
                 return Handled::No;
             }
-            let id = event.id();
-            let kind = event.kind();
-            let phase = if source == Source::Menu || kind == PointerKind::Mouse {
+            let input = Input {
+                id: event.id(),
+                kind: event.kind(),
+                source,
+            };
+            if source == Source::Menu || input.kind == PointerKind::Mouse {
                 event.suppress_activation();
                 if source == Source::Trigger {
                     session.open_from_button();
                 } else {
-                    self.highlight.set(Some(self.hit(position).1));
+                    self.machine
+                        .send(PressEvent::Highlight(self.hit(position).1.into()));
                 }
-                Phase::Open {
-                    at: clock_now(),
-                    entered: source == Source::Menu,
+                self.machine.send(PressEvent::Open(
+                    input,
+                    position,
+                    clock_now(),
+                    source == Source::Menu,
+                ));
+                return Handled::Yes;
+            }
+            let callback = kivact_core::state::callback(move |()| {
+                if session.is_open().get_untracked() {
+                    self.cancel();
+                    return;
                 }
-            } else {
-                let timer = spawn(async move {
-                    sleep(HOLD).await;
-                    if let Some(mut gesture) = self.gesture.get()
-                        && gesture.id == id
-                        && matches!(gesture.phase, Phase::Pending { .. })
-                        && !session.is_open().get_untracked()
-                    {
-                        event.suppress_activation();
-                        gesture.phase = Phase::Open {
-                            at: clock_now(),
-                            entered: false,
-                        };
-                        self.gesture.set(Some(gesture));
-                        if source == Source::Context {
-                            session.open_at(MenuOrigin::Pointer(position));
-                        } else {
-                            session.open_from_button();
-                        }
-                    }
-                });
-                Phase::Pending {
-                    timer,
-                    from: position,
+                event.suppress_activation();
+                if source == Source::Context {
+                    session.open_at(MenuOrigin::Pointer(position));
+                } else {
+                    session.open_from_button();
                 }
-            };
-            self.gesture.set(Some(Gesture {
-                id,
-                kind,
-                phase,
-                source,
-            }));
-            return if matches!(phase, Phase::Open { .. }) {
-                Handled::Yes
-            } else {
-                Handled::No
-            };
-        }
-        let Some(mut gesture) = self
-            .gesture
-            .get()
-            .filter(|gesture| gesture.id == event.id())
-        else {
+            });
+            self.machine
+                .send(PressEvent::Pending(input, position, callback));
             return Handled::No;
+        }
+        let gesture = self.machine.get().gesture;
+        let input = match gesture {
+            PressGesture::Idle => return Handled::No,
+            PressGesture::Pending { input, .. }
+            | PressGesture::Holding { input, .. }
+            | PressGesture::Dragging { input, .. } => input,
         };
+        if input.id != event.id() {
+            return Handled::No;
+        }
         if matches!(event.phase(), PointerPhase::Cancel) {
             self.cancel();
             return Handled::No;
         }
-        match (event.phase(), gesture.phase) {
-            (PointerPhase::Move, Phase::Pending { from, .. }) => {
-                let drift = if gesture.source == Source::Context {
-                    kivact_core::style::use_theme()
-                        .get()
-                        .ext::<crate::InteractionPolicy>()
-                        .menu
-                        .drift
-                        .context
+        match (event.phase(), gesture) {
+            (PointerPhase::Move, PressGesture::Pending { from, .. }) => {
+                let drift = kivact_core::style::use_theme()
+                    .get()
+                    .ext::<crate::InteractionPolicy>()
+                    .menu
+                    .drift
+                    .clone();
+                let drift = if input.source == Source::Context {
+                    drift.context
                 } else {
-                    kivact_core::style::use_theme()
-                        .get()
-                        .ext::<crate::InteractionPolicy>()
-                        .menu
-                        .drift
-                        .other
+                    drift.other
                 };
                 if (position.x - from.x).hypot(position.y - from.y) > drift {
                     event.suppress_activation();
                     self.cancel();
                 }
             }
-            (PointerPhase::Up(_), Phase::Pending { .. }) => self.cancel(),
-            (PointerPhase::Move, Phase::Open { at, entered }) => {
+            (PointerPhase::Up(_), PressGesture::Pending { .. }) => self.cancel(),
+            (PointerPhase::Move, PressGesture::Holding { .. } | PressGesture::Dragging { .. }) => {
                 let (inside, row) = self.hit(position);
-                if inside || entered {
-                    gesture.phase = Phase::Open { at, entered: true };
-                    self.gesture.set(Some(gesture));
-                    self.highlight.set(Some(row));
+                if inside || matches!(gesture, PressGesture::Dragging { .. }) {
+                    self.machine.send(PressEvent::Move(position, row.into()));
                 }
                 return Handled::Yes;
             }
-            (PointerPhase::Up(press), Phase::Open { at, entered })
-                if press.button == MouseButton::Primary =>
-            {
+            (
+                PointerPhase::Up(press),
+                PressGesture::Holding { since, .. } | PressGesture::Dragging { since, .. },
+            ) if press.button == MouseButton::Primary => {
                 event.suppress_activation();
                 let (inside, row) = self.hit(position);
                 self.cancel();
-                if !settled(entered, clock_now().saturating_sub(at)) {
+                if !settled(
+                    matches!(gesture, PressGesture::Dragging { .. }),
+                    clock_now().saturating_sub(since),
+                ) {
                     return Handled::Yes;
                 }
                 if let Some(row) = row {
                     row.activate();
-                } else if gesture.kind == PointerKind::Mouse
+                } else if input.kind == PointerKind::Mouse
                     && !inside
                     && !session.anchor.hit_test(position)
                 {

@@ -64,7 +64,7 @@ fn the_arrows_open_a_closed_list_and_move_the_active_option_once_it_is_open() {
         let value = signal(None::<&'static str>);
         ((open, value), picker(open, value, None))
     });
-    let field = screen.get_by_role(Role::TextBox, "Color");
+    let field = screen.get_by_role(Role::ComboBox, "Color");
     assert!(screen.query_by_role(Role::ListBox, "Colors").is_none());
     field.focus();
     field.press_key(Key::ArrowDown);
@@ -94,7 +94,7 @@ fn enter_chooses_only_in_an_open_list_and_a_choice_closes_it() {
         let value = signal(None::<&'static str>);
         ((open, value), picker(open, value, None))
     });
-    let field = screen.get_by_role(Role::TextBox, "Color");
+    let field = screen.get_by_role(Role::ComboBox, "Color");
     field.focus();
     field.press_key(Key::Enter);
     assert_eq!(value.get_untracked(), None, "a closed list has no choice");

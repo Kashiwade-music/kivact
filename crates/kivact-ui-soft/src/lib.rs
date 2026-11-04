@@ -79,7 +79,7 @@ mod segmented_control;
 mod selector;
 mod selector_surface;
 mod shadows;
-mod side_nav;
+mod side_navigation;
 mod soft_chat;
 mod soft_chat_composer;
 mod soft_chat_tools;
@@ -216,7 +216,7 @@ pub use selector::{
 };
 pub use selector_surface::SelectorPresentation;
 pub use shadows::Shadows;
-pub use side_nav::{
+pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
     SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
 };

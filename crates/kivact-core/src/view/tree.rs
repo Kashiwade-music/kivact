@@ -232,6 +232,7 @@ pub(crate) struct NodeObservation {
     pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::geometry::Point>,
     pub(crate) scene_revision: Notifier,
+    pub(crate) editing_revision: Notifier,
 }
 
 /// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
@@ -414,6 +415,7 @@ impl ViewNodes {
             text_truncated: node.owner.signal(false, at),
             scroll: node.owner.signal(crate::geometry::Point::default(), at),
             scene_revision: node.owner.notifier(at),
+            editing_revision: node.owner.notifier(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
         let rect = observation.rect;
