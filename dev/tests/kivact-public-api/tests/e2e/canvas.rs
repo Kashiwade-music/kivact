@@ -331,12 +331,16 @@ fn snapshot_returns_the_node_pixels() {
     assert_eq!(pixels.rgba.len(), 60 * 40 * 4);
     let red = pixels
         .rgba
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|p| p[0] > 180 && p[1] < 80 && p[2] < 80)
         .count();
     let white = pixels
         .rgba
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|p| p[0] > 180 && p[1] > 180 && p[2] > 180)
         .count();
     assert!(

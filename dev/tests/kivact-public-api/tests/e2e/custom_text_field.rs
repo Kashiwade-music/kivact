@@ -81,10 +81,10 @@ fn code_editor(initial: &str) -> (Editor, Node) {
                 }
                 EditPhase::Commit if history.restoring => history.restoring = false,
                 EditPhase::Commit => {
-                    if let Some(before) = history.pending.take() {
-                        if before.0 != text {
-                            history.steps.push(before);
-                        }
+                    if let Some(before) = history.pending.take()
+                        && before.0 != text
+                    {
+                        history.steps.push(before);
                     }
                 }
                 EditPhase::Cancel => history.pending = None,
@@ -338,7 +338,9 @@ fn custom_text_field_undo_groups_commits_with_edit_phase() {
         editor
             .phases
             .borrow()
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .all(|pair| pair[0].0 == EditPhase::Begin && pair[1].0 == EditPhase::Commit)
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
