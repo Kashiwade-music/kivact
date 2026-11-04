@@ -2431,6 +2431,7 @@ pub struct AppOptions { /* 全部 private */
 }
 impl AppOptions {
     pub fn new(title: impl Into<String>) -> Self;
+    pub fn title(self, title: impl Into<String>) -> Self;
     pub fn window_size(self, width: impl Into<f64>, height: impl Into<f64>) -> Self;
     pub fn min_window_size(self, width: impl Into<f64>, height: impl Into<f64>) -> Self;
     pub fn theme(self, theme: Theme) -> Self;
@@ -2440,6 +2441,8 @@ impl AppOptions {
     pub fn blocking_threads(self, n: usize) -> Self;
     #[cfg(feature = "gpu-interop")] pub fn gpu_preference(self, p: GpuPreference) -> Self;
     pub fn check_window_sizes(&self) -> Result<()>;
+    pub fn host_options(&self) -> kivact_engine::api::HostOptions;
+    pub fn window_title(&self) -> &str;
 }
 ```
 

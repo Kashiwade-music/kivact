@@ -1088,6 +1088,8 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
       pub fn blocking_threads(self, n: usize) -> Self;
       #[cfg(feature = "gpu-interop")] pub fn gpu_preference(self, p: GpuPreference) -> Self;
       pub fn check_window_sizes(&self) -> Result<()>;   // 現在 App::run が行う検査
+      pub fn host_options(&self) -> kivact_engine::api::HostOptions;
+      pub fn window_title(&self) -> &str;
   }
   pub enum ClientMode { Window, Embedded(CloseSignal), Test(TestTiming) }
   pub struct TestTiming(pub Rc<dyn Fn(u64)>);           // 現在 into_client(Some(timing)) に渡している値
