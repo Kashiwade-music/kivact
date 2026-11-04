@@ -226,7 +226,7 @@ where
         )
     } else {
         let sort = sort.unwrap_or_else(|| signal(None).into());
-        behavior = behavior.sort(binding(sort, move |next| {
+        behavior = behavior.with_sort(binding(sort, move |next| {
             sort.set(next);
             if let Some((index, _)) = page {
                 index.set(0);
@@ -385,7 +385,7 @@ fn share_widths<K: kivact_core::state::ItemKey>(
 ) -> kivact_interaction::DataTableApi<K, usize> {
     let current = sizes.into_value();
     behavior
-        .widths(binding(
+        .with_widths(binding(
             memo(move || {
                 (0..count)
                     .filter_map(|i| {
