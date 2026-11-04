@@ -3,7 +3,7 @@
 use super::data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
 use super::model::ColumnDef;
 use super::state::State;
-use super::{cells, state};
+use super::{cells, sort as sorting, state};
 use crate::Selection;
 use crate::axis::check_list_axis;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
@@ -216,7 +216,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let state = self.state();
         require_setup("DataTableApi::row_label");
         let label: Rc<dyn Fn(&K) -> String> = Rc::new(label);
-        state.label.update(|current| *current = Some(label));
+        state.options.update(|options| options.label = Some(label));
         self
     }
 
@@ -233,8 +233,10 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let state = self.state();
         require_setup("DataTableApi::sort");
         let sort = sort.into_binding();
-        state.sort.update(|current| *current = sort);
-        state.multi_sort.update(|current| *current = None);
+        state.options.update(|options| {
+            options.sort = sort;
+            options.multi_sort = None;
+        });
         self
     }
 
@@ -247,9 +249,10 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         sort: impl kivact_core::state::IntoBinding<Vec<(C, SortOrder)>>,
     ) -> Self {
         require_setup("DataTableApi::multi_sort");
+        let sort = sort.into_binding();
         self.state()
-            .multi_sort
-            .update(|current| *current = Some(sort.into_binding()));
+            .options
+            .update(|options| options.multi_sort = Some(sort));
         self
     }
 
@@ -265,7 +268,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let state = self.state();
         require_setup("DataTableApi::widths");
         let widths = widths.into_binding();
-        state.widths.update(|current| *current = widths);
+        state.options.update(|options| options.widths = widths);
         self
     }
 
@@ -286,21 +289,23 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         }
         let state = self.state();
         require_setup("DataTableApi::resize_limits");
-        state.resize.set((range, key_step));
+        state
+            .options
+            .update(|options| options.resize = (range, key_step));
         Ok(self)
     }
 
     /// Read the sort column and direction; `None` is the caller's own order.
     #[track_caller]
     pub fn sort(self) -> Value<Option<(C, SortOrder)>> {
-        let sort = self.state().sort;
+        let sort = self.state().sort();
         (move || sort.with(|sort| sort.get())).into_value()
     }
 
     /// Read the column widths, in the caller's unit, by column key.
     #[track_caller]
     pub fn widths(self) -> Value<HashMap<C, f64>> {
-        let widths = self.state().widths;
+        let widths = self.state().widths();
         (move || widths.with(|widths| widths.get())).into_value()
     }
 
@@ -348,7 +353,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let state = self.state();
         require_setup("DataTableApi::header");
         let reference = state.header_ref(&column);
-        let (columns, sort, multi_sort) = (state.columns, state.sort, state.multi_sort);
+        let (columns, sort, multi_sort) = (state.columns, state.sort(), state.multi_sort());
         let key = var(column);
         let info = memo(move || {
             key.with(|key| {
@@ -402,39 +407,22 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 [("rank", rank.to_string()), ("total", total.to_string())]
             },
         );
+        let sorting = state.sorting;
         let activate = move |extend: bool| {
             if !sortable.get() {
                 return;
             }
-            if let Some(binding) = multi_sort.get_untracked() {
-                let column = key.get();
-                let mut keys = binding.get_untracked();
-                let index = keys.iter().position(|(key, _)| *key == column);
-                let next = match index.map(|index| keys[index].1) {
-                    None => Some(SortOrder::Ascending),
-                    Some(SortOrder::Ascending) => Some(SortOrder::Descending),
-                    Some(SortOrder::Descending) => None,
-                };
-                if !extend {
-                    keys.clear();
-                    keys.extend(next.map(|next| (column, next)));
-                } else if let Some(index) = index {
-                    if let Some(next) = next {
-                        keys[index].1 = next;
-                    } else {
-                        keys.remove(index);
-                    }
-                } else if let Some(next) = next {
-                    keys.push((column, next));
-                }
-                binding.set(keys);
-                return;
-            }
-            let next = match direction.get() {
-                Some(SortOrder::Ascending) => SortOrder::Descending,
-                _ => SortOrder::Ascending,
-            };
-            sort.get_untracked().set(Some((key.get(), next)));
+            let multiple = multi_sort.get_untracked();
+            let keys = multiple.map_or_else(
+                || sort.get_untracked().get_untracked().into_iter().collect(),
+                |binding| binding.get_untracked(),
+            );
+            sorting.send(sorting::Event {
+                current: sorting::Sort::from_keys(keys),
+                column: key.get(),
+                extend,
+                multiple: multiple.is_some(),
+            });
         };
         let focused = reference.focused();
         let input = part(move |input| TableHeaderState {
@@ -542,8 +530,8 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let state = self.state();
         require_setup("DataTableApi::resize");
         let rect = state.header_ref(&column).rect();
-        let (columns, widths) = (state.columns, state.widths);
-        let resize = state.resize;
+        let (columns, widths) = (state.columns, state.widths());
+        let resize = state.resize();
         let key = var(column);
         let value = memo(move || {
             key.with(|key| {

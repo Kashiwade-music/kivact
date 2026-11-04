@@ -17,9 +17,9 @@ fn row_name<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: &Rc<State<K, C>>,
     key: Var<K>,
 ) -> Value<String> {
-    let label = state.label;
+    let options = state.options.value();
     memo(move || {
-        let label = label.get();
+        let label = options.with(|options| options.label.clone());
         label
             .map(|label| key.with(|key| label(key)))
             .unwrap_or_default()

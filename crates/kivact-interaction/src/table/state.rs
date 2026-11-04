@@ -1,12 +1,16 @@
 //! Role: DataTableApi state shares the row list, sort, widths and the cell registry.
 
 use super::data::{Header, SortOrder, TableFocus};
+use super::sort;
 use crate::Selection;
+use crate::options_cell::OptionsCell;
 use crate::policy::scalar::ScalarRange;
 use crate::roving::{Observation, Roving};
 use crate::{ListApi, ListItem, ListOptions, use_list};
 use kivact_core::custom::{Owned, Owner};
-use kivact_core::state::{Binding, IntoBinding, Signal, Value, effect, memo, signal};
+use kivact_core::state::{
+    Binding, IntoBinding, MachineHandle, Signal, Value, effect, machine, memo, signal,
+};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,6 +18,15 @@ use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
 type MultiSort<C> = Binding<Vec<(C, SortOrder)>>;
+
+#[derive(Clone)]
+pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
+    pub(super) label: Option<Label<K>>,
+    pub(super) sort: Binding<Option<(C, SortOrder)>>,
+    pub(super) multi_sort: Option<MultiSort<C>>,
+    pub(super) widths: Binding<HashMap<C, f64>>,
+    pub(super) resize: (ScalarRange, f64),
+}
 
 pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
@@ -27,19 +40,14 @@ pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::I
     /// The App's root when the table was created: a cell of another App has
     /// another root.
     pub(super) root: Owner,
-    /// Resolves while the table's owner is alive and not being disposed.
-    pub(super) alive: Owned<()>,
     pub(super) list: ListApi<K>,
     pub(super) keys: Value<Vec<K>>,
     pub(super) columns: Value<Vec<Header<C>>>,
     pub(super) selection: Selection<K>,
     /// The keyboard pattern; fixed by `use_data_table`.
     pub(super) focus: TableFocus,
-    pub(super) label: Signal<Option<Label<K>>>,
-    pub(super) sort: Signal<Binding<Option<(C, SortOrder)>>>,
-    pub(super) multi_sort: Signal<Option<MultiSort<C>>>,
-    pub(super) widths: Signal<Binding<HashMap<C, f64>>>,
-    pub(super) resize: Signal<(ScalarRange, f64)>,
+    pub(super) sorting: MachineHandle<sort::Machine<C>>,
+    pub(super) options: OptionsCell<DataTableOptions<K, C>>,
     headers: RefCell<HashMap<C, NodeRef>>,
     /// The mounted cells, the cell the keyboard or pointer last moved to and
     /// the focus bookkeeping.
@@ -56,10 +64,31 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
 ) -> Owned<Rc<State<K, C>>> {
     let owner = Owner::current();
     let root = Owner::root();
-    let alive = owner.store("DataTableApi", ());
-    let label = signal(None::<Label<K>>);
+    let options = OptionsCell::new(DataTableOptions {
+        label: None::<Label<K>>,
+        sort: signal(None::<(C, SortOrder)>).into_binding(),
+        multi_sort: None,
+        widths: signal(HashMap::new()).into_binding(),
+        resize: (
+            ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),
+            10.0,
+        ),
+    });
+    let sorting = machine(
+        sort::Sort::Unsorted,
+        || sort::Machine::new(),
+        move |_, keys| {
+            let options = options.get();
+            if let Some(binding) = options.multi_sort {
+                binding.set(keys);
+            } else {
+                options.sort.set(keys.into_iter().next());
+            }
+        },
+    );
+    let settings = options.value();
     let items = memo(move || {
-        let label = label.get();
+        let label = settings.with(|options| options.label.clone());
         keys.with(|keys| {
             keys.iter()
                 .map(|key| match &label {
@@ -95,7 +124,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     let requested = roving.requested;
     let registry = roving.clone();
     let active = memo(move || {
-        alive.try_get()?;
+        keys.try_get()?;
         registry.track();
         let available = |cell: &(K, C)| {
             registry.with_members(|cells| cells.get(cell).is_some_and(|entry| entry.available()))
@@ -121,7 +150,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
                 .or_else(|| keys.iter().find_map(first_in))
         })
     });
-    let sort = signal(signal(None::<(C, SortOrder)>).into_binding());
+    options.update(|options| options.widths = widths.into_binding());
     let state = Rc::new(State {
         grid_state: signal(None),
         header_states: signal(std::collections::HashMap::new()),
@@ -129,35 +158,29 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         cell_states: signal(std::collections::HashMap::new()),
         owner,
         root,
-        alive,
         list: rows,
         keys,
         columns,
         selection,
         focus,
-        label,
-        sort,
-        multi_sort: signal(None),
-        widths: signal(widths.into_binding()),
-        resize: signal((
-            ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),
-            10.0,
-        )),
+        options,
+        sorting,
         headers: RefCell::new(HashMap::new()),
         roving,
         active,
     });
     let stored = owner.store("DataTableApi", state.clone());
-    effect(move || reconcile(&state));
+    effect(move || {
+        if let Some(state) = stored.try_get() {
+            reconcile(&state);
+        }
+    });
     stored
 }
 
 /// Follow focus that reaches a cell by other means, and give the focus of a
 /// removed cell to the tab stop.
 fn reconcile<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(state: &State<K, C>) {
-    if state.alive.try_get().is_none() {
-        return;
-    }
     let active = state.active.get();
     let observation = Observation {
         current: state.owner.focused_node(),
@@ -172,6 +195,20 @@ fn reconcile<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(sta
 }
 
 impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> State<K, C> {
+    pub(super) fn sort(
+        &self,
+    ) -> OptionValue<DataTableOptions<K, C>, Binding<Option<(C, SortOrder)>>> {
+        OptionValue::new(self.options, |options| options.sort)
+    }
+    pub(super) fn multi_sort(&self) -> OptionValue<DataTableOptions<K, C>, Option<MultiSort<C>>> {
+        OptionValue::new(self.options, |options| options.multi_sort)
+    }
+    pub(super) fn widths(&self) -> OptionValue<DataTableOptions<K, C>, Binding<HashMap<C, f64>>> {
+        OptionValue::new(self.options, |options| options.widths)
+    }
+    pub(super) fn resize(&self) -> OptionValue<DataTableOptions<K, C>, (ScalarRange, f64)> {
+        OptionValue::new(self.options, |options| options.resize)
+    }
     /// The shared reference of a column's header, for widths and relations.
     #[track_caller]
     pub(super) fn header_ref(&self, column: &C) -> NodeRef {
@@ -197,5 +234,31 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> State<K, C>
         node.focus();
         node.scroll_into_view();
         true
+    }
+}
+
+/// A projection of setup options that does not introduce another stored value.
+pub(super) struct OptionValue<S: Clone + 'static, T> {
+    options: OptionsCell<S>,
+    select: fn(&S) -> T,
+}
+impl<S: Clone + 'static, T> Copy for OptionValue<S, T> {}
+impl<S: Clone + 'static, T> Clone for OptionValue<S, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<S: Clone + 'static, T> OptionValue<S, T> {
+    fn new(options: OptionsCell<S>, select: fn(&S) -> T) -> Self {
+        Self { options, select }
+    }
+    pub(super) fn get(self) -> T {
+        self.options.value().with(self.select)
+    }
+    pub(super) fn get_untracked(self) -> T {
+        (self.select)(&self.options.get())
+    }
+    pub(super) fn with<R>(self, f: impl FnOnce(&T) -> R) -> R {
+        f(&self.get())
     }
 }
