@@ -3,7 +3,6 @@ use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_soft_catalog::{catalog, catalog_at, fonts, pages};
-use std::sync::Arc;
 use std::time::Duration;
 
 #[test]
@@ -27,13 +26,9 @@ fn carousel_example_moves_the_slides_and_reveals_the_previous_control() {
 
 #[test]
 fn carousel_example_snaps_after_horizontal_wheel_input() {
-    let screen = render_with(
-        RenderOptions {
-            reduced_motion: true,
-            ..RenderOptions::from_env()
-        },
-        || catalog_at(ThemeMode::Light, "carousel"),
-    );
+    let screen = render_with(RenderOptions::from_env().reduced_motion(), || {
+        catalog_at(ThemeMode::Light, "carousel")
+    });
     let first = screen.get_by_role(Role::Group, "Slide 1 of 4");
     let start = first.accessibility_bounds().expect("first slide").x;
     let second = screen.get_by_role(Role::Group, "Slide 2 of 4");
@@ -76,10 +71,9 @@ fn table_example_filters_and_expands_projects() {
 #[test]
 fn every_page_opens_through_search_in_both_appearances() {
     let screen = render_with(
-        RenderOptions {
-            fonts: TestFonts::Only(fonts().iter().copied().map(Arc::from).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().fonts(TestFonts::Only(
+            fonts().iter().map(|&bytes| bytes.into()).collect(),
+        )),
         catalog,
     );
     let search = screen.get_by_role(Role::TextBox, "Find a component");
@@ -113,10 +107,9 @@ fn every_page_opens_through_search_in_both_appearances() {
 #[test]
 fn search_opens_a_page_and_the_appearance_toggle_keeps_it_open() {
     let screen = render_with(
-        RenderOptions {
-            fonts: TestFonts::Only(fonts().iter().copied().map(Arc::from).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().fonts(TestFonts::Only(
+            fonts().iter().map(|&bytes| bytes.into()).collect(),
+        )),
         catalog,
     );
     screen.get_by_text("Light");
@@ -138,10 +131,9 @@ fn search_opens_a_page_and_the_appearance_toggle_keeps_it_open() {
 #[test]
 fn standard_examples_keep_their_controls_when_the_appearance_changes() {
     let screen = render_with(
-        RenderOptions {
-            fonts: TestFonts::Only(fonts().iter().copied().map(Arc::from).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().fonts(TestFonts::Only(
+            fonts().iter().map(|&bytes| bytes.into()).collect(),
+        )),
         catalog,
     );
     screen.get_by_role(Role::Button, "Primary");

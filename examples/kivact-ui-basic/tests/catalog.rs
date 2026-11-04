@@ -7,7 +7,6 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::test::{LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact_ui_basic_catalog::{catalog_with_mode, fonts, pages};
-use std::sync::Arc;
 use std::time::Duration;
 
 fn mount() -> Screen {
@@ -16,14 +15,13 @@ fn mount() -> Screen {
 
 fn mount_in(mode: ThemeMode) -> Screen {
     render_with(
-        RenderOptions {
-            width: 1440.,
-            height: 900.,
-            scale: 1.,
-            reduced_motion: true,
-            fonts: TestFonts::Only(fonts().iter().map(|&bytes| Arc::from(bytes)).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(1440., 900.)
+            .scale(1.)
+            .reduced_motion()
+            .fonts(TestFonts::Only(
+                fonts().iter().map(|&bytes| bytes.into()).collect(),
+            )),
         move || catalog_with_mode(mode),
     )
 }

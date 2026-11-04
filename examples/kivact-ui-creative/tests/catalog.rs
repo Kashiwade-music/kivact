@@ -8,7 +8,6 @@ use kivact::draw::Point;
 use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_creative_catalog::{catalog, fonts};
-use std::sync::Arc;
 use std::time::Duration;
 
 #[test]
@@ -47,14 +46,13 @@ fn creative_source_editors_scroll_in_the_original_shell() {
 
 fn mount() -> Screen {
     render_with(
-        RenderOptions {
-            width: 1861.,
-            height: 969.,
-            scale: 1.,
-            reduced_motion: true,
-            fonts: TestFonts::Only(fonts().iter().map(|&bytes| Arc::from(bytes)).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(1861., 969.)
+            .scale(1.)
+            .reduced_motion()
+            .fonts(TestFonts::Only(
+                fonts().iter().map(|&bytes| bytes.into()).collect(),
+            )),
         catalog,
     )
 }

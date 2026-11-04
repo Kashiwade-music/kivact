@@ -5,7 +5,6 @@ use kivact::view::{Key, MouseButton, Role};
 use kivact_ui_soft_catalog::{catalog_at, fonts, pages};
 use std::fmt::Write;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
 
 #[test]
@@ -23,12 +22,11 @@ fn capture_catalog() {
     }) {
         for (mode, name) in [(ThemeMode::Light, "light"), (ThemeMode::Dark, "dark")] {
             let screen = render_with(
-                RenderOptions {
-                    width: 1120.0,
-                    height: 800.0,
-                    fonts: TestFonts::Only(fonts().iter().copied().map(Arc::from).collect()),
-                    ..RenderOptions::from_env()
-                },
+                RenderOptions::from_env()
+                    .window_size(1120.0, 800.0)
+                    .fonts(TestFonts::Only(
+                        fonts().iter().map(|&bytes| bytes.into()).collect(),
+                    )),
                 move || catalog_at(mode, page.slug),
             );
             screen
