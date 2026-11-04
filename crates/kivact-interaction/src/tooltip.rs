@@ -164,8 +164,7 @@ fn now_ns() -> u64 {
 /// trigger is `described_by` it while it is shown.
 ///
 /// ```no_run
-/// use kivact_core::view::{NodeBuilder, node, text};
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::{NodeBuilder, node, node_ref, text};
 /// use kivact_core::view::{Placement, Role, overlay, show};
 /// use kivact_interaction::use_tooltip;
 /// let tip = use_tooltip();
@@ -175,7 +174,7 @@ fn now_ns() -> u64 {
 ///     node().part(trigger).role(Role::Button).name("Save").focusable(true).child(text("Save")),
 ///     show(tip.is_open(), move || {
 ///         overlay(anchor, Placement::Below, text("Save the document"))
-///             .part(tip.content())
+///             .with_node(|node| node.part(tip.content()))
 ///             .name("Save the document")
 ///     }),
 /// );

@@ -265,7 +265,8 @@ impl Toast {
 /// fn app() -> impl IntoView {
 ///     let toaster = toaster();
 ///     let group = move |assertive: bool, live: LiveRegion| {
-///         column(for_each(toaster.visible(assertive), |id| *id, move |id, _| {
+///         column(for_each(toaster.visible(assertive), |id| *id, move |item| {
+///             let id = item.get();
 ///             let title = toaster.toast(id).map(|toast| toast.title).unwrap_or_default();
 ///             node().part(toaster.item(id)).child(text(title))
 ///         }))

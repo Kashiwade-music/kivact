@@ -89,7 +89,8 @@ use kivact_core::view::{
 ///     (
 ///         node().node_ref(anchor).part(trigger).name("File").child(text("File")),
 ///         file.show(move || {
-///             let rows = for_each(file.entries(), |(row, _)| row.clone(), move |row, entry| {
+///             let rows = for_each(file.entries(), |(row, _)| row.clone(), move |entry| {
+///                 let row = entry.with(|(row, _)| row.clone());
 ///                 match row {
 ///                     MenuRow::Item { key, .. } => node()
 ///                         .part(file.item(key))
@@ -99,7 +100,7 @@ use kivact_core::view::{
 ///                 }
 ///             });
 ///             overlay(anchor, Placement::Below, column(rows))
-///                 .part(file.content())
+///                 .with_node(|node| node.part(file.content()))
 ///                 .name("File")
 ///         }),
 ///     )

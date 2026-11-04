@@ -108,6 +108,7 @@
 //!
 //! ```no_run
 //! use kivact::prelude::*;
+//! use kivact::ui::ButtonVariant;
 //!
 //! fn sign_up() -> impl IntoView {
 //!     let name = signal(String::new());

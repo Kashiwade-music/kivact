@@ -168,7 +168,8 @@ impl Draw {
     ///
     /// ```
     /// use kivact::prelude::*;
-    /// use kivact::draw::{Draw, Point, Rect};
+    /// use kivact::draw::{Draw};
+    /// use kivact::geometry::{Point, Rect};
     /// use kivact::draw::TextFormat;
     /// // A pill as wide as its label plus 12 px.
     /// fn pill(d: &mut Draw, label: &str, at: Point) {

@@ -229,7 +229,8 @@ impl Path {
     /// the result keeps this path's fill rule.
     ///
     /// ```
-    /// use kivact::draw::{Path, Rect};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Rect;
     /// let a = Path::new().rect(Rect::new(0.0, 0.0, 10.0, 10.0));
     /// let b = Path::new().rect(Rect::new(20.0, 0.0, 10.0, 10.0));
     /// assert_eq!(a.append(&b).bounds(), Some(Rect::new(0.0, 0.0, 30.0, 10.0)));
@@ -252,7 +253,8 @@ impl Path {
     /// so it is zero: use px.
     ///
     /// ```
-    /// use kivact::draw::{Path, Rect};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Rect;
     /// use kivact::draw::Transform;
     /// let square = Path::new().rect(Rect::new(0.0, 0.0, 10.0, 10.0));
     /// let moved = square.transformed(Transform::new().translate(5, 7).scale(2));
@@ -286,7 +288,8 @@ impl Path {
     /// path has no segment: it is empty, only moves, or not finite.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// let circle = Path::new().arc(Point::new(50.0, 50.0), 10, 0, 360, false);
     /// let b = circle.bounds().unwrap();
     /// assert!((b.x - 40.0).abs() < 0.01 && (b.width - 20.0).abs() < 0.01);

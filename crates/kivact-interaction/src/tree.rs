@@ -380,7 +380,7 @@ pub struct TreeItemState {
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -397,11 +397,11 @@ pub struct TreeItemState {
 ///     ]);
 ///     let expanded = signal(vec!["src"]);
 ///     let selected = signal(Vec::<&str>::new());
-///     let tree = use_tree(nodes, expanded, Selection::Multiple(selected.into_binding()));
+///     let tree = use_tree(nodes, expanded, selected);
 ///     let rows = for_each(
 ///         tree.rows(),
 ///         |row| (row.key, row.branch.has_children()),
-///         move |_, row| {
+///         move |row| {
 ///             let row = row.get_untracked();
 ///             let key = row.key;
 ///             let body = node()

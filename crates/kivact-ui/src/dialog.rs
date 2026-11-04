@@ -64,7 +64,7 @@ pub struct Dialog {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::ui::DialogMode;
+/// use kivact::interaction::DialogMode;
 ///
 /// fn rename(open: Signal<bool>) -> impl IntoView {
 ///     dialog("Rename", open)
@@ -75,7 +75,7 @@ pub struct Dialog {
 /// fn help() -> impl IntoView {
 ///     let open = signal(false);
 ///     dialog("Help", open)
-///         .kind(DialogMode::Popover)
+///         .mode(DialogMode::Popover)
 ///         .content(|| text("Press Tab to move between fields."))
 ///         .attach(button("Help"))
 /// }

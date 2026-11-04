@@ -48,7 +48,7 @@ use kivact_core::view::{EditPhase, HandlerResult};
 /// # }
 /// use kivact::prelude::*;
 /// use kivact::interaction::EditSession;
-/// use kivact::view::{ButtonPress, Handled, MouseButton, PointerPhase};
+/// use kivact::view::{ButtonPress, Handled, Key, MouseButton, PointerPhase};
 ///
 /// let value = signal(100.0_f64);
 /// let edit = EditSession::new(move |initial| value.set(initial));
