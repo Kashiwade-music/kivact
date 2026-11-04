@@ -130,6 +130,8 @@ data の record と `*Api` の、同じ名詞の setter と読み出し（例: `
 
 ### `kivact::ui`
 
+`IntoSelection<K>` は四つの Signal/Binding 入力に加え、正準 `Selection<K>` 自身の恒等変換も実装する。合成部品はそのまま渡せる。From の別経路は作らない。
+
 | 種類 | item |
 |---|---|
 | 標準部品の token(新) | `UiTokens`（部品ごとの入れ子の struct。`UiTokens { button: ButtonTokens, menu: MenuTokens, .. }`。各 struct はその部品の recipe の隣の file に置き、field は `<部分>_<性質>`。設計書 18.15 節）、`*Tokens`、`StateTokens<T> { rest, hovered, pressed, disabled, selected, focused }` |
