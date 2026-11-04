@@ -52,7 +52,19 @@ pub(super) fn resolve(
     common: Common,
     at: &'static Location<'static>,
 ) -> Resolved {
+    let common = {
+        let mut node = crate::view::node::Node::new(crate::view::node::Content::Box, None);
+        node.common = common;
+        while !node.common.deferred_parts.is_empty() {
+            let deferred = std::mem::take(&mut node.common.deferred_parts);
+            for apply in deferred {
+                node = apply(node).resolve_modifiers();
+            }
+        }
+        node.common
+    };
     let Common {
+        deferred_parts: _,
         exit_layout,
         exit_complete,
         test_id,
@@ -174,12 +186,12 @@ pub(super) fn resolve(
     };
     Resolved {
         first: FirstWrite {
-            exit_layout,
+            exit_layout: exit_layout.unwrap_or_default(),
             exit_complete,
             test_id,
             role,
             focusable,
-            focusable_when_disabled,
+            focusable_when_disabled: focusable_when_disabled.unwrap_or_default(),
             roving_focus,
             hit_testable,
             actions,

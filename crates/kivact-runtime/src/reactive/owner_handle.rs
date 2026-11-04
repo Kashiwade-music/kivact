@@ -28,7 +28,7 @@ use crate::reactive::data::{EffectKind, Runtime, Signal, UiThreadOnly, Value};
 use crate::reactive::error::UiError;
 use crate::reactive::execution::handle_usable_here;
 use crate::reactive::registry::{check_not_foreign, runtime, try_runtime};
-use crate::reactive::{AppId, NodeId, OwnerId, Trigger};
+use crate::reactive::{AppId, NodeId, Notifier, OwnerId};
 
 /// One owner of one App: the unit that disposes everything registered under
 /// it (nodes, objects, cleanups, contexts, child owners). Copy; it does not
@@ -149,10 +149,10 @@ impl Owner {
         Value::constant(self.app, key)
     }
 
-    /// A [`Trigger`] of this owner, created at `at`.
-    pub fn trigger(self, at: &'static Location<'static>) -> Trigger {
+    /// A [`Notifier`] of this owner, created at `at`.
+    pub fn notifier(self, at: &'static Location<'static>) -> Notifier {
         let key = self.rt(at).create_source(self.key, (), at);
-        Trigger::from_key(self.app, key)
+        Notifier::from_key(self.app, key)
     }
 
     /// An effect of this owner that re-runs `f` when what it read changes.

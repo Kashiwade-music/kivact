@@ -22,6 +22,7 @@ use crate::view::View;
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
+use crate::view::node_modifiers::Modifier;
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use kivact_runtime::Prop as InputProp;
@@ -63,7 +64,7 @@ impl Content {
 /// [`expanded`](Self::expanded), [`selected`](Self::selected),
 /// [`value_text`](Self::value_text)) and [`part`](Self::part) are its own
 /// methods too, so `node().role(..)` needs no import; a component's builder
-/// gets them, for its root, from [`NodeExt`](crate::custom::NodeExt). The
+/// gets them, for its root, from [`Node`](crate::view::Node). The
 /// settings that mean something only on one kind of node are its own methods
 /// ([`child`](Self::child) for a box, [`fit`](Self::fit) and
 /// [`monochrome`](Self::monochrome) for an image). Text properties (font, wrap, line clamp, alignment, overflow)
@@ -72,6 +73,7 @@ pub struct Node {
     pub(crate) content: Content,
     pub(crate) common: Common,
     pub(crate) children: Vec<View>,
+    pub(crate) modifiers: Vec<Modifier>,
     /// Where the node was created; `None` for a plain string child, which
     /// diagnostics show with the location of its nearest located ancestor.
     pub(crate) at: Option<&'static Location<'static>>,
@@ -84,6 +86,7 @@ impl Node {
             content,
             common: Common::default(),
             children: Vec::new(),
+            modifiers: Vec::new(),
             at,
         }
     }
@@ -105,7 +108,7 @@ impl Node {
             mut common,
             children,
             ..
-        } = self;
+        } = self.resolve_modifiers();
         debug_assert!(
             children.is_empty(),
             "{what} keeps its modifiers in a Node and takes no children there"
@@ -146,7 +149,7 @@ impl Node {
 /// semantics that belong to what the component is (`role`, `checked`,
 /// `expanded`, `selected`, `value_text`), attaching a part, the extra
 /// semantics, handler layering and `draw_over` are the methods of
-/// [`NodeExt`](crate::custom::NodeExt): a component decides what its own
+/// [`Node`](crate::view::Node): a component decides what its own
 /// `checked` or `role` is, so a caller does not set them from outside.
 ///
 /// ```
@@ -180,7 +183,16 @@ impl Node {
 /// value and subscribes nothing, so it needs no `get_untracked`.
 pub trait NodeBuilder: Sized {
     /// The root node the modifiers apply to.
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node;
+
+    /// Transform the root node while retaining this component builder.
+    fn with_node(mut self, f: impl FnOnce(Node) -> Node) -> Self {
+        let root = self.node_mut();
+        let placeholder = Node::new(Content::Box, None);
+        *root = f(std::mem::replace(root, placeholder));
+        self
+    }
 
     /// Test identifier for the `*_by_test_id` queries. Takes any
     /// string (`"save"`, `format!("row-{id}")`). It is not scoped:
@@ -226,7 +238,7 @@ pub trait NodeBuilder: Sized {
 
     /// Disabled state (semantics and the `disabled` style). A component
     /// reads it with
-    /// [`accessible_disabled`](crate::custom::NodeExt::accessible_disabled)
+    /// [`accessible_disabled`](crate::view::Node::accessible_disabled)
     /// and gives it to its behavior, so this one definition disables the
     /// component's own input too.
     /// Suppresses activation, key and wheel callbacks, and pointer
@@ -241,7 +253,7 @@ pub trait NodeBuilder: Sized {
 
     /// Report an invalid value to assistive technology. A component that
     /// draws an invalid look reads it with
-    /// [`accessible_invalid`](crate::custom::NodeExt::accessible_invalid).
+    /// [`accessible_invalid`](crate::view::Node::accessible_invalid).
     fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
         self.node_mut().common.invalid = Some(value.into_prop());
         self
@@ -250,7 +262,7 @@ pub trait NodeBuilder: Sized {
     /// Set how this node lays out when it is the root of a removed subtree.
     /// Absolute, fixed and overlay nodes already occupy no slot in normal flow.
     fn exit_layout(mut self, layout: ExitLayout) -> Self {
-        self.node_mut().common.exit_layout = layout;
+        self.node_mut().common.exit_layout = Some(layout);
         self
     }
 
@@ -294,7 +306,7 @@ pub trait NodeBuilder: Sized {
     /// is disabled, so users can reach its label and any attached tooltip.
     /// Activation and editing remain disabled.
     fn focusable_when_disabled(mut self, on: bool) -> Self {
-        self.node_mut().common.focusable_when_disabled = on;
+        self.node_mut().common.focusable_when_disabled = Some(on);
         self
     }
 

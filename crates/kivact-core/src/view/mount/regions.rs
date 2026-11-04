@@ -16,7 +16,16 @@ use kivact_style::draw::{RegionId, RegionSemantics};
 use kivact_types::NodeId;
 
 impl Registry {
-    pub(super) fn entry(&self, id: RegionId, mut template: Common, item_owner: Owner) -> Rc<Entry> {
+    pub(super) fn entry(&self, id: RegionId, template: Common, item_owner: Owner) -> Rc<Entry> {
+        let mut node = crate::view::node::Node::new(crate::view::node::Content::Box, None);
+        node.common = template;
+        while !node.common.deferred_parts.is_empty() {
+            let deferred = std::mem::take(&mut node.common.deferred_parts);
+            for apply in deferred {
+                node = apply(node).resolve_modifiers();
+            }
+        }
+        let mut template = node.common;
         if template.text_editing.take().is_some()
             && let Some(rt) = self.root.runtime.upgrade()
         {

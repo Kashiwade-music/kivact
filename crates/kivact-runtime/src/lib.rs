@@ -21,12 +21,12 @@ pub use motion::{
 };
 pub use reactive::{
     AppId, Binding, Callback, EffectKind, ErrorKind, ExitState, Extensions, Handled, Handler,
-    HandlerResult, Host, IntoReactive, IntoText, IntoValue, Kind, LiveCounts, NodeId, NodeInfo,
-    Owned, Owner, OwnerId, Pending, Prop, Reactive, Result, Runtime, Selector, Signal, Stage,
-    ThreadWaker, TraceRun, TraceWrite, Trigger, Turn, TurnGuard, TurnRecord, TurnReport, UiError,
-    UiThreadOnly, Value, Var, binding, callback, clock_now, constant, context, effect, effect_on,
-    memo, on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector, signal,
-    try_context, untrack, var,
+    HandlerResult, Host, IntoBinding, IntoReactive, IntoText, IntoValue, ItemKey, Kind, LiveCounts,
+    NodeId, NodeInfo, Notifier, Owned, Owner, OwnerId, Pending, Prop, PropValue, Reactive, Result,
+    Runtime, Selector, Signal, Stage, ThreadWaker, TraceRun, TraceWrite, Turn, TurnGuard,
+    TurnRecord, TurnReport, UiError, UiThreadOnly, Value, Var, binding, callback, clock_now,
+    constant, context, effect, effect_on, memo, notifier, on_cleanup, on_mount, pure, raise,
+    require_effectful, require_setup, selector, signal, try_context, untrack, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{

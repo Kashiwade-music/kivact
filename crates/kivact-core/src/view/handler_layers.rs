@@ -83,6 +83,22 @@ impl<E: 'static> EventHandlers<E> {
         Rc::make_mut(&mut self.entries).insert(at, (layer, handler));
     }
 
+    /// Merge a later caller segment without reclassifying handler layers.
+    pub(crate) fn merge_caller(&mut self, later: Self) {
+        for (layer, handler) in later.entries.iter().rev() {
+            if *layer == Layer::Caller {
+                let at = self
+                    .entries
+                    .partition_point(|(current, _)| *current < *layer);
+                Rc::make_mut(&mut self.entries).insert(at, (*layer, handler.clone()));
+            }
+        }
+        for (layer, handler) in later.entries.iter() {
+            if *layer != Layer::Caller {
+                self.register(*layer, handler.clone());
+            }
+        }
+    }
     /// A state observation, after the observations already registered.
     pub(crate) fn observer(&mut self, f: impl Fn(E) + 'static) {
         self.register(

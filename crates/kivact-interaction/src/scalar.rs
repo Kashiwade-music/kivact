@@ -55,7 +55,7 @@ mod track;
 pub(crate) use edit_state::{Edit, Shared};
 pub use handle::{Scalar, ScalarState, use_scalar};
 pub(crate) use ops::ScalarOps;
-pub use range::IntoScalarRange;
+
 pub(crate) use range::{follow_range, pulled_inside};
 pub use touch::TouchSliderGesture;
 pub(crate) use track::Grip;

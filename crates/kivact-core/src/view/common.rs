@@ -25,7 +25,9 @@ pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
-    pub(crate) exit_layout: super::exit_layout::ExitLayout,
+    pub(crate) deferred_parts:
+        Vec<Box<dyn FnOnce(crate::view::node::Node) -> crate::view::node::Node>>,
+    pub(crate) exit_layout: Option<super::exit_layout::ExitLayout>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// Test identifier.
     pub test_id: Option<Rc<str>>,
@@ -61,7 +63,7 @@ pub(crate) struct Common {
     /// Focusability, constant or reactive (a builder sets its own before the
     /// user's modifiers).
     pub focusable: Option<InputProp<bool>>,
-    pub focusable_when_disabled: bool,
+    pub focusable_when_disabled: Option<bool>,
     pub roving_focus: Option<kivact_engine::contract::RovingFocus>,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<bool>,

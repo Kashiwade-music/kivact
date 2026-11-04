@@ -145,55 +145,6 @@ impl Node {
         self
     }
 
-    /// Attach behavior, semantic relationships and input defaults to this
-    /// element.
-    ///
-    /// Same as [`NodeExt::part`](crate::custom::NodeExt::part).
-    pub fn part<S: Clone + PartialEq + 'static>(mut self, part: crate::view::Part<S>) -> Self {
-        part.attach(&mut self.common);
-        self
-    }
-
-    /// Accessibility role, overriding the function's default role.
-    ///
-    /// Same as [`NodeExt::role`](crate::custom::NodeExt::role).
-    pub fn role(mut self, r: Role) -> Self {
-        self.common.role = Some(r);
-        self
-    }
-
-    /// Accessible value text (e.g. of a slider or progress bar).
-    ///
-    /// Same as [`NodeExt::value_text`](crate::custom::NodeExt::value_text).
-    pub fn value_text(mut self, v: impl IntoText) -> Self {
-        self.common.value = Some(v.into_text());
-        self
-    }
-
-    /// Selected state (semantics and the `selected` style).
-    ///
-    /// Same as [`NodeExt::selected`](crate::custom::NodeExt::selected).
-    pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {
-        self.common.selected = Some(v.into_prop());
-        self
-    }
-
-    /// Binary checked state for a check box or switch.
-    ///
-    /// Same as [`NodeExt::checked`](crate::custom::NodeExt::checked).
-    pub fn checked(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.checked = Some(value.into_prop());
-        self
-    }
-
-    /// Expanded state of a disclosure, menu or combo box.
-    ///
-    /// Same as [`NodeExt::expanded`](crate::custom::NodeExt::expanded).
-    pub fn expanded(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.expanded = Some(value.into_prop());
-        self
-    }
-
     /// Append a child. Only a box has children: on a text or an image the
     /// child is not mounted and the misuse is reported once at mount
     /// (`ErrorKind::Unsupported`).
@@ -245,7 +196,8 @@ impl IntoView for Node {
                 mut common,
                 children,
                 at,
-            } = self;
+                modifiers: _,
+            } = self.resolve_modifiers();
             let kind = content.kind();
             let at = common.at.or(at);
             // Effects need a location; a string child's content is static,

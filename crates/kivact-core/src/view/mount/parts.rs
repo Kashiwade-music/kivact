@@ -12,6 +12,69 @@ use crate::view::descriptor::Mcx;
 use crate::view::part_data::{PartBinding, PartConstraints, PartMount};
 
 impl Common {
+    /// Apply a later caller layer without changing handler or constraint ownership.
+    pub(crate) fn apply_caller(&mut self, mut later: Common) {
+        macro_rules! replace_fields { ($($field:ident),* $(,)?) => { $(replace(&mut self.$field, later.$field.take());)* }; }
+        replace_fields!(
+            exit_layout,
+            focusable_when_disabled,
+            exit_complete,
+            test_id,
+            role,
+            name,
+            description,
+            value,
+            selected,
+            disabled,
+            hidden,
+            invalid,
+            checked,
+            indeterminate,
+            expanded,
+            focusable,
+            roving_focus,
+            hit_testable,
+            focus_on_press,
+            text_editing,
+            ime,
+            draw,
+            draw_over,
+            intrinsic,
+            image_fit,
+            monochrome,
+            at
+        );
+        self.part_modal |= later.part_modal;
+        self.part_region_events |= later.part_region_events;
+        if let Some(semantics) = later.semantics {
+            merge_semantics(
+                self.semantics.get_or_insert_with(Default::default),
+                *semantics,
+            );
+        }
+        self.node_ref.append(&mut later.node_ref);
+        self.style.splice(
+            self.base_styles..self.base_styles,
+            later.style.drain(..later.base_styles),
+        );
+        self.base_styles += later.base_styles;
+        self.style.append(&mut later.style);
+        self.regions.append(&mut later.regions);
+        self.part_bindings.append(&mut later.part_bindings);
+        self.deferred_parts.append(&mut later.deferred_parts);
+        self.part_constraints
+            .disabled
+            .append(&mut later.part_constraints.disabled);
+        self.part_constraints
+            .hidden
+            .append(&mut later.part_constraints.hidden);
+        self.part_constraints
+            .focusable
+            .append(&mut later.part_constraints.focusable);
+        self.handlers.merge_caller(later.handlers);
+        self.part_actions.compose(later.part_actions);
+    }
+
     /// Merge part semantics and handlers now, but preserve constraints until mount.
     ///
     /// Precedence: a property a part sets (role, name, description, value,
@@ -23,6 +86,7 @@ impl Common {
     /// restates a semantic of the same target (for example `expanded`) without
     /// removing the earlier part's other behavior.
     pub(crate) fn attach_part(&mut self, mut part: Common) {
+        self.deferred_parts.append(&mut part.deferred_parts);
         let region_events = part.part_region_events;
         self.handlers
             .key
@@ -41,7 +105,10 @@ impl Common {
             part.handlers.secondary_context.take(),
         );
         self.part_modal |= part.part_modal;
-        self.focusable_when_disabled |= part.focusable_when_disabled;
+        if let Some(required) = part.focusable_when_disabled {
+            self.focusable_when_disabled =
+                Some(self.focusable_when_disabled.unwrap_or_default() || required);
+        }
         self.part_constraints.disabled.extend(part.disabled.take());
         self.part_constraints
             .disabled
@@ -101,6 +168,7 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
 }
 
 fn merge_semantics(target: &mut SemanticSources, mut part: SemanticSources) {
+    replace(&mut target.text, part.text.take());
     replace(&mut target.value_min, part.value_min.take());
     replace(&mut target.value_max, part.value_max.take());
     replace(&mut target.value_now, part.value_now.take());
