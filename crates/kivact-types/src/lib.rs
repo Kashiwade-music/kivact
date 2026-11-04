@@ -2,8 +2,10 @@
 #![forbid(unsafe_code)]
 
 pub mod asset;
+pub mod cell;
 pub mod check;
 pub mod color;
+pub mod defaults;
 pub mod embed;
 pub mod env;
 pub mod geometry;
@@ -14,12 +16,14 @@ pub mod layout;
 pub mod motion;
 pub mod paint;
 pub mod platform;
+pub mod process;
 pub mod protocol;
 pub mod scene;
 pub mod semantics;
 pub mod semantics_text;
 pub mod text;
 pub mod text_shaping;
+pub mod text_utf;
 
 pub use asset::Asset;
 pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
