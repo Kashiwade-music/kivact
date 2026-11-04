@@ -9,11 +9,14 @@
 //! Keep plugin state outside the App so it survives closing and reopening.
 //!
 //! ```no_run
-//! use kivact_core::{App, embed::Parent, prelude::*};
+//! # #[cfg(feature = "embed")]
+//! # {
+//! use kivact_core::{App, control::text, embed::Parent};
 //! # fn open(hwnd: *mut std::ffi::c_void) -> kivact_core::Result<()> {
 //! let editor = App::new("Editor").window_size(640, 480)
 //!     .embed(Parent::win32(hwnd).scale(1.0), || text("Editor"))?;
 //! # Ok(())
+//! # }
 //! # }
 //! ```
 

@@ -272,8 +272,9 @@ pub(crate) fn install_layered_messages(
 /// Works in setup and in handlers, tasks and effects (the nearest owner).
 ///
 /// ```
-/// use kivact::i18n::locale;
-/// use kivact::prelude::*;
+/// use kivact_core::control::text;
+/// use kivact_core::i18n::locale;
+/// use kivact_core::view::IntoView;
 ///
 /// fn language() -> impl IntoView {
 ///     let locale = locale();
@@ -297,8 +298,9 @@ pub fn locale() -> Value<Locale> {
 /// is English.
 ///
 /// ```
-/// use kivact::i18n::message;
-/// use kivact::prelude::*;
+/// use kivact_core::control::text;
+/// use kivact_core::i18n::message;
+/// use kivact_core::view::IntoView;
 ///
 /// fn empty_list() -> impl IntoView {
 ///     text(message("list.empty", "Nothing here yet"))
@@ -323,8 +325,10 @@ pub fn message(key: &'static str, default: &'static str) -> Value<String> {
 /// (`"{count} 件選択中"` for `"{count} selected"`).
 ///
 /// ```
-/// use kivact::i18n::message_with;
-/// use kivact::prelude::*;
+/// use kivact_core::control::text;
+/// use kivact_core::i18n::message_with;
+/// use kivact_core::view::IntoView;
+/// use kivact_core::Signal;
 ///
 /// fn selection(selected: Signal<Vec<u64>>) -> impl IntoView {
 ///     // "3 selected", or the App's wording: "3 件選択中".
