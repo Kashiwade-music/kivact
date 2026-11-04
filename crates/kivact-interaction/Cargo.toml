@@ -10,5 +10,7 @@ description = "Headless UI behavior and semantics built on public Kivact core co
 [dependencies]
 kivact-core = { path = "../kivact-core", version = "0.1.0", default-features = false }
 
+kivact-types = { path = "../kivact-types", version = "0.1.0", default-features = false }
+
 [lints]
 workspace = true

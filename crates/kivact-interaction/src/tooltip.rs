@@ -1,10 +1,10 @@
 //! Role: Tooltip attaches a delayed hover and focus hint, one shown per App.
 //!
-//! A tooltip is a popup (`crate::popup`) with hover and focus triggering,
+//! A tooltip combines delayed visibility and popup part state with hover and focus triggering,
 //! a delay and the App-wide rule of one shown tooltip. Its parts are the
 //! trigger and the content, with [`PopupState`]; it adds
 //! no wrapper box, so the trigger part binds beside the caller's own
-//! `NodeRef`. The delay is a [`DelayedApi`](crate::DelayedApi) on a task timer (no polling), and
+//! `NodeRef`. The delay is a [`DelayedApi`](crate::DelayedApi) on owner-scoped machine timers, and
 //! the hover reading is the host's hit test, so it works the same with the
 //! keyboard focus and is not changed by a child's pointer handler or
 //! capture. Because the press and wheel handling runs after the caller's
@@ -16,7 +16,9 @@
 
 use std::time::Duration;
 
+use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Owner, Part, part};
+use kivact_types::cell::Generation;
 
 use super::delayed::{DelayedApi, delayed};
 use super::popup::PopupState;
@@ -51,76 +53,64 @@ impl Default for TooltipTiming {
 /// What every tooltip of an App shares, created under the App's root owner by
 /// the first tooltip and kept for the App's lifetime. An App without tooltips
 /// has none of it.
+type TooltipId = Generation;
+
+#[derive(Clone, PartialEq)]
+struct TooltipHub {
+    stack: Vec<TooltipId>,
+    warmth: Warmth,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Warmth {
+    Cold,
+    Warm { until_ns: u64 },
+}
 #[derive(Clone, Copy)]
 struct Hub {
-    /// The tooltips that are shown by their own delay, oldest first; the last
-    /// one is visible.
-    wanting: Signal<Vec<u64>>,
-    /// The visible tooltip that hid last and when, on the host clock.
-    hidden: Signal<Option<(u64, u64)>>,
-    /// The id the next tooltip takes.
-    next: Signal<u64>,
+    state: Signal<TooltipHub>,
+    next: Signal<Generation>,
 }
-
 impl Hub {
-    /// The App's hub, made on first use. Setup only.
     #[track_caller]
     fn of_app() -> Self {
         Owner::current();
         kivact_core::state::use_app_state(|| Hub {
-            wanting: signal(Vec::<u64>::new()),
-            hidden: signal(None::<(u64, u64)>),
-            next: signal(0u64),
+            state: signal(TooltipHub {
+                stack: Vec::new(),
+                warmth: Warmth::Cold,
+            }),
+            next: signal(Generation::new()),
         })
     }
-
-    fn take_id(&self) -> u64 {
-        let id = self.next.get_untracked();
-        self.next.set(id + 1);
-        id
+    fn take_id(&self) -> TooltipId {
+        self.next.update(Generation::next)
     }
-
-    /// The visible tooltip (tracked).
-    fn current(&self) -> Option<u64> {
-        self.wanting.with(|wanting| wanting.last().copied())
+    fn current(&self) -> Option<TooltipId> {
+        self.state.with(|hub| hub.stack.last().copied())
     }
-
-    /// Whether a tooltip other than `id` is visible or hid less than `within`
-    /// ago, so `id` shows without a delay (untracked).
-    fn warm_for(&self, id: u64, within: Duration) -> bool {
-        let visible = self
-            .wanting
-            .with_untracked(|wanting| wanting.last().copied());
-        if visible.is_some_and(|visible| visible != id) {
-            return true;
-        }
-        self.hidden.get_untracked().is_some_and(|(hid, at)| {
-            hid != id && now_ns().saturating_sub(at) <= within.as_nanos() as u64
+    fn warm_for(&self, id: TooltipId) -> bool {
+        self.state.with_untracked(|hub| {
+            hub.stack.last().is_some_and(|visible| *visible != id)
+                || matches!(hub.warmth, Warmth::Warm { until_ns } if now_ns() <= until_ns)
         })
     }
-
-    /// `id` is shown by its own delay: it becomes the visible tooltip.
-    fn want(&self, id: u64) {
-        self.wanting.update(|wanting| {
-            wanting.retain(|other| *other != id);
-            wanting.push(id);
+    fn want(&self, id: TooltipId) {
+        self.state.update(|hub| {
+            hub.stack.retain(|other| *other != id);
+            hub.stack.push(id);
         });
     }
-
-    /// `id` no longer wants to show: if it was the visible one, it hides now
-    /// and the one it preempted is visible again.
-    fn release(&self, id: u64) {
-        if !self.wanting.with_untracked(|wanting| wanting.contains(&id)) {
-            return;
-        }
-        let was_visible = self.wanting.update(|wanting| {
-            let was_visible = wanting.last() == Some(&id);
-            wanting.retain(|other| *other != id);
-            was_visible
+    fn release(&self, id: TooltipId, within: Duration) {
+        self.state.update(|hub| {
+            let visible = hub.stack.last() == Some(&id);
+            hub.stack.retain(|other| *other != id);
+            if visible {
+                hub.warmth = Warmth::Warm {
+                    until_ns: now_ns()
+                        .saturating_add(within.as_nanos().min(u128::from(u64::MAX)) as u64),
+                };
+            }
         });
-        if was_visible {
-            self.hidden.set(Some((id, now_ns())));
-        }
     }
 }
 
@@ -181,7 +171,7 @@ fn now_ns() -> u64 {
 /// ```
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
-    disabled: Signal<Option<Value<bool>>>,
+    options: OptionsCell<TooltipOptions>,
     trigger_state: Signal<Option<Value<PopupState>>>,
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
@@ -190,13 +180,18 @@ pub struct TooltipApi {
     surface: NodeRef,
 }
 
+#[derive(Clone, Copy, Default)]
+struct TooltipOptions {
+    disabled: Option<Value<bool>>,
+}
+
 /// Create a tooltip under the current setup owner, reading [`TooltipTiming`].
 ///
 /// The first tooltip of an App creates the App's shared one-at-a-time state.
 /// Setup only.
 #[track_caller]
 pub fn use_tooltip() -> TooltipApi {
-    let disabled = signal(None::<Value<bool>>);
+    let options = OptionsCell::new(TooltipOptions::default());
     let config = kivact_core::style::use_theme();
     let hub = Hub::of_app();
     let id = hub.take_id();
@@ -205,7 +200,11 @@ pub fn use_tooltip() -> TooltipApi {
     let hover = anchor.hovered();
     let focus = anchor.focus_within();
     let engaged = memo(move || {
-        !disabled.with(|disabled| disabled.is_some_and(|disabled| disabled.get()))
+        !options
+            .value()
+            .get()
+            .disabled
+            .is_some_and(|disabled| disabled.get())
             && (hover.get() || focus.get())
     });
 
@@ -214,14 +213,7 @@ pub fn use_tooltip() -> TooltipApi {
     let delayed = delayed(
         engaged,
         move || {
-            if hub.warm_for(
-                id,
-                config
-                    .get()
-                    .ext::<crate::InteractionPolicy>()
-                    .tooltip
-                    .skip_delay,
-            ) {
+            if hub.warm_for(id) {
                 Duration::ZERO
             } else {
                 config.get().ext::<crate::InteractionPolicy>().tooltip.delay
@@ -236,23 +228,37 @@ pub fn use_tooltip() -> TooltipApi {
         if delayed.is_open().get() {
             hub.want(id);
         } else {
-            hub.release(id);
+            hub.release(
+                id,
+                config
+                    .get()
+                    .ext::<crate::InteractionPolicy>()
+                    .tooltip
+                    .skip_delay,
+            );
         }
     });
     let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
     on_cleanup(move || {
         if hub
-            .wanting
+            .state
             .try_get()
-            .is_some_and(|wanting| wanting.contains(&id))
+            .is_some_and(|hub| hub.stack.contains(&id))
         {
-            hub.release(id);
+            hub.release(
+                id,
+                config
+                    .get()
+                    .ext::<crate::InteractionPolicy>()
+                    .tooltip
+                    .skip_delay,
+            );
         }
     });
     TooltipApi {
         trigger_state: signal(None),
         content_state: signal(None),
-        disabled,
+        options,
         delayed,
         visible,
         anchor,
@@ -288,7 +294,8 @@ impl TooltipApi {
 
     /// Suppress the hint while disabled.
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled.set(Some(disabled.into_value()));
+        self.options
+            .update(|options| options.disabled = Some(disabled.into_value()));
         self
     }
 

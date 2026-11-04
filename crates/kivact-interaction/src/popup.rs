@@ -33,13 +33,18 @@
 //! for the next tracked focus.
 
 use kivact_core::ErrorKind;
-use kivact_core::custom::{
-    NodeRefExt, NodeToken, Owner, Part, PartState, focused_node, part, raise,
+use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, focused_node, part, raise};
+use kivact_core::state::{
+    Binding, IntoValue, MachineHandle, Value, effect, machine, memo, on_cleanup, on_mount,
 };
-use kivact_core::state::{Binding, IntoValue, Value, Var, effect, memo, on_cleanup, on_mount, var};
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
 };
+
+#[path = "popup/machine.rs"]
+mod machine;
+use crate::options_cell::OptionsCell;
+use machine::{Event, Machine, State};
 
 use super::disclosure::{DisclosureApi, use_disclosure};
 use super::focus_return::{FocusReturn, PopupCloseReason};
@@ -101,31 +106,17 @@ pub struct PopupApi {
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
-    settings: Var<PopupSettings>,
-    opening: Var<Option<Opening>>,
+    settings: OptionsCell<PopupOptions>,
+    machine: MachineHandle<Machine>,
 }
 
 /// What the setters of a [`PopupApi`] store; read when a surface binds.
 #[derive(Clone, Copy, Default)]
-struct PopupSettings {
+struct PopupOptions {
     anchor: Option<NodeRef>,
     initial_focus: Option<NodeRef>,
     focus_return: Option<FocusReturn>,
     anchor_starts_focus_range: Option<Value<bool>>,
-}
-
-/// What one opening of the surface remembers, from its bind to its removal.
-#[derive(Clone, Copy)]
-struct Opening {
-    /// The node that had the focus when this opening's surface bound.
-    opener: Option<NodeToken>,
-    /// This opening's policy: the caller's (or the default) at bind, replaced
-    /// by `set_opening_policy`.
-    policy: FocusReturn,
-    /// The accepted close reason of this opening, once there is one.
-    closed_by: Option<PopupCloseReason>,
-    /// Whether this opening's restoration was already requested.
-    returned: bool,
 }
 
 /// Create a popup whose open state is `open`, the sole writer.
@@ -134,13 +125,40 @@ struct Opening {
 /// only.
 #[track_caller]
 pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
+    let disclosure = use_disclosure(open);
+    let settings = OptionsCell::new(PopupOptions::default());
+    let own_anchor = node_ref();
+    let machine = machine(
+        State::Closed,
+        move || Machine {
+            modal: disclosure.content.is_modal(),
+            anchor: settings.get().anchor.unwrap_or(own_anchor).mounted_node(),
+        },
+        move |cx, effect| match effect {
+            machine::Effect::Misuse => raise(
+                ErrorKind::Message,
+                "PopupApi: one surface at a time; create one popup per simultaneous surface",
+            ),
+            machine::Effect::WriteClose(reason) => {
+                disclosure.open.set(false);
+                if !disclosure.is_open().get_untracked() {
+                    cx.send(Event::Accepted(reason));
+                }
+            }
+            machine::Effect::Return(opener) => {
+                opener.restore_focus();
+                cx.send(Event::Returned);
+            }
+            machine::Effect::Unmounted => cx.send(Event::Unmount { was_inside: false }),
+        },
+    );
     PopupApi {
-        disclosure: use_disclosure(open),
+        disclosure,
         content_state: kivact_core::state::signal(None),
         trigger_state: kivact_core::state::signal(None),
-        own_anchor: node_ref(),
-        settings: var(PopupSettings::default()),
-        opening: var(None),
+        own_anchor,
+        settings,
+        machine,
     }
 }
 
@@ -210,38 +228,15 @@ impl PopupApi {
     /// Replace the policy of the opening in progress, for its close. Runs
     /// while the surface is bound.
     pub(crate) fn set_opening_policy(self, policy: FocusReturn) {
-        self.opening.update(|opening| {
-            opening
-                .as_mut()
-                .expect("invariant: set_opening_policy runs while the surface is bound")
-                .policy = policy;
-        });
+        self.machine.send(Event::Policy(policy));
     }
 
     /// The caller's policy, or the anchor on `DISMISS`.
     fn base_policy(self) -> FocusReturn {
         self.settings
-            .with(|settings| settings.focus_return)
+            .get()
+            .focus_return
             .unwrap_or_else(|| FocusReturn::anchor(self.anchor_ref()))
-    }
-
-    /// Submit the policy's restoration for this opening's `reason`, once.
-    fn request_return(self, reason: PopupCloseReason) {
-        let Some(opening) = self.opening.get() else {
-            return;
-        };
-        if opening.returned || !opening.policy.restores(reason) {
-            return;
-        }
-        self.opening.update(|opening| {
-            if let Some(opening) = opening {
-                opening.returned = true;
-            }
-        });
-        opening.policy.request(
-            reason,
-            opening.opener.or_else(|| self.anchor_ref().mounted_node()),
-        );
     }
 
     /// The application's authoritative open state.
@@ -252,9 +247,7 @@ impl PopupApi {
     /// The anchor: the node given to [`anchor`](Self::anchor), else the
     /// trigger part's.
     pub(crate) fn anchor_ref(self) -> NodeRef {
-        self.settings
-            .with(|settings| settings.anchor)
-            .unwrap_or(self.own_anchor)
+        self.settings.get().anchor.unwrap_or(self.own_anchor)
     }
 
     pub(crate) fn open_binding(self) -> Binding<bool> {
@@ -274,7 +267,7 @@ impl PopupApi {
         if !self.is_open().get_untracked() {
             return;
         }
-        self.finish_close(reason);
+        self.machine.send(Event::Close(reason));
     }
 
     fn finish_close(self, reason: PopupCloseReason) {
@@ -286,22 +279,7 @@ impl PopupApi {
         if open.get_untracked() || modal {
             return;
         }
-        self.opening.update(|opening| {
-            if let Some(opening) = opening {
-                opening.closed_by = Some(reason);
-            }
-        });
-        // A dismissal restores now, as the surface is still mounted. The
-        // other reasons wait for the surface's removal, which knows whether
-        // the focus was inside it.
-        if matches!(
-            reason,
-            PopupCloseReason::Escape
-                | PopupCloseReason::Selection
-                | PopupCloseReason::Accessibility
-        ) {
-            self.request_return(reason);
-        }
+        self.machine.send(Event::Accepted(reason));
     }
 
     fn toggle(self) {
@@ -413,62 +391,44 @@ impl PopupApi {
     /// Per-mount focus range, anchor removal and initial focus. Setup only,
     /// under the mounted surface's owner.
     fn watch(self) {
-        if self.opening.with(Option::is_some) {
-            raise(
-                ErrorKind::Message,
-                "PopupApi: one surface at a time; create one popup per simultaneous surface",
-            );
-        }
         let owner = Owner::current();
-        self.opening.set(Some(Opening {
+        self.machine.send(Event::Open {
             opener: focused_node(),
             policy: self.base_policy(),
-            closed_by: None,
-            returned: false,
-        }));
+        });
         let surface = self.content_ref();
         let panel = surface.mounted_node();
-        // A modal's restoration is the overlay's own; known once mounted.
-        let modal = var(false);
-        on_mount(move || modal.set(surface.is_modal()));
-        on_cleanup(move || {
-            if !modal.get() && panel.is_some_and(|node| surface.focus_was_in(node)) {
-                let closed_by = self
-                    .opening
-                    .with(|opening| opening.and_then(|opening| opening.closed_by));
-                self.request_return(closed_by.unwrap_or(PopupCloseReason::Unmount));
+        on_mount(move || {
+            if surface.is_modal() {
+                self.machine.send(Event::Policy(FocusReturn::preserve()));
             }
-            self.opening.set(None);
+        });
+        on_cleanup(move || {
+            self.machine.send(Event::Unmount {
+                was_inside: panel.is_some_and(|node| surface.focus_was_in(node)),
+            });
         });
         let within = self.content_ref().focus_within();
         let anchor = self.anchor_ref();
         let anchor_focused = anchor.focused();
         let open = self.is_open();
-        let anchor_starts = self
-            .settings
-            .with(|settings| settings.anchor_starts_focus_range);
-        let entered = var(false);
-        let anchor_seen = var(false);
+        let anchor_starts = self.settings.get().anchor_starts_focus_range;
         effect(move || {
             if !open.get() {
                 return;
             }
             let focused = owner.focused_node();
-            if anchor.tracked_node().is_some() {
-                anchor_seen.set(true);
-            } else if anchor_seen.get() {
-                self.close(PopupCloseReason::AnchorRemoved);
-                return;
-            }
-            if within.get()
-                || (anchor_starts.is_some_and(|enabled| enabled.get()) && anchor_focused.get())
-            {
-                entered.set(true);
-            } else if entered.get() && !anchor_focused.get() && focused.is_some() {
-                self.close(PopupCloseReason::Tab);
-            }
+            let anchor_present = anchor.tracked_node().is_some();
+            let anchor_focused = anchor_focused.get();
+            let entered = within.get()
+                || (anchor_starts.is_some_and(|enabled| enabled.get()) && anchor_focused);
+            self.machine.send(Event::Focus {
+                anchor_present,
+                entered,
+                outside: !anchor_focused && focused.is_some(),
+            });
         });
-        if let Some(initial) = self.settings.with(|settings| settings.initial_focus) {
+        if let Some(initial) = self.settings.get().initial_focus {
             on_mount(move || {
                 if open.get() && initial.mounted_node().is_some() {
                     initial.focus();

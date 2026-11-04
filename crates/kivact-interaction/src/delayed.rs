@@ -1,16 +1,19 @@
 //! Role: One delayed show and hide machine for tooltips, submenus and hover surfaces.
 //!
 //! [`DelayedApi`] follows a `wanted` condition late: it shows `open` after the
-//! condition turns true and hides `close` after it turns false, on host-clock
-//! task timers (no polling). [`DelayedApi::dismiss`] hides it at once and keeps it
+//! condition turns true and hides `close` after it turns false, on owner-scoped
+//! machine timers (no polling). [`DelayedApi::dismiss`] hides it at once and keeps it
 //! hidden until the condition goes false, and [`DelayedApi::pulse`] shows it at
 //! once and hides it after the close delay (a "Copied" mark).
 
 use std::time::Duration;
 
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal, untrack};
-use kivact_core::task::{Task, sleep, spawn};
+use kivact_core::state::{MachineHandle, Value, effect, machine, memo};
+
+#[path = "delayed/machine.rs"]
+mod machine;
+use machine::{Event, Machine, State};
 
 /// How long a [`DelayedApi`] waits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -36,17 +39,8 @@ pub enum DelayedPhase {
     Dismissed,
 }
 
-#[derive(Clone, Copy)]
-enum State {
-    Hidden,
-    Opening(Task),
-    Shown,
-    Closing(Task),
-    Dismissed,
-}
-
 /// A shown state that follows `wanted` late: shows `open` after it turns true
-/// and hides `close` after it turns false, on host-clock task timers.
+/// and hides `close` after it turns false, on owner-scoped machine timers.
 ///
 /// ```no_run
 /// use std::time::Duration;
@@ -64,11 +58,9 @@ enum State {
 /// ```
 #[derive(Clone, Copy)]
 pub struct DelayedApi {
-    state: Signal<State>,
+    state: MachineHandle<Machine>,
     phase: Value<DelayedPhase>,
     shown: Value<bool>,
-    wanted: Value<bool>,
-    close: Duration,
 }
 
 /// Create a delayed state that follows `wanted`.
@@ -88,35 +80,29 @@ pub(crate) fn delayed(
     open: impl Fn() -> Duration + 'static,
     close: Duration,
 ) -> DelayedApi {
-    let state = signal(State::Hidden);
-    let phase = memo(move || {
-        state.with(|state| match state {
-            State::Hidden => DelayedPhase::Hidden,
-            State::Opening(_) => DelayedPhase::Opening,
-            State::Shown => DelayedPhase::Shown,
-            State::Closing(_) => DelayedPhase::Closing,
-            State::Dismissed => DelayedPhase::Dismissed,
-        })
+    let state = machine(
+        State::Hidden,
+        move || Machine {
+            wanted: wanted.get_untracked(),
+            open: open(),
+            close,
+        },
+        |_, effect| match effect {},
+    );
+    let phase = memo(move || match state.get() {
+        State::Hidden => DelayedPhase::Hidden,
+        State::Opening => DelayedPhase::Opening,
+        State::Shown => DelayedPhase::Shown,
+        State::Closing => DelayedPhase::Closing,
+        State::Dismissed => DelayedPhase::Dismissed,
     });
     let shown = memo(move || matches!(phase.get(), DelayedPhase::Shown | DelayedPhase::Closing));
     let this = DelayedApi {
         state,
         phase,
         shown,
-        wanted,
-        close,
     };
-    effect(move || {
-        let wanted = wanted.get();
-        untrack(|| this.follow(wanted, &open));
-    });
-    // A timer spawned from a longer-lived owner's handler (`pulse`) must not
-    // write the disposed state.
-    on_cleanup(move || {
-        if let State::Opening(task) | State::Closing(task) = state.with_untracked(|state| *state) {
-            task.cancel();
-        }
-    });
+    effect(move || state.send(Event::Wanted(wanted.get())));
     this
 }
 
@@ -137,12 +123,7 @@ impl DelayedApi {
     /// Call it from a handler or an effect.
     #[track_caller]
     pub fn dismiss(self) {
-        let next = if self.wanted.get_untracked() {
-            State::Dismissed
-        } else {
-            State::Hidden
-        };
-        self.enter(next);
+        self.state.send(Event::Dismiss);
     }
 
     /// Show now and hide after the close delay, as a release of `wanted`
@@ -152,70 +133,6 @@ impl DelayedApi {
     /// Call it from a handler or an effect.
     #[track_caller]
     pub fn pulse(self) {
-        if self.wanted.get_untracked() {
-            self.enter(State::Shown);
-        } else if self.close.is_zero() {
-            self.enter(State::Hidden);
-        } else {
-            self.cancel_timer();
-            let task = self.timer(self.close, State::Hidden);
-            self.state.update(|state| *state = State::Closing(task));
-        }
-    }
-
-    /// Move the machine for a change of `wanted`.
-    #[track_caller]
-    fn follow(self, wanted: bool, open: &dyn Fn() -> Duration) {
-        let phase = self.phase.get_untracked();
-        match (phase, wanted) {
-            (DelayedPhase::Hidden, true) => {
-                let delay = open();
-                if delay.is_zero() {
-                    self.enter(State::Shown);
-                } else {
-                    let task = self.timer(delay, State::Shown);
-                    self.enter(State::Opening(task));
-                }
-            }
-            (DelayedPhase::Opening, false) => self.enter(State::Hidden),
-            (DelayedPhase::Shown, false) => {
-                if self.close.is_zero() {
-                    self.enter(State::Hidden);
-                } else {
-                    let task = self.timer(self.close, State::Hidden);
-                    self.enter(State::Closing(task));
-                }
-            }
-            (DelayedPhase::Closing, true) => self.enter(State::Shown),
-            (DelayedPhase::Dismissed, false) => self.enter(State::Hidden),
-            _ => {}
-        }
-    }
-
-    /// Cancel the timer of the state being left and enter `next`.
-    #[track_caller]
-    fn enter(self, next: State) {
-        self.cancel_timer();
-        self.state.update(|state| *state = next);
-    }
-
-    /// Cancel the timer of the current state, if it has one.
-    #[track_caller]
-    fn cancel_timer(self) {
-        if let State::Opening(task) | State::Closing(task) = self.state.with_untracked(|s| *s) {
-            task.cancel();
-        }
-    }
-
-    /// A task that enters `then` (`Shown` or `Hidden`) after `delay`. It does
-    /// not cancel itself: every other transition out of `Opening` or `Closing`
-    /// cancels it, so on completion the state is the one that started it.
-    #[track_caller]
-    fn timer(self, delay: Duration, then: State) -> Task {
-        let state = self.state;
-        spawn(async move {
-            sleep(delay).await;
-            state.update(|state| *state = then);
-        })
+        self.state.send(Event::Pulse);
     }
 }
