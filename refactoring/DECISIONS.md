@@ -2399,6 +2399,7 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 - A-2: services belong to each fully created ShellWindow and are constructed on its UI thread. Remove pre-window Backend/SteppedBackend services getters: without a window identity they cannot address parented dialogs or multiple embedded resize negotiations without late binding. Preserve one Services::perform entry for OS requests and UI-thread replies.
 - A-2: separate RegisterFont and ReducedMotion into engine HostRequest before service forwarding. Preserve Writer-time font registration and Host-owned motion override, and synchronize the actual environment before delivering each completed effect result. E-2 treats this request separation as an A-2 prerequisite already completed.
 - R-1: move the already unified types Transition unchanged. The obsolete instruction to retain as_wire is corrected; do not reintroduce a wrapper removed by V-6/18.16.
+- R-1 macro boundary: keep implementation modules private and explicitly reexport the existing public union at the runtime root. macro_export already relocates constant_value there; its existing $crate::IntoValue/Prop references remain valid through those root exports. Do not expose a private implementation namespace merely to make the macro work.
 
 ### W1 definition reconciliation
 

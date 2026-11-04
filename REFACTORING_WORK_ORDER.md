@@ -561,6 +561,8 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
 
 ### R-1 `kivact-runtime` を作る
 
+- **公開と macro の移設方針**: `reactive`・`task`・`motion` は実装 module として private にし、root が旧三つの `lib.rs` の公開集合を明示的に再公開する。`constant_value!` は `macro_export` により新 crate root へ出るので、既存の `$crate::{IntoValue, Prop}` を root の再公開で解決する。macro のためだけに実装 module を public 化しない。core の正準 macro 入口は `kivact_runtime::constant_value` を再公開する。
+
 - **目的**: 設計書 4.1・6 章。`kivact-reactive`・`kivact-task`・`kivact-motion` を一つの crate にする。この unit は移すだけで、振る舞いも内部の形も変えない。
 - **手順**:
   1. `crates/kivact-runtime` を作り、三つの crate の `src` を module として移す（`git mv`）: reactive の file は `reactive/`、task は `task/`、motion は `motion/`。`handler`・`turn`・`time`・`machine`・`host` の module（設計書 4.4 節）は R-2・R-4・R-6 が作る。三つの crate の `lib.rs` の Role と公開を root にまとめる。`[module_rules.kivact-runtime.uses]` はこの unit では `reactive`・`task`・`motion` の三つだけを書き（`task = ["reactive"]`、`motion = ["reactive", "task"]`）、後の unit が module を足すたびに設計書 4.4 節の行を足す。
