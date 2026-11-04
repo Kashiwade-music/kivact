@@ -89,7 +89,7 @@ impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
         let popup = use_popup(open);
         let trigger_part = popup.trigger();
         let anchor = kivact::view::node_ref();
-        let read: kivact::state::Callback<()> = mark_read.into();
+        let read = mark_read;
         let trigger = trigger.with_node(|root| {
             root.with_node(|root| root.part(trigger_part))
                 .node_ref(anchor)

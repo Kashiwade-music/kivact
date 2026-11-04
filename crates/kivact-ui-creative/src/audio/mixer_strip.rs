@@ -35,7 +35,7 @@ pub fn mixer_strip(
     let label = kivact::state::IntoText::into_text_value(label);
     let color = color.into_value();
     MixerStrip {
-        root: node().role(Role::Group).name(label.clone()).style(move || {
+        root: node().role(Role::Group).name(label).style(move || {
             let t = &use_theme().get();
             let p = t.ext::<crate::tokens::Tokens>();
             style()

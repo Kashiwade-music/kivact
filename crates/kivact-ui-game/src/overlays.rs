@@ -54,7 +54,6 @@ impl<K: kivact::state::ItemKey> IntoView for IconMenu<K> {
             .root
             .node_mut()
             .accessible_disabled()
-            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let choose = self.choose;
         kivact::ui::menu(self.label, self.entries)

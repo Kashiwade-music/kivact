@@ -217,7 +217,7 @@ impl IntoView for Alert {
             column((
                 text(self.title).style(style().font_size(13).weight(700)),
                 text(self.message).style(style().font_size(12.5).color(ColorToken::TextMuted)),
-                self.actions.map(|actions| actions),
+                self.actions,
             ))
             .style(style().grow(1).gap(2)),
         ))
@@ -413,7 +413,7 @@ impl IntoView for EmptyState {
                         .max_width(300)
                         .color(ColorToken::TextMuted),
                 ),
-                action.map(|slot| slot),
+                action,
             ))
             .base_style(
                 style()
