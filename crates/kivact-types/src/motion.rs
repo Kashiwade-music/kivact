@@ -77,6 +77,10 @@ impl Easing {
 }
 
 fn bezier(x: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    // Preserve exact endpoints instead of the bisection's residual progress.
+    if x == 0.0 || x == 1.0 {
+        return x;
+    }
     let curve = |t: f64, a: f64, b: f64| {
         let u = 1.0 - t;
         3.0 * u * u * t * a + 3.0 * u * t * t * b + t * t * t
