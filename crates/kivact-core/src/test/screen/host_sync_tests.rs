@@ -77,8 +77,14 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
                         .with(MouseButton::Primary, matches!(phase, PointerPhase::Down(_))),
                     modifiers: Modifiers::default(),
                     kind: PointerKind::Touch,
-                    button: None,
-                    press: None,
+                    button: match phase {
+                        PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press.button),
+                        _ => None,
+                    },
+                    press: match phase {
+                        PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press),
+                        _ => None,
+                    },
                     time_ns: 0,
                     pressure: None,
                     tilt: None,
@@ -156,6 +162,10 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
             )
     });
     let node = screen.get_by_role(Role::Canvas, "gesture canvas").node;
+    let press = ButtonPress {
+        button: MouseButton::Primary,
+        clicks: 1,
+    };
     // The mouse (pointer 1) starts a gesture whose Up never arrives.
     screen
         .host
@@ -168,16 +178,13 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
             region: Some(kivact_types::RegionId(1)),
             input: PointerSample {
                 id: kivact_types::PointerId(1),
-                phase: PointerPhase::Down(ButtonPress {
-                    button: MouseButton::Primary,
-                    clicks: 1,
-                }),
+                phase: PointerPhase::Down(press),
                 position: Point::new(20., 20.),
                 buttons: kivact_types::PointerButtons::NONE.with(MouseButton::Primary, true),
                 modifiers: Modifiers::default(),
                 kind: PointerKind::Mouse,
-                button: None,
-                press: None,
+                button: Some(press.button),
+                press: Some(press),
                 time_ns: 0,
                 pressure: None,
                 tilt: None,
