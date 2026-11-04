@@ -40,7 +40,12 @@ impl<K: ItemKey> NavigationCache<K> {
         });
         root.node_ref(target)
     }
-    pub(super) fn navigate_from_cell(&self, key: &K, event: &KeyEvent, rows: Value<Rows<K>>) -> Handled {
+    pub(super) fn navigate_from_cell(
+        &self,
+        key: &K,
+        event: &KeyEvent,
+        rows: Value<Rows<K>>,
+    ) -> Handled {
         let delta = match event.key() {
             Key::ArrowUp => -1,
             Key::ArrowDown => 1,
