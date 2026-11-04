@@ -28,7 +28,7 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     /// What the group's recipe layer reads once the group is built: its
     /// orientation and whether a row runs from the right.
     layout: Rc<Cell<(Orientation, bool)>>,
-    size: ControlSize,
+    size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<OptionContent<K>>,
     variants: Variants,
@@ -95,7 +95,7 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
         value: value.into_binding(),
         orientation: Orientation::Vertical,
         layout,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         on_edit: None,
         item: None,
         variants,
@@ -129,8 +129,8 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
 
     /// The size (default [`ControlSize::Medium`]), given to the item and
     /// indicator recipes in [`CheckableState::size`].
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -217,7 +217,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
                     CheckableState {
                         input: state.input,
                         checked: CheckedState::from_bool(state.selected),
-                        size,
+                        size: size.get(),
                         invalid: false,
                         text: None,
                         switch_drag: None,

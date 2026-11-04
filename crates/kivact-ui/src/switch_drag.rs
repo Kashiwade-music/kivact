@@ -91,7 +91,7 @@ impl Geometry {
 #[derive(Clone, Copy)]
 struct Gesture {
     value: Binding<bool>,
-    geometry: Geometry,
+    size: Value<ControlSize>,
     contact: Var<Option<Contact>>,
     visual: Signal<Option<SwitchDragState>>,
     generation: Signal<u64>,
@@ -102,14 +102,14 @@ pub(super) type Visual = Option<Value<Option<SwitchDragState>>>;
 pub(super) fn switch(
     control: Part<ToggleState>,
     value: Binding<bool>,
-    size: ControlSize,
+    size: Value<ControlSize>,
 ) -> (Part<ToggleState>, Visual) {
     if !use_theme().get().ext::<SwitchDrag>().0 {
         return (control, None);
     }
     let gesture = Gesture {
         value,
-        geometry: Geometry::new(size),
+        size,
         contact: var(None),
         visual: signal(None),
         generation: signal(0),
@@ -131,6 +131,7 @@ pub(super) fn switch(
 
 impl Gesture {
     fn pointer(self, event: PointerEvent) -> Handled {
+        let geometry = Geometry::new(self.size.get());
         let touch = event.kind() == PointerKind::Touch;
         if touch && !event.is_primary() {
             return Handled::Yes;
@@ -194,7 +195,7 @@ impl Gesture {
                 Handled::No
             }
             PointerPhase::Move | PointerPhase::Up(_) => {
-                let dx = (event.window_pos().x - contact.origin.x) * self.geometry.sign;
+                let dx = (event.window_pos().x - contact.origin.x) * geometry.sign;
                 let dy = event.window_pos().y - contact.origin.y;
                 if !contact.horizontal && !contact.vertical {
                     if dx.abs() >= 10.0 && dx.abs() > dy.abs() {
@@ -208,11 +209,11 @@ impl Gesture {
                 if contact.horizontal {
                     let toward = if contact.started_on { -dx } else { dx };
                     let side = if contact.started_on {
-                        self.geometry.on_side
+                        geometry.on_side
                     } else {
-                        self.geometry.off_side
+                        geometry.off_side
                     };
-                    let past = toward >= self.geometry.width - side;
+                    let past = toward >= geometry.width - side;
                     if contact.visually_on != contact.started_on {
                         if toward < 0.0 {
                             contact.visually_on = contact.started_on;
@@ -252,13 +253,13 @@ impl Gesture {
                 }
                 if contact.horizontal {
                     let start = if contact.started_on {
-                        self.geometry.travel()
+                        geometry.travel()
                     } else {
                         0.0
                     };
                     self.visual.set(Some(SwitchDragState {
                         offset: contact.touch.then(|| {
-                            self.geometry.band(start + dx, contact.visually_on) * self.geometry.sign
+                            geometry.band(start + dx, contact.visually_on) * geometry.sign
                         }),
                         visually_on: contact.visually_on,
                         touch: contact.touch,

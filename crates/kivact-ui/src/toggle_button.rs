@@ -43,10 +43,19 @@ impl ThemeExtension for ToggleLabelReservation {
     }
 }
 
-fn toggle_label(label: Value<String>, hidden: Option<Value<bool>>, size: ControlSize) -> View {
+fn toggle_label(
+    label: Value<String>,
+    hidden: Option<Value<bool>>,
+    size: Value<ControlSize>,
+) -> View {
     dynamic(
-        || *use_theme().get().ext::<ToggleLabelReservation>(),
-        move |reservation| {
+        move || {
+            (
+                *use_theme().get().ext::<ToggleLabelReservation>(),
+                size.get(),
+            )
+        },
+        move |(reservation, size)| {
             let ToggleLabelReservation::Reserve {
                 weight,
                 size: font_size,
@@ -98,7 +107,7 @@ pub struct ToggleButton {
     pressed: Binding<bool>,
     icon: Option<View>,
     hide_label: Option<Value<bool>>,
-    size: ControlSize,
+    size: Value<ControlSize>,
     variants: Variants,
 }
 
@@ -133,7 +142,7 @@ pub fn toggle_button(
         pressed: pressed.into_binding(),
         icon: None,
         hide_label: None,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         variants: Variants::default(),
     }
 }
@@ -141,8 +150,8 @@ pub fn toggle_button(
 impl ToggleButton {
     /// The size (default [`ControlSize::Medium`]), given to the recipe in
     /// its state; the recipe sizes the toggle_button by it.
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -200,7 +209,7 @@ impl IntoView for ToggleButton {
             .map_state(move |state: ToggleState| ToggleButtonState {
                 input: state.input,
                 pressed: state.checked.is_checked(),
-                size,
+                size: size.get(),
                 leading_icon,
                 icon_only: leading_icon && hide.is_some_and(|hide| hide.get()),
             });

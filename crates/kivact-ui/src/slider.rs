@@ -54,7 +54,7 @@ pub struct Slider {
     range: Option<Value<ScalarRange>>,
     step: Option<f64>,
     orientation: Orientation,
-    size: ControlSize,
+    size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
 }
@@ -114,7 +114,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
         range: None,
         step: None,
         orientation: Orientation::Horizontal,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         on_edit: None,
         variants,
     }
@@ -173,8 +173,8 @@ impl Slider {
 
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// [`AxisState::size`].
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -390,7 +390,7 @@ impl IntoView for Slider {
         let state = move |input: PartState| AxisState {
             input,
             orientation,
-            size,
+            size: size.get(),
         };
         let filled = {
             let geometry = geometry.clone();
