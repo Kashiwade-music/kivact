@@ -1,8 +1,6 @@
 //! Role: Theme policy and paint for sticky data table cells.
 use kivact_core::style::{Color, Style, Theme, TransitionProp, style, use_theme};
 
-pub use super::sticky_paint_tokens::DataTableStickyPaint;
-
 pub(super) fn surface(header: bool, selected: bool, tint: Option<Color>) -> Style {
     let theme = use_theme().get();
     let paint = theme.ext::<crate::UiTokens>().data_table.sticky.clone();

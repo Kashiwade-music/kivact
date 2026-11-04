@@ -217,3 +217,5 @@ mod disclosure_tokens;
 mod progress_tokens;
 mod toast_tokens;
 mod toggle_button_tokens;
+
+mod data_table_tokens;

@@ -40,8 +40,6 @@ impl RowStatus {
     }
 }
 
-pub use super::row_status_tokens::DataTableRowStatusPaint;
-
 fn lane() -> Node {
     node().style(
         style()
