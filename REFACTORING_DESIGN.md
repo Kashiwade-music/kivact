@@ -2463,12 +2463,18 @@ impl Inspect<'_> {
     pub fn why(&self, node: NodeId) -> Why;
     pub fn stats(&self) -> Stats;                    // core_ns は kivact-test が埋める
     pub fn turns(&self) -> Vec<TurnRecord>;
+    pub fn errors(&self) -> Vec<UiError>;
+    pub fn pending(&self) -> bool;
+    pub fn outstanding_blocking(&self) -> usize;
+    pub fn motion_ticks(&self) -> u64;
     #[cfg(debug_assertions)] pub fn open_trace(&self, name: &str);
     #[cfg(debug_assertions)] pub fn check_trees(&self) -> Result<(), String>;   // C-5 で消す
 }
 ```
 
 - **理由:** 試験が `Tree` から読んでいる値（`content`、`role`、`name`、`value`、`checked`、`selected`、`expanded`、`disabled`、`hidden`、`input_value`、`placeholder`、`scene`、`test_id`）は、どれも engine の `Reader` を包んでいるだけである（`kivact-core/src/view/tree.rs:494-575` の `with_node`・`reader()`）。core だけが答えられるのは、node の位置・owner・`why`・runtime の統計（`kivact-core/src/test/screen/state.rs:38-66`）と turn の記録だけである。semantics の snapshot は `reader()` の host の木を辿る（C-5 までは、`check_trees` が core の木と同じであることを保証する）。
+- 既存 Screen の idle/error/blocking/tick 契約を保つため上の Inspect 読出を持つ。engine の統計は `Reader::stats() -> WriteStats`。`AppOptions::title(self, impl Into<String>) -> Self` に RenderOptions の title 更新を委譲する。
+- C-1 限定で、App 公開 API へ移せない既存 backend E2E は kivact-test 内の private 試験として既存名/assert を保持する。新たな facade 観測 API は作らない。必要な既存 writer 契約は engine testing の `ArvaneTestHost::writer() -> Writer` から読む。
 
 ### 19.26 style の内部の口と `THEMED`
 

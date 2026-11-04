@@ -182,7 +182,7 @@ KIVACT_TEST_MIRROR=off cargo test -p <GPU の crate> --all-features -- --test-th
 KIVACT_TEST_MIRROR=off cargo test --workspace --no-default-features --no-fail-fast
 bash dev/tools/check-features.sh
 cargo xtask check                      # architecture/ を作り直す。integration の checkout で回して commit する
-wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && CARGO_TARGET_DIR=$HOME/kivact-target cargo clippy --workspace --all-targets --all-features -- -D warnings'
+wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact/.claude/worktrees/gate && CARGO_TARGET_DIR=$HOME/kivact-target cargo clippy --workspace --all-targets --all-features -- -D warnings'
 ```
 
 F-3 では、さらに mirror を有効にした試験（`bash dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --all-features`）と、WSL の試験（Wayland と X11 を分けて記録）を回す:
@@ -1078,6 +1078,7 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
   }
   impl AppOptions {
       pub fn new(title: impl Into<String>) -> Self;
+      pub fn title(self, title: impl Into<String>) -> Self;
       pub fn window_size(self, width: impl Into<f64>, height: impl Into<f64>) -> Self;
       pub fn min_window_size(self, width: impl Into<f64>, height: impl Into<f64>) -> Self;
       pub fn theme(self, theme: Theme) -> Self;
@@ -1107,6 +1108,10 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
       pub fn why(&self, node: NodeId) -> Why;
       pub fn stats(&self) -> Stats;                                    // core_ns は 0。kivact-test が自分の計測で埋める
       pub fn turns(&self) -> Vec<TurnRecord>;
+      pub fn errors(&self) -> Vec<UiError>;
+      pub fn pending(&self) -> bool;
+      pub fn outstanding_blocking(&self) -> usize;
+      pub fn motion_ticks(&self) -> u64;
       #[cfg(debug_assertions)] pub fn open_trace(&self, name: &str);
       #[cfg(debug_assertions)] pub fn check_trees(&self) -> Result<(), String>;   // C-5 で消す
   }
@@ -1117,11 +1122,12 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
   2. 現在の private な `enum Launch`（`app_client.rs`）を上の `Launch` にする。`App::run` は `Launch::new(options, ClientMode::Window, root).into_engine_client()` を engine の `run` に渡す。`App::embed` は `ClientMode::Embedded` で同じことをする。`ClientMode::Embedded(CloseSignal)` は engine の `CloseSignal`（E-2）を持ち、今の event ごとの中断を保つ（設計書 19.8 節。`HostEvent::CloseRequested` と `Runtime::request_exit` の呼び出しは作らない）。`AppClient.embed_closing`・`with_embed_closing`・`embed_closing()` はこの `CloseSignal` に置き換えて消す（SM-C03）。
   3. `embed.rs` の `Embedded`: `host: Option<EmbeddedHost>` を `host: EmbeddedHost` にし、その後ろに宣言する guard の field（`Drop` で `DetachedThreads::any()` なら `retain_module()`、panic していなければ panic を resume）で drop の順を表す（field は宣言の順に drop される。doc comment に書く。`Embedded` の `Drop` の impl と `Option` を消す。SM-C04）。panic の扱いを `enum EmbeddedState { Running, Panicked(PanicPayload), Closed }` にする: 各メソッドは host を呼んだ後に一度だけ slot を見て、payload があれば `Closed` にして resume する。`Closed` の後は resume しない（SM-C28）。
   4. `ViewState` を `Launch::Started` の構築のときに完成した値として作る: `Started` の中身を `ViewState` の field にし、`started: OnceCell<Started>`・`ViewState::start`・`started()` の panic を消す（SM-C08）。`Extensions::new().with(ViewState::new())` を `Started` の構築へ移す。
-  5. `crates/kivact-test` を作る。`kivact-core/src/test/` の公開 API（`render`、`render_with`、`render_with_handle`、`Screen`、`Element`、問い合わせ、`LayoutCheck`、`TestParent`、`TestFonts`）を移す。依存は `kivact-core`、`kivact-engine`（feature `testing`）、`kivact-runtime`、`kivact-types`、`kivact-style`、`kivact-i18n`。feature `gpu-interop`・`embed` を core と engine へ伝える。
+  5. `crates/kivact-test` を作る。`kivact-core/src/test/` の公開 API（`render`、`render_with`、`render_with_handle`、`Screen`、`Element`、問い合わせ、`LayoutCheck`、`TestParent`、`TestFonts`）を移す。依存は `kivact-core`、`kivact-engine`（feature `testing`）、`kivact-runtime`、`kivact-types`、`kivact-style`、`kivact-i18n`。feature `gpu-interop`・`embed` を core へ伝える（engine 内部の経路は常時 compile、engine の feature は `testing` だけ）。
   6. `kivact-test` の中の core の内部の読み出し（`ViewState::tree(..)`、`HostState::of`、`TaskState::of`、`MotionState::of`、`rt.live_counts()`、`rt.turns()`、`why::explain`、`Trace::of`）を全部 `Inspect` のメソッドに置き換える。semantics の snapshot は `Inspect::reader()` の host の木（`Reader::children`）を辿り、位置は `located_at`（なければ一番近い祖先の位置）で付ける。`Screen` は `Rc<Runtime>` を持たず、`LaunchHandle` を持つ。`render` は `RenderOptions` の `AppOptions` から `Launch::new(.., ClientMode::Test(timing), ..)` を通る（現在の `Screen::start` の `AppClient::new(config, Some(2), at)` と、窓の大きさ・最小の大きさ・blocking の数の無視をなくす）。入力の注入は `Screen::script() -> kivact::test::Script`（A-1b の台本を包む型）を通す。
   7. `kivact-core/src/test/screen/*_tests.rs`（10 file、37 試験）を扱う: 公開 API で書けるものは `dev/tests/kivact-public-api/tests/e2e/` の該当の module へ移す。core と engine の木の一致などの内部の不変条件は `kivact-test` の debug の自己検査（pump の後に `Inspect::check_trees`）へ入れる。`real_window_tests.rs` の `#[ignore]` の `cost` は消す。消した試験と移した試験の名前を報告に書く。embed の E2E（`TestParent`）は `kivact::test::native_unavailable() -> Option<&'static str>` が `Some` のとき理由を出して skip する。
   8. facade: `kivact` の feature `test = ["dep:kivact-test"]`、`kivact::test` を `kivact_test` の再公開にする。`kivact-core` の feature `test` と `#[cfg(feature = "test")]`（`client/app_client.rs`、`client/state.rs`、`client.rs`、`diagnostics/stats.rs`、`lib.rs`、`view/tree.rs`）を消す。`Tree` の試験だけの読み出し（`input_value`、`placeholder`、`value`、`selected`、`checked`、`expanded`、`len`）は消す（`Inspect::reader()` で読む）。0.9 節の一覧。
 - **状態の点検表**: 0.7 節。
+- **既存試験の境界（C-1 限定）**: App 公開 API で書けるものは public-api E2E へ移す。core/tree/Owner の内部不変条件は debug 自己検査へ。rootless Client、worker/cache、renderer 選択・pool・期限・最小化等の既存 backend 契約は、新公開の raw 観測 API を増やさず `kivact-test` 内の private E2E として既存名/assert を保持してよい。この移管分だけの例外で、新たな backend-only 試験は足さない。engine 所有の統計は `Reader::stats() -> WriteStats` で読む。
 - **試験**: 足さない（手順 7 で移す）。
 - **unit の確認**: `cargo check -p kivact-core -p kivact-test -p kivact -p kivact-public-api-tests --all-targets --all-features`。`KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- <手順 7 で移した試験の名前>`。`grep -rn 'feature = "test"' crates/kivact-core` が 0 件。
 - **規模**: L。サブエージェントは一つ。手順 1〜4 と 5〜8 で commit を分ける。

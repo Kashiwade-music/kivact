@@ -2,6 +2,13 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | fix-G1-3 | aggregate が keys 実装の KeyDownTargets に依存し循環する | 受動な focus 宛先表を既存 focus/state へ所属させ、routing 実装への逆依存を除去。 |
+| 2026-11-05 | fix-G3-3 | data が host/turn 実装を参照し runtime に循環する | Host/turn の契約値を host_types、Runtime を借りる TurnGuard を data へ所属。公開 root path と動作は維持。 |
+| 2026-11-05 | C-1 | 指定 Inspect が既存 Screen の idle/error/blocking/tick を読めない | Inspect に errors/pending/outstanding_blocking/motion_ticks、Reader に stats を追加。AppOptions.title に RenderOptions を委譲し、設定の正本を一つに保つ。 |
+| 2026-11-05 | C-1 | App API だけでは既存 backend 観測・rootless/worker 契約を保全できない | App 試験は public-api、純粋内部不変条件は debug 検査、残る既存 backend E2E だけを kivact-test 内 private に保持。新しい raw 観測 API や新 backend 試験は足さない。 |
+| 2026-11-05 | CP2 | 初期 PresenceChanged が診断 turn を一つ進める | 必須の Entering/Present 通知18件を trace で確認し、why 期待 turn を3→4。依存 chain/位置/内容の全文 assertion は維持。 |
+| 2026-11-05 | fix-G1-2 | 非同期 wake が最後の step 後に来ると snapshot から見えない | Probe が同じ live mailbox を読み worker 完了を観測。empty root の安定 identity は allocator が予約し、復帰 redraw は idle 前に確認。 |
+| 2026-11-05 | CP2 | 次 wave と並行の WSL 検証も checkpoint の source に固定する必要がある | Linux Clippy も gate worktree の固定 commit を使う。検査中に integration の source が変わる競合を避ける。 |
 | 2026-11-05 | fix-G1-1 | LaunchArgs が約2.5KBで Launch 全体を大きくする | private Pending/Running payload を Box 所有にし、Starting 遷移と単一所有を保ちながら enum サイズ差を解消。 |
 | 2026-11-05 | E-9a | Taffy は親の item size/basis を hook の出力と別に読む | 親向け private item style に倍率を反映し子の natural style/cache は保持。倍率変更で依存 cache を無効化し、第二 layout 無しで親 auto 箱も縮める。 |
 | 2026-11-05 | E-8 | workorder の Fragment variant 指定が設計19.29と矛盾する | 設計優先で Contents 箱だけを実装し、透明判定を一つにする。C-5と同じ形へ指示書を訂正。 |

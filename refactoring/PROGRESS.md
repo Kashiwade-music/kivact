@@ -8,7 +8,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 |---|---|---|---|---|---|---|---|---|---|
 | CP0 | b6e7ff2 | 0 | 0 | 0 | 0 | 1362 passed / 52 ignored | 1349 passed / 51 ignored | 634.8s / 405.6s | 通過 |
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
-| CP2 | 5c3b17b | 0 | 0 | running | running | running | running | Clippy 12.79s | 軽い gate 通過、重い gate は固定 commit で実行 |
+| CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -51,13 +51,19 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G2-1 | merged | 7a5ef0d | smoke skip 診断と virtual 条件式、check 0 |
 | fix-G2-2 | merged | 59aee2a | GPU readback 条件式、check 0 |
 | fix-G1-1 | merged | 5c3b17b | Launch payload/engine 記法、check 0、全 Clippy 0 |
+| fix-G2-3 | merged | c02ab11 | Arvane E2E 33 passed、WSL Clippy 0 |
+| fix-G1-2 | merged | d914da0 | worker/空 root/復帰の失敗試験すべて 0 |
+| fix-G6-2 | merged | 231f760 | 新 Presence 通知の診断 turn、対象 E2E 0 |
+| fix-G2-4 | merged | b9f70e2 | no-GPU bound/Role/葉const/shell policy、check 0 |
+| fix-G1-3 | merged | e86d141 | KeyDownTargets の所属で engine cycle 解消、check 0 |
+| fix-G3-3 | merged | 01768d3 | Host/turn 値の所属で runtime cycle 解消、全 xtask 0 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
 | R-3 | merged | 0165094 | 関連 E2E 34 passed、合流 runtime check 0 |
 | R-4 | merged | 5340dd7 | runtime check 0、E2E は A-1b 合流で |
 | R-5 | merged | 85c6f7f | 統合 runtime check 0、E2E は A-1b 合流で |
 | R-6 | merged | e4a39b3 | check/doc test 0 |
-| C-1 | todo | | |
+| C-1 | doing | | 起動経路の一本化と kivact-test 分離 |
 | C-2 | todo | | |
 | L-1 | todo | | |
 | C-3a | todo | | |
