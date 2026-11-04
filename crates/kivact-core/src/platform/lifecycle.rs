@@ -4,18 +4,24 @@
 //! order, releases the registry borrow and invokes existing owner-aware callbacks.
 //! Disposed owners are skipped even if disposed during an earlier callback.
 
-use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
+use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_runtime::{Callback, HandlerResult, Owner, Runtime};
 pub use kivact_types::LifecycleEvent;
+use kivact_types::cell::{Generation, Registry};
 
 #[derive(Default)]
 pub(crate) struct LifecycleState {
-    next: Cell<u64>,
-    registrations: RefCell<BTreeMap<u64, (Owner, Callback<LifecycleEvent>)>>,
+    generation: RefCell<Generation>,
+    registrations: RefCell<Registry<Registration>>,
+}
+
+struct Registration {
+    _id: Generation,
+    owner: Owner,
+    callback: Callback<LifecycleEvent>,
 }
 
 /// Subscribe in setup until this component's owner is disposed.
@@ -31,34 +37,21 @@ pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static)
     let owner = Owner::current("on_lifecycle", Location::caller());
     let rt = owner.runtime();
     let state = rt.ext::<LifecycleState>();
-    let id = state.next.get();
-    state.next.set(id + 1);
-    state
-        .registrations
-        .borrow_mut()
-        .insert(id, (owner, kivact_runtime::callback(f)));
-    let weak = Rc::downgrade(&rt);
-    owner.on_cleanup(move || {
-        if let Some(rt) = weak.upgrade() {
-            rt.ext::<LifecycleState>()
-                .registrations
-                .borrow_mut()
-                .remove(&id);
-        }
+    let id = state.generation.borrow_mut().next();
+    let registration = Rc::new(Registration {
+        _id: id,
+        owner,
+        callback: kivact_runtime::callback(f),
     });
+    state.registrations.borrow_mut().insert(&registration);
+    owner.on_cleanup(move || drop(registration));
 }
 
 pub(crate) fn dispatch(rt: &Runtime, event: LifecycleEvent) {
-    let registrations: Vec<_> = rt
-        .ext::<LifecycleState>()
-        .registrations
-        .borrow()
-        .values()
-        .copied()
-        .collect();
-    for (owner, callback) in registrations {
-        if owner.is_alive() {
-            callback.call(event);
+    let registrations: Vec<_> = rt.ext::<LifecycleState>().registrations.borrow_mut().live();
+    for registration in registrations {
+        if registration.owner.is_alive() {
+            registration.callback.call(event);
         }
     }
 }
