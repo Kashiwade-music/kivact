@@ -214,9 +214,10 @@ impl IntoView for BezierCurve {
                     change(index, next);
                 }
             };
+            let drag_source = gesture.source(index);
             let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
                 node.part(attachment)
-                    .part(gesture.source(index))
+                    .part(drag_source)
                     .on_key(move |event: KeyEvent| {
                         let step = if event.modifiers().ctrl {
                             0.001

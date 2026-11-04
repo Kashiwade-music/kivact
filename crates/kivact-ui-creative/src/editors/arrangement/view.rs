@@ -308,8 +308,9 @@ impl IntoView for Arrangement {
                     info,
                     action,
                 );
+                let drag_source = gesture.source(());
                 kivact::custom::Part::new(attachment.state(), move |node| {
-                    node.part(attachment).part(gesture.source(()))
+                    node.part(attachment).part(drag_source)
                 })
             },
         );

@@ -76,12 +76,13 @@ pub(crate) fn attach<T: TimeItem>(
             // A press on a region drags from there.
             let result = {
                 let input_part = part(|input| input);
+                let drag_source = gesture.source(());
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(Role::Button)
                         .focusable(true)
                         .name(move || info.get().name)
-                        .part(gesture.source(()))
+                        .part(drag_source)
                 })
             };
             match target {
@@ -149,12 +150,13 @@ pub(crate) fn attach<T: TimeItem>(
             let format = format.clone();
             {
                 let input_part = part(|input| input);
+                let drag_source = gesture.source(());
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(Role::Slider)
                         .focusable(true)
                         .name(move || texts.playhead())
-                        .part(gesture.source(()))
+                        .part(drag_source)
                         .value_now(frame)
                         .value_text(move || format(frame.get()))
                         .a11y_action(A11yAction::SetValue, move |event| {

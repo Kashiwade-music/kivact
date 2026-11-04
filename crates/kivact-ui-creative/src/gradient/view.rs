@@ -259,9 +259,10 @@ impl IntoView for GradientEditor {
                             state.change_position(id, next);
                         }
                     };
+                    let drag_source = gesture.source(id);
                     kivact::custom::Part::new(part.state(), move |node| {
                         node.part(part)
-                            .part(gesture.source(id))
+                            .part(drag_source)
                             .on_key(move |event| key(state, id, event))
                             .a11y_action(A11yAction::Select, action)
                             .a11y_action(A11yAction::Activate, action)
