@@ -26,7 +26,7 @@ impl Plane {
         Point::new(
             self.rect.x + (x.clamp(0.0, 1.0)) * self.rect.width,
             self.rect.y + self.rect.height
-                - (((y / self.weight - self.low) / self.span) as f64) * self.rect.height,
+                - ((y / self.weight - self.low) / self.span) * self.rect.height,
         )
     }
     pub(crate) fn moved(self, point: (f64, f64), delta: Point) -> (f64, f64) {

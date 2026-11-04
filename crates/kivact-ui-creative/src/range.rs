@@ -265,8 +265,7 @@ impl IntoView for Range {
                 let y = s.height / 2.0;
                 // The center of an end's 20 px region, where the track puts
                 // the value: the track's length less one region.
-                let x =
-                    |v| THUMB / 2.0 + ((v - min) / (max - min)) as f64 * (s.width - THUMB).max(0.0);
+                let x = |v| THUMB / 2.0 + ((v - min) / (max - min)) * (s.width - THUMB).max(0.0);
                 if let Some(color) = interval {
                     let r = Rect::new(x(a), y - 7.0, (x(b) - x(a)).max(1.0), 14.0);
                     d.rounded_rect(r, 3.0, color.get().with_alpha(0.35));

@@ -45,8 +45,8 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
         state.length.get(),
         state.loop_min_duration,
     );
-    let lx = LEFT + lo as f64 * scale + pan.x;
-    let hx = LEFT + hi as f64 * scale + pan.x;
+    let lx = LEFT + lo * scale + pan.x;
+    let hx = LEFT + hi * scale + pan.x;
     d.rounded_rect(
         Rect::new(lx, 1.0, (hx - lx).max(1.0), 9.0),
         4.0,
@@ -203,7 +203,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     );
     d.fill_rect(Rect::new(0.0, 0.0, LEFT, ARRANGEMENT_TOP), p.header);
     label(d, &state.texts.tracks(tracks.len()), 8.0, 16.0, p.dim);
-    let x = LEFT + state.frame.get() as f64 * scale + pan.x;
+    let x = LEFT + state.frame.get() * scale + pan.x;
     label(d, "+", LEFT - 22.0, 16.0, p.text);
     if let Some(id) = regions.id(Target::AddTrack) {
         d.region(RegionId(id), Rect::new(LEFT - 30.0, 8.0, 24.0, 24.0));

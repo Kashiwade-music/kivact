@@ -416,7 +416,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
     match state.value {
         Some(value) => style()
             .height(pct(100))
-            .width(pct(value as f64 * 100.0))
+            .width(pct(value * 100.0))
             .background(primary),
         None => style()
             .width(pct(100))
