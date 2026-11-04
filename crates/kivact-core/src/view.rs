@@ -55,9 +55,9 @@ pub use element_data::Component;
 pub use hover::pointer_position;
 #[doc(inline)]
 pub use input::{
-    A11yEvent, ButtonPress, Composition, DismissReason, FileEvent, FilePhase, Handled, Key,
-    KeyCode, KeyEvent, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId,
-    PointerKind, PointerPhase, WheelEvent,
+    A11yEvent, ButtonPress, Composition, DismissReason, FileEvent, FilePhase, Handled,
+    InputPurpose, Key, KeyCode, KeyEvent, Modifiers, MouseButton, PointerButtons, PointerEvent,
+    PointerId, PointerKind, PointerPhase, WheelEvent,
 };
 #[doc(inline)]
 pub use kivact_runtime::HandlerResult;

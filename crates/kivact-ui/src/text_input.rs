@@ -163,9 +163,9 @@ impl TextInput {
         self
     }
 
-    /// Show the text as dots, constant or reactive.
-    pub fn password(mut self, password: impl IntoValue<bool>) -> Self {
-        self.editing = self.editing.password(password);
+    /// Set the keyboard purpose, constant or reactive. Password displays dots.
+    pub fn purpose(mut self, purpose: impl IntoValue<kivact_core::view::InputPurpose>) -> Self {
+        self.editing = self.editing.purpose(purpose);
         self
     }
 

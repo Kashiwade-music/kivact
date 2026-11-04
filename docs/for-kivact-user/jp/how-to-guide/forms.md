@@ -246,7 +246,7 @@ fn main() -> kivact::Result<()> {
 - 入力が独自の理由で invalid(`text_input(..).invalid(..)`)のときは、`field` に error がなくても invalid のままです。入力は、どちらか一方でも invalid と言えば invalid になります。
 - バインディングの書き込み側(`binding(read, write)` の `write`)が値を拒否すると、入力欄はバインディングの値へ戻ります。これは「数字だけ」のような入力フィルター向けで、「必須」の表現には使いません。
 - `.max_length(n)` は文字数(Unicode スカラー値)で入力を制限します。変換中の文字が途中で切られることはありません。
-- `.read_only(true)` は選択とコピーを許し、`.disabled(..)` は入力を受け付けません。`.password(true)` は文字を隠し、コピーと切り取りを防ぎます。
+- `.read_only(true)` は選択とコピーを許し、`.disabled(..)` は入力を受け付けません。`.purpose(kivact::view::InputPurpose::Password)` は文字を隠し、コピーと切り取りを防ぎます。
 
 ## 1 つの欄を Enter かフォーカス移動で確定する
 
@@ -304,3 +304,19 @@ fn main() -> kivact::Result<()> {
 - [翻訳とロケール](i18n.md): ラベル、hint、エラーメッセージを翻訳する。
 - [アプリをテストする](testing.md): 上のテストのようにフォームを操作する。
 - リファレンス: 各入力のオプションは `cargo doc -p kivact-ui --open`。
+
+### モバイル入力と状態復元
+
+`.purpose(kivact::view::InputPurpose::Email)` で期待する入力を指定します。
+ほかに Text、Number、Decimal、Url、Phone、Password、Search があります。
+Password は値を隠し、クリップボードやアクセシビリティへの文字列公開を防ぎます。
+デスクトップの winit は Password をパスワードのヒントに、それ以外を Normal に写します。
+`platform::keyboard_inset()` でソフトウェアキーボードが覆う範囲を論理ピクセルで監視できます。
+
+`platform::on_lifecycle` で `platform::LifecycleEvent::SaveState` を受け、
+`platform::save_state("draft", bytes)` を呼びます。前回の起動で保存した値は
+`platform::restored_state("draft")` で読み、キーがなければ `None` が返ります。
+保存しても起動時のスナップショットは変わりません。対応状況は
+`platform::capabilities().get().state_restoration` で確認します。デスクトップは false で保存を無視します。
+仮想テストでは `screen.script().save_state()` で保存を要求し、
+`screen.script().saved_state()` を次の起動の `RenderOptions::restored_state` に渡します。

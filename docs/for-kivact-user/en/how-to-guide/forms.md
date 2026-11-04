@@ -289,7 +289,7 @@ Other rules:
 - `.max_length(n)` limits the input by characters (Unicode scalar values), and a
   composition in progress is never cut.
 - `.read_only(true)` allows selecting and copying; `.disabled(..)` blocks input;
-  `.password(true)` hides the text and blocks copy and cut.
+  `.purpose(kivact::view::InputPurpose::Password)` hides the text and blocks copy and cut.
 
 ## Commit a single field with Enter or blur
 
@@ -361,3 +361,19 @@ Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 - [Internationalization](i18n.md): translate labels, hints and error messages.
 - [Test your app](testing.md): drive a form like the tests above.
 - Reference: `cargo doc -p kivact-ui --open` for every input's options.
+
+### Mobile input and restoration
+
+Set `.purpose(kivact::view::InputPurpose::Email)` to describe the expected input.
+The other purposes are Text, Number, Decimal, Url, Phone, Password and Search.
+Password also masks the value and prevents clipboard and accessibility disclosure.
+Desktop winit maps Password to its password hint and all other purposes to Normal.
+`platform::keyboard_inset()` observes software keyboard occlusion in logical pixels.
+
+Handle `platform::LifecycleEvent::SaveState` with `platform::on_lifecycle` and call
+`platform::save_state("draft", bytes)`. Read the previous launch's bytes with
+`platform::restored_state("draft")`; missing keys return `None`. Saving never changes
+the launch snapshot. Check `platform::capabilities().get().state_restoration`; desktop
+backends report false and ignore saves. Virtual tests can request a save with
+`screen.script().save_state()` and pass `screen.script().saved_state()` into the next
+launch's `RenderOptions::restored_state`.

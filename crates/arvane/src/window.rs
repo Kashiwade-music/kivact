@@ -64,6 +64,9 @@ impl Window<'_> {
     pub fn set_min_size(&self, size: Option<Size>) {
         self.shell.set_min_size(size);
     }
+    pub fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
+        self.shell.set_ime_purpose(purpose);
+    }
     pub fn set_ime_allowed(&self, allowed: bool) {
         self.shell.set_ime_allowed(allowed);
     }

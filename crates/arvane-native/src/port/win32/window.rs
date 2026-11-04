@@ -75,6 +75,7 @@ fn frame_period(hwnd: isize) -> u64 {
 impl ShellWindow for Window {
     fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
         match request {
+            PlatformRequest::SaveState { .. } => return PlatformResult::Done,
             PlatformRequest::CopyText(text) => self
                 .0
                 .services
@@ -191,6 +192,7 @@ impl ShellWindow for Window {
     }
     fn capabilities(&self) -> kivact_types::Capabilities {
         kivact_types::Capabilities {
+            state_restoration: false,
             clipboard_text: true,
             file_dialogs: true,
             open_path: true,
@@ -242,6 +244,7 @@ impl ShellWindow for Window {
             super::input::cursor(cursor);
         }
     }
+    fn set_ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
     fn set_ime_allowed(&self, allowed: bool) {
         self.0
             .input

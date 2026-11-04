@@ -62,8 +62,8 @@ pub(super) fn bind(
     if let Some(keys) = editing.forward_keys {
         cx.bind(id, keys, PropValue::ForwardKeys, at);
     }
-    if let Some(value) = editing.password {
-        cx.bind(id, value, PropValue::Password, at);
+    if let Some(value) = editing.purpose {
+        cx.bind(id, value, PropValue::InputPurpose, at);
     }
     if let Some(value) = editing.read_only {
         cx.bind(id, value, PropValue::ReadOnly, at);
@@ -92,7 +92,7 @@ pub(super) fn bind_session(
             text: session.text.get(),
             selection: session.selection.get(),
             caret: session.caret.get(),
-            password: session.password,
+            purpose: session.purpose.get(),
         };
         if let Some(rt) = weak.upgrade() {
             crate::view::state::ViewState::tree_mut(&rt).update(

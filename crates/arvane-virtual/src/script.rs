@@ -33,6 +33,7 @@ pub(crate) enum Item {
 }
 #[derive(Default)]
 pub(crate) struct Input {
+    pub(crate) saved_state: Rc<RefCell<std::collections::BTreeMap<String, Vec<u8>>>>,
     pub(crate) queue: VecDeque<Item>,
     pub(crate) clock: Clock,
     pub(crate) mouse: Mouse,
@@ -43,10 +44,22 @@ pub(crate) struct Input {
     ime: arvane_shell::pipeline::ImeDriver,
     dnd: arvane_shell::pipeline::DropSession,
 }
-/// Cloneable write-only controls for the virtual platform.
+/// Cloneable virtual platform controls and saved application state.
 #[derive(Clone)]
 pub struct Script(pub(crate) Rc<RefCell<Input>>);
 impl Script {
+    /// Saved application bytes to supply as the next launch snapshot.
+    pub fn saved_state(&self) -> std::collections::BTreeMap<String, Vec<u8>> {
+        self.0.borrow().saved_state.borrow().clone()
+    }
+    /// Ask the application to save its current state.
+    pub fn save_state(&self) {
+        self.input(ShellEvent::SaveState);
+    }
+    /// Report software keyboard occlusion.
+    pub fn set_keyboard_inset(&self, insets: Insets) {
+        self.input(ShellEvent::KeyboardInset(insets));
+    }
     /// Whether all queued platform prerequisites and inputs have been consumed.
     pub fn is_empty(&self) -> bool {
         self.0.borrow().queue.is_empty()

@@ -199,3 +199,12 @@ pub fn keyboard_inset() -> Value<Insets> {
 pub fn theme_hint() -> Value<ThemeHint> {
     env_field("theme_hint", |e| e.theme_hint)
 }
+
+/// Bytes restored by the platform at launch, or `None` on a fresh launch.
+#[track_caller]
+pub fn restored_state(key: &'static str) -> Option<Vec<u8>> {
+    env_field("restored_state", |env| env.restored_state.clone())
+        .get_untracked()
+        .get(key)
+        .cloned()
+}

@@ -136,6 +136,14 @@ impl Host {
             self.settle();
         }
         match event {
+            ShellEvent::SaveState => self
+                .model
+                .borrow_mut()
+                .push(HostEvent::Lifecycle(LifecycleEvent::SaveState)),
+            ShellEvent::KeyboardInset(insets) => self
+                .model
+                .borrow_mut()
+                .update_env(|env, _| env.keyboard_inset = insets.sanitize()),
             ShellEvent::Redraw => {
                 let surface_active = self.drawable();
                 if surface_active {

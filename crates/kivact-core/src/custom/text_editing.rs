@@ -6,7 +6,7 @@
 //!
 //! `Node::text_editing(TextEditing)` gives an ordinary node the native
 //! editing state, shaping, selection, caret and IME session. The source of
-//! `TextEditing::new(text)` (a text input) and `password`, `read_only`,
+//! `TextEditing::new(text)` (a text input) and `purpose`, `read_only`,
 //! `max_length` and `placeholder` bind to the one editing payload: whether a
 //! node edits is this payload, not its kind, and a Box, a Text and an Image
 //! take the same path. The author decides the Part's focusability, role and
@@ -212,7 +212,7 @@ impl TextEditing {
                 multiline: false,
                 line_layout: None,
                 report_text: false,
-                password: None,
+                purpose: None,
                 read_only: None,
                 max_length: None,
                 placeholder: None,
@@ -242,9 +242,9 @@ impl TextEditing {
         self.props.report_text = true;
         self
     }
-    /// Draw masked text and omit its value from platform text snapshots.
-    pub fn password(mut self, value: impl IntoValue<bool>) -> Self {
-        self.props.password = Some(value.into_prop());
+    /// Set the input purpose. Password masks text and omits platform text snapshots.
+    pub fn purpose(mut self, value: impl IntoValue<kivact_types::InputPurpose>) -> Self {
+        self.props.purpose = Some(value.into_prop());
         self
     }
     /// Allow selection while rejecting value changes and new compositions.

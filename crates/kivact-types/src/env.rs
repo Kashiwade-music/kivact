@@ -22,6 +22,8 @@ pub enum ThemeHint {
 /// Current window and platform surroundings, shared unchanged across layers.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Environment {
+    /// Read-only state supplied by the platform at launch; saving does not mutate this snapshot.
+    pub restored_state: std::collections::BTreeMap<String, Vec<u8>>,
     /// Physical pixels per logical pixel.
     pub scale_factor: f64,
     /// The system asks for reduced motion.
@@ -53,6 +55,7 @@ pub struct Environment {
 impl Default for Environment {
     fn default() -> Self {
         Self {
+            restored_state: std::collections::BTreeMap::new(),
             scale_factor: 1.0,
             reduced_motion: false,
             theme_hint: ThemeHint::default(),
@@ -126,6 +129,8 @@ impl Default for PointerSettings {
 /// window.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Capabilities {
+    /// Application state can be saved for the next launch.
+    pub state_restoration: bool,
     /// The platform can read and write clipboard text.
     pub clipboard_text: bool,
     /// The platform can show file and folder dialogs.
@@ -167,6 +172,8 @@ pub struct Capabilities {
 /// Surface availability belongs to the host's lifecycle state, outside [`Environment`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LifecycleEvent {
+    /// The platform asks the application to save state for its next launch.
+    SaveState,
     /// Application execution has been suspended by the shell.
     Suspended,
     /// The shell resumed application execution, possibly without a surface yet.

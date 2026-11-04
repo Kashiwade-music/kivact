@@ -245,8 +245,13 @@ impl HostNode {
             .and_then(|d| d.spans.as_deref())
             .unwrap_or(&[])
     }
+    pub(crate) fn purpose(&self) -> kivact_types::InputPurpose {
+        self.input_data()
+            .and_then(|d| d.purpose)
+            .unwrap_or_default()
+    }
     pub(crate) fn password(&self) -> bool {
-        self.input_data().and_then(|d| d.password).unwrap_or(false)
+        self.purpose() == kivact_types::InputPurpose::Password
     }
     /// Whether it reports its editing session when it changes.
     pub(crate) fn reports_session(&self) -> bool {

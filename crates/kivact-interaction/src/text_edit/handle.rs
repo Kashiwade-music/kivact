@@ -156,13 +156,12 @@ impl TextEditApi {
         self.data.get()
     }
 
-    /// Mask the value and omit its text from clipboard and a11y snapshots.
+    /// Set the input purpose. Password also suppresses clipboard and accessibility text.
     #[track_caller]
-    pub fn password(self, value: impl IntoValue<bool>) -> Self {
-        let data = self.setup("TextEditApi::password");
+    pub fn purpose(self, value: impl IntoValue<kivact_types::InputPurpose>) -> Self {
+        let data = self.setup("TextEditApi::purpose");
         let value = value.into_value();
-        data.options
-            .update(|options| options.password = Some(value));
+        data.options.update(|options| options.purpose = Some(value));
         self
     }
 
@@ -353,14 +352,14 @@ impl TextEditApi {
                         .map_or_else(Vec::new, |keys| keys.get())
                 })
                 .line_layout(line_layout)
-                .password(move || {
+                .purpose(move || {
                     owned
                         .get()
                         .options
                         .value()
                         .get()
-                        .password
-                        .is_some_and(|value| value.get())
+                        .purpose
+                        .map_or(kivact_types::InputPurpose::Text, |value| value.get())
                 })
                 .read_only(move || {
                     owned
@@ -466,7 +465,7 @@ struct TextEditOptions {
     forward_keys: Option<Value<Vec<Key>>>,
     wrap: Option<Value<bool>>,
     rows: Option<(usize, usize)>,
-    password: Option<Value<bool>>,
+    purpose: Option<Value<kivact_types::InputPurpose>>,
     read_only: Option<Value<bool>>,
     max_length: Option<Value<usize>>,
     placeholder: Option<Value<String>>,

@@ -7,8 +7,8 @@
 
 use kivact_types as p;
 pub use kivact_types::{
-    ButtonPress, FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerButtons, PointerId,
-    PointerPhase,
+    ButtonPress, FilePhase, InputPurpose, Key, KeyCode, Modifiers, MouseButton, PointerButtons,
+    PointerId, PointerPhase,
 };
 
 /// What kind of device a pointer is ([`PointerEvent::kind`]).

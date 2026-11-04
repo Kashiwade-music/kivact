@@ -142,6 +142,7 @@ impl ArvaneTestHost {
     pub fn new(client: Client, options: TestHostOptions) -> Result<Self, HostError> {
         let error = |e: &dyn std::fmt::Display| HostError::new(e.to_string());
         let backend = VirtualBackend::new(VirtualOptions {
+            restored_state: options.restored_state.clone(),
             title: options.title.clone(),
             size: Size {
                 width: options.width,
@@ -813,9 +814,11 @@ impl ArvaneTestHost {
         self.probe.soft_keyboard()
     }
 
-    /// What the host gave the window for the IME's queries about the
-    /// focused text input (what a native window answers a reconversion,
-    /// document feed or character position request from).
+    /// The focused editor's purpose delivered to the platform.
+    pub fn ime_purpose(&self) -> kivact_types::InputPurpose {
+        self.probe.ime_purpose()
+    }
+    /// What the host gave the window for IME surrounding-text queries.
     pub fn ime_text(&self) -> Option<ShellImeText> {
         self.probe.ime_text()
     }

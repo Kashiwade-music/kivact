@@ -114,6 +114,7 @@ pub struct WinitWindow {
 impl ShellWindow for WinitWindow {
     fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
         match request {
+            PlatformRequest::SaveState { .. } => return PlatformResult::Done,
             PlatformRequest::CopyText(text) => self
                 .services
                 .copy_text(&text)
@@ -261,6 +262,7 @@ impl ShellWindow for WinitWindow {
     fn capabilities(&self) -> kivact_types::Capabilities {
         let mobile = cfg!(any(target_os = "android", target_os = "ios"));
         kivact_types::Capabilities {
+            state_restoration: false,
             clipboard_text: true,
             file_dialogs: true,
             open_path: cfg!(any(
@@ -392,6 +394,14 @@ impl ShellWindow for WinitWindow {
         });
     }
     /// Enable IME when an editable control owns focus.
+    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
+        self.window
+            .set_ime_purpose(if purpose == kivact_types::InputPurpose::Password {
+                winit::window::ImePurpose::Password
+            } else {
+                winit::window::ImePurpose::Normal
+            });
+    }
     fn set_ime_allowed(&self, allowed: bool) {
         self.input
             .ime
@@ -1095,13 +1105,6 @@ impl ImePort for ImeWindow<'_> {
         );
     }
     fn surrounding(&mut self, text: Option<&ShellImeText>) {
-        self.0
-            .window
-            .set_ime_purpose(if text.is_some_and(|t| t.password) {
-                winit::window::ImePurpose::Password
-            } else {
-                winit::window::ImePurpose::Normal
-            });
         *self.0.input.text.borrow_mut() = text.cloned();
     }
 }

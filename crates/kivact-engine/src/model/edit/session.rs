@@ -136,7 +136,7 @@ impl Model {
         let caret = self.session_rect(id, session.caret);
         let area = self.rect(id).unwrap_or_default();
         let area = map_rect(self.transform_between(id, None).as_ref(), area);
-        let text = if session.password {
+        let text = if session.purpose == kivact_types::InputPurpose::Password {
             arvane::ShellImeText {
                 password: true,
                 rects: vec![caret],

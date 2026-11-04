@@ -537,8 +537,13 @@ pub(super) fn forms() -> Node {
                         "アクセスキー",
                         input_with_icon(
                             "lock",
-                            kivact::ui::text_input("アクセスキー", password)
-                                .password(move || !reveal.get()),
+                            kivact::ui::text_input("アクセスキー", password).purpose(move || {
+                                if reveal.get() {
+                                    kivact::view::InputPurpose::Text
+                                } else {
+                                    kivact::view::InputPurpose::Password
+                                }
+                            }),
                             kivact::ui::button("表示切替")
                                 .variant(kivact::ui::ButtonVariant::Ghost)
                                 .hide_label(true)

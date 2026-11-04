@@ -19,6 +19,10 @@ use super::model::{Element, Screen};
 use super::results::ImeText;
 
 impl Screen {
+    /// Input purpose delivered to the platform for the focused editor.
+    pub fn ime_purpose(&self) -> kivact_core::view::InputPurpose {
+        self.host.borrow().ime_purpose()
+    }
     /// What the host answers the platform IME about the focused text
     /// input: the text around its caret, the selection and composition in
     /// it, and where the composed characters and the caret are (`None`: no

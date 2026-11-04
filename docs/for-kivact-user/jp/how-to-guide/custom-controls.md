@@ -558,7 +558,7 @@ mod tests {
 }
 ```
 
-binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。複数行は `use_text_area(value)` で作ります。`.password(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
+binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。複数行は `use_text_area(value)` で作ります。`.purpose(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
 
 コードエディターのように、キー入力のたびに全体をコピーできないほど大きな文書には、より低い層の `kivact::custom::TextEditing` を使います。範囲編集を通知し、キーのポリシーを受け取り、行に色を付けられます。実験的な API です。rustdoc を見てください。
 

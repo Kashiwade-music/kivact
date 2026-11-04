@@ -57,7 +57,7 @@ pub struct ImeSession {
     pub(crate) text: Value<String>,
     pub(crate) selection: Value<Range<usize>>,
     pub(crate) caret: Value<Rect>,
-    pub(crate) password: bool,
+    pub(crate) purpose: Value<kivact_types::InputPurpose>,
 }
 
 impl ImeSession {
@@ -76,14 +76,14 @@ impl ImeSession {
             text: text.into_value(),
             selection: selection.into_value(),
             caret: caret.into_value(),
-            password: false,
+            purpose: kivact_types::InputPurpose::Text.into_value(),
         }
     }
 
-    /// Password text: the IME is given no surrounding text, only the caret.
+    /// Set the input purpose. Password gives the IME only the caret.
     #[must_use]
-    pub fn password(mut self, on: bool) -> Self {
-        self.password = on;
+    pub fn purpose(mut self, value: impl IntoValue<kivact_types::InputPurpose>) -> Self {
+        self.purpose = value.into_value();
         self
     }
 }
