@@ -43,9 +43,3 @@ pub(crate) enum SemanticInput {
     Expanded(Prop<bool>),
     Focusable(Prop<bool>),
 }
-
-/// Deferred transformations, interleaved with caller modifier segments.
-pub(crate) enum Modifier {
-    Caller(Box<super::common::Common>),
-    Part(Box<dyn FnOnce(super::node::Node) -> super::node::Node>),
-}

@@ -247,22 +247,13 @@ pub(crate) struct Removed {
     )]
     records: Vec<CoreNode>,
 }
-impl Removed {
-    pub(crate) fn commit(self, rt: &kivact_runtime::Runtime) {
-        crate::client::state::HostState::of(rt)
-            .removed
-            .borrow_mut()
-            .extend(self.ids);
-    }
-}
-
 // xtask-allow(state-fields): independent core resources; each optional subscription or callback is allocated only when requested.
 /// One node of the retained tree (host node or fragment): only what the
 /// engine cannot hold. Everything the engine knows about a host node (its
 /// props, rect, test id, whether its layout is observed) is read through
 /// [`ViewNodes::reader`].
 pub(crate) struct CoreNode {
-    pub(crate) references: Vec<Signal<crate::view::state::RefState>>,
+    pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
     /// Where the builder of a host node was called (`#[track_caller]` of
@@ -647,10 +638,10 @@ impl ViewNodes {
                 for reference in &record.references {
                     if reference
                         .try_get_untracked()
-                        .and_then(crate::view::state::RefState::bound)
+                        .and_then(crate::view::ref_data::RefState::bound)
                         .is_some_and(|bound| bound.node() == *id)
                     {
-                        reference.set(crate::view::state::RefState::Detached);
+                        reference.set(crate::view::ref_data::RefState::Detached);
                     }
                 }
                 records.push(record);

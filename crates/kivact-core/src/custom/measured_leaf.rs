@@ -4,7 +4,7 @@ use super::measurement::{Constraints, Measurement, constraints, sanitize};
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
-use crate::view::node;
+use crate::view::elements::builders::node;
 use crate::view::node::{Node, NodeBuilder};
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};

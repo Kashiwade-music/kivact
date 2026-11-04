@@ -6,8 +6,8 @@ use std::rc::Rc;
 use kivact_runtime::Owner;
 use kivact_runtime::Prop as InputProp;
 
-use crate::view::common::{Common, Constraints};
 use crate::view::descriptor::Mcx;
+use crate::view::node::{Common, Constraints};
 use crate::view::part_data::{PartBinding, PartConstraints, PartMount};
 
 impl Common {

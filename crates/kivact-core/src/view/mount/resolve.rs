@@ -23,10 +23,10 @@ use super::facts::{LocalPaintSource, NodeFacts};
 use super::parts::ConstraintSources;
 use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
-use crate::view::common::{Common, StyleLayer};
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::TextEditing;
 use crate::view::ime_session::ImeSession;
+use crate::view::node::{Common, StyleLayer};
 use crate::view::node_ref::NodeRef;
 
 /// One host node's stage inputs, each moved into exactly one stage.
