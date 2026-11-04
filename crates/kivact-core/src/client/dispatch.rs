@@ -37,6 +37,14 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
     common::track_modality(rt, host_event);
     common::track_modifiers(rt, host_event);
     match host_event {
+        HostEvent::PresenceChanged { node, presence } => {
+            let source = crate::view::state::ViewState::tree(rt)
+                .get(*node)
+                .and_then(|node| node.presence);
+            if let Some(source) = source {
+                source.set(*presence);
+            }
+        }
         HostEvent::Pointer(route) => pointer::pointer(rt, host_event, *route),
         HostEvent::Wheel(route) => pointer::wheel(rt, host_event, *route),
         HostEvent::File(route) => {

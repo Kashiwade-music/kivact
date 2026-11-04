@@ -64,6 +64,7 @@ pub use kivact_runtime::HandlerResult;
 pub use kivact_runtime::{IntoReactive, IntoText, IntoValue, Reactive};
 #[doc(inline)]
 pub use kivact_runtime::{callback, constant, selector};
+pub use kivact_types::Presence;
 #[doc(inline)]
 pub use modifier_keys::current_modifiers;
 

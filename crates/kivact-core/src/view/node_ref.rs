@@ -224,6 +224,27 @@ impl NodeRef {
             rt.request_turn();
         }
     }
+    /// The bound node's display lifetime phase, or `Leaving` while unbound.
+    /// Setup only. References bound later follow their new node.
+    #[track_caller]
+    pub fn presence(&self) -> Value<kivact_types::Presence> {
+        let at = Location::caller();
+        let (_, state) = self.state(at);
+        require_setup("NodeRef::presence");
+        let binding = state.bound;
+        let app = self.app;
+        kivact_runtime::memo(move || {
+            let Some(bound) = binding.try_get().flatten() else {
+                return kivact_types::Presence::Leaving;
+            };
+            let source = Runtime::get(app)
+                .and_then(|rt| ViewState::tree_mut(&rt).presence(bound.node(), at));
+            source
+                .and_then(|source| source.try_get())
+                .unwrap_or(kivact_types::Presence::Leaving)
+        })
+    }
+
     /// Reactive scroll offset of the bound node; zero while unbound.
     #[track_caller]
     pub fn scroll_offset(&self) -> Value<crate::draw::Point> {

@@ -61,12 +61,29 @@ pub(crate) enum Stacking {
 /// exit paint (`StateStyles::enter`, `StateStyles::exit`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum NodePresence {
-    Arriving,
+    Arriving(ArrivalPhase),
     #[default]
     Mounted,
     /// Removed by kivact and kept, with its subtree, until its exit paint
     /// is reached: drawn, but neither hit, focused nor exposed.
     Leaving(LeavingRole),
+}
+
+/// Whether entrance motion is waiting for attachment or running.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ArrivalPhase {
+    Pending,
+    Animating,
+}
+
+impl From<NodePresence> for kivact_types::Presence {
+    fn from(presence: NodePresence) -> Self {
+        match presence {
+            NodePresence::Arriving(_) => Self::Entering,
+            NodePresence::Mounted => Self::Present,
+            NodePresence::Leaving(_) => Self::Leaving,
+        }
+    }
 }
 
 /// A leaving subtree root owns the requested completion notification.

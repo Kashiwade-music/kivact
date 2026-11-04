@@ -102,6 +102,7 @@ impl Model {
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
         self.retarget_frame();
+        self.finish_entrances();
         self.finish_exits();
         self.tree.pack_child_orders();
         for id in self.changes.take(Dirty::LAYOUT_STYLE) {

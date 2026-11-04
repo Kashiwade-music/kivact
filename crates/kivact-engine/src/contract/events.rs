@@ -19,6 +19,11 @@ use kivact_types::{
 /// (`HostFailure`, `TurnsCut`, `AssetFailed`, `DrawDropped`, `LayoutWarning`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostEvent {
+    /// The node entered a new display lifetime phase.
+    PresenceChanged {
+        node: NodeId,
+        presence: kivact_types::Presence,
+    },
     /// A requested removal has finished, including any retained exit paint.
     ExitComplete {
         node: NodeId,
