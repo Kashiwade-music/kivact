@@ -288,7 +288,7 @@ impl Button {
         let busy = show(
             move || state.get().loading,
             move || {
-                let phase = signal(0.0f32);
+                let phase = signal(0.0f64);
                 let period = kivact_core::memo(|| {
                     let motion = current_theme().get::<ButtonBusyMotion>();
                     if kivact_core::platform::reduced_motion() {
@@ -301,7 +301,7 @@ impl Button {
                 let clock = frame_loop(move |frame| {
                     let period = period.get();
                     let elapsed = frame.now.as_secs_f64() * 1000.0;
-                    phase.set((elapsed.rem_euclid(period) / period) as f32);
+                    phase.set(elapsed.rem_euclid(period) / period);
                 });
                 kivact_core::effect(move || {
                     if kivact_core::platform::surface_active() {
@@ -326,8 +326,8 @@ impl Button {
                 }
                 let fade = (delay != 0 || motion.reveal_fade_ms != 0).then(|| {
                     Animated::from(
-                        0.0f32,
-                        1.0f32,
+                        0.0f64,
+                        1.0f64,
                         Transition::tween(
                             motion.reveal_fade_ms as f64,
                             Easing::CubicBezier(0.25, 0.1, 0.25, 1.0),

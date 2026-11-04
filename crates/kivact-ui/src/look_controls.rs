@@ -70,7 +70,7 @@ pub(super) fn radio_description(t: &Theme, _: &CheckState) -> Style {
 }
 
 /// The thickness of a track and the side of a thumb.
-fn slider_metrics(t: &Theme, size: ControlSize) -> (f32, f32) {
+fn slider_metrics(t: &Theme, size: ControlSize) -> (f64, f64) {
     let thumb = match size {
         ControlSize::ExtraSmall | ControlSize::Small => (t.text().size).round(),
         ControlSize::Medium | ControlSize::Large => (t.text().size + 4.0).round(),

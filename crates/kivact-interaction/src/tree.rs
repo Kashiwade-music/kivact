@@ -722,12 +722,12 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
     #[track_caller]
     fn on_key(self, from: &K, event: &KeyEvent) -> Handled {
         let state = self.state();
-        let m = event.modifiers;
+        let m = event.modifiers();
         // A key from a control inside the row is the control's.
         if m.ctrl || m.alt || m.meta || !state.list.holds_focus(from) {
             return Handled::No;
         }
-        match event.key {
+        match event.key() {
             Key::ArrowRight => Self::right(&state, from),
             Key::ArrowLeft => Self::left(&state, from),
             Key::Char('*') => Self::open_siblings(&state, from),

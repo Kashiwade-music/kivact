@@ -238,11 +238,11 @@ impl State {
 
     /// The arrow, Home, End and Page keys of a focused day.
     pub(super) fn key(&self, day: CalendarDate, event: &KeyEvent) -> Handled {
-        let modifiers = event.modifiers;
+        let modifiers = event.modifiers();
         if modifiers.ctrl || modifiers.alt || modifiers.meta {
             return Handled::No;
         }
-        if event.key == Key::Escape
+        if event.key() == Key::Escape
             && let Choice::Range { value, pick } = self.choice
             && let RangePick::End { before, .. } = pick.get_untracked()
         {
@@ -252,7 +252,7 @@ impl State {
         }
         let column = day.weekday().days_since(self.first_day.get_untracked()) as i32;
         let months = if modifiers.shift { 12 } else { 1 };
-        let (from, step) = match (event.key, GridMove::from_key(event.key, modifiers)) {
+        let (from, step) = match (event.key(), GridMove::from_key(event.key(), modifiers)) {
             (Key::PageUp, _) => (day.add_months(-months), -1),
             (Key::PageDown, _) => (day.add_months(months), 1),
             (_, Some(GridMove::Left)) => (day.add_days(-1), -1),

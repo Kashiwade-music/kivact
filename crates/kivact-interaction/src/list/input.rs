@@ -27,7 +27,7 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
 ) -> Handled {
     if state.mode != ListMode::Select
         || !matches!(
-            event.phase,
+            event.phase(),
             PointerPhase::Down(ButtonPress {
                 button: MouseButton::Primary,
                 ..
@@ -37,7 +37,7 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
     {
         return Handled::No;
     }
-    state.select(key.clone(), gesture(state, event.modifiers));
+    state.select(key.clone(), gesture(state, event.modifiers()));
     let node = state.target(key);
     if node.is_some_and(|node| {
         use kivact_core::primitive::NodeRefExt;
@@ -54,10 +54,13 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
 /// ([`current_direction`](kivact_core::view::current_direction)) the rows of
 /// a horizontal order run from the right, so ArrowLeft moves to the next
 /// row and ArrowRight to the previous one.
-fn movement(event: &KeyEvent, axis: Option<Orientation>, mode: ListMode) -> Option<Movement> {
-    if mode == ListMode::Activate
-        && (event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta)
-    {
+fn movement(
+    key: Key,
+    modifiers: Modifiers,
+    axis: Option<Orientation>,
+    mode: ListMode,
+) -> Option<Movement> {
+    if mode == ListMode::Activate && (modifiers.ctrl || modifiers.alt || modifiers.meta) {
         return None;
     }
     let rtl = kivact_core::view::current_direction() == kivact_core::view::ReadingDirection::Rtl;
@@ -66,7 +69,7 @@ fn movement(event: &KeyEvent, axis: Option<Orientation>, mode: ListMode) -> Opti
     } else {
         (Movement::Next, Movement::Previous)
     };
-    match event.key {
+    match key {
         Key::ArrowRight if axis != Some(Orientation::Vertical) => Some(right),
         Key::ArrowLeft if axis != Some(Orientation::Vertical) => Some(left),
         Key::ArrowDown if axis != Some(Orientation::Horizontal) => Some(Movement::Next),
@@ -81,14 +84,16 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
     state: &State<K>,
     from: &K,
     event: KeyEvent,
+    command: Option<Key>,
 ) -> Handled {
     if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
+    let command = command.unwrap_or_else(|| event.key());
     let policy = state.policy();
-    let modifiers = event.modifiers;
+    let modifiers = event.modifiers();
     if state.mode == ListMode::Select {
-        match event.key {
+        match command {
             Key::Space => {
                 let gesture = gesture(state, modifiers);
                 if gesture != ListGesture::Replace
@@ -109,9 +114,9 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
             _ => {}
         }
     }
-    let jump = movement(&event, policy.axis, state.mode);
+    let jump = movement(command, modifiers, policy.axis, state.mode);
     let page = if state.mode == ListMode::Select {
-        match event.key {
+        match command {
             Key::PageUp => Some(false),
             Key::PageDown => Some(true),
             _ => None,
@@ -156,8 +161,8 @@ pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
     if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
-    let modifiers = event.modifiers;
-    if let Key::Char(c) = event.key
+    let modifiers = event.modifiers();
+    if let Key::Char(c) = event.key()
         && !c.is_control()
         && !modifiers.ctrl
         && !modifiers.alt
@@ -247,15 +252,15 @@ pub(super) fn key_selection<K: Clone + Eq + Hash + 'static>(
 ) -> Handled {
     let current = kivact_core::untrack(|| selected(state.selection).into_iter().next());
     let policy = state.policy();
-    if let Some(movement) = movement(event, policy.axis, state.mode) {
+    if let Some(movement) = movement(event.key(), event.modifiers(), policy.axis, state.mode) {
         let Some(next) = destination(state, current.as_ref(), Some(movement), None, true) else {
             return Handled::No;
         };
         state.select(next, ListGesture::Replace);
         return Handled::Yes;
     }
-    let m = event.modifiers;
-    if let Key::Char(c) = event.key
+    let m = event.modifiers();
+    if let Key::Char(c) = event.key()
         && !c.is_control()
         && !m.ctrl
         && !m.alt

@@ -9,7 +9,7 @@ use kivact_core::{Value, memo};
 #[derive(Clone, Copy)]
 pub struct ContentReveal {
     shown: Value<bool>,
-    progress: Animated<f32>,
+    progress: Animated<f64>,
 }
 
 /// Animate between zero height and the content's natural height.

@@ -282,7 +282,7 @@ impl Core {
         }
         if !matches!(self.kind, Kind::Button) {
             control = control.on_key(|event: KeyEvent| {
-                if event.key == Key::Enter && event.modifiers == Modifiers::default() {
+                if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
                     Handled::Yes
                 } else {
                     Handled::No

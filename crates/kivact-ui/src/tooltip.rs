@@ -18,7 +18,7 @@ pub struct Tooltip {
     enabled: Value<bool>,
     placement: Placement,
     align: Option<OverlayAlign>,
-    offset: f32,
+    offset: f64,
     content: Option<Rc<dyn Fn() -> View>>,
     variants: Variants,
 }
@@ -74,7 +74,7 @@ impl Tooltip {
         self
     }
     /// Set the gap from the anchor in logical pixels; the default is 4.
-    pub fn offset(mut self, offset: f32) -> Self {
+    pub fn offset(mut self, offset: f64) -> Self {
         self.offset = offset;
         self
     }

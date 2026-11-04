@@ -359,7 +359,7 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
                 })
             })
             .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
+                let m = event.modifiers();
                 if m.ctrl || m.alt || m.meta || m.shift {
                     return Handled::No;
                 }
@@ -367,7 +367,7 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
                     .popup
                     .get_untracked()
                     .is_some_and(|open| !open.get_untracked());
-                match event.key {
+                match event.key() {
                     Key::ArrowDown | Key::ArrowUp if closed => self.open(),
                     Key::ArrowDown => self.step(1),
                     Key::ArrowUp => self.step(-1),
@@ -460,7 +460,7 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
             .selected(is_active)
             .disabled(disabled)
             .on_pointer(move |event: PointerEvent| {
-                if matches!(event.phase, PointerPhase::Enter | PointerPhase::Move)
+                if matches!(event.phase(), PointerPhase::Enter | PointerPhase::Move)
                     && !disabled.get()
                     && !is_active.get()
                 {

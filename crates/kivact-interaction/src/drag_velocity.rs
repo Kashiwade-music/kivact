@@ -55,7 +55,7 @@ impl DragVelocity {
         if first == last || at_ns.saturating_sub(*last) > self.window_ns {
             return Point::new(0.0, 0.0);
         }
-        let span_ms = (last - first) as f32 / 1_000_000.0;
+        let span_ms = (last - first) as f64 / 1_000_000.0;
         Point::new((end.x - start.x) / span_ms, (end.y - start.y) / span_ms)
     }
 }

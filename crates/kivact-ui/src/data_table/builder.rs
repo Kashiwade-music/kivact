@@ -360,7 +360,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// The handles use the shared table's keyboard, accessibility and pointer
     /// resizing. Escape during a drag restores the width from its press;
     /// earlier keyboard adjustments remain committed.
-    pub fn resizable(mut self, widths: impl Into<Binding<Vec<f32>>>) -> Self {
+    pub fn resizable(mut self, widths: impl Into<Binding<Vec<f64>>>) -> Self {
         self.widths = Some(widths.into());
         self
     }
@@ -386,7 +386,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// actions are not grid cells: Tab reaches them like other controls.
     pub fn row_actions<V: IntoView>(
         mut self,
-        width: f32,
+        width: f64,
         actions: impl Fn(Value<R>) -> V + 'static,
     ) -> Self {
         self.actions = Some((width.max(0.0), Rc::new(move |row| actions(row).into_view())));
@@ -478,7 +478,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Give the main rows `height` logical pixels (at least 18, a constant
     /// or a reactive value); the row recipe reads it.
-    pub fn row_height(mut self, height: impl IntoValue<f32>) -> Self {
+    pub fn row_height(mut self, height: impl IntoValue<f64>) -> Self {
         self.row_height = Some(height.into_value());
         self
     }

@@ -29,9 +29,9 @@ pub enum ToggleLabelReservation {
         /// The weight used in the pressed appearance.
         weight: u16,
         /// The recipe's font size in logical pixels.
-        size: f32,
+        size: f64,
         /// The recipe's font size at [`ControlSize::ExtraSmall`].
-        extra_small_size: f32,
+        extra_small_size: f64,
     },
 }
 

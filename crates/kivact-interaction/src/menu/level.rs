@@ -187,7 +187,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                         rows.iter()
                             .any(|(_, entry)| entry.key() == Some(&key) && entry.is_disabled())
                     })
-                    && group.route_focused_key(&key, event.clone()) == Handled::Yes
+                    && group.route_focused_key(&key, event.clone(), None) == Handled::Yes
                 {
                     return Handled::Yes;
                 }
@@ -197,7 +197,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             // release, aimed at the item that has the focus now. Tab inside the
             // menu (to another level) leaves it just as Tab out of it does.
             .on_key_up(move |event: KeyEvent| {
-                if event.key == Key::Tab {
+                if event.key() == Key::Tab {
                     session.close(PopupCloseReason::Tab);
                     Handled::Yes
                 } else {
@@ -408,7 +408,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                         return handled;
                     }
                 }
-                match event.phase {
+                match event.phase() {
                     PointerPhase::Enter => hovered.set(true),
                     PointerPhase::Leave => hovered.set(false),
                     _ => {}
@@ -448,11 +448,11 @@ fn on_key<K: Clone + Eq + Hash + 'static>(
     rows: Value<Rows<K>>,
     event: KeyEvent,
 ) -> Handled {
-    let m = event.modifiers;
+    let m = event.modifiers();
     if m.ctrl || m.alt || m.meta {
         return Handled::No;
     }
-    match event.key {
+    match event.key() {
         Key::Escape => {
             session.leave(depth);
             Handled::Yes

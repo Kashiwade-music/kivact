@@ -183,7 +183,7 @@ pub struct ProgressState {
     /// The clock rests at 0 under reduced motion by default. A recipe reads it
     /// in a paint that moves. The handle is made at setup and stays the same
     /// for the mounted bar; it is not part of the state's equality.
-    pub phase: kivact_core::Value<f32>,
+    pub phase: kivact_core::Value<f64>,
 }
 
 impl ProgressState {
@@ -192,12 +192,12 @@ impl ProgressState {
     /// leaves at the right (the start is below 0 or above 1 while it is partly
     /// or wholly outside). It follows [`phase`](Self::phase), so a paint that
     /// calls it moves; under reduced motion it rests at the track's start.
-    pub fn sweep(&self) -> (f32, f32) {
-        const LENGTH: f32 = 0.3;
+    pub fn sweep(&self) -> (f64, f64) {
+        const LENGTH: f64 = 0.3;
         if kivact_core::platform::reduced_motion() {
             return (0.0, LENGTH);
         }
-        let eased = (1.0 - (self.phase.get() * std::f32::consts::PI).cos()) / 2.0;
+        let eased = (1.0 - (self.phase.get() * std::f64::consts::PI).cos()) / 2.0;
         (LENGTH * (-1.1 + 4.7 * eased), LENGTH)
     }
 }
@@ -228,7 +228,7 @@ pub struct FieldState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SwitchDragState {
     /// Physical translation along the writing direction, in logical pixels.
-    pub offset: Option<f32>,
+    pub offset: Option<f64>,
     /// The side the thumb is showing, before the binding commits.
     pub visually_on: bool,
     pub touch: bool,
@@ -290,7 +290,7 @@ pub struct TooltipArrowState {
     /// Where the trigger's centre is along that edge, in logical pixels
     /// from the tooltip's left (`Top`, `Bottom`) or top (`Left`, `Right`)
     /// edge, within the tooltip.
-    pub offset: f32,
+    pub offset: f64,
 }
 
 /// The state of a select's trigger for its recipe.
@@ -352,7 +352,7 @@ pub struct DataTableRowState {
     pub color: Option<kivact_core::style::Color>,
     /// The height the caller gave the rows with
     /// [`DataTable::row_height`](super::DataTable::row_height), at least 18.
-    pub height: Option<f32>,
+    pub height: Option<f64>,
 }
 
 /// The state of a cell of a [`data_table`](super::data_table) for its

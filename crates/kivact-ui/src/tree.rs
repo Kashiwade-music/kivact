@@ -108,7 +108,7 @@ type RowNode<K> = Rc<dyn Fn(K, Value<TreeRow<K>>, Part<TreeItemState>) -> Node>;
 #[track_caller]
 pub fn tree_rows_with_reveal<K: Clone + Eq + Hash + 'static>(
     tree: Tree<K>,
-    gap: f32,
+    gap: f64,
     transition: Transition,
     render: impl Fn(K, Value<TreeRow<K>>, Part<TreeItemState>) -> Node + 'static,
 ) -> View {
@@ -131,7 +131,7 @@ fn branch_rows<K: Clone + Eq + Hash + 'static>(
     tree: Tree<K>,
     branches: Value<BranchRows<K>>,
     parent: Option<K>,
-    gap: f32,
+    gap: f64,
     transition: Transition,
     render: RowNode<K>,
 ) -> View {
@@ -170,12 +170,12 @@ fn branch_rows<K: Clone + Eq + Hash + 'static>(
                 })
             });
             let progress = animated(
-                move || if open.get() { 1.0f32 } else { 0.0 },
+                move || if open.get() { 1.0f64 } else { 0.0 },
                 transition.clone(),
             );
             let measured = node_ref();
             let rect = measured.rect();
-            let last_height = signal(0.0f32);
+            let last_height = signal(0.0f64);
             effect(move || {
                 if open.get()
                     && let Some(rect) = rect.get()

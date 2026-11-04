@@ -120,7 +120,10 @@ pub(super) fn install(
         }
     });
     let attachment = attachment.on_key(move |event: KeyEvent| {
-        if event.key == Key::Escape && event.modifiers == Modifiers::default() && session.cancel() {
+        if event.key() == Key::Escape
+            && event.modifiers() == Modifiers::default()
+            && session.cancel()
+        {
             drafting.leave();
             return Handled::Yes;
         }

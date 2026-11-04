@@ -107,11 +107,11 @@ pub enum EditPhase {
 /// let edit = EditSession::new(move |initial| value.set(initial));
 /// let field = node().name("Width").focusable(true)
 ///     .on_pointer(move |event| {
-///         match event.phase {
+///         match event.phase() {
 ///             PointerPhase::Down(ButtonPress { button: MouseButton::Primary, .. }) => {
 ///                 edit.begin(value.get_untracked());
 ///             }
-///             PointerPhase::Move if edit.is_active() => value.set(f64::from(event.pos.x)),
+///             PointerPhase::Move if edit.is_active() => value.set(event.pos().x),
 ///             PointerPhase::Up(_) => edit.commit(),
 ///             PointerPhase::Cancel => { edit.cancel(); }
 ///             _ => return Handled::No,
@@ -119,7 +119,7 @@ pub enum EditPhase {
 ///         Handled::Yes
 ///     })
 ///     .on_key(move |event| {
-///         if event.key == Key::Escape && edit.cancel() {
+///         if event.key() == Key::Escape && edit.cancel() {
 ///             Handled::Yes
 ///         } else {
 ///             Handled::No

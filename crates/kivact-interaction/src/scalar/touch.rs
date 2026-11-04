@@ -14,7 +14,7 @@ use std::time::Duration;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TouchSliderGesture {
     /// Axis displacement required before a thumb begins tracking.
-    pub slop_px: f32,
+    pub slop_px: f64,
     /// Velocity multiplier for the coast destination.
     pub projection: Duration,
     /// Natural response time of the critically damped release spring.
@@ -26,7 +26,7 @@ struct Contact {
     id: PointerId,
     grip: Grip,
     origin: Point,
-    anchor: Option<f32>,
+    anchor: Option<f64>,
     initial: f64,
     moved: bool,
 }
@@ -141,8 +141,8 @@ impl Touch {
     }
 
     pub(crate) fn event(self, grip: Grip, event: PointerEvent) -> Handled {
-        if event.kind != PointerKind::Touch {
-            if matches!(event.phase, PointerPhase::Down(_)) {
+        if event.kind() != PointerKind::Touch {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
                 self.finish(false);
             }
             return Handled::No;
@@ -150,15 +150,15 @@ impl Touch {
         let Some(geometry) = self.pointer.geometry.get() else {
             return Handled::No;
         };
-        let position = event.window_pos;
+        let position = event.window_pos();
         if !position.x.is_finite() || !position.y.is_finite() {
             self.finish(true);
             return Handled::Yes;
         }
         let along = geometry.along(position);
         let now = clock_now();
-        if matches!(event.phase, PointerPhase::Down(_)) {
-            if !event.is_primary {
+        if matches!(event.phase(), PointerPhase::Down(_)) {
+            if !event.is_primary() {
                 self.finish(false);
                 return Handled::Yes;
             }
@@ -177,7 +177,7 @@ impl Touch {
                 _ => 0.0,
             };
             self.contact.set(Some(Contact {
-                id: event.id,
+                id: event.id(),
                 grip,
                 origin: position,
                 anchor: None,
@@ -188,14 +188,18 @@ impl Touch {
                 .update(|velocity| velocity.reset(now, position));
             return Handled::Yes;
         }
-        let Some(mut contact) = self.contact.get().filter(|contact| contact.id == event.id) else {
+        let Some(mut contact) = self
+            .contact
+            .get()
+            .filter(|contact| contact.id == event.id())
+        else {
             return Handled::Yes;
         };
-        if matches!(event.phase, PointerPhase::Cancel) {
+        if matches!(event.phase(), PointerPhase::Cancel) {
             self.finish(true);
             return Handled::Yes;
         }
-        if matches!(event.phase, PointerPhase::Move | PointerPhase::Up(_)) {
+        if matches!(event.phase(), PointerPhase::Move | PointerPhase::Up(_)) {
             let dx = position.x - contact.origin.x;
             let dy = position.y - contact.origin.y;
             let slop = self.config.slop_px.max(0.0);
@@ -208,7 +212,7 @@ impl Touch {
                 && let Some(target) = self.pointer.thumbs.get().get(index).copied()
             {
                 let range = target.range.get_untracked();
-                let units = (range.max() - range.min()) / f64::from(geometry.length(rect));
+                let units = (range.max() - range.min()) / geometry.length(rect);
                 let sign = if geometry.rtl || !geometry.axis.is_horizontal() {
                     -1.0
                 } else {
@@ -220,24 +224,24 @@ impl Touch {
                     DragAxis::Vertical
                 };
                 if contact.anchor.is_none()
-                    && matches!(event.phase, PointerPhase::Move)
+                    && matches!(event.phase(), PointerPhase::Move)
                     && let Some(delta) = axis.past_slop(Point::new(dx, dy), slop)
                 {
                     contact.anchor = Some(geometry.along(contact.origin) + delta.signum() * slop);
                     self.session.begin(self.snapshot.get_untracked());
                 }
                 if let Some(anchor) = contact.anchor {
-                    target.set(contact.initial + f64::from(along - anchor) * units * sign);
+                    target.set(contact.initial + (along - anchor) * units * sign);
                 }
                 self.contact.set(Some(contact));
-                if matches!(event.phase, PointerPhase::Up(_)) && contact.anchor.is_some() {
+                if matches!(event.phase(), PointerPhase::Up(_)) && contact.anchor.is_some() {
                     self.contact.set(None);
                     self.lifted.set(None);
                     let speed_px = geometry.along(self.velocity.with(|v| v.pixels_per_ms(now)));
                     let travel = project_release(0.0, speed_px, self.config.projection);
                     let from = target.binding.get_untracked();
                     let (min, max) = target.limits();
-                    let goal = (from + f64::from(travel) * units * sign).clamp(min, max);
+                    let goal = (from + travel * units * sign).clamp(min, max);
                     if !self.config.response.is_zero()
                         && goal != from
                         && ((goal - from).abs() >= 0.5 * units || speed_px.abs() >= 0.001)
@@ -247,7 +251,7 @@ impl Touch {
                             start: now,
                             from,
                             target: goal,
-                            velocity: f64::from(speed_px) * 1000.0 * units * sign,
+                            velocity: speed_px * 1000.0 * units * sign,
                             units_per_pixel: units,
                         }));
                     } else {
@@ -255,7 +259,7 @@ impl Touch {
                     }
                 }
             }
-            if matches!(event.phase, PointerPhase::Up(_)) && self.contact.get().is_some() {
+            if matches!(event.phase(), PointerPhase::Up(_)) && self.contact.get().is_some() {
                 if !contact.moved && !matches!(contact.grip, Grip::Thumb(_)) {
                     let thumbs = self.pointer.thumbs.get();
                     if let Some(first) = thumbs.first() {
@@ -267,7 +271,7 @@ impl Touch {
                     }
                 }
                 self.finish(false);
-            } else if matches!(event.phase, PointerPhase::Move) {
+            } else if matches!(event.phase(), PointerPhase::Move) {
                 self.contact.set(Some(contact));
             }
         }

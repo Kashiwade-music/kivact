@@ -286,11 +286,11 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
             .role(Role::ComboBox)
             .value_text(label)
             .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
+                let m = event.modifiers();
                 if popup.shown().get() {
                     // The focus is back on the trigger while the list is open
                     // (Shift+Tab, or a click on it): the list's keys apply.
-                    return if event.key == Key::Escape || is_alt_up(&event) {
+                    return if event.key() == Key::Escape || is_alt_up(&event) {
                         popup.close(PopupCloseReason::Escape);
                         Handled::Yes
                     } else if retained {
@@ -302,8 +302,8 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                 let alt_arrow = m.alt
                     && !m.ctrl
                     && !m.meta
-                    && matches!(event.key, Key::ArrowDown | Key::ArrowUp);
-                let f4 = event.key == Key::F(4) && !m.ctrl && !m.alt && !m.meta;
+                    && matches!(event.key(), Key::ArrowDown | Key::ArrowUp);
+                let f4 = event.key() == Key::F(4) && !m.ctrl && !m.alt && !m.meta;
                 if alt_arrow || f4 {
                     popup.open_binding().set(true);
                     return Handled::Yes;
@@ -311,14 +311,14 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                 if m.ctrl || m.alt || m.meta {
                     return Handled::No;
                 }
-                if arrow_open && !m.shift && matches!(event.key, Key::ArrowDown | Key::ArrowUp) {
-                    arrow_edge.set(Some(event.key));
+                if arrow_open && !m.shift && matches!(event.key(), Key::ArrowDown | Key::ArrowUp) {
+                    arrow_edge.set(Some(event.key()));
                     popup.open_binding().set(true);
                     return Handled::Yes;
                 }
                 if retained
                     && matches!(
-                        event.key,
+                        event.key(),
                         Key::Home | Key::End | Key::PageUp | Key::PageDown
                     )
                 {
@@ -388,7 +388,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
         let content = content
             .role(Role::ListBox)
             .on_key(move |event: KeyEvent| {
-                if !sheet && (event.key == Key::Escape || is_alt_up(&event)) {
+                if !sheet && (event.key() == Key::Escape || is_alt_up(&event)) {
                     popup.close(PopupCloseReason::Escape);
                     return Handled::Yes;
                 }
@@ -397,7 +397,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
             // The host consumes Tab to move focus, so the list sees only its
             // release, aimed at the option that has the focus now.
             .on_key_up(move |event: KeyEvent| {
-                if !sheet && event.key == Key::Tab {
+                if !sheet && event.key() == Key::Tab {
                     popup.close(PopupCloseReason::Tab);
                     Handled::Yes
                 } else {
@@ -496,7 +496,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
                 }
             })
             .on_pointer(move |event: PointerEvent| {
-                match event.phase {
+                match event.phase() {
                     PointerPhase::Enter | PointerPhase::Move => {
                         if retain_trigger_focus {
                             list.highlight_mounted(hover_key.clone());
@@ -527,41 +527,43 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
 fn retained_key<K: Clone + Eq + Hash + 'static>(
     list: List<K>,
     popup: Popup,
-    mut event: KeyEvent,
+    event: KeyEvent,
 ) -> Handled {
-    let modifiers = event.modifiers;
+    let modifiers = event.modifiers();
     if modifiers.ctrl || modifiers.alt || modifiers.meta {
         return Handled::No;
     }
     let active = list.active().get();
-    match event.key {
+    let command = match event.key() {
         Key::Enter | Key::Space if !modifiers.shift => {
             // Consume even an empty list or a repeat. Otherwise the core's
             // default Activate would reach the trigger and toggle the popup.
-            if !event.repeat && active.is_some_and(|key| list.select_mounted(key)) {
+            if !event.repeat() && active.is_some_and(|key| list.select_mounted(key)) {
                 popup.close(PopupCloseReason::Selection);
             }
             return Handled::Yes;
         }
-        Key::PageUp => event.key = Key::Home,
-        Key::PageDown => event.key = Key::End,
-        _ => {}
-    }
-    match event.key {
+        Key::PageUp => Key::Home,
+        Key::PageDown => Key::End,
+        key => key,
+    };
+    match command {
         Key::ArrowDown | Key::ArrowUp | Key::Home | Key::End => {
             if let Some(key) = active {
-                list.route_focused_key(&key, event);
+                list.route_focused_key(&key, event, Some(command));
             }
             Handled::Yes
         }
-        Key::Char(_) => active.map_or(Handled::No, |key| list.route_focused_key(&key, event)),
+        Key::Char(_) => active.map_or(Handled::No, |key| {
+            list.route_focused_key(&key, event, Some(command))
+        }),
         _ => Handled::No,
     }
 }
 
 fn is_alt_up(event: &KeyEvent) -> bool {
-    let m = event.modifiers;
-    event.key == Key::ArrowUp && m.alt && !m.ctrl && !m.meta
+    let m = event.modifiers();
+    event.key() == Key::ArrowUp && m.alt && !m.ctrl && !m.meta
 }
 
 /// A group over the options with the listbox policy: Up and Down stop at the

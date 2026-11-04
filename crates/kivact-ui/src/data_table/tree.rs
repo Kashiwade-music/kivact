@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 impl DataTableTreeIndent {
-    fn pixels(self) -> f32 {
+    fn pixels(self) -> f64 {
         match self {
             Self::Small => 12.0,
             Self::Medium => 16.0,
@@ -152,7 +152,7 @@ impl<K: Clone + Eq + Hash + 'static> Plan<K> {
         let rtl = current_direction() == ReadingDirection::Rtl;
         row((trigger, content))
             .style(move || {
-                let inset = level.get().saturating_sub(1) as f32 * self.indent.pixels();
+                let inset = level.get().saturating_sub(1) as f64 * self.indent.pixels();
                 let style = style().gap(4).align_items(Align::Center).min_width(0);
                 if rtl {
                     style.direction(Direction::RowReverse).padding_right(inset)

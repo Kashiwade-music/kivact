@@ -25,7 +25,7 @@ pub(super) fn list(t: &Theme, _: &PartState) -> Style {
 
 pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
     let rtl = current_direction() == ReadingDirection::Rtl;
-    let indent = t.space().md + row.level.saturating_sub(1) as f32 * 16.0;
+    let indent = t.space().md + row.level.saturating_sub(1) as f64 * 16.0;
     style()
         .direction(if rtl {
             Direction::RowReverse
@@ -178,7 +178,7 @@ pub(super) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
     s.paint(move |d, size| {
         use kivact_interaction::SortOrder;
         let (w, h) = (size.width, size.height);
-        let at = |x: f32, y: f32| Point::new(w * x, h * y);
+        let at = |x: f64, y: f64| Point::new(w * x, h * y);
         let stroke = Stroke::new(1.5).cap(LineCap::Round).join(LineJoin::Round);
         let up = [at(0.2, 0.62), at(0.5, 0.3), at(0.8, 0.62)];
         let down = [at(0.2, 0.38), at(0.5, 0.7), at(0.8, 0.38)];

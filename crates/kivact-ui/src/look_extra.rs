@@ -287,7 +287,7 @@ pub(super) fn disclosure_content(t: &Theme, _: &DisclosureState) -> Style {
         .color(ColorToken::TextMuted)
 }
 /// The height of a progress bar's track.
-fn progress_height(size: ControlSize) -> f32 {
+fn progress_height(size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall => 3.0,
         ControlSize::Small => 4.0,
@@ -315,7 +315,7 @@ pub(super) fn progress_fill(_: &Theme, state: &ProgressState) -> Style {
         .height(pct(100))
         .paint(move |d, size| {
             let (x, width) = if state.value.is_some() {
-                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f32)
+                (0.0, size.width * state.shown.get().clamp(0.0, 1.0))
             } else {
                 let (start, length) = state.sweep();
                 (size.width * start, size.width * length)

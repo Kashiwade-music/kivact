@@ -41,8 +41,8 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) selection: Option<Binding<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) sticky: Option<Rc<StickyColumns>>,
-    pub(super) widths: Option<Binding<Vec<f32>>>,
-    pub(super) actions: Option<(f32, RowSlot<R>)>,
+    pub(super) widths: Option<Binding<Vec<f64>>>,
+    pub(super) actions: Option<(f64, RowSlot<R>)>,
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
     pub(super) cells: Option<CellSlot<R>>,
@@ -53,7 +53,7 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
-    pub(super) row_height: Option<Value<f32>>,
+    pub(super) row_height: Option<Value<f64>>,
     pub(super) row_status: Option<RowStatusOf<R>>,
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
@@ -64,7 +64,7 @@ pub(super) struct StickyColumns {
     edges: StickyEdges,
     rtl: bool,
     headers: Vec<NodeRef>,
-    widths: Vec<Value<f32>>,
+    widths: Vec<Value<f64>>,
     pub(super) viewport: NodeRef,
     pub(super) content: NodeRef,
     overflow: Value<(bool, bool)>,
@@ -179,7 +179,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
             let Some(start) = sticky.edge(index) else {
                 return style();
             };
-            let offset: f32 = visible.with(|visible| {
+            let offset: f64 = visible.with(|visible| {
                 visible
                     .iter()
                     .copied()
@@ -416,7 +416,7 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
 /// rows are chosen with their check box.
 fn keep_selection(event: PointerEvent) -> Handled {
     if matches!(
-        event.phase,
+        event.phase(),
         PointerPhase::Down(ButtonPress {
             button: MouseButton::Primary,
             ..
@@ -746,7 +746,7 @@ where
     R: Clone + PartialEq + 'static,
     K: Clone + Eq + Hash + 'static,
 {
-    let consumed = signal(0.0_f32);
+    let consumed = signal(0.0_f64);
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
     let drag = use_drag::<()>(DragCoordinates::Window)
         .on_start(move |_| consumed.set(0.0))

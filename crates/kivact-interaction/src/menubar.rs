@@ -115,11 +115,11 @@ impl<K: Clone + Eq + std::hash::Hash + 'static> Menubar<K> {
         part(|input| input)
             .role(Role::MenuBar)
             .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
+                let m = event.modifiers();
                 if m.ctrl || m.alt || m.meta || m.shift {
                     return Handled::No;
                 }
-                let forward = match event.key {
+                let forward = match event.key() {
                     Key::ArrowRight => !rtl,
                     Key::ArrowLeft => rtl,
                     _ => return Handled::No,
@@ -159,7 +159,7 @@ impl<K: Clone + Eq + std::hash::Hash + 'static> Menubar<K> {
             .role(Role::MenuItem)
             .selected(false)
             .on_pointer(move |event| {
-                if event.phase == PointerPhase::Enter {
+                if event.phase() == PointerPhase::Enter {
                     menus.with(|menus| {
                         let Some(this) = menus.get(at) else { return };
                         if this.shown().get_untracked() {

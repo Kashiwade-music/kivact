@@ -547,7 +547,7 @@ impl Toaster {
             })
             .name(title)
             .on_key(move |event: KeyEvent| {
-                if event.key == Key::Escape && event.modifiers == Modifiers::default() {
+                if event.key() == Key::Escape && event.modifiers() == Modifiers::default() {
                     self.dismiss(id);
                     Handled::Yes
                 } else {

@@ -52,8 +52,8 @@ pub struct DataColumn<R> {
     header_menu: Option<HeaderMenu>,
     numeric: bool,
     resizable: bool,
-    flex: Option<f32>,
-    min_width: Option<f32>,
+    flex: Option<f64>,
+    min_width: Option<f64>,
 }
 
 impl<R> Clone for DataColumn<R> {
@@ -173,15 +173,15 @@ impl<R: 'static> DataColumn<R> {
     /// Give the column a fixed `width` in logical pixels (the unit a table's
     /// column resizing works in); a width that is not positive leaves the
     /// width to the table.
-    pub fn width(mut self, width: f32) -> Self {
+    pub fn width(mut self, width: f64) -> Self {
         self.flex = None;
-        self.def = self.def.width((width > 0.0).then_some(f64::from(width)));
+        self.def = self.def.width((width > 0.0).then_some(width));
         self
     }
 
     /// Share available space by this positive weight. Bound resize widths
     /// take precedence. Invalid weights restore automatic sizing.
-    pub fn flex(mut self, weight: f32) -> Self {
+    pub fn flex(mut self, weight: f64) -> Self {
         self.flex = (weight.is_finite() && weight > 0.0).then_some(weight);
         self.def = self.def.width(None);
         self
@@ -189,16 +189,16 @@ impl<R: 'static> DataColumn<R> {
 
     /// Set the lower bound in logical pixels, including during resizing.
     /// Flexible columns default to 120 pixels when no minimum is supplied.
-    pub fn min_width(mut self, width: f32) -> Self {
+    pub fn min_width(mut self, width: f64) -> Self {
         self.min_width = (width.is_finite() && width >= 0.0).then_some(width);
         self
     }
 
-    pub(crate) fn flex_weight(&self) -> Option<f32> {
+    pub(crate) fn flex_weight(&self) -> Option<f64> {
         self.flex
     }
 
-    pub(crate) fn minimum_width(&self) -> Option<f32> {
+    pub(crate) fn minimum_width(&self) -> Option<f64> {
         self.min_width.or(self.flex.map(|_| 120.0))
     }
 
@@ -252,8 +252,8 @@ impl<R: 'static> DataColumn<R> {
     }
 
     /// The fixed width given to [`width`](Self::width).
-    pub fn width_value(&self) -> Option<f32> {
-        self.def.width_value().map(|width| width as f32)
+    pub fn width_value(&self) -> Option<f64> {
+        self.def.width_value()
     }
 
     /// The column of the headless row model, keyed by `key` (a table uses
@@ -262,7 +262,7 @@ impl<R: 'static> DataColumn<R> {
     pub fn definition<C: Clone>(&self, key: C) -> ColumnDef<R, C> {
         self.def
             .clone()
-            .min_width(self.minimum_width().map(f64::from))
+            .min_width(self.minimum_width())
             .with_key(key)
     }
 }

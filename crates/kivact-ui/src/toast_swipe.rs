@@ -8,11 +8,11 @@ use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerId, PointerKi
 use kivact_core::{Signal, Value, Var, effect, signal, var};
 use kivact_interaction::{DragAxis, ToastId, Toaster};
 
-const SLOP: f32 = 8.0;
-const VERTICAL_RATIO: f32 = 1.2;
-const DISMISS_RATIO: f32 = 0.4;
-const FLICK_DISTANCE: f32 = 48.0;
-const FLICK_SPEED: f32 = 1.2;
+const SLOP: f64 = 8.0;
+const VERTICAL_RATIO: f64 = 1.2;
+const DISMISS_RATIO: f64 = 0.4;
+const FLICK_DISTANCE: f64 = 48.0;
+const FLICK_SPEED: f64 = 1.2;
 
 /// The edge toward which a toast can be dismissed by a swipe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,7 +22,7 @@ pub enum ToastSwipeEdge {
 }
 
 impl ToastSwipeEdge {
-    fn sign(self) -> f32 {
+    fn sign(self) -> f64 {
         match self {
             Self::Top => -1.0,
             Self::Bottom => 1.0,
@@ -52,15 +52,15 @@ struct Contact {
     id: PointerId,
     start: Point,
     start_ns: u64,
-    height: f32,
+    height: f64,
     promoted: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
 enum Visual {
     Rest,
-    Drag { travel: f32, height: f32 },
-    Dismiss { travel: f32, height: f32 },
+    Drag { travel: f64, height: f64 },
+    Dismiss { travel: f64, height: f64 },
 }
 
 #[derive(Clone, Copy)]
@@ -108,8 +108,8 @@ impl Swipe {
 
     /// The built-in buttons still receive their normal pointer activation.
     pub(super) fn protect_action(self, event: PointerEvent) {
-        if matches!(event.phase, PointerPhase::Down(_)) {
-            self.blocked.set(Some(event.id));
+        if matches!(event.phase(), PointerPhase::Down(_)) {
+            self.blocked.set(Some(event.id()));
         }
     }
 
@@ -120,22 +120,22 @@ impl Swipe {
     }
 
     pub(super) fn event(self, event: PointerEvent) -> Handled {
-        if !matches!(event.kind, PointerKind::Touch | PointerKind::Pen)
+        if !matches!(event.kind(), PointerKind::Touch | PointerKind::Pen)
             || matches!(self.visual.get(), Visual::Dismiss { .. })
         {
             return Handled::No;
         }
-        let pos = event.window_pos;
+        let pos = event.window_pos();
         if !pos.x.is_finite() || !pos.y.is_finite() {
             self.reset();
             return Handled::No;
         }
-        if let PointerPhase::Down(press) = event.phase {
-            if !event.is_primary && event.kind == PointerKind::Touch {
+        if let PointerPhase::Down(press) = event.phase() {
+            if !event.is_primary() && event.kind() == PointerKind::Touch {
                 self.reset();
                 return Handled::No;
             }
-            if self.blocked.get() == Some(event.id) {
+            if self.blocked.get() == Some(event.id()) {
                 self.blocked.set(None);
                 return Handled::No;
             }
@@ -145,7 +145,7 @@ impl Swipe {
             {
                 self.held.set(true);
                 self.contact.set(Some(Contact {
-                    id: event.id,
+                    id: event.id(),
                     start: pos,
                     start_ns: clock_now(),
                     height: rect.height.max(1.0),
@@ -154,13 +154,17 @@ impl Swipe {
             }
             return Handled::No;
         }
-        let Some(mut contact) = self.contact.get().filter(|contact| contact.id == event.id) else {
+        let Some(mut contact) = self
+            .contact
+            .get()
+            .filter(|contact| contact.id == event.id())
+        else {
             return Handled::No;
         };
         let delta = Point::new(pos.x - contact.start.x, pos.y - contact.start.y);
         let sign = self.edge.sign();
         let travel = (delta.y * sign).max(0.0);
-        match event.phase {
+        match event.phase() {
             PointerPhase::Move => {
                 if !contact.promoted {
                     match intent(delta, sign) {
@@ -182,7 +186,7 @@ impl Swipe {
                 Handled::Yes
             }
             PointerPhase::Up(_) => {
-                let elapsed_ms = clock_now().saturating_sub(contact.start_ns) as f32 / 1_000_000.0;
+                let elapsed_ms = clock_now().saturating_sub(contact.start_ns) as f64 / 1_000_000.0;
                 if contact.promoted && qualifies(travel, contact.height, elapsed_ms) {
                     self.contact.set(None);
                     self.visual.set(Visual::Dismiss {
@@ -244,7 +248,7 @@ enum Intent {
     Promote,
 }
 
-fn intent(delta: Point, sign: f32) -> Intent {
+fn intent(delta: Point, sign: f64) -> Intent {
     if delta.x.abs() > SLOP && delta.x.abs() > delta.y.abs() {
         return Intent::Reject;
     }
@@ -260,7 +264,7 @@ fn intent(delta: Point, sign: f32) -> Intent {
     }
 }
 
-fn qualifies(travel: f32, height: f32, elapsed_ms: f32) -> bool {
+fn qualifies(travel: f64, height: f64, elapsed_ms: f64) -> bool {
     travel >= (height * DISMISS_RATIO).max(FLICK_DISTANCE)
         || (travel >= FLICK_DISTANCE && travel / elapsed_ms.max(1.0) > FLICK_SPEED)
 }

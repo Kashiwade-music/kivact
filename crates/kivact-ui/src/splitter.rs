@@ -171,7 +171,7 @@ impl IntoView for Splitter {
             },
         );
         let leading = node().child(start).style(move || {
-            let px = size.get() as f32;
+            let px = size.get();
             let s = style().shrink(0).min_width(0).min_height(0);
             if vertical { s.height(px) } else { s.width(px) }
         });

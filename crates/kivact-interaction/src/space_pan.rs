@@ -51,7 +51,7 @@ impl SpacePan {
             .on_key(move |event: KeyEvent| self.space(&event, true))
             .on_key_up(move |event: KeyEvent| self.space(&event, false))
             .on_pointer(move |event: PointerEvent| {
-                if event.phase == PointerPhase::Cancel {
+                if event.phase() == PointerPhase::Cancel {
                     self.disarm();
                 }
                 Handled::No
@@ -68,7 +68,7 @@ impl SpacePan {
 
     /// Update `held` for a key event; whether it was Space.
     pub(crate) fn key(self, event: &KeyEvent, down: bool) -> bool {
-        let is_space = event.key == Key::Space;
+        let is_space = event.key() == Key::Space;
         if is_space {
             self.held.set(down);
         }

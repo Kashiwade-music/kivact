@@ -37,12 +37,12 @@ struct Contact {
 
 #[derive(Clone, Copy)]
 struct Geometry {
-    width: f32,
-    height: f32,
-    off_side: f32,
-    on_side: f32,
-    off_inset: f32,
-    sign: f32,
+    width: f64,
+    height: f64,
+    off_side: f64,
+    on_side: f64,
+    off_inset: f64,
+    sign: f64,
 }
 
 impl Geometry {
@@ -73,11 +73,11 @@ impl Geometry {
         }
     }
 
-    fn travel(self) -> f32 {
+    fn travel(self) -> f64 {
         self.width - 2.0 - self.on_side / 2.0 - self.off_inset - self.off_side / 2.0
     }
 
-    fn band(self, raw: f32, on: bool) -> f32 {
+    fn band(self, raw: f64, on: bool) -> f64 {
         let end = self.travel();
         let inset = if on { 2.0 } else { self.off_inset };
         let dimension = (12.0 * self.height / 28.0).min(inset / 2.0);
@@ -128,21 +128,22 @@ pub(super) fn switch(
 
 impl Gesture {
     fn pointer(self, event: PointerEvent) -> Handled {
-        let touch = event.kind == PointerKind::Touch;
-        if touch && !event.is_primary {
+        let touch = event.kind() == PointerKind::Touch;
+        if touch && !event.is_primary() {
             return Handled::Yes;
         }
-        if matches!(event.phase, PointerPhase::Up(press) if press.button != MouseButton::Primary) {
+        if matches!(event.phase(), PointerPhase::Up(press) if press.button != MouseButton::Primary)
+        {
             return Handled::No;
         }
-        if matches!(event.phase, PointerPhase::Down(press) if press.button == MouseButton::Primary)
-            && event.is_primary
+        if matches!(event.phase(), PointerPhase::Down(press) if press.button == MouseButton::Primary)
+            && event.is_primary()
         {
             let started_on = self.value.get_untracked();
             self.generation.update(|id| *id = id.wrapping_add(1));
             self.contact.set(Some(Contact {
-                id: event.id,
-                origin: event.window_pos,
+                id: event.id(),
+                origin: event.window_pos(),
                 started_on,
                 visually_on: started_on,
                 armed: false,
@@ -166,9 +167,13 @@ impl Gesture {
             }
             return Handled::No;
         }
-        let Some(mut contact) = self.contact.get().filter(|contact| contact.id == event.id) else {
+        let Some(mut contact) = self
+            .contact
+            .get()
+            .filter(|contact| contact.id == event.id())
+        else {
             if !touch
-                && matches!(event.phase, PointerPhase::Enter | PointerPhase::Move)
+                && matches!(event.phase(), PointerPhase::Enter | PointerPhase::Move)
                 && self
                     .visual
                     .get_untracked()
@@ -179,15 +184,15 @@ impl Gesture {
             }
             return Handled::No;
         };
-        match event.phase {
+        match event.phase() {
             PointerPhase::Cancel => {
                 self.contact.set(None);
                 self.visual.set(None);
                 Handled::No
             }
             PointerPhase::Move | PointerPhase::Up(_) => {
-                let dx = (event.window_pos.x - contact.origin.x) * self.geometry.sign;
-                let dy = event.window_pos.y - contact.origin.y;
+                let dx = (event.window_pos().x - contact.origin.x) * self.geometry.sign;
+                let dy = event.window_pos().y - contact.origin.y;
                 if !contact.horizontal && !contact.vertical {
                     if dx.abs() >= 10.0 && dx.abs() > dy.abs() {
                         contact.horizontal = true;
@@ -218,7 +223,7 @@ impl Gesture {
                         contact.armed = past;
                     }
                 }
-                if matches!(event.phase, PointerPhase::Up(_)) {
+                if matches!(event.phase(), PointerPhase::Up(_)) {
                     self.contact.set(None);
                     if contact.vertical {
                         self.visual.set(None);

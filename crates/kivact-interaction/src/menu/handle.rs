@@ -218,11 +218,11 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
         };
         trigger
             .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
+                let m = event.modifiers();
                 if m.ctrl || m.alt || m.meta {
                     return Handled::No;
                 }
-                match event.key {
+                match event.key() {
                     Key::ArrowDown => session.request(0, Edge::First),
                     Key::ArrowUp => session.request(0, Edge::Last),
                     _ => return Handled::No,
@@ -284,20 +284,21 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
         let pointer = move |event: PointerEvent| {
             // The overlay is anchored to the area, and the host does not
             // count a press on its anchor as outside it.
-            if matches!(event.phase, PointerPhase::Down(_)) {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
                 session.close(PopupCloseReason::OutsidePress);
             }
             // A context menu opens on the press on macOS and on the release
             // elsewhere.
-            let opens = match event.phase {
+            let opens = match event.phase() {
                 PointerPhase::Down(press) | PointerPhase::Up(press) => {
                     press.button == MouseButton::Secondary
-                        && matches!(event.phase, PointerPhase::Down(_)) == cfg!(target_os = "macos")
+                        && matches!(event.phase(), PointerPhase::Down(_))
+                            == cfg!(target_os = "macos")
                 }
                 _ => false,
             };
             if opens {
-                session.open_at(MenuOrigin::Pointer(event.window_pos));
+                session.open_at(MenuOrigin::Pointer(event.window_pos()));
                 Handled::Yes
             } else {
                 Handled::No
@@ -330,11 +331,11 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
         };
         trigger
             .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
-                if event.repeat || m.ctrl || m.alt || m.meta {
+                let m = event.modifiers();
+                if event.repeat() || m.ctrl || m.alt || m.meta {
                     return Handled::No;
                 }
-                let asked = match event.key {
+                let asked = match event.key() {
                     Key::ContextMenu => true,
                     Key::F(10) => m.shift,
                     _ => false,
