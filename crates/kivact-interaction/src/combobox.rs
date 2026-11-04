@@ -82,8 +82,9 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// use kivact_interaction::{ListItem, use_combobox, use_text_edit};
 /// let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
 /// let chosen = signal(None::<&'static str>);
-/// let colors = use_combobox(options.clone(), Selection::Single(chosen.into_binding()));
-/// let rows = for_each(colors.visible(), |key| *key, move |key, _| {
+/// let colors = use_combobox(options.clone(), chosen);
+/// let rows = for_each(colors.visible(), |key| *key, move |item| {
+///     let key = item.get();
 ///     let label = options.iter().find(|o| *o.key() == key).map(|o| o.label());
 ///     node().part(colors.item(key)).child(text(label.unwrap_or_default()))
 /// });

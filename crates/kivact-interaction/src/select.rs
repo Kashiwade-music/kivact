@@ -77,7 +77,7 @@ use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -100,13 +100,14 @@ use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role
 ///     (
 ///         node().node_ref(anchor).part(trigger).name("Size").child(text(sizes.label())),
 ///         show(sizes.is_open(), move || {
-///             let rows = for_each(options.clone(), |o| *o.key(), move |key, o| {
+///             let rows = for_each(options.clone(), |o| *o.key(), move |o| {
+///                 let key = o.with(|o| *o.key());
 ///                 node()
 ///                     .part(sizes.item(key))
 ///                     .child(text(move || o.with(|o| o.label())))
 ///             });
 ///             overlay(anchor, Placement::Below, column(rows))
-///                 .part(sizes.content())
+///                 .with_node(|node| node.part(sizes.content()))
 ///                 .name("Size")
 ///         }),
 ///     )
@@ -253,7 +254,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// # pub use kivact_core::{view, state, style};
     /// # pub mod prelude {
     /// # //! Role: Supply the canonical imports used by this documentation example.
-    /// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
     /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
     /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
     /// # }

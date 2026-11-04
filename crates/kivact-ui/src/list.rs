@@ -108,8 +108,7 @@ impl<K: kivact_core::state::ItemKey> List<K> {
     ///     list(
     ///         "Files",
     ///         vec![ListItem::new(1, "notes.txt"), ListItem::new(2, "plan.md")],
-    ///         selected,
-    ///     )
+    ///     ).selection(selected)
     ///     .item(|item, state| {
     ///         text(move || {
     ///             let mark = if state.get().selected { "> " } else { "" };

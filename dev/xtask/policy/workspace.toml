@@ -95,16 +95,16 @@ trusted_derives = [
 # "from -> to"（`crate::` を省く。from はその module だけ、to はその module と子孫）。どの参照にも
 # 使われない例外も error にする。
 [module_rules.kivact-core]
-# The canonical style facade reexports theme composition from its view boundary implementation.
-except = ["style -> view::boundary"]
+# Canonical style/state facades only reexport composition and owner access from the view leaves.
+except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner"]
 
 [module_rules.kivact-core.uses]
-state = ["view"]
+state = []
 geometry = []
 task = []
 motion = []
 style = []
-view = ["task", "motion", "style", "launch", "state", "geometry"]
+view = ["task", "motion", "style", "state", "geometry"]
 draw = ["task", "motion", "style"]
 # env・service の要求・`why`・GPU の取り込みは、公開 module が実装を持つ（view の state と requests の上に立つ）。
 platform = ["task", "motion", "style", "view"]

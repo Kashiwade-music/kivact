@@ -59,7 +59,7 @@ impl kivact::ui::Variant for Boxed {}
 ///     let plan = signal(Some("team"));
 ///     radio_group(
 ///         "Plan",
-///         vec![ListItem::new("solo", "SOLO"), ListItem::new("team", "TEAM").description("50 seats")],
+///         vec![ListItem::new("solo", "SOLO"), ListItem::new("team", "TEAM").with_description("50 seats")],
 ///         plan,
 ///     )
 ///     .variant(g::ChoiceCard)

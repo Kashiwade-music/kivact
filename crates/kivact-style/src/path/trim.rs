@@ -94,7 +94,8 @@ impl Path {
     /// closing edge counts, the distance between contours does not.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// let line = Path::new().move_to(Point::new(0.0, 0.0)).line_to(Point::new(30.0, 40.0));
     /// assert!((line.length() - 50.0).abs() < 1e-3);
     /// // A circle of radius 10 (the cubics are within 0.01 px of it).
@@ -127,7 +128,8 @@ impl Path {
     /// an empty path.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// let line = Path::new().move_to(Point::new(0.0, 0.0)).line_to(Point::new(100.0, 0.0));
     /// let part = line.trim(0.25, 0.5, 0.0);
     /// let b = part.bounds().unwrap();

@@ -122,7 +122,6 @@ struct DialogSettings {
 /// ```no_run
 /// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, Placement, Role, node_ref, overlay, show}};
 /// use kivact_interaction::{DialogMode, use_dialog};
-/// use kivact_core::view::NodeBuilder;
 /// let open = signal(false);
 /// let confirm = use_dialog(open, DialogMode::AlertModal);
 /// let view = show(confirm.is_open(), move || {
@@ -131,7 +130,7 @@ struct DialogSettings {
 ///         text("This cannot be undone.").part(confirm.description()),
 ///         node().part(confirm.close_trigger()).name("Cancel").child(text("Cancel")),
 ///     )))
-///     .part(confirm.content())
+///     .with_node(|node| node.part(confirm.content()))
 ///     .name("Delete file")
 /// });
 /// ```

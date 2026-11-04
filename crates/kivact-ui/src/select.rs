@@ -162,7 +162,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
     /// fn fruit() -> impl IntoView {
     ///     let chosen = signal(None::<&str>);
     ///     let options = vec![ListItem::new("apple", "Apple"), ListItem::new("pear", "Pear")];
-    ///     select("Fruit", options, chosen).option(|item, state| {
+    ///     select("Fruit", options, chosen).item(|item, state| {
     ///         text(move || {
     ///             let mark = if state.get().selected { "* " } else { "" };
     ///             format!("{mark}{}", item.get().label())

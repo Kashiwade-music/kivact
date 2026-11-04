@@ -39,7 +39,7 @@ pub struct Splitter {
 /// leading pane is on the right and the keys and the drag follow it.
 ///
 /// ```no_run
-/// use kivact::ui::ScalarRange;
+/// use kivact::interaction::ScalarRange;
 /// use kivact::prelude::*;
 /// use kivact::ui::splitter;
 ///

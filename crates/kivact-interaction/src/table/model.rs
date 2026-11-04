@@ -249,7 +249,7 @@ struct Paging {
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -275,8 +275,8 @@ struct Paging {
 /// .page(page, 20_usize);
 /// let selected = signal(Vec::<u32>::new());
 /// let table = use_data_table(model.rows(), |p: &Person| p.id, model.columns(),
-///     Selection::Multiple(selected.into_binding()), TableFocus::default())
-///     .sort(sort);
+///     selected, TableFocus::default())
+///     .with_sort(sort);
 /// let status = text(move || format!("{} people, page {} of {}",
 ///     model.row_count().get(), page.get() + 1, model.page_count().get()));
 /// # let _ = (table, status);

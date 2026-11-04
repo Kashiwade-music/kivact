@@ -30,7 +30,7 @@ use kivact_interaction::{ToastId, Toaster, Tone};
 /// toaster. Mount one region near the root of the App.
 ///
 /// ```no_run
-/// use kivact::ui::{Toast, toaster};
+/// use kivact::interaction::{Toast, toaster};
 /// use kivact::prelude::*;
 /// use kivact::ui::toast_region;
 ///
