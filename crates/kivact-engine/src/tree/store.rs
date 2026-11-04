@@ -9,7 +9,7 @@ use kivact_types::{IdMap, NodeId};
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeLinks {
     pub(crate) parent: Option<NodeIndex>,
-    pub(crate) children: ChildOrder,
+    pub(super) children: ChildOrder,
 }
 
 /// The sole engine node store, with stable reusable positions.

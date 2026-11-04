@@ -37,7 +37,7 @@ impl Model {
             })
         });
         if targets.len() > 1 {
-            let order = tree.preorder();
+            let order = tree.flat_preorder();
             targets.sort_by_key(|t| std::cmp::Reverse(order.iter().position(|x| x == t)));
         }
         for node in targets {

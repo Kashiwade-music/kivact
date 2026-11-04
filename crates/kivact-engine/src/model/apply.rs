@@ -346,7 +346,7 @@ impl Model {
             let mut stack = vec![id];
             while let Some(x) = stack.pop() {
                 let Some(n) = self.tree.get(x) else { continue };
-                stack.extend(self.tree.children_ids(n));
+                stack.extend(self.tree.flat_children(self.tree.nodes.id_at(n.index)));
                 let (slot, kind) = (n.index.0, n.kind());
                 let drawn = kind == NodeType::Text
                     || self.editors[slot]
@@ -413,7 +413,7 @@ impl Model {
                 let Some(node) = self.tree.get(child) else {
                     continue;
                 };
-                stack.extend(self.tree.children_ids(node));
+                stack.extend(self.tree.flat_children(self.tree.nodes.id_at(node.index)));
                 if (node.kind() == NodeType::Text
                     || self.editors[node.index.0]
                         .as_deref()

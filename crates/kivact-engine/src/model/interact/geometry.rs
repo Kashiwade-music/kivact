@@ -90,7 +90,7 @@ impl Model {
                 kivact_layout::GeometryChangeKind::Local => Some(change.id),
                 kivact_layout::GeometryChangeKind::PositionOnly => {
                     let node = tree.get(change.id)?;
-                    (!node.is_layer()).then(|| tree.parent_id(node)).flatten()
+                    (!node.is_layer()).then(|| tree.flat_parent(node)).flatten()
                 }
             });
             // Set pass flags even when no local ink dependency changed.
@@ -153,6 +153,9 @@ impl Model {
     /// Window-space border box of `id` (after the last layout pass), a
     /// sticky box (or one below it) where it is stuck.
     pub(crate) fn rect(&self, id: NodeId) -> Option<Rect> {
+        if self.tree.get(id)?.is_transparent() {
+            return None;
+        }
         let size = self.computed_layout(id)?.size;
         let (mut x, mut y) = (0.0, 0.0);
         let mut cur = id;
@@ -171,7 +174,7 @@ impl Model {
                 // At its window position.
                 break;
             }
-            match self.tree.parent_id(node) {
+            match self.tree.flat_parent(node) {
                 Some(p) => {
                     let s = self.tree.get(p)?.scroll;
                     x -= s.x;
@@ -502,10 +505,10 @@ impl Model {
             .tree
             .get(id)
             .filter(|n| !n.place.fixed)
-            .and_then(|n| self.tree.parent_id(n));
+            .and_then(|n| self.tree.flat_parent(n));
         while let Some(p) = cur {
             let Some(n) = self.tree.get(p) else { break };
-            let parent = self.tree.parent_id(n).filter(|_| !n.place.fixed);
+            let parent = self.tree.flat_parent(n).filter(|_| !n.place.fixed);
             let axes = n.scroll_axes();
             if axes != (false, false)
                 && let Some(view) = self.rect(p)

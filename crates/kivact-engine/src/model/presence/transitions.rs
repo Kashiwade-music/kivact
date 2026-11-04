@@ -99,7 +99,13 @@ impl Model {
         let exits: Vec<NodeId> = subtree
             .iter()
             .copied()
-            .filter(|x| self.transition_shown(*x, |s| s.exit.is_some()))
+            .filter(|x| {
+                self.transition_shown(*x, |s| s.exit.is_some())
+                    || self
+                        .tree
+                        .get(*x)
+                        .is_some_and(|n| matches!(n.presence, NodePresence::Leaving(_)))
+            })
             .collect();
         if exits.is_empty() {
             return false;
@@ -148,13 +154,20 @@ impl Model {
         let Some(node) = self.tree.get(id) else {
             return;
         };
+        if node.is_transparent() {
+            let children: Vec<_> = self.tree.flat_children(id).collect();
+            for child in children {
+                self.pop_exit_layout(child);
+            }
+            return;
+        }
         let mut layout = node.layout().cloned().unwrap_or_default();
         if node.kind() == NodeType::Overlay
             || matches!(layout.position, Position::Absolute | Position::Fixed)
         {
             return;
         }
-        let Some(parent) = self.tree.parent_id(node) else {
+        let Some(parent) = self.tree.flat_parent(node) else {
             return;
         };
         let Some(last) = self.computed_layout(id) else {

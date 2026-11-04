@@ -49,7 +49,11 @@ pub(crate) fn layout_findings(
         {
             text_findings(host, engine, check, id, ink, &mut out);
         }
-        stack.extend(host.tree().children_ids(n).rev());
+        stack.extend(
+            host.tree()
+                .flat_children(host.tree().nodes.id_at(n.index))
+                .rev(),
+        );
     }
     out
 }
@@ -253,7 +257,7 @@ fn centers(host: &Model, parent: &HostNode, child: NodeId) -> bool {
             layout.justify == Some(Justify::Center)
                 && host
                     .tree()
-                    .children_ids(parent)
+                    .flat_children(host.tree().nodes.id_at(parent.index))
                     .filter(|c| *c != child)
                     .filter_map(|c| host.node(c))
                     .all(|c| {

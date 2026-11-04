@@ -85,7 +85,7 @@ impl Model {
         };
         let children: Vec<kivact_types::SemanticsId> = self
             .tree()
-            .children_ids(n)
+            .flat_children(self.tree().nodes.id_at(n.index))
             .map(|id| kivact_types::SemanticsId(id.0))
             .collect();
         // The model's exposure (role, name, actions). A node without a
@@ -326,7 +326,10 @@ impl Model {
         let focus = tree.chain(self.focused().map(|f| f.node));
         let bounds = self.rect(list).unwrap_or_default();
         let mut rows = Vec::new();
-        let mut stack: Vec<_> = tree.children_ids(n).rev().collect();
+        let mut stack: Vec<_> = tree
+            .flat_children(tree.nodes.id_at(n.index))
+            .rev()
+            .collect();
         while let Some(id) = stack.pop() {
             let Some(child) = tree.get(id) else {
                 continue;
@@ -337,7 +340,7 @@ impl Model {
             if semantic_role(child, self.editors[child.index.0].is_some()).is_none()
                 && self.focused().map(|f| f.node) != Some(id)
             {
-                stack.extend(tree.children_ids(child).rev());
+                stack.extend(tree.flat_children(tree.nodes.id_at(child.index)).rev());
             } else {
                 rows.push(id);
             }

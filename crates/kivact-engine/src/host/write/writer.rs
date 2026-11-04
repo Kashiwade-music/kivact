@@ -121,12 +121,15 @@ impl Writer {
         self.remove_with_exit(id, false, false);
     }
 
-    /// Remove a subtree, optionally freeing its layout slot and reporting physical removal.
-    pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) {
+    /// Remove a subtree and return its logical IDs in pre-order, including exits.
+    /// Optionally free layout slots and report completion of physical removal.
+    pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) -> Vec<NodeId> {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
+        let removed = m.tree().subtree(id);
         m.remove(id, pop_layout, notify);
         m.writes.structural(id);
+        removed
     }
 
     /// Set the scene of one draw layer of the `Box` `id`.

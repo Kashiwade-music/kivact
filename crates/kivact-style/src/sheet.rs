@@ -200,7 +200,7 @@ pub struct Style {
     pub(super) align_content: Option<Justify>,
     /// Lays the children out as a grid (CSS `display: grid`; set by
     /// `grid(..)` only).
-    pub(super) grid_box: Option<bool>,
+    pub(super) display: Option<kivact_types::Display>,
     /// Grid tracks and placement (rare: boxed).
     pub(super) grid: Option<Box<GridStyle>>,
     pub(super) wrap: Option<bool>,
@@ -909,10 +909,9 @@ impl Style {
         self
     }
 
-    /// Lay the children out as a grid (CSS `display: grid`): the base style
-    /// of the `grid(..)` container, the one way to make a grid box.
-    pub fn display_grid(mut self) -> Style {
-        self.grid_box = Some(true);
+    /// Select flex, grid, or a transparent container that contributes no box.
+    pub fn display(mut self, display: kivact_types::Display) -> Style {
+        self.display = Some(display);
         self
     }
 
@@ -983,7 +982,7 @@ impl Style {
             row_gap,
             column_gap,
             align_content,
-            grid_box,
+            display,
             width,
             height,
             min_width,
