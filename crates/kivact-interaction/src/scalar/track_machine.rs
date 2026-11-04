@@ -27,7 +27,13 @@ impl MachineTrait for Machine {
     type Effect = Effect;
     fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
         match (state, event) {
-            (_, Event::Attach(geometry)) => Step::to(State::Attached {
+            (State::Attached { gesture, .. }, Event::Attach(geometry)) => {
+                Step::to(State::Attached {
+                    geometry,
+                    gesture: *gesture,
+                })
+            }
+            (State::Detached, Event::Attach(geometry)) => Step::to(State::Attached {
                 geometry,
                 gesture: TrackGesture::Idle,
             }),
