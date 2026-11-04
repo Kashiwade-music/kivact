@@ -6,7 +6,7 @@ use crate::contract::HostEvent;
 use crate::model::Model;
 use kivact_types::{
     A11yAction, ButtonPress, FocusTarget, Modifiers, MouseButton, NodeId, Point, PointerButtons,
-    PointerEvent, PointerId, PointerPhase, RegionId,
+    PointerId, PointerPhase, PointerSample, RegionId,
 };
 
 /// Which of a pointer's two chains a change is about.
@@ -30,26 +30,32 @@ impl Model {
         let pos = self.to_local(node, at);
         let region = self.node(node).and_then(|n| n.region_at(pos));
         let source = self.pointer.state.track(pointer).source;
-        self.push(HostEvent::Pointer {
-            node,
+        self.push(HostEvent::Pointer(crate::contract::Routed {
+            target: Some(node),
             region,
-            event: PointerEvent {
+            local: pos,
+            captured: matches!(phase, PointerPhase::Up(_) | PointerPhase::Cancel)
+                || self.pointer.state.track(pointer).capture() == Some(node),
+            activation: None,
+            input: PointerSample {
                 id: source.id,
                 phase,
-                pos,
-                window_pos: at,
+                position: at,
                 buttons: if phase == PointerPhase::Cancel {
                     PointerButtons::NONE
                 } else {
                     source.buttons
                 },
+                button: phase.press().map(|press| press.button),
+                press: phase.press(),
                 modifiers,
                 kind: source.kind,
                 pressure: source.pressure,
                 tilt: source.tilt,
                 is_primary: source.primary,
+                time_ns: source.time_ns,
             },
-        });
+        }));
     }
 
     /// Follow a new contact, `source`, at the window position `at`.
@@ -426,9 +432,9 @@ impl Model {
             && self.node(node).is_some_and(|node| {
                 !node.disabled()
                     && node.region(region).is_some_and(|region| {
-                        !region.disabled
-                            && !region.hidden
-                            && region.actions.contains(&A11yAction::Activate)
+                        !region.semantics.disabled
+                            && !region.semantics.hidden
+                            && region.semantics.actions.contains(&A11yAction::Activate)
                     })
             })
     }
@@ -537,13 +543,18 @@ impl Model {
         if let Some(t) = listener {
             let pos = space.local(self, t);
             let region = space.region(self, t, pos);
-            self.push(HostEvent::Wheel {
-                node: t,
+            self.push(HostEvent::Wheel(crate::contract::Routed {
+                target: Some(t),
                 region,
-                delta,
-                pos,
-                modifiers,
-            });
+                local: pos,
+                captured: false,
+                activation: None,
+                input: kivact_types::WheelInput {
+                    delta,
+                    position: space.window(),
+                    modifiers,
+                },
+            }));
         }
     }
 }

@@ -4,7 +4,7 @@
 //! rounded border box, the padding box its children are clipped to, and
 //! its clip path. Painting and hit testing both take them from here, so
 //! what is drawn and what can be pressed agree (one outline:
-//! `kivact_types::protocol::Shape::contains` follows `Shape::outline`).
+//! `kivact_types::scene::Shape::contains` follows `Shape::outline`).
 //!
 //! Invariants:
 //! - Percentages of a corner radius are of the box's width (horizontal)
@@ -24,7 +24,7 @@
 use kivact_types::{Border, ClipShape, Corners, Edges, Len, PaintProps, Point, Rect};
 
 use kivact_types::FillRule;
-use kivact_types::protocol::{Radius, RoundedRect, Shape};
+use kivact_types::scene::{Radius, RoundedRect, Shape};
 
 /// A box's outline: a plain rect, circular corners (drawn with Arvane's
 /// rounded-rect commands, as before elliptical corners existed) or
@@ -34,7 +34,7 @@ pub enum BoxShape {
     /// An axis-aligned logical rectangle without rounded corners.
     Rect(Rect),
     /// Top-left, top-right, bottom-right, bottom-left radii.
-    Circular(Rect, [f32; 4]),
+    Circular(Rect, [f64; 4]),
     /// Four elliptical radii with their logical reference rectangle.
     Rounded(RoundedRect),
 }
@@ -84,7 +84,7 @@ impl BoxShape {
 
     /// The box grown (or shrunk, negative) by `by` on every side, its radii
     /// grown alike (a focus ring's outline).
-    pub(crate) fn grown(&self, by: f32) -> BoxShape {
+    pub(crate) fn grown(&self, by: f64) -> BoxShape {
         let grow = |r: Rect| Rect {
             x: r.x - by,
             y: r.y - by,
@@ -108,7 +108,7 @@ impl BoxShape {
 
     /// The box inset by `widths` (top, right, bottom, left), its radii
     /// shrunk by them per axis (the padding box inside a border).
-    pub fn inset(&self, widths: Edges<f32>) -> BoxShape {
+    pub fn inset(&self, widths: Edges<f64>) -> BoxShape {
         if widths == Edges::all(0.0) {
             return *self;
         }
@@ -123,7 +123,7 @@ impl BoxShape {
             return BoxShape::Rect(inner);
         }
         let radii = self.rounded().fitted_radii();
-        let shrink = |r: Radius, x: f32, y: f32| Radius {
+        let shrink = |r: Radius, x: f64, y: f64| Radius {
             x: (r.x - x).max(0.0),
             y: (r.y - y).max(0.0),
         };
@@ -147,17 +147,17 @@ impl BoxShape {
     }
 }
 
-fn positive(v: f32) -> f32 {
+fn positive(v: f64) -> f64 {
     if v.is_finite() { v.max(0.0) } else { 0.0 }
 }
 
 /// The widths of the visible border sides (a side without width or color
 /// draws nothing and insets nothing).
-pub fn border_widths(border: Option<&Border>) -> Edges<f32> {
+pub fn border_widths(border: Option<&Border>) -> Edges<f64> {
     let Some(b) = border else {
         return Edges::all(0.0);
     };
-    let side = |w: f32, a: f32| if w > 0.0 && a > 0.0 { w } else { 0.0 };
+    let side = |w: f64, a: f64| if w > 0.0 && a > 0.0 { w } else { 0.0 };
     Edges {
         top: side(b.widths.top, b.colors.top.a),
         right: side(b.widths.right, b.colors.right.a),
@@ -202,7 +202,7 @@ pub fn clip_path(shape: &ClipShape, rect: Rect) -> Shape {
             BoxShape::of(inner, radius).shape()
         }
         ClipShape::Circle { radius, center } => {
-            let reference = (rect.width.hypot(rect.height)) / std::f32::consts::SQRT_2;
+            let reference = (rect.width.hypot(rect.height)) / std::f64::consts::SQRT_2;
             let r = positive(radius.of(reference));
             let c = at(*center);
             Shape::RoundedRect(RoundedRect::ellipse(Rect {

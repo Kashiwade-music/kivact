@@ -14,7 +14,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 /// A semantics tree built for publication and the identity metadata it was
 /// built with (`None`: a local text build reused the accepted metadata).
 pub(in crate::a11y) struct Built {
-    pub(in crate::a11y) tree: kivact_types::protocol::SemanticsTree,
+    pub(in crate::a11y) tree: kivact_types::render::SemanticsTree,
     pub(in crate::a11y) metadata: Option<Metadata>,
 }
 
@@ -24,7 +24,7 @@ impl Model {
     pub(crate) fn build_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> kivact_types::protocol::SemanticsTree {
+    ) -> kivact_types::render::SemanticsTree {
         self.build_semantics_for(engine, &Dirt::Full).tree
     }
 
@@ -55,7 +55,7 @@ impl Model {
                     height: self.viewport.height,
                 },
                 kivact_types::Point::default(),
-                kivact_types::protocol::Transform::IDENTITY,
+                kivact_types::Transform::IDENTITY,
                 false,
             );
             #[cfg(feature = "testing")]
@@ -63,7 +63,7 @@ impl Model {
                 self.a11y.constructed += 1;
             }
             return Built {
-                tree: kivact_types::protocol::SemanticsTree {
+                tree: kivact_types::render::SemanticsTree {
                     root: kivact_types::SemanticsId(id),
                     focus: None,
                     nodes: vec![node],
@@ -109,13 +109,13 @@ impl Model {
             count.hash(&mut children);
             metadata.children.insert(id, children.finish());
             metadata.live.insert(id.0);
-            let props = n.semantics().and_then(|s| s.accessibility.as_deref());
+            let props = n.semantics();
             let region_props = n
                 .scenes()
                 .iter()
                 .flatten()
                 .flat_map(|s| s.regions.iter())
-                .filter_map(|r| r.properties.as_deref());
+                .map(|r| &r.semantics);
             for props in props.into_iter().chain(region_props) {
                 for target in props
                     .described_by
@@ -257,7 +257,7 @@ impl Model {
         }
         let focus = self.semantics_focus(&metadata.clipped);
         Built {
-            tree: kivact_types::protocol::SemanticsTree {
+            tree: kivact_types::render::SemanticsTree {
                 root: kivact_types::SemanticsId(root.0),
                 focus,
                 nodes,

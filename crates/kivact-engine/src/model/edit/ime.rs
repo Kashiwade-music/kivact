@@ -3,7 +3,7 @@
 use super::state::{ImeGiven, ImeUpdate, InputSource};
 use crate::model::Model;
 use kivact_editing::EditState;
-use kivact_types::ImeEvent;
+use kivact_types::ImeInput;
 
 impl Model {
     /// The IME's composition (`selection` in bytes of `text`); an empty one
@@ -34,7 +34,7 @@ impl Model {
 
     /// Text the IME committed.
     pub(crate) fn commit(&mut self, text: &str) {
-        if self.session_event(ImeEvent::Commit(text.to_string())) {
+        if self.session_event(ImeInput::Commit(text.to_string())) {
             return;
         }
         self.insert_text(text);
@@ -43,7 +43,7 @@ impl Model {
 
     /// The IME ended its session: the composition is gone.
     pub(crate) fn ime_disabled(&mut self) {
-        if !self.session_event(ImeEvent::End) {
+        if !self.session_event(ImeInput::End) {
             self.preedit("", None);
         }
     }
@@ -83,9 +83,7 @@ impl Model {
             .filter(|e| !e.is_composing())
             .and_then(|e| e.value().get(base..))
             .map(|text| {
-                let at = |units| {
-                    base + crate::model::interact::text_geometry::byte_of_utf16(text, units)
-                };
+                let at = |byte| base + kivact_types::text_utf::floor_char_boundary(text, byte);
                 (at(start), at(end))
             })
         else {

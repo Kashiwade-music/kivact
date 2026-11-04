@@ -5,16 +5,16 @@ use crate::SceneOut;
 use crate::context::Context;
 use crate::effects::Tint;
 use crate::scene_cache::Entry;
-use kivact_types::protocol::DrawCommand as D;
-use kivact_types::{ComputedText, Rect, Scene};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{ComputedTextStyle, DrawList, Rect};
 use std::sync::Arc;
 
 impl Context<'_> {
     /// Paint a local scene at its canvas origin, inheriting missing text fields.
     pub fn paint_scene(
         &self,
-        scene: &Arc<Scene>,
-        inherited: Option<&ComputedText>,
+        scene: &Arc<DrawList>,
+        inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
@@ -24,7 +24,7 @@ impl Context<'_> {
         let cacheable = !scene
             .cmds
             .iter()
-            .any(|cmd| matches!(cmd, kivact_types::SceneCmd::External { .. }));
+            .any(|cmd| matches!(cmd, kivact_types::DrawCmd::External { .. }));
         #[cfg(not(feature = "gpu-interop"))]
         let cacheable = true;
         if !cacheable || !origin.x.is_finite() || !origin.y.is_finite() {
@@ -88,8 +88,8 @@ impl Context<'_> {
 
     fn lower_scene(
         &self,
-        scene: &Scene,
-        inherited: Option<&ComputedText>,
+        scene: &DrawList,
+        inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
@@ -109,10 +109,10 @@ impl Context<'_> {
 }
 
 fn append(out: &mut SceneOut, local: &[D], origin: Rect) {
-    out.push(D::PushTransform(kivact_types::protocol::Transform {
+    out.push(D::PushTransform(kivact_types::Transform {
         e: origin.x,
         f: origin.y,
-        ..kivact_types::protocol::Transform::IDENTITY
+        ..kivact_types::Transform::IDENTITY
     }));
     out.extend(local.iter().cloned());
     out.push(D::PopTransform);

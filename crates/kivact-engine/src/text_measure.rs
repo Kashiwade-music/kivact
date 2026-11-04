@@ -12,7 +12,9 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use kivact_types::{ComputedText, InlineBox, ShapedInlineText, TextMetrics, TextRun, TextShaper};
+use kivact_types::{
+    ComputedTextStyle, InlineBox, ShapedInlineText, TextMetrics, TextRun, TextShaper,
+};
 
 /// Text measurement for one drawing callback, independent of any node: the
 /// shared text engine and the text style the drawn runs inherit. A run
@@ -23,15 +25,15 @@ use kivact_types::{ComputedText, InlineBox, ShapedInlineText, TextMetrics, TextR
 #[derive(Clone)]
 pub struct TextMeasurer {
     engine: Rc<RefCell<arvane::Engine>>,
-    inherited: ComputedText,
+    inherited: ComputedTextStyle,
 }
 
 impl TextMeasurer {
-    pub(crate) fn new(engine: Rc<RefCell<arvane::Engine>>, inherited: ComputedText) -> Self {
+    pub(crate) fn new(engine: Rc<RefCell<arvane::Engine>>, inherited: ComputedTextStyle) -> Self {
         Self { engine, inherited }
     }
 
-    /// The extent `run` is drawn with (`SceneCmd::Text`, its `origin` and
+    /// The extent `run` is drawn with (`DrawCmd::Text`, its `origin` and
     /// `color` aside). Text that cannot be shaped has zero extent. Borrowing
     /// the text engine here violates the drawing contract and asserts in
     /// debug builds; release builds return zero instead.
@@ -48,15 +50,15 @@ impl TextMeasurer {
     }
 
     /// `run` shaped as a paragraph with its carets, wrapped at `max_width`:
-    /// the shaping `SceneCmd::Paragraph` draws. The borrow of the text
+    /// the shaping `DrawCmd::Paragraph` draws. The borrow of the text
     /// engine ends before this returns (the result owns its data). Under
     /// the same contract as [`measure`](Self::measure): a borrow found
     /// taken asserts in debug builds and answers `None` in release builds.
     pub fn shape(
         &self,
         run: &TextRun,
-        max_width: Option<f32>,
-    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
+        max_width: Option<f64>,
+    ) -> Option<Arc<kivact_types::render::ShapedText>> {
         let engine = self.engine.try_borrow_mut();
         debug_assert!(
             engine.is_ok(),
@@ -75,15 +77,15 @@ impl TextShaper for TextMeasurer {
     fn shape(
         &self,
         run: &TextRun,
-        max_width: Option<f32>,
-    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
+        max_width: Option<f64>,
+    ) -> Option<Arc<kivact_types::render::ShapedText>> {
         TextMeasurer::shape(self, run, max_width)
     }
 
     fn shape_inline(
         &self,
         run: &TextRun,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Option<ShapedInlineText> {
         let engine = self.engine.try_borrow_mut();

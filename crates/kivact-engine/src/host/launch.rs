@@ -7,15 +7,8 @@ use crate::FrameLog;
 use crate::contract::HostError;
 use crate::model::Model;
 use arvane::{RendererChange, Shell, ShellOptions};
-use kivact_types::Size;
 use std::cell::RefCell;
 use std::rc::Rc;
-
-/// The window's first size in logical pixels by default.
-const WINDOW: Size = Size {
-    width: 960.0,
-    height: 720.0,
-};
 
 /// Run the client on the application's main thread until its native window exits.
 ///
@@ -23,7 +16,9 @@ const WINDOW: Size = Size {
 /// Client callbacks run without an outstanding model borrow. Window creation or
 /// event-loop failures return the host error for the caller to report.
 pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError> {
-    let window_size = options.window_size.unwrap_or(WINDOW);
+    let window_size = options
+        .window_size
+        .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE);
     let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
     // Arvane's renderer changes, as they happen (benchmarks parse the
     // `renderer=` notes); the first is the renderer the window starts
@@ -70,7 +65,7 @@ pub(crate) fn new(
         last_frame: LastFrame::Settled,
         next_wake: None,
         embedded_closing: None,
-        environment: kivact_types::protocol::Environment::default(),
+        environment: kivact_types::Environment::default(),
         reduced_motion_override: None,
         suspended: false,
         soft_keyboard: false,

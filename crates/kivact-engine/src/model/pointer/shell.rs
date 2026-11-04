@@ -34,7 +34,7 @@ use super::state::{Gesture, PointerSource, ScrollDrag};
 use crate::PointerSpace;
 use crate::contract::HostEvent;
 use crate::model::Model;
-use kivact_types::protocol::PointerInput;
+use kivact_types::PointerSample;
 use kivact_types::{
     ButtonPress, FilePhase, MouseButton, Point, PointerId, PointerKind, PointerPhase,
 };
@@ -44,7 +44,8 @@ impl Model {
     /// state machine below, a contact's to [`Self::contact`]. The event's
     /// held buttons, pressure and tilt become its pointer's source, which
     /// every listener event of that pointer carries.
-    pub(crate) fn pointer_input(&mut self, input: PointerInput, engine: &mut arvane::Engine) {
+    pub(crate) fn pointer_input(&mut self, input: PointerSample, engine: &mut arvane::Engine) {
+        self.modifiers = input.modifiers;
         // The mouse's id is the mouse's only; a window gives contacts others.
         if (input.kind == PointerKind::Mouse) != (input.id == PointerId::MOUSE) {
             return;
@@ -53,6 +54,7 @@ impl Model {
             return self.contact(input, engine);
         }
         let track = self.pointer.state.track_mut(PointerId::MOUSE);
+        track.source.time_ns = input.time_ns;
         track.source.pressure = input.pressure;
         track.source.tilt = input.tilt;
         track.source.buttons = input.buttons;
@@ -249,7 +251,7 @@ impl Model {
     /// so it leaves no hover state behind, and a `Cancel` ends it where it
     /// last was without activating anything. A `Down` of an id that is still
     /// down cancels that contact first and then begins a new one.
-    fn contact(&mut self, input: PointerInput, engine: &mut arvane::Engine) {
+    fn contact(&mut self, input: PointerSample, engine: &mut arvane::Engine) {
         let id = input.id;
         let at = input.position;
         let known = self.pointer.state.tracks.contains_key(&id.0);
@@ -265,14 +267,10 @@ impl Model {
                     let space = PointerSpace::new(self.pointer.state.track(id).at, engine);
                     self.end_contact(id, &space);
                 }
-                let primary = !self
-                    .pointer
-                    .state
-                    .tracks
-                    .values()
-                    .any(|t| t.source.kind == input.kind);
+                let primary = input.is_primary;
                 self.begin_pointer(
                     PointerSource {
+                        time_ns: input.time_ns,
                         id,
                         kind: input.kind,
                         pressure: input.pressure,
@@ -320,9 +318,10 @@ impl Model {
 
     /// The contact `id` is at `at` with `input`'s pressure, tilt and
     /// buttons.
-    fn contact_at(&mut self, id: PointerId, at: Point, input: PointerInput) {
+    fn contact_at(&mut self, id: PointerId, at: Point, input: PointerSample) {
         let track = self.pointer.state.track_mut(id);
         track.at = at;
+        track.source.time_ns = input.time_ns;
         track.source.pressure = input.pressure;
         track.source.tilt = input.tilt;
         track.source.buttons = input.buttons;
@@ -336,8 +335,11 @@ impl Model {
     }
 
     /// Wheel at the mouse's position (`delta` in logical pixels).
-    pub(crate) fn wheel(&mut self, delta: Point, engine: &mut arvane::Engine) {
-        let at = self.mouse_at();
+    pub(crate) fn wheel(&mut self, input: kivact_types::WheelInput, engine: &mut arvane::Engine) {
+        let delta = input.delta;
+        self.modifiers = input.modifiers;
+        self.pointer.state.mouse = Some(input.position);
+        let at = input.position;
         let hit = self.hit(at);
         let space = PointerSpace::new(at, engine);
         self.handle_wheel(hit, delta, self.modifiers, &space);
@@ -367,23 +369,33 @@ impl Model {
         if previous != hit {
             if let Some(node) = previous {
                 let pos = self.to_local(node, point);
-                self.push(HostEvent::File {
-                    node,
-                    phase: FilePhase::Leave,
-                    files: files.clone(),
-                    pos,
-                    window_pos: point,
-                });
+                self.push(HostEvent::File(crate::contract::Routed {
+                    target: Some(node),
+                    region: None,
+                    local: pos,
+                    captured: false,
+                    activation: None,
+                    input: kivact_types::FileDrop {
+                        phase: FilePhase::Leave,
+                        files: files.clone(),
+                        position: point,
+                    },
+                }));
             }
             if let Some(node) = hit {
                 let pos = self.to_local(node, point);
-                self.push(HostEvent::File {
-                    node,
-                    phase: FilePhase::Enter,
-                    files: files.clone(),
-                    pos,
-                    window_pos: point,
-                });
+                self.push(HostEvent::File(crate::contract::Routed {
+                    target: Some(node),
+                    region: None,
+                    local: pos,
+                    captured: false,
+                    activation: None,
+                    input: kivact_types::FileDrop {
+                        phase: FilePhase::Enter,
+                        files: files.clone(),
+                        position: point,
+                    },
+                }));
             }
         }
         if let Some(node) = hit {
@@ -393,13 +405,18 @@ impl Model {
             } else {
                 FilePhase::Over
             };
-            self.push(HostEvent::File {
-                node,
-                phase,
-                files,
-                pos,
-                window_pos: point,
-            });
+            self.push(HostEvent::File(crate::contract::Routed {
+                target: Some(node),
+                region: None,
+                local: pos,
+                captured: false,
+                activation: None,
+                input: kivact_types::FileDrop {
+                    phase: phase,
+                    files: files,
+                    position: point,
+                },
+            }));
         }
         self.pointer.file_target = if phase == kivact_types::FilePhase::Drop {
             None

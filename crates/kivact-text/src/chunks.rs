@@ -1,9 +1,9 @@
 //! Role: Hard-line splits, chunk reconciliation and byte/scalar/UTF16 lookup.
 
 use crate::EditLines;
-use crate::pieces::floor;
 use crate::records::{Before, Chunk, Line, Shown};
 use kivact_editing::Damage;
+use kivact_types::text_utf::floor_char_boundary as floor;
 use std::ops::Range;
 
 /// Lines per chunk: a chunk holds at most twice as many.
@@ -48,8 +48,8 @@ impl EditLines {
     pub(crate) fn rebuild(
         &mut self,
         text: &str,
-        height: f32,
-        blank: f32,
+        height: f64,
+        blank: f64,
         engine: &mut arvane::Engine,
     ) {
         self.height = height;
@@ -78,7 +78,7 @@ impl EditLines {
             return hard;
         };
         let mut style = self.key.style.clone();
-        style.wrap = kivact_types::protocol::TextWrap::Wrap;
+        style.wrap = kivact_types::TextWrap::Wrap;
         let mut rows = Vec::new();
         for (start, content, end) in hard {
             let line = &text[start..content];
@@ -220,7 +220,7 @@ impl EditLines {
                 units: b.units + chunk.units,
             });
         }
-        self.width = self.chunks.iter().map(|c| c.width).fold(0.0, f32::max);
+        self.width = self.chunks.iter().map(|c| c.width).fold(0.0, f64::max);
     }
 
     /// The chunk holding line `i` and the line's place in it.
@@ -330,7 +330,8 @@ impl EditLines {
         let i = self.line_of(at);
         let range = self.range(i);
         let at = floor(text, at.clamp(range.start, range.end));
-        self.counts_before(i).1 + text[range.start..at].encode_utf16().count()
+        self.counts_before(i).1
+            + kivact_types::text_utf::utf16_offset(&text[range.start..at], at - range.start)
     }
 
     /// Unicode scalar offset where line `i` starts; terminal total if absent.

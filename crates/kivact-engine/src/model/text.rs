@@ -11,23 +11,23 @@
 //! - Reads fill the entry on demand and hold no borrow of it past the
 //!   call, so no user code runs while the column is borrowed.
 use crate::model::Model;
-use kivact_types::{ComputedText, NodeId};
+use kivact_types::{ComputedTextStyle, NodeId};
 use std::rc::Rc;
 
 /// How far a text in the style `text` paints out of its box (its font size
 /// and shadows): the culling of the paint list depends on it.
-pub(crate) fn text_reach_of(text: &ComputedText) -> f32 {
-    kivact_lower::glyphs::text_reach(text.font_size, &text.more().shadows)
+pub(crate) fn text_reach_of(text: &ComputedTextStyle) -> f64 {
+    kivact_lower::glyphs::text_reach(text.font_size, &text.shadows)
 }
 
 impl Model {
     /// The inherited text style of `id`, resolved once per change.
-    pub(crate) fn text_props(&self, id: NodeId) -> Rc<ComputedText> {
+    pub(crate) fn text_props(&self, id: NodeId) -> Rc<ComputedTextStyle> {
         crate::measure::computed_text(&self.tree, &self.measure, id)
     }
 
     /// How far the text `id` paints out of its box.
-    pub(crate) fn text_reach(&self, id: NodeId) -> f32 {
+    pub(crate) fn text_reach(&self, id: NodeId) -> f64 {
         text_reach_of(&self.text_props(id))
     }
 
@@ -36,7 +36,7 @@ impl Model {
         &self,
         id: NodeId,
         engine: &mut arvane::Engine,
-    ) -> kivact_types::protocol::TextStyle {
+    ) -> kivact_types::ComputedTextStyle {
         crate::measure::input_style(&self.tree, &self.measure, id, engine)
     }
 

@@ -3,7 +3,7 @@
 use super::state::{Clock, SmoothScroll};
 use crate::contract::HostEvent;
 use crate::model::Model;
-use kivact_types::{HostEnv, MotionClock, NodeId, Point};
+use kivact_types::{Environment, MotionClock, NodeId, Point};
 
 impl Model {
     /// Scroll `id` from `start` to `target` over the next frames (at once
@@ -39,8 +39,8 @@ impl Model {
     /// The environment before the client starts (it gets it in `HostInfo`):
     /// stored with no event; the clock stands still from now when nothing can
     /// be drawn.
-    pub(crate) fn start_env(&mut self, env: HostEnv) {
-        self.frame.clock = if env.surface_active {
+    pub(crate) fn start_env(&mut self, env: Environment, surface_active: bool) {
+        self.frame.clock = if surface_active {
             Clock::Running
         } else {
             Clock::Stopped {
@@ -48,18 +48,20 @@ impl Model {
             }
         };
         self.frame.env = env;
+        self.frame.surface_active = surface_active;
     }
 
     /// Change the environment the client sees with `change`; when the
     /// result differs, queue it whole as one `EnvChanged`. A change of
     /// drawability also pauses or resumes the frame clocks.
-    pub(crate) fn update_env(&mut self, change: impl FnOnce(&mut HostEnv)) {
+    pub(crate) fn update_env(&mut self, change: impl FnOnce(&mut Environment, &mut bool)) {
         let mut env = self.frame.env.clone();
-        change(&mut env);
-        if env == self.frame.env {
+        let mut surface_active = self.frame.surface_active;
+        change(&mut env, &mut surface_active);
+        if env == self.frame.env && surface_active == self.frame.surface_active {
             return;
         }
-        match (self.frame.clock, env.surface_active) {
+        match (self.frame.clock, surface_active) {
             (Clock::Stopped { since }, true) => {
                 let now = self.frame.now;
                 self.shift_state_times(since, now);
@@ -80,18 +82,22 @@ impl Model {
         }
         self.a11y.invalidate();
         self.frame.env = env.clone();
+        self.frame.surface_active = surface_active;
         debug_assert_eq!(
             self.frame.clock == Clock::Running,
-            self.frame.env.surface_active,
+            self.frame.surface_active,
             "invariant: the frame clock stops exactly while nothing can be drawn"
         );
-        self.push(HostEvent::EnvChanged(env));
+        self.push(HostEvent::EnvChanged {
+            environment: env,
+            surface_active,
+        });
     }
 
     /// Whether there is a surface to draw on, reported to the client when it
     /// changes.
     pub(crate) fn set_surface(&mut self, active: bool) {
-        self.update_env(|env| env.surface_active = active);
+        self.update_env(|_, surface_active| *surface_active = active);
     }
 
     /// State transitions moved: retarget them, and tick now when no frame
@@ -133,7 +139,7 @@ impl Model {
                 let t = if self.frame.reduced_motion() {
                     1.0
                 } else {
-                    (stamp.saturating_sub(began) as f64 / 240_000_000.0).min(1.0) as f32
+                    (stamp.saturating_sub(began) as f64 / 240_000_000.0).min(1.0) as f64
                 };
                 let eased = 1.0 - (1.0 - t).powi(3);
                 self.set_scroll(

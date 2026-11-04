@@ -84,8 +84,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
                 Entry::Slot(slot) => slot,
             };
             let request = MeasureRequest {
-                known_width: known.width,
-                known_height: known.height,
+                known_width: known.width.map(f64::from),
+                known_height: known.height.map(f64::from),
                 available_width: from_taffy(avail.width),
                 available_height: from_taffy(avail.height),
             };
@@ -107,8 +107,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
             });
             baseline = leaf.baseline;
             taffy::Size {
-                width: known.width.unwrap_or(leaf.size.width),
-                height: known.height.unwrap_or(leaf.size.height),
+                width: known.width.unwrap_or(leaf.size.width as f32),
+                height: known.height.unwrap_or(leaf.size.height as f32),
             }
         });
         if let Some(baseline) = baseline {
@@ -118,8 +118,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
             let top = padding.top + border.top;
             let content = out.size.height - top - padding.bottom - border.bottom;
             out.baselines.first = Some(match baseline {
-                Baseline::FromTop(y) => top + y,
-                Baseline::FromCenter(y) => top + content.max(0.0) / 2.0 + y,
+                Baseline::FromTop(y) => top + y as f32,
+                Baseline::FromCenter(y) => top + content.max(0.0) / 2.0 + y as f32,
             });
         }
         out
@@ -170,7 +170,7 @@ fn same_from_outside(before: &LayoutOutput, after: &LayoutOutput) -> bool {
 
 fn from_taffy(space: taffy::AvailableSpace) -> AvailableSpace {
     match space {
-        taffy::AvailableSpace::Definite(v) => AvailableSpace::Definite(v),
+        taffy::AvailableSpace::Definite(v) => AvailableSpace::Definite(f64::from(v)),
         taffy::AvailableSpace::MinContent => AvailableSpace::MinContent,
         taffy::AvailableSpace::MaxContent => AvailableSpace::MaxContent,
     }
@@ -341,22 +341,24 @@ impl NodeLayoutColumns {
         let y = l.border.top + l.padding.top;
         Some(NodeLayout {
             location: Point {
-                x: l.location.x,
-                y: l.location.y,
+                x: f64::from(l.location.x),
+                y: f64::from(l.location.y),
             },
             size: Size {
-                width: l.size.width,
-                height: l.size.height,
+                width: f64::from(l.size.width),
+                height: f64::from(l.size.height),
             },
             content_size: Size {
-                width: l.size.width + l.scroll_width(),
-                height: l.size.height + l.scroll_height(),
+                width: f64::from(l.size.width + l.scroll_width()),
+                height: f64::from(l.size.height + l.scroll_height()),
             },
             content_box: Rect {
-                x,
-                y,
-                width: (l.size.width - x - l.border.right - l.padding.right).max(0.0),
-                height: (l.size.height - y - l.border.bottom - l.padding.bottom).max(0.0),
+                x: f64::from(x),
+                y: f64::from(y),
+                width: f64::from((l.size.width - x - l.border.right - l.padding.right).max(0.0)),
+                height: f64::from(
+                    (l.size.height - y - l.border.bottom - l.padding.bottom).max(0.0),
+                ),
             },
         })
     }
@@ -627,15 +629,15 @@ impl NodeLayoutColumns {
                     .clamp(0.0, limit),
             )
         };
-        style.set_min_width_floor(floor.min(bounds.width));
+        style.set_min_width_floor(floor.min(bounds.width) as f32);
         style.set_size_bounds(
             taffy::Size {
-                width: cap(min.width, bounds.width, 0.0),
-                height: cap(min.height, bounds.height, 0.0),
+                width: cap(min.width, bounds.width as f32, 0.0),
+                height: cap(min.height, bounds.height as f32, 0.0),
             },
             taffy::Size {
-                width: cap(max.width, bounds.width, bounds.width),
-                height: cap(max.height, bounds.height, bounds.height),
+                width: cap(max.width, bounds.width as f32, bounds.width as f32),
+                height: cap(max.height, bounds.height as f32, bounds.height as f32),
             },
         );
         self.values.caches[index].clear();
@@ -655,8 +657,8 @@ impl NodeLayoutColumns {
             let values = &mut self.values;
             let style = &mut values.styles[usize::from(root)];
             let size = taffy::Size {
-                width: taffy::Dimension::length(available.width),
-                height: taffy::Dimension::length(available.height),
+                width: taffy::Dimension::length(available.width as f32),
+                height: taffy::Dimension::length(available.height as f32),
             };
             style.size = size;
             if let Some(grid) = style.grid.as_mut() {
@@ -665,8 +667,8 @@ impl NodeLayoutColumns {
             values.caches[usize::from(root)].clear();
         }
         let space = taffy::Size {
-            width: taffy::AvailableSpace::Definite(available.width),
-            height: taffy::AvailableSpace::Definite(available.height),
+            width: taffy::AvailableSpace::Definite(available.width as f32),
+            height: taffy::AvailableSpace::Definite(available.height as f32),
         };
         self.with_pass(tree, state, measure, |pass| {
             taffy::compute_root_layout(pass, root, space);

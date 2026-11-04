@@ -16,13 +16,13 @@ impl Look {
             .filter(|s| !s.inset)
             .map(|s| {
                 // The blur's gaussian (standard deviation blur / 2) is
-                // drawn at most kivact_types::protocol::SHADOW_REACH deviations out.
-                let blur = extent(s.blur) / 2.0 * kivact_types::protocol::SHADOW_REACH;
+                // drawn at most kivact_types::render::SHADOW_REACH deviations out.
+                let blur = extent(s.blur) / 2.0 * kivact_types::render::SHADOW_REACH;
                 offset(s.offset.x).abs().max(offset(s.offset.y).abs())
                     + offset(s.spread).max(0.0)
                     + blur
             })
-            .fold(0.0, f32::max);
+            .fold(0.0, f64::max);
         let ring = p.ring.map_or(0.0, |r| extent(r.width));
         let filter: &[FilterOp] = p.effects.as_ref().map_or(&[], |e| &e.filter);
         let border = kivact_lower::shape::border_widths(p.border.as_ref());

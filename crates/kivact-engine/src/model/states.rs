@@ -35,7 +35,7 @@
 //! - A text color delta colors the text below the node; the nearest
 //!   ancestor-or-self with an active one wins.
 
-use kivact_types::{ComputedText, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
+use kivact_types::{ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
 
 use crate::model::Model;
 use crate::mutation::Mutation;
@@ -201,8 +201,8 @@ impl Model {
 
     /// The text style of `id`: the inherited `Text` prop, colored by the
     /// nearest ancestor-or-self with an active text color delta.
-    pub(crate) fn text_style(&self, id: NodeId) -> ComputedText {
-        let mut t = ComputedText::clone(&self.text_props(id));
+    pub(crate) fn text_style(&self, id: NodeId) -> ComputedTextStyle {
+        let mut t = ComputedTextStyle::clone(&self.text_props(id));
         t.color = self.text_color(id);
         t
     }

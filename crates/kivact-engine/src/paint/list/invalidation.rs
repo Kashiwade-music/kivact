@@ -69,7 +69,7 @@ impl PaintList {
     /// A node has a backdrop filter reading `reach` around its box: the
     /// viewport grows to it (it never shrinks back, which only lists a few
     /// more nodes).
-    pub(crate) fn note_backdrop(&mut self, reach: f32) {
+    pub(crate) fn note_backdrop(&mut self, reach: f64) {
         if reach.is_finite() && reach > self.backdrop_reach {
             self.backdrop_reach = reach;
             self.stale = true;

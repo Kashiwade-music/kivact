@@ -20,10 +20,10 @@ pub(crate) enum Shown {
 /// show and whether they break at line feeds.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Key {
-    pub(crate) style: kivact_types::protocol::TextStyle,
+    pub(crate) style: kivact_types::ComputedTextStyle,
     pub(crate) shown: Shown,
     pub(crate) multiline: bool,
-    pub(crate) wrap_width: Option<f32>,
+    pub(crate) wrap_width: Option<f64>,
 }
 
 impl Key {
@@ -31,7 +31,7 @@ impl Key {
     /// alignment its lines are moved by.
     pub(crate) fn of(
         source: &Source<'_>,
-        mut style: kivact_types::protocol::TextStyle,
+        mut style: kivact_types::ComputedTextStyle,
     ) -> (Key, kivact_types::TextAlign) {
         let shown = if source.value.is_empty() {
             Shown::Placeholder(source.placeholder.to_owned())
@@ -44,7 +44,7 @@ impl Key {
         // (a hover, a focus style) never shape again.
         let align = style.align;
         style.align = kivact_types::TextAlign::Start;
-        style.color = kivact_types::protocol::TextStyle::default().color;
+        style.color = kivact_types::ComputedTextStyle::default().color;
         let key = Key {
             style,
             shown,
@@ -69,7 +69,7 @@ pub(crate) struct Kept {
     pub(crate) colors: Option<Colored>,
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
-    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::protocol::ShapedText>)>,
+    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::render::ShapedText>)>,
     /// Its text run's identity, once it has one.
     pub(crate) run_id: Option<u64>,
     /// Its text run and where it was placed.
@@ -84,12 +84,12 @@ pub(crate) enum Shape {
     /// The shaper could not shape it: it is laid out as an empty line.
     Failed,
     /// Shaped.
-    Done(Arc<kivact_types::protocol::ShapedText>),
+    Done(Arc<kivact_types::render::ShapedText>),
 }
 
 impl Shape {
     /// Its shaped width (0 until shaped, and when shaping failed).
-    pub(crate) fn width(&self) -> f32 {
+    pub(crate) fn width(&self) -> f64 {
         match self {
             Shape::Done(shaped) => shaped.size.width,
             Shape::Pending | Shape::Failed => 0.0,
@@ -97,7 +97,7 @@ impl Shape {
     }
 
     /// Its shaped text, when shaped.
-    pub(crate) fn shaped(&self) -> Option<&Arc<kivact_types::protocol::ShapedText>> {
+    pub(crate) fn shaped(&self) -> Option<&Arc<kivact_types::render::ShapedText>> {
         match self {
             Shape::Done(shaped) => Some(shaped),
             Shape::Pending | Shape::Failed => None,
@@ -173,7 +173,7 @@ pub(crate) struct Chunk {
     pub(crate) bytes: usize,
     pub(crate) chars: usize,
     pub(crate) units: usize,
-    pub(crate) width: f32,
+    pub(crate) width: f64,
 }
 
 impl Chunk {
@@ -194,7 +194,7 @@ impl Chunk {
             .lines
             .iter()
             .map(|l| l.shape.width())
-            .fold(0.0, f32::max);
+            .fold(0.0, f64::max);
     }
 }
 

@@ -18,8 +18,8 @@
 //!   so culling never drops a shadow's pixels.
 
 use crate::effects::Tint;
-use kivact_types::protocol::DrawCommand as D;
-use kivact_types::{ComputedText, Rect, TextMetrics, TextRun, TextShadow};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{ComputedTextStyle, Rect, TextMetrics, TextRun, TextShadow};
 use kivact_types::{Point, Rgba};
 
 /// How a shaped text is colored as it is drawn.
@@ -34,12 +34,12 @@ pub struct Colors {
 /// order (see the module invariants), colored by `colors`.
 pub fn push_text(
     out: &mut crate::SceneOut,
-    shaped: &kivact_types::protocol::ShapedText,
+    shaped: &kivact_types::render::ShapedText,
     origin: Point,
     colors: &Colors,
     shadows: &[TextShadow],
     tint: &Tint,
-    device: f32,
+    device: f64,
 ) {
     for shadow in shadows.iter().rev() {
         let color = tint.color(shadow.color);
@@ -52,11 +52,11 @@ pub fn push_text(
         };
         let blurred = shadow.blur.is_finite() && shadow.blur > 0.0;
         if blurred {
-            out.push(D::PushLayer(kivact_types::protocol::Layer {
-                filter: Some(kivact_types::protocol::LayerFilter::Blur {
+            out.push(D::PushLayer(kivact_types::render::Layer {
+                filter: Some(kivact_types::render::LayerFilter::Blur {
                     std_dev: shadow.blur / 2.0,
                 }),
-                ..kivact_types::protocol::Layer::default()
+                ..kivact_types::render::Layer::default()
             }));
         }
         let all = Colors {
@@ -78,7 +78,7 @@ pub fn push_text(
 /// The glyph runs of `shaped` at `origin`, in `color` when given.
 fn glyphs(
     out: &mut crate::SceneOut,
-    shaped: &kivact_types::protocol::ShapedText,
+    shaped: &kivact_types::render::ShapedText,
     origin: Point,
     color: Option<Rgba>,
 ) {
@@ -97,11 +97,11 @@ fn glyphs(
 /// renderers align).
 fn lines(
     out: &mut crate::SceneOut,
-    shaped: &kivact_types::protocol::ShapedText,
+    shaped: &kivact_types::render::ShapedText,
     origin: Point,
     colors: &Colors,
     through: bool,
-    device: f32,
+    device: f64,
 ) {
     let device = if device.is_finite() && device > 0.0 {
         device
@@ -119,20 +119,20 @@ fn lines(
                 width: line.rect.width,
                 height: (line.rect.height * device).round().max(1.0) / device,
             },
-            fill: kivact_types::protocol::Paint::Solid(colors.decorations.unwrap_or(line.color)),
+            fill: kivact_types::render::Paint::Solid(colors.decorations.unwrap_or(line.color)),
         });
     }
 }
 
 /// How far a text's paint reaches out of its box: a font size (glyphs
 /// overhang their lines), and its shadows' offsets and blurs.
-pub fn text_reach(font_size: f32, shadows: &[TextShadow]) -> f32 {
+pub fn text_reach(font_size: f64, shadows: &[TextShadow]) -> f64 {
     let shadows = shadows
         .iter()
         .map(|s| {
-            s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * kivact_types::protocol::SHADOW_REACH
+            s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * kivact_types::render::SHADOW_REACH
         })
-        .fold(0.0f32, f32::max);
+        .fold(0.0f64, f64::max);
     font_size + shadows
 }
 
@@ -148,15 +148,15 @@ pub fn inherits(run: &TextRun) -> bool {
 pub(crate) fn run_style(
     engine: &mut arvane::Engine,
     run: &TextRun,
-    inherited: Option<&ComputedText>,
-) -> kivact_types::protocol::TextStyle {
-    let c = crate::sanitize::color;
+    inherited: Option<&ComputedTextStyle>,
+) -> kivact_types::ComputedTextStyle {
+    let c = kivact_types::Rgba::sanitize;
     let family = run
         .family
         .as_deref()
         .or(inherited.and_then(|t| t.family.as_deref()));
-    let line_height = run.line_height.or(inherited.and_then(|t| t.line_height));
-    kivact_types::protocol::TextStyle {
+    let line_height = run.line_height.or(inherited.map(|t| t.line_height));
+    kivact_types::ComputedTextStyle {
         font_size: run.font_size,
         weight: run.weight,
         color: c(run.color),
@@ -164,18 +164,21 @@ pub(crate) fn run_style(
         family: crate::assets::family(engine, family),
         italic: run.italic,
         letter_spacing: if run.letter_spacing.is_finite() {
-            run.letter_spacing
+            kivact_types::TextLen::Px(run.letter_spacing)
         } else {
-            0.0
+            kivact_types::TextLen::Px(0.0)
         },
         word_spacing: if run.word_spacing.is_finite() {
-            run.word_spacing
+            kivact_types::TextLen::Px(run.word_spacing)
         } else {
-            0.0
+            kivact_types::TextLen::Px(0.0)
         },
         kerning: run.kerning,
         features: run.features.clone(),
-        decoration: crate::conversion::decoration(run.decoration, run.font_size),
+        decoration: kivact_types::TextDecoration {
+            color: run.decoration.color.map(kivact_types::Rgba::sanitize),
+            ..run.decoration
+        },
         ..Default::default()
     }
 }
@@ -188,7 +191,7 @@ pub(crate) fn run_style(
 pub fn measure_run(
     engine: &mut arvane::Engine,
     run: &TextRun,
-    inherited: Option<&ComputedText>,
+    inherited: Option<&ComputedTextStyle>,
 ) -> TextMetrics {
     let style = run_style(engine, run, inherited);
     if !(style.font_size.is_finite() && style.font_size > 0.0) {
@@ -203,14 +206,14 @@ pub fn measure_run(
 /// `max_width` (`None`, or a width that is not finite: one line per hard
 /// line), in the style `measure_run` measures it with. The shaping is
 /// the engine's cached one (colors aside), so equal runs share one `Arc`
-/// and what `SceneCmd::Paragraph` draws is what was shaped. `None` when it
+/// and what `DrawCmd::Paragraph` draws is what was shaped. `None` when it
 /// cannot be shaped.
 pub fn shape_run(
     engine: &mut arvane::Engine,
     run: &TextRun,
-    inherited: Option<&ComputedText>,
-    max_width: Option<f32>,
-) -> Option<std::sync::Arc<kivact_types::protocol::ShapedText>> {
+    inherited: Option<&ComputedTextStyle>,
+    max_width: Option<f64>,
+) -> Option<std::sync::Arc<kivact_types::render::ShapedText>> {
     let style = run_style(engine, run, inherited);
     if !(style.font_size.is_finite() && style.font_size > 0.0) {
         return None;
@@ -223,8 +226,8 @@ pub fn shape_run(
 pub fn shape_inline_run(
     engine: &mut arvane::Engine,
     run: &TextRun,
-    inherited: Option<&ComputedText>,
-    max_width: Option<f32>,
+    inherited: Option<&ComputedTextStyle>,
+    max_width: Option<f64>,
     boxes: &[kivact_types::InlineBox],
 ) -> Option<kivact_types::ShapedInlineText> {
     let style = run_style(engine, run, inherited);

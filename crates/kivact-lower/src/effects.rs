@@ -20,7 +20,7 @@
 use kivact_types::Point;
 use kivact_types::{BlendMode, FilterOp, PaintProps, Rgba};
 
-use kivact_types::protocol::{ColorMatrix, Layer, LayerFilter};
+use kivact_types::render::{ColorMatrix, Layer, LayerFilter};
 
 /// How the colors of one node are drawn: faded by `alpha` (the opacity of
 /// the node and its ancestors that is not a group's) and through `matrix`
@@ -28,7 +28,7 @@ use kivact_types::protocol::{ColorMatrix, Layer, LayerFilter};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tint {
     /// Accumulated non-group opacity multiplier.
-    pub alpha: f32,
+    pub alpha: f64,
     /// Accumulated color transform, applied before the opacity multiplier.
     pub matrix: Option<ColorMatrix>,
 }
@@ -36,7 +36,7 @@ pub struct Tint {
 impl Tint {
     /// A shared color as drawn.
     pub fn color(&self, color: Rgba) -> Rgba {
-        self.arvane(crate::sanitize::color(color))
+        self.arvane(kivact_types::Rgba::sanitize(color))
     }
 
     /// Apply matrix and opacity to an already-lowered neutral color,
@@ -53,10 +53,7 @@ impl Tint {
     }
 
     /// A paint as drawn (every stop, a pattern's image through the matrix).
-    pub(crate) fn paint(
-        &self,
-        paint: kivact_types::protocol::Paint,
-    ) -> kivact_types::protocol::Paint {
+    pub(crate) fn paint(&self, paint: kivact_types::render::Paint) -> kivact_types::render::Paint {
         let paint = match &self.matrix {
             Some(m) => paint.filtered(m),
             None => paint,
@@ -78,7 +75,7 @@ impl Tint {
 }
 
 fn op_matrix(op: &FilterOp) -> Option<ColorMatrix> {
-    let finite = |v: f32, fallback: f32| if v.is_finite() { v } else { fallback };
+    let finite = |v: f64, fallback: f64| if v.is_finite() { v } else { fallback };
     Some(match *op {
         FilterOp::Brightness(a) => ColorMatrix::brightness(finite(a, 1.0)),
         FilterOp::Contrast(a) => ColorMatrix::contrast(finite(a, 1.0)),
@@ -100,21 +97,21 @@ pub fn color_matrix(ops: &[FilterOp]) -> Option<ColorMatrix> {
 }
 
 /// A blur's standard deviation (CSS `blur(px)`), sanitized.
-fn blur(px: f32) -> f32 {
+fn blur(px: f64) -> f64 {
     if px.is_finite() { px.max(0.0) } else { 0.0 }
 }
 
 /// How far the layer filters of `ops` can draw beyond what they filter.
-pub fn filter_reach(ops: &[FilterOp]) -> f32 {
+pub fn filter_reach(ops: &[FilterOp]) -> f64 {
     ops.iter()
         .map(|op| match *op {
-            FilterOp::Blur(px) => blur(px) * kivact_types::protocol::SHADOW_REACH,
+            FilterOp::Blur(px) => blur(px) * kivact_types::render::SHADOW_REACH,
             FilterOp::DropShadow {
                 offset, blur: b, ..
             } => {
                 let offset = offset.x.abs().max(offset.y.abs());
                 (if offset.is_finite() { offset } else { 0.0 })
-                    + blur(b) / 2.0 * kivact_types::protocol::SHADOW_REACH
+                    + blur(b) / 2.0 * kivact_types::render::SHADOW_REACH
             }
             _ => 0.0,
         })
@@ -151,7 +148,7 @@ pub fn layer_count(p: &PaintProps) -> u8 {
 pub fn layers(
     p: &PaintProps,
     mut outer: Layer,
-    opacity: f32,
+    opacity: f64,
     parent: Option<&ColorMatrix>,
 ) -> Vec<Layer> {
     outer.opacity = opacity;
@@ -178,7 +175,7 @@ pub fn layers(
                         }
                         .then_own(later),
                     };
-                    let finite = |v: f32| if v.is_finite() { v } else { 0.0 };
+                    let finite = |v: f64| if v.is_finite() { v } else { 0.0 };
                     filters.push(LayerFilter::DropShadow {
                         offset: Point {
                             x: finite(offset.x),
@@ -207,9 +204,9 @@ pub fn layers(
 /// blur and its color functions, then the ancestors' matrix (`parent`).
 pub fn backdrop(
     p: &PaintProps,
-    shape: kivact_types::protocol::Shape,
+    shape: kivact_types::scene::Shape,
     parent: Option<&ColorMatrix>,
-) -> Option<kivact_types::protocol::Backdrop> {
+) -> Option<kivact_types::render::Backdrop> {
     let ops = &p.effects.as_ref()?.backdrop;
     if ops.is_empty() {
         return None;
@@ -225,7 +222,7 @@ pub fn backdrop(
         alpha: 1.0,
         matrix: parent.copied(),
     };
-    Some(kivact_types::protocol::Backdrop {
+    Some(kivact_types::render::Backdrop {
         shape,
         std_dev,
         color_matrix: parent.then_own(color_matrix(ops)),
@@ -234,12 +231,12 @@ pub fn backdrop(
 
 /// How far a backdrop blurs what lies around its shape (what it reads
 /// beyond the shape).
-pub fn backdrop_reach(p: &PaintProps) -> f32 {
+pub fn backdrop_reach(p: &PaintProps) -> f64 {
     p.effects.as_ref().map_or(0.0, |e| {
         e.backdrop
             .iter()
             .map(|op| match *op {
-                FilterOp::Blur(px) => blur(px) * kivact_types::protocol::SHADOW_REACH,
+                FilterOp::Blur(px) => blur(px) * kivact_types::render::SHADOW_REACH,
                 _ => 0.0,
             })
             .sum()

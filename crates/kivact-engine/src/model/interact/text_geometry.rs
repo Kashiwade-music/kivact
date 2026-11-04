@@ -56,11 +56,11 @@ pub(crate) fn shape_static_text(
     host: &Model,
     id: NodeId,
     engine: &mut arvane::Engine,
-    area_width: f32,
+    area_width: f64,
 ) -> Option<std::sync::Arc<kivact_types::ShapedText>> {
     let node = host.node(id)?;
     let mut style = kivact_lower::assets::text_style(engine, &host.text_props(id));
-    style.color = kivact_types::protocol::TextStyle::default().color;
+    style.color = kivact_types::ComputedTextStyle::default().color;
     style.decoration.color = None;
     let width = Some(area_width.max(0.0) + 1.0);
     let content = node.content().unwrap_or("");
@@ -68,7 +68,7 @@ pub(crate) fn shape_static_text(
         engine.shape_glyphs(content, &style, width).ok()
     } else {
         let spans = crate::measure::leaf::rich_spans(engine, node.spans(), &style);
-        let text = kivact_types::protocol::RichText {
+        let text = kivact_types::render::RichText {
             text: content,
             spans: &spans,
         };
@@ -85,7 +85,7 @@ pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: Node
         return false;
     }
     let props = host.text_props(id);
-    let more = props.more();
+    let more = &props;
     if more.max_lines.is_none() && more.overflow != kivact_types::TextOverflow::Ellipsis {
         return false;
     }
@@ -94,7 +94,7 @@ pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: Node
 }
 
 /// The horizontal text scroll of a text input.
-pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f32 {
+pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f64 {
     host.editor_node(id).map_or(0.0, |n| n.scroll_x)
 }
 
@@ -275,16 +275,6 @@ pub(crate) fn ime_text(
 }
 
 /// The byte offset of the UTF-16 offset `units` in `text` (clamped to it).
-pub(crate) fn byte_of_utf16(text: &str, units: usize) -> usize {
-    let mut seen = 0;
-    for (i, c) in text.char_indices() {
-        if seen >= units {
-            return i;
-        }
-        seen += c.len_utf16();
-    }
-    text.len()
-}
 
 impl Model {
     /// Scroll every text input so its caret stays inside
@@ -304,7 +294,7 @@ impl Model {
                 .edit_lines(id, engine)
                 .filter(|(lines, _)| lines.shows_value())
                 .map_or((0.0, 0.0), |(lines, _)| {
-                    (lines.width(), lines.len() as f32 * lines.height())
+                    (lines.width(), lines.len() as f64 * lines.height())
                 });
             let max_scroll = (extent_x.max(caret.x) - width + 2.0).max(0.0);
             let mut scroll = input_scroll(self, id).clamp(0.0, max_scroll);
@@ -374,7 +364,7 @@ pub(crate) fn text_layout(
     let mut offset = lines.char_of_line(rows.start);
     for i in rows {
         let x = origin.x - scroll + lines.offset(value, i, origin.width, engine);
-        let y = origin.y + i as f32 * lines.height();
+        let y = origin.y + i as f64 * lines.height();
         let shift = |r: Rect| {
             mapped(Rect {
                 x: x + r.x,

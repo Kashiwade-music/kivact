@@ -6,7 +6,7 @@
 //! them may have changed (a `TextStyle` write on the node or an ancestor, a
 //! move to another parent, a reused slot). The entry is shared (`Rc`), so
 //! a reader keeps it without copying the style's family and features.
-use kivact_types::{ComputedText, Size};
+use kivact_types::{ComputedTextStyle, Size};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -14,7 +14,7 @@ use std::rc::Rc;
 pub(crate) struct MeasureColumns {
     pub(crate) natural: Vec<Cell<Option<Size>>>,
     pub(crate) extents: Vec<RefCell<Option<Box<TextExtents>>>>,
-    computed_text: Vec<RefCell<Option<Rc<ComputedText>>>>,
+    computed_text: Vec<RefCell<Option<Rc<ComputedTextStyle>>>>,
 }
 impl MeasureColumns {
     pub(crate) fn push(&mut self) {
@@ -29,12 +29,12 @@ impl MeasureColumns {
     }
 
     /// The resolved text style of `slot`, if one is kept.
-    pub(crate) fn computed_text(&self, slot: usize) -> Option<Rc<ComputedText>> {
+    pub(crate) fn computed_text(&self, slot: usize) -> Option<Rc<ComputedTextStyle>> {
         self.computed_text[slot].borrow().clone()
     }
 
     /// Keep `text` as the resolved text style of `slot`.
-    pub(crate) fn set_computed_text(&self, slot: usize, text: Rc<ComputedText>) {
+    pub(crate) fn set_computed_text(&self, slot: usize, text: Rc<ComputedTextStyle>) {
         *self.computed_text[slot].borrow_mut() = Some(text);
     }
 
@@ -45,7 +45,7 @@ impl MeasureColumns {
 }
 #[derive(Clone, Debug)]
 pub(crate) struct TextExtents {
-    pub(crate) style: kivact_types::protocol::TextStyle,
+    pub(crate) style: kivact_types::ComputedTextStyle,
     pub(crate) single: Option<kivact_types::TextMetrics>,
-    pub(crate) wrapped: Vec<(f32, Option<kivact_types::TextMetrics>)>,
+    pub(crate) wrapped: Vec<(f64, Option<kivact_types::TextMetrics>)>,
 }

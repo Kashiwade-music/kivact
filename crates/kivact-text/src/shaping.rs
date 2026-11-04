@@ -1,9 +1,10 @@
 //! Role: Lazy shaping, editing geometry, coloring and bounded run publication.
 
 use crate::EditLines;
-use crate::pieces::{floor, shape_long};
+use crate::pieces::shape_long;
 use crate::records::{Colored, Shape, Shown};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
+use kivact_types::text_utf::floor_char_boundary as floor;
 use kivact_types::{Point, Rect};
 use std::borrow::Cow;
 use std::ops::Range;
@@ -88,19 +89,19 @@ impl EditLines {
 
     /// How far apart lines are.
     #[inline]
-    pub fn height(&self) -> f32 {
+    pub fn height(&self) -> f64 {
         self.height
     }
 
     /// The widest shaped line's width.
-    pub fn width(&self) -> f32 {
+    pub fn width(&self) -> f64 {
         self.width
     }
 
     /// The natural width of the lines: the widest of the lines that
     /// start in the first 16 KiB bytes of `text` (shaped now).
-    pub fn measured_width(&mut self, text: &str, engine: &mut arvane::Engine) -> f32 {
-        let mut width = 0.0f32;
+    pub fn measured_width(&mut self, text: &str, engine: &mut arvane::Engine) -> f64 {
+        let mut width = 0.0f64;
         let mut i = 0;
         while i < self.len() && (i == 0 || self.range(i).start < MEASURED) {
             self.ensure(text, i, engine);
@@ -112,7 +113,7 @@ impl EditLines {
 
     /// Line `i`'s baseline below its top (a line without text has a
     /// space's).
-    pub fn baseline(&mut self, text: &str, i: usize, engine: &mut arvane::Engine) -> f32 {
+    pub fn baseline(&mut self, text: &str, i: usize, engine: &mut arvane::Engine) -> f64 {
         if self.line(i).is_none_or(|(l, _)| l.content == l.start) {
             return self.blank;
         }
@@ -127,7 +128,7 @@ impl EditLines {
         text: &str,
         i: usize,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
+    ) -> Option<Arc<kivact_types::render::ShapedText>> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shape.shaped().cloned()
     }
@@ -135,7 +136,7 @@ impl EditLines {
     /// How far line `i` of `text` starts into a box `width` wide (its
     /// alignment).
     #[inline]
-    pub fn offset(&mut self, text: &str, i: usize, width: f32, engine: &mut arvane::Engine) -> f32 {
+    pub fn offset(&mut self, text: &str, i: usize, width: f64, engine: &mut arvane::Engine) -> f64 {
         if matches!(
             self.align,
             kivact_types::TextAlign::Start | kivact_types::TextAlign::Justify
@@ -147,7 +148,7 @@ impl EditLines {
     }
 
     /// How far a line `line` wide starts into a box `width` wide.
-    pub(crate) fn aligned(&self, line: f32, width: f32) -> f32 {
+    pub(crate) fn aligned(&self, line: f64, width: f64) -> f64 {
         let free = (width - line).max(0.0);
         match self.align {
             kivact_types::TextAlign::Center => free / 2.0,
@@ -158,8 +159,8 @@ impl EditLines {
 
     /// The lines that reach the band from `top` to `bottom` below the
     /// first line's top.
-    pub fn rows(&self, top: f32, bottom: f32) -> Range<usize> {
-        let h = self.height.max(f32::EPSILON);
+    pub fn rows(&self, top: f64, bottom: f64) -> Range<usize> {
+        let h = self.height.max(f64::EPSILON);
         let len = self.len();
         let first = ((top / h).floor().max(0.0) as usize).min(len);
         let last = ((bottom / h).ceil().max(0.0) as usize).min(len);
@@ -189,7 +190,7 @@ impl EditLines {
         &mut self,
         text: &str,
         at: usize,
-        width: f32,
+        width: f64,
         engine: &mut arvane::Engine,
     ) -> Rect {
         if !self.shows_value() {
@@ -201,7 +202,7 @@ impl EditLines {
             };
         }
         let i = self.line_of(at);
-        let y = i as f32 * self.height;
+        let y = i as f64 * self.height;
         let x = self.offset(text, i, width, engine);
         let scalar = self.scalar(text, i, at);
         match self
@@ -233,14 +234,14 @@ impl EditLines {
         text: &str,
         i: usize,
         (from, to): (usize, usize),
-        width: f32,
+        width: f64,
         engine: &mut arvane::Engine,
     ) -> Vec<Rect> {
         if !self.shows_value() {
             return Vec::new();
         }
         let (a, b) = (self.scalar(text, i, from), self.scalar(text, i, to));
-        let (x, y) = (self.offset(text, i, width, engine), i as f32 * self.height);
+        let (x, y) = (self.offset(text, i, width, engine), i as f64 * self.height);
         let Some(shaped) = self.shaped(text, i, engine).filter(|_| a < b) else {
             return Vec::new();
         };
@@ -262,8 +263,8 @@ impl EditLines {
         &mut self,
         text: &str,
         i: usize,
-        x: f32,
-        width: f32,
+        x: f64,
+        width: f64,
         engine: &mut arvane::Engine,
     ) -> usize {
         if !self.shows_value() {
@@ -297,12 +298,12 @@ impl EditLines {
     pub fn offset_at(
         &mut self,
         text: &str,
-        x: f32,
-        y: f32,
-        width: f32,
+        x: f64,
+        y: f64,
+        width: f64,
         engine: &mut arvane::Engine,
     ) -> usize {
-        let i = ((y / self.height.max(f32::EPSILON)).floor().max(0.0) as usize)
+        let i = ((y / self.height.max(f64::EPSILON)).floor().max(0.0) as usize)
             .min(self.len().saturating_sub(1));
         self.nearest(text, i, x, width, engine)
     }
@@ -416,7 +417,7 @@ impl EditLines {
         i: usize,
         color: kivact_types::Rgba,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
+    ) -> Option<Arc<kivact_types::render::ShapedText>> {
         let content = self.content(i)?;
         let mut style = self.key.style.clone();
         style.color = color;
@@ -430,19 +431,19 @@ impl EditLines {
         let shown = display(&text[content], false);
         let shaped = shape_long(&shown, |r| {
             // The spans of the piece `r`, from its start.
-            let spans: Vec<kivact_types::protocol::TextSpan> = colored
+            let spans: Vec<kivact_types::render::TextSpan> = colored
                 .spans
                 .iter()
                 .filter(|(range, _)| range.start < r.end && range.end > r.start)
-                .map(|(range, color)| kivact_types::protocol::TextSpan {
+                .map(|(range, color)| kivact_types::render::TextSpan {
                     range: range.start.max(r.start) - r.start..range.end.min(r.end) - r.start,
-                    style: kivact_types::protocol::SpanStyle {
-                        color: Some(kivact_lower::sanitize::color(*color)),
+                    style: kivact_types::render::SpanStyle {
+                        color: Some(kivact_types::Rgba::sanitize(*color)),
                         ..Default::default()
                     },
                 })
                 .collect();
-            let rich = kivact_types::protocol::RichText {
+            let rich = kivact_types::render::RichText {
                 text: &shown[r],
                 spans: &spans,
             };
@@ -497,7 +498,7 @@ impl EditLines {
         text: &str,
         caret: usize,
         at: Point,
-        width: f32,
+        width: f64,
         ids: &mut dyn FnMut() -> u64,
         engine: &mut arvane::Engine,
     ) -> Published {
@@ -520,13 +521,13 @@ impl EditLines {
         text: &str,
         i: usize,
         at: Point,
-        width: f32,
+        width: f64,
         ids: &mut dyn FnMut() -> u64,
         engine: &mut arvane::Engine,
     ) -> Arc<kivact_types::SemanticsTextRun> {
         let origin = Point {
             x: at.x + self.offset(text, i, width, engine),
-            y: at.y + i as f32 * self.height,
+            y: at.y + i as f64 * self.height,
         };
         let height = self.height;
         let id = self.run_id(i, ids);
@@ -604,11 +605,11 @@ impl Lines for Shaping<'_> {
     fn content(&self, i: usize) -> Option<Range<usize>> {
         self.lines.borrow().0.content(i)
     }
-    fn caret(&self, text: &str, at: usize, width: f32) -> Rect {
+    fn caret(&self, text: &str, at: usize, width: f64) -> Rect {
         let (lines, engine) = &mut *self.lines.borrow_mut();
         lines.caret(text, at, width, engine)
     }
-    fn nearest(&self, text: &str, i: usize, x: f32, width: f32) -> usize {
+    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> usize {
         let (lines, engine) = &mut *self.lines.borrow_mut();
         lines.nearest(text, i, x, width, engine)
     }

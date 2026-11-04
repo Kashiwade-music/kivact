@@ -2,10 +2,10 @@
 use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
-use kivact_types::protocol::DrawCommand as D;
-use kivact_types::{Rect, SceneCmd, Size};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{DrawCmd, Rect, Size};
 impl Context<'_> {
-    pub(super) fn paint_raster(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
+    pub(super) fn paint_raster(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
         let rect = |r: Rect| Rect {
             x: origin.x + r.x,
@@ -15,7 +15,7 @@ impl Context<'_> {
         };
         let tint = &state.current_tint;
         match cmd {
-            SceneCmd::Pixels {
+            DrawCmd::Pixels {
                 image,
                 rect: r,
                 source,
@@ -23,7 +23,7 @@ impl Context<'_> {
                 pixelated,
             } => {
                 state.out.push(D::ImageSampled {
-                    image: kivact_types::protocol::ImageData {
+                    image: kivact_types::scene::Pixels {
                         width: image.width,
                         height: image.height,
                         rgba: image.rgba.clone(),
@@ -37,7 +37,7 @@ impl Context<'_> {
                 true
             }
             #[cfg(feature = "gpu-interop")]
-            SceneCmd::External {
+            DrawCmd::External {
                 frame,
                 rect: r,
                 source,
@@ -60,8 +60,8 @@ impl Context<'_> {
             }
             // An external frame draws only where it was imported.
             #[cfg(not(feature = "gpu-interop"))]
-            SceneCmd::External { .. } => true,
-            SceneCmd::ImagePart {
+            DrawCmd::External { .. } => true,
+            DrawCmd::ImagePart {
                 source,
                 rect: r,
                 crop,
@@ -85,14 +85,14 @@ impl Context<'_> {
                 if let Some((image, _)) = pixels {
                     let source = crop.map(|crop| {
                         let n = natural.unwrap_or(Size {
-                            width: image.width as f32,
-                            height: image.height as f32,
+                            width: image.width as f64,
+                            height: image.height as f64,
                         });
                         Rect {
-                            x: crop.x / n.width * image.width as f32,
-                            y: crop.y / n.height * image.height as f32,
-                            width: crop.width / n.width * image.width as f32,
-                            height: crop.height / n.height * image.height as f32,
+                            x: crop.x / n.width * image.width as f64,
+                            y: crop.y / n.height * image.height as f64,
+                            width: crop.width / n.width * image.width as f64,
+                            height: crop.height / n.height * image.height as f64,
                         }
                     });
                     state.out.push(D::ImageSampled {
@@ -106,7 +106,7 @@ impl Context<'_> {
                 }
                 true
             }
-            SceneCmd::Image { source, rect: r } => {
+            DrawCmd::Image { source, rect: r } => {
                 let r = rect(*r);
                 let device = arvane::asset::PixelSize::of(
                     Size {
@@ -137,7 +137,7 @@ impl Context<'_> {
 /// `z`: `z` rounded up to a quarter step of powers of two (exactly 1
 /// without a transform), so a zooming subtree rasterizes its SVGs again
 /// only every 19 %, never blurrier than drawn.
-pub fn raster_zoom(z: f32) -> f32 {
+pub fn raster_zoom(z: f64) -> f64 {
     if z == 1.0 || !z.is_finite() || z <= 0.0 {
         return 1.0;
     }

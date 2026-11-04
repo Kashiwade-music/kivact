@@ -1,7 +1,6 @@
 //! Role: Bounded IME excerpts cut at grapheme and CRLF boundaries.
 
 use crate::EditLines;
-use crate::pieces::floor;
 use std::ops::Range;
 use unicode_segmentation::GraphemeCursor;
 
@@ -58,7 +57,7 @@ fn grapheme_ceil(s: &str, x: usize) -> usize {
 
 /// The largest grapheme boundary of `s` not after `x`.
 fn grapheme_floor(s: &str, x: usize) -> usize {
-    let x = floor(s, x);
+    let x = kivact_types::text_utf::floor_char_boundary(s, x);
     let mut cursor = GraphemeCursor::new(x, s.len(), true);
     match cursor.is_boundary(s, 0) {
         Ok(true) => x,

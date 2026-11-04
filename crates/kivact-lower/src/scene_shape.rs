@@ -2,19 +2,15 @@
 use kivact_types as types;
 
 /// Resolve borrowed shared geometry into an owned neutral logical outline.
-pub fn shape(shape: &types::DrawingShape) -> kivact_types::protocol::Shape {
+pub fn shape(shape: &types::DrawingShape) -> kivact_types::scene::Shape {
     match shape {
         types::DrawingShape::Basic { shape, rect } => super::shape::clip_path(shape, *rect),
         types::DrawingShape::Rounded { rect, corners } => {
             super::shape::BoxShape::of(*rect, corners).shape()
         }
-        types::DrawingShape::Path { cmds, even_odd } => kivact_types::protocol::Shape::Path {
-            cmds: cmds.clone(),
-            rule: if *even_odd {
-                kivact_types::FillRule::EvenOdd
-            } else {
-                kivact_types::FillRule::NonZero
-            },
+        types::DrawingShape::Path { path, rule } => kivact_types::scene::Shape::Path {
+            cmds: path.cmds.clone(),
+            rule: *rule,
         },
     }
 }

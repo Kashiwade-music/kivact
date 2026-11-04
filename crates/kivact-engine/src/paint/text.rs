@@ -5,7 +5,7 @@ use kivact_lower::context::Context;
 use kivact_lower::effects::Tint;
 use kivact_lower::glyphs::{Colors, push_text};
 use kivact_lower::shape::BoxShape;
-use kivact_types::{Fill, FillLayer, NodeId, Point, Rect, Scene};
+use kivact_types::{DrawList, Fill, FillLayer, NodeId, Point, Rect};
 
 impl Model {
     /// The window's painting context: its assets and raster scale. A
@@ -30,7 +30,7 @@ impl Model {
         layer: &FillLayer,
         area: Rect,
         origin: Point,
-    ) -> Option<kivact_types::protocol::Paint> {
+    ) -> Option<kivact_types::render::Paint> {
         self.painting().layer_paint(layer, area, origin)
     }
 
@@ -43,7 +43,7 @@ impl Model {
         &self,
         id: NodeId,
         layer: u8,
-        scene: &std::sync::Arc<Scene>,
+        scene: &std::sync::Arc<DrawList>,
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
@@ -52,7 +52,7 @@ impl Model {
         let inherited = scene
             .cmds
             .iter()
-            .any(|cmd| matches!(cmd, kivact_types::SceneCmd::Text(run) if kivact_lower::glyphs::inherits(run)))
+            .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if kivact_lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
         let context = self.painting();
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
@@ -92,8 +92,8 @@ impl Model {
         let width = Some(area.width.max(0.0) + 1.0);
         let (shaped, colors) = if spans.is_empty() {
             // Shaped without a color: a color change (a hover) reuses it.
-            style.color = kivact_types::protocol::TextStyle::default().color;
-            let deco = match props.more().decoration.color {
+            style.color = kivact_types::ComputedTextStyle::default().color;
+            let deco = match props.decoration.color {
                 Some(own) => tint.color(own),
                 None => color,
             };
@@ -105,14 +105,14 @@ impl Model {
             (engine.shape_glyphs(content, &style, width), colors)
         } else {
             style.color = color;
-            style.decoration.color = props.more().decoration.color.map(|c| tint.color(c));
+            style.decoration.color = props.decoration.color.map(|c| tint.color(c));
             let rich = kivact_lower::conversion::spans(
                 spans,
                 style.font_size,
                 |c| tint.color(c),
                 |f| kivact_lower::assets::family(engine, Some(f)),
             );
-            let text = kivact_types::protocol::RichText {
+            let text = kivact_types::render::RichText {
                 text: content,
                 spans: &rich,
             };
@@ -157,7 +157,7 @@ impl Model {
             &shaped,
             origin,
             &colors,
-            &props.more().shadows,
+            &props.shadows,
             tint,
             self.paint.raster.get(),
         );

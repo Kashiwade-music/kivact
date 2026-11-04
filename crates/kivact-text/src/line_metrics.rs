@@ -2,7 +2,7 @@
 
 /// Line height of `style` as Arvane's shaper lays lines out: the height of
 /// the caret of an empty text (the font size if `style` cannot be shaped).
-pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::protocol::TextStyle) -> f32 {
+pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::ComputedTextStyle) -> f64 {
     engine
         .shape("", style, None)
         .ok()
@@ -15,6 +15,6 @@ pub fn line_height(engine: &mut arvane::Engine, style: &kivact_types::protocol::
 /// lower than the line (negative `height - line`) overflows it evenly on
 /// both sides. Callers can share this value for content-box placement and
 /// measured baseline positioning.
-pub fn line_offset(height: f32, line: f32) -> f32 {
+pub fn line_offset(height: f64, line: f64) -> f64 {
     (height - line) / 2.0
 }

@@ -8,7 +8,7 @@ use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 
 /// The pointer group: the state machine's tracks (with each pointer's last
 /// position and its gesture), the file drop target and the cursor last
-/// shown. The buttons a pointer holds are the shell's (`PointerInput::buttons`),
+/// shown. The buttons a pointer holds are the shell's (`PointerSample::buttons`),
 /// kept once in its track's source.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
@@ -203,14 +203,15 @@ impl Track {
 /// One pointer: the mouse, or a touch or pen contact.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct PointerSource {
+    pub(crate) time_ns: u64,
     /// The pointer's id (the mouse is 1).
     pub(crate) id: PointerId,
     /// Mouse, touch or pen.
     pub(crate) kind: PointerKind,
     /// The pressure at its last event, when reported.
-    pub(crate) pressure: Option<f32>,
+    pub(crate) pressure: Option<f64>,
     /// The pen's tilt at its last event, when reported.
-    pub(crate) tilt: Option<(f32, f32)>,
+    pub(crate) tilt: Option<(f64, f64)>,
     /// The buttons held after its last event (none after a `Cancel`).
     pub(crate) buttons: PointerButtons,
     /// Whether it is the primary pointer of its kind (Pointer Events'
@@ -225,6 +226,7 @@ impl PointerSource {
     /// The mouse.
     pub(crate) const MOUSE: PointerSource = PointerSource {
         id: PointerId::MOUSE,
+        time_ns: 0,
         kind: PointerKind::Mouse,
         pressure: None,
         tilt: None,
@@ -238,8 +240,8 @@ impl PointerSource {
 pub(crate) struct ScrollDrag {
     pub(crate) node: NodeId,
     pub(crate) vertical: bool,
-    pub(crate) pointer: f32,
-    pub(crate) offset: f32,
+    pub(crate) pointer: f64,
+    pub(crate) offset: f64,
 }
 
 impl PointerState {

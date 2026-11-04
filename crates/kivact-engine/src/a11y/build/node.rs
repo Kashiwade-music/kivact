@@ -62,7 +62,7 @@ impl Model {
         id: types::NodeId,
         offset: types::Point,
         clipped: &BTreeSet<types::NodeId>,
-        out: &mut Vec<kivact_types::protocol::SemanticsNode>,
+        out: &mut Vec<kivact_types::render::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
         engine: &mut a::Engine,
     ) {
@@ -81,7 +81,7 @@ impl Model {
         let transform = if n.place.transformed || n.is_layer() {
             self.a11y_transform(id, n.is_layer(), bounds, offset)
         } else {
-            kivact_types::protocol::Transform::IDENTITY
+            kivact_types::Transform::IDENTITY
         };
         let children: Vec<kivact_types::SemanticsId> = self
             .tree()
@@ -116,13 +116,12 @@ impl Model {
             .collect();
         let mut extras = n
             .semantics()
-            .and_then(|s| s.accessibility.as_deref())
             .map(|props| Box::new(properties(props, |t| self.semantic_target(t))));
         let invalid = n.semantics().and_then(|s| s.invalid).unwrap_or(false);
         if invalid || n.read_only() || n.password() {
             let props = extras.get_or_insert_with(Default::default);
-            props.invalid = invalid;
-            props.read_only |= n.read_only();
+            props.invalid = Some(invalid);
+            props.read_only = Some(props.read_only.unwrap_or(false) || n.read_only());
             props.protected = n.password();
         }
         if let Some(props) = &mut extras {
@@ -134,41 +133,38 @@ impl Model {
                 props,
             );
         }
-        let authored_text = n
-            .semantics()
-            .and_then(|s| s.accessibility.as_deref())
-            .and_then(|props| props.text.clone());
-        let mut output = kivact_types::protocol::SemanticsNode {
-            properties: extras,
+        let authored_text = n.semantics().and_then(|props| props.text.clone());
+        let mut output = kivact_types::render::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
-            role: exposed.role,
-            children,
-            label: exposed.name,
-            description: n
-                .semantics()
-                .and_then(|s| s.description.clone())
-                .unwrap_or_default(),
-            // An editor's text is published as its text runs (around its
-            // caret and what it shows: `editing_semantics`), not copied
-            // and compared as a value.
-            value: match self.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-            {
-                Some(_) => None,
-                None => n.semantics().and_then(|s| s.value.clone()),
+            children: children,
+            bounds: bounds,
+            scroll: scroll,
+            transform: transform,
+            semantics: kivact_types::Semantics {
+                role: Some(exposed.role),
+                name: Some(exposed.name),
+                description: Some(
+                    n.semantics()
+                        .and_then(|s| s.description.clone())
+                        .unwrap_or_default(),
+                ),
+                value_text: match self.editors[n.index.0]
+                    .as_deref()
+                    .map(|editor| editor.editor.state())
+                {
+                    Some(_) => None,
+                    None => n.semantics().and_then(|s| s.value_text.clone()),
+                },
+                disabled: disabled,
+                hidden: hidden,
+                focusable: focusable,
+                checked: n.semantics().and_then(|s| s.checked),
+                selected: Some(n.selected()),
+                expanded: n.semantics().and_then(|s| s.expanded),
+                test_id: n.semantics().and_then(|s| s.test_id.clone()),
+                actions: Some(actions),
+                ..*extras.unwrap_or_default()
             },
-            bounds,
-            scroll,
-            transform,
-            disabled,
-            hidden,
-            focusable,
-            checked: n.semantics().and_then(|s| s.checked),
-            selected: n.selected(),
-            expanded: n.semantics().and_then(|s| s.expanded),
-            test_id: n.semantics().and_then(|s| s.test_id.clone()),
-            actions,
         };
         if self.node(id).is_some_and(|n| {
             self.editors[n.index.0]
@@ -178,11 +174,11 @@ impl Model {
                 && !n.password()
         }) {
             let text = self.editing_semantics(id, offset, engine);
-            output.properties.get_or_insert_with(Default::default).text = Some(text);
+            output.semantics.text = Some(text);
         } else if let Some(authored) = authored_text {
             // A node that draws and edits its own text publishes its own runs.
             let text = self.authored_semantics(id, &authored, bounds);
-            output.properties.get_or_insert_with(Default::default).text = text;
+            output.semantics.text = text;
         }
         let mut leaves = Vec::new();
         for (region_id, region) in scene_regions {
@@ -195,17 +191,14 @@ impl Model {
                 self.region_actions(id, region_id)
             };
             let region_focusable = !hidden
-                && !region.hidden
+                && !region.semantics.hidden
                 && !disabled
-                && !region.disabled
-                && region.focusable
+                && !region.semantics.disabled
+                && region.semantics.focusable
                 && self.in_scope(id);
-            let mut props = region
-                .properties
-                .as_deref()
-                .map(|props| properties(props, |t| self.semantic_target(t)));
-            if region.invalid {
-                props.get_or_insert_with(Default::default).invalid = true;
+            let mut props = Some(properties(&region.semantics, |t| self.semantic_target(t)));
+            if region.semantics.invalid.unwrap_or(false) {
+                props.get_or_insert_with(Default::default).invalid = Some(true);
             }
             if let Some(props) = &mut props {
                 self.validate_relations(
@@ -216,14 +209,9 @@ impl Model {
                     props,
                 );
             }
-            leaves.push(kivact_types::protocol::SemanticsNode {
-                properties: props.map(Box::new),
+            leaves.push(kivact_types::render::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
-                role: region.role,
                 children: Vec::new(),
-                label: region.name,
-                description: region.description.unwrap_or_default(),
-                value: region.value,
                 bounds: kivact_types::Rect {
                     x: bounds.x + region.rect.x,
                     y: bounds.y + region.rect.y,
@@ -231,15 +219,22 @@ impl Model {
                     height: region.rect.height,
                 },
                 scroll: kivact_types::Point::default(),
-                transform: kivact_types::protocol::Transform::IDENTITY,
-                disabled: disabled || region.disabled,
-                hidden: hidden || region.hidden,
-                focusable: region_focusable,
-                checked: region.checked,
-                selected: region.selected,
-                expanded: region.expanded,
-                test_id: None,
-                actions: offered,
+                transform: kivact_types::Transform::IDENTITY,
+                semantics: kivact_types::Semantics {
+                    role: region.semantics.role,
+                    name: region.semantics.name,
+                    description: Some(region.semantics.description.unwrap_or_default()),
+                    value_text: region.semantics.value_text,
+                    disabled: disabled || region.semantics.disabled,
+                    hidden: hidden || region.semantics.hidden,
+                    focusable: region_focusable,
+                    checked: region.semantics.checked,
+                    selected: region.semantics.selected,
+                    expanded: region.semantics.expanded,
+                    test_id: None,
+                    actions: Some(offered),
+                    ..(props).unwrap_or_default()
+                },
             });
         }
         out.push(output);
@@ -259,21 +254,21 @@ impl Model {
         layer: bool,
         bounds: types::Rect,
         offset: types::Point,
-    ) -> kivact_types::protocol::Transform {
+    ) -> kivact_types::Transform {
         let host = &self;
         let own = host.transform_at(id, bounds);
         if !layer {
-            return own.unwrap_or(kivact_types::protocol::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Transform::IDENTITY);
         }
         let ancestors: Vec<types::NodeId> =
             host.tree().chain(Some(id)).into_iter().skip(1).collect();
         let transformed = |x: &types::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
         if !ancestors.iter().any(transformed) {
-            return own.unwrap_or(kivact_types::protocol::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Transform::IDENTITY);
         }
         // What the platform maps it by: each ancestor's scroll, then
         // transform, nearest first.
-        let mut around = kivact_types::protocol::Transform::IDENTITY;
+        let mut around = kivact_types::Transform::IDENTITY;
         for x in &ancestors {
             let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
             let above = self.scroll_above(*x);
@@ -283,14 +278,14 @@ impl Model {
                 y: r.y + above.y,
                 ..r
             };
-            around = around.then(kivact_types::protocol::Transform::translate(-s.x, -s.y));
+            around = around.then(kivact_types::Transform::translate(-s.x, -s.y));
             if let Some(t) = host.transform_at(*x, content) {
                 around = around.then(t);
             }
         }
         // Where it is shown: its content box moved back by the scrolls
         // above it, then its own transform at its placed origin.
-        let mut shown = kivact_types::protocol::Transform::translate(-offset.x, -offset.y);
+        let mut shown = kivact_types::Transform::translate(-offset.x, -offset.y);
         if let Some(r) = host.rect(id)
             && let Some(t) = host.transform_at(id, r)
         {
@@ -298,7 +293,7 @@ impl Model {
         }
         match around.invert() {
             Some(back) => shown.then(back),
-            None => kivact_types::protocol::Transform::IDENTITY,
+            None => kivact_types::Transform::IDENTITY,
         }
     }
 
@@ -374,44 +369,16 @@ impl Model {
 /// technology never gets an invalid pair. The other values pass through as
 /// they are.
 pub(super) fn properties(
-    p: &types::SemanticsProperties,
+    p: &kivact_types::Semantics<kivact_types::FocusTarget>,
     resolve: impl Fn(types::FocusTarget) -> Option<kivact_types::SemanticsId>,
-) -> kivact_types::protocol::SemanticsProperties {
-    // Level and position are counted from 1, so 0 means "not set". A position
-    // past the set's size is not a valid pair: the size is published, the
-    // position is not.
-    let level = p.level.filter(|&v| v != 0);
-    let pos_in_set = p
+) -> kivact_types::Semantics<kivact_types::SemanticsId> {
+    let mut mapped = p.clone().map_relations(resolve);
+    mapped.level = mapped.level.filter(|&v| v != 0);
+    mapped.pos_in_set = mapped
         .pos_in_set
-        .filter(|&v| v != 0 && p.set_size.is_none_or(|size| v <= size));
-    kivact_types::protocol::SemanticsProperties {
-        text: None,
-        value_min: p.value_min,
-        value_max: p.value_max,
-        value_now: p.value_now,
-        live_region: p.live_region,
-        sort: p.sort,
-        orientation: p.orientation,
-        active_descendant: p.active_descendant.and_then(&resolve),
-        described_by: p
-            .described_by
-            .iter()
-            .filter_map(|id| resolve(*id))
-            .collect(),
-        controls: p.controls.iter().filter_map(|id| resolve(*id)).collect(),
-        labelled_by: p.labelled_by.iter().filter_map(|id| resolve(*id)).collect(),
-        level,
-        set_size: p.set_size,
-        pos_in_set,
-        multiselectable: p.multiselectable,
-        busy: p.busy.unwrap_or(false),
-        required: p.required.unwrap_or(false),
-        read_only: p.read_only.unwrap_or(false),
-        has_popup: p.has_popup,
-        current_item: p.current_item,
-        invalid: false,
-        protected: false,
-    }
+        .filter(|&v| v != 0 && mapped.set_size.is_none_or(|size| v <= size));
+    mapped.text = None;
+    mapped
 }
 
 /// A clipping container with a list-like role, whose clipped rows a
@@ -428,28 +395,20 @@ pub(super) fn structural(
     children: Vec<kivact_types::SemanticsId>,
     bounds: kivact_types::Rect,
     scroll: kivact_types::Point,
-    transform: kivact_types::protocol::Transform,
+    transform: kivact_types::Transform,
     hidden: bool,
-) -> kivact_types::protocol::SemanticsNode {
-    kivact_types::protocol::SemanticsNode {
-        properties: None,
+) -> kivact_types::render::SemanticsNode {
+    kivact_types::render::SemanticsNode {
         id: kivact_types::SemanticsId(id.0),
-        role: kivact_types::Role::Generic,
         children,
-        label: String::new(),
-        description: String::new(),
-        value: None,
         bounds,
         scroll,
         transform,
-        disabled: false,
-        hidden,
-        focusable: false,
-        checked: None,
-        selected: false,
-        expanded: None,
-        test_id: None,
-        actions: Vec::new(),
+        semantics: kivact_types::Semantics {
+            role: Some(kivact_types::Role::Generic),
+            hidden,
+            ..Default::default()
+        },
     }
 }
 

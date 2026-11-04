@@ -6,20 +6,20 @@ use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{ChildIndex, Entry, Look, Step};
 use crate::tree::node::HostNode;
-use kivact_types::protocol::ColorMatrix;
+use kivact_types::render::ColorMatrix;
 use kivact_types::{NodeId, Point, Rect};
 use std::collections::{HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device
 /// pixel at every scale from 0.5 up (and `1 / scale` below).
-const MARGIN: f32 = 2.0;
+const MARGIN: f64 = 2.0;
 
 /// Containers with at least this many children keep a [`ChildIndex`].
 const INDEXED: usize = 32;
 
 struct Walk<'a> {
     host: &'a Model,
-    margin: f32,
+    margin: f64,
     indices: &'a mut HashMap<NodeId, ChildIndex>,
     /// The layout pass the tree is laid out by.
     pass: u64,
@@ -31,7 +31,7 @@ struct Walk<'a> {
     /// The listed nodes' color matrices.
     matrices: Vec<ColorMatrix>,
     /// The listed transformed nodes' transforms.
-    transforms: Vec<kivact_types::protocol::Transform>,
+    transforms: Vec<kivact_types::Transform>,
 }
 
 impl Walk<'_> {
@@ -42,7 +42,7 @@ impl Walk<'_> {
         &mut self,
         id: NodeId,
         origin: Point,
-        parent_alpha: f32,
+        parent_alpha: f64,
         matrix: Option<u32>,
         clip: Rect,
     ) {
@@ -188,7 +188,7 @@ impl Walk<'_> {
         id: NodeId,
         n: &HostNode,
         base: Point,
-        alpha: f32,
+        alpha: f64,
         matrix: Option<u32>,
         clip: Rect,
     ) {
@@ -259,7 +259,7 @@ impl Model {
         let window = self.window();
         let key = Some((window, self.paint.scale));
         if list.stale || list.built_for != key {
-            let margin = MARGIN.max(1.0 / self.paint.scale.max(f32::MIN_POSITIVE));
+            let margin = MARGIN.max(1.0 / self.paint.scale.max(f64::MIN_POSITIVE));
             let reach = margin + list.backdrop_reach;
             let viewport = Rect {
                 x: -reach,

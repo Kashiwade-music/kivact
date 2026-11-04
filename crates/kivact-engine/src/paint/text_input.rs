@@ -3,7 +3,7 @@
 use crate::model::Model;
 use crate::model::interact::{text_geometry, visual};
 use kivact_lower::effects::Tint;
-use kivact_types::protocol::DrawCommand as D;
+use kivact_types::render::RenderCmd as D;
 use kivact_types::{NodeId, Point, Rect, Rgba};
 
 impl Model {
@@ -71,7 +71,7 @@ impl Model {
                 }
                 out
             };
-            let fill = kivact_types::protocol::Paint::Solid(match props.more().selection_color {
+            let fill = kivact_types::render::Paint::Solid(match props.selection_color {
                 Some(own) => tint.color(own),
                 None => tint.arvane(Rgba {
                     r: 0.2,
@@ -89,8 +89,8 @@ impl Model {
             let marked = edit.marked().map(|m| spans(m, engine));
             out.push(D::Rect {
                 rect: place(lines.caret(value, edit.caret(), area.width, engine)),
-                fill: kivact_types::protocol::Paint::Solid(
-                    tint.color(props.more().caret_color.unwrap_or(color)),
+                fill: kivact_types::render::Paint::Solid(
+                    tint.color(props.caret_color.unwrap_or(color)),
                 ),
             });
             if let Some(marked) = marked {
@@ -115,7 +115,6 @@ impl Model {
             color
         } else {
             props
-                .more()
                 .placeholder_color
                 .unwrap_or_else(|| color.with_alpha_mul(0.5))
         };
@@ -127,11 +126,11 @@ impl Model {
             Some(colors) => lines.color(shown, colors, rows.end),
             None => lines.uncolor(),
         }
-        let base = kivact_lower::sanitize::color(color);
+        let base = kivact_types::Rgba::sanitize(color);
         for i in rows {
             let (x, y) = (
                 left + lines.offset(shown, i, area.width, engine),
-                line.y + i as f32 * lines.height(),
+                line.y + i as f64 * lines.height(),
             );
             match colors
                 .as_ref()
@@ -154,9 +153,9 @@ impl Model {
 /// color.
 fn push_runs(
     out: &mut kivact_lower::SceneOut,
-    shaped: Option<&kivact_types::protocol::ShapedText>,
-    x: f32,
-    y: f32,
+    shaped: Option<&kivact_types::render::ShapedText>,
+    x: f64,
+    y: f64,
     color: impl Fn(kivact_types::Rgba) -> kivact_types::Rgba,
 ) {
     for run in shaped.iter().flat_map(|shaped| &shaped.runs) {

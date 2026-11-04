@@ -21,7 +21,7 @@
 //!   every period. Missed ticks are never made up: a later wake (after a
 //!   pause too) delivers one tick stamped now, and the schedule starts
 //!   again from it ([`Model::tick`]).
-//! - The environment the client sees (`HostEnv`: the display period,
+//! - The environment the client sees (`Environment`: the display period,
 //!   reduced motion, drawability, and the window's scale, size, fullscreen,
 //!   theme, safe area and locale) lives here, once. [`Model::update_env`]
 //!   queues one `EnvChanged` per change of any of it, and none when the

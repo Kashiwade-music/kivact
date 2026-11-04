@@ -47,21 +47,19 @@ use std::sync::Arc;
 pub struct Context<'a> {
     pub(crate) assets: &'a RefCell<ArvaneAssets>,
     /// Device pixels per logical pixel of what is painted now.
-    pub(crate) raster: &'a Cell<f32>,
+    pub(crate) raster: &'a Cell<f64>,
     pub(crate) scene_cache: &'a RefCell<SceneCache>,
     /// Every resource resolved so far, in order; a scene lowering keeps the ones it resolved.
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
-    error: RefCell<Option<String>>,
     dropped: Cell<u32>,
-    failures: Cell<u32>,
+    failures: RefCell<Vec<kivact_types::Failure>>,
 }
 
 /// The failure state of a context at one point, to restore it or to tell
 /// whether anything failed or was dropped since.
 pub(crate) struct Checkpoint {
-    error: Option<String>,
     dropped: u32,
-    failures: u32,
+    failures: Vec<kivact_types::Failure>,
 }
 
 impl<'a> Context<'a> {
@@ -70,7 +68,7 @@ impl<'a> Context<'a> {
     /// The context and its operations cannot outlive either borrowed value.
     pub fn new(
         assets: &'a RefCell<ArvaneAssets>,
-        raster: &'a Cell<f32>,
+        raster: &'a Cell<f64>,
         scene_cache: &'a RefCell<SceneCache>,
     ) -> Self {
         scene_cache
@@ -81,43 +79,36 @@ impl<'a> Context<'a> {
             raster,
             scene_cache,
             dependencies: RefCell::new(Vec::new()),
-            error: RefCell::new(None),
             dropped: Cell::new(0),
-            failures: Cell::new(0),
+            failures: RefCell::new(Vec::new()),
         }
     }
 
     pub(crate) fn checkpoint(&self) -> Checkpoint {
         Checkpoint {
-            error: self.error.borrow().clone(),
             dropped: self.dropped.get(),
-            failures: self.failures.get(),
+            failures: self.failures.borrow().clone(),
         }
     }
 
     pub(crate) fn restore(&self, checkpoint: Checkpoint) {
-        *self.error.borrow_mut() = checkpoint.error;
         self.dropped.set(checkpoint.dropped);
-        self.failures.set(checkpoint.failures);
+        *self.failures.borrow_mut() = checkpoint.failures;
     }
 
     /// Whether nothing failed and no command was dropped since `at`, however
     /// many failures an earlier part of the frame already kept.
     pub(crate) fn succeeded_since(&self, at: &Checkpoint) -> bool {
-        self.dropped.get() == at.dropped && self.failures.get() == at.failures
+        self.dropped.get() == at.dropped && self.failures.borrow().len() == at.failures.len()
     }
 
     fn record(&self, dependency: Dependency) {
         self.dependencies.borrow_mut().push(dependency);
     }
 
-    /// Keep `error` unless an earlier failure is kept. Every call counts.
-    pub(crate) fn fail(&self, error: impl ToString) {
-        self.failures.set(self.failures.get().saturating_add(1));
-        let mut first = self.error.borrow_mut();
-        if first.is_none() {
-            *first = Some(error.to_string());
-        }
+    /// Keep classified failures in production order.
+    pub(crate) fn fail(&self, error: kivact_types::Failure) {
+        self.failures.borrow_mut().push(error);
     }
 
     /// Count a command dropped for values that cannot be drawn.
@@ -130,18 +121,25 @@ impl<'a> Context<'a> {
         self.dropped.get()
     }
 
-    /// Consume the context and return the first failure kept, if any.
-    /// Dropped commands remain a separate caller-controlled error priority.
-    pub fn finish(self) -> Result<(), String> {
-        self.error.into_inner().map_or(Ok(()), Err)
+    /// Consume the context and return classified failures in production order.
+    pub fn finish(self) -> Vec<kivact_types::Failure> {
+        self.failures.into_inner()
     }
 
     /// Why `asset` has no pixels now.
     fn unavailable(&self, asset: &kivact_types::Asset) {
         match self.assets.borrow().status(asset) {
-            Some(arvane::asset::ImageState::Failed(error)) => self.fail(error),
-            Some(arvane::asset::ImageState::Pending) => self.fail("image resource is not ready"),
-            _ => self.fail("image resource pixels are unavailable"),
+            Some(arvane::asset::ImageState::Failed(error)) => self.fail(
+                kivact_types::Failure::new(kivact_types::FailureKind::Resource, error),
+            ),
+            Some(arvane::asset::ImageState::Pending) => self.fail(kivact_types::Failure::new(
+                kivact_types::FailureKind::Unavailable,
+                "image resource is not ready",
+            )),
+            _ => self.fail(kivact_types::Failure::new(
+                kivact_types::FailureKind::Resource,
+                "image resource pixels are unavailable",
+            )),
         }
     }
 
@@ -165,7 +163,7 @@ impl<'a> Context<'a> {
         &self,
         asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
-    ) -> Option<(kivact_types::protocol::ImageData, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::scene::Pixels, arvane::asset::Region)> {
         self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None)
     }
 
@@ -175,7 +173,7 @@ impl<'a> Context<'a> {
         size: arvane::asset::PixelSize,
         region: arvane::asset::Region,
         tint: Option<kivact_types::Rgba>,
-    ) -> Option<(kivact_types::protocol::ImageData, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::scene::Pixels, arvane::asset::Region)> {
         if size.is_empty() {
             return None;
         }

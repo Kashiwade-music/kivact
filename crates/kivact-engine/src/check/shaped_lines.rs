@@ -11,11 +11,11 @@ pub(super) struct Line {
     /// them, the capitals' top to the descent) down.
     pub(super) ink: Rect,
     /// Its baseline.
-    pub(super) baseline: f32,
+    pub(super) baseline: f64,
     /// The height of the capitals above the baseline.
-    pub(super) cap_height: f32,
+    pub(super) cap_height: f64,
     /// The height of its line box.
-    pub(super) height: f32,
+    pub(super) height: f64,
     /// An ellipsis cut it.
     pub(super) cut: bool,
 }
@@ -23,7 +23,7 @@ pub(super) struct Line {
 /// A text shaped as it is painted, with its lines in the layout space.
 pub(super) struct Shaped {
     pub(super) lines: Vec<Line>,
-    pub(super) font_size: f32,
+    pub(super) font_size: f64,
 }
 
 impl Shaped {

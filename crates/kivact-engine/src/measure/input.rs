@@ -9,15 +9,15 @@ use std::cell::RefMut;
 /// The width available to the editor during measurement or painting.
 #[derive(Clone, Copy)]
 pub(crate) enum LineViewport {
-    Measure(Option<f32>),
-    Paint(f32),
+    Measure(Option<f64>),
+    Paint(f64),
 }
 /// One captured source/style reconciliation, borrowing the retained cache once.
 pub(crate) struct RefreshedLines<'a> {
     pub(crate) lines: RefMut<'a, EditLines>,
     pub(crate) source: Source<'a>,
     #[cfg(all(debug_assertions, feature = "testing"))]
-    pub(crate) style: Option<kivact_types::protocol::TextStyle>,
+    pub(crate) style: Option<kivact_types::ComputedTextStyle>,
 }
 
 /// The input's incrementally reconciled lines, unless already borrowed.

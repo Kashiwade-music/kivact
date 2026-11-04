@@ -15,7 +15,7 @@ use kivact_types::{
 
 /// How far (px) the whole-pixel layout can move a box from its ideal
 /// place.
-const PIXEL_ROUNDING: f32 = 0.5;
+const PIXEL_ROUNDING: f64 = 0.5;
 
 /// The findings of the texts in the subtree of `scope` (the whole tree
 /// without one), in tree order; `ink`: the vertical extent of a line is
@@ -109,14 +109,14 @@ pub(crate) fn text_findings(
     // Clipped with no ellipsis: by the nearest box that cuts a line.
     let mut clipped_at = None;
     for clip in clips(host, id, &up) {
-        let cut: Vec<(f32, Rect)> = shaped
+        let cut: Vec<(f64, Rect)> = shaped
             .lines
             .iter()
             .filter(|l| !l.cut)
             .map(|l| (reach(l.ink, clip.rect, clip.axes), l.ink))
             .filter(|(by, _)| *by > tolerance)
             .collect();
-        if let Some(most) = cut.iter().map(|(by, _)| *by).reduce(f32::max) {
+        if let Some(most) = cut.iter().map(|(by, _)| *by).reduce(f64::max) {
             let rect = cut
                 .iter()
                 .map(|(_, r)| *r)
@@ -160,7 +160,7 @@ pub(crate) fn text_findings(
     // Wrapped: more than one line below a role that expects one.
     let lines = shaped.lines.len();
     if lines >= 2 && !n.content().is_some_and(|c| c.contains('\n')) {
-        let clamped = host.text_props(id).more().max_lines.is_some_and(|m| m >= 2);
+        let clamped = host.text_props(id).max_lines.is_some_and(|m| m >= 2);
         let owner = std::iter::once(id)
             .chain(up.iter().copied())
             .find(|a| single_line(host, *a, check));

@@ -21,9 +21,8 @@
 use super::state::{ImeGiven, SessionSource};
 use crate::contract::{HostEvent, ImeSessionProps};
 use crate::model::Model;
-use crate::model::interact::text_geometry::byte_of_utf16;
 use crate::model::transform::map_rect;
-use kivact_types::{ImeEvent, NodeId, Rect};
+use kivact_types::{ImeInput, NodeId, Rect};
 
 impl Model {
     /// The focused node that has an IME session (it is not a native editor
@@ -64,7 +63,7 @@ impl Model {
 
     /// Send `event` to the focused node with a session; whether there is
     /// one (otherwise the native editors take the event).
-    pub(super) fn session_event(&mut self, event: ImeEvent) -> bool {
+    pub(super) fn session_event(&mut self, event: ImeInput) -> bool {
         let Some(node) = self.focused_session() else {
             return false;
         };
@@ -78,7 +77,7 @@ impl Model {
         text: &str,
         selection: Option<(usize, usize)>,
     ) -> bool {
-        self.session_event(ImeEvent::Preedit {
+        self.session_event(ImeInput::Preedit {
             text: text.to_string(),
             selection: selection.map(|(a, b)| a.min(b)..a.max(b)),
         })
@@ -94,8 +93,11 @@ impl Model {
             return false;
         };
         let text = &session.text;
-        let (a, b) = (byte_of_utf16(text, start), byte_of_utf16(text, end));
-        self.session_event(ImeEvent::Selection(a.min(b)..a.max(b)))
+        let (a, b) = (
+            kivact_types::text_utf::floor_char_boundary(text, start),
+            kivact_types::text_utf::floor_char_boundary(text, end),
+        );
+        self.session_event(ImeInput::Selection(a.min(b)..a.max(b)))
     }
 
     /// What the focused session node `id` shows the IME, when it changed
@@ -124,10 +126,7 @@ impl Model {
                 ..arvane::ShellImeText::default()
             }
         } else {
-            let units = |byte: usize| {
-                let byte = floor(&session.text, byte);
-                session.text[..byte].encode_utf16().count()
-            };
+            let units = |byte: usize| kivact_types::text_utf::utf16_offset(&session.text, byte);
             let (start, end) = (units(session.selection.start), units(session.selection.end));
             arvane::ShellImeText {
                 password: false,
@@ -143,13 +142,4 @@ impl Model {
         };
         Some(text)
     }
-}
-
-/// `byte` cut to `text` and to the char boundary at or before it.
-fn floor(text: &str, byte: usize) -> usize {
-    let mut byte = byte.min(text.len());
-    while !text.is_char_boundary(byte) {
-        byte -= 1;
-    }
-    byte
 }

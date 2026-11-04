@@ -14,8 +14,8 @@ pub(super) struct InputSource {
     pub(super) revision: u64,
     pub(super) session: TextSession,
     pub(super) area: Rect,
-    pub(super) scroll: f32,
-    pub(super) transform: Option<kivact_types::protocol::Transform>,
+    pub(super) scroll: f64,
+    pub(super) transform: Option<kivact_types::Transform>,
     pub(super) password: bool,
     pub(super) read_only: bool,
 }
@@ -28,7 +28,7 @@ pub(super) struct SessionSource {
     pub(super) node: NodeId,
     pub(super) session: crate::contract::ImeSessionProps,
     pub(super) area: Option<Rect>,
-    pub(super) transform: Option<kivact_types::protocol::Transform>,
+    pub(super) transform: Option<kivact_types::Transform>,
 }
 
 /// What the window's IME was last given.

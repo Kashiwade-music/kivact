@@ -16,12 +16,12 @@
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Calcs {
     /// `(percent, px)` per handle (percent of the basis, 0..=100 for 100%).
-    values: Vec<(f32, f32)>,
+    values: Vec<(f64, f64)>,
     pub(crate) free: Vec<u32>,
 }
 
 impl Calcs {
-    fn add(&mut self, percent: f32, px: f32) -> u32 {
+    fn add(&mut self, percent: f64, px: f64) -> u32 {
         match self.free.pop() {
             Some(i) => {
                 self.values[i as usize] = (percent, px);
@@ -37,9 +37,9 @@ impl Calcs {
     /// The value of the calc handle `handle` against `basis`.
     pub(crate) fn resolve(&self, handle: *const (), basis: f32) -> f32 {
         let index = (handle.addr() >> 3).wrapping_sub(1);
-        self.values
-            .get(index)
-            .map_or(0.0, |(percent, px)| basis * percent / 100.0 + px)
+        self.values.get(index).map_or(0.0, |(percent, px)| {
+            (f64::from(basis) * percent / 100.0 + px) as f32
+        })
     }
 }
 
@@ -51,7 +51,7 @@ pub(crate) struct CalcAlloc<'a> {
 
 impl CalcAlloc<'_> {
     /// The handle of `percent`% of the basis plus `px`.
-    pub(crate) fn calc(&mut self, percent: f32, px: f32) -> *const () {
+    pub(crate) fn calc(&mut self, percent: f64, px: f64) -> *const () {
         let i = self.calcs.add(percent, px);
         self.owned.push(i);
         std::ptr::without_provenance(((i as usize) + 1) << 3)

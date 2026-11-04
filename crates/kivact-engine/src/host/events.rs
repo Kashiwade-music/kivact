@@ -5,12 +5,12 @@
 //! leaves (copy, paste) is done here, with the window's clipboard.
 //!
 //! Invariants:
-//! - What the client sees of the window's environment is one `HostEnv`,
+//! - What the client sees of the window's environment is one `Environment`,
 //!   kept by the model's frame group. At start the window's environment
 //!   (`Window::environment`: scale, refresh period, reduced motion, theme,
 //!   safe area, mouse settings, locale), its size and fullscreen state, its
 //!   capabilities (`Window::capabilities`) and whether frames can be drawn
-//!   (`HostEnv::surface_active`) are reported in `HostInfo`.
+//!   (`Environment::surface_active`) are reported in `HostInfo`.
 //!   The theme is reported light at start and follows the system's from
 //!   its first change.
 //! - Every change goes through `Model::update_env`, which sends one
@@ -20,11 +20,11 @@
 //!   mouse settings are Arvane's (it counts clicks and scales wheels). A
 //!   new scale, size or fullscreen state arrives as `Resized`.
 //! - The host's locale (`Environment::locale`, a BCP 47 tag or `None`) is
-//!   `HostEnv::locale`; when it is read again is Arvane's.
+//!   `Environment::locale`; when it is read again is Arvane's.
 //! - Frames are drawn only while the application is resumed
 //!   (`Suspended`/`Resumed`), the window has a surface
 //!   (`Window::surface_generation`, `SurfaceDestroyed`/`SurfaceCreated`)
-//!   and is not empty (`HostEnv::surface_active`). In between no redraw is
+//!   and is not empty (`Environment::surface_active`). In between no redraw is
 //!   asked for and no frame tick is sent (the client's frame clock stops);
 //!   a resume and a new surface draw again.
 //! - A press and a release carry the click count Arvane counted
@@ -45,8 +45,7 @@ use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
-use kivact_lower::conversion as c;
-use kivact_types::{HostEnv, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint};
+use kivact_types::{LifecycleEvent, PointerKind, PointerPhase};
 impl arvane::Handler for Host {
     fn start(
         &mut self,
@@ -80,19 +79,13 @@ impl Host {
             let mut model = self.model.borrow_mut();
             model.set_viewport(window.size());
             model.frame.set_now(window.now_ns());
-            let env = HostEnv {
-                scale: window.scale(),
-                reduced_motion: self.environment.reduced_motion,
-                // The theme the model starts with (light; a test may start dark).
-                theme_hint: model.frame.theme_hint(),
-                frame_period_ns: self.environment.frame_period_ns,
-                safe_area: c::insets(self.environment.safe_area),
-                window: window.size(),
-                locale: self.environment.locale.clone(),
-                fullscreen: window.fullscreen(),
-                surface_active: drawable,
-            };
-            model.start_env(env.clone());
+            let mut env = self.environment.clone();
+            env.scale_factor = window.scale();
+            env.window_size = window.size();
+            env.fullscreen = window.fullscreen();
+            env.theme_hint = model.frame.theme_hint();
+
+            model.start_env(env.clone(), drawable);
             env
         };
         self.frame_log
@@ -102,6 +95,7 @@ impl Host {
             capabilities: window.capabilities(),
             now_ns: window.now_ns(),
             env,
+            surface_active: drawable,
         };
         {
             let mut model = self.model.borrow_mut();
@@ -136,19 +130,16 @@ impl Host {
         if stops_smooth_scrolls(&event) {
             self.model.borrow_mut().frame.stop_smooth_scrolls();
         }
-        if matches!(event, ShellEvent::File { .. }) {
+        if matches!(event, ShellEvent::File(_)) {
             self.layout();
         }
         let input = matches!(
             event,
             ShellEvent::Pointer(_)
-                | ShellEvent::Wheel { .. }
+                | ShellEvent::Wheel(_)
                 | ShellEvent::Modifiers(_)
-                | ShellEvent::Key { .. }
-                | ShellEvent::Preedit { .. }
-                | ShellEvent::Commit(_)
-                | ShellEvent::ImeSelection { .. }
-                | ShellEvent::ImeDisabled
+                | ShellEvent::Key(_)
+                | ShellEvent::Ime(_)
         );
         if hit_tests(&event) {
             // Deferred turns leave edits laid out lazily; hit test current geometry.
@@ -192,7 +183,7 @@ impl Host {
                             }
                             self.last_frame = LastFrame::Settled;
                         }
-                        Err(error) => return Err(ShellError::new(error.to_string())),
+                        Err(error) => return Err(ShellError::Failed(error)),
                     }
                 }
             }
@@ -222,11 +213,11 @@ impl Host {
                 let mut model = self.model.borrow_mut();
                 model.set_viewport(size);
                 model.invalidate_paint();
-                model.update_env(|env| {
-                    env.scale = window.scale();
-                    env.window = size;
+                model.update_env(|env, surface_active| {
+                    env.scale_factor = window.scale();
+                    env.window_size = size;
                     env.fullscreen = window.fullscreen();
-                    env.surface_active = drawable;
+                    *surface_active = drawable;
                 });
                 drop(model);
                 self.layout();
@@ -285,10 +276,10 @@ impl Host {
                 .model
                 .borrow_mut()
                 .pointer_input(input, &mut self.engine.borrow_mut()),
-            ShellEvent::Wheel { x, y } => {
+            ShellEvent::Wheel(input) => {
                 self.model
                     .borrow_mut()
-                    .wheel(Point { x, y }, &mut self.engine.borrow_mut());
+                    .wheel(input, &mut self.engine.borrow_mut());
                 // A native scroll is reported (`ScrollChanged`) by the
                 // layout pass: run it now, so the client's turn is due at
                 // once instead of waiting for the next paint.
@@ -301,27 +292,30 @@ impl Host {
                     model.push(HostEvent::ModifiersChanged(m));
                 }
             }
-            ShellEvent::File {
-                phase,
-                files,
-                position,
-            } => self.model.borrow_mut().file(phase, files, position),
-            ShellEvent::KeyUp { key, code } => self.model.borrow_mut().key_up(key, code),
-            ShellEvent::Key {
-                key,
-                physical,
-                code,
-                repeat,
-                text,
-            } => {
-                let result = self.model.borrow_mut().key(
-                    key,
-                    physical,
-                    code,
-                    repeat,
-                    text,
-                    &mut self.engine.borrow_mut(),
-                );
+            ShellEvent::File(input) => {
+                self.model
+                    .borrow_mut()
+                    .file(input.phase, input.files, input.position)
+            }
+            ShellEvent::Key(input) => {
+                let mut model = self.model.borrow_mut();
+                model.modifiers = input.modifiers;
+                let result = match input.phase {
+                    kivact_types::KeyPhase::Up => {
+                        model.key_up(input.key, input.code, input.pointer);
+                        KeyResult::Reported
+                    }
+                    kivact_types::KeyPhase::Down { repeat, text } => model.key(
+                        input.key,
+                        physical_letter(input.code),
+                        input.code,
+                        repeat,
+                        text,
+                        input.pointer,
+                        &mut self.engine.borrow_mut(),
+                    ),
+                };
+                drop(model);
                 match result {
                     // A cut already removed the text.
                     KeyResult::Copy(text) => {
@@ -337,14 +331,17 @@ impl Host {
                     KeyResult::Reported | KeyResult::Consumed | KeyResult::Text(_) => {}
                 }
             }
-            ShellEvent::Preedit { text, selection } => {
-                self.model.borrow_mut().preedit(&text, selection)
-            }
-            ShellEvent::Commit(text) => self.model.borrow_mut().commit(&text),
-            ShellEvent::ImeSelection { start, end } => {
-                self.model.borrow_mut().ime_select(start, end)
-            }
-            ShellEvent::ImeDisabled => self.model.borrow_mut().ime_disabled(),
+            ShellEvent::Ime(input) => match input {
+                kivact_types::ImeInput::Preedit { text, selection } => self
+                    .model
+                    .borrow_mut()
+                    .preedit(&text, selection.map(|r| (r.start, r.end))),
+                kivact_types::ImeInput::Commit(text) => self.model.borrow_mut().commit(&text),
+                kivact_types::ImeInput::Selection(range) => {
+                    self.model.borrow_mut().ime_select(range.start, range.end)
+                }
+                kivact_types::ImeInput::End => self.model.borrow_mut().ime_disabled(),
+            },
             ShellEvent::EnvironmentChanged => self.environment_changed(window),
             ShellEvent::Accessibility { node, request } => {
                 self.model.borrow_mut().accessibility_action(node, request)
@@ -358,7 +355,7 @@ impl Host {
         }
         self.pump(window)
     }
-    /// Whether frames can be drawn (`HostEnv::surface_active`; no frame
+    /// Whether frames can be drawn (`Environment::surface_active`; no frame
     /// ticks otherwise): the application is in the foreground, the window
     /// has a surface and is not empty (minimized).
     fn drawable<W: Window>(&self, window: &W) -> bool {
@@ -383,19 +380,18 @@ impl Host {
         let before = std::mem::replace(&mut self.environment, now.clone());
         let mut model = self.model.borrow_mut();
         let period_before = model.frame.period_ns();
-        model.update_env(|env| {
-            if now.dark != before.dark {
-                env.theme_hint = if now.dark {
-                    ThemeHint::Dark
-                } else {
-                    ThemeHint::Light
-                };
+        model.update_env(|env, surface_active| {
+            if now.theme_hint != before.theme_hint {
+                env.theme_hint = now.theme_hint;
             }
             env.reduced_motion = self.reduced_motion_override.unwrap_or(now.reduced_motion);
             // Another monitor: the frame period follows its refresh rate.
             env.frame_period_ns = now.frame_period_ns;
-            env.safe_area = c::insets(now.safe_area);
+            env.safe_area = now.safe_area.sanitize();
             env.locale = now.locale.clone();
+            env.pointer = now.pointer;
+            env.fonts = now.fonts;
+            env.keyboard_inset = now.keyboard_inset;
         });
         let period = model.frame.period_ns();
         drop(model);
@@ -411,7 +407,7 @@ impl Host {
 /// press, or any event of a touch or pen contact.
 fn stops_smooth_scrolls(event: &ShellEvent) -> bool {
     match event {
-        ShellEvent::Wheel { .. } => true,
+        ShellEvent::Wheel(_) => true,
         ShellEvent::Pointer(input) => {
             input.kind != PointerKind::Mouse || matches!(input.phase, PointerPhase::Down(_))
         }
@@ -423,11 +419,43 @@ fn stops_smooth_scrolls(event: &ShellEvent) -> bool {
 /// (not its leave or cancel), or any event of a contact.
 fn hit_tests(event: &ShellEvent) -> bool {
     match event {
-        ShellEvent::Wheel { .. } => true,
+        ShellEvent::Wheel(_) => true,
         ShellEvent::Pointer(input) => {
             input.kind != PointerKind::Mouse
                 || !matches!(input.phase, PointerPhase::Leave | PointerPhase::Cancel)
         }
         _ => false,
+    }
+}
+
+fn physical_letter(code: kivact_types::KeyCode) -> Option<char> {
+    match code {
+        kivact_types::KeyCode::KeyA => Some('a'),
+        kivact_types::KeyCode::KeyB => Some('b'),
+        kivact_types::KeyCode::KeyC => Some('c'),
+        kivact_types::KeyCode::KeyD => Some('d'),
+        kivact_types::KeyCode::KeyE => Some('e'),
+        kivact_types::KeyCode::KeyF => Some('f'),
+        kivact_types::KeyCode::KeyG => Some('g'),
+        kivact_types::KeyCode::KeyH => Some('h'),
+        kivact_types::KeyCode::KeyI => Some('i'),
+        kivact_types::KeyCode::KeyJ => Some('j'),
+        kivact_types::KeyCode::KeyK => Some('k'),
+        kivact_types::KeyCode::KeyL => Some('l'),
+        kivact_types::KeyCode::KeyM => Some('m'),
+        kivact_types::KeyCode::KeyN => Some('n'),
+        kivact_types::KeyCode::KeyO => Some('o'),
+        kivact_types::KeyCode::KeyP => Some('p'),
+        kivact_types::KeyCode::KeyQ => Some('q'),
+        kivact_types::KeyCode::KeyR => Some('r'),
+        kivact_types::KeyCode::KeyS => Some('s'),
+        kivact_types::KeyCode::KeyT => Some('t'),
+        kivact_types::KeyCode::KeyU => Some('u'),
+        kivact_types::KeyCode::KeyV => Some('v'),
+        kivact_types::KeyCode::KeyW => Some('w'),
+        kivact_types::KeyCode::KeyX => Some('x'),
+        kivact_types::KeyCode::KeyY => Some('y'),
+        kivact_types::KeyCode::KeyZ => Some('z'),
+        _ => None,
     }
 }

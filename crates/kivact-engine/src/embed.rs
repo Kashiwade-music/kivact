@@ -3,32 +3,16 @@
 use crate::api::Client;
 use crate::contract::HostError;
 use crate::{FrameLog, host};
+pub use arvane::embed::ChildHooks;
 pub use arvane::embed::PanicSlot;
 use arvane::embed::{Embedded, Embedder};
-pub use arvane::{detached_threads, retain_module};
-use kivact_types::GpuPreference;
-use kivact_types::Size;
-use kivact_types::protocol::ParentWindow;
+pub use arvane::retain_module;
+use kivact_types::EmbedOptions;
+use kivact_types::ParentWindow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-
-/// Initial embedded host settings. The host's parent window is passed to
-/// [`embed_native`] beside the options.
-#[derive(Default)]
-pub struct EmbedOptions {
-    /// Initial logical size, defaulting to 960 by 720.
-    pub window_size: Option<Size>,
-    /// Host-decided scale, or the OS scale.
-    pub scale: Option<f32>,
-    /// Ask the host for a physical content size.
-    pub on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
-    /// GPU device preference (default when interop is disabled).
-    pub gpu_preference: GpuPreference,
-    /// Where a panic of the App is kept for the embedder to resume.
-    pub panic: PanicSlot,
-}
 
 /// An embedded engine host. `Send` and `Sync`. Drop requests closure and stops new turns.
 pub struct EmbeddedHost {
@@ -52,11 +36,11 @@ impl EmbeddedHost {
         self.host.size()
     }
     /// Set scale while preserving physical size.
-    pub fn set_scale(&self, scale: f32) {
+    pub fn set_scale(&self, scale: f64) {
         self.host.set_scale(scale);
     }
     /// Last applied scale.
-    pub fn scale(&self) -> f32 {
+    pub fn scale(&self) -> f64 {
         self.host.scale()
     }
     /// Why the host stopped, or `None` while running.
@@ -71,41 +55,26 @@ impl EmbeddedHost {
 pub fn embed_native(
     parent: ParentWindow,
     options: EmbedOptions,
+    hooks: ChildHooks,
     client: impl FnOnce(Arc<AtomicBool>) -> Client + Send + 'static,
 ) -> Result<EmbeddedHost, HostError> {
-    let size = options.window_size.unwrap_or(Size {
-        width: 960.0,
-        height: 720.0,
-    });
+    let size = options.size;
     let closing = Arc::new(AtomicBool::new(false));
     let ui_closing = closing.clone();
-    arvane::embed::open(
-        parent,
-        arvane::embed::EmbedOptions {
-            size,
-            scale: options.scale,
-            on_resize_request: options.on_resize_request,
-            prefer_gpu: true,
-            gpu_preference: options.gpu_preference,
-            panic: options.panic,
-        },
-        move || {
-            let client = client(ui_closing.clone());
-            let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
-            let log = frame_log.clone();
-            let host = host::new(client, size, arvane::Engine::new(), frame_log)
-                .with_embedded_closing(ui_closing);
-            Embedder::new(host).on_renderer_change(move |change| {
-                let mut log = log.borrow_mut();
-                match change {
-                    arvane::RendererChange::Start { .. } => {
-                        log.note(&format!("host=arvane {change}"))
-                    }
-                    _ => log.note(&change.to_string()),
-                }
-            })
-        },
-    )
+    arvane::embed::open(parent, options, hooks, move || {
+        let client = client(ui_closing.clone());
+        let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
+        let log = frame_log.clone();
+        let host = host::new(client, size, arvane::Engine::new(), frame_log)
+            .with_embedded_closing(ui_closing);
+        Embedder::new(host).on_renderer_change(move |change| {
+            let mut log = log.borrow_mut();
+            match change {
+                arvane::RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
+                _ => log.note(&change.to_string()),
+            }
+        })
+    })
     .map(|host| EmbeddedHost { host, closing })
     .map_err(|e| HostError::new(e.to_string()))
 }

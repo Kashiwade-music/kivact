@@ -30,7 +30,7 @@ use super::ink::{grow, ink, overlaps};
 /// Logical pixels an entry is grown by: the index computes a child's reach
 /// relative to its location, the walk in window space, and the two may
 /// round apart (far less than the margin, so no pixel depends on it).
-const SLACK: f32 = 0.01;
+const SLACK: f64 = 0.01;
 
 impl Indexed {
     fn new(
@@ -79,7 +79,7 @@ impl Indexed {
 
 impl Axis {
     /// The `(start, end)` of `r` along the axis.
-    fn span(self, r: &Rect) -> (f32, f32) {
+    fn span(self, r: &Rect) -> (f64, f64) {
         match self {
             Axis::X => (r.x, r.x + r.width),
             Axis::Y => (r.y, r.y + r.height),
@@ -168,7 +168,7 @@ impl ChildIndex {
                 .map(|(i, _)| i),
         );
         self.axis = [Axis::Y, Axis::X].into_iter().find(|axis| {
-            let mut last = f32::NEG_INFINITY;
+            let mut last = f64::NEG_INFINITY;
             self.entries.iter().all(|e| match e.reach() {
                 None => true,
                 Some(None) => false,
@@ -183,7 +183,7 @@ impl ChildIndex {
         self.starts.clear();
         self.furthest.clear();
         if let Some(axis) = self.axis {
-            let (mut start, mut end) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
+            let (mut start, mut end) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
             for e in &self.entries {
                 if let Some(Some(r)) = e.reach() {
                     let span = axis.span(&r);

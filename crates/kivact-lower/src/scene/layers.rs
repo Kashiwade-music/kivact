@@ -2,10 +2,10 @@
 use super::state::{Frame, State};
 use crate::context::Context;
 use crate::sanitize;
-use kivact_types::protocol::DrawCommand as D;
-use kivact_types::{Effects, PaintProps, Point, Rect, SceneCmd};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{DrawCmd, Effects, PaintProps, Point, Rect};
 impl Context<'_> {
-    pub(super) fn paint_layers(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
+    pub(super) fn paint_layers(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
         let rect = |r: Rect| Rect {
             x: origin.x + r.x,
@@ -19,9 +19,9 @@ impl Context<'_> {
         };
         let tint = &state.current_tint;
         match cmd {
-            SceneCmd::PushLayer(layer) => {
+            DrawCmd::PushLayer(layer) => {
                 let area = rect(layer.area);
-                let outer = kivact_types::protocol::Layer {
+                let outer = kivact_types::render::Layer {
                     clip: layer.clip.as_ref().map(|shape| {
                         crate::path::shifted(
                             crate::scene_shape::shape(shape),
@@ -42,8 +42,8 @@ impl Context<'_> {
                             }
                             valid
                         })
-                        .map(|paint| kivact_types::protocol::Mask { rect: area, paint }),
-                    ..kivact_types::protocol::Layer::default()
+                        .map(|paint| kivact_types::render::Mask { rect: area, paint }),
+                    ..kivact_types::render::Layer::default()
                 };
                 let props = PaintProps {
                     effects: Some(Box::new(Effects {
@@ -69,7 +69,7 @@ impl Context<'_> {
                 state.out.extend(layers.into_iter().map(D::PushLayer));
                 true
             }
-            SceneCmd::PopLayer => {
+            DrawCmd::PopLayer => {
                 if let Some(&Frame::Layer { pushed, tint }) = state.frames.last() {
                     state.frames.pop();
                     state.out.extend(std::iter::repeat_n(D::PopLayer, pushed));
@@ -79,13 +79,11 @@ impl Context<'_> {
                 }
                 true
             }
-            SceneCmd::PushTransform(m) => {
-                let [a, b, c, d, e, f] = *m;
-                let transform =
-                    kivact_types::protocol::Transform { a, b, c, d, e, f }.about(Point {
-                        x: origin.x,
-                        y: origin.y,
-                    });
+            DrawCmd::PushTransform(m) => {
+                let transform = m.about(Point {
+                    x: origin.x,
+                    y: origin.y,
+                });
                 state.frames.push(Frame::Transform {
                     raster: self.raster.get(),
                 });
@@ -94,7 +92,7 @@ impl Context<'_> {
                 state.out.push(D::PushTransform(transform));
                 true
             }
-            SceneCmd::PopTransform => {
+            DrawCmd::PopTransform => {
                 if let Some(&Frame::Transform { raster }) = state.frames.last() {
                     state.frames.pop();
                     self.raster.set(raster);
@@ -104,7 +102,7 @@ impl Context<'_> {
                 }
                 true
             }
-            SceneCmd::PushClip(r) => {
+            DrawCmd::PushClip(r) => {
                 let command = D::PushClip(rect(*r));
                 let drawn = sanitize::drawable(&command);
                 if drawn {
@@ -115,7 +113,7 @@ impl Context<'_> {
                 state.frames.push(Frame::Clip { drawn });
                 true
             }
-            SceneCmd::PopClip => {
+            DrawCmd::PopClip => {
                 if let Some(&Frame::Clip { drawn }) = state.frames.last() {
                     state.frames.pop();
                     if drawn {
