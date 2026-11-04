@@ -22,8 +22,8 @@ fn x11_keyboard_input_works_whether_or_not_an_xim_server_runs() {
     let app = App::new("X11 optional XIM")
         .window_size(240, 160)
         .embed(parent.parent().scale(1.0), move || {
-            assert!(platform::capabilities().native_accessibility);
-            assert!(!platform::capabilities().ime_reconversion);
+            assert!(platform::capabilities().get().native_accessibility);
+            assert!(!platform::capabilities().get().ime_reconversion);
             node()
                 .focusable(true)
                 .style(style().size(200, 120))

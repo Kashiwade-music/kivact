@@ -8,7 +8,7 @@
 
 use crate::support::mount;
 use kivact::prelude::*;
-use kivact::ui::{self};
+use kivact::ui;
 
 /// A control that is built from `node()` and has no name of its own.
 fn unnamed_input() -> Node {
@@ -52,23 +52,24 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
         let names = signal(vec![(1u32, "alpha".to_owned()), (2, "beta".to_owned())]);
         let editing = signal(None::<u32>);
         let committed = signal(Vec::<String>::new());
-        let rename = ui::use_inline_edit(editing);
+        let rename = kivact::interaction::use_inline_edit(editing);
         let rows = for_each(
             names,
             |(id, _)| *id,
-            move |id, name: Value<(u32, String)>| {
+            move |name: Binding<(u32, String)>| {
+                let id = name.with(|(id, _)| *id);
                 column((
                     ui::button(format!("Rename {id}")).on_press(move || rename.open(id)),
                     show(
                         move || rename.is_open(&id),
                         move || {
-                            rename.field(
-                                id,
-                                format!("Name {id}"),
-                                signal(name.get_untracked().1),
-                                move |text| {
-                                    committed.update(|all| all.push(format!("{id}:{text}")))
-                                },
+                            node().part(
+                                rename
+                                    .field(id, format!("Name {id}"), signal(name.get_untracked().1))
+                                    .on_draft_commit(move |text| {
+                                        committed.update(|all| all.push(format!("{id}:{text}")))
+                                    })
+                                    .control(),
                             )
                         },
                     ),
@@ -125,7 +126,7 @@ fn an_error_appears_and_disappears_with_its_relation_and_the_invalid_state() {
     });
     let input = || screen.get_by_role(Role::TextBox, "Email");
     assert!(error.get_untracked().is_none());
-    assert!(!input().invalid());
+    assert!(!input().is_invalid());
     assert!(
         screen
             .query_by_role(Role::Alert, "Enter an email address")
@@ -135,7 +136,7 @@ fn an_error_appears_and_disappears_with_its_relation_and_the_invalid_state() {
 
     input().type_text("nobody");
     assert!(error.get_untracked().is_some());
-    assert!(input().invalid());
+    assert!(input().is_invalid());
     screen.get_by_role(Role::Alert, "Enter an email address");
     assert_eq!(
         texts(input().described_by()),
@@ -145,7 +146,7 @@ fn an_error_appears_and_disappears_with_its_relation_and_the_invalid_state() {
 
     email.set("nobody@example.com".to_owned());
     screen.run_until_idle();
-    assert!(!input().invalid());
+    assert!(!input().is_invalid());
     assert!(
         screen
             .query_by_role(Role::Alert, "Enter an email address")

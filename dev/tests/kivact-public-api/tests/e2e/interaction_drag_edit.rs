@@ -9,12 +9,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
-use kivact::draw::Point;
+use kivact::custom::part;
+use kivact::geometry::Point;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, EditSession, use_drag};
 use kivact::prelude::*;
-use kivact::primitive::part;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::{Handled, KeyEvent, MouseButton};
 
 /// What the drag reported: its edit phases with the value at that time, the
@@ -52,14 +52,19 @@ fn stepper(x: Signal<f64>, log: &Shared) -> Node {
             drag.change(|| x.set(next));
         }
     });
-    let own = part(|input| input).on_key(move |event: KeyEvent| {
-        if event.key() == Key::Escape {
-            escapes.borrow_mut().escapes += 1;
-            Handled::Yes
-        } else {
-            Handled::No
-        }
-    });
+    let own = {
+        let attachment = part(|input| input);
+        kivact::custom::Part::new(attachment.state(), move |node| {
+            node.part(attachment).on_key(move |event: KeyEvent| {
+                if event.key() == Key::Escape {
+                    escapes.borrow_mut().escapes += 1;
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+        })
+    };
     node()
         .test_id("stepper")
         .name("Stepper")

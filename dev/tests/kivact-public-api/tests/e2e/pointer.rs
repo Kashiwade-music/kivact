@@ -157,7 +157,7 @@ fn enter_leave_click_counts_and_the_release_outside_the_window() {
 fn the_cursor_shows_text_fields_and_what_a_click_activates() {
     let screen = render(|| {
         column((
-            kivact::control::node()
+            kivact::view::node()
                 .name("Name")
                 .part(kivact::interaction::use_text_edit(signal(String::from("value"))).control()),
             {

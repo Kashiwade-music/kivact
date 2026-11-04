@@ -3,15 +3,13 @@
 //! closed trigger, opening, keys in the list, choosing, closing, focus return
 //! and semantics.
 
-use kivact::primitive::NodeExt;
 use kivact::view::View;
-use std::hash::Hash;
 
 use crate::support::mount_with;
+use kivact::interaction::ListItem;
 use kivact::interaction::{SelectApi, use_select};
 use kivact::prelude::*;
 use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
-use kivact::ui::ListItem;
 use kivact::view::Modifiers;
 use kivact::view::{A11yAction, Placement, overlay};
 
@@ -49,22 +47,27 @@ fn alt() -> Modifiers {
 
 /// The trigger `trigger` with the select's label and, while open, the list
 /// below it: rows of 28 px, 7.5 of them before it scrolls.
-fn select_view<K: Clone + Eq + Hash + 'static>(
+fn select_view<K: ItemKey>(
     trigger: Node,
     name: &'static str,
     options: Value<Vec<ListItem<K>>>,
     select: SelectApi<K>,
 ) -> View {
     let part = select.trigger();
-    let anchor = part.node_ref();
+    let anchor = node_ref();
     let label = select.label();
     (
-        trigger.part(part).name(name).child(text(label)),
-        show(select.shown(), move || {
+        trigger
+            .part(part)
+            .node_ref(anchor)
+            .name(name)
+            .child(text(label)),
+        show(select.is_open(), move || {
             let rows = for_each(
                 options,
                 |option| option.key().clone(),
-                move |key, option| {
+                move |option| {
+                    let key = option.with(|option| option.key().clone());
                     let label = memo(move || option.with(|option| option.label()));
                     let part = select.item(key);
                     let selected = part.state();
@@ -84,7 +87,7 @@ fn select_view<K: Clone + Eq + Hash + 'static>(
                     .style(style().min_width(160).padding(4)),
             )
             .offset(4)
-            .part(select.content())
+            .with_node(move |node| node.part(select.content()))
             .name(name)
         }),
     )
@@ -302,15 +305,16 @@ fn a_preview_given_after_the_content_part_is_reported() {
         let api = use_select(options, selected);
         // The surface part exists before the preview is given.
         let content = std::cell::RefCell::new(Some(api.content()));
-        let api = api.on_preview(move |key| seen.borrow_mut().push(key));
+        let api = api.on_active_change(move |key| seen.borrow_mut().push(key));
         let part = api.trigger();
-        let anchor = part.node_ref();
+        let anchor = node_ref();
         let label = api.label();
-        let list = show(api.shown(), move || {
+        let list = show(api.is_open(), move || {
             let rows = for_each(
                 options,
                 |option| *option.key(),
-                move |key, option| {
+                move |option| {
+                    let key = option.with(|option| *option.key());
                     node()
                         .part(api.item(key))
                         .style(style().height(28).shrink(0))
@@ -322,7 +326,7 @@ fn a_preview_given_after_the_content_part_is_reported() {
                 .take()
                 .expect("invariant: the list opens once");
             overlay(anchor, Placement::Below, column(rows))
-                .part(content)
+                .with_node(move |node| node.part(content))
                 .name("Fruit")
         });
         (
@@ -330,6 +334,7 @@ fn a_preview_given_after_the_content_part_is_reported() {
             column((
                 node()
                     .part(part)
+                    .node_ref(anchor)
                     .name("Fruit")
                     .style(style().size(160, 28))
                     .child(text(label)),

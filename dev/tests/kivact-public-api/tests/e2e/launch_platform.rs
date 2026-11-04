@@ -10,11 +10,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::{UiError, diagnostics::ErrorKind};
+use kivact::{ErrorKind, UiError};
 
 use super::launch_support::button_box;
 use kivact::platform;
-use kivact::prelude::{NodeBuilder, Role};
+use kivact::prelude::Role;
 use kivact::task::spawn;
 use kivact::test::render;
 

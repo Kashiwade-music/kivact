@@ -11,10 +11,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::control::canvas;
+use kivact::draw::Draw;
 use kivact::draw::Transform;
-use kivact::draw::{Draw, Point, Rect, Size};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
+use kivact::view::canvas;
 use kivact::view::{Handled, PointerEvent};
 use kivact::view::{MouseButton, WheelEvent};
 
@@ -148,7 +149,7 @@ fn world() -> (World, impl IntoView) {
             .style(at(50, 50, 400, 300).clip(true))
             .child(
                 world.child((
-                    kivact::control::node()
+                    kivact::view::node()
                         .name("Name")
                         .part(kivact::interaction::use_text_edit(name).control())
                         .test_id("field")

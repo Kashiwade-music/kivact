@@ -5,14 +5,14 @@
 //! `purity.rs`; handles of another App or a disposed owner in
 //! `handle_validity.rs`.
 
-use kivact::view::callback;
+use kivact::state::callback;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::Binding;
-use kivact::binding;
 use kivact::prelude::*;
+use kivact::state::Binding;
+use kivact::state::binding;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -140,7 +140,7 @@ fn handler_writes_are_batched_into_one_effect_run_and_one_batch() {
 
 #[test]
 fn effect_cleanup_runs_before_rerun_and_on_dispose_child_before_parent() {
-    fn child(l: Log) -> impl IntoView {
+    fn child(l: Log) -> impl Component {
         on_cleanup(move || l.borrow_mut().push("child cleanup".into()));
         text("child")
     }
@@ -198,7 +198,7 @@ fn small_handles_trigger_var_binding_callback_value() {
         let constant: Value<i32> = 40.into_value();
         let setter = callback(move |v| base.set(v));
         let bound = binding(move || base.get(), move |value| base.set(value));
-        let direct: Binding<i32> = base.into();
+        let direct: Binding<i32> = base.into_binding();
         let snapshot = memo(move || {
             bound.get_untracked()
                 + bound.with_untracked(|n| *n)

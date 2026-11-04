@@ -3,10 +3,11 @@
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Pixels, Rect};
+use kivact::draw::{ImageOptions, Pixels};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::task::spawn;
+use kivact::view::canvas;
 
 use super::paint::pixel;
 use super::support::mount;

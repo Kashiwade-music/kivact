@@ -4,7 +4,7 @@
 //! 32`) in sizes, insets, margins, padding and gaps, checked on the laid
 //! out boxes of real windows (and their resizes).
 
-use kivact::draw::Rect;
+use kivact::geometry::Rect;
 use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::Position;
@@ -148,7 +148,7 @@ fn window_size_switches_a_layout_at_a_breakpoint_and_stands_in_for_viewport_unit
     use kivact::style::Direction;
     let screen = render_with(window(1000.0, 600.0), || {
         // @media (max-width: 860px) { .shell { flex-direction: column } }
-        let narrow = memo(move || platform::window_size().width < 860.0);
+        let narrow = memo(move || platform::window_size().get().width < 860.0);
         column((
             row((
                 node().test_id("side").style(style().size(200, 50)),
@@ -165,7 +165,7 @@ fn window_size_switches_a_layout_at_a_breakpoint_and_stands_in_for_viewport_unit
             node().test_id("vw").style(move || {
                 style()
                     .height(10)
-                    .width(platform::window_size().width * 0.34)
+                    .width(platform::window_size().get().width * 0.34)
                     .max_width(300)
             }),
         ))

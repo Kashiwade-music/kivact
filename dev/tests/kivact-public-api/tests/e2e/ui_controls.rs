@@ -9,10 +9,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
+use kivact::interaction::{ScalarRange, Toast, toaster};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::ui::{EditPhase, ScalarRange, Toast, toaster};
 use kivact::ui::{range_slider, splitter, toast_region};
+use kivact::view::EditPhase;
 use kivact::view::{A11yAction, MouseButton, Orientation};
 
 use EditPhase::{Begin, Cancel, Commit};
@@ -36,7 +37,7 @@ fn logger(log: &Log) -> impl Fn(EditPhase) + 'static {
 fn sizes() -> Vec<ListItem<&'static str>> {
     vec![
         ListItem::new("s", "Small"),
-        ListItem::new("m", "Medium").description("The usual"),
+        ListItem::new("m", "Medium").with_description("The usual"),
         ListItem::new("x", "Huge").disabled(true),
         ListItem::new("l", "Large"),
     ]

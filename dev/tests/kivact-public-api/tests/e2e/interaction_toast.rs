@@ -11,9 +11,9 @@ use std::time::Duration;
 
 use crate::support::mount;
 use kivact::interaction::ToastId;
+use kivact::interaction::{Toast, ToastOptions, Toaster, toaster};
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::{Toast, ToastOptions, Toaster, toaster};
 use kivact::view::{LiveRegion, View};
 
 fn ms(n: u64) -> Duration {
@@ -66,7 +66,8 @@ fn region(render: impl Fn(ToastId, Toast) -> Node + Copy + 'static) -> Node {
         column(for_each(
             toaster.visible(assertive),
             |id| *id,
-            move |id, _| {
+            move |row_value| {
+                let id = row_value.with(|id| *id);
                 let toast = toaster.toast(id).expect("invariant: visible toast exists");
                 render(id, toast).part(toaster.item(id))
             },
@@ -127,7 +128,7 @@ fn keyed_toasts_deduplicate_and_only_a_shown_toast_runs_its_hide_callback() {
         let hidden = hidden.clone();
         ToastOptions::default()
             .key("saved")
-            .on_hide(move || hidden.set(hidden.get() + 1))
+            .on_dismiss(move |_| hidden.set(hidden.get() + 1))
     };
     let first = toaster.push_with(toast("Saved", Some(ms(80))), options.clone());
     let second = toaster.push_with(toast("Duplicate", None), options.clone());

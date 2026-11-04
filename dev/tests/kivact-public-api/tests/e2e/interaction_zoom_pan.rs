@@ -1,9 +1,9 @@
 //! Role: Verify shared zoom and pan through real-window input and owner cleanup.
 use crate::support::mount;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 use kivact::interaction::{ViewTransform, use_zoom_pan};
 use kivact::prelude::*;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::{KeyCode, Modifiers, MouseButton};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -118,7 +118,7 @@ fn space_armed_follows_space_and_turns_off_when_the_focus_leaves() {
         let transform = signal(ViewTransform::default());
         let zoom = use_zoom_pan(transform);
         (
-            zoom.space_armed(),
+            zoom.is_space_armed(),
             column((surface().part(zoom.viewport()), other())),
         )
     });

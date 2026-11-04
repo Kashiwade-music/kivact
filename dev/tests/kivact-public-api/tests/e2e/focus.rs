@@ -151,8 +151,9 @@ fn focus_within_follows_focus_into_and_out_of_a_subtree() {
                 .focusable(true)
                 .name("panel")
                 .child(column((
-                    kivact::control::node().name("inner").part(
-                        kivact::interaction::use_text_edit(kivact::signal(String::new())).control(),
+                    kivact::view::node().name("inner").part(
+                        kivact::interaction::use_text_edit(kivact::state::signal(String::new()))
+                            .control(),
                     ),
                     {
                         let label = ("inner button").into_value();
@@ -294,9 +295,11 @@ fn closing_a_modal_gives_the_focus_back_to_the_opener() {
                     anchor,
                     Placement::Below,
                     column((
-                        kivact::control::node().name("name").part(
-                            kivact::interaction::use_text_edit(kivact::signal(String::new()))
-                                .control(),
+                        kivact::view::node().name("name").part(
+                            kivact::interaction::use_text_edit(
+                                kivact::state::signal(String::new()),
+                            )
+                            .control(),
                         ),
                         {
                             let label = ("close").into_value();
@@ -309,7 +312,7 @@ fn closing_a_modal_gives_the_focus_back_to_the_opener() {
                         .on_press(move || open.set(false)),
                     )),
                 )
-                .modal(true)
+                .modal()
             }),
             // Where the host itself would move the focus on removal.
             {

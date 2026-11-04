@@ -10,13 +10,14 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::support::mount;
-use kivact::Asset;
-use kivact::control::ImageFit;
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::{IntrinsicSize, Size};
+use kivact::ErrorKind;
+use kivact::draw::IntrinsicSize;
+use kivact::geometry::Size;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::{Screen, render};
+use kivact::view::Asset;
+use kivact::view::ImageFit;
 use kivact::view::error_boundary;
 
 static SVG_4X2: &[u8] = include_bytes!("../fixtures/shapes.svg");

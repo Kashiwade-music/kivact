@@ -12,16 +12,14 @@
 use std::time::Instant;
 
 use kivact::platform;
-use kivact::signal;
+use kivact::state::signal;
 
 use super::launch_support::button_box;
-use kivact::prelude::{
-    IntoView, NodeBuilder, Role, column, node, node_ref, row, show, style, text,
-};
+use kivact::prelude::{Component, Role, column, node, node_ref, row, show, style, text};
 use kivact::test::Screen;
 use kivact::test::{MirrorMode, RenderOptions, render, render_with};
 
-fn counter() -> impl IntoView {
+fn counter() -> impl Component {
     let count = signal(1);
     let draft = signal(String::new());
     column((
@@ -110,8 +108,8 @@ fn the_environment_and_platform_requests_are_the_tests() {
     let screen = render_with(small(MirrorMode::Auto), || {
         let status = signal("idle".to_string());
         column((
-            text(move || format!("reduced motion: {}", platform::reduced_motion())),
-            text(move || format!("scale: {}", platform::scale_factor())),
+            text(move || format!("reduced motion: {}", platform::is_motion_reduced().get())),
+            text(move || format!("scale: {}", platform::scale_factor().get())),
             text(move || status.get()),
             button_box("copy").on_press(move || {
                 kivact::task::spawn(async move {
@@ -161,7 +159,7 @@ fn modal_screen() -> Screen {
                     kivact::view::Placement::Center,
                     button_box("close").on_press(move || open.set(false)),
                 )
-                .modal(true)
+                .modal()
             }),
         ))
     })

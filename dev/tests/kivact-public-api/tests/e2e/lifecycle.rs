@@ -17,7 +17,7 @@ fn lifecycle_reports_transitions_after_environment_and_unregisters_removed_owner
         let root = out.clone();
         on_lifecycle(move |event| {
             root.borrow_mut()
-                .push(("root", event, platform::surface_active()))
+                .push(("root", event, platform::is_surface_active().get()))
         });
         let child = out.clone();
         (
@@ -27,7 +27,7 @@ fn lifecycle_reports_transitions_after_environment_and_unregisters_removed_owner
                 on_lifecycle(move |event| {
                     child
                         .borrow_mut()
-                        .push(("child", event, platform::surface_active()))
+                        .push(("child", event, platform::is_surface_active().get()))
                 });
                 text("child")
             }),
@@ -83,7 +83,7 @@ fn lifecycle_failure_routes_to_its_owner_and_disposal_suppresses_later_events() 
             error_boundary(move || {
                 on_lifecycle(|_| -> Result<(), UiError> {
                     Err(UiError::new(
-                        kivact::diagnostics::ErrorKind::Platform,
+                        kivact::ErrorKind::Platform,
                         "lifecycle failure",
                         None,
                     ))

@@ -12,20 +12,20 @@
 
 use std::rc::Rc;
 
-use kivact::control::{Span, rich_text, span};
-use kivact::draw::Rect;
 use kivact::draw::Shadow;
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{Align, Color};
 use kivact::style::{TextDecorationLine, TextOverflow, em};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render, render_with};
+use kivact::view::{Span, rich_text, span};
 
 use crate::paint::{BLACK, BLUE, GREEN, RED, WHITE, at, canvas_of, distance, pixel};
 
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
 fn inter() -> RenderOptions {
-    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::Asset::from(INTER)]))
+    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))
 }
 
 fn rect(screen: &Screen, id: &str) -> Rect {

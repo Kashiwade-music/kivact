@@ -1,9 +1,10 @@
 //! Role: Check standard semantics, layout, recipes and focus paint in all kit themes.
 use crate::paint::distance;
+use kivact::interaction::ListItem;
 use kivact::prelude::*;
 use kivact::style::{Align, ColorToken, Style, ThemeMode};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render_with_handle};
-use kivact::ui::{self, ListItem, Look, Recipe, UiRecipes};
+use kivact::ui::{self, Look, Recipe, UiRecipes};
 
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
@@ -78,7 +79,7 @@ fn options(theme: Theme) -> RenderOptions {
     RenderOptions::from_env()
         .window_size(720.0, 960.0)
         .theme(theme)
-        .fonts(TestFonts::Only(vec![kivact::Asset::from(INTER)]))
+        .fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))
         .reduced_motion()
 }
 
@@ -119,8 +120,10 @@ fn contract_view() -> (Handles, impl IntoView) {
             ui::progress(Some(0.5))
                 .name("Progress")
                 .style(style().width(280)),
-            ui::disclosure("Details", open, || text("Disclosed content")),
-            ui::list("Items", choices(), signal(Some("a"))).style(style().width(280)),
+            ui::disclosure("Details", open).content(|| text("Disclosed content")),
+            ui::list("Items", choices())
+                .selection(signal(Some("a")))
+                .style(style().width(280)),
         ))
         .style(
             style()
@@ -198,7 +201,7 @@ const KIT_RECIPES: [(&str, &[&str]); 5] = [
 ];
 
 /// Whether any pixel of `rect` differs visibly between the two frames.
-fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::draw::Rect) -> bool {
+fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::geometry::Rect) -> bool {
     let (x, y) = (rect.x.floor() as u32, rect.y.floor() as u32);
     let (width, height) = (rect.width.ceil() as u32 + 1, rect.height.ceil() as u32 + 1);
     let kit = kit.crop(x, y, width, height);
@@ -252,7 +255,7 @@ fn kit_recipes_paint(kit: &str, mode: ThemeMode, theme: &Theme, screen: &Screen)
         .expect("every kit has a recipe table")
         .1;
     let kit_shot = screen.screenshot();
-    let kit_recipes = theme.get::<UiRecipes>();
+    let kit_recipes = theme.ext::<UiRecipes>();
     for (role, name) in components() {
         if !names.contains(&name) {
             continue;

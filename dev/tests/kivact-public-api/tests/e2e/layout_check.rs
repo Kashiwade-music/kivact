@@ -20,7 +20,7 @@ static NOTO: &[u8] = include_bytes!(
 const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
-    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::Asset::from(NOTO)]))
+    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::view::Asset::from(NOTO)]))
 }
 
 /// A fixed-width button whose label does not fit (its label is located at
@@ -178,7 +178,7 @@ fn a_healthy_screen_passes() {
                     .justify_content(Justify::Center)
                     .background(rgb(GRAY)),
             ),
-            row((kivact::control::node().name("Name").part(kivact::interaction::use_text_edit(kivact::signal(String::new())).control()),)).style(style().align_items(Align::Center).background(rgb(GRAY))),
+            row((kivact::view::node().name("Name").part(kivact::interaction::use_text_edit(kivact::state::signal(String::new())).control()),)).style(style().align_items(Align::Center).background(rgb(GRAY))),
             text("A paragraph of text that wraps over several lines because it is far wider than its column.")
                 .style(style().width(160)),
         ))

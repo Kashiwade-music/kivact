@@ -4,14 +4,12 @@
 //! `switch`, `for_each`, `for_index`, `virtual_list`, `dynamic`,
 //! `error_boundary`) with plain-function components.
 
-use kivact::primitive::NodeExt;
-
 use crate::support::mount;
 use kivact::prelude::*;
 use kivact::view::{RowHeight, error_boundary};
 
 /// A component with its own state: a click counter.
-fn clicker(label: &'static str) -> impl IntoView {
+fn clicker(label: &'static str) -> impl Component {
     let n = signal(0);
     {
         let label = (move || format!("{label} {}", n.get())).into_value();
@@ -82,7 +80,8 @@ struct Task {
     title: &'static str,
 }
 
-fn task_row(id: u64, task: Value<Task>) -> impl IntoView {
+fn task_row(task: Binding<Task>) -> impl Component {
+    let id = task.get_untracked().id;
     let clicks = signal(0);
     {
         let label = (move || format!("{} #{id} {}", task.get().title, clicks.get())).into_value();
@@ -115,7 +114,10 @@ fn for_each_rows_are_plain_functions_and_keep_state_by_key() {
         let view = column(for_each(
             vec![1u32, 2],
             |n| *n,
-            |k, v| text(move || format!("{k}:{}", v.get())),
+            |v| {
+                let k = v.with(|n| *n);
+                text(move || format!("{k}:{}", v.get()))
+            },
         ));
         ((), view)
     });
@@ -164,7 +166,7 @@ fn virtual_list_mounts_visible_rows_with_plain_rows() {
     assert!(screen.query_by_text("row 900 900").is_none());
 }
 
-fn failing(label: &'static str) -> impl IntoView {
+fn failing(label: &'static str) -> impl Component {
     {
         let label = label.into_value();
         node()
@@ -190,7 +192,7 @@ fn error_boundary_fallback_replaces_the_child_and_reset_remounts() {
                         .name(label)
                         .child(text(label))
                 }
-                .on_press(move || reset()),
+                .on_press(move || reset.run()),
             ))
         });
         ((), view)
@@ -241,11 +243,15 @@ fn rows_list(count: u32, height: RowHeight, keep_focused: bool) -> (kivact::test
         )
         .row_height(height)
         .overscan(0.0)
-        .keep_focused(keep_focused)
         .scroll_to(target)
         .node_ref(list)
         .test_id("rows")
         .style(style().height(120));
+        let view = if keep_focused {
+            view
+        } else {
+            view.release_offscreen_focus()
+        };
         (Rows { target, list }, view)
     })
 }
@@ -302,9 +308,9 @@ fn scroll_to_brings_a_row_that_is_not_mounted_into_view() {
 /// `scroll_to`.
 #[test]
 fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus() {
-    use kivact::interaction::{ListPolicy, ListSelection, use_list};
+    use kivact::interaction::ListItem;
+    use kivact::interaction::{ListOptions, use_list};
     use kivact::test::{MirrorMode, RenderOptions};
-    use kivact::ui::ListItem;
     use kivact::view::Key;
 
     let (screen, nav) = crate::support::mount_with(
@@ -321,8 +327,8 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
                         .map(|key| ListItem::new(key, format!("row {key}")))
                         .collect::<Vec<_>>()
                 },
-                ListSelection::Multiple(selected.into()),
-                ListPolicy::default(),
+                selected.into_selection(),
+                ListOptions::default(),
             )
             .page_size(5)
             .scroll_with(move |key| target.set(Some(key)));
@@ -336,7 +342,8 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
                         .name(name.clone())
                         .child(text(name))
                         .style(style().height(24)))
-                    .part(nav.item(k).role(Role::Option))
+                    .part(nav.item(k))
+                    .role(Role::Option)
                 },
             )
             .row_height(RowHeight::Fixed(24.0))
@@ -344,7 +351,7 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
             .scroll_to(target)
             .test_id("rows")
             .style(style().height(120));
-            (nav, list.role(Role::ListBox))
+            (nav, list.with_node(move |node| node.role(Role::ListBox)))
         },
     );
     screen.get_by_role(Role::Option, "row 0").click();

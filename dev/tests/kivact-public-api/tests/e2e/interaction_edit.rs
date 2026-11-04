@@ -8,11 +8,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
+use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::ui::{EditPhase, ScalarRange};
 use kivact::view::A11yAction;
+use kivact::view::EditPhase;
 use kivact::view::MouseButton;
 
 /// The phases an observer saw, each with the value in the binding at that time.

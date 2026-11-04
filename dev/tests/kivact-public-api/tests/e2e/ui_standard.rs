@@ -328,7 +328,7 @@ fn a_kits_theme_gives_the_standard_components_the_kits_look() {
     );
     // The kit's recipes are the same table a caller can read back.
     let theme = kivact_ui_pop::theme(kivact::style::ThemeMode::Light);
-    let recipes = theme.get::<UiRecipes>();
+    let recipes = theme.ext::<UiRecipes>();
     assert_ne!(*recipes, UiRecipes::default());
     assert!(kit.errors().is_empty(), "{:?}", kit.errors());
 }

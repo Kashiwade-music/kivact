@@ -1,13 +1,13 @@
 //! Role: Tests for path rendering and transformation.
 //! paths and stroke outlines are what pixels and hit regions show.
 use super::paint::{BLACK, RED, WHITE, expect};
-use kivact::control::canvas;
 use kivact::draw::Path;
-use kivact::draw::Point;
 use kivact::draw::{Stroke, Transform};
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::test::render;
+use kivact::view::canvas;
 
 fn circle(center: Point, radius: f64) -> Path {
     Path::new().arc(center, radius, 0, 360, false).close()

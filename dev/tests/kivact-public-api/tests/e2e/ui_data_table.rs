@@ -89,10 +89,10 @@ fn a_column_context_menu_preserves_header_sorting() {
             menu(
                 "Name options",
                 vec![MenuEntry::item("inspect", "Inspect names")],
-                move |_| {
-                    selected.set(true);
-                },
             )
+            .on_activate(move |_| {
+                selected.set(true);
+            })
         });
         (selected, data_table(people(), |p: &Person| p.id, columns))
     });
@@ -338,7 +338,7 @@ fn ineligible_rows_keep_focus_but_are_skipped_by_selection_gestures() {
         (
             selected,
             data_table(people(), |p: &Person| p.id, columns())
-                .focus(TableFocus::Rows(kivact::interaction::ListPolicy::default()))
+                .focus(TableFocus::Rows(kivact::interaction::ListOptions::default()))
                 .selection(selected)
                 .row_selectable(|person| person.id != 2),
         )
@@ -393,16 +393,13 @@ fn row_context_menu_opens_from_a_cell_without_changing_selection() {
             data_table(people(), |p: &Person| p.id, columns())
                 .selection(selected)
                 .row_context_menu(move |person| {
-                    menu(
-                        "Person actions",
-                        move || {
-                            vec![MenuEntry::item(
-                                "inspect",
-                                person.with(|p| format!("Inspect {}", p.name)),
-                            )]
-                        },
-                        move |_| chosen.set(Some(person.with(|p| p.id))),
-                    )
+                    menu("Person actions", move || {
+                        vec![MenuEntry::item(
+                            "inspect",
+                            person.with(|p| format!("Inspect {}", p.name)),
+                        )]
+                    })
+                    .on_activate(move |_| chosen.set(Some(person.with(|p| p.id))))
                 }),
         )
     });
@@ -456,8 +453,8 @@ fn a_cell_that_claims_secondary_input_suppresses_the_row_menu() {
                 menu(
                     "Row options",
                     vec![MenuEntry::item("inspect", "Inspect row")],
-                    |_| (),
                 )
+                .on_activate(|_| ())
             }),
         )
     });

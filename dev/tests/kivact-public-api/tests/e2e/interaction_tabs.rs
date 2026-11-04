@@ -6,10 +6,10 @@
 use std::rc::Rc;
 
 use crate::support::mount_with;
+use kivact::interaction::{ListActivation, ListItem};
 use kivact::interaction::{TabsApi, use_tabs};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::ui::{ListActivation, ListItem};
 use kivact::view::Orientation;
 
 type Option_ = ListItem<&'static str>;
@@ -144,7 +144,8 @@ fn tab_list(tabs: TabsApi<&'static str>, options: Signal<Vec<Option_>>) -> Node 
     node().part(tabs.list()).child(for_each(
         options,
         |option| *option.key(),
-        move |key, option| {
+        move |option| {
+            let key = option.with(|option| *option.key());
             let label = memo(move || option.with(|option| option.label()));
             tab(label).part(tabs.item(key))
         },
@@ -161,7 +162,8 @@ fn panels<V: IntoView>(
     node().child(for_each(
         options,
         |option| *option.key(),
-        move |key, _| {
+        move |row_value| {
+            let key = row_value.with(|option| *option.key());
             let content = content.clone();
             let build = move || node().part(tabs.panel(key)).child(content(&key));
             if keep {

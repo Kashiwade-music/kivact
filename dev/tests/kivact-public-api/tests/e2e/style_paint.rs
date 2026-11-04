@@ -5,12 +5,11 @@ use std::rc::Rc;
 
 use super::paint::{BLUE, GREEN, RED, WHITE, at, canvas_of, expect};
 use super::support::mount;
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::Rect;
+use kivact::ErrorKind;
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
+use kivact::style::provide_theme;
 use kivact::test::render;
-use kivact::view::provide_theme;
 
 #[test]
 fn paint_only_style_tracks_size_signals_theme_and_removal() {

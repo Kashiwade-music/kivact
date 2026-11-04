@@ -3,14 +3,12 @@
 //! The unstyled `Menu` from a button and as a context menu: opening, keys,
 //! typeahead, submenus, choosing, focus return, changing entries and semantics.
 
-use kivact::primitive::NodeExt;
-use kivact::ui::MenuEntry;
+use kivact::interaction::MenuEntry;
 use kivact::view::View;
-use std::hash::Hash;
 use std::time::Duration;
 
 use crate::support::mount_with;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
 use kivact::style::Align;
@@ -35,8 +33,10 @@ fn action(name: &'static str) -> Node {
 
 fn edit_entries() -> Vec<Entry> {
     vec![
-        Entry::item("cut", "Cut").shortcut("Ctrl X").disabled(true),
-        Entry::item("copy", "Copy").shortcut("Ctrl C"),
+        Entry::item("cut", "Cut")
+            .with_shortcut("Ctrl X")
+            .disabled(true),
+        Entry::item("copy", "Copy").with_shortcut("Ctrl C"),
         Entry::separator(),
         Entry::item("paste", "Paste"),
         Entry::item("delete", "Delete").disabled(true),
@@ -61,34 +61,38 @@ fn nested_entries() -> Vec<Entry> {
 }
 
 /// The rows of one level: items (with their submenus) and separators.
-fn level<K: Clone + Eq + Hash + 'static>(m: MenuApi<K>) -> Node {
+fn level<K: ItemKey>(m: MenuApi<K>) -> Node {
     let rows = for_each(
         m.entries(),
         |(row, _)| row.clone(),
-        move |row, entry| match row {
-            MenuRow::Separator(_) | MenuRow::Label(_) => node()
-                .role(Role::Separator)
-                .style(style().height(1).margin_y(4))
-                .into_view(),
-            MenuRow::Item { key, kind } => {
-                let submenu = kind == MenuItemKind::Submenu;
-                let label = memo(move || entry.with(|(_, entry)| entry.label()));
-                let part = m.item(key.clone());
-                let anchor = part.node_ref();
-                let row = node()
-                    .part(part)
-                    .style(style().height(28).padding_x(8).align_items(Align::Center))
-                    .child(text(label));
-                if submenu {
-                    let sub = m.submenu(key);
-                    row.child(sub.show(move || {
-                        overlay(anchor, Placement::End, level(sub))
-                            .part(sub.content())
-                            .name(label)
-                    }))
-                    .into_view()
-                } else {
-                    row.into_view()
+        move |entry| {
+            let row = entry.with(|(row, _)| row.clone());
+            match row {
+                MenuRow::Separator(_) | MenuRow::Label(_) => node()
+                    .role(Role::Separator)
+                    .style(style().height(1).margin_y(4))
+                    .into_view(),
+                MenuRow::Item { key, kind } => {
+                    let submenu = kind == MenuItemKind::Submenu;
+                    let label = memo(move || entry.with(|(_, entry)| entry.label()));
+                    let part = m.item(key.clone());
+                    let anchor = node_ref();
+                    let row = node()
+                        .part(part)
+                        .node_ref(anchor)
+                        .style(style().height(28).padding_x(8).align_items(Align::Center))
+                        .child(text(label));
+                    if submenu {
+                        let sub = m.submenu(key);
+                        row.child(sub.show(move || {
+                            overlay(anchor, Placement::End, level(sub))
+                                .with_node(move |node| node.part(sub.content()))
+                                .name(label)
+                        }))
+                        .into_view()
+                    } else {
+                        row.into_view()
+                    }
                 }
             }
         },
@@ -97,15 +101,15 @@ fn level<K: Clone + Eq + Hash + 'static>(m: MenuApi<K>) -> Node {
 }
 
 /// A menu button named `name` and its menu, named like it.
-fn menu_button<K: Clone + Eq + Hash + 'static>(name: &'static str, m: MenuApi<K>) -> View {
+fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View {
     let trigger = m.trigger();
-    let anchor = trigger.node_ref();
+    let anchor = node_ref();
     (
-        action(name).part(trigger),
+        action(name).part(trigger).node_ref(anchor),
         m.show(move || {
             overlay(anchor, Placement::Below, level(m))
                 .offset(4)
-                .part(m.content())
+                .with_node(move |node| node.part(m.content()))
                 .name(name)
         }),
     )
@@ -114,23 +118,21 @@ fn menu_button<K: Clone + Eq + Hash + 'static>(name: &'static str, m: MenuApi<K>
 
 /// `area` opening `m` as a context menu named `name`: at the pointer for a
 /// right click, below the area otherwise.
-fn context_area<K: Clone + Eq + Hash + 'static>(
-    name: &'static str,
-    area: Node,
-    m: MenuApi<K>,
-) -> View {
+fn context_area<K: ItemKey>(name: &'static str, area: Node, m: MenuApi<K>) -> View {
     let trigger = m.context_trigger();
-    let anchor = trigger.node_ref();
+    let anchor = node_ref();
     let origin = m.origin();
     (
-        area.part(trigger),
+        area.part(trigger).node_ref(anchor),
         m.show(move || {
             let content = level(m);
             let placed = match origin.get_untracked() {
                 Some(MenuOrigin::Pointer(point)) => overlay_at(point, Placement::Below, content),
                 _ => overlay(anchor, Placement::Below, content),
             };
-            placed.part(m.content()).name(name)
+            placed
+                .with_node(move |node| node.part(m.content()))
+                .name(name)
         }),
     )
         .into_view()
@@ -142,9 +144,8 @@ fn mount_button(
 ) -> (Screen, Signal<Vec<&'static str>>) {
     mount_with(real_window(), move || {
         let chosen = signal(Vec::new());
-        let edit = use_menu(entries, move |key: &'static str| {
-            chosen.update(|chosen| chosen.push(key))
-        });
+        let edit = use_menu(entries)
+            .on_activate(move |key: &'static str| chosen.update(|chosen| chosen.push(key)));
         (chosen, column((menu_button("Edit", edit), action("After"))))
     })
 }
@@ -353,7 +354,7 @@ fn choosing_calls_back_with_the_key_closes_every_level_and_returns_the_focus() {
 #[test]
 fn roles_checked_expanded_description_and_the_separator_are_published() {
     let (screen, _) = mount_button(vec![
-        Entry::item("cut", "Cut").shortcut("Ctrl X"),
+        Entry::item("cut", "Cut").with_shortcut("Ctrl X"),
         Entry::checkbox("grid", "Show grid", true),
         Entry::checkbox("snap", "Snap", false),
         Entry::separator(),
@@ -410,7 +411,7 @@ struct ContextRig {
 /// An area with a focusable child, and the edit menu it opens.
 fn mount_context() -> (Screen, ContextRig) {
     mount_with(real_window(), || {
-        let edit = use_menu(edit_entries(), |_: &'static str| ());
+        let edit = use_menu(edit_entries()).on_activate(|_: &'static str| ());
         let area = node()
             .role(Role::Group)
             .name("Canvas")
@@ -419,7 +420,7 @@ fn mount_context() -> (Screen, ContextRig) {
             .child(action("Inner"));
         (
             ContextRig {
-                open: edit.shown(),
+                open: edit.is_open(),
                 origin: edit.origin(),
             },
             context_area("Canvas", area, edit),

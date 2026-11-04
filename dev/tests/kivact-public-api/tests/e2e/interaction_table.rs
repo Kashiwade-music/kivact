@@ -2,7 +2,7 @@
 
 use crate::support::mount_with;
 use kivact::interaction::{
-    ColumnDef, ListRangePolicy, ListSelection, SortOrder, TableFocus, use_table,
+    ColumnDef, ListRangeOptions, Selection, SortOrder, TableFocus, use_data_table,
 };
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
@@ -15,18 +15,19 @@ fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
         || {
             let rows = signal(vec![1u32, 2, 3, 4, 5, 6, 7, 8]);
             let selected = signal(Vec::new());
-            let table = use_table(
+            let table = use_data_table(
                 rows,
                 |row| *row,
                 vec![ColumnDef::new(0, "Name"), ColumnDef::new(1, "Value")],
-                ListSelection::Multiple(selected.into()),
-                TableFocus::Cells(ListRangePolicy::default()),
+                selected.into_selection(),
+                TableFocus::Cells(ListRangeOptions::default()),
             )
             .row_label(|key| format!("Row {key}"));
             let body = for_each(
                 rows,
                 |row| *row,
-                move |key, _| {
+                move |row_value| {
+                    let key = row_value.with(|row| *row);
                     row((0..2)
                         .map(|col| {
                             node()
@@ -134,15 +135,15 @@ fn headers_sort_and_resize_through_caller_bindings() {
         || {
             let sort = signal(None);
             let widths = signal(std::collections::HashMap::from([(0usize, 100.0)]));
-            let table = use_table(
+            let table = use_data_table(
                 vec![1],
                 |row| *row,
                 vec![ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b))],
-                ListSelection::Multiple(signal(Vec::<i32>::new()).into()),
+                Selection::Multiple(signal(Vec::<i32>::new()).into_binding()),
                 TableFocus::default(),
             )
-            .sort(sort)
-            .widths(widths);
+            .with_sort(sort)
+            .with_widths(widths);
             (
                 (sort, widths),
                 row((

@@ -8,10 +8,9 @@
 //! top), and `Screen::scroll` wheels at the current pointer position.
 
 use crate::support::mount;
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::Rect;
+use kivact::ErrorKind;
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 use kivact::style::Align;
 use kivact::test::{Screen, render};
 use kivact::view::View;
@@ -40,11 +39,11 @@ fn text_wraps_to_the_width_left_by_its_siblings_and_fields_never_wrap() {
             .style(style().align_items(Align::Start)),
             column((
                 text("A").test_id("one line"),
-                kivact::control::node()
+                kivact::view::node()
                     .name("long field")
                     .part(kivact::interaction::use_text_edit(signal(LONG.to_string())).control())
                     .style(style().width(120)),
-                kivact::control::node()
+                kivact::view::node()
                     .name("short field")
                     .part(kivact::interaction::use_text_edit(signal("a".to_string())).control())
                     .style(style().width(120)),
@@ -305,7 +304,7 @@ fn orientation_on_a_scroll_container_is_reported_and_the_axes_win() {
     let screen = render(|| {
         scroll(row((text("a"), text("b"))))
             .axes(ScrollAxes::Horizontal)
-            .orientation(Orientation::Vertical)
+            .with_node(move |node| node.orientation(Orientation::Vertical))
             .test_id("strip")
     });
     assert_eq!(

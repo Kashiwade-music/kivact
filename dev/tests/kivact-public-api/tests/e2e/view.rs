@@ -4,7 +4,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
@@ -131,7 +131,8 @@ fn for_each_keeps_row_owners_uses_minimal_moves_and_reports_duplicates() {
             column(for_each(
                 list,
                 |it| it.id,
-                move |id, it| {
+                move |it| {
+                    let id = it.with(|it| it.id);
                     let l4 = l3.clone();
                     l4.borrow_mut().push(format!("mount {id}"));
                     on_cleanup(move || l4.borrow_mut().push(format!("dispose {id}")));
@@ -220,7 +221,7 @@ fn text_field_binding_is_two_way_without_echo() {
         (
             name,
             column((
-                kivact::control::node()
+                kivact::view::node()
                     .name("Name")
                     .part(kivact::interaction::use_text_edit(name).control()),
                 text(move || format!("hello {}", name.get())),
@@ -377,7 +378,7 @@ fn keyboard_activation_disabled_and_bubbling() {
 
 #[test]
 fn counter_example_end_to_end() {
-    fn counter(initial: i32) -> impl IntoView {
+    fn counter(initial: i32) -> impl Component {
         let count = signal(initial);
         let doubled = memo(move || count.get() * 2);
         column((
