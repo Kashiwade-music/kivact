@@ -33,6 +33,7 @@ mod events;
 mod ime;
 mod modifiers;
 mod mouse;
+pub mod pipeline;
 mod services;
 mod target;
 mod types;

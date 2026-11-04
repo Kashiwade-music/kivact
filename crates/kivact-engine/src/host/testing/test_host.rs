@@ -238,6 +238,12 @@ impl ArvaneTestHost {
         self.probe.modifiers()
     }
 
+    /// Normalize raw platform input through the shared virtual script.
+    pub fn raw_input(&mut self, input: arvane_virtual::raw::RawInput) {
+        self.script.raw(input);
+        self.step(Step::Input);
+    }
+
     /// Deliver one shell event at the host's entry, as the shell delivers
     /// the winit events it maps. Input is applied to the host model at
     /// once; the client's turn for it runs at the next [`Self::wake`] (the
