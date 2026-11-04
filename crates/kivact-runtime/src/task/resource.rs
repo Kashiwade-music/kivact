@@ -56,7 +56,7 @@ where
     let app = owner.app();
     let cell = Rc::new(ResourceCell {
         async_state: AsyncCell::new(owner, at),
-        refetch: owner.trigger(at),
+        refetch: owner.notifier(at),
         fetch: LatestRun::new(),
     });
     let handle = owner.store("Resource", cell.clone(), at);

@@ -168,6 +168,7 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
 }
 
 fn merge_semantics(target: &mut SemanticSources, mut part: SemanticSources) {
+    replace(&mut target.text, part.text.take());
     replace(&mut target.value_min, part.value_min.take());
     replace(&mut target.value_max, part.value_max.take());
     replace(&mut target.value_now, part.value_now.take());

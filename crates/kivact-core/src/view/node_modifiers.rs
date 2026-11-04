@@ -307,8 +307,7 @@ impl Node {
     /// including a recipe's.
     ///
     /// ```
-    /// use kivact_core::control::{NodeBuilder, node};
-    /// use kivact_core::custom::NodeExt;
+    /// use kivact_core::view::node;
     /// use kivact_core::style::style;
     ///
     /// // The caller's height wins although the component adds its own later.
