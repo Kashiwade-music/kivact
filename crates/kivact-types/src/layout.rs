@@ -370,9 +370,9 @@ pub struct LayoutProps {
     pub enter_size: Option<crate::Orientation>,
     /// Axis collapsed during removal.
     pub exit_size: Option<crate::Orientation>,
-    /// Timing shared by presence size changes.
     /// Animate layout changes through the visual transform.
     pub layout_transition: Option<crate::motion::Transition>,
+    /// Timing shared by presence size changes.
     pub size_transition: Option<crate::motion::Transition>,
     /// Main-axis direction of the flex container.
     pub direction: FlexDirection,

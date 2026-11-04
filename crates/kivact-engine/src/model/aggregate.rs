@@ -19,6 +19,7 @@ pub(crate) enum DeferredRequest {
 pub(crate) struct Model {
     pub(crate) tree: NodeTree,
     pub(crate) layout: kivact_layout::Layout,
+    pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
     pub(crate) measure: crate::measure::state::MeasureColumns,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventQueue,
@@ -66,6 +67,7 @@ impl Model {
         Self {
             tree: NodeTree::default(),
             layout: Default::default(),
+            layout_motion: Default::default(),
             measure: Default::default(),
             editors: Vec::new(),
             events: super::events::EventQueue::default(),
