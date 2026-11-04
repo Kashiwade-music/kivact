@@ -27,7 +27,6 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -85,14 +84,14 @@ pub fn virtual_list<T, K, V>(
     row: impl Fn(K, Value<T>) -> V + 'static,
 ) -> VirtualList<T, K>
 where
-    T: Clone + PartialEq + 'static,
-    K: Eq + Hash + Clone + 'static,
+    T: kivact_runtime::PropValue,
+    K: kivact_runtime::ItemKey,
     V: IntoView,
 {
     VirtualList {
         items: items.into_prop(),
         key: Rc::new(key),
-        row: Rc::new(move |k, v| row(k, v).into_view()),
+        row: crate::view::ViewFn::from(move |(k, v)| row(k, v)),
         height: RowHeight::Fixed(24.0),
         overscan: 200.0,
         scroll_to: kivact_runtime::Prop::constant(None),
@@ -109,8 +108,8 @@ impl<T: 'static, K: 'static> VirtualList<T, K> {
     }
 
     /// Extra pixels mounted above and below the viewport (default 200).
-    pub fn overscan(mut self, px: f64) -> Self {
-        self.overscan = px.max(0.0);
+    pub fn overscan(mut self, px: impl Into<f64>) -> Self {
+        self.overscan = px.into().max(0.0);
         self
     }
 
@@ -146,8 +145,8 @@ impl<T: 'static, K: 'static> VirtualList<T, K> {
     /// scrolls to another row or the user scrolls with the wheel. Once the
     /// focus has left it, the next update of the visible range unmounts the
     /// row as usual.
-    pub fn keep_focused(mut self, keep: bool) -> Self {
-        self.keep_focused = keep;
+    pub fn release_offscreen_focus(mut self) -> Self {
+        self.keep_focused = false;
         self
     }
 }
@@ -224,9 +223,7 @@ fn wrapper_layout(top: f64, height: Option<f64>) -> LayoutProps {
     }
 }
 
-impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
-    for VirtualList<T, K>
-{
+impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for VirtualList<T, K> {
     fn into_view(self) -> View {
         view_fn(move |cx| {
             let VirtualList {
@@ -241,7 +238,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                 at,
             } = self;
             let mut common = root.into_modifiers(cx, "a virtual list", at);
-            // `.at(..)` relocates the spacer and row wrappers too.
+            // `.located_at_caller()` relocates the spacer and row wrappers too.
             let at = common.at.unwrap_or(at);
             // What the host reported (`None` before the first report).
             let viewport: Signal<Option<Viewport>> = cx.owner.signal(None, at);
@@ -430,7 +427,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                     spacer,
                     &st,
                     visible,
-                    &*row,
+                    &row,
                     measured_version,
                     at,
                 );
@@ -463,7 +460,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
 }
 
 /// The mounted row that holds the keyboard focus, or has a node that does.
-fn focused_row<K: Eq + Hash + Clone + 'static, T: 'static>(
+fn focused_row<K: kivact_runtime::ItemKey, T: 'static>(
     rt: &Runtime,
     spacer: NodeId,
     focused: NodeId,
@@ -514,7 +511,7 @@ struct Seeker<K: 'static, T: 'static> {
 /// rows keep changing height under the target).
 const MAX_STEPS: u8 = 8;
 
-impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seeker<K, T> {
+impl<K: kivact_runtime::ItemKey, T: Clone + 'static> Seeker<K, T> {
     /// Advance the pending request, if any.
     fn run(&self, rt: &Rc<Runtime>) {
         let (want, issued, steps) = match &self.state.borrow().seek {
@@ -604,13 +601,13 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seeker<K, T> {
     clippy::too_many_arguments,
     reason = "internal mount helper; the arguments are the list's parts"
 )]
-fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
+fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
     rt: &Rc<Runtime>,
     parent: Owner,
     spacer: NodeId,
     state: &Rc<RefCell<VState<K, T>>>,
     visible: Vec<(K, Option<T>, f64, Option<f64>)>,
-    row: &dyn Fn(K, Value<T>) -> View,
+    row: &RowFn<K, T>,
     measured_version: Trigger,
     at: &'static Location<'static>,
 ) {
@@ -680,7 +677,7 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
                     }
                 }
                 let fragment = cx.fragment();
-                let content = mount_in(rt, owner, || row(k.clone(), sig.into_value()));
+                let content = mount_in(rt, owner, || row.call((k.clone(), sig.into_value())));
                 cx.append(fragment, content);
                 cx.append(wrapper, fragment);
                 order.push(wrapper);

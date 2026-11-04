@@ -99,7 +99,7 @@ pub(super) fn bind(
 
 /// Stage 6: bind the semantic sources that include the node's own text, in
 /// the existing effect order after draw layers for retained paint consumers.
-/// Text geometry may instead use `primitive::shape_paragraph` directly. A value that
+/// Text geometry may instead use `custom::shape_paragraph` directly. A value that
 /// reads what the drawing just made sees it in the same turn.
 pub(super) fn bind_late(
     cx: &Mcx<'_>,

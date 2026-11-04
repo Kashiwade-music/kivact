@@ -20,9 +20,9 @@ pub(super) struct FirstWrite {
     pub(super) test_id: Option<Rc<str>>,
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,
-    pub(super) focusable_when_disabled: bool,
+    pub(super) focusable_when_disabled: Option<InputProp<bool>>,
     pub(super) roving_focus: Option<kivact_engine::contract::RovingFocus>,
-    pub(super) hit_testable: Option<bool>,
+    pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
     pub(super) actions: Vec<crate::view::A11yAction>,
     /// The final handlers (routed through the parts' defaults when the node has parts).
@@ -72,14 +72,8 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         if let Some(r) = role {
             tree.update(id, PropValue::Role(r), writer);
         }
-        if focusable_when_disabled {
-            tree.update(id, PropValue::FocusableWhenDisabled(true), writer);
-        }
         if let Some(roving_focus) = roving_focus {
             tree.update(id, PropValue::RovingFocus(roving_focus), writer);
-        }
-        if let Some(h) = hit_testable {
-            tree.update(id, PropValue::HitTestable(h), writer);
         }
         if !actions.is_empty() {
             tree.update(id, PropValue::Actions(actions), writer);
@@ -99,6 +93,12 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         if observe_layout {
             tree.set_observe(id, true);
         }
+    }
+    if let Some(f) = hit_testable {
+        cx.bind(id, f, PropValue::HitTestable, at);
+    }
+    if let Some(f) = focusable_when_disabled {
+        cx.bind(id, f, PropValue::FocusableWhenDisabled, at);
     }
     if let Some(f) = focusable {
         cx.bind(id, f, PropValue::Focusable, at);

@@ -15,7 +15,7 @@ use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, req
 /// Copy handle of a frame loop.
 #[derive(Clone, Copy)]
 pub struct FrameLoop {
-    handle: Owned<LoopCell>,
+    handle: Owned<Rc<LoopCell>>,
 }
 
 /// A frame callback of the current setup owner, stopped until `start`
@@ -41,7 +41,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
 
 impl FrameLoop {
     fn cell(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<LoopCell>) {
-        let c = self.handle.get_at(at);
+        let c = self.handle.get();
         (c.owner.runtime(), c)
     }
 

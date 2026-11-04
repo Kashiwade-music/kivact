@@ -28,14 +28,14 @@ use kivact_runtime::UiError;
 
 use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};
 
-type FallbackFn = Rc<dyn Fn(UiError, Retry) -> View>;
+type FallbackFn = crate::view::ViewFn<(UiError, Retry)>;
 
 /// A boundary catching the errors of its child. Built by
 /// [`error_boundary`]; see the module documentation for the semantics.
 pub struct ErrorBoundary {
     child: Build,
     fallback: Option<FallbackFn>,
-    on_error: Option<Rc<dyn Fn(UiError)>>,
+    on_error: Option<kivact_runtime::Handler<UiError>>,
     at: &'static Location<'static>,
 }
 
@@ -48,7 +48,7 @@ pub struct ErrorBoundary {
 ///     .fallback(|e, reset| column((text(e.to_string()), button("Retry").on_press(move || reset()))))
 /// ```
 #[track_caller]
-pub fn error_boundary<V: IntoView>(child: impl Fn() -> V + 'static) -> ErrorBoundary {
+pub fn error_boundary<V: IntoView>(child: impl crate::view::IntoViewFn<V>) -> ErrorBoundary {
     ErrorBoundary {
         child: build(child),
         fallback: None,
@@ -61,14 +61,17 @@ impl ErrorBoundary {
     /// On the first error, replace the child with `f(err, reset)`;
     /// calling `reset()` mounts a fresh child again.
     pub fn fallback<V: IntoView>(mut self, f: impl Fn(UiError, Retry) -> V + 'static) -> Self {
-        self.fallback = Some(Rc::new(move |e, reset| f(e, reset).into_view()));
+        self.fallback = Some(crate::view::ViewFn::from(move |(e, retry)| f(e, retry)));
         self
     }
 
     /// Receive each error raised under the boundary while the child is
     /// shown; the child keeps being shown (unless a fallback is also set).
-    pub fn on_error(mut self, f: impl Fn(UiError) + 'static) -> Self {
-        self.on_error = Some(Rc::new(f));
+    pub fn on_error<R: kivact_runtime::HandlerResult>(
+        mut self,
+        f: impl Fn(UiError) -> R + 'static,
+    ) -> Self {
+        self.on_error = Some(kivact_runtime::Handler::from_fn(f));
         self
     }
 }
@@ -76,10 +79,10 @@ impl ErrorBoundary {
 /// What the boundary does with an error raised under it while the child is shown.
 enum Catch {
     /// `.on_error(f)` alone: `f` runs and the child stays.
-    Observe(Rc<dyn Fn(UiError)>),
+    Observe(kivact_runtime::Handler<UiError>),
     /// `.fallback(f)`, with or without `.on_error`: the fallback replaces the child.
     Replace {
-        on_error: Option<Rc<dyn Fn(UiError)>>,
+        on_error: Option<kivact_runtime::Handler<UiError>>,
         fallback: FallbackFn,
     },
 }
@@ -112,12 +115,16 @@ impl IntoView for ErrorBoundary {
             let (on_error, fallback) = match catch {
                 // No handler: errors go on to the parent; the child is mounted once and stays.
                 None => {
-                    mount_branch(&rt, boundary.child(at), frag, || child());
+                    mount_branch(&rt, boundary.child(at), frag, || child.call(()));
                     return frag;
                 }
                 Some(Catch::Observe(f)) => {
-                    boundary.on_error(move |e| f(e));
-                    mount_branch(&rt, boundary.child(at), frag, || child());
+                    boundary.on_error(move |e| {
+                        if let Err(error) = f.call(e) {
+                            parent.report(error);
+                        }
+                    });
+                    mount_branch(&rt, boundary.child(at), frag, || child.call(()));
                     return frag;
                 }
                 Some(Catch::Replace { on_error, fallback }) => (on_error, fallback),
@@ -129,7 +136,9 @@ impl IntoView for ErrorBoundary {
                 match shown.try_get_untracked() {
                     Some(Shown::Child) => {
                         if let Some(f) = &on_error {
-                            f(e.clone());
+                            if let Err(error) = f.call(e.clone()) {
+                                parent.report(error);
+                            }
                         }
                         shown.set(Shown::Fallback(e));
                     }
@@ -151,12 +160,12 @@ impl IntoView for ErrorBoundary {
                     unmount_branch(&rt, b);
                 }
                 let b = match now {
-                    Shown::Child => mount_branch(&rt, boundary.child(at), frag, || child()),
+                    Shown::Child => mount_branch(&rt, boundary.child(at), frag, || child.call(())),
                     Shown::Fallback(e) => {
                         let fallback = fallback.clone();
                         mount_branch(&rt, boundary.child(at), frag, move || {
                             let reset = Retry::new(move || shown.set(Shown::Child));
-                            fallback(e, reset)
+                            fallback.call((e, reset))
                         })
                     }
                 };

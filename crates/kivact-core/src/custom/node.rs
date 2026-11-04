@@ -107,10 +107,10 @@ pub trait NodeRefExt {
     /// The session is clamped into the text (to char boundaries).
     /// Disabled editors reject it; read-only editors take the selection
     /// but no composition. A new or ended composition notifies edit
-    /// handlers; the session handlers ([`TextEditing::on_selection`]) see
+    /// handlers; the session handlers ([`TextEditing::on_selection_change`]) see
     /// every change. Unbound references and regions have no effect.
     ///
-    /// [`TextEditing::on_selection`]: super::TextEditing::on_selection
+    /// [`TextEditing::on_selection_change`]: super::TextEditing::on_selection_change
     #[track_caller]
     fn set_edit_session(&self, session: super::TextSession);
 
@@ -118,9 +118,9 @@ pub trait NodeRefExt {
     #[track_caller]
     fn mounted_node(&self) -> Option<NodeToken>;
     /// The currently mounted node, subscribing to rebinding.
-    /// `at` preserves the originating author operation for deferred reads.
+    /// The caller location identifies misuse in deferred reads.
     #[track_caller]
-    fn tracked_node(&self, at: &'static Location<'static>) -> Option<NodeToken>;
+    fn tracked_node(&self) -> Option<NodeToken>;
     /// Whether two handles identify the same reference, even while unbound.
     #[track_caller]
     fn same_ref(&self, other: NodeRef) -> bool;
@@ -250,8 +250,8 @@ impl NodeRefExt for NodeRef {
         })
     }
     #[track_caller]
-    fn tracked_node(&self, at: &'static Location<'static>) -> Option<NodeToken> {
-        self.target_value(at).map(|node| NodeToken {
+    fn tracked_node(&self) -> Option<NodeToken> {
+        self.target_value(Location::caller()).map(|node| NodeToken {
             app: self.app,
             node,
             visible: true,
@@ -266,7 +266,7 @@ impl NodeRefExt for NodeRef {
         let (rt, _) = self.state(Location::caller());
         let revision = ViewState::tree_mut(&rt).visibility_revision(Location::caller());
         revision.track();
-        self.tracked_node(Location::caller())
+        self.tracked_node()
             .is_some_and(|token| ViewState::tree(&rt).is_visible(token.node.node))
     }
     #[track_caller]
@@ -275,7 +275,7 @@ impl NodeRefExt for NodeRef {
         let (rt, _) = self.state(at);
         let revision = ViewState::tree_mut(&rt).live_region_revision(at);
         revision.track();
-        self.tracked_node(at)
+        self.tracked_node()
             .is_some_and(|token| ViewState::tree(&rt).is_in_live_region(token.node.node))
     }
     #[track_caller]
@@ -292,7 +292,6 @@ impl NodeRefExt for NodeRef {
             super::raise(
                 crate::diagnostics::ErrorKind::WrongApp,
                 "focus panel belongs to another App",
-                Location::caller(),
             );
         }
         NodeRef::focus_was_in_raw(self, panel.node.node)

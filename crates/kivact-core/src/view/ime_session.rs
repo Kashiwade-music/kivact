@@ -2,11 +2,11 @@
 //!
 //! A node outside the native editors (a canvas editor, a code editor that
 //! draws its own text) gives the platform's input method a session
-//! (`NodeExt::ime_session`): the text around its caret, the selection and
+//! (`Node::ime_session`): the text around its caret, the selection and
 //! where the caret is. While the node has the focus the window allows the
 //! IME, puts its candidate window at the caret and answers its queries from
 //! the session; the IME's composition, commits and reconversion ranges come
-//! back to `NodeExt::on_ime`.
+//! back to `Node::on_ime`.
 //!
 //! Invariants:
 //! - The session's text is the node's committed text. The node shows the
@@ -25,14 +25,15 @@ pub use kivact_types::ImeInput;
 
 /// What a focusable node that edits its own text shows the input method
 /// (IME): its text, selection and caret. Attach it with
-/// `NodeExt::ime_session` and handle the IME's answers with
-/// `NodeExt::on_ime`.
+/// `Node::ime_session` and handle the IME's answers with
+/// `Node::on_ime`.
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::state::{signal};
+/// use kivact::view::{IntoView, NodeBuilder, Role, node, text};
 /// use kivact::geometry::Rect;
-/// use kivact::custom::{ImeInput, ImeSession, NodeExt};
+/// use kivact::custom::{ImeInput, ImeSession};
 ///
 /// fn line_editor() -> impl IntoView {
 ///     let text = signal(String::new());

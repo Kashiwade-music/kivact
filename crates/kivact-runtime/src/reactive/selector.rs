@@ -6,7 +6,6 @@
 use crate::reactive::AppId;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;
@@ -56,7 +55,7 @@ impl<K: 'static> Copy for Selector<K> {}
 
 /// Create a selector following `src` under `owner` (the caller has checked
 /// that setup is running).
-pub(crate) fn create_selector<K: Eq + Hash + Clone + 'static>(
+pub(crate) fn create_selector<K: crate::ItemKey>(
     rt: &Runtime,
     owner: Key,
     src: Prop<Option<K>>,
@@ -122,13 +121,13 @@ pub(crate) fn create_selector<K: Eq + Hash + Clone + 'static>(
 /// row_style(move || selected.is(&id))
 /// ```
 #[track_caller]
-pub fn selector<K: Eq + Hash + Clone + 'static>(source: impl IntoValue<Option<K>>) -> Selector<K> {
+pub fn selector<K: crate::ItemKey>(source: impl IntoValue<Option<K>>) -> Selector<K> {
     let at = Location::caller();
     let (rt, owner) = crate::reactive::scope::setup_scope("selector", at);
     create_selector(&rt, owner, source.into_prop(), at)
 }
 
-impl<K: Eq + Hash + Clone + 'static> Selector<K> {
+impl<K: crate::ItemKey> Selector<K> {
     /// Whether `k` is the selected key; subscribes the current computation
     /// to changes of that answer only.
     #[track_caller]

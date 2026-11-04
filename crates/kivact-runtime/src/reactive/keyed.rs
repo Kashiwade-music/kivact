@@ -178,7 +178,7 @@ pub fn key_hash<K: Hash>(key: &K) -> u64 {
 pub fn diff<K, T, R>(rows: &Rows<K, R>, list: &[T], key: &dyn Fn(&T) -> K) -> Diff<K, T>
 where
     K: Eq + Hash + Clone,
-    T: Clone + PartialEq + 'static,
+    T: crate::PropValue,
     R: AsRef<Row<K, T>>,
 {
     let current = &rows.rows;

@@ -100,13 +100,12 @@ impl Node {
     /// Each identifier may be declared once per node. Geometry is supplied by
     /// `Draw::region`, `Draw::region_shape` or `Draw::region_path`; a declaration
     /// without geometry does not create a native focus or accessibility target.
-    pub fn region<S: Clone + PartialEq + 'static>(
+    pub fn region<S: kivact_runtime::PropValue>(
         mut self,
         id: kivact_style::draw::RegionId,
         part: crate::view::Part<S>,
     ) -> Self {
-        let mut region = Common::default();
-        part.attach(&mut region);
+        let region = part.into_common();
         self.common
             .regions
             .push(crate::view::common::Declaration::Static(
@@ -123,7 +122,7 @@ impl Node {
     /// Removing a key disposes its state, refs and input callbacks. Declarations
     /// share one identifier namespace with `region`, in builder call order.
     #[track_caller]
-    pub fn regions<T: Clone + PartialEq + 'static, S: Clone + PartialEq + 'static>(
+    pub fn regions<T: kivact_runtime::PropValue, S: kivact_runtime::PropValue>(
         mut self,
         items: impl IntoValue<Vec<T>>,
         key: impl Fn(&T) -> kivact_style::draw::RegionId + 'static,
@@ -135,11 +134,7 @@ impl Node {
             .push(crate::view::mount::region_collection::declaration(
                 items.into_prop(),
                 key,
-                move |id, item| {
-                    let mut common = Common::default();
-                    make(id, item).attach(&mut common);
-                    common
-                },
+                move |id, item| make(id, item).into_common(),
                 Location::caller(),
             ));
         self
@@ -178,11 +173,11 @@ impl Node {
     /// to show a fallback. This modifier only applies to image nodes.
     pub fn on_image_error<R: crate::view::HandlerResult>(
         mut self,
-        handler: impl Fn(&str) -> R + 'static,
+        handler: impl Fn(UiError) -> R + 'static,
     ) -> Self {
         self.common.handlers.image_error =
-            Some(kivact_runtime::Handler::from_fn(move |reason: String| {
-                handler(&reason).into_outcome()
+            Some(kivact_runtime::Handler::from_fn(move |error: UiError| {
+                handler(error).into_outcome()
             }));
         self
     }
@@ -304,7 +299,7 @@ pub fn canvas(
 /// size; with one dimension the other follows the aspect ratio. Role
 /// `Image`; `.name(..)` is its alternative text, and without one the image
 /// is decorative (not exposed to assistive technology, as HTML
-/// `<img alt="">`) unless it has actions (`.on_a11y(..)`) or draws scene
+/// `<img alt="">`) unless it has actions (`.a11y_action(..)`) or draws scene
 /// regions; a test id alone does not expose it. A failed image draws
 /// nothing and is reported once as `ErrorKind::Asset`, located here, to
 /// the App's default sink unless [`Node::on_image_error`] handles it. [`Node::fit`] and
@@ -320,7 +315,7 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 /// A decorative 16 px icon drawn in the current text color: a name resolved
 /// in the theme in effect ([`Theme::icons`](crate::style::Theme::icons)),
 /// so a theme switch redraws it with the new theme's glyph, or an image
-/// [`Asset`](crate::Asset). It takes what an [`Icon`](crate::style::Icon)
+/// [`Asset`](crate::view::Asset). It takes what an [`Icon`](crate::style::Icon)
 /// converts from (`icon("check")` is `Icon::named("check")`), an `Icon`,
 /// or a closure, `Signal` or `Value` of one.
 ///
@@ -349,7 +344,7 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
     let reported = kivact_types::cell::ReportOnce::new();
     image(move || {
         let icon = source.get();
-        let theme = kivact_style::current_theme();
+        let theme = kivact_style::use_theme().get();
         theme.icons().resolve(&icon).unwrap_or_else(|| {
             if cfg!(debug_assertions) && reported.note() {
                 let owner = kivact_runtime::Owner::ambient("icon", at);

@@ -17,7 +17,7 @@ pub fn inline_view(
     text: impl Into<String>,
     typography: TextFormat,
     children: impl IntoIterator<Item = (usize, View)>,
-) -> Node {
+) -> impl crate::view::Component {
     let text = text.into();
     let paragraph = node_ref();
     let bounds = paragraph.rect();

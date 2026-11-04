@@ -21,7 +21,8 @@ use super::artifacts::failure_dir;
 use super::support::button_box;
 use crate::{MirrorMode, RenderOptions, render, render_with};
 use kivact_core::motion::FrameRate;
-use kivact_core::prelude::{IntoView, NodeBuilder, Role, column, row, show, style, text};
+use kivact_core::style::style;
+use kivact_core::view::{IntoView, NodeBuilder, Role, column, row, show, text};
 
 fn counter() -> impl IntoView {
     let count = signal(1);

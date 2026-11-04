@@ -89,7 +89,8 @@ impl Color {
     }
 
     /// Multiply alpha.
-    pub fn with_alpha(self, alpha: f64) -> Color {
+    pub fn with_alpha(self, alpha: impl Into<f64>) -> Color {
+        let alpha = alpha.into();
         match self.0 {
             Repr::Rgba(r, g, b, a) => Color(Repr::Rgba(r, g, b, (a * alpha).clamp(0.0, 1.0))),
             Repr::Token(t, a) => Color(Repr::Token(t, (a * alpha).clamp(0.0, 1.0))),

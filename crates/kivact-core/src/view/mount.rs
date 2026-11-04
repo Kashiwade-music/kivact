@@ -72,7 +72,7 @@ pub(crate) fn mount_host_with(
     at: &'static Location<'static>,
     fix_layout: Option<fn(&mut LayoutProps)>,
 ) -> NodeId {
-    // `.at(..)` replaces the builder's call site.
+    // `.located_at_caller()` replaces the builder's call site.
     let at = c.at.unwrap_or(at);
     let id = cx.host(kind);
     let Resolved {

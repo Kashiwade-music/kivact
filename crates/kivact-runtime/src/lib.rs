@@ -25,12 +25,12 @@ pub use reactive::{
     NodeId, NodeInfo, Notifier, Owned, Owner, OwnerId, Pending, Prop, PropValue, Reactive, Result,
     Runtime, Selector, Signal, Stage, ThreadWaker, TraceRun, TraceWrite, Turn, TurnGuard,
     TurnRecord, TurnReport, UiError, UiThreadOnly, Value, Var, binding, callback, clock_now,
-    constant, context, effect, effect_on, memo, notifier, on_cleanup, on_mount, pure, raise,
-    require_effectful, require_setup, selector, signal, try_context, untrack, var,
+    effect, effect_on, memo, notifier, on_cleanup, on_mount, pure, raise, require_effectful,
+    require_setup, selector, signal, try_use_context, untrack, use_context, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{
-    Action, ActionFn, ActionPolicy, AsyncState, BlockingWork, CancelToken, Completion,
+    Action, ActionFn, ActionMode, ActionOutcome, AsyncState, BlockingWork, CancelToken, Completion,
     DEFAULT_DRAIN_NS, Resource, Task, TaskState, TaskStats, action, blocking, resource, sleep,
     spawn, spawn_in, timeout,
 };

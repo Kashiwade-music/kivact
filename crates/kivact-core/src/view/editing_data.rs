@@ -101,5 +101,5 @@ pub(crate) struct EditorProps {
     pub(crate) placeholder: Option<InputProp<String>>,
 }
 
-/// What [`TextEditing::on_selection`] runs.
+/// What [`TextEditing::on_selection_change`] runs.
 pub(crate) type SessionHandler = kivact_runtime::Handler<TextSession>;

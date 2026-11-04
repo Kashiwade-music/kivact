@@ -9,7 +9,9 @@ use super::model::Screen;
 use super::support::button_box;
 use super::support::{Rng, seeds};
 use crate::render;
-use kivact_core::prelude::{NodeBuilder, Role, Signal, column, for_each, node, style, text};
+use kivact_core::state::Signal;
+use kivact_core::style::style;
+use kivact_core::view::{NodeBuilder, Role, column, for_each, node, text};
 use kivact_runtime::signal;
 
 #[test]
@@ -224,7 +226,7 @@ fn draft_screen() -> (Screen, Draft, NodeId, NodeId) {
             for_each(
                 move || list.get().into_iter().enumerate().collect::<Vec<_>>(),
                 |it: &(usize, String)| it.0,
-                |_, v| text(move || v.get().1),
+                |v| text(move || v.get().1),
             ),
         ))
     });

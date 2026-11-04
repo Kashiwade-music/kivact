@@ -19,6 +19,12 @@ pub trait IntoChildren: 'static {
     fn into_views(self) -> Vec<View>;
 }
 
+impl IntoChildren for () {
+    fn into_views(self) -> Vec<View> {
+        Vec::new()
+    }
+}
+
 impl<V: IntoView> IntoChildren for Vec<V> {
     fn into_views(self) -> Vec<View> {
         self.into_iter().map(IntoView::into_view).collect()

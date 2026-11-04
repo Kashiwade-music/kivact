@@ -41,7 +41,7 @@
 //!   `restore_surface` (the surface destroyed, then its next generation),
 //!   `Screen::suspend(destroys_surface)` and `resume`, `memory_warning`,
 //!   `set_safe_area`, and the software keyboard read through
-//!   `soft_keyboard_shown` and `soft_keyboard_requests`.
+//!   `is_soft_keyboard_shown` and `soft_keyboard_requests`.
 
 use kivact_engine::testing::{PointerId, PointerPhase, ShellEvent};
 use kivact_types::PointerSample;

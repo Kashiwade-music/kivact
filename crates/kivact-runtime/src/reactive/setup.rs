@@ -1,7 +1,7 @@
 //! Role: Free setup functions for reactive state and effects.
 //!
 //! Free setup functions: `signal`, `memo`, `effect`, `effect_on`,
-//! `on_cleanup`, `on_mount`, `context`, `var`, `binding`, plus the two
+//! `on_cleanup`, `on_mount`, `use_context`, `var`, `binding`, plus the two
 //! lookups every Kivact crate uses for its own constructors
 //! ([`setup_scope`], [`owner_scope`]). There is no setup-context argument:
 //! the executing App and the owner come from the runtime's frame stack.
@@ -11,8 +11,8 @@
 //!   (`Runtime::require_setup`). Anywhere else (handlers, tasks after an
 //!   `.await`, effects, outside every App) they raise a located `SetupOnly`
 //!   misuse. Nothing is attached to the root owner implicitly.
-//! - Owner-relative lookups (`context`, `spawn`, `platform::window_size`,
-//!   `style::current_theme`, ...) use the nearest owner of the frame stack
+//! - Owner-relative lookups (`use_context`, `spawn`, `platform::window_size`,
+//!   `style::use_theme`, ...) use the nearest owner of the frame stack
 //!   (`Runtime::current_owner`): a handler uses the owner of the node it is
 //!   delivered to, a task its own owner and `Callback::call` the callback's
 //!   owner, so they also work in handlers, tasks, frame callbacks and
@@ -70,31 +70,13 @@ pub fn var<T: 'static>(value: T) -> Var<T> {
 /// let fahrenheit = binding(move || celsius.get() * 1.8 + 32.0, move |f| celsius.set((f - 32.0) / 1.8));
 /// ```
 #[track_caller]
-pub fn binding<T: Clone + PartialEq + 'static, R: HandlerResult>(
+pub fn binding<T: crate::PropValue, R: HandlerResult>(
     value: impl IntoValue<T>,
     set: impl Fn(T) -> R + 'static,
 ) -> Binding<T> {
     Binding {
         repr: BindingRepr::Pair(value.into_value(), callback(set)),
     }
-}
-
-/// A constant value of the current owner: nobody can write it, so a
-/// property bound to it is written once, as a plain constant is. It makes
-/// any type a prop without registering it (`badge(constant(Lane::Done))`);
-/// a type its crate registers with `constant_value!` can be passed as it is.
-/// Setup only.
-///
-/// ```ignore
-/// let lane = constant(Lane::Done);
-/// badge("Done", lane)
-/// ```
-#[track_caller]
-pub fn constant<T: 'static>(value: T) -> Value<T> {
-    let at = Location::caller();
-    let (rt, owner) = setup_scope("constant", at);
-    let key = rt.create_const(owner, value, at);
-    Value::constant(rt.id(), key)
 }
 
 /// A Copy callback of the current owner, for passing the same closure to
@@ -196,21 +178,21 @@ pub fn on_mount(f: impl FnOnce() + 'static) {
     rt.push_mount(owner, Box::new(f));
 }
 
-/// A clone of the nearest `T` provided above the current owner (Solid
+/// A reactive value of the nearest `T` provided above the current owner (Solid
 /// `useContext`); a Copy handle struct is copied, a larger value is shared
 /// by wrapping it in an `Rc` before providing it.
 /// Works in setup and in handlers, tasks and effects (the nearest owner
 /// of the frame stack). Panics at the caller, naming `T`, if none is provided.
-/// Use [`try_context`] when the context is optional.
+/// Use [`try_use_context`] when the context is optional.
 #[track_caller]
-pub fn context<T: Clone + 'static>() -> T {
+pub fn use_context<T: Clone + 'static>() -> Value<T> {
     let at = Location::caller();
-    let (rt, owner) = owner_scope("context", at);
-    lookup_context::<T>(&rt, owner).unwrap_or_else(|| {
+    let (rt, owner) = owner_scope("use_context", at);
+    lookup_context::<Value<T>>(&rt, owner).unwrap_or_else(|| {
         misuse_at(
             ErrorKind::Message,
             format!(
-                "`context::<{}>()` requires a provided value",
+                "`use_context::<{}>()` requires context; wrap this component in `provide(value, || view)`",
                 type_name::<T>()
             ),
             at,
@@ -219,13 +201,13 @@ pub fn context<T: Clone + 'static>() -> T {
 }
 
 /// The nearest `T` provided above the current owner, or `None` if absent.
-/// Works in setup and in handlers, tasks and effects, like [`context`].
+/// Works in setup and in handlers, tasks and effects, like [`use_context`].
 /// A missing or disposed owner is still a located misuse.
 #[track_caller]
-pub fn try_context<T: Clone + 'static>() -> Option<T> {
+pub fn try_use_context<T: Clone + 'static>() -> Option<Value<T>> {
     let at = Location::caller();
-    let (rt, owner) = owner_scope("try_context", at);
-    lookup_context::<T>(&rt, owner)
+    let (rt, owner) = owner_scope("try_use_context", at);
+    lookup_context::<Value<T>>(&rt, owner)
 }
 
 /// The nearest `T` provided to `owner` or one of its ancestors.

@@ -11,8 +11,8 @@ use super::transition::{Kind, Transition};
 use super::values::Animatable;
 use crate::Prop as InputProp;
 use crate::{
-    AppId, EffectKind, HandlerResult, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal,
-    Value, require_effectful,
+    AppId, EffectKind, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal, Value,
+    require_effectful,
 };
 use kivact_types::motion::SpringRun;
 
@@ -194,7 +194,7 @@ impl<T: Animatable> Anim for AnimCell<T> {
 /// An animated value (Copy). Use it wherever a `Value<T>` is accepted.
 pub struct Animated<T: 'static> {
     app: AppId,
-    cell: Owned<AnimCell<T>>,
+    cell: Owned<Rc<AnimCell<T>>>,
     value: Value<T>,
     running: Value<bool>,
 }
@@ -287,7 +287,7 @@ impl<T: Animatable> Animated<T> {
 
 impl<T: Animatable> Animated<T> {
     fn cell(&self, at: &'static Location<'static>) -> Rc<AnimCell<T>> {
-        self.cell.get_at(at)
+        self.cell.get()
     }
 
     /// Current value (tracked).
@@ -365,7 +365,8 @@ impl<T: Animatable> Animated<T> {
     /// `f` may return `()` or `Result<(), UiError>`; an `Err` goes to the
     /// nearest error handler.
     #[track_caller]
-    pub fn on_complete<R: HandlerResult>(self, f: impl Fn() -> R + 'static) -> Self {
+    pub fn on_complete(self, f: impl Into<crate::Callback<()>>) -> Self {
+        let f = f.into();
         let at = Location::caller();
         let rt = Owner::current("Animated::on_complete", at).runtime();
         assert_eq!(
@@ -384,7 +385,7 @@ impl<T: Animatable> Animated<T> {
                 move |phase| {
                     if matches!(phase, AnimPhase::Completed) {
                         owner.run_handler(|| {
-                            if let Err(err) = f().into_outcome().map(|_| ()) {
+                            if let Err(err) = f.try_call(()) {
                                 owner.report(err);
                             }
                         });

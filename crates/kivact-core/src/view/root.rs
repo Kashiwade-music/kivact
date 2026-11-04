@@ -21,7 +21,6 @@ use std::rc::Rc;
 use crate::i18n::{Locale, Messages};
 use kivact_engine::contract::NodeType;
 use kivact_runtime::{IntoValue, Owner, Runtime, Signal, Value};
-use kivact_style::Theme;
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
@@ -55,8 +54,8 @@ pub(crate) fn mount_root(
             })
         }
     };
-    let theme: Signal<Theme> = owner.signal(theme, at);
-    kivact_style::internal::install_theme(owner, theme.into_value());
+    let theme = owner.with_setup(|| theme.into_value(owner, at));
+    kivact_style::internal::install_theme(owner, theme);
     crate::view::boundary::install_locale(owner, locale);
     let messages: Signal<Messages> = owner.signal(app_messages, at);
     crate::view::boundary::install_messages(owner, messages.into_value());

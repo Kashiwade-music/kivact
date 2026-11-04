@@ -70,7 +70,7 @@ pub(crate) struct NodeRefState {
 
 /// The node the host last reported under the pointer (`view::hover`).
 #[derive(Clone, Copy)]
-pub(crate) enum PointerObservation<T: Clone + PartialEq + 'static> {
+pub(crate) enum PointerObservation<T: kivact_runtime::PropValue> {
     /// No `NodeRef::hovered` asked yet: the last report as a plain value.
     Plain(Option<T>),
     /// The graph source the first `NodeRef::hovered` created; it holds the last report.
@@ -123,12 +123,22 @@ impl EnvState {
         surface_active: bool,
         at: &'static Location<'static>,
     ) -> Self {
-        Self {
+        let state = Self {
             owner,
             env: owner.signal(env, at),
             surface_active: owner.signal(surface_active, at),
             fields: RefCell::new(Vec::new()),
-        }
+        };
+        state.field("is_fullscreen", |e| e.fullscreen);
+        state.field("is_motion_reduced", |e| e.reduced_motion);
+        state.field("scale_factor", |e| e.scale_factor);
+        state.field("safe_area", |e| e.safe_area);
+        state.field("window_size", |e| e.window_size);
+        state.field("pointer_settings", |e| e.pointer);
+        state.field("keyboard_inset", |e| e.keyboard_inset);
+        state.field("locale", |e| e.locale.clone());
+        state.field("frame_period_ns", |e| e.frame_period_ns);
+        state
     }
 
     /// The host reports `env`; readers of the fields that differ are
@@ -141,7 +151,7 @@ impl EnvState {
     /// `name`: it re-runs its readers only when that field changed. Made
     /// on first use, whatever context asks (a memo, an effect, a handler).
     #[track_caller]
-    pub(crate) fn field<T: Clone + PartialEq + 'static>(
+    pub(crate) fn field<T: kivact_runtime::PropValue>(
         &self,
         name: &'static str,
         f: fn(&Environment) -> T,
@@ -218,6 +228,9 @@ pub(crate) struct ViewState {
     pub(super) env: Rc<EnvState>,
     /// What the host's platform can do (fixed for the App's life).
     pub(super) capabilities: Capabilities,
+    pub(crate) capabilities_value: Value<Capabilities>,
+    pub(crate) fonts_value: Signal<Vec<String>>,
+    pub(crate) initial_render: Signal<bool>,
     /// The keyboard focus source.
     pub(super) focus: FocusKeys,
     /// The window's minimum size (`None`: no minimum).
@@ -230,8 +243,8 @@ pub(crate) struct ViewState {
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<Modality>,
-    /// The modifier keys the host reported last (`view::current_modifiers`).
-    modifiers: Cell<Modifiers>,
+    /// The modifier keys the host reported last (`view::modifiers`).
+    modifiers: Signal<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(super) requests: RefCell<Requests>,
 }
@@ -250,13 +263,16 @@ impl ViewState {
             tree: RefCell::new(ViewNodes::new(engine, owner)),
             env,
             capabilities: info.capabilities,
+            capabilities_value: owner.constant(info.capabilities, at),
+            fonts_value: owner.signal(Vec::new(), at),
+            initial_render: owner.signal(true, at),
             focus: crate::view::focus::keys(owner, at),
             min_window_size,
             noted_missing: Default::default(),
             hover: Cell::new(PointerObservation::Plain(None)),
-            mouse: Cell::new(PointerObservation::Plain(None)),
+            mouse: Cell::new(PointerObservation::Reactive(owner.signal(None, at))),
             pointer_modality: Cell::new(Modality::Keyboard),
-            modifiers: Cell::new(Modifiers::default()),
+            modifiers: owner.signal(Modifiers::default(), at),
             requests: RefCell::new(Requests::default()),
         }
     }
@@ -334,8 +350,8 @@ impl ViewState {
     }
 
     /// The modifier keys the host reported last.
-    pub(crate) fn modifiers(&self) -> Modifiers {
-        self.modifiers.get()
+    pub(crate) fn modifiers(&self) -> Value<Modifiers> {
+        self.modifiers.into()
     }
 
     /// Record the modifier keys the host reported.

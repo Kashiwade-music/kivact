@@ -1,8 +1,9 @@
 //! Role: Public application builder and native window entry.
 use crate::i18n::{Locale, Messages};
 use crate::launch::AppOptions;
+use crate::view::Asset;
 use crate::view::IntoView;
-use crate::{Asset, Result, UiError};
+use crate::{Result, UiError};
 use kivact_runtime::ErrorKind;
 use kivact_style::Theme;
 use kivact_types::Size;
@@ -20,7 +21,7 @@ impl App {
     }
     /// Theme of the whole App (to switch it at runtime, wrap the root in
     /// `view::provide_theme` with a `Signal<Theme>`).
-    pub fn theme(mut self, theme: Theme) -> Self {
+    pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.options = self.options.theme(theme);
         self
     }
@@ -107,7 +108,8 @@ impl App {
     ///
     /// ```no_run
     /// # use kivact_core as kivact;
-    /// use kivact::prelude::*;
+    /// use kivact::{App, Result};
+    /// use kivact::view::{IntoView, NodeBuilder, text};
     ///
     /// fn app() -> impl IntoView {
     ///     text("Hello")

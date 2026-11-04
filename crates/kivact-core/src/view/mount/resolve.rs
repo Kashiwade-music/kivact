@@ -191,7 +191,7 @@ pub(super) fn resolve(
             test_id,
             role,
             focusable,
-            focusable_when_disabled: focusable_when_disabled.unwrap_or_default(),
+            focusable_when_disabled,
             roving_focus,
             hit_testable,
             actions,

@@ -19,10 +19,10 @@
 //! `Failed(UiError)`. They are read through `state()` (`is_pending()` tells
 //! whether one runs) and `latest()` (the last success, kept while `Pending`
 //! and `Failed`). A cancellation is `Failed` with an `ErrorKind::Cancelled`
-//! error (`UiError::is_cancelled`), and `on_done` is not called for it. An
+//! error (`UiError::is_cancelled`), and `on_complete` is not called for it. An
 //! action's `input()` and `attempt()` read the run its state describes. A
 //! resource publishes only its latest request (by generation); an action's
-//! runs follow its [`ActionPolicy`] (`action`).
+//! runs follow its [`ActionMode`] (`action`).
 //!
 //! The clock is the host's: the client (`HostLink`) owns it and lends it to
 //! the runtime as its driver, and timers, frame loops and animations all
@@ -42,7 +42,7 @@ mod state;
 mod time;
 mod worker_pool;
 
-pub use action::{Action, ActionFn, ActionPolicy, action};
+pub use action::{Action, ActionFn, ActionMode, ActionOutcome, action};
 pub use async_state::AsyncState;
 pub use blocking::{BlockingWork, CancelToken, blocking};
 pub use completion::Completion;

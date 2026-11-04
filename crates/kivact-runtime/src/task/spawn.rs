@@ -14,7 +14,7 @@ use crate::{AppId, Owned, Owner, Runtime, require_effectful};
 #[derive(Clone, Copy)]
 pub struct Task {
     app: AppId,
-    handle: Owned<TaskCell>,
+    handle: Owned<Rc<TaskCell>>,
 }
 
 impl Task {
@@ -45,7 +45,7 @@ pub(super) fn spawn_owned(
     owner: Owner,
     fut: impl Future<Output = ()> + 'static,
     at: &'static Location<'static>,
-) -> Owned<TaskCell> {
+) -> Owned<Rc<TaskCell>> {
     let cell = Rc::new(TaskCell {
         task: OnceCell::new(),
     });
@@ -102,7 +102,8 @@ impl TaskState {
                 }
             }
             n += 1;
-            let finished: Vec<Owned<TaskCell>> = std::mem::take(&mut self.finished.borrow_mut());
+            let finished: Vec<Owned<Rc<TaskCell>>> =
+                std::mem::take(&mut self.finished.borrow_mut());
             for k in finished {
                 k.remove();
             }
@@ -117,7 +118,7 @@ impl TaskState {
 /// Run a future on the UI thread, owned by the nearest owner: the setup
 /// owner during setup, the target node's owner in an event handler, the
 /// task's owner inside a task, the action's owner inside a queued run, the
-/// registering owner inside an `on_done` handler, the owner of a running
+/// registering owner inside an `on_complete` handler, the owner of a running
 /// effect. It is cancelled when that owner is disposed. Every poll of the
 /// future is untracked: a `get` in it does not subscribe anything. Not
 /// allowed inside memos and render effects, nor outside every owner (located `SetupOnly`),

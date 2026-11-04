@@ -17,7 +17,9 @@ pub(crate) fn setup_scope(api: &'static str, at: &'static Location<'static>) -> 
         }
         None => misuse_at(
             ErrorKind::SetupOnly { api },
-            format!("`{api}` can only be called during component setup"),
+            format!(
+                "`{api}` can only be called during component setup; move this call into the body of a component passed to `App::run`"
+            ),
             at,
         ),
     }

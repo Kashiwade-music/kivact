@@ -11,7 +11,7 @@ pub enum TestFonts {
     #[default]
     Bundled,
     /// Only these font files (TTF/OTF bytes): deterministic too.
-    Only(Vec<kivact_core::Asset>),
+    Only(Vec<kivact_core::view::Asset>),
     /// The system's fonts, as a running App sees them.
     System,
 }
@@ -88,7 +88,7 @@ impl RenderOptions {
         self.gpu = true;
         self
     }
-    pub fn theme(mut self, theme: Theme) -> Self {
+    pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.app = self.app.theme(theme);
         self
     }
@@ -105,7 +105,7 @@ impl RenderOptions {
         self
     }
     #[track_caller]
-    pub fn font(mut self, font: impl Into<kivact_core::Asset>) -> Self {
+    pub fn font(mut self, font: impl Into<kivact_core::view::Asset>) -> Self {
         self.app = self.app.font(font);
         self
     }
@@ -150,7 +150,10 @@ impl RenderOptions {
     pub(crate) fn into_host(
         self,
         gpu: bool,
-        fonts: Vec<(kivact_core::Asset, &'static std::panic::Location<'static>)>,
+        fonts: Vec<(
+            kivact_core::view::Asset,
+            &'static std::panic::Location<'static>,
+        )>,
     ) -> (AppOptions, kivact_engine::testing::TestHostOptions) {
         let mut app = self.app;
         for (font, _) in fonts {
@@ -174,9 +177,9 @@ impl RenderOptions {
                     fonts
                         .into_iter()
                         .map(|font| match font {
-                            kivact_core::Asset::Shared(bytes) => bytes,
-                            kivact_core::Asset::Static(bytes) => std::sync::Arc::from(bytes),
-                            kivact_core::Asset::Path(path) => std::sync::Arc::from(
+                            kivact_core::view::Asset::Shared(bytes) => bytes,
+                            kivact_core::view::Asset::Static(bytes) => std::sync::Arc::from(bytes),
+                            kivact_core::view::Asset::Path(path) => std::sync::Arc::from(
                                 std::fs::read(path).expect("test font file is readable"),
                             ),
                         })

@@ -170,7 +170,9 @@ impl Runtime {
             Some(owner) if self.owners.borrow().contains(owner) => owner,
             _ => misuse_at(
                 ErrorKind::SetupOnly { api },
-                format!("`{api}` can only be called during component setup"),
+                format!(
+                    "`{api}` can only be called during component setup; move this call into the body of a component passed to `App::run`"
+                ),
                 at,
             ),
         }

@@ -60,10 +60,10 @@ pub(crate) struct Handlers {
     pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
     /// Text edits of a TextInput.
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
-    /// Session changes of a TextInput (`TextEditing::on_selection`).
+    /// Session changes of a TextInput (`TextEditing::on_selection_change`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
     /// Loading or decoding failed for the node's image source.
-    pub image_error: Option<Handler<String>>,
+    pub image_error: Option<Handler<kivact_runtime::UiError>>,
     /// Scroll reports.
     pub scroll: Option<Handler<ScrollState>>,
     /// Layout reports (observed nodes): where the box is drawn (window

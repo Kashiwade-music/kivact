@@ -1,14 +1,14 @@
 //! Role: `Action<T, I>`: a user-triggered async operation with a run policy.
 //!
-//! `action(policy, run)` fixes how runs execute: `ActionPolicy::Latest` starts
+//! `action(policy, run)` fixes how runs execute: `ActionMode::Latest` starts
 //! each run at once and cancels the previous one; `Queue` and `QueueLatest`
 //! run one at a time on a worker, the second keeping only the newest waiting
-//! run. `retry` re-runs the input of the latest run; `on_done` handlers
+//! run. `retry` re-runs the input of the latest run; `on_complete` handlers
 //! (several) run in the same turn as the publish.
 //!
 //! The policy chooses the cell's `Runner` (an owner task for `Latest`, a
 //! worker queue otherwise); only a queue is detached when the owner is
-//! disposed (it then drops its `on_done` handlers, reports failures to the
+//! disposed (it then drops its `on_complete` handlers, reports failures to the
 //! default sink and drains within 3 s, `drain`). Closing the App
 //! (`CloseRequested`) waits for queued actions with the same deadline.
 //!
@@ -23,7 +23,7 @@
 //!   owner that is gone.
 //! - The run closure and every poll of its future are untracked: what they
 //!   read is not a dependency of the effect that called `run`.
-//! - Each `on_done` handler runs for the owner that registered it (`context`
+//! - Each `on_complete` handler runs for the owner that registered it (`context`
 //!   and `spawn` inside it use that owner); the registering owner's cleanup
 //!   removes it.
 
@@ -46,7 +46,7 @@ use crate::{AppId, ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, req
 
 /// How an [`Action`] schedules a new run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ActionPolicy {
+pub enum ActionMode {
     /// Start at once; a pending run is cancelled (latest wins). The run is
     /// cancelled when the action's owner is disposed.
     Latest,
@@ -64,7 +64,7 @@ pub enum ActionPolicy {
 type RunFn<T, I> = Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>>>;
 type DoneFn<T> = crate::Handler<Result<T, UiError>>;
 
-/// A registered `on_done` handler.
+/// A registered `on_complete` handler.
 struct DoneHandler<T: 'static> {
     /// Registration id (the registering owner's cleanup removes it).
     id: Generation,
@@ -88,7 +88,7 @@ impl<I> Clone for Submitted<I> {
     }
 }
 
-/// How the runs of an action execute, fixed by its `ActionPolicy`.
+/// How the runs of an action execute, fixed by its `ActionMode`.
 enum Runner<I: 'static> {
     /// `Latest`: one owner task; a new run cancels the one in flight.
     Latest(Rc<LatestRun>, Cell<Acceptance>),
@@ -250,7 +250,7 @@ pub(crate) struct ActionCell<T: 'static, I: 'static> {
     last: RefCell<Option<Submitted<I>>>,
     /// Wakers of the `close` futures waiting for the action to drain.
     drained: RefCell<Vec<Waker>>,
-    on_done: RefCell<Vec<DoneHandler<T>>>,
+    on_complete: RefCell<Vec<DoneHandler<T>>>,
     next_handler: Cell<Generation>,
     at: &'static Location<'static>,
 }
@@ -259,7 +259,7 @@ pub(crate) struct ActionCell<T: 'static, I: 'static> {
 /// [`run`](Self::run): `run(())` for an action without input, `run(input)`
 /// for one with an input.
 pub struct Action<T: 'static, I: 'static = ()> {
-    handle: Owned<ActionCell<T, I>>,
+    handle: Owned<Rc<ActionCell<T, I>>>,
 }
 
 impl<T: 'static, I: 'static> Clone for Action<T, I> {
@@ -270,16 +270,16 @@ impl<T: 'static, I: 'static> Clone for Action<T, I> {
 impl<T: 'static, I: 'static> Copy for Action<T, I> {}
 
 /// An async operation started from handlers (Solid `createAction`). `policy`
-/// says what a new `run` does while one is still going ([`ActionPolicy`]); the
+/// says what a new `run` does while one is still going ([`ActionMode`]); the
 /// closure with no argument makes an action whose input is `()` (run with
 /// `run(())`), a closure with one argument an action run with `run(input)`.
 /// `run` returns `Result<T, UiError>`; `?` converts any other
 /// `std::error::Error`. Owned by the current setup owner; setup only.
 ///
 /// ```ignore
-/// let reload = action(ActionPolicy::Latest, || async { api::reload().await });
+/// let reload = action(ActionMode::Latest, || async { api::reload().await });
 /// reload.run(());
-/// let save = action(ActionPolicy::Queue, |draft: Draft| async move { api::save(draft).await });
+/// let save = action(ActionMode::Queue, |draft: Draft| async move { api::save(draft).await });
 /// save.run(draft);
 /// ```
 ///
@@ -291,7 +291,7 @@ impl<T: 'static, I: 'static> Copy for Action<T, I> {}
 /// its argument still needs the argument's type (`|n: u32| ..`): Rust checks
 /// the closure before it sees `run`.
 #[track_caller]
-pub fn action<T, M, F>(policy: ActionPolicy, run: F) -> Action<T, F::Input>
+pub fn action<T, M, F>(policy: ActionMode, run: F) -> Action<T, F::Input>
 where
     T: Clone + 'static,
     F: ActionFn<T, M>,
@@ -355,7 +355,7 @@ where
 fn create<T, I, Fut>(
     api: &'static str,
     at: &'static Location<'static>,
-    policy: ActionPolicy,
+    policy: ActionMode,
     f: impl Fn(&I) -> Fut + 'static,
 ) -> Action<T, I>
 where
@@ -367,9 +367,9 @@ where
     // The run closure is untracked, wherever `run` is called from.
     let run: RunFn<T, I> = Rc::new(move |i| Box::pin(crate::untrack(|| f(i))));
     let runner = match policy {
-        ActionPolicy::Latest => Runner::Latest(LatestRun::new(), Cell::new(Acceptance::Open)),
-        ActionPolicy::Queue => Runner::Queue(Queue::new(QueueMode::Fifo)),
-        ActionPolicy::QueueLatest => Runner::Queue(Queue::new(QueueMode::Newest)),
+        ActionMode::Latest => Runner::Latest(LatestRun::new(), Cell::new(Acceptance::Open)),
+        ActionMode::Queue => Runner::Queue(Queue::new(QueueMode::Fifo)),
+        ActionMode::QueueLatest => Runner::Queue(Queue::new(QueueMode::Newest)),
     };
     let cell = Rc::new(ActionCell {
         app: owner.app(),
@@ -379,7 +379,7 @@ where
         async_state: AsyncCell::new(owner, at),
         last: RefCell::new(None),
         drained: RefCell::new(Vec::new()),
-        on_done: RefCell::new(Vec::new()),
+        on_complete: RefCell::new(Vec::new()),
         next_handler: Cell::new(Generation::new()),
         at,
     });
@@ -397,7 +397,7 @@ where
             return;
         }
         cell.queue().detach();
-        cell.on_done.borrow_mut().clear();
+        cell.on_complete.borrow_mut().clear();
         if cell.busy() {
             let deadline = rt.now_ns().saturating_add(DEFAULT_DRAIN_NS);
             let d: Rc<dyn Drain> = cell;
@@ -464,7 +464,7 @@ impl<T: 'static, I: 'static> ActionCell<T, I> {
 
 impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
     /// Publish a finished run: the state, the latest value and the
-    /// `on_done` handlers (none once a queue is detached; its failure goes
+    /// `on_complete` handlers (none once a queue is detached; its failure goes
     /// to the default sink instead).
     fn finish(&self, result: Result<T, UiError>) {
         if self.is_detached() {
@@ -478,7 +478,7 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
             self.async_state.start();
         }
         let handlers: Vec<(Owner, DoneFn<T>)> = self
-            .on_done
+            .on_complete
             .borrow()
             .iter()
             .map(|h| (h.owner, h.f.clone()))
@@ -629,7 +629,7 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
 
 impl<T: Clone + 'static, I: 'static> Action<T, I> {
     fn cell(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<ActionCell<T, I>>) {
-        let c = self.handle.get_at(at);
+        let c = self.handle.get();
         (c.owner.runtime(), c)
     }
 
@@ -730,25 +730,34 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
     /// for that owner, so `context` and `spawn` inside it use that owner, and
     /// it is removed when that owner is disposed.
     #[track_caller]
-    pub fn on_done<R: HandlerResult>(&self, f: impl Fn(&Result<T, UiError>) -> R + 'static) {
+    pub fn on_complete<R: HandlerResult>(
+        self,
+        f: impl Fn(ActionOutcome<T>) -> R + 'static,
+    ) -> Self {
         let at = Location::caller();
         let (rt, cell) = self.cell(at);
-        let owner = Owner::current("Action::on_done", at);
+        let owner = Owner::current("Action::on_complete", at);
         let mut generation = cell.next_handler.get();
         let id = generation.next();
         cell.next_handler.set(generation);
-        cell.on_done.borrow_mut().push(DoneHandler {
+        cell.on_complete.borrow_mut().push(DoneHandler {
             id,
             owner,
-            f: crate::Handler::from_fn(move |result: Result<T, UiError>| f(&result)),
+            f: crate::Handler::from_fn(move |result: Result<T, UiError>| {
+                f(match result {
+                    Ok(value) => ActionOutcome::Succeeded(value),
+                    Err(error) => ActionOutcome::Failed(error),
+                })
+            }),
         });
         let weak = Rc::downgrade(&cell);
         drop(rt);
         owner.on_cleanup(move || {
             if let Some(c) = weak.upgrade() {
-                c.on_done.borrow_mut().retain(|h| h.id != id);
+                c.on_complete.borrow_mut().retain(|h| h.id != id);
             }
         });
+        self
     }
 
     /// Stop accepting runs and wait until the pending and waiting ones
@@ -794,4 +803,13 @@ impl<T: Clone + 'static, I: Clone + 'static> Action<T, I> {
         cell.async_state.state.with(|_| ());
         cell.last.borrow().as_ref().map(|s| I::clone(&s.input))
     }
+}
+
+/// A naturally completed action run. Cancelled runs do not notify handlers.
+#[derive(Clone, Debug)]
+pub enum ActionOutcome<T> {
+    /// The run succeeded.
+    Succeeded(T),
+    /// The run failed.
+    Failed(UiError),
 }

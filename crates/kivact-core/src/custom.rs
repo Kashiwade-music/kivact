@@ -29,7 +29,7 @@
 //!   of an equal value too. Wrap queries made during an event in `untrack`.
 //!   A restore request does not beat an explicit focus of the same turn.
 //! - [`view_is_empty`] tells an explicitly empty view;
-//!   `NodeExt::accessible_name` shares the stored input closure, and
+//!   `Node::accessible_name` shares the stored input closure, and
 //!   `has_description` sees an explicitly empty description too.
 //! - The runtime, the reactive owners and `InputProp`s, the wire's `NodeId`
 //!   and borrows of the tree are not public.
@@ -46,9 +46,9 @@
 //! |---|---|
 //! | measure and layout | [`Primitive::measure`]: a synchronous function of a content value, called by the layout (like a text's shaping); it may return a [`Measurement`] with a first baseline for `Align::Baseline` |
 //! | draw | `.draw(..)` / `.draw_over(..)` ([`NodeBuilder`]): the [`Draw`] vocabulary at the laid-out size, run again when the size or a signal it reads changes |
-//! | input | `.on_pointer(..)`, `.on_key(..)`, `.on_wheel(..)`, `.on_a11y(..)`; `Draw::region` for hit areas |
+//! | input | `.on_pointer(..)`, `.on_key(..)`, `.on_wheel(..)`, `.a11y_action(..)`; `Draw::region` for hit areas |
 //! | focus | `.focusable(true)`, the `focus` state style |
-//! | accessibility | `.role(..)` and `.value_text(..)` ([`NodeExt`]), `.name(..)`, [`Primitive::checked`], [`Primitive::expanded`], `.on_a11y(..)`; `Draw::region` for parts |
+//! | accessibility | `.role(..)` and `.value_text(..)` ([`Node`]), `.name(..)`, [`Primitive::checked`], [`Primitive::expanded`], `.a11y_action(..)`; `Draw::region` for parts |
 //! | test identification | `.test_id(..)` |
 //! | resource lifetime | the primitive's owner: its effects, handlers and measure function are dropped when it unmounts; `on_cleanup` for the author's own resources |
 //!
@@ -114,9 +114,11 @@
 //!
 //! ```no_run
 //! # use kivact_core as kivact;
-//! use kivact::prelude::*;
+//! use kivact::state::{Signal};
+//! use kivact::style::{ColorToken};
+//! use kivact::view::{IntoView, NodeBuilder, Role, row};
 //! use kivact::geometry::{Rect, Size};
-//! use kivact::custom::{Constraints, NodeExt, primitive};
+//! use kivact::custom::{Constraints, primitive};
 //!
 //! /// A row of `n` dots, as wide as it has dots.
 //! fn dots(n: Signal<u32>) -> impl IntoView {
@@ -151,7 +153,7 @@ pub use crate::view::part_data::PartMount;
 /// The `!Send + !Sync` marker of Kivact's handles, for a component's own
 /// Copy handle type (`PhantomData<UiThreadOnly>`).
 pub use kivact_runtime::UiThreadOnly;
-pub use kivact_runtime::{Owned, clock_now, raise, require_effectful, require_setup};
+pub use kivact_runtime::{Owned, clock_now, require_effectful, require_setup};
 pub use measured_leaf::{Primitive, primitive};
 pub use measurement::{AvailableSpace, Constraints, Measurement};
 pub use node::{NodeRefExt, NodeToken, focused_node};
@@ -170,3 +172,9 @@ pub use inline_view::inline_view;
 
 #[doc(inline)]
 pub use kivact_runtime::Reactive;
+
+/// Raise a component misuse at the caller.
+#[track_caller]
+pub fn raise(kind: crate::ErrorKind, message: impl Into<String>) -> ! {
+    kivact_runtime::raise(kind, message, std::panic::Location::caller())
+}

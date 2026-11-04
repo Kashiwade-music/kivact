@@ -45,22 +45,22 @@ pub use crate::view::flow::{
     error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{ReadingDirection, current_direction, provide_direction};
+pub use boundary::{ReadingDirection, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{Component, IntoView, IntoViewFn, View, ViewFn};
 #[doc(inline)]
-pub use hover::mouse_position;
+pub use hover::pointer_position;
 #[doc(inline)]
 pub use input::{
-    A11yEvent, ButtonPress, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
-    Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId, PointerKind, PointerPhase,
-    WheelEvent,
+    A11yEvent, ButtonPress, Composition, DismissReason, FileEvent, FilePhase, Handled, Key,
+    KeyCode, KeyEvent, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId,
+    PointerKind, PointerPhase, WheelEvent,
 };
 #[doc(inline)]
 pub use kivact_runtime::HandlerResult;
 pub use kivact_types::Presence;
 #[doc(inline)]
-pub use modifier_keys::current_modifiers;
+pub use modifier_keys::modifiers;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;

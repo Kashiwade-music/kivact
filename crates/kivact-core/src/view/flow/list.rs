@@ -21,7 +21,6 @@
 //!   O(N).
 
 use std::cell::RefCell;
-use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -38,7 +37,7 @@ use kivact_runtime::{
 };
 
 /// A row builder of a keyed list.
-pub(crate) type RowFn<K, T> = Rc<dyn Fn(K, Value<T>) -> View>;
+pub(crate) type RowFn<K, T> = crate::view::ViewFn<(K, Value<T>)>;
 
 /// A mounted row: the keyed row (owner and item) and its node.
 struct Row<K, T: 'static> {
@@ -110,8 +109,9 @@ where
         let key = key.clone();
         Rc::new(move |a, b| key(a) == key(b))
     };
-    let row: Rc<dyn Fn(K, Signal<T>) -> View> =
-        Rc::new(move |_k, value| row(make_row(value, same_key.clone())).into_view());
+    let row = crate::view::ViewFn::from(move |(_k, value): (K, Signal<T>)| {
+        row(make_row(value, same_key.clone()))
+    });
     view_fn(move |cx| {
         let frag = cx.fragment();
         let weak = cx.weak();
@@ -147,7 +147,7 @@ where
                             ),
                         );
                     }
-                    apply_list(&rt, parent, frag, &state, keys, plans, &*row, at);
+                    apply_list(&rt, parent, frag, &state, keys, plans, &row, at);
                 }
             }
         });
@@ -159,14 +159,14 @@ where
     clippy::too_many_arguments,
     reason = "internal mount helper; the arguments are the flow's parts"
 )]
-fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
+fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
     rt: &Rc<Runtime>,
     parent: Owner,
     frag: NodeId,
     state: &RefCell<Rows<K, Row<K, T>>>,
     keys: Vec<K>,
     plans: Vec<Plan<T>>,
-    row: &dyn Fn(K, Signal<T>) -> View,
+    row: &crate::view::ViewFn<(K, Signal<T>)>,
     at: &'static Location<'static>,
 ) {
     let mut old: Vec<Option<Row<K, T>>> = state.borrow_mut().take().into_iter().map(Some).collect();
@@ -231,7 +231,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
                     owner: keyed.owner(),
                 };
                 let node = cx.fragment();
-                let child = mount_in(rt, keyed.owner(), || row(k, item));
+                let child = mount_in(rt, keyed.owner(), || row.call((k, item)));
                 cx.append(node, child);
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
@@ -265,7 +265,7 @@ pub fn for_index<T, V>(
     row: impl Fn(usize, Value<T>) -> V + 'static,
 ) -> View
 where
-    T: Clone + PartialEq + 'static,
+    T: kivact_runtime::PropValue,
     V: IntoView,
 {
     let at = Location::caller();

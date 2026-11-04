@@ -43,7 +43,7 @@ impl Screen {
 
     /// The platform ending its IME session without a commit
     /// (`ImeDisabled`): an open composition is gone, and a node with an IME
-    /// session (`NodeExt::ime_session`) gets `ImeInput::End`.
+    /// session (`Node::ime_session`) gets `ImeInput::End`.
     pub fn ime_disabled(&self) {
         self.send(ShellEvent::Ime(kivact_types::ImeInput::End));
         self.run_until_idle();
@@ -76,7 +76,7 @@ impl Element<'_> {
             .unwrap_or_default()
             .to_string();
         if value.is_empty() {
-            // A node with an IME session (`NodeExt::ime_session`) has no
+            // A node with an IME session (`Node::ime_session`) has no
             // native value: the IME was given the session's text.
             value = self.screen.ime_text().map(|t| t.text).unwrap_or_default();
         }

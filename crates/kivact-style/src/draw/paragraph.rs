@@ -199,7 +199,7 @@ impl TextParagraph {
     /// The text for assistive technology, one run per line, placed at
     /// `origin` in the node (the point `Draw::paragraph` drew it at), with
     /// the selection from byte `anchor` to byte `caret`. Give it to
-    /// `NodeExt::semantics_text`.
+    /// `Node::semantics_text`.
     pub fn semantics_text(&self, origin: Point, anchor: usize, caret: usize) -> p::SemanticsText {
         let text = self.text();
         let at = |r: Rect| Rect {

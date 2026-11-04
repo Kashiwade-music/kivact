@@ -51,8 +51,9 @@ impl Constraints<'_> {
     ///
     /// ```no_run
     /// # use kivact_core as kivact;
-    /// use kivact::prelude::*;
-    /// use kivact::draw::{Size};
+    /// use kivact::state::{Signal};
+    /// use kivact::view::{IntoView, NodeBuilder};
+    /// use kivact::geometry::{Size};
     /// use kivact::draw::TextFormat;
     /// use kivact::custom::{Constraints, Measurement, primitive};
     ///
@@ -83,8 +84,10 @@ impl Constraints<'_> {
     ///
     /// ```no_run
     /// # use kivact_core as kivact;
-    /// use kivact::prelude::*;
-    /// use kivact::draw::{Size, TextFormat};
+    /// use kivact::state::{Signal};
+    /// use kivact::view::{IntoView, NodeBuilder, text};
+    /// use kivact::draw::{TextFormat};
+    /// use kivact::geometry::{Size};
     /// use kivact::custom::{Constraints, Measurement, primitive};
     ///
     /// fn line(text: Signal<String>) -> impl IntoView {
@@ -203,8 +206,8 @@ impl Measurement {
     /// content box (for example a label's [`TextMetrics::baseline`] plus
     /// the padding above it).
     #[must_use]
-    pub fn baseline(mut self, y: f64) -> Self {
-        self.baseline = Some(y);
+    pub fn baseline(mut self, y: impl Into<f64>) -> Self {
+        self.baseline = Some(y.into());
         self
     }
 }

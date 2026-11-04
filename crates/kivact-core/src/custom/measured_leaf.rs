@@ -63,7 +63,7 @@ impl Primitive {
     /// layout and ends the App. A later call replaces an earlier one.
     pub fn measure<T, F, R>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
-        T: Clone + PartialEq + 'static,
+        T: kivact_runtime::PropValue,
         R: Into<Measurement>,
         F: Fn(&T, Constraints<'_>) -> R + 'static,
     {
@@ -106,7 +106,7 @@ fn bind_measure<T, F, R>(
     f: Rc<F>,
     at: &'static Location<'static>,
 ) where
-    T: Clone + PartialEq + 'static,
+    T: kivact_runtime::PropValue,
     R: Into<Measurement>,
     F: Fn(&T, Constraints<'_>) -> R + 'static,
 {

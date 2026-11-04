@@ -289,15 +289,10 @@ impl Transition {
         self
     }
 
-    /// Let decorative motion complete immediately under reduced motion.
-    pub fn decorative(mut self, decorative: bool) -> Self {
-        self.decorative = decorative;
-        self
-    }
-
     /// Keep motion that communicates information under reduced motion.
-    pub fn essential(self) -> Self {
-        self.decorative(false)
+    pub fn essential(mut self) -> Self {
+        self.decorative = false;
+        self
     }
 
     /// Step a run from `from` to `to` that began at `start_ns` to `now_ns`:

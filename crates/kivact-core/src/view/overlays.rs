@@ -128,7 +128,7 @@ enum Place {
     /// from [`Overlay::at_least_anchor_width`].
     Anchor { node: NodeRef, at_least_width: bool },
     /// [`overlay_at`]: at a window point, constant or reactive.
-    /// `width_misuse`: where `.at_least_anchor_width(true)` was called on it,
+    /// `width_misuse`: where `.at_least_anchor_width()` was called on it,
     /// reported once at mount and ignored (a point has no width).
     Point {
         point: InputProp<Point>,
@@ -157,12 +157,13 @@ pub struct Overlay {
 /// of the anchor when it does not fit and keeps it inside the window; with
 /// an unbound anchor it is centered in the window. `.align(..)` lines it up
 /// with the anchor's start, centre or end, `.offset(px)` leaves a gap,
-/// `.modal(true)` blocks input to the rest of the window while it is
+/// `.modal()` blocks input to the rest of the window while it is
 /// shown, and `.on_dismiss(f)` closes it on an outside press or Escape.
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::state::{signal};
+/// use kivact::view::{IntoView, NodeBuilder, Role, node, node_ref, show, text};
 /// use kivact::view::{OverlayAlign, Placement, overlay};
 /// fn menu_button() -> impl IntoView {
 ///     let open = signal(false);
@@ -215,7 +216,8 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::state::{signal};
+/// use kivact::view::{IntoView, MouseButton, Node, NodeBuilder, show_some};
 /// use kivact::geometry::{Point};
 /// use kivact::view::{Placement, PointerEvent};
 /// use kivact::view::{View, overlay_at};
@@ -280,20 +282,20 @@ impl Overlay {
 
     /// Inset the available window area by this many logical pixels.
     /// Overrides the theme's [`OverlayViewport`].
-    pub fn viewport_margin(mut self, px: f64) -> Self {
-        self.viewport_margin = Some(px);
+    pub fn viewport_margin(mut self, px: impl Into<f64>) -> Self {
+        self.viewport_margin = Some(px.into());
         self
     }
 
     /// Prefer placements that leave the anchor clear when viewport fitting is active.
-    pub fn keep_anchor_clear(mut self, on: bool) -> Self {
-        self.keep_anchor_clear = on;
+    pub fn keep_anchor_clear(mut self) -> Self {
+        self.keep_anchor_clear = true;
         self
     }
 
     /// Block input to the rest of the window while the overlay is shown.
-    pub fn modal(mut self, on: bool) -> Self {
-        self.modal = on;
+    pub fn modal(mut self) -> Self {
+        self.modal = true;
         self
     }
 
@@ -307,10 +309,10 @@ impl Overlay {
     /// (`ErrorKind::Unsupported`) and ignored; with an unbound anchor it does
     /// nothing. A select's list under its trigger uses it.
     #[track_caller]
-    pub fn at_least_anchor_width(mut self, on: bool) -> Self {
+    pub fn at_least_anchor_width(mut self) -> Self {
         match &mut self.place {
-            Place::Anchor { at_least_width, .. } => *at_least_width = on,
-            Place::Point { width_misuse, .. } => *width_misuse = on.then(Location::caller),
+            Place::Anchor { at_least_width, .. } => *at_least_width = true,
+            Place::Point { width_misuse, .. } => *width_misuse = Some(Location::caller()),
         }
         self
     }
@@ -326,7 +328,7 @@ impl Overlay {
     /// overlay; ignore the reason with `|_|`). A transactional editor can
     /// commit on an outside press and restore its original value on Escape.
     /// Registering it again replaces the earlier handler, as for
-    /// `.on_a11y(A11yAction::Dismiss, ..)`.
+    /// `.a11y_action(A11yAction::Dismiss, ..)`.
     pub fn on_dismiss<F, R>(mut self, f: F) -> Self
     where
         F: Fn(DismissReason) -> R + 'static,
@@ -341,7 +343,7 @@ impl Overlay {
     /// Append a popup controller's dismissal behavior after an existing
     /// callback. An error prevents the appended behavior. Ordinary dismissal
     /// registration still replaces this single accessibility action.
-    pub fn on_dismiss_after<F, R>(mut self, f: F) -> Self
+    pub fn on_dismiss_default<F, R>(mut self, f: F) -> Self
     where
         F: Fn(DismissReason) -> R + 'static,
         R: HandlerResult,
@@ -409,7 +411,7 @@ impl IntoView for Overlay {
                     Some(cx.owner),
                     UiError::new(
                         ErrorKind::Unsupported,
-                        "`.at_least_anchor_width(true)` on an overlay placed at a point (`overlay_at`): a point has no width; ignored",
+                        "`.at_least_anchor_width()` on an overlay placed at a point (`overlay_at`): a point has no width; ignored",
                         Some(loc),
                     ),
                 );
@@ -437,14 +439,15 @@ impl IntoView for Overlay {
                         offset,
                         fit: viewport_margin
                             .or_else(|| {
-                                kivact_style::current_theme()
-                                    .get::<OverlayViewport>()
+                                kivact_style::use_theme()
+                                    .get()
+                                    .ext::<OverlayViewport>()
                                     .margin
                             })
                             .map(|margin| kivact_types::OverlayFit {
                                 margin,
                                 keep_anchor_clear,
-                                rtl: crate::view::current_direction()
+                                rtl: crate::view::use_direction().get()
                                     == crate::view::ReadingDirection::Rtl,
                             }),
                         modal,

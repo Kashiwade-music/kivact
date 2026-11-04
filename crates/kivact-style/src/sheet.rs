@@ -6,7 +6,7 @@
 //!
 //! A [`Style`] is a flat value of `Option` fields, and a node's style is
 //! the list of its `.style(..)` layers. A layer that uses the theme reads
-//! `current_theme()` in its closure (tracked). Each node has one style
+//! `use_theme()` in its closure (tracked). Each node has one style
 //! effect: it reads the theme and the disabled and selected states, merges
 //! the layers in order and resolves them with `crate::internal::compile_style` into the
 //! engine's typed props. The theme switching re-resolves the paint and
@@ -406,7 +406,7 @@ impl Style {
         /// The opacity of the node and its subtree, as one group (CSS
         /// `opacity`: overlapping children do not show through each
         /// other).
-        opacity, opacity, f64, |v: f64| v.clamp(0.0, 1.0));
+        opacity, opacity, impl Into<f64>, |v: f64| v.clamp(0.0, 1.0));
     setter!(
         /// CSS `filter`: color functions recolor everything the subtree
         /// draws; `blur` and `drop_shadow` filter the subtree's pixels.

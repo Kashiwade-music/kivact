@@ -194,7 +194,7 @@ impl<'a> Element<'a> {
 
     /// The text runs the element publishes to assistive technology, one
     /// string per run (a native editor's lines around its caret, or the
-    /// runs a node gave with `NodeExt::semantics_text`), in reading order.
+    /// runs a node gave with `Node::semantics_text`), in reading order.
     /// `None` when it publishes none, including passwords.
     pub fn text_runs(&self) -> Option<Vec<String>> {
         let text = self.published()?.semantics.text?;
@@ -382,19 +382,13 @@ impl Element<'_> {
             .unwrap_or_default()
     }
     /// Whether AT sees an invalid value.
-    pub fn invalid(&self) -> bool {
+    pub fn is_invalid(&self) -> bool {
         self.published()
             .map(|n| n.semantics)
             .is_some_and(|p| p.invalid == Some(true))
     }
-    /// Whether AT sees read-only text.
-    pub fn read_only(&self) -> bool {
-        self.published()
-            .map(|n| n.semantics)
-            .is_some_and(|p| p.read_only == Some(true))
-    }
     /// Whether AT sees protected text (the value is omitted).
-    pub fn password(&self) -> bool {
+    pub fn is_password(&self) -> bool {
         self.published()
             .map(|n| n.semantics)
             .is_some_and(|p| p.protected)

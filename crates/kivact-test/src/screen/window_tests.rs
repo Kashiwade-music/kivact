@@ -9,7 +9,7 @@
 use kivact_types::Size;
 
 use crate::RenderOptions;
-use kivact_core::prelude::text;
+use kivact_core::view::text;
 
 #[test]
 fn the_minimum_window_size_reaches_the_window() {

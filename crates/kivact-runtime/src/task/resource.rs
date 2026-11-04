@@ -19,7 +19,7 @@ pub(crate) struct ResourceCell<T: 'static> {
 
 /// Async data driven by a reactive source; made by [`resource`].
 pub struct Resource<T: 'static> {
-    handle: Owned<ResourceCell<T>>,
+    handle: Owned<Rc<ResourceCell<T>>>,
 }
 
 impl<T: 'static> Clone for Resource<T> {
@@ -95,7 +95,7 @@ where
 
 impl<T: Clone + 'static> Resource<T> {
     fn cell(&self, at: &'static Location<'static>) -> Rc<ResourceCell<T>> {
-        self.handle.get_at(at)
+        self.handle.get()
     }
 
     /// State of the latest request (tracked). A cancelled request is

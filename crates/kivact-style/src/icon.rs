@@ -36,8 +36,8 @@ enum InputProp {
 
 impl Icon {
     /// An icon the theme's icon set resolves by `name`.
-    pub fn named(name: impl Into<Cow<'static, str>>) -> Self {
-        Icon(InputProp::Named(name.into()))
+    pub fn named(name: impl Into<String>) -> Self {
+        Icon(InputProp::Named(Cow::Owned(name.into())))
     }
 
     /// The name, for an icon made by [`named`](Self::named).

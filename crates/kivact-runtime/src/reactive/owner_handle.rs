@@ -173,10 +173,12 @@ impl Owner {
     pub fn store<T: 'static>(
         self,
         name: &'static str,
-        value: Rc<T>,
+        value: T,
         at: &'static Location<'static>,
     ) -> Owned<T> {
-        let key = self.rt(at).insert_object(self.key, value, None, at);
+        let key = self
+            .rt(at)
+            .insert_object(self.key, Rc::new(value), None, at);
         Owned::from_key(self.app, key, name)
     }
 
@@ -186,12 +188,12 @@ impl Owner {
     pub fn store_with<T: 'static>(
         self,
         name: &'static str,
-        value: Rc<T>,
+        value: T,
         on_dispose: impl FnOnce(&Runtime) + 'static,
         at: &'static Location<'static>,
     ) -> Owned<T> {
         let rt = self.rt(at);
-        let key = rt.insert_object(self.key, value, Some(Box::new(on_dispose)), at);
+        let key = rt.insert_object(self.key, Rc::new(value), Some(Box::new(on_dispose)), at);
         Owned::from_key(self.app, key, name)
     }
 
@@ -259,27 +261,30 @@ impl<T: 'static> Owned<T> {
         }
     }
 
-    /// The stored value. A located `WrongApp` when the App is gone or
-    /// another App is running, a located `Disposed` once the object was
-    /// released. It still resolves while its owner is being disposed.
+    /// Clone the stored value, including during owner cleanup.
     #[track_caller]
-    pub fn get(self) -> Rc<T> {
-        self.get_at(Location::caller())
+    pub fn get(self) -> T
+    where
+        T: Clone,
+    {
+        self.with(Clone::clone)
     }
-
-    /// [`Owned::get`] with its errors located at `at`: for a layer that
-    /// resolves the handle on behalf of a call it recorded earlier (an
-    /// effect created for a property).
-    pub fn get_at(self, at: &'static Location<'static>) -> Rc<T> {
-        runtime(self.app, at).object_or_panic(self.key, self.name, at)
+    /// Read the stored value without cloning it.
+    #[track_caller]
+    pub fn with<R>(self, f: impl FnOnce(&T) -> R) -> R {
+        let at = Location::caller();
+        let value = runtime(self.app, at).object_or_panic::<T>(self.key, self.name, at);
+        f(&value)
     }
-
-    /// The stored value while its owner is alive: `None` from the start of
-    /// the owner's disposal, once the object was released, when the App is
-    /// gone or when another App is running. Never panics. Use an
-    /// `Owned<()>` stored at setup as a probe of whether a component is
-    /// still shown.
-    pub fn try_get(self) -> Option<Rc<T>> {
+    /// Clone the value while its owner is alive.
+    pub fn try_get(self) -> Option<T>
+    where
+        T: Clone,
+    {
+        self.try_with(Clone::clone)
+    }
+    /// Read the stored value only while its owner is alive.
+    pub fn try_with<R>(self, f: impl FnOnce(&T) -> R) -> Option<R> {
         if !handle_usable_here(self.app) {
             return None;
         }
@@ -288,16 +293,18 @@ impl<T: 'static> Owned<T> {
         if !rt.owner_live(owner) {
             return None;
         }
-        rt.object::<T>(self.key)
+        rt.object::<T>(self.key).map(|value| f(&value))
     }
-
-    /// The stored value until it is released, also while its owner is
-    /// being disposed (for cleanups); `None` once it was released or when
-    /// the App is gone. A located `WrongApp` when another App is running.
+    /// Clone a value that has not yet been released, including during cleanup.
     #[track_caller]
-    pub fn find(self) -> Option<Rc<T>> {
+    pub fn find(self) -> Option<T>
+    where
+        T: Clone,
+    {
         check_not_foreign(self.app, Location::caller());
-        try_runtime(self.app)?.object::<T>(self.key)
+        try_runtime(self.app)?
+            .object::<T>(self.key)
+            .map(|value| (*value).clone())
     }
 
     /// Release the object now: its `on_dispose` runs, then the value is

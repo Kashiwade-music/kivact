@@ -486,7 +486,7 @@ impl<T: Clone + 'static> IntoValue<Option<T>> for Option<T> {
 /// accept its own `Clone + PartialEq` type as a prop, as a constant and as a
 /// signal, `Value` or closure alike. Use it once per type, in the crate that
 /// defines the type. Kivact's own crates and external component crates use
-/// the same macro, through `kivact::view::constant_value!`.
+/// the same macro, through `kivact::state::constant_value!`.
 #[macro_export]
 macro_rules! constant_value {
     ($($t:ty),*) => {$(

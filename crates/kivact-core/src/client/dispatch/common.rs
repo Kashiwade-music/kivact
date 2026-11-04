@@ -23,7 +23,7 @@ pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
     }
 }
 
-/// Note the modifier keys the host reported last (`view::current_modifiers`):
+/// Note the modifier keys the host reported last (`view::modifiers`):
 /// key, pointer and wheel events carry them, and `ModifiersChanged` reports a
 /// change between events. Recorded before admission, so an event a modal
 /// drops still updates them.

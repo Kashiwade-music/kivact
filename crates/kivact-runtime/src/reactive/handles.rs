@@ -176,7 +176,7 @@ impl<T: 'static> Signal<T> {
     /// field changes; writing replaces the field in place and notifies the
     /// signal only when the new value differs.
     #[track_caller]
-    pub fn project<U: Clone + PartialEq + 'static>(
+    pub fn project<U: crate::PropValue>(
         self,
         get_ref: impl Fn(&T) -> &U + 'static,
         get_mut: impl Fn(&mut T) -> &mut U + 'static,
@@ -499,7 +499,7 @@ impl<E: 'static> Callback<E> {
         let at = Location::caller();
         let rt = runtime(self.app, at);
         let owner = rt.require_setup("Callback::bind", at);
-        let this = self;
+        let this = *self;
         let cb: Rc<CallbackFn<()>> = Rc::new(CallbackFn {
             owner,
             f: Box::new(move |()| this.try_call(e.clone())),
@@ -520,7 +520,7 @@ impl<E: 'static> Callback<E> {
 // ---------------------------------------------------------------------------
 // Binding
 
-impl<T: Clone + PartialEq + 'static> Binding<T> {
+impl<T: crate::PropValue> Binding<T> {
     /// Read (tracked) and clone.
     #[track_caller]
     pub fn get(&self) -> T {
@@ -565,7 +565,7 @@ impl<T: Clone + PartialEq + 'static> Binding<T> {
     /// it writes the whole value back with the field replaced (nothing is
     /// written when the field is unchanged).
     #[track_caller]
-    pub fn project<U: Clone + PartialEq + 'static>(
+    pub fn project<U: crate::PropValue>(
         self,
         get_ref: impl Fn(&T) -> &U + 'static,
         get_mut: impl Fn(&mut T) -> &mut U + 'static,
@@ -605,7 +605,7 @@ impl<T: Clone + PartialEq + 'static> Binding<T> {
     }
 }
 
-impl<T: Clone + PartialEq + 'static> Binding<T> {
+impl<T: crate::PropValue> Binding<T> {
     /// This binding as a binding of `Option<T>`, for an input that edits an
     /// optional choice (`select`, `radio_group`). Reading yields
     /// `Some(current)`; writing `Some(v)` writes `v`; writing `None` is
@@ -627,7 +627,7 @@ impl<T: Clone + PartialEq + 'static> Binding<T> {
     }
 }
 
-impl<T: Clone + PartialEq + 'static> Signal<T> {
+impl<T: crate::PropValue> Signal<T> {
     /// This signal as a binding of `Option<T>`, like [`Binding::optional`]:
     /// reading yields `Some(current)`, writing `Some(v)` writes `v`, writing
     /// `None` is ignored (setup only).

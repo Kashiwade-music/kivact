@@ -17,6 +17,7 @@
 //!
 //! ```no_run
 //! # use kivact_core as kivact;
+//! use kivact::App;
 //! use kivact::state::{signal, Signal};
 //! use kivact::view::{IntoView, Role, column, node, text};
 //!

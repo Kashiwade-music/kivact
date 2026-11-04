@@ -76,8 +76,8 @@ enum Hover {
 /// with an element's `with` modifier or a canvas node's `region` declaration.
 /// The closure receives the exact target's input, focus and availability state.
 #[track_caller]
-pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'static) -> Part<S> {
-    Owner::current("part");
+pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'static) -> Part<S> {
+    Owner::current();
     let node = node_ref();
     let focused = node.focused();
     let focus_visible = node.focus_visible();

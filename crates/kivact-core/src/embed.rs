@@ -11,7 +11,7 @@
 //! ```no_run
 //! # #[cfg(feature = "embed")]
 //! # {
-//! use kivact_core::{App, control::text, embed::Parent};
+//! use kivact_core::{App, view::text, embed::Parent};
 //! # fn open(hwnd: *mut std::ffi::c_void) -> kivact_core::Result<()> {
 //! let editor = App::new("Editor").window_size(640, 480)
 //!     .embed(Parent::win32(hwnd).scale(1.0), || text("Editor"))?;

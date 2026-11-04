@@ -41,7 +41,8 @@ pub fn row(children: impl IntoView) -> Node {
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::style::{auto};
+/// use kivact::view::{NodeBuilder, grid, span, text};
 /// use kivact::style::{GridPlacement, Track};
 /// // .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px }
 /// let cards = grid((text("A"), text("B").style(style().grid_column(GridPlacement::span(2)))))
@@ -67,7 +68,8 @@ pub fn grid(children: impl IntoView) -> Node {
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::style::{style};
+/// use kivact::view::{NodeBuilder, column, row, scroll, text};
 ///
 /// let list = scroll(column((text("A"), text("B")))).style(style().height(120));
 /// let strip = scroll(row((text("A"), text("B")))).axes(ScrollAxes::Horizontal);
@@ -98,15 +100,6 @@ impl Scroll {
         self.axes = axes;
         self
     }
-
-    /// Accessibility role, overriding the container's default role (a list
-    /// or a log that scrolls).
-    ///
-    /// Same as [`NodeExt::role`](crate::custom::NodeExt::role).
-    pub fn role(mut self, r: crate::view::Role) -> Self {
-        self.root = self.root.role(r);
-        self
-    }
 }
 
 impl NodeBuilder for Scroll {
@@ -131,7 +124,7 @@ impl IntoView for Scroll {
             ScrollAxes::Horizontal => Some(Orientation::Horizontal),
             ScrollAxes::Both => None,
         };
-        // The caller's `.orientation(..)` (NodeExt) is taken out and replaced
+        // The caller's `.orientation(..)` (Node) is taken out and replaced
         // by the axes' value.
         let caller = self
             .root
