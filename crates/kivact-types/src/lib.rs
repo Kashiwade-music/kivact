@@ -50,7 +50,7 @@ pub use layout::{
     Align, AvailableSpace, Baseline, Breadth, Dimension, Display, EditLineLayout, FlexDirection,
     GridContainer, GridFlow, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize,
     Justify, LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
-    OverlayProps, Placement, Position, ScrollAxes, TrackSize,
+    OverlayProps, Placement, Position, ScrollAxes, TrackSize, Visibility,
 };
 pub use motion::{
     Easing, Kind, MotionClock, PlayDirection, Repeat, Spring, SpringRun, StepPosition, Transition,
@@ -76,8 +76,8 @@ pub use semantics::{
 pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, LineHeight, SpanProps, TextAlign,
-    TextData, TextDecoration, TextLen, TextMetrics, TextOverflow, TextShadow, TextSpan, TextStyle,
-    TextTransform, TextWrap,
+    TextData, TextDecoration, TextDecorationStyle, TextLen, TextMetrics, TextOverflow, TextShadow,
+    TextSpan, TextStyle, TextTransform, TextWrap,
 };
 pub use text_shaping::TextShaper;
 

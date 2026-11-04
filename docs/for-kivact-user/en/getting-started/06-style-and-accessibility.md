@@ -145,6 +145,8 @@ fn main() -> kivact::Result<()> {
 
 If you do not need a switch, a fixed theme is one line: `App::new("Tasks").theme(Theme::dark())`.
 
+**Text decorations and visibility.** Add `text_decoration(TextDecorationLine::UNDERLINE)` and `text_decoration_style(TextDecorationStyle::Wavy)` to draw a wavy underline. The default pattern is `Solid`; `Dashed` and `Dotted` are also available. The pattern accepts a constant, signal or closure. `visibility(Visibility::Hidden)` preserves the subtree's layout space while excluding it from painting, assistive technology, focus and pointer hits. `Visibility::Visible` restores it. These enums live in `kivact::style`. Text color changes interpolate with `TransitionProp::Paint`. When constructing `TextDecoration` directly, set its `style` field or use `..TextDecoration::default()`.
+
 ## Run it
 
 ```text

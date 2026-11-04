@@ -320,6 +320,12 @@ impl HostNode {
         self.properties.input.hit_testable.unwrap_or(true)
     }
 
+    /// Hidden visually while retaining its layout box.
+    pub(crate) fn visibility_hidden(&self) -> bool {
+        self.layout()
+            .is_some_and(|l| l.visibility == kivact_types::Visibility::Hidden)
+    }
+
     pub(crate) fn hidden(&self) -> bool {
         self.properties.input.hidden.unwrap_or(false) || self.layout().is_some_and(|l| l.hidden)
     }

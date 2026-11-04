@@ -145,6 +145,8 @@ fn main() -> kivact::Result<()> {
 
 スイッチが不要なら、テーマを固定するのは 1 行で済みます: `App::new("タスク").theme(Theme::dark())`。
 
+**文字装飾と visibility。** `text_decoration(TextDecorationLine::UNDERLINE)` と `text_decoration_style(TextDecorationStyle::Wavy)` で波線の下線を描きます。既定は `Solid` で、`Dashed` と `Dotted` も選べます。種類には定数、signal、closure を渡せます。`visibility(Visibility::Hidden)` は subtree の layout 領域を保ち、描画、支援技術、focus、pointer の当たり判定から外します。`Visibility::Visible` で戻せます。これらの enum は `kivact::style` にあります。文字色の変化は `TransitionProp::Paint` で補間します。`TextDecoration` を直接構築する場合は `style` field を指定するか、`..TextDecoration::default()` を使います。
+
 ## 実行する
 
 ```text

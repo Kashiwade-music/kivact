@@ -183,3 +183,206 @@ fn a_property_its_state_cannot_change_is_reported() {
         errors[0].message()
     );
 }
+
+#[test]
+fn text_color_transitions_with_paint() {
+    use kivact::motion::{Easing, Transition};
+    use kivact::style::TransitionProp;
+    use std::time::Duration;
+    let (screen, changed) = super::support::mount_with(
+        kivact::test::RenderOptions::from_env().frame_period_ns(1_000_000),
+        || {
+            let changed = signal(false);
+            (
+                changed,
+                text("MMMM").test_id("ink").style(move || {
+                    style()
+                        .font_size(48)
+                        .weight(700)
+                        .color(if changed.get() { rgb(BLUE) } else { rgb(RED) })
+                        .transition(
+                            TransitionProp::Paint,
+                            Transition::tween(240, Easing::Linear),
+                        )
+                }),
+            )
+        },
+    );
+    let ink = screen.get_by_test_id("ink");
+    let red = |pixel: &u32| (*pixel >> 16) & 255 > 180 && *pixel & 255 < 60;
+    assert!(ink.screenshot().pixels.iter().any(red));
+    changed.set(true);
+    screen.run_until_idle();
+    screen.advance(Duration::from_millis(100));
+    assert!(
+        ink.screenshot().pixels.iter().any(|pixel| {
+            let (r, g, b) = ((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255);
+            r > 25 && b > 25 && g < 30
+        }),
+        "glyphs pass through an intermediate text color"
+    );
+    screen.advance(Duration::from_millis(300));
+    let shot = ink.screenshot();
+    assert!(
+        shot.pixels
+            .iter()
+            .any(|pixel| *pixel & 255 > 180 && (*pixel >> 16) & 255 < 60)
+    );
+    assert!(!shot.pixels.iter().any(red));
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn text_decoration_style_draws_wavy_lines() {
+    use kivact::style::{TextDecorationLine, TextDecorationStyle};
+    let (screen, pattern) = mount(|| {
+        let pattern = signal(TextDecorationStyle::Solid);
+        (
+            pattern,
+            text("MMMMMMMM").test_id("decorated").style(
+                style()
+                    .font_size(40)
+                    .color(rgb(0))
+                    .text_decoration(TextDecorationLine::UNDERLINE)
+                    .text_decoration_color(rgb(RED))
+                    .text_decoration_thickness(2)
+                    .text_decoration_style(pattern),
+            ),
+        )
+    });
+    let extent = || {
+        let shot = screen.get_by_test_id("decorated").screenshot();
+        let rows: Vec<_> = shot
+            .pixels
+            .chunks(shot.width as usize)
+            .enumerate()
+            .filter(|(_, row)| row.iter().any(|p| (*p >> 16) & 255 > 150 && *p & 255 < 80))
+            .map(|(y, _)| y)
+            .collect();
+        assert!(!rows.is_empty(), "decoration is drawn");
+        rows.last().unwrap() - rows.first().unwrap()
+    };
+    let solid = extent();
+    pattern.set(TextDecorationStyle::Wavy);
+    screen.run_until_idle();
+    assert!(
+        extent() > solid,
+        "a wave extends above and below a straight underline"
+    );
+    for next in [TextDecorationStyle::Dashed, TextDecorationStyle::Dotted] {
+        pattern.set(next);
+        screen.run_until_idle();
+        extent();
+    }
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn visibility_hidden_keeps_layout_but_hides_the_node() {
+    use kivact::style::Visibility;
+    let (screen, (hidden, presses)) = mount(|| {
+        let hidden = signal(false);
+        let presses = signal(0);
+        let target = node()
+            .test_id("hidden-target")
+            .name("target")
+            .role(Role::Button)
+            .focusable(true)
+            .on_press(move || presses.update(|n| *n += 1))
+            .style(style().size(90, 40).background(rgb(RED)))
+            .child(
+                text("child")
+                    .role(Role::Button)
+                    .name("child")
+                    .focusable(true),
+            );
+        (
+            (hidden, presses),
+            row((
+                node()
+                    .style(move || {
+                        style()
+                            .display(kivact::style::Display::Contents)
+                            .visibility(if hidden.get() {
+                                Visibility::Hidden
+                            } else {
+                                Visibility::Visible
+                            })
+                    })
+                    .child(target),
+                node()
+                    .test_id("after")
+                    .role(Role::Button)
+                    .name("after")
+                    .focusable(true)
+                    .style(style().size(40, 40)),
+            )),
+        )
+    });
+    let target = screen.get_by_test_id("hidden-target");
+    let before = target.rect().unwrap();
+    let after = screen.get_by_test_id("after");
+    let sibling_before = after.rect().unwrap();
+    target.focus();
+    assert!(target.is_focused());
+    target.click();
+    let initial_presses = presses.get();
+    hidden.set(true);
+    screen.run_until_idle();
+    assert_eq!(target.rect(), Some(before), "hidden box retains its layout");
+    assert_eq!(
+        after.rect(),
+        Some(sibling_before),
+        "siblings keep their positions"
+    );
+    assert!(!target.is_visible());
+    assert!(!target.is_focused());
+    let accessibility = screen.accessibility_tree();
+    for name in ["target", "child"] {
+        let exposed = accessibility
+            .lines()
+            .find(|line| line.contains(&format!("\"{name}\"")))
+            .expect("retained accessibility node");
+        assert!(
+            exposed.contains(" hidden"),
+            "hidden semantics reach the native accessibility tree"
+        );
+        assert!(!exposed.contains(" focusable"));
+    }
+    assert!(
+        target.a11y_actions().is_empty(),
+        "hidden node offers no accessibility actions"
+    );
+    assert!(
+        screen
+            .get_by_role(Role::Button, "child")
+            .a11y_actions()
+            .is_empty(),
+        "hidden descendants offer no accessibility actions"
+    );
+    screen.click_at(
+        before.x + before.width / 2.0,
+        before.y + before.height / 2.0,
+    );
+    assert_eq!(
+        presses.get(),
+        initial_presses,
+        "hidden subtree cannot be hit"
+    );
+    assert!(
+        !screen
+            .screenshot()
+            .pixels
+            .iter()
+            .any(|p| (*p >> 16) & 255 > 180 && *p & 255 < 60)
+    );
+    screen.press_tab(false);
+    assert!(after.is_focused(), "Tab skips the hidden subtree");
+    hidden.set(false);
+    screen.run_until_idle();
+    assert!(target.is_visible());
+    assert!(screen.query_by_role(Role::Button, "child").is_some());
+    target.click();
+    assert!(presses.get() > initial_presses);
+    assert!(screen.errors().is_empty());
+}
