@@ -251,8 +251,11 @@ fn a_minimized_window_asks_for_no_redraws_until_it_is_restored() {
     });
     screen.run_until_idle();
     assert!(!screen.with_host(|host| host.redraw_requested()));
-    screen.restore_surface();
-    assert!(screen.with_host(|host| host.redraw_requested()));
+    screen.with_host(|host| {
+        host.set_surface(true);
+        assert!(host.redraw_requested());
+    });
+    screen.run_until_idle();
     screen.get_by_text("count: 2");
 }
 
