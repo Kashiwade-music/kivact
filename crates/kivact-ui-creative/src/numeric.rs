@@ -11,7 +11,7 @@ use kivact::state::IntoBinding;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
 use kivact::interaction::ScalarRange;
-use kivact::state::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::state::{Binding, Callback, Value, binding, machine, memo, signal};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Cursor, Justify, Style, Theme, style};
@@ -343,8 +343,7 @@ impl IntoView for Numeric {
         let typing = kivact::interaction::use_inline_edit(signal(None::<()>));
         let text_open = move || typing.is_open(&());
         // The value a scrub's delta is measured from.
-        let origin = var(0.0);
-        let moved = signal(false);
+        let scrub_phase = machine(machine::State::Idle, || machine::Machine, |_, ()| {});
         let scalar = use_scalar(state, move || {
             ScalarRange::new(min.get(), max.get()).expect("invariant: numeric bounds are finite")
         })
@@ -357,7 +356,7 @@ impl IntoView for Numeric {
         // A scrub is one edit of the scalar from its press: Escape, the
         // engine and the disposal of the field end it as a Cancel, with the
         // value it started from written back first.
-        let pointer = scalar.scrub(use_drag::<()>(DragCoordinates::Local));
+        let pointer = scalar.scrub(use_drag::<f64>(DragCoordinates::Local));
         let reference = node_ref();
         let rect = reference.rect();
         let logarithmic = move || logarithmic.get() && min.get() > 0.0;
@@ -388,11 +387,10 @@ impl IntoView for Numeric {
         };
         let not_finite = message("creative.numeric.not_finite", "Enter a finite number");
         let mixed_text = message("creative.numeric.mixed", "Mixed");
-        let text_parser = var(text_parser);
         // `from` is the value the text field opened with, which a relative
         // entry such as `+5` is added to.
-        let parse = move |s: &str, from: f64| -> Result<f64, String> {
-            match text_parser.get() {
+        let parse: TextParser = Rc::new(move |s: &str, from: f64| -> Result<f64, String> {
+            match text_parser.as_ref() {
                 Some(parser) => parser(s, from).and_then(|v| {
                     if v.is_finite() {
                         Ok(v)
@@ -403,7 +401,7 @@ impl IntoView for Numeric {
                 None => parse_scalar(s, timecode.map(|fps| fps.get()), from)
                     .ok_or_else(|| not_finite.get()),
             }
-        };
+        });
         let begin_text = move || typing.open(());
         let suffix = unit;
         let shown = (move || {
@@ -462,6 +460,8 @@ impl IntoView for Numeric {
             },
         );
         let edit = show(text_open, move || {
+            let parse_commit = Rc::clone(&parse);
+            let parse_reason = Rc::clone(&parse);
             let status = node_ref();
             let from = value.get_untracked();
             let opened = format_scalar(from, precision.get(), "", timecode.map(|fps| fps.get()));
@@ -475,13 +475,13 @@ impl IntoView for Numeric {
                 if typed == opened && !mixed.get_untracked() {
                     return;
                 }
-                if let Ok(next) = parse(&typed, from) {
+                if let Ok(next) = parse_commit(&typed, from) {
                     set(next);
                 }
             };
             // Why the text does not parse, while it does not; it follows the
             // draft as it is typed.
-            let reason = memo(move || parse(&draft.get(), from).err());
+            let reason = memo(move || parse_reason(&draft.get(), from).err());
             let shown = memo(move || reason.get().is_some_and(|reason| !reason.is_empty()));
             let hint = use_popup(binding(shown, |_: bool| {}))
                 .anchor(reference)
@@ -531,10 +531,9 @@ impl IntoView for Numeric {
         });
         let scrub = pointer
             .on_start(move |_| {
-                origin.set(value.get());
-                moved.set(false);
+                scrub_phase.send(machine::Event::Press);
             })
-            .on_update(move |update: DragUpdate<()>| {
+            .on_update(move |update: DragUpdate<f64>| {
                 let horizontal = horizontal.get();
                 let delta = if matches!(kind, NumericKind::Knob | NumericKind::Fader) && !horizontal
                 {
@@ -550,7 +549,7 @@ impl IntoView for Numeric {
                     } else {
                         1.0
                     };
-                    let start = origin.get();
+                    let start = update.payload;
                     if kind == NumericKind::Number {
                         scalar.set(start + delta * step.get() * factor);
                     } else {
@@ -566,13 +565,15 @@ impl IntoView for Numeric {
                             .max(60.0);
                         scalar.set(from_n(normalized(start) + (delta / extent) * factor));
                     }
-                    moved.set(true);
+                    scrub_phase.send(machine::Event::Move);
                 }
             })
-            .on_end(move |update: DragUpdate<()>| {
-                if update.phase == DragPhase::Cancel {
-                    moved.set(false);
-                } else if !moved.get() && matches!(kind, NumericKind::Number | NumericKind::Slider)
+            .on_end(move |update: DragUpdate<f64>| {
+                let moved = matches!(scrub_phase.get(), machine::State::Moved);
+                scrub_phase.send(machine::Event::End);
+                if update.phase != DragPhase::Cancel
+                    && !moved
+                    && matches!(kind, NumericKind::Number | NumericKind::Slider)
                 {
                     begin_text();
                 }
@@ -732,7 +733,7 @@ impl IntoView for Numeric {
                 }
                 Handled::No
             })
-            .part(scrub.source(()))
+            .part(scrub.source_with(move || value.get_untracked()))
             .child(display)
             .child(edit);
         // The accessibility actions are edits of their own. A value needs a
@@ -1015,4 +1016,33 @@ pub fn evaluate_expression(s: &str) -> Option<f64> {
     let value = p.expression()?;
     p.spaces();
     (p.at == p.input.len() && value.is_finite()).then_some(value)
+}
+
+mod machine {
+    //! Role: Track whether a numeric scrub moved enough to suppress opening text on release.
+    use kivact::state::Step;
+    pub(super) struct Machine;
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) enum State {
+        Idle,
+        Pressed,
+        Moved,
+    }
+    pub(super) enum Event {
+        Press,
+        Move,
+        End,
+    }
+    impl kivact::state::Machine for Machine {
+        type State = State;
+        type Event = Event;
+        type Effect = ();
+        fn transition(&self, _: &State, event: Event) -> Step<State, Event, ()> {
+            Step::to(match event {
+                Event::Press => State::Pressed,
+                Event::Move => State::Moved,
+                Event::End => State::Idle,
+            })
+        }
+    }
 }

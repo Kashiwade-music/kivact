@@ -6,7 +6,7 @@ use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
-use kivact::state::{Value, memo, signal};
+use kivact::state::{Value, machine, memo};
 use kivact::style::{ColorToken, style};
 use kivact::view::NodeBuilder;
 use kivact::view::icon;
@@ -19,14 +19,6 @@ use kivact::view::for_each;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-/// The panel being dragged by its grip, and the panel it would land beside
-/// (`true`: after it).
-#[derive(Clone, Copy, PartialEq)]
-struct PanelDrag {
-    panel: u64,
-    target: Option<(u64, bool)>,
-}
 
 /// A retained inspector panel. Identities must be unique within its group.
 #[derive(Clone, Debug, PartialEq)]
@@ -59,15 +51,19 @@ pub fn panel_group<V: IntoView>(
     let panels = panels.into_binding();
     let data = panels.into_value();
     let rectangles = Rc::new(RefCell::new(HashMap::<u64, Value<Option<Rect>>>::new()));
-    let drag = signal(None::<PanelDrag>);
+    let drag = machine(
+        machine::State::Idle,
+        move || machine::Machine {
+            panels: data.get_untracked(),
+        },
+        move |_, next| panels.set(next),
+    );
     let rows = for_each(data, |panel| panel.id, {
         let rectangles = rectangles.clone();
         move |panel| {
             let id = panel.get_untracked().id;
             kivact::state::on_cleanup(move || {
-                if drag.get_untracked().is_some_and(|drag| drag.panel == id) {
-                    drag.set(None);
-                }
+                drag.send(machine::Event::Removed(id));
             });
             let reference = node_ref();
             rectangles.borrow_mut().insert(id, reference.rect());
@@ -101,10 +97,7 @@ pub fn panel_group<V: IntoView>(
             };
             let reorder = use_drag(DragCoordinates::Window)
                 .on_start(move |_| {
-                    drag.set(Some(PanelDrag {
-                        panel: id,
-                        target: None,
-                    }));
+                    drag.send(machine::Event::Begin(id));
                 })
                 .on_update(move |update: DragUpdate<u64>| {
                     let order = data.get();
@@ -119,27 +112,10 @@ pub fn panel_group<V: IntoView>(
                             }
                         }
                     }
-                    drag.update(|drag| {
-                        if let Some(drag) = drag {
-                            drag.target = found;
-                        }
-                    });
+                    drag.send(machine::Event::Target(found));
                 })
                 .on_end(move |update: DragUpdate<u64>| {
-                    if update.phase == DragPhase::End
-                        && let Some((destination, after)) = drag.get().and_then(|drag| drag.target)
-                    {
-                        let mut next = data.get();
-                        if let Some(index) = next.iter().position(|item| item.id == id) {
-                            let item = next.remove(index);
-                            if let Some(index) = next.iter().position(|item| item.id == destination)
-                            {
-                                next.insert(index + usize::from(after), item);
-                                panels.set(next);
-                            }
-                        }
-                    }
-                    drag.set(None);
+                    drag.send(machine::Event::End(update.phase == DragPhase::End));
                 });
             let mut grip = kivact::ui::button(message_with(
                 "creative.panels.reorder",
@@ -199,12 +175,12 @@ pub fn panel_group<V: IntoView>(
                     .radius(7)
                     .background(p.island)
                     .border(1, p.hair)
-                    .opacity(if drag.get().is_some_and(|drag| drag.panel == id) {
+                    .opacity(if drag.get().panel() == Some(id) {
                         0.65
                     } else {
                         1.0
                     });
-                if let Some((target, after)) = drag.get().and_then(|drag| drag.target)
+                if let Some((target, after)) = drag.get().target()
                     && target == id
                 {
                     style = if after {
@@ -221,4 +197,79 @@ pub fn panel_group<V: IntoView>(
         .role(Role::Group)
         .name(message("creative.panels.label", "Property panels"))
         .style(style().gap(6))
+}
+
+mod machine {
+    //! Role: Own the dragged panel and insertion target and commit reordering on release.
+    use super::InspectorPanel;
+    use kivact::state::Step;
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) enum State {
+        Idle,
+        Dragging {
+            panel: u64,
+            target: Option<(u64, bool)>,
+        },
+    }
+    impl State {
+        pub(super) fn panel(self) -> Option<u64> {
+            match self {
+                Self::Idle => None,
+                Self::Dragging { panel, .. } => Some(panel),
+            }
+        }
+        pub(super) fn target(self) -> Option<(u64, bool)> {
+            match self {
+                Self::Idle => None,
+                Self::Dragging { target, .. } => target,
+            }
+        }
+    }
+    pub(super) struct Machine {
+        pub(super) panels: Vec<InspectorPanel>,
+    }
+    pub(super) enum Event {
+        Begin(u64),
+        Target(Option<(u64, bool)>),
+        End(bool),
+        Removed(u64),
+    }
+    impl kivact::state::Machine for Machine {
+        type State = State;
+        type Event = Event;
+        type Effect = Vec<InspectorPanel>;
+        fn transition(&self, state: &State, event: Event) -> Step<State, Event, Self::Effect> {
+            match (*state, event) {
+                (_, Event::Begin(panel)) => Step::to(State::Dragging {
+                    panel,
+                    target: None,
+                }),
+                (State::Dragging { panel, .. }, Event::Target(target)) => {
+                    Step::to(State::Dragging { panel, target })
+                }
+                (
+                    State::Dragging {
+                        panel,
+                        target: Some((destination, after)),
+                    },
+                    Event::End(true),
+                ) => {
+                    let mut next = self.panels.clone();
+                    if let Some(index) = next.iter().position(|item| item.id == panel) {
+                        let item = next.remove(index);
+                        if let Some(index) = next.iter().position(|item| item.id == destination) {
+                            next.insert(index + usize::from(after), item);
+                            return Step::to(State::Idle).with(next);
+                        }
+                    }
+                    Step::to(State::Idle)
+                }
+                (_, Event::End(_)) => Step::to(State::Idle),
+                (State::Dragging { panel, .. }, Event::Removed(id)) if panel == id => {
+                    Step::to(State::Idle)
+                }
+                _ => Step::stay(),
+            }
+        }
+    }
 }

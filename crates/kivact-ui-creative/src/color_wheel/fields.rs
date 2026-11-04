@@ -2,13 +2,13 @@
 use super::ColorModel;
 use super::color_to_hsv;
 use super::geometry::Channel;
-use super::state::{ColorOwner, State};
+use super::state::{ColorOwner, State, SwatchSelection};
 use crate::number;
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
 use kivact::state::callback;
-use kivact::state::{Binding, Value, binding, effect, memo, signal};
+use kivact::state::{Binding, Value, binding, machine, memo};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
 use kivact::view::IntoView;
@@ -145,17 +145,19 @@ enum HexField {
 }
 fn hex(state: State, alpha: Value<bool>) -> View {
     let value = state.color.into_value();
-    let field = signal(HexField::Following);
+    let field = machine(HexField::Following, || machine::Machine, |_, ()| {});
     let text = memo(move || match field.get() {
         HexField::Following => encode(value.get(), alpha.get()),
         HexField::Typed(text) => text,
     });
-    let input = binding(text, move |typed: String| field.set(HexField::Typed(typed)));
+    let input = binding(text, move |typed: String| {
+        field.send(machine::Event::Typed(typed))
+    });
     let invalid = memo(move || parse(&text.get(), value.get(), alpha.get()).is_none());
     // Enter, or leaving the field with a changed text, writes a valid draft;
     // either way the field follows the color again.
     let commit = move |typed: String| {
-        field.set(HexField::Following);
+        field.send(machine::Event::Follow);
         if state.blocked.get_untracked() {
             return;
         }
@@ -168,7 +170,7 @@ fn hex(state: State, alpha: Value<bool>) -> View {
         // Escape discards the draft: the field follows the color again.
         .on_edit(move |phase| {
             if phase == EditPhase::Cancel {
-                field.set(HexField::Following);
+                field.send(machine::Event::Follow);
             }
         })
         .disabled(state.blocked)
@@ -178,17 +180,7 @@ fn hex(state: State, alpha: Value<bool>) -> View {
 pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
     let palette = state.palette?;
     let colors = palette.into_value();
-    let selected = signal(None::<usize>);
-    effect(move || {
-        let len = colors.get().len();
-        if let Some(index) = selected.get_untracked() {
-            selected.set(if len == 0 {
-                None
-            } else {
-                Some(index.min(len - 1))
-            });
-        }
-    });
+    let selected = memo(move || state.controls.get().swatch.index());
     let items = memo(move || colors.get().into_iter().enumerate().collect::<Vec<_>>());
     let swatch_label = message("creative.color.swatch", "Swatch");
     let buttons = for_each(
@@ -199,7 +191,11 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
             kivact::ui::button(move || format!("{} {}", swatch_label.get(), index + 1))
                 .with_node(move |node| node.disabled(state.blocked))
                 .on_press(move || {
-                    selected.set(Some(index));
+                    state
+                        .controls
+                        .send(super::state::controls_machine::Event::Swatch(
+                            SwatchSelection::Selected(index),
+                        ));
                     state.once(ColorOwner::Swatch, || {
                         let color = item.get().1;
                         state.color.set(if alpha.get() {
@@ -229,7 +225,11 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                         state.once(ColorOwner::Swatch, || {
                             let mut colors = colors.get();
                             colors.push(state.color.into_value().get());
-                            selected.set(Some(colors.len() - 1));
+                            state
+                                .controls
+                                .send(super::state::controls_machine::Event::Swatch(
+                                    SwatchSelection::Selected(colors.len() - 1),
+                                ));
                             palette.set(colors);
                         })
                     }),
@@ -254,4 +254,26 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
         .style(style().gap(4))
         .into_view(),
     )
+}
+
+mod machine {
+    //! Role: Own whether the hexadecimal field follows the color or holds a typed draft.
+    use super::HexField;
+    use kivact::state::Step;
+    pub(super) struct Machine;
+    pub(super) enum Event {
+        Typed(String),
+        Follow,
+    }
+    impl kivact::state::Machine for Machine {
+        type State = HexField;
+        type Event = Event;
+        type Effect = ();
+        fn transition(&self, _: &HexField, event: Event) -> Step<HexField, Event, ()> {
+            Step::to(match event {
+                Event::Typed(text) => HexField::Typed(text),
+                Event::Follow => HexField::Following,
+            })
+        }
+    }
 }
