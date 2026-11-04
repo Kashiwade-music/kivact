@@ -276,3 +276,21 @@ fn a_librarys_tokens_are_read_again_on_a_theme_switch_without_a_remount() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn use_theme_reads_inside_a_style_closure() {
+    let (screen, theme) = mount(|| {
+        let theme = signal(Theme::light());
+        (theme, provide_theme(theme, || {
+            node().test_id("theme-probe").style(|| {
+                let dark = use_theme().get().mode() == kivact::style::ThemeMode::Dark;
+                style().size(30, 30).background(rgb(if dark { BLUE } else { RED }))
+            })
+        }))
+    });
+    assert!(distance(at(&screen, "theme-probe", 15.0, 15.0), RED) < 10);
+    theme.set(Theme::dark());
+    screen.run_until_idle();
+    assert!(distance(at(&screen, "theme-probe", 15.0, 15.0), BLUE) < 10);
+    assert!(screen.errors().is_empty());
+}

@@ -171,3 +171,19 @@ fn handle_constructors_create_under_the_setup_owner() {
     cb.call(9);
     assert_eq!(take(&l), vec!["cb 9"]);
 }
+
+#[test]
+fn bind_macro_edits_a_nested_field() {
+    #[derive(Clone, PartialEq)]
+    struct Address { street: String }
+    #[derive(Clone, PartialEq)]
+    struct Model { address: Address, untouched: u32 }
+    let (screen, model) = mount(|| {
+        let model = signal(Model { address: Address { street: "Old".into() }, untouched: 7 });
+        let street = kivact::bind!(model.address.street);
+        (model, button("Rename").on_press(move || street.set("New".into())))
+    });
+    screen.get_by_role(Role::Button, "Rename").click();
+    assert_eq!(model.get().address.street, "New");
+    assert_eq!(model.get().untouched, 7);
+}

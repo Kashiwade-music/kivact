@@ -420,3 +420,16 @@ fn counter_example_end_to_end() {
 
 // ---------------------------------------------------------------------------
 // Regression (design survey): on_mount of a component without host nodes waits for an unrelated batch.
+
+#[test]
+fn closure_child_updates_text() {
+    let (screen, value) = mount(|| {
+        let value = signal("first");
+        (value, node().child(move || text(value.get())))
+    });
+    screen.get_by_text("first");
+    value.set("second");
+    screen.run_until_idle();
+    screen.get_by_text("second");
+    assert!(screen.query_by_text("first").is_none());
+}
