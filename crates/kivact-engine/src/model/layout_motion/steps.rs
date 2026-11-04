@@ -48,9 +48,7 @@ impl Model {
                 .unwrap_or_default();
             let timing = if let Some(active) = self.layout_motion.0.get(&id) {
                 from = active.current.clone();
-                active
-                    .timing
-                    .retargeted(&active.from, &active.to, &from, &to)
+                timing.retargeted(&active.from, &active.to, &from, &to)
             } else {
                 timing
             };
