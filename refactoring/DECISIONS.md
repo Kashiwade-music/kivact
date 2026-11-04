@@ -2396,6 +2396,8 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 - A-0: retain Send `MakeHandler` plus separate `ChildHooks` for embedded UI-thread construction; an Rc-owning handler cannot cross threads directly. Keep borrowed blocking handlers with `Box<dyn ShellHandler + '_>`.
 - A-0: each consuming backend implementation owns session shutdown. Native guards run after handler/presenter cleanup on normal return, startup failure, and unwind; embedded guards follow actual UI-handler destruction, not the returned handle's early close request. Preserve existing deliberate leak/panic module retention. The native backend remains a lightweight factory, without capturing an entire non-Send backend into a Send UI factory.
 - A-0: pre-window capabilities are supported upper bounds; the created ShellWindow's result after optional native setup is authoritative.
+- A-2: services belong to each fully created ShellWindow and are constructed on its UI thread. Remove pre-window Backend/SteppedBackend services getters: without a window identity they cannot address parented dialogs or multiple embedded resize negotiations without late binding. Preserve one Services::perform entry for OS requests and UI-thread replies.
+- A-2: separate RegisterFont and ReducedMotion into engine HostRequest before service forwarding. Preserve Writer-time font registration and Host-owned motion override, and synchronize the actual environment before delivering each completed effect result. E-2 treats this request separation as an A-2 prerequisite already completed.
 - R-1: move the already unified types Transition unchanged. The obsolete instruction to retain as_wire is corrected; do not reintroduce a wrapper removed by V-6/18.16.
 
 ### W1 definition reconciliation

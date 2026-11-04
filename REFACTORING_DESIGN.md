@@ -946,9 +946,6 @@ pub trait Backend: 'static {
     /// Supported upper bounds before a window exists; the created ShellWindow
     /// reports the authoritative capabilities after native setup succeeds.
     fn capabilities(&self) -> Capabilities;
-    /// The OS services. Taken before `run` (which consumes the backend); the
-    /// backend keeps its own clone. Replies are delivered on the UI thread.
-    fn services(&self) -> Rc<dyn Services>;
     /// Run the event loop until the handler exits (blocks on desktop).
     fn run(self: Box<Self>, options: ShellOptions, handler: Box<dyn ShellHandler + '_>) -> Result<(), ShellError>;
     /// Open a child window inside a foreign parent (embed). Default: `Err(ShellError::Unsupported)`.
@@ -961,7 +958,6 @@ pub trait Backend: 'static {
 /// A backend whose loop the caller steps (tests). Same `Driver` and `Presenter` as `run`.
 pub trait SteppedBackend: 'static {
     fn capabilities(&self) -> Capabilities;
-    fn services(&self) -> Rc<dyn Services>;
     fn start(self: Box<Self>, options: ShellOptions, handler: Box<dyn ShellHandler>) -> Box<dyn SteppedLoop>;
 }
 pub trait SteppedLoop {
@@ -969,7 +965,11 @@ pub trait SteppedLoop {
     fn step(&mut self) -> StepOutcome;
 }
 pub enum StepOutcome { Idle { next_deadline: Option<u64> }, Exited }
-pub trait ShellWindow { /* surface・入力・IME・支援技術・cursor・title・size（サービスは持たない） */ }
+pub trait ShellWindow {
+    /* surface・入力・IME・支援技術・cursor・title・size */
+    /// Services bound to this fully created window, on its UI thread.
+    fn services(&self) -> Rc<dyn Services>;
+}
 pub trait Services {
     /// One entry point for every OS service (D-05). `reply` runs on the UI thread.
     fn perform(&self, request: PlatformRequest, reply: Box<dyn FnOnce(PlatformResult)>);
@@ -977,6 +977,8 @@ pub trait Services {
 ```
 
 **A-0 の実コードとの照合による補足:** embedded handler は `Rc` を持つため、既存の `MakeHandler = Box<dyn FnOnce() -> Box<dyn ShellHandler> + Send>` で UI thread 内に作る。handler 自体を thread 間で送らない。`run` は backend を消費するので、各実装が session の終了通知を所有する。native の終了 guard は handler/presenter より後に破棄し、成功・起動失敗・unwind の順序を保つ。embedded child は返却 handle の Drop 時でなく実 UI handler の終了時に同じ順序で通知する。既存の意図した leak/panic 境界の module 保持は維持する。軽量な native factory は非 Send な backend 自体を UI factory に capture しない。window 生成前の `capabilities` は上限値で、実際の subclass 設置結果を含む生成後の `ShellWindow::capabilities` が確定値。
+
+**A-2 の所有権の訂正:** service は生成済み window ごとの resource とする。生成前の引数なし `Backend::services` では、親 handle を必要とする dialog や複数の embedded child の resize を識別できず、後埋め window slot が必要になるため採用しない。`ShellWindow::services` は UI thread 内の window 構築で完成した同じ service を返し、request ごとに別の current-window 状態を作らない。`RegisterFont` と `ReducedMotion` は OS request ではないため A-2 で engine の `HostRequest` に分離し、後者の override は Host が一か所で持つ。OS request 完了時は実 window 環境の同期を先に行い、その後で `EffectResult` を core に届ける。reply は UI thread で処理する。
 
 - `arvane::Shell::new` が `arvane_native::Shell::new` を直接作る（`arvane/src/window.rs:352`）のをやめ、`arvane::Shell::new(backend: Box<dyn Backend>)` と `arvane::Shell::start_stepped(backend: Box<dyn SteppedBackend>) -> SteppedShell` にする。どちらも同じ `Driver` で handler を包む。`arvane_native::backend()` が既定の backend を返す。
 - engine の `run_native` は `run(backend: Box<dyn arvane::spi::Backend>, client, options)` にする。`kivact-core` の `App::run` は `kivact_engine::native_backend()`（`arvane_native::backend()` を返すだけ。core が arvane-native の名前を知らないため）を渡す。
