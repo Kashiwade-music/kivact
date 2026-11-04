@@ -10,8 +10,6 @@ use std::time::Duration;
 /// How long a toast stays when [`Toast::duration`] is not set.
 const DEFAULT_DURATION: Duration = Duration::from_secs(5);
 
-/// How many toasts are shown at once when [`crate::Toaster::max_visible`] is not set.
-
 pub(super) type Entries = Vec<(ToastId, Toast)>;
 pub(super) type DismissHandler =
     Rc<dyn Fn(kivact_core::view::DismissReason) -> Result<(), UiError>>;

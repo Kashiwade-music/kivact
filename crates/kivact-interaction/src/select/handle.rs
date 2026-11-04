@@ -695,10 +695,10 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                                 hovered.set(Some(hover_key.clone()));
                             }
                         }
-                        PointerPhase::Leave => {
-                            if hovered.get_untracked().as_ref() == Some(&hover_key) {
-                                hovered.set(None);
-                            }
+                        PointerPhase::Leave
+                            if hovered.get_untracked().as_ref() == Some(&hover_key) =>
+                        {
+                            hovered.set(None);
                         }
                         _ => {}
                     }

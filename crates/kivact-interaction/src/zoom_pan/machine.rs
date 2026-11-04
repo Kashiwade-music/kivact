@@ -174,38 +174,36 @@ impl Machine {
                     {
                         touch.1 = event.pos();
                     }
-                    if let State::Pinch { pinch, .. } = &mut next {
-                        if let Some(finger) = pinch
+                    if let State::Pinch { pinch, .. } = &mut next
+                        && let Some(finger) = pinch
                             .fingers
                             .iter_mut()
                             .find(|finger| finger.pointer == event.id())
-                        {
-                            if valid {
-                                finger.now = event.pos();
-                                let value = pinched(*pinch, self.options);
-                                return (Step::to(next).with(Effect::Write(value)), Handled::Yes);
-                            }
-                            return (Step::to(next), Handled::Yes);
+                    {
+                        if valid {
+                            finger.now = event.pos();
+                            let value = pinched(*pinch, self.options);
+                            return (Step::to(next).with(Effect::Write(value)), Handled::Yes);
                         }
+                        return (Step::to(next), Handled::Yes);
                     }
                 }
                 PointerPhase::Up(_) | PointerPhase::Cancel => {
                     next.touches().retain(|(id, _)| *id != event.id());
-                    if let State::Pinch { pinch, .. } = &mut next {
-                        if let Some(finger) = pinch
+                    if let State::Pinch { pinch, .. } = &mut next
+                        && let Some(finger) = pinch
                             .fingers
                             .iter_mut()
                             .find(|finger| finger.pointer == event.id())
-                        {
-                            let commit = matches!(event.phase(), PointerPhase::Up(_));
-                            let write = if commit && valid {
-                                finger.now = event.pos();
-                                Some(pinched(*pinch, self.options))
-                            } else {
-                                None
-                            };
-                            return (self.stop(&next, commit, write), Handled::Yes);
-                        }
+                    {
+                        let commit = matches!(event.phase(), PointerPhase::Up(_));
+                        let write = if commit && valid {
+                            finger.now = event.pos();
+                            Some(pinched(*pinch, self.options))
+                        } else {
+                            None
+                        };
+                        return (self.stop(&next, commit, write), Handled::Yes);
                     }
                 }
                 PointerPhase::Enter | PointerPhase::Leave => {}
@@ -235,24 +233,24 @@ impl Machine {
                 );
             }
         }
-        if let State::Pan { pan, .. } = &next {
-            if event.id() == pan.pointer {
-                match event.phase() {
-                    PointerPhase::Cancel => return (self.stop(&next, false, None), Handled::Yes),
-                    PointerPhase::Up(press) if press.button == pan.button => {
-                        return (
-                            self.stop(&next, true, valid.then(|| panned(*pan, event.pos()))),
-                            Handled::Yes,
-                        );
-                    }
-                    PointerPhase::Move if valid => {
-                        return (
-                            Step::to(next.clone()).with(Effect::Write(panned(*pan, event.pos()))),
-                            Handled::Yes,
-                        );
-                    }
-                    _ => {}
+        if let State::Pan { pan, .. } = &next
+            && event.id() == pan.pointer
+        {
+            match event.phase() {
+                PointerPhase::Cancel => return (self.stop(&next, false, None), Handled::Yes),
+                PointerPhase::Up(press) if press.button == pan.button => {
+                    return (
+                        self.stop(&next, true, valid.then(|| panned(*pan, event.pos()))),
+                        Handled::Yes,
+                    );
                 }
+                PointerPhase::Move if valid => {
+                    return (
+                        Step::to(next.clone()).with(Effect::Write(panned(*pan, event.pos()))),
+                        Handled::Yes,
+                    );
+                }
+                _ => {}
             }
         }
         (Step::to(next), Handled::No)
