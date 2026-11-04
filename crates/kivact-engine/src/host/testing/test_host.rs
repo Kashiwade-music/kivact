@@ -23,7 +23,9 @@ use std::sync::Arc;
 /// Turns and frame ticks the client was given.
 #[derive(Default)]
 struct Counts {
+    // xtask-allow(state-fields): diagnostic statistics; never used to control scheduling.
     turns: Cell<u64>,
+    // xtask-allow(state-fields): diagnostic statistics; never used as an event or generation.
     frame_ticks: Cell<u64>,
 }
 
@@ -52,11 +54,16 @@ pub struct ArvaneTestHost {
     script: Script,
     shell: SteppedShell,
     outcome: StepOutcome,
-    renderer: Rc<Cell<Option<Renderer>>>,
-    renderer_failure: Rc<RefCell<Option<String>>>,
+    renderer: Rc<RefCell<RendererState>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
     counts: Rc<Counts>,
 }
+enum RendererState {
+    Unreported,
+    Ready(Renderer),
+    Failed(String),
+}
+
 struct SharedHost {
     host: Rc<RefCell<Host>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
@@ -94,17 +101,36 @@ impl Handler for SharedHost {
     }
 }
 
+fn make_host(
+    client: Client,
+    options: &TestHostOptions,
+    counts: Rc<Counts>,
+) -> Result<Rc<RefCell<Host>>, HostError> {
+    let engine = match &options.fonts {
+        TestFonts::Bundled => arvane::Engine::with_fonts_only(&[default_font()]),
+        TestFonts::Only(fonts) => arvane::Engine::with_fonts_only(fonts),
+        TestFonts::System => Ok(arvane::Engine::new()),
+    }
+    .map_err(|e| HostError::new(e.to_string()))?;
+    let host = crate::host::new(
+        counted(client, counts),
+        Size {
+            width: options.width,
+            height: options.height,
+        },
+        engine,
+        Rc::new(RefCell::new(crate::FrameLog::disabled())),
+    );
+    // Reported light at start in production; a test may start dark.
+    host.model.borrow_mut().frame.start_theme(options.theme);
+    Ok(Rc::new(RefCell::new(host)))
+}
+
 impl ArvaneTestHost {
     /// Start `client` on the host (its `start` runs here, and the turns its
     /// first revision asks for).
     pub fn new(client: Client, options: TestHostOptions) -> Result<Self, HostError> {
         let error = |e: &dyn std::fmt::Display| HostError::new(e.to_string());
-        let engine = match &options.fonts {
-            TestFonts::Bundled => arvane::Engine::with_fonts_only(&[default_font()]),
-            TestFonts::Only(fonts) => arvane::Engine::with_fonts_only(fonts),
-            TestFonts::System => Ok(arvane::Engine::new()),
-        }
-        .map_err(|e| error(&e))?;
         let backend = VirtualBackend::new(VirtualOptions {
             title: options.title.clone(),
             size: Size {
@@ -122,22 +148,9 @@ impl ArvaneTestHost {
         let script = backend.script();
         let probe = backend.probe();
         let counts = Rc::new(Counts::default());
-        let host = crate::host::new(
-            counted(client, counts.clone()),
-            Size {
-                width: options.width,
-                height: options.height,
-            },
-            engine,
-            Rc::new(RefCell::new(crate::FrameLog::disabled())),
-        );
-        // Reported light at start in production; a test may start dark.
-        host.model.borrow_mut().frame.start_theme(options.theme);
-        let host = Rc::new(RefCell::new(host));
-        let renderer = Rc::new(Cell::new(None));
-        let renderer_failure = Rc::new(RefCell::new(None));
+        let host = make_host(client, &options, counts.clone())?;
+        let renderer = Rc::new(RefCell::new(RendererState::Unreported));
         let observed = renderer.clone();
-        let failed = renderer_failure.clone();
         let injected = Rc::new(RefCell::new(Vec::new()));
         let shell = Shell::start_stepped(
             Box::new(backend),
@@ -145,11 +158,14 @@ impl ArvaneTestHost {
                 prefer_gpu: options.gpu == GpuMode::Required,
                 gpu_preference: options.gpu_preference,
                 observer: Some(Box::new(move |change| match change {
-                    RendererChange::Start { .. } => observed.set(Some(Renderer::Cpu)),
-                    RendererChange::Gpu { .. } => observed.set(Some(Renderer::Gpu)),
+                    RendererChange::Start { .. } => {
+                        *observed.borrow_mut() = RendererState::Ready(Renderer::Cpu)
+                    }
+                    RendererChange::Gpu { .. } => {
+                        *observed.borrow_mut() = RendererState::Ready(Renderer::Gpu)
+                    }
                     RendererChange::Cpu { reason } => {
-                        observed.set(Some(Renderer::Cpu));
-                        *failed.borrow_mut() = Some(reason.clone());
+                        *observed.borrow_mut() = RendererState::Failed(reason.clone());
                     }
                     RendererChange::ExternalFrameMissed { .. } => {}
                 })),
@@ -172,36 +188,42 @@ impl ArvaneTestHost {
                 woken: false,
             },
             renderer,
-            renderer_failure,
             injected,
             counts,
         };
         driver.step(Step::Wake);
-        if options.gpu == GpuMode::Required {
-            let started = std::time::Instant::now();
-            while driver.renderer() != Some(Renderer::Gpu)
-                && driver.failure().is_none()
-                && driver.renderer_failure.borrow().is_none()
-                && started.elapsed() < std::time::Duration::from_secs(5)
-            {
-                std::thread::park_timeout(std::time::Duration::from_millis(5));
-                driver.step(Step::Wake);
-            }
-            if driver.renderer() != Some(Renderer::Gpu) {
-                return Err(HostError::new(
-                    driver
-                        .renderer_failure
-                        .borrow()
-                        .clone()
-                        .unwrap_or_else(|| "GPU renderer did not start within five seconds".into()),
-                ));
-            }
-        }
+        driver.wait_for_gpu(options.gpu)?;
         if let Some(failure) = driver.failure() {
-            return Err(error(failure));
+            return Err(HostError::new(failure.to_string()));
         }
         Ok(driver)
     }
+
+    fn wait_for_gpu(&mut self, mode: GpuMode) -> Result<(), HostError> {
+        if mode != GpuMode::Required {
+            return Ok(());
+        }
+        let started = std::time::Instant::now();
+        while self.renderer() != Some(Renderer::Gpu)
+            && self.failure().is_none()
+            && !matches!(*self.renderer.borrow(), RendererState::Failed(_))
+            && started.elapsed() < std::time::Duration::from_secs(5)
+        {
+            std::thread::park_timeout(std::time::Duration::from_millis(5));
+            self.step(Step::Wake);
+        }
+        if let Some(failure) = self.failure() {
+            return Err(HostError::new(failure.to_string()));
+        }
+        match &*self.renderer.borrow() {
+            RendererState::Ready(Renderer::Gpu) => Ok(()),
+            RendererState::Failed(reason) => Err(HostError::new(reason.clone())),
+            _ => Err(HostError::new(
+                "GPU renderer did not start within five seconds",
+            )),
+        }
+    }
+
     fn step(&mut self, step: Step) {
         self.outcome = self.shell.step(step);
     }
@@ -336,7 +358,11 @@ impl ArvaneTestHost {
     }
     /// The rasterizer that drew the last presented frame.
     pub fn renderer(&self) -> Option<Renderer> {
-        self.renderer.get()
+        match *self.renderer.borrow() {
+            RendererState::Unreported => None,
+            RendererState::Ready(renderer) => Some(renderer),
+            RendererState::Failed(_) => Some(Renderer::Cpu),
+        }
     }
 
     /// The last presented frame.
@@ -636,7 +662,6 @@ impl ArvaneTestHost {
     ) -> Vec<LayoutFinding> {
         let host = self.host.borrow();
         let model = host.model.borrow();
-        let host = self.host.borrow();
         let mut engine = host.engine.borrow_mut();
         crate::check::layout_findings(&model, &mut engine, check, scope, true)
     }
