@@ -68,6 +68,7 @@ pub(crate) mod frame;
 mod geometry;
 pub(crate) mod interact;
 pub(crate) mod keys;
+mod layout_motion;
 mod lifecycle;
 pub(crate) mod modal;
 pub(crate) mod pointer;

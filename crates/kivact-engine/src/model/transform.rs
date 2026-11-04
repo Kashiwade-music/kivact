@@ -182,7 +182,11 @@ impl Model {
         id: NodeId,
         size: Size,
     ) -> Option<kivact_types::Transform> {
-        resolve(&self.element_transform(id)?, size)
+        let element = self.element_transform(id).and_then(|t| resolve(&t, size));
+        match (element, self.layout_motion_transform(id)) {
+            (Some(element), Some(layout)) => Some(element.then(layout)),
+            (element, layout) => element.or(layout),
+        }
     }
 
     /// The transform of `id` from its own space to its parent's: about its
@@ -218,7 +222,7 @@ impl Model {
                 break;
             }
             let Some(n) = self.tree.get(x) else { break };
-            if n.place.transformed
+            if (n.place.transformed || self.layout_motion_transform(x).is_some())
                 && let Some(r) = self.rect(x)
                 && let Some(t) = self.transform_at(x, r)
             {

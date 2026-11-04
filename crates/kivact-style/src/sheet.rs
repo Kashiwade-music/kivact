@@ -920,12 +920,14 @@ impl Style {
         self
     }
 
-    /// Animate changes of a property group with `t`.
+    /// Animate position and size changes after layout, using a visual transform.
+    /// Layout is computed once; painting interpolates from the previous rectangle.
     pub fn layout_transition(mut self, transition: Transition) -> Self {
         self.layout_transition = Some(transition);
         self
     }
 
+    /// Animate changes of a property group with `t`.
     pub fn transition(mut self, prop: TransitionProp, t: Transition) -> Self {
         self.transitions.retain(|(p, _)| *p != prop);
         self.transitions.push((prop, t));

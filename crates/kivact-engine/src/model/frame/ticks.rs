@@ -60,6 +60,7 @@ impl Model {
                 let now = self.frame.now;
                 self.shift_state_times(since, now);
                 self.shift_size_times(since, now);
+                self.shift_layout_times(since, now);
                 self.frame.motion.offset_ns = self
                     .frame
                     .motion
@@ -118,7 +119,8 @@ impl Model {
         self.frame.frames.0.retain(|t| *t > now);
         self.changes.restack |= self.motion.is_active();
         let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
-        if self.step_states(stamp, self.frame.reduced_motion()) || sizes {
+        let layout = self.step_layout_motion(stamp, self.frame.reduced_motion());
+        if self.step_states(stamp, self.frame.reduced_motion()) || sizes || layout {
             self.frame.frames.0.insert(stamp.saturating_add(period));
         }
         self.sync();

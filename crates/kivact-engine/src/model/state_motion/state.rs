@@ -58,7 +58,7 @@ impl ColorChannels {
 pub(super) enum StateAnimPhase {
     /// The shown value was captured before a state change; the next retarget
     /// starts it from `current` or drops it. Never stepped.
-    Captured,
+    Captured { from: Vec<f64>, to: Vec<f64> },
     /// Moving from `from` to `to` since `start` (host ns).
     Running {
         from: Vec<f64>,

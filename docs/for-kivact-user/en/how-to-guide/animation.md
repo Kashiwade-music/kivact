@@ -65,6 +65,10 @@ spring's iteration ends when it settles.
 `Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` passes
 through values at offsets between 0 and 1 and ends at the target.
 
+With `.retarget(kivact::motion::Retarget::Proportional)`, an interrupted timed transition scales its new duration by the remaining component distance to preserve its intended speed. `Restart` is the default. Springs keep their physical timing.
+
+Use `style().layout_transition(Transition::tween(250, Easing::EaseOut))` to animate position and size changes caused by layout. Layout runs once; paint, pointer hit testing and accessibility share the interpolated visual transform. Decorative layout transitions also respect reduced motion.
+
 ### Use the value in a style
 
 Moving an element with `transform` and `opacity` is cheap, because it does not

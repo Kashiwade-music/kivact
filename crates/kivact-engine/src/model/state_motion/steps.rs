@@ -18,7 +18,12 @@ impl Model {
 
     fn capture_state_motion(&mut self, id: NodeId, entering: bool) {
         if let Some(a) = self.motion.0.get_mut(&id) {
-            a.phase = StateAnimPhase::Captured;
+            if let StateAnimPhase::Running { from, to, .. } = &a.phase {
+                a.phase = StateAnimPhase::Captured {
+                    from: from.clone(),
+                    to: to.clone(),
+                };
+            }
             return;
         }
         let Some(transition) = self
@@ -52,13 +57,16 @@ impl Model {
         let a = StateAnimation {
             transition,
             target: paint,
-            current,
+            current: current.clone(),
             spring: SpringRun {
                 velocity: vec![0.0; len],
                 ..SpringRun::default()
             },
             colors,
-            phase: StateAnimPhase::Captured,
+            phase: StateAnimPhase::Captured {
+                from: current.clone(),
+                to: current,
+            },
         };
         self.motion.0.insert(id, a);
     }
@@ -73,13 +81,18 @@ impl Model {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            if !matches!(a.phase, StateAnimPhase::Captured) {
+            let StateAnimPhase::Captured {
+                from: previous_from,
+                to: previous_to,
+            } = &a.phase
+            else {
                 return true;
-            }
+            };
             let target = self.target_paint(*id);
             let Some(timing) = target.transition.clone() else {
                 return false;
             };
+            let previous_timing = a.transition.clone();
             a.transition = timing;
             let colors_text = a.colors.contains(ColorChannels::TEXT)
                 || self
@@ -98,6 +111,12 @@ impl Model {
             if to == a.current || (reduced && a.transition.decorative) {
                 return false;
             }
+            a.transition = std::sync::Arc::new(previous_timing.retargeted(
+                previous_from,
+                previous_to,
+                &a.current,
+                &to,
+            ));
             a.target = target;
             if let Some(n) = self.tree.get_mut(*id) {
                 n.place.transformed |=

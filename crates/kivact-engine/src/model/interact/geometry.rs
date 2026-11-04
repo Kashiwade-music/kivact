@@ -56,6 +56,7 @@ impl Model {
         let Some(remeasure) = self.changes.begin_layout() else {
             return false;
         };
+        let previous = self.capture_layout_motion();
         let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
         for id in remeasure {
             if measure.measures_same(&self.tree, &self.layout, id) {
@@ -95,6 +96,7 @@ impl Model {
             // Set pass flags even when no local ink dependency changed.
             self.changes.laid_out(repaint);
         }
+        self.retarget_layout_motion(previous);
         self.report_geometry(engine);
         true
     }
@@ -366,7 +368,7 @@ impl Model {
             height: size.height,
         };
         // Into its own space (a flattening transform hits nothing).
-        let p = match n.place.transformed {
+        let p = match n.place.transformed || self.layout_motion_transform(id).is_some() {
             true => match self.transform_at(id, r) {
                 Some(t) => t.invert()?.apply(p),
                 None => p,
