@@ -241,6 +241,10 @@ fn ja_jp_and_de_de_format_numbers_and_dates() {
         let de = Locale::new("de-DE");
         let ar = Locale::new("ar-EG");
         let arabic = ar.format_number(-1234.5, number);
+        let thai = Locale::new("en-US-u-nu-thai");
+        let thai_number = thai.format_number(1234.5, number);
+        let han = Locale::new("en-US-u-nu-hanidec");
+        let han_date = han.format_date(date, DateStyle::Short);
         column((
             text(format!("ja: {}", ja.format_number(1234.5, number))),
             text(format!("de: {}", de.format_number(1234.5, number))),
@@ -262,6 +266,11 @@ fn ja_jp_and_de_de_format_numbers_and_dates() {
                 ar.parse_number(&arabic).unwrap()
             )),
             text(format!(
+                "nu parsed: {}",
+                thai.parse_number(&thai_number).unwrap()
+            )),
+            text(format!("han date: {}", han.parse_date(&han_date).unwrap())),
+            text(format!(
                 "invalid: {:?} {:?}",
                 de.parse_number("12,3,4"),
                 de.parse_date("31.2.2026")
@@ -282,6 +291,8 @@ fn ja_jp_and_de_de_format_numbers_and_dates() {
         "ja parsed: 2026-11-05",
         "de parsed: 1234.5 2026-11-05",
         "arabic parsed: -1234.5",
+        "nu parsed: 1234.5",
+        "han date: 2026-11-05",
         "invalid: None None",
         "ISO parsed: 2026-11-05",
     ] {

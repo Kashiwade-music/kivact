@@ -51,42 +51,23 @@ impl Locale {
         let formatted = formatter.format(&date);
         let pattern = formatted.pattern().write_to_string().into_owned();
         let order = date_order(&pattern);
-        let numbers: Vec<_> = text
-            .split(|c: char| !c.is_numeric())
-            .filter(|s| !s.is_empty())
-            .collect();
+        let numbers = crate::numbers::date_fields(self, text, &pattern)?;
         if numbers.len() != 3 || order.len() != 3 {
-            return None;
-        }
-        // Separators may be punctuation, spacing or the literals from the
-        // locale pattern; arbitrary alphabetic input is not a numeric date.
-        let pattern_letters: String = pattern.chars().filter(|c| !c.is_ascii()).collect();
-        if text
-            .chars()
-            .any(|c| c.is_alphabetic() && !pattern_letters.contains(c))
-        {
             return None;
         }
         let mut year = 0;
         let mut month = 0;
         let mut day = 0;
         for (field, number) in order.iter().zip(numbers) {
-            let n = self.parse_number(number)?;
-            if n.fract() != 0.0 {
-                return None;
-            }
             match field {
                 'y' => {
-                    if n > f64::from(i32::MAX) {
-                        return None;
-                    }
-                    year = n as i32;
-                    if number.chars().count() <= 2 {
+                    year = number.parse::<i32>().ok()?;
+                    if number.len() <= 2 {
                         year += 2000;
                     }
                 }
-                'M' => month = u8::try_from(n as i64).ok()?,
-                'd' => day = u8::try_from(n as i64).ok()?,
+                'M' => month = number.parse().ok()?,
+                'd' => day = number.parse().ok()?,
                 _ => return None,
             }
         }

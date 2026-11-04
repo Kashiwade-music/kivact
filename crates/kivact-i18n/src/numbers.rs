@@ -167,3 +167,36 @@ impl DataProvider<DecimalDigitsV1> for SymbolCapture {
         Ok(response)
     }
 }
+
+/// Extract numeric date fields with the same resolved digits as number parsing.
+pub(crate) fn date_fields(locale: &Locale, text: &str, pattern: &str) -> Option<Vec<String>> {
+    let symbols = NumberSymbols::new(locale);
+    let mut fields = Vec::new();
+    let mut number = String::new();
+    let mut rest = text;
+    while !rest.is_empty() {
+        if let Some((digit, glyph)) = symbols
+            .digits
+            .iter()
+            .enumerate()
+            .find(|(_, glyph)| rest.starts_with(glyph.as_str()))
+        {
+            number.push(char::from(b'0' + digit as u8));
+            rest = &rest[glyph.len()..];
+        } else {
+            let separator = rest.chars().next()?;
+            if separator.is_numeric() || (separator.is_alphabetic() && !pattern.contains(separator))
+            {
+                return None;
+            }
+            if !number.is_empty() {
+                fields.push(std::mem::take(&mut number));
+            }
+            rest = &rest[separator.len_utf8()..];
+        }
+    }
+    if !number.is_empty() {
+        fields.push(number);
+    }
+    Some(fields)
+}

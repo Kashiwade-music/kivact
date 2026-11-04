@@ -124,7 +124,7 @@ interpolate = []
 locale = []
 messages = ["format"]
 numbers = ["format", "locale"]
-regional = ["date", "format", "locale"]
+regional = ["date", "format", "locale", "numbers"]
 
 [module_rules.kivact-runtime.uses]
 machine = ["reactive", "task"]
