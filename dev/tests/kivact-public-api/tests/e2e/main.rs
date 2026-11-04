@@ -44,6 +44,7 @@ mod interaction_toggle;
 mod interaction_tooltip;
 mod interaction_tree;
 mod interaction_zoom_pan;
+mod keyboard;
 mod landmark_roles;
 mod layout_check;
 mod layout_scroll;

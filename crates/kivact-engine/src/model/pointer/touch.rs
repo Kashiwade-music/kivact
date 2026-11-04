@@ -5,16 +5,16 @@
 //! needs no text engine) before scrolling. Multi-touch abandons native
 //! arbitration so custom pinch handling keeps the existing pointer path.
 
-use super::state::{Axis, Gesture, TouchCandidate, TouchPan, TouchTarget};
+use super::state::{Axis, TouchCandidate, TouchGesture, TouchPan, TouchTarget, TouchTrack, Track};
 use crate::model::Model;
 use kivact_types::{NodeId, Point, PointerId, PointerKind};
 
 impl Model {
     pub(crate) fn reserve_touch_gesture(&mut self, pointer: PointerId) {
-        if let Some(track) = self.pointer.state.tracks.get_mut(&pointer.0)
-            && let Gesture::Route(route) = &mut track.gesture
+        if let Some(Track::Touch(track)) = self.pointer.state.tracks.get_mut(&pointer.0)
+            && let TouchGesture::Pending { route, .. } = &mut track.gesture
         {
-            route.touch = None;
+            track.gesture = TouchGesture::Route(std::mem::take(route));
         }
     }
 
@@ -24,15 +24,18 @@ impl Model {
             .state
             .tracks
             .values()
-            .filter(|track| track.source.kind == PointerKind::Touch)
+            .filter(|track| track.source().kind == PointerKind::Touch)
             .count()
             != 1
         {
             for track in self.pointer.state.tracks.values_mut() {
-                match &mut track.gesture {
-                    Gesture::Route(route) => route.touch = None,
-                    Gesture::Pan(_) => track.gesture = Gesture::default(),
-                    Gesture::Scrollbar(_) => {}
+                if let Track::Touch(track) = track {
+                    track.gesture = match std::mem::take(&mut track.gesture) {
+                        TouchGesture::Pending { route, .. } | TouchGesture::Route(route) => {
+                            TouchGesture::Route(route)
+                        }
+                        TouchGesture::Pan(_) => TouchGesture::default(),
+                    };
                 }
             }
             return;
@@ -45,14 +48,25 @@ impl Model {
                     .is_some_and(|node| node.scroll_axes() != (false, false))
         });
         let modal = self.modal();
-        self.pointer.state.track_mut(pointer).route_mut().touch = from.map(|from| TouchCandidate {
-            start: at,
-            target: TouchTarget {
-                from,
-                origin: hit.expect("invariant: a scroll ancestor requires a hit"),
-                modal,
-            },
-        });
+        if let Some(from) = from
+            && let Track::Touch(track) = self.pointer.state.track_mut(pointer)
+        {
+            let route = match std::mem::take(&mut track.gesture) {
+                TouchGesture::Route(route) | TouchGesture::Pending { route, .. } => route,
+                TouchGesture::Pan(_) => unreachable!("invariant: a new touch press is routed"),
+            };
+            track.gesture = TouchGesture::Pending {
+                route,
+                candidate: TouchCandidate {
+                    start: at,
+                    target: TouchTarget {
+                        from,
+                        origin: hit.expect("invariant: a scroll ancestor requires a hit"),
+                        modal,
+                    },
+                },
+            };
+        }
     }
 
     pub(super) fn touch_move(
@@ -61,11 +75,11 @@ impl Model {
         at: Point,
         engine: &mut arvane::Engine,
     ) -> bool {
-        match self.pointer.state.track(pointer).gesture.clone() {
-            Gesture::Route(route) => {
-                let Some(candidate) = route.touch else {
-                    return false;
-                };
+        let Track::Touch(track) = self.pointer.state.track(pointer) else {
+            return false;
+        };
+        match track.gesture.clone() {
+            TouchGesture::Pending { candidate, .. } => {
                 if !self.touch_target_valid(candidate.target) {
                     self.cancel_pointer_input(pointer);
                     return false;
@@ -92,14 +106,17 @@ impl Model {
                     return false;
                 };
                 self.cancel_pointer_input(pointer);
-                self.pointer.state.track_mut(pointer).gesture = Gesture::Pan(TouchPan {
+                let Track::Touch(track) = self.pointer.state.track_mut(pointer) else {
+                    unreachable!("invariant: touch pan belongs to a touch")
+                };
+                track.gesture = TouchGesture::Pan(TouchPan {
                     last: at,
                     target: candidate.target,
                     axis,
                 });
                 self.set_scroll(target, offset);
             }
-            Gesture::Pan(pan) => {
+            TouchGesture::Pan(pan) => {
                 if !self.touch_target_valid(pan.target) {
                     self.cancel_pointer_input(pointer);
                     return false;
@@ -113,10 +130,12 @@ impl Model {
                     Axis::Horizontal => delta.y = 0.0,
                 }
                 self.scroll_from(pan.target.from, delta, None);
-                self.pointer.state.track_mut(pointer).gesture =
-                    Gesture::Pan(TouchPan { last: at, ..pan });
+                let Track::Touch(track) = self.pointer.state.track_mut(pointer) else {
+                    unreachable!("invariant: touch pan belongs to a touch")
+                };
+                track.gesture = TouchGesture::Pan(TouchPan { last: at, ..pan });
             }
-            Gesture::Scrollbar(_) => return false,
+            TouchGesture::Route(_) => return false,
         }
         self.relayout(engine);
         true
@@ -144,14 +163,18 @@ impl Model {
             .state
             .tracks
             .values()
-            .filter(|track| match &track.gesture {
-                Gesture::Route(route) => route
-                    .touch
-                    .is_some_and(|candidate| !self.touch_target_valid(candidate.target)),
-                Gesture::Pan(pan) => !self.touch_target_valid(pan.target),
-                Gesture::Scrollbar(_) => false,
+            .filter(|track| match track {
+                Track::Touch(TouchTrack {
+                    gesture: TouchGesture::Pending { candidate, .. },
+                    ..
+                }) => !self.touch_target_valid(candidate.target),
+                Track::Touch(TouchTrack {
+                    gesture: TouchGesture::Pan(pan),
+                    ..
+                }) => !self.touch_target_valid(pan.target),
+                _ => false,
             })
-            .map(|track| track.source.id)
+            .map(|track| track.source().id)
             .collect();
         for pointer in stale {
             self.cancel_pointer_input(pointer);

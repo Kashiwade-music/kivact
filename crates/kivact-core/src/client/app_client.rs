@@ -445,7 +445,9 @@ fn describe(e: &kivact_engine::contract::HostEvent) -> String {
             node.map(|n| n.0),
             region.map(|r| r.0)
         ),
-        E::HoverChanged { node } => format!("HoverChanged {:?}", node.map(|n| n.0)),
+        E::HoverChanged { target } => {
+            format!("HoverChanged {:?}", target.map(|t| (t.node.0, t.region)))
+        }
         E::MousePosition(position) => format!("MousePosition {position:?}"),
         E::TextChanged { node, .. } => format!("TextChanged n{}", node.0),
         E::SelectionChanged { node, .. } => format!("SelectionChanged n{}", node.0),

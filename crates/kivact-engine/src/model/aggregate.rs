@@ -31,7 +31,8 @@ pub(crate) struct Model {
     /// The drags admitted before a modal opened (`modal`).
     pub(crate) admission: super::modal::state::Admission,
     /// The keyboard modifiers the shell reports held.
-    pub(crate) modifiers: Modifiers,
+    pub(crate) modifiers: kivact_types::cell::Sent<Modifiers>,
+    pub(crate) key_down_targets: super::keys::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
     pub(crate) presence: super::presence::state::Presences,
@@ -76,7 +77,12 @@ impl Model {
             focus: super::focus::state::Focus::default(),
             pointer: super::pointer::state::Pointer::default(),
             admission: super::modal::state::Admission::default(),
-            modifiers: Modifiers::default(),
+            modifiers: {
+                let mut sent = kivact_types::cell::Sent::new();
+                sent.update(Modifiers::default());
+                sent
+            },
+            key_down_targets: super::keys::KeyDownTargets::default(),
             edits: super::edit::state::Edits::default(),
             motion: super::state_motion::state::StateMotion::default(),
             presence: super::presence::state::Presences::default(),

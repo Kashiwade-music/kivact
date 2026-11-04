@@ -59,6 +59,7 @@
 //!   handling. Editing chords (Ctrl or Cmd with A, C, X, V) and the
 //!   reported `Key` both use it.
 
+use std::collections::HashMap;
 use std::ops::Range;
 
 use crate::contract::HostEvent;
@@ -70,6 +71,10 @@ use crate::model::changes::Dirty;
 use crate::text_input::{EditLines, Shaping};
 use kivact_editing::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
+
+/// Targets that received a physical key down, until its release.
+#[derive(Default)]
+pub(crate) struct KeyDownTargets(pub(crate) HashMap<KeyCode, kivact_types::FocusTarget>);
 
 /// What became of a key press ([`Model::handle_key`]).
 #[derive(Clone, Debug, PartialEq)]
@@ -110,6 +115,13 @@ fn shortcut_key(key: Key, physical: Option<char>, modifiers: Modifiers) -> Key {
 }
 
 impl Model {
+    /// Send the shell's modifier snapshot once per change.
+    pub(crate) fn report_modifiers(&mut self, modifiers: Modifiers) {
+        if self.modifiers.update(modifiers).is_some() {
+            self.push(HostEvent::ModifiersChanged(modifiers));
+        }
+    }
+
     /// A key event with the shell's input and the US-layout letter of the
     /// physical key (`physical`, for shortcuts on non-Latin layouts). Typed
     /// text goes into the focused text input; copy and paste are left to
@@ -127,9 +139,9 @@ impl Model {
             modifiers,
             pointer,
         } = input;
-        self.modifiers = modifiers;
+        self.report_modifiers(modifiers);
         let KeyPhase::Down { repeat, text } = phase else {
-            self.key_up(key, code, pointer);
+            self.key_up(key, code, pointer, modifiers);
             return KeyResult::Reported;
         };
         let text = text.filter(|t| !t.is_empty() && !t.chars().any(char::is_control));
@@ -156,9 +168,20 @@ impl Model {
         self.sync();
     }
 
-    /// A key release, reported to the focused node.
-    pub(crate) fn key_up(&mut self, key: Key, code: KeyCode, pointer: Option<kivact_types::Point>) {
-        let node = self.focused();
+    /// A key release, reported to its key down target or the current focus.
+    pub(crate) fn key_up(
+        &mut self,
+        key: Key,
+        code: KeyCode,
+        pointer: Option<kivact_types::Point>,
+        modifiers: Modifiers,
+    ) {
+        let node = self
+            .key_down_targets
+            .0
+            .remove(&code)
+            .filter(|target| code != KeyCode::Unidentified && self.tree.contains(target.node))
+            .or_else(|| self.focused());
         self.push(HostEvent::Key(crate::contract::Routed {
             target: node.map(|f| f.node),
             region: node.and_then(|f| f.region),
@@ -172,7 +195,7 @@ impl Model {
                 key,
                 code,
                 phase: KeyPhase::Up,
-                modifiers: self.modifiers,
+                modifiers,
                 pointer,
             },
         }));
@@ -418,6 +441,11 @@ impl Model {
             Key::Char(_) | Key::Space => text.map(str::to_string),
             _ => None,
         };
+        if code != KeyCode::Unidentified
+            && let Some(target) = self.focused()
+        {
+            self.key_down_targets.0.entry(code).or_insert(target);
+        }
         self.push(HostEvent::Key(crate::contract::Routed {
             target: self.focused().map(|f| f.node),
             region: self.focused().and_then(|f| f.region),
