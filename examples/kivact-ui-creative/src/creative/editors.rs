@@ -57,13 +57,9 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                         }
                         _ => 0.0,
                     };
-                    let mut key = ui::CurveKey::new(
-                        (channel * 8 + i) as u64 + 1,
-                        f64::from(frame),
-                        f64::from(value),
-                    );
-                    key.in_tangent = ui::CurveTangent::new(-f64::from(dl), -f64::from(slope * dl));
-                    key.out_tangent = ui::CurveTangent::new(f64::from(dr), f64::from(slope * dr));
+                    let mut key = ui::CurveKey::new((channel * 8 + i) as u64 + 1, frame, value);
+                    key.in_tangent = ui::CurveTangent::new(-dl, -(slope * dl));
+                    key.out_tangent = ui::CurveTangent::new(dr, slope * dr);
                     key
                 })
                 .collect();
@@ -681,7 +677,7 @@ fn picker_channel(color: Signal<Color>, index: usize, label: &str, name: &str) -
     ui::value_slider(
         label.to_owned(),
         bind(
-            move || f64::from(color.get().components()[index]),
+            move || color.get().components()[index],
             move |v| {
                 let mut c = color.get_untracked().components();
                 c[index] = v;
@@ -700,7 +696,7 @@ fn channel(color: Signal<Color>, index: usize, label: &str) -> ui::Numeric {
     ui::number(
         label.to_string(),
         bind(
-            move || f64::from(color.get().components()[index]),
+            move || color.get().components()[index],
             move |v| {
                 let mut c = color.get_untracked().components();
                 c[index] = v;
