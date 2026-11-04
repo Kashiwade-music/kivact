@@ -346,12 +346,7 @@ impl Item {
                     row
                 })
             })
-            .child((
-                marker.map(|content| content),
-                start.map(|content| content),
-                content,
-                end.map(|content| content),
-            ))
+            .child((marker, start, content, end))
             .into_view()
     }
 }

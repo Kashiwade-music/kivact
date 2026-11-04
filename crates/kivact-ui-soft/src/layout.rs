@@ -177,8 +177,8 @@ impl IntoView for Layout {
                 .unwrap_or_default();
             insets.own_outer_x = padding.map(Space::px);
             insets.own_outer_y = insets.own_outer_x;
-            let mut header = header.map(|slot| slot);
-            let mut footer = footer.map(|slot| slot);
+            let mut header = header;
+            let mut footer = footer;
             for region in [&mut header, &mut footer].into_iter().flatten() {
                 region.divider.get_or_insert(default_dividers.get());
             }

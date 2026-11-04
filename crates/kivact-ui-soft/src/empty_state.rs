@@ -212,7 +212,7 @@ impl IntoView for EmptyState {
                     .padding_y(padding_y)
             })
         })
-        .child(icon.map(|icon| icon))
+        .child(icon)
         .child(text_group)
         .child(actions)
         .child(notices.outlet())

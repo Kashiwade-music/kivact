@@ -168,7 +168,7 @@ impl HoverCard {
                     |value| value.get(),
                 ) || (!dismissed.get() && focus_delay.is_open().get()))
         });
-        if let Some(callback) = self.on_open_change.clone() {
+        if let Some(callback) = self.on_open_change {
             let previous = kivact::state::var(open.get());
             kivact::state::effect(move || {
                 let current = open.get();
