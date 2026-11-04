@@ -84,7 +84,7 @@ fn small() -> impl IntoView {
     basic::code_block(basic::code_lines("cargo add kivact\ncargo run"))
         .size(basic::CodeBlockSize::Sm)
         .title("Terminal")
-        .footer(move || basic::muted("Run both commands from your project root."))
+        .footer(basic::muted("Run both commands from your project root."))
         .style(style().width(pct(100)))
 }
 // end example

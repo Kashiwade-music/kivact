@@ -1,6 +1,6 @@
 //! Role: Assemble the catalog's component demonstrations.
 use crate::PageInfo;
-use kivact::control::{Node, node};
+use kivact::view::{Node, node};
 
 pub(crate) fn examples(page: &PageInfo) -> Node {
     super::controls::examples(page.slug)

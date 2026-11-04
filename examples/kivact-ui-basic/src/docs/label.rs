@@ -37,7 +37,7 @@ fn with_input() -> impl IntoView {
         basic::label("Email address").target(field),
         text_input("Email address", email)
             .placeholder("you@example.com")
-            .node_ref(field)
+            .with_node(|node| node.node_ref(field))
             .style(style().width(280)),
     ))
     .style(style().gap(8))
@@ -52,14 +52,14 @@ fn form() -> impl IntoView {
         column((
             basic::label("First name").target(first),
             text_input("First name", signal(String::new()))
-                .node_ref(first)
+                .with_node(|node| node.node_ref(first))
                 .style(style().width(280)),
         ))
         .style(style().gap(8)),
         column((
             basic::label("Last name").target(last),
             text_input("Last name", signal(String::new()))
-                .node_ref(last)
+                .with_node(|node| node.node_ref(last))
                 .style(style().width(280)),
         ))
         .style(style().gap(8)),

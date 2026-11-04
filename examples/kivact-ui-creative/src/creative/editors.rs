@@ -1,20 +1,22 @@
 //! Role: Editors and input controls for creative editing.
 use crate::creative::audio_values::TransportState;
+use kivact::state::IntoBinding;
 
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::num;
 use super::controls::tool_palette;
 use super::editor_images as images;
-use kivact::Binding;
 use kivact::draw::Path;
-use kivact::draw::{Point, Rect, Size};
+use kivact::geometry::Rect;
+use kivact::geometry::{Point, Size};
+use kivact::interaction::MenuEntry;
 use kivact::prelude::{
     IntoView, Node, NodeBuilder, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal,
     spacer, text,
 };
+use kivact::state::Binding;
 use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::ui::MenuEntry;
 use kivact_ui_creative as ui;
 
 fn playhead(state: Signal<TransportState>) -> Binding<f64> {
@@ -111,7 +113,7 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
             note("Click / Shift / Drag · Box select · G move · Del"),
             kivact::ui::button("Insert Key")
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .icon(kivact::control::icon("diamond"))
+                .icon(kivact::view::icon("diamond"))
                 .on_press(move || {
                     let mut next = keys.get();
                     {
@@ -129,10 +131,10 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
         ui::dope_sheet(
             keys,
             ui::TimeState {
-                pan: (signal(Point::new(12.0, 0.0))).into(),
+                pan: (signal(Point::new(12.0, 0.0))).into_binding(),
                 selection: selected,
                 playhead: playhead(state),
-                zoom: zoom.into(),
+                zoom: zoom.into_binding(),
             },
         )
         .on_edit(move |event| match event {
@@ -150,7 +152,7 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                 initial_keys.set(None);
             }
         })
-        .zoom_range(0.25, 10.0)
+        .zoom_range(0.25..=10.0)
         .lanes(
             [
                 "Summary",
@@ -218,9 +220,9 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
             .orientation(kivact::view::Orientation::Horizontal)
             .variant(ui::Segmented)
             .style(style().width(166)),
-            kivact::ui::toggle("X", channels[0]),
-            kivact::ui::toggle("Y", channels[1]),
-            kivact::ui::toggle("Z", channels[2]),
+            kivact::ui::toggle_button("X", channels[0]),
+            kivact::ui::toggle_button("Y", channels[1]),
+            kivact::ui::toggle_button("Z", channels[2]),
             kivact::ui::button("Frame All  Home")
                 .variant(kivact::ui::ButtonVariant::Secondary)
                 .on_press(move || {
@@ -236,8 +238,8 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
         ui::graph_editor(
             graph,
             ui::GraphState {
-                view: graph_view.into(),
-                selection: graph_selected.into(),
+                view: graph_view.into_binding(),
+                selection: graph_selected.into_binding(),
                 playhead: playhead(state),
             },
         )
@@ -286,9 +288,9 @@ pub(super) fn nodes() -> impl IntoView {
         scale: 0.85,
     });
     col((node().style(style().position(Position::Relative).height(480)).child((
-        ui::node_editor(data,connections, ui::NodeState { selection: selected.into(), transform: transform.into(), ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
-        line((kivact::ui::select("Selection", keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).placeholder("").style(style().width(136)),kivact::ui::toggle("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
-        line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>(), move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing_icon(kivact::control::icon("chevron-down")).into_node()),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
+        ui::node_editor(data,connections, ui::NodeState { selection: selected.into_binding(), transform: transform.into_binding(), ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
+        line((kivact::ui::select("Selection", keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).placeholder("").style(style().width(136)),kivact::ui::toggle_button("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
+        line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>()).on_activate(move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing(kivact::view::icon("chevron-down"))),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("ヘッダーをドラッグ / 出力 → 入力で接続 / Del: 選択削除 / Ctrl-wheel: zoom / Middle: pan"))).style(style().padding(12))))
 }
 
@@ -338,8 +340,8 @@ pub(super) fn grading() -> impl IntoView {
                     text("Viewer · 01:00:12:08")
                         .style(style().font_family("Geist Mono").font_size(10)),
                     spacer(),
-                    kivact::ui::toggle("Bypass", bypass),
-                    kivact::ui::toggle("Wipe", wipe),
+                    kivact::ui::toggle_button("Bypass", bypass),
+                    kivact::ui::toggle_button("Wipe", wipe),
                 )),
                 node()
                     .child(
@@ -577,7 +579,7 @@ pub(super) fn picker() -> impl IntoView {
             ),
         )
         .name(label.to_owned())
-        .range(0.0, 1.0)
+        .range(0.0..=1.0)
         .step(0.001)
         .precision(3)
     };
@@ -627,7 +629,7 @@ pub(super) fn picker() -> impl IntoView {
                     kivact::ui::button("Eyedropper preview")
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .hide_label(true)
-                        .icon(kivact::control::icon("color-picker"))
+                        .icon(kivact::view::icon("color-picker"))
                         .style(style().size(24, 24).padding(0)),
                 )),
                 row([
@@ -686,7 +688,7 @@ fn picker_channel(color: Signal<Color>, index: usize, label: &str, name: &str) -
         ),
     )
     .name(name.to_owned())
-    .range(0.0, 1.0)
+    .range(0.0..=1.0)
     .step(0.001)
     .precision(3)
     .style(style().width(248))
@@ -704,7 +706,7 @@ fn channel(color: Signal<Color>, index: usize, label: &str) -> ui::Numeric {
             },
         ),
     )
-    .range(0.0, 1.0)
+    .range(0.0..=1.0)
     .step(0.01)
     .precision(3)
     .style(style().grow(1))
@@ -725,7 +727,7 @@ pub(super) fn viewport(
         line((
             text("Application image"),
             spacer(),
-            kivact::ui::toggle("Grid", grid),
+            kivact::ui::toggle_button("Grid", grid),
             kivact::ui::radio_group(
                 "Shading",
                 keyed_options([
@@ -786,7 +788,7 @@ pub(super) fn viewport(
                     Rect::new(220.0, 110.0, 200.0, 140.0),
                 )])
                 .style(style().height(392).grow(1))
-                .node_ref(reference)
+                .with_node(|node| node.node_ref(reference))
                 .test_id("creative-viewport"),
         ))
         .style(style().gap(4)),

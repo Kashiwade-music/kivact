@@ -44,22 +44,22 @@ pub(crate) fn page() -> Page {
 // example: default
 fn default() -> impl IntoView {
     basic::attachment("report.pdf")
-        .media(move || icon("file-text"))
+        .media(icon("file-text"))
         .description("2.4 MB")
-        .actions(move || basic::attachment_action("x", "Remove report"))
+        .actions(basic::attachment_action("x", "Remove report"))
 }
 // end example
 
 // example: sizes
 fn sizes() -> impl IntoView {
     column((
-        basic::attachment("Default size").media(move || icon("file")),
+        basic::attachment("Default size").media(icon("file")),
         basic::attachment("Small size")
             .size(basic::AttachmentSize::Sm)
-            .media(move || icon("file")),
+            .media(icon("file")),
         basic::attachment("Extra small")
             .size(basic::AttachmentSize::Xs)
-            .media(move || icon("file")),
+            .media(icon("file")),
     ))
     .style(style().gap(12).align_items(Align::Start))
 }
@@ -69,13 +69,13 @@ fn sizes() -> impl IntoView {
 fn states() -> impl IntoView {
     column((
         basic::attachment("Drop a file")
-            .media(move || icon("paperclip"))
+            .media(icon("paperclip"))
             .state(basic::AttachmentState::Idle),
         basic::attachment("upload.png")
-            .media(move || icon("image"))
+            .media(icon("image"))
             .state(basic::AttachmentState::Uploading),
         basic::attachment("broken.zip")
-            .media(move || icon("archive"))
+            .media(icon("archive"))
             .description("Upload failed")
             .state(basic::AttachmentState::Error),
     ))
@@ -88,12 +88,12 @@ fn vertical() -> impl IntoView {
     basic::attachment_group((
         basic::attachment("design.fig")
             .orientation(Orientation::Vertical)
-            .media(move || icon("file"))
+            .media(icon("file"))
             .description("1.1 MB")
             .on_press(|| {}),
         basic::attachment("notes.txt")
             .orientation(Orientation::Vertical)
-            .media(move || icon("file-text"))
+            .media(icon("file-text"))
             .description("4 KB")
             .on_press(|| {}),
     ))

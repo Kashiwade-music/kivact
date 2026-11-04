@@ -1,10 +1,10 @@
 //! Role: Demonstrate responsive navigation and application shells.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column, icon, row, text};
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::button;
 use kivact::view::node_ref;
+use kivact::view::{Node, NodeBuilder, column, icon, row, text};
 use kivact_ui_soft::{
     OutlineItem, SideNavCollapse, TabMenuOption, TabPattern, app_shell, mobile_nav,
     nav_heading_menu, nav_heading_menu_item, outline, scrollable_area, side_nav, side_nav_item,
@@ -17,7 +17,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
         "app-shell" => specimen(
             "Application frame",
-            app_shell(|| text("Project notes"))
+            app_shell(text("Project notes"))
                 .top_nav(|| top_nav().heading(|| top_nav_heading("Workspace")))
                 .side_nav(|| side_nav(side_nav_item("Documents")))
                 .style(style().width(520).height(216)),
@@ -44,13 +44,19 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                         (
                             side_nav_item("Documents")
                                 .icon(icon("columns-2"))
-                                .selected(move || selected.get() == "Documents")
+                                .with_node(|node| {
+                                    node.selected(move || selected.get() == "Documents")
+                                })
                                 .on_press(move || selected.set("Documents")),
                             side_nav_item("Activity")
                                 .icon(icon("clock"))
                                 .children(move || {
                                     side_nav_item("Recent activity")
-                                        .selected(move || selected.get() == "Recent activity")
+                                        .with_node(|node| {
+                                            node.selected(move || {
+                                                selected.get() == "Recent activity"
+                                            })
+                                        })
                                         .on_press(move || selected.set("Recent activity"))
                                 }),
                         ),
@@ -62,11 +68,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 r#"let selected = signal("Documents");
 let documents = side_nav_item("Documents")
     .icon(icon("columns-2"))
-    .selected(move || selected.get() == "Documents")
+    .with_node(|node| node.selected(move || selected.get() == "Documents"))
     .on_press(move || selected.set("Documents"));
 let activity = side_nav_item("Activity").icon(icon("clock")).children(move || {
     side_nav_item("Recent activity")
-        .selected(move || selected.get() == "Recent activity")
+        .with_node(|node| node.selected(move || selected.get() == "Recent activity"))
         .on_press(move || selected.set("Recent activity"))
 });
 side_nav(side_nav_section("Workspace", (documents, activity)))
@@ -84,7 +90,9 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
                         .start(move || {
                             (
                                 top_nav_item("Documents")
-                                    .selected(move || selected.get() == "Documents")
+                                    .with_node(|node| {
+                                        node.selected(move || selected.get() == "Documents")
+                                    })
                                     .on_press(move || selected.set("Documents")),
                                 top_nav_menu(
                                     "Activity",
@@ -108,7 +116,7 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
                 ),
                 r#"top_nav().heading(|| top_nav_heading("Workspace")).start(move || (
     top_nav_item("Documents")
-        .selected(move || selected.get() == "Documents")
+        .with_node(|node| node.selected(move || selected.get() == "Documents"))
         .on_press(move || selected.set("Documents")),
     top_nav_menu("Activity", [
         top_nav_menu_item("Recent updates").on_press(move || selected.set("Recent updates")),
@@ -124,7 +132,7 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
         }
         "nav-menu" => specimen(
             "Workspace switcher",
-            top_nav_heading("Workspace").menu(|| {
+            top_nav_heading("Workspace").menu({
                 nav_heading_menu([
                     nav_heading_menu_item("Design"),
                     nav_heading_menu_item("Engineering"),
@@ -140,7 +148,9 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
             let third = node_ref();
             let heading = |title, detail, reference| {
                 column((
-                    text(title).style(style().weight(600)).node_ref(reference),
+                    text(title)
+                        .style(style().weight(600))
+                        .with_node(|node| node.node_ref(reference)),
                     text(detail),
                 ))
                 .style(style().gap(8).height(130).shrink(0))
@@ -150,7 +160,7 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
                 heading("Activity", "Recent changes and decisions.", second),
                 heading("Next steps", "Work planned for the next review.", third),
             ))
-            .node_ref(content);
+            .with_node(|node| node.node_ref(content));
             specimen(
                 "Scroll the article or jump to a heading",
                 row((
@@ -163,17 +173,17 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
                     .scroll_content(content)
                     .style(style().width(144).shrink(0)),
                     scrollable_area("Project article", document)
-                        .node_ref(viewport)
+                        .with_node(|node| node.node_ref(viewport))
                         .style(style().height(144).grow(1).min_width(0)),
                 ))
                 .style(style().gap(16)),
                 r#"let viewport = node_ref();
 let content = node_ref();
-let document = column((summary, activity, next_steps)).node_ref(content);
+let document = column((summary, activity, next_steps)).with_node(|node| node.node_ref(content));
 row((
     outline(items).scroll_container(viewport).scroll_content(content),
     scrollable_area("Project article", document)
-        .node_ref(viewport).style(style().height(144)),
+        .with_node(|node| node.node_ref(viewport)).style(style().height(144)),
 ))"#,
             )
         }

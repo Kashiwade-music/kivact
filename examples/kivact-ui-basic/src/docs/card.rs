@@ -1,4 +1,5 @@
 //! Role: Catalog page of Card: login form, small, bordered header and image.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "card",
         name: "Card",
         description: "見出し、内容、フッターを持つ枠付きの表示領域です。header、image、content、footer の各スロットに渡します。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("card.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -49,9 +50,9 @@ fn default() -> impl IntoView {
         .header(
             basic::card_header("Login to your account")
                 .description("Enter your email below to login to your account")
-                .action(move || button("Sign Up").variant(ButtonVariant::Link)),
+                .action(button("Sign Up").variant(ButtonVariant::Link)),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 kivact::ui::field(
                     "Email",
@@ -60,7 +61,7 @@ fn default() -> impl IntoView {
                 kivact::ui::field("Password", text_input("Password", password).password(true)),
             ))
         })
-        .footer(move || {
+        .footer({
             column((
                 button("Login").style(style().width(pct(100))),
                 button("Login with Google")
@@ -78,7 +79,7 @@ fn small() -> impl IntoView {
     basic::card()
         .size(basic::CardSize::Sm)
         .header(basic::card_header("Small card").description("Tighter spacing."))
-        .content(move || text("Content"))
+        .content(text("Content"))
         .style(style().width(360))
 }
 // end example
@@ -87,7 +88,7 @@ fn small() -> impl IntoView {
 fn bordered() -> impl IntoView {
     basic::card()
         .header(basic::card_header("Notifications").bordered(true))
-        .content(move || text("You have 3 unread messages."))
+        .content(text("You have 3 unread messages."))
         .style(style().width(360))
 }
 // end example
@@ -96,9 +97,9 @@ fn bordered() -> impl IntoView {
 fn with_image() -> impl IntoView {
     let landscape: &'static [u8] = include_bytes!("../../assets/images/landscape.png");
     basic::card()
-        .image(move || image(landscape).style(style().width(pct(100)).aspect_ratio(16.0 / 9.0)))
+        .image(image(landscape).style(style().width(pct(100)).aspect_ratio(16.0 / 9.0)))
         .header(basic::card_header("Design systems meetup").description("A practical talk."))
-        .footer(move || button("View Event").style(style().width(pct(100))))
+        .footer(button("View Event").style(style().width(pct(100))))
         .style(style().width(360))
 }
 // end example

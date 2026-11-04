@@ -1,6 +1,5 @@
 //! Role: Shared layout and text builders for Pop catalog specimens.
 
-use kivact::prelude::NodeBuilder;
 use kivact::prelude::{ColorToken, IntoView, Node, Role, column, grid, row, text};
 use kivact::style::{Align, style};
 use kivact::style::{GridPlacement, Track};
@@ -42,7 +41,7 @@ pub(super) fn half(v: Node) -> Node {
     v.style(style().grid_column(GridPlacement::span(6)))
 }
 
-pub(super) fn third(v: Node) -> Node {
+pub(super) fn third<C: kivact::view::Component>(v: C) -> C {
     v.style(style().grid_column(GridPlacement::span(4)))
 }
 
@@ -57,13 +56,13 @@ pub(super) fn section(number: &str, title: &str, subtitle: &str, content: impl I
     ))
 }
 
-pub(super) fn muted(s: &str) -> kivact::control::Node {
+pub(super) fn muted(s: &str) -> kivact::view::Node {
     text(s.to_string()).style(style().color(ColorToken::TextMuted))
 }
 
 /// The meaning a notification of a hue has.
-pub(super) fn tone_of(hue: ui::Hue) -> kivact::ui::Tone {
-    use kivact::ui::Tone;
+pub(super) fn tone_of(hue: ui::Hue) -> kivact::interaction::Tone {
+    use kivact::interaction::Tone;
     match hue {
         ui::Hue::Mint => Tone::Success,
         ui::Hue::Yellow => Tone::Warning,

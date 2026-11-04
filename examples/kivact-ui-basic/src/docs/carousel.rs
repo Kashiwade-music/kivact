@@ -9,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "carousel",
         name: "Carousel",
         description: "スライドを 1 枚ずつ（または複数枚ずつ）切り替える部品です。表示中の位置は束縛で渡し、前へ・次へのボタンと左右の矢印キー（縦は上下）で動きます。ボタンは枠の外 48 px にあります。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::current_theme;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
         source: include_str!("carousel.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -127,7 +127,7 @@ fn looped() -> impl IntoView {
     }
     let index = signal(0usize);
     basic::carousel((1..=3).map(slide).collect::<Vec<_>>(), index)
-        .looping(true)
+        .looping()
         .style(style().width(240).margin_x(48))
 }
 // end example

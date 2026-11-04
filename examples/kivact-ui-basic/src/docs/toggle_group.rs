@@ -45,9 +45,9 @@ pub(crate) fn page() -> Page {
 // example: multiple
 fn multiple() -> impl IntoView {
     let items = vec![
-        ListItem::new("bold", "Bold").icon("bold"),
-        ListItem::new("italic", "Italic").icon("italic"),
-        ListItem::new("underline", "Underline").icon("underline"),
+        ListItem::new("bold", "Bold").with_icon("bold"),
+        ListItem::new("italic", "Italic").with_icon("italic"),
+        ListItem::new("underline", "Underline").with_icon("underline"),
     ];
     basic::toggle_group(items, signal(vec!["bold"]))
         .icon_only(true)

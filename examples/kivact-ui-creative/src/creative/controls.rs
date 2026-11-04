@@ -1,12 +1,12 @@
 //! Role: Control buttons and widgets for creative application.
 
 use super::common::{col, keyed_options, line, note, spec, specs};
+use kivact::interaction::MenuEntry;
 use kivact::prelude::{
     ColorToken, IntoView, Node, NodeBuilder, Signal, node, rgb, row, signal, text,
 };
 use kivact::style::GridPlacement;
 use kivact::style::{Align, Color, pct, style};
-use kivact::ui::MenuEntry;
 use kivact_ui_creative as ui;
 
 pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
@@ -31,10 +31,10 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .on_press(move || status.set("Applied".into())),
                     kivact::ui::button("Render")
-                        .icon(kivact::control::icon("aperture"))
+                        .icon(kivact::view::icon("aperture"))
                         .variant(kivact::ui::ButtonVariant::Primary),
                     kivact::ui::button("Delete")
-                        .icon(kivact::control::icon("trash"))
+                        .icon(kivact::view::icon("trash"))
                         .variant(kivact::ui::ButtonVariant::Danger),
                 )),
                 kivact::ui::button("Disabled")
@@ -52,7 +52,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                 )),
                 kivact::ui::button("Add Modifier")
                     .variant(kivact::ui::ButtonVariant::Secondary)
-                    .icon(kivact::control::icon("plus"))
+                    .icon(kivact::view::icon("plus"))
                     .style(style().width(pct(100))),
             )),
         ),
@@ -68,7 +68,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                             kivact::ui::button(name)
                                 .variant(kivact::ui::ButtonVariant::Secondary)
                                 .hide_label(true)
-                                .icon(kivact::control::icon(i))
+                                .icon(kivact::view::icon(i))
                         })
                         .collect::<Vec<_>>(),
                 ),
@@ -79,7 +79,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                             let name = format!("Ghost {}", icon_label(i));
                             kivact::ui::button(name)
                                 .hide_label(true)
-                                .icon(kivact::control::icon(i))
+                                .icon(kivact::view::icon(i))
                                 .variant(kivact::ui::ButtonVariant::Ghost)
                         })
                         .collect::<Vec<_>>(),
@@ -91,15 +91,16 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
             "トグル",
             col((
                 line((
-                    kivact::ui::toggle("Snap", snap).icon(kivact::control::icon("magnet")),
-                    kivact::ui::toggle("Ripple", signal(false)).icon(kivact::control::icon("wave")),
-                    kivact::ui::toggle("Auto Key", signal(false)),
+                    kivact::ui::toggle_button("Snap", snap).icon(kivact::view::icon("magnet")),
+                    kivact::ui::toggle_button("Ripple", signal(false))
+                        .icon(kivact::view::icon("wave")),
+                    kivact::ui::toggle_button("Auto Key", signal(false)),
                 )),
                 line((
-                    kivact::ui::toggle("◎", signal(false)),
-                    kivact::ui::toggle("▣", signal(true)),
-                    kivact::ui::toggle("≋", signal(false)),
-                    kivact::ui::toggle("◇", signal(false)),
+                    kivact::ui::toggle_button("◎", signal(false)),
+                    kivact::ui::toggle_button("▣", signal(true)),
+                    kivact::ui::toggle_button("≋", signal(false)),
+                    kivact::ui::toggle_button("◇", signal(false)),
                 )),
             )),
         ),
@@ -152,13 +153,14 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
             col((
                 ui::split_button(
                     "Add to Render Queue",
-                    move || status.set("Queued render".into()),
                     vec![
                         MenuEntry::item("image", "Render Image"),
                         MenuEntry::item("animation", "Render Animation"),
                         MenuEntry::item("selected", "Queue Selected"),
                     ],
                 )
+                .on_press(move || status.set("Queued render".into()))
+                .on_press(move || status.set("Queued render".into()))
                 .on_select(move |key: &'static str| status.set(format!("Queue {key}")))
                 .style(style().width(197)),
                 line((
@@ -168,14 +170,13 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                             MenuEntry::item("save", "Save"),
                             MenuEntry::item("save-as", "Save As..."),
                         ],
-                        |_: &'static str| (),
                     )
+                    .on_activate(|_: &'static str| ())
                     .offset(0.0)
                     .attach(
                         kivact::ui::button("Save")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing_icon(kivact::control::icon("chevron-down"))
-                            .into_node(),
+                            .trailing(kivact::view::icon("chevron-down")),
                     ),
                     kivact::ui::menu(
                         "Add",
@@ -183,14 +184,13 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                             MenuEntry::item("object", "Object"),
                             MenuEntry::item("camera", "Camera"),
                         ],
-                        |_: &'static str| (),
                     )
+                    .on_activate(|_: &'static str| ())
                     .offset(0.0)
                     .attach(
                         kivact::ui::button("Add")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing_icon(kivact::control::icon("chevron-down"))
-                            .into_node(),
+                            .trailing(kivact::view::icon("chevron-down")),
                     ),
                 )),
             )),
@@ -254,9 +254,9 @@ pub(super) fn tool_palette_size(vertical: bool, compact: bool) -> Node {
             let name = format!("Tool {}", icon_label(icon));
             let button = kivact::ui::button(name)
                 .hide_label(true)
-                .icon(kivact::control::icon(icon))
+                .icon(kivact::view::icon(icon))
                 .variant(kivact::ui::ButtonVariant::Ghost)
-                .selected(move || selected.get() == i)
+                .with_node(|node| node.selected(move || selected.get() == i))
                 .on_press(move || selected.set(i))
                 .style(
                     style().selected(
@@ -318,7 +318,7 @@ pub(super) fn num(
     unit: &str,
 ) -> ui::Numeric {
     ui::number(label.to_owned(), signal(value))
-        .range(min, max)
+        .range(min..=max)
         .precision(precision)
         .step(if precision == 0 { 1.0 } else { 0.01 })
         .unit(unit)
@@ -343,10 +343,10 @@ pub(super) fn selection() -> impl IntoView {
                 kivact::ui::checkbox("Mixed Selection", signal(false)).indeterminate(true),
                 kivact::ui::checkbox("Disabled", signal(false)).disabled(true),
             )),kivact::ui::radio_group("Pivot point", vec![
-                    kivact::ui::ListItem::new("median".to_owned(), "Median Point"),
-                    kivact::ui::ListItem::new("individual".to_owned(), "Individual Origins"),
-                    kivact::ui::ListItem::new("cursor".to_owned(), "3D Cursor"),
-                    kivact::ui::ListItem::new("active".to_owned(), "Active Element").disabled(true),
+                    kivact::interaction::ListItem::new("median".to_owned(), "Median Point"),
+                    kivact::interaction::ListItem::new("individual".to_owned(), "Individual Origins"),
+                    kivact::interaction::ListItem::new("cursor".to_owned(), "3D Cursor"),
+                    kivact::interaction::ListItem::new("active".to_owned(), "Active Element").disabled(true),
             ],
                     radio,).style(style().gap(8).min_width(0)))).style(style().gap(24).align_items(Align::Start)),
         ).style(style().min_height(190)),
@@ -387,12 +387,12 @@ pub(super) fn selection() -> impl IntoView {
                     kivact::ui::select("Browse Material", keyed_options([("none", "⊖"), ("glass", "Glass"), ("skin", "Skin_SSS"), ("emission", "Emission")]), signal(Some("none".to_owned()))).placeholder("").name("Browse Material").style(style().padding(0)),
                     kivact::ui::text_input("Material Name", signal("Metal.002".into())).style(style().width(0).grow(1)),
                     kivact::ui::button("3").variant(kivact::ui::ButtonVariant::Secondary).style(style().width(24).padding(0)),
-                    kivact::ui::toggle("♧", signal(true)).name("Fake User").style(style().width(24).padding(0)),
-                    kivact::ui::button("Duplicate data-block").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("copy")),
-                    kivact::ui::button("Unlink data-block").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("x")),
+                    kivact::ui::toggle_button("♧", signal(true)).name("Fake User").style(style().width(24).padding(0)),
+                    kivact::ui::button("Duplicate data-block").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("copy")),
+                    kivact::ui::button("Unlink data-block").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("x")),
                 )).style(style().gap(1)),
                 note("File Path").style(style().font_size(11)),
-                row((kivact::ui::text_input("Data-block path", signal("//renders/shot010/".into())).style(style().grow(1).width(0).font_family("Geist Mono")),kivact::ui::button("Browse File Path").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("folder")))).style(style().gap(1)),
+                row((kivact::ui::text_input("Data-block path", signal("//renders/shot010/".into())).style(style().grow(1).width(0).font_family("Geist Mono")),kivact::ui::button("Browse File Path").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("folder")))).style(style().gap(1)),
             )),
         ),
         spec(

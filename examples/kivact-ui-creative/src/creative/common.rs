@@ -1,19 +1,18 @@
 //! Role: Shared values and view builders for Creative catalog specimens.
 
-use kivact::Binding;
-use kivact::binding;
-use kivact::prelude::NodeBuilder;
 use kivact::prelude::{IntoText, IntoValue, IntoView, Node, Role, column, grid, node, row, text};
+use kivact::state::Binding;
+use kivact::state::binding;
 use kivact::style::Track;
 use kivact::style::{Align, style};
 use kivact_ui_creative as ui;
 
 pub(super) fn keyed_options(
     entries: impl IntoIterator<Item = (&'static str, &'static str)>,
-) -> Vec<kivact::ui::ListItem<String>> {
+) -> Vec<kivact::interaction::ListItem<String>> {
     entries
         .into_iter()
-        .map(|(key, label)| kivact::ui::ListItem::new(key.to_owned(), label))
+        .map(|(key, label)| kivact::interaction::ListItem::new(key.to_owned(), label))
         .collect()
 }
 
@@ -171,13 +170,13 @@ pub(super) fn col(content: impl IntoView) -> Node {
     column(content).style(style().gap(8).min_width(0))
 }
 
-pub(super) fn note(message: impl IntoText) -> kivact::control::Node {
+pub(super) fn note(message: impl IntoText) -> kivact::view::Node {
     text(message)
         .style(style().font_size(11.5).line_height(1.7))
         .style(style().color(ui::Color::Dim))
 }
 
-pub(super) fn bind<T: Clone + PartialEq + 'static>(
+pub(super) fn bind<T: kivact::state::PropValue>(
     read: impl IntoValue<T>,
     write: impl Fn(T) + 'static,
 ) -> Binding<T> {
@@ -213,8 +212,8 @@ impl TextRow {
 pub(super) fn text_table(
     columns: &[(&str, f64)],
     rows: impl IntoValue<Vec<TextRow>>,
-    selected: impl Into<Binding<Vec<u64>>>,
-    sort: impl Into<Binding<Option<(usize, kivact::interaction::SortOrder)>>>,
+    selected: impl kivact::state::IntoBinding<Vec<u64>>,
+    sort: impl kivact::state::IntoBinding<Option<(usize, kivact::interaction::SortOrder)>>,
 ) -> kivact::ui::DataTable<TextRow, u64> {
     let columns = columns
         .iter()
@@ -236,9 +235,9 @@ pub(super) fn text_table(
         .selection(selected)
         .sort(sort)
         .focus(kivact::interaction::TableFocus::Rows(
-            kivact::interaction::ListPolicy {
+            kivact::interaction::ListOptions {
                 typeahead: true,
-                range: kivact::interaction::ListRangePolicy {
+                range: kivact::interaction::ListRangeOptions {
                     missing_anchor: kivact::interaction::ListMissingAnchor::FirstSelected,
                     ..Default::default()
                 },

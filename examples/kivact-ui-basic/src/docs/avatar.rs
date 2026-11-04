@@ -68,10 +68,10 @@ fn sizes() -> impl IntoView {
 // example: badge
 fn with_badge() -> impl IntoView {
     row((
-        basic::avatar("CN").badge(move || node()),
+        basic::avatar("CN").badge(node()),
         basic::avatar("LR")
             .size(basic::AvatarSize::Lg)
-            .badge(move || icon("plus")),
+            .badge(icon("plus")),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }

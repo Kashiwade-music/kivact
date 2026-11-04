@@ -1,7 +1,7 @@
 //! Role: Demonstrate Neutral typography and icon sizes and colors.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column, row};
 use kivact::style::style;
+use kivact::view::{Node, column, row};
 use kivact_ui_soft::{
     HeadingDisplay, IconColor, IconSize, TextColor, TextKind, avatar, avatar_group,
     avatar_group_overflow, empty_state, heading, icon, kbd, link, text, thumbnail, visually_hidden,
@@ -58,8 +58,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             "Empty project",
             empty_state("No documents")
                 .description("Create a document to get started.")
-                .icon(|| icon("search"))
-                .actions(|| kivact::ui::button("New document")),
+                .icon( icon("search"))
+                .actions( kivact::ui::button("New document")),
             "empty_state(\"No documents\").description(\"Create a document to get started.\")",
         ),
         "avatar" | "avatar-group" | "avatar-group-overflow" | "avatar-status-dot" => specimen(
@@ -95,7 +95,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 thumbnail().label("Uploading image").loading(true),
             ))
             .style(style().gap(12)),
-            "thumbnail().label(\"Uploading image\").loading(true)",
+            "thumbnail().label(\"Uploading image\").busy(true)",
         ),
         "blockquote" => specimen(
             "Quotation and attribution",
@@ -140,7 +140,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "timer" => specimen("Elapsed time", kivact_ui_soft::timer(), "timer()"),
         "timestamp" => specimen(
             "Timestamp",
-            kivact_ui_soft::timestamp(kivact::signal(kivact_ui_soft::Instant::unix_seconds(
+            kivact_ui_soft::timestamp(kivact::state::signal(kivact_ui_soft::Instant::unix_seconds(
                 1_793_664_000,
             ))),
             "timestamp(instant)",

@@ -1,10 +1,11 @@
 //! Role: Demonstrate scoped themes, localization and native link callbacks.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::i18n::Messages;
-use kivact::signal;
+use kivact::i18n::provide_messages;
+use kivact::state::signal;
+use kivact::style::provide_theme;
 use kivact::style::{ThemeMode, rgb, style};
-use kivact::view::{provide_messages, provide_theme};
+use kivact::view::{Node, column, row, text};
 use kivact_ui_soft::{
     MediaMode, badge, card, code_block, link, media_theme, syntax_theme, theme, tokens,
 };
@@ -48,7 +49,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         }
         "media-theme" => specimen(
             "Contrast on a dark preview",
-            column(media_theme(MediaMode::Dark, || {
+            column(media_theme(MediaMode::Dark, {
                 kivact_ui_soft::text("Mountain landscape")
             }))
             .style(style().background(rgb(0x18232d)).padding(24)),
@@ -61,7 +62,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     keyword: rgb(0x315db0),
                     ..tokens().colors.syntax
                 },
-                || code_block("fn main() {}").language("rust"),
+                code_block("fn main() {}").language("rust"),
             ),
             "syntax_theme(colors, || code_block(source).language(\"rust\"))",
         ),

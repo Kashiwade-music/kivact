@@ -150,7 +150,7 @@ pub(super) fn indicators() -> impl IntoView {
                             kivact::ui::button("")
                                 .variant(kivact::ui::ButtonVariant::Secondary)
                                 .name(name)
-                                .selected(move || picked.get() == i)
+                                .with_node(|node| node.selected(move || picked.get() == i))
                                 .style(
                                     style()
                                         .size(26, 26)
@@ -195,7 +195,7 @@ pub(super) fn indicators() -> impl IntoView {
             line((
                 kivact::ui::button("♧ Messages ❸").variant(kivact::ui::ButtonVariant::Secondary),
                 kivact::ui::button("● Timecode Sync").variant(kivact::ui::ButtonVariant::Secondary),
-                kivact::ui::toggle("● Arm", signal(false)),
+                kivact::ui::toggle_button("● Arm", signal(false)),
             )),
         )
         .style(style().min_height(116)),

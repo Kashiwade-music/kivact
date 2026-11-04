@@ -1,9 +1,9 @@
 //! Role: Catalog page of Aspect Ratio: a photo at 16:9, square and portrait boxes.
 
 use crate::model::{Example, Page, PreviewAlign};
-use kivact::Asset;
-use kivact::control::ImageFit;
 use kivact::prelude::*;
+use kivact::view::Asset;
+use kivact::view::ImageFit;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {

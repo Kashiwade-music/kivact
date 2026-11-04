@@ -1,4 +1,5 @@
 //! Role: Catalog page of Message Scroller: a long log and a conversation that grows.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "message-scroller",
         name: "Message Scroller",
         description: "メッセージが増えても最後の位置を表示し続ける、スクロールする領域です。上へスクロールすると追従をやめ、末尾が見えない間は「Scroll to end」のボタンが出ます。追従の状態は束縛で読み書きできます。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::current_theme;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
         source: include_str!("message_scroller.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -76,7 +77,7 @@ fn follow() -> impl IntoView {
             basic::message_scroller(column(for_each(
                 log,
                 |line| line.clone(),
-                |_, line| reply(line.get()),
+                |line| reply(line.get()),
             )))
             .style(style().height(pct(100))),
         ),

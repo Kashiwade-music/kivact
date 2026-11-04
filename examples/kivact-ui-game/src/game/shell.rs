@@ -5,19 +5,20 @@ use super::data::{display, records, table};
 use super::foundations::foundations;
 use super::state::Demo;
 use super::system::{create_dialog, delete_dialog, drawer_body, feedback, layout, overlays};
-use kivact::control::{Node, column, node, row, scroll};
 use kivact::draw::Transform;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
+use kivact::interaction::{Command, MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::NodeBuilder;
 use kivact::prelude::{Key, Role, Signal, Theme, Value, effect, rgb, signal, spacer, text};
-use kivact::primitive::NodeExt;
+use kivact::state::callback;
 use kivact::style::ThemeMode;
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::style::{Position, rgba};
-use kivact::ui::{Command, MenuEntry, Toast, Tone, toaster};
-use kivact::view::{Handled, callback, node_ref};
+use kivact::view::{Handled, node_ref};
 use kivact::view::{IntoView, NodeRef};
+use kivact::view::{Node, column, node, row, scroll};
 use kivact_ui_game as g;
 use kivact_ui_game::ThemeOptions as _;
 use kivact_ui_game::{Color, Tokens};
@@ -59,7 +60,7 @@ pub(super) fn app_shell(
             d.fill_rect(Rect::new(0., 55., 180., 2.), ColorToken::Accent);
             d.fill_rect(
                 Rect::new(180., 55., 60., 2.),
-                d.theme().get::<Tokens>().cyan,
+                d.theme().ext::<Tokens>().cyan,
             );
         });
     let content = node()
@@ -74,11 +75,11 @@ pub(super) fn app_shell(
         )
         .child(content);
     let canvas = scroll(content)
-        .node_ref(scroll_node)
+        .with_node(|node| node.node_ref(scroll_node))
         .style(style().grow(1).min_height(0).align_items(Align::Center))
         .style(style().background(Color::Canvas))
         .draw(|d, s| {
-            let p = d.theme().get::<Tokens>();
+            let p = d.theme().ext::<Tokens>();
             let color = if p.mode == ThemeMode::Dark {
                 kivact::style::rgba(0x3a9dff, 0.05)
             } else {
@@ -126,7 +127,7 @@ fn catalog_theme(mode: kivact::style::ThemeMode, density: g::Density) -> Theme {
         ..t.text().clone()
     };
     let t = t.with_text(text);
-    let mut tokens = (*t.get::<g::Tokens>()).clone();
+    let mut tokens = (*t.ext::<g::Tokens>()).clone();
     tokens.display_family = "Barlow Condensed".into();
     tokens.mono_family = "JetBrains Mono".into();
     t.with(tokens)
@@ -134,10 +135,10 @@ fn catalog_theme(mode: kivact::style::ThemeMode, density: g::Density) -> Theme {
 
 /// Mount the complete catalog through public component APIs.
 pub fn catalog() -> impl IntoView {
-    kivact::ui::toaster().max_visible(4);
+    kivact::interaction::toaster().max_visible(4);
     let mode = signal(kivact::style::ThemeMode::Light);
     let density = signal(g::Density::Comfortable);
-    let theme = kivact::memo(move || catalog_theme(mode.get(), density.get()));
+    let theme = kivact::state::memo(move || catalog_theme(mode.get(), density.get()));
     let scene = Demo {
         create: signal(false),
         delete: signal(false),
@@ -157,7 +158,7 @@ pub fn catalog() -> impl IntoView {
         // The final chapter cannot reach the 72 px anchor when the scroll
         // container clamps at its trailing 96 px padding.
         if let Some(rect) = for_spy.last().and_then(|rect| rect.get())
-            && rect.y + rect.height <= platform::window_size().height - 95.
+            && rect.y + rect.height <= platform::window_size().get().height - 95.
             && rect.y + rect.height > 100.
         {
             current.set(for_spy.len() - 1);
@@ -177,7 +178,7 @@ pub fn catalog() -> impl IntoView {
         .iter()
         .enumerate()
         .map(|(i, (label, _, _))| {
-            Command::new(PaletteCommand::Section(i), *label).hint(
+            Command::new(PaletteCommand::Section(i), *label).with_hint(
                 [
                     "TOKENS", "BUTTON", "INPUT", "SELECT", "NAV", "DISPLAY", "TABLE", "FEEDBACK",
                     "OVERLAY", "LAYOUT",
@@ -186,11 +187,11 @@ pub fn catalog() -> impl IntoView {
         })
         .collect();
     commands.extend([
-        Command::new(PaletteCommand::Theme, "テーマを切り替え").hint("THEME"),
-        Command::new(PaletteCommand::Density, "表示密度を切り替え").hint("DENSITY"),
-        Command::new(PaletteCommand::Create, "新規案件を作成").hint("DIALOG"),
-        Command::new(PaletteCommand::Notify, "テスト通知を送る").hint("TOAST"),
-        Command::new(PaletteCommand::Drawer, "詳細ドロワーを開く").hint("DRAWER"),
+        Command::new(PaletteCommand::Theme, "テーマを切り替え").with_hint("THEME"),
+        Command::new(PaletteCommand::Density, "表示密度を切り替え").with_hint("DENSITY"),
+        Command::new(PaletteCommand::Create, "新規案件を作成").with_hint("DIALOG"),
+        Command::new(PaletteCommand::Notify, "テスト通知を送る").with_hint("TOAST"),
+        Command::new(PaletteCommand::Drawer, "詳細ドロワーを開く").with_hint("DRAWER"),
     ]);
     let run_command = callback(move |command| match command {
         PaletteCommand::Section(i) => reveal(scroll_node, offset, for_commands[i]),
@@ -247,7 +248,7 @@ pub fn catalog() -> impl IntoView {
             .on_press(move || scene.palette.set(true))
             .child(
                 row((
-                    kivact::control::icon("search"),
+                    kivact::view::icon("search"),
                     text("コンポーネント・操作を検索...").style(style().grow(1)),
                     g::mono("Ctrl K"),
                 ))
@@ -268,7 +269,7 @@ pub fn catalog() -> impl IntoView {
                 .test_id("game-density-comfortable")
                 .size(kivact::ui::ControlSize::Small)
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .selected(move || density.get() == g::Density::Comfortable)
+                .with_node(|node| node.selected(move || density.get() == g::Density::Comfortable))
                 .style(
                     style().selected(
                         style()
@@ -282,7 +283,7 @@ pub fn catalog() -> impl IntoView {
                 .test_id("game-density-compact")
                 .size(kivact::ui::ControlSize::Small)
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .selected(move || density.get() == g::Density::Compact)
+                .with_node(|node| node.selected(move || density.get() == g::Density::Compact))
                 .style(
                     style().selected(
                         style()
@@ -298,7 +299,7 @@ pub fn catalog() -> impl IntoView {
             .offset(6.)
             .attach(
                 g::tool_button("通知")
-                    .icon(kivact::control::icon("bell"))
+                    .icon(kivact::view::icon("bell"))
                     .hide_label(true)
                     .on_press(move || {
                         toaster().push(
@@ -316,7 +317,7 @@ pub fn catalog() -> impl IntoView {
             .attach(
                 g::tool_button("テーマ切替")
                     .test_id("game-theme-toggle")
-                    .icon(kivact::control::icon("moon"))
+                    .icon(kivact::view::icon("moon"))
                     .hide_label(true)
                     .on_press(move || {
                         mode.update(|v| {
@@ -332,28 +333,27 @@ pub fn catalog() -> impl IntoView {
             "OP ▾",
             vec![
                 MenuEntry::item("profile", "プロフィール"),
-                MenuEntry::item("settings", "環境設定").shortcut("Ctrl+,"),
+                MenuEntry::item("settings", "環境設定").with_shortcut("Ctrl+,"),
                 MenuEntry::item("sign-out", "サインアウト"),
             ],
-            move |key: &'static str| match key {
-                "profile" => scene.drawer.set(true),
-                "settings" => scene.palette.set(true),
-                _ => {
-                    toaster().push(
-                        Toast::new("サインアウト")
-                            .body("カタログのデモ操作です。")
-                            .tone(Tone::Info)
-                            .duration(Some(Duration::from_secs(3))),
-                    );
-                }
-            },
         )
+        .on_activate(move |key: &'static str| match key {
+            "profile" => scene.drawer.set(true),
+            "settings" => scene.palette.set(true),
+            _ => {
+                toaster().push(
+                    Toast::new("サインアウト")
+                        .body("カタログのデモ操作です。")
+                        .tone(Tone::Info)
+                        .duration(Some(Duration::from_secs(3))),
+                );
+            }
+        })
         .offset(0.)
         .attach(
             kivact::ui::button("OP ▾")
                 .variant(kivact_ui_game::Slant)
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .into_node(),
+                .variant(kivact::ui::ButtonVariant::Secondary),
         ),
     );
     let shell = super::shell::app_shell(sidebar, topbar, content, scroll_node)
@@ -385,14 +385,16 @@ pub fn catalog() -> impl IntoView {
                 Handled::No
             }
         });
-    kivact::view::provide_theme(theme, move || {
+    kivact::style::provide_theme(theme, move || {
         column((
             shell,
             kivact::ui::toast_region(toaster()),
             create_dialog(scene),
             delete_dialog(scene),
             kivact::ui::dialog("案件詳細", scene.drawer)
-                .kind(kivact::ui::DialogKind::Drawer(kivact::ui::Side::Right))
+                .mode(kivact::interaction::DialogMode::Drawer(
+                    kivact::geometry::Edge::Right,
+                ))
                 .content(drawer_body)
                 .footer(move || {
                     (
@@ -407,15 +409,14 @@ pub fn catalog() -> impl IntoView {
                             .on_press(move || scene.drawer.set(false)),
                     )
                 }),
-            kivact::ui::command_palette(scene.palette, commands, move |value| {
-                run_command.try_call(value)
-            })
-            .footer(|| {
-                g::mono(kivact::i18n::message(
-                    "palette.hint",
-                    "↑ ↓ 移動     Enter 実行     Esc 閉じる",
-                ))
-            }),
+            kivact::ui::command_palette(commands, scene.palette)
+                .on_activate(move |value| run_command.try_call(value))
+                .footer({
+                    g::mono(kivact::i18n::message(
+                        "palette.hint",
+                        "↑ ↓ 移動     Enter 実行     Esc 閉じる",
+                    ))
+                }),
         ))
         .style(style().size(pct(100), pct(100)).font_family("Noto Sans JP"))
     })
@@ -466,7 +467,7 @@ fn section(i: usize, r: NodeRef, content: impl IntoView) -> Node {
         g::section_heading(format!("{i:02}"), name.to_uppercase(), description),
         content,
     ))
-    .node_ref(r)
+    .with_node(|node| node.node_ref(r))
     .test_id(format!("game-section-{i}"))
     .style(style().margin_top(48).gap(18))
 }
@@ -487,7 +488,7 @@ fn sidebar(
     current: Signal<usize>,
     mode: Signal<kivact::style::ThemeMode>,
 ) -> Node {
-    let mut navigation = Vec::new();
+    let mut navigation = Vec::<kivact::view::View>::new();
     for (i, (name, _, _)) in section_names().iter().enumerate() {
         if [0, 1, 5, 7].contains(&i) {
             navigation.push(
@@ -504,7 +505,8 @@ fn sidebar(
                         .padding_bottom(6)
                         .font_size(10)
                         .color(rgb(0x7890ac)),
-                ),
+                )
+                .into_view(),
             );
         }
         let r = refs[i];
@@ -536,7 +538,7 @@ fn sidebar(
         .role(Role::Button)
         .name((*name).to_owned())
         .focusable(true)
-        .selected(move || current.get() == i)
+        .with_node(|node| node.selected(move || current.get() == i))
         .test_id(format!(
             "game-nav-{}",
             [
@@ -576,7 +578,7 @@ fn sidebar(
                 )
                 .focus(style().ring(2, ColorToken::Focus)),
         );
-        navigation.push(button);
+        navigation.push(button.into_view());
     }
     column((
         row((

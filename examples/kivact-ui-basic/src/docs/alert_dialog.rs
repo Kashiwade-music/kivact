@@ -1,23 +1,23 @@
 //! Role: Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
         slug: "alert-dialog",
         name: "Alert Dialog",
-        description: "ユーザーに確認や回答を求めるモーダルです。標準の kivact::ui::dialog を DialogKind::AlertModal にすると、このテーマでは alert-dialog.tsx の見た目で描きます。Escape とボタンで閉じ、外側の押下では閉じません。フォーカスはフッターの最初のボタンから始まり、閉じると開いた要素へ戻ります。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::DialogKind;\nuse kivact_ui_basic as basic;",
+        description: "ユーザーに確認や回答を求めるモーダルです。標準の kivact::ui::dialog を DialogMode::AlertModal にすると、このテーマでは alert-dialog.tsx の見た目で描きます。Escape とボタンで閉じ、外側の押下では閉じません。フォーカスはフッターの最初のボタンから始まり、閉じると開いた要素へ戻ります。",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
         source: include_str!("alert_dialog.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
                 "default",
                 "Default",
-                "open の signal と題名を渡し、kind を DialogKind::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
+                "open の signal と題名を渡し、kind を DialogMode::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
                 default,
             ),
             Example::new(
@@ -52,7 +52,7 @@ fn default() -> impl IntoView {
             .on_press(move || open.set(true)),
         basic::muted(move || answer.get()),
         dialog("Are you absolutely sure?", open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("This action cannot be undone. This will permanently delete your account.")
             .footer(move || {
@@ -90,7 +90,7 @@ fn destructive() -> impl IntoView {
             .to_string()
         }),
         dialog("Delete chat?", open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("This will permanently delete this chat conversation.")
             .footer(move || {
@@ -119,7 +119,7 @@ fn with_media() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Share this chat?", open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("They will be able to see everything in this conversation.")
             .media(|| icon("share").style(style().size(24, 24)))
@@ -143,7 +143,7 @@ fn small() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Allow accessory to connect?", open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .variant(basic::AlertDialogSize::Sm)
             .closable(false)
             .description("Do you want to allow the USB accessory to connect to this device?")

@@ -1,19 +1,18 @@
 //! Role: Source catalogue sections built from the public component library.
 
 use super::common::{card, cards_grid, columns, half, muted, section, third, wrap};
-use kivact::Callback;
 use kivact::draw::Shadow;
 use kivact::i18n::CalendarDate;
+use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
 use kivact::prelude::{
     ColorToken, IntoView, Node, NodeBuilder, Role, column, for_each, grid, memo, node, rgb, row,
     signal, text,
 };
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::Callback;
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, Justify, pct, rgba, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::task::spawn;
-use kivact::ui::{ListItem, MenuEntry, ScalarRange};
 use kivact::view::{View, node_ref};
 use kivact_ui_pop as ui;
 use std::time::Duration;
@@ -175,8 +174,8 @@ pub(super) fn tokens(notify: Callback<(ui::Hue, String, String)>) -> Node {
             text("corner accent").style(style().font_size(12).color(ColorToken::TextMuted)),
         ))
         .style(move || {
-            let theme = &current_theme();
-            style().background(theme.get::<ui::Tokens>().hue(ui::Hue::Blue).0)
+            let theme = &use_theme().get();
+            style().background(theme.ext::<ui::Tokens>().hue(ui::Hue::Blue).0)
         })
         .style(
             style()
@@ -273,7 +272,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     kivact::ui::button("出撃")
                         .variant(kivact_ui_pop::ButtonTone::Accent)
                         .variant(kivact_ui_pop::Slant)
-                        .icon(kivact::control::icon("sword")),
+                        .icon(kivact::view::icon("sword")),
                     kivact::ui::button("キャンセル")
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .variant(kivact_ui_pop::Slant),
@@ -289,16 +288,16 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     wrap((
                         kivact::ui::button("Small")
                             .size(kivact::ui::ControlSize::Small)
-                            .icon(kivact::control::icon("plus")),
-                        kivact::ui::button("Medium").icon(kivact::control::icon("plus")),
+                            .icon(kivact::view::icon("plus")),
+                        kivact::ui::button("Medium").icon(kivact::view::icon("plus")),
                         kivact::ui::button("Large")
                             .size(kivact::ui::ControlSize::Large)
-                            .icon(kivact::control::icon("plus")),
+                            .icon(kivact::view::icon("plus")),
                     )),
                     wrap((
                         kivact::ui::button("エクスポート")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing_icon(kivact::control::icon("download")),
+                            .trailing(kivact::view::icon("download")),
                         kivact::ui::tooltip("追加")
                             .placement(kivact::view::Placement::Below)
                             .align(kivact::view::OverlayAlign::Center)
@@ -307,7 +306,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 kivact::ui::button("追加")
                                     .variant(kivact::ui::ButtonVariant::Ghost)
                                     .hide_label(true)
-                                    .icon(kivact::control::icon("plus"))
+                                    .icon(kivact::view::icon("plus"))
                                     .style(
                                         style().background(ColorToken::Accent).color(Color::WHITE),
                                     ),
@@ -320,7 +319,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 kivact::ui::button("編集")
                                     .variant(kivact::ui::ButtonVariant::Ghost)
                                     .hide_label(true)
-                                    .icon(kivact::control::icon("pencil"))
+                                    .icon(kivact::view::icon("pencil"))
                                     .style(style().background(ColorToken::SurfaceAlt)),
                             ),
                         kivact::ui::tooltip("コピー")
@@ -331,7 +330,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 kivact::ui::button("コピー")
                                     .variant(kivact::ui::ButtonVariant::Ghost)
                                     .hide_label(true)
-                                    .icon(kivact::control::icon("copy"))
+                                    .icon(kivact::view::icon("copy"))
                                     .style(style().border(1, ColorToken::Border)),
                             ),
                         kivact::ui::tooltip("その他")
@@ -342,7 +341,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 kivact::ui::button("その他")
                                     .variant(kivact::ui::ButtonVariant::Ghost)
                                     .hide_label(true)
-                                    .icon(kivact::control::icon("dots")),
+                                    .icon(kivact::view::icon("dots")),
                             ),
                         node()
                             .role(Role::Button)
@@ -358,7 +357,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     .justify_content(Justify::Center)
                                     .focus(style().ring(3, ColorToken::Focus)),
                             )
-                            .child(kivact::control::icon("sparkles").style(style().rotate(-45))),
+                            .child(kivact::view::icon("sparkles").style(style().rotate(-45))),
                     )),
                 ))
                 .style(style().gap(16)),
@@ -370,16 +369,16 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                         row((
                             kivact::ui::button("グリッド")
                                 .variant(kivact::ui::ButtonVariant::Secondary)
-                                .icon(kivact::control::icon("layout-grid"))
+                                .icon(kivact::view::icon("layout-grid"))
                                 .style(style().radius_corners(8, 0, 0, 8)),
                             kivact::ui::button("リスト")
                                 .variant(kivact::ui::ButtonVariant::Secondary)
-                                .icon(kivact::control::icon("list"))
+                                .icon(kivact::view::icon("list"))
                                 .style(style().radius(0).margin_left(-1)),
                             kivact::ui::button("フィルタ")
                                 .variant(kivact::ui::ButtonVariant::Ghost)
                                 .hide_label(true)
-                                .icon(kivact::control::icon("filter"))
+                                .icon(kivact::view::icon("filter"))
                                 .style(
                                     style()
                                         .border(1, ColorToken::Border)
@@ -395,8 +394,8 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                             }
                             .to_string()
                         })
-                        .icon(kivact::control::icon("refresh"))
-                        .loading(loading)
+                        .icon(kivact::view::icon("refresh"))
+                        .busy(loading)
                         .on_press(move || {
                             loading.set(true);
                             spawn(async move {
@@ -427,13 +426,13 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     MenuEntry::item("draft", "下書き保存"),
                                     MenuEntry::item("schedule", "予約公開…"),
                                 ],
-                                |_: &'static str| {},
                             )
+                            .on_activate(|_: &'static str| {})
                             .attach(
                                 kivact::ui::button("保存方法")
                                     .variant(kivact::ui::ButtonVariant::Ghost)
                                     .hide_label(true)
-                                    .icon(kivact::control::icon("chevron-down"))
+                                    .icon(kivact::view::icon("chevron-down"))
                                     .style(
                                         style()
                                             .radius(0)
@@ -447,7 +446,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                         kivact::ui::button("もっと見る")
                             .variant(kivact::ui::ButtonVariant::Ghost)
                             .size(kivact::ui::ControlSize::Small)
-                            .trailing_icon(kivact::control::icon("arrow-right")),
+                            .trailing(kivact::view::icon("arrow-right")),
                     )),
                 ))
                 .style(style().gap(16)),
@@ -529,8 +528,7 @@ pub(super) fn forms() -> Node {
                         input_with_icon(
                             "mail",
                             kivact::ui::text_input("メールアドレス", mail).invalid(true),
-                            kivact::control::icon("alert-circle")
-                                .style(style().color(rgb(0xef4458))),
+                            kivact::view::icon("alert-circle").style(style().color(rgb(0xef4458))),
                             true,
                         ),
                     )
@@ -544,7 +542,7 @@ pub(super) fn forms() -> Node {
                             kivact::ui::button("表示切替")
                                 .variant(kivact::ui::ButtonVariant::Ghost)
                                 .hide_label(true)
-                                .icon(kivact::control::icon("eye"))
+                                .icon(kivact::view::icon("eye"))
                                 .test_id("pop-password-reveal")
                                 .style(style().size(20, 20))
                                 .on_press(move || reveal.update(|v| *v = !*v)),
@@ -599,7 +597,7 @@ pub(super) fn forms() -> Node {
                     kivact::ui::field(
                         "所属学園",
                         kivact::ui::select("所属学園", schools, chosen)
-                            .icon(kivact::control::icon("school")),
+                            .icon(kivact::view::icon("school")),
                     ),
                     kivact::ui::button("学園一覧を並べ替え")
                         .on_press(move || schools.update(|options| options.reverse())),
@@ -609,16 +607,13 @@ pub(super) fn forms() -> Node {
                             text("Enterで追加")
                                 .style(style().font_size(12).color(ColorToken::TextMuted)),
                         )),
-                        kivact::ui::tag_input(
-                            "タグを追加",
-                            tags,
-                            move |tag| tags.update(|items| items.push(tag)),
-                            move |index| {
+                        kivact::ui::tag_input("タグを追加", tags)
+                            .on_add(move |tag| tags.update(|items| items.push(tag)))
+                            .on_remove(move |index| {
                                 tags.update(|items| {
                                     items.remove(index);
                                 })
-                            },
-                        ),
+                            }),
                     ))
                     .style(style().gap(8)),
                     column((
@@ -644,7 +639,7 @@ pub(super) fn forms() -> Node {
                                 kivact::ui::number_input(
                                     "人数",
                                     count,
-                                    kivact::ui::ScalarRange::new(1.0, 12.0)
+                                    kivact::interaction::ScalarRange::new(1.0, 12.0)
                                         .and_then(|range| range.with_step(1.0))
                                         .expect("invariant: the bounds and the step are finite"),
                                 ),
@@ -675,8 +670,11 @@ pub(super) fn forms() -> Node {
                     ))
                     .style(style().gap(2)),
                     column((
-                        kivact::ui::checkbox("部分選択（indeterminate）", kivact::signal(false))
-                            .indeterminate(true),
+                        kivact::ui::checkbox(
+                            "部分選択（indeterminate）",
+                            kivact::state::signal(false),
+                        )
+                        .indeterminate(true),
                         muted("子項目の一部が選択済み")
                             .style(style().font_size(13).margin_left(28)),
                     ))
@@ -794,7 +792,7 @@ pub(super) fn forms() -> Node {
                     for_each(
                         files,
                         |entry| entry.id,
-                        |_, entry| {
+                        |entry| {
                             ui::upload_row(
                                 move || entry.get().name,
                                 move || entry.get().bytes,
@@ -830,24 +828,24 @@ impl IntoView for IconInput {
             trailing,
         } = self;
         if let Some(read) = root.accessible_name() {
-            input = input.name(move || read());
+            input = input.name(move || read.get());
         }
         if let Some(read) = root.accessible_disabled() {
-            let own = input.accessible_disabled();
-            input = input.disabled(move || read() || own.as_ref().is_some_and(|f| f()));
+            let own = input.node_mut().accessible_disabled();
+            input = input.disabled(move || read.get() || own.as_ref().is_some_and(|f| f.get()));
         }
         if let Some(read) = root.accessible_invalid() {
-            let own = input.accessible_invalid();
-            input = input.invalid(move || read() || own.as_ref().is_some_and(|f| f()));
+            let own = input.node_mut().accessible_invalid();
+            input = input.invalid(move || read.get() || own.as_ref().is_some_and(|f| f.get()));
         }
         for reference in root.accessible_labelled_by() {
-            input = input.labelled_by(reference);
+            input = input.with_node(|node| node.labelled_by(reference));
         }
         for reference in root.accessible_described_by() {
-            input = input.described_by(reference);
+            input = input.with_node(|node| node.described_by(reference));
         }
         root.child((
-            kivact::control::icon(glyph).style(style().color(ColorToken::TextMuted)),
+            kivact::view::icon(glyph).style(style().color(ColorToken::TextMuted)),
             input,
             trailing,
         ))
@@ -863,7 +861,7 @@ fn input_with_icon(
 ) -> IconInput {
     let input_ref = node_ref();
     let focused = input_ref.focus_within();
-    let input = input.node_ref(input_ref).style(
+    let input = input.with_node(|node| node.node_ref(input_ref)).style(
         style()
             .grow(1)
             .height(34)
@@ -884,8 +882,8 @@ fn input_with_icon(
                 .radius(8),
         )
         .style(move || {
-            let theme = &current_theme();
-            let p = theme.get::<ui::Tokens>();
+            let theme = &use_theme().get();
+            let p = theme.ext::<ui::Tokens>();
             style()
                 .border(
                     1,
@@ -926,11 +924,11 @@ fn switch_row(label: &'static str, hint: &'static str, checked: bool, hue: ui::H
 /// `child` drawn with `hue` as the accent: the kit's blue and the core
 /// accent of the theme in effect become the hue's color.
 fn toned<V: IntoView>(hue: ui::Hue, child: impl FnOnce() -> V + 'static) -> View {
-    let inherited = memo(kivact::style::current_theme);
-    kivact::view::provide_theme(
+    let inherited = memo(|| kivact::style::use_theme().get());
+    kivact::style::provide_theme(
         move || {
             let theme = inherited.get();
-            let mut tokens = (*theme.get::<ui::Tokens>()).clone();
+            let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
             tokens.blue = tokens.accent(hue);
             let colors = kivact::style::theme::Palette {
                 accent: tokens.blue,

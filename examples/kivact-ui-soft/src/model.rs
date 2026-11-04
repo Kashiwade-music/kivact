@@ -1,7 +1,7 @@
 //! Role: Hold the catalog's selection, search and appearance signals.
 use crate::pages::pages;
+use kivact::state::{Signal, signal};
 use kivact::style::ThemeMode;
-use kivact::{Signal, signal};
 
 #[derive(Clone, Copy)]
 pub(super) struct CatalogState {

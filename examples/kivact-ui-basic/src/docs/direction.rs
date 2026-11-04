@@ -15,13 +15,13 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "provider",
                 "Provider",
-                "basic::direction に方向と子を作る関数を渡します。内側では current_direction が渡した方向を返します。",
+                "basic::direction に方向と子を作る関数を渡します。内側では use_direction が渡した方向を返します。",
                 provider,
             ),
             Example::new(
                 "toolbar",
                 "Toolbar",
-                "current_direction を読んで、行の並びを自分で反転する例です。",
+                "use_direction を読んで、行の並びを自分で反転する例です。",
                 toolbar,
             ),
         ],
@@ -30,7 +30,7 @@ pub(crate) fn page() -> Page {
 
 // example: provider
 fn provider() -> impl IntoView {
-    let describe = || format!("{:?}", kivact::view::current_direction());
+    let describe = || format!("{:?}", kivact::view::use_direction().get());
     column((
         kivact::view::provide_direction(kivact::view::ReadingDirection::Ltr, move || {
             text(format!("Left to right: {}", describe()))
@@ -46,7 +46,7 @@ fn provider() -> impl IntoView {
 // example: toolbar
 fn toolbar() -> impl IntoView {
     let actions = |label: &'static str| {
-        let reversed = kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
+        let reversed = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
         let mut items = vec![icon("arrow-left"), text(label), icon("arrow-right")];
         if reversed {
             items.reverse();

@@ -1,22 +1,21 @@
 //! Role: Catalog window frame with application-owned panes and chrome.
-use super::slot::{Slot, slot};
-use kivact::control::{Node, NodeBuilder, column, row, scroll};
 use kivact::i18n::message;
-use kivact::interaction::IntoScalarRange;
+use kivact::interaction::ScalarRange;
+use kivact::state::{Binding, Value};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, pct, style};
-use kivact::ui::ScalarRange;
-use kivact::view::{IntoText, IntoValue, IntoView};
-use kivact::{Binding, Value};
+use kivact::view::IntoView;
+use kivact::view::{Node, NodeBuilder, column, row, scroll};
 use kivact_ui_game::Color;
 /// A window frame with application-owned panes and optional chrome slots.
 pub(super) struct NativeWindow {
     root: Node,
-    title: kivact::Value<String>,
+    title: kivact::state::Value<String>,
     explorer: kivact::view::View,
     document: kivact::view::View,
-    menu_bar: Option<Slot>,
-    toolbar: Option<Slot>,
-    status_bar: Option<Slot>,
+    menu_bar: Option<kivact::view::View>,
+    toolbar: Option<kivact::view::View>,
+    status_bar: Option<kivact::view::View>,
     explorer_width: Binding<f64>,
     explorer_range: Value<ScalarRange>,
 }
@@ -29,7 +28,7 @@ pub(super) struct NativeWindow {
 #[track_caller]
 pub(super) fn native_window(
     title: impl IntoText,
-    explorer_width: impl Into<Binding<f64>>,
+    explorer_width: impl kivact::state::IntoBinding<f64>,
     explorer: impl IntoView,
     document: impl IntoView,
 ) -> NativeWindow {
@@ -47,37 +46,34 @@ pub(super) fn native_window(
         menu_bar: None,
         toolbar: None,
         status_bar: None,
-        explorer_width: explorer_width.into(),
+        explorer_width: explorer_width.into_binding(),
         explorer_range: ScalarRange::new(140.0, 420.0)
             .expect("invariant: 140 to 420 is a valid range")
             .into_value(),
     }
 }
 impl NativeWindow {
-    /// Optional application menu, omitted by default; built once by
-    /// `content` when the window mounts.
-    pub(super) fn menu_bar<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.menu_bar = Some(slot(content));
+    /// Optional application menu, omitted by default; mounted once with the window.
+    pub(super) fn menu_bar(mut self, content: impl IntoView) -> Self {
+        self.menu_bar = Some(content.into_view());
         self
     }
-    /// Optional application toolbar, omitted by default; built once by
-    /// `content` when the window mounts.
-    pub(super) fn toolbar<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.toolbar = Some(slot(content));
+    /// Optional application toolbar, omitted by default; mounted once with the window.
+    pub(super) fn toolbar(mut self, content: impl IntoView) -> Self {
+        self.toolbar = Some(content.into_view());
         self
     }
-    /// Optional application status, omitted by default; built once by
-    /// `content` when the window mounts.
-    pub(super) fn status_bar<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.status_bar = Some(slot(content));
+    /// Optional application status, omitted by default; mounted once with the window.
+    pub(super) fn status_bar(mut self, content: impl IntoView) -> Self {
+        self.status_bar = Some(content.into_view());
         self
     }
     /// The bounds (and step) of the explorer's width, 140 to 420 pixels by
     /// default: a constant [`ScalarRange`], or a closure, `Signal` or `Value`
     /// of one.
     #[track_caller]
-    pub(super) fn explorer_range(mut self, range: impl IntoScalarRange) -> Self {
-        self.explorer_range = range.into_range();
+    pub(super) fn explorer_range(mut self, range: impl IntoValue<ScalarRange>) -> Self {
+        self.explorer_range = range.into_value();
         self
     }
 }
@@ -90,7 +86,7 @@ impl IntoView for NativeWindow {
     fn into_view(self) -> kivact::view::View {
         let titlebar = row((
             kivact_ui_game::mono(self.title).style(style().color(kivact::style::rgb(0xe3ecf6))),
-            self.menu_bar.map(|menu| menu()),
+            self.menu_bar,
         ))
         .style(
             style()
@@ -110,12 +106,7 @@ impl IntoView for NativeWindow {
         .end(scroll(self.document).style(style().height(pct(100)).min_width(100)))
         .style(style().height(360).align_items(Align::Stretch));
         self.root
-            .child((
-                titlebar,
-                self.toolbar.map(|toolbar| toolbar()),
-                panes,
-                self.status_bar.map(|status| status()),
-            ))
+            .child((titlebar, self.toolbar, panes, self.status_bar))
             .into_view()
     }
 }

@@ -1,10 +1,12 @@
 //! Role: Animated halo demonstration for the Pop catalog.
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Stroke};
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
 use kivact::i18n::message;
 use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::style::{Color, style};
 use kivact::view::Role;
+use kivact::view::{Node, node};
 use kivact_ui_pop::Tokens;
 /// A floating halo with a soft shadow and an animated cyan-to-yellow pulse.
 #[track_caller]
@@ -15,14 +17,14 @@ pub(super) fn halo_loader() -> Node {
         Transition::tween(800, Easing::EaseInOut)
             .repeat(Repeat::Forever)
             .alternate()
-            .decorative(false),
+            .essential(),
     );
     node()
         .role(Role::Status)
         .name(message("pop.loader.label", "Loading"))
         .style(style().size(48, 48))
         .draw(move |draw, _| {
-            let p = draw.theme().get::<Tokens>();
+            let p = draw.theme().ext::<Tokens>();
             let phase = pulse.get();
             let mut ring = Path::new();
             for i in 0..=64 {

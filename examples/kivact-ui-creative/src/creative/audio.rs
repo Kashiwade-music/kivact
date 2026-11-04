@@ -1,12 +1,13 @@
 //! Role: Audio handling and timing utilities for creative.
 use crate::creative::audio_values::TransportState;
+use kivact::state::IntoBinding;
 
 use super::audio_values::level;
 use super::common::{col, note};
-use kivact::binding;
 use kivact::prelude::{IntoView, NodeBuilder, ScrollAxes, Signal, rgb, row, scroll, signal};
+use kivact::state::IntoValue;
+use kivact::state::binding;
 use kivact::style::style;
-use kivact::view::IntoValue;
 use kivact_ui_creative as ui;
 
 pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {
@@ -31,15 +32,15 @@ pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {
                 name,
                 rgb(color),
                 ui::ChannelState {
-                    gain: gain.into(),
-                    mute: mute.into(),
-                    pan: (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])).into(),
+                    gain: gain.into_binding(),
+                    mute: mute.into_binding(),
+                    pan: (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])).into_binding(),
                     solo: binding((move || solo.with(|s| s[i])).into_value(), move |v| {
                         solo.update(|s| s[i] = v)
                     }),
                 },
             )
-            .gain_range(-60.0, 6.0)
+            .gain_range(-60.0..=6.0)
             .routes(
                 ["Drum Bus", "In 1-2", "Main Out 1-2", "No Input"]
                     .into_iter()

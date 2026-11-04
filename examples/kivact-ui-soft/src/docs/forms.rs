@@ -1,10 +1,11 @@
 //! Role: Demonstrate standard form recipes through controlled public components.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column};
+use kivact::interaction::ListItem;
 use kivact::interaction::ScalarRange;
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::style;
-use kivact::ui::{ControlSize, ListItem, field, number_input, text_area, text_input};
+use kivact::ui::{ControlSize, field, number_input, text_area, text_input};
+use kivact::view::{Node, NodeBuilder, column};
 use kivact_ui_soft::{
     FieldStatusVariant, StatusKind, checkbox_list, complex_selector, field_status, file_input,
     input_group_text, input_group_with, multi_selector, power_search, rich_text_editor, selector,
@@ -82,7 +83,7 @@ text_input("Read only", signal("avery@example.com".to_owned()))
             ))
             .style(style().gap(12).width(280)),
             r#"field("Name", text_input("Name", signal(String::new())))
-    .hint("Shown on your profile")
+    .with_hint("Shown on your profile")
 field("Email", text_input("Email", signal("invalid".to_owned())))
     .error(Some("Enter an email address".to_owned()))"#,
         ),
@@ -140,7 +141,7 @@ selector("Locked team", teams(), signal(Some("engineering"))).disabled(true)"#,
         "complex-selector" => specimen(
             "Custom selector content",
             complex_selector("Workspace", "Design", || {
-                kivact::control::text("Workspace details")
+                kivact::view::text("Workspace details")
             }),
             "complex_selector(\"Workspace\", \"Design\", content)",
         ),

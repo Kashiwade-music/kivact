@@ -28,16 +28,16 @@ use super::media_pool::media;
 use super::numeric_samples::numeric;
 use crate::creative::audio_values::TransportState;
 use kivact::draw::radial_gradient;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
+use kivact::interaction::MenuEntry;
 use kivact::prelude::{
     ColorToken, IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, Value, column, node, rgb,
     row, scroll, signal, spacer, text,
 };
-use kivact::primitive::NodeExt;
 use kivact::style::TextAlign;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact::style::{Align, Justify, pct, rgba, style};
-use kivact::ui::MenuEntry;
 use kivact::view::Handled;
 use kivact::view::{LiveRegion, PointerPhase, node_ref};
 use kivact_ui_creative as ui;
@@ -146,7 +146,7 @@ pub fn catalog() -> impl IntoView {
     let rects = std::rc::Rc::new(refs.iter().map(NodeRef::rect).collect::<Vec<_>>());
     let main_scroll = node_ref();
     let main_offset = main_scroll.scroll_offset();
-    kivact::view::provide_theme(
+    kivact::style::provide_theme(
         move || {
             let theme = ui::theme(kivact::style::ThemeMode::Dark)
                 .accent(accent.get())
@@ -155,7 +155,7 @@ pub fn catalog() -> impl IntoView {
                 } else {
                     ui::Density::Comfortable
                 });
-            let mut palette = (*theme.get::<ui::Tokens>()).clone();
+            let mut palette = (*theme.ext::<ui::Tokens>()).clone();
             palette.body_font = "Geist".into();
             palette.mono_font = "Geist Mono".into();
             let text = kivact::style::theme::Typography {
@@ -208,8 +208,8 @@ pub fn catalog() -> impl IntoView {
                                         .radius(6),
                                 )
                                 .style(move || {
-                                    let t = &current_theme();
-                                    let p = t.get::<ui::Tokens>();
+                                    let t = &use_theme().get();
+                                    let p = t.ext::<ui::Tokens>();
                                     style()
                                         .background(p.accent.with_alpha(0.14))
                                         .color(p.accent)
@@ -222,14 +222,14 @@ pub fn catalog() -> impl IntoView {
                                 .style(style().color(ui::Color::Dim)),
                             kivact::ui::button("Copy component link")
                                 .hide_label(true)
-                                .icon(kivact::control::icon("link"))
+                                .icon(kivact::view::icon("link"))
                                 .variant(kivact::ui::ButtonVariant::Ghost)
                                 .on_press(move || {
                                     status.set(format!("Component {:02} · {title}", i + 1))
                                 }),
                             kivact::ui::button(format!("Collapse {title}"))
                                 .hide_label(true)
-                                .icon(kivact::control::icon("chevron-down"))
+                                .icon(kivact::view::icon("chevron-down"))
                                 .variant(kivact::ui::ButtonVariant::Ghost)
                                 .style(move || {
                                     style().rotate(if collapsed.get() { -90.0 } else { 0.0 })
@@ -247,7 +247,7 @@ pub fn catalog() -> impl IntoView {
                         .style(style().border_bottom(1, ui::Color::Hair)),
                         node().hidden(collapsed).child(body),
                     ))
-                    .node_ref(refs[i])
+                    .with_node(|node| node.node_ref(refs[i]))
                     .test_id(format!("creative-section-{}", i + 1))
                     .hidden(move || {
                         category.get().is_some_and(|selected| {
@@ -266,7 +266,7 @@ pub fn catalog() -> impl IntoView {
                 .collect::<Vec<_>>();
             let main =
                 scroll(column((hero(compact), sections)).style(style().gap(8).padding_right(2)))
-                    .node_ref(main_scroll)
+                    .with_node(|node| node.node_ref(main_scroll))
                     .test_id("creative-main")
                     .style(style().grow(1).min_width(0).min_height(0))
                     .style(
@@ -323,8 +323,8 @@ pub fn catalog() -> impl IntoView {
                 )
                 .style(style().color(ui::Color::Dim)),
                 operator_search(search, status, refs_for_shell.clone()),
-                kivact::ui::toast_region(kivact::ui::toaster()),
-                ui::pie_menu(pie_entries.as_ref().clone(), pie, choose_pie),
+                kivact::ui::toast_region(kivact::interaction::toaster()),
+                ui::pie_menu(pie_entries.as_ref().clone(), pie).on_activate(choose_pie),
             ))
             .test_id("creative-catalog")
             .style(style().size(pct(100), pct(100)).min_height(0))
@@ -412,7 +412,7 @@ fn topbar(
                 .role(Role::Button)
                 .name(format!("Accent {choice:?}"))
                 .focusable(true)
-                .selected(move || accent.get() == choice)
+                .with_node(|node| node.selected(move || accent.get() == choice))
                 .on_press(move || accent.set(choice))
                 .style(
                     style()
@@ -431,19 +431,18 @@ fn topbar(
             kivact::ui::menu(
                 label,
                 vec![
-                    MenuEntry::item("new", "New Project").shortcut("Ctrl N"),
-                    MenuEntry::item("open", "Open...").shortcut("Ctrl O"),
+                    MenuEntry::item("new", "New Project").with_shortcut("Ctrl N"),
+                    MenuEntry::item("open", "Open...").with_shortcut("Ctrl O"),
                     MenuEntry::separator(),
                     MenuEntry::item("preferences", "Preferences..."),
                 ],
-                move |key: &'static str| status.set(format!("{label} · {key}")),
             )
+            .on_activate(move |key: &'static str| status.set(format!("{label} · {key}")))
             .offset(0.0)
             .attach(
                 kivact::ui::button(label)
                     .variant(kivact::ui::ButtonVariant::Ghost)
-                    .style(style().height(28).padding_x(8))
-                    .into_node(),
+                    .style(style().height(28).padding_x(8)),
             )
         })
         .collect::<Vec<_>>();
@@ -453,7 +452,7 @@ fn topbar(
                 .style(style().size(22, 22).radius(7))
                 .style(style().background(ui::Color::Accent))
                 .draw(|d, _| {
-                    let p = d.theme().get::<ui::Tokens>();
+                    let p = d.theme().ext::<ui::Tokens>();
                     for (x, y) in [(4.0, 4.0), (12.0, 4.0), (4.0, 12.0), (12.0, 12.0)] {
                         d.stroke_rect(Rect::new(x, y, 6.0, 6.0), 1.0, p.accent_ink);
                     }
@@ -464,22 +463,22 @@ fn topbar(
         .style(style().gap(8).padding_x(8).align_items(Align::Center)),
         kivact::ui::button("Outliner visibility")
             .hide_label(true)
-            .icon(kivact::control::icon("sidebar"))
+            .icon(kivact::view::icon("sidebar"))
             .variant(kivact::ui::ButtonVariant::Ghost)
             .on_press(move || sidebar.update(|v| *v = !*v)),
         row(menus).style(style().gap(1)),
         kivact::ui::tabs(
             "Category",
             vec![
-                kivact::ui::ListItem::new(Category::All, "All 22"),
-                kivact::ui::ListItem::new(Category::Controls, "Controls 4"),
-                kivact::ui::ListItem::new(Category::Audio, "Audio 4"),
-                kivact::ui::ListItem::new(Category::Layout, "Layout 4"),
-                kivact::ui::ListItem::new(Category::Animation, "Animation 3"),
-                kivact::ui::ListItem::new(Category::Compositing, "Compositing 4"),
-                kivact::ui::ListItem::new(Category::Feedback, "Feedback 3"),
+                kivact::interaction::ListItem::new(Category::All, "All 22"),
+                kivact::interaction::ListItem::new(Category::Controls, "Controls 4"),
+                kivact::interaction::ListItem::new(Category::Audio, "Audio 4"),
+                kivact::interaction::ListItem::new(Category::Layout, "Layout 4"),
+                kivact::interaction::ListItem::new(Category::Animation, "Animation 3"),
+                kivact::interaction::ListItem::new(Category::Compositing, "Compositing 4"),
+                kivact::interaction::ListItem::new(Category::Feedback, "Feedback 3"),
             ],
-            kivact::binding(
+            kivact::state::binding(
                 move || category.get().unwrap_or(Category::All),
                 move |next| category.set(Some(next)),
             ),
@@ -489,13 +488,13 @@ fn topbar(
         row(colors).style(style().gap(7).padding_x(8).align_items(Align::Center)),
         kivact::ui::button("Compact density")
             .hide_label(true)
-            .icon(kivact::control::icon("density"))
+            .icon(kivact::view::icon("density"))
             .variant(kivact::ui::ButtonVariant::Ghost)
-            .selected(compact)
+            .with_node(|node| node.selected(compact))
             .on_press(move || compact.update(|v| *v = !*v)),
         kivact::ui::button("Operator Search")
             .hide_label(true)
-            .icon(kivact::control::icon("search"))
+            .icon(kivact::view::icon("search"))
             .variant(kivact::ui::ButtonVariant::Ghost)
             .test_id("creative-top-operator-search")
             .on_press(move || search.set(true)),
@@ -516,12 +515,12 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
             kivact::ui::button("Undo")
                 .variant(kivact::ui::ButtonVariant::Secondary)
                 .hide_label(true)
-                .icon(kivact::control::icon("undo"))
+                .icon(kivact::view::icon("undo"))
                 .on_press(move || status.set("Undo · Last UI operation".into())),
             kivact::ui::button("Redo")
                 .variant(kivact::ui::ButtonVariant::Secondary)
                 .hide_label(true)
-                .icon(kivact::control::icon("redo"))
+                .icon(kivact::view::icon("redo"))
                 .on_press(move || status.set("Redo · UI operation".into())),
         ))
         .style(style().gap(2)),
@@ -530,7 +529,7 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
             .test_id("creative-toolbar-tools")
             .style(style().align_self(Align::Center)),
         separator(),
-        kivact::ui::toggle("", signal(true)).icon(kivact::control::icon("magnet")),
+        kivact::ui::toggle_button("", signal(true)).icon(kivact::view::icon("magnet")),
         kivact::ui::select(
             "Snap Target",
             keyed_options([
@@ -596,7 +595,7 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
         .style(style().font_family("Geist Mono").gap(3)),
         separator(),
         kivact::ui::button("Render  F12")
-            .icon(kivact::control::icon("aperture"))
+            .icon(kivact::view::icon("aperture"))
             .variant(kivact::ui::ButtonVariant::Primary)
             .on_press(move || status.set("Render Image · Catalog simulation complete".into())),
     ))
@@ -651,7 +650,7 @@ fn sidebar(
                 row((
                     text(format!("{:02}", i + 1))
                         .style(style().font_family("Geist Mono").font_size(9).single_line()),
-                    kivact::control::icon(section_icon(i)),
+                    kivact::view::icon(section_icon(i)),
                     text(title).style(style().grow(1).single_line()),
                     text(*code)
                         .style(style().font_family("Geist Mono").font_size(9).single_line())
@@ -660,7 +659,7 @@ fn sidebar(
                 .role(Role::TreeItem)
                 .name(title)
                 .focusable(true)
-                .selected(move || current.get() == i)
+                .with_node(|node| node.selected(move || current.get() == i))
                 .test_id(format!("creative-nav-{}", SOURCE_IDS[i]))
                 .hidden(move || collapsed.get() || !query.contains(&filter.get().to_lowercase()))
                 .on_press(move || {
@@ -697,9 +696,9 @@ fn sidebar(
             .collect::<Vec<_>>();
         column((
             row((
-                kivact::control::icon("chevron-down")
+                kivact::view::icon("chevron-down")
                     .style(move || style().rotate(if collapsed.get() { -90.0 } else { 0.0 })),
-                kivact::control::icon(
+                kivact::view::icon(
                     [
                         "click",
                         "volume",
@@ -747,7 +746,7 @@ fn sidebar(
     .collect::<Vec<_>>();
     column((
         row((
-            kivact::control::icon("sidebar"),
+            kivact::view::icon("sidebar"),
             text("Outliner").style(style().weight(600).grow(1)),
             text("22 / 22").style(style().font_size(10.5)),
         ))
@@ -794,9 +793,9 @@ fn hero(compact: Signal<bool>) -> impl IntoView {
     )).style(style().grow(1)),
         column((text("SECTIONS      22 editors"), text(move || format!("ROW HEIGHT    {} px", if compact.get() { 20 } else { 24 })), text("BASE FONT     12.5 px Geist"), text("ICONS         Tabler (MIT)"), text("DEPENDENCIES  kivact")))
             .style(style().font_family("Geist Mono").font_size(10.5).gap(6).padding(14).radius(10).align_self(Align::End))
-            .style(move || { let t = &current_theme(); style().background(t.get::<ui::Tokens>().canvas.with_alpha(0.75)).border(1, t.get::<ui::Tokens>().hair) }),
+            .style(move || { let t = &use_theme().get(); style().background(t.ext::<ui::Tokens>().canvas.with_alpha(0.75)).border(1, t.ext::<ui::Tokens>().hair) }),
     )).style(style().min_height(242).padding_x(28).padding_top(30).padding_bottom(26).gap(24).radius(12).shrink(0))
-        .style(move || { let t = &current_theme(); let p = t.get::<ui::Tokens>(); style().background((radial_gradient().radii(520, 260).at(pct(92), pct(10)).colors([p.accent.with_alpha(0.3), rgba(0, 0.0)]), p.island)).border(1, p.hair) })
+        .style(move || { let t = &use_theme().get(); let p = t.ext::<ui::Tokens>(); style().background((radial_gradient().radii(520, 260).at(pct(92), pct(10)).colors([p.accent.with_alpha(0.3), rgba(0, 0.0)]), p.island)).border(1, p.hair) })
         .draw(|d, size| { for x in (0..size.width as usize).step_by(18) { for y in (0..size.height as usize).step_by(18) { d.rounded_rect(Rect::new(x as f64, y as f64, 1.0, 1.0), 0.5, rgba(0xffffff, 0.06)); } } })
 }
 

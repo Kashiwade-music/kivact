@@ -3,17 +3,17 @@
 use super::common::{SECTIONS, col, keyed_options, line, note, spec, specs};
 use super::controls::num;
 use super::controls::slide;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
+    IntoView, Key, NodeBuilder, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
     on_mount, row, scroll, show, signal, text,
 };
-use kivact::primitive::NodeExt;
+use kivact::state::callback;
 use kivact::style::GridPlacement;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact::style::{Align, Justify, Style, pct, rgba, style};
-use kivact::ui::MenuEntry;
-use kivact::view::{Handled, Placement, callback, node_ref, overlay};
+use kivact::view::{Handled, Placement, node_ref, overlay};
 use kivact_ui_creative as ui;
 
 pub(super) fn menus(
@@ -24,48 +24,47 @@ pub(super) fn menus(
     search: Signal<bool>,
 ) -> impl IntoView {
     let entries = vec![
-        MenuEntry::item("move", "Move").shortcut("G"),
-        MenuEntry::item("rotate", "Rotate").shortcut("R"),
-        MenuEntry::item("scale", "Scale").shortcut("S"),
+        MenuEntry::item("move", "Move").with_shortcut("G"),
+        MenuEntry::item("rotate", "Rotate").with_shortcut("R"),
+        MenuEntry::item("scale", "Scale").with_shortcut("S"),
         MenuEntry::separator(),
-        MenuEntry::item("duplicate", "Duplicate").shortcut("Shift D"),
-        MenuEntry::item("delete", "Delete").shortcut("X"),
+        MenuEntry::item("duplicate", "Duplicate").with_shortcut("Shift D"),
+        MenuEntry::item("delete", "Delete").with_shortcut("X"),
         MenuEntry::item("apply", "Apply Transform").disabled(true),
     ];
     specs((
         spec(
             "Context Menu",
             "right click",
-            kivact::ui::menu("Object", entries, move |key: &'static str| {
-                status.set(format!("Context · {key}"))
-            })
-            .attach_context(
-                node()
-                    .role(Role::Group)
-                    .name("Context menu target")
-                    .focusable(true)
-                    .style(
-                        style()
-                            .height(156)
-                            .padding(14)
-                            .radius(8)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center),
-                    )
-                    .style(
-                        style()
-                            .background(ui::Color::Canvas)
-                            .border(1, ui::Color::Hair),
-                    )
-                    .child(note("Right click here · G Move / R Rotate / S Scale")),
-            ),
+            kivact::ui::menu("Object", entries)
+                .on_activate(move |key: &'static str| status.set(format!("Context · {key}")))
+                .attach_context(
+                    node()
+                        .role(Role::Group)
+                        .name("Context menu target")
+                        .focusable(true)
+                        .style(
+                            style()
+                                .height(156)
+                                .padding(14)
+                                .radius(8)
+                                .align_items(Align::Center)
+                                .justify_content(Justify::Center),
+                        )
+                        .style(
+                            style()
+                                .background(ui::Color::Canvas)
+                                .border(1, ui::Color::Hair),
+                        )
+                        .child(note("Right click here · G Move / R Rotate / S Scale")),
+                ),
         ),
         spec(
             "Pie Menu",
             "eight directions",
             kivact::ui::button("Hover here and hold Z — release to choose")
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .node_ref(pie_zone)
+                .with_node(|node| node.node_ref(pie_zone))
                 .test_id("creative-pie-zone")
                 .on_pointer(move |event| {
                     pointer.set(event.window_pos());
@@ -95,14 +94,13 @@ pub(super) fn menus(
                             ),
                             MenuEntry::item("camera", "Camera"),
                         ],
-                        move |key: &'static str| status.set(format!("Add · {key}")),
                     )
+                    .on_activate(move |key: &'static str| status.set(format!("Add · {key}")))
                     .offset(0.0)
                     .attach(
                         kivact::ui::button("Add")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing_icon(kivact::control::icon("chevron-down"))
-                            .into_node(),
+                            .trailing(kivact::view::icon("chevron-down")),
                     ),
                     kivact::ui::menu(
                         "Select",
@@ -111,18 +109,17 @@ pub(super) fn menus(
                             MenuEntry::item("none", "None"),
                             MenuEntry::item("invert", "Invert"),
                         ],
-                        move |key: &'static str| status.set(format!("Select · {key}")),
                     )
+                    .on_activate(move |key: &'static str| status.set(format!("Select · {key}")))
                     .offset(0.0)
                     .attach(
                         kivact::ui::button("Select")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing_icon(kivact::control::icon("chevron-down"))
-                            .into_node(),
+                            .trailing(kivact::view::icon("chevron-down")),
                     ),
                     kivact::ui::button("Operator Search")
                         .variant(kivact::ui::ButtonVariant::Secondary)
-                        .icon(kivact::control::icon("search"))
+                        .icon(kivact::view::icon("search"))
                         .test_id("creative-section-operator-search")
                         .on_press(move || search.set(true)),
                 )),
@@ -132,7 +129,7 @@ pub(super) fn menus(
 }
 
 fn glass(t: &Theme) -> Style {
-    let p = t.get::<ui::Tokens>();
+    let p = t.ext::<ui::Tokens>();
     style()
         .background(rgba(0x1e1f26, 0.94))
         .backdrop_blur(22)
@@ -173,9 +170,9 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
             "Tooltip",
             "hover · anchor",
             col((line((
-                kivact::ui::tooltip("Camera View").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Camera View").style(style().weight(600)),text("Align viewport to the active camera").style(style().font_size(11)),text("Numpad 0").style(move || { let theme=kivact::style::current_theme(); style().font_family(theme.get::<ui::Tokens>().mono_font.as_str()).font_size(10).color(theme.get::<ui::Tokens>().dim) }),))).attach(kivact::ui::button("Hover me").variant(kivact::ui::ButtonVariant::Secondary)),
-                kivact::ui::tooltip("Scale").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Scale").style(style().weight(600)),text("Scale the selection").style(style().font_size(11)),text("S").style(move || { let theme=kivact::style::current_theme(); style().font_family(theme.get::<ui::Tokens>().mono_font.as_str()).font_size(10).color(theme.get::<ui::Tokens>().dim) }),))).attach(kivact::ui::button("S").variant(kivact::ui::ButtonVariant::Secondary)),
-                kivact::ui::tooltip("Tool information").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Tool information").style(style().weight(600)),text("Public Kivact view and modifier API").style(style().font_size(11)),))).attach(kivact::ui::button("API tooltip").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("info"))),
+                kivact::ui::tooltip("Camera View").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Camera View").style(style().weight(600)),text("Align viewport to the active camera").style(style().font_size(11)),text("Numpad 0").style(move || { let theme=kivact::style::use_theme().get(); style().font_family(theme.ext::<ui::Tokens>().mono_font.as_str()).font_size(10).color(theme.ext::<ui::Tokens>().dim) }),))).attach(kivact::ui::button("Hover me").variant(kivact::ui::ButtonVariant::Secondary)),
+                kivact::ui::tooltip("Scale").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Scale").style(style().weight(600)),text("Scale the selection").style(style().font_size(11)),text("S").style(move || { let theme=kivact::style::use_theme().get(); style().font_family(theme.ext::<ui::Tokens>().mono_font.as_str()).font_size(10).color(theme.ext::<ui::Tokens>().dim) }),))).attach(kivact::ui::button("S").variant(kivact::ui::ButtonVariant::Secondary)),
+                kivact::ui::tooltip("Tool information").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Tool information").style(style().weight(600)),text("Public Kivact view and modifier API").style(style().font_size(11)),))).attach(kivact::ui::button("API tooltip").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("info"))),
             )),note("0.5 秒ホバーで表示。タイトル・説明・ショートカット・API パスの4要素。"))),
         ),
         spec(
@@ -183,13 +180,13 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
             "インラインバナー",
             col((
                 ui::notice(
-                    kivact::ui::Tone::Warning,
+                    kivact::interaction::Tone::Warning,
                     "Media Offline",
                     "3 clips could not be found at D:/Footage/Day02/",
                 )
                 .dismissible(true),
-                ui::notice(kivact::ui::Tone::Danger, "Shader compile error", "Metal.002 · line 42 · undeclared identifier rm").dismissible(true),
-                ui::notice(kivact::ui::Tone::Info,"Proxy media", "Proxy media is being used for playback. Final render uses full-resolution sources.").dismissible(true),
+                ui::notice(kivact::interaction::Tone::Danger, "Shader compile error", "Metal.002 · line 42 · undeclared identifier rm").dismissible(true),
+                ui::notice(kivact::interaction::Tone::Info,"Proxy media", "Proxy media is being used for playback. Final render uses full-resolution sources.").dismissible(true),
             )),
         ).style(style().grid_column(GridPlacement::span(2)).min_height(250)),
     ))
@@ -207,7 +204,7 @@ fn window_options(title: &str, width: f64) -> ui::WindowOptions {
         .titlebar_padding(14.0, 8.0)
 }
 
-fn window_footer(content: impl IntoView) -> Node {
+fn window_footer(content: impl IntoView) -> impl kivact::view::Component {
     row(content)
         .style(
             style()
@@ -219,7 +216,7 @@ fn window_footer(content: impl IntoView) -> Node {
         .style(style().border_top(1, ui::Color::Hair))
 }
 
-fn render_settings(status: Signal<String>) -> Node {
+fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
     ui::window_button(
         "Render Settings…",
         window_options("Render Settings", 340.0)
@@ -243,7 +240,7 @@ fn render_settings(status: Signal<String>) -> Node {
                         .border(0, rgba(0, 0.0))
                         .border_bottom(1, ui::Color::Hair),
                 )
-                .keep_mounted(true)
+                .keep_mounted()
                 .content(|key| {
                     if key == "format" {
                         column((
@@ -274,7 +271,7 @@ fn render_settings(status: Signal<String>) -> Node {
                                 "Scale",
                                 ui::value_slider("Resolution scale", signal(100.0))
                                     .label_visible(false)
-                                    .range(1.0, 100.0)
+                                    .range(1.0..=100.0)
                                     .step(1.0)
                                     .precision(0)
                                     .unit(" %")
@@ -365,7 +362,7 @@ fn render_settings(status: Signal<String>) -> Node {
     .test_id("creative-export-dialog")
 }
 
-fn close_project(status: Signal<String>) -> Node {
+fn close_project(status: Signal<String>) -> impl kivact::view::Component {
     ui::window_button(
         "Close Project…",
         window_options("Close Project", 440.0).modal(true).backdrop_blur(6.0),
@@ -379,8 +376,8 @@ fn close_project(status: Signal<String>) -> Node {
             column((
                 row((
                     node().style(style().size(40, 40).padding(8).radius(12).shrink(0))
-                        .style(move || { let t = &current_theme(); style().background(t.get::<ui::Tokens>().warning.with_alpha(0.12)) })
-                        .child(kivact::control::icon("warning").style(style().size(24, 24))
+                        .style(move || { let t = &use_theme().get(); style().background(t.ext::<ui::Tokens>().warning.with_alpha(0.12)) })
+                        .child(kivact::view::icon("warning").style(style().size(24, 24))
                             .style( style().color(ui::Color::Warning))),
                     column((
                         text("Save changes to “Shot_010_Comp_v012” before closing?")
@@ -400,7 +397,7 @@ fn close_project(status: Signal<String>) -> Node {
                         status.set("Close cancelled".into());
                         close.close();
                     }),
-                    kivact::ui::button("Save").variant(kivact::ui::ButtonVariant::Primary).node_ref(default_action).on_press(move || save.call(())),
+                    kivact::ui::button("Save").variant(kivact::ui::ButtonVariant::Primary).with_node(|node| node.node_ref(default_action)).on_press(move || save.call(())),
                 )),
             ))
             .style(style().gap(0))
@@ -440,12 +437,17 @@ pub(super) fn operator_search(
         let rows = for_each(
             matches,
             |i| *i,
-            move |i, _| {
+            move |item| {
+                let i = item.get();
                 let anchor = choices[i];
                 kivact::ui::button(SECTIONS[i].0)
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .style(style().justify_content(Justify::Start).height(30))
-                    .selected(move || matches.with(|m| m.get(hot.get()).copied()) == Some(i))
+                    .with_node(|node| {
+                        node.selected(move || {
+                            matches.with(|m| m.get(hot.get()).copied()) == Some(i)
+                        })
+                    })
                     .on_press(move || {
                         anchor.scroll_into_view();
                         open.set(false);
@@ -458,22 +460,22 @@ pub(super) fn operator_search(
             Placement::Center,
             col((
                 line((
-                    kivact::control::icon("search"),
+                    kivact::view::icon("search"),
                     kivact::ui::text_input("Search operators", query)
                         .placeholder("Search operators...")
-                        .node_ref(field)
+                        .with_node(|node| node.node_ref(field))
                         .style(style().grow(1)),
                     text("ESC").style(style().font_family("Geist Mono").font_size(10)),
                 )),
                 scroll(column(rows)).style(style().max_height(330)),
                 note("↑ ↓ navigate  ·  ↵ execute  ·  Esc close"),
             ))
-            .style(move || glass(&current_theme()))
+            .style(move || glass(&use_theme().get()))
             .style(style().width(520).padding(14).radius(12).gap(10)),
         )
-        .role(Role::Dialog)
+        .with_node(|node| node.role(Role::Dialog))
         .name("Operator Search")
-        .modal(true)
+        .modal()
         .on_dismiss(move |_| open.set(false))
         .on_key(move |e| {
             match e.key() {

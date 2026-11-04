@@ -4,17 +4,17 @@ use super::common::{
     cards, line, list, meta, segmented, specimen, strings, suppress_search_shortcut, wide,
 };
 use super::state::Demo;
-use kivact::binding;
+use kivact::interaction::{ListItem, MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
     ColorToken, IntoView, Node, NodeBuilder, NodeRef, Value, column, dynamic, for_index, node, row,
     signal, spacer, text,
 };
-use kivact::style::current_theme;
+use kivact::state::IntoValue;
+use kivact::state::binding;
+use kivact::style::use_theme;
 use kivact::style::{Align, auto, style};
 use kivact::task::spawn;
-use kivact::ui::{ListItem, MenuEntry, Toast, Tone, toaster};
-use kivact::view::IntoValue;
 use kivact_ui_game as g;
 use std::time::Duration;
 
@@ -56,12 +56,12 @@ pub(super) fn buttons(scene: Demo) -> Node {
                         .variant(kivact::ui::ButtonVariant::Ghost),
                     kivact::ui::button("削除")
                         .variant(kivact_ui_game::Slant)
-                        .icon(kivact::control::icon("trash"))
+                        .icon(kivact::view::icon("trash"))
                         .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || scene.delete.set(true)),
                     kivact::ui::button("コンソール")
                         .variant(kivact_ui_game::Slant)
-                        .icon(kivact::control::icon("terminal-2"))
+                        .icon(kivact::view::icon("terminal-2"))
                         .variant(kivact_ui_game::ButtonTone::Dark)
                         .on_press(move || scene.palette.set(true)),
                 )),
@@ -76,7 +76,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                     kivact::ui::button("Medium").variant(kivact_ui_game::Slant),
                     kivact::ui::button("新規作成")
                         .variant(kivact_ui_game::Slant)
-                        .icon(kivact::control::icon("plus"))
+                        .icon(kivact::view::icon("plus"))
                         .size(kivact::ui::ControlSize::Large)
                         .on_press(move || scene.create.set(true)),
                     kivact::ui::tooltip("ダウンロード")
@@ -86,7 +86,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                         .attach(
                             kivact::ui::button("ダウンロード")
                                 .variant(kivact_ui_game::Slant)
-                                .icon(kivact::control::icon("download"))
+                                .icon(kivact::view::icon("download"))
                                 .hide_label(true)
                                 .variant(kivact::ui::ButtonVariant::Secondary)
                                 .style(style().width(34).padding_x(0)),
@@ -98,7 +98,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                         .attach(
                             kivact::ui::button("追加")
                                 .variant(kivact_ui_game::Slant)
-                                .icon(kivact::control::icon("plus"))
+                                .icon(kivact::view::icon("plus"))
                                 .hide_label(true)
                                 .style(style().width(34).padding_x(0)),
                         ),
@@ -111,8 +111,8 @@ pub(super) fn buttons(scene: Demo) -> Node {
                     kivact::ui::button("同期")
                         .variant(kivact_ui_game::Slant)
                         .test_id("game-busy")
-                        .icon(kivact::control::icon("refresh"))
-                        .loading(busy)
+                        .icon(kivact::view::icon("refresh"))
+                        .busy(busy)
                         .on_press(move || {
                             busy.set(true);
                             spawn(async move {
@@ -123,7 +123,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                     kivact::ui::button("検証を実行")
                         .variant(kivact_ui_game::Slant)
                         .variant(kivact::ui::ButtonVariant::Secondary)
-                        .loading(verify)
+                        .busy(verify)
                         .on_press(move || {
                             verify.set(true);
                             spawn(async move {
@@ -158,7 +158,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                     line((
                         kivact::ui::button("保存して公開")
                             .variant(kivact_ui_game::Slant)
-                            .icon(kivact::control::icon("device-floppy")),
+                            .icon(kivact::view::icon("device-floppy")),
                         kivact::ui::menu(
                             "▾",
                             vec![
@@ -166,14 +166,13 @@ pub(super) fn buttons(scene: Demo) -> Node {
                                 MenuEntry::item("limited", "限定公開で保存"),
                                 MenuEntry::item("draft", "下書きとして保存"),
                             ],
-                            move |_: &'static str| scene.create.set(true),
                         )
+                        .on_activate(move |_: &'static str| scene.create.set(true))
                         .offset(0.)
                         .attach(
                             kivact::ui::button("▾")
                                 .variant(kivact_ui_game::Slant)
-                                .variant(kivact::ui::ButtonVariant::Secondary)
-                                .into_node(),
+                                .variant(kivact::ui::ButtonVariant::Secondary),
                         ),
                     )),
                 )),
@@ -189,33 +188,33 @@ pub(super) fn buttons(scene: Demo) -> Node {
                             .offset(6.)
                             .attach(
                                 g::tool_button("戻す")
-                                    .icon(kivact::control::icon("history"))
+                                    .icon(kivact::view::icon("history"))
                                     .hide_label(true),
                             ),
                         g::tool_button("コピー")
-                            .icon(kivact::control::icon("copy"))
+                            .icon(kivact::view::icon("copy"))
                             .hide_label(true)
                             .on_press(|| {
                                 spawn(platform::copy_text("OPS-2041"));
                             }),
                         separator(),
                         g::tool_button("グリッド表示")
-                            .icon(kivact::control::icon("layout-grid"))
+                            .icon(kivact::view::icon("layout-grid"))
                             .hide_label(true)
-                            .selected(grid_on)
+                            .with_node(|node| node.selected(grid_on))
                             .on_press(move || grid_on.update(|v| *v = !*v)),
                         g::tool_button("フィルタ")
-                            .icon(kivact::control::icon("filter"))
+                            .icon(kivact::view::icon("filter"))
                             .hide_label(true)
                             .test_id("game-toolbar-filter")
-                            .selected(filter_on)
+                            .with_node(|node| node.selected(filter_on))
                             .on_press(move || filter_on.update(|v| *v = !*v)),
                         separator(),
                         g::tool_button("編集")
-                            .icon(kivact::control::icon("pencil"))
+                            .icon(kivact::view::icon("pencil"))
                             .hide_label(true),
                         g::tool_button("削除")
-                            .icon(kivact::control::icon("trash"))
+                            .icon(kivact::view::icon("trash"))
                             .hide_label(true)
                             .on_press(move || scene.delete.set(true)),
                     )),
@@ -237,7 +236,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                     );
                 }),
             )
-            .note(move || {
+            .note({
                 text("画面に1つだけ置く最重要アクション。通常フォームでは .btn--primary を使う。")
             }),
         ),
@@ -281,7 +280,7 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                         kivact::ui::text_input("管理コード", code)
                             .invalid(invalid)
                             .style(move || {
-                                let t = &current_theme();
+                                let t = &use_theme().get();
                                 style()
                                     .border_left(
                                         3,
@@ -309,7 +308,7 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                             signal("api.ops.example.internal".to_owned()),
                         )
                         .style(move || {
-                            let t = &current_theme();
+                            let t = &use_theme().get();
                             style()
                                 .border_left(3, t.colors().success)
                                 .border_color(t.colors().success)
@@ -325,9 +324,9 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                     kivact::ui::field(
                         "検索",
                         g::input_adorned(
-                            kivact::control::icon("search"),
-                            kivact::ui::text_input("検索", kivact::signal(String::new()))
-                                .node_ref(search)
+                            kivact::view::icon("search"),
+                            kivact::ui::text_input("検索", kivact::state::signal(String::new()))
+                                .with_node(|node| node.node_ref(search))
                                 .test_id("game-search-input")
                                 .placeholder("ID・件名・担当者"),
                             g::mono("/"),
@@ -337,15 +336,18 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                         "Webhook URL",
                         g::input_group(
                             "https://",
-                            kivact::ui::text_input("Webhook URL", kivact::signal(String::new()))
-                                .placeholder("hooks.example.com/ops"),
+                            kivact::ui::text_input(
+                                "Webhook URL",
+                                kivact::state::signal(String::new()),
+                            )
+                            .placeholder("hooks.example.com/ops"),
                             "POST",
                         ),
                     ),
                     kivact::ui::field(
                         "月次予算",
                         g::input_adorned(
-                            kivact::control::icon("database"),
+                            kivact::view::icon("database"),
                             kivact::ui::text_input("月次予算", signal("1,200,000".to_owned())),
                             g::mono("JPY"),
                         ),
@@ -376,7 +378,7 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                             kivact::ui::number_input(
                                 "同時実行数",
                                 signal(4.0_f64),
-                                kivact::ui::ScalarRange::new(1.0, 32.0)
+                                kivact::interaction::ScalarRange::new(1.0, 32.0)
                                     .and_then(|range| range.with_step(1.0))
                                     .expect("invariant: the bounds and the step are finite"),
                             ),
@@ -429,7 +431,7 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                             dynamic(
                                 move || item.get().1 >= 100.,
                                 |done| {
-                                    kivact::control::icon(if done {
+                                    kivact::view::icon(if done {
                                         "circle-check"
                                     } else {
                                         "file-text"
@@ -447,7 +449,7 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                                 text(move || item.get().0).style(style().weight(700).font_size(12)),
                                 kivact::ui::progress(move || Some(item.get().1 / 100.0))
                                     .name("ファイル処理")
-                                    .variant(kivact::ui::Tone::Info)
+                                    .variant(kivact::interaction::Tone::Info)
                                     .variant(g::Striped)
                                     .moving(true)
                                     .size(kivact::ui::ControlSize::Small),
@@ -473,18 +475,15 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                 "タグ入力",
                 kivact::ui::field(
                     "ラベル",
-                    kivact::ui::tag_input(
-                        "タグを追加",
-                        tags,
-                        move |tag| tags.update(|items| items.push(tag)),
-                        move |index| {
+                    kivact::ui::tag_input("タグを追加", tags)
+                        .on_add(move |tag| tags.update(|items| items.push(tag)))
+                        .on_remove(move |index| {
                             tags.update(|items| {
                                 if index < items.len() {
                                     items.remove(index);
                                 }
                             })
-                        },
-                    ),
+                        }),
                 ),
             ),
         ),
@@ -514,10 +513,10 @@ pub(super) fn selection() -> Node {
                 list((
                     kivact::ui::checkbox("全権限", all).indeterminate(mixed),
                     column((
-                        kivact::ui::checkbox("閲覧", permissions.field(|v| &v.0, |v| &mut v.0)),
-                        kivact::ui::checkbox("編集", permissions.field(|v| &v.1, |v| &mut v.1)),
-                        kivact::ui::checkbox("承認", permissions.field(|v| &v.2, |v| &mut v.2)),
-                        kivact::ui::checkbox("監査ログ削除（無効）", kivact::signal(false)).disabled(true),
+                        kivact::ui::checkbox("閲覧", permissions.project(|v| &v.0, |v| &mut v.0)),
+                        kivact::ui::checkbox("編集", permissions.project(|v| &v.1, |v| &mut v.1)),
+                        kivact::ui::checkbox("承認", permissions.project(|v| &v.2, |v| &mut v.2)),
+                        kivact::ui::checkbox("監査ログ削除（無効）", kivact::state::signal(false)).disabled(true),
                     ))
                     .style(style().padding_left(24).gap(10)),
                 )),
@@ -535,7 +534,7 @@ pub(super) fn selection() -> Node {
                         "外部トリガー",
                         vec![
                             ListItem::new("external".to_owned(), "外部トリガー")
-                                .description("Enterprise プランのみ")
+                                .with_description("Enterprise プランのみ")
                                 .disabled(true),
                         ],
                         signal(None),
@@ -613,9 +612,9 @@ pub(super) fn selection() -> Node {
                 kivact::ui::radio_group(
                     "プラン",
                     vec![
-                        ListItem::new("standard".to_owned(), "STANDARD").description("10 seats"),
-                        ListItem::new("tactical".to_owned(), "TACTICAL").description("50 seats · SSO"),
-                        ListItem::new("command".to_owned(), "COMMAND").description("無制限 · 監査"),
+                        ListItem::new("standard".to_owned(), "STANDARD").with_description("10 seats"),
+                        ListItem::new("tactical".to_owned(), "TACTICAL").with_description("50 seats · SSO"),
+                        ListItem::new("command".to_owned(), "COMMAND").with_description("無制限 · 監査"),
                     ],
                     signal(Some("tactical".to_owned())),
                 )
@@ -693,9 +692,9 @@ pub(super) fn navigation() -> Node {
                 kivact::ui::tabs(
                     "記録の表示",
                     vec![
-                        ListItem::new("metrics".to_owned(), "メトリクス").icon("activity"),
-                        ListItem::new("logs".to_owned(), "ログ").icon("terminal-2"),
-                        ListItem::new("settings".to_owned(), "設定").icon("settings"),
+                        ListItem::new("metrics".to_owned(), "メトリクス").with_icon("activity"),
+                        ListItem::new("logs".to_owned(), "ログ").with_icon("terminal-2"),
+                        ListItem::new("settings".to_owned(), "設定").with_icon("settings"),
                     ],
                     boxed_tabs,
                 )
@@ -785,10 +784,12 @@ pub(super) fn navigation() -> Node {
                 kivact::ui::tabs(
                     "メインメニュー",
                     vec![
-                        ListItem::new("dashboard".to_owned(), "ダッシュボード").icon("layout-grid"),
-                        ListItem::new("operations".to_owned(), "作戦").icon("target"),
-                        ListItem::new("materials".to_owned(), "資材").icon("box"),
-                        ListItem::new("security".to_owned(), "セキュリティ").icon("shield-check"),
+                        ListItem::new("dashboard".to_owned(), "ダッシュボード")
+                            .with_icon("layout-grid"),
+                        ListItem::new("operations".to_owned(), "作戦").with_icon("target"),
+                        ListItem::new("materials".to_owned(), "資材").with_icon("box"),
+                        ListItem::new("security".to_owned(), "セキュリティ")
+                            .with_icon("shield-check"),
                     ],
                     signal("dashboard".to_owned()),
                 )
@@ -796,8 +797,8 @@ pub(super) fn navigation() -> Node {
                 .variant(g::Navigation)
                 .item(|item, state| {
                     let count = match item.with_untracked(|item| item.key().clone()).as_str() {
-                        "operations" => Some(g::badge("3", kivact::ui::Tone::Info)),
-                        "security" => Some(g::badge("!", kivact::ui::Tone::Danger)),
+                        "operations" => Some(g::badge("3", kivact::interaction::Tone::Info)),
+                        "security" => Some(g::badge("!", kivact::interaction::Tone::Danger)),
                         _ => None,
                     };
                     (g::navigation_label(item, state), count)

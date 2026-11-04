@@ -1,6 +1,5 @@
 //! Role: Application-owned editor chrome and commands for the catalog.
 use super::common::segmented;
-use kivact::i18n::message;
 use kivact::prelude::*;
 use kivact_ui_game as g;
 
@@ -89,30 +88,31 @@ pub(super) fn frame(
     ]
     .into_iter()
     .map(|(key, label, entries)| {
-        kivact::ui::menu(message(key, label), entries, command).attach(
-            kivact::ui::button(message(key, label))
-                .variant(kivact::ui::ButtonVariant::Ghost)
-                .style(style().color(rgb(0xe3ecf6)))
-                .into_node(),
-        )
+        kivact::ui::menu(message(key, label), entries)
+            .on_activate(command)
+            .attach(
+                kivact::ui::button(message(key, label))
+                    .variant(kivact::ui::ButtonVariant::Ghost)
+                    .style(style().color(rgb(0xe3ecf6))),
+            )
     })
     .collect::<Vec<_>>())
     .style(style().gap(4));
     let tools = g::toolbar((
         g::tool_button(message("game.window.new", "New"))
-            .icon(kivact::control::icon("plus"))
+            .icon(kivact::view::icon("plus"))
             .hide_label(true)
             .on_press(move || command("new")),
         g::tool_button(message("game.window.save", "Save"))
-            .icon(kivact::control::icon("device-floppy"))
+            .icon(kivact::view::icon("device-floppy"))
             .hide_label(true)
             .on_press(move || command("save")),
         g::tool_button(message("game.window.run", "Run"))
-            .icon(kivact::control::icon("player-play"))
+            .icon(kivact::view::icon("player-play"))
             .hide_label(true)
             .on_press(move || command("run")),
         g::tool_button(message("game.window.pause", "Pause"))
-            .icon(kivact::control::icon("player-pause"))
+            .icon(kivact::view::icon("player-pause"))
             .hide_label(true)
             .on_press(move || command("pause")),
         spacer(),
@@ -174,12 +174,12 @@ pub(super) fn frame(
             .style(style().align_items(Align::Stretch)),
         )
         .explorer_range(
-            kivact::ui::ScalarRange::new(140., 420.)
+            kivact::interaction::ScalarRange::new(140., 420.)
                 .expect("invariant: the catalog explorer range is finite"),
         )
-        .menu_bar(move || menu)
-        .toolbar(move || tools)
-        .status_bar(move || {
+        .menu_bar(menu)
+        .toolbar(tools)
+        .status_bar({
             row((
                 g::mono(status).test_id("game-window-status"),
                 g::mono(message("game.window.branch", "main")),

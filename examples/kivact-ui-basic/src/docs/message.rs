@@ -40,9 +40,9 @@ fn received() -> impl IntoView {
     basic::message(
         basic::bubble("Hi! Did you see the new design?").variant(basic::BubbleVariant::Secondary),
     )
-    .avatar(move || basic::avatar("AB"))
-    .header(move || text("Ada"))
-    .footer(move || text("10:42"))
+    .avatar(basic::avatar("AB"))
+    .header(text("Ada"))
+    .footer(text("10:42"))
     .style(style().width(420))
 }
 // end example
@@ -51,7 +51,7 @@ fn received() -> impl IntoView {
 fn sent() -> impl IntoView {
     basic::message(basic::bubble("Yes, it looks great.").align(basic::BubbleAlign::End))
         .align(basic::MessageAlign::End)
-        .header(move || text("You"))
+        .header(text("You"))
         .style(style().width(420))
 }
 // end example
@@ -60,7 +60,7 @@ fn sent() -> impl IntoView {
 fn conversation() -> impl IntoView {
     basic::message_group((
         basic::message(basic::bubble("Lunch at noon?").variant(basic::BubbleVariant::Muted))
-            .avatar(move || basic::avatar("AB")),
+            .avatar(basic::avatar("AB")),
         basic::message(basic::bubble("Sounds good.").align(basic::BubbleAlign::End))
             .align(basic::MessageAlign::End),
     ))

@@ -1,10 +1,11 @@
 //! Role: Demonstrate Soft layout, collection, table and chat components.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column, row, text};
+use kivact::interaction::FilterValue;
 use kivact::interaction::TreeNode;
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, DataTableDensity, FilterField, FilterValue, button, data_table};
+use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, data_table};
+use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
     ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
@@ -111,8 +112,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "layout" => specimen(
             "Header and content",
             layout()
-                .header(|| layout_header(text("Project notes")).divider(true))
-                .content(|| layout_content(text("Workspace content")))
+                .header(layout_header(text("Project notes")).divider(true))
+                .content(layout_content(text("Workspace content")))
                 .style(style().width(320).height(144)),
             "layout().header(header).content(content)",
         ),
@@ -131,7 +132,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "divider" => specimen(
             "Separate related content",
-            kivact::control::column((text("Details"), divider(), text("History"))),
+            kivact::view::column((text("Details"), divider(), text("History"))),
             "divider()",
         ),
         "stack" | "stack-item" => specimen(
@@ -211,7 +212,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "chat" => specimen(
             "Messages and composer",
-            chat_layout(kivact::control::column((
+            chat_layout(kivact::view::column((
                 chat_system_message("Conversation started"),
                 chat_message(
                     ChatSender::User,
@@ -222,7 +223,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     chat_bubble(text("The notes are ready.")),
                 ),
             )))
-            .composer(|| chat_composer(signal(String::new())))
+            .composer(chat_composer(signal(String::new())))
             .style(style().width(440).height(300)),
             "chat_layout(messages).composer(|| chat_composer(draft))",
         ),
@@ -330,9 +331,9 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     )],
                 )
                 .tree(|row| row.1, signal(vec![1]))
-                .tree_expand_all(true)
+                .initially_expanded()
                 .style(style().width(350)),
-                "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .tree_expand_all(true)",
+                "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .initially_expanded()",
             );
             column((controls, pinned, folders)).style(style().gap(12))
         }
@@ -351,9 +352,9 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 "Drag or use the arrow keys. Enter toggles collapse.",
                 (
                     layout()
-                        .start(move || layout_panel(text("Navigation")).resizable(panel))
+                        .start(layout_panel(text("Navigation")).resizable(panel))
                         .start_resize_handle(resize_handle(state).divider(true))
-                        .content(|| layout_content(text("Content")))
+                        .content(layout_content(text("Content")))
                         .style(style().width(360).height(92)),
                     text(move || format!("Navigation width: {:.0} px", status.size())),
                 ),

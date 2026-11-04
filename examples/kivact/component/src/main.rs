@@ -7,9 +7,9 @@ use kivact::prelude::*;
 /// parent through `on_close`.
 fn card<V: IntoView>(
     title: impl IntoText,
-    on_close: impl Fn() + Copy + 'static,
-    children: impl Fn() -> V + 'static,
-) -> impl IntoView {
+    on_close: impl Into<Callback<()>>,
+    children: impl kivact::view::IntoViewFn<V>,
+) -> impl Component {
     let open = signal(true);
     column((
         row((

@@ -1,4 +1,5 @@
 //! Role: Catalog page of Spinner: default, in a button and with text.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "spinner",
         name: "Spinner",
         description: "処理の待ち状態を示す、回転する Lucide の loader-circle です。Role::Status で「Loading」と名付けられ、動きを減らす設定では止まります。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("spinner.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -44,13 +45,11 @@ fn default() -> impl IntoView {
 // example: in-button
 fn in_button() -> impl IntoView {
     row((
-        button("Loading").loading(true),
+        button("Loading").busy(true),
         button("Please wait")
             .variant(ButtonVariant::Outline)
-            .loading(true),
-        button("Deleting")
-            .variant(ButtonVariant::Danger)
-            .loading(true),
+            .busy(true),
+        button("Deleting").variant(ButtonVariant::Danger).busy(true),
     ))
     .style(style().gap(8))
 }

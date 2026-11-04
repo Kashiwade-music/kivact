@@ -95,7 +95,7 @@ fn selected() -> impl IntoView {
             basic::table_cell(name),
             basic::table_cell(format!("{} items", (index + 1) * 3)).align(basic::TableAlign::End),
         ))
-        .selected(move || chosen.get() == index)
+        .with_node(|node| node.selected(move || chosen.get() == index))
         .on_press(move || chosen.set(index))
     };
     basic::table((
