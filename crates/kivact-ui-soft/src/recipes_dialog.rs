@@ -143,7 +143,7 @@ fn drawer(base: Style, p: &Tokens, side: Side) -> Style {
             style().translate_y(pct(100)),
         ),
     };
-    // TODO(soft-core: C-07): Keep the standard dialog's exit lifecycle.
+    // The drawer slides out through the standard dialog exit lifecycle (C-07).
     motion(base, p, p.motion.medium)
         .enter(hidden.clone())
         .exit(hidden)

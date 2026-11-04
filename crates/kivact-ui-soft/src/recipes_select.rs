@@ -65,7 +65,7 @@ fn surface(theme: &Theme, _: &Look<PopupState>) -> Style {
             TransitionProp::Paint,
             Transition::tween(t.motion.fast_max as f64, t.motion.ease_entrance),
         );
-    // TODO(soft-core: C-35): Keep the standard below-anchor placement and key behavior.
+    // The popup keeps the standard below-anchor placement and key behavior (C-35).
     t.shadows.low.iter().copied().fold(base, Style::shadow)
 }
 
