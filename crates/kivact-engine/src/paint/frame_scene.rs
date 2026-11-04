@@ -20,6 +20,13 @@ impl Model {
         engine: &mut arvane::Engine,
     ) -> kivact_types::render::RenderScene {
         self.paint_list();
+        self.paint_scene_list(engine)
+    }
+
+    pub(super) fn paint_scene_list(
+        &mut self,
+        engine: &mut arvane::Engine,
+    ) -> kivact_types::render::RenderScene {
         self.assets.borrow_mut().begin_frame();
         let mut out = crate::lower::SceneOut::default();
         // How much the transforms around a node enlarge it, outermost
