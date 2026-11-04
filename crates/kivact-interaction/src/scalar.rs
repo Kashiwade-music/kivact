@@ -45,6 +45,7 @@
 //!   one edit of the scalar's [`EditSession`]; Escape, an engine Cancel and
 //!   the focus leaving the thumb during a drag write the starting value back.
 
+mod data;
 mod edit_state;
 mod handle;
 mod ops;
@@ -52,8 +53,9 @@ mod range;
 mod touch;
 mod track;
 
+pub use data::ScalarState;
 pub(crate) use edit_state::{Edit, Shared};
-pub use handle::{ScalarApi, ScalarState, use_scalar};
+pub use handle::{ScalarApi, use_scalar};
 pub(crate) use ops::ScalarOps;
 
 pub(crate) use range::{follow_range, pulled_inside};

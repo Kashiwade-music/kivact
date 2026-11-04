@@ -1,5 +1,6 @@
-//! Role: The `ScalarApi` handle: binding writes, key steps, assistive actions and its parts.
+//! Role: Scalar binding writes, key steps, assistive actions and parts.
 
+use super::data::ScalarState;
 use super::edit_state::{Edit, Shared, register_focus};
 use super::ops::ScalarOps;
 use super::range::follow_range;
@@ -15,18 +16,6 @@ use kivact_core::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, Key, KeyEvent, Modifiers,
     Orientation, Role,
 };
-
-/// Reactive drawing state of an attached scalar thumb.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ScalarState {
-    pub input: PartState,
-    /// The caller's current value.
-    pub value: f64,
-    /// Where the value lies in the current range, from 0 at the minimum to 1
-    /// at the maximum. A value outside the range is clamped; an empty range or
-    /// a non-finite value is 0.
-    pub fraction: f64,
-}
 
 /// Copy handle for scalar operations writing an explicitly supplied binding,
 /// the behavior of react-aria's `useSlider` and `useNumberField`.

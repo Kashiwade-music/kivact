@@ -1,4 +1,4 @@
-//! Role: The `DataTableApi` handle: options, sort, widths, and its grid, row and cell parts.
+//! Role: Table options, sorting, widths and grid, row and cell parts.
 
 use super::data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
 use super::model::ColumnDef;
