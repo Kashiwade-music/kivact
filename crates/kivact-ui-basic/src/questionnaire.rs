@@ -4,11 +4,12 @@ use crate::theme_access::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{ListItemState, ListPolicy, ListSelection, use_list};
+use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
 use kivact::ui::{ButtonVariant, ListItem, button, text_input};
 use kivact::view::HandlerResult;
 use kivact::view::{IntoValue, IntoView, Role, View, callback, dynamic, for_each};
-use kivact::{Binding, Callback, Value, binding, effect, memo, signal};
+use kivact::{Binding, Callback, Value, binding, memo};
 
 /// One choice of a [`QuestionnaireStep`].
 #[derive(Clone, Debug, PartialEq)]
@@ -49,13 +50,44 @@ pub enum QuestionnaireAnswer {
 
 /// Where a questionnaire is in its life: asking, or submitted at `at` with
 /// `answers` (any later change of either asks again).
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 enum Phase {
     Asking,
     Submitted {
         at: usize,
         answers: Vec<QuestionnaireAnswer>,
     },
+}
+
+enum Event {
+    StepChanged,
+    AnswersChanged,
+    Submit,
+}
+
+struct Submission {
+    at: usize,
+    answers: Vec<QuestionnaireAnswer>,
+}
+
+impl Machine for Submission {
+    type State = Phase;
+    type Event = Event;
+    type Effect = Vec<QuestionnaireAnswer>;
+
+    fn transition(&self, state: &Phase, event: Event) -> Step<Phase, Event, Self::Effect> {
+        let submitted = matches!(state, Phase::Submitted { at, answers }
+            if *at == self.at && *answers == self.answers);
+        match event {
+            Event::Submit if !submitted => Step::to(Phase::Submitted {
+                at: self.at,
+                answers: self.answers.clone(),
+            })
+            .with(self.answers.clone()),
+            Event::StepChanged | Event::AnswersChanged if !submitted => Step::to(Phase::Asking),
+            _ => Step::stay(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -447,30 +479,25 @@ impl IntoView for Questionnaire {
         let last = memo(move || index.get() + 1 >= total.get());
         // Submitting reports the answer sheet once; a changed step or answer
         // asks again.
-        let phase = signal(Phase::Asking);
-        let submitted = memo(move || phase.with(|p| matches!(p, Phase::Submitted { .. })));
-        effect(move || {
-            let (at, all) = (index.get(), answers.get());
-            let stale = phase.with_untracked(
-                |p| matches!(p, Phase::Submitted { at: a, answers: l } if *a != at || *l != all),
-            );
-            if stale {
-                phase.set(Phase::Asking);
-            }
+        let phase = machine(
+            Phase::Asking,
+            move || Submission {
+                at: index.get(),
+                answers: answers.get(),
+            },
+            move |_, all| {
+                if let Some(submit) = submit {
+                    submit.call(all);
+                }
+            },
+        );
+        phase.feed(index, |_| Event::StepChanged);
+        phase.feed(answers, |_| Event::AnswersChanged);
+        let submitted = memo(move || {
+            matches!(phase.get(), Phase::Submitted { at, answers: all }
+                if at == index.get() && all == answers.get())
         });
-        let finish = move || {
-            if submitted.get_untracked() {
-                return;
-            }
-            let all = answers.get_untracked();
-            if let Some(submit) = submit {
-                submit.call(all.clone());
-            }
-            phase.set(Phase::Submitted {
-                at: index.get_untracked(),
-                answers: all,
-            });
-        };
+        let finish = move || phase.send(Event::Submit);
         let previous = kivact::view::show(memo(move || !first.get()), move || {
             button(message("basic.questionnaire.previous", "Previous"))
                 .variant(ButtonVariant::Outline)
