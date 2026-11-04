@@ -159,12 +159,13 @@ pub(crate) fn attach(
             // A press on a region drags from there.
             let mut result = {
                 let input_part = part(|input| input);
+                let drag_source = gesture.source(());
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(info.get_untracked().role)
                         .name(move || info.get().name)
                         .value_text(move || info.get().value)
-                        .part(gesture.source(()))
+                        .part(drag_source)
                 })
             };
             if matches!(target, Target::Lane(_)) {

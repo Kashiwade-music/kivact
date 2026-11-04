@@ -249,13 +249,14 @@ impl IntoView for NodeEditor {
                     // A press on a region drags from there.
                     let mut control = {
                         let input_part = part(|input| input);
+                        let drag_source = gesture.source(());
                         kivact::custom::Part::new(input_part.state(), move |node| {
                             node.part(input_part)
                                 .focusable(true)
                                 .role(initial.role)
                                 .name(move || info.get().name)
                                 .value_text(move || info.get().value)
-                                .part(gesture.source(()))
+                                .part(drag_source)
                         })
                     };
                     if initial.range.is_some() {

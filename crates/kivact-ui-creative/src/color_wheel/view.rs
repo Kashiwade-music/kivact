@@ -301,9 +301,10 @@ impl IntoView for ColorWheel {
                         state.once(ColorOwner::Wheel, || state.set(channel, x, y));
                     }
                 };
+                let drag_source = gesture.source(channel);
                 kivact::custom::Part::new(part.state(), move |node| {
                     node.part(part)
-                        .part(gesture.source(channel))
+                        .part(drag_source)
                         .on_key(move |event| {
                             active.set(channel);
                             key(state, channel, event)
