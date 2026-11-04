@@ -74,6 +74,6 @@ fn spinbutton_invalid_typed_values_are_exposed_until_corrected_or_blurred() {
     assert_eq!(value.get_untracked(), 4.0);
     field.press_key(Key::Tab);
     assert!(!field.is_invalid());
-    assert_eq!(field.text(), "4");
+    assert_eq!(field.value().as_deref(), Some("4"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
