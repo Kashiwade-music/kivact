@@ -140,10 +140,10 @@ enum Place {
 /// [`overlay_at`].
 pub struct Overlay {
     place: Place,
-    placement: Placement,
-    align: OverlayAlign,
-    offset: f64,
-    viewport_margin: Option<f64>,
+    placement: InputProp<Placement>,
+    align: InputProp<OverlayAlign>,
+    offset: InputProp<f64>,
+    viewport_margin: Option<InputProp<f64>>,
     keep_anchor_clear: bool,
     modal: bool,
     child: View,
@@ -190,15 +190,19 @@ pub struct Overlay {
 /// window (a toast stack, an off-canvas sidebar and its scrim) is
 /// `style().position(Position::Fixed)` with insets instead.
 #[track_caller]
-pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> Overlay {
+pub fn overlay(
+    anchor: NodeRef,
+    placement: impl IntoValue<Placement>,
+    child: impl IntoView,
+) -> Overlay {
     Overlay {
         place: Place::Anchor {
             node: anchor,
             at_least_width: false,
         },
-        placement,
-        align: OverlayAlign::Start,
-        offset: 0.0,
+        placement: placement.into_prop(),
+        align: InputProp::constant(OverlayAlign::Start),
+        offset: InputProp::constant(0.0),
         viewport_margin: None,
         keep_anchor_clear: false,
         modal: false,
@@ -240,7 +244,7 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 #[track_caller]
 pub fn overlay_at(
     point: impl IntoValue<Point>,
-    placement: Placement,
+    placement: impl IntoValue<Placement>,
     child: impl IntoView,
 ) -> Overlay {
     Overlay {
@@ -248,9 +252,9 @@ pub fn overlay_at(
             point: point.into_prop(),
             width_misuse: None,
         },
-        placement,
-        align: OverlayAlign::Start,
-        offset: 0.0,
+        placement: placement.into_prop(),
+        align: InputProp::constant(OverlayAlign::Start),
+        offset: InputProp::constant(0.0),
         viewport_margin: None,
         keep_anchor_clear: false,
         modal: false,
@@ -267,23 +271,23 @@ impl Overlay {
     /// (CSS `right: 0`); a submenu `overlay(item, Placement::End, ..)` sits
     /// top-aligned with its item by default. A start or end that would
     /// overflow the window flips to the other one when that fits.
-    pub fn align(mut self, align: OverlayAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<OverlayAlign>) -> Self {
+        self.align = align.into_prop();
         self
     }
 
     /// The gap between the anchor and the overlay in logical px (CSS
     /// `top: calc(100% + 6px)` is `.offset(6)` below the anchor); it
     /// follows the overlay when it flips to the other side.
-    pub fn offset(mut self, px: impl Into<f64>) -> Self {
-        self.offset = px.into();
+    pub fn offset(mut self, px: impl IntoValue<f64>) -> Self {
+        self.offset = px.into_prop();
         self
     }
 
     /// Inset the available window area by this many logical pixels.
     /// Overrides the theme's [`OverlayViewport`].
-    pub fn viewport_margin(mut self, px: impl Into<f64>) -> Self {
-        self.viewport_margin = Some(px.into());
+    pub fn viewport_margin(mut self, px: impl IntoValue<f64>) -> Self {
+        self.viewport_margin = Some(px.into_prop());
         self
     }
 
@@ -434,10 +438,12 @@ impl IntoView for Overlay {
                 if let Some(rt) = weak.upgrade() {
                     let props = OverlayProps {
                         at: at_place,
-                        placement,
-                        align,
-                        offset,
+                        placement: placement.get(),
+                        align: align.get(),
+                        offset: offset.get(),
                         fit: viewport_margin
+                            .as_ref()
+                            .map(InputProp::get)
                             .or_else(|| {
                                 kivact_style::use_theme()
                                     .get()

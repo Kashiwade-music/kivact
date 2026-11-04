@@ -551,6 +551,8 @@ pub(crate) struct CallbackFn<E> {
 
 /// A Copy callback (child → parent), made by [`callback`](crate::reactive::callback).
 /// `call` routes failures to the error sink; `try_call` returns them.
+/// Equality identifies the same callback registration (App and registration key),
+/// so a copied callback stays equal even after its owner is disposed.
 ///
 /// A `Callback` passes the same closure to several places: a closure is
 /// moved into the first control that takes it, but a `Callback` is `Copy`,
@@ -651,5 +653,13 @@ impl<T: 'static> PartialEq for Value<T> {
 copy_handle!(Var<T>);
 
 copy_handle!(Callback<E>);
+
+/// Equality identifies the same callback registration, independently of its payload type.
+impl<E: 'static> PartialEq for Callback<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.app == other.app && self.key == other.key
+    }
+}
+impl<E: 'static> Eq for Callback<E> {}
 
 copy_handle!(Binding<T>);
