@@ -11,7 +11,7 @@
 //!   handles ([`Signal`], [`Value`], [`Var`], [`Callback`], [`Binding`],
 //!   [`Selector`]), the setup functions, [`IntoValue`] and [`UiError`];
 //! - the layers above (view, task, motion, style): [`Owner`] and [`Owned`]
-//!   for owners and the objects stored under them, [`Trigger`], [`Prop`],
+//!   for owners and the objects stored under them, [`Notifier`], [`Prop`],
 //!   [`keyed`], [`pure`], [`require_setup`] and [`require_effectful`];
 //! - the host that runs an App's turns: [`Runtime`] and [`Host`].
 //!
@@ -63,13 +63,14 @@ pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;
 pub use handler::{Handled, Handler, HandlerResult};
+pub use handles::IntoBinding;
 pub use host_types::{ExitState, Host, Pending, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
-pub use props::{IntoReactive, IntoText, IntoValue, Prop, Reactive};
+pub use props::{IntoReactive, IntoText, IntoValue, ItemKey, Prop, PropValue, Reactive};
 pub use selector::{Selector, selector};
 pub use setup::{
-    binding, callback, constant, context, effect, effect_on, memo, on_cleanup, on_mount, signal,
-    try_context, var,
+    binding, callback, constant, context, effect, effect_on, memo, notifier, on_cleanup, on_mount,
+    signal, try_context, var,
 };
-pub use trigger::Trigger;
+pub use trigger::Notifier;

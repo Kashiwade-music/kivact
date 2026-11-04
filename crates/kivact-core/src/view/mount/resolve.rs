@@ -52,7 +52,19 @@ pub(super) fn resolve(
     common: Common,
     at: &'static Location<'static>,
 ) -> Resolved {
+    let common = {
+        let mut node = crate::view::node::Node::new(crate::view::node::Content::Box, None);
+        node.common = common;
+        while !node.common.deferred_parts.is_empty() {
+            let deferred = std::mem::take(&mut node.common.deferred_parts);
+            for apply in deferred {
+                node = apply(node).resolve_modifiers();
+            }
+        }
+        node.common
+    };
     let Common {
+        deferred_parts: _,
         exit_layout,
         exit_complete,
         test_id,

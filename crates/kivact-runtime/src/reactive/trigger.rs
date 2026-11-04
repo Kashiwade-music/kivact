@@ -1,7 +1,7 @@
 //! Role: Value-free dependencies that computations track and writers notify.
 //!
-//! A [`Trigger`] is a source node without a payload: a computation that
-//! calls [`Trigger::track`] re-runs after [`Trigger::notify`]. Layers use it
+//! A [`Notifier`] is a source node without a payload: a computation that
+//! calls [`Notifier::track`] re-runs after [`Notifier::notify`]. Layers use it
 //! for a revision of state the graph does not hold (a retained tree, a
 //! queue, a measurement), instead of a signal whose value nobody reads.
 //!
@@ -9,7 +9,7 @@
 //! - Notifying queues the subscribers like any write (with the same purity
 //!   and disposal rules and the same trace record); it never runs them
 //!   inline.
-//! - [`Trigger::notify_from_render`] is the one write a render effect may
+//! - [`Notifier::notify_from_render`] is the one write a render effect may
 //!   make, and only for metadata the effect itself changed in retained
 //!   state: it validates the handle untracked and queues the subscribers,
 //!   so the notifying effect never subscribes itself.
@@ -25,15 +25,15 @@ use crate::reactive::graph::source_cell;
 use crate::reactive::registry::{runtime, try_runtime};
 
 /// A dependency without a value, owned by the owner that created it
-/// ([`crate::reactive::Owner::trigger`]). Copy; it does not keep the App alive.
+/// ([`crate::reactive::Owner::notifier`]). Copy; it does not keep the App alive.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Trigger {
+pub struct Notifier {
     app: AppId,
     key: Key,
     marker: PhantomData<UiThreadOnly>,
 }
 
-impl Trigger {
+impl Notifier {
     pub(crate) fn from_key(app: AppId, key: Key) -> Self {
         Self {
             app,
@@ -70,7 +70,7 @@ impl Trigger {
     pub fn notify_from_render(self) {
         let at = Location::caller();
         let rt = runtime(self.app, at);
-        let cell = rt.read_or_panic(self.key, false, "Trigger", at);
+        let cell = rt.read_or_panic(self.key, false, "Notifier", at);
         if source_cell::<()>(&cell).is_none() {
             misuse_at(ErrorKind::WrongApp, "handle type mismatch", at);
         }
@@ -78,8 +78,8 @@ impl Trigger {
     }
 }
 
-impl std::fmt::Debug for Trigger {
+impl std::fmt::Debug for Notifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Trigger({}:{})", self.key.slot, self.key.generation)
+        write!(f, "Notifier({}:{})", self.key.slot, self.key.generation)
     }
 }

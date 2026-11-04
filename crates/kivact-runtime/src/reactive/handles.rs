@@ -2,7 +2,7 @@
 //! Every handle is `(AppId, key)` and is checked on use. `Selector` is in
 //! `selector`; the setup functions (`signal`, `memo`, ...) are in `setup`.
 
-use crate::reactive::{AppId, NodeId};
+use crate::reactive::AppId;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::panic::Location;
@@ -110,12 +110,6 @@ impl<T: 'static> Signal<T> {
         Some(v)
     }
 
-    /// The identity of this signal's graph node (diagnostics). It does not
-    /// check that the signal still exists.
-    pub fn id(&self) -> NodeId {
-        NodeId(self.key)
-    }
-
     fn write(&self, at: &'static Location<'static>, f: impl FnOnce(&mut T) -> bool) {
         let rt = runtime(self.app, at);
         rt.write_node(self.key, at, |cell| {
@@ -182,15 +176,15 @@ impl<T: 'static> Signal<T> {
     /// field changes; writing replaces the field in place and notifies the
     /// signal only when the new value differs.
     #[track_caller]
-    pub fn field<U: Clone + PartialEq + 'static>(
-        &self,
+    pub fn project<U: Clone + PartialEq + 'static>(
+        self,
         get_ref: impl Fn(&T) -> &U + 'static,
         get_mut: impl Fn(&mut T) -> &mut U + 'static,
     ) -> Binding<U> {
         let at = Location::caller();
         let rt = runtime(self.app, at);
-        let owner = rt.require_setup("Signal::field", at);
-        let this = *self;
+        let owner = rt.require_setup("Signal::project", at);
+        let this = self;
         let memo = rt.create_memo(
             owner,
             Box::new(move |_| this.with(|t| get_ref(t).clone())),
@@ -221,89 +215,6 @@ impl<T: 'static> Signal<T> {
                     key,
                     _m: PhantomData,
                 },
-            ),
-        }
-    }
-}
-
-impl<T: Clone + PartialEq + 'static> Signal<Vec<T>> {
-    /// A two-way binding to the item of this list whose `key` is `id`
-    /// (setup only), to bind one row of a keyed list to a control:
-    /// `todos.item(|t| t.id, id).field(|t| &t.done, |t| &mut t.done)`.
-    ///
-    /// Reading finds the item by key; once it is gone the binding keeps the
-    /// last value it saw. Writing replaces the item in place (readers of the
-    /// list are notified only if it changed); writing after the item is
-    /// gone does nothing (a debug build records a `WriteAfterDispose`
-    /// diagnostic). Panics at the caller if no item has `id` when the
-    /// binding is made.
-    #[track_caller]
-    pub fn item<K: PartialEq + Clone + 'static>(
-        &self,
-        key: impl Fn(&T) -> K + 'static,
-        id: K,
-    ) -> Binding<T> {
-        let at = Location::caller();
-        let rt = runtime(self.app, at);
-        let owner = rt.require_setup("Signal::item", at);
-        let this = *self;
-        let key = Rc::new(key);
-        let find = {
-            let (key, id) = (key.clone(), id.clone());
-            move |list: &Vec<T>| list.iter().find(|t| key(t) == id).cloned()
-        };
-        let Some(first) = this.with_untracked(&find) else {
-            misuse_at(
-                ErrorKind::Message,
-                "`Signal::item` requires an item with the given key",
-                at,
-            )
-        };
-        let last = RefCell::new(first);
-        let memo = rt.create_memo(
-            owner,
-            Box::new(move |_| match this.with(&find) {
-                Some(item) => {
-                    *last.borrow_mut() = item.clone();
-                    item
-                }
-                None => last.borrow().clone(),
-            }),
-            Some(<T as PartialEq>::eq),
-            at,
-        );
-        let cb: Rc<CallbackFn<T>> = Rc::new(CallbackFn {
-            owner,
-            f: Box::new(move |item: T| {
-                let mut found = false;
-                this.write(at, |list| {
-                    let Some(slot) = list.iter_mut().find(|t| key(t) == id) else {
-                        return false;
-                    };
-                    found = true;
-                    if *slot == item {
-                        return false;
-                    }
-                    *slot = item;
-                    true
-                });
-                #[cfg(debug_assertions)]
-                if !found && let Some(rt) = try_runtime(this.app) {
-                    rt.diag.borrow_mut().record_diagnostic(new_error(
-                        ErrorKind::WriteAfterDispose,
-                        "write to a list item that is gone ignored",
-                        Some(at),
-                    ));
-                }
-                let _ = found;
-                Ok(())
-            }),
-        });
-        let key = rt.insert_object(owner, cb, None, at);
-        Binding {
-            repr: BindingRepr::Pair(
-                Value::node(self.app, memo),
-                Callback::from_key(self.app, key),
             ),
         }
     }
@@ -562,7 +473,7 @@ impl<E: 'static> Callback<E> {
 
     /// Run a deferred notification only while its callback owner still exists.
     #[doc(hidden)]
-    pub fn call_if_alive(&self, e: E) {
+    pub(crate) fn call_if_alive(&self, e: E) {
         if let Ok((rt, cb)) = self.lookup(Location::caller())
             && let Err(err) = Self::invoke(&rt, &cb, e)
         {
@@ -588,7 +499,7 @@ impl<E: 'static> Callback<E> {
         let at = Location::caller();
         let rt = runtime(self.app, at);
         let owner = rt.require_setup("Callback::bind", at);
-        let this = *self;
+        let this = self;
         let cb: Rc<CallbackFn<()>> = Rc::new(CallbackFn {
             owner,
             f: Box::new(move |()| this.try_call(e.clone())),
@@ -650,22 +561,22 @@ impl<T: Clone + PartialEq + 'static> Binding<T> {
     }
 
     /// A two-way binding to one field of this binding's value (setup
-    /// only), like [`Signal::field`]: reading projects the field, writing
+    /// only), like [`Signal::project`]: reading projects the field, writing
     /// it writes the whole value back with the field replaced (nothing is
     /// written when the field is unchanged).
     #[track_caller]
-    pub fn field<U: Clone + PartialEq + 'static>(
-        &self,
+    pub fn project<U: Clone + PartialEq + 'static>(
+        self,
         get_ref: impl Fn(&T) -> &U + 'static,
         get_mut: impl Fn(&mut T) -> &mut U + 'static,
     ) -> Binding<U> {
         let (value, cb) = match self.repr {
-            BindingRepr::Signal(s) => return s.field(get_ref, get_mut),
+            BindingRepr::Signal(s) => return s.project(get_ref, get_mut),
             BindingRepr::Pair(value, cb) => (value, cb),
         };
         let at = Location::caller();
         let rt = runtime(value.app, at);
-        let owner = rt.require_setup("Binding::field", at);
+        let owner = rt.require_setup("Binding::project", at);
         let memo = rt.create_memo(
             owner,
             Box::new(move |_| value.with(|t| get_ref(t).clone())),
@@ -701,7 +612,7 @@ impl<T: Clone + PartialEq + 'static> Binding<T> {
     /// ignored (setup only).
     ///
     /// ```ignore
-    /// select("Method", items, form.field(|f| &f.method, |f| &mut f.method).optional())
+    /// select("Method", items, form.project(|f| &f.method, |f| &mut f.method).optional())
     /// ```
     #[track_caller]
     pub fn optional(self) -> Binding<Option<T>> {
@@ -722,7 +633,7 @@ impl<T: Clone + PartialEq + 'static> Signal<T> {
     /// `None` is ignored (setup only).
     #[track_caller]
     pub fn optional(self) -> Binding<Option<T>> {
-        Binding::from(self).optional()
+        self.into_binding().optional()
     }
 }
 
@@ -733,30 +644,50 @@ impl<T: 'static> From<Signal<T>> for Value<T> {
     }
 }
 
-impl<T: Clone + PartialEq + 'static> From<Signal<T>> for Binding<T> {
-    fn from(s: Signal<T>) -> Self {
+/// Bind the same value in both directions. For an f64 control, write `signal(40.0)`.
+#[diagnostic::on_unimplemented(
+    message = "this value cannot be bound as `{T}`",
+    note = "pass a Signal or Binding of the edited type; an f64 control needs `signal(40.0)`"
+)]
+pub trait IntoBinding<T: 'static>: super::sealed::IntoBindingSeal {
+    fn into_binding(self) -> Binding<T>;
+}
+impl<T: 'static> super::sealed::IntoBindingSeal for Signal<T> {}
+impl<T: 'static> super::sealed::IntoBindingSeal for Binding<T> {}
+impl<T: 'static> IntoBinding<T> for Signal<T> {
+    fn into_binding(self) -> Binding<T> {
         Binding {
-            repr: BindingRepr::Signal(s),
+            repr: BindingRepr::Signal(self),
         }
     }
 }
-
-/// Never implemented: a signal of `T` binds an `f64` only when `T` is
-/// `f64`, and this bound names the mistake instead of a missing `From`.
-#[diagnostic::on_unimplemented(
-    message = "a `Signal<{Self}>` cannot be bound where an `f64` is edited",
-    label = "this signal holds `{Self}` values",
-    note = "a number literal takes its type from its form: `signal(50)` holds an `i32`; write `signal(50.0)` for an `f64`"
-)]
-pub trait F64Signal: Sized + 'static {
-    /// What the impl below would do; no type has it.
-    fn bind(signal: Signal<Self>) -> Binding<f64>;
+impl<T: 'static> IntoBinding<T> for Binding<T> {
+    fn into_binding(self) -> Binding<T> {
+        self
+    }
 }
 
-/// A signal of another type where an `f64` is bound: never usable (see
-/// `F64Signal`); it only makes the error say why.
-impl<T: F64Signal> From<Signal<T>> for Binding<f64> {
-    fn from(signal: Signal<T>) -> Self {
-        T::bind(signal)
+impl<F, R> From<F> for Callback<()>
+where
+    F: Fn() -> R + 'static,
+    R: crate::HandlerResult,
+{
+    #[track_caller]
+    fn from(f: F) -> Self {
+        let at = Location::caller();
+        let (rt, owner) = super::scope::owner_scope("Callback::from", at);
+        let cb: Rc<CallbackFn<()>> = Rc::new(CallbackFn {
+            owner,
+            f: Box::new(move |()| f().into_outcome().map(|_| ())),
+        });
+        Self::from_key(rt.id(), rt.insert_object(owner, cb, None, at))
     }
+}
+
+/// Project a nested writable field: `bind!(model.address.street)`.
+#[macro_export]
+macro_rules! bind {
+    ($source:ident.$($field:ident).+) => {
+        $source.project(|value| &value.$($field).+, |value| &mut value.$($field).+)
+    };
 }

@@ -25,6 +25,8 @@ pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
+    pub(crate) deferred_parts:
+        Vec<Box<dyn FnOnce(crate::view::node::Node) -> crate::view::node::Node>>,
     pub(crate) exit_layout: super::exit_layout::ExitLayout,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// Test identifier.

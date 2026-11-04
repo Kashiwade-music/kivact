@@ -151,6 +151,7 @@ impl<T: 'static> Prop<T> {
 )]
 pub trait IntoValue<T: 'static> {
     /// This input as a [`Prop`], without creating a graph node.
+    #[doc(hidden)]
     fn into_prop(self) -> Prop<T>;
 
     /// This input as a [`Value`], to read it in a component (twice, or in
@@ -208,6 +209,7 @@ pub trait IntoValue<T: 'static> {
 )]
 pub trait IntoText: crate::reactive::sealed::IntoTextSeal {
     /// This input as a [`Prop`], without creating a graph node.
+    #[doc(hidden)]
     fn into_text(self) -> Prop<String>;
 
     /// This input as a [`Value`], to read it in a component without knowing
@@ -561,3 +563,36 @@ asset_into_value! {
     impl[] PathBuf;
     impl['a] &'a Path;
 }
+
+/// Derive `Clone`, `PartialEq`, `Eq` and `Hash` for collection keys.
+#[diagnostic::on_unimplemented(
+    message = "a collection key needs Clone + PartialEq + Eq + Hash",
+    note = "add `#[derive(Clone, PartialEq, Eq, Hash)]` to your key type"
+)]
+pub trait ItemKey: Clone + Eq + std::hash::Hash + 'static {}
+impl<T: Clone + Eq + std::hash::Hash + 'static> ItemKey for T {}
+
+/// Derive `Clone` and `PartialEq` for values used as reactive properties.
+#[diagnostic::on_unimplemented(
+    message = "a property value needs Clone + PartialEq",
+    note = "add `#[derive(Clone, PartialEq)]` to your value type"
+)]
+pub trait PropValue: Clone + PartialEq + 'static {}
+impl<T: Clone + PartialEq + 'static> PropValue for T {}
+
+impl IntoValue<f64> for i32 {
+    fn into_prop(self) -> Prop<f64> {
+        Prop::constant(f64::from(self))
+    }
+}
+impl IntoValue<f64> for u32 {
+    fn into_prop(self) -> Prop<f64> {
+        Prop::constant(f64::from(self))
+    }
+}
+impl IntoValue<f64> for f32 {
+    fn into_prop(self) -> Prop<f64> {
+        Prop::constant(f64::from(self))
+    }
+}
+constant_value!(std::time::Duration, std::path::PathBuf);

@@ -61,7 +61,7 @@ pub fn var<T: 'static>(value: T) -> Var<T> {
 
 /// A two-way input binding made of a value and the closure that writes it,
 /// for joining two separate pieces of state (a field of one value already
-/// has [`Signal::field`], a row of a keyed list [`Signal::item`]). The value
+/// has [`Signal::project`]; keyed lists supply row bindings). The value
 /// can be anything [`IntoValue`] takes; `set` is called with each new value
 /// and may return `()` or `Result<(), UiError>`. Setup only.
 ///
@@ -232,4 +232,12 @@ pub fn try_context<T: Clone + 'static>() -> Option<T> {
 pub(crate) fn lookup_context<T: Clone + 'static>(rt: &Runtime, owner: Key) -> Option<T> {
     rt.find_context(owner, TypeId::of::<T>())
         .and_then(|v| v.downcast_ref::<T>().cloned())
+}
+
+/// A value-free dependency owned by the current component setup.
+#[track_caller]
+pub fn notifier() -> crate::Notifier {
+    let at = Location::caller();
+    let (rt, owner) = setup_scope("notifier", at);
+    crate::Notifier::from_key(rt.id(), rt.create_source(owner, (), at))
 }

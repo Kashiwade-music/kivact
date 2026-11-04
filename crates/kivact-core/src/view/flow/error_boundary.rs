@@ -28,7 +28,7 @@ use kivact_runtime::UiError;
 
 use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};
 
-type FallbackFn = Rc<dyn Fn(UiError, Rc<dyn Fn()>) -> View>;
+type FallbackFn = Rc<dyn Fn(UiError, Retry) -> View>;
 
 /// A boundary catching the errors of its child. Built by
 /// [`error_boundary`]; see the module documentation for the semantics.
@@ -60,10 +60,7 @@ pub fn error_boundary<V: IntoView>(child: impl Fn() -> V + 'static) -> ErrorBoun
 impl ErrorBoundary {
     /// On the first error, replace the child with `f(err, reset)`;
     /// calling `reset()` mounts a fresh child again.
-    pub fn fallback<V: IntoView>(
-        mut self,
-        f: impl Fn(UiError, Rc<dyn Fn()>) -> V + 'static,
-    ) -> Self {
+    pub fn fallback<V: IntoView>(mut self, f: impl Fn(UiError, Retry) -> V + 'static) -> Self {
         self.fallback = Some(Rc::new(move |e, reset| f(e, reset).into_view()));
         self
     }
@@ -158,7 +155,7 @@ impl IntoView for ErrorBoundary {
                     Shown::Fallback(e) => {
                         let fallback = fallback.clone();
                         mount_branch(&rt, boundary.child(at), frag, move || {
-                            let reset: Rc<dyn Fn()> = Rc::new(move || shown.set(Shown::Child));
+                            let reset = Retry::new(move || shown.set(Shown::Child));
                             fallback(e, reset)
                         })
                     }
@@ -167,5 +164,20 @@ impl IntoView for ErrorBoundary {
             });
             frag
         })
+    }
+}
+
+/// A Copy handle that retries the operation associated with a fallback.
+#[derive(Clone, Copy)]
+pub struct Retry(kivact_runtime::Callback<()>);
+impl Retry {
+    /// Store a retry action under the current owner.
+    #[track_caller]
+    pub fn new(f: impl Fn() + 'static) -> Self {
+        Self(f.into())
+    }
+    /// Try the failed operation again.
+    pub fn run(&self) {
+        self.0.call(());
     }
 }

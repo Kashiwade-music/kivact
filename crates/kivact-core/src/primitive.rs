@@ -145,7 +145,6 @@ pub use kivact_types::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCare
 mod measured_leaf;
 mod measurement;
 mod node;
-mod node_ext;
 mod text_shaping;
 pub use crate::view::owner::{Owner, app_state};
 pub use crate::view::part::{Part, PartState, part};
@@ -157,7 +156,6 @@ pub use kivact_runtime::{Owned, clock_now, raise, require_effectful, require_set
 pub use measured_leaf::{Primitive, primitive};
 pub use measurement::{AvailableSpace, Constraints, Measurement};
 pub use node::{NodeRefExt, NodeToken, focused_node};
-pub use node_ext::NodeExt;
 pub use text_shaping::{shape_inline_paragraph, shape_paragraph};
 
 mod text_editing;

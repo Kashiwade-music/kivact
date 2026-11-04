@@ -242,3 +242,63 @@ tuple_into_view!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 pub fn view_is_empty(view: &View) -> bool {
     view.is_empty()
 }
+
+/// Store a reusable view factory, converting a closure with `ViewFn::from`.
+pub struct ViewFn<A = ()>(Rc<dyn Fn(A) -> View>);
+impl<A> Clone for ViewFn<A> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<A, F, V> From<F> for ViewFn<A>
+where
+    F: Fn(A) -> V + 'static,
+    V: IntoView,
+{
+    fn from(f: F) -> Self {
+        Self(Rc::new(move |arg| f(arg).into_view()))
+    }
+}
+impl<A> ViewFn<A> {
+    pub fn call(&self, arg: A) -> View {
+        (self.0)(arg)
+    }
+}
+
+mod sealed_view_fn {
+    //! Role: Limit reusable view factories to closures.
+    pub trait Sealed<V> {}
+    impl<F: Fn() -> V + 'static, V: super::IntoView> Sealed<V> for F {}
+}
+/// Content is created again each time it opens: pass `|| view`.
+#[diagnostic::on_unimplemented(
+    message = "this content must be created each time it opens",
+    note = "pass a closure `|| view` returning a view"
+)]
+pub trait IntoViewFn<V>: sealed_view_fn::Sealed<V> {
+    #[doc(hidden)]
+    fn into_view_fn(self) -> ViewFn<()>;
+}
+impl<F: Fn() -> V + 'static, V: IntoView> IntoViewFn<V> for F {
+    fn into_view_fn(self) -> ViewFn<()> {
+        ViewFn::from(move |()| self())
+    }
+}
+
+/// Return a builder implementing `IntoView` and `NodeBuilder` for a component with one root.
+#[diagnostic::on_unimplemented(
+    message = "a component needs IntoView and NodeBuilder",
+    note = "implement IntoView and NodeBuilder for the builder holding your root Node"
+)]
+pub trait Component: IntoView + super::node::NodeBuilder {}
+impl<T: IntoView + super::node::NodeBuilder> Component for T {}
+
+impl<F, R> IntoView for F
+where
+    F: Fn() -> R + 'static,
+    R: Into<String>,
+{
+    fn into_view(self) -> View {
+        crate::control::text(self).into_view()
+    }
+}

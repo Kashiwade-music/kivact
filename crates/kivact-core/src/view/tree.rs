@@ -72,6 +72,43 @@ pub(crate) struct Handlers {
 }
 
 impl Handlers {
+    pub(crate) fn merge_caller(&mut self, mut later: Self) {
+        self.key.merge_caller(later.key);
+        self.key_up.merge_caller(later.key_up);
+        self.pointer.merge_caller(later.pointer);
+        self.wheel.merge_caller(later.wheel);
+        self.ime.merge_caller(later.ime);
+        if !later.file.is_empty() {
+            self.file = later.file;
+        }
+        macro_rules! replace_fields { ($($field:ident),*) => { $(if later.$field.is_some() { self.$field = later.$field.take(); })* }; }
+        replace_fields!(activate, secondary_context, text, selection, image_error);
+        for (action, handler) in later.a11y {
+            if let Some(entry) = self.a11y.iter_mut().find(|(a, _)| *a == action) {
+                entry.1 = handler;
+            } else {
+                self.a11y.push((action, handler));
+            }
+        }
+        if let Some(handler) = later.layout {
+            let earlier = self.layout.take();
+            self.layout = Some(Handler::from_fn(move |value| {
+                if let Some(earlier) = &earlier {
+                    earlier.call(value)?;
+                }
+                handler.call(value)
+            }));
+        }
+        if let Some(handler) = later.scroll {
+            let earlier = self.scroll.take();
+            self.scroll = Some(Handler::from_fn(move |value| {
+                if let Some(earlier) = &earlier {
+                    earlier.call(value)?;
+                }
+                handler.call(value)
+            }));
+        }
+    }
     /// The activation, text and accessibility-action handlers, moved out so
     /// an attached part can contribute them as defaults.
     pub(crate) fn take_part_actions(&mut self) -> PartActions {

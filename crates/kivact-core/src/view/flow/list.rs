@@ -32,7 +32,10 @@ use crate::view::descriptor::{IntoView, Mcx, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};
-use kivact_runtime::{EffectKind, ErrorKind, IntoValue, Owner, Runtime, Signal, UiError, Value};
+use kivact_runtime::{
+    Binding, EffectKind, ErrorKind, IntoBinding, IntoValue, ItemKey, Owner, Prop, PropValue,
+    Runtime, Signal, UiError, Value,
+};
 
 /// A row builder of a keyed list.
 pub(crate) type RowFn<K, T> = Rc<dyn Fn(K, Value<T>) -> View>;
@@ -86,19 +89,29 @@ pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
 /// for_each(tasks, |t| t.id, task_row)
 /// ```
 #[track_caller]
-pub fn for_each<T, K, V>(
-    items: impl IntoValue<Vec<T>>,
+pub fn for_each<T, K, V, S>(
+    items: S,
     key: impl Fn(&T) -> K + 'static,
-    row: impl Fn(K, Value<T>) -> V + 'static,
+    row: impl Fn(S::Row) -> V + 'static,
 ) -> View
 where
-    T: Clone + PartialEq + 'static,
-    K: Eq + Hash + Clone + 'static,
+    T: PropValue,
+    K: ItemKey,
     V: IntoView,
+    S: ListSource<T>,
 {
     let at = Location::caller();
-    let items = items.into_prop();
-    let row: RowFn<K, T> = Rc::new(move |k, v| row(k, v).into_view());
+    let ListInput {
+        items,
+        row: make_row,
+    } = items.into_list_source();
+    let key = Rc::new(key);
+    let same_key: Rc<dyn Fn(&T, &T) -> bool> = {
+        let key = key.clone();
+        Rc::new(move |a, b| key(a) == key(b))
+    };
+    let row: Rc<dyn Fn(K, Signal<T>) -> View> =
+        Rc::new(move |_k, value| row(make_row(value, same_key.clone())).into_view());
     view_fn(move |cx| {
         let frag = cx.fragment();
         let weak = cx.weak();
@@ -108,7 +121,7 @@ where
             let Some(rt) = weak.upgrade() else { return };
             // Items and keys only compute values: pure.
             let diff = kivact_runtime::pure(|| {
-                items.with(|list| keyed::diff(&state.borrow(), list, &key))
+                items.with(|list| keyed::diff(&state.borrow(), list, &*key))
             });
             match diff {
                 Diff::Values(changed) => {
@@ -153,7 +166,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
     state: &RefCell<Rows<K, Row<K, T>>>,
     keys: Vec<K>,
     plans: Vec<Plan<T>>,
-    row: &dyn Fn(K, Value<T>) -> View,
+    row: &dyn Fn(K, Signal<T>) -> View,
     at: &'static Location<'static>,
 ) {
     let mut old: Vec<Option<Row<K, T>>> = state.borrow_mut().take().into_iter().map(Some).collect();
@@ -218,7 +231,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
                     owner: keyed.owner(),
                 };
                 let node = cx.fragment();
-                let child = mount_in(rt, keyed.owner(), || row(k, item.into_value()));
+                let child = mount_in(rt, keyed.owner(), || row(k, item));
                 cx.append(node, child);
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
@@ -309,4 +322,80 @@ where
         });
         frag
     })
+}
+
+/// A list source preserves writability: pass a Signal/Binding for editable rows.
+#[diagnostic::on_unimplemented(
+    message = "a list source needs a Vec, Signal, Binding, Value, or closure returning Vec",
+    note = "pass a Signal or Binding to receive writable Binding rows"
+)]
+pub trait ListSource<T: PropValue>: Sized + 'static {
+    type Row: 'static;
+    #[doc(hidden)]
+    fn into_list_source(self) -> ListInput<T, Self::Row>;
+}
+/// Normalized list storage and its per-row conversion.
+#[doc(hidden)]
+pub struct ListInput<T: 'static, R> {
+    items: Prop<Vec<T>>,
+    row: Rc<dyn Fn(Signal<T>, Rc<dyn Fn(&T, &T) -> bool>) -> R>,
+}
+fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<T>> {
+    ListInput {
+        items: source.into_prop(),
+        row: Rc::new(move |item, same_key| {
+            let initial = item.get_untracked();
+            kivact_runtime::binding(
+                move || item.get(),
+                move |replacement| {
+                    let mut list = source.get_untracked();
+                    if let Some(slot) = list
+                        .iter_mut()
+                        .find(|candidate| same_key(candidate, &initial))
+                    {
+                        if *slot != replacement {
+                            *slot = replacement;
+                            source.set(list);
+                        }
+                    }
+                },
+            )
+        }),
+    }
+}
+impl<T: PropValue> ListSource<T> for Signal<Vec<T>> {
+    type Row = Binding<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        writable_list(self.into_binding())
+    }
+}
+impl<T: PropValue> ListSource<T> for Binding<Vec<T>> {
+    type Row = Binding<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        writable_list(self)
+    }
+}
+fn readonly_list<T: PropValue>(items: Prop<Vec<T>>) -> ListInput<T, Value<T>> {
+    ListInput {
+        items,
+        row: Rc::new(|item, _| item.into_value()),
+    }
+}
+impl<T: PropValue> ListSource<T> for Value<Vec<T>> {
+    type Row = Value<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        readonly_list(self.into_prop())
+    }
+}
+impl<T: PropValue> ListSource<T> for Vec<T> {
+    type Row = Value<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        readonly_list(self.into_prop())
+    }
+}
+impl<T: PropValue, F: Fn() -> Vec<T> + 'static> ListSource<T> for F {
+    type Row = Value<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        readonly_list(self.into_prop())
+    }
 }

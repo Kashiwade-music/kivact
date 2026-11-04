@@ -9,11 +9,11 @@ use std::rc::Rc;
 
 use super::async_state::{AsyncCell, AsyncState, cancelled};
 use super::latest::LatestRun;
-use crate::{EffectKind, IntoValue, Owned, Owner, Runtime, Trigger, UiError, require_effectful};
+use crate::{EffectKind, IntoValue, Notifier, Owned, Owner, Runtime, UiError, require_effectful};
 
 pub(crate) struct ResourceCell<T: 'static> {
     async_state: AsyncCell<T>,
-    refetch: Trigger,
+    refetch: Notifier,
     fetch: Rc<LatestRun>,
 }
 
