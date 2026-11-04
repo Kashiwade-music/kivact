@@ -1,13 +1,11 @@
 //! Role: Presenter: one window's renderers and the policy applied to each frame.
 
 use super::frame::Presented;
-#[cfg(feature = "gpu")]
 use super::gpu::Fallback;
 use super::health::{FrameHealth, LossAction};
 use crate::ShellWaker;
 use crate::error::{self, Failure, FailureKind};
 use crate::presentation::{Notes, Renderer, RendererChange};
-#[cfg(feature = "gpu")]
 use arvane_render::RenderError;
 use arvane_shell::ShellWindow;
 use kivact_types::Size;
@@ -26,7 +24,6 @@ pub(super) struct Drawn {
 /// The renderers of one window and its frame policy.
 pub(crate) struct Presenter {
     pub(super) cpu: arvane_render::CpuRenderer,
-    #[cfg(feature = "gpu")]
     pub(super) gpu: super::gpu::Gpu,
     pub(super) notes: Notes,
     /// What the window's surface did with the last frames that reached it.
@@ -36,26 +33,19 @@ pub(crate) struct Presenter {
 impl Presenter {
     /// Stop workers needing the native window before that window is dropped.
     pub(crate) fn shutdown(&mut self, window: &mut dyn ShellWindow) {
-        #[cfg(feature = "gpu")]
         self.gpu.shutdown(window);
-        #[cfg(not(feature = "gpu"))]
-        let _ = window;
     }
 
     pub(crate) fn release_caches(&mut self) {
         self.cpu.release_caches();
-        #[cfg(feature = "gpu")]
         self.gpu.release_caches();
     }
 
     /// A presenter noting its renderer changes to `notes`, its GPU devices
     /// made as `env` says.
     pub(crate) fn new(notes: Notes, env: &crate::env::Env) -> Self {
-        #[cfg(not(feature = "gpu"))]
-        let _ = env;
         Self {
             cpu: arvane_render::CpuRenderer::new(),
-            #[cfg(feature = "gpu")]
             gpu: super::gpu::Gpu::new(env.gpu),
             notes,
             health: FrameHealth::Healthy,
@@ -69,7 +59,6 @@ impl Presenter {
 
     /// Note the external frames the GPU did not draw (each once).
     pub(super) fn note_missed(&mut self) {
-        #[cfg(feature = "gpu")]
         for frame in self.gpu.take_missed() {
             self.notes
                 .note(RendererChange::ExternalFrameMissed { frame });
@@ -78,19 +67,23 @@ impl Presenter {
 
     /// The adapter of the GPU device drawing the window's frames, when it
     /// can import shared textures (see [`crate::Window::gpu_adapter`]).
-    #[cfg(feature = "gpu-interop")]
     pub(crate) fn gpu_adapter(&self) -> Option<kivact_types::GpuAdapter> {
         self.gpu.adapter()
     }
 
     /// Import `textures` as the image `id` of the window (see
     /// [`crate::Window::import_external_image`]).
-    #[cfg(feature = "gpu-interop")]
     pub(crate) fn import_external(
         &mut self,
         id: kivact_types::ExternalImageId,
         textures: kivact_types::SharedTextures,
     ) -> Result<(), Failure> {
+        if !arvane_render::GPU_BUILT {
+            return Err(Failure::new(
+                FailureKind::Unavailable,
+                "built without GPU support",
+            ));
+        }
         if self.gpu.adapter().is_none() {
             return Err(Failure::new(
                 FailureKind::Unavailable,
@@ -114,7 +107,6 @@ impl Presenter {
 
     /// Drop the image `id` of the window (see
     /// [`crate::Window::drop_external_image`]).
-    #[cfg(feature = "gpu-interop")]
     pub(crate) fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
         if let Some(context) = self.gpu.context() {
             context.drop_external(id);
@@ -125,7 +117,6 @@ impl Presenter {
     /// made for it (a new surface generation gets a new one with its first
     /// frame) and start the frame policy afresh.
     pub(crate) fn surface_destroyed(&mut self) {
-        #[cfg(feature = "gpu")]
         self.gpu.drop_surface();
         self.health = FrameHealth::Healthy;
     }
@@ -136,18 +127,10 @@ impl Presenter {
     /// wakes the window's thread when a start step finishes
     /// ([`Presenter::prepare`] then).
     pub(crate) fn start_gpu(&mut self, waker: ShellWaker) {
-        #[cfg(feature = "gpu")]
         self.gpu.start(
             std::sync::Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP)),
             &mut self.notes,
         );
-        #[cfg(not(feature = "gpu"))]
-        {
-            let _ = waker;
-            self.notes.note(RendererChange::Cpu {
-                reason: "built without GPU support".into(),
-            });
-        }
     }
 
     /// Move a GPU start along for `window` without drawing: once the
@@ -156,7 +139,6 @@ impl Presenter {
     /// frames (draw one now, so the switch happens while the window is
     /// idle rather than with the next input).
     pub(crate) fn prepare(&mut self, window: &dyn ShellWindow) -> bool {
-        #[cfg(feature = "gpu")]
         {
             if self.gpu.ready() {
                 return false;
@@ -167,11 +149,6 @@ impl Presenter {
             self.gpu
                 .advance(&mut self.notes, &make, window.physical_size());
             self.gpu.ready()
-        }
-        #[cfg(not(feature = "gpu"))]
-        {
-            let _ = window;
-            false
         }
     }
 
@@ -209,7 +186,6 @@ impl Presenter {
                 match self.health.lost(renderer) {
                     LossAction::Fail => return Err(error),
                     LossAction::FallbackToCpu => {
-                        #[cfg(feature = "gpu")]
                         self.gpu.fallback_to_cpu(&mut self.notes, &error);
                         let drawn = self.draw_native(window, scene, plan.size, plan.scale);
                         return self.settle(
@@ -244,17 +220,12 @@ impl Presenter {
         self.note_missed();
         let (now, period) = (window.now_ns(), window.frame_period_ns());
         let renderer = {
-            #[cfg(feature = "gpu")]
             {
                 if self.gpu.ready() {
                     Renderer::Gpu
                 } else {
                     Renderer::Cpu
                 }
-            }
-            #[cfg(not(feature = "gpu"))]
-            {
-                Renderer::Cpu
             }
         };
         self.settle(drawn, (now, period), renderer, window, scene, plan)
@@ -276,7 +247,6 @@ impl Presenter {
         scale: f64,
     ) -> Result<Drawn, Failure> {
         let physical = window.physical_size();
-        #[cfg(feature = "gpu")]
         {
             let make = |context: &arvane_render::GpuContext| {
                 make_surface(window, context, window.keeps_frames())
@@ -382,7 +352,6 @@ impl Presenter {
     /// surface again); after a device failure, a surface that kept failing
     /// or a scene beyond the GPU renderer's limits the frame is drawn on
     /// the CPU (`Ok`); any other error is returned.
-    #[cfg(feature = "gpu")]
     pub(super) fn gpu_failed(&mut self, failure: RenderError) -> Result<(), Failure> {
         match self.gpu.failed(&failure, &mut self.notes) {
             Fallback::Cpu => Ok(()),
@@ -396,7 +365,6 @@ impl Presenter {
 
 /// Create the surface inside the backend's owner-thread callback, never by
 /// retrieving a native handle from a GPU worker. Readback remains render policy.
-#[cfg(feature = "gpu")]
 pub(super) fn make_surface(
     window: &dyn ShellWindow,
     context: &arvane_render::GpuContext,

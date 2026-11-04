@@ -1809,6 +1809,8 @@ dependencies = [
 name = "kivact"
 version = "0.1.0"
 dependencies = [
+ "arvane-native",
+ "arvane-render",
  "kivact-core",
  "kivact-interaction",
  "kivact-ui",

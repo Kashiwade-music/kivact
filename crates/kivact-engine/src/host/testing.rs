@@ -25,5 +25,5 @@ pub use test_frame::TestFrame;
 pub use test_host::ArvaneTestHost;
 pub use test_options::{TestFonts, TestHostOptions, default_font};
 
-#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
+#[cfg(any(windows, target_os = "linux"))]
 pub use arvane_native::embed::TestParent;

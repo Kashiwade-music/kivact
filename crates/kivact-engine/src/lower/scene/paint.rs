@@ -20,13 +20,11 @@ impl Context<'_> {
         engine: &mut arvane::Engine,
         out: &mut SceneOut,
     ) {
-        #[cfg(feature = "gpu-interop")]
         let cacheable = !scene
             .cmds
             .iter()
             .any(|cmd| matches!(cmd, kivact_types::DrawCmd::External { .. }));
-        #[cfg(not(feature = "gpu-interop"))]
-        let cacheable = true;
+
         if !cacheable || !origin.x.is_finite() || !origin.y.is_finite() {
             self.lower_scene(scene, inherited, origin, tint, engine, out);
             return;

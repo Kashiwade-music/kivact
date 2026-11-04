@@ -63,7 +63,6 @@ mod shapes;
 mod text_run;
 pub use super::geometry::{IntrinsicSize, Point, Rect, Size};
 pub use super::path::{FillRule, Path, PathContour};
-#[cfg(feature = "gpu-interop")]
 pub use image::GpuFrame;
 pub use image::{ImageOptions, Pixels};
 pub use kivact_types::{InlineBox, InlineBoxPlacement};

@@ -20,26 +20,21 @@ cd "$(git rev-parse --show-toplevel)"
 
 entries=(
   arvane-native/embed
-  arvane/embed
-  kivact-engine/embed
   kivact-core/embed
   kivact/embed
+  kivact/gpu
+  kivact/gpu-interop
+  kivact/test
   arvane-render/gpu
   arvane-render/gpu-interop
   arvane-native/test
-  arvane/gpu
-  arvane/gpu-interop
   arvane-virtual/mirror
   kivact-gpu-share/export
   kivact-gpu-share/import
   kivact-gpu-share/wgpu
-  kivact-core/gpu
   kivact-core/gpu-interop
   kivact-core/test
-  kivact-engine/gpu
-  kivact-engine/gpu-interop
   kivact-engine/testing
-  kivact-style/gpu-interop
   kivact-ui-creative/gpu-interop
 )
 
@@ -49,7 +44,7 @@ for entry in "${entries[@]}"; do
   if [[ "$crate" != kivact && "$crate" != kivact-ui ]]; then
     packages+=(-p "$crate")
   fi
-  if output="$(cargo check "${packages[@]}" --lib --features "$entry" 2>&1)"; then
+  if output="$(cargo check "${packages[@]}" --no-default-features --lib --features "$entry" 2>&1)"; then
     echo "ok   $entry"
   else
     echo "FAIL $entry" >&2

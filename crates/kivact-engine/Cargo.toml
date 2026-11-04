@@ -22,16 +22,7 @@ png = { workspace = true, optional = true }
 doctest = false
 
 [features]
-embed = ["arvane/embed", "arvane-native/embed"]
-default = []
-# The GPU renderer (kivact's default `gpu` feature turns it on).
-gpu = ["arvane/gpu"]
-# Drawing textures an application's render engine shares (experimental;
-# kivact's `gpu-interop` turns it on): the writes that import and drop them,
-# the scene's external frames and the adapter the window reports.
-gpu-interop = ["gpu", "arvane/gpu-interop"]
-# The in-process test driver on real windows (`testing`).
-testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png"]
+testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png", "arvane-native/test"]
 
 [[test]]
 name = "host_locale"

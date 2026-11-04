@@ -46,7 +46,6 @@
 
 mod frame;
 mod frame_policy;
-#[cfg(feature = "gpu")]
 mod gpu;
 mod health;
 

@@ -1,7 +1,6 @@
 //! Role: GpuContext's imports of the images external render engines share.
 
 use super::state::GpuContext;
-#[cfg(feature = "gpu-interop")]
 use crate::error::RenderError;
 
 impl GpuContext {
@@ -34,6 +33,19 @@ impl GpuContext {
     pub fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
         self.external.drop_image(id);
     }
+
+    #[cfg(not(feature = "gpu-interop"))]
+    pub fn import_external(
+        &mut self,
+        _: kivact_types::ExternalImageId,
+        _: kivact_types::SharedTextures,
+    ) -> Result<(), RenderError> {
+        Err(RenderError::External(
+            "built without the gpu-interop feature".into(),
+        ))
+    }
+    #[cfg(not(feature = "gpu-interop"))]
+    pub fn drop_external(&mut self, _: kivact_types::ExternalImageId) {}
 
     /// The external frames scenes named that were not drawn since the last
     /// call: not ready within the frame's wait, or no longer held (each

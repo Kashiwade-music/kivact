@@ -15,14 +15,9 @@ kivact-types = { path = "../kivact-types", version = "0.1.0" }
 # version Arvane's rasterizer uses through vello. kurbo types are never public.
 kurbo = { workspace = true }
 
-[features]
-# `draw::GpuFrame` (frames of an image an external render engine shares).
-gpu-interop = []
-
 [dev-dependencies]
 # Doctests show what users write (`use kivact::prelude::*`). Dev-dependency
 # cycles are allowed by Cargo; nothing but the doctests uses the facade.
-# `gpu-interop` builds this crate's own `gpu-interop` code in the test build.
 kivact = { path = "../kivact", features = ["gpu-interop"] }
 
 [lints]

@@ -15,20 +15,6 @@ arvane-render = { path = "../arvane-render", version = "0.1.0" }
 arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
 tracing = "0.1.41"
 
-[features]
-embed = ["arvane-native/embed"]
-default = []
-# The GPU renderer (wgpu + vello_hybrid): presents to windows' GPU surfaces
-# and renders offscreen; the CPU renderer is the fallback. Off by default here;
-# kivact's default `gpu` feature turns it on.
-gpu = ["arvane-render/gpu"]
-# Drawing textures an application's render engine shares with a window
-# (`DrawCommand::External`, `Window::import_external_image`): Direct3D 12
-# and Vulkan on Windows, Vulkan on Linux; elsewhere no window can import.
-gpu-interop = ["gpu", "arvane-render/gpu-interop"]
-
-# The render engine standing in for an application's in the GPU texture
-# sharing tests (`tests/e2e/external.rs`).
 [target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
 gpu-interop-producer = { path = "../../dev/tests/gpu-interop-producer", features = ["wgpu"] }
 

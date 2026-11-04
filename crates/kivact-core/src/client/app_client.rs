@@ -3,7 +3,6 @@
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
-#[cfg(feature = "embed")]
 use std::sync::Arc;
 
 use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
@@ -96,7 +95,6 @@ pub(crate) struct AppClient {
     /// The embedder's close flag, set by `Embedded::drop`: the turn in
     /// progress finishes, but the rest of its event batch is not delivered.
     /// `None`: the App has a window of its own.
-    #[cfg(feature = "embed")]
     embed_closing: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
@@ -118,12 +116,10 @@ impl AppClient {
             },
             #[cfg(debug_assertions)]
             trace_name: None,
-            #[cfg(feature = "embed")]
             embed_closing: None,
         }
     }
 
-    #[cfg(feature = "embed")]
     pub(crate) fn with_embed_closing(
         mut self,
         closing: Arc<std::sync::atomic::AtomicBool>,
@@ -133,7 +129,6 @@ impl AppClient {
     }
 
     fn embed_closing(&self) -> bool {
-        #[cfg(feature = "embed")]
         if let Some(closing) = &self.embed_closing {
             return closing.load(std::sync::atomic::Ordering::Acquire);
         }
@@ -208,7 +203,6 @@ impl AppClient {
                 };
                 built_env = Some(env);
                 let extensions = Extensions::new().with(ViewState::new()).with(motion_env);
-                #[cfg(feature = "gpu-interop")]
                 let extensions = extensions.with(crate::gpu_interop::State::default());
                 #[cfg(debug_assertions)]
                 let extensions = {
@@ -405,7 +399,6 @@ impl Drop for AppClient {
         }
         // Opening may fail before an Embedded is returned, or its drop may
         // precede deferred callback cleanup. Record task retention here too.
-        #[cfg(feature = "embed")]
         if self.embed_closing.is_some() && kivact_types::process::DetachedThreads::any() {
             kivact_engine::embed::retain_module();
         }

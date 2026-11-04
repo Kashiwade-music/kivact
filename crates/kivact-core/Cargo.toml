@@ -20,17 +20,8 @@ kivact-style = { path = "../kivact-style", version = "0.1.0" }
 tracing = { workspace = true }
 
 [features]
-embed = ["kivact-engine/embed"]
-default = ["gpu"]
-# The GPU renderer (wgpu + vello_hybrid): windows draw on the GPU, and on the
-# CPU when no GPU can (ARVANE_RENDERER=cpu forces the CPU). Without it every
-# window draws on the CPU and wgpu stays out of the build.
-gpu = ["kivact-engine/gpu"]
-# Experimental: draw textures an application's own render engine shares with
-# the window, without reading them back (`gpu_interop`). Windows (Direct3D 12,
-# Vulkan) and Linux (Vulkan); elsewhere nothing can be imported.
-gpu-interop = ["kivact-style/gpu-interop", "gpu", "kivact-engine/gpu-interop"]
-# Testing Library over real Arvane windows (kivact::test).
+embed = []
+gpu-interop = []
 test = ["kivact-engine/testing"]
 
 [lints]

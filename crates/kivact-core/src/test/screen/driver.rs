@@ -76,10 +76,7 @@ impl Screen {
             locale: options.host_locale.clone(),
             inline_assets: true,
             gpu: if gpu { GpuMode::Required } else { GpuMode::Off },
-            #[cfg(feature = "gpu-interop")]
             gpu_preference: options.gpu_preference,
-            #[cfg(not(feature = "gpu-interop"))]
-            gpu_preference: Default::default(),
         };
         let timed = record.clone();
         let shared = Rc::new(RefCell::new(client));

@@ -21,7 +21,6 @@ mod a11y;
 mod common;
 mod diagnostics;
 mod env;
-#[cfg(feature = "gpu-interop")]
 mod gpu;
 mod ime;
 mod key;
@@ -131,12 +130,7 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         }
         HostEvent::DrawDropped { node, count } => diagnostics::draw_dropped(rt, *node, *count),
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
-        #[cfg(feature = "gpu-interop")]
         HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
-        #[cfg(feature = "gpu-interop")]
         HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
-        // A host with gpu-interop talking to a client without it.
-        #[cfg(not(feature = "gpu-interop"))]
-        HostEvent::ExternalImported { .. } | HostEvent::GpuAdapterChanged(_) => {}
     }
 }

@@ -28,7 +28,6 @@ pub(crate) struct Env {
     /// the host prefers.
     pub(crate) renderer: Option<Renderer>,
     /// How GPU devices are made.
-    #[cfg(feature = "gpu")]
     pub(crate) gpu: arvane_render::GpuEnv,
 }
 
@@ -36,15 +35,12 @@ impl Env {
     /// Read the environment now, for GPU devices made as `preference`
     /// wishes where the environment does not say otherwise.
     pub(crate) fn read(preference: kivact_types::GpuPreference) -> Self {
-        #[cfg(not(feature = "gpu"))]
-        let _ = preference;
         Self {
             renderer: match std::env::var("ARVANE_RENDERER").as_deref() {
                 Ok("cpu") => Some(Renderer::Cpu),
                 Ok("gpu") => Some(Renderer::Gpu),
                 _ => None,
             },
-            #[cfg(feature = "gpu")]
             gpu: arvane_render::GpuEnv::from_env(preference),
         }
     }

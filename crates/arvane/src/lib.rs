@@ -40,7 +40,6 @@
 
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "embed")]
 pub mod embed;
 
 mod availability;

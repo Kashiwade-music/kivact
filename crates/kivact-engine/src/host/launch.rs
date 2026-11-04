@@ -33,7 +33,6 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
         })
         .map_err(|e| HostError::new(e.to_string()))?,
     );
-    #[cfg(feature = "gpu-interop")]
     let shell = shell.gpu_preference(options.gpu_preference);
     let shell = shell.on_renderer_change(move |change| {
         let mut log = log.borrow_mut();
@@ -75,7 +74,6 @@ pub(crate) fn new(
         frame_log,
         accessibility_noted: false,
         phase: Phase::Starting,
-        #[cfg(feature = "gpu-interop")]
         adapter: None,
     }
 }

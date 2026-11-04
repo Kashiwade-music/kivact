@@ -221,7 +221,6 @@ pub(crate) struct Started {
     pub(super) min_window_size: Option<kivact_types::Size>,
     /// The adapter of the window's GPU device that can import shared
     /// textures (`None` until the host reports one).
-    #[cfg(feature = "gpu-interop")]
     pub(super) adapter: Signal<Option<kivact_types::GpuAdapter>>,
 }
 
@@ -338,7 +337,6 @@ impl ViewState {
 
     /// The adapter of the window's GPU device that can import shared
     /// textures.
-    #[cfg(feature = "gpu-interop")]
     pub(crate) fn adapter(&self) -> Signal<Option<kivact_types::GpuAdapter>> {
         self.started().adapter
     }
