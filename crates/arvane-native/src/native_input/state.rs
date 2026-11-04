@@ -64,14 +64,17 @@ pub(crate) struct ContactNote {
 /// Delivery route fixed when the input state is constructed.
 #[cfg(windows)]
 pub(crate) enum InputWake {
+    #[cfg(feature = "embed")]
     Direct,
     EventLoop(ShellWaker),
 }
 #[cfg(windows)]
 impl InputWake {
     pub(crate) fn wake(&self, reasons: WakeReasons) {
-        if let Self::EventLoop(waker) = self {
-            waker.wake(reasons);
+        match self {
+            #[cfg(feature = "embed")]
+            Self::Direct => {}
+            Self::EventLoop(waker) => waker.wake(reasons),
         }
     }
 }
