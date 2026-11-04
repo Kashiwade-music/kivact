@@ -943,14 +943,16 @@ engine の `Changes` の `needs_layout`・`layout_changed`・`viewport_chain`・
 ```rust
 // arvane_shell（engine は arvane::spi の再公開から使う）
 pub trait Backend: 'static {
+    /// Supported upper bounds before a window exists; the created ShellWindow
+    /// reports the authoritative capabilities after native setup succeeds.
     fn capabilities(&self) -> Capabilities;
     /// The OS services. Taken before `run` (which consumes the backend); the
     /// backend keeps its own clone. Replies are delivered on the UI thread.
     fn services(&self) -> Rc<dyn Services>;
     /// Run the event loop until the handler exits (blocks on desktop).
-    fn run(self: Box<Self>, options: ShellOptions, handler: Box<dyn ShellHandler>) -> Result<(), ShellError>;
+    fn run(self: Box<Self>, options: ShellOptions, handler: Box<dyn ShellHandler + '_>) -> Result<(), ShellError>;
     /// Open a child window inside a foreign parent (embed). Default: `Err(ShellError::Unsupported)`.
-    fn open_child(&self, parent: ParentWindow, options: EmbedOptions, handler: Box<dyn ShellHandler>) -> Result<Box<dyn ShellChild>, ShellError>;
+    fn open_child(&self, parent: ParentWindow, options: EmbedOptions, hooks: ChildHooks, make: MakeHandler) -> Result<Box<dyn ShellChild>, ShellError>;
     /// Called once when the shell shuts down; `detached` tells whether threads
     /// were left running (`DetachedThreads::any()`), so a backend loaded as a
     /// plug-in module can keep its module loaded (`retain_module`).
@@ -973,6 +975,8 @@ pub trait Services {
     fn perform(&self, request: PlatformRequest, reply: Box<dyn FnOnce(PlatformResult)>);
 }
 ```
+
+**A-0 の実コードとの照合による補足:** embedded handler は `Rc` を持つため、既存の `MakeHandler = Box<dyn FnOnce() -> Box<dyn ShellHandler> + Send>` で UI thread 内に作る。handler 自体を thread 間で送らない。`run` は backend を消費するので、各実装が session の終了通知を所有する。native の終了 guard は handler/presenter より後に破棄し、成功・起動失敗・unwind の順序を保つ。embedded child は返却 handle の Drop 時でなく実 UI handler の終了時に同じ順序で通知する。既存の意図した leak/panic 境界の module 保持は維持する。軽量な native factory は非 Send な backend 自体を UI factory に capture しない。window 生成前の `capabilities` は上限値で、実際の subclass 設置結果を含む生成後の `ShellWindow::capabilities` が確定値。
 
 - `arvane::Shell::new` が `arvane_native::Shell::new` を直接作る（`arvane/src/window.rs:352`）のをやめ、`arvane::Shell::new(backend: Box<dyn Backend>)` と `arvane::Shell::start_stepped(backend: Box<dyn SteppedBackend>) -> SteppedShell` にする。どちらも同じ `Driver` で handler を包む。`arvane_native::backend()` が既定の backend を返す。
 - engine の `run_native` は `run(backend: Box<dyn arvane::spi::Backend>, client, options)` にする。`kivact-core` の `App::run` は `kivact_engine::native_backend()`（`arvane_native::backend()` を返すだけ。core が arvane-native の名前を知らないため）を渡す。

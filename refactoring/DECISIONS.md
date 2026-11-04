@@ -2391,6 +2391,13 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 
 ## Orchestrator follow-up decisions
 
+### Read-only W2 preparation (implementation still waits for CP1)
+
+- A-0: retain Send `MakeHandler` plus separate `ChildHooks` for embedded UI-thread construction; an Rc-owning handler cannot cross threads directly. Keep borrowed blocking handlers with `Box<dyn ShellHandler + '_>`.
+- A-0: each consuming backend implementation owns session shutdown. Native guards run after handler/presenter cleanup on normal return, startup failure, and unwind; embedded guards follow actual UI-handler destruction, not the returned handle's early close request. Preserve existing deliberate leak/panic module retention. The native backend remains a lightweight factory, without capturing an entire non-Send backend into a Send UI factory.
+- A-0: pre-window capabilities are supported upper bounds; the created ShellWindow's result after optional native setup is authoritative.
+- R-1: move the already unified types Transition unchanged. The obsolete instruction to retain as_wire is corrected; do not reintroduce a wrapper removed by V-6/18.16.
+
 ### W1 definition reconciliation
 
 - V-2: `Semantics<R>` includes the semantic properties currently split across `NodeSemantics`, both property structs, and the protocol node. The transport node retains topology/geometry plus one `semantics` value. Existing wire optional booleans take precedence; protocol-only `protected` remains a bool.
