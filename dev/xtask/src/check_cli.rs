@@ -44,10 +44,10 @@ impl Options {
                 _ => shared.push(arg),
             }
         }
-        if let Some(rule) = &result.only {
-            if !RULES.contains(&rule.as_str()) {
-                return Err(format!("unknown check: {rule}"));
-            }
+        if let Some(rule) = &result.only
+            && !RULES.contains(&rule.as_str())
+        {
+            return Err(format!("unknown check: {rule}"));
         }
         if result.module.is_some() && result.package.is_none() {
             return Err("--module requires --crate".into());

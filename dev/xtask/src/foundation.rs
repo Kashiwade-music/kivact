@@ -35,10 +35,10 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
         }
     }
     let sources = crate::check_source::load(root)?;
-    if let Some(package) = &options.package {
-        if !sources.iter().any(|s| s.package == *package) {
-            return Err(format!("unknown crate: {package}"));
-        }
+    if let Some(package) = &options.package
+        && !sources.iter().any(|s| s.package == *package)
+    {
+        return Err(format!("unknown crate: {package}"));
     }
     let active = |rule: &str| {
         let skip = policy
@@ -86,16 +86,15 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
         .collect();
     for source in &sources {
         for item in &source.items {
-            if let syn::Item::Impl(item) = item {
-                if item.trait_.as_ref().is_some_and(|(_, path, _)| {
+            if let syn::Item::Impl(item) = item
+                && item.trait_.as_ref().is_some_and(|(_, path, _)| {
                     path.segments
                         .last()
                         .is_some_and(|s| s.ident == "NodeBuilder")
-                }) {
-                    if let Some(identity) = surface.resolve_type(source, &item.self_ty) {
-                        builders.insert(identity);
-                    }
-                }
+                })
+                && let Some(identity) = surface.resolve_type(source, &item.self_ty)
+            {
+                builders.insert(identity);
             }
         }
     }
