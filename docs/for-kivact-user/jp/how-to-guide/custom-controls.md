@@ -325,6 +325,8 @@ mod tests {
 
 ドラッグは既定で押した瞬間に始まります。`.slop(10)` を足すと移動が 10 logical pixel を越えるまで待ち、`.axis_lock()` を足すと閾値を越えた最初の移動の軸に delta を固定します。`.track_velocity()` を足すと `DragUpdate.velocity` から直近 100 ms の速度を logical pixel/ms で読めます。指定しない場合、速度は 0 です。閾値を越える前に離した場合、開始・更新・終了・編集の callback は呼びません。既存の drag handle の setup 時に指定します。
 
+押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get_untracked())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。
+
 ```rust,test_harness
 use std::cell::RefCell;
 use std::rc::Rc;
