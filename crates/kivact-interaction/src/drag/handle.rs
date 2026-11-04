@@ -378,6 +378,26 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> 
 }
 
 impl<T: Clone + 'static> DragApi<T> {
+    /// The frozen payload of the pending or active gesture, read reactively.
+    ///
+    /// This is `None` while idle or releasing. A pending press already exposes
+    /// its press-time snapshot, even before the slop threshold is exceeded.
+    /// The projection never calls a source's payload factory. Setup only.
+    pub fn active_payload(self) -> Value<Option<T>>
+    where
+        T: PartialEq,
+    {
+        let state = self.session.state();
+        memo(move || {
+            state.with(|state| match state {
+                DragSession::Pending { active, .. } | DragSession::Active(active) => {
+                    Some(active.start.payload.clone())
+                }
+                DragSession::Idle | DragSession::Releasing { .. } => None,
+            })
+        })
+    }
+
     /// Wait until the pointer moves farther than `distance` logical pixels before starting.
     /// The default is zero, which starts at the press. Setup only.
     pub fn slop(self, distance: impl Into<f64>) -> Self {

@@ -373,6 +373,8 @@ A drag starts at the press by default. Add `.slop(10)` to wait until movement ex
 
 Use `.source_with(move || value.get_untracked())` when the payload must snapshot live application data at the accepted press. The factory runs once, including when the press first enters the pending slop state. All updates retain that snapshot; the next accepted press samples again. `.source(payload)` keeps fixed setup data.
 
+`drag.active_payload()` returns a reactive, read-only `Value<Option<T>>` of the same press-time snapshot while pending or active, and `None` after release. Only this method requires `T: PartialEq`; it does not resample the factory or create a second payload store. Component authors can use `kivact::custom::Generation` to allocate identities and `.next().as_u64()` when an API needs a numeric id.
+
 ```rust,test_harness
 use std::cell::RefCell;
 use std::rc::Rc;

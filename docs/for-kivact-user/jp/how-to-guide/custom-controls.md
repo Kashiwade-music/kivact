@@ -327,6 +327,8 @@ mod tests {
 
 押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get_untracked())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。
 
+`drag.active_payload()` は、待機中・ドラッグ中の同じ press 時点の snapshot を、読み取り専用の `Value<Option<T>>` で返します。離した後は `None` です。このメソッドだけが `T: PartialEq` を必要とし、factory を呼び直したり payload の別の保存先を作ったりしません。部品の作成者は `kivact::custom::Generation` で識別子を割り当て、数値の id を求める API には `.next().as_u64()` を渡せます。
+
 ```rust,test_harness
 use std::cell::RefCell;
 use std::rc::Rc;
