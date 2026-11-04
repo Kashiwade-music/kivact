@@ -6,13 +6,6 @@ use kivact_core::view::NodeRef;
 
 pub use crate::menu_policy::MenuPress;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Source {
-    Trigger,
-    Menu,
-    Context,
-}
-
 #[derive(Clone, Copy)]
 struct Row {
     reference: NodeRef,

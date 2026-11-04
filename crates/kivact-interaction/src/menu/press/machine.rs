@@ -1,8 +1,14 @@
 //! Role: Pure held menu pointer transitions and owner-scoped hold timing.
-use super::super::press_state::Source;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Callback, Step};
 use kivact_core::view::{NodeRef, PointerId, PointerKind};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(in crate::menu) enum Source {
+    Trigger,
+    Menu,
+    Context,
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub(in crate::menu) enum PressGesture {

@@ -4,9 +4,8 @@ use crate::Selection;
 use kivact_core::state::IntoBinding;
 
 use super::order::{Rows, edge_item, rows};
-use super::state::{
-    Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
-};
+use super::session::Session;
+use super::state::{Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Target, Want};
 use crate::{
     ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_hover_corridor, use_list,
 };
@@ -169,7 +168,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         }
         let base = if let Some(press) = session.press {
             base.on_pointer(move |event| {
-                press.event(session, super::press_state::Source::Menu, event)
+                press.event(session, super::press::machine::Source::Menu, event)
             })
         } else {
             base
@@ -394,7 +393,8 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 .description(description)
                 .on_pointer(move |event: PointerEvent| {
                     if let Some(press) = session.press {
-                        let handled = press.event(session, super::press_state::Source::Menu, event);
+                        let handled =
+                            press.event(session, super::press::machine::Source::Menu, event);
                         if handled == Handled::Yes {
                             return handled;
                         }

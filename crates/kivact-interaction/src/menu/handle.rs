@@ -1,7 +1,8 @@
 //! Role: The `MenuApi` handle: open state, triggers, content, items and submenus.
 
 use super::level::Level;
-use super::state::{Edge, Session};
+use super::session::Session;
+use super::state::Edge;
 use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
@@ -275,7 +276,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
             let trigger = host.part(base).role(role);
             let trigger = if let Some(press) = session.press {
                 trigger.on_pointer(move |event| {
-                    press.event(session, super::press_state::Source::Trigger, event)
+                    press.event(session, super::press::machine::Source::Trigger, event)
                 })
             } else {
                 trigger
@@ -386,7 +387,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 let trigger = trigger.on_secondary_context(pointer);
                 if let Some(press) = session.press {
                     trigger.on_pointer(move |event| {
-                        press.event(session, super::press_state::Source::Context, event)
+                        press.event(session, super::press::machine::Source::Context, event)
                     })
                 } else {
                     trigger
@@ -395,7 +396,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 trigger.on_pointer(move |event| {
                     if let Some(press) = session.press {
                         let handled =
-                            press.event(session, super::press_state::Source::Context, event);
+                            press.event(session, super::press::machine::Source::Context, event);
                         if handled == Handled::Yes {
                             return handled;
                         }

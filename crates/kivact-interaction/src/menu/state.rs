@@ -2,15 +2,12 @@
 
 use kivact_core::custom::Reactive;
 
-use crate::PopupApi;
-use crate::list::typeahead::Typeahead;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{PartState, raise};
 use kivact_core::geometry::Point;
+use kivact_core::state::Callback;
 use kivact_core::state::IntoText;
-use kivact_core::state::{Callback, MachineHandle, Signal, Value};
 use kivact_core::style::Icon;
-use kivact_core::view::NodeRef;
 
 /// Where an open menu was asked to appear.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -616,42 +613,6 @@ pub(super) enum Opened {
     Button,
     Context(MenuOrigin),
 }
-
-/// State shared by every level of one menu. All handles are `Copy`.
-pub(super) struct Session<K: kivact_core::state::ItemKey> {
-    pub(super) entries: Value<Vec<MenuEntry<K>>>,
-    pub(super) options: crate::options_cell::OptionsCell<MenuOptions<K>>,
-    /// The top level's popup; its anchor is the trigger.
-    pub(super) popup: PopupApi,
-    pub(super) anchor: NodeRef,
-    // xtask-allow(state-fields): Read-only projection of the canonical session machine.
-    /// How the open menu was opened; `None` while it is closed.
-    pub(super) opened: Value<Option<Opened>>,
-    // xtask-allow(state-fields): Read-only placement projection of canonical opened_by.
-    /// Where the open menu was asked to appear, derived from `opened`.
-    pub(super) origin: Value<Option<MenuOrigin>>,
-    /// Keys of the submenu items that are open, outermost first.
-    pub(super) path: Value<Vec<K>>,
-    // xtask-allow(state-fields): Read-only projection of canonical per-level highlights.
-    /// The item that has the focus: its depth and key.
-    pub(super) focus_key: Value<Option<(usize, K)>>,
-    /// How many levels the current entries keep (see `super::order::kept_levels`).
-    pub(super) kept: Value<usize>,
-    // xtask-allow(state-fields): Read-only projection of the canonical pending request.
-    pub(super) want: Value<Option<Want<K>>>,
-    pub(super) machine: MachineHandle<super::machine::Machine<K>>,
-    pub(super) typed: kivact_core::state::Binding<Typeahead>,
-    // xtask-allow(state-fields): Independent structural theme opt-in; created once during setup.
-    pub(super) press: Option<super::press_state::Press>,
-    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
-}
-
-impl<K: kivact_core::state::ItemKey> Clone for Session<K> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<K: kivact_core::state::ItemKey> Copy for Session<K> {}
 
 /// Setup callbacks shared by every level of a menu.
 #[derive(Clone)]

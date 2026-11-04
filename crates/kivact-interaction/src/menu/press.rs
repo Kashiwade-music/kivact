@@ -1,9 +1,10 @@
 //! Role: Track a held menu pointer and activate the eligible row at release.
-use self::machine::{Event, Input, PressGesture};
-use super::press_state::{Press, Source};
+use self::machine::{Event, Input, PressGesture, Source};
+use super::press_state::Press;
 #[path = "press/machine.rs"]
 pub(super) mod machine;
-use super::state::{MenuOrigin, Session};
+use super::session::Session;
+use super::state::MenuOrigin;
 use crate::PopupCloseReason;
 use kivact_core::custom::clock_now;
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerKind, PointerPhase};
