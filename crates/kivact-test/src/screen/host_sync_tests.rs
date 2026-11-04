@@ -11,7 +11,7 @@ use super::support::{Rng, seeds};
 use crate::render;
 use kivact_core::state::Signal;
 use kivact_core::style::style;
-use kivact_core::view::{NodeBuilder, Role, column, for_each, node, text};
+use kivact_core::view::{Role, column, for_each, node, text};
 use kivact_runtime::signal;
 
 #[test]
@@ -35,23 +35,28 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
             .role(Role::Canvas)
             .name("gesture canvas")
             .style(style().size(120, 80))
-            .part(
-                part(|state| state)
-                    .region_events()
-                    .on_pointer(move |event| {
-                        if matches!(event.phase(), PointerPhase::Down(_)) {
-                            observed.set(observed.get() + 1);
-                        }
-                        Handled::Yes
-                    }),
-            )
+            .part(kivact_core::custom::Part::new(
+                kivact_core::state::memo(|| ()),
+                move |node| {
+                    node.part(part(|state| state))
+                        .region_events()
+                        .on_pointer(move |event| {
+                            if matches!(event.phase(), PointerPhase::Down(_)) {
+                                observed.set(observed.get() + 1);
+                            }
+                            Handled::Yes
+                        })
+                },
+            ))
             .region(
                 RegionId(1),
-                part(|state| state)
-                    .role(Role::Button)
-                    .name("action")
-                    .disabled(disabled)
-                    .on_press(move || calls.set(calls.get() + 1)),
+                kivact_core::custom::Part::new(kivact_core::state::memo(|| ()), move |node| {
+                    node.part(part(|state| state))
+                        .role(Role::Button)
+                        .name("action")
+                        .disabled(disabled)
+                        .on_press(move || calls.set(calls.get() + 1))
+                }),
             )
     });
     let node = screen.get_by_role(Role::Canvas, "gesture canvas").node;
@@ -141,28 +146,33 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
             .role(Role::Canvas)
             .name("gesture canvas")
             .style(style().size(120, 80))
-            .part(
-                part(|state| state)
-                    .region_events()
-                    .on_pointer(move |event| {
-                        if !matches!(event.phase(), PointerPhase::Down(_)) {
-                            return Handled::No;
-                        }
-                        observed.set(observed.get() + 1);
-                        // Only the first press starts a gesture.
-                        if observed.get() == 1 {
-                            Handled::Yes
-                        } else {
-                            Handled::No
-                        }
-                    }),
-            )
+            .part(kivact_core::custom::Part::new(
+                kivact_core::state::memo(|| ()),
+                move |node| {
+                    node.part(part(|state| state))
+                        .region_events()
+                        .on_pointer(move |event| {
+                            if !matches!(event.phase(), PointerPhase::Down(_)) {
+                                return Handled::No;
+                            }
+                            observed.set(observed.get() + 1);
+                            // Only the first press starts a gesture.
+                            if observed.get() == 1 {
+                                Handled::Yes
+                            } else {
+                                Handled::No
+                            }
+                        })
+                },
+            ))
             .region(
                 RegionId(1),
-                part(|state| state)
-                    .role(Role::Button)
-                    .name("action")
-                    .on_press(move || calls.set(calls.get() + 1)),
+                kivact_core::custom::Part::new(kivact_core::state::memo(|| ()), move |node| {
+                    node.part(part(|state| state))
+                        .role(Role::Button)
+                        .name("action")
+                        .on_press(move || calls.set(calls.get() + 1))
+                }),
             )
     });
     let node = screen.get_by_role(Role::Canvas, "gesture canvas").node;
@@ -418,12 +428,17 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
                 (Vec::new(), State(Some(probe)))
             });
         column((
-            node().style(style().size(300, 80)).part(
-                part(|state| state)
-                    .role(Role::TextBox)
-                    .name("editor")
-                    .text_editing(editing),
-            ),
+            node()
+                .style(style().size(300, 80))
+                .part(kivact_core::custom::Part::new(
+                    kivact_core::state::memo(|| ()),
+                    move |node| {
+                        node.part(part(|state| state))
+                            .role(Role::TextBox)
+                            .name("editor")
+                            .text_editing(editing)
+                    },
+                )),
             node().test_id("independent").style(style().size(10, 10)),
         ))
     });

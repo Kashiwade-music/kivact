@@ -28,7 +28,7 @@ use crate::{MirrorMode, RenderOptions};
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::style::style;
 use kivact_core::view::canvas;
-use kivact_core::view::{IntoView, NodeBuilder, column, node, row, text};
+use kivact_core::view::{IntoView, column, node, row, text};
 use kivact_style::{Align, Color, Justify, pct, rgba};
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color
@@ -408,7 +408,7 @@ fn canvas_vocabulary() -> impl IntoView {
                 d.text(
                     "Canvas",
                     Point::new(0., 0.),
-                    TextStyle {
+                    TextFormat {
                         color: Color::BLACK,
                         ..Default::default()
                     },
@@ -467,7 +467,7 @@ fn canvas_vocabulary() -> impl IntoView {
         d.text(
             "Centered",
             Point::new(200., 220.),
-            TextStyle {
+            TextFormat {
                 align: TextAlign::Center,
                 baseline: TextBaseline::Alphabetic,
                 color: Color::BLACK,
