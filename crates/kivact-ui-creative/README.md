@@ -240,9 +240,9 @@ right-aligned one-line label that shows its full text in a tooltip, the value,
 and the `leading` and `trailing` slots; `property_state_button` is the 20 px
 animation-state button for `leading`. `panel(..).header(|| view)` replaces the
 panel's title bar. The slots (`header`, `leading`, `trailing`) take a closure
-that builds the view when the component mounts. `kivact::ui::disclosure(title, open, || content)`
-is a section that the `open` binding opens and closes; `.keep_mounted(true)` keeps
-its content, and the state in it, while it is closed.
+that builds the view when the component mounts. `kivact::ui::disclosure(title, open).content(|| content)`
+is a section that the `open` binding opens and closes. Closing unmounts its
+content; keep persistent drafts in state outside the content factory.
 
 ```text
 cargo run -p kivact-ui-creative-catalog

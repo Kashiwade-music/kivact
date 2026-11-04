@@ -131,7 +131,10 @@ fn disclosure_unmounts_closed_content_after_its_exit() {
     open.set(false);
     screen.run_until_idle();
     assert!(screen.query_by_test_id("content").is_none());
-    assert_eq!(screen.get_by_role(Role::Button, "Details").is_expanded(), Some(false));
+    assert_eq!(
+        screen.get_by_role(Role::Button, "Details").is_expanded(),
+        Some(false)
+    );
     let start = screen.get_by_test_id("after").rect().unwrap().y;
     advance(&screen, 80);
     let middle = screen.get_by_test_id("after").rect().unwrap().y;
