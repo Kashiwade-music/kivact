@@ -95,7 +95,7 @@ pub fn request_window_size(
     } else {
         Err(UiError::new(
             kivact_reactive::ErrorKind::Message,
-            "request_window_size dimensions must be positive, finite and fit the native window extent",
+            "request_window_size dimensions must be finite, at least one logical pixel and fit the native window extent",
             Some(at),
         ))
     };

@@ -78,7 +78,8 @@ impl App {
     /// 720), e.g. `.window_size(1280, 800)`. The user can resize the
     /// window afterwards; read the current size with
     /// [`platform::window_size`](crate::platform::window_size) (to save it for the next start, say).
-    /// Both values must be finite and positive, and not smaller than
+    /// Both values must be finite, at least one logical pixel, fit the native
+    /// window extent, and not be smaller than
     /// [`App::min_window_size`]: otherwise [`App::run`] returns an error
     /// of kind `ErrorKind::Message` without opening the window.
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
@@ -88,7 +89,8 @@ impl App {
 
     /// The smallest content size in logical pixels the user can resize the
     /// window to, e.g. `.min_window_size(480, 320)` (default: no minimum).
-    /// Both values must be finite and positive, and not larger than
+    /// Both values must be finite, at least one logical pixel, fit the native
+    /// window extent, and not be larger than
     /// [`App::window_size`] when that is set: otherwise [`App::run`]
     /// returns an error of kind `ErrorKind::Message` without opening the
     /// window.
@@ -191,7 +193,7 @@ impl App {
     }
 }
 
-/// Refuse a window size or minimum size that is not finite and positive,
+/// Refuse a window size or minimum size that cannot form a drawable extent,
 /// and a minimum larger than the size, as an error located at `at`
 /// (`App::run`): the platform would otherwise clamp or ignore it silently.
 pub(crate) fn check_window_sizes(
@@ -205,7 +207,7 @@ pub(crate) fn check_window_sizes(
             && !kivact_types::env::is_valid_window_size(s)
         {
             return fail(format!(
-                "App::{name}: {} by {} must be positive, finite and fit the native window extent",
+                "App::{name}: {} by {} must be finite, at least one logical pixel and fit the native window extent",
                 s.width, s.height
             ));
         }
