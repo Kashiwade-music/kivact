@@ -28,14 +28,20 @@
 //!   edit.
 
 use crate::edit::EditSession;
+use crate::options_cell::OptionsCell;
+use kivact_core::state::{MachineHandle, machine};
+use kivact_types::cell::Generation;
+#[path = "drag/machine.rs"]
+mod machine;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::geometry::Point;
-use kivact_core::state::{Callback, Signal, Value, Var, effect, memo, signal, untrack, var};
+use kivact_core::state::{Callback, Signal, Value, Var, memo, signal, var};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     Handled, Key, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerId, PointerPhase,
 };
+use machine::{EditOwnership, State as DragSession};
 use std::rc::Rc;
 
 /// Coordinates used consistently for a drag's start, position and delta.
@@ -103,26 +109,21 @@ pub struct DragState {
     pub active: bool,
 }
 
-/// One drag of a [`DragApi`]: nothing, a pointer moving, or the release's
-/// `on_end` running.
-enum DragSession<T> {
-    Idle,
-    Active(Active<T>),
-    /// The release's `on_end` runs: a `change` there still belongs to the drag.
-    Releasing {
-        owns_edit: bool,
-    },
-}
-
-#[derive(Clone)]
 struct Active<T> {
-    start: DragStart<T>,
-    source: u64,
-    /// The last valid position, where a drag that Escape stops ends.
+    start: Rc<DragStart<T>>,
+    source: Generation,
     last: Point,
-    /// This drag began the edit given to [`DragApi::edit`] or
-    /// [`DragApi::edit_on_change`]; only then does it commit or cancel it.
-    owns_edit: bool,
+    edit: EditOwnership,
+}
+impl<T> Clone for Active<T> {
+    fn clone(&self) -> Self {
+        Self {
+            start: self.start.clone(),
+            source: self.source,
+            last: self.last,
+            edit: self.edit,
+        }
+    }
 }
 
 /// How a drag ends.
@@ -134,6 +135,8 @@ enum Stop {
     /// An engine Cancel or Escape: `on_end(Cancel)`, then the drag's own edit
     /// cancels (commits while disabled).
     Cancel,
+    /// The mounted source disabled and the engine canceled its capture.
+    CancelDisabled,
     /// The disabled value became true: no callback, the drag's own edit
     /// commits where it is.
     Disabled,
@@ -178,7 +181,7 @@ impl<V: Clone + 'static> DragEdit for SessionEdit<V> {
 
 /// What the setters of a [`DragApi`] store; read at the event, so the setters
 /// work in any order and after the sources are made.
-struct DragSettings<T: 'static> {
+struct DragOptions<T: 'static> {
     buttons: u8,
     start: Option<Callback<DragUpdate<T>>>,
     update: Option<Callback<DragUpdate<T>>>,
@@ -186,7 +189,19 @@ struct DragSettings<T: 'static> {
     edit: Option<(BeginAt, Rc<dyn DragEdit>)>,
 }
 
-impl<T: 'static> Default for DragSettings<T> {
+impl<T: 'static> Clone for DragOptions<T> {
+    fn clone(&self) -> Self {
+        Self {
+            buttons: self.buttons,
+            start: self.start,
+            update: self.update,
+            end: self.end,
+            edit: self.edit.clone(),
+        }
+    }
+}
+
+impl<T: 'static> Default for DragOptions<T> {
     fn default() -> Self {
         Self {
             buttons: bit(MouseButton::Primary),
@@ -251,12 +266,12 @@ enum Step<T> {
 /// after the sources are made.
 pub struct DragApi<T: 'static> {
     observed: Signal<Option<Value<DragState>>>,
-    session: Signal<DragSession<T>>,
+    session: MachineHandle<machine::Machine<T>>,
     /// The source of the active drag, derived from `session`.
-    active_source: Value<Option<u64>>,
-    sources: Var<u64>,
+    active_source: Value<Option<Generation>>,
+    sources: Var<Generation>,
     coordinates: DragCoordinates,
-    settings: Var<DragSettings<T>>,
+    settings: OptionsCell<DragOptions<T>>,
     disabled: Signal<Option<Value<bool>>>,
 }
 
@@ -298,9 +313,18 @@ impl<T: 'static> Copy for DragApi<T> {}
 /// ```
 #[track_caller]
 pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> {
-    let session = signal(DragSession::<T>::Idle);
+    let settings = OptionsCell::new(DragOptions::<T>::default());
+    let session = machine(
+        DragSession::<T>::Idle,
+        || machine::Machine::new(),
+        move |_, machine::Effect::Commit| {
+            if let Some((_, edit)) = settings.get().edit {
+                edit.commit();
+            }
+        },
+    );
     let active_source = memo(move || {
-        session.with(|session| match session {
+        session.state().with(|session| match session {
             DragSession::Active(active) => Some(active.source),
             DragSession::Idle | DragSession::Releasing { .. } => None,
         })
@@ -309,23 +333,18 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> 
         observed: signal(None),
         session,
         active_source,
-        sources: var(0),
+        sources: var(Generation::new()),
         coordinates,
-        settings: var(DragSettings::default()),
+        settings,
         disabled: signal(None),
     };
-    effect(move || {
-        let off = drag
-            .disabled
-            .with(|disabled| disabled.is_some_and(|value| value.get()));
-        if off {
-            untrack(|| {
-                if let Some(active) = drag.take_active() {
-                    let _ = drag.stop(Stop::Disabled, active.owns_edit, None);
-                }
-            });
-        }
-    });
+    session.feed(
+        move || {
+            drag.disabled
+                .with(|disabled| disabled.is_some_and(|value| value.get()))
+        },
+        machine::Event::Disabled,
+    );
     drag
 }
 
@@ -496,29 +515,27 @@ impl<T: Clone + 'static> DragApi<T> {
 
     /// The edit of the drag, if the drag was given one that begins `at`.
     fn edit_at(self, at: BeginAt) -> Option<Rc<dyn DragEdit>> {
-        self.settings.with(|settings| match &settings.edit {
+        match &self.settings.get().edit {
             Some((when, edit)) if *when == at => Some(edit.clone()),
             _ => None,
-        })
+        }
     }
 
     /// Mark the active (or releasing) drag as the owner of its edit.
     fn own_edit(self) {
-        self.session.update(|session| match session {
-            DragSession::Active(active) => active.owns_edit = true,
-            DragSession::Releasing { owns_edit } => *owns_edit = true,
-            DragSession::Idle => {}
-        });
+        self.session.send(machine::Event::OwnEdit);
     }
 
     /// Whether the drag in progress (active or releasing) has no edit of its
     /// own yet; `None` outside a drag.
     fn lacks_edit(self) -> Option<bool> {
-        self.session.with_untracked(|session| match session {
-            DragSession::Active(active) => Some(!active.owns_edit),
-            DragSession::Releasing { owns_edit } => Some(!owns_edit),
-            DragSession::Idle => None,
-        })
+        self.session
+            .state()
+            .with_untracked(|session| match session {
+                DragSession::Active(active) => Some(active.edit == EditOwnership::Borrowed),
+                DragSession::Releasing { edit } => Some(*edit == EditOwnership::Borrowed),
+                DragSession::Idle => None,
+            })
     }
 
     /// The press began the drag: begin its edit unless one is in progress.
@@ -575,6 +592,7 @@ impl<T: Clone + 'static> DragApi<T> {
     #[track_caller]
     pub fn is_active(self) -> bool {
         self.session
+            .state()
             .with_untracked(|session| matches!(session, DragSession::Active(_)))
     }
 
@@ -583,8 +601,8 @@ impl<T: Clone + 'static> DragApi<T> {
     #[track_caller]
     pub fn cancel(self) -> Option<DragStart<T>> {
         let active = self.take_active()?;
-        let _ = self.stop(Stop::Dropped, active.owns_edit, None);
-        Some(active.start)
+        let _ = self.stop(Stop::Dropped, active.edit == EditOwnership::Owned, None);
+        Some(active.start.as_ref().clone())
     }
 
     /// Take the active session out, leaving it idle; a releasing session is
@@ -593,13 +611,12 @@ impl<T: Clone + 'static> DragApi<T> {
         if !self.is_active() {
             return None;
         }
-        let taken = self
-            .session
-            .update(|session| std::mem::replace(session, DragSession::Idle));
-        match taken {
-            DragSession::Active(active) => Some(active),
-            DragSession::Idle | DragSession::Releasing { .. } => None,
-        }
+        let active = self.session.state().with_untracked(|state| match state {
+            DragSession::Active(active) => Some(active.clone()),
+            _ => None,
+        });
+        self.session.send(machine::Event::Stop);
+        active
     }
 
     /// End a drag the caller has already taken: run `on_end` for a release or
@@ -610,28 +627,36 @@ impl<T: Clone + 'static> DragApi<T> {
         mut owns_edit: bool,
         update: Option<DragUpdate<T>>,
     ) -> kivact_core::Result<()> {
-        let end = self.settings.with(|settings| settings.end);
+        let end = self.settings.get().end;
         let mut result = Ok(());
         match (stop, update, end) {
             (Stop::Release, Some(update), end) => {
-                self.session
-                    .update(|session| *session = DragSession::Releasing { owns_edit });
+                self.session.send(machine::Event::Release(if owns_edit {
+                    EditOwnership::Owned
+                } else {
+                    EditOwnership::Borrowed
+                }));
                 if let Some(end) = end {
                     result = end.try_call(update);
                 }
                 // A `change` in `on_end` may have begun the edit.
-                owns_edit = self.session.with_untracked(|session| match session {
-                    DragSession::Releasing { owns_edit } => *owns_edit,
-                    DragSession::Active(_) | DragSession::Idle => owns_edit,
-                });
-                self.session.update(|session| *session = DragSession::Idle);
+                owns_edit = self
+                    .session
+                    .state()
+                    .with_untracked(|session| match session {
+                        DragSession::Releasing { edit } => *edit == EditOwnership::Owned,
+                        DragSession::Active(_) | DragSession::Idle => owns_edit,
+                    });
+                self.session.send(machine::Event::Stop);
             }
-            (Stop::Cancel, Some(update), Some(end)) => result = end.try_call(update),
+            (Stop::Cancel | Stop::CancelDisabled, Some(update), Some(end)) => {
+                result = end.try_call(update)
+            }
             _ => {}
         }
-        if owns_edit && let Some((_, edit)) = self.settings.with(|s| s.edit.clone()) {
+        if owns_edit && let Some((_, edit)) = self.settings.get().edit {
             match stop {
-                Stop::Release | Stop::Disabled => edit.commit(),
+                Stop::Release | Stop::Disabled | Stop::CancelDisabled => edit.commit(),
                 Stop::Dropped => edit.cancel(),
                 Stop::Cancel if self.is_disabled() => edit.commit(),
                 Stop::Cancel => edit.cancel(),
@@ -656,10 +681,7 @@ impl<T: Clone + 'static> DragApi<T> {
     /// passes on goes in a part attached after the source. Setup only.
     #[track_caller]
     pub fn source(self, payload: T) -> Part<DragState> {
-        let id = self.sources.update(|count| {
-            *count += 1;
-            *count
-        });
+        let id = self.sources.update(Generation::next);
         let active_source = self.active_source;
         let input = part(move |input| DragState {
             input,
@@ -668,19 +690,17 @@ impl<T: Clone + 'static> DragApi<T> {
         let part_state = input.state();
         self.observed.set(Some(part_state));
         let target = kivact_core::view::node_ref();
-        let caller_disabled = signal(None::<Value<bool>>);
-        let own_disabled = self.disabled.get_untracked();
-        let effective_disabled = memo(move || {
-            caller_disabled.with(|value| value.is_some_and(|value| value.get()))
-                || own_disabled.is_some_and(|value| value.get())
-        });
         Part::new(part_state, move |mut host| {
-            caller_disabled.set(host.accessible_disabled());
-            self.disabled.set(Some(effective_disabled));
+            let caller_disabled = host.accessible_disabled();
             host.part(input)
                 .node_ref(target)
                 .on_pointer(move |event: PointerEvent| -> kivact_core::Result<Handled> {
-                    match self.observe(id, &payload, event) {
+                    match self.observe(
+                        id,
+                        &payload,
+                        event,
+                        caller_disabled.is_some_and(|value| value.get_untracked()),
+                    ) {
                         None => Ok(Handled::No),
                         Some(Step::Update(update)) => {
                             self.report(update)?;
@@ -705,12 +725,12 @@ impl<T: Clone + 'static> DragApi<T> {
                         return Ok(Handled::No);
                     };
                     let cancel = update(
-                        active.start,
+                        active.start.as_ref().clone(),
                         active.last,
                         event.modifiers(),
                         DragPhase::Cancel,
                     );
-                    self.stop(Stop::Cancel, active.owns_edit, cancel)?;
+                    self.stop(Stop::Cancel, active.edit == EditOwnership::Owned, cancel)?;
                     Ok(Handled::Yes)
                 })
         })
@@ -721,9 +741,9 @@ impl<T: Clone + 'static> DragApi<T> {
     fn report(self, update: DragUpdate<T>) -> kivact_core::Result<()> {
         let callback = if update.phase == DragPhase::Start {
             self.begin_on_press();
-            self.settings.with(|settings| settings.start)
+            self.settings.get().start
         } else {
-            self.settings.with(|settings| settings.update)
+            self.settings.get().update
         };
         match callback {
             Some(callback) => callback.try_call(update),
@@ -732,7 +752,13 @@ impl<T: Clone + 'static> DragApi<T> {
     }
 
     /// Advance the session by one pointer event of source `id`.
-    fn observe(self, id: u64, payload: &T, event: PointerEvent) -> Option<Step<T>> {
+    fn observe(
+        self,
+        id: Generation,
+        payload: &T,
+        event: PointerEvent,
+        source_disabled: bool,
+    ) -> Option<Step<T>> {
         let pos = match self.coordinates {
             DragCoordinates::Local => event.pos(),
             DragCoordinates::Window => event.window_pos(),
@@ -740,8 +766,13 @@ impl<T: Clone + 'static> DragApi<T> {
         let valid = pos.x.is_finite() && pos.y.is_finite();
         if let PointerPhase::Down(press) = event.phase() {
             let button = press.button;
-            let buttons = self.settings.with(|settings| settings.buttons);
-            if buttons & bit(button) == 0 || !valid || self.is_disabled() || self.is_active() {
+            let buttons = self.settings.get().buttons;
+            if buttons & bit(button) == 0
+                || !valid
+                || self.is_disabled()
+                || source_disabled
+                || self.is_active()
+            {
                 return None;
             }
             let start = DragStart {
@@ -750,14 +781,12 @@ impl<T: Clone + 'static> DragApi<T> {
                 pos,
                 payload: payload.clone(),
             };
-            self.session.update(|session| {
-                *session = DragSession::Active(Active {
-                    start: start.clone(),
-                    source: id,
-                    last: pos,
-                    owns_edit: false,
-                });
-            });
+            self.session.send(machine::Event::Begin(Active {
+                start: Rc::new(start.clone()),
+                source: id,
+                last: pos,
+                edit: EditOwnership::Borrowed,
+            }));
             return update(start, pos, event.modifiers(), DragPhase::Start).map(Step::Update);
         }
         if !matches!(
@@ -766,18 +795,21 @@ impl<T: Clone + 'static> DragApi<T> {
         ) {
             return None;
         }
-        let (owned, releases) = self.session.with_untracked(|session| match session {
-            DragSession::Active(active)
-                if active.source == id && active.start.pointer == event.id() =>
-            {
-                let releases = matches!(
-                    event.phase(),
-                    PointerPhase::Up(press) if press.button == active.start.button
-                );
-                (true, releases)
-            }
-            _ => (false, false),
-        });
+        let (owned, releases) = self
+            .session
+            .state()
+            .with_untracked(|session| match session {
+                DragSession::Active(active)
+                    if active.source == id && active.start.pointer == event.id() =>
+                {
+                    let releases = matches!(
+                        event.phase(),
+                        PointerPhase::Up(press) if press.button == active.start.button
+                    );
+                    (true, releases)
+                }
+                _ => (false, false),
+            });
         if !owned {
             return None;
         }
@@ -785,7 +817,8 @@ impl<T: Clone + 'static> DragApi<T> {
             PointerPhase::Move => {
                 if self.is_disabled() {
                     if let Some(active) = self.take_active() {
-                        let _ = self.stop(Stop::Disabled, active.owns_edit, None);
+                        let _ =
+                            self.stop(Stop::Disabled, active.edit == EditOwnership::Owned, None);
                     }
                     return None;
                 }
@@ -800,13 +833,12 @@ impl<T: Clone + 'static> DragApi<T> {
                 // An invalid move must not corrupt the drag's positions.
                 return None;
             }
-            let start = self.session.update(|session| match session {
-                DragSession::Active(active) => {
-                    active.last = pos;
-                    Some(active.start.clone())
-                }
-                DragSession::Idle | DragSession::Releasing { .. } => None,
+            let active = self.session.state().with_untracked(|state| match state {
+                DragSession::Active(active) => Some(active.clone()),
+                _ => None,
             })?;
+            let start = active.start.as_ref().clone();
+            self.session.send(machine::Event::Position(pos));
             return update(start, pos, event.modifiers(), phase).map(Step::Update);
         }
         let active = self.take_active()?;
@@ -815,13 +847,15 @@ impl<T: Clone + 'static> DragApi<T> {
         let pos = if valid { pos } else { active.last };
         let stop = if phase == DragPhase::End {
             Stop::Release
+        } else if source_disabled {
+            Stop::CancelDisabled
         } else {
             Stop::Cancel
         };
         Some(Step::Stop {
             stop,
-            owns_edit: active.owns_edit,
-            update: update(active.start, pos, event.modifiers(), phase),
+            owns_edit: active.edit == EditOwnership::Owned,
+            update: update(active.start.as_ref().clone(), pos, event.modifiers(), phase),
         })
     }
 }

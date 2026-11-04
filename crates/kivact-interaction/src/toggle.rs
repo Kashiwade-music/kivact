@@ -11,6 +11,7 @@
 //! mixed state, and the caller's writer clears it. A disabled control takes no input or
 //! assistive technology action and leaves the tab order.
 
+use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Signal, Value, signal};
@@ -96,9 +97,7 @@ impl ButtonApi {
 /// What a toggle is; the mixed state belongs to the check box.
 #[derive(Clone, Copy)]
 enum Kind {
-    Checkbox {
-        indeterminate: Signal<Option<Value<bool>>>,
-    },
+    Checkbox,
     Switch,
     Button,
 }
@@ -113,11 +112,14 @@ pub struct ToggleState {
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
+    // xtask-allow(state-fields): The checked binding is caller-owned input, independent of mount observation.
     checked: Binding<bool>,
     kind: Kind,
     edit: crate::EditSession<bool>,
     observed: Signal<Option<Value<ToggleState>>>,
-    disabled: Signal<Option<Value<bool>>>,
+    options: OptionsCell<ToggleOptions>,
+    // xtask-allow(state-fields): Host disabled is a mounted node input, not a lifecycle phase.
+    host_disabled: Signal<Option<Value<bool>>>,
 }
 
 /// Copy handle for a check box ([`use_checkbox`]), react-aria's
@@ -155,8 +157,15 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
         kind,
         edit: crate::EditSession::new(move |value| checked.set(value)),
         observed: signal(None),
-        disabled: signal(None),
+        options: OptionsCell::new(ToggleOptions::default()),
+        host_disabled: signal(None),
     }
+}
+
+#[derive(Clone, Default)]
+struct ToggleOptions {
+    disabled: Option<Value<bool>>,
+    indeterminate: Option<Value<bool>>,
 }
 
 /// A check box (`Role::CheckBox`) editing `checked`, react-aria's
@@ -176,12 +185,7 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
 #[track_caller]
 pub fn use_checkbox(checked: impl kivact_core::state::IntoBinding<bool>) -> CheckboxApi {
     CheckboxApi {
-        core: core(
-            checked.into_binding(),
-            Kind::Checkbox {
-                indeterminate: signal(None),
-            },
-        ),
+        core: core(checked.into_binding(), Kind::Checkbox),
     }
 }
 
@@ -231,9 +235,9 @@ impl CheckboxApi {
     #[track_caller]
     pub fn indeterminate(self, mixed: impl IntoValue<bool>) -> Self {
         let mixed = mixed.into_value();
-        if let Kind::Checkbox { indeterminate } = self.core.kind {
-            indeterminate.update(|slot| *slot = Some(mixed));
-        }
+        self.core
+            .options
+            .update(|options| options.indeterminate = Some(mixed));
         self
     }
 
@@ -325,27 +329,34 @@ impl Core {
         })
     }
     fn set_disabled(self, disabled: Value<bool>) {
-        self.disabled.update(|slot| *slot = Some(disabled));
+        self.options
+            .update(|options| options.disabled = Some(disabled));
     }
 
     fn is_disabled(self) -> bool {
-        self.disabled
-            .with_untracked(|disabled| disabled.is_some_and(|value| value.get_untracked()))
+        self.options
+            .get()
+            .disabled
+            .is_some_and(|value| value.get_untracked())
+            || self
+                .host_disabled
+                .with_untracked(|value| value.is_some_and(|value| value.get_untracked()))
     }
 
-    /// The mixed value of a check box.
-    fn mixed(self) -> Option<Signal<Option<Value<bool>>>> {
-        match self.kind {
-            Kind::Checkbox { indeterminate } => Some(indeterminate),
-            Kind::Switch | Kind::Button => None,
-        }
+    /// The mixed value is meaningful only for a checkbox.
+    fn is_mixed(self) -> bool {
+        matches!(self.kind, Kind::Checkbox)
+            && self
+                .options
+                .value()
+                .get()
+                .indeterminate
+                .is_some_and(|value| value.get())
     }
 
     fn press(self) {
         if !self.is_disabled() {
-            let mixed = self.mixed().is_some_and(|mixed| {
-                mixed.with_untracked(|mixed| mixed.is_some_and(|value| value.get_untracked()))
-            });
+            let mixed = self.is_mixed();
             self.edit.once(self.checked.get_untracked(), || {
                 self.checked.set(mixed || !self.checked.get())
             });
@@ -355,11 +366,9 @@ impl Core {
     #[track_caller]
     fn control(self) -> Part<ToggleState> {
         let checked = self.checked;
-        let mixed = self.mixed();
-        let disabled = self.disabled;
-        let is_mixed = move || {
-            mixed.is_some_and(|mixed| mixed.with(|mixed| mixed.is_some_and(|value| value.get())))
-        };
+        let mixed = matches!(self.kind, Kind::Checkbox);
+        let options = self.options.value();
+        let is_mixed = move || self.is_mixed();
         let input = part(move |input| ToggleState {
             input,
             checked: if is_mixed() {
@@ -373,17 +382,13 @@ impl Core {
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-            let own_disabled = disabled.get_untracked();
-            disabled.set(Some(kivact_core::state::memo(move || {
-                caller_disabled.is_some_and(|value| value.get())
-                    || own_disabled.is_some_and(|value| value.get())
-            })));
+            self.host_disabled.set(caller_disabled);
 
             let mut control = host
                 .part(input)
                 .node_ref(target)
                 .role(match self.kind {
-                    Kind::Checkbox { .. } => Role::CheckBox,
+                    Kind::Checkbox => Role::CheckBox,
                     Kind::Switch => Role::Switch,
                     Kind::Button => Role::Button,
                 })
@@ -393,9 +398,9 @@ impl Core {
                 .a11y_action(A11yAction::Toggle, move |_| self.press())
                 .disabled(move || {
                     caller_disabled.is_some_and(|value| value.get())
-                        || disabled.with(|d| d.is_some_and(|d| d.get()))
+                        || options.get().disabled.is_some_and(|value| value.get())
                 });
-            if mixed.is_some() {
+            if mixed {
                 control = control.indeterminate(is_mixed);
             }
             if !matches!(self.kind, Kind::Button) {
