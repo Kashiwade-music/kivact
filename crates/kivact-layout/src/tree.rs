@@ -547,6 +547,16 @@ impl NodeLayoutColumns {
     ) {
         let mut at = Some(slot);
         while let Some(slot) = at {
+            // Contents boxes never participate in layout, so their empty
+            // caches cannot prove that the contributing parent is clean.
+            if tree
+                .layout_props(slot)
+                .0
+                .is_some_and(|props| props.display == kivact_types::Display::Contents)
+            {
+                at = tree.parent(slot);
+                continue;
+            }
             let flow = tree.flow(slot);
             let parent = tree.parent(slot);
             let values = &mut self.values;

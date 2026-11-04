@@ -462,7 +462,13 @@ impl Model {
             None
         };
         let parent = self.tree.get(id).and_then(|n| self.tree.parent_id(n));
-        if let Some(parent) = parent {
+        // Invalidate the contributing box while the removed subtree is still
+        // attached; a transparent logical parent can disappear in this sync.
+        if let Some(parent) = self
+            .tree
+            .get(id)
+            .and_then(|node| self.tree.flat_parent(node))
+        {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         }
         self.changes.outdate_viewport();
