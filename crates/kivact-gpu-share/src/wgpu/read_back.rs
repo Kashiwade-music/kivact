@@ -5,7 +5,7 @@
 //! texture of its own (not shared) and reads it back here.
 
 use crate::common::Error;
-use crate::pool::straighten;
+use kivact_types::color::unpremultiply;
 use std::time::Duration;
 
 /// `texture`'s pixels (premultiplied alpha) as straight-alpha RGBA8
@@ -93,6 +93,6 @@ pub fn read_back(
         }
     }
     buffer.unmap();
-    straighten(&mut rgba);
+    unpremultiply(&mut rgba);
     Ok(rgba)
 }

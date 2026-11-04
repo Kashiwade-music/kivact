@@ -1,6 +1,6 @@
 //! Role: Replay plan that tells a backdrop which earlier commands reach its area.
 //!
-//! Where a scene's commands draw, for backdrops (`DrawCommand::Backdrop`):
+//! Where a scene's commands draw, for backdrops (`RenderCmd::Backdrop`):
 //! a backdrop draws again the commands before it that reach its area, and
 //! skips whole groups that do not, so its cost follows what it replays.
 //!
@@ -9,9 +9,9 @@
 //! its matching pop ([`Index`]). A replay costs the commands that reach
 //! the backdrop's area plus the siblings it walks past.
 
-use kivact_types::protocol::{
-    BoxShadow, DrawCommand, Glyph, LayerFilter, SHADOW_REACH, Scene, Shape, Transform,
-};
+use kivact_types::geometry::Transform;
+use kivact_types::render::{BoxShadow, Glyph, LayerFilter, RenderCmd, RenderScene, SHADOW_REACH};
+use kivact_types::scene::Shape;
 use kivact_types::{LineJoin, Rect};
 
 /// Each command's bounds in the scene's root coordinates (logical pixels)
@@ -35,7 +35,7 @@ struct Open {
 
 impl Index {
     /// The index of a valid scene (balanced groups).
-    pub(crate) fn new(scene: &Scene) -> Self {
+    pub(crate) fn new(scene: &RenderScene) -> Self {
         let n = scene.commands.len();
         let mut bounds = vec![None; n];
         let mut close: Vec<usize> = (0..n).collect();
@@ -43,12 +43,12 @@ impl Index {
         let mut transform = Transform::IDENTITY;
         for (i, command) in scene.commands.iter().enumerate() {
             match command {
-                DrawCommand::PushClip(_) | DrawCommand::PushLayer(_) => stack.push(Open {
+                RenderCmd::PushClip(_) | RenderCmd::PushLayer(_) => stack.push(Open {
                     push: i,
                     outer: transform,
                     bounds: None,
                 }),
-                DrawCommand::PushTransform(t) => {
+                RenderCmd::PushTransform(t) => {
                     stack.push(Open {
                         push: i,
                         outer: transform,
@@ -56,17 +56,17 @@ impl Index {
                     });
                     transform = t.then(transform);
                 }
-                DrawCommand::PopClip | DrawCommand::PopTransform | DrawCommand::PopLayer => {
+                RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopLayer => {
                     let open = stack.pop().expect("invariant: validated groups");
                     close[open.push] = i;
                     transform = open.outer;
                     let group = match &scene.commands[open.push] {
-                        DrawCommand::PushClip(r) => {
+                        RenderCmd::PushClip(r) => {
                             open.bounds.and_then(|b| intersect(b, transform.bounds(*r)))
                         }
-                        DrawCommand::PushLayer(layer) => {
+                        RenderCmd::PushLayer(layer) => {
                             let reach =
-                                |std_dev: f32| SHADOW_REACH * std_dev * transform.max_scale();
+                                |std_dev: f64| SHADOW_REACH * std_dev * transform.max_scale();
                             let filtered = open.bounds.map(|b| match layer.filter {
                                 None => b,
                                 Some(LayerFilter::Blur { std_dev }) => {
@@ -136,20 +136,20 @@ pub(crate) fn intersect(a: Rect, b: Rect) -> Option<Rect> {
 
 /// Where a drawing command can draw, in its own coordinates (generous
 /// for strokes, glyphs and blurs).
-fn local_bounds(command: &DrawCommand) -> Option<Rect> {
+fn local_bounds(command: &RenderCmd) -> Option<Rect> {
     Some(match command {
-        DrawCommand::Rect { rect, .. }
-        | DrawCommand::RoundedRect { rect, .. }
-        | DrawCommand::RoundedRectCorners { rect, .. }
-        | DrawCommand::Image { rect, .. }
-        | DrawCommand::ImageSampled { rect, .. }
-        | DrawCommand::External { rect, .. } => *rect,
-        DrawCommand::StrokeRect { rect, width, .. }
-        | DrawCommand::StrokeRoundedRectCorners { rect, width, .. } => rect.inflate(*width, *width),
-        DrawCommand::Line {
+        RenderCmd::Rect { rect, .. }
+        | RenderCmd::RoundedRect { rect, .. }
+        | RenderCmd::RoundedRectCorners { rect, .. }
+        | RenderCmd::Image { rect, .. }
+        | RenderCmd::ImageSampled { rect, .. }
+        | RenderCmd::External { rect, .. } => *rect,
+        RenderCmd::StrokeRect { rect, width, .. }
+        | RenderCmd::StrokeRoundedRectCorners { rect, width, .. } => rect.inflate(*width, *width),
+        RenderCmd::Line {
             from, to, width, ..
         } => points(&[*from, *to]).inflate(width + 1.0, width + 1.0),
-        DrawCommand::Path { cmds, stroke, .. } => {
+        RenderCmd::Path { cmds, stroke, .. } => {
             let w = stroke.map_or(0.0, |(w, _)| w);
             Shape::Path {
                 cmds: cmds.clone(),
@@ -158,19 +158,19 @@ fn local_bounds(command: &DrawCommand) -> Option<Rect> {
             .bounds()
             .inflate(w, w)
         }
-        DrawCommand::Shadow { rect, std_dev, .. } => {
+        RenderCmd::Shadow { rect, std_dev, .. } => {
             let r = SHADOW_REACH * std_dev;
             rect.inflate(r, r)
         }
-        DrawCommand::Glyphs { run, origin, .. } => {
+        RenderCmd::Glyphs { run, origin, .. } => {
             let mut bounds = glyphs(&run.glyphs, run.font_size)?;
             bounds.x += origin.x;
             bounds.y += origin.y;
             bounds
         }
-        DrawCommand::FillShape { shape, .. }
-        | DrawCommand::Backdrop(kivact_types::protocol::Backdrop { shape, .. }) => shape.bounds(),
-        DrawCommand::StrokeShape { shape, stroke, .. } => {
+        RenderCmd::FillShape { shape, .. }
+        | RenderCmd::Backdrop(kivact_types::render::Backdrop { shape, .. }) => shape.bounds(),
+        RenderCmd::StrokeShape { shape, stroke, .. } => {
             let joints = if stroke.join == LineJoin::Miter {
                 stroke.miter_limit.max(1.5)
             } else {
@@ -179,13 +179,13 @@ fn local_bounds(command: &DrawCommand) -> Option<Rect> {
             let w = stroke.width * joints;
             shape.bounds().inflate(w, w)
         }
-        DrawCommand::BoxShadow(shadow) => box_shadow(shadow),
-        DrawCommand::PushClip(_)
-        | DrawCommand::PopClip
-        | DrawCommand::PushTransform(_)
-        | DrawCommand::PopTransform
-        | DrawCommand::PushLayer(_)
-        | DrawCommand::PopLayer => return None,
+        RenderCmd::BoxShadow(shadow) => box_shadow(shadow),
+        RenderCmd::PushClip(_)
+        | RenderCmd::PopClip
+        | RenderCmd::PushTransform(_)
+        | RenderCmd::PopTransform
+        | RenderCmd::PushLayer(_)
+        | RenderCmd::PopLayer => return None,
     })
 }
 
@@ -198,7 +198,7 @@ fn points(points: &[kivact_types::Point]) -> Rect {
 }
 
 /// Glyphs' ink, generously: an em around each origin and its advance.
-fn glyphs(glyphs: &[Glyph], size: f32) -> Option<Rect> {
+fn glyphs(glyphs: &[Glyph], size: f64) -> Option<Rect> {
     let first = glyphs.first()?;
     let mut b = (first.x, first.y, first.x, first.y);
     for g in glyphs {

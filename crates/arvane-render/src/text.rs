@@ -31,16 +31,16 @@ use vello_cpu::kurbo::Diagonal2;
 /// Dilation per side, in device pixels, of glyphs drawn at a device
 /// font size of `size` pixels: 0.1 px up to 24 px, fading linearly to none
 /// at 48 px.
-pub(crate) fn darkening(size: f32) -> Diagonal2 {
-    const FULL: f32 = 24.0;
-    const NONE: f32 = 48.0;
-    const AMOUNT: f32 = 0.1;
+pub(crate) fn darkening(size: f64) -> Diagonal2 {
+    const FULL: f64 = 24.0;
+    const NONE: f64 = 48.0;
+    const AMOUNT: f64 = 0.1;
     let amount = AMOUNT * ((NONE - size) / (NONE - FULL)).clamp(0.0, 1.0);
-    Diagonal2::new(f64::from(amount), f64::from(amount))
+    Diagonal2::new(amount, amount)
 }
 
 /// `x` (logical pixels, at `scale` device pixels per logical pixel) on the
 /// nearest quarter device pixel.
-pub(crate) fn subpixel(x: f32, scale: f32) -> f32 {
+pub(crate) fn subpixel(x: f64, scale: f64) -> f64 {
     (x * scale * 4.0).round() / (scale * 4.0)
 }

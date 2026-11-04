@@ -23,10 +23,11 @@ use kivact_types::Asset;
 use crate::error::{AssetError, AssetErrorKind};
 use crate::format::{self, Format};
 use crate::limits::{MAX_ENCODED_BYTES, MAX_IMAGE_EDGE};
-use crate::pixels::{Bitmap, Crop, PixelSize};
+use crate::pixels::{Crop, PixelSize};
 use crate::raster::{self, RasterError};
 use crate::read::{self, FileVersion};
 use crate::svg::{self, DecompressError, Svg};
+use kivact_types::Pixels;
 
 /// Work for the worker (or inline).
 pub(crate) enum Job {
@@ -70,7 +71,7 @@ pub(crate) enum Done {
         generation: u64,
         size: PixelSize,
         crop: Option<Crop>,
-        bitmap: Bitmap,
+        bitmap: Pixels,
     },
     /// A failed file's version did not change.
     Unchanged { asset: Asset, generation: u64 },
@@ -78,7 +79,7 @@ pub(crate) enum Done {
 
 /// A loaded image.
 pub(crate) enum Loaded {
-    Raster(Bitmap),
+    Raster(Pixels),
     Vector(Arc<Svg>),
 }
 

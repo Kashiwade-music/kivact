@@ -6,7 +6,7 @@
 //! Invariants:
 //! - Pixels are straight-alpha RGBA8 rows, top to bottom, exactly
 //!   `width * height * 4` bytes, both edges at least 1.
-//! - A [`Pixels`] id is unique within its store and never reused, so a host
+//! - An [`AssetImage`] id is unique within its store and never reused, so a host
 //!   may key device textures by it and free them when the store reports the
 //!   id evicted.
 //! - A tint keeps only the alpha: every pixel becomes the tint color with
@@ -15,49 +15,26 @@
 use std::fmt;
 use std::sync::Arc;
 
-use kivact_types::{Rgba, Size};
+use kivact_types::{Pixels, Rgba, Size};
 
 use crate::fit::Region;
-
-/// Decoded pixels before the store gives them an id. The pixels are
-/// already shared (`Arc`), so a decode or raster finished on the worker
-/// reaches the UI thread without a copy.
-pub(crate) struct Bitmap {
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-    pub(crate) rgba: Arc<[u8]>,
-}
-
-impl Bitmap {
-    /// Bytes the pixels take.
-    pub(crate) fn bytes(&self) -> usize {
-        self.rgba.len()
-    }
-}
 
 /// A ready pixel buffer: straight-alpha RGBA8 pixels, with an id stable for as long as the store keeps it.
 /// Cloning shares the buffer.
 #[derive(Clone)]
-pub struct Pixels {
-    id: u64,
-    width: u32,
-    height: u32,
-    rgba: Arc<[u8]>,
+pub struct AssetImage {
+    pub id: u64,
+    pub pixels: Pixels,
 }
 
-impl Pixels {
-    pub(crate) fn new(id: u64, bitmap: Bitmap) -> Self {
+impl AssetImage {
+    pub(crate) fn new(id: u64, bitmap: Pixels) -> Self {
         debug_assert_eq!(
             bitmap.rgba.len(),
             bitmap.width as usize * bitmap.height as usize * 4,
             "invariant: width * height * 4 bytes"
         );
-        Pixels {
-            id,
-            width: bitmap.width,
-            height: bitmap.height,
-            rgba: bitmap.rgba,
-        }
+        AssetImage { id, pixels: bitmap }
     }
 
     /// The id, unique within the store (see [`AssetStore::take_evicted`]).
@@ -69,36 +46,40 @@ impl Pixels {
 
     /// Width in pixels.
     pub fn width(&self) -> u32 {
-        self.width
+        self.pixels.width
     }
 
     /// Height in pixels.
     pub fn height(&self) -> u32 {
-        self.height
+        self.pixels.height
     }
 
     /// The straight-alpha RGBA rows, `width * height * 4` bytes.
     pub fn rgba(&self) -> &Arc<[u8]> {
-        &self.rgba
+        &self.pixels.rgba
     }
 
     /// Bytes the pixels take.
     pub(crate) fn bytes(&self) -> usize {
-        self.rgba.len()
+        self.pixels.rgba.len()
     }
 }
 
-impl PartialEq for Pixels {
+impl PartialEq for AssetImage {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for Pixels {}
+impl Eq for AssetImage {}
 
-impl fmt::Debug for Pixels {
+impl fmt::Debug for AssetImage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Pixels#{}({}x{})", self.id, self.width, self.height)
+        write!(
+            f,
+            "AssetImage#{}({}x{})",
+            self.id, self.pixels.width, self.pixels.height
+        )
     }
 }
 
@@ -115,11 +96,11 @@ impl PixelSize {
     /// The device size of `size` logical px at `scale` device px per logical
     /// px, each edge rounded to the nearest pixel (zero for an empty or
     /// invalid size).
-    pub fn of(size: Size, scale: f32) -> PixelSize {
-        let edge = |v: f32| {
+    pub fn of(size: Size, scale: f64) -> PixelSize {
+        let edge = |v: f64| {
             let v = (v * scale).round();
             if v.is_finite() && v >= 1.0 {
-                v.min(u32::MAX as f32) as u32
+                v.min(u32::MAX as f64) as u32
             } else {
                 0
             }
@@ -141,20 +122,21 @@ pub(crate) type Tint = [u8; 4];
 
 /// `color` as a tint key.
 pub(crate) fn tint_key(color: Rgba) -> Tint {
-    let q = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let color = color.sanitize();
+    let q = |v: f64| (v * 255.0).round() as u8;
     [q(color.r), q(color.g), q(color.b), q(color.a)]
 }
 
 /// `source` painted in `tint` (RGBA): its alpha times the tint's alpha, in
 /// the tint's color.
-pub(crate) fn tint(width: u32, height: u32, source: &[u8], tint: Tint) -> Bitmap {
+pub(crate) fn tint(width: u32, height: u32, source: &[u8], tint: Tint) -> Pixels {
     let [r, g, b, a] = tint;
     let mut rgba = Vec::with_capacity(source.len());
     for px in source.as_chunks::<4>().0 {
         let alpha = (u32::from(px[3]) * u32::from(a) + 127) / 255;
         rgba.extend_from_slice(&[r, g, b, alpha as u8]);
     }
-    Bitmap {
+    Pixels {
         width,
         height,
         rgba: rgba.into(),
@@ -179,11 +161,9 @@ impl Crop {
         let (w, h) = (f64::from(full.width), f64::from(full.height));
         // A hundredth of a pixel of rounding is not another pixel.
         const SLACK: f64 = 0.01;
-        let edge = |from: f32, len: f32, size: f64| {
-            let a = (f64::from(from) * size + SLACK).floor().clamp(0.0, size);
-            let b = (f64::from(from + len) * size - SLACK)
-                .ceil()
-                .clamp(0.0, size);
+        let edge = |from: f64, len: f64, size: f64| {
+            let a = (from * size + SLACK).floor().clamp(0.0, size);
+            let b = ((from + len) * size - SLACK).ceil().clamp(0.0, size);
             (a as u32, b as u32)
         };
         let (x0, x1) = edge(visible.x, visible.width, w);
@@ -207,12 +187,12 @@ impl Crop {
         match crop {
             None => Region::WHOLE,
             Some(c) => {
-                let (w, h) = (full.width as f32, full.height as f32);
+                let (w, h) = (full.width as f64, full.height as f64);
                 Region {
-                    x: c.x as f32 / w,
-                    y: c.y as f32 / h,
-                    width: c.width as f32 / w,
-                    height: c.height as f32 / h,
+                    x: c.x as f64 / w,
+                    y: c.y as f64 / h,
+                    width: c.width as f64 / w,
+                    height: c.height as f64 / h,
                 }
             }
         }

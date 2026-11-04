@@ -35,11 +35,11 @@
 
 use crate::error::RenderError;
 use kivact_types::ExternalFrame;
-use kivact_types::protocol::Scene;
+use kivact_types::render::RenderScene;
 use vello_hybrid::TextureId;
 
 #[cfg(feature = "gpu-interop")]
-use kivact_types::protocol::DrawCommand;
+use kivact_types::render::RenderCmd;
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 #[cfg(feature = "gpu-interop")]
@@ -142,7 +142,7 @@ impl External {
     /// Make the frames `scene` names ready to draw (steps 1 and 2 of the
     /// module documentation). Only [`GpuContext::with_external`] calls it.
     #[cfg(feature = "gpu-interop")]
-    pub(super) fn begin(&mut self, scene: &Scene) -> Result<(), RenderError> {
+    pub(super) fn begin(&mut self, scene: &RenderScene) -> Result<(), RenderError> {
         assert!(
             self.frame.is_none(),
             "invariant: frames of a context do not nest"
@@ -155,7 +155,7 @@ impl External {
         // The value each texture is acquired at (the largest drawn).
         let mut slots: Vec<(ExternalImageId, usize, u64)> = Vec::new();
         for command in &scene.commands {
-            let DrawCommand::External { frame, .. } = command else {
+            let RenderCmd::External { frame, .. } = command else {
                 continue;
             };
             if open.bound.contains_key(frame) {
@@ -340,7 +340,7 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    pub(super) fn begin(&mut self, _: &Scene) -> Result<(), RenderError> {
+    pub(super) fn begin(&mut self, _: &RenderScene) -> Result<(), RenderError> {
         Ok(())
     }
 

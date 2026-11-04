@@ -45,7 +45,7 @@ use super::state::{Configured, FORMAT, GpuContext, GpuSurface, Presentation, Swa
 use super::texture::target_texture;
 use crate::error::RenderError;
 use kivact_types::Size;
-use kivact_types::protocol::{CpuFrame, Scene};
+use kivact_types::render::{CpuFrame, RenderScene};
 use std::time::{Duration, Instant};
 
 impl GpuSurface {
@@ -92,9 +92,9 @@ impl GpuContext {
     pub fn present(
         &mut self,
         surface: &mut GpuSurface,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         physical: (u32, u32),
     ) -> Result<(Presentation, Duration), RenderError> {
         self.with_external(scene, |context| {
@@ -106,9 +106,9 @@ impl GpuContext {
     fn present_frame(
         &mut self,
         surface: &mut GpuSurface,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         (width, height): (u32, u32),
     ) -> Result<(Presentation, Duration), RenderError> {
         let (raster_size, info) = self.dimensions(scene, size, scale)?;

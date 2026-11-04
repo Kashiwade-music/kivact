@@ -4,7 +4,8 @@ use crate::cache::{Cache, TextKey};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
-use kivact_types::protocol::{RichText, ShapedText, TextDecoration, TextStyle, TextWrap};
+use kivact_types::render::{RichText, ShapedText};
+use kivact_types::{ComputedTextStyle, TextDecoration, TextWrap};
 use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
     Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
@@ -152,8 +153,8 @@ impl TextEngine {
     pub fn measure(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Result<TextMetrics, TextError> {
         let key = TextKey::new(text, style, max_width, false);
         self.cache.measured.get(key).unwrap_or_else(|key| {
@@ -171,8 +172,8 @@ impl TextEngine {
     fn measure_uncached(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Result<TextMetrics, TextError> {
         let height = line_height(style, max_width)?;
         if text.text.is_empty() {
@@ -221,8 +222,8 @@ impl TextEngine {
     pub fn shape(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Result<Arc<ShapedText>, TextError> {
         self.shape_cached(text, style, max_width, true)
     }
@@ -232,8 +233,8 @@ impl TextEngine {
     pub fn shape_glyphs(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Result<Arc<ShapedText>, TextError> {
         self.shape_cached(text, style, max_width, false)
     }
@@ -241,8 +242,8 @@ impl TextEngine {
     fn shape_cached(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         carets: bool,
     ) -> Result<Arc<ShapedText>, TextError> {
         let key = TextKey::new(text, style, max_width, true).with_carets(carets);
@@ -260,9 +261,9 @@ impl TextEngine {
     fn ellipsis_for(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-        height: f32,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+        height: f64,
     ) -> Option<output::Ellipsis> {
         if !style.ellipsizes() {
             return None;
@@ -279,7 +280,7 @@ impl TextEngine {
         if !output::needs_cut(layout, style, max_width) {
             return None;
         }
-        let own = TextStyle {
+        let own = ComputedTextStyle {
             wrap: TextWrap::NoWrap,
             align: TextAlign::Start,
             overflow: TextOverflow::Clip,
@@ -312,8 +313,8 @@ impl TextEngine {
     fn shape_with(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         with_carets: bool,
     ) -> Result<ShapedText, TextError> {
         let height = line_height(style, max_width)?;
@@ -430,7 +431,7 @@ impl TextEngine {
     }
 }
 
-fn trim_capsize(shaped: &mut ShapedText, top: f32, bottom: f32) {
+fn trim_capsize(shaped: &mut ShapedText, top: f64, bottom: f64) {
     shaped.size.height = bottom - top;
     shaped.baseline -= top;
     for run in &mut shaped.runs {
@@ -469,10 +470,10 @@ fn carets(layout: &parley::Layout<u32>, text: &str) -> Vec<TextCaret> {
             TextCaret {
                 offset: offset as u32,
                 rect: Rect {
-                    x: bounds.x0 as f32,
-                    y: bounds.y0 as f32,
-                    width: (bounds.x1 - bounds.x0) as f32,
-                    height: (bounds.y1 - bounds.y0) as f32,
+                    x: bounds.x0 as f64,
+                    y: bounds.y0 as f64,
+                    width: (bounds.x1 - bounds.x0) as f64,
+                    height: (bounds.y1 - bounds.y0) as f64,
                 },
             }
         })
@@ -494,9 +495,9 @@ fn layout_at<'a>(
     fonts: &mut FontContext,
     contexts: &mut LayoutContext<u32>,
     text: RichText<'_>,
-    style: &TextStyle,
-    max_width: Option<f32>,
-    height: f32,
+    style: &ComputedTextStyle,
+    max_width: Option<f64>,
+    height: f64,
 ) -> &'a mut parley::Layout<u32> {
     let key = layouts::Key::new(text.text, text.spans, style, height);
     let layout = shaped.get_or_insert(key, || {
@@ -506,7 +507,11 @@ fn layout_at<'a>(
         build::shape_layout(fonts, contexts, &converted, &spans, style, height)
     });
     let blank = text.text.chars().all(char::is_whitespace);
-    layout.break_all_lines(if blank { None } else { max_width });
+    layout.break_all_lines(if blank {
+        None
+    } else {
+        max_width.map(|value| value as f32)
+    });
     layout
 }
 
@@ -534,8 +539,8 @@ pub(super) fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 pub(super) fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]>,
-) -> std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]> {
+    spans: std::borrow::Cow<'a, [kivact_types::render::TextSpan]>,
+) -> std::borrow::Cow<'a, [kivact_types::render::TextSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }

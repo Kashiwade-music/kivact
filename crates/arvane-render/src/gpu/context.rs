@@ -4,7 +4,7 @@ use super::state::{FORMAT, Failure, GpuContext, GpuEnv};
 use crate::draw;
 use crate::error::RenderError;
 use kivact_types::Size;
-use kivact_types::protocol::Scene;
+use kivact_types::render::RenderScene;
 use std::sync::{Arc, Mutex};
 use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
 
@@ -116,7 +116,7 @@ impl GpuContext {
         };
         // One small frame makes the renderer's first buffers here, not in
         // the first frame of a window.
-        let blank = Scene::default();
+        let blank = RenderScene::default();
         context
             .render(
                 &blank,
@@ -277,7 +277,7 @@ impl GpuContext {
     /// of the module documentation).
     pub(super) fn with_external<R>(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         draw: impl FnOnce(&mut Self) -> Result<R, RenderError>,
     ) -> Result<R, RenderError> {
         let drawn = match self.external.begin(scene) {
