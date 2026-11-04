@@ -14,7 +14,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
 use kivact_types::protocol::ColorMatrix;
-use kivact_wire::{Edges, NodeId, Point, Rect, Size};
+use kivact_types::{Edges, NodeId, Point, Rect, Size};
 
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.

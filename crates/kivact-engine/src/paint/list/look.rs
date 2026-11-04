@@ -6,7 +6,7 @@ use crate::paint::state::Look;
 use crate::tree::node::HostNode;
 use kivact_lower::effects;
 use kivact_lower::sanitize::{extent, offset, unit};
-use kivact_wire::{Edges, FilterOp, NodeId, PaintProps, Rect};
+use kivact_types::{Edges, FilterOp, NodeId, PaintProps, Rect};
 
 impl Look {
     pub(crate) fn of(p: &PaintProps) -> Self {

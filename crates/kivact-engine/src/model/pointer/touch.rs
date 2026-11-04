@@ -7,7 +7,7 @@
 
 use super::state::{Axis, Gesture, TouchCandidate, TouchPan, TouchTarget};
 use crate::model::Model;
-use kivact_wire::{NodeId, Point, PointerId, PointerKind};
+use kivact_types::{NodeId, Point, PointerId, PointerKind};
 
 impl Model {
     pub(crate) fn reserve_touch_gesture(&mut self, pointer: PointerId) {

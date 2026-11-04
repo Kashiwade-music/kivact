@@ -35,7 +35,7 @@ use crate::text_measure::TextMeasurer;
 use kivact_lower::assets::ArvaneAssets;
 use kivact_lower::context::Context;
 use kivact_lower::effects::Tint;
-use kivact_wire::{Asset, ComputedText, PlatformResult, Rect, Scene};
+use kivact_types::{Asset, ComputedText, PlatformResult, Rect, Scene};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.

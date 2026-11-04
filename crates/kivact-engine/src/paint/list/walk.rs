@@ -1,12 +1,13 @@
 //! Role: Rebuild the paint list by walking the tree in paint order within the view.
 
 use super::ink::{grow, ink, local_transform, overlaps, placed, reach};
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{ChildIndex, Entry, Look, Step};
 use crate::tree::node::HostNode;
 use kivact_types::protocol::ColorMatrix;
-use kivact_wire::{NodeId, NodeType, Point, Rect};
+use kivact_types::{NodeId, Point, Rect};
 use std::collections::{HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device

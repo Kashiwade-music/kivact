@@ -11,7 +11,7 @@
 //! - Reads fill the entry on demand and hold no borrow of it past the
 //!   call, so no user code runs while the column is borrowed.
 use crate::model::Model;
-use kivact_wire::{ComputedText, NodeId};
+use kivact_types::{ComputedText, NodeId};
 use std::rc::Rc;
 
 /// How far a text in the style `text` paints out of its box (its font size

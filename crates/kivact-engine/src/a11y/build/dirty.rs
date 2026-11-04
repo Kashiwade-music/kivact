@@ -7,7 +7,7 @@ use crate::a11y::state::{Dirt, Metadata};
 use crate::model::Model;
 use crate::semantic_role;
 use arvane as a;
-use kivact_wire as wire;
+use kivact_types as types;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -46,7 +46,7 @@ impl Model {
                 }
             };
             let node = structural(
-                wire::NodeId(id),
+                types::NodeId(id),
                 Vec::new(),
                 kivact_types::Rect {
                     x: 0.0,
@@ -225,7 +225,7 @@ impl Model {
         }
         let mut nodes = Vec::new();
         let mut active = BTreeSet::new();
-        let mut stack = vec![(root, wire::Point::default())];
+        let mut stack = vec![(root, types::Point::default())];
         while let Some((id, offset)) = stack.pop() {
             if full || dirty.contains(&id) {
                 self.build_node(
@@ -239,7 +239,7 @@ impl Model {
             }
             if let Some(n) = self.node(id) {
                 let s = n.scroll();
-                let below = wire::Point {
+                let below = types::Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,
                 };

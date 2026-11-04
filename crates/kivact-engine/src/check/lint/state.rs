@@ -1,6 +1,6 @@
 //! Role: The lint group's state: the texts checked and their box keys.
 
-use kivact_wire::{IdMap, LayoutCheck, NodeId, Point, Rect, Size};
+use kivact_types::{IdMap, LayoutCheck, NodeId, Point, Rect, Size};
 
 /// The layout facts the rules depend on, all in the layout space (no
 /// scroll offset or transform in them).

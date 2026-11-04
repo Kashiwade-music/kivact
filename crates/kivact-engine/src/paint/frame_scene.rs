@@ -1,6 +1,7 @@
 //! Role: Build a frame's draw commands from the paint list, step by step.
 
 use super::state::{Entry, Step};
+use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
@@ -8,7 +9,7 @@ use kivact_lower::effects::Tint;
 use kivact_lower::shape::BoxShape;
 use kivact_lower::{border, effects, scene, shape};
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{HostEvent, NodeId, NodeType, PaintProps, Point, Rect, Size};
+use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
 
 impl Model {
     /// Build the frame's display list from the paint list (`list`): every

@@ -19,10 +19,11 @@
 //!   node as byte offsets (clamped to the text).
 
 use super::state::{ImeGiven, SessionSource};
+use crate::contract::{HostEvent, ImeSessionProps};
 use crate::model::Model;
 use crate::model::interact::text_geometry::byte_of_utf16;
 use crate::model::transform::map_rect;
-use kivact_wire::{HostEvent, ImeEvent, ImeSession, NodeId, Rect};
+use kivact_types::{ImeEvent, NodeId, Rect};
 
 impl Model {
     /// The focused node that has an IME session (it is not a native editor
@@ -35,7 +36,7 @@ impl Model {
     }
 
     /// The session of the focused node, if it has one.
-    fn session(&self, id: NodeId) -> Option<&ImeSession> {
+    fn session(&self, id: NodeId) -> Option<&ImeSessionProps> {
         self.tree.get(id)?.properties.ime.as_deref()
     }
 

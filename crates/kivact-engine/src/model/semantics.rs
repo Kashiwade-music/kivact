@@ -25,7 +25,8 @@
 //!   technology). The accessibility tree and the test driver take the
 //!   exposure from this one function.
 
-use kivact_wire::{A11yAction, NodeId, NodeType, RegionId, Role};
+use crate::contract::NodeType;
+use kivact_types::{A11yAction, NodeId, RegionId, Role};
 
 use crate::model::Model;
 use crate::tree::node::HostNode;

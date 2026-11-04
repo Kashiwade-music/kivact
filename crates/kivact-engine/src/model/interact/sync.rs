@@ -30,10 +30,12 @@
 //!   records the geometry it changed in `Changes`, runs the debug layout
 //!   lint, then syncs again to dispatch that geometry.
 
+use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::model::changes::{Dirty, Geometry};
 use arvane::asset::AssetStore;
-use kivact_wire::{NodeId, NodeType, Size};
+use kivact_lower::AssetEvent;
+use kivact_types::{NodeId, Size};
 
 impl Model {
     /// The window was resized.
@@ -189,7 +191,7 @@ impl Model {
                 .note_backdrop(kivact_lower::effects::backdrop_reach(p));
         }
         let look = n.paint().map_or_else(
-            || crate::paint::state::Look::of(&kivact_wire::PaintProps::default()),
+            || crate::paint::state::Look::of(&kivact_types::PaintProps::default()),
             crate::paint::state::Look::of,
         );
         // The list is built again when what its steps are made of changed
@@ -209,7 +211,11 @@ impl Model {
             self.layout(engine);
             let pending = self.assets.get_mut().take_pending();
             for e in pending {
-                self.push(e);
+                match e {
+                    AssetEvent::AssetFailed { node, message } => {
+                        self.push(HostEvent::AssetFailed { node, message });
+                    }
+                }
             }
             #[cfg(debug_assertions)]
             self.lint_layout(engine, self.changes.was_laid_out(), &remeasured);
@@ -261,7 +267,11 @@ impl Model {
             reports.extend(assets.check_image(*id, asset));
         }
         for e in reports {
-            self.push(e);
+            match e {
+                AssetEvent::AssetFailed { node, message } => {
+                    self.push(HostEvent::AssetFailed { node, message });
+                }
+            }
         }
     }
 }

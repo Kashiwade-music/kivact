@@ -31,7 +31,7 @@
 //! that does not scroll (`overflow: hidden`) is none. The transforms
 //! between a box and its scrollport are not looked at.
 
-use kivact_wire::{Dimension, NodeId, Point, Rect};
+use kivact_types::{Dimension, NodeId, Point, Rect};
 
 use crate::model::Model;
 

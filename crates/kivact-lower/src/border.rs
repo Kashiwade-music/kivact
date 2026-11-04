@@ -25,8 +25,8 @@
 use crate::effects::Tint;
 use crate::shape::BoxShape;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
-use kivact_wire::{Rect, Rgba};
+use kivact_types::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
+use kivact_types::{Rect, Rgba};
 
 use kivact_types::protocol::Shape;
 use kivact_types::{FillRule, LineCap, Point, Stroke};

@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use kivact_wire::motion::{SpringRun, Transition};
-use kivact_wire::{NodeId, PaintProps, PaintVec, Rgba};
+use kivact_types::motion::{SpringRun, Transition};
+use kivact_types::{NodeId, PaintProps, PaintVec, Rgba};
 
 /// The state motion group: the transitions of the nodes whose state
 /// styles are moving (allocated only while one moves).

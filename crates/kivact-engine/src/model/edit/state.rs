@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use kivact_editing::TextSession;
-use kivact_wire::{NodeId, Rect};
+use kivact_types::{NodeId, Rect};
 
 /// What a text input's IME text is made from (`Model::ime_changed`): the input,
 /// its text's revision and its session, its text box, its text scroll, its
@@ -26,7 +26,7 @@ pub(super) struct InputSource {
 #[derive(Clone, PartialEq)]
 pub(super) struct SessionSource {
     pub(super) node: NodeId,
-    pub(super) session: kivact_wire::ImeSession,
+    pub(super) session: crate::contract::ImeSessionProps,
     pub(super) area: Option<Rect>,
     pub(super) transform: Option<kivact_types::protocol::Transform>,
 }

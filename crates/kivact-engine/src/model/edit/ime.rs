@@ -3,7 +3,7 @@
 use super::state::{ImeGiven, ImeUpdate, InputSource};
 use crate::model::Model;
 use kivact_editing::EditState;
-use kivact_wire::ImeEvent;
+use kivact_types::ImeEvent;
 
 impl Model {
     /// The IME's composition (`selection` in bytes of `text`); an empty one

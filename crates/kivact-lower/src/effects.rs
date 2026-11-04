@@ -17,8 +17,8 @@
 //!   blend mode, outermost, so they apply after the filters (CSS order:
 //!   filter, clip, mask, opacity, blend).
 
-use kivact_wire::Point;
-use kivact_wire::{BlendMode, FilterOp, PaintProps, Rgba};
+use kivact_types::Point;
+use kivact_types::{BlendMode, FilterOp, PaintProps, Rgba};
 
 use kivact_types::protocol::{ColorMatrix, Layer, LayerFilter};
 
@@ -34,13 +34,13 @@ pub struct Tint {
 }
 
 impl Tint {
-    /// A wire color as drawn.
+    /// A shared color as drawn.
     pub fn color(&self, color: Rgba) -> Rgba {
         self.arvane(crate::sanitize::color(color))
     }
 
     /// Apply matrix and opacity to an already-lowered neutral color,
-    /// without repeating wire component sanitization.
+    /// without repeating shared component sanitization.
     pub fn arvane(&self, color: Rgba) -> Rgba {
         let color = match &self.matrix {
             Some(m) => m.apply(color),

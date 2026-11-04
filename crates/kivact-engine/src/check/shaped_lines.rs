@@ -1,8 +1,9 @@
 //! Role: Shape a text as it is painted and read its lines' advances and ink.
 
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::interact::visual;
-use kivact_wire::{NodeId, NodeType, Point, Rect};
+use kivact_types::{NodeId, Point, Rect};
 
 /// A shaped line, placed in the layout space.
 pub(super) struct Line {

@@ -1,6 +1,6 @@
 //! Role: Transforms and offsets shared geometry for painting.
 
-use kivact_wire::Point;
+use kivact_types::Point;
 
 /// Build a neutral affine transform from `[a, b, c, d, e, f]` coefficients.
 pub fn transform(m: [f32; 6]) -> kivact_types::protocol::Transform {

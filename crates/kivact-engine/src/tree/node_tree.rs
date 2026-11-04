@@ -1,8 +1,9 @@
 //! Role: The node tree: root, overlays, structural queries and writes over the store.
 
 use super::store::NodeStore;
+use crate::contract::NodeType;
 use crate::tree::node::{HostNode, NodeIndex, Place, Presence};
-use kivact_wire::{NodeId, NodeType};
+use kivact_types::NodeId;
 use std::collections::BTreeSet;
 
 /// The node tree.
@@ -22,7 +23,7 @@ pub(crate) struct NodeTree {
 }
 
 /// Whether state paint can transform or reorder a node.
-pub(crate) fn states_place(styles: &kivact_wire::StateStyles) -> bool {
+pub(crate) fn states_place(styles: &kivact_types::StateStyles) -> bool {
     styles
         .deltas()
         .any(|delta| delta.transform.is_some() || delta.z_index.is_some())

@@ -10,7 +10,7 @@
 //!   is always finite.
 
 use crate::model::Model;
-use kivact_wire::{NodeId, PaintProps, Rect};
+use kivact_types::{NodeId, PaintProps, Rect};
 
 /// The paint `id` is drawn with now (state deltas applied), sanitized.
 pub(crate) fn paint(host: &Model, id: NodeId) -> PaintProps {

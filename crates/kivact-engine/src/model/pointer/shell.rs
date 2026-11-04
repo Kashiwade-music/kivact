@@ -32,10 +32,11 @@
 
 use super::state::{Gesture, PointerSource, ScrollDrag};
 use crate::PointerSpace;
+use crate::contract::HostEvent;
 use crate::model::Model;
 use kivact_types::protocol::PointerInput;
-use kivact_wire::{
-    ButtonPress, FilePhase, HostEvent, MouseButton, Point, PointerId, PointerKind, PointerPhase,
+use kivact_types::{
+    ButtonPress, FilePhase, MouseButton, Point, PointerId, PointerKind, PointerPhase,
 };
 
 impl Model {

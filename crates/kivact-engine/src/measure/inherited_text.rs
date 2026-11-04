@@ -2,7 +2,7 @@
 
 use crate::measure::state::MeasureColumns;
 use crate::tree::NodeTree;
-use kivact_wire::{ComputedText, NodeId, TextProps};
+use kivact_types::{ComputedText, NodeId, TextProps};
 use std::rc::Rc;
 
 /// The inherited text style of `id`, resolved from its ancestors' `Text`

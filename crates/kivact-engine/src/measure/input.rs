@@ -3,7 +3,7 @@ use crate::measure::editor::EditorNode;
 use crate::measure::state::MeasureColumns;
 use crate::tree::NodeTree;
 use kivact_text::{EditLines, RefreshError, RefreshMode, Source};
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 use std::cell::RefMut;
 
 /// The width available to the editor during measurement or painting.

@@ -3,7 +3,7 @@
 use crate::borrowed_tree::{LayoutTree, LeafMeasurer};
 use crate::columns::NodeLayoutColumns;
 use crate::pass_state::LayoutState;
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 /// Complete neutral geometry, opaque so cache and Taffy representations stay private.
 /// Equality includes rounded/unrounded location, size, overflow rectangle,
@@ -18,7 +18,7 @@ pub struct Geometry {
 #[derive(Clone, Debug)]
 pub struct LayoutDifference {
     /// The logical node whose derived result differs.
-    pub id: kivact_wire::NodeId,
+    pub id: kivact_types::NodeId,
     /// Geometry, constraint or measurement evidence, without cache handles.
     pub detail: String,
 }

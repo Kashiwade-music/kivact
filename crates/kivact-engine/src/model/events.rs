@@ -1,6 +1,7 @@
 //! Role: Orders host events and private post-layout commit boundaries.
 
-use kivact_wire::{HostEvent, Revision};
+use crate::contract::HostEvent;
+use kivact_types::Revision;
 use std::collections::VecDeque;
 
 #[derive(Clone, Debug, Default)]

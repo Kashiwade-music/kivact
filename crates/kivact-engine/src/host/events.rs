@@ -41,13 +41,12 @@
 //!   returned are kept) and is reported to the client.
 use super::pump::{Host, LastFrame, Phase};
 use crate::KeyResult;
+use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_lower::conversion as c;
-use kivact_wire::{
-    HostEnv, HostEvent, HostInfo, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint,
-};
+use kivact_types::{HostEnv, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint};
 impl arvane::Handler for Host {
     fn start(
         &mut self,

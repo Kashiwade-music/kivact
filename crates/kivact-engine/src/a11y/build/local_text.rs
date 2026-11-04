@@ -5,14 +5,14 @@
 use crate::a11y::state::Metadata;
 use crate::model::Model;
 use arvane as a;
-use kivact_wire as wire;
+use kivact_types as types;
 use std::collections::BTreeSet;
 
 impl Model {
     pub(super) fn build_local_text(
         &mut self,
-        root: wire::NodeId,
-        nodes: &BTreeSet<wire::NodeId>,
+        root: types::NodeId,
+        nodes: &BTreeSet<types::NodeId>,
         engine: &mut a::Engine,
     ) -> kivact_types::protocol::SemanticsTree {
         let metadata = std::rc::Rc::clone(&self.a11y.metadata);
@@ -21,8 +21,8 @@ impl Model {
 
     fn build_local_text_with(
         &mut self,
-        root: wire::NodeId,
-        nodes: &BTreeSet<wire::NodeId>,
+        root: types::NodeId,
+        nodes: &BTreeSet<types::NodeId>,
         metadata: &Metadata,
         engine: &mut a::Engine,
     ) -> kivact_types::protocol::SemanticsTree {

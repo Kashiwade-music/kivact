@@ -3,7 +3,7 @@ use super::state::{Frame, State};
 use crate::context::Context;
 use crate::sanitize;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{Effects, PaintProps, Point, Rect, SceneCmd};
+use kivact_types::{Effects, PaintProps, Point, Rect, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_layers(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;

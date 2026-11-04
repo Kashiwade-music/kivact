@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use crate::tree::NodeTree;
-use kivact_wire::PointerId;
-use kivact_wire::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
+use kivact_types::PointerId;
+use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 
 /// The pointer group: the state machine's tracks (with each pointer's last
 /// position and its gesture), the file drop target and the cursor last
@@ -219,7 +219,7 @@ pub(crate) struct PointerSource {
     pub(crate) primary: bool,
 }
 
-pub(crate) type CursorKind = kivact_wire::Cursor;
+pub(crate) type CursorKind = kivact_types::Cursor;
 
 impl PointerSource {
     /// The mouse.

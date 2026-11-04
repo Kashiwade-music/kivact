@@ -2,7 +2,7 @@
 //!
 //! Payload ownership belongs exclusively to the shell. IDs may be allocated
 //! before acceptance; fingerprints and pending dirt commit only after acceptance.
-use kivact_wire::{NodeId, RegionId};
+use kivact_types::{NodeId, RegionId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 

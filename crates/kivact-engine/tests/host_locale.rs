@@ -6,9 +6,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact_engine::bridge::Client;
+use kivact_engine::api::Client;
 use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
-use kivact_wire::{HostEvent, TurnOutput};
+
+use kivact_engine::contract::{HostEvent, TurnOutput};
 
 /// What the client was told about the locale.
 #[derive(Default)]

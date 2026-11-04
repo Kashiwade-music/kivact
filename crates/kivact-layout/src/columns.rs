@@ -3,7 +3,7 @@
 use crate::calcs::Calcs;
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
-use kivact_wire::{LeafSize, MeasureRequest, Point, Rect, Size};
+use kivact_types::{LeafSize, MeasureRequest, Point, Rect, Size};
 use std::cell::Cell;
 
 /// The computed layout of one node.
@@ -212,7 +212,7 @@ pub enum GeometryChangeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GeometryChange {
     /// The logical identity, never a reusable slot.
-    pub id: kivact_wire::NodeId,
+    pub id: kivact_types::NodeId,
     /// Local includes initial layout; order bookkeeping is excluded.
     pub kind: GeometryChangeKind,
 }

@@ -4,7 +4,7 @@ use crate::model::Model;
 use crate::model::interact::{text_geometry, visual};
 use kivact_lower::effects::Tint;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{NodeId, Point, Rect, Rgba};
+use kivact_types::{NodeId, Point, Rect, Rgba};
 
 impl Model {
     /// A text input: the lines of its value (the placeholder in its color,
@@ -47,7 +47,7 @@ impl Model {
         };
         out.push(D::PushClip(area));
         if host.focused()
-            == Some(kivact_wire::FocusTarget {
+            == Some(kivact_types::FocusTarget {
                 node: id,
                 region: None,
             })

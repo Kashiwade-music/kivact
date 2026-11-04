@@ -17,7 +17,7 @@
 //! - The result is then clamped into the window; an overlay larger than
 //!   the window is aligned to its top-left corner.
 
-use kivact_wire::{OverlayAlign, OverlayProps, Placement, Point, Rect, Size};
+use kivact_types::{OverlayAlign, OverlayProps, Placement, Point, Rect, Size};
 
 /// Window-space origin of an overlay of `size` placed at `placement` of
 /// `anchor` (its window-space rect, `None` when unanchored), aligned by

@@ -61,7 +61,8 @@
 
 use std::ops::Range;
 
-use kivact_wire::{A11yAction, HostEvent, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
+use crate::contract::HostEvent;
+use kivact_types::{A11yAction, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
 
 use crate::measure::editor::EditorNode;
 use crate::model::Model;
@@ -310,11 +311,11 @@ impl Model {
                 return false;
             };
             match (group.orientation, &key) {
-                (kivact_wire::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
+                (kivact_types::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
                     let end = (key == Key::ArrowRight) != group.rtl;
                     selection.start == if end { editor.value().len() } else { 0 }
                 }
-                (kivact_wire::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
+                (kivact_types::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
                     self.tree.get(input).is_some_and(|node| !node.multiline())
                 }
                 _ => false,

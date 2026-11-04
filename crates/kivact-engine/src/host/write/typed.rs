@@ -31,13 +31,15 @@
 //!   alone only redraws.
 
 use super::Writer;
+use crate::contract::{
+    EditingData, ImeSessionProps, LeafMeasure, NodeKind, NodeProperties, NodeSemantics,
+};
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
-use kivact_wire::{
-    A11yAction, Asset, CheckedState, EditLineLayout, EditingData, FocusTarget, ImageData, ImageFit,
-    ImeSession, IntrinsicSize, Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties,
-    NodeSemantics, OverlayProps, PaintProps, Role, SemanticsProperties, StateStyles, TextData,
-    TextProps, TextSpan,
+use kivact_types::{
+    A11yAction, Asset, CheckedState, EditLineLayout, FocusTarget, ImageData, ImageFit,
+    IntrinsicSize, Key, LayoutProps, NodeId, OverlayProps, PaintProps, Role, SemanticsProperties,
+    StateStyles, TextData, TextProps, TextSpan,
 };
 
 fn semantics(p: &mut NodeProperties) -> &mut NodeSemantics {
@@ -197,7 +199,7 @@ props! {
         => field(Some(v), |p| Some(&mut p.input.focusable_when_disabled)),
         mut = Mut::NONE;
     /// Group native Tab stops at this node.
-    RovingFocus: set_roving_focus(v: kivact_wire::RovingFocus)
+    RovingFocus: set_roving_focus(v: crate::contract::RovingFocus)
         => field(Some(v), |p| Some(&mut p.input.roving_focus)),
         mut = Mut::NONE;
     /// Replace the node's listen pointer when its value differs.
@@ -319,7 +321,7 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's IME session (a focusable node that edits its own
     /// text, not a native editor) when its value differs.
-    ImeSession: set_ime_session(v: ImeSession)
+    ImeSession: set_ime_session(v: ImeSessionProps)
         => boxed(Some(v), |p| Some(&mut p.ime)),
         mut = Mut::NONE;
     /// Replace the node's multiline when its value differs.

@@ -1,8 +1,9 @@
 //! Role: Modal scope queries, input admission and focus confinement.
 
+use crate::contract::HostEvent;
 use crate::model::Model;
 use crate::tree::node::HostNode;
-use kivact_wire::{A11yAction, FocusTarget, HostEvent, NodeId, PointerId, PointerPhase};
+use kivact_types::{A11yAction, FocusTarget, NodeId, PointerId, PointerPhase};
 
 impl Model {
     /// The topmost shown modal overlay, if one is shown.
@@ -106,7 +107,7 @@ impl Model {
         node: NodeId,
         pointer: PointerId,
         phase: PointerPhase,
-        buttons: kivact_wire::PointerButtons,
+        buttons: kivact_types::PointerButtons,
     ) -> bool {
         let admission = &self.admission;
         admission.forget_missing(|n| self.tree.live(n));
@@ -130,7 +131,7 @@ impl Model {
                 admission.press(pointer, node);
                 // A new primary press ends the pointer's earlier gesture
                 // whose release never came.
-                if press.button == kivact_wire::MouseButton::Primary {
+                if press.button == kivact_types::MouseButton::Primary {
                     admission.forget_adoption(pointer);
                 }
             }

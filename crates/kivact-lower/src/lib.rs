@@ -1,6 +1,6 @@
 //! Role: Value lowering, resource resolution and local scene adaptation.
 //!
-//! Lowers wire styles, geometry, text and scenes into neutral drawing values,
+//! Lowers shared styles, geometry, text and scenes into neutral drawing values,
 //! using Arvane image and text services where resources are required. There is
 //! no node tree, layout cache, input state, window loop or publication here.
 //! Callers retain traversal, diagnostic location and error-priority policy.

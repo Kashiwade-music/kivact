@@ -19,7 +19,7 @@
 //!   no boxing, conversion or ownership change accompanies specialization.
 
 use crate::{ChildCursor, Counted, Flow, LayoutState, LayoutTree};
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 use taffy::{NodeId as TId, TraversePartialTree, TraverseTree};
 
 /// A borrowed traversal view; all retained data are derived cursors, not links.

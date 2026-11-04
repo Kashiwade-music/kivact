@@ -1,9 +1,10 @@
 //! Role: Start entrance transitions and run exits before a node is removed.
 
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::mutation::Mutation;
 use crate::tree::node::Presence;
-use kivact_wire::{Dimension, Edges, NodeId, NodeType, Position};
+use kivact_types::{Dimension, Edges, NodeId, Position};
 
 impl Model {
     /// `id` was created: it enters at the first commit that finds it
@@ -46,7 +47,7 @@ impl Model {
     fn transition_shown(
         &self,
         id: NodeId,
-        has: impl Fn(&kivact_wire::StateStyles) -> bool,
+        has: impl Fn(&kivact_types::StateStyles) -> bool,
     ) -> bool {
         let Some(n) = self.tree.get(id) else {
             return false;

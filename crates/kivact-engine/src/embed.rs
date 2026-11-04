@@ -1,13 +1,14 @@
 //! Role: Embedded hosts using the desktop client's turn and rendering loop.
 
-use crate::bridge::Client;
+use crate::api::Client;
+use crate::contract::HostError;
 use crate::{FrameLog, host};
 pub use arvane::embed::PanicSlot;
 use arvane::embed::{Embedded, Embedder};
 pub use arvane::{detached_threads, retain_module};
 use kivact_types::GpuPreference;
+use kivact_types::Size;
 use kivact_types::protocol::ParentWindow;
-use kivact_wire::{HostError, Size};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;

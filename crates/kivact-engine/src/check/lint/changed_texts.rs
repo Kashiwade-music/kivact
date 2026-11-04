@@ -2,8 +2,9 @@
 
 use super::state::BoxKey;
 use crate::check::{text_findings, visual_parent_of};
+use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
-use kivact_wire::{HostEvent, LayoutCheck, NodeId, NodeType, Point};
+use kivact_types::{LayoutCheck, NodeId, Point};
 
 /// The box key of the text `id`.
 fn key(host: &Model, id: NodeId, check: &LayoutCheck) -> Option<BoxKey> {

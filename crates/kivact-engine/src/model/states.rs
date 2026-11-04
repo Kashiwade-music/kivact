@@ -35,7 +35,7 @@
 //! - A text color delta colors the text below the node; the nearest
 //!   ancestor-or-self with an active one wins.
 
-use kivact_wire::{ComputedText, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
+use kivact_types::{ComputedText, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
 
 use crate::model::Model;
 use crate::mutation::Mutation;
@@ -99,7 +99,7 @@ impl Model {
         [
             s.focus.as_ref().filter(|_| {
                 self.focused()
-                    == Some(kivact_wire::FocusTarget {
+                    == Some(kivact_types::FocusTarget {
                         node: id,
                         region: None,
                     })
@@ -107,7 +107,7 @@ impl Model {
             s.focus_visible.as_ref().filter(|_| {
                 self.focus.visible()
                     && self.focused()
-                        == Some(kivact_wire::FocusTarget {
+                        == Some(kivact_types::FocusTarget {
                             node: id,
                             region: None,
                         })

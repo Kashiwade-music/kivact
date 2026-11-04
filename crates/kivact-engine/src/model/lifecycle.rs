@@ -1,7 +1,8 @@
 //! Role: Coordinate structural slots and the Model-owned derived columns.
+use crate::contract::NodeKind;
 use crate::model::Model;
 use crate::tree::node::HostNode;
-use kivact_wire::{NodeId, NodeKind};
+use kivact_types::NodeId;
 
 impl Model {
     pub(crate) fn create_slot(&mut self, id: NodeId, kind: NodeKind) {

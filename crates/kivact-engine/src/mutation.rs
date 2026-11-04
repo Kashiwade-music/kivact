@@ -1,6 +1,6 @@
 //! Role: Counts client writes independently of derived model synchronization.
 
-use kivact_wire::{NodeId, Revision};
+use kivact_types::{NodeId, Revision};
 use std::collections::HashSet;
 
 /// Client mutation totals and the last committed revision's operation counts.

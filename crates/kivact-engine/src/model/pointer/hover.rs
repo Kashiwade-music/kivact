@@ -2,7 +2,7 @@
 
 use super::state::CursorKind;
 use crate::model::Model;
-use kivact_wire::{NodeId, PointerId};
+use kivact_types::{NodeId, PointerId};
 
 impl Model {
     /// Whether `id` is under a primary pointer (in its hover chain).
@@ -35,7 +35,7 @@ impl Model {
     pub(crate) fn group_dependents(
         &self,
         nodes: &[NodeId],
-        has: impl Fn(&kivact_wire::StateStyles) -> bool,
+        has: impl Fn(&kivact_types::StateStyles) -> bool,
     ) -> Vec<NodeId> {
         nodes
             .iter()
@@ -50,7 +50,7 @@ impl Model {
     pub(crate) fn group_members(
         &self,
         node: NodeId,
-        has: impl Fn(&kivact_wire::StateStyles) -> bool,
+        has: impl Fn(&kivact_types::StateStyles) -> bool,
     ) -> Vec<NodeId> {
         let mut out = Vec::new();
         let Some(n) = self.tree.get(node) else {

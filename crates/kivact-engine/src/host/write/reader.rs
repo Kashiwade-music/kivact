@@ -1,9 +1,8 @@
 //! Role: `Reader`: the turn's read API over the engine's tree and layout.
 
+use crate::contract::{HostEvent, NodeProperties, SceneLayer};
 use crate::model::Model;
-use kivact_wire::{
-    FocusTarget, HostEvent, NodeId, NodeProperties, Point, PointerId, RegionId, Scene, SceneLayer,
-};
+use kivact_types::{FocusTarget, NodeId, Point, PointerId, RegionId, Scene};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -67,10 +66,14 @@ impl Reader {
     }
 
     /// Map node-local region bounds into logical window coordinates.
-    pub fn region_bounds(&self, id: NodeId, rect: kivact_wire::Rect) -> Option<kivact_wire::Rect> {
+    pub fn region_bounds(
+        &self,
+        id: NodeId,
+        rect: kivact_types::Rect,
+    ) -> Option<kivact_types::Rect> {
         let model = self.model.borrow();
         let bounds = model.rect(id)?;
-        let own = kivact_wire::Rect {
+        let own = kivact_types::Rect {
             x: bounds.x + rect.x,
             y: bounds.y + rect.y,
             ..rect
@@ -160,7 +163,7 @@ impl Reader {
     /// inherited defaults. Each shaping borrow ends before returning its result.
     pub fn paragraph_measurer(
         &self,
-        inherited: kivact_wire::ComputedText,
+        inherited: kivact_types::ComputedText,
     ) -> crate::text_measure::TextMeasurer {
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
@@ -173,7 +176,7 @@ impl Reader {
             let model = self.model.try_borrow().expect(
                 "invariant: draw callbacks run in kivact's turn, never while the engine holds the model",
             );
-            kivact_wire::ComputedText::clone(&model.text_props(id))
+            kivact_types::ComputedText::clone(&model.text_props(id))
         };
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }

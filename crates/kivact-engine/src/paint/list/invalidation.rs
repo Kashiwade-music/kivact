@@ -2,7 +2,7 @@
 
 use crate::model::changes::Dispatched;
 use crate::paint::state::{Ink, PaintList, PaintState};
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 impl PaintList {
     pub(crate) fn new() -> Self {
