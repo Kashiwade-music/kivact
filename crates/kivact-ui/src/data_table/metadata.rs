@@ -36,7 +36,7 @@ pub(super) fn columns(
             .collect::<Vec<_>>();
         columns.extend(data);
         if actions {
-            columns.push(super::rows::ACTIONS);
+            columns.push(super::column_keys::ACTIONS);
         }
         let count = u32::try_from(columns.len()).ok();
         let positions = columns

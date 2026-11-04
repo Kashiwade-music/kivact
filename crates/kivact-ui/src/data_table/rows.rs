@@ -30,11 +30,7 @@ use kivact_interaction::{
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(super) const STATUS: usize = usize::MAX;
-pub(super) const INDEX: usize = usize::MAX - 1;
-pub(super) const CHECK: usize = usize::MAX - 2;
-pub(super) const DETAILS: usize = usize::MAX - 3;
-pub(super) const ACTIONS: usize = usize::MAX - 4;
+use super::column_keys::{ACTIONS, CHECK, DETAILS, INDEX, STATUS};
 
 /// Native grouping keeps every cell's controls out of the page Tab sequence.
 /// Enter/F2 enters its controls; Escape restores cell navigation.
