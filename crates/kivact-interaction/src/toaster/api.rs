@@ -33,7 +33,6 @@ use kivact_core::UiError;
 use kivact_core::custom::{Owner, Part, PartState, part, raise};
 
 use super::column::{Event as ColumnEvent, HoldId, Machine as ColumnMachine, State as ColumnState};
-use super::focus::{Event as FocusEvent, Machine as FocusMachine, State as FocusState};
 use super::timer::{
     Effect as TimerEffect, Event as TimerEvent, Machine as TimerMachine, State as TimerState,
 };
@@ -87,7 +86,7 @@ impl FocusAttachment {
 #[derive(Clone, Copy)]
 pub(super) struct ToastFocus {
     within: Value<bool>,
-    state: MachineHandle<FocusMachine>,
+    state: MachineHandle<TimerMachine>,
 }
 
 impl PartialEq for ToastFocus {
@@ -475,12 +474,28 @@ impl Toaster {
         })
     }
 
-    fn track_focus(self, id: ToastId, within: Value<bool>) {
+    fn track_toast(
+        self,
+        id: ToastId,
+        within: Value<bool>,
+        duration: Option<Duration>,
+        engaged: Value<bool>,
+    ) {
         let owner = Owner::current();
+        let left_ns = duration.map_or(0, |duration| {
+            duration.as_nanos().min(u128::from(u64::MAX)) as u64
+        });
         let state = machine(
-            FocusState::default(),
-            || FocusMachine,
-            |_, effect| match effect {},
+            TimerState::new(left_ns),
+            move || TimerMachine {
+                now_ns: now_ns(),
+                timed: duration.is_some(),
+            },
+            move |_, effect| match effect {
+                TimerEffect::Dismiss => {
+                    self.dismiss_for(id, kivact_core::view::DismissReason::Timeout)
+                }
+            },
         );
         self.column.send(ColumnEvent::Focus(
             id,
@@ -490,7 +505,13 @@ impl Toaster {
             self.column
                 .send(ColumnEvent::Focus(id, FocusAttachment::Detached))
         });
-        effect(move || state.send(FocusEvent::Observe(within.get(), owner.focused_node())));
+        effect(move || {
+            state.send(TimerEvent::Observe {
+                inside: within.get(),
+                focused: owner.focused_node(),
+                engaged: engaged.get(),
+            })
+        });
     }
 }
 
@@ -614,8 +635,7 @@ impl Toaster {
                     }
                 })
                 .on_attach(move |_| {
-                    self.track_focus(id, anchor.focus_within());
-                    count_down(self, id, duration, engaged);
+                    self.track_toast(id, anchor.focus_within(), duration, engaged);
                 })
         })
     }
@@ -628,23 +648,6 @@ fn ids(shown: &[(ToastId, Toast)], assertive: bool) -> Vec<ToastId> {
         .filter(|(_, toast)| toast.tone.is_urgent() == assertive)
         .map(|(id, _)| *id)
         .collect()
-}
-
-/// DismissOn `id` after `duration` of time not `engaged`. The time already
-/// counted is kept while it is engaged and the rest resumes after it.
-fn count_down(toaster: Toaster, id: ToastId, duration: Option<Duration>, engaged: Value<bool>) {
-    let Some(duration) = duration else { return };
-    let left_ns = duration.as_nanos().min(u128::from(u64::MAX)) as u64;
-    let timer = machine(
-        TimerState::Paused { left_ns },
-        || TimerMachine { now_ns: now_ns() },
-        move |_, effect| match effect {
-            TimerEffect::Dismiss => {
-                toaster.dismiss_for(id, kivact_core::view::DismissReason::Timeout)
-            }
-        },
-    );
-    effect(move || timer.send(TimerEvent::Engaged(engaged.get())));
 }
 
 fn now_ns() -> u64 {
