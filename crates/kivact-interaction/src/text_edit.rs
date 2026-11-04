@@ -11,6 +11,7 @@
 
 mod draft;
 mod handle;
+mod machine;
 mod policy;
 
 pub use handle::{TextEditApi, use_text_area, use_text_edit};
