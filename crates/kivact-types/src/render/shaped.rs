@@ -136,6 +136,8 @@ pub struct TextLine {
 /// A line drawn with shaped text, in the text's coordinates.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextDecorationRect {
+    /// The decoration pattern.
+    pub style: crate::TextDecorationStyle,
     /// Where.
     pub rect: Rect,
     /// Its color.

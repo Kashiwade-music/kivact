@@ -27,26 +27,7 @@ use kivact_core::view::{
     node_ref,
 };
 
-/// Theme-wide tooltip timing, configured through [`crate::InteractionPolicy`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TooltipTiming {
-    /// How long the pointer or the keyboard focus has to stay before a
-    /// tooltip shows. Zero shows it at once.
-    pub delay: Duration,
-    /// After a tooltip hides, a tooltip of another trigger that becomes
-    /// engaged within this time shows without the delay, so moving along a
-    /// toolbar does not wait at every button.
-    pub skip_delay: Duration,
-}
-
-impl Default for TooltipTiming {
-    fn default() -> Self {
-        Self {
-            delay: Duration::from_millis(500),
-            skip_delay: Duration::from_millis(300),
-        }
-    }
-}
+pub use crate::tooltip_policy::TooltipTiming;
 
 /// What every tooltip of an App shares, created under the App's root owner by
 /// the first tooltip and kept for the App's lifetime. An App without tooltips
@@ -164,8 +145,7 @@ fn now_ns() -> u64 {
 /// trigger is `described_by` it while it is shown.
 ///
 /// ```no_run
-/// use kivact_core::view::{NodeBuilder, node, text};
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::{NodeBuilder, node, node_ref, text};
 /// use kivact_core::view::{Placement, Role, overlay, show};
 /// use kivact_interaction::use_tooltip;
 /// let tip = use_tooltip();
@@ -175,7 +155,7 @@ fn now_ns() -> u64 {
 ///     node().part(trigger).role(Role::Button).name("Save").focusable(true).child(text("Save")),
 ///     show(tip.is_open(), move || {
 ///         overlay(anchor, Placement::Below, text("Save the document"))
-///             .part(tip.content())
+///             .with_node(|node| node.part(tip.content()))
 ///             .name("Save the document")
 ///     }),
 /// );

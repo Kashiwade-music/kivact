@@ -26,5 +26,8 @@ pub use row_status::{DataTableRowStatusPaint, RowStatus};
 pub use sticky_paint::DataTableStickyPaint;
 pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent};
 
-mod tokens;
+pub(crate) mod tokens;
 pub use tokens::DataTableTokens;
+
+mod row_status_tokens;
+mod sticky_paint_tokens;

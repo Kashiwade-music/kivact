@@ -16,7 +16,7 @@ use crate::asset::Asset;
 /// equal when they have the same name or the same asset.
 ///
 /// ```
-/// use kivact::Asset;
+/// use kivact::view::Asset;
 /// use kivact::style::Icon;
 /// let check = Icon::named("check");
 /// assert_eq!(check.name(), Some("check"));

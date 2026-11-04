@@ -29,14 +29,6 @@ use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_r
 use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
-/// Where a theme centers modal dialogs opened by an attached trigger.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum DialogCenter {
-    #[default]
-    Anchor,
-    Window,
-}
-
 pub struct Dialog {
     open: Binding<bool>,
     title: Value<String>,
@@ -64,7 +56,7 @@ pub struct Dialog {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::ui::DialogMode;
+/// use kivact::interaction::DialogMode;
 ///
 /// fn rename(open: Signal<bool>) -> impl IntoView {
 ///     dialog("Rename", open)
@@ -75,7 +67,7 @@ pub struct Dialog {
 /// fn help() -> impl IntoView {
 ///     let open = signal(false);
 ///     dialog("Help", open)
-///         .kind(DialogMode::Popover)
+///         .mode(DialogMode::Popover)
 ///         .content(|| text("Press Tab to move between fields."))
 ///         .attach(button("Help"))
 /// }
@@ -441,7 +433,4 @@ fn edge(side: Edge) -> kivact_core::style::Style {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct DialogTokens {
-    pub center: DialogCenter,
-}
+pub use crate::dialog_tokens::{DialogCenter, DialogTokens};

@@ -31,8 +31,8 @@
 //! Semantic modifiers retain ordered patches; mounting folds them once or subscribes
 //! one render effect for the complete semantic value.
 
+use crate::view::element_data::Common;
 use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
-use crate::view::node::Common;
 use crate::view::semantics_data::{Relation, SemanticInput, SemanticsPatch};
 use crate::view::{A11yAction, A11yEvent, A11yRequest, HandlerResult};
 use kivact_types::{FocusTarget, Semantics};

@@ -103,7 +103,7 @@ pub struct MenuItemState {
 /// # }
 /// use kivact::interaction::MenuEntry;
 /// let entries = vec![
-///     MenuEntry::item("new", "New").shortcut("Ctrl N").icon("file-plus"),
+///     MenuEntry::item("new", "New").with_shortcut("Ctrl N").with_icon("file-plus"),
 ///     MenuEntry::checkbox("grid", "Show grid", true),
 ///     MenuEntry::separator(),
 ///     MenuEntry::group("Align", vec![
@@ -112,7 +112,7 @@ pub struct MenuItemState {
 ///     ]),
 ///     MenuEntry::heading("Share"),
 ///     MenuEntry::submenu("export", "Export", vec![
-///         MenuEntry::item("png", "PNG").description("Raster image"),
+///         MenuEntry::item("png", "PNG").with_description("Raster image"),
 ///         MenuEntry::item("svg", "SVG").disabled(true),
 ///     ]),
 /// ];

@@ -4,7 +4,6 @@ use super::toast_swipe::Swipe;
 use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::part;
-use kivact_core::motion::Transition;
 use kivact_core::state::signal;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
@@ -31,7 +30,7 @@ use kivact_interaction::{ToastId, Toaster, Tone};
 /// toaster. Mount one region near the root of the App.
 ///
 /// ```no_run
-/// use kivact::ui::{Toast, toaster};
+/// use kivact::interaction::{Toast, toaster};
 /// use kivact::prelude::*;
 /// use kivact::ui::toast_region;
 ///
@@ -52,18 +51,6 @@ pub fn toast_region(toaster: Toaster) -> ToastRegion {
         variants: Variants::default(),
         hold_all: false.into_value(),
     }
-}
-
-/// A theme's optional toast row-height animation.
-///
-/// The region reads this at setup. With a transition, set the group
-/// recipe's fixed gap to zero so the space between cards can animate.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ToastRowMotion {
-    /// A decorative transition for showing and collapsing the row.
-    pub transition: Option<Transition>,
-    /// Space before each card, included in its animated height.
-    pub gap: f64,
 }
 
 /// The live regions of a [`Toaster`], created by [`toast_region`].
@@ -280,7 +267,4 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ToastTokens {
-    pub row_motion: ToastRowMotion,
-}
+pub use crate::toast_tokens::{ToastRowMotion, ToastTokens};

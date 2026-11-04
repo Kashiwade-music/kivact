@@ -55,8 +55,8 @@ use kivact_core::view::{Handled, IntoView, KeyEvent, Role, View};
 /// # }
 /// use kivact::interaction::Command;
 /// let commands = vec![
-///     Command::new("new", "New file").group("File").hint("Ctrl N").icon("file"),
-///     Command::new("open", "Open file").group("File").keywords(["load"]),
+///     Command::new("new", "New file").with_group("File").with_hint("Ctrl N").with_icon("file"),
+///     Command::new("open", "Open file").with_group("File").with_keywords(["load"]),
 ///     Command::new("quit", "Quit").disabled(true),
 /// ];
 /// assert_eq!(commands.len(), 3);
@@ -235,7 +235,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -253,9 +253,10 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///     ];
 ///     let p = use_command_palette(commands, open).on_activate(move |key| last.set(Some(key)));
 ///     p.show(move || {
-///         let rows = for_each(p.visible(), |g| g.index, move |_, group| {
+///         let rows = for_each(p.visible(), |g| g.index, move |group| {
 ///             let commands = memo(move || group.with(|g| g.commands.clone()));
-///             for_each(commands, |c| *c.key(), move |key, command| {
+///             for_each(commands, |c| *c.key(), move |command| {
+///                 let key = command.with(|c| *c.key());
 ///                 node()
 ///                     .part(p.item(key))
 ///                     .child(text(move || command.with(|c| c.label())))
@@ -265,7 +266,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///             kivact_core::view::node().name("").part(kivact_interaction::use_text_edit(p.query()).control()).part(p.input()),
 ///             column(rows).part(p.list()),
 ///         )))
-///         .part(p.content())
+///         .with_node(|node| node.part(p.content()))
 ///     })
 /// }
 /// ```

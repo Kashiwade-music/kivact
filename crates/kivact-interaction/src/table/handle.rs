@@ -49,7 +49,7 @@ use std::rc::Rc;
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -67,11 +67,12 @@ use std::rc::Rc;
 ///     ColumnDef::new("age", "Age").compare(|a: &Person, b: &Person| a.age.cmp(&b.age)),
 /// ];
 /// let t = use_data_table(people, |p: &Person| p.id, columns.clone(),
-///     Selection::Multiple(selected.into_binding()), TableFocus::default());
+///     selected, TableFocus::default());
 /// let head = row(columns.iter().map(|c| {
 ///     node().part(t.header(*c.key())).child(text(c.label())).into_view()
 /// }).collect::<Vec<_>>());
-/// let body = for_each(people, |p| p.id, move |id, person| {
+/// let body = for_each(people, |p| p.id, move |person| {
+///     let id = person.with(|p| p.id);
 ///     row((
 ///         node().part(t.cell(id, "name")).child(text(move || person.get().name)),
 ///         node().part(t.cell(id, "age")).child(text(move || person.get().age.to_string())),

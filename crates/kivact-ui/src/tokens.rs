@@ -1,8 +1,11 @@
 //! Role: Group per-component visual tokens in one theme extension.
-use crate::{
-    ButtonTokens, DataTableTokens, DialogTokens, DisclosureTokens, ProgressTokens, ToastTokens,
-    ToggleButtonTokens,
-};
+use crate::button_tokens::ButtonTokens;
+use crate::data_table::tokens::DataTableTokens;
+use crate::dialog_tokens::DialogTokens;
+use crate::disclosure_tokens::DisclosureTokens;
+use crate::progress_tokens::ProgressTokens;
+use crate::toast_tokens::ToastTokens;
+use crate::toggle_button_tokens::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {

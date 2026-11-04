@@ -19,29 +19,7 @@ use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, on_mount, sign
 use kivact_core::style::use_theme;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 
-/// Whether disabled menu entries participate in roving keyboard focus.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum DisabledMenuFocus {
-    #[default]
-    Skip,
-    Retain,
-}
-
-/// Pointer delays for opening a submenu or leaving it for a sibling item.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SubmenuTiming {
-    pub open: Duration,
-    pub close: Duration,
-}
-
-impl Default for SubmenuTiming {
-    fn default() -> Self {
-        Self {
-            open: Duration::from_millis(140),
-            close: Duration::ZERO,
-        }
-    }
-}
+pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {

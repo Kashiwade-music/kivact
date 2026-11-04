@@ -23,7 +23,8 @@ impl Path {
     /// zero length has no outline.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// use kivact::draw::Stroke;
     /// let line = Path::new().move_to(Point::new(0.0, 5.0)).line_to(Point::new(20.0, 5.0));
     /// let band = line.stroke_outline(&Stroke::new(4));

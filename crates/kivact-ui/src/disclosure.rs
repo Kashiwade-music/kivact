@@ -15,7 +15,6 @@ use kivact_core::style::{Overflow, style, use_theme};
 use kivact_core::view::{IntoView, View, node_ref, show};
 use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::{use_content_reveal, use_disclosure};
-use std::time::Duration;
 
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
@@ -219,20 +218,4 @@ impl IntoView for Disclosure {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct DisclosureTokens {
-    pub motion: DisclosureMotion,
-}
-#[derive(Clone, Debug, PartialEq)]
-pub struct DisclosureMotion {
-    pub animate: bool,
-    pub duration: Duration,
-}
-impl Default for DisclosureMotion {
-    fn default() -> Self {
-        Self {
-            animate: false,
-            duration: Duration::from_millis(200),
-        }
-    }
-}
+pub use crate::disclosure_tokens::{DisclosureMotion, DisclosureTokens};

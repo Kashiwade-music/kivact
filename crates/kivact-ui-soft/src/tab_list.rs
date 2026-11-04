@@ -1,6 +1,6 @@
 //! Role: Render Neutral tabs, manual keyboard selection and overflow menus.
 use crate::scrollable_area::use_scroll_overflow;
-use crate::side_nav::logical_row;
+use crate::side_nav::items::logical_row;
 use crate::stack::{ContainerInset, rtl};
 use crate::tokens;
 use kivact::draw::linear_gradient;

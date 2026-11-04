@@ -11,8 +11,8 @@ use std::rc::Rc;
 use kivact_style::draw::RegionId;
 
 use crate::view::descriptor::Mcx;
+use crate::view::element_data::{Constraints, Registry, Target, TargetId};
 use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver, open};
-use crate::view::node::{Constraints, Registry, Target, TargetId};
 use crate::view::tree::{Handlers, PartActions};
 use crate::view::{A11yAction, Handled, KeyEvent, WheelEvent};
 

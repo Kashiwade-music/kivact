@@ -79,9 +79,8 @@ pub struct PopupState {
 /// before the next flush is skipped, and an explicit live focus request wins.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{NodeBuilder, node, text, Placement, Role, overlay, show}};
+/// use kivact_core::{state::signal, view::{NodeBuilder, node, node_ref, text, Placement, Role, overlay, show}};
 /// use kivact_interaction::use_popup;
-/// use kivact_core::view::NodeBuilder;
 /// let open = signal(false);
 /// let menu = use_popup(open);
 /// let trigger = menu.trigger();
@@ -90,8 +89,7 @@ pub struct PopupState {
 ///     node().node_ref(anchor).part(trigger).name("Options").child(text("Options")),
 ///     show(menu.is_open(), move || {
 ///         overlay(anchor, Placement::Below, text("Contents"))
-///             .part(menu.content())
-///             .role(Role::Dialog)
+///             .with_node(|node| node.part(menu.content()).role(Role::Dialog))
 ///             .name("Options")
 ///     }),
 /// );

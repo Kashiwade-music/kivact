@@ -33,7 +33,7 @@
 //! ```no_run
 //! # mod kivact {
 //! #     //! Role: Supply facade paths for this documentation example.
-//! # pub use kivact_core::{view, state, style};
+//! # pub use kivact_core::{i18n, view, state, style};
 //! # pub mod prelude {
 //! # //! Role: Supply the canonical imports used by this documentation example.
 //! # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};

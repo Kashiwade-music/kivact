@@ -71,11 +71,13 @@ pub struct TabListState {
 ///     ListItem::new("keys", "Keys")]);
 /// let selected = signal("general");
 /// let tabs = use_tabs(options, selected);
-/// let list = node().part(tabs.list()).child(for_each(options, |row| *row.key(),
-///     move |key, row| node().part(tabs.item(key))
-///         .child(text(move || row.with(|row| row.label())))));
+/// let list = node().part(tabs.list()).child(for_each(options, |row| *row.key(), move |row| {
+///     let key = row.with(|row| *row.key());
+///     node().part(tabs.item(key)).child(text(move || row.with(|row| row.label())))
+/// }));
 /// // Keeping every panel mounted is a caller rendering decision.
-/// let panels = for_each(options, |row| *row.key(), move |key, _| {
+/// let panels = for_each(options, |row| *row.key(), move |item| {
+///     let key = item.with(|item| *item.key());
 ///     node().part(tabs.panel(key)).child(text(format!("Settings: {key}")))
 /// });
 /// let view = column((list, panels));

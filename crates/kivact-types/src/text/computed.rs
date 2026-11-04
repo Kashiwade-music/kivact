@@ -107,6 +107,7 @@ impl ComputedTextStyle {
                 .unwrap_or_else(|| parent.features.clone()),
             tabular_nums: own.tabular_nums.unwrap_or(parent.tabular_nums),
             decoration: TextDecoration {
+                style: own.decoration_style.unwrap_or(parent.decoration.style),
                 lines: own.decoration_lines.unwrap_or(parent.decoration.lines),
                 color: own
                     .decoration_color

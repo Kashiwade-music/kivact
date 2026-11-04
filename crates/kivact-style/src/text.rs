@@ -146,6 +146,7 @@ pub use kivact_types::LineHeight;
 /// `|`: `TextDecorationLine::UNDERLINE | TextDecorationLine::OVERLINE`.
 #[doc(inline)]
 pub use kivact_types::DecorationLines as TextDecorationLine;
+pub use kivact_types::TextDecorationStyle;
 
 /// What a line of text that does not fit shows (CSS `text-overflow`).
 #[doc(inline)]
@@ -220,6 +221,7 @@ pub(crate) struct TextExtras {
     pub(crate) features: Option<Vec<FontFeature>>,
     pub(crate) tabular_nums: Option<bool>,
     pub(crate) decoration_line: Option<TextDecorationLine>,
+    pub(crate) decoration_style: Option<DecorationStyleValue>,
     pub(crate) decoration_color: Option<Color>,
     pub(crate) decoration_thickness: Option<TextLength>,
     pub(crate) underline_offset: Option<TextLength>,
@@ -250,6 +252,7 @@ impl TextExtras {
             features,
             tabular_nums,
             decoration_line,
+            decoration_style,
             decoration_color,
             decoration_thickness,
             underline_offset,
@@ -293,6 +296,7 @@ pub(crate) fn decoration(
     theme: &Theme,
 ) -> p::TextDecoration {
     p::TextDecoration {
+        style: TextDecorationStyle::default(),
         lines: line.unwrap_or_default(),
         color: color.map(|c| c.resolve(theme)),
         thickness: thickness.map(TextLength::to_wire),
@@ -333,6 +337,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
     t.features = features;
     t.tabular_nums = x.tabular_nums;
     t.decoration_lines = x.decoration_line;
+    t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);
     t.decoration_color = color(x.decoration_color);
     t.decoration_thickness = x.decoration_thickness.map(TextLength::to_wire);
     t.underline_offset = x.underline_offset.map(TextLength::to_wire);
@@ -391,4 +396,40 @@ pub struct CompiledSpanStyle {
     pub props: p::SpanProps,
     /// Font feature tags dropped because they are not four ASCII characters.
     pub unsupported: u32,
+}
+
+/// A tracked decoration input, preserving constant equality and dynamic identity.
+#[derive(Clone)]
+pub(crate) enum DecorationStyleValue {
+    Fixed(TextDecorationStyle),
+    Dynamic(std::rc::Rc<kivact_runtime::Prop<TextDecorationStyle>>),
+}
+impl DecorationStyleValue {
+    pub(crate) fn new(value: impl kivact_runtime::IntoValue<TextDecorationStyle>) -> Self {
+        let value = value.into_prop();
+        match value.fixed() {
+            Some(value) => Self::Fixed(value),
+            None => Self::Dynamic(std::rc::Rc::new(value)),
+        }
+    }
+    fn get(&self) -> TextDecorationStyle {
+        match self {
+            Self::Fixed(value) => *value,
+            Self::Dynamic(value) => value.get(),
+        }
+    }
+}
+impl std::fmt::Debug for DecorationStyleValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DecorationStyleValue(..)")
+    }
+}
+impl PartialEq for DecorationStyleValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Fixed(a), Self::Fixed(b)) => a == b,
+            (Self::Dynamic(a), Self::Dynamic(b)) => std::rc::Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
 }

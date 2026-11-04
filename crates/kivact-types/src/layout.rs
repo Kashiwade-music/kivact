@@ -427,6 +427,8 @@ pub struct LayoutProps {
     pub overflow_y: Overflow,
     /// `display: none`.
     pub hidden: bool,
+    /// Whether this box participates in painting and interaction.
+    pub visibility: Visibility,
     /// CSS `aspect-ratio` (width / height; `None`: auto).
     pub aspect_ratio: Option<f64>,
     /// Grid container tracks and grid item placement (`None`: neither).
@@ -464,6 +466,7 @@ impl Default for LayoutProps {
             overflow_x: Overflow::Visible,
             overflow_y: Overflow::Visible,
             hidden: false,
+            visibility: Visibility::Visible,
             aspect_ratio: None,
             display: Display::Flex,
             grid: None,
@@ -498,4 +501,13 @@ pub struct IntrinsicSize {
     pub min: Option<Size>,
     pub preferred: Option<Size>,
     pub max: Option<Size>,
+}
+
+/// Whether a layout box is painted and exposed for interaction.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Visibility {
+    #[default]
+    Visible,
+    /// Preserve layout while hiding the subtree from paint, accessibility and input.
+    Hidden,
 }

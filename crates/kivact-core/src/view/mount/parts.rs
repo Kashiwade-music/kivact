@@ -7,7 +7,7 @@ use kivact_runtime::Owner;
 use kivact_runtime::Prop as InputProp;
 
 use crate::view::descriptor::Mcx;
-use crate::view::node::{Common, Constraints};
+use crate::view::element_data::{Common, Constraints};
 use crate::view::part_data::{PartBinding, PartConstraints, PartMount};
 
 impl Common {

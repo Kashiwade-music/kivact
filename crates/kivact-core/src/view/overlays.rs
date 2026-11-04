@@ -57,9 +57,9 @@ use kivact_types::{A11yRequest, NodeId, OverlayProps};
 use kivact_runtime::{IntoValue, Prop as InputProp};
 
 use crate::view::descriptor::{IntoView, View, mount, view_fn};
+use crate::view::element_data::{Content, Node, NodeBuilder};
 use crate::view::input::{DismissReason, Key, KeyEvent, Modifiers};
 use crate::view::mount::mount_host;
-use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::node_ref::{self, NodeRef};
 use crate::view::state::ViewState;
 use crate::view::{A11yAction, focus, requests};

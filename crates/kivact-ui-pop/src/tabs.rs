@@ -23,7 +23,7 @@ use kivact::view::{row, text};
 ///         "Profile sections",
 ///         vec![
 ///             ListItem::new("overview", "Overview").with_icon("home"),
-///             ListItem::new("skills", "Skills").description("4"),
+///             ListItem::new("skills", "Skills").with_description("4"),
 ///         ],
 ///         selected,
 ///     )

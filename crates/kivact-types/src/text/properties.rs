@@ -36,9 +36,21 @@ impl TextLen {
     }
 }
 
+/// The pattern used to draw text decorations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TextDecorationStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+    Wavy,
+}
+
 /// Lines drawn with text (CSS `text-decoration`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
+    /// The line pattern.
+    pub style: TextDecorationStyle,
     /// The lines to draw.
     pub lines: crate::DecorationLines,
     /// `None`: the text's color.
@@ -78,6 +90,7 @@ pub struct TextStyle {
     pub features: Option<Vec<FontFeature>>,
     pub tabular_nums: Option<bool>,
     pub decoration_lines: Option<crate::DecorationLines>,
+    pub decoration_style: Option<TextDecorationStyle>,
     pub decoration_color: Option<Rgba>,
     pub decoration_thickness: Option<TextLen>,
     pub underline_offset: Option<TextLen>,
