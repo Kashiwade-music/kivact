@@ -110,8 +110,10 @@ impl<T: Clone + 'static> Resource<T> {
             .clone()
     }
 
-    pub(super) fn snapshot(&self) -> super::async_source::AsyncSnapshot<T> {
-        super::async_source::AsyncSnapshot(self.cell(Location::caller()).async_state.state.get())
+    pub(super) fn snapshot(&self) -> super::async_publication::AsyncSnapshot<T> {
+        super::async_publication::AsyncSnapshot(
+            self.cell(Location::caller()).async_state.state.get(),
+        )
     }
 
     /// Last successful value, kept while refetching, after errors and

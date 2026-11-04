@@ -655,8 +655,10 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
             .clone()
     }
 
-    pub(super) fn snapshot(&self) -> super::async_source::AsyncSnapshot<T> {
-        super::async_source::AsyncSnapshot(self.cell(Location::caller()).1.async_state.state.get())
+    pub(super) fn snapshot(&self) -> super::async_publication::AsyncSnapshot<T> {
+        super::async_publication::AsyncSnapshot(
+            self.cell(Location::caller()).1.async_state.state.get(),
+        )
     }
 
     /// Value of the last successful run, kept while a later one is pending,

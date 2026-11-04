@@ -89,7 +89,7 @@ pub(crate) struct TaskCell {
 /// last).
 pub struct TaskState {
     #[cfg(feature = "tokio")]
-    pub(super) tokio: RefCell<super::tokio_bridge::TokioState>,
+    pub(super) tokio: RefCell<super::tokio_state::TokioState>,
     /// The UI-thread executor of spawned futures and action queue workers.
     pub(super) exec: Executor,
     /// Pending host-clock timers.
@@ -114,7 +114,7 @@ impl TaskState {
     pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
         TaskState {
             #[cfg(feature = "tokio")]
-            tokio: RefCell::new(super::tokio_bridge::TokioState::NotStarted),
+            tokio: RefCell::new(super::tokio_state::TokioState::NotStarted),
             exec: Executor::new(waker),
             time: RefCell::new(Scheduler::default()),
             blocking_threads,

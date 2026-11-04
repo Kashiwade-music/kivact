@@ -52,12 +52,17 @@ pub use spawn::{Task, spawn, spawn_in};
 pub use state::{TaskState, TaskStats};
 pub use time::{sleep, timeout};
 
-pub use async_source::{AsyncSource, Retry};
+pub use async_publication::Retry;
+pub use async_source::AsyncSource;
 // xtask-allow(internal-contract): Standard async views consume sealed source publication identities.
 #[doc(hidden)]
-pub use async_source::AsyncSnapshot;
+pub use async_publication::AsyncSnapshot;
+mod async_adapters;
+mod async_publication;
 mod async_source;
 #[cfg(feature = "tokio")]
 mod tokio_bridge;
+#[cfg(feature = "tokio")]
+mod tokio_state;
 #[cfg(feature = "tokio")]
 pub use tokio_bridge::on_tokio;
