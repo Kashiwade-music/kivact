@@ -4,7 +4,7 @@ Kivact is Copyright (c) 2026 Kashiwade <kashiwade@outlook.com> and is licensed u
 
 | Material | Local license / provenance record |
 |---|---|
-| Embedded Windows IMM32 implementation | [ime.rs](crates/arvane-native/src/embed/windows/ime.rs) references winit 0.30.13 `src/platform_impl/windows/ime.rs`, Apache-2.0 ([source](https://github.com/rust-windowing/winit/blob/v0.30.13/src/platform_impl/windows/ime.rs)); license terms in [LICENSE-APACHE](LICENSE-APACHE) |
+| Embedded Windows IMM32 implementation | [ime.rs](crates/arvane-native/src/port/win32/ime.rs) references winit 0.30.13 `src/platform_impl/windows/ime.rs`, Apache-2.0 ([source](https://github.com/rust-windowing/winit/blob/v0.30.13/src/platform_impl/windows/ime.rs)); license terms in [LICENSE-APACHE](LICENSE-APACHE) |
 | Tuffy font shipped by Arvane | [Tuffy-LICENSE.txt](crates/arvane/assets/fonts/Tuffy-LICENSE.txt): original public-domain release and fallback grant with the original named authors. Preserve the supplied text |
 | InterVariable test font | [InterVariable-LICENSE.txt](crates/arvane/tests/fonts/InterVariable-LICENSE.txt): original copyright notice and SIL Open Font License |
 | Tabler icons in Pop/Game/Creative | [Pop license](crates/kivact-ui-pop/assets/LICENSE-tabler-icons.txt), [Game license](crates/kivact-ui-game/assets/LICENSE-tabler-icons.txt), [Creative license](crates/kivact-ui-creative/LICENSE-tabler-icons.txt): supplied MIT terms and Paweł Kuna copyright notice |
