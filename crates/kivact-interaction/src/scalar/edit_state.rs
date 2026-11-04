@@ -180,10 +180,13 @@ pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
     });
     on_cleanup(move || {
         if shared.thumb_focus.try_get_untracked().is_some() {
+            let was_focused = focused.get_untracked();
             shared
                 .thumb_focus
                 .update(|thumbs| thumbs.retain(|thumb| *thumb != focused));
-            shared.focus.send(Event::ThumbBlur);
+            if was_focused {
+                shared.focus.send(Event::ThumbBlur);
+            }
         }
     });
 }
