@@ -7,6 +7,7 @@ use crate::editors::node::input::{key, pointer};
 use crate::editors::node::model::{NodeData, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
 use crate::editors::shared::targets::{self};
+use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_zoom_pan};

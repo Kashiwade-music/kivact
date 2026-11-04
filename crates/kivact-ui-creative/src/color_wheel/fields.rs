@@ -164,7 +164,7 @@ fn hex(state: State, alpha: Value<bool>) -> View {
         }
     };
     kivact::ui::text_input(message("creative.color.hex", "Color HEX"), input)
-        .draft(commit)
+        .on_draft_commit(commit)
         // Escape discards the draft: the field follows the color again.
         .on_edit(move |phase| {
             if phase == EditPhase::Cancel {
@@ -194,7 +194,8 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
     let buttons = for_each(
         items,
         |(index, _)| *index,
-        move |index, item: Value<(usize, Color)>| {
+        move |item: Value<(usize, Color)>| {
+            let index = item.get_untracked().0;
             kivact::ui::button(move || format!("{} {}", swatch_label.get(), index + 1))
                 .with_node(move |node| node.disabled(state.blocked))
                 .on_press(move || {

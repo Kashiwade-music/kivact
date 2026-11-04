@@ -21,7 +21,7 @@ pub(super) struct TabDrag<K> {
 /// Registered tab rectangles with the token of their registering row.
 pub(super) type TabRects<K> = RefCell<HashMap<K, (u64, Value<Option<Rect>>)>>;
 
-pub(super) struct Shared<K: 'static> {
+pub(super) struct Shared<K: kivact::state::ItemKey> {
     pub(super) rects: TabRects<K>,
     pub(super) next_rect: Cell<u64>,
     pub(super) menu: MenuBuilder<K>,
@@ -51,7 +51,7 @@ pub(super) struct Texts {
 }
 
 /// Copy handles shared by every row of one dock.
-pub(super) struct DockCx<K: 'static> {
+pub(super) struct DockCx<K: kivact::state::ItemKey> {
     pub(super) layout: Binding<DockLayout<K>>,
     pub(super) on_edit: Option<Callback<EditPhase>>,
     /// The normalized layout.
@@ -62,18 +62,18 @@ pub(super) struct DockCx<K: 'static> {
     pub(super) shared: Var<Rc<Shared<K>>>,
 }
 
-impl<K: 'static> Clone for DockCx<K> {
+impl<K: kivact::state::ItemKey> Clone for DockCx<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: 'static> Copy for DockCx<K> {}
+impl<K: kivact::state::ItemKey> Copy for DockCx<K> {}
 
 /// Builds the menu button of one container.
 pub(super) type MenuBuilder<K> = kivact::view::ViewFn<MenuInput<K>>;
 
 /// What a container's menu button reads.
-pub(super) struct MenuInput<K: 'static> {
+pub(super) struct MenuInput<K: kivact::state::ItemKey> {
     pub(super) cx: DockCx<K>,
     pub(super) tabs: Value<DockTabs<K>>,
     pub(super) maximized: Value<bool>,

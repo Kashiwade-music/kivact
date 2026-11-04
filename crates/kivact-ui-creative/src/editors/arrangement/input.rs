@@ -1,6 +1,6 @@
 //! Role: Arrangement gesture transactions and discrete input.
 use super::gesture::Snapshot;
-use super::gesture::{DragApi, LoopPart, State};
+use super::gesture::{Drag, LoopPart, State};
 use super::layout::{automation_value, offset_y, pan_y, track_layout};
 use crate::editors::arrangement::a11y::targets::Target;
 use crate::editors::arrangement::model::{ArrangementRequest, TimelineTool};
@@ -22,7 +22,7 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
         return Handled::Yes;
     }
     match press.button {
-        MouseButton::Middle => start(state, DragApi::Pan, &e, None),
+        MouseButton::Middle => start(state, Drag::Pan, &e, None),
         MouseButton::Primary => {
             if let Some(region) = e.region() {
                 let target = state.regions.with(|map| map.target(region.0));
@@ -33,7 +33,7 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                     Some(Target::LoopCreate) => return loop_drag(state, LoopPart::Create, &e),
                     // The press moves the playhead: see `drag`.
                     Some(Target::Playhead) => {
-                        start(state, DragApi::Playhead, &e, None);
+                        start(state, Drag::Playhead, &e, None);
                         return Handled::No;
                     }
                     Some(Target::AddTrack) => return Handled::No,
@@ -42,7 +42,7 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                     Some(Target::Trim(id, right)) => (id, Some(right)),
                     Some(Target::Automation(track, id)) => {
                         state.active_auto.set(Some((track, id)));
-                        start(state, DragApi::Auto(track, id), &e, None);
+                        start(state, Drag::Auto(track, id), &e, None);
                         return Handled::No;
                     }
                     _ => return Handled::No,
@@ -83,9 +83,9 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                 start(
                     state,
                     if let Some(right) = trim {
-                        DragApi::Trim(id, right)
+                        Drag::Trim(id, right)
                     } else {
-                        DragApi::Clips
+                        Drag::Clips
                     },
                     &e,
                     pending,
@@ -99,12 +99,12 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                         && e.pos().x >= LEFT
                     {
                         // The press adds the point: see `drag`.
-                        start(state, DragApi::AddPoint(row.id), &e, None);
+                        start(state, Drag::AddPoint(row.id), &e, None);
                         state.active_auto.set(None);
                         return Handled::No;
                     }
                 }
-                start(state, DragApi::Marquee(e.pos()), &e, None);
+                start(state, Drag::Marquee(e.pos()), &e, None);
             }
         }
         _ => return Handled::No,
@@ -119,7 +119,7 @@ pub(crate) fn drag(state: State) -> Gesture<()> {
     let drag = state.gesture.on_start(move |_| press_write(state));
     state.press.install(
         drag,
-        move || matches!(state.drag_state(), Some(DragApi::Marquee(..))),
+        move || matches!(state.drag_state(), Some(Drag::Marquee(..))),
         (
             move || state.selection.get(),
             move |ids| state.selected.set(ids),
@@ -162,8 +162,8 @@ pub(crate) fn drag(state: State) -> Gesture<()> {
 fn press_write(state: State) {
     let origin = state.press.origin();
     match state.drag_state() {
-        Some(DragApi::Playhead) => seek(state, origin.x),
-        Some(DragApi::AddPoint(track)) => {
+        Some(Drag::Playhead) => seek(state, origin.x),
+        Some(Drag::AddPoint(track)) => {
             let rows = track_layout(&state.track_data.get(), offset_y(state));
             if let Some((top, _)) = rows
                 .iter()
@@ -189,7 +189,7 @@ fn motion(state: State, pos: Point) {
         return;
     };
     match action {
-        DragApi::Loop(mode, (lo, hi)) => {
+        Drag::Loop(mode, (lo, hi)) => {
             let start = state.press.origin();
             let b = state.snapping(state.beat(pos.x));
             let delta = state.snapping(state.beat(pos.x) - state.beat(start.x));
@@ -216,8 +216,8 @@ fn motion(state: State, pos: Point) {
                 state.gesture.change(|| state.loop_range.set(range));
             }
         }
-        DragApi::Playhead => seek(state, pos.x),
-        DragApi::Clips => {
+        Drag::Playhead => seek(state, pos.x),
+        Drag::Clips => {
             let start = state.press.origin();
             if let Some(Snapshot::Clips(initial)) = state.initial() {
                 let dx = (pos.x - start.x) / scale;
@@ -247,7 +247,7 @@ fn motion(state: State, pos: Point) {
                 }
             }
         }
-        DragApi::Trim(id, right) => {
+        Drag::Trim(id, right) => {
             if let Some(Snapshot::Clips(initial)) = state.initial()
                 && let Some(v) = initial.iter().find(|v| v.0 == id)
             {
@@ -278,10 +278,10 @@ fn motion(state: State, pos: Point) {
                 }
             }
         }
-        DragApi::Auto(track, id) => move_automation(state, track, Some(id), pos),
-        DragApi::AddPoint(track) => move_automation(state, track, None, pos),
-        DragApi::Marquee(_) => {}
-        DragApi::Pan => {
+        Drag::Auto(track, id) => move_automation(state, track, Some(id), pos),
+        Drag::AddPoint(track) => move_automation(state, track, None, pos),
+        Drag::Marquee(_) => {}
+        Drag::Pan => {
             if let Some(Snapshot::View(_, p)) = state.initial() {
                 let from = state.press.origin();
                 let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
@@ -399,24 +399,24 @@ fn loop_drag(state: State, part: LoopPart, e: &PointerEvent) -> Handled {
         state.length.get(),
         state.loop_min_duration.get(),
     );
-    start(state, DragApi::Loop(part, range), e, None);
+    start(state, Drag::Loop(part, range), e, None);
     Handled::No
 }
-fn start(s: State, drag: DragApi, e: &PointerEvent, pending: Option<u64>) {
+fn start(s: State, drag: Drag, e: &PointerEvent, pending: Option<u64>) {
     let snapshot = match drag {
-        DragApi::Clips => s.snapshot(&s.selection.get()),
-        DragApi::Trim(id, _) => s.snapshot(&[id]),
-        DragApi::Loop(..) => Snapshot::Loop(s.range.get()),
-        DragApi::Playhead => Snapshot::Playhead(s.frame.get()),
-        DragApi::Auto(i, id) => {
+        Drag::Clips => s.snapshot(&s.selection.get()),
+        Drag::Trim(id, _) => s.snapshot(&[id]),
+        Drag::Loop(..) => Snapshot::Loop(s.range.get()),
+        Drag::Playhead => Snapshot::Playhead(s.frame.get()),
+        Drag::Auto(i, id) => {
             let Some(v) = s.auto_snapshot(i, id) else {
                 return;
             };
             v
         }
-        DragApi::AddPoint(track) => Snapshot::Automation(track, 0, None),
-        DragApi::Pan => s.view_snapshot(),
-        DragApi::Marquee(_) => s.snapshot(&[]),
+        Drag::AddPoint(track) => Snapshot::Automation(track, 0, None),
+        Drag::Pan => s.view_snapshot(),
+        Drag::Marquee(_) => s.snapshot(&[]),
     };
     s.press.begin(
         e,

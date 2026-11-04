@@ -22,7 +22,7 @@ pub(super) fn line(id: u64, cells: impl IntoIterator<Item = impl Into<String>>) 
 pub(super) fn lines(
     headers: &[&str],
     rows: impl IntoValue<Vec<Line>>,
-    selected: impl Into<kivact::state::Binding<Vec<u64>>>,
+    selected: impl kivact::state::IntoBinding<Vec<u64>>,
 ) -> kivact::ui::DataTable<Line, u64> {
     let columns = headers
         .iter()

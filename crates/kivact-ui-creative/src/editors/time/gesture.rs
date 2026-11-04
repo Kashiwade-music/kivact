@@ -13,7 +13,7 @@ pub(crate) enum Target {
     Lane(u64),
 }
 #[derive(Clone, Copy, PartialEq)]
-pub(crate) enum DragApi {
+pub(crate) enum Drag {
     Items,
     Trim(u64, bool),
     Playhead,
@@ -45,7 +45,7 @@ pub(crate) struct State<T: TimeItem> {
     pub choose: ListApi<u64>,
     pub scene: Value<Result<std::rc::Rc<targets::Scene<Target>>, kivact::UiError>>,
     pub press:
-        crate::editors::shared::gesture::CanvasGesture<Target, (Option<DragApi>, Option<Snapshot>)>,
+        crate::editors::shared::gesture::CanvasGesture<Target, (Option<Drag>, Option<Snapshot>)>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`input::drag`).
     pub gesture: Gesture<()>,
@@ -80,10 +80,10 @@ impl<T: TimeItem> State<T> {
 }
 
 impl<T: TimeItem> State<T> {
-    pub(crate) fn drag_state(self) -> Option<DragApi> {
+    pub(crate) fn drag_state(self) -> Option<Drag> {
         self.press.with_payload(|payload| payload.0).flatten()
     }
-    pub(crate) fn set_drag(self, drag: Option<DragApi>) {
+    pub(crate) fn set_drag(self, drag: Option<Drag>) {
         self.press.update_payload(|payload| payload.0 = drag);
     }
     pub(crate) fn initial(self) -> Option<Snapshot> {

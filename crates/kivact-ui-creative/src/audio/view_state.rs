@@ -1,4 +1,5 @@
 //! Role: Application-owned bindings for this component view state.
+use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 /// The values a [`mixer_strip`](crate::mixer_strip) edits.
 #[derive(Clone, Copy)]
@@ -18,10 +19,10 @@ impl ChannelState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            gain: signal(0.0).into(),
-            pan: signal(0.0).into(),
-            mute: signal(false).into(),
-            solo: signal(false).into(),
+            gain: signal(0.0).into_binding(),
+            pan: signal(0.0).into_binding(),
+            mute: signal(false).into_binding(),
+            solo: signal(false).into_binding(),
         }
     }
 }

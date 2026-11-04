@@ -185,9 +185,9 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                         .collect::<Vec<_>>(),
                 ),
                 ui::ArrangementState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
+                    selection: model.selection.into_binding(),
+                    pan: model.pan.into_binding(),
+                    zoom: model.zoom.into_binding(),
                     ..ui::ArrangementState::new()
                 },
             )
@@ -198,10 +198,10 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             Kind::Timeline => app_timeline(
                 clips,
                 ui::TimeState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    playhead: model.frame.into(),
+                    selection: model.selection.into_binding(),
+                    pan: model.pan.into_binding(),
+                    zoom: model.zoom.into_binding(),
+                    playhead: model.frame.into_binding(),
                 },
             )
             .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -213,10 +213,10 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             Kind::DopeSheet => app_dope_sheet(
                 keys,
                 ui::TimeState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    playhead: model.frame.into(),
+                    selection: model.selection.into_binding(),
+                    pan: model.pan.into_binding(),
+                    zoom: model.zoom.into_binding(),
+                    playhead: model.frame.into_binding(),
                 },
             )
             .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -228,9 +228,9 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             Kind::Graph => app_graph(
                 curves,
                 ui::GraphState {
-                    selection: model.selection.into(),
-                    view: model.view.into(),
-                    playhead: model.frame.into(),
+                    selection: model.selection.into_binding(),
+                    view: model.view.into_binding(),
+                    playhead: model.frame.into_binding(),
                 },
             )
             .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -244,8 +244,8 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 nodes,
                 signal(Vec::new()),
                 ui::NodeState {
-                    selection: model.selection.into(),
-                    transform: model.transform.into(),
+                    selection: model.selection.into_binding(),
+                    transform: model.transform.into_binding(),
                     ..ui::NodeState::new()
                 },
             )
@@ -343,7 +343,7 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
             app_timeline(
                 data,
                 ui::TimeState {
-                    selection: (signal(vec![1])).into(),
+                    selection: (signal(vec![1])).into_binding(),
                     ..ui::TimeState::new()
                 },
             )

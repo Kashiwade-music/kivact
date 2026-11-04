@@ -10,6 +10,7 @@ use crate::editors::time::gesture::{State, Target};
 use crate::editors::time::input::{key, pointer, wheel};
 use crate::editors::time::layout::lane_rect;
 use crate::editors::time::model::TimeItem;
+use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag};

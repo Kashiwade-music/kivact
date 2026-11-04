@@ -6,6 +6,7 @@ use kivact::interaction::{MenuEntry, toaster};
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_creative as ui;
+use kivact_ui_creative::ThemeOptions;
 
 use std::time::Duration;
 
@@ -17,7 +18,7 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
             let selected = signal(Some("first"));
             (
                 (theme, selected),
-                kivact::view::provide_theme(theme, move || {
+                kivact::style::provide_theme(theme, move || {
                     column((
                         kivact::ui::radio_group(
                             "Order",
@@ -116,8 +117,8 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
     let (screen, (toaster, (undone, undo))) =
         kivact::test::render_with_handle(crate::support::options(), || {
             let undone = signal(false);
-            let undo = kivact::ui::Toast::new("Muted")
-                .tone(kivact::ui::Tone::Info)
+            let undo = kivact::interaction::Toast::new("Muted")
+                .tone(kivact::interaction::Tone::Info)
                 .body("Track 2")
                 .action("Undo", move || undone.set(true))
                 .duration(None);
@@ -127,13 +128,13 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
             )
         });
     toaster.push(
-        kivact::ui::Toast::new("Exported")
-            .tone(kivact::ui::Tone::Success)
+        kivact::interaction::Toast::new("Exported")
+            .tone(kivact::interaction::Tone::Success)
             .body("Wrote 3 files"),
     );
     toaster.push(
-        kivact::ui::Toast::new("Render failed")
-            .tone(kivact::ui::Tone::Danger)
+        kivact::interaction::Toast::new("Render failed")
+            .tone(kivact::interaction::Tone::Danger)
             .body("Out of memory"),
     );
     toaster.push(undo);
@@ -161,8 +162,8 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
     assert!(undone.get_untracked());
     assert!(screen.query_by_text("Muted").is_none());
     toaster.push(
-        kivact::ui::Toast::new("Clipping")
-            .tone(kivact::ui::Tone::Warning)
+        kivact::interaction::Toast::new("Clipping")
+            .tone(kivact::interaction::Tone::Warning)
             .body("Master bus"),
     );
     screen.run_until_idle();
@@ -185,8 +186,9 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
                     kivact::ui::checkbox("Visible", check),
                     kivact::ui::switch("Enabled", switch),
                     kivact::ui::toggle_button("Bold", bold),
-                    kivact::ui::disclosure("Transform", open, || text("Position"))
-                        .keep_mounted(true),
+                    kivact::ui::disclosure("Transform", open)
+                        .content(|| text("Position"))
+                        .keep_mounted(),
                     kivact::ui::checkbox("Locked", signal(false))
                         .with_node(move |node| node.disabled(true)),
                 )),
@@ -295,7 +297,7 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
                 .attach(
                     kivact::ui::button("Add")
                         .variant(kivact::ui::ButtonVariant::Secondary)
-                        .trailing_icon(kivact::view::icon("chevron-down")),
+                        .trailing(kivact::view::icon("chevron-down")),
                 ),
                 kivact::ui::tooltip("Camera View")
                     .placement(kivact::view::Placement::Below)

@@ -269,7 +269,7 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
     /// closes it. A press handler the trigger already has runs before the
     /// popup toggles; add it before calling `attach`. Setup only.
     #[track_caller]
-    pub fn attach<T: IntoView + NodeBuilder>(self, mut trigger: T) -> View {
+    pub fn attach<T: IntoView + NodeBuilder>(self, trigger: T) -> View {
         let field = node_ref();
         let popup = use_popup(signal(false)).initial_focus(field);
         let part = popup.trigger();
@@ -352,9 +352,9 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
         kivact::view::show(popup.is_open(), move || {
             let panel = parts.clone().panel(popup, field);
             place(panel)
-                .part(popup.content())
-                .role(Role::Dialog)
-                .name(parts.placeholder)
+                .with_node(move |node| node.part(popup.content()))
+                .with_node(move |node| node.role(Role::Dialog))
+                .with_node(move |node| node.name(parts.placeholder))
         })
         .into_view()
     }
@@ -712,7 +712,7 @@ fn column_rows<K: kivact::state::ItemKey>(
     column(for_each(
         runs,
         |run| (run.index, run.section.is_some()),
-        move |_, run| run_view(session, run, index),
+        move |run| run_view(session, run, index),
     ))
     .style(style().gap(1))
 }
@@ -754,7 +754,7 @@ fn run_view<K: kivact::state::ItemKey>(
     let rows = for_each(
         memo(move || run.with(|run| run.items.clone())),
         |item| item.key.clone(),
-        move |_, item: Value<PickerItem<K>>| item_row(session, item, index),
+        move |item: Value<PickerItem<K>>| item_row(session, item, index),
     );
     if run.with_untracked(|run| run.section.is_none()) {
         return rows;

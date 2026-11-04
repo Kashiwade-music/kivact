@@ -396,10 +396,10 @@ impl IntoView for Outliner {
                     rows: mounted.clone(),
                 };
                 let chevron = if entry.branch.has_children() {
-                    super::controls::expansion(item, context.clone())
+                    super::controls::expansion(item, context.clone()).into_view()
                 } else {
                     // The room of the button, so the labels line up.
-                    column(()).style(style().size(18, 18).shrink(0))
+                    column(()).style(style().size(18, 18).shrink(0)).into_view()
                 };
                 let cells = cells
                     .iter()

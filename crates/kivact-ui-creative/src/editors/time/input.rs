@@ -2,7 +2,7 @@
 use crate::editors::shared::geometry::wheel_zoom;
 use crate::editors::shared::model::ItemTime;
 use crate::editors::shared::selection;
-use crate::editors::time::gesture::{DragApi, Snapshot, State, Target};
+use crate::editors::time::gesture::{Drag, Snapshot, State, Target};
 use crate::editors::time::layout::item_rect;
 use crate::editors::time::model::{TimeItem, TimeRequest};
 use kivact::geometry::Point;
@@ -20,7 +20,7 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
     }
     let target = s.target(e.region());
     match press.button {
-        MouseButton::Middle => start(s, DragApi::Pan, s.view_snapshot(), &e, None),
+        MouseButton::Middle => start(s, Drag::Pan, s.view_snapshot(), &e, None),
         MouseButton::Primary => {
             s.active.set(target);
             match target {
@@ -32,14 +32,14 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
                 // The press moves the playhead: see `drag`.
                 Some(Target::Playhead) => start(
                     s,
-                    DragApi::Playhead,
+                    Drag::Playhead,
                     Snapshot::Playhead(s.playhead.get()),
                     &e,
                     None,
                 ),
                 Some(Target::Trim(id, right)) => {
                     s.choose.select(id, ListGesture::Replace);
-                    start(s, DragApi::Trim(id, right), s.snapshot(&[id]), &e, None);
+                    start(s, Drag::Trim(id, right), s.snapshot(&[id]), &e, None);
                 }
                 Some(Target::Item(id)) => {
                     let mut pending = None;
@@ -54,17 +54,11 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
                             s.choose.select(id, gesture);
                         }
                     }
-                    start(
-                        s,
-                        DragApi::Items,
-                        s.snapshot(&s.selection.get()),
-                        &e,
-                        pending,
-                    );
+                    start(s, Drag::Items, s.snapshot(&s.selection.get()), &e, pending);
                 }
                 None => start(
                     s,
-                    DragApi::Marquee(e.pos(), e.pos()),
+                    Drag::Marquee(e.pos(), e.pos()),
                     s.snapshot(&[]),
                     &e,
                     None,
@@ -81,13 +75,13 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
 /// its sources need; `s.gesture` is the same session.
 pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
     let drag = s.gesture.on_start(move |_| {
-        if s.drag_state() == Some(DragApi::Playhead) {
+        if s.drag_state() == Some(Drag::Playhead) {
             motion(s, s.press.origin());
         }
     });
     s.press.install(
         drag,
-        move || matches!(s.drag_state(), Some(DragApi::Marquee(..))),
+        move || matches!(s.drag_state(), Some(Drag::Marquee(..))),
         (
             move || s.selection.get(),
             move |ids| s.selected.set(ids),
@@ -123,7 +117,7 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
 }
 fn start<T: TimeItem>(
     s: State<T>,
-    drag: DragApi,
+    drag: Drag,
     initial: Snapshot,
     e: &PointerEvent,
     pending: Option<u64>,
@@ -143,7 +137,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
         return;
     };
     let origin = s.press.origin();
-    if matches!(drag, DragApi::Items | DragApi::Trim(..)) && !s.press.moved() {
+    if matches!(drag, Drag::Items | Drag::Trim(..)) && !s.press.moved() {
         return;
     }
     let snap = |value: f64| {
@@ -156,20 +150,20 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
         }
     };
     match (drag, snapshot) {
-        (DragApi::Playhead, _) => {
+        (Drag::Playhead, _) => {
             let value = snap(s.time(pos.x)).max(0.0);
             if value != s.playhead.get() {
                 s.gesture.change(|| s.playhead.set(value));
             }
         }
-        (DragApi::Marquee(from, _), _) => s.set_drag(Some(DragApi::Marquee(from, pos))),
-        (DragApi::Pan, Snapshot::View(_, p)) => {
+        (Drag::Marquee(from, _), _) => s.set_drag(Some(Drag::Marquee(from, pos))),
+        (Drag::Pan, Snapshot::View(_, p)) => {
             let next = Point::new(p.x + pos.x - origin.x, p.y + pos.y - origin.y);
             if next != s.offset.get() {
                 s.gesture.change(|| s.pan.set(next));
             }
         }
-        (DragApi::Items, Snapshot::Items(initial)) => {
+        (Drag::Items, Snapshot::Items(initial)) => {
             let dx = (pos.x - origin.x)
                 / s.scale
                     .get()
@@ -206,7 +200,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
                 });
             }
         }
-        (DragApi::Trim(id, right), Snapshot::Items(initial)) => {
+        (Drag::Trim(id, right), Snapshot::Items(initial)) => {
             if let Some(v) = initial.iter().find(|v| v.0 == id) {
                 let dx = (pos.x - origin.x)
                     / s.scale

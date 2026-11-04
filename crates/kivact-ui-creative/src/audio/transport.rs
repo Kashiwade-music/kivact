@@ -3,7 +3,6 @@
 use kivact::i18n::message;
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
-use kivact::state::callback;
 use kivact::state::{Binding, Callback};
 use kivact::style::{Align, style};
 use kivact::ui::ButtonVariant;

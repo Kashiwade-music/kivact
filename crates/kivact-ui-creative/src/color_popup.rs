@@ -56,15 +56,15 @@ pub fn color_popup(
                     .border(1, crate::Color::HairStrong),
             ),
         )
-        .role(Role::Dialog)
-        .name(label)
+        .with_node(move |node| node.role(Role::Dialog))
+        .with_node(move |node| node.name(label))
         .offset(4)
         .on_dismiss(move |reason| {
             if reason == DismissReason::Escape {
                 session.cancel();
             }
         })
-        .part(popup.content())
+        .with_node(move |node| node.part(popup.content()))
     });
     let snapshot = move || {
         if !open.get_untracked() {

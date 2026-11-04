@@ -1,5 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
 use kivact::geometry::Point;
+use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 /// The view state of a [`timeline`](crate::timeline) or a
 /// [`dope_sheet`](crate::dope_sheet).
@@ -21,10 +22,10 @@ impl TimeState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            selection: signal(Vec::new()).into(),
-            playhead: signal(0.0).into(),
-            zoom: signal(1.0).into(),
-            pan: signal(Point::new(0.0, 0.0)).into(),
+            selection: signal(Vec::new()).into_binding(),
+            playhead: signal(0.0).into_binding(),
+            zoom: signal(1.0).into_binding(),
+            pan: signal(Point::new(0.0, 0.0)).into_binding(),
         }
     }
 }

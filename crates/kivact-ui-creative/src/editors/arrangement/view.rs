@@ -5,6 +5,7 @@ use crate::ArrangementState;
 use crate::Clip;
 use crate::editors::arrangement::a11y::texts::ArrangementTexts;
 use crate::editors::arrangement::model::{ArrangementRequest, TimelineMarker, TimelineTrack};
+use kivact::custom::NodeRefExt;
 
 use kivact::interaction::{DragCoordinates, EditSession};
 use kivact::state::{Callback, Value, signal};
@@ -302,12 +303,14 @@ impl IntoView for Arrangement {
             |info| info.id,
             move |_, info| {
                 // A press on a region drags from there.
-                crate::editors::shared::region_parts::attachment(
+                let attachment = crate::editors::shared::region_parts::attachment(
                     info.get_untracked().kind,
                     info,
                     action,
-                )
-                .part(gesture.source(()))
+                );
+                kivact::custom::Part::new(attachment.state(), move |node| {
+                    node.part(attachment).part(gesture.source(()))
+                })
             },
         );
         root.node_ref(reference)

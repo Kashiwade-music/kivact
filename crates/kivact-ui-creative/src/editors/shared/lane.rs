@@ -99,7 +99,7 @@ pub(crate) fn lane_cells(
     let rows = kivact::view::for_each(
         lanes,
         |lane| lane.id,
-        move |_, lane| {
+        move |lane| {
             let rect = rect.clone();
             let index = kivact::state::memo(move || {
                 lanes

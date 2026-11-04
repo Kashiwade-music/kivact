@@ -35,7 +35,7 @@ fn the_rows_follow_the_tree_view_keys_and_are_one_tab_stop() {
                     app_outliner(
                         data,
                         ui::OutlinerState {
-                            selection: selected.into(),
+                            selection: selected.into_binding(),
                             ..ui::OutlinerState::new(ids(data))
                         },
                     ),
@@ -120,7 +120,7 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
                 app_outliner(
                     data,
                     ui::OutlinerState {
-                        renaming: rename.into(),
+                        renaming: rename.into_binding(),
                         ..ui::OutlinerState::new(ids(data))
                     },
                 ),
