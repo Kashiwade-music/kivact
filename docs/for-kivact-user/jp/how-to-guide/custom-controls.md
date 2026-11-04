@@ -636,3 +636,12 @@ password の値と placeholder にはこれらを描きません。
 行の箱、caret、選択の矩形、`hit_test` を使い、文字、選択、配置の変更に追従できます。
 `NodeRefExt::text_layout` の単独の問い合わせは window 座標で、指定した行だけを整形します。
 caret と `hit_test` の offset は Unicode scalar 数、見た目の範囲は UTF-8 byte 数です。
+
+
+データの一部だけを描く table・grid では、`Node::row_count` と
+`Node::column_count` に総数の `Option` を渡します。既知の総数には見出し行や
+非表示の列も含め、リモートの総数が不明なら `None` を渡します。
+`Node::row_index` と `Node::column_index` は見出しや非表示の行・列を含めた
+論理上の位置で、1 から数えます。0 は公開しません。ネイティブへの公開時には
+AccessKit の 0 始まりの添字に変換します。標準の `data_table` はフィルター・
+並べ替え・ページ分割後のモデルからこれらのプロパティを求めます。

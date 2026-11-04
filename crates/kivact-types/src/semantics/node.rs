@@ -59,6 +59,14 @@ pub struct Semantics<R> {
     pub described_by: Vec<R>,
     /// Labelling nodes, in declaration order.
     pub labelled_by: Vec<R>,
+    /// Total table rows, including header rows; None means unknown or unstated.
+    pub row_count: Option<u32>,
+    /// Total table columns, including hidden columns; None means unknown or unstated.
+    pub column_count: Option<u32>,
+    /// Logical table row, counted from one; zero is not published.
+    pub row_index: Option<u32>,
+    /// Logical table column, counted from one; zero is not published.
+    pub column_index: Option<u32>,
     /// Hierarchy depth, counted from one; zero is not published.
     pub level: Option<u32>,
     /// Number of items in the set; zero denotes an empty set.
@@ -108,6 +116,10 @@ impl<R> Default for Semantics<R> {
             controls: Vec::new(),
             described_by: Vec::new(),
             labelled_by: Vec::new(),
+            row_count: None,
+            column_count: None,
+            row_index: None,
+            column_index: None,
             level: None,
             set_size: None,
             pos_in_set: None,
@@ -153,6 +165,10 @@ impl<R> Semantics<R> {
             controls: self.controls.into_iter().filter_map(&mut f).collect(),
             described_by: self.described_by.into_iter().filter_map(&mut f).collect(),
             labelled_by: self.labelled_by.into_iter().filter_map(&mut f).collect(),
+            row_count: self.row_count,
+            column_count: self.column_count,
+            row_index: self.row_index,
+            column_index: self.column_index,
             level: self.level,
             set_size: self.set_size,
             pos_in_set: self.pos_in_set,

@@ -13,7 +13,7 @@ use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
 use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
-use kivact_core::view::{Role, View};
+use kivact_core::view::{Node, Role, View};
 use kivact_core::view::{node, row, text};
 use kivact_interaction::ListItem;
 
@@ -178,7 +178,7 @@ pub(super) fn select_page<K: kivact_core::state::ItemKey>(
     selection: Binding<Vec<K>>,
     keys: Value<Vec<K>>,
     variants: &Variants,
-) -> View {
+) -> (Node, View) {
     let chosen = move || {
         keys.with(|keys| {
             selection.with(|chosen| keys.iter().filter(|k| chosen.contains(k)).count())
@@ -205,20 +205,19 @@ pub(super) fn select_page<K: kivact_core::state::ItemKey>(
             CheckedState::Unchecked
         },
     };
-    with_recipe_style(
+    let root = with_recipe_style(
         node().role(Role::ColumnHeader),
         |r| r.data_table_recipes().check_recipe(),
         variants,
         state,
+    );
+    let content = checkbox(
+        message("data_table.select_all", "Select all"),
+        binding(all, move |on| select.try_call(on)),
     )
-    .child(
-        checkbox(
-            message("data_table.select_all", "Select all"),
-            binding(all, move |on| select.try_call(on)),
-        )
-        .hide_label(true)
-        .indeterminate(mixed)
-        .disabled(move || keys.with(Vec::is_empty)),
-    )
-    .into_view()
+    .hide_label(true)
+    .indeterminate(mixed)
+    .disabled(move || keys.with(Vec::is_empty))
+    .into_view();
+    (root, content)
 }

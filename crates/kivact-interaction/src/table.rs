@@ -32,6 +32,7 @@ mod cells;
 mod data;
 mod handle;
 mod model;
+mod sort;
 mod state;
 
 pub use data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};

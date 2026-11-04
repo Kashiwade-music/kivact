@@ -131,6 +131,7 @@ where
         model = model.page(index, size);
     }
     let page_rows = model.rows();
+    let grouping_key = grouping.as_ref().map(|grouping| grouping.key.clone());
     let groups = grouping.map(|grouping| super::grouped::plan(page_rows, grouping));
     let display = groups.map_or(page_rows, |plan| plan.rows());
     let shown = model.columns();
@@ -150,13 +151,55 @@ where
     } else {
         shown
     };
+    let accessory_columns = [
+        (row_status.is_some(), rows::STATUS, "Row status"),
+        (row_index.is_some(), rows::INDEX, "#"),
+        (
+            selection.is_some() && matches!(focus, kivact_interaction::TableFocus::Cells(_)),
+            rows::CHECK,
+            "Select rows",
+        ),
+        (
+            details.is_some() && expanded_rows.is_some(),
+            rows::DETAILS,
+            "Details",
+        ),
+    ];
+    let action_column = actions.is_some();
+    let navigation_columns = memo(move || {
+        let mut navigation = Vec::new();
+        for (present, key, label) in accessory_columns {
+            if present {
+                navigation.push(kivact_interaction::ColumnDef::new(key, label));
+            }
+        }
+        navigation.extend(shown.get());
+        if action_column {
+            navigation.push(kivact_interaction::ColumnDef::new(rows::ACTIONS, "Actions"));
+        }
+        navigation
+    });
+    let column_metadata = super::metadata::columns(
+        columns.len(),
+        accessory_columns,
+        action_column,
+        column_order,
+    );
+    let row_metadata = super::metadata::rows(
+        data,
+        model.filtered_keys(),
+        key.clone(),
+        grouping_key,
+        page,
+        has_more.is_some(),
+    );
     let table_key = key.clone();
     // Without the caller's selection, nothing is selected.
     let chosen = selection.unwrap_or_else(|| binding(Vec::new, |_| ()));
     let mut behavior = use_data_table(
         display,
         move |row| table_key(row),
-        shown,
+        navigation_columns,
         Selection::Multiple(chosen),
         focus,
     );
@@ -294,6 +337,8 @@ where
     let grid = Grid {
         tree,
         behavior,
+        row_metadata,
+        column_metadata,
         filters: typed_column_filters.map(|values| super::filters::Filters {
             values,
             ui: filter_ui,
@@ -355,6 +400,8 @@ where
     );
     let mut grid = column((head, column((body, empty_view)).role(Role::RowGroup)))
         .part(behavior.grid())
+        .row_count(move || row_metadata.with(|metadata| metadata.count))
+        .column_count(move || column_metadata.with(|metadata| metadata.0))
         .name(message("data_table.label", "Data table"))
         .style(
             style()

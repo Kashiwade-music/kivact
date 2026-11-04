@@ -725,3 +725,12 @@ The callback updates after text, selection and geometry changes. Standalone
 `NodeRefExt::text_layout` queries keep window coordinates and only shape the
 requested lines. Caret offsets and `hit_test` results count Unicode scalars;
 style and decoration ranges count UTF-8 bytes.
+
+
+For a table or grid that renders only part of its data, `Node::row_count`
+and `Node::column_count` accept an optional total. Include header rows and hidden
+columns in known totals; use `None` for unknown remote totals. `Node::row_index`
+and `Node::column_index` identify the logical position starting at one, including
+headers and hidden rows or columns. An index of zero is omitted. Native publication
+converts indices to AccessKit's zero-based coordinates. The standard `data_table`
+derives these properties from its filtered, sorted, and paged model.

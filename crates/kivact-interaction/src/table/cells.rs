@@ -1,7 +1,7 @@
 //! Role: Cell-focus rows and cells move a roving tab stop with grid keys.
 
 use super::data::{TableCellState, TableFocus, TableRowState};
-use super::state::State;
+use super::state::{State, Target};
 use crate::Selection;
 use crate::policy::grid::GridMove;
 use crate::roving::Member;
@@ -17,9 +17,9 @@ fn row_name<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: &Rc<State<K, C>>,
     key: Var<K>,
 ) -> Value<String> {
-    let label = state.label;
+    let options = state.options.value();
     memo(move || {
-        let label = label.get();
+        let label = options.with(|options| options.label.clone());
         label
             .map(|label| key.with(|key| label(key)))
             .unwrap_or_default()
@@ -141,7 +141,7 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
         host.part(input)
             .role(Role::GridCell)
             .selected(is_selected)
-            .focusable(is_active)
+            .focusable(true)
             .on_key(move |event: KeyEvent| key_down(&keys, &id.get(), &event))
             .on_pointer(move |event: PointerEvent| {
                 if matches!(
@@ -160,7 +160,10 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
                         .target(&cell)
                         .is_some_and(|node| node.holds_focus_within())
                     {
-                        pointers.roving.requested.set(Some(cell));
+                        pointers
+                            .roving
+                            .requested
+                            .set(Some(Target::Cell(cell.0, cell.1)));
                     } else {
                         pointers.focus_cell(cell);
                     }
@@ -176,7 +179,8 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
                     );
                     return;
                 }
-                let cell = id.get();
+                let (key, column) = id.get();
+                let cell = Target::Cell(key, column);
                 if state.roving.contains(&cell) {
                     owner.report(
                         ErrorKind::Message,
@@ -236,9 +240,10 @@ fn key_down<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
         }
         _ => {}
     }
-    let Some(movement) = GridMove::from_key(event.key(), modifiers) else {
+    let movement = GridMove::from_key(event.key(), modifiers);
+    if movement.is_none() && !matches!(event.key(), Key::PageUp | Key::PageDown) {
         return Handled::No;
-    };
+    }
     let keys = state.keys.get();
     let columns = state
         .columns
@@ -249,11 +254,26 @@ fn key_down<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     ) else {
         return Handled::No;
     };
-    let Some((row, col)) = movement.apply((row, col), keys.len(), columns.len()) else {
+    if matches!(movement, Some(GridMove::Up)) && row == 0 && state.focus_header(column.clone()) {
+        return Handled::Yes;
+    }
+    if matches!(movement, Some(GridMove::First))
+        && columns
+            .first()
+            .is_some_and(|column| state.focus_header(column.clone()))
+    {
+        return Handled::Yes;
+    }
+    let destination = match event.key() {
+        Key::PageUp => Some((row.saturating_sub(10), col)),
+        Key::PageDown => Some(((row + 10).min(keys.len().saturating_sub(1)), col)),
+        _ => movement.and_then(|movement| movement.apply((row, col), keys.len(), columns.len())),
+    };
+    let Some((row, col)) = destination else {
         return Handled::No;
     };
     let next = (keys[row].clone(), columns[col].clone());
-    if modifiers.shift && multiple && matches!(movement, GridMove::Up | GridMove::Down) {
+    if modifiers.shift && multiple && matches!(movement, Some(GridMove::Up | GridMove::Down)) {
         state
             .list
             .select(next.0.clone(), state.list.gesture(modifiers));

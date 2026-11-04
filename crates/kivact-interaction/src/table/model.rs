@@ -50,6 +50,7 @@ impl FilterValue {
     }
 }
 
+// xtask-allow(state-fields): Immutable column configuration; independent optional render, filter, comparison, and sizing capabilities.
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack DataTableApi's column definition), and
 /// whether it is shown.

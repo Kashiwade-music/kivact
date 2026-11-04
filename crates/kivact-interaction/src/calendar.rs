@@ -69,6 +69,7 @@
 
 mod data;
 mod handle;
+mod machine;
 mod policy;
 mod state;
 

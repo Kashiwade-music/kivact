@@ -546,6 +546,42 @@ impl Node {
         self
     }
 
+    /// Set the full table or grid row count, including header rows.
+    /// `None` leaves an unknown total unstated; `Some(0)` describes an empty table.
+    #[track_caller]
+    pub fn row_count(mut self, value: impl IntoValue<Option<u32>>) -> Self {
+        self.common
+            .semantic(value.into_prop(), |s, value| s.row_count = value);
+        self
+    }
+
+    /// Set the full table or grid column count, including hidden columns.
+    /// `None` leaves an unknown total unstated; `Some(0)` describes no columns.
+    #[track_caller]
+    pub fn column_count(mut self, value: impl IntoValue<Option<u32>>) -> Self {
+        self.common
+            .semantic(value.into_prop(), |s, value| s.column_count = value);
+        self
+    }
+
+    /// Set this row or cell's logical table row, counted from one, including headers.
+    /// `0` leaves the index unstated. Native AccessKit publication converts to zero-based indices.
+    #[track_caller]
+    pub fn row_index(mut self, value: impl IntoValue<u32>) -> Self {
+        self.common
+            .semantic(value.into_prop(), |s, value| s.row_index = Some(value));
+        self
+    }
+
+    /// Set this cell's logical column, counted from one, including hidden columns.
+    /// `0` leaves the index unstated. Native AccessKit publication converts to zero-based indices.
+    #[track_caller]
+    pub fn column_index(mut self, value: impl IntoValue<u32>) -> Self {
+        self.common
+            .semantic(value.into_prop(), |s, value| s.column_index = Some(value));
+        self
+    }
+
     /// Set the depth of this node in a hierarchy (`aria-level`), counted
     /// from 1: a heading's level, or a tree item's depth. Constant or
     /// reactive. `0` means "not set" and is not published.

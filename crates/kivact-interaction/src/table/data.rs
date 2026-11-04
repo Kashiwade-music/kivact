@@ -5,6 +5,7 @@ use kivact_core::custom::PartState;
 use kivact_core::custom::Reactive;
 use kivact_core::view::SortDirection;
 
+// xtask-allow(state-fields): Derived column metadata; width bounds and sort capability are independent immutable inputs.
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a
 /// [`DataTableApi`](crate::DataTableApi) reads: its key, label, whether a header
 /// activation sorts by it and its starting width. It is derived from the
@@ -75,6 +76,7 @@ impl Default for TableFocus {
     }
 }
 
+// xtask-allow(state-fields): Public drawing snapshot of input, sort direction, sort capability, and priority.
 /// The sort state and actual input state of a column header.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableHeaderState {
@@ -86,6 +88,7 @@ pub struct TableHeaderState {
     pub sort_rank: Option<usize>,
 }
 
+// xtask-allow(state-fields): Public drawing snapshot of independently observed input, selection, and active-cell facts.
 /// The selection, roving focus and actual input state of a row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableRowState {
@@ -96,6 +99,7 @@ pub struct TableRowState {
     pub active: bool,
 }
 
+// xtask-allow(state-fields): Public drawing snapshot of independently observed input, row selection, and active-cell facts.
 /// The row selection, roving focus and actual input state of a cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableCellState {

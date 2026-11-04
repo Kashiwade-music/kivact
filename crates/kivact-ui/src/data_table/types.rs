@@ -30,6 +30,7 @@ pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
 /// Names a row in text.
 pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
 
+// xtask-allow(state-fields): Public composition context containing authoritative bindings and independent optional feature inputs.
 /// The live state of a [`data_table`] that its [`toolbar`](DataTable::toolbar)
 /// and [`footer`](DataTable::footer) slots build their views from. Every
 /// handle is reactive; the context is `Copy` and holds no copy of the rows.
@@ -97,6 +98,7 @@ pub enum DataTableTreeIndent {
     Large,
 }
 
+// xtask-allow(state-fields): Setup builder options; optional slots and caller bindings are independent capabilities, not lifecycle state.
 /// A table of the caller's rows, created by [`data_table`].
 pub struct DataTable<R: 'static, K: 'static> {
     pub(super) root: Node,
