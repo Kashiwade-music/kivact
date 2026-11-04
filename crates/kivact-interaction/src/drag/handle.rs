@@ -28,7 +28,6 @@
 //!   edit.
 
 use super::machine;
-use crate::DragVelocity;
 use crate::edit::EditSession;
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::clock_now;
