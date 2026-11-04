@@ -540,7 +540,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             keep_trigger_focus,
             ..
         } = self;
-        let member = list.item(key.clone());
+        let member = list.base_item(key.clone(), false);
         let base = member;
         let part_state = base.state();
         Part::new(part_state, move |host| {

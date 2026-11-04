@@ -203,14 +203,37 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     /// An item's label, selection, exact input state and mounted roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
-        self.item_with_disabled_focus(key, false)
-    }
-
-    #[track_caller]
-    pub(crate) fn item_with_disabled_focus(self, key: K, retain: bool) -> Part<ListItemState> {
         let state = self.state();
         require_setup("ListApi::item");
-        parts::item(state, key, retain)
+        let (base, bound) = parts::item(state.clone(), key.clone(), false);
+        Part::new(base.state(), move |host| {
+            let mode = state.mode;
+            let invoke = move || {
+                if bound.get_untracked() != parts::ItemMount::Admitted {
+                    return;
+                }
+                if mode == super::ListMode::Activate {
+                    state.choose(key.clone());
+                } else if state.target(&key).is_some() {
+                    state.select(key.clone(), ListGesture::Replace);
+                }
+            };
+            let host = host.part(base);
+            match mode {
+                super::ListMode::Activate => host.on_press(invoke),
+                super::ListMode::Select => {
+                    host.a11y_action(kivact_core::view::A11yAction::Select, move |_| invoke())
+                }
+            }
+        })
+    }
+
+    /// Item anatomy and roving navigation for composites that own activation.
+    #[track_caller]
+    pub(crate) fn base_item(self, key: K, retain_disabled_focus: bool) -> Part<ListItemState> {
+        let state = self.state();
+        require_setup("ListApi::item");
+        parts::item(state, key, retain_disabled_focus).0
     }
 
     pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {

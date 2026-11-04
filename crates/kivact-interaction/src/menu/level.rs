@@ -319,7 +319,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
         };
 
-        let member = group.item_with_disabled_focus(key.clone(), self.retain_disabled_focus);
+        let member = group.base_item(key.clone(), self.retain_disabled_focus);
         let item_ref = kivact_core::view::node_ref();
         if let Some(press) = session.press {
             press.row(item_ref, disabled);

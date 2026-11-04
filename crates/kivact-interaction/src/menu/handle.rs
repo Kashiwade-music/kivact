@@ -253,7 +253,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     pub fn trigger(self) -> Part<PopupState> {
         self.top_level("trigger");
         let session = self.session;
-        let trigger = session.popup.trigger();
+        let trigger = session.popup.base_trigger();
         let base = trigger;
         let part_state = base.state();
         Part::new(part_state, move |host| {
