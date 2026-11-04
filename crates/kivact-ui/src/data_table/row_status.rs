@@ -2,7 +2,7 @@
 use crate::tooltip;
 use kivact_core::i18n::message;
 use kivact_core::state::Value;
-use kivact_core::style::{Align, Color, ColorToken, Icon, Justify, style, use_theme};
+use kivact_core::style::{Align, Color, Icon, Justify, style, use_theme};
 use kivact_core::view::{Node, icon, node};
 use kivact_core::view::{Role, View, dynamic};
 use kivact_interaction::Tone;
@@ -40,31 +40,7 @@ impl RowStatus {
     }
 }
 
-/// The theme's row-status colors, in the same order as the named tones.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DataTableRowStatusPaint {
-    pub neutral: Color,
-    pub info: Color,
-    pub success: Color,
-    pub warning: Color,
-    pub danger: Color,
-    pub accent: Color,
-    pub header_key: &'static str,
-}
-
-impl Default for DataTableRowStatusPaint {
-    fn default() -> Self {
-        Self {
-            neutral: ColorToken::TextMuted.into(),
-            info: ColorToken::Accent.into(),
-            success: ColorToken::Success.into(),
-            warning: ColorToken::Warning.into(),
-            danger: ColorToken::Danger.into(),
-            accent: ColorToken::Accent.into(),
-            header_key: "data_table.row_status.column_header",
-        }
-    }
-}
+pub use super::row_status_tokens::DataTableRowStatusPaint;
 
 fn lane() -> Node {
     node().style(
