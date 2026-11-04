@@ -10,9 +10,11 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
-| CP4 | 19dfddc | 0 | 0 | source 修正統合・再確認待ち | 0（18件） | 101→失敗19 target個別0 | 同じ19 target、no-default対象再確認待ち | Clippy16.83s / WSL75s | WSL Clippy0、固定640fea0でCreative残件1も0 |
+| CP4 | 19dfddc | 0 | 0（ab3322a） | 0（18件） | 101→失敗19 target個別0 | 101→失敗19 target個別0 | Clippy16.83s / WSL75s | 通過。固定a9e6377 public30/doc0、Creative追加2はc97d2c6で0 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
+
+| CP5 | b3b2cf0 | 0 | 0 | — | — | 固定gate実行中 | — | Clippy19.52s | 軽いgate通過、全E2E待ち |
 
 ## Units
 
@@ -134,13 +136,13 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | I-6 | merged | cca5c70 | public7/Soft2、固定follow2 passed、check/state-fields0 |
 | U-1 | merged | 0c87c70 | public12/Soft6 passed、check/state-fields0 |
 | U-2 | merged | 257f8d5 | public56/APG2/Soft5 passed、check/state-fields0。details残件はI7 |
-| I-7 | doing | | |
+| I-7 | merged | c41ae9b | public24+motion/swipe12/details2/Soft7 passed、check0 |
 | T-1 | merged | 6771046 | text_editing10 passed、check/fmt 0 |
 | T-2 | merged | 9130a41 | 公開API editor証明7 passed、check0 |
 | G-1a | merged | 1685f3e | canvas8 passed、workspace check/fmt 0 |
 | G-1b | merged | b36cb40 | engine/core check0、固定canvas10 passed |
 | G-2 | merged | bec641a | pointer6 passed、engine/core check/fmt0 |
-| G-3 | doing | | |
+| G-3 | merged | 72f4a97 | workspacecheck0/public21 passed |
 | G-4a | merged | 586a75c | style_paint6 passed、check/fmt 0 |
 | G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
 | G-4c | merged | 814ca08 | 固定統合environment/scroll17 passed、workspacecheck/fmt0 |
@@ -187,3 +189,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G5-9 | merged | 2ed4bfb | Creative9親を葉へ分離、check0/state-fields所有0 |
 | fix-G4-14 | merged | 8382d72 | no-default flow1/allfeature20 passed、check/state-fields0 |
 | fix-G5-10 | merged | 03ad2c5 | Basic2/publictooltip6/Soft4 passed、fmt/diff0 |
+| fix-G1-5 | merged | 663d17b | native all/default/no-default check0、警告0 |
+| fix-G3-16 | merged | 4c405bf | runtime循環分離、check/state-fields0 |
+| fix-G4-15 | merged | dc3892f | interaction lint10修正、check0 |
+| fix-G5-11 | merged | c97d2c6 | queued capture/release mailbox、pointer6/catalog2 passed |
+| fix-G6-11 | merged | 89d8916 | E2E lint4、check/fmt0 |
