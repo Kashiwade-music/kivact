@@ -9,13 +9,13 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use kivact_engine::testing::GpuMode;
 use kivact_engine::testing::{ArvaneTestHost, TestFonts as HostFonts, TestHostOptions};
-use kivact_engine::testing::{GpuMode, MirrorMode as HostWindow};
 use kivact_types as p;
 
 use super::model::{FIND_TIMEOUT, Record, Screen};
 use crate::client::{AppClient, AppConfig};
-use crate::test::options::{MirrorMode, RenderOptions, TestFonts};
+use crate::test::options::{RenderOptions, TestFonts};
 use crate::view::View;
 use kivact_runtime::TaskState;
 use kivact_style::asset::Asset;
@@ -64,11 +64,7 @@ impl Screen {
                 TestFonts::Only(fonts) => HostFonts::Only(fonts),
                 TestFonts::System => HostFonts::System,
             },
-            mirror: match options.mirror {
-                MirrorMode::Auto => HostWindow::Auto,
-                MirrorMode::Required => HostWindow::Required,
-                MirrorMode::Off => HostWindow::Off,
-            },
+            mirror: options.mirror,
             title: options.title.unwrap_or_else(|| name.clone()),
             frame_period_ns: options.frame_period_ns,
             theme: if options.dark {

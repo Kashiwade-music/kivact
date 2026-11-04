@@ -17,24 +17,13 @@ pub enum TestFonts {
     System,
 }
 
-/// Whether output is mirrored to a native window ([`RenderOptions::mirror`]).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum MirrorMode {
-    /// Keep frames without opening a native mirror.
-    Off,
-    /// Open a mirror when a display is available.
-    #[default]
-    Auto,
-    /// Fail if a native mirror cannot open.
-    Required,
-}
-impl MirrorMode {
-    fn from_env() -> Self {
-        match std::env::var("KIVACT_TEST_MIRROR").as_deref() {
-            Ok("off") => Self::Off,
-            Ok("required") => Self::Required,
-            _ => Self::Auto,
-        }
+pub use kivact_engine::testing::MirrorMode;
+
+fn mirror_from_env() -> MirrorMode {
+    match std::env::var("KIVACT_TEST_MIRROR").as_deref() {
+        Ok("off") => MirrorMode::Off,
+        Ok("required") => MirrorMode::Required,
+        _ => MirrorMode::Auto,
     }
 }
 
@@ -97,7 +86,7 @@ impl Default for RenderOptions {
             height: 600.0,
             scale: 1.0,
             fonts: TestFonts::Bundled,
-            mirror: MirrorMode::from_env(),
+            mirror: mirror_from_env(),
             gpu: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             title: None,
