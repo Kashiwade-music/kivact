@@ -1,6 +1,6 @@
 //! Role: Default recipes for the radio group, slider, toasts and splitter.
 use super::values::{AxisState, CheckState, ControlSize, ToastGroupState};
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
 use kivact_core::style::{
     Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
 };
@@ -88,9 +88,9 @@ pub(super) fn slider_track(t: &Theme, state: &AxisState) -> Style {
     let s = s.paint(move |d, size| {
         let r = bar / 2.0;
         let rect = if size.width >= size.height {
-            kivact_core::draw::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
+            kivact_core::geometry::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
         } else {
-            kivact_core::draw::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
+            kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
         };
         d.rounded_rect(rect, r, ColorToken::SurfaceAlt);
     });
@@ -105,9 +105,9 @@ pub(super) fn slider_range(t: &Theme, state: &AxisState) -> Style {
     let (bar, _) = slider_metrics(t, state.size);
     style().paint(move |d, size| {
         let rect = if size.width >= size.height && size.height > 0.0 {
-            kivact_core::draw::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
+            kivact_core::geometry::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
         } else {
-            kivact_core::draw::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
+            kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
         };
         d.rounded_rect(rect, bar / 2.0, ColorToken::Accent);
     })
@@ -223,12 +223,22 @@ pub(super) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
         .paint(|d, size| {
             if size.width <= size.height {
                 d.fill_rect(
-                    kivact_core::draw::Rect::new((size.width - 1.0) / 2.0, 0.0, 1.0, size.height),
+                    kivact_core::geometry::Rect::new(
+                        (size.width - 1.0) / 2.0,
+                        0.0,
+                        1.0,
+                        size.height,
+                    ),
                     ColorToken::Border,
                 );
             } else {
                 d.fill_rect(
-                    kivact_core::draw::Rect::new(0.0, (size.height - 1.0) / 2.0, size.width, 1.0),
+                    kivact_core::geometry::Rect::new(
+                        0.0,
+                        (size.height - 1.0) / 2.0,
+                        size.width,
+                        1.0,
+                    ),
                     ColorToken::Border,
                 );
             }

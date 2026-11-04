@@ -19,11 +19,12 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use kivact_core::primitive::{Part, PartState, part};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, effect, memo, on_cleanup, on_mount, signal};
 use kivact_core::view::{
-    Handled, IntoValue, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase, Role, node_ref,
+    Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase, Role, node_ref,
 };
-use kivact_core::{Binding, Signal, Value, effect, memo, on_cleanup, on_mount, signal};
 
 use super::{ListItem, ListItemState, ListSelection};
 

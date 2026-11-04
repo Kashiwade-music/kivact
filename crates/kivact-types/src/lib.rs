@@ -34,7 +34,7 @@ pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
     PointerSettings, ThemeHint,
 };
-pub use geometry::{Edges, Insets, Point, Rect, Size, Transform};
+pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
 pub use gpu::{
     AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter, GpuBackend, GpuPower,
     GpuPreference, SharedHandle, SharedTextureFormat, SharedTextures,

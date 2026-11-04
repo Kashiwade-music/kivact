@@ -6,9 +6,10 @@ use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use crate::scalar::{
     Edit, Grip, IntoScalarRange, Scalar, ScalarOps, ScalarState, Shared, pulled_inside,
 };
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{HandlerResult, IntoValue, Orientation};
-use kivact_core::{Binding, Value, binding, effect_on, memo};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Value, binding, effect_on, memo};
+use kivact_core::view::{HandlerResult, Orientation};
 
 /// Which end of a [`RangeScalar`] a thumb edits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

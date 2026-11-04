@@ -30,7 +30,8 @@
 //!   invalid `window_size`) and the drawing closure is not called.
 //! - Assets load from an inline store and complete at once. Codecs, the
 //!   artwork's time and cancelling between frames are the caller's.
-use super::{Draw, Size};
+use super::Draw;
+use crate::geometry::Size;
 use crate::{Result, UiError};
 use kivact_runtime::ErrorKind;
 use kivact_style::Theme;
@@ -38,7 +39,7 @@ use kivact_style::asset::Asset;
 use kivact_style::draw::Recording;
 use std::panic::Location;
 
-pub use kivact_types::Pixels as RgbaImage;
+use kivact_types::Pixels;
 
 /// Draws into fixed-resolution RGBA images without an `App` or a window
 /// (for exporting artwork or a frame sequence). The `paint` closure of
@@ -70,7 +71,8 @@ pub use kivact_types::Pixels as RgbaImage;
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::draw::{Offscreen, Rect};
+/// use kivact::draw::{Offscreen};
+/// use kivact::geometry::{Rect};
 /// use kivact::style::rgb;
 ///
 /// let mut renderer = Offscreen::new();
@@ -151,7 +153,7 @@ impl Offscreen {
         width: u32,
         height: u32,
         paint: impl FnOnce(&mut Draw, Size),
-    ) -> Result<RgbaImage> {
+    ) -> Result<Pixels> {
         let at = Location::caller();
         if !kivact_engine::api::OffscreenRenderer::accepts_size(width, height) {
             return Err(failed(
@@ -194,7 +196,7 @@ impl Offscreen {
                     failed(ErrorKind::Asset, message.to_string(), at)
                 }
             })?;
-        Ok(RgbaImage {
+        Ok(Pixels {
             width: image.width,
             height: image.height,
             rgba: image.rgba.into(),

@@ -3,9 +3,9 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact_core::draw::Point;
+use kivact_core::geometry::Point;
+use kivact_core::state::{Value, effect, memo};
 use kivact_core::view::{NodeRef, ScrollBehavior};
-use kivact_core::{Value, effect, memo};
 
 /// Queries and commands for a vertical viewport that follows growing content.
 pub struct FollowEnd {

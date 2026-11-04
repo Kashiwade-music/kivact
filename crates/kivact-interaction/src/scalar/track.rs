@@ -5,9 +5,9 @@ use crate::drag::{Drag, DragCoordinates, DragUpdate, use_drag};
 use crate::edit::EditSession;
 use crate::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use crate::policy::scalar::ScalarRange;
-use kivact_core::draw::{Point, Rect};
+use kivact_core::geometry::{Point, Rect};
+use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
 use kivact_core::view::{NodeRef, ReadingDirection, current_direction};
-use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 
 /// One thumb as the pointer moves it: its writer, range and element.
 #[derive(Clone, Copy)]

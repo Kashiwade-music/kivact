@@ -2,14 +2,13 @@
 use super::layer::with_recipe_style;
 use super::values::TooltipArrowState;
 use super::variants::{Variant, Variants};
-use kivact_core::Value;
-use kivact_core::control::{NodeBuilder, node, text};
-use kivact_core::draw::Rect;
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay,
-};
-use kivact_interaction::Side;
+use kivact_core::custom::NodeExt;
+use kivact_core::geometry::Edge;
+use kivact_core::geometry::Rect;
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
+use kivact_core::view::{NodeBuilder, node, text};
 use std::rc::Rc;
 /// A themed hint for a trigger, created by [`tooltip`]; attach it with
 /// [`attach`](Tooltip::attach).
@@ -141,7 +140,7 @@ fn arrow(
     placed: NodeRef,
     requested: Placement,
     variants: &Variants,
-) -> kivact_core::control::Node {
+) -> kivact_core::view::Node {
     let (anchor, placed) = (anchor.rect(), placed.rect());
     let state = kivact_core::memo(move || arrow_state(anchor.get(), placed.get(), requested));
     with_recipe_style(

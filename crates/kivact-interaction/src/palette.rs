@@ -26,13 +26,13 @@ use super::{
     Combobox, DialogApi, DialogKind, ListItem, ListItemState, ListSelection, PopupState,
     use_combobox, use_dialog,
 };
+use kivact_core::UiError;
+use kivact_core::custom::{Part, PartState, part};
 use kivact_core::i18n::message;
-use kivact_core::primitive::{Part, PartState, part};
+use kivact_core::state::{Binding, Signal, Value, binding, effect, memo, signal};
+use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::Icon;
-use kivact_core::view::{
-    Handled, IntoText, IntoValue, IntoView, KeyEvent, Reactive, Role, View, callback,
-};
-use kivact_core::{Binding, Signal, UiError, Value, binding, effect, memo, signal};
+use kivact_core::view::{Handled, IntoView, KeyEvent, Reactive, Role, View};
 
 /// One command a [`CommandPalette`] lists.
 ///
@@ -235,7 +235,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{Command, use_command_palette};
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::custom::NodeExt;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -255,7 +255,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///             })
 ///         });
 ///         overlay(node_ref(), Placement::Center, column((
-///             kivact_core::control::node().name("").part(kivact_interaction::use_text_edit(p.query()).control()).part(p.input()),
+///             kivact_core::view::node().name("").part(kivact_interaction::use_text_edit(p.query()).control()).part(p.input()),
 ///             column(rows).part(p.list()),
 ///         )))
 ///         .part(p.content())

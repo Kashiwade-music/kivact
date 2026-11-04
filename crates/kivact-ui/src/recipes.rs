@@ -52,7 +52,7 @@ use super::values::{
 };
 use super::variants::Look;
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
 use kivact_interaction::{

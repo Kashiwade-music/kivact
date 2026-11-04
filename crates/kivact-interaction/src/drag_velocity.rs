@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use kivact_core::draw::Point;
+use kivact_core::geometry::Point;
 
 /// Position samples in one drag's coordinate space.
 pub struct DragVelocity {

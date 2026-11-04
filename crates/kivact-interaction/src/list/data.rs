@@ -1,9 +1,10 @@
 //! Role: Passive list inputs, policies and observable item state.
 
-use kivact_core::Binding;
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
+use kivact_core::state::Binding;
+use kivact_core::state::IntoText;
 use kivact_core::style::Icon;
-use kivact_core::view::{IntoText, Modifiers, Orientation, Reactive};
+use kivact_core::view::{Modifiers, Orientation, Reactive};
 
 /// A labelled logical choice whose identity belongs to application data.
 ///

@@ -6,11 +6,12 @@ use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
 
 use super::node::node;
+use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::node::{Node, NodeBuilder};
 use crate::view::state::ViewState;
-use crate::view::{IntoValue, IntoView, Orientation, Role, View};
+use crate::view::{IntoView, Orientation, Role, View};
 use kivact_style::{Direction, Style, style};
 
 /// A box with `children` and the base style `s`, set before the user's
@@ -101,7 +102,7 @@ impl Scroll {
     /// Accessibility role, overriding the container's default role (a list
     /// or a log that scrolls).
     ///
-    /// Same as [`NodeExt::role`](crate::primitive::NodeExt::role).
+    /// Same as [`NodeExt::role`](crate::custom::NodeExt::role).
     pub fn role(mut self, r: crate::view::Role) -> Self {
         self.root = self.root.role(r);
         self

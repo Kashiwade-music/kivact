@@ -16,16 +16,17 @@
 
 use std::time::Duration;
 
-use kivact_core::primitive::{Owner, Part, app_state, part};
+use kivact_core::custom::{Owner, Part, app_state, part};
 use kivact_core::view::try_context;
 
 use super::delayed::{Delayed, delayed};
 use super::popup::PopupState;
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
 use kivact_core::view::{
-    A11yAction, Handled, IntoValue, Key, KeyEvent, Modifiers, NodeRef, PointerEvent, PointerPhase,
-    Role, node_ref,
+    A11yAction, Handled, Key, KeyEvent, Modifiers, NodeRef, PointerEvent, PointerPhase, Role,
+    node_ref,
 };
-use kivact_core::{Signal, Value, effect, memo, on_cleanup, signal};
 
 /// App-wide timing of [`TooltipApi`], read when a tooltip is created.
 ///
@@ -143,7 +144,7 @@ impl Hub {
 }
 
 fn now_ns() -> u64 {
-    kivact_core::primitive::clock_now()
+    kivact_core::custom::clock_now()
 }
 
 /// Copy handle for a tooltip: when a hint shows and what it describes.
@@ -182,8 +183,8 @@ fn now_ns() -> u64 {
 /// trigger is `described_by` it while it is shown.
 ///
 /// ```no_run
-/// use kivact_core::control::{NodeBuilder, node, text};
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::view::{NodeBuilder, node, text};
+/// use kivact_core::custom::NodeExt;
 /// use kivact_core::view::{Placement, Role, overlay, show};
 /// use kivact_interaction::use_tooltip;
 /// let tip = use_tooltip();

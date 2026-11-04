@@ -7,7 +7,7 @@ use super::press_state::{MenuPress, Press};
 use super::state::{Edge, MenuEntry, MenuOrigin, Opened, Session, Target, Want};
 use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupCloseReason, ReasonSet, use_popup};
-use kivact_core::{Callback, Value, effect, memo, signal, var};
+use kivact_core::state::{Callback, Value, effect, memo, signal, var};
 
 impl<K: Clone + Eq + Hash + 'static> Session<K> {
     /// Setup only.

@@ -45,7 +45,7 @@
 //! - A new `content` or theme makes the line-color effect write a new
 //!   function; a panic in it propagates and ends the App.
 //!
-//! [`NodeRefExt::text_layout`]: crate::primitive::NodeRefExt::text_layout
+//! [`NodeRefExt::text_layout`]: crate::custom::NodeRefExt::text_layout
 
 use crate::view::editing_data::{
     EditorProps, HighlightAt, TextEditEvent, TextEditing, TextHighlight,
@@ -226,7 +226,7 @@ impl TextEditing {
     /// remaining handlers for that change.
     ///
     /// [`on_edit`]: TextEditing::on_edit
-    /// [`NodeRefExt::set_edit_session`]: crate::primitive::NodeRefExt::set_edit_session
+    /// [`NodeRefExt::set_edit_session`]: crate::custom::NodeRefExt::set_edit_session
     pub fn on_selection<F, R>(mut self, f: F) -> Self
     where
         F: Fn(crate::view::editing_data::TextSession) -> R + 'static,
@@ -237,7 +237,7 @@ impl TextEditing {
     }
 }
 
-impl<S: Clone + PartialEq + 'static> crate::primitive::Part<S> {
+impl<S: Clone + PartialEq + 'static> crate::custom::Part<S> {
     /// Add native editing to this attachment's node.
     ///
     /// Combining Parts keeps the last editing attachment. Regions report

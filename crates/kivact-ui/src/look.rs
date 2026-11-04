@@ -9,7 +9,8 @@
 //! underline, the one thing a state style cannot set.
 
 use kivact_core::draw::{CornerRadius, LineCap, LineJoin, Stroke};
-use kivact_core::draw::{Draw, Path, Point, Rect, Size};
+use kivact_core::draw::{Draw, Path};
+use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::style::{
     Align, Background, Color, ColorToken, Direction, Justify, Style, TextDecorationLine, Theme,
     style,

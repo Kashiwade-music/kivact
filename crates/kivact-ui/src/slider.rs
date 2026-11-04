@@ -2,18 +2,18 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::draw::Rect;
+use kivact_core::custom::{NodeExt, PartState};
+use kivact_core::geometry::Rect;
 use kivact_core::motion::{Spring, Transition};
-use kivact_core::primitive::{NodeExt, PartState};
+use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{
     Length, Position, Style, Theme, ThemeExtension, TransitionProp, current_theme, style,
 };
 use kivact_core::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection, Role, View,
-    callback, current_direction, node_ref,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, current_direction, node_ref,
 };
-use kivact_core::{Binding, Callback, Value};
+use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{
     EditPhase, IntoScalarRange, RangeThumb, Scalar, ScalarRange, TouchSliderGesture,
     use_range_scalar, use_scalar,
@@ -153,7 +153,7 @@ impl Slider {
     #[track_caller]
     pub fn step(mut self, step: f64) -> Self {
         if !(step.is_finite() && step > 0.0) {
-            kivact_core::primitive::raise(
+            kivact_core::custom::raise(
                 kivact_core::diagnostics::ErrorKind::Message,
                 format!("Slider::step: the step {step} is not a positive finite number"),
                 std::panic::Location::caller(),

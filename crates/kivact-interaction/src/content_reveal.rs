@@ -1,9 +1,10 @@
 //! Role: Animate a container to and from its measured content height.
 
 use kivact_core::motion::{Animated, Transition, animated};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Value, memo};
 use kivact_core::style::{Overflow, Style, style};
-use kivact_core::view::{IntoValue, NodeRef};
-use kivact_core::{Value, memo};
+use kivact_core::view::NodeRef;
 
 /// An interruptible height reveal driven by a reactive open state.
 #[derive(Clone, Copy)]

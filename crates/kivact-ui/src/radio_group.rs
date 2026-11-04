@@ -2,14 +2,15 @@
 use super::layer::{recipes, with_recipe_style};
 use super::values::{CheckState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, icon, node};
-use kivact_core::primitive::NodeExt;
+use kivact_core::custom::NodeExt;
+use kivact_core::state::{Binding, Callback, Value, binding};
+use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::current_theme;
 use kivact_core::view::{
-    CheckedState, HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection,
-    Role, View, callback, current_direction, for_each, show,
+    CheckedState, HandlerResult, IntoView, Orientation, ReadingDirection, Role, View,
+    current_direction, for_each, show,
 };
-use kivact_core::{Binding, Callback, Value, binding};
+use kivact_core::view::{Node, NodeBuilder, icon, node};
 use kivact_interaction::{EditPhase, EditSession, ListItem, ListPolicy, ListSelection, use_list};
 use std::cell::Cell;
 use std::hash::Hash;

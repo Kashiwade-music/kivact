@@ -4,9 +4,11 @@
 //! from the value it will become. It lives in an [`EditSession`], so the
 //! phases an app records (`Begin`, `Commit`, `Cancel`) and the rule that a
 //! cancel writes the starting text back are the ones every other edit has.
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{Handled, Key, KeyEvent, Modifiers, NodeRef, callback};
-use kivact_core::{Binding, Callback, UiError, effect_on};
+use kivact_core::UiError;
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::callback;
+use kivact_core::state::{Binding, Callback, effect_on};
+use kivact_core::view::{Handled, Key, KeyEvent, Modifiers, NodeRef};
 use kivact_interaction::{EditPhase, EditSession};
 use std::rc::Rc;
 

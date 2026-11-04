@@ -4,14 +4,14 @@ use super::rows::{self, Grid};
 use super::types::Grouping;
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, button};
-use kivact_core::control::{NodeBuilder, icon, node, row, text};
 use kivact_core::i18n::message_with;
 use kivact_core::motion::{Easing, Transition};
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{
     Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
 };
 use kivact_core::view::{IntoView, ReadingDirection, Role, View, current_direction, for_each};
-use kivact_core::{Binding, Value, memo};
+use kivact_core::view::{NodeBuilder, icon, node, row, text};
 use kivact_interaction::TableFocus;
 use std::collections::HashMap;
 use std::hash::Hash;

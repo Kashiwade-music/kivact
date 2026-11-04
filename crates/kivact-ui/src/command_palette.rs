@@ -1,15 +1,15 @@
 //! Role: Render a themed command palette over the shared palette behavior.
 use super::layer::with_recipe_style;
 use super::variants::{Variant, Variants};
-use kivact_core::control::{NodeBuilder, column, icon, node, row, scroll, text};
+use kivact_core::custom::{NodeExt, PartState};
 use kivact_core::i18n::message;
-use kivact_core::primitive::{NodeExt, PartState};
+use kivact_core::state::{Binding, Value, memo};
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Icon, current_theme, style};
 use kivact_core::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, KeyEvent, Placement, View, dynamic, for_each,
-    node_ref, overlay, show,
+    HandlerResult, IntoView, KeyEvent, Placement, View, dynamic, for_each, node_ref, overlay, show,
 };
-use kivact_core::{Binding, Value, memo};
+use kivact_core::view::{NodeBuilder, column, icon, node, row, scroll, text};
 use kivact_interaction::{Command, use_command_palette, use_text_edit};
 use std::hash::Hash;
 use std::rc::Rc;

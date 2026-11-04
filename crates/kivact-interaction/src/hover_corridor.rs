@@ -4,10 +4,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use kivact_core::draw::{Point, Rect};
+use kivact_core::geometry::{Point, Rect};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Value, effect, signal};
 use kivact_core::task::{Task, sleep, spawn};
-use kivact_core::view::{IntoValue, NodeRef, mouse_position};
-use kivact_core::{Value, effect, signal};
+use kivact_core::view::{NodeRef, mouse_position};
 
 use crate::{Delayed, Delays, use_delayed};
 

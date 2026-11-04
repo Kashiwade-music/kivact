@@ -1,8 +1,8 @@
 //! Role: The selection and the policy a calendar grid is created with.
 
 use kivact_core::i18n::{CalendarDate, DateRange, Weekday};
-use kivact_core::view::{IntoValue, callback};
-use kivact_core::{Binding, Callback, Value};
+use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{IntoValue, callback};
 use std::rc::Rc;
 
 /// The caller's authoritative selection: one day or a range.

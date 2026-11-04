@@ -1,7 +1,7 @@
 //! Role: Share text styles used by standard control labels.
 
-use kivact_core::control::NodeBuilder;
 use kivact_core::style::{Style, TextOverflow, style};
+use kivact_core::view::NodeBuilder;
 
 /// The text style of a control that shows one line: the text does not wrap
 /// and ends in an ellipsis where it does not fit. It is the first style
@@ -26,7 +26,7 @@ pub(super) fn visible_label(
     hidden: Option<kivact_core::Value<bool>>,
 ) -> kivact_core::view::View {
     use kivact_core::view::IntoView;
-    let label = move || kivact_core::control::text(label).style(label_style());
+    let label = move || kivact_core::view::text(label).style(label_style());
     match hidden {
         None => label().into_view(),
         Some(hidden) => kivact_core::view::show(move || !hidden.get(), label).into_view(),
@@ -39,7 +39,7 @@ pub(super) fn item_icon(
     icon: impl Fn() -> Option<kivact_core::style::Icon> + 'static,
 ) -> kivact_core::view::View {
     use kivact_core::view::IntoView;
-    kivact_core::view::dynamic(icon, |icon| icon.map(kivact_core::control::icon)).into_view()
+    kivact_core::view::dynamic(icon, |icon| icon.map(kivact_core::view::icon)).into_view()
 }
 
 /// An item's label over its description, the description styled by
@@ -47,15 +47,15 @@ pub(super) fn item_icon(
 pub(super) fn label_and_description(
     label: impl Fn() -> String + 'static,
     description: impl Fn() -> Option<String> + 'static,
-    styled: impl Fn(kivact_core::control::Node) -> kivact_core::control::Node + 'static,
-) -> kivact_core::control::Node {
+    styled: impl Fn(kivact_core::view::Node) -> kivact_core::view::Node + 'static,
+) -> kivact_core::view::Node {
     let description = kivact_core::memo(description);
-    kivact_core::control::column((
-        kivact_core::control::text(label).style(label_style()),
+    kivact_core::view::column((
+        kivact_core::view::text(label).style(label_style()),
         kivact_core::view::show(
             move || description.get().is_some(),
             move || {
-                styled(kivact_core::control::text(move || {
+                styled(kivact_core::view::text(move || {
                     description.get().unwrap_or_default()
                 }))
             },

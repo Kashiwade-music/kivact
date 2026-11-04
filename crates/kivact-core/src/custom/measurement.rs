@@ -1,6 +1,6 @@
 //! Role: The measurement contract of a primitive: constraints, sizes and baselines.
 
-use kivact_style::draw::{Size, TextMetrics, TextParagraph, TextStyle};
+use kivact_style::draw::{Size, TextFormat, TextMetrics, TextParagraph};
 use kivact_types::{self as values};
 
 /// Space available to a primitive along one axis.
@@ -53,19 +53,19 @@ impl Constraints<'_> {
     /// # use kivact_core as kivact;
     /// use kivact::prelude::*;
     /// use kivact::draw::{Size};
-    /// use kivact::draw::TextStyle;
-    /// use kivact::primitive::{Constraints, Measurement, primitive};
+    /// use kivact::draw::TextFormat;
+    /// use kivact::custom::{Constraints, Measurement, primitive};
     ///
     /// fn chip(label: Signal<String>) -> impl IntoView {
     ///     primitive().measure(label, |label: &String, c: Constraints| {
-    ///         let m = c.measure_text(label, &TextStyle::default());
+    ///         let m = c.measure_text(label, &TextFormat::default());
     ///         // The label sits 4 px below the top.
     ///         Measurement::new(Size::new(m.size.width + 16.0, m.size.height + 8.0)).baseline(m.baseline + 4.0)
     ///     })
     /// }
     /// # let _ = chip;
     /// ```
-    pub fn measure_text(&self, text: &str, style: &TextStyle) -> TextMetrics {
+    pub fn measure_text(&self, text: &str, style: &TextFormat) -> TextMetrics {
         let origin = values::Point { x: 0.0, y: 0.0 };
         let run =
             kivact_style::draw::text_run(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
@@ -84,12 +84,12 @@ impl Constraints<'_> {
     /// ```no_run
     /// # use kivact_core as kivact;
     /// use kivact::prelude::*;
-    /// use kivact::draw::{Size, TextStyle};
-    /// use kivact::primitive::{Constraints, Measurement, primitive};
+    /// use kivact::draw::{Size, TextFormat};
+    /// use kivact::custom::{Constraints, Measurement, primitive};
     ///
     /// fn line(text: Signal<String>) -> impl IntoView {
     ///     primitive().measure(text, |text: &String, c: Constraints| {
-    ///         let paragraph = c.measure_paragraph(text, &TextStyle::default(), c.max_width());
+    ///         let paragraph = c.measure_paragraph(text, &TextFormat::default(), c.max_width());
     ///         Measurement::new(paragraph.size()).baseline(paragraph.baseline())
     ///     })
     /// }
@@ -98,7 +98,7 @@ impl Constraints<'_> {
     pub fn measure_paragraph(
         &self,
         text: &str,
-        style: &TextStyle,
+        style: &TextFormat,
         max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = values::Point { x: 0.0, y: 0.0 };
@@ -112,7 +112,7 @@ impl Constraints<'_> {
     pub fn measure_inline_paragraph(
         &self,
         text: &str,
-        style: &TextStyle,
+        style: &TextFormat,
         max_width: Option<f64>,
         boxes: &[values::InlineBox],
     ) -> Option<kivact_style::draw::InlineParagraph> {

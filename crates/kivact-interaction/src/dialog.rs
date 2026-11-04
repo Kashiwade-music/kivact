@@ -32,28 +32,16 @@
 //! only its own placement and content and shares the opening, dismissal and
 //! focus rules.
 
+use kivact_core::geometry::Edge;
 use std::panic::Location;
 
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{NodeRefExt, Part, PartState, part, raise};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Part, PartState, part, raise};
+use kivact_core::state::{Binding, Value, Var, on_mount, var};
 use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
-use kivact_core::{Binding, Value, Var, on_mount, var};
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use super::popup::{Popup, PopupState, use_popup};
-
-/// The edge of the window a drawer is attached to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Side {
-    /// The left edge.
-    Left,
-    /// The right edge.
-    Right,
-    /// The top edge.
-    Top,
-    /// The bottom edge.
-    Bottom,
-}
 
 /// What a [`DialogApi`] is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,7 +52,7 @@ pub enum DialogKind {
     /// outside press does not close it unless [`DialogApi::dismiss`] says so.
     AlertModal,
     /// A modal sheet attached to an edge of the window (`Role::Dialog`).
-    Drawer(Side),
+    Drawer(Edge),
     /// A non-modal dialog placed at its anchor (`Role::Dialog`).
     Popover,
 }
@@ -135,7 +123,7 @@ struct DialogSettings {
 /// ```no_run
 /// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::{Placement, Role, node_ref, overlay, show}};
 /// use kivact_interaction::{DialogKind, use_dialog};
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::custom::NodeExt;
 /// let open = signal(false);
 /// let confirm = use_dialog(open, DialogKind::AlertModal);
 /// let view = show(confirm.shown(), move || {

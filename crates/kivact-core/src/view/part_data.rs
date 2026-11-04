@@ -5,7 +5,7 @@ use std::rc::Rc;
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::UiError;
 
-use crate::Value;
+use crate::state::Value;
 use crate::view::NodeRef;
 
 /// Final constraints of the node or canvas region to which a part is attached.

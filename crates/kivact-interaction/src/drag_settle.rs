@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use kivact_core::draw::Point;
+use kivact_core::geometry::Point;
 
 /// Physical axis retained by a constrained drag.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

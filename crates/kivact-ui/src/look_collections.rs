@@ -3,8 +3,9 @@ use super::DataTableGroupState;
 use super::values::{
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState,
 };
-use kivact_core::draw::{LineCap, LineJoin, Point, Stroke};
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
+use kivact_core::draw::{LineCap, LineJoin, Stroke};
+use kivact_core::geometry::Point;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
 };

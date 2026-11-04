@@ -18,12 +18,12 @@
 //! and the last trigger. With a menu open, resting the pointer on another
 //! trigger opens that menu.
 
-use kivact_core::primitive::{Part, PartState, part};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Value, Var, memo, signal, var};
 use kivact_core::view::{
-    Handled, IntoValue, Key, KeyEvent, Orientation, PointerPhase, ReadingDirection, Role,
-    current_direction,
+    Handled, Key, KeyEvent, Orientation, PointerPhase, ReadingDirection, Role, current_direction,
 };
-use kivact_core::{Value, Var, memo, signal, var};
 
 use super::{
     List, ListActivation, ListBoundary, ListItem, ListItemState, ListMode, ListPolicy,
@@ -40,7 +40,7 @@ use super::{
 /// # }
 /// use kivact::interaction::{MenuEntry, use_menu, use_menubar};
 /// use kivact::prelude::*;
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::custom::NodeExt;
 ///
 /// fn bar() -> impl IntoView {
 ///     let file = use_menu(vec![MenuEntry::item("new", "New")], |_| {});

@@ -1,11 +1,11 @@
 //! Role: Opt-in touch and pen swipes for standard toast cards.
 
-use kivact_core::draw::{Point, Rect};
+use kivact_core::custom::clock_now;
+use kivact_core::geometry::{Edge, Point, Rect};
 use kivact_core::motion::{FrameRate, Transition, frame_loop};
-use kivact_core::primitive::clock_now;
+use kivact_core::state::{Signal, Value, Var, effect, signal, var};
 use kivact_core::style::{Style, Theme, ThemeExtension, TransitionProp, pct, style};
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};
-use kivact_core::{Signal, Value, Var, effect, signal, var};
 use kivact_interaction::{DragAxis, ToastId, Toaster};
 
 const SLOP: f64 = 8.0;
@@ -14,29 +14,13 @@ const DISMISS_RATIO: f64 = 0.4;
 const FLICK_DISTANCE: f64 = 48.0;
 const FLICK_SPEED: f64 = 1.2;
 
-/// The edge toward which a toast can be dismissed by a swipe.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ToastSwipeEdge {
-    Top,
-    Bottom,
-}
-
-impl ToastSwipeEdge {
-    fn sign(self) -> f64 {
-        match self {
-            Self::Top => -1.0,
-            Self::Bottom => 1.0,
-        }
-    }
-}
-
 /// Theme opt-in for touch and pen dismissal of standard toast cards.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum ToastSwipe {
     #[default]
     Disabled,
     Enabled {
-        edge: ToastSwipeEdge,
+        edge: Edge,
         transition: Transition,
     },
 }
@@ -65,7 +49,7 @@ enum Visual {
 
 #[derive(Clone, Copy)]
 pub(super) struct Swipe {
-    edge: ToastSwipeEdge,
+    edge: Edge,
     rect: Value<Option<Rect>>,
     held: Signal<bool>,
     contact: Var<Option<Contact>>,
@@ -75,7 +59,7 @@ pub(super) struct Swipe {
 
 impl Swipe {
     pub(super) fn new(
-        edge: ToastSwipeEdge,
+        edge: Edge,
         rect: Value<Option<Rect>>,
         held: Signal<bool>,
         toaster: Toaster,
@@ -162,7 +146,7 @@ impl Swipe {
             return Handled::No;
         };
         let delta = Point::new(pos.x - contact.start.x, pos.y - contact.start.y);
-        let sign = self.edge.sign();
+        let sign = edge_sign(self.edge);
         let travel = (delta.y * sign).max(0.0);
         match event.phase() {
             PointerPhase::Move => {
@@ -223,14 +207,14 @@ impl Swipe {
             Visual::Drag { travel, height } | Visual::Dismiss { travel, height } => {
                 let progress = (travel / height).clamp(0.0, 1.0);
                 let card = base
-                    .translate_y(travel * self.edge.sign())
+                    .translate_y(travel * edge_sign(self.edge))
                     .opacity(1.0 - 0.4 * progress)
                     .scale(1.0 - 0.02 * progress);
                 if matches!(visual, Visual::Dismiss { .. }) {
                     card.exit(
                         style()
                             .opacity(0.0)
-                            .translate_y(pct(120.0 * self.edge.sign()))
+                            .translate_y(pct(120.0 * edge_sign(self.edge)))
                             .scale(1.0),
                     )
                 } else {
@@ -286,5 +270,12 @@ mod tests {
         assert!(!qualifies(48.0, 200.0, 40.0));
         assert!(qualifies(48.0, 200.0, 39.0));
         assert!(qualifies(80.0, 200.0, 1000.0));
+    }
+}
+
+fn edge_sign(edge: Edge) -> f64 {
+    match edge {
+        Edge::Top | Edge::Left => -1.0,
+        Edge::Bottom | Edge::Right => 1.0,
     }
 }

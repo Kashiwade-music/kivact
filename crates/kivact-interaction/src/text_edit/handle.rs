@@ -1,13 +1,15 @@
 //! Role: The `TextEdit` handle: native editing options and the control part.
 
 use super::policy::text_edit_policy;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{
+use kivact_core::ErrorKind;
+use kivact_core::Result;
+use kivact_core::custom::{
     EditLineLayout, NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise,
     require_setup,
 };
-use kivact_core::view::{Handled, HandlerResult, IntoText, IntoValue, Key, Role};
-use kivact_core::{Binding, Result, Signal, Value, on_cleanup, signal};
+use kivact_core::state::{Binding, Signal, Value, on_cleanup, signal};
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{Handled, HandlerResult, Key, Role};
 use std::cell::{Cell, RefCell};
 use std::panic::Location;
 use std::rc::Rc;

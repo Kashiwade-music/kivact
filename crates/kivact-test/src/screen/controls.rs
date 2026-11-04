@@ -15,12 +15,12 @@ use kivact_style::Cursor;
 
 impl Screen {
     /// Logical content sizes requested through `platform::request_window_size`.
-    pub fn requested_sizes(&self) -> Vec<kivact_core::draw::Size> {
+    pub fn requested_sizes(&self) -> Vec<kivact_core::geometry::Size> {
         self.host
             .borrow()
             .requested_sizes()
             .iter()
-            .map(|s| kivact_core::draw::Size {
+            .map(|s| kivact_core::geometry::Size {
                 width: s.width,
                 height: s.height,
             })

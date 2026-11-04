@@ -1,13 +1,13 @@
 //! Role: Opt-in direct manipulation for a standard switch.
 use crate::values::{ControlSize, SwitchDragState};
-use kivact_core::draw::Point;
-use kivact_core::primitive::{Part, clock_now};
+use kivact_core::custom::{Part, clock_now};
+use kivact_core::geometry::Point;
+use kivact_core::state::{Binding, Signal, Value, Var, signal, var};
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{
     Handled, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase, ReadingDirection,
     current_direction,
 };
-use kivact_core::{Binding, Signal, Value, Var, signal, var};
 use kivact_interaction::ToggleState;
 use std::time::Duration;
 

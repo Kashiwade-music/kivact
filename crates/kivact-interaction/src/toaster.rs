@@ -29,15 +29,16 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
+use kivact_core::ErrorKind;
 use kivact_core::UiError;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{NodeToken, Owner, Part, PartState, app_state, part, raise};
+use kivact_core::custom::{NodeToken, Owner, Part, PartState, app_state, part, raise};
 
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{
-    Handled, HandlerResult, IntoValue, IntoView, Key, KeyEvent, LiveRegion, Modifiers, Role, View,
+    Handled, HandlerResult, IntoView, Key, KeyEvent, LiveRegion, Modifiers, Role, View,
 };
-use kivact_core::{Signal, Value, effect, memo, on_cleanup, signal};
 
 use super::Tone;
 
@@ -606,5 +607,5 @@ fn count_down(toaster: Toaster, id: ToastId, duration: Option<Duration>, engaged
 }
 
 fn now_ns() -> u64 {
-    kivact_core::primitive::clock_now()
+    kivact_core::custom::clock_now()
 }

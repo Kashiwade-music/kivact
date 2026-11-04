@@ -2,8 +2,8 @@
 
 use std::panic::Location;
 
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::raise;
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
 use kivact_core::view::Orientation;
 
 /// A direction a behavior moves along: `Orientation` without `Unspecified`.

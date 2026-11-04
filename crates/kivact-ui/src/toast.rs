@@ -3,12 +3,12 @@ use super::layer::with_recipe_style;
 use super::toast_swipe::{Swipe, ToastSwipe};
 use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{NodeBuilder, column, node, text};
+use kivact_core::custom::part;
 use kivact_core::motion::Transition;
-use kivact_core::primitive::part;
-use kivact_core::signal;
+use kivact_core::state::signal;
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
+use kivact_core::view::{NodeBuilder, column, node, text};
 use kivact_interaction::{ToastId, Toaster, Tone};
 
 /// Where the toasts of `toaster` show: two live regions (polite and
@@ -211,7 +211,7 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
         Some(icon) => Some(icon()),
         None => tone_icon(content.tone).map(|name| {
             with_recipe_style(
-                kivact_core::control::icon(name),
+                kivact_core::view::icon(name),
                 |r| r.toast_recipes().icon_recipe(),
                 variants,
                 move || state.get(),
@@ -235,7 +235,7 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
         .part(kivact_interaction::use_button().control())
         .name(kivact_core::i18n::message("toast.close", "Close"))
         .on_press(move || toaster.dismiss(id))
-        .child(kivact_core::control::icon("x"));
+        .child(kivact_core::view::icon("x"));
     let close = if let Some(gesture) = gesture {
         close.on_pointer(move |event| gesture.protect_action(event))
     } else {

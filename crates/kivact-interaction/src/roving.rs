@@ -16,9 +16,9 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use kivact_core::primitive::{NodeRefExt, NodeToken};
+use kivact_core::custom::{NodeRefExt, NodeToken};
+use kivact_core::state::{Signal, Value, signal, untrack};
 use kivact_core::view::NodeRef;
-use kivact_core::{Signal, Value, signal, untrack};
 
 /// A mounted member and the constraints that decide whether it can take focus.
 #[derive(Clone, Copy)]

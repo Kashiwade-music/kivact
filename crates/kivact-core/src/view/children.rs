@@ -1,13 +1,13 @@
 //! Role: The child lists the group components accept: a tuple of views or a `Vec`.
 
-use kivact_core::view::{IntoView, View};
+use super::{IntoView, View};
 
 /// Several children for a component that wraps or styles each one: a tuple
 /// of views (mixed types, up to 16) or a `Vec` of one kind of view, like
 /// `column((..))`.
 ///
 /// A component that takes one `impl IntoView` cannot tell its children
-/// apart; [`split`](crate::split) takes this instead, because each pane gets
+/// apart; the split component takes this instead, because each pane gets
 /// its own wrapper and a handle between neighbours.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a list of children",

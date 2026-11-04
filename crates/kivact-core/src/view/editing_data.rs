@@ -35,7 +35,7 @@ impl TextEditEvent {
     /// the changes from that one on are not made. Sync the copy again from
     /// the editor ([`NodeRefExt::edit_state`]).
     ///
-    /// [`NodeRefExt::edit_state`]: crate::primitive::NodeRefExt::edit_state
+    /// [`NodeRefExt::edit_state`]: crate::custom::NodeRefExt::edit_state
     pub fn apply(&self, text: &mut String) -> bool {
         self.changes.iter().all(|change| change.apply(text))
     }

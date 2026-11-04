@@ -20,9 +20,10 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use kivact_core::primitive::{Owned, Owner, Part, PartState, part};
-use kivact_core::view::{IntoValue, NodeRef, Orientation, Role};
-use kivact_core::{Binding, Signal, Value, memo, signal, var};
+use kivact_core::custom::{Owned, Owner, Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, memo, signal, var};
+use kivact_core::view::{NodeRef, Orientation, Role};
 
 use super::axis::Axis;
 use super::{List, ListActivation, ListItem, ListPolicy, ListSelection, use_list};

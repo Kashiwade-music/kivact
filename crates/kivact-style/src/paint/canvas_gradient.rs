@@ -63,7 +63,8 @@ pub(crate) enum CanvasShape {
 /// nothing is painted. Colors may be theme tokens.
 ///
 /// ```
-/// use kivact::draw::{Path, Point, Rect};
+/// use kivact::draw::{Path};
+/// use kivact::geometry::{Point, Rect};
 /// use kivact::prelude::*;
 /// use kivact::draw::Draw;
 /// use kivact::draw::{CanvasGradient, GradientExtend};

@@ -13,20 +13,20 @@ use kivact_types::{DrawCmd, TextMetrics};
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::TextStyle;
+/// use kivact::draw::TextFormat;
 /// use kivact::style::{TextDecorationLine, em};
-/// let label = TextStyle {
+/// let label = TextFormat {
 ///     size: 11.0,
 ///     weight: 600,
 ///     letter_spacing: em(0.08),
 ///     tabular_nums: true,
 ///     decoration: TextDecorationLine::UNDERLINE,
-///     ..TextStyle::default()
+///     ..TextFormat::default()
 /// };
 /// # let _ = label;
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct DrawTextStyle {
+pub struct TextFormat {
     /// Horizontal placement relative to the anchor. `Justify` places like
     /// `Start`: a line drawn alone is the last of its paragraph.
     pub align: crate::TextAlign,
@@ -67,9 +67,9 @@ pub struct DrawTextStyle {
     pub decoration_color: Option<Color>,
 }
 
-impl Default for DrawTextStyle {
+impl Default for TextFormat {
     fn default() -> Self {
-        DrawTextStyle {
+        TextFormat {
             align: crate::TextAlign::Start,
             baseline: TextBaseline::Top,
             size: 14.0,
@@ -92,7 +92,7 @@ impl Default for DrawTextStyle {
 pub fn text_run(
     text: &str,
     origin: p::Point,
-    style: &DrawTextStyle,
+    style: &TextFormat,
     scale: f64,
     color: p::Rgba,
     theme: Option<&Theme>,
@@ -132,7 +132,7 @@ pub enum TextBaseline {
 }
 
 impl Draw {
-    pub fn text(&mut self, text: &str, pos: Point, style: DrawTextStyle) {
+    pub fn text(&mut self, text: &str, pos: Point, style: TextFormat) {
         let mut pos = pos;
         if style.align != crate::TextAlign::Start || style.baseline != TextBaseline::Top {
             let m = self.measure_text(text, &style);
@@ -169,17 +169,17 @@ impl Draw {
     /// ```
     /// use kivact::prelude::*;
     /// use kivact::draw::{Draw, Point, Rect};
-    /// use kivact::draw::TextStyle;
+    /// use kivact::draw::TextFormat;
     /// // A pill as wide as its label plus 12 px.
     /// fn pill(d: &mut Draw, label: &str, at: Point) {
-    ///     let style = TextStyle { size: 11.0, ..TextStyle::default() };
+    ///     let style = TextFormat { size: 11.0, ..TextFormat::default() };
     ///     let m = d.measure_text(label, &style);
     ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, ColorToken::Accent);
     ///     d.text(label, Point::new(at.x + 6.0, at.y + 2.0), style);
     /// }
     /// # let _ = pill;
     /// ```
-    pub fn measure_text(&self, text: &str, style: &DrawTextStyle) -> TextMetrics {
+    pub fn measure_text(&self, text: &str, style: &TextFormat) -> TextMetrics {
         let Some(m) = &self.measurer else {
             return TextMetrics::default();
         };

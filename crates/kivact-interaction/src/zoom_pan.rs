@@ -26,15 +26,16 @@ use std::panic::Location;
 
 use crate::edit::{EditPhase, EditSession};
 use crate::space_pan::{SpacePan, use_space_pan};
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::draw::{Point, Rect, Size};
-use kivact_core::primitive::{Part, PartState, part, raise};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{Part, PartState, part, raise};
+use kivact_core::geometry::{Point, Rect, Size};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, Var, effect, memo, signal, untrack, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    Handled, IntoValue, Key, KeyEvent, MouseButton, PointerEvent, PointerId, PointerKind,
-    PointerPhase, WheelEvent,
+    Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase,
+    WheelEvent,
 };
-use kivact_core::{Binding, Signal, Value, Var, effect, memo, signal, untrack, var};
 
 /// Content-to-view coordinates: `view = content * scale + offset`.
 /// Invalid (non-positive or non-finite) scales are treated as 1 by operations.

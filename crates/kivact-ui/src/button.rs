@@ -18,13 +18,14 @@
 use super::layer::with_recipe_style;
 use super::values::{ButtonState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node, row};
+use kivact_core::custom::NodeExt;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Value, on_cleanup, signal};
 use kivact_core::style::{Theme, ThemeExtension, current_theme, style};
 use kivact_core::task::{sleep, spawn};
-use kivact_core::view::{IntoText, IntoValue, IntoView, View, show};
-use kivact_core::{Value, on_cleanup, signal};
+use kivact_core::view::{IntoView, View, show};
+use kivact_core::view::{Node, NodeBuilder, node, row};
 use kivact_interaction::use_button;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -162,7 +163,7 @@ impl Button {
     /// Selected state of a toggle-like button (semantics and the `selected`
     /// style).
     ///
-    /// Same as [`NodeExt::selected`](kivact_core::primitive::NodeExt::selected).
+    /// Same as [`NodeExt::selected`](kivact_core::custom::NodeExt::selected).
     pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {
         self.root = self.root.selected(v);
         self
@@ -171,7 +172,7 @@ impl Button {
     /// Expanded state of a button that opens or closes something (a
     /// disclosure trigger).
     ///
-    /// Same as [`NodeExt::expanded`](kivact_core::primitive::NodeExt::expanded).
+    /// Same as [`NodeExt::expanded`](kivact_core::custom::NodeExt::expanded).
     pub fn expanded(mut self, v: impl IntoValue<bool>) -> Self {
         self.root = self.root.expanded(v);
         self
@@ -252,8 +253,8 @@ impl NodeBuilder for Button {
     }
 }
 impl Button {
-    /// Finish the public root, including themed content and busy indicator.
-    pub fn into_node(mut self) -> Node {
+    /// Finish the root, including themed content and busy indicator.
+    fn finish(mut self) -> Node {
         // A popup or disclosure attaches its trigger before the button is
         // finished; the recipe draws the button as that trigger.
         if let Some(open) = self.root.accessible_expanded() {
@@ -357,6 +358,6 @@ impl Button {
 }
 impl IntoView for Button {
     fn into_view(self) -> View {
-        self.into_node().into_view()
+        self.finish().into_view()
     }
 }

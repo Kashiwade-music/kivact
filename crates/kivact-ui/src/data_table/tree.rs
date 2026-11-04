@@ -1,13 +1,13 @@
 //! Role: Arrange hierarchical table rows and render their disclosure controls.
 use super::types::{DataTableTreeIndent, Key, TreeConfig};
 use crate::{Button, ButtonVariant, button};
-use kivact_core::control::{NodeBuilder, icon, node, row};
+use kivact_core::custom::NodeExt;
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
 use kivact_core::view::{IntoView, ReadingDirection, View, current_direction, dynamic};
-use kivact_core::{Binding, Value, memo};
+use kivact_core::view::{NodeBuilder, icon, node, row};
 use kivact_interaction::{TreeNode, TreeRow, flatten_tree_rows};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;

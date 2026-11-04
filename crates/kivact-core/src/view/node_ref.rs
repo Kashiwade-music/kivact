@@ -207,7 +207,7 @@ impl NodeRef {
 
     /// Whether the frontmost hit at a window point belongs to this node or its descendants.
     #[track_caller]
-    pub fn hit_test(&self, point: crate::draw::Point) -> bool {
+    pub fn hit_test(&self, point: crate::geometry::Point) -> bool {
         let (rt, _) = self.state(Location::caller());
         let Some(id) = self.node() else { return false };
         ViewState::tree(&rt).reader().hit_test(id, point)
@@ -246,23 +246,28 @@ impl NodeRef {
 
     /// Reactive scroll offset of the bound node; zero while unbound.
     #[track_caller]
-    pub fn scroll_offset(&self) -> Value<crate::draw::Point> {
+    pub fn scroll_offset(&self) -> Value<crate::geometry::Point> {
         let (rt, state) = self.state(Location::caller());
         drop(rt);
         state.scroll_value
     }
     /// Move the bound scroll container to an absolute logical offset.
     #[track_caller]
-    pub fn scroll_to(&self, offset: crate::draw::Point, behavior: ScrollBehavior) {
+    pub fn scroll_to(&self, offset: crate::geometry::Point, behavior: ScrollBehavior) {
         self.scroll_request(offset, false, behavior);
     }
     /// Move the bound scroll container by a logical delta.
     #[track_caller]
-    pub fn scroll_by(&self, delta: crate::draw::Point, behavior: ScrollBehavior) {
+    pub fn scroll_by(&self, delta: crate::geometry::Point, behavior: ScrollBehavior) {
         self.scroll_request(delta, true, behavior);
     }
     #[track_caller]
-    fn scroll_request(&self, point: crate::draw::Point, relative: bool, behavior: ScrollBehavior) {
+    fn scroll_request(
+        &self,
+        point: crate::geometry::Point,
+        relative: bool,
+        behavior: ScrollBehavior,
+    ) {
         let (rt, _) = self.state(Location::caller());
         require_effectful("NodeRef scroll");
         if let Some(id) = self.node() {
@@ -664,7 +669,7 @@ fn resolved_rect(app: AppId, binding: Signal<RefState>) -> Value<Option<Rect>> {
 }
 
 #[track_caller]
-fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::draw::Point> {
+fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::geometry::Point> {
     kivact_runtime::memo(move || {
         binding
             .try_get()

@@ -78,12 +78,12 @@ pub use calendar::{
 pub use combobox::{Combobox, use_combobox};
 pub use content_reveal::{ContentReveal, use_content_reveal};
 pub use delayed::{Delayed, DelayedPhase, Delays, use_delayed};
-pub use dialog::{DialogApi, DialogKind, Dismiss, Side, use_dialog};
+pub use dialog::{DialogApi, DialogKind, Dismiss, use_dialog};
 pub use disclosure::{Disclosure, DisclosureState, use_disclosure};
 pub use drag::{Drag, DragCoordinates, DragPhase, DragStart, DragState, DragUpdate, use_drag};
 pub use drag_settle::{DragAxis, nearest_snap, project_release, pull_to_snap, resist_overshoot};
 pub use drag_velocity::DragVelocity;
-pub use edit::{EditPhase, EditSession};
+pub use edit::EditSession;
 pub use focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 pub use follow_end::{FollowEnd, use_follow_end};
 pub use hover_corridor::{use_hover_corridor, use_hover_surface};
@@ -123,3 +123,6 @@ pub use tree::{Tree, TreeBranch, TreeItemState, TreeNode, TreeRow, flatten_tree_
 pub use text_edit::{TextEdit, text_edit_policy, use_text_area, use_text_edit};
 
 pub use zoom_pan::{ViewTransform, ZoomPan, use_zoom_pan};
+
+mod inline_edit;
+pub use inline_edit::{InlineEdit, use_inline_edit};

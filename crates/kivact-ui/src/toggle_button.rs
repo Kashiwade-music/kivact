@@ -8,13 +8,15 @@
 use super::layer::with_base_recipe_style;
 use super::values::{ControlSize, ToggleButtonState};
 use super::variants::{Variant, Variants};
-use kivact_core::Binding;
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, column, node, text};
-use kivact_core::draw::{Size, TextStyle};
-use kivact_core::primitive::{Constraints, NodeExt, primitive};
+use kivact_core::custom::{Constraints, NodeExt, primitive};
+use kivact_core::draw::TextFormat;
+use kivact_core::geometry::Size;
+use kivact_core::state::Binding;
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Align, TextAlign, Theme, ThemeExtension, current_theme, style};
-use kivact_core::view::{IntoText, IntoValue, IntoView, View, dynamic, show};
+use kivact_core::view::{IntoView, View, dynamic, show};
+use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{ToggleState, use_toggle_button};
 
 /// Opt-in text measurement for a toggle whose label changes weight when pressed.
@@ -63,10 +65,10 @@ fn toggle_label(label: Value<String>, hidden: Option<Value<bool>>, size: Control
                     .measure(
                         label,
                         move |label: &String, constraints: Constraints<'_>| {
-                            let text = TextStyle {
+                            let text = TextFormat {
                                 weight,
                                 size: font_size,
-                                ..TextStyle::default()
+                                ..TextFormat::default()
                             };
                             let width = constraints.measure_text(label, &text).size.width;
                             Size::new(width, 0.0)
@@ -110,7 +112,7 @@ pub struct Toggle {
 /// [`icon`](Toggle::icon) and a hidden label is an icon toggle, a square.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::icon;
 /// use kivact::prelude::*;
 /// use kivact::ui::toggle;
 ///
