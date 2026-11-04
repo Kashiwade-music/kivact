@@ -1455,6 +1455,8 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
 - **規模**: L。
 - **並列**: N-F1〜N-F3、N-F5、N-F6 と同時。
 
+N-F4 の補足: Calendar の number_of_months/caption/week_start は reactive な表示入力。Drawer.side(Edge)、Sidebar.collapsible(SidebarCollapsible)、InputOtp.groups/pattern は設計書 10.6 の構築 mode/format として plain な値を保つ。IntoChildren への移行で必要な joined style は typed child/recipe が private 構築文脈から読み、任意の View は layout/clipping wrapper で包む。公開 View root mutation や kit 独自 child trait は作らない。
+
 ### N-F5 creative の追従
 
 - **前提**: N-D1、N-D2。
@@ -1474,6 +1476,8 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
 - **並列**: N-F1〜N-F5 と同時。
 
 （fan-out A の全部を merge したら、orchestrator が `cargo check --workspace --all-targets --all-features` を回し、残った error を crate の組ごとの fix の unit に配る。G6 の error は fan-out B が直すので、G1〜G5 が通れば fan-out B へ進む。）
+
+N-F6 の補足: StepIndicator::Custom(ViewFn<()>) は plain な slot/config enum。typed children の IntoView は private composition context を読み、任意の View は必要な wrapper を使う（共有 label 測定などの既存挙動を保つ）。
 
 ### N-G1 例・catalog・雛形の追従
 

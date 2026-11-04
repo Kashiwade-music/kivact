@@ -119,3 +119,6 @@
 | 2026-11-05 | N-F2 | 正準 Selection を合成で渡す | sealed IntoSelection の四つの Signal/Binding 入力に Selection 自身の恒等変換を加え、cardinality の分岐と別経路を増やさない。 |
 | 2026-11-05 | N-F1 | custom text/semantics に公開 Rc が残る | TextEditing::new は IntoText、accessible_* bool は Option<Value<bool>> に統一。Rc は private 境界だけで使う。 |
 | 2026-11-05 | N-F4 | Menu::behavior 削除後の menubar | basic menubar は既存 headless parts と basic recipes で描画し、menu の状態/key 処理を複製しない。getter や別の注入 API は足さない。 |
+| 2026-11-05 | N-F4 | 構造を選ぶ kit option と Calendar | Drawer side/Sidebar collapse mode/OTP format を 10.6 に明記。Calendar 表示入力は reactive、navigation/selection は再構築の外側で保持する。 |
+| 2026-11-05 | N-F4 / N-F6 | IntoChildren が typed root を消去する | typed child/recipe は private 構築文脈を読み、任意 View は wrapper で配置・clip。公開 View mutation や独自 child trait は作らない。 |
+| 2026-11-05 | N-F6 | Custom ViewFn は PartialEq を持たない | StepIndicator は slot の構築 enum とし、Value 化のためだけの ViewFn identity/equality は足さない。 |

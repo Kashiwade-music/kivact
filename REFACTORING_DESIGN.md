@@ -1146,6 +1146,11 @@ mount のときに一度だけ読み、木の形や振る舞いの種類を選�
 | `free_text()`、`tokens()`（引数なし） | `ui::combobox`（任意の文字を値にする、複数の選択を token で見せる） | しない |
 | `always_open()`（引数なし） | `ui::disclosure`、`use_disclosure`（soft の「無効なら常に開く」） | しない |
 | `announce()`（引数なし） | `ui::empty_state` | しない |
+| `side(Edge)` | kit の Drawer（DialogMode::Drawer の構築） | 既存の side |
+| `collapsible(SidebarCollapsible)` | basic Sidebar の Offcanvas/Icon/None という構築 mode | Offcanvas |
+| `groups(..)`・`pattern(..)` | InputOtp の固定入力 format・validation schema | 既存の format |
+
+custom renderer を持つ `StepIndicator` は slot の構築設定として plain な enum にする。`ViewFn` に比較用の偽の equality を付けない。Calendar の number_of_months/caption/week_start は表示の入力として reactive にし、再構築が必要な場合も navigation/selection binding は外側で保つ。
 
 bool の構造の option は作らず、引数なしのメソッドにする（`keep_mounted(true)` ではなく `keep_mounted()`）。既定が「する」の option は、上の表のとおり意味を反転した名前にした（`release_offscreen_focus`、`essential`）。
 

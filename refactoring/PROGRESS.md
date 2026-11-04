@@ -87,11 +87,11 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G6-6 | merged | 9b2cd29 | query check 0、子要素回帰解消、layout 修正と固定 gate で再検証 |
 | N-D1 | merged | c938d63 | fmt 0、build 不可の定義段 |
 | N-D2 | merged | b0beeae | fmt 0、build 不可の定義段 |
-| N-F1 | doing | | G3 API の追従 |
+| N-F1 | merged | 909b7df | fmt 0、ambient/ThemeRef/Outcome/owner/test API |
 | N-F2 | doing | | interaction API の追従 |
-| N-F3 | doing | | ui/facade API と Recipe 定義 |
+| N-F3 | merged | aba3e97 | fmt 0、Recipe/TreeRows/drafting、hover caller の追補待ち |
 | N-F4 | doing | | basic/pop/game API の追従 |
-| N-F5 | doing | | creative API の追従 |
+| N-F5 | merged | 50dd85c | fmt 0、117 files、typed builder/slot/prop 移行 |
 | N-F6 | doing | | soft API の追従 |
 | N-G1 | todo | | |
 | N-G2 | todo | | |
