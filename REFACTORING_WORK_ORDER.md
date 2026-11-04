@@ -1533,7 +1533,8 @@ N-F6 の補足: StepIndicator::Custom(ViewFn<()>) は plain な slot/config enum
   - `flows.rs`: `for_each_row_binding_edits_the_item`。
   - `setup_functions.rs`: `bind_macro_edits_a_nested_field`。
   - `ui_theming.rs`: `use_theme_reads_inside_a_style_closure`、`app_theme_follows_theme_hint`。
-- **unit の確認**: `cargo check -p kivact-public-api-tests --all-targets --all-features`。`KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- machine:: closure_child_updates_text for_each_row_binding_edits_the_item bind_macro_edits_a_nested_field use_theme_reads_inside_a_style_closure app_theme_follows_theme_hint`。
+  - `reactive_props.rs`（新しい module）: `reactive_component_props_update_without_remounting`。ControlSize の変更が表示に反映され focus を保つことと、ScalarApi の key_step の変更が次の操作に反映されることを公開 API で確かめる（厳密な pixel 比較はしない）。
+- **unit の確認**: `cargo check -p kivact-public-api-tests --all-targets --all-features`。`KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- machine:: reactive_props:: closure_child_updates_text for_each_row_binding_edits_the_item bind_macro_edits_a_nested_field use_theme_reads_inside_a_style_closure app_theme_follows_theme_hint`。
 - **規模**: S。
 - **並列**: N-G1〜N-G4 と同時。
 

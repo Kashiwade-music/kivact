@@ -96,7 +96,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G4-2 | merged | bb9f1b0 | UI/facade all-target/all-feature check 0、warning 0 |
 | fix-G5-2 | merged | ad12634 | basic/pop/game check 0、所有 warning 0 |
 | fix-G5-3 | merged | c24b36c | creative/source consumers check 0、warning 0 |
-| fix-G5-4 | doing | | Soft compiler callers、layout enum 定義待ち解消 |
+| fix-G5-4 | merged | 08d13c1 | Soft all-target/all-feature check 0、所有 warning 0 |
+| fix-G4-4 | merged | 4102d9b | 共通 control size を Value で保持、UI/facade check 0 |
 | fix-G3-10 | merged | d647a55 | Align/FlexDirection/Justify の定数入力、check 0 |
 | fix-G4-3 | merged | 69c5df6 | reactive scalar key_step、interaction/creative check 0 |
 | N-F2 | merged | 7efa8aa | fmt 0、62 files、Part/Selection/shared draft/state reads |
@@ -104,11 +105,11 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | N-F4 | merged | 39220fd | fmt 0、139 files、reactive Calendar/headless menubar |
 | N-F5 | merged | 50dd85c | fmt 0、117 files、typed builder/slot/prop 移行 |
 | N-F6 | merged | 60b6026 | fmt 0、139 files、runtime prop 残件なし/型確認へ |
-| N-G1 | todo | | |
-| N-G2 | todo | | |
-| N-G3 | todo | | |
-| N-G4 | todo | | |
-| N-G5 | todo | | |
+| N-G1 | doing | | examples/catalog/templates |
+| N-G2 | doing | | docs と既存 E2E の二担当、G1〜G5 check 通過 |
+| N-G3 | doing | | native EditPhase/on_edit |
+| N-G4 | doing | | semantics patch |
+| N-G5 | doing | | machine/binding/theme/reactive prop E2E |
 | N-8 | todo | | |
 | I-0 | todo | | |
 | I-1 | todo | | |
