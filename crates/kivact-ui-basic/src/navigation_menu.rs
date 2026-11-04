@@ -332,7 +332,7 @@ fn menu_item(
             })
             .child(body);
         // The transparent 8 px above the card keeps the pointer inside the panel on its way down.
-        let content = column((node().style(style().height(8)), card)).node_ref(panel_ref);
+        let content = column((node().style(style().height(8)), card));
         overlay(anchor, Placement::Below, content)
             .align(if rtl {
                 OverlayAlign::End
@@ -341,7 +341,7 @@ fn menu_item(
             })
             .offset(0)
             .with_node(|root| root.part(attachment))
-            .node_ref(anchor)
+            .node_ref(panel_ref)
             .with_node(|root| root.role(Role::Group))
             .name(label)
     })
