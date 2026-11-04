@@ -31,7 +31,7 @@ mod text;
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::Runtime;
 
-pub(super) use pointer::run_requested_activations;
+pub(crate) use pointer::run_requested_activations;
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
     let mut prepared;

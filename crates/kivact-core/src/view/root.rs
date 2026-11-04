@@ -37,11 +37,15 @@ use crate::view::state::ViewState;
 pub(crate) fn mount_root(
     rt: &Rc<Runtime>,
     owner: Owner,
-    settings: crate::launch::AppOptions,
+    settings: (
+        kivact_runtime::Prop<kivact_style::Theme>,
+        Option<Locale>,
+        Messages,
+    ),
     build: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) {
-    let (theme, app_locale, app_messages) = settings.into_view_settings();
+    let (theme, app_locale, app_messages) = settings;
     let env = ViewState::of(rt).env();
     // The App's own locale is a constant; without one the locale is the
     // host's, which follows `Environment::locale`.
