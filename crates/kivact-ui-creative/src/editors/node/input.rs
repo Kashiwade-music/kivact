@@ -8,11 +8,13 @@ use kivact::geometry::{Point, Rect};
 use kivact::interaction::{DragApi as Gesture, ListGesture};
 use kivact::view::{ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
 
-fn moved(state: State, point: Point, origin: Point) {
+fn moved(state: State, point: Point, origin: Point, snapshot: &DragSnapshot) {
     let start = state.point(origin);
     match state.drag_state() {
         Some(DragMode::Items { .. }) => {
-            let Some(DragSnapshot::Items(origins)) = state.press.initial() else { return };
+            let DragSnapshot::Items(origins) = snapshot else {
+                return;
+            };
             let snap = |d: f64| {
                 if state.snap.get() {
                     (d / 10.0).round() * 10.0
@@ -28,19 +30,18 @@ fn moved(state: State, point: Point, origin: Point) {
             state.gesture.change(|| {
                 state.request(NodeRequest::Move(
                     origins
-                        .into_iter()
+                        .iter()
                         .map(|(id, origin)| {
-                            (id, Point::new(origin.x + delta.x, origin.y + delta.y))
+                            (*id, Point::new(origin.x + delta.x, origin.y + delta.y))
                         })
                         .collect(),
                 ))
             });
         }
-        Some(DragMode::Control {
-            node: id,
-            index,
-        }) => {
-            let Some(DragSnapshot::Control { slot, .. }) = state.press.initial() else { return };
+        Some(DragMode::Control { node: id, index }) => {
+            let DragSnapshot::Control { slot, .. } = snapshot else {
+                return;
+            };
             let dx = point.x - start.x;
             if dx == 0.0 && !state.edit.is_active() {
                 return;
@@ -137,10 +138,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                     if let Some(control) = state.control(id, index)
                         && matches!(control.value, NodeControlValue::Number { .. })
                     {
-                        drag = Some(DragMode::Control {
-                            node: id,
-                            index,
-                        });
+                        drag = Some(DragMode::Control { node: id, index });
                     }
                 }
                 Some(Target::Socket(id, true, index)) => {
@@ -222,7 +220,7 @@ pub(crate) fn drag(state: State) -> Gesture<DragSnapshot> {
             move |id| state.select(id, ListGesture::Replace),
         ),
         (
-            move |pos, origin| moved(state, state.point(pos), origin),
+            move |pos, origin, snapshot| moved(state, state.point(pos), origin, snapshot),
             move |rect| {
                 let region = Rect::from_points(
                     state.point(Point::new(rect.x, rect.y)),
@@ -376,7 +374,7 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                     .get_untracked()
                     .iter()
                     .filter(|n| selected.contains(&n.id))
-                    .map(|n| n.id)
+                    .map(|n| (n.id, n.position))
                     .collect::<Vec<_>>();
                 let step = if event.modifiers().shift { 10.0 } else { 1.0 };
                 if !positions.is_empty() {

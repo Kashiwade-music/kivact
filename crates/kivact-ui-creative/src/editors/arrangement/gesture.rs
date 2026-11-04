@@ -45,6 +45,7 @@ pub(crate) struct State {
     pub(crate) bounds: Value<kivact::interaction::ScalarRange>,
     pub(crate) min_duration: Value<f64>,
     pub(crate) loop_min_duration: Value<f64>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<
@@ -59,7 +60,9 @@ pub(crate) struct State {
     pub(crate) frame: Value<f64>,
     pub(crate) loop_range: Binding<(f64, f64)>,
     pub(crate) range: Value<(f64, f64)>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycle: Value<bool>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycling: Binding<bool>,
     pub(crate) zoom: Binding<f64>,
     pub(crate) pixels: Value<f64>,
@@ -68,8 +71,10 @@ pub(crate) struct State {
     pub(crate) tool_binding: Binding<TimelineTool>,
     pub(crate) tool: Value<TimelineTool>,
     pub(crate) markers: Value<Vec<TimelineMarker>>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) active_auto: Signal<Option<(u64, u64)>>,
     pub(crate) press: crate::editors::shared::gesture::CanvasGesture<
         crate::editors::arrangement::a11y::targets::Target,

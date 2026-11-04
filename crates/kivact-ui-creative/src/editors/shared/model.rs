@@ -18,7 +18,9 @@ impl Lane {
 /// A snapshot of the domain location that requested an editor context menu.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EditorContext {
+    // xtask-allow(state-fields): Independent optional identities in an immutable context-menu location snapshot.
     pub item: Option<u64>,
+    // xtask-allow(state-fields): Independent optional identities in an immutable context-menu location snapshot.
     pub lane: Option<u64>,
     pub time: f64,
 }

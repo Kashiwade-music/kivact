@@ -24,8 +24,8 @@ impl State {
                 }
                 let target = self.target(event.region());
                 let mut single = None;
-                let (kind, _initial) = if pan {
-                    (DragKind::Pan, Some(Snapshot::View(self.view.get())))
+                let kind = if pan {
+                    DragKind::Pan
                 } else {
                     match target {
                         Some(Target::Key(id)) => {
@@ -42,31 +42,24 @@ impl State {
                                 }
                             }
                             let ids = self.ids();
-                            let initial = self.positions(&ids);
-                            (DragKind::Keys(ids), Some(initial))
+                            DragKind::Keys(ids)
                         }
                         Some(Target::Tangent(id, incoming)) => {
                             self.select(Target::Tangent(id, incoming), true);
-                            (
-                                DragKind::Tangent(id, incoming),
-                                Some(self.tangent_snapshot(id, incoming)),
-                            )
+                            DragKind::Tangent(id, incoming)
                         }
                         Some(Target::Lane(id)) => {
                             self.active.set(Some(Target::Lane(id)));
-                            (DragKind::Lane, None)
+                            DragKind::Lane
                         }
                         // The press moves the playhead: see `drag`.
                         Some(Target::Playhead) => {
                             self.active.set(Some(Target::Playhead));
-                            (
-                                DragKind::Playhead,
-                                Some(Snapshot::Playhead(self.playhead.get())),
-                            )
+                            DragKind::Playhead
                         }
                         _ => {
                             self.active.set(None);
-                            (DragKind::Marquee(event.pos(), event.pos()), None)
+                            DragKind::Marquee(event.pos(), event.pos())
                         }
                     }
                 };
@@ -105,7 +98,7 @@ impl State {
                 },
             ),
             (
-                move |pos, origin| self.motion(pos, origin),
+                move |pos, origin, snapshot| self.motion(pos, origin, snapshot),
                 move |rect| {
                     let space = self.geometry();
                     self.visible.with(|keys| {
@@ -120,14 +113,14 @@ impl State {
             ),
         )
     }
-    fn motion(self, point: Point, origin: Point) {
+    fn motion(self, point: Point, origin: Point, snapshot: &Snapshot) {
         let Some(mut gesture) = self.drag_state() else {
             return;
         };
         if point == origin && !self.press.moved() {
             return;
         }
-        let initial = self.initial();
+        let initial = Some(snapshot.clone());
         let space = self.geometry();
         let total = Point::new(point.x - origin.x, point.y - origin.y);
         match &mut gesture.kind {

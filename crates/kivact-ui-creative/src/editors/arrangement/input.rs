@@ -116,7 +116,9 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
 /// press chose, one edit from its first change. The returned drag has the
 /// callbacks its sources need; `state.gesture` is the same session.
 pub(crate) fn drag(state: State) -> Gesture<Snapshot> {
-    let drag = state.gesture.on_start(move |update| press_write(state, update.start_pos));
+    let drag = state
+        .gesture
+        .on_start(move |update| press_write(state, update.start_pos));
     state.press.install(
         drag,
         move || matches!(state.drag_state(), Some(Drag::Marquee(..))),
@@ -126,7 +128,7 @@ pub(crate) fn drag(state: State) -> Gesture<Snapshot> {
             move |id| state.select(id, kivact::interaction::ListGesture::Replace),
         ),
         (
-            move |pos, origin| motion(state, pos, origin),
+            move |pos, origin, snapshot| motion(state, pos, origin, snapshot),
             move |rect| {
                 // Clips use beats horizontally and lane pixels vertically.
                 let left = state.beat(rect.x);
@@ -182,14 +184,16 @@ fn press_write(state: State, origin: Point) {
     }
 }
 
-fn motion(state: State, pos: Point, origin: Point) {
+fn motion(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
     let scale = state.scale();
     let Some(action) = state.drag_state() else {
         return;
     };
     match action {
         Drag::Loop(mode) => {
-            let Some(Snapshot::Loop((lo, hi))) = state.initial() else { return };
+            let Some(Snapshot::Loop((lo, hi))) = Some(snapshot.clone()) else {
+                return;
+            };
             let start = origin;
             let b = state.snapping(state.beat(pos.x));
             let delta = state.snapping(state.beat(pos.x) - state.beat(start.x));
@@ -219,7 +223,7 @@ fn motion(state: State, pos: Point, origin: Point) {
         Drag::Playhead => seek(state, pos.x),
         Drag::Clips => {
             let start = origin;
-            if let Some(Snapshot::Clips(initial)) = state.initial() {
+            if let Some(Snapshot::Clips(initial)) = Some(snapshot.clone()) {
                 let dx = (pos.x - start.x) / scale;
                 // The pressed clip snaps and the others keep their spacing to it.
                 let primary = match state.press.pressed() {
@@ -248,7 +252,7 @@ fn motion(state: State, pos: Point, origin: Point) {
             }
         }
         Drag::Trim(id, right) => {
-            if let Some(Snapshot::Clips(initial)) = state.initial()
+            if let Some(Snapshot::Clips(initial)) = Some(snapshot.clone())
                 && let Some(v) = initial.iter().find(|v| v.0 == id)
             {
                 let dx = (pos.x - origin.x) / scale;
@@ -278,11 +282,11 @@ fn motion(state: State, pos: Point, origin: Point) {
                 }
             }
         }
-        Drag::Auto(track, id) => move_automation(state, track, Some(id), pos, origin),
-        Drag::AddPoint(track) => move_automation(state, track, None, pos, origin),
+        Drag::Auto(track, id) => move_automation(state, track, Some(id), pos, origin, snapshot),
+        Drag::AddPoint(track) => move_automation(state, track, None, pos, origin, snapshot),
         Drag::Marquee(_) => {}
         Drag::Pan => {
-            if let Some(Snapshot::View(_, p)) = state.initial() {
+            if let Some(Snapshot::View(_, p)) = Some(snapshot.clone()) {
                 let from = origin;
                 let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
                 if next != state.offset.get() {
@@ -394,11 +398,6 @@ pub(crate) fn wheel(state: State, e: WheelEvent) -> Handled {
 }
 
 fn loop_drag(state: State, part: LoopPart, e: &PointerEvent) -> Handled {
-    let _range = bounded_range(
-        state.range.get(),
-        state.length.get(),
-        state.loop_min_duration.get(),
-    );
     start(state, Drag::Loop(part), e, None);
     Handled::No
 }
@@ -406,9 +405,15 @@ pub(crate) fn source_snapshot(s: State) -> Snapshot {
     match s.drag_state() {
         Some(Drag::Clips) => s.snapshot(&s.selection.get_untracked()),
         Some(Drag::Trim(id, _)) => s.snapshot(&[id]),
-        Some(Drag::Loop(_)) => Snapshot::Loop(s.range.get_untracked()),
+        Some(Drag::Loop(_)) => Snapshot::Loop(bounded_range(
+            s.range.get_untracked(),
+            s.length.get_untracked(),
+            s.loop_min_duration.get_untracked(),
+        )),
         Some(Drag::Playhead) => Snapshot::Playhead(s.frame.get_untracked()),
-        Some(Drag::Auto(track, id)) => s.auto_snapshot(track, id).unwrap_or_else(|| s.snapshot(&[])),
+        Some(Drag::Auto(track, id)) => s
+            .auto_snapshot(track, id)
+            .unwrap_or_else(|| s.snapshot(&[])),
         Some(Drag::AddPoint(track)) => Snapshot::Automation(track, 0, None),
         Some(Drag::Pan) => s.view_snapshot(),
         _ => s.snapshot(&[]),
@@ -430,7 +435,14 @@ fn seek(s: State, x: f64) {
     }
 }
 
-fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point, origin: Point) {
+fn move_automation(
+    s: State,
+    track: u64,
+    id: Option<u64>,
+    pos: Point,
+    origin: Point,
+    snapshot: &Snapshot,
+) {
     let tracks = s.track_data.get();
     let rows = track_layout(&tracks, offset_y(s));
     let Some((top, _)) = rows
@@ -440,7 +452,9 @@ fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point, origin: Po
     else {
         return;
     };
-    let (beat, value) = if let Some(Snapshot::Automation(_, _, Some(initial))) = s.initial() {
+    let (beat, value) = if let Some(Snapshot::Automation(_, _, Some(initial))) =
+        Some(snapshot.clone())
+    {
         (
             s.snapping(initial.beat + (pos.x - origin.x) / s.scale())
                 .clamp(0.0, s.length.get()),
@@ -453,7 +467,7 @@ fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point, origin: Po
             automation_value(pos.y, top),
         )
     };
-    if let Some(Snapshot::Automation(_, _, Some(initial))) = s.initial()
+    if let Some(Snapshot::Automation(_, _, Some(initial))) = Some(snapshot.clone())
         && initial.beat == beat
         && initial.value == value
         && !s.edit.is_active()

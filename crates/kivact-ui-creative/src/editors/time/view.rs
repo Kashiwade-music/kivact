@@ -26,11 +26,14 @@ pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) root: Node,
     pub(crate) items: Value<Vec<T>>,
     pub(crate) state: crate::TimeState,
+    // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
     pub(crate) lanes: Option<Value<Vec<Lane>>>,
+    // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
     pub(crate) ruler: Ruler,
     pub(crate) lane_height: f64,
+    // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<crate::editors::time::model::TimeRequest>,
@@ -169,9 +172,14 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             }),
         );
         let gesture = use_drag::<crate::editors::time::gesture::Snapshot>(DragCoordinates::Local)
+            .slop(0.0)
             .buttons([MouseButton::Middle]);
         let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
-        let gesture = gesture.edit_on_change(edit, move || press.initial().unwrap_or_else(|| crate::editors::time::gesture::Snapshot::Items(Vec::new())));
+        let gesture = gesture.edit_on_change(edit, move || {
+            press
+                .initial()
+                .unwrap_or_else(|| crate::editors::time::gesture::Snapshot::Items(Vec::new()))
+        });
         let state = State {
             data,
             on_edit,
@@ -205,6 +213,8 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         };
         let gesture = crate::editors::time::input::drag(state);
         let reference = node_ref();
+        let availability = kivact::custom::part(|input| input);
+        let availability_state = availability.state();
         let focus = reference.focus_within();
         kivact::state::effect(move || {
             let focused = focus.get();
@@ -221,9 +231,14 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                 }
                 _ => false,
             });
-            if state.drag_state().is_some() && (!focused || !visible || missing) {
-                state.cancel();
-            }
+            let input = availability_state.get();
+            state.press.inputs_changed(
+                focused,
+                visible && !input.hidden,
+                !input.disabled,
+                !missing,
+                move || state.cancel(),
+            );
         });
         let root = super::a11y::attach(root, state, gesture, ruler.format.clone());
         let root = root
@@ -244,6 +259,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             .on_key(move |event| state.context_key(&event))
             .on_pointer_default(move |event| pointer(state, event))
             .on_wheel_default(move |event| wheel(state, event))
+            .part(availability)
             .part(gesture.source_with(move || state.source_snapshot()))
             // After the drag's sources, which take Escape during a drag.
             .part({

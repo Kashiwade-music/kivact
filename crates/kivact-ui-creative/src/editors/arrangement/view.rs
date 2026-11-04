@@ -217,9 +217,16 @@ impl IntoView for Arrangement {
                 })
             }),
         );
-        let gesture = kivact::interaction::use_drag::<super::gesture::Snapshot>(DragCoordinates::Local).buttons([MouseButton::Middle]);
+        let gesture =
+            kivact::interaction::use_drag::<super::gesture::Snapshot>(DragCoordinates::Local)
+                .slop(0.0)
+                .buttons([MouseButton::Middle]);
         let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
-        let gesture = gesture.edit_on_change(edit, move || press.initial().unwrap_or_else(|| super::gesture::Snapshot::Clips(Vec::new())));
+        let gesture = gesture.edit_on_change(edit, move || {
+            press
+                .initial()
+                .unwrap_or_else(|| super::gesture::Snapshot::Clips(Vec::new()))
+        });
         let state = State {
             size: kivact::state::memo(move || {
                 let r = rect.get().unwrap_or_default();
@@ -258,6 +265,8 @@ impl IntoView for Arrangement {
             choose,
         };
         let gesture = super::input::drag(state);
+        let availability = kivact::custom::part(|input| input);
+        let availability_state = availability.state();
         let focus = reference.focus_within();
         kivact::state::effect(move || {
             let focused = focus.get();
@@ -278,9 +287,14 @@ impl IntoView for Arrangement {
                 }
                 _ => false,
             });
-            if state.drag_state().is_some() && (!focused || !visible || missing) {
-                state.cancel();
-            }
+            let input = availability_state.get();
+            state.press.inputs_changed(
+                focused,
+                visible && !input.hidden,
+                !input.disabled,
+                !missing,
+                move || state.cancel(),
+            );
         });
         let action = callback(move |event| super::edit::a11y(state, add_track, event));
         let semantic_items = kivact::state::memo(move || super::a11y::semantic(state));
@@ -319,6 +333,7 @@ impl IntoView for Arrangement {
             .draw(move |d, size| super::paint::paint(d, size, state))
             .on_pointer(move |e| super::input::pointer(state, e))
             .on_wheel(move |e| super::input::wheel(state, e))
+            .part(availability)
             .part(gesture.source_with(move || super::input::source_snapshot(state)))
             // After the drag's sources, which take Escape during a drag.
             .part({
