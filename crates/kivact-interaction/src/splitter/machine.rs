@@ -1,6 +1,7 @@
 //! Role: Preserve collapsed sizes and settle splitter drags at normalized stops.
-use super::ScalarRange;
+use super::options::Input;
 use crate::nearest_snap;
+use crate::policy::scalar::ScalarRange;
 use kivact_core::state::{Machine as MachineTrait, Step};
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum PanelSize {
@@ -27,11 +28,6 @@ pub(super) enum Event {
 }
 pub(super) enum Effect {
     Write(f64),
-}
-pub(super) struct Input {
-    pub scale: f64,
-    pub snaps: Vec<f64>,
-    pub collapse: Option<f64>,
 }
 pub(super) struct Machine {
     pub options: Input,

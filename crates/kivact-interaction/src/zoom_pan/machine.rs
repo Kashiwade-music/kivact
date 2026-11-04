@@ -1,5 +1,5 @@
 //! Role: Own zoom and pan contacts and the edit attached to each active gesture.
-use super::{Finger, Pan, Pinch, ViewTransform, ZoomPanOptions, finite, panned, pinched};
+use super::data::{Finger, Pan, Pinch, ViewTransform, ZoomPanOptions, finite, panned, pinched};
 use crate::EditSession;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Machine as MachineTrait, Step};
