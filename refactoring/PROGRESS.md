@@ -93,6 +93,12 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G3-8 | merged | 01a2798 | canonical Send settings/固定 embed theme、所有 error 解消 |
 | fix-G3-9 | merged | ac70830 | core/test/types all-target/all-feature check 0、warning 0 |
 | fix-G4-1 | merged | b759f70 | interaction check 0、37 files、所有 warning 0 |
+| fix-G4-2 | merged | bb9f1b0 | UI/facade all-target/all-feature check 0、warning 0 |
+| fix-G5-2 | merged | ad12634 | basic/pop/game check 0、所有 warning 0 |
+| fix-G5-3 | merged | c24b36c | creative/source consumers check 0、warning 0 |
+| fix-G5-4 | doing | | Soft compiler callers、layout enum 定義待ち解消 |
+| fix-G3-10 | merged | d647a55 | Align/FlexDirection/Justify の定数入力、check 0 |
+| fix-G4-3 | merged | 69c5df6 | reactive scalar key_step、interaction/creative check 0 |
 | N-F2 | merged | 7efa8aa | fmt 0、62 files、Part/Selection/shared draft/state reads |
 | N-F3 | merged | aba3e97 | fmt 0、Recipe/TreeRows/drafting、追加の旧 caller なし |
 | N-F4 | merged | 39220fd | fmt 0、139 files、reactive Calendar/headless menubar |

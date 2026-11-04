@@ -1494,8 +1494,10 @@ N-F6 の補足: StepIndicator::Custom(ViewFn<()>) は plain な slot/config enum
 
 - **前提**: fan-out A と fix。
 - **主な path**: `docs/`、README・README_JP、`dev/tests/docs`（`kivact-docs` の doctest）、`dev/tests/kivact-public-api/tests/e2e/`。
+- **分担**: 六つの枠を使うため、本 unit は二つの実装担当に分ける。(a) docs/README/dev/tests/docs と doctest、(b) 既存 public-api E2E の API 移行。file の所有は重ねない。N-G3/N-G5 は新しい試験を追加し、(b) は既存の import/helper/試験本体だけを移す。共有 file の追加行は merge 時に両方を保つ。
 - **手順**: この節の冒頭の 1〜7 を全 file に当てる（E2E の書き方を新しい名前と形に直す。試験の意味は変えない）。`docs/for-kivact-user/{en,jp}/how-to-guide/custom-controls.md` に「状態機械で振る舞いを書く」の節を足し（付録 B.7 の例を元に、doctest が通ること）、「part を node に移す前に状態を読む」の記述を消す（18.10 節で不要）。guide の custom component の最初の例で `constant_value!`・`impl Into<Callback<()>>`・`impl Component` を教える（18.2・18.9 節）。
 - **unit の確認**: `cargo check -p kivact-docs -p kivact-public-api-tests --all-targets --all-features`。`cargo test -p kivact-docs --doc`。
+- **分担した確認**: (a) は docs の check と doctest、(b) は public-api の check。N-G3/N-G5 の追加試験の API は各担当に任せ、同じ修正を重ねない。unit 全体の完了は両方の merge と確認が終わったとき。
 - **規模**: L。
 - **並列**: N-G1、N-G3〜N-G5 と同時。共有の file: `dev/tests/kivact-public-api/tests/e2e/main.rs`（N-G3・N-G5 が module の行を足す）。
 
