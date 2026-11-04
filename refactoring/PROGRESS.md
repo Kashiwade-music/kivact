@@ -26,13 +26,13 @@ Baseline gates completed (serial E2E as documented below). Logs: `target/foundat
 | P-0 | 準備 | merged | 19e720f (+ fixes below) | CP0 pass; 28 tool tests | see gate logs | none |
 | P-1 | 状態の全数調査 | merged | 6758cb4 | 34 new / 203 total; unprocessed 0 | reports 173s; clippy 153s | none |
 | P-2 | 比較用の trace | merged | ab50865 (+ 35375f9, 468deac) | CP0 trace pass | full trace 503.1s | documented GPU empty polls |
-| V-1a | 名前の衝突を先に解く | todo | — | — | — | — |
-| V-1b | `kivact-wire` の解体 | todo | — | — | — | — |
-| V-2 | semantics を一つに | todo | — | — | — | — |
-| V-3 | 環境・設定・option・request | todo | — | — | — | — |
-| V-4 | 共通の部品と定数 | todo | — | — | — | — |
-| V-5 | 入力 event を一つに | todo | — | — | — | — |
-| V-6 | 描画の記録・render・画素・text style | todo | — | — | — | — |
+| V-1a | 名前の衝突を先に解く | merged | b53d30c | targeted check pass; CP1 pending | see logs | none |
+| V-1b | `kivact-wire` の解体 | merged | 0dbd396 | workspace check pass before V2–V6 | 16.82s | none |
+| V-2 | semantics を一つに | merged | 8576b8a + W1 grouped merges | CP1 in progress | see logs | engine follow-up check |
+| V-3 | 環境・設定・option・request | merged | 69ec6f4 + W1 grouped merges | targeted Arvane check pass; CP1 pending | see logs | font generation owner tracked in E2 |
+| V-4 | 共通の部品と定数 | merged | 6b75ec9, c78783c + grouped merges | types/layout check pass; public f32 diagnostics 115→0 | see logs | CP1 pending |
+| V-5 | 入力 event を一つに | merged | 52e7934 + W1 grouped merges | targeted Arvane check pass; CP1 pending | see logs | engine follow-up check |
+| V-6 | 描画の記録・render・画素・text style | merged | bcb6f69 + W1 grouped merges | render/text/asset check pass; CP1 pending | see logs | engine follow-up check |
 | A-0 | `Backend` と注入 | todo | — | — | — | — |
 | A-1a | `arvane-virtual` と試験の経路 | todo | — | — | — | — |
 | A-1b | 試験の経路の名前と残り | todo | — | — | — | — |
@@ -128,3 +128,12 @@ Initial integrated checks: fmt exit 0; xtask exit 1 (three client-to-diagnostics
 - 915 trace files, 87,069,573 bytes, saved at target/foundation-v3/traces/cp0/ with SHA-256 manifest beside it.
 - Buffered trace content: 781/782 completed reference files byte-identical; one DX12 async poll difference classified and normalized as documented in DECISIONS/work order. Creative catalog all 3 tests passed in 132.13s with tracing.
 - W0 complete. Next: W1 V-1a → V-1b definition/follow-up → V-2–V-6 definition/follow-up → CP1.
+
+## CP1 (in progress; not passed)
+
+- Definitions and grouped consumers merged. G1 engine/lower/text 9494f22; layout 620bad4; G2 Arvane/native 11bf078; G2 renderer/text/assets b278d5f + 1a59dbc; G3 core/style/runtime 2427f59 + 8e88be0; G4 UI cedcbfa; G5 kits 23276c3; G6 examples/docs/tests a6dbd7c.
+- Types check passes with f64 scalar math. Public-source reachability now includes signature and field types without creating extra export paths; 32 tooling tests pass. Improved numeric report: 115 diagnostics before → 0 after (7 existing ownership findings remain for N8).
+- Targeted all-targets/all-features checks pass for Arvane/shell/native, renderer/text/assets/GPU sharing, and layout. Style/motion/task/editing library checks pass after scalar adapter/path fixes.
+- Full workspace check logs: `target/foundation-v3/w1/workspace-check*.log`. First integration error was an AssetError-to-Failure detail conversion, corrected in 25b5b3a. The next check found five engine reference/import errors and one unused parameter; `fix-w1-g1` is validating those fixes before further workspace checking.
+- Full fmt/xtask/Clippy, E2E suites, feature checks, and CP0 trace comparison are still pending. Do not start W2 or push CP1 until all pass.
+- W1 reconciliation decisions are in DECISIONS.md. Font generation publication is explicitly assigned to E2 after the font owner moves in E1; the existing registration event order is preserved in W1.
