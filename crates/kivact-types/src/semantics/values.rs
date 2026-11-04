@@ -187,6 +187,8 @@ pub enum DismissReason {
     Escape,
     /// Assistive technology requested the offered Dismiss action.
     Accessibility,
+    /// The configured dismissal duration elapsed.
+    Timeout,
 }
 
 /// What a node or drawn region is asked to do: an [`A11yAction`] with the

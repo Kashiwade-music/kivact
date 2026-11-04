@@ -227,6 +227,17 @@ impl Node {
         self
     }
 
+    /// Handle an unconsumed secondary pointer release in node-local coordinates.
+    /// This replaces the existing secondary context handler.
+    pub fn on_secondary_context<F, R>(mut self, f: F) -> Self
+    where
+        F: Fn(PointerEvent) -> R + 'static,
+        R: HandlerResult,
+    {
+        self.common.handlers.secondary_context = Some(kivact_runtime::Handler::from_fn(f));
+        self
+    }
+
     /// Run before existing wheel behavior and native scrolling.
     /// `No` continues, `Yes` consumes, `PreventDefault` continues without
     /// native scrolling, and an error stops the chain.

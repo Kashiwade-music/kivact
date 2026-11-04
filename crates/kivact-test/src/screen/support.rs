@@ -4,9 +4,8 @@
 //! deterministic random driver of `host_sync_tests` (the random probe tests
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
-use kivact_core::state::Binding;
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::view::{Node, NodeBuilder, Role, node, text};
+use kivact_core::view::{Node, Role, node, text};
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
