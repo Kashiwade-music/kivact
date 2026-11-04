@@ -38,6 +38,7 @@
 #![forbid(unsafe_code)]
 
 mod backdrop;
+mod capabilities;
 mod error;
 mod gradient;
 pub use error::RenderError;
@@ -62,7 +63,7 @@ pub use gpu::state::{GpuContext, GpuEnv, GpuSurface, Presentation};
 #[cfg(not(feature = "gpu"))]
 pub use gpu_unbuilt::{GpuContext, GpuEnv, GpuSurface, Presentation};
 
-pub const GPU_BUILT: bool = cfg!(feature = "gpu");
+pub use capabilities::GPU_BUILT;
 
 pub use ink::glyph_ink_bounds;
 pub use validate::{dimensions, raster_plan};

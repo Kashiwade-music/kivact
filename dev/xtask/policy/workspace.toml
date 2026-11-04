@@ -191,10 +191,10 @@ palette = ["combobox", "dialog", "list", "popup"]
 
 # Portable shell vocabulary and input normalization never depend on a backend.
 [module_rules.arvane-shell.uses]
-pipeline = ["events", "types"]
+pipeline = ["events", "types", "ime"]
 a11y = ["events"]
 types = []
-events = []
+events = ["types"]
 clicks = ["events"]
 contacts = ["events"]
 mouse = []
