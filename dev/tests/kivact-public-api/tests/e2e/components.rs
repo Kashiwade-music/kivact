@@ -25,7 +25,7 @@ struct Card {
 }
 
 #[track_caller]
-fn card(title: impl IntoText) -> Card {
+fn card(title: impl IntoText) -> impl Component {
     let title = title.into_text_value();
     Card {
         root: node()

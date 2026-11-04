@@ -9,7 +9,7 @@ use kivact::prelude::*;
 use kivact::view::{RowHeight, error_boundary};
 
 /// A component with its own state: a click counter.
-fn clicker(label: &'static str) -> impl IntoView {
+fn clicker(label: &'static str) -> impl Component {
     let n = signal(0);
     {
         let label = (move || format!("{label} {}", n.get())).into_value();
@@ -80,7 +80,7 @@ struct Task {
     title: &'static str,
 }
 
-fn task_row(task: Binding<Task>) -> impl IntoView {
+fn task_row(task: Binding<Task>) -> impl Component {
     let id = task.get_untracked().id;
     let clicks = signal(0);
     {
@@ -166,7 +166,7 @@ fn virtual_list_mounts_visible_rows_with_plain_rows() {
     assert!(screen.query_by_text("row 900 900").is_none());
 }
 
-fn failing(label: &'static str) -> impl IntoView {
+fn failing(label: &'static str) -> impl Component {
     {
         let label = label.into_value();
         node()
@@ -343,6 +343,7 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
                         .child(text(name))
                         .style(style().height(24)))
                     .part(nav.item(k))
+                    .role(Role::Option)
                 },
             )
             .row_height(RowHeight::Fixed(24.0))

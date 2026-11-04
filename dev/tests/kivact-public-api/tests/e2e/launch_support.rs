@@ -22,12 +22,13 @@ pub(super) fn button_box(label: &'static str) -> Node {
 }
 
 pub(super) fn editor(label: impl IntoText, binding: impl IntoBinding<String>) -> Node {
-    use kivact::custom::{NodeRefExt, TextEditing};
+    use kivact::custom::{NodeRefExt, TextEditing, part};
     let binding = binding.into_binding();
     let value = binding.into_value();
     let reference = node_ref();
     let text = move || value.get();
     node()
+        .part(part(|state| state))
         .name(label)
         .role(Role::TextBox)
         .focusable(true)

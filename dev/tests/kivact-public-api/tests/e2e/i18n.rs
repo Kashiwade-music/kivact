@@ -10,11 +10,11 @@ use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};
 
 /// A part that shows one of its texts the way a component library does.
-fn close_label() -> impl IntoView {
+fn close_label() -> impl Component {
     text(message("dialog.close", "Close")).test_id("close")
 }
 
-fn locale_tag() -> impl IntoView {
+fn locale_tag() -> impl Component {
     let locale = use_locale();
     text(move || locale.get().tag().to_owned()).test_id("locale")
 }

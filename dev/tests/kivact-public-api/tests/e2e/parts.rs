@@ -229,12 +229,14 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
                         .on_press(move || first_calls.update(|n| *n += 1))
                 })
             };
+            let second_ref = node_ref();
             let second = {
                 let attachment = part(|state| state);
                 kivact::custom::Part::new(attachment.state(), move |node| {
                     node.part(attachment)
                         .role(Role::Button)
                         .name("Second region")
+                        .node_ref(second_ref)
                         .focusable(true)
                         .disabled(disabled)
                         .on_press(move || second_calls.update(|n| *n += 1))
@@ -243,7 +245,6 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
             let first_state = first.state();
             let second_state = second.state();
             let first_ref = shared_first;
-            let second_ref = node_ref();
             let root = canvas(move |draw, _| {
                 if visible.get() {
                     draw.region(RegionId(2), Rect::new(100.0, 0.0, 80.0, 40.0));

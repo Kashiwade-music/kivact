@@ -4,7 +4,6 @@
 //! and semantics.
 
 use kivact::view::View;
-use std::hash::Hash;
 
 use crate::support::mount_with;
 use kivact::interaction::ListItem;
@@ -48,7 +47,7 @@ fn alt() -> Modifiers {
 
 /// The trigger `trigger` with the select's label and, while open, the list
 /// below it: rows of 28 px, 7.5 of them before it scrolls.
-fn select_view<K: Clone + Eq + Hash + 'static>(
+fn select_view<K: ItemKey>(
     trigger: Node,
     name: &'static str,
     options: Value<Vec<ListItem<K>>>,
@@ -74,7 +73,6 @@ fn select_view<K: Clone + Eq + Hash + 'static>(
                     let selected = part.state();
                     node()
                         .part(part)
-                        .node_ref(anchor)
                         .style(style().height(28).shrink(0).padding_x(8).gap(8))
                         .child(dynamic(memo(move || selected.get().selected), |chosen| {
                             chosen.then(|| text("\u{2713}"))

@@ -3,8 +3,8 @@
 //! A shaped paragraph (`TextParagraph`: measured by a primitive's measure
 //! function, laid out and drawn by its draw closure, and queried for
 //! carets, hits and selection bands), the IME session of a node that edits
-//! its own text (`NodeExt::ime_session`, `on_ime`) and the text runs a node
-//! publishes for assistive technology (`NodeExt::semantics_text`). The
+//! its own text (`Node::ime_session`, `on_ime`) and the text runs a node
+//! publishes for assistive technology (`Node::semantics_text`). The
 //! editor built from all three is the `kivact-text-primitives` fixture.
 
 use std::cell::RefCell;

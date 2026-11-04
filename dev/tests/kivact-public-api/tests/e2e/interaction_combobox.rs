@@ -23,7 +23,7 @@ fn picker(
     open: Signal<bool>,
     value: Signal<Option<&'static str>>,
     values: Option<Signal<Vec<&'static str>>>,
-) -> impl IntoView {
+) -> impl Component {
     let labels = options();
     let selection = match values {
         Some(values) => Selection::Multiple(values.into_binding()),

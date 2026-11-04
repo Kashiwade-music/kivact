@@ -6,7 +6,7 @@ use kivact::prelude::*;
 use kivact::style::{Align, Justify};
 use kivact::test::render;
 
-fn app() -> impl IntoView {
+fn app() -> impl Component {
     let count = signal(0);
     let doubled = memo(move || count.get() * 2);
     column((

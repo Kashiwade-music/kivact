@@ -15,11 +15,11 @@ use kivact::platform;
 use kivact::state::signal;
 
 use super::launch_support::button_box;
-use kivact::prelude::{IntoView, Role, column, node, node_ref, row, show, style, text};
+use kivact::prelude::{Component, Role, column, node, node_ref, row, show, style, text};
 use kivact::test::Screen;
 use kivact::test::{MirrorMode, RenderOptions, render, render_with};
 
-fn counter() -> impl IntoView {
+fn counter() -> impl Component {
     let count = signal(1);
     let draft = signal(String::new());
     column((

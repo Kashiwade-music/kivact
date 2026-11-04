@@ -5,7 +5,6 @@
 
 use kivact::interaction::MenuEntry;
 use kivact::view::View;
-use std::hash::Hash;
 use std::time::Duration;
 
 use crate::support::mount_with;
@@ -62,7 +61,7 @@ fn nested_entries() -> Vec<Entry> {
 }
 
 /// The rows of one level: items (with their submenus) and separators.
-fn level<K: Clone + Eq + Hash + 'static>(m: MenuApi<K>) -> Node {
+fn level<K: ItemKey>(m: MenuApi<K>) -> Node {
     let rows = for_each(
         m.entries(),
         |(row, _)| row.clone(),
@@ -102,7 +101,7 @@ fn level<K: Clone + Eq + Hash + 'static>(m: MenuApi<K>) -> Node {
 }
 
 /// A menu button named `name` and its menu, named like it.
-fn menu_button<K: Clone + Eq + Hash + 'static>(name: &'static str, m: MenuApi<K>) -> View {
+fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View {
     let trigger = m.trigger();
     let anchor = node_ref();
     (
@@ -119,11 +118,7 @@ fn menu_button<K: Clone + Eq + Hash + 'static>(name: &'static str, m: MenuApi<K>
 
 /// `area` opening `m` as a context menu named `name`: at the pointer for a
 /// right click, below the area otherwise.
-fn context_area<K: Clone + Eq + Hash + 'static>(
-    name: &'static str,
-    area: Node,
-    m: MenuApi<K>,
-) -> View {
+fn context_area<K: ItemKey>(name: &'static str, area: Node, m: MenuApi<K>) -> View {
     let trigger = m.context_trigger();
     let anchor = node_ref();
     let origin = m.origin();

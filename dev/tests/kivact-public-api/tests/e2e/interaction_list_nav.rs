@@ -87,6 +87,7 @@ fn mount_list_kind(
                     .child(text(name))
                     .style(style().height(24).shrink(0)))
                 .part(nav.item(name))
+                .role(Role::Option)
             },
         );
         let list = (scroll(list)

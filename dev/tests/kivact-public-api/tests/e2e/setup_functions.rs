@@ -25,7 +25,7 @@ fn take(l: &Log) -> Vec<String> {
 }
 
 /// A plain-function component: state from the free setup functions.
-fn counter(initial: i32, log: Log) -> impl IntoView {
+fn counter(initial: i32, log: Log) -> impl Component {
     let count = signal(initial);
     let doubled = memo(move || count.get() * 2);
     effect(move || log.borrow_mut().push(format!("doubled {}", doubled.get())));
