@@ -5,13 +5,13 @@ use crate::check_source::Source;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 pub(crate) fn check(source: &Source, policy: &toml::Table, errors: &mut Vec<String>) {
-    if !crate::foundation::is_kit(&source.package)
+    if !crate::check_policy::is_kit(&source.package)
         || source
             .path
             .file_name()
             .and_then(|v| v.to_str())
             .is_some_and(|v| {
-                crate::foundation::strings(policy, "allowed_files")
+                crate::check_policy::strings(policy, "allowed_files")
                     .iter()
                     .any(|a| a == v)
             })

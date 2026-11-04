@@ -12,7 +12,7 @@ pub(crate) fn check(source: &Source, policy: &toml::Table, errors: &mut Vec<Stri
             .module
             .split("::")
             .any(|m| matches!(m, "test" | "testing" | "tests"))
-        || crate::foundation::strings(policy, "allowed_paths")
+        || crate::check_policy::strings(policy, "allowed_paths")
             .iter()
             .any(|p| path.contains(p))
     {

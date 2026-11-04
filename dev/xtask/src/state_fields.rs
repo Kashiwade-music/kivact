@@ -25,7 +25,7 @@ pub(crate) fn check(
         },
         source.module
     );
-    if crate::foundation::strings(policy, "value_modules")
+    if crate::check_policy::strings(policy, "value_modules")
         .iter()
         .any(|v| qualified == *v || qualified.starts_with(&format!("{v}::")))
     {
@@ -38,10 +38,10 @@ pub(crate) fn check(
         let name = item.ident.to_string();
         if name.ends_with("Api")
             || builders.contains(&crate::public_surface::definition(source, &name))
-            || crate::foundation::strings(policy, "role_suffixes")
+            || crate::check_policy::strings(policy, "role_suffixes")
                 .iter()
                 .any(|suffix| name.ends_with(suffix))
-            || crate::foundation::strings(policy, "record_types").contains(&name)
+            || crate::check_policy::strings(policy, "record_types").contains(&name)
         {
             continue;
         }

@@ -5,7 +5,7 @@
 use crate::check_source::Source;
 use syn::spanned::Spanned;
 pub(crate) fn check(source: &Source, policy: &toml::Table, errors: &mut Vec<String>) {
-    let allowed = crate::foundation::strings(policy, "list");
+    let allowed = crate::check_policy::strings(policy, "list");
     for item in &source.items {
         let syn::Item::Impl(item) = item else {
             continue;

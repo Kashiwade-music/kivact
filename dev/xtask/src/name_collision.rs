@@ -53,7 +53,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
     if !source.library {
         return;
     }
-    if !crate::foundation::is_kit(&source.package) {
+    if !crate::check_policy::is_kit(&source.package) {
         return;
     }
     let mut reserved: BTreeSet<&str> = STANDARD.iter().copied().collect();

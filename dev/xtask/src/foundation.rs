@@ -1,21 +1,8 @@
 //! Role: Run the workspace's local architectural checks under shared selectors.
 use crate::check_cli::{Options, RULES};
+use crate::check_policy::{is_kit, strings};
 use std::collections::BTreeSet;
 use std::path::Path;
-
-pub(crate) fn strings(table: &toml::Table, key: &str) -> Vec<String> {
-    table
-        .get(key)
-        .and_then(toml::Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(toml::Value::as_str)
-        .map(str::to_owned)
-        .collect()
-}
-pub(crate) fn is_kit(package: &str) -> bool {
-    package.starts_with("kivact-ui-")
-}
 
 pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec<String>, String> {
     let text = std::fs::read_to_string(policy).map_err(|e| format!("{}: {e}", policy.display()))?;

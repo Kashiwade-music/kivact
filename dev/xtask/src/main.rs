@@ -19,6 +19,7 @@ use std::process::ExitCode;
 mod api_shape;
 mod canonical_path;
 mod check_cli;
+mod check_policy;
 mod check_source;
 mod effect_writes;
 mod foundation;
