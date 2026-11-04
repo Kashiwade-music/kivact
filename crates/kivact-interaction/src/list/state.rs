@@ -8,7 +8,7 @@ use crate::Selection;
 use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, NodeToken, Owned, Owner};
-use kivact_core::state::{Binding, Callback, Signal, Value, Var, effect, memo, signal, var};
+use kivact_core::state::{Binding, Callback, Signal, Value, effect, memo, signal};
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::view::NodeRef;
 use std::cell::{Cell, RefCell};
@@ -62,7 +62,7 @@ pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) page: Cell<Value<usize>>,
     pub(super) leave: Rc<RefCell<Option<Leave<K>>>>,
     pub(super) scroll: RefCell<Option<Scroll<K>>>,
-    pub(super) typed: Cell<Var<Typeahead>>,
+    pub(super) typed: Cell<Binding<Typeahead>>,
     pending: RefCell<Option<Pending<K>>>,
 }
 
@@ -167,7 +167,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         page: Cell::new((10).into_value()),
         leave,
         scroll: RefCell::new(None),
-        typed: Cell::new(var(Typeahead::default())),
+        typed: Cell::new(signal(Typeahead::default()).into_binding()),
         pending: RefCell::new(None),
     });
     let stored = owner.store("ListApi", state.clone());
