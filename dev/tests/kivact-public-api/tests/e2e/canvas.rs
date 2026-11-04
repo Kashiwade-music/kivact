@@ -81,7 +81,7 @@ fn asset_source_rect_and_path_helpers_are_drawn() {
             d.fill_path(&rounded, Color::BLACK);
             let svg_arc = Path::new()
                 .move_to(Point::new(10., 50.))
-                .arc_to((15, 15), 0, false, true, Point::new(40., 50.))
+                .svg_arc_to((15, 15), 0, false, true, Point::new(40., 50.))
                 .line_to(Point::new(10., 50.))
                 .close();
             d.fill_path(&svg_arc, rgb(RED));
@@ -190,5 +190,96 @@ fn a_layer_applies_group_opacity_filter_and_mask_once() {
     let shot = screen.screenshot();
     expect(&shot, 5, 10, 0x80ffff, 1, "inverted group faded once");
     expect(&shot, 20, 10, 0x80ffff, 1, "overlap keeps group alpha");
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn path_contains_matches_fill_rule() {
+    let path = Path::new()
+        .rect(Rect::new(5., 5., 60., 60.))
+        .rect(Rect::new(20., 20., 30., 30.));
+    let screen = render(move || {
+        let path = path.clone();
+        canvas(move |d, _| {
+            for (offset, rule) in [(0., FillRule::NonZero), (80., FillRule::EvenOdd)] {
+                let path = path
+                    .transformed(Transform::new().translate(offset, 0))
+                    .with_fill_rule(rule);
+                assert!(path.contains(Point::new(offset + 10., 10.), rule));
+                assert_eq!(
+                    path.contains(Point::new(offset + 30., 30.), rule),
+                    rule == FillRule::NonZero
+                );
+                assert!(!path.contains(Point::new(offset + 70., 30.), rule));
+                d.fill_path(&path, Color::BLACK);
+            }
+        })
+        .style(style().size(160, 80).background(Color::WHITE))
+    });
+    let shot = screen.screenshot();
+    assert_ne!(pixel(&shot, 30, 30), WHITE);
+    assert_eq!(pixel(&shot, 110, 30), WHITE);
+    assert_ne!(pixel(&shot, 90, 10), WHITE);
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn canvas_arc_to_rounds_a_corner() {
+    let screen = render(|| {
+        canvas(|d, _| {
+            let path = Path::new()
+                .move_to(Point::new(10., 10.))
+                .arc_to(Point::new(60., 10.), Point::new(60., 60.), 20)
+                .line_to(Point::new(60., 60.));
+            let stroke = Stroke::new(6);
+            assert!(path.stroke_contains(Point::new(30., 10.), &stroke));
+            assert!(path.stroke_contains(Point::new(60., 45.), &stroke));
+            assert!(!path.stroke_contains(Point::new(60., 10.), &stroke));
+            d.stroke_path(&path, &stroke, Color::BLACK);
+        })
+        .style(style().size(80, 80).background(Color::WHITE))
+    });
+    let shot = screen.screenshot();
+    assert_ne!(pixel(&shot, 30, 10), WHITE);
+    assert_ne!(pixel(&shot, 60, 45), WHITE);
+    assert_eq!(pixel(&shot, 60, 10), WHITE);
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn parse_svg_draws_the_same_path() {
+    let parsed = Path::parse_svg("M10 10h40v40H10z m5 5 l10 0 0 10 -10 0z").expect("valid SVG");
+    assert!(Path::parse_svg("M10 10 C20").is_err());
+    for data in [
+        "M0 0 Q10 20 20 0 T40 0 C45 0 45 10 50 10 S60 20 65 10 A5 5 0 0 1 70 15Z",
+        "m0 0 q10 20 20 0 t20 0 c5 0 5 10 10 10 s10 10 15 0 a5 5 0 0 1 5 5z",
+    ] {
+        assert!(Path::parse_svg(data).is_ok());
+    }
+    let reference = Path::new()
+        .rect(Rect::new(10., 10., 40., 40.))
+        .rect(Rect::new(15., 15., 10., 10.));
+    let screen = render(move || {
+        let parsed = parsed.clone();
+        let reference = reference.clone();
+        canvas(move |d, _| {
+            d.fill_path(&parsed, Color::BLACK);
+            d.fill_path(
+                &reference.transformed(Transform::new().translate(70, 0)),
+                Color::BLACK,
+            );
+        })
+        .style(style().size(140, 70).background(Color::WHITE))
+    });
+    let shot = screen.screenshot();
+    for (x, y, inside) in [
+        (5, 5, false),
+        (30, 30, true),
+        (55, 30, false),
+        (20, 20, true),
+    ] {
+        assert_eq!(pixel(&shot, x, y) != WHITE, inside);
+        assert_eq!(pixel(&shot, x + 70, y) != WHITE, inside);
+    }
     assert!(screen.errors().is_empty());
 }

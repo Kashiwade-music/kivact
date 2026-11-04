@@ -2175,6 +2175,7 @@ dependencies = [
  "kivact-runtime",
  "kivact-types",
  "kurbo",
+ "svgtypes",
 ]
 
 [[package]]

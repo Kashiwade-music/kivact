@@ -92,12 +92,14 @@ fn wave() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Paths").run(wave) }
 ```
 
-`Path` also has `quad_to`, `arc`, `ellipse`, `arc_to` (SVG's `A`), `rect` and
+`Path` also has `quad_to`, `arc`, `ellipse`, `svg_arc_to` (SVG's `A`), `rect` and
 `rounded_rect`. Angles are in degrees, and zero points right. By default a path
 is filled with the non-zero rule. For holes, use
 `path.with_fill_rule(FillRule::EvenOdd)`. For plain
 shapes, `draw.circle` and `draw.fill_shape(rect, &Shape, paint)` are shorter than
 building a path.
+
+Use `arc_to(p1, p2, radius)` to round a canvas corner, and `Path::parse_svg(data)?` to read SVG path data. `contains(point, rule)` tests a fill; `stroke_contains(point, &stroke)` tests its stroke.
 
 ## Fill with a gradient
 

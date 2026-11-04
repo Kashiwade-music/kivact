@@ -76,7 +76,9 @@ fn wave() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Paths").run(wave) }
 ```
 
-`Path` には `quad_to`・`arc`・`ellipse`・`arc_to`（SVG の `A`）・`rect`・`rounded_rect` もあります。角度は度で、0 は右向きです。パスは既定では非ゼロ規則で塗られます。穴を空けたいときは `path.with_fill_rule(FillRule::EvenOdd)` を使います。単純な図形なら、パスを組むより `draw.circle` や `draw.fill_shape(rect, &Shape, paint)` のほうが簡潔です。
+`Path` には `quad_to`・`arc`・`ellipse`・`svg_arc_to`（SVG の `A`）・`rect`・`rounded_rect` もあります。角度は度で、0 は右向きです。パスは既定では非ゼロ規則で塗られます。穴を空けたいときは `path.with_fill_rule(FillRule::EvenOdd)` を使います。単純な図形なら、パスを組むより `draw.circle` や `draw.fill_shape(rect, &Shape, paint)` のほうが簡潔です。
+
+`arc_to(p1, p2, radius)` は canvas の角を丸め、`Path::parse_svg(data)?` は SVG のパスデータを読み込みます。`contains(point, rule)` は塗り、`stroke_contains(point, &stroke)` は線の内部を判定します。
 
 ## グラデーションで塗る
 
