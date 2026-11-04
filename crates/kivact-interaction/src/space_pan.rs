@@ -23,18 +23,21 @@ use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPh
 pub struct SpacePanApi {
     observed: Signal<Option<Value<PartState>>>,
     held: MachineHandle<machine::Machine>,
+    armed: Value<bool>,
 }
 
 /// Create a Space tracker. Setup only.
 #[track_caller]
 pub fn use_space_pan() -> SpacePanApi {
+    let held = machine(
+        machine::SpaceKey::Up,
+        || machine::Machine,
+        |_, effect| match effect {},
+    );
     SpacePanApi {
         observed: signal(None),
-        held: machine(
-            machine::SpaceKey::Up,
-            || machine::Machine,
-            |_, effect| match effect {},
-        ),
+        held,
+        armed: memo(move || held.get() == machine::SpaceKey::Held),
     }
 }
 
@@ -53,7 +56,7 @@ impl SpacePanApi {
     /// turns false on the key's release, when the focus leaves the surface,
     /// when the surface is disabled or hidden and on a pointer `Cancel`.
     pub fn armed(self) -> Value<bool> {
-        memo(move || self.held.get() == machine::SpaceKey::Held)
+        self.armed
     }
 
     /// The part on the focusable surface (its canvas regions' unhandled keys

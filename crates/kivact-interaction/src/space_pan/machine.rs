@@ -5,6 +5,7 @@ pub(super) enum SpaceKey {
     Up,
     Held,
 }
+pub(super) type State = SpaceKey;
 pub(super) enum Event {
     Key(bool),
     Disarm,
@@ -13,7 +14,7 @@ pub(super) enum Event {
 pub(super) enum Effect {}
 pub(super) struct Machine;
 impl MachineTrait for Machine {
-    type State = SpaceKey;
+    type State = State;
     type Event = Event;
     type Effect = Effect;
     fn transition(&self, _: &SpaceKey, event: Event) -> Step<SpaceKey, Event, Effect> {

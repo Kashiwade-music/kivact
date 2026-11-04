@@ -16,7 +16,7 @@ use kivact_core::style::{Direction, pct, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::IntoChildren;
 use kivact_core::view::{
-    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, View, node_ref, show,
+    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, Role, View, node_ref, show,
     use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
@@ -25,6 +25,7 @@ use kivact_interaction::{ScalarRange, use_splitter};
 /// The pixels used until the host has laid the panes out.
 const UNMEASURED: f64 = 800.0;
 
+// xtask-allow(state-fields): Setup-only NodeBuilder options; grip visibility and the edit observer are independent construction inputs.
 /// Panes separated by handles, created by [`split`].
 pub struct Split {
     root: Node,
@@ -46,8 +47,9 @@ pub struct Split {
 /// length draws equal panes. Each handle is a `Role::Splitter`
 /// ([`use_splitter`](kivact_interaction::use_splitter)): dragging moves the
 /// boundary, the arrow keys along the group's axis move it by 1 % (Home and
-/// End jump to the limits), Enter or a double click share the two panes
-/// equally, and no pane gets smaller than [`Split::min_size`] (10 % of the
+/// End jump to the limits), Enter collapses and restores the primary pane,
+/// a double click shares the two panes equally, and no pane gets smaller than
+/// [`Split::min_size`] (10 % of the
 /// group unless set). Each key press, action and drag is one edit
 /// ([`on_edit`](Split::on_edit)); Escape or a canceled pointer during a drag
 /// writes the sizes from before the press back. The panes sit side by side
@@ -162,7 +164,7 @@ fn shares(sizes: &[f64], count: usize) -> Vec<f64> {
 
 /// What every handle of a group shares.
 #[derive(Clone)]
-struct Group {
+struct SplitGroupOptions {
     sizes: Binding<Vec<f64>>,
     shares: Value<Vec<f64>>,
     shared: Value<f64>,
@@ -210,7 +212,7 @@ impl IntoView for Split {
         // `.disabled(..)` on the group ignores input and assistive technology
         // and cancels a drag in progress.
         let disabled = root.accessible_disabled();
-        let group = Group {
+        let group = SplitGroupOptions {
             sizes,
             shares: shares_now,
             shared,
@@ -222,9 +224,10 @@ impl IntoView for Split {
             variants,
         };
         let mut children: Vec<View> = Vec::with_capacity(count * 2);
-        for (at, (pane, reference)) in panes.into_iter().zip(refs).enumerate() {
+        for (at, (pane, reference)) in panes.into_iter().zip(refs.iter().copied()).enumerate() {
             children.push(
                 node()
+                    .role(Role::Group)
                     .node_ref(reference)
                     .style(move || {
                         style()
@@ -238,7 +241,7 @@ impl IntoView for Split {
                     .into_view(),
             );
             if at + 1 < count {
-                children.push(handle(at, &group).into_view());
+                children.push(handle(at, reference, &group).into_view());
             }
         }
         let direction = match (stacked, use_direction().get()) {
@@ -260,8 +263,8 @@ impl IntoView for Split {
 }
 
 /// The handle between pane `at` and pane `at + 1`.
-fn handle(at: usize, group: &Group) -> Node {
-    let Group {
+fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
+    let SplitGroupOptions {
         sizes,
         shares: shares_now,
         shared,
@@ -334,7 +337,10 @@ fn handle(at: usize, group: &Group) -> Node {
         }
     };
     with_recipe_style(
-        node().part(part).name(message("split.handle", "Resize")),
+        node()
+            .part(part)
+            .name(message("split.handle", "Resize"))
+            .controls(primary),
         |recipes| recipes.splitter_recipes().handle_recipe(),
         &variants,
         state,

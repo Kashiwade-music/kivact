@@ -1,5 +1,5 @@
 //! Role: Preserve collapsed sizes and settle splitter drags at normalized stops.
-use super::{ScalarRange, SplitterOptions};
+use super::ScalarRange;
 use crate::nearest_snap;
 use kivact_core::state::{Machine as MachineTrait, Step};
 #[derive(Clone, Copy, PartialEq)]
@@ -28,8 +28,13 @@ pub(super) enum Event {
 pub(super) enum Effect {
     Write(f64),
 }
+pub(super) struct Input {
+    pub scale: f64,
+    pub snaps: Vec<f64>,
+    pub collapse: Option<f64>,
+}
 pub(super) struct Machine {
-    pub options: SplitterOptions,
+    pub options: Input,
     pub range: ScalarRange,
     pub value: f64,
 }
@@ -46,10 +51,7 @@ impl MachineTrait for Machine {
                 Step::to(next)
             }
             Event::Observe(value) => {
-                if !matches!(state.panel, PanelSize::Collapsed { .. }) || value != self.range.min()
-                {
-                    next.panel = PanelSize::Expanded(value);
-                }
+                next.panel = self.panel_at(state, value);
                 Step::to(next)
             }
             Event::Begin => {
@@ -60,11 +62,7 @@ impl MachineTrait for Machine {
                 let Drag::Dragging { origin } = state.drag else {
                     return Step::stay();
                 };
-                let scale = self
-                    .options
-                    .scale
-                    .map_or(1.0, |scale| scale.get_untracked());
-                Step::stay().with(Effect::Write(origin + travel * scale))
+                Step::stay().with(Effect::Write(origin + travel * self.options.scale))
             }
             Event::End(commit) => {
                 next.drag = Drag::Idle;
@@ -89,36 +87,51 @@ impl MachineTrait for Machine {
                     next.panel = PanelSize::Collapsed { restore };
                     return Step::to(next).with(Effect::Write(self.range.min()));
                 }
-                if let Some(stops) = self.options.snaps {
-                    let stops: Vec<f64> = stops
-                        .get_untracked()
-                        .into_iter()
-                        .filter(|stop| stop.is_finite() && (0.0..=1.0).contains(stop))
-                        .collect();
-                    if let Some(index) = nearest_snap(ratio, &stops) {
-                        let value = self.range.min() + span * stops[index];
-                        next.panel = PanelSize::Expanded(value);
-                        return Step::to(next).with(Effect::Write(value));
-                    }
+                if let Some(index) = nearest_snap(ratio, &self.options.snaps) {
+                    let value = self.range.min() + span * self.options.snaps[index];
+                    next.panel = self.panel_at(state, value);
+                    return Step::to(next).with(Effect::Write(value));
                 }
-                next.panel = PanelSize::Expanded(self.value);
+                next.panel = self.panel_at(state, self.value);
                 Step::to(next)
             }
             Event::Toggle => {
-                let value = match state.panel {
-                    PanelSize::Collapsed { restore } if self.value == self.range.min() => {
-                        next.panel = PanelSize::Expanded(restore);
-                        restore
-                    }
-                    _ => {
-                        next.panel = PanelSize::Collapsed {
-                            restore: self.value,
-                        };
-                        self.range.min()
-                    }
+                let value = if self.value == self.range.min() {
+                    let restore = self.restore(state);
+                    next.panel = PanelSize::Expanded(restore);
+                    restore
+                } else {
+                    next.panel = PanelSize::Collapsed {
+                        restore: self.value,
+                    };
+                    self.range.min()
                 };
                 Step::to(next).with(Effect::Write(value))
             }
+        }
+    }
+}
+
+impl Machine {
+    fn restore(&self, state: &State) -> f64 {
+        match state.drag {
+            Drag::Dragging { origin } if origin > self.range.min() => origin,
+            _ => match state.panel {
+                PanelSize::Collapsed { restore } => restore,
+                PanelSize::Expanded(value) if value > self.range.min() => value,
+                PanelSize::Expanded(_) => {
+                    self.range.min() + (self.range.max() - self.range.min()) / 2.0
+                }
+            },
+        }
+    }
+    fn panel_at(&self, state: &State, value: f64) -> PanelSize {
+        if value == self.range.min() {
+            PanelSize::Collapsed {
+                restore: self.restore(state),
+            }
+        } else {
+            PanelSize::Expanded(value)
         }
     }
 }

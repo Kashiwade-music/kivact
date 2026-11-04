@@ -11,12 +11,12 @@ use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::style::Cursor;
-use kivact::test::{MirrorMode, RenderOptions};
+use kivact::test::RenderOptions;
 use kivact::view::{Handled, KeyEvent};
 use kivact::view::{MouseButton, Orientation};
 
 fn real_window() -> RenderOptions {
-    RenderOptions::from_env().mirror(MirrorMode::Required)
+    RenderOptions::from_env()
 }
 
 fn range() -> ScalarRange {

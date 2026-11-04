@@ -62,8 +62,9 @@ pub struct SplitterState {
 /// panes lead from the right: the caller lays the leading pane out on the
 /// right, ArrowRight shrinks it, ArrowLeft grows it, and a drag to the left
 /// grows it. The arrows of the other axis are not handled. Home
-/// and End jump to the range's minimum and maximum, and Enter moves to the
-/// [`reset_to`](Self::reset_to) value, if any. Every write is normalized by the
+/// and End jump to the range's minimum and maximum. Enter collapses the
+/// leading pane to its minimum size and restores its previous size on the
+/// next press. Every write is normalized by the
 /// [`ScalarRange`](crate::ScalarRange) and offered to the binding's writer, exactly as
 /// [`ScalarApi::set`](crate::ScalarApi::set) does. Increment, Decrement and SetValue from assistive
 /// technology take the same path.
@@ -140,6 +141,22 @@ struct SplitterOptions {
     snaps: Option<Value<Vec<f64>>>,
 }
 
+impl SplitterOptions {
+    fn snapshot(self) -> machine::Input {
+        machine::Input {
+            scale: self.scale.map_or(1.0, |scale| scale.get_untracked()),
+            snaps: self
+                .snaps
+                .map(|stops| stops.get_untracked())
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|stop| stop.is_finite() && (0.0..=1.0).contains(stop))
+                .collect(),
+            collapse: self.collapse,
+        }
+    }
+}
+
 /// Use this binding as the sole writer of the leading pane's size.
 ///
 /// `value` is the size of the leading pane (left in a row, top in a column)
@@ -164,7 +181,7 @@ pub fn use_splitter(
             drag: machine::Drag::Idle,
         },
         move || machine::Machine {
-            options: settings.get(),
+            options: settings.get().snapshot(),
             range: range.get_untracked(),
             value: binding.get(),
         },
@@ -230,7 +247,7 @@ impl SplitterApi {
         self
     }
 
-    /// The value Enter and a double click move to. `None` ignores both.
+    /// The value a double click moves to. `None` ignores double clicks.
     ///
     /// Setup only.
     #[track_caller]
@@ -453,7 +470,10 @@ impl SplitterApi {
                         }
                         Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),
                         Key::End => once(&|ops, _| ops.set(range.get_untracked().max())),
-                        Key::Enter => reset(),
+                        Key::Enter => once(&|_, _| {
+                            machine.send(machine::Event::Toggle);
+                            true
+                        }),
                         _ => false,
                     };
                     if accepted { Handled::Yes } else { Handled::No }

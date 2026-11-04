@@ -85,7 +85,6 @@ pub(super) enum Effect {
 pub(super) struct Machine {
     pub options: ZoomPanOptions,
     pub transform: ViewTransform,
-    pub disabled: bool,
     pub armed: bool,
     pub session: Rc<EditSession<ViewTransform>>,
 }
@@ -139,7 +138,7 @@ impl Machine {
                         .copied()
                         .filter(|(id, _)| *id != event.id())
                         .collect();
-                    if valid && others.len() == 1 && !state.active() && !self.disabled {
+                    if valid && others.len() == 1 && !state.active() {
                         let (first, at) = others[0];
                         let pinch = Pinch {
                             fingers: [
@@ -215,7 +214,6 @@ impl Machine {
         if let PointerPhase::Down(press) = event.phase() {
             let button = press.button;
             if !state.active()
-                && !self.disabled
                 && valid
                 && (button == MouseButton::Middle || (button == MouseButton::Primary && self.armed))
             {

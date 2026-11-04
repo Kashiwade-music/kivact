@@ -162,7 +162,6 @@ pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransfor
         move || machine::Machine {
             options: settings.get(),
             transform: transform.get(),
-            disabled: false,
             armed: space.armed().get(),
             session: session.clone(),
         },
@@ -360,7 +359,6 @@ impl ZoomPanApi {
                     let snapshot = machine::Machine {
                         options: self.settings.get(),
                         transform: value.get_untracked(),
-                        disabled: state.get_untracked().disabled,
                         armed: self.armed.get_untracked(),
                         session: Rc::new(edit),
                     };

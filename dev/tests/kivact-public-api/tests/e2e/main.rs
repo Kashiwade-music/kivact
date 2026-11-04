@@ -12,6 +12,7 @@ mod apg_combobox;
 mod apg_listbox;
 mod apg_radio_group;
 mod apg_slider;
+mod apg_window_splitter;
 mod apg_tabs;
 mod apg_grid;
 mod apg_tooltip;
