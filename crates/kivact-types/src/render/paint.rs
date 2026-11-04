@@ -41,9 +41,9 @@ pub enum Paint {
     /// gives the same geometry as a [`Gradient`]).
     LinearGradient {
         /// Direction, in degrees clockwise from left to right.
-        angle_deg: f32,
+        angle_deg: f64,
         /// Stops: offsets in `0.0..=1.0`, not decreasing.
-        stops: Vec<(f32, Rgba)>,
+        stops: Vec<(f64, Rgba)>,
     },
     /// A linear, radial or conic gradient with its own geometry.
     Gradient(Gradient),
@@ -55,7 +55,7 @@ impl Paint {
     /// The same paint with every color through `matrix` (gradient stops
     /// included); a pattern's image gets the matrix after its own.
     pub fn filtered(&self, matrix: &ColorMatrix) -> Paint {
-        let stops = |stops: &[(f32, Rgba)]| -> Vec<(f32, Rgba)> {
+        let stops = |stops: &[(f64, Rgba)]| -> Vec<(f64, Rgba)> {
             stops.iter().map(|(t, c)| (*t, matrix.apply(*c))).collect()
         };
         match self {
@@ -106,9 +106,9 @@ pub enum GradientShape {
         /// Center.
         center: Point,
         /// Horizontal radius.
-        radius_x: f32,
+        radius_x: f64,
         /// Vertical radius.
-        radius_y: f32,
+        radius_y: f64,
     },
     /// The gradient of two circles, as canvas `createRadialGradient`:
     /// offset 0 on the circle of radius `start_radius` around `start_center`,
@@ -122,11 +122,11 @@ pub enum GradientShape {
         /// Center of the offset 0 circle.
         start_center: Point,
         /// Radius of the offset 0 circle.
-        start_radius: f32,
+        start_radius: f64,
         /// Center of the offset 1 circle.
         end_center: Point,
         /// Radius of the offset 1 circle.
-        end_radius: f32,
+        end_radius: f64,
     },
     /// Offsets by angle around `center`: 0 at `start_deg`, 1 at `end_deg`
     /// (degrees clockwise from the positive x axis; CSS `conic-gradient(from
@@ -136,29 +136,29 @@ pub enum GradientShape {
         /// Center.
         center: Point,
         /// Angle of offset 0.
-        start_deg: f32,
+        start_deg: f64,
         /// Angle of offset 1 (more than `start_deg`).
-        end_deg: f32,
+        end_deg: f64,
     },
 }
 
 impl GradientShape {
     /// The linear geometry of [`Paint::LinearGradient`] with `angle_deg`
     /// over `rect`.
-    pub fn linear_angle(rect: Rect, angle_deg: f32) -> GradientShape {
-        let angle = f64::from(angle_deg).to_radians();
+    pub fn linear_angle(rect: Rect, angle_deg: f64) -> GradientShape {
+        let angle = angle_deg.to_radians();
         let (dy, dx) = angle.sin_cos();
-        let span = f64::from(rect.width) * dx.abs() + f64::from(rect.height) * dy.abs();
-        let cx = f64::from(rect.x) + f64::from(rect.width) / 2.0;
-        let cy = f64::from(rect.y) + f64::from(rect.height) / 2.0;
+        let span = rect.width * dx.abs() + rect.height * dy.abs();
+        let cx = rect.x + rect.width / 2.0;
+        let cy = rect.y + rect.height / 2.0;
         GradientShape::Linear {
             start: Point {
-                x: (cx - dx * span / 2.0) as f32,
-                y: (cy - dy * span / 2.0) as f32,
+                x: cx - dx * span / 2.0,
+                y: cy - dy * span / 2.0,
             },
             end: Point {
-                x: (cx + dx * span / 2.0) as f32,
-                y: (cy + dy * span / 2.0) as f32,
+                x: cx + dx * span / 2.0,
+                y: cy + dy * span / 2.0,
             },
         }
     }
@@ -173,7 +173,7 @@ pub struct Gradient {
     /// Geometry.
     pub shape: GradientShape,
     /// Stops: offsets in `0.0..=1.0`, not decreasing, at least one.
-    pub stops: Vec<(f32, Rgba)>,
+    pub stops: Vec<(f64, Rgba)>,
     /// Beyond the stops.
     pub extend: Extend,
 }

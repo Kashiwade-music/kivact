@@ -143,8 +143,8 @@ impl ComputedTextStyle {
     /// Non-finite results become zero, as at the previous lowering boundary.
     pub fn resolve(&self, length: TextLen) -> f64 {
         let value = match length {
-            TextLen::Px(v) => f64::from(v),
-            TextLen::Em(v) => f64::from(v) * self.font_size,
+            TextLen::Px(v) => v,
+            TextLen::Em(v) => v * self.font_size,
         };
         if value.is_finite() { value } else { 0.0 }
     }

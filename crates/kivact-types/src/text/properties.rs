@@ -16,8 +16,8 @@ pub struct TextData {
 /// applies to (CSS `em`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TextLen {
-    Px(f32),
-    Em(f32),
+    Px(f64),
+    Em(f64),
 }
 
 impl Default for TextLen {
@@ -28,7 +28,7 @@ impl Default for TextLen {
 
 impl TextLen {
     /// In px, for text of `font_size`.
-    pub fn px(self, font_size: f32) -> f32 {
+    pub fn px(self, font_size: f64) -> f64 {
         match self {
             TextLen::Px(v) => v,
             TextLen::Em(v) => v * font_size,
@@ -62,10 +62,10 @@ pub struct TextDecoration {
 /// A shadow of text (CSS `text-shadow`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextShadow {
-    pub x: f32,
-    pub y: f32,
+    pub x: f64,
+    pub y: f64,
     /// Blur radius (the gaussian's standard deviation is half of it).
-    pub blur: f32,
+    pub blur: f64,
     pub color: Rgba,
 }
 
@@ -105,7 +105,7 @@ pub struct TextStyle {
 /// node's).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanProps {
-    pub font_size: Option<f32>,
+    pub font_size: Option<f64>,
     pub weight: Option<u16>,
     pub color: Option<Rgba>,
     pub family: Option<String>,

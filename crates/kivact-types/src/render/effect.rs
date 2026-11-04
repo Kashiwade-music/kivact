@@ -15,7 +15,7 @@ pub enum LayerFilter {
     /// Gaussian blur (CSS `filter: blur(r)` is `std_dev = r`).
     Blur {
         /// Standard deviation in the layer's coordinates.
-        std_dev: f32,
+        std_dev: f64,
     },
     /// The content plus its blurred, offset silhouette beneath it in
     /// `color` (CSS `filter: drop-shadow(x y r color)` is
@@ -24,7 +24,7 @@ pub enum LayerFilter {
         /// Offset of the shadow.
         offset: Point,
         /// Standard deviation of its blur.
-        std_dev: f32,
+        std_dev: f64,
         /// Color (its alpha scales the silhouette's).
         color: Rgba,
     },
@@ -59,7 +59,7 @@ pub struct Layer {
     pub clip: Option<Shape>,
     /// Group opacity in `0.0..=1.0` (overlapping content does not get
     /// darker, unlike fading each command).
-    pub opacity: f32,
+    pub opacity: f64,
     /// Blend with what is beneath.
     pub blend: BlendMode,
     /// Filter over the content.
@@ -98,9 +98,9 @@ pub struct BoxShadow {
     pub offset: Point,
     /// Growth of the shadow's shape (negative shrinks; inset shadows grow
     /// inwards).
-    pub spread: f32,
+    pub spread: f64,
     /// Standard deviation of the blur (0: a hard edge).
-    pub std_dev: f32,
+    pub std_dev: f64,
     /// Color.
     pub color: Rgba,
     /// Inside the box instead of outside.
@@ -127,7 +127,7 @@ pub struct Backdrop {
     /// Where the backdrop shows.
     pub shape: Shape,
     /// Standard deviation of the blur (0: none).
-    pub std_dev: f32,
+    pub std_dev: f64,
     /// Color matrix over the replayed colors (CSS `saturate(1.6)` ..).
     pub color_matrix: Option<ColorMatrix>,
 }

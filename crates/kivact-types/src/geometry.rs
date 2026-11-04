@@ -5,18 +5,18 @@
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Point {
     /// Horizontal position.
-    pub x: f32,
+    pub x: f64,
     /// Vertical position.
-    pub y: f32,
+    pub y: f64,
 }
 
 /// Extent in logical pixels; usable on any thread.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Size {
     /// Horizontal extent.
-    pub width: f32,
+    pub width: f64,
     /// Vertical extent.
-    pub height: f32,
+    pub height: f64,
 }
 
 /// Half-open axis-aligned bounds in logical pixels; usable on any thread.
@@ -25,13 +25,13 @@ pub struct Size {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Rect {
     /// Left edge.
-    pub x: f32,
+    pub x: f64,
     /// Top edge.
-    pub y: f32,
+    pub y: f64,
     /// Horizontal extent.
-    pub width: f32,
+    pub width: f64,
     /// Vertical extent.
-    pub height: f32,
+    pub height: f64,
 }
 
 impl Rect {
@@ -41,18 +41,18 @@ impl Rect {
     }
 
     /// The right edge.
-    pub fn right(&self) -> f32 {
+    pub fn right(&self) -> f64 {
         self.x + self.width
     }
 
     /// The bottom edge.
-    pub fn bottom(&self) -> f32 {
+    pub fn bottom(&self) -> f64 {
         self.y + self.height
     }
 
     /// The bounds grown by `dx` on the left and right and `dy` on the top
     /// and bottom (shrunk for negative values, never below zero size).
-    pub fn inflate(&self, dx: f32, dy: f32) -> Rect {
+    pub fn inflate(&self, dx: f64, dy: f64) -> Rect {
         let width = (self.width + 2.0 * dx).max(0.0);
         let height = (self.height + 2.0 * dy).max(0.0);
         Rect {
@@ -88,13 +88,13 @@ impl Rect {
 }
 
 impl Point {
-    pub const fn new(x: f32, y: f32) -> Self {
+    pub const fn new(x: f64, y: f64) -> Self {
         Point { x, y }
     }
 }
 
 impl Size {
-    pub const fn new(width: f32, height: f32) -> Self {
+    pub const fn new(width: f64, height: f64) -> Self {
         Size { width, height }
     }
 
@@ -105,7 +105,7 @@ impl Size {
 }
 
 impl Rect {
-    pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+    pub const fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
         Rect {
             x,
             y,
@@ -149,13 +149,13 @@ impl Rect {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Insets {
     /// From the top edge.
-    pub top: f32,
+    pub top: f64,
     /// From the right edge.
-    pub right: f32,
+    pub right: f64,
     /// From the bottom edge.
-    pub bottom: f32,
+    pub bottom: f64,
     /// From the left edge.
-    pub left: f32,
+    pub left: f64,
 }
 
 /// Values for the physical top, right, bottom and left edges.
@@ -201,17 +201,17 @@ impl<T: Copy> Edges<T> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Transform {
     /// Horizontal scale (x' per x).
-    pub a: f32,
+    pub a: f64,
     /// Vertical skew (y' per x).
-    pub b: f32,
+    pub b: f64,
     /// Horizontal skew (x' per y).
-    pub c: f32,
+    pub c: f64,
     /// Vertical scale (y' per y).
-    pub d: f32,
+    pub d: f64,
     /// Horizontal translation.
-    pub e: f32,
+    pub e: f64,
     /// Vertical translation.
-    pub f: f32,
+    pub f: f64,
 }
 
 impl Default for Transform {
@@ -232,7 +232,7 @@ impl Transform {
     };
 
     /// A move by `(x, y)`.
-    pub fn translate(x: f32, y: f32) -> Self {
+    pub fn translate(x: f64, y: f64) -> Self {
         Transform {
             e: x,
             f: y,
@@ -241,12 +241,12 @@ impl Transform {
     }
 
     /// A uniform scale about the origin.
-    pub fn scale(s: f32) -> Self {
+    pub fn scale(s: f64) -> Self {
         Self::scale_xy(s, s)
     }
 
     /// A scale by `sx` horizontally and `sy` vertically about the origin.
-    pub fn scale_xy(sx: f32, sy: f32) -> Self {
+    pub fn scale_xy(sx: f64, sy: f64) -> Self {
         Transform {
             a: sx,
             d: sy,
@@ -256,7 +256,7 @@ impl Transform {
 
     /// A rotation by `deg` degrees about the origin, clockwise on screen
     /// (CSS `rotate`).
-    pub fn rotate_deg(deg: f32) -> Self {
+    pub fn rotate_deg(deg: f64) -> Self {
         let (sin, cos) = deg.to_radians().sin_cos();
         Transform {
             a: cos,
@@ -270,7 +270,7 @@ impl Transform {
 
     /// A skew by `x_deg` degrees along x and `y_deg` along y (CSS
     /// `skew(x_deg, y_deg)`).
-    pub fn skew_deg(x_deg: f32, y_deg: f32) -> Self {
+    pub fn skew_deg(x_deg: f64, y_deg: f64) -> Self {
         Transform {
             b: y_deg.to_radians().tan(),
             c: x_deg.to_radians().tan(),
@@ -309,7 +309,7 @@ impl Transform {
 
     /// The determinant of the linear part (zero: the transform flattens
     /// everything to a line or a point, and nothing it applies to is drawn).
-    pub fn determinant(&self) -> f32 {
+    pub fn determinant(&self) -> f64 {
         self.a * self.d - self.b * self.c
     }
 
@@ -340,7 +340,7 @@ impl Transform {
     /// `s > 0` only (no rotation, skew or mirroring), within float rounding
     /// (a relative 1e-5: transforms that cancel, such as a skew and the
     /// counter-skew of a child, count as the translation they leave).
-    pub fn uniform_scale(&self) -> Option<f32> {
+    pub fn uniform_scale(&self) -> Option<f64> {
         let eps = self.a.abs() * 1e-5;
         (self.a > 0.0
             && self.b.abs() <= eps
@@ -351,7 +351,7 @@ impl Transform {
 
     /// The largest factor by which the transform stretches a length (the
     /// larger singular value of the linear part).
-    pub fn max_scale(&self) -> f32 {
+    pub fn max_scale(&self) -> f64 {
         let (a, b, c, d) = (self.a, self.b, self.c, self.d);
         let s1 = a * a + b * b + c * c + d * d;
         let s2 = ((a * a + b * b - c * c - d * d).powi(2) + 4.0 * (a * c + b * d).powi(2)).sqrt();
@@ -399,7 +399,7 @@ impl Transform {
 impl Insets {
     /// Replace negative and non-finite safe-area distances with zero.
     pub fn sanitize(self) -> Self {
-        let side = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
+        let side = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
         Self {
             top: side(self.top),
             right: side(self.right),

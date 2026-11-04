@@ -28,7 +28,7 @@ use crate::color::Rgba;
 /// assert!((m.apply(red).r - 0.5).abs() < 1e-4);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ColorMatrix(pub [f32; 20]);
+pub struct ColorMatrix(pub [f64; 20]);
 
 impl Default for ColorMatrix {
     fn default() -> Self {
@@ -46,7 +46,7 @@ impl ColorMatrix {
     ]);
 
     /// The 3×3 color part `m` (row-major), alpha unchanged, no offsets.
-    fn rgb(m: [f32; 9]) -> Self {
+    fn rgb(m: [f64; 9]) -> Self {
         ColorMatrix([
             m[0], m[1], m[2], 0.0, 0.0, //
             m[3], m[4], m[5], 0.0, 0.0, //
@@ -57,7 +57,7 @@ impl ColorMatrix {
 
     /// Each color component scaled by `slope` and moved by `intercept`,
     /// alpha unchanged (`feComponentTransfer` linear functions).
-    fn linear(slope: f32, intercept: f32) -> Self {
+    fn linear(slope: f64, intercept: f64) -> Self {
         ColorMatrix([
             slope, 0.0, 0.0, 0.0, intercept, //
             0.0, slope, 0.0, 0.0, intercept, //
@@ -67,18 +67,18 @@ impl ColorMatrix {
     }
 
     /// CSS `brightness(amount)`: 0 black, 1 unchanged, more is brighter.
-    pub fn brightness(amount: f32) -> Self {
+    pub fn brightness(amount: f64) -> Self {
         Self::linear(amount.max(0.0), 0.0)
     }
 
     /// CSS `contrast(amount)`: 0 gray, 1 unchanged, more is harsher.
-    pub fn contrast(amount: f32) -> Self {
+    pub fn contrast(amount: f64) -> Self {
         let a = amount.max(0.0);
         Self::linear(a, 0.5 - 0.5 * a)
     }
 
     /// CSS `saturate(amount)`: 0 gray, 1 unchanged, more is more vivid.
-    pub fn saturate(amount: f32) -> Self {
+    pub fn saturate(amount: f64) -> Self {
         let s = amount.max(0.0);
         Self::rgb([
             0.213 + 0.787 * s,
@@ -95,7 +95,7 @@ impl ColorMatrix {
 
     /// CSS `grayscale(amount)`: 0 unchanged, 1 fully gray (clamped to
     /// `0..=1`).
-    pub fn grayscale(amount: f32) -> Self {
+    pub fn grayscale(amount: f64) -> Self {
         let k = 1.0 - amount.clamp(0.0, 1.0);
         Self::rgb([
             0.2126 + 0.7874 * k,
@@ -112,7 +112,7 @@ impl ColorMatrix {
 
     /// CSS `sepia(amount)`: 0 unchanged, 1 fully sepia (clamped to
     /// `0..=1`).
-    pub fn sepia(amount: f32) -> Self {
+    pub fn sepia(amount: f64) -> Self {
         let k = 1.0 - amount.clamp(0.0, 1.0);
         Self::rgb([
             0.393 + 0.607 * k,
@@ -128,7 +128,7 @@ impl ColorMatrix {
     }
 
     /// CSS `hue-rotate(deg)`: hues turned by `deg` degrees.
-    pub fn hue_rotate(deg: f32) -> Self {
+    pub fn hue_rotate(deg: f64) -> Self {
         let (s, c) = deg.to_radians().sin_cos();
         Self::rgb([
             0.213 + c * 0.787 - s * 0.213,
@@ -145,13 +145,13 @@ impl ColorMatrix {
 
     /// CSS `invert(amount)`: 0 unchanged, 1 fully inverted (clamped to
     /// `0..=1`).
-    pub fn invert(amount: f32) -> Self {
+    pub fn invert(amount: f64) -> Self {
         let a = amount.clamp(0.0, 1.0);
         Self::linear(1.0 - 2.0 * a, a)
     }
 
     /// CSS `opacity(amount)`: alpha scaled by `amount` (clamped to `0..=1`).
-    pub fn opacity(amount: f32) -> Self {
+    pub fn opacity(amount: f64) -> Self {
         let mut m = Self::IDENTITY;
         m.0[18] = amount.clamp(0.0, 1.0);
         m
@@ -163,7 +163,7 @@ impl ColorMatrix {
         let mut out = [0.0; 20];
         for row in 0..4 {
             for col in 0..5 {
-                let mut v: f32 = (0..4).map(|k| a[row * 5 + k] * b[k * 5 + col]).sum();
+                let mut v: f64 = (0..4).map(|k| a[row * 5 + k] * b[k * 5 + col]).sum();
                 if col == 4 {
                     v += a[row * 5 + 4];
                 }
@@ -186,7 +186,7 @@ impl ColorMatrix {
 
     /// Straight-alpha components `[r, g, b, a]` through the matrix, clamped
     /// to `0.0..=1.0`.
-    pub fn apply_array(&self, c: [f32; 4]) -> [f32; 4] {
+    pub fn apply_array(&self, c: [f64; 4]) -> [f64; 4] {
         let m = &self.0;
         let row = |i: usize| {
             (m[i * 5] * c[0]

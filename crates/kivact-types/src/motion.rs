@@ -25,7 +25,7 @@ pub enum Easing {
     EaseOut,
     EaseInOut,
     /// CSS-style cubic bezier (x1, y1, x2, y2).
-    CubicBezier(f32, f32, f32, f32),
+    CubicBezier(f64, f64, f64, f64),
     /// Discrete steps. A zero count is treated as one.
     Steps {
         count: u32,
@@ -51,7 +51,7 @@ impl Easing {
     }
 
     /// Evaluate progress after clamping normalized time to `0..=1`.
-    pub fn apply(self, t: f32) -> f32 {
+    pub fn apply(self, t: f64) -> f64 {
         let t = t.clamp(0.0, 1.0);
         match self {
             Easing::Linear => t,
@@ -66,7 +66,7 @@ impl Easing {
             }
             Easing::CubicBezier(x1, y1, x2, y2) => bezier(t, x1, y1, x2, y2),
             Easing::Steps { count, position } => {
-                let n = count.max(1) as f32;
+                let n = count.max(1) as f64;
                 match position {
                     StepPosition::Start => ((t * n).floor() + 1.0).min(n) / n,
                     StepPosition::End => (t * n).floor() / n,
@@ -76,13 +76,13 @@ impl Easing {
     }
 }
 
-fn bezier(x: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
-    let curve = |t: f32, a: f32, b: f32| {
+fn bezier(x: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    let curve = |t: f64, a: f64, b: f64| {
         let u = 1.0 - t;
         3.0 * u * u * t * a + 3.0 * u * t * t * b + t * t * t
     };
     // Solve x(t) = x by bisection (monotonic for valid curves).
-    let (mut lo, mut hi) = (0.0f32, 1.0f32);
+    let (mut lo, mut hi) = (0.0f64, 1.0f64);
     for _ in 0..30 {
         let mid = (lo + hi) / 2.0;
         if curve(mid, x1, x2) < x {
@@ -98,11 +98,11 @@ fn bezier(x: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Spring {
     /// Spring force per unit displacement.
-    pub stiffness: f32,
+    pub stiffness: f64,
     /// Resistance proportional to velocity.
-    pub damping: f32,
+    pub damping: f64,
     /// Mass used when integrating spring acceleration.
-    pub mass: f32,
+    pub mass: f64,
 }
 
 impl Spring {
@@ -161,14 +161,14 @@ pub enum PlayDirection {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Kind {
     Tween {
-        ms: f32,
+        ms: f64,
         easing: Easing,
     },
     Spring(Spring),
     /// (offset 0..=1, components)
     Keyframes {
-        frames: Vec<(f32, Vec<f32>)>,
-        ms: f32,
+        frames: Vec<(f64, Vec<f64>)>,
+        ms: f64,
     },
 }
 
@@ -178,7 +178,7 @@ pub struct Transition {
     /// Interpolation model for each iteration.
     pub kind: Kind,
     /// Delay before the first iteration, in milliseconds.
-    pub delay_ms: f32,
+    pub delay_ms: f64,
     /// How many iterations to run.
     pub repeat: Repeat,
     /// Whether successive iterations reverse direction.
@@ -188,14 +188,14 @@ pub struct Transition {
 }
 
 /// Copy `values` into `out`, component by component.
-fn put(out: &mut [f32], values: &[f32]) {
+fn put(out: &mut [f64], values: &[f64]) {
     for (out, value) in out.iter_mut().zip(values) {
         *out = *value;
     }
 }
 
 /// Write the components `t` of the way from `a` to `b` into `out`.
-pub fn lerp(a: &[f32], b: &[f32], t: f32, out: &mut [f32]) {
+pub fn lerp(a: &[f64], b: &[f64], t: f64, out: &mut [f64]) {
     for ((out, x), y) in out.iter_mut().zip(a).zip(b) {
         *out = x + (y - x) * t;
     }
@@ -207,7 +207,7 @@ pub fn lerp(a: &[f32], b: &[f32], t: f32, out: &mut [f32]) {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpringRun {
     /// Velocity of each component.
-    pub velocity: Vec<f32>,
+    pub velocity: Vec<f64>,
     /// Host time (ns) of the previous step.
     pub last_ns: u64,
     /// The iteration a spring plays, from 0.
@@ -237,7 +237,7 @@ impl Transition {
     /// A tween over `ms` milliseconds along `easing`.
     pub fn tween(ms: impl Into<f64>, easing: Easing) -> Self {
         Self::new(Kind::Tween {
-            ms: (ms.into() as f32).max(0.0),
+            ms: (ms.into()).max(0.0),
             easing,
         })
     }
@@ -249,7 +249,7 @@ impl Transition {
 
     /// Wait `ms` milliseconds before the first iteration starts.
     pub fn delay(mut self, ms: impl Into<f64>) -> Self {
-        self.delay_ms = (ms.into() as f32).max(0.0);
+        self.delay_ms = (ms.into()).max(0.0);
         self
     }
 
@@ -282,18 +282,18 @@ impl Transition {
     /// client animations and host state transitions.
     pub fn step(
         &self,
-        from: &[f32],
-        to: &[f32],
+        from: &[f64],
+        to: &[f64],
         start_ns: u64,
         now_ns: u64,
-        current: &mut Vec<f32>,
+        current: &mut Vec<f64>,
         run: &mut SpringRun,
     ) -> bool {
         if current.len() != to.len() {
             current.clear();
             current.extend_from_slice(to);
         }
-        let elapsed_ms = now_ns.saturating_sub(start_ns) as f32 / 1e6;
+        let elapsed_ms = now_ns.saturating_sub(start_ns) as f64 / 1e6;
         let Kind::Spring(spring) = &self.kind else {
             return self.sample_timed(from, to, elapsed_ms, current);
         };
@@ -305,7 +305,7 @@ impl Transition {
             current.copy_from_slice(to);
             return true;
         }
-        let dt = now_ns.saturating_sub(run.last_ns) as f32 / 1e9;
+        let dt = now_ns.saturating_sub(run.last_ns) as f64 / 1e9;
         run.last_ns = now_ns;
         run.velocity.resize(to.len(), 0.0);
         let paired = from.len() == to.len();
@@ -334,7 +334,7 @@ impl Transition {
     /// Sample a time-based (tween/keyframes) transition at `elapsed_ms`
     /// into `out` (as long as `to`); returns whether it is done. Nothing is
     /// allocated.
-    fn sample_timed(&self, from: &[f32], to: &[f32], elapsed_ms: f32, out: &mut [f32]) -> bool {
+    fn sample_timed(&self, from: &[f64], to: &[f64], elapsed_ms: f64, out: &mut [f64]) -> bool {
         let t_ms = elapsed_ms - self.delay_ms;
         if t_ms < 0.0 {
             put(out, from);
@@ -350,8 +350,8 @@ impl Transition {
         }
         let iter = (t_ms / dur).floor();
         let total = match self.repeat {
-            Repeat::Times(n) => n as f32,
-            Repeat::Forever => f32::INFINITY,
+            Repeat::Times(n) => n as f64,
+            Repeat::Forever => f64::INFINITY,
         };
         if iter >= total {
             put(out, to);
@@ -372,7 +372,7 @@ impl Transition {
 
 /// The keyframes' value at `p` (those as long as `fallback`; `fallback`
 /// without any) into `out`.
-fn keyframe_at(frames: &[(f32, Vec<f32>)], p: f32, fallback: &[f32], out: &mut [f32]) {
+fn keyframe_at(frames: &[(f64, Vec<f64>)], p: f64, fallback: &[f64], out: &mut [f64]) {
     let mut valid = frames.iter().filter(|f| f.1.len() == fallback.len());
     let Some(first) = valid.next() else {
         put(out, fallback);
@@ -395,7 +395,7 @@ fn keyframe_at(frames: &[(f32, Vec<f32>)], p: f32, fallback: &[f32], out: &mut [
 }
 
 /// Shared semi-implicit spring integration; returns whether it settled.
-fn spring_step(s: Spring, x: &mut [f32], v: &mut [f32], to: &[f32], mut dt: f32) -> bool {
+fn spring_step(s: Spring, x: &mut [f64], v: &mut [f64], to: &[f64], mut dt: f64) -> bool {
     let m = s.mass.max(1e-3);
     while dt > 0.0 {
         let h = dt.min(0.001);

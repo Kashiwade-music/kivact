@@ -7,7 +7,7 @@ pub fn check_text(text: &crate::SemanticsText) -> Result<(), &'static str> {
     let finite = |r: crate::Rect| {
         [r.x, r.y, r.width, r.height, r.x + r.width, r.y + r.height]
             .into_iter()
-            .all(f32::is_finite)
+            .all(f64::is_finite)
             && r.width >= 0.0
             && r.height >= 0.0
     };

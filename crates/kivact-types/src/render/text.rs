@@ -2,15 +2,15 @@
 //! Plain data usable on any thread.
 
 use crate::color::Rgba;
-use crate::text::{ComputedTextStyle, FontFeature, FontKerning, TextDecoration};
+use crate::text::{FontFeature, FontKerning, TextDecoration};
 use std::ops::Range;
 
-/// What a span of rich text sets over its paragraph's [`ComputedTextStyle`]
+/// What a span of rich text sets over its paragraph's [`crate::text::ComputedTextStyle`]
 /// (`None`: the paragraph's).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
     /// Font size.
-    pub font_size: Option<f32>,
+    pub font_size: Option<f64>,
     /// Weight.
     pub weight: Option<u16>,
     /// Color of its glyphs.
@@ -20,9 +20,9 @@ pub struct SpanStyle {
     /// Italic.
     pub italic: Option<bool>,
     /// Extra space after every character, in px.
-    pub letter_spacing: Option<f32>,
+    pub letter_spacing: Option<f64>,
     /// Extra space after every space, in px.
-    pub word_spacing: Option<f32>,
+    pub word_spacing: Option<f64>,
     /// Pair kerning.
     pub kerning: Option<FontKerning>,
     /// OpenType features (replacing the paragraph's).

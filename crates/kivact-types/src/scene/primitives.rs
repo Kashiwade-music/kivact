@@ -50,20 +50,20 @@ pub enum LineJoin {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Stroke {
     /// Line width.
-    pub width: f32,
+    pub width: f64,
     /// Ends of open contours and dashes.
     pub cap: LineCap,
     /// Joints.
     pub join: LineJoin,
     /// The longest miter, in line widths, before a miter join is beveled
     /// (at least 1).
-    pub miter_limit: f32,
+    pub miter_limit: f64,
     /// Dash and gap lengths, alternating, repeated along each contour;
     /// empty for a solid line. An odd count repeats as if doubled, as in
     /// SVG.
-    pub dash: Vec<f32>,
+    pub dash: Vec<f64>,
     /// How far into the dash pattern each contour starts.
-    pub dash_offset: f32,
+    pub dash_offset: f64,
 }
 
 impl Stroke {
@@ -71,7 +71,7 @@ impl Stroke {
     /// as canvas).
     pub fn new(width: impl Into<f64>) -> Self {
         Stroke {
-            width: width.into() as f32,
+            width: width.into(),
             cap: LineCap::Butt,
             join: LineJoin::Miter,
             miter_limit: 10.0,
@@ -91,29 +91,23 @@ impl Stroke {
     }
     /// Set the miter limit in line widths.
     pub fn miter_limit(mut self, limit: impl Into<f64>) -> Self {
-        self.miter_limit = limit.into() as f32;
+        self.miter_limit = limit.into();
         self
     }
     /// Set alternating dash and gap lengths in logical pixels.
-    pub fn dash(mut self, lengths: impl IntoIterator<Item = f32>) -> Self {
+    pub fn dash(mut self, lengths: impl IntoIterator<Item = f64>) -> Self {
         self.dash = lengths.into_iter().collect();
         self
     }
     /// Set the starting offset within the dash pattern.
     pub fn dash_offset(mut self, offset: impl Into<f64>) -> Self {
-        self.dash_offset = offset.into() as f32;
+        self.dash_offset = offset.into();
         self
     }
 }
 
 impl From<i32> for Stroke {
     fn from(width: i32) -> Self {
-        Self::new(width)
-    }
-}
-
-impl From<f32> for Stroke {
-    fn from(width: f32) -> Self {
         Self::new(width)
     }
 }

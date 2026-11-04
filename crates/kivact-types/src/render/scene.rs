@@ -42,7 +42,7 @@ pub enum RenderCmd {
         /// Source pixels; None draws the whole image.
         source: Option<Rect>,
         /// Group opacity.
-        opacity: f32,
+        opacity: f64,
         /// Pixel color transform.
         color_matrix: Option<ColorMatrix>,
         /// Disable smoothing.
@@ -63,7 +63,7 @@ pub enum RenderCmd {
         /// Source pixels of the frame; None draws the whole frame.
         source: Option<Rect>,
         /// Group opacity.
-        opacity: f32,
+        opacity: f64,
         /// Disable smoothing.
         pixelated: bool,
     },
@@ -79,7 +79,7 @@ pub enum RenderCmd {
         /// Bounds.
         rect: Rect,
         /// Radius.
-        radius: f32,
+        radius: f64,
         /// Paint.
         fill: Paint,
     },
@@ -88,7 +88,7 @@ pub enum RenderCmd {
         /// Bounds.
         rect: Rect,
         /// Top-left, top-right, bottom-right, bottom-left radii.
-        radii: [f32; 4],
+        radii: [f64; 4],
         /// Paint.
         fill: Paint,
     },
@@ -97,22 +97,22 @@ pub enum RenderCmd {
         /// Bounds.
         rect: Rect,
         /// Stroke width.
-        width: f32,
+        width: f64,
         /// Color.
         color: Rgba,
         /// Radius.
-        radius: f32,
+        radius: f64,
     },
     /// Stroked bounds with independent corner radii.
     StrokeRoundedRectCorners {
         /// Bounds.
         rect: Rect,
         /// Stroke width.
-        width: f32,
+        width: f64,
         /// Color.
         color: Rgba,
         /// Top-left, top-right, bottom-right, bottom-left radii.
-        radii: [f32; 4],
+        radii: [f64; 4],
     },
     /// Stroked line. Renderers move a horizontal or vertical line whose
     /// width is a whole number of device pixels onto the pixel grid.
@@ -122,7 +122,7 @@ pub enum RenderCmd {
         /// End.
         to: Point,
         /// Stroke width.
-        width: f32,
+        width: f64,
         /// Color.
         color: Rgba,
     },
@@ -133,7 +133,7 @@ pub enum RenderCmd {
         /// Optional fill color.
         fill: Option<Rgba>,
         /// Optional stroke width and color.
-        stroke: Option<(f32, Rgba)>,
+        stroke: Option<(f64, Rgba)>,
     },
     /// A box shadow: `rect` with rounded corners, blurred by a gaussian of
     /// standard deviation `std_dev` (more than zero). Renderers draw it
@@ -144,9 +144,9 @@ pub enum RenderCmd {
         /// The shadow's shape before blurring.
         rect: Rect,
         /// Top-left, top-right, bottom-right, bottom-left radii.
-        radii: [f32; 4],
+        radii: [f64; 4],
         /// Standard deviation of the gaussian blur.
-        std_dev: f32,
+        std_dev: f64,
         /// Color.
         color: Rgba,
     },
@@ -166,7 +166,7 @@ pub enum RenderCmd {
         /// Destination.
         rect: Rect,
         /// Alpha multiplier in `[0, 1]`, applied by the renderer.
-        opacity: f32,
+        opacity: f64,
         /// Color matrix applied to the pixels (CSS `filter: grayscale(1)`
         /// on an image); the renderer converts the pixels once and keeps
         /// the result while frames draw the same image with the same
@@ -218,7 +218,7 @@ pub enum RenderCmd {
 /// How many standard deviations beyond its rect a [`RenderCmd::Shadow`]
 /// can be drawn (renderers cut the gaussian off within it, where it is
 /// below 0.1%).
-pub const SHADOW_REACH: f32 = 3.6;
+pub const SHADOW_REACH: f64 = 3.6;
 
 /// Owned drawing snapshot, usable on any thread. Commands are in logical
 /// window pixels before their nested transforms and the frame's raster
