@@ -108,3 +108,5 @@
 | 2026-11-05 | W3 resource | disk が 40 GB 未満、unit target 使用中 | CP2 終了済みの非稼働 target-gate だけ cargo clean。target-wt の実行を妨げず空き 42.9 GB を確保。 |
 | 2026-11-05 | C-5 | side table の lifecycle 所有と再配置 | CoreNodes は metadata のみ、ViewNodes が writer/root/counter/通知を所有。参照・presence source を保ち、Writer::insert は detach 前の継承値と旧新親の layout/a11y を更新して再配置を一元化する。 |
 | 2026-11-05 | N-D1 / N-F2 | InlineEdit::field が ui::TextInput を返す | interaction へ移す hook の field は TextEditApi を返し control を描画 node に付ける。draft の実装を interaction に移し ui と共有、label と commit/cancel/blur/cleanup を保って逆向き依存を消す。 |
+| 2026-11-05 | CP3 / fix-G1-4 | Contents の削除で layout dirty が消える | 削除前の flat parent を無効化し、共有 cache traversal は空 cache の Contents を通過する。実 box の early stop は保持。共有 target の取り違えは固定 gate で検証する。 |
+| 2026-11-05 | CP3 / fix-G6-6 | Contents 箱が Element.children に現れる | query 時だけ透明箱を射影し既存の直接の子の契約を保つ。role query の順序は公開 semantics の child 順で DFS し、allocation 順には依存しない。可変の shadow topology は追加しない。 |
