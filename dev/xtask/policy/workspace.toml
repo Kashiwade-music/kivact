@@ -234,7 +234,7 @@ host = ["contract", "tree", "measure", "mutation", "model", "paint", "a11y", "ch
 offscreen = ["contract", "text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
 api = ["contract", "host", "offscreen", "text_measure", "mutation"]
-embed = ["contract", "host", "api"]
+embed = ["contract", "host", "api", "frame_log"]
 testing = ["contract", "host", "offscreen", "api"]
 
 # Shared values and render records depend only on the concept modules below.

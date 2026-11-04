@@ -1,4 +1,4 @@
-//! Role: Encapsulate the named diagnostic, deduplication, generation and mailbox exceptions to S-9.
+//! Role: Shared diagnostic latches, caches, generations and take-once mailboxes.
 //!
 //! Fields stay private so their one update rule is enforced by these methods.
 //! These helpers store a latch, cache, identity or take-once value; they are not
