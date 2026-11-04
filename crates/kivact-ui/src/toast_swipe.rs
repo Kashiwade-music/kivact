@@ -253,6 +253,13 @@ fn qualifies(travel: f64, height: f64, elapsed_ms: f64) -> bool {
         || (travel >= FLICK_DISTANCE && travel / elapsed_ms.max(1.0) > FLICK_SPEED)
 }
 
+fn edge_sign(edge: Edge) -> f64 {
+    match edge {
+        Edge::Top | Edge::Left => -1.0,
+        Edge::Bottom | Edge::Right => 1.0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Role: Check swipe intent and dismissal thresholds.
@@ -270,12 +277,5 @@ mod tests {
         assert!(!qualifies(48.0, 200.0, 40.0));
         assert!(qualifies(48.0, 200.0, 39.0));
         assert!(qualifies(80.0, 200.0, 1000.0));
-    }
-}
-
-fn edge_sign(edge: Edge) -> f64 {
-    match edge {
-        Edge::Top | Edge::Left => -1.0,
-        Edge::Bottom | Edge::Right => 1.0,
     }
 }
