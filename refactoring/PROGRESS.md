@@ -7,6 +7,17 @@ Date: 2026-11-04
 
 Baseline gates are running. Logs: `target/foundation-v3/baseline/` (not committed).
 
+| Gate | Result |
+|---|---|
+| fmt | exit 0 |
+| initial xtask / E2E | Interrupted after disk-full errors during compilation; no E2E result. |
+| no-default-features E2E + doctest | exit 0; 1325 passed, 51 ignored; cumulative elapsed 830.5 seconds (includes preceding all-features attempt). |
+| individual features | exit 0; cumulative elapsed 956.9 seconds (preceding suite attempts included). |
+| xtask | exit 0; 43 workspace crates, 145 graphs; 1203.1 seconds including first build and Node shim shutdown wait. |
+| clippy all targets/features | exit 0; 31.54 seconds after xtask. |
+| retry | Running with CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, CARGO_BUILD_JOBS=2. |
+| all-features E2E | wrapper exit 127, 390.5 seconds; arvane 33 + native 6 passed; GPU read_back passed 5/6 before STATUS_HEAP_CORRUPTION (0xc0000374). Serial rerun queued to isolate concurrency. |
+
 ## Units
 
 | ID | Unit | Status | Merge commit | Gates | Time | Issues |
@@ -92,4 +103,3 @@ Baseline gates are running. Logs: `target/foundation-v3/baseline/` (not committe
 | F-1 | 文書 | todo | — | — | — | — |
 | F-2 | 検査の仕上げ | todo | — | — | — | — |
 | F-3 | 最後の確認と PR の説明の下書き | todo | — | — | — | — |
-
