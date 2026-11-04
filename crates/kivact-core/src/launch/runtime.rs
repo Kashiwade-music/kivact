@@ -404,7 +404,7 @@ fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
     }
     requests::flush_focus(rt);
     let host = HostState::of(rt);
-    let removed = std::mem::take(&mut *host.removed.borrow_mut());
+    let removed = std::mem::take(&mut *ViewState::of(rt).removed.borrow_mut());
     if !removed.is_empty() {
         host.asset_failures
             .borrow_mut()

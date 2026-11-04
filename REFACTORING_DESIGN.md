@@ -367,6 +367,8 @@ backend = ["clock", "script", "surface", "window"]
 mirror = ["surface", "window"]
 ```
 
+公開 facade の再公開に限り、`state -> view::boundary`・`state -> view::owner`・`style -> view::boundary` を個別の例外とする。`provide`・`Owner`・`use_app_state`・`provide_theme` は view の所有と文脈を使う部品であり、実装の逆向き依存は許可しない。
+
 kivact-core の `prelude` は消える（prelude は facade の `kivact::prelude` だけ。付録 B.2）。engine の既存の `except` の 4 行（`model::aggregate -> paint::state` など）は、`model` と `paint`・`a11y`・`check` の向きが変わらないので、そのまま残す。
 
 ## 5. 語彙の一本化（`kivact-types`）
@@ -2779,3 +2781,5 @@ pub enum DecorationKind { Underline(TextDecorationStyle), Outline, Background }
 
 - creative の `picker.rs` は creative に残す。中は既に `use_combobox` を使っている。
 - 理由: 付録 C.5 の creative の「残す」に `search_picker` があり、C.2 と食い違っていた。picker は列の追従（SM-K905）などの creative 固有の振る舞いを持つ。
+
+- I-0 の overlay metric: `Theme::overlay_margin()` の既定は `0.0`。viewport への fitting は常に行い、値は inset を表す。旧い未設定の no-fit は廃止し、負数・NaN sentinel や設定有無の mode は作らない。

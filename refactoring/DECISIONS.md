@@ -130,3 +130,5 @@
 | 2026-11-05 | fix-G4-5 | 合成 activation と登録解除の不一致 | Popup/List の private anatomy を共有し合成先が activation を一度所有。登録/cleanup は同じ mount.node identity を使い disposed Value を残さない。 |
 | 2026-11-05 | N-G5 / G-4c | theme_hint の試験が後の定義に依存 | hook の公開と eager field 登録だけ N-G5 へ前倒し、native pointer/fling/snap は G-4c のまま。 |
 | 2026-11-05 | N-8 | API8 が診断と実装 bridge から全 runtime を到達扱いにする | 診断/std Error interop を狭く明記。bridge は doc(hidden)+internal-contract 両方でのみ除外し、普通の hidden API は検査。利用者の text action は Into<String> に直す。 |
+| 2026-11-05 | CP4 | canonical facade の逆方向 reexport | state の boundary/owner と style の boundary への再公開だけを個別許可。実装依存と循環は source で除く。AppOptions は必須 title を持つ起動引数なので FRU Default の検査対象外。 |
+| 2026-11-05 | I-0 | OverlayViewport の None と f64 metric | 既定 0.0 inset で常時 fitting する。意味が一つの公開数値 metric を優先し、未設定の no-fit を廃止。既存 overlay assertions は維持。 |

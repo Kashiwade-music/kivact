@@ -18,7 +18,6 @@ pub(crate) struct HostState {
     /// Asset failures reported so far, by node and message (each once);
     /// entries of removed nodes are dropped when the revision removing them
     /// is committed.
-    pub(crate) removed: RefCell<Vec<NodeId>>,
     pub(crate) asset_failures: RefCell<HashSet<(NodeId, String)>>,
 }
 

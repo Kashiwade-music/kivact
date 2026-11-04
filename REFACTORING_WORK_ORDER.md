@@ -1638,7 +1638,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
     }
     pub struct DisclosureMotion { pub animate: bool, pub duration: Duration }  // 既定 false, 200 ms（今の ui::disclosure の既定）
     ```
-  - `OverlayViewport`（`kivact-core/src/view/overlays.rs`）を消し、`Theme` の metric `overlay_margin`（`Theme::with_overlay_margin(f64)`、`Theme::overlay_margin() -> f64`。既定は今の `OverlayViewport` の fallback の値）にする。
+  - `OverlayViewport`（`kivact-core/src/view/overlays.rs`）を消し、`Theme` の metric `overlay_margin`（`Theme::with_overlay_margin(f64)`、`Theme::overlay_margin() -> f64`。既定は `0.0`。未設定の no-fit を廃止し常に viewport fitting する（本 unit の意図した境界変更））にする。
   - 閾値の literal は policy の既定値にする（値は変えない）: `menu/press.rs` の 10.0・13.0 → `menu.drift`、`kivact-ui/src/select.rs` の touch の 10.0 → `select.sheet_slop`、`kivact-ui/src/toast_swipe.rs` の `SLOP = 8.0` → `toast.swipe_slop`。ほかの literal（switch の drag の 10 px、toast の `FLICK_DISTANCE` など）は名前の付いた private の定数のまま。
   - `Typeahead`（SM-I15）: `enum Typeahead { Idle, Typing { text: String, expires_ns: u64 } }`（窓は今の 500 ms）。I-2a と I-4a が両方使うので、この unit で `list/typeahead.rs` を書き直す。
 - **手順**:
@@ -2034,7 +2034,7 @@ wave W5（I・U と同じ wave）。crate が I・U と重ならないので、9
 - **手順**: types、style、lower、engine の paint・semantics・focus・hit test。
 - **試験**: 足す。`style_paint.rs` に `text_color_transitions_with_paint`、`text_decoration_style_draws_wavy_lines`、`visibility_hidden_keeps_layout_but_hides_the_node`。
 - **unit の確認**:
-  - `cargo check -p kivact-types -p kivact-style -p kivact-lower -p kivact-engine -p kivact-core --all-targets --all-features`
+  - `cargo check -p kivact-types -p kivact-style -p kivact-engine -p kivact-core --all-targets --all-features`
   - `KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- style_paint::`
 - **規模**: M。**並列**: I・U と並べてよい。T-1 の前に merge する。
 

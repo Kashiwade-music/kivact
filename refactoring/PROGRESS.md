@@ -116,8 +116,12 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G3-11 | merged | 7478530 | core Clippy 18 件修正、check 0 |
 | fix-G4-6 | merged | c76cf0c | interaction/UI Clippy 修正、check 0 |
 | fix-G5-5 | merged | 19dfddc | basic/pop/game/creative Clippy 修正、check 0 |
-| fix-G5-6 | merged | f4b0be2 | Soft Clippy 修正、check 0 |
+| fix-G5-6 | merged | 2e25c69 | Soft Clippy 修正、check 0 |
 | fix-G6-8 | merged | 3d97dc1 | canonical launch/app policy parse 0 |
+| fix-G3-12 | merged | 384cad8 | launch 一元化、統合 core check 0 |
+| fix-G3-13 | merged | 2e0171a | view passive contracts/queue 所有、core check 0、docs 待ち |
+| fix-G4-7 | merged | c8acd89 | scalar/calendar cycle 解消、check 0 |
+| fix-G6-9 | merged | 2dddc69 | policy canonical paths/kit 責務分割、check 0 |
 | I-0 | doing | | |
 | I-1 | todo | | |
 | I-2a | todo | | |
@@ -137,7 +141,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-1b | todo | | |
 | G-2 | todo | | |
 | G-3 | todo | | |
-| G-4a | todo | | |
+| G-4a | doing | | |
 | G-4b | todo | | |
 | G-4c | todo | | |
 | G-5 | todo | | |
