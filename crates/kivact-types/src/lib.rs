@@ -4,6 +4,7 @@
 pub mod asset;
 pub mod check;
 pub mod color;
+pub mod embed;
 pub mod env;
 pub mod geometry;
 pub mod gpu;
@@ -23,7 +24,10 @@ pub mod text_shaping;
 pub use asset::Asset;
 pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
 pub use color::Rgba;
-pub use env::{Capabilities, HostEnv, LifecycleEvent, ThemeHint};
+pub use embed::{EmbedOptions, ParentWindow};
+pub use env::{
+    Capabilities, Environment, LifecycleEvent, PointerClass, PointerSettings, ThemeHint,
+};
 pub use geometry::{Edges, Insets, Point, Rect, Size};
 pub use gpu::{
     AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter, GpuBackend, GpuPower,
@@ -52,10 +56,10 @@ pub use paint::{
     Gradient, GradientKind, GradientStop, ImageData, ImageFit, Len, PaintDelta, PaintProps,
     PaintVec, RadialExtent, Ring, ScrollbarDelta, ScrollbarProps, Shadow, StateStyles,
 };
-pub use platform::{FileDialogRequest, PlatformRequest, PlatformResult};
+pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
 pub use protocol::{
-    FontFeature, InlineBox, InlineBoxPlacement, ParentWindow, PathCmd, ShapedInlineText,
-    ShapedText, TextLine, TextWrap,
+    FontFeature, InlineBox, InlineBoxPlacement, PathCmd, ShapedInlineText, ShapedText, TextLine,
+    TextWrap,
 };
 pub use scene::{
     BorderStyle, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin, Pixels, Region, Scene,

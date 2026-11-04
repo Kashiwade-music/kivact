@@ -30,12 +30,12 @@ pub enum LayoutRule {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutCheck {
     /// How far (px) a text may reach outside its limit.
-    pub overflow_tolerance: f32,
+    pub overflow_tolerance: f64,
     /// How far (px) the middle of a line may be off the middle of its
     /// visual parent (`None`: the larger of 1 px and 0.08 of the font
     /// size). The layout is in whole pixels, so half a pixel more is
     /// always allowed.
-    pub center_tolerance: Option<f32>,
+    pub center_tolerance: Option<f64>,
     /// The roles whose text is a single line.
     pub single_line_roles: Vec<Role>,
     /// Nodes with these test ids, and their subtrees, are left out.
@@ -71,7 +71,7 @@ pub struct LayoutFinding {
     pub rule: LayoutRule,
     /// How far (px) the text is outside its limit, or off center; for
     /// `Wrapped`, the height of the lines after the first.
-    pub amount: f32,
+    pub amount: f64,
     /// The text, in layout space (the window's, before any transform).
     pub text_rect: Rect,
     /// The box it was compared with.

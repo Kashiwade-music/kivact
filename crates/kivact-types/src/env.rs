@@ -1,5 +1,6 @@
 //! Role: Host environment, capabilities and lifecycle events.
-use crate::Size;
+use crate::cell::Generation;
+use crate::{Insets, Size};
 
 /// System preference for a light or dark color scheme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -9,14 +10,11 @@ pub enum ThemeHint {
     Dark,
 }
 
-/// The window's environment as the client sees it: the whole value, at
-/// start (`HostInfo::env`) and again whenever any of it changes
-/// (`HostEvent::EnvChanged`). The host keeps one and sends a new one only
-/// when it differs from the last it sent.
+/// Current window and platform surroundings, shared unchanged across layers.
 #[derive(Clone, Debug, PartialEq)]
-pub struct HostEnv {
+pub struct Environment {
     /// Physical pixels per logical pixel.
-    pub scale: f32,
+    pub scale_factor: f64,
     /// The system asks for reduced motion.
     pub reduced_motion: bool,
     /// Light at start; the host follows the system's theme from its first
@@ -27,18 +25,87 @@ pub struct HostEnv {
     /// The part of each window edge (logical pixels) system UI may cover
     /// (a notch, a status bar); zero on desktops. The host makes a negative
     /// or non-finite side zero.
-    pub safe_area: crate::Insets,
+    pub safe_area: Insets,
+    /// Insets occupied by the software keyboard, in logical pixels.
+    pub keyboard_inset: Insets,
     /// The window's size in logical pixels.
-    pub window: Size,
+    pub window_size: Size,
     /// The system's language and region as a BCP 47 tag (`"ja-JP"`), or
     /// `None` where the host cannot tell.
     pub locale: Option<String>,
     /// The window is borderless fullscreen.
     pub fullscreen: bool,
-    /// Frames can be drawn: the application is in the foreground and the
-    /// window has a surface and is not empty. While it is `false` no frame
-    /// ticks are sent.
-    pub surface_active: bool,
+    /// System pointer preferences, expressed in logical pixels and nanoseconds.
+    pub pointer: PointerSettings,
+    /// Generation of the available font collection.
+    pub fonts: Generation,
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.0,
+            reduced_motion: false,
+            theme_hint: ThemeHint::default(),
+            frame_period_ns: 16_666_667,
+            safe_area: Insets::default(),
+            keyboard_inset: Insets::default(),
+            window_size: Size {
+                width: 960.0,
+                height: 720.0,
+            },
+            locale: None,
+            fullscreen: false,
+            pointer: PointerSettings::default(),
+            fonts: Generation::default(),
+        }
+    }
+}
+
+/// Precision of the platform's primary pointing device.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum PointerClass {
+    /// A mouse, trackpad or similarly precise pointing device.
+    #[default]
+    Fine,
+    /// A primary device intended for direct, less precise contact.
+    Coarse,
+}
+
+/// Platform pointer preferences; positions and distances are logical pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PointerSettings {
+    /// Maximum interval between presses counted as one double click, in nanoseconds.
+    pub double_click_ns: u64,
+    /// Maximum double-click displacement on each axis, in logical pixels.
+    pub double_click_distance: (f64, f64),
+    /// Lines scrolled by one vertical wheel notch.
+    pub wheel_lines: u32,
+    /// Characters scrolled by one horizontal wheel notch.
+    pub wheel_chars: u32,
+    /// Default movement threshold for new drag interactions, in logical pixels.
+    pub drag_slop: f64,
+    /// Precision of the primary pointing device.
+    pub primary: PointerClass,
+    /// Fraction of fling velocity retained per millisecond.
+    pub fling_deceleration: f64,
+    /// Fling stop threshold, in logical pixels per millisecond.
+    pub fling_min_velocity: f64,
+}
+
+impl Default for PointerSettings {
+    fn default() -> Self {
+        Self {
+            double_click_ns: 500_000_000,
+            double_click_distance: (4.0, 4.0),
+            wheel_lines: 3,
+            wheel_chars: 3,
+            drag_slop: 4.0,
+            primary: PointerClass::Fine,
+            fling_deceleration: 0.998,
+            fling_min_velocity: 0.05,
+        }
+    }
 }
 
 /// What the backend a window runs on can do, reported once, when the
@@ -76,7 +143,7 @@ pub struct Capabilities {
 }
 
 /// An actual application lifecycle transition or platform memory warning.
-/// Surface availability and visibility remain current state in the host's environment (`HostEnv`).
+/// Surface availability belongs to the host's lifecycle state, outside [`Environment`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LifecycleEvent {
     /// Application execution has been suspended by the shell.
