@@ -265,7 +265,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
        list = []   # N-4 が設計書 10.6 節の一覧を書く
        ```
        `NodeBuilder` を実装する型と `*Api` は、`state_fields` が型の実装を見て対象外にする。
-     - 対象と例外は設計書 18.14・18.20 節のとおり（`skip` の一覧と inline の目印）。policy に data の record の一覧（`record_types`）と構造の option の一覧（`structural_options`）を置く。
+     - 対象と例外は設計書 18.14・18.20 節のとおり（`skip` の一覧と inline の目印）。policy に data の record の一覧（`record_types`）と構造の option の一覧（`structural_options`）を置く。`disallowed_types` は設定だけでも既定の警告になるため、移行中は workspace lint を `allow` にし、各 crate の `#![deny]` で有効にする。F-2 で workspace の `deny` に置き換える。
      - CLI: `cargo xtask check --only <検査> [--crate <crate> [--module <module path>]]`（一つの検査を一つの crate と module の部分木だけに回す。`--crate` を付けたときは `skip` に入っている crate も検査する。`--only` がないときは今までどおり全部）。
      - 以下、`state-fields`・`effect-writes` を「状態の検査群」と呼ぶ。
      - 各検査の自分の試験を `dev/xtask` に足す（小さな source の文字列を与えて、違反を見つけること・見つけないことを確かめる。window を開かない道具の試験）。
@@ -327,7 +327,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
 ### V-2 semantics を一つの型にする
 
 - **目的**: 設計書 5.3 節。`SemanticSources`（core）・wire の `SemanticsProperties`（`Option`）・protocol の `SemanticsProperties`（bool）の三つを `kivact_types::semantics::Semantics<R>` 一つにする。
-- **決定済みの形**: 設計書 5.3 節の struct と、その「field の型の規則」。`derive(Clone, Debug, PartialEq, Eq, Hash)`、`Default` は手で書く、`f64` の field は `Finite`。`map_relations`。field の一覧を報告に書く。
+- **決定済みの形**: 設計書 5.3 節の struct と、その「field の型の規則」。`derive(Clone, Debug, PartialEq, Hash)`（geometry を含む `SemanticsText` の既存比較を保つため `Eq` は付けない）、`Default` は手で書く、`f64` の field は `Finite`。`Finite::new` は符号付きゼロを正規化する。text snapshot の `Hash` は設計書 5.3 節の訂正に従う。`map_relations`。field の一覧を報告に書く。
 - **手順**:
   1. `kivact-types` に `Semantics<R>` を作り、wire の `SemanticsProperties` と protocol の `SemanticsProperties` を消す。
   2. engine: node の semantics を `Semantics<NodeId>` で持つ。`a11y/hash.rs` の field ごとの手書きの hash を、`Semantics<SemanticsId>` の `Hash` で置き換える。`a11y/build/*` は `map_relations` で関係を写す。

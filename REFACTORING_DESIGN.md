@@ -419,7 +419,7 @@ kivact-core の `prelude` は消える（prelude は facade の `kivact::prelude
 // kivact_types::semantics
 /// The semantics of one node. `R` is how a relation names its target:
 /// `FocusTarget` in core, `NodeId` in the engine, `SemanticsId` in the backend.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct Semantics<R> {
     pub role: Option<Role>,
     pub name: Option<String>,
@@ -450,6 +450,7 @@ impl Finite { pub fn new(v: f64) -> Option<Finite>; pub fn get(self) -> f64; }
 ```
 
 - **field の型の規則:** wire の `SemanticsProperties` にある field は wire の型（多くは `Option<T>` = 「設定していない」）。protocol にだけある field は protocol の型（bool は既定 `false`）。名前は wire を優先する。`f64` は `Finite`。この規則で三つの定義の和集合を作り、field の一覧を作業手順書 V-2 の報告に書く。
+- **実コードに基づく訂正（2026-11-04）:** `text` は custom control も宣言できる `SemanticsText` で、geometry の float を含む。既存の `PartialEq` を保ち、集約の `Semantics<R>` に `Eq` は実装しない。`SemanticsText`・`SemanticsTextRun`・`TextCaret` に値による `Hash` を実装し、geometry の `+0.0` と `-0.0` は同じ hash にする（NaN の比較は既存のまま）。`Finite::new` も符号付きゼロを `0.0` に正規化し、`Eq` と bit hash の整合を守る。
 - engine の差分の検出は `Hash`・`PartialEq` を使い、`a11y/hash.rs` の field ごとの手書きの hash を消す。
 - backend（`arvane-native/src/a11y/conversion.rs`）は `Semantics<SemanticsId>` を AccessKit へ写す。field を足したら、ここに写し方を一つ書く。
 - core の側は 7.4 節の「patch」で組み立て、`SemanticSources` を消す。
