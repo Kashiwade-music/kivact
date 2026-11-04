@@ -23,13 +23,12 @@ impl Model {
         edit: Option<EditState>,
     ) -> Option<Box<EditorNode>> {
         let slot = self.tree.nodes.index_of(id);
-        let previous = slot.and_then(|slot| {
+        slot.and_then(|slot| {
             std::mem::replace(
                 &mut self.editors[slot.0],
                 edit.map(|state| Box::new(EditorNode::new(state))),
             )
-        });
-        previous
+        })
     }
 
     /// The `Editing` prop of `id` changed: it keeps its editing state with
@@ -112,12 +111,12 @@ impl Model {
             }
             None => false,
         };
-        if let Some(edit) = &mut self.editors[node.index.0] {
-            if matches!(edit.controlled, ControlledValue::InSync { .. }) {
-                edit.controlled = ControlledValue::InSync {
-                    at: edit.editor.revision(),
-                };
-            }
+        if let Some(edit) = &mut self.editors[node.index.0]
+            && matches!(edit.controlled, ControlledValue::InSync { .. })
+        {
+            edit.controlled = ControlledValue::InSync {
+                at: edit.editor.revision(),
+            };
         }
         if let Some(edit) = &mut self.editors[node.index.0] {
             edit.flush_damage();
