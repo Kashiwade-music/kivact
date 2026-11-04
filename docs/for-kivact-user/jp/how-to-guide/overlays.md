@@ -10,7 +10,8 @@
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::ui::{DialogKind, Dismiss};
+use kivact::interaction::{DialogMode};
+use kivact::interaction::{DismissOn};
 
 fn app() -> impl IntoView {
     let open = signal(false);
@@ -20,17 +21,17 @@ fn app() -> impl IntoView {
         button("メモを削除").on_press(move || open.set(true)),
         text(move || if deleted.get() { "削除しました" } else { "残っています" }),
         dialog("このメモを削除しますか?", open)
-            .kind(DialogKind::AlertModal)
-            .dismiss(Dismiss { escape: true, outside: false })
+            .mode(DialogMode::AlertModal)
+            .dismiss(DismissOn { escape: true, outside: false })
             .description("この操作は元に戻せません。")
             .content(|| text("メモと添付ファイルが削除されます。"))
             .footer(move || {
                 row((
                     button("キャンセル")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                     button("削除する")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
                             open.set(false);
@@ -76,13 +77,13 @@ mod tests {
 - **アクセシビリティ。** タイトルがダイアログのアクセシブルな名前と見出しになります。`.hide_title(true)` は名前を保ったまま見出しを描かず、`.description(..)` は説明を加えます。
 - **幅。** `.width(480)` でテーマの幅を上書きします。
 
-`DialogKind` で種類を選びます。
+`DialogMode` で種類を選びます。
 
 | 種類 | 見た目 | 外側のクリック |
 | --- | --- | --- |
 | `Modal`(既定) | 中央のダイアログ | 閉じる |
 | `AlertModal` | 答えを求める中央のダイアログ(`Role::AlertDialog`) | `Dismiss` で許可しない限り閉じない |
-| `Drawer(Side::Right)` | 端に固定されたシート(`Left`、`Right`、`Top`、`Bottom`) | 閉じる |
+| `Drawer(Edge::Right)` | 端に固定されたシート(`Left`、`Right`、`Top`、`Bottom`) | 閉じる |
 | `Popover` | トリガーの隣に出るモーダルでないパネル | 閉じる |
 
 ### 内容は開くたびに作り直される
@@ -123,12 +124,12 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
+use kivact::interaction::DialogMode;
 
 fn help() -> impl IntoView {
     let open = signal(false);
     dialog("ヘルプ", open)
-        .kind(DialogKind::Popover)
+        .mode(DialogMode::Popover)
         .content(|| text("Tab で入力欄を移動できます。"))
         .attach(button("ヘルプ"))
 }
@@ -164,7 +165,7 @@ fn main() -> kivact::Result<()> {
 
 ## メニューを表示する
 
-`menu(label, entries, choose)` は、`label` という名前のボタンを描き、それが項目を開きます。`choose` は、ユーザーが選んだ項目の key を受け取ります。メニューは状態を持たないので、チェックマークはあなたのシグナルから作ります。
+`menu(label, entries).on_activate(choose)` は、`label` という名前のボタンを描き、それが項目を開きます。`choose` は、ユーザーが選んだ項目の key を受け取ります。メニューは状態を持たないので、チェックマークはあなたのシグナルから作ります。
 
 ```rust,test_harness
 use kivact::prelude::*;
@@ -175,7 +176,7 @@ fn app() -> impl IntoView {
 
     let entries = move || {
         vec![
-            MenuEntry::item("new", "新規").shortcut("Ctrl N"),
+            MenuEntry::item("new", "新規").with_shortcut("Ctrl N"),
             MenuEntry::item("open", "開く"),
             MenuEntry::separator(),
             MenuEntry::checkbox("grid", "グリッドを表示", show_grid.get()).keep_open(true),
@@ -189,7 +190,7 @@ fn app() -> impl IntoView {
     };
 
     column((
-        menu("ファイル", entries, move |key: &'static str| {
+        menu("ファイル", entries).on_activate(move |key: &'static str| {
             if key == "grid" {
                 show_grid.update(|on| *on = !*on);
             }
@@ -218,7 +219,7 @@ mod tests {
 }
 ```
 
-- 項目は `MenuEntry::item`、`checkbox(key, label, checked)`、`radio`、`submenu`、`separator`、`heading`、`group` で作ります。行の種類はコンストラクターが決めます。`.shortcut("Ctrl N")`(表示のみで、メニューはキーを割り当てません)、`.icon(..)`、`.description(..)`、`.disabled(bool)`、`.destructive(true)`、`.keep_open(true)` で修飾できます。項目の種類に当てはまらない修飾(区切り線への `shortcut`、サブメニューへの `keep_open` など)は使い方の誤りです。
+- 項目は `MenuEntry::item`、`checkbox(key, label, checked)`、`radio`、`submenu`、`separator`、`heading`、`group` で作ります。行の種類はコンストラクターが決めます。`.with_shortcut("Ctrl N")`(表示のみで、メニューはキーを割り当てません)、`.with_icon(..)`、`.with_description(..)`、`.disabled(bool)`、`.destructive(true)`、`.keep_open(true)` で修飾できます。項目の種類に当てはまらない修飾(区切り線への `shortcut`、サブメニューへの `keep_open` など)は使い方の誤りです。
 - チェックマークやラベルがシグナルに依存するときは、上のように `entries` にクロージャを渡します。メニューが再び読み取ります。固定のメニューなら素の `Vec` で十分です。
 - key はあなたのものです。`&'static str` か、`Clone + Eq + Hash` を満たす enum を使います。
 - 矢印キー、Enter、Space、サブメニューのための右・左キー、Escape、先頭の文字を打つ操作がすべて使えます。項目を選ぶとメニューは閉じます。ただし、その項目に `.keep_open(true)` があれば開いたままです。
@@ -233,7 +234,7 @@ fn app() -> impl IntoView {
         MenuEntry::item("copy", "コピー"),
         MenuEntry::item("paste", "貼り付け"),
     ];
-    menu("編集", entries, |_key: &'static str| {})
+    menu("編集", entries).on_activate(|_key: &'static str| {})
         .attach_context(node().child(text("右クリックしてください")).style(style().padding(48)))
 }
 
@@ -242,7 +243,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-メニューが開く位置は `.placement(..)`、`.align(..)`、`.offset(px)`、`.at_least_trigger_width(true)` で決めます。
+メニューが開く位置は `.placement(..)`、`.align(..)`、`.offset(px)`、`.at_least_anchor_width()` で決めます。
 
 ## トーストを表示する
 
@@ -252,7 +253,8 @@ fn main() -> kivact::Result<()> {
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 
 fn app() -> impl IntoView {
     let toaster = toaster();

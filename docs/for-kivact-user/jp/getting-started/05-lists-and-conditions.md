@@ -24,8 +24,9 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoView {
-    let done = tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done);
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+    let id = task.get_untracked().id;
+    let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("削除").on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
@@ -37,7 +38,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     column(for_each(
         tasks,
         |task| task.id,
-        move |id, task| task_row(tasks, id, task),
+        move |task| task_row(tasks, task),
     ))
     .style(style().gap(8))
 }
@@ -98,12 +99,12 @@ fn main() -> kivact::Result<()> {
 
 - `items` は、一覧を持つシグナルです。
 - `key` は、項目を見分ける値を返します。ここでは `task.id` です。行はキーで対応づけられるので、2 番目のタスクを削除すると、Kivact はその行だけを取り除き、ほかの行は、その状態ごと残します。
-- `row` は、新しいキーごとに一度だけ呼ばれます。キーと `Value<Task>` を受け取ります。`Value<Task>` は読み取り専用のハンドルで、常に現在の項目を持っています。`task.get()` で読みます。
+- `row` は、新しいキーごとに一度だけ呼ばれます。`Binding<Task>` を 1 つ受け取ります。現在の項目を reactive に読み書きするハンドルです。`task.get()` で読みます。
 
 `column(for_each(..))` は、行を縦に並べます。
 
 **チェックボックスを 1 つのフィールドにバインドする。** `checkbox(名前, バインディング)` は、`bool` を編集するチェックボックスを作ります。行の `done` フラグは一覧の中にあるので、
-`tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done)`
+`bind!(task.done)`（または `task.project(|task| &task.done, |task| &mut task.done)`）
 で、この id のタスクの、そのフィールドだけへの双方向バインディングを作ります。チェックボックスをクリックすると一覧へ書き込まれ、`left` が数え直されます。`field` の最初のクロージャはフィールドを読み、2 つ目は書き込み用の参照を返します。
 
 `checkbox` は名前にクロージャを受け取れるので、ラベルはタイトルに追従します。この名前は、スクリーンリーダーが読み上げる名前でもあります。

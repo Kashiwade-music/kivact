@@ -59,7 +59,7 @@ format's calls, and a test implements it with a fake:
 ```rust,test_harness
 use std::sync::Arc;
 
-use kivact::interaction::EditPhase;
+use kivact::view::EditPhase;
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::prelude::*;
 
@@ -425,6 +425,13 @@ drop(editor);
 
 Real plugin hosts (REAPER, Bitwig Studio, Ableton Live, Cubase and others), an IME in a
 real DAW and screen readers inside a plugin window have not been verified.
+
+## Themes in an embedded editor
+
+`App::theme` accepts a fixed theme for embedding. A caller-thread reactive theme
+returns `UiError::Unsupported`. For a changing theme, create its signal and
+`provide_theme` inside the `Send` root factory passed to `embed`. In desktop
+`run` and tests, `App::theme` evaluates reactive themes under the root owner.
 
 ## See also
 

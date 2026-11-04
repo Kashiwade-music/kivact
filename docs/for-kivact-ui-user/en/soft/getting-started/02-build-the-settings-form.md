@@ -15,7 +15,7 @@ fn settings(save: impl Fn(String) + 'static) -> impl IntoView {
         soft::heading(1, "Profile"),
         text_input("Display name", display_name),
         button("Save")
-            .variant(ButtonVariant::Primary)
+            .variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || display_name.get().trim().is_empty())
             .on_press(move || save(display_name.get().trim().to_owned())),
     ))

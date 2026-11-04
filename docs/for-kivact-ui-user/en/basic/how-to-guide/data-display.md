@@ -119,7 +119,7 @@ fn visitors() -> impl IntoView {
     ];
     basic::card()
         .header(basic::card_header("Bar chart").description("January - March"))
-        .content(move || basic::chart(config, data).kind(basic::ChartKind::Line).height(220.0))
+        .content(basic::chart(config, data).kind(basic::ChartKind::Line).height(220.0))
         .style(style().width(560))
 }
 ```

@@ -54,7 +54,7 @@ use kivact::style::ThemeMode;
 fn app() -> impl IntoView {
     column((
         text_input("Name", signal(String::new())),
-        button("Save").variant(ButtonVariant::Primary),
+        button("Save").variant(kivact::ui::ButtonVariant::Primary),
     ))
     .style(style().gap(12).padding(24))
 }

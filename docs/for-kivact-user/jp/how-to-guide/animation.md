@@ -155,8 +155,9 @@ fn app() -> impl IntoView {
 自分の計算（シミュレーション、時計、ゲームループ）が必要なときは `frame_loop` を使います。コールバックは、ティックの時刻、前のティックからの経過時間（`delta`）、フレーム番号、表示時刻の推定値を持つ `FrameInfo` を受け取ります。レートを指定して開始します。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
@@ -197,8 +198,8 @@ fn clock_hand() -> impl IntoView {
 システムに「動きを減らす」設定をしている人は多くいます。Kivact はその設定を報告し、ほとんどの場合は自動で従います。
 
 - トランジションは、既定で*装飾的*です。動きを減らす設定がオンのときは、すぐに終わります。`animated` は目標へ即座に移り、`enter`/`exit` も即座に適用されます。
-- 「処理中」を伝えるスピナーなど、意味を持つ動きには `Transition::tween(…).decorative(false)` を付けます。このトランジションは動き続けます。
-- `frame_loop` は、動きを減らす設定では**止まりません**。ゲームやシミュレーションかもしれないからです。装飾だけのループなら、`kivact::platform::reduced_motion()`（追跡付きの読み取り）を読んで、止めるか遅くしてください。
+- 「処理中」を伝えるスピナーなど、意味を持つ動きには `Transition::tween(…).essential()` を付けます。このトランジションは動き続けます。
+- `frame_loop` は、動きを減らす設定では**止まりません**。ゲームやシミュレーションかもしれないからです。装飾だけのループなら、`kivact::platform::is_motion_reduced().get()`（追跡付きの読み取り）を読んで、止めるか遅くしてください。
 
 ```rust,no_run
 # use kivact::motion::{FrameInfo, FrameRate, frame_loop};
@@ -207,7 +208,7 @@ fn drifting_background() -> impl IntoView {
     let shift = signal(0.0_f64);
     let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
     effect(move || {
-        if kivact::platform::reduced_motion() {
+        if kivact::platform::is_motion_reduced().get() {
             frames.stop();
         } else {
             frames.start(FrameRate::Hz(30.0));

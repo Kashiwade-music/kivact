@@ -9,7 +9,8 @@
 ## ズームとパンができる画像を表示する
 
 ```rust,no_run
-use kivact::draw::{Pixels, Point, Rect, Size};
+use kivact::draw::{Pixels};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::interaction::ViewTransform;
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
@@ -44,7 +45,7 @@ fn viewer() -> impl IntoView {
 
     column((
         row((
-            ui::value_slider("色合い", tint).range(0.0, 1.0).step(0.01).precision(2),
+            ui::value_slider("色合い", tint).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).step(0.01).precision(2),
             button("全体表示").on_press(move || {
                 transform.set(ViewTransform::fit(
                     Size::new(WIDTH as f64, HEIGHT as f64),

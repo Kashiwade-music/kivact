@@ -8,11 +8,11 @@
 
 ## ページにアラートを出す
 
-`pop::alert(title)` は、タイトル、任意の説明、任意の操作を持つインラインの枠です。色は標準の `kivact::ui::Tone` で決まります。
+`pop::alert(title)` は、タイトル、任意の説明、任意の操作を持つインラインの枠です。色は標準の `kivact::interaction::Tone` で決まります。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
@@ -20,7 +20,7 @@ fn payment_status(failed: Signal<bool>) -> impl IntoView {
         pop::alert("Payment failed")
             .tone(Tone::Danger)
             .description("Your card was declined. Update it and try again.")
-            .actions(|| button("Update card").variant(ButtonVariant::Outline))
+            .actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))
     })
 }
 # fn main() {}
@@ -35,7 +35,8 @@ fn payment_status(failed: Signal<bool>) -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 use kivact_ui_pop as pop;
 use std::time::Duration;
 
@@ -71,7 +72,7 @@ fn main() -> kivact::Result<()> {
 
 ## 通知の履歴を持たせる
 
-`pop::notification_menu(trigger, items, mark_read)` は、トリガー（通常はベルのボタン）から通知の一覧をポップアップで出します。未読の項目があるあいだ、トリガーに点が出ます。
+`pop::notification_menu(trigger, items).on_mark_read(mark_read)` は、トリガー（通常はベルのボタン）から通知の一覧をポップアップで出します。未読の項目があるあいだ、トリガーに点が出ます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -90,10 +91,9 @@ fn bell() -> impl IntoView {
         button("Notifications")
             .icon(icon("bell"))
             .hide_label(true)
-            .variant(ButtonVariant::Ghost),
+            .variant(kivact::ui::ButtonVariant::Ghost),
         items,
-        move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)),
-    )
+    ).on_mark_read(move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)))
 }
 # fn main() {}
 ```
@@ -114,7 +114,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
         show(move || !loading.get() && count.get() == 0, || {
             pop::empty_state("No orders yet")
                 .description("Orders appear here as soon as customers check out.")
-                .content(|| button("Create an order").variant(ButtonVariant::Primary))
+                .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
         show(loading, || row((pop::spinner(), text("Loading orders")))
             .style(style().gap(8))),

@@ -16,8 +16,8 @@ Coordinates are in logical pixels, measured from the canvas's own top-left
 corner.
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Point, Rect};
+use kivact::view::canvas;
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
@@ -60,8 +60,9 @@ A `Path` is a chain of moves and segments. `fill_path` fills it,
 `stroke_path` outlines it.
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn wave() -> impl IntoView {
@@ -103,8 +104,9 @@ building a path.
 There are two kinds, and they place color differently.
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{CanvasGradient, Point, Rect, linear_gradient};
+use kivact::view::canvas;
+use kivact::draw::{CanvasGradient, linear_gradient};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 
 fn gradients() -> impl IntoView {
@@ -136,23 +138,24 @@ and a coordinate gradient can be extended past its ends with
 ## Draw and measure text
 
 `draw.text(text, position, style)` draws one line. The position is the
-text's top-left corner unless the `TextStyle` changes its anchor with
+text's top-left corner unless the `TextFormat` changes its anchor with
 `align` and `baseline`. To size things around a label, measure it first with
 the same shaping the drawing uses:
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Draw, Point, Rect, TextBaseline, TextStyle};
+use kivact::view::canvas;
+use kivact::draw::{Draw, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::TextAlign;
 
 /// A pill exactly as wide as its label plus 12 px of padding.
 fn pill(draw: &mut Draw, label: &str, at: Point) {
-    let style = TextStyle {
+    let style = TextFormat {
         size: 12.0,
         weight: 600,
         color: rgb(0xffffff),
-        ..TextStyle::default()
+        ..TextFormat::default()
     };
     let metrics = draw.measure_text(label, &style);
     let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
@@ -166,10 +169,10 @@ fn labels() -> impl IntoView {
         pill(draw, "In progress", Point::new(12.0, 44.0));
 
         // Centered on a point: use the anchor instead of measuring.
-        let centered = TextStyle {
+        let centered = TextFormat {
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         draw.text("Centered", Point::new(size.width / 2.0, 100.0), centered);
     })
@@ -182,7 +185,7 @@ fn labels() -> impl IntoView {
 `TextMetrics` gives the text's `size` (`size.width`, `size.height`) and the
 `baseline` offset in logical pixels. For wrapped text use `draw.layout_paragraph(text, &style, Some(max_width))`
 and draw the result with `draw.paragraph(&paragraph, origin, color)`.
-`TextStyle` has the same vocabulary as element text: `family`, `weight`,
+`TextFormat` has the same vocabulary as element text: `family`, `weight`,
 `italic`, `letter_spacing`, `decoration` and so on.
 
 ## Transform, clip and fade a group
@@ -192,8 +195,9 @@ filter, mask or shadow to everything drawn inside the closure. The group ends
 when the closure returns. A layer's transform maps text, images and clips too.
 
 ```rust,no_run
-# use kivact::control::canvas;
-# use kivact::draw::{Layer, Point, Rect, Transform};
+# use kivact::view::canvas;
+# use kivact::draw::{Layer, Transform};
+use kivact::geometry::{Point, Rect};
 # use kivact::prelude::*;
 fn spinner() -> impl IntoView {
     canvas(|draw, size| {
@@ -217,8 +221,9 @@ the signal changes, only this canvas is redrawn. You do not write to a
 "dirty" flag or call a repaint function.
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{LineJoin, Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{LineJoin, Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
@@ -268,16 +273,17 @@ shape (the hit area), an accessible role and name, and handlers. You do this in
 two steps:
 
 1. In setup, declare behavior with `.region(id, part)` on the canvas. The part
-   comes from `kivact::primitive::part` and carries the role, name, state and
-   handlers, exactly like attaching a part to an ordinary element.
+   uses `kivact::custom::Part::new(state, apply)`. Its transformation sets
+   the role, name and handlers on the host node, just as for an ordinary element.
 2. In the draw closure, give the same `RegionId` its geometry with
    `draw.region(id, rect)`.
 
 ```rust,test_harness
-use kivact::control::canvas;
-use kivact::draw::{Rect, RegionId};
+use kivact::view::canvas;
+use kivact::draw::{RegionId};
+use kivact::geometry::{Rect};
 use kivact::prelude::*;
-use kivact::primitive::part;
+use kivact::custom::Part;
 
 const SWATCHES: [(&str, u32); 3] = [("Red", 0xe5484d), ("Green", 0x30a46c), ("Blue", 0x3e63dd)];
 
@@ -297,11 +303,11 @@ fn swatches() -> impl IntoView {
     for (i, (name, _)) in SWATCHES.iter().enumerate() {
         board = board.region(
             RegionId(i as u64),
-            part(|state| state)
+            Part::new(().into_value(), move |host| host
                 .role(Role::Button)
                 .name(*name)
                 .selected(move || chosen.get() == i)
-                .on_press(move || chosen.set(i)),
+                .on_press(move || chosen.set(i))),
         );
     }
 
@@ -362,8 +368,9 @@ passes frames to the UI thread; no polling is needed.
 ```rust,no_run
 use std::sync::Arc;
 use std::time::Duration;
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Pixels, Rect};
+use kivact::view::canvas;
+use kivact::draw::{ImageOptions, Pixels};
+use kivact::geometry::{Rect};
 use kivact::prelude::*;
 
 fn renderer_preview() -> impl IntoView {
@@ -371,7 +378,7 @@ fn renderer_preview() -> impl IntoView {
     let (tx, rx) = async_channel::bounded(2);
 
     // Frame size in physical pixels: logical size times the display scale.
-    let scale = kivact::platform::scale_factor();
+    let scale = kivact::platform::scale_factor().get();
     let width = (320.0 * scale).ceil().max(1.0) as u32;
     let height = (180.0 * scale).ceil().max(1.0) as u32;
 
@@ -438,7 +445,8 @@ thumbnails and frame sequences, or from a command-line tool. Write the picture
 as one function and use it for both the screen and the export:
 
 ```rust
-use kivact::draw::{Draw, Offscreen, Point, Rect, Size};
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -475,7 +483,8 @@ In the same app, `canvas(artwork)` shows the exact function you export.
   create it inside `blocking`:
 
 ```rust,no_run
-use kivact::draw::{Draw, Offscreen, Rect, Size};
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Rect, Size};
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -483,7 +492,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 }
 
 fn exporter() -> impl IntoView {
-    let export = action(ActionPolicy::Latest, |(width, height): (u32, u32)| async move {
+    let export = action(ActionMode::Latest, |(width, height): (u32, u32)| async move {
         let image = blocking(move || Offscreen::new().render(width, height, artwork)).await?;
         // Write `image` to disk here, still off the UI thread.
         Ok(image.rgba.len())
@@ -507,4 +516,4 @@ fn exporter() -> impl IntoView {
 - [Run async work from a component](async-and-tasks.md): channels, `spawn` and `blocking`.
 - [Share GPU textures with a canvas](gpu-texture-sharing.md): frames from a GPU renderer without a read-back.
 - [Test your app](testing.md): find regions by role, compare screenshots.
-- API reference: `cargo doc -p kivact --open`, then `kivact::draw` and `kivact::control::canvas`.
+- API reference: `cargo doc -p kivact --open`, then `kivact::draw` and `kivact::view::canvas`.

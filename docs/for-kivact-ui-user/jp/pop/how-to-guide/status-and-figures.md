@@ -65,13 +65,13 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
         for_each(
             rows,
             |customer: &Customer| customer.name,
-            |_name, customer| {
+            |customer| {
                 let customer = customer.get_untracked();
                 pop::list_item(customer.name)
                     .subtitle(customer.plan)
                     .icon(Icon::named("user"))
                     .tone(pop::Hue::Blue)
-                    .trailing(move || {
+                    .trailing({
                         if customer.active {
                             pop::badge("Active").hue(pop::Hue::Mint)
                         } else {
@@ -86,7 +86,7 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
 # fn main() {}
 ```
 
-`for_each(items, key, row)` は顧客ごとに `list_item` を 1 つ作り、一覧が変わっても各行（とその状態）を保ちます。行のクロージャはキーと、項目の `Value` を受け取ります。この例は項目を一度だけ読むので、顧客のデータが変わる場合は、行の中でシグナルを読む必要があります。`.trailing(..)` は行が配置されたときに一度だけ実行されるクロージャを受け取るので、時間とともに変わる末尾のビューは、その中でシグナルを読んでください。
+`for_each(items, key, row)` は顧客ごとに `list_item` を 1 つ作り、一覧が変わっても各行（とその状態）を保ちます。source がシグナルなので、行のクロージャーは `Binding<Customer>` を 1 つ受け取ります。顧客のデータが変わる場合は、reactive な文字やスタイルのクロージャーで読みます。`.trailing(..)` は一度だけ mount するビューを受け取ります。
 
 `badge` は `.variant(pop::BadgeVariant::..)` で 5 つの見た目を持ちます。`Soft`（既定）、`Dot`（ラベルの前に色付きの点）、`Solid`、`Slant`、`Count`（小さな数字）です。色は `.hue(pop::Hue::..)` で、`Blue`、`Mint`、`Yellow`、`Pink`、`Red`、`Gray` のいずれかです。
 
@@ -105,7 +105,7 @@ fn details() -> impl IntoView {
         pop::key_value("Status", pop::badge("Active").hue(pop::Hue::Mint)),
         pop::key_value(
             "Storage",
-            pop::progress_ring(72.0, "Used", pop::Hue::Blue),
+            pop::progress_ring(72.0, "Used", pop::Hue::Blue.into_value()),
         ),
     ))
     .style(style().width(360).margin(24))
@@ -121,7 +121,7 @@ fn details() -> impl IntoView {
 
 ## Hue と Tone: どちらを使うか
 
-似た 2 つの enum があります。`pop::Hue` は Pop のパレットの色で、バッジ、統計カード、リスト項目、カレンダーが使います。`kivact::ui::Tone`（`Neutral`、`Info`、`Success`、`Warning`、`Danger`、`Accent`）は意味で、アラート、トースト、コア由来のものが使います。Pop のコンポーネントが `Hue` を求めるときは色を自分で決め、標準やメッセージ系のコンポーネントが `Tone` を求めるときは意味を伝えて、色はテーマに任せます。
+似た 2 つの enum があります。`pop::Hue` は Pop のパレットの色で、バッジ、統計カード、リスト項目、カレンダーが使います。`kivact::interaction::Tone`（`Neutral`、`Info`、`Success`、`Warning`、`Danger`、`Accent`）は意味で、アラート、トースト、コア由来のものが使います。Pop のコンポーネントが `Hue` を求めるときは色を自分で決め、標準やメッセージ系のコンポーネントが `Tone` を求めるときは意味を伝えて、色はテーマに任せます。
 
 ## 関連
 

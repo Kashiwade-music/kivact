@@ -227,7 +227,7 @@ To tell the user instead of sending the error to `on_error`, await the future
 and match on the error kind:
 
 ```rust,no_run
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::platform;
 use kivact::prelude::*;
 
@@ -256,7 +256,7 @@ use kivact::prelude::*;
 
 fn font_list() -> impl IntoView {
     let families = kivact::platform::font_families();
-    scroll(text(families.join("\n"))).style(style().size(320, 400))
+    scroll(text(families.get().join("\n"))).style(style().size(320, 400))
 }
 
 fn main() -> kivact::Result<()> {
@@ -336,7 +336,7 @@ use kivact::platform;
 use kivact::prelude::*;
 
 fn shell() -> impl IntoView {
-    let narrow = memo(move || platform::window_size().width < 600.0);
+    let narrow = memo(move || platform::window_size().get().width < 600.0);
     column(text(move || {
         if narrow.get() { "Narrow layout" } else { "Wide layout" }
     }))

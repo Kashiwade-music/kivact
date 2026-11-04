@@ -40,7 +40,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["embed
 ```rust,test_harness
 use std::sync::Arc;
 
-use kivact::interaction::EditPhase;
+use kivact::view::EditPhase;
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::prelude::*;
 
@@ -351,6 +351,13 @@ drop(editor);
 | 未処理のキーをホストへ返す | 未対応 | 未対応 |
 
 実際のプラグインホスト (REAPER、Bitwig Studio、Ableton Live、Cubase など)、実際の DAW での IME、プラグインウィンドウ内での読み上げソフトは、まだ検証していません。
+
+## 埋め込みのテーマ
+
+埋め込みの `App::theme` は固定のテーマを受け取ります。呼び出し元スレッドの reactive な
+テーマは `UiError::Unsupported` になります。動的なテーマは `embed` に渡す `Send` な
+root factory の中でシグナルと `provide_theme` を作ります。デスクトップの `run` と試験では、
+`App::theme` の reactive なテーマは root owner の下で評価されます。
 
 ## 関連項目
 

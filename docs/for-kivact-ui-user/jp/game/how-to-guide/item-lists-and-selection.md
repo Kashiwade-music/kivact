@@ -6,7 +6,7 @@
 
 ## 一覧から 1 つ選ぶ
 
-`list(label, items, selected)` は標準コンポーネントです。Game テーマは、直線的な角と選択の縁取りで描きます。
+`list(label, items).selection(selected)` は標準コンポーネントです。Game テーマは、直線的な角と選択の縁取りで描きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -16,12 +16,12 @@ use kivact_ui_game as game;
 fn inventory() -> impl IntoView {
     let selected = signal(Some(2_u32));
     let items = vec![
-        ListItem::new(1, "Rail Rifle").description("POWER 42").icon("bolt"),
-        ListItem::new(2, "Pulse Blade").description("POWER 35"),
-        ListItem::new(3, "Prototype Cannon").description("LOCKED").disabled(true),
+        ListItem::new(1, "Rail Rifle").with_description("POWER 42").with_icon("bolt"),
+        ListItem::new(2, "Pulse Blade").with_description("POWER 35"),
+        ListItem::new(3, "Prototype Cannon").with_description("LOCKED").disabled(true),
     ];
     column((
-        list("Inventory", items, selected),
+        list("Inventory", items).selection(selected),
         game::mono(move || format!("SELECTED {:?}", selected.get())),
     ))
     .style(style().gap(12).width(320).margin(24))
@@ -57,11 +57,11 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
     let rows = memo(move || {
         all.with(|all| {
             all.iter()
-                .map(|w| ListItem::new(w.id, w.name.clone()).description(format!("AMMO {}", w.ammo)))
+                .map(|w| ListItem::new(w.id, w.name.clone()).with_description(format!("AMMO {}", w.ammo)))
                 .collect::<Vec<_>>()
         })
     });
-    list("Weapons", rows, selected)
+    list("Weapons", rows).selection(selected)
 }
 # fn main() {}
 ```
@@ -70,7 +70,7 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
 
 ## 複数のアイテムを選ぶ
 
-`.multiple(signal)` は一覧を複数選択にします。一覧はそのシグナル（`Signal<Vec<K>>`）だけを読み書きし、単一の `selected` 引数は使われないので、適当なシグナルを渡します。クリックで 1 つを選択、Ctrl（macOS では Cmd）で 1 つずつ切り替え、Shift で直前の項目から範囲を広げます。
+`.selection(signal)` は単一選択なら `Signal<Option<K>>`、複数選択なら `Signal<Vec<K>>` を受け取ります。クリックで選択し、Ctrl（macOS は Cmd）で切り替え、Shift で範囲を選びます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -83,10 +83,7 @@ fn squad() -> impl IntoView {
             ListItem::new(1, "Aya"),
             ListItem::new(2, "Ben"),
             ListItem::new(3, "Cho"),
-        ],
-        signal(None::<u32>),
-    )
-    .multiple(picked)
+        ]).selection(picked)
 }
 # fn main() {}
 ```
@@ -103,9 +100,7 @@ fn missions() -> impl IntoView {
     let selected = signal(Some("alpha"));
     list(
         "Missions",
-        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")],
-        selected,
-    )
+        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")]).selection(selected)
     .item(|item, state| {
         row((
             game::mono(move || if state.get().selected { ">" } else { " " }),
@@ -158,7 +153,7 @@ fn files() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 #[derive(Clone, PartialEq)]

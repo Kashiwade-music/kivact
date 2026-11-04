@@ -7,7 +7,8 @@ Keep the appearance setting and the save result in separate signals. Wrap the se
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::{provide_theme, show};
+use kivact::style::{provide_theme};
+use kivact::view::{show};
 use kivact_ui_soft as soft;
 
 fn settings_feedback() -> impl IntoView {

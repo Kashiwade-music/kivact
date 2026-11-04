@@ -79,10 +79,10 @@ This is the model of SolidJS. Two consequences:
 | Run once after mount | `useEffect(.., [])` | `onMount` | `on_mount(..)` |
 | Mutable value, no re-render | `useRef` | a plain variable | `var(value)` |
 | Element ref | `useRef` on a DOM node | `ref` | `node_ref()` and `.node_ref(r)`; `r.focus()` |
-| Context | `createContext`, `useContext` | `createContext`, `useContext` | `provide(value, \|\| child)` and `context::<T>()` |
+| Context | `createContext`, `useContext` | `createContext`, `useContext` | `provide(value, \|\| child)` and `use_context::<T>()` |
 | Conditional | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`, `show_some(option, \|v\| a)` |
 | Several branches | ternary or `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
-| List | `items.map(..)` with `key` | `<For>` | `for_each(items, \|i\| key, \|key, item\| row)` |
+| List | `items.map(..)` with `key` | `<For>` | `for_each(items, \|i\| key, \|item\| row)` |
 | List by position | `key={index}` | `<Index>` | `for_index(items, \|i, item\| row)` |
 | Key | `key` prop | the `For` identity | the key function you give `for_each` |
 | Controlled input | `value` + `onChange` | `value` + `onInput` | a `Signal<String>` (or a `Binding<T>`) passed to the input |
@@ -92,6 +92,12 @@ This is the model of SolidJS. Two consequences:
 Most names above come from `use kivact::prelude::*;`. `callback`,
 `error_boundary` and `try_context` are imported from `kivact::view`, and
 `effect_on` from `kivact`.
+
+
+`Machine` is `useReducer` with effects and timers. Define explicit states and
+events, return a `Step` from `transition`, and execute effects in the runner.
+See [custom controls](custom-controls.md#write-behavior-with-a-state-machine).
+
 
 ## Props, children and callbacks
 
@@ -207,7 +213,7 @@ fn app() -> impl IntoView {
         // Option: the factory gets a `Value<String>` for the current value.
         show_some(user, |name| text(move || format!("Hello, {}", name.get()))),
         // `<For>`: rows keep their state by key.
-        column(for_each(names, |name| name.clone(), |_, name| text(move || name.get()))),
+        column(for_each(names, |name| name.clone(), |name| text(move || name.get()))),
         // `<Index>`: rows keep their state by position.
         column(for_index(names, |i, name| text(move || format!("{i}: {}", name.get())))),
         button("Toggle").on_press(move || logged_in.update(|v| *v = !*v)),
@@ -293,7 +299,7 @@ so do not use it just to update a piece of text: use a closure.
 ## Context
 
 `provide(value, || child)` makes `value` available to the child and everything
-below it; `context::<T>()` reads the nearest one. `T` must be `Clone`, so provide
+below it; `use_context::<T>()` reads the nearest one. `T` must be `Clone`, so provide
 a struct of `Copy` handles, or an `Rc` for anything heavy.
 
 ```rust,test_harness
@@ -305,8 +311,8 @@ struct Session {
 }
 
 fn greeting() -> impl IntoView {
-    let session = context::<Session>(); // panics, naming the type, if nothing provided it
-    text(move || format!("Signed in as {}", session.user.get()))
+    let session = use_context::<Session>(); // panics, naming the type, if nothing provided it
+    text(move || format!("Signed in as {}", session.get().user.get()))
 }
 
 fn app() -> impl IntoView {
@@ -315,8 +321,8 @@ fn app() -> impl IntoView {
 }
 
 fn settings() -> impl IntoView {
-    let session = context::<Session>();
-    button("Rename").on_press(move || session.user.set("ann2".to_owned()))
+    let session = use_context::<Session>();
+    button("Rename").on_press(move || session.get().user.set("ann2".to_owned()))
 }
 
 fn main() -> kivact::Result<()> {
@@ -337,9 +343,9 @@ mod tests {
 }
 ```
 
-- There are no default values. `context::<T>()` panics with the type name when
+- There are no default values. `use_context::<T>()` panics with the type name when
   nothing was provided. When the value is optional, use
-  `kivact::view::try_context::<T>()`, which returns an `Option<T>`.
+  `kivact::view::try_use_context::<T>()`, which returns an `Option<T>`.
 - `provide` only affects its child. Siblings built after it do not see the value.
 - Themes, locale, messages and reading direction have their own `provide_*`
   functions in `kivact::view` ([Theming](theming.md), [Internationalization](i18n.md)).

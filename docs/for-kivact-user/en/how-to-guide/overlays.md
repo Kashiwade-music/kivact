@@ -15,7 +15,8 @@ dialog writes `false` when the user closes it.
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::ui::{DialogKind, Dismiss};
+use kivact::interaction::{DialogMode};
+use kivact::interaction::{DismissOn};
 
 fn app() -> impl IntoView {
     let open = signal(false);
@@ -25,17 +26,17 @@ fn app() -> impl IntoView {
         button("Delete note").on_press(move || open.set(true)),
         text(move || if deleted.get() { "Deleted" } else { "Kept" }),
         dialog("Delete this note?", open)
-            .kind(DialogKind::AlertModal)
-            .dismiss(Dismiss { escape: true, outside: false })
+            .mode(DialogMode::AlertModal)
+            .dismiss(DismissOn { escape: true, outside: false })
             .description("This cannot be undone.")
             .content(|| text("The note and its attachments will be removed."))
             .footer(move || {
                 row((
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                     button("Delete")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
                             open.set(false);
@@ -88,13 +89,13 @@ What the dialog does for you:
   `.description(..)` adds a description.
 - **Width.** `.width(480)` overrides the theme's width.
 
-`DialogKind` chooses the style:
+`DialogMode` chooses the style:
 
 | Kind | Looks like | Outside press |
 | --- | --- | --- |
 | `Modal` (default) | a centered dialog | closes |
 | `AlertModal` | a centered dialog that asks for an answer (`Role::AlertDialog`) | does not close unless `Dismiss` says so |
-| `Drawer(Side::Right)` | a sheet fixed to an edge (`Left`, `Right`, `Top`, `Bottom`) | closes |
+| `Drawer(Edge::Right)` | a sheet fixed to an edge (`Left`, `Right`, `Top`, `Bottom`) | closes |
 | `Popover` | a non-modal panel next to its trigger | closes |
 
 ### The content is rebuilt on every open
@@ -140,12 +141,12 @@ second press on the trigger closes it again.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
+use kivact::interaction::DialogMode;
 
 fn help() -> impl IntoView {
     let open = signal(false);
     dialog("Help", open)
-        .kind(DialogKind::Popover)
+        .mode(DialogMode::Popover)
         .content(|| text("Press Tab to move between fields."))
         .attach(button("Help"))
 }
@@ -190,7 +191,7 @@ your own view.
 
 ## Show a menu
 
-`menu(label, entries, choose)` draws a button named `label` that opens the
+`menu(label, entries).on_activate(choose)` draws a button named `label` that opens the
 entries. `choose` receives the key of the entry the user picked. The menu keeps
 no state, so check marks come from your own signals.
 
@@ -203,7 +204,7 @@ fn app() -> impl IntoView {
 
     let entries = move || {
         vec![
-            MenuEntry::item("new", "New").shortcut("Ctrl N"),
+            MenuEntry::item("new", "New").with_shortcut("Ctrl N"),
             MenuEntry::item("open", "Open"),
             MenuEntry::separator(),
             MenuEntry::checkbox("grid", "Show grid", show_grid.get()).keep_open(true),
@@ -217,7 +218,7 @@ fn app() -> impl IntoView {
     };
 
     column((
-        menu("File", entries, move |key: &'static str| {
+        menu("File", entries).on_activate(move |key: &'static str| {
             if key == "grid" {
                 show_grid.update(|on| *on = !*on);
             }
@@ -272,7 +273,7 @@ fn app() -> impl IntoView {
         MenuEntry::item("copy", "Copy"),
         MenuEntry::item("paste", "Paste"),
     ];
-    menu("Edit", entries, |_key: &'static str| {})
+    menu("Edit", entries).on_activate(|_key: &'static str| {})
         .attach_context(node().child(text("Right-click me")).style(style().padding(48)))
 }
 
@@ -281,7 +282,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`.placement(..)`, `.align(..)`, `.offset(px)` and `.at_least_trigger_width(true)`
+`.placement(..)`, `.align(..)`, `.offset(px)` and `.at_least_anchor_width()`
 control where a menu opens.
 
 ## Show toasts
@@ -293,7 +294,8 @@ A toast is a short notification that disappears by itself. Mount one
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 
 fn app() -> impl IntoView {
     let toaster = toaster();

@@ -194,7 +194,7 @@ fn main() -> kivact::Result<()> {
 エラーを `on_error` に任せず、自分でユーザーに伝えたいときは、future を `await` してエラーの種類で `match` します。
 
 ```rust,no_run
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::platform;
 use kivact::prelude::*;
 
@@ -220,7 +220,7 @@ use kivact::prelude::*;
 
 fn font_list() -> impl IntoView {
     let families = kivact::platform::font_families();
-    scroll(text(families.join("\n"))).style(style().size(320, 400))
+    scroll(text(families.get().join("\n"))).style(style().size(320, 400))
 }
 
 fn main() -> kivact::Result<()> {
@@ -284,7 +284,7 @@ use kivact::platform;
 use kivact::prelude::*;
 
 fn shell() -> impl IntoView {
-    let narrow = memo(move || platform::window_size().width < 600.0);
+    let narrow = memo(move || platform::window_size().get().width < 600.0);
     column(text(move || {
         if narrow.get() { "狭いレイアウト" } else { "広いレイアウト" }
     }))

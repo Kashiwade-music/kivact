@@ -52,7 +52,7 @@ Kivact が出力するものはすべて target が `kivact` です。ただし�
 どのエラーにもメッセージがあり、分かる場合は原因になったコードの位置も持っています。
 
 ```rust,no_run
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::prelude::*;
 
 fn main() {
@@ -86,7 +86,7 @@ Kivact はコンポーネントの setup、イベントハンドラー (`on_pres
 報告されたエラーは、失敗したコードより上にある一番近い `error_boundary` に渡されます。境界は `on_error`、`fallback`、またはその両方を実行します。境界がなければ、エラーは**既定の出力先**に届きます。`tracing::error!` の 1 行と、直近 256 件のエラーを持つリングバッファです。アプリは止まりません。
 
 ```rust,test_harness
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::prelude::*;
 use kivact::view::error_boundary;
 
@@ -109,7 +109,7 @@ fn app() -> impl IntoView {
         .fallback(|error, reset| {
             column((
                 text(format!("Failed: {error}")),
-                button("Retry").on_press(move || reset()),
+                button("Retry").on_press(move || reset.run()),
             ))
         }),
     ))

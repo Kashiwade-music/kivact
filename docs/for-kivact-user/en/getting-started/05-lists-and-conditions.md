@@ -24,8 +24,9 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoView {
-    let done = tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done);
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+    let id = task.get_untracked().id;
+    let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("Remove").on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
@@ -37,7 +38,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     column(for_each(
         tasks,
         |task| task.id,
-        move |id, task| task_row(tasks, id, task),
+        move |task| task_row(tasks, task),
     ))
     .style(style().gap(8))
 }
@@ -98,13 +99,13 @@ The stand-in counter and button from step 3 are gone. The remaining count now co
 
 - `items` is the signal that holds the list.
 - `key` returns a value that identifies an item, here `task.id`. Rows are matched by key, so when you remove the second task, Kivact removes only that row and keeps the others, together with any state they hold.
-- `row` is called once for each new key. It receives the key and a `Value<Task>`, a read-only handle that always holds the current item. Read it with `task.get()`.
+- `row` is called once for each new key. It receives one `Binding<Task>`, a reactive handle that reads and writes the current item. Read it with `task.get()`.
 
 `column(for_each(..))` places the rows in a column.
 
 **Binding a checkbox to one field.** `checkbox(name, binding)` shows a checkbox that edits a `bool`. The row's `done` flag lives inside the list, so
-`tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done)`
-builds a two-way binding to just that field of the task with this id. Clicking the checkbox writes into the list, and the `left` memo recounts. The first closure after `field` reads the field and the second gives write access to it.
+`bind!(task.done)` (or `task.project(|task| &task.done, |task| &mut task.done)`)
+builds a two-way binding to just that field of the task with this id. Clicking the checkbox writes into the list, and the `left` memo recounts. The first closure after `project` reads the field and the second gives write access to it.
 
 `checkbox` takes a closure as its name, so the label follows the title. Its name is also what a screen reader announces.
 

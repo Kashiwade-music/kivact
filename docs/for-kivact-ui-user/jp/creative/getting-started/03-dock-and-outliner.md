@@ -9,7 +9,7 @@
 `src/main.rs` を、次のプログラム全体に置き換えます。ステップ 2 のフィールドを再利用しますが、今回はバラバラのシグナルではなく、*レイヤー*に結び付けます。
 
 ```rust,test_harness
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::prelude::*;
 use kivact::style::{Color, ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -84,7 +84,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "X",
             ui::number("X", x)
-                .range(-1000.0, 1000.0)
+                .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                 .step(1.0)
                 .precision(1)
                 .unit(" px")
@@ -93,7 +93,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "不透明度",
             ui::number("不透明度", opacity)
-                .range(0.0, 1.0)
+                .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                 .step(0.01)
                 .precision(2)
                 .label_visible(false),

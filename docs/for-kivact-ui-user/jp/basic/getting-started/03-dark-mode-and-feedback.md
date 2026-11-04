@@ -12,7 +12,8 @@
 use kivact::prelude::*;
 use kivact::style::theme::Typography;
 use kivact::style::{Direction, Theme, ThemeMode};
-use kivact::ui::{DialogKind, Toast, Tone, toast_region, toaster};
+use kivact::interaction::{DialogMode, Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
@@ -43,13 +44,13 @@ fn profile_card(
         .header(
             basic::card_header("プロフィール")
                 .description("ほかの人にどう見えるかを決めます。")
-                .action(move || {
+                .action({
                     show(changed, || {
                         basic::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 field("表示名", text_input("表示名", name))
                     .hint("公開ページに表示されます。"),
@@ -71,7 +72,7 @@ fn notifications_card(
     ];
     basic::card()
         .header(basic::card_header("通知").description("受け取りたいお知らせを選びます。"))
-        .content(move || {
+        .content({
             basic::field_group((
                 field("週間ダイジェスト", switch("週間ダイジェスト", digest).hide_label(true))
                     .hint("毎週月曜日に、1 週間のまとめが届きます。")
@@ -129,23 +130,23 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
             .variant(basic::AlertVariant::Destructive)
             .icon(icon("triangle-alert"))
             .description("アカウントを削除すると、元に戻せません。")
-            .action(move || {
+            .action({
                 button("アカウントを削除")
-                    .variant(ButtonVariant::Danger)
+                    .variant(kivact::ui::ButtonVariant::Danger)
                     .on_press(move || confirm_delete.set(true))
             })
             .style(style().width(856)),
         dialog("アカウントを削除しますか？", confirm_delete)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("すべての設定が削除されます。")
             .footer(move || {
                 (
                     button("キャンセル")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || confirm_delete.set(false)),
                     button("削除")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             confirm_delete.set(false);
                             toaster().push(Toast::new("アカウントを削除しました"));
@@ -166,7 +167,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
 
 fn root() -> impl IntoView {
     let dark = signal(false);
-    kivact::view::provide_theme(
+    kivact::style::provide_theme(
         move || theme(if dark.get() { ThemeMode::Dark } else { ThemeMode::Light }),
         move || settings(dark),
     )
@@ -242,7 +243,7 @@ mod tests {
 
 - **テーマの切り替え。** `provide_theme(theme, child)` は、その内側の部分木にテーマを与えます。第 1 引数は `dark` を読むクロージャなので、`dark` が変わるたびにテーマが作り直され、すべてのスタイルが色を解決し直します。コンポーネントは再マウントされないので、状態を保ちます。テーマが変わりうるときは、固定の `Theme` ではなく、このようなクロージャを渡します。
 - **トースト。** `toast_region(toaster())` は一度だけマウントします。トーストが現れる場所です。以降は、どのハンドラからでも `toaster().push(Toast::new(title))` と呼べます。`.tone(..)` でアイコンと緊急度を選び、`.body(..)` で 2 行目を足します。トーストは 5 秒で自動的に閉じ、ポインターが乗っている間は止まり、閉じるボタンも持ちます。
-- **アラートダイアログ。** `dialog(title, open)` は標準のダイアログで、`.kind(DialogKind::AlertModal)` にするとキットのアラートダイアログになります。`open` はふつうの `signal(bool)` です。ボタンが `true` にし、`.footer(..)` のボタンが `false` にします。`.closable(false)` は、アラートダイアログが持たない閉じるボタンを取り除きます。
+- **アラートダイアログ。** `dialog(title, open)` は標準のダイアログで、`.mode(DialogMode::AlertModal)` にするとキットのアラートダイアログになります。`open` はふつうの `signal(bool)` です。ボタンが `true` にし、`.footer(..)` のボタンが `false` にします。`.closable(false)` は、アラートダイアログが持たない閉じるボタンを取り除きます。
 - **alert とアラートダイアログの違い。** `basic::alert(..)` はページに置く静的な囲み（「危険な操作」の枠）です。ダイアログは、操作を中断させるポップアップです。
 
 ## テスト

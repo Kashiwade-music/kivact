@@ -68,10 +68,10 @@ mod tests {
 | マウント後に一度だけ実行 | `useEffect(.., [])` | `onMount` | `on_mount(..)` |
 | 再描画を起こさない可変の値 | `useRef` | 通常の変数 | `var(value)` |
 | 要素の参照 | DOM ノードへの `useRef` | `ref` | `node_ref()` と `.node_ref(r)`。`r.focus()` |
-| context | `createContext`、`useContext` | `createContext`、`useContext` | `provide(value, \|\| child)` と `context::<T>()` |
+| context | `createContext`、`useContext` | `createContext`、`useContext` | `provide(value, \|\| child)` と `use_context::<T>()` |
 | 条件 | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`、`show_some(option, \|v\| a)` |
 | 複数の分岐 | 三項演算子や `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
-| 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|i\| key, \|key, item\| row)` |
+| 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|i\| key, \|item\| row)` |
 | 位置による一覧 | `key={index}` | `<Index>` | `for_index(items, \|i, item\| row)` |
 | key | `key` prop | `For` の同一性 | `for_each` に渡す key の関数 |
 | 制御された入力 | `value` と `onChange` | `value` と `onInput` | 入力に渡す `Signal<String>`(または `Binding<T>`) |
@@ -79,6 +79,12 @@ mod tests {
 | データの取得 | ライブラリーや `useEffect` | `createResource` | `resource(source, fetch)`、ユーザー操作には `action(..)` |
 
 上の名前の多くは `use kivact::prelude::*;` で使えます。`callback`、`error_boundary`、`try_context` は `kivact::view` から、`effect_on` は `kivact` から import します。
+
+
+`Machine` は `useReducer` に effect と timer を足したものです。状態とイベントを明示し、
+`transition` で `Step` を返し、runner で副作用を実行します。
+[独自のコントロール](custom-controls.md#状態機械で振る舞いを書く)を参照してください。
+
 
 ## props、子、コールバック
 
@@ -182,7 +188,7 @@ fn app() -> impl IntoView {
         // Option: ファクトリーは現在の値の `Value<String>` を受け取る。
         show_some(user, |name| text(move || format!("こんにちは、{}", name.get()))),
         // `<For>`: 行は key で状態を保つ。
-        column(for_each(names, |name| name.clone(), |_, name| text(move || name.get()))),
+        column(for_each(names, |name| name.clone(), |name| text(move || name.get()))),
         // `<Index>`: 行は位置で状態を保つ。
         column(for_index(names, |i, name| text(move || format!("{i}: {}", name.get())))),
         button("切り替え").on_press(move || logged_in.update(|v| *v = !*v)),
@@ -253,7 +259,7 @@ mod tests {
 
 ## context
 
-`provide(value, || child)` は、子とその下のすべてで `value` を使えるようにし、`context::<T>()` は最も近いものを読みます。`T` は `Clone` が必要なので、`Copy` なハンドルの構造体か、重いものなら `Rc` を提供します。
+`provide(value, || child)` は、子とその下のすべてで `value` を使えるようにし、`use_context::<T>()` は最も近いものを読みます。`T` は `Clone` が必要なので、`Copy` なハンドルの構造体か、重いものなら `Rc` を提供します。
 
 ```rust,test_harness
 use kivact::prelude::*;
@@ -264,8 +270,8 @@ struct Session {
 }
 
 fn greeting() -> impl IntoView {
-    let session = context::<Session>(); // 提供されていなければ、型名つきで panic する
-    text(move || format!("{} としてサインイン中", session.user.get()))
+    let session = use_context::<Session>(); // 提供されていなければ、型名つきで panic する
+    text(move || format!("{} としてサインイン中", session.get().user.get()))
 }
 
 fn app() -> impl IntoView {
@@ -274,8 +280,8 @@ fn app() -> impl IntoView {
 }
 
 fn settings() -> impl IntoView {
-    let session = context::<Session>();
-    button("名前を変更").on_press(move || session.user.set("ann2".to_owned()))
+    let session = use_context::<Session>();
+    button("名前を変更").on_press(move || session.get().user.set("ann2".to_owned()))
 }
 
 fn main() -> kivact::Result<()> {
@@ -296,7 +302,7 @@ mod tests {
 }
 ```
 
-- 既定値はありません。何も提供されていないと、`context::<T>()` は型名つきで panic します。値が省略可能なら `kivact::view::try_context::<T>()` を使い、`Option<T>` を受け取ります。
+- 既定値はありません。何も提供されていないと、`use_context::<T>()` は型名つきで panic します。値が省略可能なら `kivact::view::try_use_context::<T>()` を使い、`Option<T>` を受け取ります。
 - `provide` が影響するのは、その子だけです。後ろに作られた兄弟は値を見られません。
 - テーマ、ロケール、文言、読み取りの向きには、それぞれ `kivact::view` に専用の `provide_*` 関数があります([テーマ](theming.md)、[翻訳とロケール](i18n.md))。
 

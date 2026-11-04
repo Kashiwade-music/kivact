@@ -13,7 +13,8 @@ Three meters accept a signal and redraw when it changes.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{Tone, progress};
+use kivact::interaction::{Tone};
+use kivact::ui::{progress};
 use kivact_ui_game as game;
 
 fn vitals() -> impl IntoView {
@@ -61,7 +62,7 @@ when it first appears.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn scoreboard() -> impl IntoView {
@@ -104,7 +105,7 @@ default), `Plain`, `Solid` or `Outline`. Both return a node that takes the usual
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn statuses() -> impl IntoView {
@@ -135,7 +136,7 @@ fn statuses() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn warning() -> impl IntoView {
@@ -158,7 +159,7 @@ same type. Turn a view into the shared type with `.into_view()` to mix:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn sheet() -> impl IntoView {
@@ -179,7 +180,7 @@ changing value inside its view (`game::mono(move || ..)`).
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn log(events: Signal<Vec<(String, String)>>) -> impl IntoView {

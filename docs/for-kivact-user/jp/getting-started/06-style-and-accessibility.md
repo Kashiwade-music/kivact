@@ -8,7 +8,7 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -32,13 +32,14 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoView {
-    let done = tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done);
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+    let id = task.get_untracked().id;
+    let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("削除")
             .name(move || format!("{} を削除", task.get().title))
-            .variant(ButtonVariant::Ghost)
+            .variant(kivact::ui::ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)
@@ -49,7 +50,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     column(for_each(
         tasks,
         |task| task.id,
-        move |id, task| task_row(tasks, id, task),
+        move |task| task_row(tasks, task),
     ))
     .role(Role::List)
     .name("タスク一覧")
@@ -131,7 +132,7 @@ fn main() -> kivact::Result<()> {
 
 **テーマの色。** `ColorToken::Surface`、`Text`、`TextMuted`、`SurfaceAlt`、`Border`、`Accent` などは色の*名前*で、実際にどんな色になるかは、そのときのテーマが決めます。ほとんどの色にはトークンを使うと、同じコードがライトテーマでもダークテーマでも通用します。固定の色が必要なときは、`rgb(0x336699)` を使います。
 
-**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
+**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(kivact::ui::ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
 
 **アクセシブルな名前。** スクリーンリーダーはコントロールを役割と名前で読み上げ、キーボード操作やテストのツールも、同じ方法でコントロールを見つけます。そのため、すべてのコントロールに名前が必要です。
 

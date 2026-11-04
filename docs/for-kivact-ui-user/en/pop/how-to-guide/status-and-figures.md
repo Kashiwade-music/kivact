@@ -79,13 +79,13 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
         for_each(
             rows,
             |customer: &Customer| customer.name,
-            |_name, customer| {
+            |customer| {
                 let customer = customer.get_untracked();
                 pop::list_item(customer.name)
                     .subtitle(customer.plan)
                     .icon(Icon::named("user"))
                     .tone(pop::Hue::Blue)
-                    .trailing(move || {
+                    .trailing({
                         if customer.active {
                             pop::badge("Active").hue(pop::Hue::Mint)
                         } else {
@@ -101,11 +101,9 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
 ```
 
 `for_each(items, key, row)` builds one `list_item` per customer and keeps each
-row (and its state) alive while the list changes. The row closure receives the
-key and a `Value` of the item; this example reads the item once, so a customer
-whose data changes needs a signal read inside the row. `.trailing(..)` takes a closure that runs once when the row
-mounts, so a trailing view that must change over time should read a signal
-inside itself.
+row (and its state) alive while the list changes. The row closure receives one `Binding<Customer>` because the source is a
+signal. Read it in reactive text or style closures when customer data changes.
+The trailing slot takes a view mounted once.
 
 `badge` has five looks through `.variant(pop::BadgeVariant::..)`: `Soft` (the
 default), `Dot` (a colored dot before the label), `Solid`, `Slant` and `Count`
@@ -128,7 +126,7 @@ fn details() -> impl IntoView {
         pop::key_value("Status", pop::badge("Active").hue(pop::Hue::Mint)),
         pop::key_value(
             "Storage",
-            pop::progress_ring(72.0, "Used", pop::Hue::Blue),
+            pop::progress_ring(72.0, "Used", pop::Hue::Blue.into_value()),
         ),
     ))
     .style(style().width(360).margin(24))
@@ -153,7 +151,7 @@ clickable.
 ## Hue and Tone: which one
 
 Two small enums look alike. `pop::Hue` is a color of the Pop palette, used by
-badges, stat cards, list items and calendars. `kivact::ui::Tone` (`Neutral`,
+badges, stat cards, list items and calendars. `kivact::interaction::Tone` (`Neutral`,
 `Info`, `Success`, `Warning`, `Danger`, `Accent`) is a meaning, used by alerts,
 toasts and anything that comes from the core. When a Pop component asks for
 a `Hue`, decide the color; when a standard or message component asks for a

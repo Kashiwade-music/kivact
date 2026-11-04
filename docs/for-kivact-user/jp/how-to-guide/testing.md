@@ -357,7 +357,7 @@ use kivact::test::{RenderOptions, render_with};
 
 fn size_label() -> impl IntoView {
     text(|| {
-        let size = kivact::platform::window_size();
+        let size = kivact::platform::window_size().get();
         format!("{} x {}", size.width, size.height)
     })
 }

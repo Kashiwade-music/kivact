@@ -11,7 +11,7 @@
 | id を持つレコード。行が自分の状態や入力を持つ | `for_each(items, key, row)` | 返した key |
 | id のない素の値(数値、文字列) | `for_index(items, row)` | 位置 |
 | 高さがそろった数千行 | `virtual_list(items, key, row)` | key。見えている行だけが存在する |
-| ユーザーが選ぶ一覧 | `list(name, items, selected)` | 項目の key |
+| ユーザーが選ぶ一覧 | `list(name, items).selection(selected)` | 項目の key |
 | 並べ替え・絞り込み・頁分け・選択のある列 | `data_table(rows, key, columns)` | 行の key |
 
 どれも項目として `Signal<Vec<T>>`、`Value`、memo、または `Vec<T>` を返すクロージャを受け取り、それが変わると再実行します。`T` は `Clone + PartialEq` が必要です。Kivact が古い項目と新しい項目を比較して、更新する行を判断するためです。
@@ -38,9 +38,10 @@ fn app() -> impl IntoView {
     column(for_each(
         todos,
         |todo| todo.id,
-        move |id, todo| {
+        move |todo| {
+            let id = todo.get_untracked().id;
             // チェックボックスを、一覧のこの行へ書き戻す。
-            let done = todos.item(|t| t.id, id).field(|t| &t.done, |t| &mut t.done);
+            let done = bind!(todo.done);
             // 行が持つ状態。key `id` が残っている間は生き続ける。
             let open = signal(false);
             column((
@@ -89,7 +90,7 @@ mod tests {
 仕組みです。
 
 - `for_each(items, key, row)` は、各行の同一性を得るために `key(&item)` を呼びます。行は、その key が一覧にある限り、自分の owner と、行のクロージャの中で作った `signal` をすべて保ちます。並べ替えると既存の行が移動し、項目を削除するとその行だけが破棄されます。
-- 行のクロージャは**行ごとに 1 回**だけ実行され、key と、行の現在の項目を常に保持する `Value<Todo>` を受け取ります。文字が編集に追従するよう、クロージャの中で読みます(`move || todo.get().title`)。一度読んだ結果を保存しないでください。
+- 行のクロージャは**行ごとに 1 回**だけ実行され、行の現在の項目を読み書きする `Binding<Todo>` を 1 つ受け取ります。文字が編集に追従するよう、クロージャの中で読みます(`move || todo.get().title`)。一度読んだ結果を保存しないでください。
 - key の型には `Clone + Eq + Hash` が必要です。位置ではなく、安定した id を使ってください。位置を使うと、順序が変わったとき行同士で状態が入れ替わってしまいます。
 - 同じ key の項目が 2 つあると誤りとして報告されます。id は重複させないでください。
 
@@ -97,7 +98,7 @@ mod tests {
 
 行が持つのは項目のコピーなので、どの項目を変えるのかを示す必要があります。便利な順に 3 通りあります。
 
-1. **フィールドへのバインディング。** `todos.item(|t| t.id, id)` は、key が `id` の項目への `Binding<Todo>` で、`.field(get, get_mut)` で 1 つのフィールドに絞れます。上のチェックボックスのように、そのバインディングを入力部品へ渡します。作るのはイベントハンドラーの中ではなく、行のクロージャのセットアップ中です。項目が消えると、バインディングは最後に見た値を保ち、書き込みは何もしません。
+1. **フィールドへのバインディング。** 行の `todo` はすでに `Binding<Todo>` です。`bind!(todo.done)` または `todo.project(get, get_mut)` でフィールドに絞ります。行の setup で作ります。項目が消えると最後の値を保ち、書き込みは何もしません。`Value<Vec<T>>`、`Vec<T>`、クロージャーの source では読み取り専用の `Value<T>` を受け取ります。
 2. **ハンドラーの中で key による更新。** `todos.update(|list| list.retain(|t| t.id != id))` や `list.iter_mut().find(|t| t.id == id)` です。削除、移動、一覧そのものを変える操作に使います。
 3. **行が持つ状態。** 行のクロージャの中で `signal(..)` を作ります。展開済みのパネルのように、一覧が知る必要のないものに使います。
 
@@ -193,7 +194,7 @@ mod tests {
 
 ## ユーザーが選ぶ一覧
 
-`list(name, items, selected)` は `ListItem` を listbox として表示し、選ばれた key を `Signal<Option<K>>` へ書きます。name は一覧のアクセシブルな名前で、画面には描かれません。
+`list(name, items).selection(selected)` は `ListItem` を listbox として表示し、選ばれた key を `Signal<Option<K>>` へ書きます。name は一覧のアクセシブルな名前で、画面には描かれません。
 
 ```rust,test_harness
 use kivact::prelude::*;
@@ -207,18 +208,11 @@ fn app() -> impl IntoView {
             "色",
             vec![
                 ListItem::new(1_u32, "赤"),
-                ListItem::new(2, "青").description("落ち着いた色"),
+                ListItem::new(2, "青").with_description("落ち着いた色"),
                 ListItem::new(3, "緑").disabled(true),
-            ],
-            selected,
-        ),
+            ]).selection(selected),
         text(move || format!("選択中: {:?}", selected.get())),
-        list(
-            "ファイル",
-            vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")],
-            signal(None),
-        )
-        .multiple(picked_many)
+        list("ファイル", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")]).selection(picked_many)
         .item(|item, state| {
             text(move || {
                 let mark = if state.get().selected { "[x] " } else { "[ ] " };
@@ -332,12 +326,12 @@ mod tests {
 
 列は、比較(`.compare(..)`、またはセルの文字列を比較する `.sortable()`)を持つと並べ替えられ、`.filter(..)` を持つと絞り込みに加わります。`.cell(|row| view)` はセルの view を置き換えますが、文字列はセルのアクセシブルな名前として残ります。`.numeric(true)` は右寄せ、`.width(px)` は幅の固定で、ほかの列が残りを分け合い、`.visible(..)` は列を隠します。
 
-既定では、キーボードのフォーカスはセル間を移動し、Space で行を選びます。`.focus(TableFocus::Rows(ListPolicy::default()))` にすると、行全体がフォーカスの単位になります。数万行の表では、絞り込み済みのデータに `.page(..)` を組み合わせてください。現在の頁の行はすべてマウントされるからです。
+既定では、キーボードのフォーカスはセル間を移動し、Space で行を選びます。`.focus(TableFocus::Rows(ListOptions::default()))` にすると、行全体がフォーカスの単位になります。数万行の表では、絞り込み済みのデータに `.page(..)` を組み合わせてください。現在の頁の行はすべてマウントされるからです。
 
 ## 大きなデータ
 
 - 項目の型は、比較が軽くなるようにします。`for_each` と `data_table` は変更のたびに項目を `PartialEq` で比較します。大きなデータは `Rc` や id の向こうに置いてください。
-- `Vec` 全体を置き換えるのではなく、`update` か `item(..).field(..)` で 1 つの項目を更新します。変わった行だけが更新されます。
+- `Vec` 全体を置き換えるのではなく、`update` か `行の binding の `project(..)`` で 1 つの項目を更新します。変わった行だけが更新されます。
 - 長いログやフィードには `virtual_list`、表形式のデータには `.page(..)` 付きの `data_table` を使います。
 - 重い絞り込みや並べ替えは `memo` の中で行い、その memo を一覧へ渡します。
 

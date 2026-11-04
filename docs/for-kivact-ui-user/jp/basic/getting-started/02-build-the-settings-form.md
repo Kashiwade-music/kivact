@@ -44,13 +44,13 @@ fn profile_card(
         .header(
             basic::card_header("プロフィール")
                 .description("ほかの人にどう見えるかを決めます。")
-                .action(move || {
+                .action({
                     show(changed, || {
                         basic::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 field("表示名", text_input("表示名", name))
                     .hint("公開ページに表示されます。"),
@@ -72,7 +72,7 @@ fn notifications_card(
     ];
     basic::card()
         .header(basic::card_header("通知").description("受け取りたいお知らせを選びます。"))
-        .content(move || {
+        .content({
             basic::field_group((
                 field("週間ダイジェスト", switch("週間ダイジェスト", digest).hide_label(true))
                     .hint("毎週月曜日に、1 週間のまとめが届きます。")
@@ -145,7 +145,7 @@ fn main() -> kivact::Result<()> {
 - **`changed` はクロージャです。** `show(changed, || ..)` は、クロージャが読む signal が変わるたびにそれを呼び直し、`true` の間だけバッジを表示します。リアクティブな値には、ふつうのクロージャで足ります。
 - **選択肢は `ListItem` です。** `ListItem::new(key, label)` は、自分で決めた key と表示する文字を組にします。`select` と `toggle_group` は選ばれた key を `Option<K>`（ここでは `Option<&'static str>`）として持ち、`None` は何も選ばれていない状態です。
 - **スロットはクロージャを取ります。** `card().header(..)` は組み立て済みのヘッダーを取りますが、`.content(|| ..)` と `.footer(|| ..)` は、カードがマウントするときに一度だけ呼ぶクロージャを取ります。クロージャは使う signal を所有するよう `move || ..` と書きます。signal は `Copy` なので、クローンは要りません。
-- **`field(label, control)`** は Kivact の関数で、見えるラベルとコントロール、必要なら `.hint(..)` をまとめます。ラベルを押すとコントロールが働き、スクリーンリーダーはラベルをコントロールの名前として読み上げます。中のスイッチに `.hide_label(true)` を付けているのは、ラベルを field がすでに表示しているからです。
+- **`field(label, control)`** は Kivact の関数で、見えるラベルとコントロール、必要なら `.with_hint(..)` をまとめます。ラベルを押すとコントロールが働き、スクリーンリーダーはラベルをコントロールの名前として読み上げます。中のスイッチに `.hide_label(true)` を付けているのは、ラベルを field がすでに表示しているからです。
 - **`basic::field_group`** はキットの余白で field を縦に並べ、`basic::field_separator()` は field の間に区切り線を引きます。
 
 ## 次へ

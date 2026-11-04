@@ -9,8 +9,8 @@
 `canvas` は `Draw` と、そのノードの現在の `Size` を受け取るクロージャを取ります。座標は論理ピクセルで、キャンバス自身の左上を原点にします。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Point, Rect};
+use kivact::view::canvas;
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
@@ -44,8 +44,9 @@ fn main() -> kivact::Result<()> {
 `Path` は、移動と線分をつないだものです。`fill_path` は塗りつぶし、`stroke_path` は輪郭線を描きます。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn wave() -> impl IntoView {
@@ -82,8 +83,9 @@ fn wave() -> impl IntoView {
 グラデーションには 2 種類あり、色の置き方が違います。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{CanvasGradient, Point, Rect, linear_gradient};
+use kivact::view::canvas;
+use kivact::draw::{CanvasGradient, linear_gradient};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 
 fn gradients() -> impl IntoView {
@@ -110,21 +112,22 @@ fn gradients() -> impl IntoView {
 
 ## テキストを描き、測る
 
-`draw.text(text, position, style)` は 1 行を描きます。`TextStyle` の `align` と `baseline` で基準点を変えない限り、位置はテキストの左上です。ラベルの周りの大きさを決めるには、描画と同じ組版で先に測ります。
+`draw.text(text, position, style)` は 1 行を描きます。`TextFormat` の `align` と `baseline` で基準点を変えない限り、位置はテキストの左上です。ラベルの周りの大きさを決めるには、描画と同じ組版で先に測ります。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Draw, Point, Rect, TextBaseline, TextStyle};
+use kivact::view::canvas;
+use kivact::draw::{Draw, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::TextAlign;
 
 /// ラベルの幅に左右 12 px の余白を足した幅のピル。
 fn pill(draw: &mut Draw, label: &str, at: Point) {
-    let style = TextStyle {
+    let style = TextFormat {
         size: 12.0,
         weight: 600,
         color: rgb(0xffffff),
-        ..TextStyle::default()
+        ..TextFormat::default()
     };
     let metrics = draw.measure_text(label, &style);
     let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
@@ -138,10 +141,10 @@ fn labels() -> impl IntoView {
         pill(draw, "進行中", Point::new(12.0, 44.0));
 
         // 点を中心に置くときは、測らずに基準点を使います。
-        let centered = TextStyle {
+        let centered = TextFormat {
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         draw.text("中央", Point::new(size.width / 2.0, 100.0), centered);
     })
@@ -151,15 +154,16 @@ fn labels() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Labels").run(labels) }
 ```
 
-`TextMetrics` は `size`（`size.width`・`size.height`）と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextStyle` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
+`TextMetrics` は `size`（`size.width`・`size.height`）と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextFormat` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
 
 ## グループを変形・クリップ・半透明にする
 
 `draw.layer(Layer, |draw| { … })` は、クロージャの中で描いたもの全体に、変形・クリップ・不透明度・合成モード・フィルター・マスク・影を適用します。グループはクロージャが戻ると終わります。レイヤーの変形は、テキスト・画像・クリップにも効きます。
 
 ```rust,no_run
-# use kivact::control::canvas;
-# use kivact::draw::{Layer, Point, Rect, Transform};
+# use kivact::view::canvas;
+# use kivact::draw::{Layer, Transform};
+use kivact::geometry::{Point, Rect};
 # use kivact::prelude::*;
 fn spinner() -> impl IntoView {
     canvas(|draw, size| {
@@ -181,8 +185,9 @@ fn spinner() -> impl IntoView {
 クロージャの中でシグナルから読んだものは、すべて依存関係になります。シグナルが変わると、このキャンバスだけが再描画されます。「汚れた」フラグを立てたり、再描画の関数を呼んだりする必要はありません。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{LineJoin, Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{LineJoin, Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
@@ -223,14 +228,15 @@ fn main() -> kivact::Result<()> {
 
 キャンバスは 1 つのノードです。描いたピクセルには、*リージョン*として宣言するまで、ポインター・キーボード・スクリーンリーダーにとっての意味がありません。リージョンは、形（当たり判定）、アクセシブルなロールと名前、ハンドラを持ちます。手順は 2 つです。
 
-1. セットアップで、キャンバスに `.region(id, part)` を付けて振る舞いを宣言します。part は `kivact::primitive::part` で作り、通常の要素に part を付けるのと同じように、ロール・名前・状態・ハンドラを持たせます。
+1. セットアップで、キャンバスに `.region(id, part)` を付けて振る舞いを宣言します。part は `kivact::custom::Part::new(state, apply)` で作ります。通常の要素と同じように、変換のクロージャーで対象ノードのロール・名前・ハンドラを設定します。
 2. 描画のクロージャで、同じ `RegionId` に `draw.region(id, rect)` で形を与えます。
 
 ```rust,test_harness
-use kivact::control::canvas;
-use kivact::draw::{Rect, RegionId};
+use kivact::view::canvas;
+use kivact::draw::{RegionId};
+use kivact::geometry::{Rect};
 use kivact::prelude::*;
-use kivact::primitive::part;
+use kivact::custom::Part;
 
 const SWATCHES: [(&str, u32); 3] = [("赤", 0xe5484d), ("緑", 0x30a46c), ("青", 0x3e63dd)];
 
@@ -250,11 +256,11 @@ fn swatches() -> impl IntoView {
     for (i, (name, _)) in SWATCHES.iter().enumerate() {
         board = board.region(
             RegionId(i as u64),
-            part(|state| state)
+            Part::new(().into_value(), move |host| host
                 .role(Role::Button)
                 .name(*name)
                 .selected(move || chosen.get() == i)
-                .on_press(move || chosen.set(i)),
+                .on_press(move || chosen.set(i))),
         );
     }
 
@@ -302,8 +308,9 @@ mod tests {
 ```rust,no_run
 use std::sync::Arc;
 use std::time::Duration;
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Pixels, Rect};
+use kivact::view::canvas;
+use kivact::draw::{ImageOptions, Pixels};
+use kivact::geometry::{Rect};
 use kivact::prelude::*;
 
 fn renderer_preview() -> impl IntoView {
@@ -311,7 +318,7 @@ fn renderer_preview() -> impl IntoView {
     let (tx, rx) = async_channel::bounded(2);
 
     // フレームの大きさは物理ピクセル: 論理サイズに表示倍率を掛けます。
-    let scale = kivact::platform::scale_factor();
+    let scale = kivact::platform::scale_factor().get();
     let width = (320.0 * scale).ceil().max(1.0) as u32;
     let height = (180.0 * scale).ceil().max(1.0) as u32;
 
@@ -367,7 +374,8 @@ fn main() -> kivact::Result<()> {
 `Offscreen` は、同じ `Draw` の語彙で、指定した大きさの RGBA 画像に描画します。`App` もウィンドウも要らないので、作品の書き出し、サムネイル、連番フレーム、コマンドラインツールで使えます。絵を 1 つの関数として書けば、画面表示と書き出しの両方で使えます。
 
 ```rust
-use kivact::draw::{Draw, Offscreen, Point, Rect, Size};
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -397,7 +405,8 @@ fn main() -> kivact::Result<()> {
 - `Offscreen` は、作ったスレッドから出られません。バックグラウンドで書き出すには、`blocking` の中で作ります。
 
 ```rust,no_run
-use kivact::draw::{Draw, Offscreen, Rect, Size};
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Rect, Size};
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -405,7 +414,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 }
 
 fn exporter() -> impl IntoView {
-    let export = action(ActionPolicy::Latest, |(width, height): (u32, u32)| async move {
+    let export = action(ActionMode::Latest, |(width, height): (u32, u32)| async move {
         let image = blocking(move || Offscreen::new().render(width, height, artwork)).await?;
         // ここで `image` をディスクに書き出します（UI スレッドの外のままです）。
         Ok(image.rgba.len())
@@ -429,4 +438,4 @@ fn exporter() -> impl IntoView {
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): チャンネル、`spawn`、`blocking`。
 - [キャンバスで GPU テクスチャを共有する](gpu-texture-sharing.md): 読み戻しなしで GPU レンダラーのフレームを表示します。
 - [アプリをテストする](testing.md): ロールでリージョンを探し、スクリーンショットを比べます。
-- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::draw` と `kivact::control::canvas` を開いてください。
+- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::draw` と `kivact::view::canvas` を開いてください。
