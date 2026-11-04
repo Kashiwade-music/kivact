@@ -100,7 +100,7 @@ fn stay() -> impl IntoView {
     let valid = signal(true);
     column((
         pop::date_range_input(("Check-in", "Check-out"), (from, to), today).valid(valid),
-        text(move || format!("{} nights", to.get().to_epoch_days() - from.get().to_epoch_days())),
+        text(move || format!("{} nights", to.get().to_days() - from.get().to_days())),
     ))
     .style(style().gap(12).padding(24))
 }
