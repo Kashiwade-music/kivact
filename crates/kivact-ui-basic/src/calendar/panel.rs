@@ -3,26 +3,30 @@
 use super::caption::{Names, title};
 use super::state::Shared;
 use crate::theme_access::{tokens, wide_focus_ring};
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
+use kivact::custom::{Part, PartState};
 use kivact::i18n::{CalendarDate, CalendarMonth, Weekday};
 use kivact::interaction::{CalendarDayState, CalendarSpan};
-use kivact::primitive::{NodeExt, Part, PartState};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, TextAlign, pct, style};
 use kivact::ui::{ButtonVariant, ControlSize};
 use kivact::view::{IntoView, Role, View, show};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
 use std::rc::Rc;
 
 /// The day size of `--cell-size`.
 const CELL: f64 = 28.0;
 
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.
-fn nav_button(glyph: &'static str, name: kivact::Value<String>, paging: Part<PartState>) -> View {
+fn nav_button(
+    glyph: &'static str,
+    name: kivact::state::Value<String>,
+    paging: Part<PartState>,
+) -> View {
     kivact::ui::button(name)
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
-        .icon(kivact::control::icon(glyph))
+        .icon(kivact::view::icon(glyph))
         .size(ControlSize::Small)
-        .part(paging)
+        .with_node(|root| root.part(paging))
         .into_view()
 }
 
@@ -37,7 +41,7 @@ pub(super) fn month_panel(
     month: CalendarMonth,
     first: Weekday,
 ) -> Node {
-    let rtl = kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
+    let rtl = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
     let (back, forward) = if rtl {
         ("chevron-right", "chevron-left")
     } else {
@@ -79,7 +83,7 @@ pub(super) fn month_panel(
     let headers = row((0..7)
         .map(|c| {
             text(names.weekday(first.days_after(c)))
-                .role(Role::ColumnHeader)
+                .with_node(|root| root.role(Role::ColumnHeader))
                 .style(
                     style()
                         .width(CELL)
@@ -91,7 +95,7 @@ pub(super) fn month_panel(
                 .into_view()
         })
         .collect::<Vec<_>>())
-    .part(grid.row());
+    .with_node(|root| root.part(grid.row()));
     let rows = month
         .weeks(first, 0)
         .into_iter()
@@ -100,18 +104,16 @@ pub(super) fn month_panel(
                 .into_iter()
                 .map(|day| day_cell(shared, month, day))
                 .collect::<Vec<_>>())
-            .part(grid.row())
+            .with_node(|root| root.part(grid.row()))
             .style(style().margin_top(8))
             .into_view()
         })
         .collect::<Vec<_>>();
     column((
         caption,
-        column((headers, rows)).part(grid.grid()).name(format!(
-            "{}-{:02}",
-            month.year(),
-            month.month()
-        )),
+        column((headers, rows))
+            .with_node(|root| root.part(grid.grid()))
+            .name(format!("{}-{:02}", month.year(), month.month())),
     ))
     .style(style().gap(16).width(CELL * 7.0).shrink(0))
 }
@@ -133,7 +135,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let in_month = day.month_of() == month;
     let today = day == shared.today;
     let button = node()
-        .part(cell)
+        .with_node(|root| root.part(cell))
         .child(text(day.day().to_string()))
         .style(move || day_style(marked.get(), today, in_month));
     let band = node().style(move || {

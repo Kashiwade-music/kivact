@@ -1,33 +1,39 @@
 //! Role: Banners, alerts, toast cards, skeletons and empty states.
 use crate::Color;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::draw::{Layer, Path, Point, Rect};
+use kivact::draw::{Layer, Path};
+use kivact::geometry::{Point, Rect};
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::platform;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::{IntoText, IntoValue, callback};
+use kivact::state::{Value, signal};
+use kivact::style::use_theme;
 use kivact::style::{Align, BorderStyle, ColorToken, Justify, pct, style};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, callback, node_ref};
-use kivact::{Value, signal};
+use kivact::view::{IntoView, Role, View, node_ref};
 
 use crate::Tokens;
 use crate::display::ToneExt;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 
 /// Full-width system banner. Created by [`banner`].
 pub struct Banner {
     root: Node,
     title: Value<String>,
-    content: Option<crate::slot::Slot>,
-    tone: Tone,
+    content: Option<kivact::view::View>,
+    tone: kivact::state::Value<Tone>,
     action: View,
 }
 
 /// Full-width system banner: a striped `title` tape in `tone`, the message
 /// ([`Banner::content`]) and the application's `action` area at the end.
 #[track_caller]
-pub fn banner(title: impl IntoText, tone: Tone, action: impl IntoView) -> Banner {
+pub fn banner(
+    title: impl IntoText,
+    tone: impl kivact::state::IntoValue<Tone>,
+    action: impl IntoView,
+) -> Banner {
+    let tone = tone.into_value();
     Banner {
         root: row(()).style(
             style()
@@ -49,12 +55,13 @@ impl Banner {
     /// or any view, such as rich text spans. It keeps the banner's text style
     /// and fills the available width; without it the banner shows only its
     /// tape and its action.
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(crate::slot::slot(content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(content.into_view());
         self
     }
 }
 impl NodeBuilder for Banner {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -79,10 +86,10 @@ impl IntoView for Banner {
             )
             .draw(move |d, s| {
                 d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
-                    let color = if tone == Tone::Warning {
-                        d.theme().get::<Tokens>().yellow
+                    let color = if tone.get() == Tone::Warning {
+                        d.theme().ext::<Tokens>().yellow
                     } else {
-                        tone.color(d.theme())
+                        tone.get().color(d.theme())
                     };
                     d.fill_rect(s.to_rect(), color);
                     let mut x = -44.;
@@ -101,16 +108,16 @@ impl IntoView for Banner {
                 });
             })
             .child(crate::mono(title).style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
                     .font_size(10)
                     .weight(800)
                     .padding_x(6)
                     .padding_y(4)
-                    .background(if tone == Tone::Warning {
-                        t.get::<Tokens>().yellow
+                    .background(if tone.get() == Tone::Warning {
+                        t.ext::<Tokens>().yellow
                     } else {
-                        tone.color(t)
+                        tone.get().color(t)
                     })
             }));
         root.child((
@@ -122,10 +129,10 @@ impl IntoView for Banner {
                         .grow(1)
                         .color(kivact::style::rgb(0xffffff)),
                 )
-                .child(content.map(|content| content())),
+                .child(content.map(|content| content.call(()))),
             action,
         ))
-        .role(Role::Status)
+        .with_node(|root| root.role(Role::Status))
         .into_view()
     }
 }
@@ -135,9 +142,9 @@ pub struct Alert {
     root: Node,
     title: Value<String>,
     message: Value<String>,
-    actions: Option<crate::slot::Slot>,
-    tone: Tone,
-    on_dismiss: Option<kivact::Callback<()>>,
+    actions: Option<kivact::view::View>,
+    tone: kivact::state::Value<Tone>,
+    on_dismiss: Option<kivact::state::Callback<()>>,
 }
 /// Create an inline alert. [`Alert::actions`] adds application-owned action
 /// controls under the message.
@@ -148,7 +155,7 @@ pub fn alert(title: impl IntoText) -> Alert {
         title: title.into_text_value(),
         message: String::new().into_text_value(),
         actions: None,
-        tone: Tone::Neutral,
+        tone: Tone::Neutral.into_value(),
         on_dismiss: None,
     }
 }
@@ -160,24 +167,26 @@ impl Alert {
         self
     }
     /// Semantic accent; neutral by default.
-    pub fn tone(mut self, tone: Tone) -> Self {
-        self.tone = tone;
+    pub fn tone(mut self, tone: impl kivact::state::IntoValue<Tone>) -> Self {
+        let tone = tone.into_value();
+        self.tone = tone.into_value();
         self
     }
 
     /// Application-owned action controls under the message, built once by
     /// `actions` when the alert mounts.
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V + 'static) -> Self {
-        self.actions = Some(crate::slot::slot(actions));
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(actions.into_view());
         self
     }
     /// Report dismissal; the application decides whether to hide the alert.
-    pub fn on_dismiss<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_dismiss = Some(callback(move |_| f()));
+    pub fn on_dismiss(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_dismiss = Some(f.into());
         self
     }
 }
 impl NodeBuilder for Alert {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -185,30 +194,30 @@ impl NodeBuilder for Alert {
 impl IntoView for Alert {
     fn into_view(mut self) -> View {
         if self.root.accessible_role().is_none() {
-            self.root = self
-                .root
-                .role(if matches!(self.tone, Tone::Warning | Tone::Danger) {
+            self.root = self.root.with_node(|root| {
+                root.role(if matches!(self.tone.get(), Tone::Warning | Tone::Danger) {
                     Role::Alert
                 } else {
                     Role::Status
-                });
+                })
+            });
         }
         let tone = self.tone;
         let body = row((
-            kivact::control::icon(match tone {
+            kivact::view::icon(match tone.get() {
                 Tone::Success => "circle-check",
                 Tone::Warning => "alert-triangle",
                 Tone::Danger => "alert-octagon",
                 _ => "info-circle",
             })
             .style(move || {
-                let t = &current_theme();
-                style().size(18, 18).color(tone.color(t))
+                let t = &use_theme().get();
+                style().size(18, 18).color(tone.get().color(t))
             }),
             column((
                 text(self.title).style(style().font_size(13).weight(700)),
                 text(self.message).style(style().font_size(12.5).color(ColorToken::TextMuted)),
-                self.actions.map(|actions| actions()),
+                self.actions.map(|actions| actions),
             ))
             .style(style().grow(1).gap(2)),
         ))
@@ -220,18 +229,18 @@ impl IntoView for Alert {
         });
         self.root
             .base_style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
                     .padding_y(12)
                     .padding_x(14)
                     .gap(12)
                     .align_items(Align::Start)
-                    .background(tone.weak(t))
-                    .border(1, tone.color(t).mix(t.colors().surface, 0.65))
-                    .border_left(4, tone.color(t))
+                    .background(tone.get().weak(t))
+                    .border(1, tone.get().color(t).mix(t.colors().surface, 0.65))
+                    .border_left(4, tone.get().color(t))
             })
             .child((body, close))
-            .live_region(if matches!(tone, Tone::Warning | Tone::Danger) {
+            .live_region(if matches!(tone.get(), Tone::Warning | Tone::Danger) {
                 kivact::view::LiveRegion::Assertive
             } else {
                 kivact::view::LiveRegion::Polite
@@ -245,7 +254,7 @@ impl IntoView for Alert {
 pub fn skeleton() -> Skeleton {
     Skeleton {
         root: column(())
-            .role(Role::Status)
+            .with_node(|root| root.role(Role::Status))
             .name(kivact::i18n::message("game.skeleton.label", "Loading")),
         rows: 1usize.into_value(),
     }
@@ -263,6 +272,7 @@ impl Skeleton {
     }
 }
 impl NodeBuilder for Skeleton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -274,11 +284,14 @@ impl IntoView for Skeleton {
         let phase = signal(0_f64);
         let node_ref = node_ref();
         let clock = frame_loop(move |f| phase.set((f.now.as_secs_f64() / 1.4).fract()));
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             let visible = node_ref.rect().get().is_some_and(|rect| {
-                rect.y < platform::window_size().height && rect.y + rect.height > 0.
+                rect.y < platform::window_size().get().height && rect.y + rect.height > 0.
             });
-            if visible && !platform::reduced_motion() && platform::surface_active() {
+            if visible
+                && !platform::is_motion_reduced().get()
+                && platform::is_surface_active().get()
+            {
                 clock.start(FrameRate::Hz(30.));
             } else {
                 clock.stop();
@@ -287,7 +300,7 @@ impl IntoView for Skeleton {
         let block = move |w, h| {
             node().style(style().size(w, h)).draw(move |d, s| {
                 d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
-                    let p = d.theme().get::<Tokens>();
+                    let p = d.theme().ext::<Tokens>();
                     d.fill_rect(s.to_rect(), p.surface_3);
                     let x = s.width * (phase.get() * 3. - 1.);
                     d.fill_rect(
@@ -322,7 +335,7 @@ impl IntoView for Skeleton {
 #[track_caller]
 pub fn empty_state(title: impl IntoText) -> EmptyState {
     EmptyState {
-        root: column(()).role(Role::Group),
+        root: column(()).with_node(|root| root.role(Role::Group)),
         title: title.into_text_value(),
         description: String::new().into_text_value(),
         action: None,
@@ -333,7 +346,7 @@ pub struct EmptyState {
     root: Node,
     title: Value<String>,
     description: Value<String>,
-    action: Option<crate::slot::Slot>,
+    action: Option<kivact::view::View>,
 }
 impl EmptyState {
     /// Supporting text; empty by default.
@@ -342,12 +355,13 @@ impl EmptyState {
         self
     }
     /// Optional content built once when the state mounts.
-    pub fn content<V: IntoView>(mut self, value: impl FnOnce() -> V + 'static) -> Self {
-        self.action = Some(crate::slot::slot(value));
+    pub fn content(mut self, value: impl IntoView) -> Self {
+        self.action = Some(value.into_view());
         self
     }
 }
 impl NodeBuilder for EmptyState {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -361,7 +375,7 @@ impl IntoView for EmptyState {
         self.root
             .child((
                 node().base_style(style().size(64, 64)).draw(|d, _| {
-                    let color = d.theme().get::<Tokens>().text_3;
+                    let color = d.theme().ext::<Tokens>().text_3;
                     d.stroke_path(
                         &kivact::draw::Path::new().arc(Point::new(32., 32.), 28., 0., 359.9, false),
                         &kivact::draw::Stroke::new(2.).dash([10., 4., 3., 4.]),
@@ -386,9 +400,9 @@ impl IntoView for EmptyState {
                     );
                 }),
                 text(title).base_style(move || {
-                    let t = &current_theme();
+                    let t = &use_theme().get();
                     style()
-                        .font_family(t.get::<Tokens>().display_family.as_str())
+                        .font_family(t.ext::<Tokens>().display_family.as_str())
                         .font_size(20)
                         .weight(700)
                         .italic(true)
@@ -399,7 +413,7 @@ impl IntoView for EmptyState {
                         .max_width(300)
                         .color(ColorToken::TextMuted),
                 ),
-                action.map(|slot| slot()),
+                action.map(|slot| slot),
             ))
             .base_style(
                 style()

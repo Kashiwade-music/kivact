@@ -3,13 +3,13 @@
 use crate::parts::{pressable, sized_icon};
 use crate::theme_access::{tokens, wide_focus_ring};
 use crate::tokens::Tokens;
-use kivact::control::{Node, NodeBuilder, node, text};
-use kivact::primitive::NodeExt;
-use kivact::primitive::PartState;
+use kivact::view::{Node, NodeBuilder, node, text};
+
+use kivact::custom::PartState;
+use kivact::state::IntoText;
+use kivact::state::{Callback, Value};
 use kivact::style::{Align, Color, Cursor, Justify, TextDecorationLine, style};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoView, Role, View, callback};
-use kivact::{Callback, Value};
+use kivact::view::{IntoView, Role, View};
 
 /// The look of a [`Badge`] (badge.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -42,7 +42,7 @@ pub struct Badge {
 /// A badge showing `text`.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -85,13 +85,14 @@ impl Badge {
     }
 
     /// Make the badge a link-like button that reports presses to `f`.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for Badge {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

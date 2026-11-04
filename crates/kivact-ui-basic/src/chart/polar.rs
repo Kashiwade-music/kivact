@@ -1,6 +1,6 @@
 //! Role: Angle helpers shared by the pie, radial and radar charts.
 
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 
 /// The edge kept free around a polar plot.
 pub(super) const MARGIN: f64 = 8.0;

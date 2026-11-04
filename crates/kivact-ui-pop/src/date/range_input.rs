@@ -3,15 +3,15 @@
 use super::calendar::{Calendar, calendar};
 use super::field::{calendar_popup, date_text_field, field_strip, picker_button, status};
 use super::text::{date_text, error_message};
-use kivact::control::{Node, NodeBuilder, icon, node, text};
 use kivact::i18n::{CalendarDate, message};
 use kivact::interaction::{PopupCloseReason, use_popup};
-use kivact::primitive::NodeExt;
+use kivact::state::IntoBinding;
+use kivact::view::{Node, NodeBuilder, icon, node, text};
+
+use kivact::state::{Binding, Value, memo, signal};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{ColorToken, Direction, style};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, LiveRegion, Role, View, callback, node_ref, show,
-};
-use kivact::{Binding, Value, memo, signal};
+use kivact::view::{IntoView, LiveRegion, Role, View, node_ref, show};
 use std::rc::Rc;
 
 /// Where the user is in choosing a range in the calendar: before the first
@@ -63,8 +63,8 @@ pub struct DateRangeInput {
 pub fn date_range_input(
     labels: (impl IntoText, impl IntoText),
     values: (
-        impl Into<Binding<CalendarDate>>,
-        impl Into<Binding<CalendarDate>>,
+        impl kivact::state::IntoBinding<CalendarDate>,
+        impl kivact::state::IntoBinding<CalendarDate>,
     ),
     today: CalendarDate,
 ) -> DateRangeInput {
@@ -74,8 +74,8 @@ pub fn date_range_input(
         root: node().style(style().direction(Direction::Column)),
         start_label: start_label.into_text_value(),
         end_label: end_label.into_text_value(),
-        start: start.into(),
-        end: end.into(),
+        start: start.into_binding(),
+        end: end.into_binding(),
         today,
         valid: None,
         calendar: None,
@@ -85,8 +85,8 @@ pub fn date_range_input(
 impl DateRangeInput {
     /// Whether both texts are dates and the start is not after the end. It is
     /// written as the texts are edited.
-    pub fn valid(mut self, valid: impl Into<Binding<bool>>) -> Self {
-        self.valid = Some(valid.into());
+    pub fn valid(mut self, valid: impl kivact::state::IntoBinding<bool>) -> Self {
+        self.valid = Some(valid.into_binding());
         self
     }
 
@@ -98,6 +98,7 @@ impl DateRangeInput {
 }
 
 impl NodeBuilder for DateRangeInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -126,7 +127,7 @@ impl IntoView for DateRangeInput {
         let end_bad = memo(move || end_error.get().is_some() || reversed.get());
         let any_bad = memo(move || start_bad.get() || end_bad.get());
         if let Some(valid) = valid {
-            kivact::effect(move || {
+            kivact::state::effect(move || {
                 valid.set(parsed_start.get().is_ok() && parsed_end.get().is_ok() && !reversed.get())
             });
         }
@@ -182,7 +183,7 @@ impl IntoView for DateRangeInput {
             ),
             order_message,
         ))
-        .child(show(popup.shown(), move || {
+        .child(show(popup.is_open(), move || {
             // One opening of the calendar is one pick of a range.
             let pick = signal(RangePick::Start);
             let drawn = memo(move || match pick.get() {
@@ -213,7 +214,7 @@ impl IntoView for DateRangeInput {
                 RangePick::End { .. } => pick_end.get(),
                 RangePick::Start => pick_start.get(),
             })
-            .role(Role::Status)
+            .with_node(|root| root.role(Role::Status))
             .live_region(LiveRegion::Polite);
             let close =
                 kivact::ui::button(message("pop.date.range.close", "Close")).on_press(move || {

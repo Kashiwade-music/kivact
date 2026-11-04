@@ -162,3 +162,5 @@ pub(super) struct Hit {
     pub(super) title: Option<String>,
     pub(super) rows: Vec<HitRow>,
 }
+
+kivact::state::constant_value!(ChartKind);

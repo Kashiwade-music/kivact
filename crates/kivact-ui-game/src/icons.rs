@@ -133,7 +133,7 @@ fn bytes(name: &str) -> Option<&'static [u8]> {
 
 /// Every icon of the kit by name, which [`theme`](crate::theme) installs in
 /// the theme's [`IconSet`](kivact::style::IconSet), so
-/// `kivact::control::icon(name)` and a standard component's
+/// `kivact::view::icon(name)` and a standard component's
 /// `Icon::named(..)` draw it. The kit's components draw their icons the same
 /// way, so another theme may give a name its own glyph.
 ///

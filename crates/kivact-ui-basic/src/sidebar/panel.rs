@@ -2,16 +2,17 @@
 
 use super::state::{SidebarCollapsible, SidebarCx, SidebarSide, SidebarVariant, WIDTH, WIDTH_ICON};
 use crate::parts::pressable;
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll};
-use kivact::draw::Rect;
 use kivact::draw::Shadow;
+use kivact::geometry::Rect;
 use kivact::i18n::message;
-use kivact::primitive::NodeExt;
+use kivact::state::IntoBinding;
+use kivact::view::{Node, NodeBuilder, column, node, row, scroll};
+
+use kivact::state::{Binding, Value};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
-use kivact::view::{Handled, IntoValue, IntoView, Key, Role, callback, show};
-use kivact::{Binding, Value};
+use kivact::view::{Handled, IntoView, Key, Role, show};
 
 /// The panel of a sidebar (sidebar.tsx). Created by [`sidebar`].
 ///
@@ -22,9 +23,9 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
-    header: Option<Slot>,
-    content: Option<Slot>,
-    footer: Option<Slot>,
+    header: Option<kivact::view::View>,
+    content: Option<kivact::view::View>,
+    footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }
 
@@ -65,20 +66,20 @@ impl Sidebar {
     }
 
     /// The top section: a column with 8 px of padding and gap.
-    pub fn header<V: IntoView>(mut self, header: impl FnOnce() -> V + 'static) -> Self {
-        self.header = Some(slot(header));
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
         self
     }
 
     /// The scrolling middle section: groups, menus and separators.
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(slot(content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(content.into_view());
         self
     }
 
     /// The bottom section, like the header.
-    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V + 'static) -> Self {
-        self.footer = Some(slot(footer));
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
 
@@ -92,6 +93,7 @@ impl Sidebar {
 }
 
 impl NodeBuilder for Sidebar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -124,7 +126,7 @@ impl Sidebar {
         } = self;
         let offcanvas_closed =
             move || collapsible == SidebarCollapsible::Offcanvas && !cx.shown.get();
-        let section = |view: Option<Slot>| {
+        let section = |view: Option<kivact::view::View>| {
             view.map(|view| column(view).style(style().shrink(0).gap(8).padding(8)))
         };
         let middle = content.map(|view| {
@@ -278,7 +280,7 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 /// desktop layout.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -288,9 +290,9 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 ///         open,
 ///         basic::sidebar()
 ///             .collapsible(basic::SidebarCollapsible::Icon)
-///             .header(|| text("Acme"))
-///             .content(|| {
-///                 basic::sidebar_group("Application").content(|| {
+///             .header(text("Acme"))
+///             .content({
+///                 basic::sidebar_group("Application").content({
 ///                     basic::sidebar_menu((
 ///                         basic::sidebar_menu_button("Home").icon(icon("house")).active(true),
 ///                         basic::sidebar_menu_button("Inbox").icon(icon("inbox")).badge("12"),
@@ -304,11 +306,11 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 /// ```
 #[track_caller]
 pub fn sidebar_provider(
-    open: impl Into<Binding<bool>>,
+    open: impl kivact::state::IntoBinding<bool>,
     sidebar: Sidebar,
     page: impl IntoView,
-) -> Node {
-    let open = open.into();
+) -> impl kivact::view::Component {
+    let open = open.into_binding();
     let cx = SidebarCx {
         open,
         shown: open.into_value(),
@@ -317,7 +319,7 @@ pub fn sidebar_provider(
         collapsible: sidebar.collapsible,
     };
     let page = page.into_view();
-    let body = kivact::view::provide(cx, move || {
+    let body = kivact::state::provide(cx, move || {
         let panel = sidebar.build(cx);
         let page = inset(cx, page);
         match cx.side {

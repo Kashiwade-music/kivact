@@ -1,19 +1,20 @@
 //! Role: Conversation rows, bubbles and typing indicators with caller-owned state.
 
 use crate::{Hue, Tokens, avatar, badge};
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::i18n;
 use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::Value;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, TextOverflow, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, LiveRegion, Role, View, show};
+use kivact::view::{IntoView, LiveRegion, Role, View, show};
 /// A conversation row. Created by [`thread`].
 pub struct Thread {
     root: Node,
     initials: Value<String>,
-    portrait: Option<crate::slot::Slot>,
+    portrait: Option<kivact::view::View>,
     title: Value<String>,
     preview: Value<String>,
     unread: Value<usize>,
@@ -28,7 +29,7 @@ pub fn thread(initials: impl IntoText, title: impl IntoText) -> Thread {
     let title = title.into_text_value();
     Thread {
         root: row(())
-            .role(Role::Button)
+            .with_node(|root| root.role(Role::Button))
             .focusable(true)
             .name(title)
             .selected(false)
@@ -73,12 +74,13 @@ impl Thread {
 
     /// An application-provided avatar view in place of the initials avatar,
     /// built once by `portrait` when the row mounts.
-    pub fn portrait<V: IntoView>(mut self, portrait: impl FnOnce() -> V + 'static) -> Self {
-        self.portrait = Some(crate::slot::slot(portrait));
+    pub fn portrait(mut self, portrait: impl IntoView) -> Self {
+        self.portrait = Some(portrait.into_view());
         self
     }
 }
 impl NodeBuilder for Thread {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -94,7 +96,7 @@ impl IntoView for Thread {
             unread,
         } = self;
         let portrait = match portrait {
-            Some(portrait) => portrait(),
+            Some(portrait) => portrait,
             None => avatar(initials).size(32).into_view(),
         };
         root.child((
@@ -128,13 +130,13 @@ impl IntoView for Thread {
 /// An incoming typing bubble, with a polite status for assistive technology.
 /// Its presence is controlled by the caller just like an ordinary message.
 #[track_caller]
-pub fn typing_message(initials: impl IntoText) -> Node {
+pub fn typing_message(initials: impl IntoText) -> impl kivact::view::Component {
     let phase = Animated::from(
         0.0f64,
         std::f64::consts::TAU,
         Transition::tween(1000, Easing::Linear)
             .repeat(Repeat::Forever)
-            .decorative(false),
+            .essential(),
     );
     row((
         avatar(initials).size(24),
@@ -142,11 +144,11 @@ pub fn typing_message(initials: impl IntoText) -> Node {
             .style(style().size(54, 30).radius_corners(4, 14, 14, 14))
             .style(style().background(crate::Color::SurfaceActive))
             .draw(move |draw, _| {
-                let color = draw.theme().get::<Tokens>().text_faint;
+                let color = draw.theme().ext::<Tokens>().text_faint;
                 for index in 0..3 {
                     let bounce = (phase.get() - index as f64 * 0.95).sin().max(0.0) * 3.0;
                     draw.rounded_rect(
-                        kivact::draw::Rect::new(
+                        kivact::geometry::Rect::new(
                             14.0 + index as f64 * 10.0,
                             12.0 - bounce,
                             6.0,
@@ -158,15 +160,14 @@ pub fn typing_message(initials: impl IntoText) -> Node {
                 }
             }),
     ))
-    .role(Role::Status)
+    .with_node(|root| root.role(Role::Status))
     .name(i18n::message("pop.typing.label", "Typing"))
     .live_region(LiveRegion::Polite)
     .style(style().gap(10).align_items(Align::Start).max_width(pct(78)))
 }
 
 /// A chat bubble, with direction, author initials and timestamp supplied explicitly.
-/// `mine` is a constant: it decides the alignment and whether the author's
-/// avatar is part of the tree, so it is fixed when the bubble is built.
+/// `mine` controls the alignment and the visibility of the author's avatar.
 #[track_caller]
 pub fn message(content: impl IntoText) -> Message {
     let content = content.into_text_value();
@@ -185,7 +186,7 @@ impl Message {
         self
     }
     /// Outgoing direction; false by default.
-    pub fn mine(mut self, value: bool) -> Self {
+    pub fn mine(mut self, value: impl IntoValue<bool>) -> Self {
         self.group = self.group.mine(value);
         self
     }
@@ -196,6 +197,7 @@ impl Message {
     }
 }
 impl NodeBuilder for Message {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.group.node_mut()
     }
@@ -207,14 +209,14 @@ impl IntoView for Message {
 }
 
 /// Several bubbles sent together, sharing one avatar and timestamp. `mine` is
-/// a constant, as for [`message`].
+/// reactive, as for [`message`].
 #[track_caller]
 pub fn message_group(content: impl IntoValue<Vec<String>>) -> MessageGroup {
     MessageGroup {
         root: row(()),
         content: content.into_value(),
         timestamp: String::new().into_value(),
-        mine: false,
+        mine: false.into_value(),
         initials: String::new().into_value(),
     }
 }
@@ -223,7 +225,7 @@ pub struct MessageGroup {
     root: Node,
     content: Value<Vec<String>>,
     timestamp: Value<String>,
-    mine: bool,
+    mine: Value<bool>,
     initials: Value<String>,
 }
 impl MessageGroup {
@@ -233,8 +235,8 @@ impl MessageGroup {
         self
     }
     /// Outgoing direction; false by default.
-    pub fn mine(mut self, value: bool) -> Self {
-        self.mine = value;
+    pub fn mine(mut self, value: impl IntoValue<bool>) -> Self {
+        self.mine = value.into_value();
         self
     }
     /// Author initials; empty by default.
@@ -244,6 +246,7 @@ impl MessageGroup {
     }
 }
 impl NodeBuilder for MessageGroup {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -263,34 +266,38 @@ impl IntoView for MessageGroup {
                         .enumerate()
                         .map(|(index, paragraph)| {
                             text(paragraph)
-                                .style(
+                                .style(move || {
                                     style()
                                         .font_size(14)
                                         .padding_x(12)
                                         .padding_y(8)
                                         .radius_corners(
-                                            if mine || index > 0 { 14 } else { 4 },
-                                            if mine && index == 0 { 4 } else { 14 },
+                                            if mine.get() || index > 0 { 14 } else { 4 },
+                                            if mine.get() && index == 0 { 4 } else { 14 },
                                             14,
                                             14,
-                                        ),
-                                )
+                                        )
+                                })
                                 .style(move || {
-                                    let t = &current_theme();
-                                    let p = t.get::<Tokens>();
+                                    let t = &use_theme().get();
+                                    let p = t.ext::<Tokens>();
                                     style()
-                                        .background(if mine { p.blue } else { p.surface_active })
-                                        .color(if mine { Color::WHITE } else { p.text })
+                                        .background(if mine.get() {
+                                            p.blue
+                                        } else {
+                                            p.surface_active
+                                        })
+                                        .color(if mine.get() { Color::WHITE } else { p.text })
                                 })
                                 .into_view()
                         })
                         .collect::<Vec<_>>(),
                 )
-                .style(style().gap(4).align_items(if mine {
-                    Align::End
-                } else {
-                    Align::Start
-                }))
+                .style(move || {
+                    style()
+                        .gap(4)
+                        .align_items(if mine.get() { Align::End } else { Align::Start })
+                })
             }),
             text(timestamp).style(
                 style()
@@ -299,20 +306,20 @@ impl IntoView for MessageGroup {
                     .color(ColorToken::TextMuted),
             ),
         ))
-        .style(
+        .style(move || {
             style()
                 .gap(4)
-                .align_items(if mine { Align::End } else { Align::Start }),
-        );
-        (if mine {
-            self.root
-                .child(bubble)
-                .base_style(style().align_self(Align::End).max_width(pct(78)))
-        } else {
-            self.root
-                .child((avatar(initials).size(24), bubble))
-                .base_style(style().gap(10).align_items(Align::Start).max_width(pct(78)))
-        })
-        .into_view()
+                .align_items(if mine.get() { Align::End } else { Align::Start })
+        });
+        self.root
+            .child((avatar(initials).size(24).hidden(mine), bubble))
+            .base_style(move || {
+                if mine.get() {
+                    style().align_self(Align::End).max_width(pct(78))
+                } else {
+                    style().gap(10).align_items(Align::Start).max_width(pct(78))
+                }
+            })
+            .into_view()
     }
 }

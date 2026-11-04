@@ -1,19 +1,20 @@
 //! Role: Editable form controls, including platform file drops and pickers.
 
 use crate::Tokens;
-use kivact::control::{Node, NodeBuilder, icon, node, text};
 use kivact::draw::Shadow;
 use kivact::i18n::message;
-use kivact::style::current_theme;
+use kivact::state::{IntoText, IntoValue, callback};
+use kivact::state::{Signal, Value, signal};
+use kivact::style::use_theme;
 use kivact::style::{Align, BorderStyle, ColorToken, Direction, Justify, Theme, style};
 use kivact::view::HandlerResult;
-use kivact::view::{FilePhase, Handled, IntoText, IntoValue, IntoView, Role, View, callback};
-use kivact::{Signal, Value, signal};
+use kivact::view::{FilePhase, Handled, IntoView, Role, View};
+use kivact::view::{Node, NodeBuilder, icon, node, text};
 use std::path::PathBuf;
 use std::rc::Rc;
 
 pub(crate) fn input_style(t: &Theme) -> kivact::style::Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .height(36)
         .min_height(0)
@@ -58,7 +59,7 @@ impl<T: Copy + PartialEq + 'static> Draft<T> {
             parse,
             format,
         };
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             let external = value.get();
             if (draft.parse)(&draft.text.get_untracked()) != Some(external) {
                 draft.show(external);
@@ -96,7 +97,9 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
     Dropzone {
         hint: String::new().into_value(),
         filters: Vec::new().into_value(),
-        root: node().role(Role::Button).focusable(true),
+        root: node()
+            .with_node(|root| root.role(Role::Button))
+            .focusable(true),
         on_files: Rc::new(|_| Ok(())),
         label: label.into_text_value(),
     }
@@ -119,6 +122,7 @@ impl Dropzone {
     }
 }
 impl NodeBuilder for Dropzone {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -158,8 +162,8 @@ impl IntoView for Dropzone {
                 });
             })
             .style(move || {
-                let t = &current_theme();
-                let p = t.get::<Tokens>();
+                let t = &use_theme().get();
+                let p = t.ext::<Tokens>();
                 style()
                     .direction(Direction::Column)
                     .align_items(Align::Center)

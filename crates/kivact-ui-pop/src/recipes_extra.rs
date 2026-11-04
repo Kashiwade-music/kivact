@@ -2,18 +2,20 @@
 use crate::choice::{Segmented, choice_list, choice_option, select_list, select_option};
 use crate::tokens::Hue;
 use crate::tokens::Tokens;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Shadow, Stroke, Transform};
+use kivact::custom::PartState;
+use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke, Transform};
+use kivact::geometry::Point;
+use kivact::interaction::{DialogMode, Tone};
 use kivact::interaction::{
     ListItemState, MenuItemState, PopupState, TabListState, TabState, ToastState,
 };
-use kivact::primitive::PartState;
 use kivact::style::{
     Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
 };
 use kivact::ui::Look;
 use kivact::ui::{
-    AxisState, ButtonState, CheckState, DialogKind, DialogRecipes, DialogState, MenuRecipes,
-    RadioGroupRecipes, SelectRecipes, SliderRecipes, TabsRecipes, ToastRecipes, Tone,
+    AxisState, ButtonState, CheckableState, DialogRecipes, DialogState, MenuRecipes,
+    RadioGroupRecipes, SelectRecipes, SliderRecipes, TabsRecipes, ToastRecipes,
 };
 use kivact::view::Orientation;
 pub(crate) fn button_content(_: &Theme, s: &Look<ButtonState>) -> Style {
@@ -30,8 +32,8 @@ pub(crate) fn button_content(_: &Theme, s: &Look<ButtonState>) -> Style {
 /// The spinner the button turns while busy.
 pub(crate) fn button_busy(t: &Theme, _: &Look<ButtonState>) -> Style {
     let phase = 0.0;
-    let color = t.get::<Tokens>().blue;
-    let background = t.get::<Tokens>().surface_active;
+    let color = t.ext::<Tokens>().blue;
+    let background = t.ext::<Tokens>().surface_active;
     style().size(16, 16).shrink(0).paint(move |d, size| {
         let arc = |fraction: f64| {
             let mut path = Path::new();
@@ -56,7 +58,7 @@ pub(crate) fn button_busy(t: &Theme, _: &Look<ButtonState>) -> Style {
     })
 }
 fn chrome(t: &Theme) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .background(p.surface)
         .border(1, p.line)
@@ -71,7 +73,7 @@ pub(crate) fn select(r: SelectRecipes) -> SelectRecipes {
         .indicator(|_| select_indicator)
 }
 fn select_trigger(t: &Theme, s: &Look<kivact::ui::SelectTriggerState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     // The heights of the buttons of the same size.
     let height = match s.size {
         kivact::ui::ControlSize::ExtraSmall => 26,
@@ -93,7 +95,7 @@ fn select_trigger(t: &Theme, s: &Look<kivact::ui::SelectTriggerState>) -> Style 
 }
 /// The 16 px box of a mark icon, in the text color.
 fn mark(t: &Theme) -> Style {
-    style().size(16, 16).shrink(0).color(t.get::<Tokens>().text)
+    style().size(16, 16).shrink(0).color(t.ext::<Tokens>().text)
 }
 /// The trigger's chevron, the theme's `selector` icon.
 fn select_indicator(t: &Theme, _: &Look<PopupState>) -> Style {
@@ -116,7 +118,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
                 style().height(1).margin_y(4).background(ColorToken::Border)
             }
         })
-        .shortcut(|_| {
+        .with_shortcut(|_| {
             |_: &Theme, _: &Look<MenuItemState>| style().font_size(12).color(ColorToken::TextMuted)
         })
         .check(|_| menu_check)
@@ -168,7 +170,7 @@ fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
         )
     };
     match s.kind {
-        DialogKind::Drawer(_) => enter(
+        DialogMode::Drawer(_) => enter(
             chrome(t)
                 .width(400)
                 .max_width(pct(100))
@@ -176,13 +178,13 @@ fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
                 .gap(16)
                 .radius(0),
         ),
-        DialogKind::Popover => chrome(t).width(288).padding(16).gap(6),
+        DialogMode::Popover => chrome(t).width(288).padding(16).gap(6),
         _ => enter(chrome(t).width(480).max_width(pct(95)).padding(24).gap(16)),
     }
 }
 fn dialog_footer(_: &Theme, s: &Look<DialogState>) -> Style {
     let base = style().gap(8).justify_content(Justify::End);
-    if matches!(s.kind, DialogKind::Drawer(_)) {
+    if matches!(s.kind, DialogMode::Drawer(_)) {
         base.padding_top(16).border_top(1, ColorToken::Border)
     } else {
         base
@@ -190,9 +192,9 @@ fn dialog_footer(_: &Theme, s: &Look<DialogState>) -> Style {
 }
 /// The close button around the theme's `x` icon, muted until hovered.
 fn dialog_close(t: &Theme, s: &Look<DialogState>) -> Style {
-    let tokens = t.get::<Tokens>();
+    let tokens = t.ext::<Tokens>();
     let inset = match s.kind {
-        DialogKind::Popover => 8,
+        DialogMode::Popover => 8,
         _ => 18,
     };
     style()
@@ -213,7 +215,7 @@ fn dialog_close(t: &Theme, s: &Look<DialogState>) -> Style {
         )
 }
 pub(crate) fn tooltip(t: &Theme, _: &Look<PopupState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .padding_x(10)
         .padding_y(6)
@@ -231,7 +233,7 @@ pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {
 }
 
 fn menu_trigger(t: &Theme, _: &Look<PopupState>) -> Style {
-    let color = t.get::<Tokens>().text;
+    let color = t.ext::<Tokens>().text;
     crate::button::button_style(
         t,
         kivact::ui::ButtonVariant::Secondary,
@@ -263,7 +265,9 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
         .item(|_| radio_item)
         .indicator(|_| radio_indicator)
         .description(|_| {
-            |_: &Theme, _: &Look<CheckState>| style().font_size(13).color(crate::Color::TextMuted)
+            |_: &Theme, _: &Look<CheckableState>| {
+                style().font_size(13).color(crate::Color::TextMuted)
+            }
         })
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
@@ -277,7 +281,7 @@ fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
     }
 }
 /// A radio row: the indicator beside the label.
-fn radio_item(t: &Theme, s: &Look<CheckState>) -> Style {
+fn radio_item(t: &Theme, s: &Look<CheckableState>) -> Style {
     if s.variant::<Segmented>().is_some() {
         return choice_option(t, true);
     }
@@ -285,12 +289,12 @@ fn radio_item(t: &Theme, s: &Look<CheckState>) -> Style {
 }
 /// The 16 px ring of an option, the accent around the theme's `dot` while
 /// chosen.
-fn radio_indicator(t: &Theme, s: &Look<CheckState>) -> Style {
+fn radio_indicator(t: &Theme, s: &Look<CheckableState>) -> Style {
     if s.variant::<Segmented>().is_some() {
         // A segment shows no indicator: out of the row, with no size.
         return style().position(Position::Absolute).size(0, 0).clip(true);
     }
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let on = s.checked.is_checked();
     style()
         .size(16, 16)
@@ -312,15 +316,15 @@ pub(crate) fn slider(r: SliderRecipes) -> SliderRecipes {
         .thumb(|_| slider_thumb)
 }
 /// The bar of a track or its filled range: 6 px across the middle of `size`.
-fn bar(size: kivact::draw::Size) -> kivact::draw::Rect {
+fn bar(size: kivact::geometry::Size) -> kivact::geometry::Rect {
     if size.width >= size.height {
-        kivact::draw::Rect::new(0.0, (size.height - BAR) / 2.0, size.width, BAR)
+        kivact::geometry::Rect::new(0.0, (size.height - BAR) / 2.0, size.width, BAR)
     } else {
-        kivact::draw::Rect::new((size.width - BAR) / 2.0, 0.0, BAR, size.height)
+        kivact::geometry::Rect::new((size.width - BAR) / 2.0, 0.0, BAR, size.height)
     }
 }
 fn slider_track(t: &Theme, s: &Look<AxisState>) -> Style {
-    let color = t.get::<Tokens>().surface_active;
+    let color = t.ext::<Tokens>().surface_active;
     let base = style()
         .shrink(0)
         .cursor(Cursor::Pointer)
@@ -331,7 +335,7 @@ fn slider_track(t: &Theme, s: &Look<AxisState>) -> Style {
     }
 }
 fn slider_range(t: &Theme, _: &Look<AxisState>) -> Style {
-    let color = t.get::<Tokens>().blue;
+    let color = t.ext::<Tokens>().blue;
     style().paint(move |d, size| {
         if size.width > 0.0 && size.height > 0.0 {
             d.rounded_rect(bar(size), BAR / 2.0, color);
@@ -344,7 +348,7 @@ fn slider_thumb(t: &Theme, _: &Look<AxisState>) -> Style {
         .size(16, 16)
         .radius(8)
         .background(Color::WHITE)
-        .border(1, t.get::<Tokens>().blue)
+        .border(1, t.ext::<Tokens>().blue)
 }
 pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
     r.region(|_| toast_region)
@@ -369,7 +373,7 @@ fn toast_region(_: &Theme, _: &Look<PartState>) -> Style {
 }
 /// A card in the hue's color, which its icon takes.
 fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let hue = match s.tone {
         Tone::Neutral => Hue::Gray,
         Tone::Info => Hue::Blue,
@@ -395,7 +399,7 @@ fn toast_icon(_: &Theme, _: &Look<ToastState>) -> Style {
 }
 /// The 28 px close button around the theme's `x` icon.
 fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .size(28, 28)
         .shrink(0)

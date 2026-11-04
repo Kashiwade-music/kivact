@@ -36,7 +36,7 @@ pub(crate) fn button_style(
     size: ControlSize,
     slant: bool,
 ) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let (height, pad, font) = match size {
         ControlSize::ExtraSmall => (26, 8, 12),
         ControlSize::Small => (32, 12, 13),

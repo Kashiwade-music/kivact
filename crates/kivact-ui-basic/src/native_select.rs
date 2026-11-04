@@ -3,14 +3,16 @@
 use crate::Color;
 use crate::list_popup::select_popup;
 use crate::theme_access::{field_fill, tokens};
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, text};
 use kivact::interaction::use_select;
-use kivact::primitive::NodeExt;
+use kivact::state::IntoBinding;
+use kivact::view::icon;
+use kivact::view::{Node, NodeBuilder, node, text};
+
+use kivact::interaction::ListItem;
+use kivact::state::{Binding, Value, memo};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Direction, Justify, Position, Style, pct, style};
-use kivact::ui::ListItem;
-use kivact::view::{IntoText, IntoValue, IntoView, View};
-use kivact::{Binding, Value, memo};
+use kivact::view::{IntoView, View};
 use std::hash::Hash;
 
 /// The heights of a [`NativeSelect`] (`data-size`).
@@ -28,18 +30,18 @@ pub enum NativeSelectSize {
 /// Created by [`native_select`]. Behavior (keys, typeahead, the open list)
 /// comes from `kivact::interaction::use_select`. Give it an accessible name with
 /// `.name(..)`.
-pub struct NativeSelect<K: Clone + Eq + Hash + 'static> {
+pub struct NativeSelect<K: kivact::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     value: Binding<Option<K>>,
     placeholder: Option<Value<String>>,
-    size: NativeSelectSize,
+    size: kivact::state::Value<NativeSelectSize>,
 }
 
 /// A native-looking select over `options`.
 ///
 /// ```no_run
-/// use kivact::ui::ListItem;
+/// use kivact::interaction::{ListItem};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -54,23 +56,23 @@ pub struct NativeSelect<K: Clone + Eq + Hash + 'static> {
 /// }
 /// ```
 #[track_caller]
-pub fn native_select<K: Clone + Eq + Hash + 'static>(
+pub fn native_select<K: kivact::state::ItemKey>(
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl kivact::state::IntoBinding<Option<K>>,
 ) -> NativeSelect<K> {
     NativeSelect {
         root: node(),
         options: options.into_value(),
-        value: value.into(),
+        value: value.into_binding(),
         placeholder: None,
-        size: NativeSelectSize::Default,
+        size: NativeSelectSize::Default.into_value(),
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NativeSelect<K> {
+impl<K: kivact::state::ItemKey> NativeSelect<K> {
     /// The height (default [`NativeSelectSize::Default`]).
-    pub fn size(mut self, size: NativeSelectSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl kivact::state::IntoValue<NativeSelectSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -81,13 +83,14 @@ impl<K: Clone + Eq + Hash + 'static> NativeSelect<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for NativeSelect<K> {
+impl<K: kivact::state::ItemKey> NodeBuilder for NativeSelect<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for NativeSelect<K> {
+impl<K: kivact::state::ItemKey> IntoView for NativeSelect<K> {
     fn into_view(self) -> View {
         let NativeSelect {
             mut root,
@@ -97,16 +100,14 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for NativeSelect<K> {
             size,
         } = self;
         // `.invalid(..)` shows the destructive border and ring.
-        let invalid = root
-            .accessible_invalid()
-            .map(|read| (move || read()).into_value());
+        let invalid = root.accessible_invalid();
         root = root.base_style(move || trigger_style(Cfg { size, invalid }));
         let mut behavior = use_select(options, value);
         if let Some(placeholder) = placeholder {
             behavior = behavior.placeholder(placeholder);
         }
         let trigger = behavior.trigger();
-        let anchor = trigger.node_ref();
+        let anchor = kivact::view::node_ref();
         let current = value.into_value();
         let has_value = memo(move || {
             current.with(|key| {
@@ -116,9 +117,10 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for NativeSelect<K> {
         });
         let name = root.accessible_name();
         let label = behavior.label();
-        let popup_name = memo(move || name.as_ref().map(|read| read()).unwrap_or_default());
+        let popup_name = memo(move || name.as_ref().map(|read| read.get()).unwrap_or_default());
         let trigger_node = root
-            .part(trigger)
+            .with_node(|root| root.part(trigger))
+            .node_ref(anchor)
             .child(text(label).style(move || {
                 style().grow(1).single_line().color(if has_value.get() {
                     tokens().foreground
@@ -147,7 +149,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for NativeSelect<K> {
 /// What the trigger's default style reads.
 #[derive(Clone, Copy)]
 struct Cfg {
-    size: NativeSelectSize,
+    size: kivact::state::Value<NativeSelectSize>,
     invalid: Option<Value<bool>>,
 }
 
@@ -155,7 +157,7 @@ struct Cfg {
 fn trigger_style(cfg: Cfg) -> Style {
     let p = tokens();
     let dark = p.is_dark();
-    let height = match cfg.size {
+    let height = match cfg.size.get() {
         NativeSelectSize::Default => 32,
         NativeSelectSize::Sm => 28,
     };
@@ -190,3 +192,5 @@ fn trigger_style(cfg: Cfg) -> Style {
         s
     }
 }
+
+kivact::state::constant_value!(NativeSelectSize);

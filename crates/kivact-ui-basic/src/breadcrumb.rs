@@ -3,14 +3,14 @@
 use crate::Color;
 use crate::parts::{pressable, sized_icon};
 use crate::theme_access::tokens;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::view::icon;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Cursor, Justify, style};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, callback};
-use kivact::view::{ReadingDirection, current_direction};
-use kivact::{Callback, Value};
+use kivact::view::{IntoView, Role, View};
+use kivact::view::{ReadingDirection, use_direction};
 
 /// A breadcrumb trail (breadcrumb.tsx): a `Role::Navigation` landmark named
 /// "Breadcrumb" (the `breadcrumb.label` message).
@@ -35,10 +35,10 @@ use kivact::{Callback, Value};
 /// }
 /// ```
 #[track_caller]
-pub fn breadcrumb_content(children: impl IntoView) -> Node {
-    let rtl = current_direction() == ReadingDirection::Rtl;
+pub fn breadcrumb_content(children: impl IntoView) -> impl kivact::view::Component {
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     row(children)
-        .role(Role::Navigation)
+        .with_node(|root| root.role(Role::Navigation))
         .name(kivact::i18n::message(
             "basic.breadcrumb.label",
             "Breadcrumb",
@@ -78,13 +78,14 @@ pub fn breadcrumb_link(text_value: impl IntoText) -> BreadcrumbLink {
 
 impl BreadcrumbLink {
     /// Report presses (click, Enter, Space) to `f`; without it the link takes no focus.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for BreadcrumbLink {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -115,10 +116,10 @@ impl IntoView for BreadcrumbLink {
 
 /// The current page of a [`breadcrumb`]: foreground text, a disabled link.
 #[track_caller]
-pub fn breadcrumb_page(text_value: impl IntoText) -> Node {
+pub fn breadcrumb_page(text_value: impl IntoText) -> impl kivact::view::Component {
     let label = text_value.into_text_value();
     node()
-        .role(Role::Link)
+        .with_node(|root| root.role(Role::Link))
         .name(label)
         .disabled(true)
         .style(style().color(Color::Foreground).text_wrap(false))
@@ -127,8 +128,8 @@ pub fn breadcrumb_page(text_value: impl IntoText) -> Node {
 
 /// The chevron between two crumbs; it points left in a right-to-left direction.
 #[track_caller]
-pub fn breadcrumb_separator() -> Node {
-    let name = if current_direction() == ReadingDirection::Rtl {
+pub fn breadcrumb_separator() -> impl kivact::view::Component {
+    let name = if use_direction().get() == ReadingDirection::Rtl {
         "chevron-left"
     } else {
         "chevron-right"
@@ -140,9 +141,9 @@ pub fn breadcrumb_separator() -> Node {
 
 /// The "…" that stands for hidden crumbs, read as the text "More".
 #[track_caller]
-pub fn breadcrumb_ellipsis() -> Node {
+pub fn breadcrumb_ellipsis() -> impl kivact::view::Component {
     node()
-        .role(Role::Text)
+        .with_node(|root| root.role(Role::Text))
         .name(kivact::i18n::message("basic.breadcrumb.more", "More"))
         .style(
             style()
@@ -157,7 +158,7 @@ pub fn breadcrumb_ellipsis() -> Node {
 
 /// Reactive text breadcrumb items. Use [`breadcrumb_content`] for rich content.
 #[track_caller]
-pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> Node {
+pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Component {
     let items = items.into_value();
     breadcrumb_content(kivact::view::dynamic(items, |items| {
         let count = items.len();

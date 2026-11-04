@@ -1,23 +1,25 @@
 //! Role: Surface, data and feedback components of the Pop kit.
 
 use crate::{Hue, Tokens};
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Stroke};
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::draw::{Shadow, Transform, linear_gradient};
+use kivact::geometry::{Point, Rect};
 use kivact::i18n::message;
 use kivact::motion::{Animated, Easing, Repeat, Transition, animated};
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::Value;
+use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, show};
+use kivact::view::{IntoView, Role, View, show};
 
 /// A bordered 14 px-radius surface with original 24 px content inset.
 #[track_caller]
 pub fn panel(content: impl IntoView) -> Node {
     column(content).style(move || {
-        let t = &current_theme();
-        let p = t.get::<Tokens>();
+        let t = &use_theme().get();
+        let p = t.ext::<Tokens>();
         style()
             .padding(p.panel_padding)
             .background(p.surface)
@@ -39,7 +41,7 @@ pub enum BadgeVariant {
 pub struct Badge {
     root: Node,
     label: Value<String>,
-    hue: Hue,
+    hue: Value<Hue>,
     variant: BadgeVariant,
 }
 #[track_caller]
@@ -47,13 +49,13 @@ pub fn badge(label: impl IntoText) -> Badge {
     Badge {
         root: node(),
         label: label.into_text_value(),
-        hue: Hue::Blue,
+        hue: Hue::Blue.into_value(),
         variant: BadgeVariant::Soft,
     }
 }
 impl Badge {
-    pub fn hue(mut self, hue: Hue) -> Self {
-        self.hue = hue;
+    pub fn hue(mut self, hue: impl IntoValue<Hue>) -> Self {
+        self.hue = hue.into_value();
         self
     }
     pub fn variant(mut self, variant: BadgeVariant) -> Self {
@@ -62,6 +64,7 @@ impl Badge {
     }
 }
 impl NodeBuilder for Badge {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -75,9 +78,9 @@ impl IntoView for Badge {
             label = label.style(style().transform(Transform::new().skew_x(16)));
         }
         let mut root = self.root.base_style(move || {
-            let t = &current_theme();
-            let p = t.get::<Tokens>();
-            let (bg, fg) = p.hue(hue);
+            let t = &use_theme().get();
+            let p = t.ext::<Tokens>();
+            let (bg, fg) = p.hue(hue.get());
             let s = style()
                 .direction(Direction::Row)
                 .align_items(Align::Center)
@@ -101,7 +104,7 @@ impl IntoView for Badge {
                 BadgeVariant::Solid => s.background(p.text).color(p.surface).weight(600),
                 BadgeVariant::Slant => s
                     .background(linear_gradient(90).colors([
-                        p.accent(hue),
+                        p.accent(hue.get()),
                         match hue {
                             Hue::Yellow => kivact::style::rgb(0xffe98a),
                             Hue::Red => kivact::style::rgb(0xff9c6e),
@@ -132,11 +135,11 @@ impl IntoView for Badge {
         });
         if variant == BadgeVariant::Dot {
             root = root.child(node().style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
                     .size(6, 6)
                     .radius(3)
-                    .background(t.get::<Tokens>().hue(hue).1)
+                    .background(t.ext::<Tokens>().hue(hue.get()).1)
             }));
         }
         root.child(label).into_view()
@@ -146,8 +149,8 @@ impl IntoView for Badge {
 pub struct Avatar {
     root: Node,
     initials: Value<String>,
-    size: f64,
-    hue: f64,
+    size: Value<f64>,
+    hue: Value<f64>,
     halo: Value<bool>,
     online: Value<bool>,
 }
@@ -156,8 +159,8 @@ pub fn avatar(initials: impl IntoText) -> Avatar {
     Avatar {
         root: node(),
         initials: initials.into_text_value(),
-        size: 40.0,
-        hue: 205.0,
+        size: 40.0.into_value(),
+        hue: 205.0.into_value(),
         halo: false.into_value(),
         online: false.into_value(),
     }
@@ -166,12 +169,14 @@ impl Avatar {
     /// The diameter in logical pixels (at least 16; the default is 40). A
     /// pixel number rather than a length: the initials, the halo and the
     /// online dot are drawn in proportion to it.
-    pub fn size(mut self, size: impl Into<f64>) -> Self {
-        self.size = size.into().max(16.0);
+    pub fn size(mut self, size: impl IntoValue<f64>) -> Self {
+        let size = size.into_value();
+        self.size = (move || size.get().max(16.0)).into_value();
         self
     }
-    pub fn hue(mut self, hue: f64) -> Self {
-        self.hue = hue;
+    pub fn hue(mut self, hue: impl IntoValue<f64>) -> Self {
+        let hue = hue.into_value();
+        self.hue = hue.into_value();
         self
     }
     /// Draw an animated halo over the avatar while true (constant or
@@ -189,6 +194,7 @@ impl Avatar {
     }
 }
 impl NodeBuilder for Avatar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -197,9 +203,9 @@ impl IntoView for Avatar {
     fn into_view(self) -> View {
         let size = self.size;
         let hue = self.hue;
-        let root = self.root.style(
+        let root = self.root.style(move || {
             style()
-                .size(size, size)
+                .size(size.get(), size.get())
                 .shrink(0)
                 .radius(999)
                 .direction(Direction::Row)
@@ -207,14 +213,14 @@ impl IntoView for Avatar {
                 .justify_content(Justify::Center)
                 .color(Color::WHITE)
                 .background(linear_gradient(140).colors([
-                    kivact::style::hsl(hue, 0.85, 0.7),
-                    kivact::style::hsl(hue + 18.0, 0.75, 0.52),
+                    kivact::style::hsl(hue.get(), 0.85, 0.7),
+                    kivact::style::hsl(hue.get() + 18.0, 0.75, 0.52),
                 ]))
                 .font_family("Barlow, sans-serif")
                 .italic(true)
                 .weight(800)
-                .font_size(size * 0.36),
-        );
+                .font_size(size.get() * 0.36)
+        });
         let halo = show(self.halo, move || {
             let offset = Animated::from(
                 0.0f64,
@@ -228,24 +234,32 @@ impl IntoView for Avatar {
                     .position(kivact::style::Position::Absolute)
                     .left(pct(14))
                     .right(pct(14))
-                    .top(size * -0.22)
-                    .height(size * 0.2)
+                    .top(size.get() * -0.22)
+                    .height(size.get() * 0.2)
                     .radius(pct(50))
-                    .border((size * 0.045).max(2.0), kivact::style::hsl(hue, 0.95, 0.62))
-                    .shadow(Shadow::new(0, 0, 8, kivact::style::hsl(hue, 1.0, 0.65)))
+                    .border(
+                        (size.get() * 0.045).max(2.0),
+                        kivact::style::hsl(hue.get(), 0.95, 0.62),
+                    )
+                    .shadow(Shadow::new(
+                        0,
+                        0,
+                        8,
+                        kivact::style::hsl(hue.get(), 1.0, 0.65),
+                    ))
                     .translate(0, offset.get())
             })
         });
         let online = show(self.online, move || {
             node().style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
                     .position(kivact::style::Position::Absolute)
                     .right(0)
                     .bottom(0)
-                    .size(size * 0.28, size * 0.28)
+                    .size(size.get() * 0.28, size.get() * 0.28)
                     .radius(999)
-                    .background(t.get::<Tokens>().mint)
+                    .background(t.ext::<Tokens>().mint)
                     .ring(2, t.colors().surface)
             })
         });
@@ -258,13 +272,17 @@ impl IntoView for Avatar {
 
 /// A 72 px circular progress gauge, with the percentage retained as text.
 #[track_caller]
-pub fn progress_ring(value: impl IntoValue<f64>, label: impl IntoText, hue: Hue) -> Node {
+pub fn progress_ring(
+    value: impl IntoValue<f64>,
+    label: impl IntoText,
+    hue: Value<Hue>,
+) -> impl kivact::view::Component {
     let value = value.into_value();
     let label = label.into_text_value();
     let animated = animated(value, Transition::tween(1000, Easing::EaseOut));
     column((
         node()
-            .role(Role::ProgressBar)
+            .with_node(|root| root.role(Role::ProgressBar))
             .name(label.into_value())
             .value_min(0.0)
             .value_max(100.0)
@@ -277,7 +295,7 @@ pub fn progress_ring(value: impl IntoValue<f64>, label: impl IntoText, hue: Hue)
                     .justify_content(Justify::Center),
             )
             .draw(move |d, s| {
-                let p = d.theme().get::<Tokens>();
+                let p = d.theme().ext::<Tokens>();
                 let centre = s.to_rect().center();
                 let arc = |fraction: f64| {
                     let n = (fraction * 80.0).ceil().max(1.0) as usize;
@@ -305,7 +323,7 @@ pub fn progress_ring(value: impl IntoValue<f64>, label: impl IntoText, hue: Hue)
                 d.stroke_path(
                     &arc((animated.get().clamp(0.0, 100.0) / 100.0) as f64),
                     &Stroke::new(6.0).cap(LineCap::Round).join(LineJoin::Round),
-                    p.accent(hue),
+                    p.accent(hue.get()),
                 );
             })
             .child(
@@ -322,7 +340,7 @@ pub fn section_heading(
     number: impl Into<String>,
     title: impl IntoText,
     subtitle: impl IntoText,
-) -> Node {
+) -> impl kivact::view::Component {
     let number = number.into();
     row((
         node()
@@ -337,8 +355,8 @@ pub fn section_heading(
                     .color(Color::WHITE),
             )
             .style(move || {
-                let t = &current_theme();
-                let p = t.get::<Tokens>();
+                let t = &use_theme().get();
+                let p = t.ext::<Tokens>();
                 style().background(linear_gradient(90).colors([p.blue, p.cyan]))
             })
             .child(
@@ -366,7 +384,7 @@ pub fn section_heading(
             ),
         column((
             text(title)
-                .role(Role::Heading)
+                .with_node(|root| root.role(Role::Heading))
                 .level(2_u32)
                 .style(style().font_size(20).weight(600).line_height(1.2)),
             text(subtitle).style(style().font_size(13).color(ColorToken::TextMuted)),
@@ -376,7 +394,7 @@ pub fn section_heading(
 }
 
 #[track_caller]
-pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> Node {
+pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> impl kivact::view::Component {
     let points = points.into_value();
     node()
         .style(style().height(52).min_width(1))
@@ -387,7 +405,7 @@ pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> Node {
             }
             let min = points.iter().copied().fold(f64::INFINITY, f64::min);
             let max = points.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-            let p = d.theme().get::<Tokens>();
+            let p = d.theme().ext::<Tokens>();
             let mut line = Path::new();
             let mut area = kivact::draw::Path::new().move_to(Point::new(0.0, s.height));
             for (i, v) in points.iter().enumerate() {
@@ -426,7 +444,7 @@ pub fn stat_card(title: impl IntoText, value: impl IntoText) -> StatCard {
         trend: String::new().into_value(),
         glyph: None,
         points: Vec::new().into_value(),
-        trend_hue: Hue::Gray,
+        trend_hue: Hue::Gray.into_value(),
     }
 }
 /// Presentation builder returned by [`stat_card`].
@@ -437,7 +455,7 @@ pub struct StatCard {
     trend: Value<String>,
     glyph: Option<Value<kivact::style::Icon>>,
     points: Value<Vec<f64>>,
-    trend_hue: Hue,
+    trend_hue: Value<Hue>,
 }
 impl StatCard {
     /// Optional trend text; empty by default.
@@ -456,12 +474,13 @@ impl StatCard {
         self
     }
     /// The trend hue; neutral gray by default.
-    pub fn tone(mut self, value: Hue) -> Self {
-        self.trend_hue = value;
+    pub fn tone(mut self, value: impl IntoValue<Hue>) -> Self {
+        self.trend_hue = value.into_value();
         self
     }
 }
 impl NodeBuilder for StatCard {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -482,8 +501,8 @@ impl IntoView for StatCard {
                         glyph.map(|glyph| {
                             node()
                                 .base_style(move || {
-                                    let t = &current_theme();
-                                    let p = t.get::<Tokens>();
+                                    let t = &use_theme().get();
+                                    let p = t.ext::<Tokens>();
                                     style()
                                         .size(32, 32)
                                         .radius(8)
@@ -497,8 +516,8 @@ impl IntoView for StatCard {
                         }),
                         text(trend)
                             .base_style(move || {
-                                let t = &current_theme();
-                                style().color(t.get::<Tokens>().hue(trend_hue).1)
+                                let t = &use_theme().get();
+                                style().color(t.ext::<Tokens>().hue(trend_hue.get()).1)
                             })
                             .base_style(
                                 style()
@@ -533,7 +552,7 @@ impl IntoView for StatCard {
 }
 
 #[track_caller]
-pub fn key_value(key: impl IntoText, value: impl IntoView) -> Node {
+pub fn key_value(key: impl IntoText, value: impl IntoView) -> impl kivact::view::Component {
     row((
         text(key).style(
             style()
@@ -558,7 +577,7 @@ pub fn list_item(title: impl IntoText) -> ListItem {
         title: title.into_text_value(),
         subtitle: String::new().into_value(),
         glyph: None,
-        hue: Hue::Gray,
+        hue: Hue::Gray.into_value(),
         trailing: None,
     }
 }
@@ -568,8 +587,8 @@ pub struct ListItem {
     title: Value<String>,
     subtitle: Value<String>,
     glyph: Option<Value<kivact::style::Icon>>,
-    hue: Hue,
-    trailing: Option<crate::slot::Slot>,
+    hue: Value<Hue>,
+    trailing: Option<kivact::view::View>,
 }
 impl ListItem {
     /// Optional subtitle; empty by default.
@@ -583,17 +602,18 @@ impl ListItem {
         self
     }
     /// Icon hue; neutral gray by default.
-    pub fn tone(mut self, value: Hue) -> Self {
-        self.hue = value;
+    pub fn tone(mut self, value: impl IntoValue<Hue>) -> Self {
+        self.hue = value.into_value();
         self
     }
     /// Content built once when the row mounts.
-    pub fn trailing<V: IntoView>(mut self, value: impl FnOnce() -> V + 'static) -> Self {
-        self.trailing = Some(crate::slot::slot(value));
+    pub fn trailing(mut self, value: impl IntoView) -> Self {
+        self.trailing = Some(value.into_view());
         self
     }
 }
 impl NodeBuilder for ListItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -611,9 +631,9 @@ impl IntoView for ListItem {
                 glyph.map(|glyph| {
                     node()
                         .base_style(move || {
-                            let t = &current_theme();
-                            let p = t.get::<Tokens>();
-                            let (bg, fg) = p.hue(hue);
+                            let t = &use_theme().get();
+                            let p = t.ext::<Tokens>();
+                            let (bg, fg) = p.hue(hue.get());
                             style()
                                 .size(36, 36)
                                 .radius(8)
@@ -631,7 +651,7 @@ impl IntoView for ListItem {
                     text(subtitle).base_style(style().font_size(12).color(ColorToken::TextMuted)),
                 ))
                 .base_style(style().grow(1)),
-                trailing.map(|slot| slot()),
+                trailing.map(|slot| slot),
             ))
             .base_style(
                 style()
@@ -649,25 +669,25 @@ impl IntoView for ListItem {
 #[track_caller]
 pub fn alert(title: impl IntoText) -> Alert {
     Alert {
-        root: row(()).role(Role::Alert),
+        root: row(()).with_node(|root| root.role(Role::Alert)),
         actions: None,
         title: title.into_text_value(),
         body: String::new().into_value(),
-        tone: kivact::ui::Tone::Neutral,
+        tone: kivact::interaction::Tone::Neutral.into_value(),
     }
 }
 /// Presentation builder returned by [`alert`].
 pub struct Alert {
     root: Node,
-    actions: Option<crate::slot::Slot>,
+    actions: Option<kivact::view::View>,
     title: Value<String>,
     body: Value<String>,
-    tone: kivact::ui::Tone,
+    tone: Value<kivact::interaction::Tone>,
 }
 impl Alert {
     /// Optional actions built once when the alert mounts.
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V + 'static) -> Self {
-        self.actions = Some(crate::slot::slot(actions));
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(actions.into_view());
         self
     }
 
@@ -677,12 +697,13 @@ impl Alert {
         self
     }
     /// Semantic accent; neutral by default.
-    pub fn tone(mut self, tone: kivact::ui::Tone) -> Self {
-        self.tone = tone;
+    pub fn tone(mut self, tone: impl IntoValue<kivact::interaction::Tone>) -> Self {
+        self.tone = tone.into_value();
         self
     }
 }
 impl NodeBuilder for Alert {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -693,39 +714,41 @@ impl IntoView for Alert {
         let body = self.body;
         let tone = self.tone;
 
-        use kivact::ui::Tone;
-        let hue = match tone {
+        use kivact::interaction::Tone;
+        let hue = kivact::state::memo(move || match tone.get() {
             Tone::Neutral => Hue::Gray,
             Tone::Info => Hue::Blue,
             Tone::Success => Hue::Mint,
             Tone::Warning => Hue::Yellow,
             Tone::Danger => Hue::Red,
             Tone::Accent => Hue::Pink,
-        };
+        });
         self.root
             .child((
-                icon(if hue == Hue::Red {
-                    "alert-circle"
-                } else if hue == Hue::Yellow {
-                    "alert-triangle"
-                } else if hue == Hue::Mint {
-                    "circle-check"
-                } else {
-                    "info-circle"
+                icon(move || {
+                    kivact::style::Icon::named(if hue.get() == Hue::Red {
+                        "alert-circle"
+                    } else if hue.get() == Hue::Yellow {
+                        "alert-triangle"
+                    } else if hue.get() == Hue::Mint {
+                        "circle-check"
+                    } else {
+                        "info-circle"
+                    })
                 })
                 .base_style(move || {
-                    let t = &current_theme();
-                    style().color(t.get::<Tokens>().hue(hue).1)
+                    let t = &use_theme().get();
+                    style().color(t.ext::<Tokens>().hue(hue.get()).1)
                 })
                 .base_style(style().margin_top(2)),
                 column((
                     text(title)
                         .base_style(style().font_size(14).weight(500).line_height(1.5))
                         .base_style(move || {
-                            let t = &current_theme();
-                            let p = t.get::<Tokens>();
-                            style().color(if hue == Hue::Red {
-                                p.hue(hue).1
+                            let t = &use_theme().get();
+                            let p = t.ext::<Tokens>();
+                            style().color(if hue.get() == Hue::Red {
+                                p.hue(hue.get()).1
                             } else {
                                 p.text
                             })
@@ -740,10 +763,10 @@ impl IntoView for Alert {
                 .base_style(style().gap(2).grow(1)),
             ))
             .base_style(move || {
-                let t = &current_theme();
-                let p = t.get::<Tokens>();
+                let t = &use_theme().get();
+                let p = t.ext::<Tokens>();
                 style()
-                    .align_items(if hue == Hue::Red {
+                    .align_items(if hue.get() == Hue::Red {
                         Align::Center
                     } else {
                         Align::Start
@@ -755,33 +778,33 @@ impl IntoView for Alert {
                     .background(p.surface)
                     .border(
                         1,
-                        if hue == Hue::Red {
-                            p.hue(hue).1.mix_in(p.line, 0.7, t)
+                        if hue.get() == Hue::Red {
+                            p.hue(hue.get()).1.mix_in(p.line, 0.7, t)
                         } else {
                             p.line
                         },
                     )
             })
-            .child(self.actions.map(|slot| slot()))
+            .child(self.actions.map(|slot| slot))
             .into_view()
     }
 }
 
 #[track_caller]
-pub fn spinner() -> Node {
+pub fn spinner() -> impl kivact::view::Component {
     let angle = Animated::from(
         0.0f64,
         360.0f64,
         Transition::tween(700, Easing::Linear)
             .repeat(Repeat::Forever)
-            .decorative(false),
+            .essential(),
     );
     node()
-        .role(Role::Status)
+        .with_node(|root| root.role(Role::Status))
         .name(message("pop.loader.label", "Loading"))
         .style(move || style().size(20, 20).radius(999).rotate(angle.get()))
         .draw(|draw, size| {
-            let p = draw.theme().get::<Tokens>();
+            let p = draw.theme().ext::<Tokens>();
             let thickness = if size.width.min(size.height) >= 28.0 {
                 3.0
             } else {
@@ -824,20 +847,20 @@ pub fn spinner() -> Node {
 }
 /// The three-color bouncing dots use the same public motion clock as the host.
 #[track_caller]
-pub fn dots_loader() -> Node {
+pub fn dots_loader() -> impl kivact::view::Component {
     let phase = Animated::from(
         0.0f64,
         std::f64::consts::TAU,
         Transition::tween(1000, Easing::Linear)
             .repeat(Repeat::Forever)
-            .decorative(false),
+            .essential(),
     );
     node()
-        .role(Role::Status)
+        .with_node(|root| root.role(Role::Status))
         .name(message("pop.loader.label", "Loading"))
         .style(style().size(34, 20))
         .draw(move |draw, _| {
-            let p = draw.theme().get::<Tokens>();
+            let p = draw.theme().ext::<Tokens>();
             for (i, color) in [p.blue, p.cyan, p.yellow].into_iter().enumerate() {
                 let bounce = (phase.get() - i as f64 * 0.95).sin().max(0.0) * 6.0;
                 draw.rounded_rect(
@@ -856,14 +879,14 @@ pub fn dots_loader() -> Node {
 #[track_caller]
 pub fn skeleton() -> Skeleton {
     Skeleton {
-        root: kivact::control::column(()),
+        root: kivact::view::column(()),
         rows: 1usize.into_value(),
     }
 }
 /// Presentation builder returned by [`skeleton`].
 pub struct Skeleton {
     root: Node,
-    rows: kivact::Value<usize>,
+    rows: kivact::state::Value<usize>,
 }
 impl Skeleton {
     /// Reactive row count; one by default.
@@ -873,6 +896,7 @@ impl Skeleton {
     }
 }
 impl NodeBuilder for Skeleton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -899,7 +923,7 @@ impl IntoView for Skeleton {
                             .width(pct(100))
                             .radius(6)
                             .background(ColorToken::SurfaceAlt)
-                            .opacity(if kivact::platform::reduced_motion() {
+                            .opacity(if kivact::platform::is_motion_reduced().get() {
                                 1.
                             } else {
                                 pulse.get()
@@ -925,7 +949,7 @@ pub struct EmptyState {
     root: Node,
     title: Value<String>,
     description: Value<String>,
-    action: Option<crate::slot::Slot>,
+    action: Option<kivact::view::View>,
 }
 impl EmptyState {
     /// Supporting text; empty by default.
@@ -934,12 +958,13 @@ impl EmptyState {
         self
     }
     /// Optional content built once when the state mounts.
-    pub fn content<V: IntoView>(mut self, value: impl FnOnce() -> V + 'static) -> Self {
-        self.action = Some(crate::slot::slot(value));
+    pub fn content(mut self, value: impl IntoView) -> Self {
+        self.action = Some(value.into_view());
         self
     }
 }
 impl NodeBuilder for EmptyState {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -953,7 +978,7 @@ impl IntoView for EmptyState {
         self.root
             .child((
                 node().base_style(style().size(160, 110)).draw(|d, _| {
-                    let p = d.theme().get::<Tokens>();
+                    let p = d.theme().ext::<Tokens>();
                     let mut halo = Path::new();
                     for i in 0..=64 {
                         let a = std::f64::consts::TAU * i as f64 / 64.0;
@@ -1021,7 +1046,7 @@ impl IntoView for EmptyState {
                 text(title).base_style(style().font_size(16).weight(600)),
                 text(description)
                     .base_style(style().color(ColorToken::TextMuted).margin_bottom(12)),
-                action.map(|slot| slot()),
+                action.map(|slot| slot),
             ))
             .base_style(
                 style()

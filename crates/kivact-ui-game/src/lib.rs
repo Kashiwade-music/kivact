@@ -36,7 +36,6 @@ mod recipes_field;
 mod recipes_input;
 mod recipes_palette;
 mod recipes_small;
-mod slot;
 mod surface;
 mod table;
 mod theme;

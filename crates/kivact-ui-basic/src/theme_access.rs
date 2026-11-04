@@ -1,12 +1,13 @@
 //! Role: Shared Lyra style fragments and Lucide strokes for recipes and parts.
 
 use crate::tokens::Tokens;
-use kivact::draw::{Draw, LineCap, LineJoin, Path, Point, Shadow, Stroke};
-use kivact::style::{Align, Color, ColorToken, Direction, Style, current_theme, style};
+use kivact::draw::{Draw, LineCap, LineJoin, Path, Shadow, Stroke};
+use kivact::geometry::Point;
+use kivact::style::{Align, Color, ColorToken, Direction, Style, style, use_theme};
 
 /// The tokens of the theme in effect; call it inside a style closure.
-pub(crate) fn tokens() -> std::sync::Arc<Tokens> {
-    current_theme().get::<Tokens>()
+pub(crate) fn tokens() -> kivact::style::ThemeRef<Tokens> {
+    use_theme().get().ext::<Tokens>()
 }
 
 /// The theme's focus ring (`Theme::focus_ring`, 1 px, in `ColorToken::Focus`,
@@ -15,7 +16,7 @@ pub(crate) fn tokens() -> std::sync::Arc<Tokens> {
 /// default off, so it adds this to its `focus_visible` look. Call it inside
 /// a style closure or a recipe.
 pub(crate) fn theme_ring() -> Style {
-    style().ring(current_theme().focus_ring(), ColorToken::Focus)
+    style().ring(use_theme().get().focus_ring(), ColorToken::Focus)
 }
 
 /// `focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50`:
@@ -43,7 +44,7 @@ pub(crate) fn with_focus(s: Style, p: &Tokens) -> Style {
 /// theme by default. Input is suppressed by the
 /// disabled state itself. Call it inside a style closure or a recipe.
 pub(crate) fn disabled() -> Style {
-    style().opacity(current_theme().disabled_opacity())
+    style().opacity(use_theme().get().disabled_opacity())
 }
 
 /// `bg-accent text-accent-foreground`: a popup row pointed at, focused or

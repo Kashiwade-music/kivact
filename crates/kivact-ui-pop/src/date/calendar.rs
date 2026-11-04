@@ -1,14 +1,16 @@
 //! Role: Render calendar dates, navigation and day selection.
 use crate::{Hue, Tokens};
-use kivact::control::{Node, NodeBuilder, grid, icon, node, row, text};
+use kivact::custom::{Part, PartState};
 use kivact::i18n::{CalendarDate, CalendarMonth, Weekday, message, message_with};
-use kivact::interaction::{CalendarPolicy, CalendarSelection, use_calendar_grid};
-use kivact::primitive::{NodeExt, Part, PartState};
-use kivact::style::{Align, Color, ColorToken, Direction, Justify, Track, current_theme, style};
+use kivact::interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Callback, Value, signal};
+use kivact::state::{IntoValue, callback};
+use kivact::style::{Align, Color, ColorToken, Direction, Justify, Track, style, use_theme};
 use kivact::ui::{ButtonVariant, button};
 use kivact::view::HandlerResult;
-use kivact::view::{IntoValue, IntoView, View, callback, show};
-use kivact::{Binding, Callback, Value, signal};
+use kivact::view::{IntoView, View, show};
+use kivact::view::{Node, NodeBuilder, grid, icon, node, row, text};
 use std::rc::Rc;
 
 /// One event dot; event contents remain in the application's scheduling model.
@@ -73,10 +75,13 @@ pub struct Calendar {
 
 /// A month calendar over `selected`. The application supplies `today`.
 #[track_caller]
-pub fn calendar(selected: impl Into<Binding<CalendarDate>>, today: CalendarDate) -> Calendar {
+pub fn calendar(
+    selected: impl kivact::state::IntoBinding<CalendarDate>,
+    today: CalendarDate,
+) -> Calendar {
     Calendar {
         root: node().style(style().direction(Direction::Column).min_width(280)),
-        selected: selected.into(),
+        selected: selected.into_binding(),
         today,
         events: None,
         on_activate: None,
@@ -156,6 +161,7 @@ impl Calendar {
 }
 
 impl NodeBuilder for Calendar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -191,20 +197,20 @@ impl IntoView for Calendar {
         } = self;
         let value = selected.into_value();
         let visible = signal(selected.get_untracked().month_of());
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             let month = value.get().month_of();
             if month != visible.get_untracked() {
                 visible.set(month);
             }
         });
-        let mut policy = CalendarPolicy::new().select_on_move(true);
+        let mut policy = CalendarOptions::new().select_on_move(true);
         if let Some(day) = week_starts_on {
             policy = policy.week_start(day);
         }
         if let Some(on_activate) = on_activate {
-            policy = policy.on_commit(move |date| on_activate.call(date));
+            policy = policy.on_activate(move |date| on_activate.call(date));
         }
-        let choice = kivact::binding(
+        let choice = kivact::state::binding(
             move || Some(value.get()),
             move |date: Option<CalendarDate>| {
                 if let Some(date) = date {
@@ -237,14 +243,14 @@ impl IntoView for Calendar {
                     .into_view()
             })
             .collect::<Vec<_>>();
-        let shown = kivact::memo(move || visible.get().first_day());
+        let shown = kivact::state::memo(move || visible.get().first_day());
         let title = month_label(shown, month_title.clone());
         let step = move |glyph: &'static str, label: Value<String>, paging: Part<PartState>| {
             button(label)
                 .variant(ButtonVariant::Ghost)
                 .hide_label(true)
                 .icon(icon(glyph))
-                .part(paging)
+                .with_node(|root| root.part(paging))
                 .into_view()
         };
         let mut bar = Vec::new();
@@ -263,14 +269,14 @@ impl IntoView for Calendar {
         let menus = {
             let month_title = month_title.clone();
             move || {
-                use kivact::ui::ListItem;
+                use kivact::interaction::ListItem;
                 let years = move || {
                     let year = visible.get().year();
                     (year.saturating_sub(50)..=year.saturating_add(50))
                         .map(|year| ListItem::new(year, year.to_string()))
                         .collect::<Vec<_>>()
                 };
-                let year = kivact::binding(
+                let year = kivact::state::binding(
                     move || Some(visible.get().year()),
                     move |year| {
                         if let Some(year) = year {
@@ -281,12 +287,13 @@ impl IntoView for Calendar {
                 );
                 let months = (1..=12)
                     .map(|month| {
-                        let date =
-                            kivact::memo(move || CalendarDate::new(visible.get().year(), month, 1));
+                        let date = kivact::state::memo(move || {
+                            CalendarDate::new(visible.get().year(), month, 1)
+                        });
                         ListItem::new(month, month_label(date, month_title.clone()))
                     })
                     .collect::<Vec<_>>();
-                let month = kivact::binding(
+                let month = kivact::state::binding(
                     move || Some(visible.get().month()),
                     move |month| {
                         if let Some(month) = month {
@@ -352,11 +359,11 @@ impl IntoView for Calendar {
                                 }
                             };
                             node()
-                                .part(cell)
+                                .with_node(|root| root.part(cell))
                                 .selected(move || mark() != Mark::None)
                                 .style(move || {
-                                    let t = &current_theme();
-                                    let p = t.get::<Tokens>();
+                                    let t = &use_theme().get();
+                                    let p = t.ext::<Tokens>();
                                     let mark = mark();
                                     style()
                                         .height(40)
@@ -397,7 +404,7 @@ impl IntoView for Calendar {
                                     let count = colors.len();
                                     for (index, color) in colors.into_iter().enumerate() {
                                         draw.rounded_rect(
-                                            kivact::draw::Rect::new(
+                                            kivact::geometry::Rect::new(
                                                 (size.width - (count as f64 * 6.0 - 2.0)) / 2.0
                                                     + index as f64 * 6.0,
                                                 size.height - 8.0,
@@ -417,7 +424,7 @@ impl IntoView for Calendar {
                         })
                         .collect::<Vec<_>>(),
                 )
-                .part(behavior.grid())
+                .with_node(|root| root.part(behavior.grid()))
                 .style(
                     style()
                         .grid_template_columns(Track::repeat(7, Track::fr(1)))

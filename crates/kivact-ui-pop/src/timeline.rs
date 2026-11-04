@@ -2,22 +2,23 @@
 
 use crate::Color;
 use crate::{Hue, Tokens};
-use kivact::Value;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::style::current_theme;
+use kivact::state::Value;
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Direction, Justify, style};
-use kivact::view::{IntoText, IntoValue, IntoView, View, show};
+use kivact::view::icon;
+use kivact::view::{IntoView, View, show};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 /// An activity entry. Created by [`timeline_item`].
 pub struct TimelineItem {
     root: Node,
     title: Value<String>,
-    title_content: Option<crate::slot::Slot>,
+    title_content: Option<kivact::view::View>,
     detail: Value<String>,
     timestamp: Value<String>,
-    glyph: Option<kivact::Value<kivact::style::Icon>>,
-    hue: Hue,
+    glyph: Option<kivact::state::Value<kivact::style::Icon>>,
+    hue: Value<Hue>,
 }
 
 /// An activity entry with a title, optional quotation and timestamp.
@@ -38,8 +39,8 @@ pub fn timeline_item(title: impl IntoText) -> TimelineItem {
             .draw(|draw, size| {
                 if size.height > 40.0 {
                     draw.line(
-                        kivact::draw::Point::new(15.0, 36.0),
-                        kivact::draw::Point::new(15.0, size.height - 4.0),
+                        kivact::geometry::Point::new(15.0, 36.0),
+                        kivact::geometry::Point::new(15.0, size.height - 4.0),
                         1.0,
                         ColorToken::Border,
                     );
@@ -50,7 +51,7 @@ pub fn timeline_item(title: impl IntoText) -> TimelineItem {
         detail: String::new().into_value(),
         timestamp: String::new().into_value(),
         glyph: None,
-        hue: Hue::Gray,
+        hue: Hue::Gray.into_value(),
     }
 }
 impl TimelineItem {
@@ -70,19 +71,20 @@ impl TimelineItem {
         self
     }
     /// Icon hue; neutral gray by default.
-    pub fn tone(mut self, value: Hue) -> Self {
-        self.hue = value;
+    pub fn tone(mut self, value: impl IntoValue<Hue>) -> Self {
+        self.hue = value.into_value();
         self
     }
 
     /// An application-owned title view in place of the title text, built
     /// once by `title` when the entry mounts.
-    pub fn title_content<V: IntoView>(mut self, title: impl FnOnce() -> V + 'static) -> Self {
-        self.title_content = Some(crate::slot::slot(title));
+    pub fn title_content(mut self, title: impl IntoView) -> Self {
+        self.title_content = Some(title.into_view());
         self
     }
 }
 impl NodeBuilder for TimelineItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -99,7 +101,7 @@ impl IntoView for TimelineItem {
             hue,
         } = self;
         let title = match title_content {
-            Some(title) => title(),
+            Some(title) => title,
             None => text(title)
                 .style(
                     style()
@@ -113,9 +115,9 @@ impl IntoView for TimelineItem {
         root.child((
             node()
                 .style(move || {
-                    let t = &current_theme();
-                    let p = t.get::<Tokens>();
-                    let (bg, fg) = p.hue(hue);
+                    let t = &use_theme().get();
+                    let p = t.ext::<Tokens>();
+                    let (bg, fg) = p.hue(hue.get());
                     style()
                         .size(32, 32)
                         .shrink(0)

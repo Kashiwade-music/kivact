@@ -1,9 +1,9 @@
 //! Role: Modal menus, command search, toasts, tooltips and dialogs via the public API.
 
-use kivact::control::{rich_text, span};
+use kivact::interaction::{Command, MenuEntry, Toast, Tone, toaster};
 use kivact::prelude::*;
-use kivact::ui::{Command, MenuEntry, Toast, Tone, toaster};
 use kivact::view::A11yAction;
+use kivact::view::{rich_text, span};
 use kivact_ui_game as g;
 use std::time::Duration;
 
@@ -20,35 +20,32 @@ fn consumer_modal_menu_command_search_and_focus_restore() {
                     kivact::ui::button("Create")
                         .variant(kivact_ui_game::Slant)
                         .on_press(move || open.set(true)),
-                    kivact::ui::menu(
-                        "Actions",
-                        vec![MenuEntry::item("run", "Run")],
-                        move |_: &'static str| hits.update(|v| *v += 1),
-                    )
-                    .offset(0.)
-                    .attach(
-                        kivact::ui::button("Actions")
-                            .variant(kivact_ui_game::Slant)
-                            .variant(kivact::ui::ButtonVariant::Secondary)
-                            .into_node(),
-                    ),
+                    kivact::ui::menu("Actions", vec![MenuEntry::item("run", "Run")])
+                        .on_activate(move |_: &'static str| hits.update(|v| *v += 1))
+                        .offset(0.)
+                        .attach(
+                            kivact::ui::button("Actions")
+                                .variant(kivact_ui_game::Slant)
+                                .variant(kivact::ui::ButtonVariant::Secondary),
+                        ),
                     kivact::ui::button("Commands")
                         .variant(kivact_ui_game::Slant)
                         .on_press(move || command_open.set(true)),
-                    kivact::ui::dialog("New operation", open)
-                        .content(|| kivact::ui::text_input("Title", kivact::signal(String::new()))),
+                    kivact::ui::dialog("New operation", open).content(|| {
+                        kivact::ui::text_input("Title", kivact::state::signal(String::new()))
+                    }),
                     kivact::ui::command_palette(
-                        command_open,
                         vec![
-                            Command::new("deploy", "Deploy").hint("RUN"),
-                            Command::new("help", "Help").hint("DOCS"),
+                            Command::new("deploy", "Deploy").with_hint("RUN"),
+                            Command::new("help", "Help").with_hint("DOCS"),
                         ],
-                        move |key: &'static str| {
-                            if key == "deploy" {
-                                hits.update(|v| *v += 1);
-                            }
-                        },
-                    ),
+                        command_open,
+                    )
+                    .on_activate(move |key: &'static str| {
+                        if key == "deploy" {
+                            hits.update(|v| *v += 1);
+                        }
+                    }),
                 ))
                 .style(style().padding(20).gap(20)),
             )
@@ -93,7 +90,7 @@ fn consumer_toast_expiry_and_hover_pause() {
                                     .duration(Some(Duration::from_millis(400))),
                             );
                         }),
-                    g::banner("NOTICE", kivact::ui::Tone::Warning, ())
+                    g::banner("NOTICE", kivact::interaction::Tone::Warning, ())
                         .content(move || {
                             rich_text(vec![
                                 span("Maintenance:").weight(700).color(rgb(0xffc928)),
@@ -104,7 +101,7 @@ fn consumer_toast_expiry_and_hover_pause() {
                     g::activity(vec![g::ActivityEntry::new(
                         "09:40",
                         rich_text(vec![span("Review").weight(700), span(" passed")]),
-                        kivact::ui::Tone::Success,
+                        kivact::interaction::Tone::Success,
                     )]),
                 )),
                 kivact::ui::toast_region(toaster),
@@ -198,12 +195,16 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
                     .on_press(move || sheet.set(true)),
                 kivact::ui::dialog("Rename", modal)
                     .description("The new name shows everywhere.")
-                    .content(|| kivact::ui::text_input("Name", kivact::signal(String::new()))),
+                    .content(|| {
+                        kivact::ui::text_input("Name", kivact::state::signal(String::new()))
+                    }),
                 kivact::ui::dialog("Details", sheet)
-                    .kind(kivact::ui::DialogKind::Drawer(kivact::ui::Side::Right))
+                    .mode(kivact::interaction::DialogMode::Drawer(
+                        kivact::geometry::Edge::Right,
+                    ))
                     .content(|| text("Body")),
                 kivact::ui::dialog("Help topic", popover)
-                    .kind(kivact::ui::DialogKind::Popover)
+                    .mode(kivact::interaction::DialogMode::Popover)
                     .content(|| text("Help content"))
                     .attach(kivact::ui::button("Open help").variant(kivact_ui_game::Slant)),
             )),
@@ -220,8 +221,8 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
         opener.click();
         let dialog = screen.get_by_role(Role::Dialog, title);
         screen.get_by_role(Role::Heading, title);
-        dialog.a11y(A11yAction::Dismiss);
-        assert!(!open.get_untracked(), "{title}: Dismiss closes it");
+        dialog.a11y(A11yAction::DismissOn);
+        assert!(!open.get_untracked(), "{title}: DismissOn closes it");
         assert!(opener.is_focused(), "{title}: focus returns to the opener");
     }
     screen.get_by_role(Role::Button, "Open modal").click();

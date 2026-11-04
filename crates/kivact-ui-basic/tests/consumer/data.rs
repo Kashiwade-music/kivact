@@ -110,52 +110,52 @@ fn payments_table() -> (Handles, impl IntoView) {
         .filter(handles.query)
         .sort(handles.sort)
         .page(handles.page, 3)
-        .toolbar(move |context| {
-            let query = context.filter.expect("the table has a filter");
-            let page = context.page.map(|(page, _)| page).expect("the table pages");
+        .toolbar(move |use_context| {
+            let query = use_context.filter.expect("the table has a filter");
+            let page = use_context
+                .page
+                .map(|(page, _)| page)
+                .expect("the table pages");
             let filter = kivact::ui::text_input(
                 "Filter emails...",
-                kivact::binding(query, move |text: String| {
+                kivact::state::binding(query, move |text: String| {
                     query.set(text);
                     page.set(0);
                 }),
             )
             .placeholder("Filter emails...");
             let titles = ["Status", "Email", "Amount"];
-            let entries = kivact::memo(move || {
+            let entries = kivact::state::memo(move || {
                 let shown = visible.get();
                 titles
                     .iter()
                     .enumerate()
                     .map(|(i, title)| {
-                        kivact::ui::MenuEntry::checkbox(i, *title, shown[i]).keep_open(true)
+                        kivact::interaction::MenuEntry::checkbox(i, *title, shown[i])
+                            .keep_open(true)
                     })
                     .collect::<Vec<_>>()
             });
-            let columns_menu = kivact::ui::menu("Columns", entries, move |index: usize| {
-                visible.update(|shown| shown[index] = !shown[index]);
-            })
-            .attach(
-                kivact::ui::button("Columns")
-                    .variant(kivact::ui::ButtonVariant::Outline)
-                    .into_node(),
-            );
+            let columns_menu = kivact::ui::menu("Columns", entries)
+                .on_activate(move |index: usize| {
+                    visible.update(|shown| shown[index] = !shown[index]);
+                })
+                .attach(kivact::ui::button("Columns").variant(kivact::ui::ButtonVariant::Outline));
             row((filter, columns_menu)).style(style().gap(8))
         })
         .row_actions(40.0, move |row: Value<Payment>| {
             let id = row.with(|p| p.id);
             kivact::ui::menu(
                 "Actions",
-                vec![kivact::ui::MenuEntry::item(id, "Copy payment ID")],
-                move |id: u32| handles.acted.set(Some(id)),
+                vec![kivact::interaction::MenuEntry::item(id, "Copy payment ID")],
             )
+            .on_activate(move |id: u32| handles.acted.set(Some(id)))
             .attach(
                 kivact::ui::button(format!("Open menu {id}"))
                     .variant(kivact::ui::ButtonVariant::Outline)
                     .hide_label(true)
-                    .icon(kivact::control::icon("ellipsis"))
-                    .variant(kivact::ui::ButtonVariant::Ghost)
-                    .into_node(),
+                    .icon(kivact::view::icon("ellipsis"))
+                    .variant(kivact::ui::ButtonVariant::Ghost),
             )
             .into_view()
         });
@@ -231,7 +231,7 @@ fn data_table_sorts_with_the_header_buttons() {
 }
 
 /// How many pixels of `screen` inside `rect` are near `color`.
-fn count_near(screen: &Screen, rect: kivact::draw::Rect, color: u32) -> usize {
+fn count_near(screen: &Screen, rect: kivact::geometry::Rect, color: u32) -> usize {
     let shot = screen.screenshot();
     let scale = screen.scale();
     let (x0, y0) = ((rect.x * scale) as u32, (rect.y * scale) as u32);
@@ -312,7 +312,7 @@ fn hovering_a_chart_shows_the_tooltip_card_with_the_values() {
     assert_eq!(screen.all_by_text("Desktop").len(), 2, "legend and tooltip");
     // The tooltip swatches carry the series colors.
     let card = screen.get_by_text("February").rect().expect("laid out");
-    let swatches = kivact::draw::Rect::new(card.x - 20.0, card.y, 200.0, 80.0);
+    let swatches = kivact::geometry::Rect::new(card.x - 20.0, card.y, 200.0, 80.0);
     assert!(count_near(&screen, swatches, RED) >= 20);
     // Within the same category the card follows the pointer.
     screen.mouse_move(rect.x + rect.width * 0.4 + 6.0, rect.y + 110.0);

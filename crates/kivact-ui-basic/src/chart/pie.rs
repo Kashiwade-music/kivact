@@ -3,7 +3,8 @@
 use super::model::{ChartKind, Frame, Hit, HitRow, series_color};
 use super::polar::{disc, locate, polar};
 use crate::tokens::Tokens;
-use kivact::draw::{Draw, Path, Point, Size, Stroke, TextBaseline, TextStyle};
+use kivact::draw::{Draw, Path, Stroke, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Size};
 use kivact::style::TextAlign;
 
 /// The inner radius of a donut and of the innermost radial ring, against the outer radius.
@@ -27,7 +28,7 @@ fn totals(f: &Frame) -> Vec<f64> {
 
 /// Paint the chart; `hit` is the slice or ring under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().get::<Tokens>();
+    let tokens = d.theme().ext::<Tokens>();
     let hovered = hit.map(|hit| hit.index);
     if f.kind == ChartKind::Radial {
         paint_rings(d, size, f, &tokens, hovered);
@@ -72,21 +73,21 @@ fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: O
         from = to;
     }
     if donut {
-        let value = TextStyle {
+        let value = TextFormat {
             size: 24.0,
             weight: 700,
             color: tokens.foreground,
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         d.text(&f.format(sum), Point::new(center.x, center.y - 8.0), value);
-        let label = TextStyle {
+        let label = TextFormat {
             size: 12.0,
             color: tokens.muted_foreground,
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         d.text(f.total_label, Point::new(center.x, center.y + 14.0), label);
     }

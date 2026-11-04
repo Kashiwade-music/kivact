@@ -54,7 +54,7 @@ pub enum Color {
 
 impl ThemeColor for Color {
     fn resolve(self, theme: &Theme) -> kivact::style::Color {
-        let p = theme.get::<Tokens>();
+        let p = theme.ext::<Tokens>();
         match self {
             Color::Background => p.background,
             Color::Surface => p.surface,

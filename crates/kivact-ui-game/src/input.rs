@@ -1,15 +1,17 @@
 //! Role: Editable fields, steppers, tags and native file drop targets.
 use kivact::i18n::message;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::draw::{Layer, Path, Point};
+use kivact::draw::{Layer, Path};
+use kivact::geometry::Point;
+use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Signal, Value, memo, signal};
 use kivact::style::{Align, BorderStyle, ColorToken, Direction, Position, pct, style};
 use kivact::task::spawn;
-use kivact::view::{FilePhase, Handled, HandlerResult, IntoText, IntoValue, Role};
-use kivact::{Signal, Value, memo, signal};
+use kivact::view::{FilePhase, Handled, HandlerResult, Role};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 use crate::Tokens;
 
@@ -19,7 +21,7 @@ pub fn input_adorned(
     prefix: impl kivact::view::IntoView,
     control: kivact::ui::TextInput,
     suffix: impl kivact::view::IntoView,
-) -> Node {
+) -> impl kivact::view::Component {
     row((
         control.style(style().width(pct(100)).padding_left(34).padding_right(52)),
         node().child(prefix).style(
@@ -46,7 +48,7 @@ pub fn input_group(
     prefix: impl IntoText,
     control: kivact::ui::TextInput,
     suffix: impl IntoText,
-) -> Node {
+) -> impl kivact::view::Component {
     input_group_content(crate::mono(prefix), control, crate::mono(suffix))
 }
 
@@ -56,17 +58,17 @@ pub fn input_group_content(
     prefix: impl kivact::view::IntoView,
     control: kivact::ui::TextInput,
     suffix: impl kivact::view::IntoView,
-) -> Node {
+) -> impl kivact::view::Component {
     let addon = |content: kivact::view::View| {
         node()
             .style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
-                    .height(t.get::<Tokens>().control_height)
+                    .height(t.ext::<Tokens>().control_height)
                     .padding_x(10)
                     .align_items(Align::Center)
-                    .background(t.get::<Tokens>().surface_3)
-                    .border(1, t.get::<Tokens>().line_strong)
+                    .background(t.ext::<Tokens>().surface_3)
+                    .border(1, t.ext::<Tokens>().line_strong)
             })
             .child(content)
     };
@@ -85,22 +87,22 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
     let over = signal(false);
     Dropzone {
         root: column(())
-            .role(Role::Button)
+            .with_node(|root| root.role(Role::Button))
             .name(label)
             .focusable(true)
             .style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
                     .direction(Direction::Column)
                     .align_items(Align::Center)
                     .gap(6)
                     .padding_y(22)
                     .padding_x(16)
-                    .border(1.5, t.get::<Tokens>().line_strong)
+                    .border(1.5, t.ext::<Tokens>().line_strong)
                     .border_style(BorderStyle::Dashed)
                     .selected(
                         style()
-                            .background(t.get::<Tokens>().primary_weak)
+                            .background(t.ext::<Tokens>().primary_weak)
                             .border_color(t.colors().accent),
                     )
             }),
@@ -150,6 +152,7 @@ impl Dropzone {
     }
 }
 impl NodeBuilder for Dropzone {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -166,7 +169,7 @@ impl kivact::view::IntoView for Dropzone {
         let picker_title = message("game.dropzone.picker", "Choose files");
         self.root
             .child((
-                kivact::control::icon("cloud-upload")
+                kivact::view::icon("cloud-upload")
                     .style(style().size(28, 28).color(ColorToken::Accent)),
                 text(self.label).style(style().weight(700)),
                 kivact::view::show(
@@ -238,7 +241,7 @@ impl kivact::view::IntoView for Dropzone {
                 }),
                 |message| {
                     text(message)
-                        .role(Role::Alert)
+                        .with_node(|root| root.role(Role::Alert))
                         .style(style().color(ColorToken::Danger))
                 },
             ))

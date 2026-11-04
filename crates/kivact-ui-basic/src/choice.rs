@@ -2,16 +2,18 @@
 
 use crate::theme_access::{tokens, wide_focus_ring};
 use crate::tokens::Tokens;
-use kivact::control::{Node, NodeBuilder, node, text};
-use kivact::interaction::{ListPolicy, ListSelection, use_list, use_toggle_button};
-use kivact::primitive::NodeExt;
+use kivact::interaction::{ListOptions, Selection, use_list, use_toggle_button};
+use kivact::view::{Node, NodeBuilder, node, text};
+
+use kivact::interaction::ListItem;
+use kivact::state::IntoValue;
+use kivact::state::{Binding, Signal, Value, binding, memo, signal};
 use kivact::style::{Align, Color, Direction, Justify, Style, style};
-use kivact::ui::{ControlSize, ListItem, Variant};
-use kivact::view::{IntoValue, IntoView, Orientation, Role, View, dynamic, for_each, show};
-use kivact::{Binding, Signal, Value, binding, memo, signal};
+use kivact::ui::{ControlSize, Variant};
+use kivact::view::{IntoView, Orientation, Role, View, dynamic, for_each, show};
 use std::hash::Hash;
 
-/// The two looks of a toggle: the variant of a `kivact::ui::toggle` and of
+/// The two looks of a toggle: the variant of a `kivact::ui::toggle_button` and of
 /// a [`ToggleGroup`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ToggleVariant {
@@ -29,7 +31,7 @@ impl Variant for ToggleVariant {}
 pub(crate) fn toggle_style(
     p: &Tokens,
     variant: ToggleVariant,
-    size: ControlSize,
+    size: kivact::state::Value<ControlSize>,
     pressed: bool,
     icon_start: bool,
     joined: bool,
@@ -74,51 +76,6 @@ pub(crate) fn toggle_style(
         .focus_visible(wide_focus_ring(p).z_index(1))
 }
 
-/// Which selection a [`ToggleGroup`] or a [`Combobox`](crate::Combobox) edits.
-pub enum Selection<K: Clone + PartialEq + 'static> {
-    Multiple(Binding<Vec<K>>),
-    Single(Binding<Option<K>>),
-}
-
-/// The value a [`ToggleGroup`] or a [`Combobox`](crate::Combobox) edits: a
-/// `Binding` or `Signal` of `Vec<K>` (any number of items chosen) or of
-/// `Option<K>` (at most one).
-///
-/// The type of the value decides the component's behavior; it is
-/// implemented for exactly those four types (the trait is sealed).
-pub trait SelectionValue<K: Clone + PartialEq + 'static>:
-    crate::sealed::SelectionValueSeal<K>
-{
-    #[doc(hidden)]
-    fn into_selection(self) -> Selection<K>;
-}
-
-impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Binding<Vec<K>> {}
-impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Signal<Vec<K>> {}
-impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Binding<Option<K>> {}
-impl<K: Clone + PartialEq + 'static> crate::sealed::SelectionValueSeal<K> for Signal<Option<K>> {}
-
-impl<K: Clone + PartialEq + 'static> SelectionValue<K> for Binding<Vec<K>> {
-    fn into_selection(self) -> Selection<K> {
-        Selection::Multiple(self)
-    }
-}
-impl<K: Clone + PartialEq + 'static> SelectionValue<K> for Signal<Vec<K>> {
-    fn into_selection(self) -> Selection<K> {
-        Selection::Multiple(self.into())
-    }
-}
-impl<K: Clone + PartialEq + 'static> SelectionValue<K> for Binding<Option<K>> {
-    fn into_selection(self) -> Selection<K> {
-        Selection::Single(self)
-    }
-}
-impl<K: Clone + PartialEq + 'static> SelectionValue<K> for Signal<Option<K>> {
-    fn into_selection(self) -> Selection<K> {
-        Selection::Single(self.into())
-    }
-}
-
 /// A row of toggles sharing a variant and size (`ToggleGroup`).
 ///
 /// Created by [`toggle_group`]: several pressed at once when it edits a
@@ -126,31 +83,31 @@ impl<K: Clone + PartialEq + 'static> SelectionValue<K> for Signal<Option<K>> {
 /// focus among the items; Space and Enter press the focused one. Each item
 /// shows its [`ListItem`]'s icon (a name in the theme's icon set, such as a
 /// Lucide name) before its label.
-pub struct ToggleGroup<K: Clone + Eq + Hash + 'static> {
+pub struct ToggleGroup<K: kivact::state::ItemKey> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
     selection: Selection<K>,
     variant: ToggleVariant,
-    size: ControlSize,
-    orientation: Orientation,
-    spacing: f64,
+    size: kivact::state::Value<ControlSize>,
+    orientation: Value<Orientation>,
+    spacing: Value<f64>,
     icon_only: Value<bool>,
 }
 
-fn group<K: Clone + Eq + Hash + 'static>(
+fn group<K: kivact::state::ItemKey>(
     items: Value<Vec<ListItem<K>>>,
     selection: Selection<K>,
 ) -> ToggleGroup<K> {
     ToggleGroup {
         root: node()
-            .role(Role::Group)
+            .with_node(|root| root.role(Role::Group))
             .orientation(Orientation::Horizontal),
-        spacing: 2.0,
+        spacing: 2.0.into_value(),
         items,
         selection,
         variant: ToggleVariant::Default,
-        size: ControlSize::Medium,
-        orientation: Orientation::Horizontal,
+        size: ControlSize::Medium.into_value(),
+        orientation: Orientation::Horizontal.into_value(),
         icon_only: false.into_value(),
     }
 }
@@ -161,7 +118,7 @@ fn group<K: Clone + Eq + Hash + 'static>(
 /// lets at most one be pressed (pressing it again releases it).
 ///
 /// ```no_run
-/// use kivact::ui::ListItem;
+/// use kivact::interaction::{ListItem};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -175,14 +132,14 @@ fn group<K: Clone + Eq + Hash + 'static>(
 /// }
 /// ```
 #[track_caller]
-pub fn toggle_group<K: Clone + Eq + Hash + 'static>(
+pub fn toggle_group<K: kivact::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl SelectionValue<K>,
+    value: impl kivact::interaction::IntoSelection<K>,
 ) -> ToggleGroup<K> {
     group(items.into_value(), value.into_selection())
 }
 
-impl<K: Clone + Eq + Hash + 'static> ToggleGroup<K> {
+impl<K: kivact::state::ItemKey> ToggleGroup<K> {
     /// The look of every item.
     pub fn variant(mut self, variant: ToggleVariant) -> Self {
         self.variant = variant;
@@ -190,22 +147,24 @@ impl<K: Clone + Eq + Hash + 'static> ToggleGroup<K> {
     }
 
     /// The size of every item.
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl kivact::state::IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
     /// Lay the items out in a row (default) or a column. A constant: it is
     /// the axis of the arrow keys and the shape of the layout.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        let orientation = orientation.into_value();
         self.orientation = orientation;
         self.root = self.root.orientation(orientation);
         self
     }
 
     /// The gap between items in 4 px units (default 2); 0 joins the items.
-    pub fn spacing(mut self, spacing: f64) -> Self {
-        self.spacing = spacing.max(0.0);
+    pub fn spacing(mut self, spacing: impl IntoValue<f64>) -> Self {
+        let spacing = spacing.into_value();
+        self.spacing = (move || spacing.get().max(0.0)).into_value();
         self
     }
 
@@ -218,13 +177,14 @@ impl<K: Clone + Eq + Hash + 'static> ToggleGroup<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for ToggleGroup<K> {
+impl<K: kivact::state::ItemKey> NodeBuilder for ToggleGroup<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleGroup<K> {
+impl<K: kivact::state::ItemKey> IntoView for ToggleGroup<K> {
     fn into_view(self) -> View {
         let ToggleGroup {
             root,
@@ -239,13 +199,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleGroup<K> {
         // The list only roves the focus; the real selection is edited by each
         // item's own toggle.
         let roving = signal(None::<K>);
-        let nav = use_list(
-            items,
-            ListSelection::Single(roving.into()),
-            ListPolicy::radio(),
-        );
-        let joined = spacing == 0.0;
-        let vertical_group = orientation == Orientation::Vertical;
+        let nav = use_list(items, roving, ListOptions::radio());
+        let joined = move || spacing.get() == 0.0;
+        let vertical_group = move || orientation.get() == Orientation::Vertical;
         let rows = for_each(
             items,
             |item| item.key().clone(),
@@ -278,33 +234,34 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleGroup<K> {
                 };
                 let pressed = on.into_value();
                 let control = use_toggle_button(on).control();
-                let glyph = memo(move || item.with(|item| item.icon_value().cloned()));
+                let glyph = memo(move || item.with(|item| item.icon().cloned()));
                 let label = memo(move || item.with(|item| item.label()));
                 node()
-                    .part(member.with(control))
-                    .role(Role::Button)
+                    .with_node(|root| root.part(member))
+                    .with_node(|root| root.part(control))
+                    .with_node(|root| root.role(Role::Button))
                     .selected(false)
                     .name(label)
-                    .child(dynamic(glyph, |glyph| glyph.map(kivact::control::icon)))
+                    .child(dynamic(glyph, |glyph| glyph.map(kivact::view::icon)))
                     .child(show(move || !icon_only.get(), move || text(label)))
                     .style(move || {
                         toggle_style(
                             &tokens(),
                             variant,
-                            size,
+                            size.get(),
                             pressed.get(),
                             glyph.with(Option::is_some),
-                            joined,
+                            joined(),
                         )
                     })
                     .style(move || {
                         let s = style();
                         let first =
                             items.with(|all| all.first().is_some_and(|i| *i.key() == first_key));
-                        if joined && variant == ToggleVariant::Outline && !first {
+                        if joined() && variant == ToggleVariant::Outline && !first {
                             // The neighbours share one border, drawn once
                             // (`border-l-0`, `border-t-0`).
-                            if vertical_group {
+                            if vertical_group() {
                                 s.border_top(0, Color::TRANSPARENT)
                             } else {
                                 s.border_left(0, Color::TRANSPARENT)
@@ -315,22 +272,22 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleGroup<K> {
                     })
             },
         );
-        root.base_style(
+        root.base_style(move || {
             style()
-                .direction(if vertical_group {
+                .direction(if vertical_group() {
                     Direction::Column
                 } else {
                     Direction::Row
                 })
-                .align_items(if vertical_group {
+                .align_items(if vertical_group() {
                     Align::Stretch
                 } else {
                     Align::Center
                 })
-                .gap(spacing * 4.0)
+                .gap(spacing.get() * 4.0)
                 .shrink(0)
-                .align_self(Align::Start),
-        )
+                .align_self(Align::Start)
+        })
         .child(rows)
         .into_view()
     }

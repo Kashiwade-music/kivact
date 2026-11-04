@@ -1,21 +1,20 @@
 //! Role: The CodeBlock builder and its highlighted lines, gutter and copy button.
 
 use super::lines::{CodeLine, CodeTone};
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
 use crate::tokens::CodeColors;
 use crate::typography::MONO;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, ScrollAxes, column, node, row, scroll, text};
-use kivact::interaction::{Delays, text_edit_policy, use_delayed};
-use kivact::primitive::{
+use kivact::custom::{
     EditContext, EditOutcome, EditRequest, EditState, TextEditing, TextHighlight, part,
 };
+use kivact::interaction::{Delays, text_edit_policy, use_delayed};
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Color, Direction, Length, LineHeight, style};
 use kivact::ui::{ButtonVariant, ControlSize};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, Key, Role, View, callback, show};
-use kivact::{Callback, Value};
+use kivact::view::icon;
+use kivact::view::{IntoView, Key, Role, View, show};
+use kivact::view::{Node, NodeBuilder, ScrollAxes, column, node, row, scroll, text};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -59,8 +58,8 @@ pub struct CodeBlock {
     title: Option<Value<String>>,
     copy: Option<Callback<()>>,
     line_numbers: Value<bool>,
-    size: CodeBlockSize,
-    footer: Option<Slot>,
+    size: kivact::state::Value<CodeBlockSize>,
+    footer: Option<kivact::view::View>,
     max_height: Option<Value<Length>>,
 }
 
@@ -112,7 +111,7 @@ pub fn code_block(lines: impl IntoValue<Vec<CodeLine>>) -> CodeBlock {
         title: None,
         copy: None,
         line_numbers: false.into_value(),
-        size: CodeBlockSize::Default,
+        size: CodeBlockSize::Default.into_value(),
         footer: None,
         max_height: None,
     }
@@ -130,8 +129,8 @@ impl CodeBlock {
     /// Writing the whole code to the clipboard is the application's (a
     /// selection copies itself with Ctrl+C). After a press the button
     /// shows a check and is named "Copied" for two seconds.
-    pub fn on_copy<R: HandlerResult>(mut self, on_copy: impl Fn() -> R + 'static) -> Self {
-        self.copy = Some(callback(move |()| on_copy()));
+    pub fn on_copy(mut self, on_copy: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.copy = Some(on_copy.into());
         self
     }
 
@@ -144,14 +143,14 @@ impl CodeBlock {
     }
 
     /// Choose the text size and padding.
-    pub fn size(mut self, size: CodeBlockSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl kivact::state::IntoValue<CodeBlockSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
     /// Show `footer` under the code.
-    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V + 'static) -> Self {
-        self.footer = Some(slot(footer));
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
 
@@ -164,6 +163,7 @@ impl CodeBlock {
 }
 
 impl NodeBuilder for CodeBlock {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -214,42 +214,46 @@ fn line_colors(
 fn code_keys(
     state: &mut EditState,
     request: EditRequest<'_>,
-    context: &EditContext<'_>,
+    use_context: &EditContext<'_>,
 ) -> EditOutcome {
     let EditRequest::Key { key, modifiers } = request else {
-        return text_edit_policy(state, request, context);
+        return text_edit_policy(state, request, use_context);
     };
     if modifiers.ctrl || modifiers.meta || modifiers.alt {
-        return text_edit_policy(state, request, context);
+        return text_edit_policy(state, request, use_context);
     }
     let caret = state.caret();
-    let to = context.line_of(state, caret).and_then(|line| match key {
-        Key::Home => Some(context.line_range(state, line)?.start),
-        Key::End => Some(context.line_range(state, line)?.end),
-        Key::ArrowUp if line == 0 => Some(0),
-        Key::ArrowDown if line + 1 == context.line_count(state)? => Some(state.value().len()),
-        Key::ArrowUp | Key::ArrowDown => {
-            let next = if key == Key::ArrowUp {
-                line - 1
-            } else {
-                line + 1
-            };
-            context.offset_at(state, next, context.x_of(state, caret)?)
-        }
-        _ => None,
-    });
+    let to = use_context
+        .line_of(state, caret)
+        .and_then(|line| match key {
+            Key::Home => Some(use_context.line_range(state, line)?.start),
+            Key::End => Some(use_context.line_range(state, line)?.end),
+            Key::ArrowUp if line == 0 => Some(0),
+            Key::ArrowDown if line + 1 == use_context.line_count(state)? => {
+                Some(state.value().len())
+            }
+            Key::ArrowUp | Key::ArrowDown => {
+                let next = if key == Key::ArrowUp {
+                    line - 1
+                } else {
+                    line + 1
+                };
+                use_context.offset_at(state, next, use_context.x_of(state, caret)?)
+            }
+            _ => None,
+        });
     match to {
         Some(to) => {
             state.move_to(to, modifiers.shift);
             EditOutcome::Done { changed: false }
         }
-        None => text_edit_policy(state, request, context),
+        None => text_edit_policy(state, request, use_context),
     }
 }
 
 /// The code as one read-only, multiline text box, colored line by line
 /// and as high as its lines (a text box never scrolls vertically itself).
-fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: CodeBlockSize) -> Node {
+fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: Value<CodeBlockSize>) -> Node {
     let value = move || {
         lines.with(|lines| {
             let text = lines.iter().map(CodeLine::text).collect::<Vec<_>>();
@@ -257,21 +261,22 @@ fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: CodeBlockSi
         })
     };
     let editing = TextEditing::new(value)
-        .multiline(true)
+        .multiline()
         .read_only(true)
         .behavior(code_keys)
         .highlight(move || (lines.get(), tokens().code.clone()), line_colors);
-    let control = part(|state| state)
-        .role(Role::TextBox)
-        .focusable(true)
-        .name(name)
-        .text_editing(editing);
+    let control = kivact::custom::Part::new(part(|state| state).state(), move |node| {
+        node.role(Role::TextBox)
+            .focusable(true)
+            .name(name)
+            .text_editing(editing)
+    });
     let count = move || lines.with(|lines| lines.len().max(1));
-    node().part(control).style(move || {
+    node().with_node(|root| root.part(control)).style(move || {
         style()
             .grow(1)
             .shrink(0)
-            .height(count() as f64 * size.line())
+            .height(count() as f64 * size.get().line())
     })
 }
 
@@ -302,7 +307,7 @@ fn copy_button(on_copy: Callback<()>) -> View {
             close: Duration::from_secs(2),
         },
     );
-    let copied = feedback.shown();
+    let copied = feedback.is_open();
     let copy_name = kivact::i18n::message("basic.code_block.copy", "Copy");
     let copied_name = kivact::i18n::message("basic.code_block.copied", "Copied");
     let name = move || {
@@ -324,7 +329,7 @@ fn copy_button(on_copy: Callback<()>) -> View {
             feedback.pulse();
         });
     let status = node()
-        .role(Role::Status)
+        .with_node(|root| root.role(Role::Status))
         .name(move || {
             if copied.get() {
                 copied_name.get()
@@ -339,7 +344,7 @@ fn copy_button(on_copy: Callback<()>) -> View {
 impl IntoView for CodeBlock {
     fn into_view(self) -> View {
         let size = self.size;
-        let pad = size.pad();
+        let pad = move || size.get().pad();
         let has_header = self.title.is_some() || self.copy.is_some();
         let has_footer = self.footer.is_some();
         let name = self
@@ -353,14 +358,14 @@ impl IntoView for CodeBlock {
                 title.unwrap_or_else(|| node().style(style().grow(1))),
                 self.copy.map(copy_button),
             ))
-            .style(
+            .style(move || {
                 style()
                     .align_items(Align::Center)
                     .gap(8)
-                    .padding_x(pad)
-                    .padding_top(pad)
-                    .color(crate::Color::MutedForeground),
-            )
+                    .padding_x(pad())
+                    .padding_top(pad())
+                    .color(crate::Color::MutedForeground)
+            })
         });
         let lines = self.lines;
         let numbered = self.line_numbers;
@@ -378,26 +383,26 @@ impl IntoView for CodeBlock {
         let content = scroll(body).axes(ScrollAxes::Both).style(move || {
             let s = style()
                 .min_height(0)
-                .padding_x(pad)
-                .padding_top(if has_header { pad - 4.0 } else { pad })
-                .padding_bottom(if has_footer { pad - 4.0 } else { pad })
+                .padding_x(pad())
+                .padding_top(if has_header { pad() - 4.0 } else { pad() })
+                .padding_bottom(if has_footer { pad() - 4.0 } else { pad() })
                 .font_family(MONO)
-                .font_size(size.font())
-                .line_height(LineHeight::px(size.line()));
+                .font_size(size.get().font())
+                .line_height(LineHeight::px(size.get().line()));
             match max_height {
                 Some(height) => s.max_height(height.get()),
                 None => s,
             }
         });
         let footer = self.footer.map(|footer| {
-            row(footer).style(
+            row(footer).style(move || {
                 style()
                     .align_items(Align::Center)
                     .gap(8)
-                    .padding_x(pad)
-                    .padding_bottom(pad)
-                    .color(crate::Color::MutedForeground),
-            )
+                    .padding_x(pad())
+                    .padding_bottom(pad())
+                    .color(crate::Color::MutedForeground)
+            })
         });
         self.root
             .child(header)
@@ -406,3 +411,5 @@ impl IntoView for CodeBlock {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(CodeBlockSize);

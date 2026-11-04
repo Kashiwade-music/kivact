@@ -3,9 +3,8 @@
 use super::model::{ChartKind, Frame, Hit, HitRow, series_color};
 use super::scale::{Domain, text_width};
 use crate::tokens::Tokens;
-use kivact::draw::{
-    Draw, LineCap, LineJoin, Path, Point, Rect, Size, Stroke, TextBaseline, TextStyle,
-};
+use kivact::draw::{Draw, LineCap, LineJoin, Path, Stroke, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::TextAlign;
 
 /// The empty edge around the plot.
@@ -145,19 +144,19 @@ fn crisp(v: f64) -> f64 {
     v.floor() + 0.5
 }
 
-fn label_style(tokens: &Tokens, align: TextAlign, baseline: TextBaseline) -> TextStyle {
-    TextStyle {
+fn label_style(tokens: &Tokens, align: TextAlign, baseline: TextBaseline) -> TextFormat {
+    TextFormat {
         size: 12.0,
         color: tokens.muted_foreground,
         align,
         baseline,
-        ..TextStyle::default()
+        ..TextFormat::default()
     }
 }
 
 /// Paint the chart; `hit` is the row under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().get::<Tokens>();
+    let tokens = d.theme().ext::<Tokens>();
     let layout = Layout::new(size, f);
     paint_grid(d, &layout, f, &tokens);
     if f.axis {

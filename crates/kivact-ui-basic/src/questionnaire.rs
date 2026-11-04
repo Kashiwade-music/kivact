@@ -1,15 +1,18 @@
 //! Role: Step-by-step questionnaire with choices or text input and progress.
 
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{ListItemState, ListPolicy, ListSelection, use_list};
+use kivact::interaction::ListItem;
+use kivact::interaction::{ListItemState, ListOptions, Selection, use_list};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Callback, Value, binding, memo};
+use kivact::state::{IntoValue, callback};
 use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
-use kivact::ui::{ButtonVariant, ListItem, button, text_input};
+use kivact::ui::{ButtonVariant, button, text_input};
 use kivact::view::HandlerResult;
-use kivact::view::{IntoValue, IntoView, Role, View, callback, dynamic, for_each};
-use kivact::{Binding, Callback, Value, binding, memo};
+use kivact::view::{IntoView, Role, View, dynamic, for_each};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 /// One choice of a [`QuestionnaireStep`].
 #[derive(Clone, Debug, PartialEq)]
@@ -196,12 +199,12 @@ pub struct Questionnaire {
 #[track_caller]
 pub fn questionnaire(
     steps: impl IntoValue<Vec<QuestionnaireStep>>,
-    current: impl Into<Binding<usize>>,
-    answers: impl Into<Binding<Vec<QuestionnaireAnswer>>>,
+    current: impl kivact::state::IntoBinding<usize>,
+    answers: impl kivact::state::IntoBinding<Vec<QuestionnaireAnswer>>,
 ) -> Questionnaire {
     Questionnaire {
         root: node()
-            .role(Role::Group)
+            .with_node(|root| root.role(Role::Group))
             .name(message("basic.questionnaire.label", "Questionnaire"))
             .style(
                 style()
@@ -212,8 +215,8 @@ pub fn questionnaire(
                     .shrink(0),
             ),
         steps: steps.into_value(),
-        current: current.into(),
-        answers: answers.into(),
+        current: current.into_binding(),
+        answers: answers.into_binding(),
         submit: None,
     }
 }
@@ -230,6 +233,7 @@ impl Questionnaire {
 }
 
 impl NodeBuilder for Questionnaire {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -257,7 +261,7 @@ fn answer_of(
 }
 
 /// A choice card: `min-h-11 border-input px-3 py-2.5`, muted when chosen.
-fn choice_card(choice: &QuestionnaireChoice, part: kivact::primitive::Part<ListItemState>) -> Node {
+fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItemState>) -> Node {
     let state = part.state();
     let mut body = vec![
         text(choice.label.clone())
@@ -308,8 +312,8 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::primitive::Part<ListI
                 })
         });
     node()
-        .part(part)
-        .role(Role::RadioButton)
+        .with_node(|root| root.part(part))
+        .with_node(|root| root.role(Role::RadioButton))
         .child(indicator)
         .child(column(body).style(style().gap(2).grow(1).min_width(0)))
         .style(move || {
@@ -352,7 +356,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
     let title = step.title.clone();
     let mut parts = vec![
         text(title.clone())
-            .role(Role::Heading)
+            .with_node(|root| root.role(Role::Heading))
             .style(style().font_size(14).line_height(20.0 / 14.0).weight(500))
             .into_view(),
     ];
@@ -388,7 +392,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
                     }));
                 },
             );
-            let group = use_list(items, ListSelection::Single(chosen), ListPolicy::radio());
+            let group = use_list(items, Selection::Single(chosen), ListOptions::radio());
             let choices = choices.clone();
             let rows = for_each(
                 items,
@@ -404,7 +408,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
             );
             parts.push(
                 column(rows)
-                    .role(Role::RadioGroup)
+                    .with_node(|root| root.role(Role::RadioGroup))
                     .name(title)
                     .style(style().gap(8).margin_top(if step.description.is_some() {
                         0

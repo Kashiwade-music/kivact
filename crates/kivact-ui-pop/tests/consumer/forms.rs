@@ -1,6 +1,6 @@
 //! Role: Inputs, the tag editor and the dropzone commit and report publicly.
 
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_pop as ui;
@@ -21,17 +21,14 @@ fn inputs_and_tag_editor_commit_native_edits() {
                         80.0,
                         72.0,
                     ),
-                    kivact::ui::text_area("Fixed note", kivact::signal(String::new())),
-                    kivact::ui::tag_input(
-                        "Add tag",
-                        tags,
-                        move |tag| tags.update(|items| items.push(tag)),
-                        move |index| {
+                    kivact::ui::text_area("Fixed note", kivact::state::signal(String::new())),
+                    kivact::ui::tag_input("Add tag", tags)
+                        .on_add(move |tag| tags.update(|items| items.push(tag)))
+                        .on_remove(move |index| {
                             tags.update(|items| {
                                 items.remove(index);
                             })
-                        },
-                    ),
+                        }),
                 ))
                 .style(style().width(360).gap(8)),
             )

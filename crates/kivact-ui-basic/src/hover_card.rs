@@ -1,19 +1,18 @@
 //! Role: Hover card: a floating preview opened by hovering or focusing its trigger.
 //!
 //! A popover (popover.tsx) is the standard `kivact::ui::dialog` of kind
-//! `DialogKind::Popover`, drawn by the kit's dialog recipes. The hover card
+//! `DialogMode::Popover`, drawn by the kit's dialog recipes. The hover card
 //! is not a dialog: it opens and closes on delays while the pointer or the
 //! focus is on its trigger or on itself, and it is a `Role::Group` that
 //! takes no focus.
 
 use crate::theme_access::{popover_surface, shadow_md, tokens};
-use kivact::control::{NodeBuilder, column};
 use kivact::interaction::{Delays, use_delayed};
-use kivact::memo;
-use kivact::primitive::NodeExt;
+use kivact::state::{IntoValue, Value, memo};
+use kivact::view::{NodeBuilder, column};
+
 use kivact::style::{Direction, Style};
 use kivact::view::{IntoView, OverlayAlign, Placement, Role, View, node_ref, overlay, show};
-use std::rc::Rc;
 use std::time::Duration;
 
 /// The 4 px gap between the trigger and the panel (`sideOffset`).
@@ -28,9 +27,9 @@ const SIDE_OFFSET: f64 = 4.0;
 /// trigger and the card, so the pointer can cross to the card and read it.
 /// Escape and a press outside close it at once.
 pub struct HoverCard {
-    content: Rc<dyn Fn() -> View>,
-    placement: Placement,
-    align: OverlayAlign,
+    content: kivact::view::ViewFn,
+    placement: Value<Placement>,
+    align: Value<OverlayAlign>,
     open_delay: Duration,
     close_delay: Duration,
 }
@@ -48,11 +47,11 @@ pub struct HoverCard {
 /// }
 /// ```
 #[track_caller]
-pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
+pub fn hover_card<V: IntoView>(content: impl kivact::view::IntoViewFn<V>) -> HoverCard {
     HoverCard {
-        content: Rc::new(move || content().into_view()),
-        placement: Placement::Below,
-        align: OverlayAlign::Center,
+        content: content.into_view_fn(),
+        placement: Placement::Below.into_value(),
+        align: OverlayAlign::Center.into_value(),
         open_delay: Duration::from_millis(600),
         close_delay: Duration::from_millis(300),
     }
@@ -62,14 +61,14 @@ impl HoverCard {
     /// The side of the trigger it opens on (default `Placement::Below`;
     /// `Start` and `End` are the inline start and end). The host flips it
     /// to the opposite side when the card does not fit in the window.
-    pub fn placement(mut self, placement: Placement) -> Self {
-        self.placement = placement;
+    pub fn placement(mut self, placement: impl IntoValue<Placement>) -> Self {
+        self.placement = placement.into_value();
         self
     }
 
     /// How it lines up with the trigger (default `OverlayAlign::Center`).
-    pub fn align(mut self, align: OverlayAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<OverlayAlign>) -> Self {
+        self.align = align.into_value();
         self
     }
 
@@ -113,14 +112,14 @@ impl HoverCard {
             },
         );
         let trigger = trigger.node_ref(anchor);
-        let panel = show(card_delay.shown(), move || {
-            let body = content();
+        let panel = show(card_delay.is_open(), move || {
+            let body = content.call(());
             let panel = column(body).style(panel_style);
             overlay(anchor, placement, panel)
                 .align(align)
                 .offset(SIDE_OFFSET)
                 .node_ref(card)
-                .role(Role::Group)
+                .with_node(|root| root.role(Role::Group))
                 .name(kivact::i18n::message("basic.hover_card.label", "Preview"))
                 .on_dismiss(move |_| card_delay.dismiss())
         });

@@ -1,15 +1,13 @@
 //! Role: Chat surfaces: the Lyra bubble, bubble group and message row.
 
 use crate::parts::pressable;
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
 use crate::tokens::Tokens;
-use kivact::Callback;
-use kivact::control::{Node, NodeBuilder, column, node, row};
-use kivact::primitive::NodeExt;
+use kivact::state::{Callback, IntoValue};
+use kivact::view::{Node, NodeBuilder, column, node, row};
+
 use kivact::style::{Align, Color, Cursor, Direction, Overflow, Position, pct, style};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoView, Role, View, callback};
+use kivact::view::{IntoView, Role, View};
 
 /// The colors of a [`Bubble`] (bubble.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -71,9 +69,9 @@ pub struct Bubble {
     root: Node,
     content: View,
     variant: BubbleVariant,
-    align: BubbleAlign,
-    reactions: Option<Slot>,
-    reactions_side: BubbleReactionsSide,
+    align: kivact::state::Value<BubbleAlign>,
+    reactions: Option<kivact::view::View>,
+    reactions_side: kivact::state::Value<BubbleReactionsSide>,
     on_press: Option<Callback<()>>,
 }
 
@@ -95,9 +93,9 @@ pub fn bubble(content: impl IntoView) -> Bubble {
         root: node(),
         content: content.into_view(),
         variant: BubbleVariant::Default,
-        align: BubbleAlign::Start,
+        align: BubbleAlign::Start.into_value(),
         reactions: None,
-        reactions_side: BubbleReactionsSide::Bottom,
+        reactions_side: BubbleReactionsSide::Bottom.into_value(),
         on_press: None,
     }
 }
@@ -110,8 +108,8 @@ impl Bubble {
     }
 
     /// Stick the bubble to the start or the end of its container.
-    pub fn align(mut self, align: BubbleAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<BubbleAlign>) -> Self {
+        self.align = align.into_value();
         self
     }
 
@@ -120,25 +118,26 @@ impl Bubble {
     /// small ghost buttons. Three quarters of the pill hang out of the
     /// bubble, and the bubble keeps that much room on that side (a margin),
     /// so the pill does not cover the next message.
-    pub fn reactions<V: IntoView>(mut self, reactions: impl FnOnce() -> V + 'static) -> Self {
-        self.reactions = Some(slot(reactions));
+    pub fn reactions(mut self, reactions: impl IntoView) -> Self {
+        self.reactions = Some(reactions.into_view());
         self
     }
 
     /// Choose the edge the reactions overlap; the bottom by default.
-    pub fn reactions_side(mut self, side: BubbleReactionsSide) -> Self {
-        self.reactions_side = side;
+    pub fn reactions_side(mut self, side: impl IntoValue<BubbleReactionsSide>) -> Self {
+        self.reactions_side = side.into_value();
         self
     }
 
     /// Make the bubble a button that reports presses to `f`.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for Bubble {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -216,7 +215,8 @@ fn colors(p: &Tokens, variant: BubbleVariant, hovered: bool) -> (Color, Color, C
 impl IntoView for Bubble {
     fn into_view(self) -> View {
         let variant = self.variant;
-        let end = self.align == BubbleAlign::End;
+        let align = self.align;
+        let end = move || align.get() == BubbleAlign::End;
         let actionable = self.on_press.is_some();
         let (body, _) = pressable(node(), Role::Button, self.on_press);
         let body = body
@@ -225,7 +225,7 @@ impl IntoView for Bubble {
                 let (fill, fg, line) = colors(&p, variant, false);
                 let s = style()
                     .direction(Direction::Column)
-                    .align_self(if end { Align::End } else { Align::Start })
+                    .align_self(if end() { Align::End } else { Align::Start })
                     .max_width(pct(100))
                     .min_width(0)
                     .border(1, line)
@@ -251,7 +251,8 @@ impl IntoView for Bubble {
             })
             .child(self.content);
         let side = self.reactions_side;
-        let hanging = self.reactions.is_some().then_some(side);
+        let has_reactions = self.reactions.is_some();
+        let hanging = move || has_reactions.then(|| side.get());
         let reactions = self.reactions.map(|reactions| {
             row(reactions).style(move || {
                 let p = tokens();
@@ -266,30 +267,32 @@ impl IntoView for Bubble {
                     .font_size(12)
                     .ring(2, p.card)
                     .z_index(10);
-                let s = match side {
+                let s = match side.get() {
                     BubbleReactionsSide::Top => s.top(0).translate(0, pct(-75)),
                     BubbleReactionsSide::Bottom => s.bottom(0).translate(0, pct(75)),
                 };
-                if end { s.right(12) } else { s.left(12) }
+                if end() { s.right(12) } else { s.left(12) }
             })
         });
         // The reactions hang out of the bubble; the margin keeps them off
         // the next row. shadcn leaves that room to the caller.
-        let root_style = match hanging {
-            Some(BubbleReactionsSide::Top) => style().margin_top(REACTIONS_OVERHANG),
-            Some(BubbleReactionsSide::Bottom) => style().margin_bottom(REACTIONS_OVERHANG),
-            None => style(),
-        }
-        .direction(Direction::Column)
-        .position(Position::Relative)
-        .align_self(if end { Align::End } else { Align::Start })
-        .max_width(if variant == BubbleVariant::Ghost {
-            pct(100)
-        } else {
-            pct(80)
-        })
-        .min_width(0)
-        .gap(4);
+        let root_style = move || {
+            (match hanging() {
+                Some(BubbleReactionsSide::Top) => style().margin_top(REACTIONS_OVERHANG),
+                Some(BubbleReactionsSide::Bottom) => style().margin_bottom(REACTIONS_OVERHANG),
+                None => style(),
+            }
+            .direction(Direction::Column)
+            .position(Position::Relative)
+            .align_self(if end() { Align::End } else { Align::Start })
+            .max_width(if variant == BubbleVariant::Ghost {
+                pct(100)
+            } else {
+                pct(80)
+            })
+            .min_width(0)
+            .gap(4))
+        };
         self.root
             .base_style(root_style)
             .child(body)
@@ -300,7 +303,7 @@ impl IntoView for Bubble {
 
 /// Bubbles stacked with 8 px between them.
 #[track_caller]
-pub fn bubble_group(children: impl IntoView) -> Node {
+pub fn bubble_group(children: impl IntoView) -> impl kivact::view::Component {
     column(children).style(style().min_width(0).gap(8))
 }
 
@@ -308,10 +311,10 @@ pub fn bubble_group(children: impl IntoView) -> Node {
 pub struct Message {
     root: Node,
     content: View,
-    align: MessageAlign,
-    avatar: Option<Slot>,
-    header: Option<Slot>,
-    footer: Option<Slot>,
+    align: kivact::state::Value<MessageAlign>,
+    avatar: Option<kivact::view::View>,
+    header: Option<kivact::view::View>,
+    footer: Option<kivact::view::View>,
 }
 
 /// A message whose body is `content` (bubbles, text or any views).
@@ -322,9 +325,9 @@ pub struct Message {
 ///
 /// fn received() -> impl IntoView {
 ///     basic::message(basic::bubble("Hi there!").variant(basic::BubbleVariant::Secondary))
-///         .avatar(|| basic::avatar("AB"))
-///         .header(|| text("Ada"))
-///         .footer(|| text("10:42"))
+///         .avatar(basic::avatar("AB"))
+///         .header(text("Ada"))
+///         .footer(text("10:42"))
 /// }
 /// ```
 #[track_caller]
@@ -332,7 +335,7 @@ pub fn message(content: impl IntoView) -> Message {
     Message {
         root: node(),
         content: content.into_view(),
-        align: MessageAlign::Start,
+        align: MessageAlign::Start.into_value(),
         avatar: None,
         header: None,
         footer: None,
@@ -341,31 +344,32 @@ pub fn message(content: impl IntoView) -> Message {
 
 impl Message {
     /// Put the message at the start (received) or end (sent) of the row.
-    pub fn align(mut self, align: MessageAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<MessageAlign>) -> Self {
+        self.align = align.into_value();
         self
     }
 
     /// Show `avatar` beside the content, aligned to its bottom.
-    pub fn avatar<V: IntoView>(mut self, avatar: impl FnOnce() -> V + 'static) -> Self {
-        self.avatar = Some(slot(avatar));
+    pub fn avatar(mut self, avatar: impl IntoView) -> Self {
+        self.avatar = Some(avatar.into_view());
         self
     }
 
     /// Show `header` (a name) above the content, muted and medium.
-    pub fn header<V: IntoView>(mut self, header: impl FnOnce() -> V + 'static) -> Self {
-        self.header = Some(slot(header));
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
         self
     }
 
     /// Show `footer` (a time or status) below the content, muted and medium.
-    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V + 'static) -> Self {
-        self.footer = Some(slot(footer));
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
 }
 
 impl NodeBuilder for Message {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -373,15 +377,16 @@ impl NodeBuilder for Message {
 
 impl IntoView for Message {
     fn into_view(self) -> View {
-        let end = self.align == MessageAlign::End;
+        let align = self.align;
+        let end = move || align.get() == MessageAlign::End;
         let has_footer = self.footer.is_some();
-        let band = move |view: Slot| {
+        let band = move |view: kivact::view::View| {
             let view = view.into_view();
             row(view).style(move || {
                 style()
                     .align_self(Align::Stretch)
                     .align_items(Align::Center)
-                    .justify_content(if end {
+                    .justify_content(if end() {
                         kivact::style::Justify::End
                     } else {
                         kivact::style::Justify::Start
@@ -393,13 +398,14 @@ impl IntoView for Message {
                     .color(tokens().muted_foreground)
             })
         };
-        let body = column((self.header.map(band), self.content, self.footer.map(band))).style(
-            style().grow(1).min_width(0).gap(8).align_items(if end {
-                Align::End
-            } else {
-                Align::Start
-            }),
-        );
+        let body =
+            column((self.header.map(band), self.content, self.footer.map(band))).style(move || {
+                style().grow(1).min_width(0).gap(8).align_items(if end() {
+                    Align::End
+                } else {
+                    Align::Start
+                })
+            });
         let avatar = self.avatar.map(|avatar| {
             row(avatar).style(move || {
                 let s = style()
@@ -414,9 +420,9 @@ impl IntoView for Message {
             })
         });
         self.root
-            .base_style(
+            .base_style(move || {
                 style()
-                    .direction(if end {
+                    .direction(if end() {
                         Direction::RowReverse
                     } else {
                         Direction::Row
@@ -424,8 +430,8 @@ impl IntoView for Message {
                     .width(pct(100))
                     .min_width(0)
                     .gap(6)
-                    .font_size(12),
-            )
+                    .font_size(12)
+            })
             .child(avatar)
             .child(body)
             .into_view()
@@ -434,6 +440,12 @@ impl IntoView for Message {
 
 /// Messages stacked with 6 px between them.
 #[track_caller]
-pub fn message_group(children: impl IntoView) -> Node {
+pub fn message_group(children: impl IntoView) -> impl kivact::view::Component {
     column(children).style(style().min_width(0).gap(6))
 }
+
+kivact::state::constant_value!(BubbleAlign);
+
+kivact::state::constant_value!(MessageAlign);
+
+kivact::state::constant_value!(BubbleReactionsSide);

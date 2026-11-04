@@ -1,12 +1,13 @@
 //! Role: Pop recipes for the standard toggle, progress bar and disclosure.
 //!
-//! The Pop look of `kivact::ui::toggle` (filled in the variant's [`Hue`]
+//! The Pop look of `kivact::ui::toggle_button` (filled in the variant's [`Hue`]
 //! while pressed), `progress` (a gradient fill, optionally striped or cut into
 //! [`Segments`]) and `disclosure` (a ruled row with a turning chevron).
 
 use crate::choice::check_style;
 use crate::tokens::{Hue, Tokens};
-use kivact::draw::{Path, Point, Rect, linear_gradient};
+use kivact::draw::{Path, linear_gradient};
+use kivact::geometry::{Point, Rect};
 use kivact::interaction::DisclosureState;
 use kivact::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{
@@ -34,7 +35,7 @@ impl Variant for Hue {}
 /// A toggle: the outline row, filled in the variant's hue while pressed
 /// (default [`Hue::Blue`]).
 pub(crate) fn toggle(t: &Theme, look: &Look<ToggleButtonState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let (fill, text) = p.hue(look.variant::<Hue>().copied().unwrap_or_default());
     let s = check_style(t)
         .justify_content(Justify::Center)
@@ -64,7 +65,7 @@ fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
         .min_width(0)
         .radius(999)
         .clip(true)
-        .background(t.get::<Tokens>().surface_active)
+        .background(t.ext::<Tokens>().surface_active)
 }
 
 /// The fill: a gradient from the hue's accent, with stripes and segment
@@ -74,7 +75,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
     let striped = look.variant::<Striped>().is_some();
     let segments = look.variant::<Segments>().map_or(0, |s| s.0);
     let state = **look;
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let accent = p.accent(hue);
     let end = if hue == Hue::Blue { p.cyan } else { accent };
     let surface = p.surface;

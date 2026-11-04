@@ -2,13 +2,14 @@
 
 use crate::Color;
 use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, row, text};
 use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::primitive::NodeExt;
+use kivact::state::Value;
+use kivact::view::icon;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, NodeRef, Orientation, Role, View};
+use kivact::view::{IntoView, NodeRef, Orientation, Role, View};
 
 /// A form label (label.tsx): 12 px text without leading, centered with its children.
 ///
@@ -22,7 +23,7 @@ pub struct Label {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::view::NodeRef;
+/// use kivact::view::{NodeRef};
 /// use kivact_ui_basic as basic;
 ///
 /// fn email() -> impl IntoView {
@@ -62,12 +63,13 @@ impl Label {
         self.root = self
             .root
             .on_press(move || target.activate())
-            .role(Role::Generic);
+            .with_node(|root| root.role(Role::Generic));
         self
     }
 }
 
 impl NodeBuilder for Label {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -92,7 +94,7 @@ pub struct Separator {
 #[track_caller]
 pub fn separator() -> Separator {
     let root = node()
-        .role(Role::Separator)
+        .with_node(|root| root.role(Role::Separator))
         .orientation(Orientation::Horizontal);
     Separator {
         root,
@@ -114,6 +116,7 @@ impl Separator {
 }
 
 impl NodeBuilder for Separator {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -138,7 +141,7 @@ impl IntoView for Separator {
 
 /// A keyboard key cap (kbd.tsx): muted, 20 px high, 12 px medium text.
 #[track_caller]
-pub fn kbd(text_value: impl IntoText) -> Node {
+pub fn kbd(text_value: impl IntoText) -> impl kivact::view::Component {
     node()
         .style(
             style()
@@ -161,28 +164,28 @@ pub fn kbd(text_value: impl IntoText) -> Node {
 
 /// Key caps shown together, such as a shortcut (`KbdGroup`).
 #[track_caller]
-pub fn kbd_group(children: impl IntoView) -> Node {
+pub fn kbd_group(children: impl IntoView) -> impl kivact::view::Component {
     row(children).style(style().align_items(Align::Center).gap(4))
 }
 
 /// A turning Lucide `loader-circle` (spinner.tsx) with `Role::Status`.
 ///
-/// Its accessible name is the `spinner.loading` message ("Loading"). The
+/// Its accessible name is the `spinner.busy` message ("Loading"). The
 /// rotation is essential motion (`Transition::decorative(false)`): it says
 /// that work is going on, so it keeps turning under reduced motion, as the
 /// platforms' own spinners do.
 #[track_caller]
-pub fn spinner() -> Node {
+pub fn spinner() -> impl kivact::view::Component {
     let turn = Animated::from(
         0.0f64,
         360.0f64,
         Transition::tween(1000, Easing::Linear)
             .repeat(Repeat::Forever)
-            .decorative(false),
+            .essential(),
     );
     node()
-        .role(Role::Status)
-        .name(kivact::i18n::message("basic.spinner.loading", "Loading"))
+        .with_node(|root| root.role(Role::Status))
+        .name(kivact::i18n::message("basic.spinner.busy", "Loading"))
         .style(move || style().size(16, 16).shrink(0).rotate(turn.get()))
         .child(icon("loader-circle"))
 }
@@ -194,14 +197,14 @@ pub fn spinner() -> Node {
 #[track_caller]
 pub fn skeleton() -> Skeleton {
     Skeleton {
-        root: kivact::control::column(()),
+        root: kivact::view::column(()),
         rows: 1usize.into_value(),
     }
 }
 /// Presentation builder returned by [`skeleton`].
 pub struct Skeleton {
     root: Node,
-    rows: kivact::Value<usize>,
+    rows: kivact::state::Value<usize>,
 }
 impl Skeleton {
     /// Reactive row count; one by default.
@@ -211,6 +214,7 @@ impl Skeleton {
     }
 }
 impl NodeBuilder for Skeleton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -237,7 +241,7 @@ impl IntoView for Skeleton {
                             .width(pct(100))
                             .radius(0)
                             .background(crate::theme_access::tokens().muted)
-                            .opacity(if kivact::platform::reduced_motion() {
+                            .opacity(if kivact::platform::is_motion_reduced().get() {
                                 1.
                             } else {
                                 pulse.get()
@@ -254,7 +258,8 @@ impl IntoView for Skeleton {
 /// The child is stretched to the box's width; give it `height(pct(100))`
 /// to fill the box.
 #[track_caller]
-pub fn aspect_ratio(ratio: f64, child: impl IntoView) -> Node {
+pub fn aspect_ratio(ratio: impl Into<f64>, child: impl IntoView) -> impl kivact::view::Component {
+    let ratio = ratio.into();
     node()
         .style(
             style()

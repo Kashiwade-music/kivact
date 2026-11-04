@@ -46,7 +46,7 @@ pub enum Color {
 
 impl ThemeColor for Color {
     fn resolve(self, theme: &Theme) -> kivact::style::Color {
-        let p = theme.get::<Tokens>();
+        let p = theme.ext::<Tokens>();
         match self {
             Color::PrimaryHover => p.primary_hover,
             Color::PrimaryStrong => p.primary_strong,

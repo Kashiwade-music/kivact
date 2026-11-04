@@ -4,7 +4,7 @@
 /// given to the standard dialog with `.variant(..)`.
 ///
 /// An alert dialog is `kivact::ui::dialog` of kind
-/// `DialogKind::AlertModal`: Escape and its buttons close it, a press
+/// `DialogMode::AlertModal`: Escape and its buttons close it, a press
 /// outside does not. Its cancel and action buttons are the footer, the
 /// first one taking the initial focus; `.closable(false)` leaves out the
 /// close button, which alert-dialog.tsx does not have, and `.media(..)`
@@ -15,12 +15,13 @@
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::ui::{ButtonVariant, DialogKind};
+/// use kivact::ui::{ButtonVariant};
+/// use kivact::interaction::DialogMode;
 /// use kivact_ui_basic as basic;
 ///
 /// fn confirm(open: Signal<bool>) -> impl IntoView {
 ///     dialog("Are you absolutely sure?", open)
-///         .kind(DialogKind::AlertModal)
+///         .mode(DialogMode::AlertModal)
 ///         .variant(basic::AlertDialogSize::Sm)
 ///         .closable(false)
 ///         .description("This action cannot be undone.")

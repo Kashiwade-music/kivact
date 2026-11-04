@@ -1,15 +1,20 @@
 //! Role: Numbered steps, breadcrumbs and pagination.
 use kivact::i18n::message;
-use kivact::style::current_theme;
+use kivact::state::IntoBinding;
+use kivact::style::use_theme;
 
-use kivact::control::{Node, NodeBuilder, row, text};
+use kivact::state::IntoValue;
+use kivact::state::{Binding, Value, var};
 use kivact::style::{Align, ColorToken, pct, style};
-use kivact::view::{IntoValue, IntoView, Role, for_index, node_ref};
-use kivact::{Binding, Value, var};
+use kivact::view::{IntoView, Role, for_index, node_ref};
+use kivact::view::{Node, NodeBuilder, row, text};
 
 /// Connected numbered steps; indices before the current step are complete.
 #[track_caller]
-pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usize>) -> Node {
+pub fn stepper(
+    labels: impl IntoValue<Vec<String>>,
+    current: impl IntoValue<usize>,
+) -> impl kivact::view::Component {
     let labels = labels.into_value();
     let current = current.into_value();
     row(for_index(labels, move |i, label: Value<String>| {
@@ -22,9 +27,9 @@ pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usiz
                 }
             })
             .style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
-                    .font_family(t.get::<crate::tokens::Tokens>().display_family.as_str())
+                    .font_family(t.ext::<crate::tokens::Tokens>().display_family.as_str())
                     .font_size(18)
                     .weight(800)
                     .italic(true)
@@ -33,11 +38,11 @@ pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usiz
                     } else if i < current.get() {
                         t.colors().accent
                     } else {
-                        t.get::<crate::tokens::Tokens>().text_3
+                        t.ext::<crate::tokens::Tokens>().text_3
                     })
             }),
             text(label).style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
                     .font_size(12)
                     .weight(700)
@@ -46,13 +51,13 @@ pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usiz
                     } else if i < current.get() {
                         t.colors().accent
                     } else {
-                        t.get::<crate::tokens::Tokens>().text_3
+                        t.ext::<crate::tokens::Tokens>().text_3
                     })
             }),
         ))
         .style(move || {
-            let t = &current_theme();
-            let p = t.get::<crate::tokens::Tokens>();
+            let t = &use_theme().get();
+            let p = t.ext::<crate::tokens::Tokens>();
             style()
                 .height(40)
                 .padding_left(if i == 0 { 14 } else { 22 })
@@ -90,7 +95,7 @@ pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usiz
 
 /// Breadcrumbs separated by blue slash marks.
 #[track_caller]
-pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> Node {
+pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Component {
     let items = items.into_value();
     row(kivact::view::dynamic(items, |items| {
         let n = items.len();
@@ -117,15 +122,18 @@ pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> Node {
             })
             .collect::<Vec<_>>()
     }))
-    .role(Role::Group)
+    .with_node(|root| root.role(Role::Group))
     .style(style().gap(8).align_items(Align::Center))
 }
 
 /// Pagination including endpoints and a neighborhood with gap markers.
 #[track_caller]
-pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>) -> Node {
+pub fn pagination(
+    page: impl kivact::state::IntoBinding<usize>,
+    count: impl IntoValue<usize>,
+) -> impl kivact::view::Component {
     let total = count.into_value();
-    let binding = page.into();
+    let binding = page.into_binding();
     let page = binding.into_value();
     // Armed only when a press really changed the page, so the rebuild that
     // consumes it is certain.
@@ -176,7 +184,7 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
                 }
                 let node = node_ref();
                 if n == p {
-                    kivact::on_mount(move || {
+                    kivact::state::on_mount(move || {
                         if restore_focus.get() {
                             restore_focus.set(false);
                             node.focus();
@@ -210,7 +218,7 @@ pub fn pagination(page: impl Into<Binding<usize>>, count: impl IntoValue<usize>)
             items
         },
     ))
-    .role(Role::Group)
+    .with_node(|root| root.role(Role::Group))
     .name(message("game.pagination.page", "Pages"))
     .style(style().gap(4).align_items(Align::Center))
 }

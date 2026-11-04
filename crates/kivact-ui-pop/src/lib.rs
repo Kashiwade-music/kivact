@@ -2,7 +2,7 @@
 //!
 //! The only dependency is the public `kivact` facade. Components use its
 //! normal style, input, drawing, theme and overlay contracts. Every
-//! builder accepts the public [`kivact::control::NodeBuilder`] modifiers.
+//! builder accepts the public [`kivact::view::NodeBuilder`] modifiers.
 //! Install [`theme`] or add [`Tokens`] to an existing Kivact theme.
 //!
 //! The kit's theme gives the standard components of `kivact::ui` the Pop
@@ -37,7 +37,6 @@ mod recipes_input;
 mod recipes_palette;
 mod recipes_small;
 mod resize;
-mod slot;
 mod tabs;
 mod theme;
 mod timeline;
@@ -45,7 +44,7 @@ mod tokens;
 mod upload;
 
 pub use button::{ButtonTone, Slant};
-pub use chips::{ChipList, chip_list, removable_chip};
+pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use choice::Segmented;
 pub use color::Color;
 pub use date::{
@@ -60,7 +59,7 @@ pub use form::{Dropzone, dropzone};
 pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,
 };
-pub use notifications::{NotificationItem, notification_menu};
+pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
 pub use patterns::{AgendaItem, Stepper, agenda_item, breadcrumb, stepper};
 pub use recipes_small::{Segments, Striped};
 pub use resize::resizable_text_area;

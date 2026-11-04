@@ -4,16 +4,16 @@ use super::state::{CalendarCaption, Shared};
 use crate::Color;
 use crate::list_popup::select_popup;
 use crate::theme_access::{focus_ring, tokens};
-use kivact::control::icon;
-use kivact::control::{node, row, text};
 use kivact::i18n::{CalendarMonth, Weekday, message, message_with};
+use kivact::interaction::ListItem;
 use kivact::interaction::use_select;
 use kivact::prelude::NodeBuilder;
+use kivact::state::IntoValue;
+use kivact::state::{Binding, Value, binding};
 use kivact::style::{Align, Direction, Justify, style};
-use kivact::ui::ListItem;
-use kivact::view::IntoValue;
+use kivact::view::icon;
 use kivact::view::{IntoView, View};
-use kivact::{Binding, Value, binding};
+use kivact::view::{node, row, text};
 use std::rc::Rc;
 
 const MONTHS: [(&str, &str); 12] = [
@@ -91,7 +91,7 @@ impl Names {
 
 /// A select trigger that reads like the caption: `text-sm font-medium` and a
 /// small chevron.
-fn dropdown<K: Clone + Eq + std::hash::Hash + 'static>(
+fn dropdown<K: kivact::state::ItemKey>(
     name: Value<String>,
     options: Vec<ListItem<K>>,
     value: Binding<Option<K>>,
@@ -99,11 +99,12 @@ fn dropdown<K: Clone + Eq + std::hash::Hash + 'static>(
     let options = options.into_value();
     let behavior = use_select(options, value);
     let trigger = behavior.trigger();
-    let anchor = trigger.node_ref();
+    let anchor = kivact::view::node_ref();
     let label = behavior.label();
     (
         node()
-            .part(trigger)
+            .with_node(|root| root.part(trigger))
+            .node_ref(anchor)
             .name(name)
             .child(text(label))
             .child(

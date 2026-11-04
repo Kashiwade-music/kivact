@@ -3,13 +3,14 @@
 use super::state::CalendarCaption;
 use super::state::Shared;
 use crate::Color;
-use kivact::control::{Node, NodeBuilder, node, row};
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
-use kivact::interaction::{CalendarPolicy, CalendarSelection, use_calendar_grid};
+use kivact::interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::state::{Binding, Callback, Value, on_mount, signal};
 use kivact::style::{Direction, style};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoValue, IntoView, Role, View, callback, dynamic};
-use kivact::{Binding, Callback, Value, on_mount, signal};
+use kivact::view::{IntoView, Role, View, dynamic};
+use kivact::view::{Node, NodeBuilder, node, row};
 use std::rc::Rc;
 
 /// A month calendar (`Calendar`).
@@ -32,17 +33,17 @@ pub struct Calendar {
     selection: CalendarSelection,
     month: Option<CalendarMonth>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
-    count: usize,
-    caption: CalendarCaption,
+    count: Value<usize>,
+    caption: Value<CalendarCaption>,
     outside: Value<bool>,
-    week_start: Option<Weekday>,
+    week_start: Option<Value<Weekday>>,
     on_commit: Option<Callback<()>>,
     autofocus: bool,
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
     Calendar {
-        root: node().role(Role::Group).style(
+        root: node().with_node(|root| root.role(Role::Group)).style(
             style()
                 .direction(Direction::Row)
                 .gap(16)
@@ -56,8 +57,8 @@ fn new(selection: CalendarSelection) -> Calendar {
         selection,
         month: None,
         disabled: Rc::new(|_| false),
-        count: 1,
-        caption: CalendarCaption::Label,
+        count: 1usize.into_value(),
+        caption: CalendarCaption::Label.into_value(),
         outside: true.into_value(),
         week_start: None,
         on_commit: None,
@@ -78,8 +79,8 @@ fn new(selection: CalendarSelection) -> Calendar {
 /// }
 /// ```
 #[track_caller]
-pub fn calendar(selected: impl Into<Binding<Option<CalendarDate>>>) -> Calendar {
-    new(CalendarSelection::Single(selected.into()))
+pub fn calendar(selected: impl kivact::state::IntoBinding<Option<CalendarDate>>) -> Calendar {
+    new(CalendarSelection::Single(selected.into_binding()))
 }
 
 /// A calendar that chooses a range of days with two clicks.
@@ -87,8 +88,8 @@ pub fn calendar(selected: impl Into<Binding<Option<CalendarDate>>>) -> Calendar 
 /// After the first click the range is that one day and the next click
 /// completes it, in either order.
 #[track_caller]
-pub fn calendar_range(range: impl Into<Binding<Option<DateRange>>>) -> Calendar {
-    new(CalendarSelection::Range(range.into()))
+pub fn calendar_range(range: impl kivact::state::IntoBinding<Option<DateRange>>) -> Calendar {
+    new(CalendarSelection::Range(range.into_binding()))
 }
 
 impl Calendar {
@@ -106,14 +107,14 @@ impl Calendar {
     }
 
     /// How many months show side by side (default 1).
-    pub fn number_of_months(mut self, count: usize) -> Self {
-        self.count = count.clamp(1, 12);
+    pub fn number_of_months(mut self, count: impl IntoValue<usize>) -> Self {
+        self.count = count.into_value();
         self
     }
 
     /// The month title: a label (default) or month and year selects.
-    pub fn caption(mut self, caption: CalendarCaption) -> Self {
-        self.caption = caption;
+    pub fn caption(mut self, caption: impl IntoValue<CalendarCaption>) -> Self {
+        self.caption = caption.into_value();
         self
     }
 
@@ -126,8 +127,8 @@ impl Calendar {
     }
 
     /// The first column of the week (default: the locale's first day).
-    pub fn week_start(mut self, day: Weekday) -> Self {
-        self.week_start = Some(day);
+    pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
+        self.week_start = Some(day.into_value());
         self
     }
 
@@ -139,13 +140,14 @@ impl Calendar {
 
     /// Call `f` when a choice is complete: a day for [`calendar`], the second
     /// click of [`calendar_range`].
-    pub(crate) fn on_commit<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_commit = Some(callback(move |()| f()));
+    pub(crate) fn on_commit(mut self, f: impl Into<Callback<()>>) -> Self {
+        self.on_commit = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for Calendar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -171,49 +173,65 @@ impl IntoView for Calendar {
             CalendarSelection::Range(value) => value.get_untracked().map(|r| r.start()),
         };
         let focus_day = anchor.unwrap_or(today);
-        let month: Binding<CalendarMonth> = signal(month.unwrap_or(focus_day.month_of())).into();
-        let mut policy = CalendarPolicy::new()
-            .disabled(move |day| disabled(day))
-            .months(count)
-            .initial_focus(focus_day);
-        if let Some(day) = week_start {
-            policy = policy.week_start(day);
-        }
-        if let Some(commit) = on_commit {
-            policy = policy.on_commit(move |_| commit.call(()));
-        }
-        let grid = use_calendar_grid(month, selection, policy);
-        let first = grid.week_start();
-        let shared = Rc::new(Shared {
-            grid,
-            month,
-            count,
-            caption,
-            outside,
-            today,
-        });
-        let names = Rc::new(super::caption::Names::new());
-        let autofocus = std::cell::Cell::new(autofocus);
+        let month: Binding<CalendarMonth> =
+            signal(month.unwrap_or(focus_day.month_of())).into_binding();
+        let autofocus = Rc::new(std::cell::Cell::new(autofocus));
         let body = dynamic(
-            move || (month.get(), first.get()),
-            move |(month, first)| {
-                let panels = (0..shared.count)
-                    .map(|i| {
-                        super::panel::month_panel(
-                            &shared,
-                            &names,
-                            i,
-                            month.add_months(i as i32),
-                            first,
-                        )
+            move || {
+                (
+                    count.get().clamp(1, 12),
+                    caption.get(),
+                    week_start.map(|day| day.get()),
+                )
+            },
+            move |(count, caption, week_start)| {
+                let mut policy = CalendarOptions::new()
+                    .disabled({
+                        let disabled = disabled.clone();
+                        move |day| disabled(day)
                     })
-                    .collect::<Vec<_>>();
-                if autofocus.replace(false) {
-                    on_mount(move || {
-                        grid.focus_active();
-                    });
+                    .months(count)
+                    .initial_focus(focus_day);
+                if let Some(day) = week_start {
+                    policy = policy.week_start(day);
                 }
-                row(panels).style(style().gap(16))
+                if let Some(commit) = on_commit {
+                    policy = policy.on_activate(move |_| commit.call(()));
+                }
+                let grid = use_calendar_grid(month, selection, policy);
+                let first = grid.week_start();
+                let shared = Rc::new(Shared {
+                    grid,
+                    month,
+                    count,
+                    caption,
+                    outside,
+                    today,
+                });
+                let names = Rc::new(super::caption::Names::new());
+                let autofocus = autofocus.clone();
+                dynamic(
+                    move || (month.get(), first.get()),
+                    move |(month, first)| {
+                        let panels = (0..shared.count)
+                            .map(|i| {
+                                super::panel::month_panel(
+                                    &shared,
+                                    &names,
+                                    i,
+                                    month.add_months(i as i32),
+                                    first,
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        if autofocus.replace(false) {
+                            on_mount(move || {
+                                grid.focus_active();
+                            });
+                        }
+                        row(panels).style(style().gap(16))
+                    },
+                )
             },
         );
         root.child(body).into_view()

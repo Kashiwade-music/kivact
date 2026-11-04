@@ -1,12 +1,12 @@
 //! Role: The Lyra empty state: media, title, description and actions, centered.
 
 use crate::Color;
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, column, node, text};
+use kivact::state::IntoText;
+use kivact::state::Value;
 use kivact::style::{Align, Direction, Justify, TextAlign, pct, style};
-use kivact::view::{IntoText, IntoView, View};
+use kivact::view::{IntoView, View};
+use kivact::view::{Node, NodeBuilder, column, node, text};
 
 /// The frame of an [`EmptyState`] media slot (empty.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -22,25 +22,25 @@ pub enum EmptyMediaVariant {
 pub struct EmptyState {
     root: Node,
     title: Value<String>,
-    media: Option<Slot>,
+    media: Option<kivact::view::View>,
     media_variant: EmptyMediaVariant,
     description: Option<Value<String>>,
-    content: Option<Slot>,
+    content: Option<kivact::view::View>,
 }
 
 /// An empty state titled `title`.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
 /// fn no_projects() -> impl IntoView {
 ///     basic::empty_state("No Projects Yet")
-///         .media(|| icon("folder"))
+///         .media(icon("folder"))
 ///         .media_variant(basic::EmptyMediaVariant::Icon)
 ///         .description("Get started by creating your first project.")
-///         .content(|| button("Create Project"))
+///         .content(button("Create Project"))
 /// }
 /// ```
 #[track_caller]
@@ -70,8 +70,8 @@ pub fn empty_state(title: impl IntoText) -> EmptyState {
 
 impl EmptyState {
     /// Show `media` (an icon or an illustration) above the title.
-    pub fn media<V: IntoView>(mut self, media: impl FnOnce() -> V + 'static) -> Self {
-        self.media = Some(slot(media));
+    pub fn media(mut self, media: impl IntoView) -> Self {
+        self.media = Some(media.into_view());
         self
     }
 
@@ -88,13 +88,14 @@ impl EmptyState {
     }
 
     /// Show `content` (usually buttons) under the description.
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(slot(content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(content.into_view());
         self
     }
 }
 
 impl NodeBuilder for EmptyState {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

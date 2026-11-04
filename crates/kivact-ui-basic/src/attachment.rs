@@ -2,17 +2,16 @@
 
 use crate::parts::{pressable, sized_icon};
 use crate::primitives::spinner;
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, Scroll, ScrollAxes, column, node, row, scroll, text};
-use kivact::primitive::NodeExt;
+use kivact::view::{Node, NodeBuilder, Scroll, ScrollAxes, column, node, row, scroll, text};
+
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{
     Align, BorderStyle, Cursor, Direction, Justify, Overflow, Position, Style, pct, style,
 };
 use kivact::ui::{Button, ButtonVariant, ControlSize};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, Orientation, Role, View, callback, show};
-use kivact::{Callback, Value};
+use kivact::view::{IntoView, Orientation, Role, View, show};
 
 /// The size of an [`Attachment`] (attachment.tsx `size`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -54,23 +53,23 @@ pub enum AttachmentMediaVariant {
 pub struct Attachment {
     root: Node,
     title: Value<String>,
-    size: AttachmentSize,
-    orientation: Orientation,
+    size: Value<AttachmentSize>,
+    orientation: Value<Orientation>,
     state: Value<AttachmentState>,
-    media: Option<Slot>,
+    media: Option<kivact::view::View>,
     media_variant: AttachmentMediaVariant,
     description: Option<Value<String>>,
-    actions: Option<Slot>,
+    actions: Option<kivact::view::View>,
     on_press: Option<Callback<()>>,
 }
 
-kivact::view::constant_value!(AttachmentState);
+kivact::state::constant_value!(AttachmentState);
 
 /// What the root style of an [`Attachment`] reads once it is turned into a view.
 #[derive(Clone, Copy)]
 struct Cfg {
-    size: AttachmentSize,
-    vertical: bool,
+    size: Value<AttachmentSize>,
+    vertical: Value<bool>,
     has_media: bool,
     actionable: bool,
     state: Value<AttachmentState>,
@@ -79,15 +78,15 @@ struct Cfg {
 /// An attachment titled `title`.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
 /// fn file() -> impl IntoView {
 ///     basic::attachment("report.pdf")
-///         .media(|| icon("file-text"))
+///         .media(icon("file-text"))
 ///         .description("2.4 MB")
-///         .actions(|| basic::attachment_action("x", "Remove"))
+///         .actions(basic::attachment_action("x", "Remove"))
 /// }
 /// ```
 #[track_caller]
@@ -96,8 +95,8 @@ pub fn attachment(title: impl IntoText) -> Attachment {
     Attachment {
         root: node().name(title),
         title,
-        size: AttachmentSize::Default,
-        orientation: Orientation::Horizontal,
+        size: AttachmentSize::Default.into_value(),
+        orientation: Orientation::Horizontal.into_value(),
         state: AttachmentState::Done.into_value(),
         media: None,
         media_variant: AttachmentMediaVariant::Icon,
@@ -109,8 +108,8 @@ pub fn attachment(title: impl IntoText) -> Attachment {
 
 impl Attachment {
     /// Choose the size.
-    pub fn size(mut self, size: AttachmentSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<AttachmentSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -118,8 +117,8 @@ impl Attachment {
     /// the text, [`Orientation::Vertical`] above it in a narrow column
     /// (`Unspecified` is horizontal). A constant: the sizes of the media and
     /// its glyph are chosen from it when the attachment is built.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
 
@@ -130,8 +129,8 @@ impl Attachment {
     }
 
     /// Show `media` (an icon or a picture) in a square before the text.
-    pub fn media<V: IntoView>(mut self, media: impl FnOnce() -> V + 'static) -> Self {
-        self.media = Some(slot(media));
+    pub fn media(mut self, media: impl IntoView) -> Self {
+        self.media = Some(media.into_view());
         self
     }
 
@@ -148,19 +147,20 @@ impl Attachment {
     }
 
     /// Show `actions` (see [`attachment_action`]) at the end of the row.
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V + 'static) -> Self {
-        self.actions = Some(slot(actions));
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(actions.into_view());
         self
     }
 
     /// Make the attachment a button that reports presses to `f`.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for Attachment {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -177,7 +177,7 @@ fn media_side(size: AttachmentSize) -> f64 {
 /// The root style: the frame, its state colors and the focus ring.
 fn root_style(cfg: Cfg) -> Style {
     let p = tokens();
-    let (vertical, size) = (cfg.vertical, cfg.size);
+    let (vertical, size) = (cfg.vertical.get(), cfg.size.get());
     let current = cfg.state.get();
     let line = match current {
         AttachmentState::Error => p.destructive.with_alpha(0.3),
@@ -239,7 +239,7 @@ fn root_style(cfg: Cfg) -> Style {
 impl IntoView for Attachment {
     fn into_view(self) -> View {
         let (size, orientation, state) = (self.size, self.orientation, self.state);
-        let vertical = orientation == Orientation::Vertical;
+        let vertical = kivact::state::memo(move || orientation.get() == Orientation::Vertical);
         let has_media = self.media.is_some();
         let media_variant = self.media_variant;
         let actionable = self.on_press.is_some();
@@ -253,14 +253,16 @@ impl IntoView for Attachment {
             state,
         };
         let root = root.base_style(move || root_style(cfg));
-        let side = media_side(size);
-        let glyph = if vertical {
-            24.0
-        } else if size == AttachmentSize::Xs {
-            14.0
-        } else {
-            16.0
-        };
+        let side = move || media_side(size.get());
+        let glyph = kivact::state::memo(move || {
+            if vertical.get() {
+                24.0
+            } else if size.get() == AttachmentSize::Xs {
+                14.0
+            } else {
+                16.0
+            }
+        });
         let media = self.media.map(|media| {
             let picture = match media_variant {
                 AttachmentMediaVariant::Icon => sized_icon(media, glyph),
@@ -283,10 +285,10 @@ impl IntoView for Attachment {
                             p.muted
                         })
                         .color(if failed { p.destructive } else { p.foreground });
-                    let s = if vertical {
+                    let s = if vertical.get() {
                         s.width(pct(100)).aspect_ratio(1.0)
                     } else {
-                        s.size(side, side)
+                        s.size(side(), side())
                     };
                     if media_variant == AttachmentMediaVariant::Image
                         && matches!(current, AttachmentState::Uploading | AttachmentState::Error)
@@ -314,17 +316,17 @@ impl IntoView for Attachment {
                 })
             }),
         ))
-        .style(
+        .style(move || {
             style()
                 .grow(1)
                 .min_width(0)
                 .line_height(1.25)
-                .padding_x(if vertical { 4 } else { 0 }),
-        );
+                .padding_x(if vertical.get() { 4 } else { 0 })
+        });
         let actions = self.actions.map(|actions| {
             row(actions).style(move || {
                 let s = style().align_items(Align::Center).shrink(0);
-                if vertical {
+                if vertical.get() {
                     s.position(Position::Absolute).top(12).right(12).gap(4)
                 } else {
                     s
@@ -337,7 +339,7 @@ impl IntoView for Attachment {
 
 /// An icon-only ghost button for the actions of an [`attachment`] (24 px).
 ///
-/// `icon` is what `kivact::control::icon` draws: a Lucide name of the
+/// `icon` is what `kivact::view::icon` draws: a Lucide name of the
 /// kit's icon set (`"x"`), an `Icon` or a reactive one.
 #[track_caller]
 pub fn attachment_action(
@@ -348,7 +350,7 @@ pub fn attachment_action(
         .variant(ButtonVariant::Ghost)
         .size(ControlSize::Small)
         .hide_label(true)
-        .icon(kivact::control::icon(icon))
+        .icon(kivact::view::icon(icon))
         .style(style().size(24, 24).padding(0))
 }
 
@@ -359,3 +361,5 @@ pub fn attachment_group(children: impl IntoView) -> Scroll {
         .axes(ScrollAxes::Horizontal)
         .style(style().min_width(0).padding_y(4))
 }
+
+kivact::state::constant_value!(AttachmentSize);

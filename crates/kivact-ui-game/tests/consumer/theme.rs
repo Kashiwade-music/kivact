@@ -13,7 +13,7 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
             let density = signal(g::Density::Comfortable);
             (
                 (mode, density),
-                kivact::view::provide_theme(
+                kivact::state::provide_theme(
                     move || g::theme(mode.get()).density(density.get()),
                     || {
                         column((

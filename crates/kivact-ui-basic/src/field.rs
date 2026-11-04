@@ -1,11 +1,12 @@
 //! Role: Field-set, grouping and separator layouts of field.tsx.
 
 use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, column, node, text};
-use kivact::primitive::NodeExt;
+use kivact::state::Value;
+use kivact::view::{Node, NodeBuilder, column, node, text};
+
+use kivact::state::IntoText;
 use kivact::style::{Direction, Justify, Position, pct, style};
-use kivact::view::{IntoText, IntoView, Role, View};
+use kivact::view::{IntoView, Role, View};
 
 /// The look of a [`FieldSet`] legend.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -32,7 +33,7 @@ pub struct FieldSet {
 #[track_caller]
 pub fn field_set(children: impl IntoView) -> FieldSet {
     FieldSet {
-        root: node().role(Role::Group).style(
+        root: node().with_node(|root| root.role(Role::Group)).style(
             style()
                 .direction(Direction::Column)
                 .width(pct(100))
@@ -66,6 +67,7 @@ impl FieldSet {
 }
 
 impl NodeBuilder for FieldSet {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -114,13 +116,13 @@ impl IntoView for FieldSet {
 
 /// A column of fields spaced 20 px (`FieldGroup`).
 #[track_caller]
-pub fn field_group(children: impl IntoView) -> Node {
+pub fn field_group(children: impl IntoView) -> impl kivact::view::Component {
     column(children).style(style().width(pct(100)).gap(20))
 }
 
 /// A column that stacks a label and its description tightly (`FieldContent`).
 #[track_caller]
-pub fn field_content(children: impl IntoView) -> Node {
+pub fn field_content(children: impl IntoView) -> impl kivact::view::Component {
     column(children).style(style().grow(1).min_width(0).gap(2).line_height(1.375))
 }
 
@@ -157,6 +159,7 @@ impl FieldSeparator {
 }
 
 impl NodeBuilder for FieldSeparator {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -164,7 +167,7 @@ impl NodeBuilder for FieldSeparator {
 
 impl IntoView for FieldSeparator {
     fn into_view(self) -> View {
-        let line = node().role(Role::Separator).style(
+        let line = node().with_node(|root| root.role(Role::Separator)).style(
             style()
                 .position(Position::Absolute)
                 .left(0)

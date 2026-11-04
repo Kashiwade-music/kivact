@@ -1,8 +1,8 @@
 //! Role: Pop recipes for the standard tag input and number input.
 
 use crate::{Hue, Tokens};
+use kivact::custom::PartState;
 use kivact::draw::Shadow;
-use kivact::primitive::PartState;
 use kivact::style::{Align, Color, Direction, Style, TextAlign, Theme, style};
 use kivact::ui::{Look, NumberInputRecipes, TagInputRecipes};
 
@@ -32,7 +32,7 @@ fn tag_root(_: &Theme, _: &Look<PartState>) -> Style {
 }
 
 fn tag(t: &Theme, _: &Look<PartState>) -> Style {
-    let (fill, text) = t.get::<Tokens>().hue(Hue::Blue);
+    let (fill, text) = t.ext::<Tokens>().hue(Hue::Blue);
     style()
         .direction(Direction::Row)
         .height(26)

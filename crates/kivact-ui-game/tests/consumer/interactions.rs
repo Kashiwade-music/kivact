@@ -107,7 +107,8 @@ fn dropzone_failure_clears_on_the_next_drop() {
         .get_by_role(Role::Button, "Upload files")
         .rect()
         .expect("laid out");
-    let center = kivact::draw::Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    let center =
+        kivact::geometry::Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
     for (file, refused) in [("bad.csv", true), ("good.csv", false)] {
         screen.file_drag(kivact::view::FilePhase::Enter, vec![file.into()], center);
         screen.file_drag(kivact::view::FilePhase::Drop, vec![file.into()], center);
@@ -169,20 +170,17 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
             (
                 (tags, number, files),
                 column((
-                    kivact::ui::tag_input(
-                        "Tags",
-                        tags,
-                        move |tag| tags.update(|items| items.push(tag)),
-                        move |index| {
+                    kivact::ui::tag_input("Tags", tags)
+                        .on_add(move |tag| tags.update(|items| items.push(tag)))
+                        .on_remove(move |index| {
                             tags.update(|items| {
                                 items.remove(index);
                             })
-                        },
-                    ),
+                        }),
                     kivact::ui::number_input(
                         "Workers",
                         number,
-                        kivact::ui::ScalarRange::new(1.0, 8.0)
+                        kivact::interaction::ScalarRange::new(1.0, 8.0)
                             .and_then(|range| range.with_step(1.0))
                             .expect("invariant: the bounds and the step are finite"),
                     ),

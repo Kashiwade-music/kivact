@@ -2,11 +2,12 @@
 
 use crate::Color;
 use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::state::Value;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Direction, Justify, Length, Overflow, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View};
+use kivact::view::{IntoView, Role, View};
 
 /// The horizontal alignment of a [`TableCell`]'s content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -43,18 +44,20 @@ pub enum TableAlign {
 /// }
 /// ```
 #[track_caller]
-pub fn table(children: impl IntoView) -> Node {
-    column(children).role(Role::Table).style(
-        style()
-            .width(pct(100))
-            .font_size(12)
-            .overflow(Overflow::Hidden),
-    )
+pub fn table(children: impl IntoView) -> impl kivact::view::Component {
+    column(children)
+        .with_node(|root| root.role(Role::Table))
+        .style(
+            style()
+                .width(pct(100))
+                .font_size(12)
+                .overflow(Overflow::Hidden),
+        )
 }
 
 /// A caption under the table, muted, with 16 px above it.
 #[track_caller]
-pub fn table_caption(text_value: impl IntoText) -> Node {
+pub fn table_caption(text_value: impl IntoText) -> impl kivact::view::Component {
     text(text_value).style(
         style()
             .margin_top(16)
@@ -65,31 +68,33 @@ pub fn table_caption(text_value: impl IntoText) -> Node {
 
 /// The header rows of a [`table`]: a `Role::RowGroup`.
 #[track_caller]
-pub fn table_header(children: impl IntoView) -> Node {
-    column(children).role(Role::RowGroup)
+pub fn table_header(children: impl IntoView) -> impl kivact::view::Component {
+    column(children).with_node(|root| root.role(Role::RowGroup))
 }
 
 /// The body rows of a [`table`], a `Role::RowGroup`; the last row has no
 /// bottom rule.
 #[track_caller]
-pub fn table_body(children: impl IntoView) -> Node {
+pub fn table_body(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
-        .role(Role::RowGroup)
+        .with_node(|root| root.role(Role::RowGroup))
         .style(style().margin_bottom(-1))
 }
 
 /// The footer rows of a [`table`], a `Role::RowGroup`: a rule above, a muted
 /// fill and medium text.
 #[track_caller]
-pub fn table_footer(children: impl IntoView) -> Node {
-    column(children).role(Role::RowGroup).style(move || {
-        let p = tokens();
-        style()
-            .margin_bottom(-1)
-            .border_top(1, p.border)
-            .background(p.muted.with_alpha(0.5))
-            .weight(500)
-    })
+pub fn table_footer(children: impl IntoView) -> impl kivact::view::Component {
+    column(children)
+        .with_node(|root| root.role(Role::RowGroup))
+        .style(move || {
+            let p = tokens();
+            style()
+                .margin_bottom(-1)
+                .border_top(1, p.border)
+                .background(p.muted.with_alpha(0.5))
+                .weight(500)
+        })
 }
 
 /// A row of cells (table.tsx `TableRow`). Created by [`table_row`].
@@ -104,15 +109,17 @@ pub struct TableRow {
 #[track_caller]
 pub fn table_row(children: impl IntoView) -> TableRow {
     TableRow {
-        root: row(children).role(Role::Row).style(move || {
-            let p = tokens();
-            style()
-                .align_items(Align::Center)
-                .width(pct(100))
-                .border_bottom(1, p.border)
-                .hover(style().background(p.muted.with_alpha(0.5)))
-                .selected(style().background(p.muted))
-        }),
+        root: row(children)
+            .with_node(|root| root.role(Role::Row))
+            .style(move || {
+                let p = tokens();
+                style()
+                    .align_items(Align::Center)
+                    .width(pct(100))
+                    .border_bottom(1, p.border)
+                    .hover(style().background(p.muted.with_alpha(0.5)))
+                    .selected(style().background(p.muted))
+            }),
     }
 }
 
@@ -125,6 +132,7 @@ impl TableRow {
 }
 
 impl NodeBuilder for TableRow {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -142,18 +150,18 @@ pub struct TableCell {
     header: bool,
     content: View,
     width: Option<Value<Length>>,
-    align: TableAlign,
+    align: Value<TableAlign>,
 }
 
 /// The shared root of header and data cells.
 #[track_caller]
 fn cell(role: Role, header: bool, content: View) -> TableCell {
     TableCell {
-        root: node().role(role),
+        root: node().with_node(|root| root.role(role)),
         header,
         content,
         width: None,
-        align: TableAlign::Start,
+        align: TableAlign::Start.into_value(),
     }
 }
 
@@ -179,13 +187,14 @@ impl TableCell {
     }
 
     /// Align the content.
-    pub fn align(mut self, align: TableAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<TableAlign>) -> Self {
+        self.align = align.into_value();
         self
     }
 }
 
 impl NodeBuilder for TableCell {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -200,7 +209,7 @@ impl IntoView for TableCell {
                 let s = style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)
-                    .justify_content(match align {
+                    .justify_content(match align.get() {
                         TableAlign::Start => Justify::Start,
                         TableAlign::End => Justify::End,
                     })
@@ -222,3 +231,5 @@ impl IntoView for TableCell {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(TableAlign);

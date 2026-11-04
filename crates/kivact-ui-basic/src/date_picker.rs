@@ -4,13 +4,15 @@ use crate::button::{Look, button_style};
 use crate::calendar::{Calendar, Names, calendar, calendar_range};
 use crate::parts::pressable;
 use crate::theme_access::tokens;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, text};
 use kivact::i18n::{CalendarDate, DateRange, interpolate, message};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Value, memo, signal};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Color, Justify, pct, style};
 use kivact::ui::ControlSize;
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, node_ref};
-use kivact::{Binding, Value, memo, signal};
+use kivact::view::icon;
+use kivact::view::{IntoView, Role, View, node_ref};
+use kivact::view::{Node, NodeBuilder, node, text};
 use std::rc::Rc;
 
 type Format = Rc<dyn Fn(CalendarDate) -> String>;
@@ -26,7 +28,11 @@ struct Picker {
 impl Picker {
     fn new(label: impl IntoText) -> Self {
         let label = label.into_text_value();
-        let (root, state) = pressable(node().role(Role::Button).name(label), Role::Button, None);
+        let (root, state) = pressable(
+            node().with_node(|root| root.role(Role::Button)).name(label),
+            Role::Button,
+            None,
+        );
         // The width is the content's: give the trigger a `.style(..)` width to
         // fix it (the shadcn demo uses 280 px).
         let root = root.style(move || {
@@ -91,7 +97,7 @@ impl Picker {
         );
         // popover.tsx with `w-auto p-0`, at the start of the button.
         kivact::ui::dialog(label, open)
-            .kind(kivact::ui::DialogKind::Popover)
+            .mode(kivact::interaction::DialogMode::Popover)
             .hide_title(true)
             .width(kivact::style::Length::Auto)
             .variant(crate::recipes_dialog::Flush)
@@ -136,11 +142,11 @@ pub struct DatePicker {
 #[track_caller]
 pub fn date_picker(
     label: impl IntoText,
-    value: impl Into<Binding<Option<CalendarDate>>>,
+    value: impl kivact::state::IntoBinding<Option<CalendarDate>>,
 ) -> DatePicker {
     DatePicker {
         picker: Picker::new(label),
-        value: value.into(),
+        value: value.into_binding(),
         calendar: None,
     }
 }
@@ -166,6 +172,7 @@ impl DatePicker {
 }
 
 impl NodeBuilder for DatePicker {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.picker.root
     }
@@ -211,11 +218,11 @@ pub struct DateRangePicker {
 #[track_caller]
 pub fn date_range_picker(
     label: impl IntoText,
-    value: impl Into<Binding<Option<DateRange>>>,
+    value: impl kivact::state::IntoBinding<Option<DateRange>>,
 ) -> DateRangePicker {
     DateRangePicker {
         picker: Picker::new(label),
-        value: value.into(),
+        value: value.into_binding(),
         calendar: None,
     }
 }
@@ -242,6 +249,7 @@ impl DateRangePicker {
 }
 
 impl NodeBuilder for DateRangePicker {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.picker.root
     }

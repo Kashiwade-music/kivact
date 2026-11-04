@@ -4,9 +4,9 @@
 //! active one, and the hint in mono type on the right.
 
 use crate::Tokens;
+use kivact::custom::PartState;
 use kivact::draw::Shadow;
 use kivact::interaction::{ListItemState, PopupState};
-use kivact::primitive::PartState;
 use kivact::style::{Align, ColorToken, Direction, Position, Style, Theme, pct, style};
 use kivact::ui::{CommandPaletteRecipes, Look};
 
@@ -39,7 +39,7 @@ fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
         .width(600)
         .max_width(pct(100) - 32)
         .background(t.colors().surface)
-        .border(1, t.get::<Tokens>().line_strong)
+        .border(1, t.ext::<Tokens>().line_strong)
         .shadow(Shadow::new(0, 14, 36, t.colors().shadow))
         .clip(true)
 }
@@ -74,7 +74,7 @@ fn group(t: &Theme, _: &Look<PartState>) -> Style {
         .padding_x(10)
         .padding_top(10)
         .padding_bottom(4)
-        .font_family(t.get::<Tokens>().mono_family.as_str())
+        .font_family(t.ext::<Tokens>().mono_family.as_str())
         .font_size(10.5)
         .weight(600)
         .color(ColorToken::TextMuted)
@@ -104,7 +104,7 @@ fn icon(_: &Theme, _: &Look<ListItemState>) -> Style {
 
 fn hint(t: &Theme, _: &Look<ListItemState>) -> Style {
     style()
-        .font_family(t.get::<Tokens>().mono_family.as_str())
+        .font_family(t.ext::<Tokens>().mono_family.as_str())
         .font_size(10.5)
         .weight(600)
         .color(ColorToken::TextMuted)
@@ -118,7 +118,7 @@ fn footer(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .padding_x(14)
         .padding_y(8)
-        .font_family(t.get::<Tokens>().mono_family.as_str())
+        .font_family(t.ext::<Tokens>().mono_family.as_str())
         .font_size(10.5)
         .weight(600)
         .background(ColorToken::SurfaceAlt)

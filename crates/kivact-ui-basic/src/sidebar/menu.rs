@@ -3,22 +3,16 @@
 use super::state::{SidebarCollapsible, SidebarCx, current, deferred};
 use crate::parts::pressable;
 use crate::primitives::skeleton;
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::interaction::use_tooltip;
-use kivact::primitive::NodeExt;
-use kivact::style::{
-    Align, Color, Direction, Justify, Overflow, Position, current_theme, pct, style,
-};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::{Binding, Callback, Value};
+use kivact::state::{IntoText, IntoValue, callback};
+use kivact::style::{Align, Color, Direction, Justify, Overflow, Position, pct, style, use_theme};
 use kivact::ui::{TextInput, text_input};
-use kivact::view::HandlerResult;
-use kivact::view::{
-    IntoText, IntoValue, IntoView, Orientation, OverlayAlign, Placement, Role, View, callback,
-    overlay, show,
-};
-use kivact::view::{ReadingDirection, current_direction};
-use kivact::{Binding, Callback, Value};
+use kivact::view::{IntoView, Orientation, OverlayAlign, Placement, Role, View, overlay, show};
+use kivact::view::{ReadingDirection, use_direction};
 
 fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
     move || cx.is_some_and(|cx| cx.icon_only())
@@ -28,8 +22,8 @@ fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
 pub struct SidebarGroup {
     root: Node,
     label: Value<String>,
-    action: Option<Slot>,
-    content: Option<Slot>,
+    action: Option<kivact::view::View>,
+    content: Option<kivact::view::View>,
 }
 
 /// A group titled `label`.
@@ -54,19 +48,20 @@ pub fn sidebar_group(label: impl IntoText) -> SidebarGroup {
 
 impl SidebarGroup {
     /// A control at the end of the label's row, such as an add button (20 px square).
-    pub fn action<V: IntoView>(mut self, action: impl FnOnce() -> V + 'static) -> Self {
-        self.action = Some(slot(action));
+    pub fn action(mut self, action: impl IntoView) -> Self {
+        self.action = Some(action.into_view());
         self
     }
 
     /// The group's body, usually a [`sidebar_menu`].
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(slot(content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(content.into_view());
         self
     }
 }
 
 impl NodeBuilder for SidebarGroup {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -124,9 +119,9 @@ impl IntoView for SidebarGroup {
 
 /// A list of menu buttons (`SidebarMenu`): a `Role::List` column of full-width rows.
 #[track_caller]
-pub fn sidebar_menu(children: impl IntoView) -> Node {
+pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
-        .role(Role::List)
+        .with_node(|root| root.role(Role::List))
         .style(style().width(pct(100)).min_width(0))
 }
 
@@ -169,10 +164,10 @@ pub struct SidebarMenuButton {
     icon: Option<View>,
     active: Value<bool>,
     badge: Option<Value<String>>,
-    action: Option<Slot>,
-    size: SidebarMenuButtonSize,
+    action: Option<kivact::view::View>,
+    size: kivact::state::Value<SidebarMenuButtonSize>,
     on_press: Option<Callback<()>>,
-    sub: Option<Slot>,
+    sub: Option<kivact::view::View>,
 }
 
 /// What the root style of a [`SidebarMenuButton`] reads.
@@ -180,7 +175,7 @@ pub struct SidebarMenuButton {
 struct ButtonCfg {
     cx: Option<SidebarCx>,
     active: Value<bool>,
-    size: SidebarMenuButtonSize,
+    size: kivact::state::Value<SidebarMenuButtonSize>,
     has_action: bool,
 }
 
@@ -199,7 +194,7 @@ pub fn sidebar_menu_button(label: impl IntoText) -> SidebarMenuButton {
         active,
         badge: None,
         action: None,
-        size: SidebarMenuButtonSize::Default,
+        size: SidebarMenuButtonSize::Default.into_value(),
         on_press: None,
         sub: None,
     }
@@ -227,20 +222,20 @@ impl SidebarMenuButton {
     }
 
     /// A control at the end of the row, such as a "more" button (20 px square).
-    pub fn action<V: IntoView>(mut self, action: impl FnOnce() -> V + 'static) -> Self {
-        self.action = Some(slot(action));
+    pub fn action(mut self, action: impl IntoView) -> Self {
+        self.action = Some(action.into_view());
         self
     }
 
     /// Choose the height.
-    pub fn size(mut self, size: SidebarMenuButtonSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl kivact::state::IntoValue<SidebarMenuButtonSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 
@@ -250,13 +245,14 @@ impl SidebarMenuButton {
         clippy::should_implement_trait,
         reason = "the shadcn part is called sub; this is not an operator"
     )]
-    pub fn sub<V: IntoView>(mut self, children: impl FnOnce() -> V + 'static) -> Self {
-        self.sub = Some(slot(children));
+    pub fn sub(mut self, children: impl IntoView) -> Self {
+        self.sub = Some(children.into_view());
         self
     }
 }
 
 impl NodeBuilder for SidebarMenuButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -288,7 +284,7 @@ fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
         .align_items(Align::Center)
         .gap(8)
         .width(pct(100))
-        .height(cfg.size.height())
+        .height(cfg.size.get().height())
         .padding(8)
         .overflow(Overflow::Hidden)
         .radius(0)
@@ -314,7 +310,7 @@ fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
     };
     if collapsed {
         let s = s.size(32, 32).shrink(0);
-        if cfg.size == SidebarMenuButtonSize::Lg {
+        if cfg.size.get() == SidebarMenuButtonSize::Lg {
             s.padding(0)
         } else {
             s
@@ -327,7 +323,7 @@ fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
 fn build_button(this: SidebarMenuButton) -> impl IntoView {
     let cx = current();
     let hidden = icon_only(cx);
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     let SidebarMenuButton {
         root,
         label,
@@ -357,7 +353,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
                 let p = tokens();
                 let s = style()
                     .position(Position::Absolute)
-                    .top(size.corner())
+                    .top(size.get().corner())
                     .height(20)
                     .min_width(20)
                     .padding_x(4)
@@ -379,9 +375,11 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
     });
     let tip = (cx.is_some_and(|cx| cx.collapsible == SidebarCollapsible::Icon)).then(use_tooltip);
     let tip_part = tip.map(|tip| tip.trigger());
-    let tip_anchor = tip_part.as_ref().map(|part| part.node_ref());
+    let tip_anchor = tip_part.as_ref().map(|_| kivact::view::node_ref());
     let button = match tip_part {
-        Some(part) => button.part(part),
+        Some(part) => button
+            .with_node(|root| root.part(part))
+            .node_ref(tip_anchor.expect("invariant: tooltip part has its anchor")),
         None => button,
     };
     let button = button
@@ -401,7 +399,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
         .child(badge);
 
     let tooltip_view = tip.zip(tip_anchor).map(|(tip, anchor)| {
-        let shown = kivact::memo(move || tip.shown().get() && hidden());
+        let shown = kivact::state::memo(move || tip.is_open().get() && hidden());
         show(shown, move || {
             let surface = tip.content();
             let surface_state = surface.state();
@@ -411,7 +409,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
                 node()
                     .style(move || {
                         crate::recipes_popup::tooltip(
-                            &current_theme(),
+                            &use_theme().get(),
                             &kivact::ui::Look::new(surface_state.get()),
                         )
                     })
@@ -419,7 +417,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
             )
             .align(OverlayAlign::Center)
             .offset(4)
-            .part(surface)
+            .with_node(|root| root.part(surface))
             .name(label)
         })
     });
@@ -430,7 +428,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
             .style(move || {
                 let s = style()
                     .position(Position::Absolute)
-                    .top(size.corner())
+                    .top(size.get().corner())
                     .size(20, 20)
                     .direction(Direction::Row)
                     .align_items(Align::Center)
@@ -441,7 +439,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
     });
     let sub = sub.map(|sub| {
         node()
-            .role(Role::List)
+            .with_node(|root| root.role(Role::List))
             .hidden(hidden)
             .style(move || {
                 let p = tokens();
@@ -461,7 +459,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
             .child(sub)
     });
     node()
-        .role(Role::ListItem)
+        .with_node(|root| root.role(Role::ListItem))
         .style(
             style()
                 .position(Position::Relative)
@@ -506,13 +504,14 @@ impl SidebarMenuSubButton {
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for SidebarMenuSubButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -564,9 +563,9 @@ impl IntoView for SidebarMenuSubButton {
 
 /// A horizontal rule in the sidebar color (`SidebarSeparator`), inset by 8 px.
 #[track_caller]
-pub fn sidebar_separator() -> Node {
+pub fn sidebar_separator() -> impl kivact::view::Component {
     node()
-        .role(Role::Separator)
+        .with_node(|root| root.role(Role::Separator))
         .orientation(Orientation::Horizontal)
         .style(
             style()
@@ -580,7 +579,10 @@ pub fn sidebar_separator() -> Node {
 /// A text field for the sidebar (`SidebarInput`): the standard input, 32 px
 /// high, on the page color.
 #[track_caller]
-pub fn sidebar_input(label: impl IntoText, value: impl Into<Binding<String>>) -> TextInput {
+pub fn sidebar_input(
+    label: impl IntoText,
+    value: impl kivact::state::IntoBinding<String>,
+) -> TextInput {
     text_input(label, value).style(
         style()
             .width(pct(100))
@@ -593,7 +595,7 @@ pub fn sidebar_input(label: impl IntoText, value: impl Into<Binding<String>>) ->
 /// A loading placeholder for a menu row (`SidebarMenuSkeleton`): a 16 px
 /// bar of a width between 50 % and 90 % that depends on where it was written.
 #[track_caller]
-pub fn sidebar_menu_skeleton() -> Node {
+pub fn sidebar_menu_skeleton() -> impl kivact::view::Component {
     let at = std::panic::Location::caller();
     let width = 50.0 + ((at.line() * 7 + at.column()) % 41) as f64;
     row(skeleton().style(style().height(16).grow(1).max_width(pct(width)))).style(
@@ -604,3 +606,5 @@ pub fn sidebar_menu_skeleton() -> Node {
             .padding_x(8),
     )
 }
+
+kivact::state::constant_value!(SidebarMenuButtonSize);

@@ -21,15 +21,15 @@ fn page(child: impl IntoView) -> Node {
 }
 
 /// Mount a page with a toaster and a button that pushes `make()`.
-fn toast_page(make: fn() -> kivact::ui::Toast) -> (Screen, ()) {
+fn toast_page(make: fn() -> kivact::interaction::Toast) -> (Screen, ()) {
     kivact::test::render_with_handle(crate::support::options(), move || {
         (
             (),
             page((
                 kivact::ui::button("Show").on_press(move || {
-                    kivact::ui::toaster().push(make());
+                    kivact::interaction::toaster().push(make());
                 }),
-                kivact::ui::toast_region(kivact::ui::toaster()).hold_all_on_hover(true),
+                kivact::ui::toast_region(kivact::interaction::toaster()).hold_all_on_hover(true),
             )),
         )
     })
@@ -38,7 +38,7 @@ fn toast_page(make: fn() -> kivact::ui::Toast) -> (Screen, ()) {
 #[test]
 fn toast_shows_title_description_and_leaves_after_five_seconds() {
     let (screen, ()) = toast_page(|| {
-        kivact::ui::Toast::new("Event has been created")
+        kivact::interaction::Toast::new("Event has been created")
             .body("Sunday, December 03, 2023 at 9:00 AM")
     });
     screen.get_by_role(Role::Button, "Show").click();

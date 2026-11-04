@@ -4,7 +4,7 @@
 //! 12 px controls and Lucide icons. The only dependency is the public
 //! `kivact` facade; behavior comes from `kivact::interaction` and the
 //! standard `kivact::ui` components. A builder that draws one box accepts the
-//! public [`kivact::control::NodeBuilder`] modifiers, and the style and
+//! public [`kivact::view::NodeBuilder`] modifiers, and the style and
 //! semantics it installs are only defaults: what the caller sets wins. A
 //! dialog, an alert dialog, a sheet and a popover are the standard
 //! `kivact::ui::dialog` of the kinds `Modal`, `AlertModal` (its width class
@@ -16,19 +16,18 @@
 //! `.attach(trigger)`, which returns the trigger and the overlay.
 //!
 //! A slot method that places content in a component (`content`, `header`,
-//! `footer`, `action`, `actions`, `media`, ...) takes a closure,
-//! `impl FnOnce() -> V`, which the component calls once when it mounts; a
+//! `footer`, `action`, `actions`, `media`, ...) takes `impl IntoView`; a
 //! container's children (`column((..))`, `field(label, control)`) are views.
 //!
 //! Icons follow one rule. Every icon is drawn with the core
-//! `kivact::control::icon("name")`, and [`theme`] puts every Lucide name of
+//! `kivact::view::icon("name")`, and [`theme`] puts every Lucide name of
 //! [`ICON_NAMES`] in the theme's icon set. A slot that holds one view on a
 //! single component takes `impl IntoView` (`alert(..).icon(icon("info"))`);
 //! records, which are data rather than views (`ListItem`, `MenuEntry`,
 //! `Command`), and the helper [`attachment_action`] take the name. Every per-item function argument is
 //! `impl Fn(..) + 'static`.
 //!
-//! Install [`theme`] on the App or a `kivact::view::provide_theme`
+//! Install [`theme`] on the App or a `kivact::state::provide_theme`
 //! boundary: it carries the typed [`Tokens`] and the recipes that draw every
 //! standard component of `kivact::ui` (`button`, `toggle`, `checkbox`,
 //! `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`,
@@ -58,7 +57,6 @@ mod card;
 mod carousel;
 mod chart;
 mod chat;
-mod children;
 mod choice;
 mod code_block;
 mod color;
@@ -94,9 +92,7 @@ mod recipes_field;
 mod recipes_menu;
 mod recipes_popup;
 mod scroll_area;
-mod sealed;
 mod sidebar;
-mod slot;
 mod table;
 mod theme;
 mod theme_access;
@@ -123,12 +119,11 @@ pub use chat::{
     Bubble, BubbleAlign, BubbleReactionsSide, BubbleVariant, Message, MessageAlign, bubble,
     bubble_group, message, message_group,
 };
-pub use children::GroupItems;
 pub use empty::{EmptyMediaVariant, EmptyState, empty_state};
 pub use item::{Item, ItemMediaVariant, ItemSize, ItemVariant, item, item_group, item_separator};
 pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};
-pub use menubar::menubar;
+pub use menubar::{Menubar, menubar};
 pub use message_scroller::{MessageScroller, message_scroller};
 pub use navigation_menu::{NavItem, NavLink, navigation_menu, navigation_menu_link};
 pub use pagination::{
@@ -150,7 +145,7 @@ pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;
 pub use calendar::{Calendar, CalendarCaption, calendar, calendar_range};
-pub use choice::{SelectionValue, ToggleGroup, ToggleVariant, toggle_group};
+pub use choice::{ToggleGroup, ToggleVariant, toggle_group};
 pub use code_block::{
     CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
 };

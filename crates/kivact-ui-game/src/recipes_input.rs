@@ -1,7 +1,7 @@
 //! Role: Game recipes for the standard tag input and number input.
 
 use crate::Tokens;
-use kivact::primitive::PartState;
+use kivact::custom::PartState;
 use kivact::style::{Align, Color, ColorToken, Direction, Style, TextAlign, Theme, pct, style};
 use kivact::ui::{Look, NumberInputRecipes, TagInputRecipes};
 
@@ -60,7 +60,7 @@ fn tag_field(_: &Theme, _: &Look<PartState>) -> Style {
 fn number_root(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .align_items(Align::Center)
-        .border(1, t.get::<Tokens>().line_strong)
+        .border(1, t.ext::<Tokens>().line_strong)
         .background(t.colors().surface)
         .clip(true)
 }

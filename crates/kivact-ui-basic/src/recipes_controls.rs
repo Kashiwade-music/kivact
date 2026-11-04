@@ -9,15 +9,15 @@
 use crate::choice::{ToggleVariant, toggle_style};
 use crate::theme_access::{shadow_lg, wide_focus_ring, with_focus};
 use crate::tokens::Tokens;
-use kivact::draw::Rect;
+use kivact::custom::PartState;
+use kivact::geometry::Rect;
 use kivact::interaction::{DisclosureState, ToastState};
-use kivact::primitive::PartState;
 use kivact::style::{
     Align, Color, Cursor, Direction, Justify, Overflow, Position, Style, TextDecorationLine, Theme,
     pct, style,
 };
 use kivact::ui::{
-    AxisState, CheckState, DisclosureRecipes, Look, ProgressRecipes, ProgressState,
+    AxisState, CheckableState, DisclosureRecipes, Look, ProgressRecipes, ProgressState,
     RadioGroupRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, ToastGroupState, ToastRecipes,
     ToggleButtonState,
 };
@@ -44,14 +44,14 @@ fn radio_list(_: &Theme, orientation: &kivact::ui::Look<Orientation>) -> Style {
 
 /// A row of the indicator and the label (`text-xs/snug`); the indicator
 /// shows the focus, so the row draws no ring of its own.
-fn radio_item(t: &Theme, _: &kivact::ui::Look<CheckState>) -> Style {
+fn radio_item(t: &Theme, _: &kivact::ui::Look<CheckableState>) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Start)
         .gap(8)
         .font_size(12)
         .line_height(1.375)
-        .color(t.get::<Tokens>().foreground)
+        .color(t.ext::<Tokens>().foreground)
         .focus_visible(style().ring_none())
 }
 
@@ -61,8 +61,8 @@ fn radio_item(t: &Theme, _: &kivact::ui::Look<CheckState>) -> Style {
 ///
 /// The ring is the item's focus: it is drawn on the indicator, a part
 /// inside the focused item, so the recipe reads the item's state.
-fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckState>) -> Style {
-    let p = t.get::<Tokens>();
+fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckableState>) -> Style {
+    let p = t.ext::<Tokens>();
     let checked = s.checked.is_checked();
     let base = style()
         .position(Position::Relative)
@@ -89,11 +89,11 @@ fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckState>) -> Style {
 }
 
 /// `text-xs/relaxed text-muted-foreground` under the label.
-fn radio_description(t: &Theme, _: &kivact::ui::Look<CheckState>) -> Style {
+fn radio_description(t: &Theme, _: &kivact::ui::Look<CheckableState>) -> Style {
     style()
         .margin_top(2)
         .line_height(1.625)
-        .color(t.get::<Tokens>().muted_foreground)
+        .color(t.ext::<Tokens>().muted_foreground)
 }
 
 /// The thumb (`size-3`), the track's bar (`h-1`) and the slider's box
@@ -112,7 +112,7 @@ pub(crate) fn slider(r: SliderRecipes) -> SliderRecipes {
 /// `bg-muted` bar in its middle; the whole slider is at half opacity
 /// while disabled.
 fn slider_track(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
-    let fill = t.get::<Tokens>().muted;
+    let fill = t.ext::<Tokens>().muted;
     let vertical = s.orientation == Orientation::Vertical;
     let base = style()
         .shrink(0)
@@ -135,7 +135,7 @@ fn slider_track(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
 
 /// The `bg-primary` part of the bar.
 fn slider_range(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
-    let fill = t.get::<Tokens>().primary;
+    let fill = t.ext::<Tokens>().primary;
     let vertical = s.orientation == Orientation::Vertical;
     style().paint(move |d, size| {
         // The range spans the track across its axis; its bar is the track's.
@@ -152,7 +152,7 @@ fn slider_range(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
 /// ring-ring/50` while hovered, pressed or focused. Inside the dimmed
 /// track it keeps its own opacity.
 fn slider_thumb(t: &Theme, _: &kivact::ui::Look<AxisState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let halo = style().ring(1, p.ring.with_alpha(0.5));
     style()
         .size(THUMB, THUMB)
@@ -220,7 +220,7 @@ fn behind(s: &kivact::ui::Look<ToastState>) -> bool {
 /// up to two older ones peeking out above it, each one smaller; it opens
 /// into a list while held.
 fn toast_card(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let card = shadow_lg(
         style()
             .direction(Direction::Row)
@@ -265,7 +265,7 @@ fn toast_title(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
             .font_size(14)
             .weight(500)
             .line_height(20.0 / 14.0)
-            .color(t.get::<Tokens>().popover_foreground),
+            .color(t.ext::<Tokens>().popover_foreground),
     )
 }
 
@@ -276,14 +276,14 @@ fn toast_body(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
             .margin_top(4)
             .font_size(14)
             .line_height(20.0 / 14.0)
-            .color(t.get::<Tokens>().muted_foreground),
+            .color(t.ext::<Tokens>().muted_foreground),
     )
 }
 
 /// The icon of the toast's tone: 16 px in the text color, in the destructive
 /// color for a danger.
 fn toast_icon(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = style().size(16, 16).shrink(0);
     content(
         s,
@@ -298,7 +298,7 @@ fn toast_icon(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
 /// `shrink-0 text-muted-foreground after:-inset-2 hover:text-foreground`: a
 /// bare 16 px `x` whose hit area reaches 8 px beyond it.
 fn toast_close(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     content(
         s,
         style()
@@ -329,7 +329,7 @@ pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
 /// The line is local paint, which a state style cannot carry, so the
 /// recipe reads the handle's focus.
 fn splitter_handle(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     // Panes in a row are split by a vertical line.
     let stacked = s.orientation == Orientation::Vertical;
     let line = if s.input.focus_visible {
@@ -375,7 +375,7 @@ fn split_grip(t: &Theme, s: &Look<AxisState>) -> Style {
     let base = style()
         .shrink(0)
         .radius(0)
-        .background(t.get::<Tokens>().border);
+        .background(t.ext::<Tokens>().border);
     if s.orientation == Orientation::Vertical {
         base.width(24).height(4)
     } else {
@@ -387,7 +387,7 @@ fn split_grip(t: &Theme, s: &Look<AxisState>) -> Style {
 pub(crate) fn toggle(t: &Theme, look: &Look<ToggleButtonState>) -> Style {
     let variant = look.variant::<ToggleVariant>().copied().unwrap_or_default();
     toggle_style(
-        &t.get::<Tokens>(),
+        &t.ext::<Tokens>(),
         variant,
         look.size,
         look.pressed,
@@ -406,13 +406,13 @@ fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
         .width(pct(100))
         .height(4)
         .min_width(0)
-        .background(t.get::<Tokens>().muted)
+        .background(t.ext::<Tokens>().muted)
         .clip(true)
 }
 
 /// The fill is as wide as the value; an indeterminate bar's segment moves.
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
-    let (state, primary) = (**look, t.get::<Tokens>().primary);
+    let (state, primary) = (**look, t.ext::<Tokens>().primary);
     match state.value {
         Some(value) => style()
             .height(pct(100))
@@ -445,11 +445,11 @@ fn disclosure_root(t: &Theme, _: &Look<DisclosureState>) -> Style {
     style()
         .direction(Direction::Column)
         .width(pct(100))
-        .border_bottom(1, t.get::<Tokens>().border)
+        .border_bottom(1, t.ext::<Tokens>().border)
 }
 
 fn disclosure_trigger(t: &Theme, state: &Look<DisclosureState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let s = style()
         .direction(Direction::Row)
         .align_items(Align::Start)
@@ -476,7 +476,7 @@ fn disclosure_indicator(t: &Theme, state: &Look<DisclosureState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
-        .color(t.get::<Tokens>().muted_foreground)
+        .color(t.ext::<Tokens>().muted_foreground)
         .rotate(if state.open { 180 } else { 0 })
 }
 
@@ -484,6 +484,6 @@ fn disclosure_content(t: &Theme, _: &Look<DisclosureState>) -> Style {
     style()
         .direction(Direction::Column)
         .font_size(12)
-        .color(t.get::<Tokens>().foreground)
+        .color(t.ext::<Tokens>().foreground)
         .padding_bottom(10)
 }

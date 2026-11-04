@@ -1,27 +1,26 @@
 //! Role: Searchable select and multi-select with chips on the combobox interaction.
 
 use crate::Color;
-use crate::choice::{Selection, SelectionValue};
 use crate::input_group::{
     InputGroupButtonSize, borderless, input_group, input_group_button, input_group_input,
 };
 use crate::list_popup::{row_style, surface_style};
 use crate::theme_access::{field_fill, tokens};
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
+use kivact::custom::part;
 use kivact::i18n::{message, message_with};
+use kivact::interaction::ListItem;
 use kivact::interaction::{
-    Combobox as Behavior, ListItemState, ListSelection, use_combobox as behavior,
+    ComboboxApi as Behavior, ListItemState, Selection, use_combobox as behavior,
 };
-use kivact::primitive::{NodeExt, part};
+use kivact::state::{Binding, Value, binding, effect, memo, signal};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::ui::{ButtonVariant, ListItem};
+use kivact::ui::ButtonVariant;
+use kivact::view::icon;
 use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, NodeRef, Placement, View, for_each, node_ref,
-    overlay, show,
+    Handled, IntoView, Key, NodeRef, Placement, View, for_each, node_ref, overlay, show,
 };
-use kivact::{Binding, Value, binding, effect, memo, signal};
-use std::hash::Hash;
+use kivact::view::{Node, NodeBuilder, column, node, row, scroll, text};
 use std::rc::Rc;
 
 type Matcher = Rc<dyn Fn(&str, &str) -> bool>;
@@ -44,7 +43,7 @@ enum ComboMode {
 /// Enter chooses it, all from `kivact::interaction::use_combobox`, so the focus
 /// stays in the field. Give it an accessible name with `.name(..)`; a
 /// combobox with `.disabled(..)` is inert: the field, the chips and the side buttons ignore input.
-pub struct Combobox<K: Clone + Eq + Hash + 'static> {
+pub struct Combobox<K: kivact::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     mode: Selection<K>,
@@ -54,7 +53,7 @@ pub struct Combobox<K: Clone + Eq + Hash + 'static> {
     matcher: Option<Matcher>,
 }
 
-fn new<K: Clone + Eq + Hash + 'static>(
+fn new<K: kivact::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
     mode: Selection<K>,
 ) -> Combobox<K> {
@@ -72,13 +71,13 @@ fn new<K: Clone + Eq + Hash + 'static>(
 /// A combobox over `options` whose choice is written to `value`.
 ///
 /// The type of `value` decides how many it keeps
-/// ([`SelectionValue`](crate::SelectionValue)): an `Option<K>` keeps one
+/// ([`kivact::interaction::IntoSelection`](crate::kivact::interaction::IntoSelection)): an `Option<K>` keeps one
 /// choice in the field; a `Vec<K>` keeps several and shows them as chips,
 /// each with a remove button, and Backspace in the empty search field
 /// removes the last chip.
 ///
 /// ```no_run
-/// use kivact::ui::ListItem;
+/// use kivact::interaction::{ListItem};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -93,14 +92,14 @@ fn new<K: Clone + Eq + Hash + 'static>(
 /// }
 /// ```
 #[track_caller]
-pub fn combobox<K: Clone + Eq + Hash + 'static>(
+pub fn combobox<K: kivact::state::ItemKey>(
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl SelectionValue<K>,
+    value: impl kivact::interaction::IntoSelection<K>,
 ) -> Combobox<K> {
     new(options.into_value(), value.into_selection())
 }
 
-impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
+impl<K: kivact::state::ItemKey> Combobox<K> {
     /// Hint text shown while the field is empty.
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
@@ -130,14 +129,15 @@ impl<K: Clone + Eq + Hash + 'static> Combobox<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Combobox<K> {
+impl<K: kivact::state::ItemKey> NodeBuilder for Combobox<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 /// The label of `key` among `options`, empty when it is absent.
-fn label_of<K: Clone + Eq + Hash + 'static>(options: Value<Vec<ListItem<K>>>, key: &K) -> String {
+fn label_of<K: kivact::state::ItemKey>(options: Value<Vec<ListItem<K>>>, key: &K) -> String {
     options.with(|all| {
         all.iter()
             .find(|o| o.key() == key)
@@ -161,13 +161,13 @@ fn side_button(
         .focusable(false)
         .disabled(off)
         .on_press(on_press)
-        .part(part(|s| s).focus_on_press(input))
+        .with_node(|root| root.focus_on_press(input))
         .style(style().color(Color::MutedForeground))
         .into_view()
 }
 
 /// The popup of `list`: the options that match, or the empty text.
-fn popup<K: Clone + Eq + Hash + 'static>(
+fn popup<K: kivact::state::ItemKey>(
     list: Behavior<K>,
     options: Value<Vec<ListItem<K>>>,
     open: Binding<bool>,
@@ -189,7 +189,7 @@ fn popup<K: Clone + Eq + Hash + 'static>(
                     move || label_of(options, &key)
                 });
                 node()
-                    .part(part)
+                    .with_node(|root| root.part(part))
                     .style(move || {
                         let st = ListItemState {
                             selected: is_chosen(&key),
@@ -202,7 +202,7 @@ fn popup<K: Clone + Eq + Hash + 'static>(
         );
         let content = column((
             scroll(column(rows))
-                .part(list.content())
+                .with_node(|root| root.part(list.content()))
                 .name(name)
                 .style(style().max_height(252)),
             show(nothing, move || {
@@ -219,14 +219,14 @@ fn popup<K: Clone + Eq + Hash + 'static>(
         .style(move || surface_style(&tokens()).max_height(288));
         overlay(anchor, Placement::Below, content)
             .offset(6.0)
-            .at_least_anchor_width(true)
+            .at_least_anchor_width()
             .on_dismiss(move |_| open.set(false))
     })
     .into_view()
 }
 
 /// The chips field of the multiple combobox (`ComboboxChips`).
-fn chips_field<K: Clone + Eq + Hash + 'static>(
+fn chips_field<K: kivact::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
     input: kivact::ui::TextInput,
     values: Binding<Vec<K>>,
@@ -247,11 +247,11 @@ fn chips_field<K: Clone + Eq + Hash + 'static>(
                 [("label", label.get())]
             });
             let remove = node()
-                .role(kivact::view::Role::Button)
+                .with_node(|root| root.role(kivact::view::Role::Button))
                 .name(remove_name)
                 .disabled(off)
                 .child(icon("x"))
-                .part(part(|s| s).focus_on_press(input_ref))
+                .with_node(|root| root.focus_on_press(input_ref))
                 .on_press(move || {
                     values.set(values.get().into_iter().filter(|k| k != &key).collect());
                 })
@@ -283,7 +283,7 @@ fn chips_field<K: Clone + Eq + Hash + 'static>(
         borderless(input, Some(22.0)).style(style().min_width(64).padding_x(2)),
     ))
     .node_ref(anchor)
-    .part(part(|s| s).focus_on_press(input_ref))
+    .with_node(|root| root.focus_on_press(input_ref))
     .style(move || {
         let p = tokens();
         let s = style()
@@ -316,14 +316,14 @@ fn chips_field<K: Clone + Eq + Hash + 'static>(
     .into_view()
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
+impl<K: kivact::state::ItemKey> IntoView for Combobox<K> {
     fn into_view(mut self) -> View {
         let name_source = self.root.accessible_name();
         let fallback = message("basic.combobox.label", "Combobox");
         let name: Value<String> = memo(move || {
             name_source
                 .as_ref()
-                .map(|read| read())
+                .map(|read| read.get())
                 .filter(|n| !n.is_empty())
                 .unwrap_or_else(|| fallback.get())
         });
@@ -336,9 +336,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             clear,
             matcher,
         } = self;
-        let disabled: Option<Value<bool>> = root
-            .accessible_disabled()
-            .map(|read| (move || read()).into_value());
+        let disabled: Option<Value<bool>> = root.accessible_disabled();
         let off = memo(move || disabled.is_some_and(|d| d.get()));
         let (single_value, multi_value) = match mode {
             Selection::Single(v) => (Some(v), None),
@@ -367,8 +365,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             None => binding(single, |_: Option<K>| {}),
         };
         let selection = match multi_value {
-            Some(values) => ListSelection::Multiple(values),
-            None => ListSelection::Single(chosen),
+            Some(values) => Selection::Multiple(values),
+            None => Selection::Single(chosen),
         };
         let list = behavior(options, selection).popup(open);
         let query = list.query();
@@ -400,11 +398,14 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             mode.set(ComboMode::Filtering);
         });
         let input_part = list.input();
-        let input_ref = input_part.node_ref();
+        let input_ref = kivact::view::node_ref();
         let mut field_input = input_group_input(name, edit)
             .forward_keys(vec![Key::ArrowDown, Key::ArrowUp, Key::Enter, Key::Escape])
-            .part(input_part)
-            .expanded(open.into_value())
+            .with_node(|node| {
+                node.part(input_part)
+                    .node_ref(input_ref)
+                    .expanded(open.into_value())
+            })
             .on_pointer(move |event: kivact::view::PointerEvent| {
                 if matches!(event.phase(), kivact::view::PointerPhase::Down(_))
                     && !off.get()
