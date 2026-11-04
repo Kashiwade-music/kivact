@@ -1,9 +1,10 @@
 //! Role: Debug-only ordered comparison traces for test clients.
 
 use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Arguments;
 use std::fs::File;
-use std::io::Write as _;
+use std::io::{BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 
 use kivact_reactive::Runtime;
@@ -17,7 +18,7 @@ pub(crate) struct Trace {
 }
 
 struct Sink {
-    file: File,
+    file: BufWriter<File>,
     stage: bool,
     semantics: bool,
     host_events: bool,
@@ -51,7 +52,7 @@ impl Trace {
         match result {
             Ok(file) => {
                 *self.sink.borrow_mut() = Some(Sink {
-                    file,
+                    file: BufWriter::new(file),
                     stage: has("stage"),
                     semantics: has("semantics"),
                     host_events: has("host_events"),
@@ -64,6 +65,12 @@ impl Trace {
 }
 
 impl Sink {
+    fn flush(&mut self) {
+        if let Err(error) = self.file.flush() {
+            tracing::warn!(%error, "could not write Kivact comparison trace");
+        }
+    }
+
     fn line(&mut self, text: Arguments<'_>) {
         if let Err(error) = writeln!(self.file, "{text}") {
             tracing::warn!(%error, "could not write Kivact comparison trace");
@@ -77,6 +84,7 @@ pub(crate) fn event(rt: &Runtime, text: Arguments<'_>) {
     if sink.host_events {
         sink.line(text);
     }
+    sink.flush();
 }
 
 pub(crate) fn stage(rt: &Runtime, name: &str) {
@@ -86,8 +94,15 @@ pub(crate) fn stage(rt: &Runtime, name: &str) {
         sink.line(format_args!("stage {name}"));
     }
     if !sink.semantics {
+        sink.flush();
         return;
     }
+    let previous = std::mem::take(&mut sink.previous);
+    let previous_values: HashMap<NodeId, &str> = previous
+        .iter()
+        .map(|(id, value)| (*id, value.as_str()))
+        .collect();
+    let mut current_ids = HashSet::new();
     let tree = ViewState::tree(rt);
     let mut pending = vec![tree.root];
     let mut current = Vec::new();
@@ -97,32 +112,27 @@ pub(crate) fn stage(rt: &Runtime, name: &str) {
             let value = tree.with_node(id, |node| {
                 format!("{:?}", node.and_then(|n| n.semantics.as_deref()))
             });
-            if !sink
-                .previous
-                .iter()
-                .any(|old| old.0 == id && old.1 == value)
-            {
+            if previous_values.get(&id).copied() != Some(value.as_str()) {
                 sink.line(format_args!("semantics n{} {value}", id.0));
             }
+            current_ids.insert(id);
             current.push((id, value));
         }
     }
-    let removed: Vec<_> = sink
-        .previous
-        .iter()
-        .filter(|old| !current.iter().any(|node| node.0 == old.0))
-        .map(|old| old.0)
-        .collect();
-    for id in removed {
-        sink.line(format_args!("semantics n{} removed", id.0));
+    for (id, _) in &previous {
+        if !current_ids.contains(id) {
+            sink.line(format_args!("semantics n{} removed", id.0));
+        }
     }
     sink.previous = current;
+    sink.flush();
 }
 
 pub(crate) fn record(rt: &Runtime) {
     let mut state = Trace::of(rt).sink.borrow_mut();
     let Some(sink) = state.as_mut() else { return };
     if !sink.stage {
+        sink.flush();
         return;
     }
     if let Some(record) = rt.turns().last() {
@@ -138,4 +148,5 @@ pub(crate) fn record(rt: &Runtime) {
             record.notes
         ));
     }
+    sink.flush();
 }
