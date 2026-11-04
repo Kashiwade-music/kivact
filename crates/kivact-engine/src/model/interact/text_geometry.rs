@@ -274,8 +274,6 @@ pub(crate) fn ime_text(
     Some((text, excerpt.start))
 }
 
-/// The byte offset of the UTF-16 offset `units` in `text` (clamped to it).
-
 impl Model {
     /// Scroll every text input so its caret stays inside
     /// the field: past the right edge less 2 px, or at the left edge.

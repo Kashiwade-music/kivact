@@ -299,22 +299,8 @@ impl Host {
             }
             ShellEvent::Key(input) => {
                 let mut model = self.model.borrow_mut();
-                model.modifiers = input.modifiers;
-                let result = match input.phase {
-                    kivact_types::KeyPhase::Up => {
-                        model.key_up(input.key, input.code, input.pointer);
-                        KeyResult::Reported
-                    }
-                    kivact_types::KeyPhase::Down { repeat, text } => model.key(
-                        input.key,
-                        physical_letter(input.code),
-                        input.code,
-                        repeat,
-                        text,
-                        input.pointer,
-                        &mut self.engine.borrow_mut(),
-                    ),
-                };
+                let physical = physical_letter(input.code);
+                let result = model.key(input, physical, &mut self.engine.borrow_mut());
                 drop(model);
                 match result {
                     // A cut already removed the text.

@@ -136,10 +136,10 @@ impl Model {
         let authored_text = n.semantics().and_then(|props| props.text.clone());
         let mut output = kivact_types::render::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
-            children: children,
-            bounds: bounds,
-            scroll: scroll,
-            transform: transform,
+            children,
+            bounds,
+            scroll,
+            transform,
             semantics: kivact_types::Semantics {
                 role: Some(exposed.role),
                 name: Some(exposed.name),
@@ -155,9 +155,9 @@ impl Model {
                     Some(_) => None,
                     None => n.semantics().and_then(|s| s.value_text.clone()),
                 },
-                disabled: disabled,
-                hidden: hidden,
-                focusable: focusable,
+                disabled,
+                hidden,
+                focusable,
                 checked: n.semantics().and_then(|s| s.checked),
                 selected: Some(n.selected()),
                 expanded: n.semantics().and_then(|s| s.expanded),

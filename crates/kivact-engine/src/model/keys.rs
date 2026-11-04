@@ -110,22 +110,29 @@ fn shortcut_key(key: Key, physical: Option<char>, modifiers: Modifiers) -> Key {
 }
 
 impl Model {
-    /// A key press with the shell's `text` and the US-layout letter of the
+    /// A key event with the shell's input and the US-layout letter of the
     /// physical key (`physical`, for shortcuts on non-Latin layouts). Typed
     /// text goes into the focused text input; copy and paste are left to
     /// the shell.
     pub(crate) fn key(
         &mut self,
-        key: Key,
+        input: kivact_types::KeyInput,
         physical: Option<char>,
-        code: KeyCode,
-        repeat: bool,
-        text: Option<String>,
-        pointer: Option<kivact_types::Point>,
         engine: &mut arvane::Engine,
     ) -> KeyResult {
+        let kivact_types::KeyInput {
+            key,
+            code,
+            phase,
+            modifiers,
+            pointer,
+        } = input;
+        self.modifiers = modifiers;
+        let KeyPhase::Down { repeat, text } = phase else {
+            self.key_up(key, code, pointer);
+            return KeyResult::Reported;
+        };
         let text = text.filter(|t| !t.is_empty() && !t.chars().any(char::is_control));
-        let modifiers = self.modifiers;
         let result = self.handle_key(
             key,
             physical,
@@ -424,7 +431,7 @@ impl Model {
                 key,
                 code,
                 phase: KeyPhase::Down { repeat, text },
-                modifiers: modifiers,
+                modifiers,
                 pointer,
             },
         }));

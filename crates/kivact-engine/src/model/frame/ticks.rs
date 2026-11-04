@@ -139,7 +139,7 @@ impl Model {
                 let t = if self.frame.reduced_motion() {
                     1.0
                 } else {
-                    (stamp.saturating_sub(began) as f64 / 240_000_000.0).min(1.0) as f64
+                    (stamp.saturating_sub(began) as f64 / 240_000_000.0).min(1.0)
                 };
                 let eased = 1.0 - (1.0 - t).powi(3);
                 self.set_scroll(

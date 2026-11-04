@@ -412,8 +412,8 @@ impl Model {
                 captured: false,
                 activation: None,
                 input: kivact_types::FileDrop {
-                    phase: phase,
-                    files: files,
+                    phase,
+                    files,
                     position: point,
                 },
             }));
