@@ -1,5 +1,5 @@
 //! Role: Own the notification queue, visibility limit and independent hold identities.
-use super::api::{DismissHandler, FocusAttachment, QueuedToast, ToastId};
+use super::data::{DismissHandler, FocusAttachment, QueuedToast, ToastId};
 use kivact_core::custom::Generation;
 use kivact_core::custom::NodeToken;
 use kivact_core::state::{Machine as MachineTrait, Step};

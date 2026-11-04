@@ -1,5 +1,7 @@
 //! Role: Queue toast notifications and own their deadlines.
 mod api;
 mod column;
+mod data;
 mod timer;
-pub use api::{Toast, ToastId, ToastOptions, ToastState, Toaster, toaster};
+pub use api::{ToastState, Toaster, toaster};
+pub use data::{Toast, ToastId, ToastOptions};

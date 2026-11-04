@@ -27,110 +27,26 @@
 //!   observed by `on_end`. A drag stopped by the disabled value commits its
 //!   edit.
 
+use super::data::{
+    Active, BeginAt, DragCoordinates, DragEdit, DragOptions, DragPhase, DragStart, DragState,
+    DragUpdate, EditOwnership, bit,
+};
 use super::machine;
 use crate::edit::EditSession;
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::clock_now;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::geometry::Point;
-use kivact_core::state::{Callback, Signal, Value, Var, memo, signal, var};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::state::{MachineHandle, machine};
+use kivact_core::state::{Signal, Value, Var, memo, signal, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    Handled, Key, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerId, PointerPhase,
+    Handled, Key, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerPhase,
 };
 use kivact_types::cell::Generation;
-use machine::{EditOwnership, State as DragSession};
+use machine::State as DragSession;
 use std::rc::Rc;
-
-/// Coordinates used consistently for a drag's start, position and delta.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DragCoordinates {
-    /// Node-local logical coordinates. Suitable for mapping within a fixed box.
-    Local,
-    /// Window logical coordinates. Suitable for moving or resizing a box.
-    Window,
-}
-
-/// The operation a [`DragUpdate`] reports.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DragPhase {
-    /// A primary pointer began the session.
-    Start,
-    /// The active pointer moved.
-    Move,
-    /// The active pointer released the primary button.
-    End,
-    /// The engine canceled the active pointer.
-    Cancel,
-}
-
-/// Identity, position and payload captured once at the start of a drag.
-#[derive(Clone, Debug)]
-pub struct DragStart<T> {
-    /// Identity of the pointer.
-    pub pointer: PointerId,
-    /// The button that started the drag; a touch or pen contact is
-    /// [`MouseButton::Primary`].
-    pub button: MouseButton,
-    /// Initial position in the chosen coordinate space.
-    pub pos: Point,
-    /// The payload of the source the drag started on.
-    pub payload: T,
-}
-
-/// A drag update in the session's chosen coordinate space.
-#[derive(Clone, Debug)]
-pub struct DragUpdate<T> {
-    /// Accepted drag operation.
-    pub phase: DragPhase,
-    /// Identity captured on Start.
-    pub pointer: PointerId,
-    /// The button captured on Start.
-    pub button: MouseButton,
-    /// Initial position in the chosen coordinate space.
-    pub start_pos: Point,
-    /// Current position in the same coordinate space.
-    pub pos: Point,
-    /// Current position minus initial position.
-    pub delta: Point,
-    /// Recent pointer velocity in logical pixels per millisecond; zero unless tracking is enabled.
-    pub velocity: Point,
-    /// Modifier keys held during this pointer event.
-    pub modifiers: Modifiers,
-    /// The payload of the source the drag started on, cloned for each update.
-    pub payload: T,
-}
-
-/// Reactive drawing state of an attached drag source.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct DragState {
-    pub input: PartState,
-    /// A drag that started on this source is in progress.
-    pub active: bool,
-}
-
-pub(super) struct Active<T> {
-    pub(super) start: Rc<DragStart<T>>,
-    pub(super) source: Generation,
-    pub(super) last: Point,
-    pub(super) edit: EditOwnership,
-    pub(super) axis: machine::AxisLock,
-    pub(super) velocity: machine::Velocity,
-}
-impl<T> Clone for Active<T> {
-    fn clone(&self) -> Self {
-        Self {
-            start: self.start.clone(),
-            source: self.source,
-            last: self.last,
-            edit: self.edit,
-            axis: self.axis,
-            velocity: self.velocity.clone(),
-        }
-    }
-}
 
 impl<T: Clone> Active<T> {
     fn update(&self, pos: Point, modifiers: Modifiers, phase: DragPhase) -> Option<DragUpdate<T>> {
@@ -159,21 +75,6 @@ enum Stop {
     Dropped,
 }
 
-/// When a drag begins its edit.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum BeginAt {
-    Press,
-    Change,
-}
-
-/// The edit session a drag drives, with its value type erased.
-trait DragEdit {
-    fn is_active(&self) -> bool;
-    fn begin(&self);
-    fn commit(&self);
-    fn cancel(&self);
-}
-
 struct SessionEdit<V: 'static> {
     session: EditSession<V>,
     start: Rc<dyn Fn() -> V>,
@@ -191,60 +92,6 @@ impl<V: Clone + 'static> DragEdit for SessionEdit<V> {
     }
     fn cancel(&self) {
         self.session.cancel();
-    }
-}
-
-/// What the setters of a [`DragApi`] store; read at the event, so the setters
-/// work in any order and after the sources are made.
-pub(super) struct DragOptions<T: 'static> {
-    buttons: u8,
-    pub(super) slop: f64,
-    pub(super) axis_lock: bool,
-    pub(super) track_velocity: bool,
-    start: Option<Callback<DragUpdate<T>>>,
-    update: Option<Callback<DragUpdate<T>>>,
-    end: Option<Callback<DragUpdate<T>>>,
-    edit: Option<(BeginAt, Rc<dyn DragEdit>)>,
-}
-
-impl<T: 'static> Clone for DragOptions<T> {
-    fn clone(&self) -> Self {
-        Self {
-            buttons: self.buttons,
-            slop: self.slop,
-            axis_lock: self.axis_lock,
-            track_velocity: self.track_velocity,
-            start: self.start,
-            update: self.update,
-            end: self.end,
-            edit: self.edit.clone(),
-        }
-    }
-}
-
-impl<T: 'static> Default for DragOptions<T> {
-    fn default() -> Self {
-        Self {
-            buttons: bit(MouseButton::Primary),
-            slop: 0.0,
-            axis_lock: false,
-            track_velocity: false,
-            start: None,
-            update: None,
-            end: None,
-            edit: None,
-        }
-    }
-}
-
-/// The bit of `button` in [`DragApi`]'s set of starting buttons.
-fn bit(button: MouseButton) -> u8 {
-    match button {
-        MouseButton::Primary => 1,
-        MouseButton::Secondary => 2,
-        MouseButton::Middle => 4,
-        MouseButton::Back => 8,
-        MouseButton::Forward => 16,
     }
 }
 
@@ -896,8 +743,8 @@ impl<T: Clone + 'static> DragApi<T> {
                     source: id,
                     last: pos,
                     edit: EditOwnership::Borrowed,
-                    axis: machine::AxisLock::Free,
-                    velocity: machine::Velocity::Disabled,
+                    axis: super::data::AxisLock::Free,
+                    velocity: super::data::Velocity::Disabled,
                 },
                 clock_now(),
             ));
