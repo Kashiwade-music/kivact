@@ -1,19 +1,20 @@
 //! Role: Mounted data shared by host mounting, parts and canvas regions.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::panic::Location;
 use std::rc::{Rc, Weak};
 
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::{Owner, Runtime, Trigger};
+use kivact_types::cell::{Generation, ReportOnceSet};
 use kivact_types::{IntrinsicSize, NodeId};
 
+use crate::Value;
 use crate::view::descriptor::Mcx;
 use crate::view::part_data::PartBinding;
 use crate::view::tree::Handlers;
 use crate::view::{MouseButton, PointerEvent, PointerId};
-use crate::{Signal, Value};
 use kivact_style::Style;
 use kivact_style::asset::ImageFit;
 use kivact_style::draw::{Draw, RegionId, Size};
@@ -134,7 +135,10 @@ pub(super) enum TargetId {
     /// The node itself.
     Root,
     /// One adoption of a canvas region (a re-adopted region is a new target).
-    Region { region: RegionId, generation: u64 },
+    Region {
+        region: RegionId,
+        generation: Generation,
+    },
 }
 
 pub(super) struct Target {
@@ -172,18 +176,31 @@ pub(super) struct Adopted {
     pub(super) owner: Owner,
     pub(super) common: Common,
     pub(super) target: Rc<Target>,
-    pub(super) bound: Cell<bool>,
+    pub(super) generation: Generation,
+    pub(super) binding: Cell<RegionBinding>,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum RegionBinding {
+    Unbound,
+    Bound,
+}
+
+pub(super) enum RegionEntry {
+    Pending,
+    Adopted(Rc<Adopted>),
+    Shadowed { by: RegionKey },
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) struct RegionKey(pub(super) Generation);
 
 pub(super) struct Entry {
     pub(super) id: RegionId,
-    pub(super) generation: u64,
+    pub(super) generation: Generation,
     pub(super) item_owner: Owner,
     pub(super) template: Common,
-    /// `None` while the entry is not adopted: before its first adoption, and
-    /// while an earlier duplicate shadows it (it is adopted again when the
-    /// duplicate goes).
-    pub(super) adopted: RefCell<Option<Rc<Adopted>>>,
+    pub(super) state: RefCell<RegionEntry>,
 }
 
 #[derive(Default)]
@@ -191,9 +208,9 @@ pub(super) struct State {
     pub(super) groups: Vec<Vec<Rc<Entry>>>,
     pub(super) active: Vec<Rc<Entry>>,
     pub(super) by_id: HashMap<RegionId, Rc<Target>>,
-    pub(super) duplicates: HashSet<RegionId>,
-    pub(super) duplicate_keys: HashSet<u64>,
-    pub(super) next: u64,
+    pub(super) duplicates: ReportOnceSet<RegionId>,
+    pub(super) duplicate_keys: ReportOnceSet<u64>,
+    pub(super) next: Generation,
     pub(super) retired: Vec<Owner>,
 }
 
@@ -213,8 +230,8 @@ pub(crate) struct Registry {
     pub(super) root: Rc<Target>,
     pub(super) at: &'static Location<'static>,
     pub(super) state: RefCell<State>,
-    pub(super) revision: Signal<u64>,
-    pub(super) changed: Signal<u64>,
+    pub(super) revision: Trigger,
+    pub(super) changed: Trigger,
     pub(super) phase: Cell<RegistryPhase>,
     /// The pointer gestures on the node and its regions (`mount::part_pointer`).
     pub(super) gestures: RefCell<Gestures>,

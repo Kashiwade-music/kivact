@@ -32,7 +32,6 @@ pub(crate) enum Bound {
     Region {
         node: NodeId,
         region: kivact_style::draw::RegionId,
-        hovered: Value<bool>,
     },
 }
 
@@ -226,7 +225,7 @@ pub(crate) struct ViewState {
     /// Missing capabilities the App relied on and that were noted.
     noted_missing: kivact_types::cell::ReportOnceSet<&'static str>,
     /// The node the host reported under the pointer last.
-    hover: Cell<PointerObservation<NodeId>>,
+    hover: Cell<PointerObservation<kivact_types::FocusTarget>>,
     pub(crate) mouse: Cell<PointerObservation<crate::draw::Point>>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
@@ -345,12 +344,12 @@ impl ViewState {
     }
 
     /// The node the host reported under the pointer last.
-    pub(crate) fn hover(&self) -> PointerObservation<NodeId> {
+    pub(crate) fn hover(&self) -> PointerObservation<kivact_types::FocusTarget> {
         self.hover.get()
     }
 
     /// Replace the hover record (a report, or the first `NodeRef::hovered`).
-    pub(crate) fn set_hover(&self, hover: PointerObservation<NodeId>) {
+    pub(crate) fn set_hover(&self, hover: PointerObservation<kivact_types::FocusTarget>) {
         self.hover.set(hover);
     }
 }

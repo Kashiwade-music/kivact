@@ -40,6 +40,5 @@ pub(crate) struct PartConstraints {
 #[derive(Clone)]
 pub(crate) struct PartBinding {
     pub(crate) node: NodeRef,
-    pub(crate) hovered: Value<bool>,
     pub(crate) hooks: Vec<Rc<dyn Fn(PartMount) -> Result<(), UiError>>>,
 }
