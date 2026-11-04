@@ -36,7 +36,7 @@ use kivact_core::geometry::Edge;
 
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Part, PartState, part, raise};
-use kivact_core::state::{Value, Var, on_mount, var};
+use kivact_core::state::{Value, Var, effect, on_mount, signal, var};
 use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
@@ -340,15 +340,19 @@ impl DialogApi {
                     .union(ReasonSet::UNMOUNT),
             });
         }
-        match self.settings.with(|settings| settings.initial_focus) {
-            Some(target) if !self.popover() => on_mount(move || {
-                if target.mounted_node().is_some() {
-                    target.focus();
-                }
-            }),
-            Some(_) => {}
-            None => on_mount(move || surface.focus_first_inside()),
-        }
+        let mounted = signal(false);
+        on_mount(move || mounted.set(true));
+        let initial_focus = self.settings.with(|settings| settings.initial_focus);
+        effect(move || {
+            if !mounted.get() || !self.popup.is_open().get() {
+                return;
+            }
+            match initial_focus {
+                Some(target) if !self.popover() => target.restore_focus(),
+                Some(_) => {}
+                None => surface.focus_first_inside(),
+            }
+        });
     }
 
     /// The title: a level 2 heading the surface is `labelled_by`.

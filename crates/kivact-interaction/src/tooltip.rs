@@ -337,13 +337,7 @@ impl TooltipApi {
         let part_state = input.state();
         self.trigger_state.set(Some(part_state));
         let target = kivact_core::view::node_ref();
-        Part::new(part_state, move |mut host| {
-            let caller_disabled = host.accessible_disabled();
-            let own_disabled = self.disabled.get_untracked();
-            self.disabled.set(Some(memo(move || {
-                caller_disabled.is_some_and(|value| value.get())
-                    || own_disabled.is_some_and(|value| value.get())
-            })));
+        Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(target)
                 .node_ref(self.anchor)
