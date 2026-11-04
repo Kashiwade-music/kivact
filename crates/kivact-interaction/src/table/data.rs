@@ -15,6 +15,7 @@ pub(super) struct Header<C> {
     pub(super) sortable: bool,
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,
+    pub(super) min_width: Option<f64>,
 }
 
 /// The direction rows are sorted in. The announced semantics is
@@ -51,6 +52,9 @@ impl From<SortOrder> for SortDirection {
 /// the policy they use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TableFocus {
+    /// A semantic table with passive rows and cells. Controls placed in a
+    /// header or cell still use their own keyboard focus rules.
+    None,
     /// A data grid: one cell is the tab stop and the grid keys move between
     /// cells. Use it when cells hold data a user reads or edits one by one.
     /// `range` reads the selection modifiers; the cell keys replace the list's
@@ -77,6 +81,8 @@ pub struct TableHeaderState {
     /// The column's sort direction; `None` while the table is not sorted by it.
     pub sort: Option<SortOrder>,
     pub sortable: bool,
+    /// One-based priority in an active multi-column sort.
+    pub sort_rank: Option<usize>,
 }
 
 /// The selection, roving focus and actual input state of a row.
@@ -95,6 +101,6 @@ pub struct TableCellState {
     pub input: PartState,
     /// The cell's row is selected.
     pub selected: bool,
-    /// The cell holds the tab stop; always false with [`TableFocus::Rows`].
+    /// The cell holds the tab stop only with [`TableFocus::Cells`].
     pub active: bool,
 }

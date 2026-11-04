@@ -1,5 +1,5 @@
 //! Role: The data table's constructor and the options a caller turns on.
-use super::types::{DataTable, DataTableContext};
+use super::types::{DataTable, DataTableContext, DataTableTreeIndent, Grouping, TreeConfig};
 use crate::DataColumn;
 use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
@@ -8,7 +8,7 @@ use kivact_core::primitive::PartState;
 use kivact_core::style::Color;
 use kivact_core::view::{HandlerResult, IntoValue, IntoView, Role, callback};
 use kivact_core::{Binding, Value};
-use kivact_interaction::{SortOrder, TableFocus};
+use kivact_interaction::{ScalarRange, SortOrder, TableFocus};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -101,28 +101,98 @@ where
     DataTable {
         root,
         rows: rows.into_value(),
+        grouping: None,
+        tree: None,
+        tree_column: 0,
+        tree_indent: DataTableTreeIndent::default(),
+        tree_expand_all: false,
         key: Rc::new(key),
         columns: Rc::new(columns),
+        column_order: None,
         selection: None,
+        row_selectable: None,
         sort: None,
+        multi_sort: None,
         page: None,
+        has_more: None,
+        page_sizes: None,
+        row_index: None,
         filter: None,
+        column_filters: None,
+        typed_column_filters: None,
+        filter_ui: crate::FilterUi::default(),
+        sticky: None,
         widths: None,
+        resize_range: None,
         row_label: None,
         actions: None,
+        row_context_menu: None,
         reorder: None,
         toolbar: None,
         footer: None,
+        empty: None,
         details: None,
+        expanded_rows: None,
         cells: None,
         focus: TableFocus::default(),
         row_height: None,
+        row_status: None,
         row_color: None,
         variants,
     }
 }
 
 impl<R: 'static, K: 'static> DataTable<R, K> {
+    /// Group the filtered, sorted rows on each page by a string key.
+    ///
+    /// Groups follow first appearance on that page and their rows keep the
+    /// sorted order. Collapsing hides a group's data rows without changing
+    /// the page, selection keys, or page counts. The header count is the
+    /// number of matching rows from that group on the current page. For
+    /// remote paging, groups are formed from the caller's supplied page.
+    pub fn group_by<G: Into<String>>(
+        mut self,
+        group: impl Fn(&R) -> G + 'static,
+        collapsed: impl Into<Binding<Vec<String>>>,
+    ) -> Self {
+        self.grouping = Some(Grouping {
+            key: Rc::new(move |row| group(row).into()),
+            collapsed: collapsed.into(),
+        });
+        self
+    }
+
+    /// Display rows as a tree. A row whose parent key is absent becomes a root.
+    pub fn tree(
+        mut self,
+        parent: impl Fn(&R) -> Option<K> + 'static,
+        expanded: impl Into<Binding<Vec<K>>>,
+    ) -> Self {
+        self.tree = Some(TreeConfig {
+            parent: Rc::new(parent),
+            expanded: expanded.into(),
+        });
+        self
+    }
+
+    /// Choose the original column index that displays the tree controls.
+    pub fn tree_column(mut self, index: usize) -> Self {
+        self.tree_column = index;
+        self
+    }
+
+    /// Choose the horizontal space added at each tree level.
+    pub fn tree_indent(mut self, indent: DataTableTreeIndent) -> Self {
+        self.tree_indent = indent;
+        self
+    }
+
+    /// Show the expand/collapse-all control in the tree column header.
+    pub fn tree_expand_all(mut self, show: bool) -> Self {
+        self.tree_expand_all = show;
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -138,6 +208,19 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Select the density used by themes that style data table cells.
+    pub fn density(self, density: super::types::DataTableDensity) -> Self {
+        self.variant(density)
+    }
+
+    /// Pin visible data columns to the start and end of the horizontal viewport.
+    /// Indices are in declaration order; hidden or invalid indices are ignored.
+    /// When an index occurs on both sides, start takes precedence.
+    pub fn sticky_columns(mut self, start: Vec<usize>, end: Vec<usize>) -> Self {
+        self.sticky = (!start.is_empty() || !end.is_empty()).then_some((start, end));
+        self
+    }
+
     /// Show a check box for each row and one that checks the rows of the
     /// page, keeping the keys of the checked rows in `selection`. Checking
     /// the page adds and removes only its rows, so the selection of rows on
@@ -149,6 +232,34 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Open a menu from a row's secondary click or context-menu key.
+    /// The menu receives the live row value, including updates while mounted.
+    pub fn row_context_menu<M: Clone + Eq + Hash + 'static>(
+        mut self,
+        menu: impl Fn(Value<R>) -> crate::Menu<M> + 'static,
+    ) -> Self {
+        self.row_context_menu = Some(Rc::new(move |row, target| {
+            menu(row).attach_context_fallback(target)
+        }));
+        self
+    }
+
+    /// Choose which rows can be selected. All rows remain navigable, and
+    /// the caller's existing selection is left intact when eligibility changes.
+    pub fn row_selectable(mut self, test: impl Fn(&R) -> bool + 'static) -> Self {
+        self.row_selectable = Some(Rc::new(test));
+        self
+    }
+
+    /// Set the visible columns' order by their original zero-based indices.
+    /// Hidden columns stay hidden. Duplicate and unknown indices are ignored,
+    /// and omitted columns follow in their original order. Sort and resize
+    /// bindings continue to use the original indices.
+    pub fn column_order(mut self, order: impl IntoValue<Vec<usize>>) -> Self {
+        self.column_order = Some(order.into_value());
+        self
+    }
+
     /// Keep the sorted column (an index into the columns) and its direction
     /// in `sort`, to start sorted or to show the sort elsewhere; the table
     /// reads the binding back, so the caller may set it too. Without it the
@@ -156,6 +267,17 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// [`on_reorder`](Self::on_reorder), which then keeps the caller's order.
     pub fn sort(mut self, sort: impl Into<Binding<Option<(usize, SortOrder)>>>) -> Self {
         self.sort = Some(sort.into());
+        self.multi_sort = None;
+        self
+    }
+
+    /// Opt in to ordered multi-column sorting. Shift-click or Shift-activate
+    /// a header to append or cycle that column without replacing the other
+    /// keys. Normal activation replaces the sort. Each key cycles ascending,
+    /// descending, and unsorted. Column indices refer to the original order.
+    pub fn multi_sort(mut self, sort: impl Into<Binding<Vec<(usize, SortOrder)>>>) -> Self {
+        self.multi_sort = Some(sort.into());
+        self.sort = None;
         self
     }
 
@@ -163,6 +285,56 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// page in `page`, with Previous and Next buttons under the table.
     pub fn page(mut self, page: impl Into<Binding<usize>>, size: impl IntoValue<usize>) -> Self {
         self.page = Some((page.into(), size.into_value()));
+        self.has_more = None;
+        self
+    }
+
+    /// Edit the committed typed values keyed by the original column index.
+    /// A column needs `DataColumn::filter_field` to participate.
+    pub fn typed_column_filters(
+        mut self,
+        filters: impl Into<Binding<std::collections::HashMap<usize, crate::FilterValue>>>,
+    ) -> Self {
+        self.typed_column_filters = Some(filters.into());
+        self
+    }
+
+    /// Choose how the typed filter controls appear in column headers.
+    pub fn filter_ui(mut self, ui: crate::FilterUi) -> Self {
+        self.filter_ui = ui;
+        self
+    }
+
+    /// Show caller-supplied page rows without slicing them again. The caller
+    /// loads the page indicated by the binding and supplies whether another
+    /// page is available.
+    pub fn remote_page(
+        mut self,
+        page: impl Into<Binding<usize>>,
+        size: impl IntoValue<usize>,
+        has_more: impl IntoValue<bool>,
+    ) -> Self {
+        self.page = Some((page.into(), size.into_value()));
+        self.has_more = Some(has_more.into_value());
+        self
+    }
+
+    /// Offer a writable page size and sizes to choose from. Applies with
+    /// [`page`](Self::page) or [`remote_page`](Self::remote_page). Choosing a size
+    /// resets the page to zero. Values of zero are omitted.
+    pub fn page_sizes(
+        mut self,
+        size: impl Into<Binding<usize>>,
+        options: impl IntoValue<Vec<usize>>,
+    ) -> Self {
+        self.page_sizes = Some((size.into(), options.into_value()));
+        self
+    }
+
+    /// Show a fixed-width display-position gutter starting at this number.
+    /// For paged tables, numbering includes the displayed page's offset.
+    pub fn row_index(mut self, start: usize) -> Self {
+        self.row_index = Some(start);
         self
     }
 
@@ -174,6 +346,14 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Apply independent queries by column index alongside the global filter.
+    /// Only shown columns with filter predicates participate. Use the toolbar
+    /// context to build controls over this binding.
+    pub fn column_filters(mut self, queries: impl Into<Binding<Vec<(usize, String)>>>) -> Self {
+        self.column_filters = Some(queries.into());
+        self
+    }
+
     /// Give each header a resize handle, keeping the columns' widths (by
     /// position, in logical pixels, at least 18) in `widths` and reading them
     /// back. A width that is missing or not positive leaves the column's own.
@@ -182,6 +362,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// earlier keyboard adjustments remain committed.
     pub fn resizable(mut self, widths: impl Into<Binding<Vec<f32>>>) -> Self {
         self.widths = Some(widths.into());
+        self
+    }
+
+    /// Limit column resize operations to the given logical pixel range.
+    /// The default range is 18 to 2048 pixels.
+    pub fn resize_range(mut self, range: ScalarRange) -> Self {
+        self.resize_range = Some(range);
         self
     }
 
@@ -238,11 +425,26 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
+    /// Replace the message shown when filtering or paging leaves no rows.
+    /// The factory runs each time the empty state appears.
+    pub fn empty<V: IntoView>(mut self, empty: impl Fn() -> V + 'static) -> Self {
+        self.empty = Some(Box::new(move || empty().into_view()));
+        self
+    }
+
     /// Put the view `details` builds under each row, built once per keyed
     /// row from its reactive value, so it stays mounted while the row is
     /// edited, sorted or paged. The caller controls whether it is shown.
     pub fn row_details<V: IntoView>(mut self, details: impl Fn(Value<R>) -> V + 'static) -> Self {
         self.details = Some(Rc::new(move |row| details(row).into_view()));
+        self
+    }
+
+    /// Add a disclosure control to each row with [`row_details`](Self::row_details).
+    /// The binding contains the expanded row keys, independent of sort and
+    /// paging. Details stay mounted while their row is mounted.
+    pub fn expanded_rows(mut self, expanded: impl Into<Binding<Vec<K>>>) -> Self {
+        self.expanded_rows = Some(expanded.into());
         self
     }
 
@@ -265,7 +467,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Choose what takes the keyboard focus: a cell ([`TableFocus::Cells`],
     /// the default, with a check box for each row when the table has a
-    /// selection) or a row ([`TableFocus::Rows`]). The variant carries the
+    /// selection), a row ([`TableFocus::Rows`]), or neither in a semantic
+    /// table ([`TableFocus::None`]). The variant carries the
     /// selection range policy (and, for rows, the whole list policy) of the
     /// shared table.
     pub fn focus(mut self, focus: TableFocus) -> Self {
@@ -277,6 +480,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// or a reactive value); the row recipe reads it.
     pub fn row_height(mut self, height: impl IntoValue<f32>) -> Self {
         self.row_height = Some(height.into_value());
+        self
+    }
+
+    /// Reserve a leading status lane and resolve each row's optional marker.
+    /// The lane is separate from the indexed data columns.
+    pub fn row_status(mut self, status: impl Fn(&R) -> Option<super::RowStatus> + 'static) -> Self {
+        self.row_status = Some(Rc::new(status));
         self
     }
 

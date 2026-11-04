@@ -44,6 +44,7 @@
 //! `chevron-right` for a submenu, `chevron-down` and the selected option's
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
+use super::DataTableGroupState;
 use super::values::{
     AxisState, ButtonState, CheckState, DataTableCellState, DataTableCheckState,
     DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
@@ -56,9 +57,9 @@ use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
 use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
-    TableHeaderState, ToastState,
+    TableHeaderState, ToastState, TreeItemState,
 };
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// A style derived from the theme and the actual state of a component's
 /// part with the component's kit-defined variants ([`Look`]): what a
@@ -94,6 +95,14 @@ macro_rules! recipe_table {
         }
 
         impl $name {
+            fn default_table() -> &'static Self {
+                static DEFAULT: OnceLock<$name> = OnceLock::new();
+                DEFAULT.get_or_init(|| Self {
+                    $( $field: Arc::new(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
+                    $( $( $table: Default::default(), )* )?
+                })
+            }
+
             $(
                 $(#[$fmeta])*
                 ///
@@ -137,10 +146,7 @@ macro_rules! recipe_table {
 
         impl Default for $name {
             fn default() -> Self {
-                Self {
-                    $( $field: Arc::new(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
-                    $( $( $table: Default::default(), )* )?
-                }
+                Self::default_table().clone()
             }
         }
 
@@ -259,6 +265,9 @@ recipe_table! {
         list(list_recipe): TabListState = look_extra::tabs_list,
         /// A tab, which knows whether it is selected and the list's orientation.
         tab(tab_recipe): TabState = look_extra::tab,
+        /// An optional, persistent decorative layer per tab. It receives
+        /// both selected and unselected states so its paint can transition.
+        indicator(indicator_recipe): TabState = look_extra::no_tab_indicator,
         panel(panel_recipe): TabState = look_extra::panel,
     }
 }
@@ -273,6 +282,8 @@ recipe_table! {
         /// The item's indicator, holding the theme's `dot` icon while
         /// it is checked.
         indicator(indicator_recipe): CheckState = look_controls::radio_indicator,
+        /// The dot icon, mounted through selection changes so its paint can transition.
+        mark(mark_recipe): CheckState = look_controls::radio_mark,
         /// The secondary line of an option with a description.
         description(description_recipe): CheckState = look_controls::radio_description,
     }
@@ -350,6 +361,16 @@ recipe_table! {
 }
 
 recipe_table! {
+    /// The recipes of a [`tree`](super::tree).
+    TreeRecipes {
+        /// The column containing the visible rows.
+        root(root_recipe): PartState = look_collections::list,
+        /// A row with the expansion indicator and its content.
+        item(item_recipe): TreeItemState = look_collections::tree_item,
+    }
+}
+
+recipe_table! {
     /// The recipes of a [`split`](super::split), besides its handles'
     /// [`SplitterRecipes::handle`].
     SplitRecipes {
@@ -380,6 +401,8 @@ recipe_table! {
         /// A body row; it knows whether it is selected and the caller's row
         /// height and accent.
         row(row_recipe): DataTableRowState = look_collections::row,
+        /// A group header spanning the visible columns.
+        group_header(group_header_recipe): DataTableGroupState = look_collections::group_header,
         /// A body cell.
         cell(cell_recipe): DataTableCellState = look_collections::cell,
         /// The box around a check box, in a header or a row.
@@ -509,7 +532,17 @@ recipe_table! {
         /// sizes the icon for the button's size.
         button_icon(button_icon_recipe): ButtonState = look::button_icon,
         checkbox(checkbox_recipe): CheckState = look::checkbox,
+        /// The checkbox indicator box. Default recipes draw the indicator in the root.
+        checkbox_indicator(checkbox_indicator_recipe): CheckState = look_controls::empty_toggle_part,
+        /// A persistent part inside the checkbox indicator for the checked mark.
+        checkbox_check(checkbox_check_recipe): CheckState = look_controls::empty_toggle_part,
+        /// A persistent part inside the checkbox indicator for the indeterminate mark.
+        checkbox_mixed(checkbox_mixed_recipe): CheckState = look_controls::empty_toggle_part,
         switch(switch_recipe): CheckState = look::switch,
+        /// The switch track. Default recipes draw the track and thumb in the root.
+        switch_track(switch_track_recipe): CheckState = look_controls::empty_toggle_part,
+        /// A persistent part inside the track for the moving thumb.
+        switch_thumb(switch_thumb_recipe): CheckState = look_controls::empty_toggle_part,
         /// A [`toggle`](super::toggle) button: the icon and the label in a row.
         toggle(toggle_recipe): ToggleButtonState = look::toggle_button,
         text_input(text_input_recipe): TextInputState = look::text_input,
@@ -527,6 +560,7 @@ recipe_table! {
         field(field_recipes): FieldRecipes,
         splitter(splitter_recipes): SplitterRecipes,
         list(list_recipes): ListRecipes,
+        tree(tree_recipes): TreeRecipes,
         data_table(data_table_recipes): DataTableRecipes,
         split(split_recipes): SplitRecipes,
         progress(progress_recipes): ProgressRecipes,
@@ -540,5 +574,32 @@ recipe_table! {
 impl ThemeExtension for UiRecipes {
     fn fallback(_: &Theme) -> Self {
         Self::default()
+    }
+}
+
+impl UiRecipes {
+    pub(super) fn has_checkbox_parts(&self) -> bool {
+        let default = Self::default_table();
+        !Arc::ptr_eq(&self.checkbox_indicator, &default.checkbox_indicator)
+            || !Arc::ptr_eq(&self.checkbox_check, &default.checkbox_check)
+            || !Arc::ptr_eq(&self.checkbox_mixed, &default.checkbox_mixed)
+    }
+
+    pub(super) fn has_switch_parts(&self) -> bool {
+        let default = Self::default_table();
+        !Arc::ptr_eq(&self.switch_track, &default.switch_track)
+            || !Arc::ptr_eq(&self.switch_thumb, &default.switch_thumb)
+    }
+}
+
+impl RadioGroupRecipes {
+    pub(super) fn has_custom_mark(&self) -> bool {
+        !Arc::ptr_eq(&self.mark, &Self::default_table().mark)
+    }
+}
+
+impl TabsRecipes {
+    pub(super) fn has_custom_indicator(&self) -> bool {
+        !Arc::ptr_eq(&self.indicator, &Self::default_table().indicator)
     }
 }

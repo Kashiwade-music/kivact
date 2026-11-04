@@ -51,6 +51,11 @@ impl Writer {
     /// that pointer's next primary `Down` or its `Cancel` (as dispatched,
     /// see [`Reader::admit_input`]), and when its activation is answered.
     pub fn adopt_pointer(&self, node: NodeId, region: RegionId, pointer: PointerId) {
+        self.adopt_pointer_target(node, Some(region), pointer);
+    }
+
+    /// Adopt a primary gesture on a node or one of its canvas regions.
+    pub fn adopt_pointer_target(&self, node: NodeId, region: Option<RegionId>, pointer: PointerId) {
         self.model.borrow().admission.adopt(pointer, node, region);
     }
 
@@ -58,6 +63,11 @@ impl Writer {
     /// release or a `Cancel` of the engine's).
     pub fn forget_adopted_pointer(&self, pointer: PointerId) {
         self.model.borrow().admission.forget_adoption(pointer);
+    }
+
+    /// Keep an active touch contact routed to its initial control.
+    pub fn reserve_touch_gesture(&self, pointer: PointerId) {
+        self.model.borrow_mut().reserve_touch_gesture(pointer);
     }
 
     /// Totals of the client's mutations and the last committed revision.
@@ -108,9 +118,14 @@ impl Writer {
 
     /// Remove and destroy `id` and its whole subtree.
     pub fn remove(&self, id: NodeId) {
+        self.remove_with_exit(id, false, false);
+    }
+
+    /// Remove a subtree, optionally freeing its layout slot and reporting physical removal.
+    pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
-        m.remove(id);
+        m.remove(id, pop_layout, notify);
         m.writes.structural(id);
     }
 

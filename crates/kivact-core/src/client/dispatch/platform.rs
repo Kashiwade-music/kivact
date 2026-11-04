@@ -4,6 +4,7 @@
 use kivact_reactive::{ErrorKind, Runtime, UiError};
 use kivact_wire::{NodeId, PlatformResult, RequestId, Revision};
 
+use super::common::{handler, node_owner, run_handler};
 use crate::client::state::HostState;
 use crate::view::requests;
 use crate::view::state::ViewState;
@@ -13,6 +14,10 @@ pub(super) fn effect_result(rt: &Runtime, request: RequestId, result: &PlatformR
 }
 
 pub(super) fn asset_failed(rt: &Runtime, node: NodeId, message: &str) {
+    if let Some(handle) = handler(rt, node, |handlers| handlers.image_error.clone()) {
+        run_handler(rt, node_owner(rt, node), || handle(message));
+        return;
+    }
     let first = HostState::of(rt)
         .asset_failures
         .borrow_mut()

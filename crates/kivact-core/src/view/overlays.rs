@@ -97,6 +97,29 @@ pub use kivact_wire::Placement;
 #[doc(inline)]
 pub use kivact_wire::OverlayAlign;
 
+/// Theme-wide viewport margin for overlays, in logical pixels.
+///
+/// Set with `Theme::with(OverlayViewport::new(16.0))`. Fitted overlays
+/// try mirrored placements, spans and slides before clamping to the inset.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct OverlayViewport {
+    margin: Option<f32>,
+}
+
+impl OverlayViewport {
+    pub fn new(margin: f32) -> Self {
+        Self {
+            margin: Some(margin),
+        }
+    }
+}
+
+impl kivact_style::ThemeExtension for OverlayViewport {
+    fn fallback(_: &kivact_style::Theme) -> Self {
+        Self::default()
+    }
+}
+
 /// Where an overlay is placed, chosen by its constructor: the reactive source
 /// of [`kivact_wire::OverlayAt`] (the same two cases).
 enum Place {
@@ -119,6 +142,8 @@ pub struct Overlay {
     placement: Placement,
     align: OverlayAlign,
     offset: f32,
+    viewport_margin: Option<f32>,
+    keep_anchor_clear: bool,
     modal: bool,
     child: View,
     /// Holds the modifiers (`NodeBuilder`); its content and children are unused.
@@ -172,6 +197,8 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
         placement,
         align: OverlayAlign::Start,
         offset: 0.0,
+        viewport_margin: None,
+        keep_anchor_clear: false,
         modal: false,
         child: child.into_view(),
         root: Node::new(Content::Box, None),
@@ -221,6 +248,8 @@ pub fn overlay_at(
         placement,
         align: OverlayAlign::Start,
         offset: 0.0,
+        viewport_margin: None,
+        keep_anchor_clear: false,
         modal: false,
         child: child.into_view(),
         root: Node::new(Content::Box, None),
@@ -245,6 +274,19 @@ impl Overlay {
     /// follows the overlay when it flips to the other side.
     pub fn offset(mut self, px: impl Into<f64>) -> Self {
         self.offset = px.into() as f32;
+        self
+    }
+
+    /// Inset the available window area by this many logical pixels.
+    /// Overrides the theme's [`OverlayViewport`].
+    pub fn viewport_margin(mut self, px: f32) -> Self {
+        self.viewport_margin = Some(px);
+        self
+    }
+
+    /// Prefer placements that leave the anchor clear when viewport fitting is active.
+    pub fn keep_anchor_clear(mut self, on: bool) -> Self {
+        self.keep_anchor_clear = on;
         self
     }
 
@@ -348,6 +390,8 @@ impl IntoView for Overlay {
                 placement,
                 align,
                 offset,
+                viewport_margin,
+                keep_anchor_clear,
                 modal,
                 child,
                 root,
@@ -391,6 +435,18 @@ impl IntoView for Overlay {
                         placement,
                         align,
                         offset,
+                        fit: viewport_margin
+                            .or_else(|| {
+                                kivact_style::current_theme()
+                                    .get::<OverlayViewport>()
+                                    .margin
+                            })
+                            .map(|margin| kivact_wire::OverlayFit {
+                                margin,
+                                keep_anchor_clear,
+                                rtl: crate::view::current_direction()
+                                    == crate::view::ReadingDirection::Rtl,
+                            }),
                         modal,
                     };
                     ViewState::tree_mut(&rt).update(

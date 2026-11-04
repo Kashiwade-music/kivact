@@ -166,12 +166,56 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         require_setup("List::container");
         parts::container(state)
     }
+    /// Limit selection gestures and select-all while preserving focus and navigation.
+    /// Setup only.
+    pub fn selectable(self, test: impl Fn(&K) -> bool + 'static) -> Self {
+        require_setup("List::selectable");
+        self.state()
+            .selectable
+            .update(|current| *current = Some(std::rc::Rc::new(test)));
+        self
+    }
+
     /// An item's label, selection, exact input state and mounted roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
+        self.item_with_disabled_focus(key, false)
+    }
+
+    #[track_caller]
+    pub(crate) fn item_with_disabled_focus(self, key: K, retain: bool) -> Part<ListItemState> {
         let state = self.state();
         require_setup("List::item");
-        parts::item(state, key, Location::caller())
+        parts::item(state, key, Location::caller(), retain)
+    }
+
+    pub(crate) fn retain_focus(self, enabled: bool) {
+        self.state().retained_focus.set(enabled);
+    }
+
+    pub(crate) fn active_ref(self) -> Option<kivact_core::view::NodeRef> {
+        let state = self.state();
+        let key = state.active.get()?;
+        state
+            .roving
+            .with_members(|members| members.get(&key).map(|member| member.node))
+    }
+
+    pub(crate) fn highlight_mounted(self, key: K) {
+        let state = self.state();
+        if state.target(&key).is_some() {
+            state.roving.requested.set(Some(key));
+        }
+    }
+
+    pub(crate) fn reset_highlight(self) {
+        let state = self.state();
+        state.roving.requested.set(None);
+        state.typed.get().set(typeahead::Typeahead::default());
+    }
+
+    pub(crate) fn route_focused_key(self, key: &K, event: KeyEvent) -> Handled {
+        input::key(&self.state(), key, event)
     }
     #[track_caller]
     pub(crate) fn select_mounted(self, key: K) -> bool {

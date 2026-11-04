@@ -47,6 +47,8 @@ pub trait LayoutTree {
     fn layout_props(&self, slot: usize) -> (Option<&kivact_wire::LayoutProps>, bool);
     /// The anchor whose current layout width floors this overlay, if requested.
     fn overlay_width_anchor(&self, slot: usize) -> Option<kivact_wire::NodeId>;
+    /// The opted-in viewport fitting policy for this overlay.
+    fn overlay_fit(&self, slot: usize) -> Option<kivact_wire::OverlayFit>;
 }
 
 /// Measures content and resources without owning layout caches or retaining the callback.

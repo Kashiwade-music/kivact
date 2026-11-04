@@ -34,28 +34,48 @@ where
     let DataTable {
         root,
         rows: data,
+        grouping,
+        tree,
+        tree_column,
+        tree_indent,
+        tree_expand_all,
         key,
         columns,
+        column_order,
         selection,
+        row_selectable,
         sort,
+        multi_sort,
         page,
+        has_more,
+        page_sizes,
+        row_index,
         filter,
+        column_filters,
+        typed_column_filters,
+        filter_ui,
+        sticky,
         widths,
+        resize_range,
         row_label,
         actions,
+        row_context_menu,
         reorder,
         toolbar,
         footer,
+        empty,
         details,
+        expanded_rows,
         cells,
         focus,
         row_height,
+        row_status,
         row_color,
         variants,
     } = table;
     // A reorder keeps the caller's order, which a sort the table cannot
     // clear would break.
-    let sortable = sort.is_some() || reorder.is_none();
+    let sortable = sort.is_some() || multi_sort.is_some() || reorder.is_none();
     let definitions = columns
         .iter()
         .enumerate()
@@ -70,23 +90,106 @@ where
         .collect();
     let model_key = key.clone();
     let mut model = use_table_model(data, move |row| model_key(row), definitions);
+    let tree = tree.map(|config| {
+        let (key_for_order, parent, expanded) =
+            (key.clone(), config.parent.clone(), config.expanded);
+        model = model.arrange_rows(move |rows, order| {
+            super::tree::arrange(rows, order, &key_for_order, &parent, expanded)
+        });
+        super::tree::Plan::new(
+            data,
+            key.clone(),
+            config,
+            tree_column,
+            tree_indent,
+            tree_expand_all,
+        )
+    });
     if let Some(query) = filter {
         model = model.filter(query.into_value());
     }
-    if let Some((index, size)) = page {
+    if let Some(queries) = column_filters {
+        model = model.column_filters(queries.into_value());
+    }
+    if let Some(filters) = typed_column_filters {
+        model = model.typed_column_filters(filters);
+    }
+    let page_size = page.and_then(|(index, _)| {
+        page_sizes.map(|(size, _)| {
+            binding(size, move |next: usize| {
+                size.set(next.max(1));
+                index.set(0);
+            })
+        })
+    });
+    let page = page.map(|(index, size)| (index, page_size.map_or(size, |size| size.into_value())));
+    if let Some((index, size)) = page
+        && has_more.is_none()
+    {
         model = model.page(index, size);
     }
-    let display = model.rows();
+    let page_rows = model.rows();
+    let groups = grouping.map(|grouping| super::grouped::plan(page_rows, grouping));
+    let display = groups.map_or(page_rows, |plan| plan.rows());
+    let shown = model.columns();
+    let shown = if let Some(order) = column_order {
+        memo(move || {
+            let ranks = order.with(|order| {
+                let mut ranks = HashMap::new();
+                for (rank, index) in order.iter().copied().enumerate() {
+                    ranks.entry(index).or_insert(rank);
+                }
+                ranks
+            });
+            let mut shown = shown.get();
+            shown.sort_by_key(|column| ranks.get(column.key()).copied().unwrap_or(usize::MAX));
+            shown
+        })
+    } else {
+        shown
+    };
     let table_key = key.clone();
     // Without the caller's selection, nothing is selected.
     let chosen = selection.unwrap_or_else(|| binding(Vec::new, |_| ()));
     let mut behavior = use_table(
         display,
         move |row| table_key(row),
-        model.columns(),
+        shown,
         ListSelection::Multiple(chosen),
         focus,
     );
+    let eligible = row_selectable.as_ref().map(|selectable| {
+        let selectable = selectable.clone();
+        let key = key.clone();
+        memo(move || {
+            display.with(|rows| {
+                rows.iter()
+                    .filter(|row| selectable(row))
+                    .map(|row| key(row))
+                    .collect::<std::collections::HashSet<_>>()
+            })
+        })
+    });
+    if let Some(eligible) = eligible {
+        behavior = behavior.row_selectable(move |key| eligible.with(|keys| keys.contains(key)));
+    }
+    let page_keys = if groups.is_some() {
+        let key = key.clone();
+        memo(move || display.with(|rows| rows.iter().map(|row| key(row)).collect::<Vec<_>>()))
+    } else {
+        model.keys()
+    };
+    let selectable_keys = memo(move || match eligible {
+        Some(eligible) => page_keys.with(|keys| {
+            eligible.with(|eligible| {
+                keys.iter()
+                    .filter(|key| eligible.contains(*key))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+        }),
+        None => page_keys.get(),
+    });
     // A row is named by the caller's label, else by its first column.
     let label: RowName<R> = match row_label {
         Some(label) => label,
@@ -106,28 +209,55 @@ where
     });
     // The model sorts by the table's sort: the caller's, or the table's own,
     // which the headers write. A new sort shows the first page.
-    let sort: Binding<Option<(usize, SortOrder)>> = sort.unwrap_or_else(|| signal(None).into());
-    behavior = behavior.sort(binding(sort, move |next| {
-        sort.set(next);
-        if let Some((index, _)) = page {
-            index.set(0);
-        }
-    }));
-    model.sort(sort);
+    let sort: Binding<Option<(usize, SortOrder)>> = if let Some(multi_sort) = multi_sort {
+        let multi_sort = binding(multi_sort, move |next| {
+            multi_sort.set(next);
+            if let Some((index, _)) = page {
+                index.set(0);
+            }
+        });
+        behavior = behavior.multi_sort(multi_sort);
+        model.multi_sort(multi_sort.into_value());
+        // Existing toolbar/footer and row reordering use the primary sort.
+        binding(
+            move || multi_sort.with(|keys| keys.first().copied()),
+            move |next: Option<(usize, SortOrder)>| multi_sort.set(next.into_iter().collect()),
+        )
+    } else {
+        let sort = sort.unwrap_or_else(|| signal(None).into());
+        behavior = behavior.sort(binding(sort, move |next| {
+            sort.set(next);
+            if let Some((index, _)) = page {
+                index.set(0);
+            }
+        }));
+        model.sort(sort);
+        sort
+    };
     if let Some(sizes) = widths {
-        behavior = share_widths(behavior, sizes, columns.len());
+        let range = resize_range.unwrap_or_else(|| {
+            ScalarRange::new(MIN_WIDTH, MAX_WIDTH).expect("invariant: finite column bounds")
+        });
+        behavior = share_widths(behavior, sizes, columns.len(), range);
     }
     let visible = memo(move || {
-        model
-            .columns()
-            .with(|shown| shown.iter().map(|column| *column.key()).collect::<Vec<_>>())
+        shown.with(|columns| {
+            columns
+                .iter()
+                .map(|column| *column.key())
+                .collect::<Vec<_>>()
+        })
     });
     let context = DataTableContext {
         model,
         selection,
         sort,
         filter,
+        column_filters,
+        typed_column_filters,
         page,
+        page_size,
+        has_more,
     };
     let toolbar = match toolbar {
         Some(slot) => Some(slot(context)),
@@ -135,45 +265,90 @@ where
     };
     let footer = match footer {
         Some(slot) => Some(slot(context)),
-        None => super::chrome::footer(context, &variants),
+        None => super::chrome::footer(context, page_sizes.map(|(_, options)| options), &variants),
     };
+    let sticky = sticky.map(|edges| Rc::new(rows::StickyColumns::new(edges, columns.len())));
+    let indexed = row_index.map(|start| {
+        let keys = model.keys();
+        let pages = model.page_count();
+        memo(move || {
+            let offset = page.map_or(0, |(index, size)| {
+                let index = if has_more.is_some() {
+                    index.get()
+                } else {
+                    index.get().min(pages.get().saturating_sub(1))
+                };
+                index.saturating_mul(size.get().max(1))
+            });
+            keys.with(|keys| {
+                keys.iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(index, key)| (key, start.saturating_add(offset).saturating_add(index)))
+                    .collect::<HashMap<_, _>>()
+            })
+        })
+    });
     let grid = Grid {
+        tree,
         behavior,
-        keys: model.keys(),
+        filters: typed_column_filters.map(|values| super::filters::Filters {
+            values,
+            ui: filter_ui,
+            page: page.map(|(index, _)| index),
+        }),
+        keys: selectable_keys,
+        indexed,
+        row_selectable,
         columns,
         visible,
         selection,
+        sticky: sticky.clone(),
         widths,
         actions,
+        row_context_menu,
         row_label: label,
         cells,
         details,
+        expanded_rows,
         reorder,
         source: data,
         key: key.clone(),
         sort,
         focus,
         row_height,
+        row_status,
         row_color,
         variants: variants.clone(),
     };
     let head = rows::header(&grid);
-    let body = for_each(
-        display,
-        move |row| key(row),
-        move |id, item| rows::body(&grid, id, item),
-    );
-    let empty = show(
-        move || display.with(Vec::is_empty),
-        || {
-            text(message("data_table.empty", "No results found.")).style(
-                style()
-                    .padding(24)
-                    .color(kivact_core::style::ColorToken::TextMuted),
+    let body = if let Some(groups) = groups {
+        groups.view(grid, key)
+    } else {
+        for_each(
+            display,
+            move |row| key(row),
+            move |id, item| rows::body(&grid, id, item),
+        )
+    };
+    let empty_view = show(
+        move || page_rows.with(Vec::is_empty),
+        move || {
+            empty.as_ref().map_or_else(
+                || {
+                    text(message("data_table.empty", "No results found."))
+                        .style(
+                            style()
+                                .padding(24)
+                                .color(kivact_core::style::ColorToken::TextMuted),
+                        )
+                        .into_view()
+                },
+                |empty| empty(),
             )
         },
     );
-    let grid = column((head, column((body, empty)).role(Role::RowGroup)))
+    let mut grid = column((head, column((body, empty_view)).role(Role::RowGroup)))
         .part(behavior.grid())
         .name(message("data_table.label", "Data table"))
         .style(
@@ -182,14 +357,19 @@ where
                 .min_width(pct(100))
                 .shrink(0),
         );
+    if let Some(sticky) = &sticky {
+        grid = grid.node_ref(sticky.content);
+    }
+    let mut scroller = scroll(grid)
+        .axes(kivact_core::control::ScrollAxes::Horizontal)
+        // The rows keep their height in a bounded parent: the caller's own
+        // scroll view carries them.
+        .style(style().shrink(0));
+    if let Some(sticky) = &sticky {
+        scroller = scroller.node_ref(sticky.viewport);
+    }
     root.child(toolbar)
-        .child(
-            scroll(grid)
-                .axes(kivact_core::control::ScrollAxes::Horizontal)
-                // The rows keep their height in a bounded parent: the
-                // caller's own scroll view carries them.
-                .style(style().shrink(0)),
-        )
+        .child(scroller)
         .child(footer)
         .into_view()
 }
@@ -200,6 +380,7 @@ fn share_widths<K: Clone + Eq + Hash + 'static>(
     behavior: kivact_interaction::Table<K, usize>,
     sizes: Binding<Vec<f32>>,
     count: usize,
+    range: ScalarRange,
 ) -> kivact_interaction::Table<K, usize> {
     let current = sizes.into_value();
     behavior
@@ -225,9 +406,6 @@ fn share_widths<K: Clone + Eq + Hash + 'static>(
                 sizes.set(next);
             },
         ))
-        .resize_limits(
-            ScalarRange::new(MIN_WIDTH, MAX_WIDTH).expect("invariant: finite column bounds"),
-            KEY_STEP,
-        )
+        .resize_limits(range, KEY_STEP)
         .expect("invariant: positive finite column key step")
 }

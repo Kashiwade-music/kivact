@@ -24,6 +24,8 @@ pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
+    pub(crate) exit_layout: super::exit_layout::ExitLayout,
+    pub(crate) exit_complete: Option<kivact_reactive::Callback<()>>,
     /// Test identifier.
     pub test_id: Option<Rc<str>>,
     /// NodeRefs bound at mount (each once, in order).
@@ -58,6 +60,8 @@ pub(crate) struct Common {
     /// Focusability, constant or reactive (a builder sets its own before the
     /// user's modifiers).
     pub focusable: Option<InputProp<bool>>,
+    pub focusable_when_disabled: bool,
+    pub roving_focus: Option<kivact_wire::RovingFocus>,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<bool>,
     /// Native pointer focus destination, resolved through the reference binding.
@@ -272,6 +276,11 @@ pub(crate) struct SemanticSources {
     pub(crate) set_size: Option<InputProp<u32>>,
     pub(crate) pos_in_set: Option<InputProp<u32>>,
     pub(crate) multiselectable: Option<InputProp<bool>>,
+    pub(crate) busy: Option<InputProp<bool>>,
+    pub(crate) required: Option<InputProp<bool>>,
+    pub(crate) read_only: Option<InputProp<bool>>,
+    pub(crate) has_popup: Option<InputProp<Option<kivact_wire::PopupKind>>>,
+    pub(crate) current_item: Option<InputProp<Option<kivact_wire::CurrentItem>>>,
     pub(crate) described_by: Vec<crate::view::NodeRef>,
     pub(crate) controls: Vec<crate::view::NodeRef>,
     pub(crate) labelled_by: Vec<crate::view::NodeRef>,

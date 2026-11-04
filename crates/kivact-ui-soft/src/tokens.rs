@@ -1,0 +1,358 @@
+//! Role: Expose the spacing, typography, motion and color tokens of Astryx Neutral.
+use crate::color::Colors;
+use crate::shadows::Shadows;
+use kivact::motion::Easing;
+use kivact::style::{Theme, ThemeExtension, ThemeMode};
+
+/// Astryx Neutral tokens resolved for a theme mode.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tokens {
+    pub colors: Colors,
+    pub typography: Typography,
+    pub spacing: Spacing,
+    pub radius: Radius,
+    pub sizes: Sizes,
+    pub shadows: Shadows,
+    pub motion: Motion,
+}
+
+impl Tokens {
+    /// The Neutral token values for the selected appearance.
+    pub fn new(mode: ThemeMode) -> Self {
+        let dark = mode == ThemeMode::Dark;
+        Self {
+            colors: if dark {
+                Colors::dark()
+            } else {
+                Colors::light()
+            },
+            typography: Typography::NEUTRAL,
+            spacing: Spacing::NEUTRAL,
+            radius: Radius::NEUTRAL,
+            sizes: Sizes::NEUTRAL,
+            shadows: Shadows::new(dark),
+            motion: Motion::NEUTRAL,
+        }
+    }
+}
+
+impl ThemeExtension for Tokens {
+    fn fallback(theme: &Theme) -> Self {
+        Self::new(theme.mode())
+    }
+}
+
+/// A typography role's size, line height, weight and family.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextStyle {
+    pub size_px: f32,
+    pub line_height_px: f32,
+    pub weight: u16,
+    pub family: &'static str,
+}
+
+/// Neutral font roles and size scale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Typography {
+    pub family_body: &'static str,
+    pub family_heading: &'static str,
+    pub family_code: &'static str,
+    pub weight_normal: u16,
+    pub weight_medium: u16,
+    pub weight_semibold: u16,
+    pub weight_bold: u16,
+    pub size_4xs: f32,
+    pub size_3xs: f32,
+    pub size_2xs: f32,
+    pub size_xs: f32,
+    pub size_sm: f32,
+    pub size_md: f32,
+    pub size_lg: f32,
+    pub size_xl: f32,
+    pub size_2xl: f32,
+    pub size_3xl: f32,
+    pub size_4xl: f32,
+    pub size_5xl: f32,
+    pub display1: TextStyle,
+    pub display2: TextStyle,
+    pub display3: TextStyle,
+    pub heading1: TextStyle,
+    pub heading2: TextStyle,
+    pub heading3: TextStyle,
+    pub heading4: TextStyle,
+    pub heading5: TextStyle,
+    pub heading6: TextStyle,
+    pub large: TextStyle,
+    pub body: TextStyle,
+    pub label: TextStyle,
+    pub code: TextStyle,
+    pub supporting: TextStyle,
+    pub letter_spacing: f32,
+}
+
+impl Typography {
+    const NEUTRAL: Self = Self {
+        family_body: "Figtree, sans-serif",
+        family_heading: "Figtree, sans-serif",
+        family_code: "ui-monospace, SF Mono, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+        weight_normal: 400,
+        weight_medium: 500,
+        weight_semibold: 600,
+        weight_bold: 700,
+        size_4xs: 6.0,
+        size_3xs: 7.0,
+        size_2xs: 8.0,
+        size_xs: 10.0,
+        size_sm: 12.0,
+        size_md: 14.0,
+        size_lg: 17.0,
+        size_xl: 20.0,
+        size_2xl: 24.0,
+        size_3xl: 29.0,
+        size_4xl: 35.0,
+        size_5xl: 42.0,
+        display1: TextStyle {
+            size_px: 42.0,
+            line_height_px: 52.0,
+            weight: 400,
+            family: "Figtree, sans-serif",
+        },
+        display2: TextStyle {
+            size_px: 35.0,
+            line_height_px: 44.0,
+            weight: 400,
+            family: "Figtree, sans-serif",
+        },
+        display3: TextStyle {
+            size_px: 29.0,
+            line_height_px: 40.0,
+            weight: 400,
+            family: "Figtree, sans-serif",
+        },
+        heading1: TextStyle {
+            size_px: 24.0,
+            line_height_px: 32.0,
+            weight: 600,
+            family: "Figtree, sans-serif",
+        },
+        heading2: TextStyle {
+            size_px: 20.0,
+            line_height_px: 28.0,
+            weight: 600,
+            family: "Figtree, sans-serif",
+        },
+        heading3: TextStyle {
+            size_px: 17.0,
+            line_height_px: 24.0,
+            weight: 700,
+            family: "Figtree, sans-serif",
+        },
+        heading4: TextStyle {
+            size_px: 14.0,
+            line_height_px: 20.0,
+            weight: 700,
+            family: "Figtree, sans-serif",
+        },
+        heading5: TextStyle {
+            size_px: 12.0,
+            line_height_px: 20.0,
+            weight: 600,
+            family: "Figtree, sans-serif",
+        },
+        heading6: TextStyle {
+            size_px: 10.0,
+            line_height_px: 16.0,
+            weight: 600,
+            family: "Figtree, sans-serif",
+        },
+        large: TextStyle {
+            size_px: 17.0,
+            line_height_px: 24.0,
+            weight: 600,
+            family: "Figtree, sans-serif",
+        },
+        body: TextStyle {
+            size_px: 14.0,
+            line_height_px: 20.0,
+            weight: 400,
+            family: "Figtree, sans-serif",
+        },
+        label: TextStyle {
+            size_px: 14.0,
+            line_height_px: 20.0,
+            weight: 500,
+            family: "Figtree, sans-serif",
+        },
+        code: TextStyle {
+            size_px: 14.0,
+            line_height_px: 20.0,
+            weight: 400,
+            family: "ui-monospace, SF Mono, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+        },
+        supporting: TextStyle {
+            size_px: 12.0,
+            line_height_px: 20.0,
+            weight: 400,
+            family: "Figtree, sans-serif",
+        },
+        letter_spacing: 0.0,
+    };
+}
+
+/// Neutral spacing steps in logical pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Spacing {
+    pub s0: f32,
+    pub s0_5: f32,
+    pub s1: f32,
+    pub s1_5: f32,
+    pub s2: f32,
+    pub s3: f32,
+    pub s4: f32,
+    pub s5: f32,
+    pub s6: f32,
+    pub s7: f32,
+    pub s8: f32,
+    pub s9: f32,
+    pub s10: f32,
+    pub s11: f32,
+    pub s12: f32,
+    pub card_padding: f32,
+    pub section_padding: f32,
+    pub dialog_padding: f32,
+    pub layer_viewport_gutter: f32,
+}
+
+impl Spacing {
+    const NEUTRAL: Self = Self {
+        s0: 0.0,
+        s0_5: 2.0,
+        s1: 4.0,
+        s1_5: 6.0,
+        s2: 8.0,
+        s3: 12.0,
+        s4: 16.0,
+        s5: 20.0,
+        s6: 24.0,
+        s7: 28.0,
+        s8: 32.0,
+        s9: 36.0,
+        s10: 40.0,
+        s11: 44.0,
+        s12: 48.0,
+        card_padding: 12.0,
+        section_padding: 12.0,
+        dialog_padding: 16.0,
+        layer_viewport_gutter: 16.0,
+    };
+}
+
+/// Neutral corner radii in logical pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Radius {
+    pub none: f32,
+    pub inner: f32,
+    pub element: f32,
+    pub container: f32,
+    pub page: f32,
+    pub chat: f32,
+    pub full: f32,
+}
+
+impl Radius {
+    const NEUTRAL: Self = Self {
+        none: 0.0,
+        inner: 6.0,
+        element: 10.0,
+        container: 12.0,
+        page: 28.0,
+        chat: 28.0,
+        full: 9999.0,
+    };
+}
+
+/// Neutral control metrics and state amounts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sizes {
+    pub control_xs: f32,
+    pub control_sm: f32,
+    pub control_md: f32,
+    pub control_lg: f32,
+    pub border_width: f32,
+    pub focus_ring_width: f32,
+    pub focus_ring_offset: f32,
+    pub icon_xsm: f32,
+    pub icon_sm: f32,
+    pub icon_md: f32,
+    pub icon_lg: f32,
+    pub icon_stroke_ratio: f32,
+    pub badge_height: f32,
+    pub min_touch_target: f32,
+    pub disabled_opacity: f32,
+    pub press_scale: f32,
+}
+
+impl Sizes {
+    const NEUTRAL: Self = Self {
+        control_xs: 24.0,
+        control_sm: 28.0,
+        control_md: 32.0,
+        control_lg: 36.0,
+        border_width: 1.0,
+        focus_ring_width: 2.0,
+        focus_ring_offset: 3.0,
+        icon_xsm: 12.0,
+        icon_sm: 16.0,
+        icon_md: 20.0,
+        icon_lg: 24.0,
+        icon_stroke_ratio: 2.0 / 24.0,
+        badge_height: 20.0,
+        min_touch_target: 44.0,
+        disabled_opacity: 0.5,
+        press_scale: 0.98,
+    };
+}
+
+const STANDARD: Easing = Easing::CubicBezier(0.24, 1.0, 0.4, 1.0);
+
+/// Neutral motion durations in milliseconds and easing curves.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Motion {
+    pub fast_min: u64,
+    pub fast: u64,
+    pub fast_max: u64,
+    pub medium_min: u64,
+    pub medium: u64,
+    pub medium_max: u64,
+    pub slow_min: u64,
+    pub slow: u64,
+    pub slow_max: u64,
+    pub ease_standard: Easing,
+    pub ease_entrance: Easing,
+    pub ease_move: Easing,
+    pub ease_exit: Easing,
+    pub press_onset: u64,
+    pub press_release: u64,
+    pub ease_press_release: Easing,
+}
+
+impl Motion {
+    const NEUTRAL: Self = Self {
+        fast_min: 95,
+        fast: 125,
+        fast_max: 165,
+        medium_min: 225,
+        medium: 300,
+        medium_max: 400,
+        slow_min: 525,
+        slow: 700,
+        slow_max: 935,
+        ease_standard: STANDARD,
+        ease_entrance: STANDARD,
+        ease_move: STANDARD,
+        ease_exit: Easing::CubicBezier(0.3, 0.0, 0.6, 0.6),
+        press_onset: 150,
+        press_release: 200,
+        ease_press_release: Easing::CubicBezier(0.0, 0.0, 0.2, 1.0),
+    };
+}

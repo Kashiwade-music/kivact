@@ -122,7 +122,7 @@ fn app() -> impl IntoView {
 
     column((
         field("名前", text_input("名前", name)).error(name_error),
-        field("自己紹介", text_area("自己紹介", bio).style(style().height(72))),
+        field("自己紹介", text_area("自己紹介", bio).wrap(true).rows(2..=5)),
         field(
             "プラン",
             select(

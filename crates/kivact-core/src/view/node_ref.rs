@@ -25,6 +25,13 @@ pub struct NodeRef {
     pub(crate) state: Owned<NodeRefState>,
 }
 
+pub(crate) enum RovingMove {
+    Previous,
+    Next,
+    First,
+    Last,
+}
+
 /// A reference to a node of the current setup owner, bound with
 /// `.node_ref(r)` on exactly one view; read its rect, focus it or scroll it
 /// into view. Setup only.
@@ -395,6 +402,30 @@ impl NodeRef {
         }
     }
 
+    pub(crate) fn move_roving_focus(&self, movement: RovingMove) -> bool {
+        let (Some(rt), Some(root)) = (Runtime::get(self.app), self.node()) else {
+            return false;
+        };
+        let Some(focus) = super::focus::focused(&rt) else {
+            return false;
+        };
+        let targets = ViewState::tree(&rt).reader().roving_targets(root);
+        let Some(index) = targets.iter().position(|target| *target == focus) else {
+            return false;
+        };
+        if targets.len() < 2 {
+            return false;
+        }
+        let next = match movement {
+            RovingMove::Previous => (index + targets.len() - 1) % targets.len(),
+            RovingMove::Next => (index + 1) % targets.len(),
+            RovingMove::First => 0,
+            RovingMove::Last => targets.len() - 1,
+        };
+        super::requests::request_restore_focus(&rt, targets[next], None, true);
+        true
+    }
+
     /// Ask the host to scroll ancestors so the node is visible. Nothing
     /// happens while the node is not in the window (unbound, or built but
     /// not mounted yet).
@@ -407,6 +438,24 @@ impl NodeRef {
             ViewState::tree(&rt).engine().scroll_into_view(id);
             rt.request_turn();
         }
+    }
+
+    /// Whether the native text layout omitted text with an ellipsis or line
+    /// clamp. False for an unbound reference or a node without shaped text.
+    #[track_caller]
+    pub fn text_truncated(&self) -> Value<bool> {
+        let _ = self.rect();
+        let app = self.app;
+        let binding = self.state(Location::caller()).1.bound;
+        kivact_reactive::memo(move || {
+            binding
+                .try_get()
+                .flatten()
+                .filter(|bound| bound.target().region.is_none())
+                .and_then(|bound| observation(app, bound.target()))
+                .and_then(|observation| observation.text_truncated.try_get())
+                .unwrap_or(false)
+        })
     }
 
     /// Window-space rect of the bound node, updated by the host. The first call starts

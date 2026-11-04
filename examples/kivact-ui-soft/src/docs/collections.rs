@@ -1,0 +1,378 @@
+//! Role: Demonstrate Soft layout, collection, table and chat components.
+use super::specimen::specimen;
+use kivact::control::{Node, NodeBuilder, column, row, text};
+use kivact::interaction::TreeNode;
+use kivact::signal;
+use kivact::style::style;
+use kivact::ui::{DataColumn, DataTableDensity, FilterField, FilterValue, button, data_table};
+use kivact_ui_soft::{
+    ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
+    ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
+    chat_bubble, chat_composer, chat_dictation_button, chat_layout, chat_message,
+    chat_system_message, chat_tool_calls, clickable_card, collapsible_default, collapsible_group,
+    divider, form_layout, form_row, grid, hstack, item, layout, layout_content, layout_header,
+    layout_panel, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
+    pagination, resize_handle, scrollable_area, section, selectable_card, stack_item, tree_list,
+    use_resizable,
+};
+
+pub(super) fn examples(slug: &str) -> Option<Node> {
+    Some(match slug {
+        "collapsible" => specimen(
+            "Open by default",
+            collapsible_default("Delivery details", true)
+                .animate_layout(true)
+                .content(|| text("Ships in two business days.")),
+            "collapsible_default(\"Delivery details\", true).animate_layout(true).content(details)",
+        ),
+        "collapsible-group" => specimen(
+            "One section open at a time",
+            collapsible_group(
+                signal(vec!["delivery".to_owned()]),
+                vec![
+                    collapsible_default("Delivery", false)
+                        .value("delivery")
+                        .content(|| text("Ships in two business days.")),
+                    collapsible_default("Returns", false)
+                        .value("returns")
+                        .content(|| text("Returns accepted within 30 days.")),
+                ],
+            )
+            .dividers(true),
+            "collapsible_group(open, sections).dividers(true)",
+        ),
+        "list" | "list-item" | "item" => specimen(
+            "Workspace items",
+            list((
+                list_item("Design").description("Active project"),
+                list_item("Documentation").description("In review"),
+                item("Archive"),
+            ))
+            .style(style().width(240)),
+            "list((list_item(\"Design\"), list_item(\"Documentation\")))",
+        ),
+        "card" => specimen(
+            "Project surface",
+            card(text("Project notes")),
+            "card(text(\"Project notes\"))",
+        ),
+        "clickable-card" => specimen(
+            "Open project",
+            clickable_card("Open project", text("Project notes")).on_press(|| {}),
+            "clickable_card(\"Open project\", content, open_project)",
+        ),
+        "selectable-card" => specimen(
+            "Select project",
+            selectable_card("Select project", signal(false), text("Project notes")),
+            "selectable_card(\"Select project\", selected, content)",
+        ),
+        "carousel" => specimen(
+            "Browse slides",
+            carousel(
+                "Project highlights",
+                ["Design", "Documentation", "Research", "Release"]
+                    .map(|title| card(text(title)).style(style().size(148, 72))),
+            )
+            .snap(true)
+            .style(style().width(320)),
+            "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .map(|title| card(text(title)).style(style().size(148, 72)));\ncarousel(\"Project highlights\", slides).snap(true).style(style().width(320))",
+        ),
+        "section" => specimen(
+            "Section content",
+            section(text("Workspace settings")),
+            "section(text(\"Workspace settings\"))",
+        ),
+        "center" => specimen(
+            "Center content",
+            center(text("Centered content")).style(style().size(240, 96)),
+            "center(text(\"Centered content\"))",
+        ),
+        "form-layout" => specimen(
+            "Horizontal labels stack at window widths of 480 px or less",
+            form_layout((
+                form_row(
+                    text("Project"),
+                    kivact::ui::text_input("Project", signal("Design notes".to_owned())),
+                ),
+                form_row(
+                    text("Review owner"),
+                    kivact::ui::text_input("Review owner", signal("Avery Morgan".to_owned())),
+                ),
+            ))
+            .direction(FormDirection::HorizontalLabels)
+            .style(style().max_width(400)),
+            r#"form_layout((
+    form_row(text("Project"), text_input("Project", project)),
+    form_row(text("Review owner"), text_input("Review owner", owner)),
+))
+.direction(FormDirection::HorizontalLabels)
+.style(style().max_width(400))"#,
+        ),
+        "layout" => specimen(
+            "Header and content",
+            layout()
+                .header(|| layout_header(text("Project notes")).divider(true))
+                .content(|| layout_content(text("Workspace content")))
+                .style(style().width(320).height(144)),
+            "layout().header(header).content(content)",
+        ),
+        "scrollable-area" => specimen(
+            "Scroll with the keyboard",
+            scrollable_area(
+                "Activity",
+                column(
+                    (0..12)
+                        .map(|index| text(format!("Activity {}", index + 1)))
+                        .collect::<Vec<_>>(),
+                ),
+            )
+            .style(style().width(240).height(96)),
+            "scrollable_area(\"Activity\", events)",
+        ),
+        "divider" => specimen(
+            "Separate related content",
+            kivact::control::column((text("Details"), divider(), text("History"))),
+            "divider()",
+        ),
+        "stack" | "stack-item" => specimen(
+            "Horizontal stack",
+            hstack((
+                stack_item(text("Design")),
+                stack_item(text("Documentation")),
+            )),
+            "hstack((stack_item(first), stack_item(second)))",
+        ),
+        "grid" => specimen(
+            "Two columns",
+            grid((card(text("Design")), card(text("Documentation"))))
+                .columns(GridColumns::Fixed(2))
+                .gap(Space::S2),
+            "grid(children).columns(GridColumns::Fixed(2)).gap(Space::S2)",
+        ),
+        "aspect-ratio" => specimen(
+            "Wide preview",
+            aspect_ratio(16.0 / 9.0, card(text("Preview"))).style(style().width(240)),
+            "aspect_ratio(16.0 / 9.0, preview)",
+        ),
+        "breadcrumbs" | "breadcrumb-item" => specimen(
+            "Project location",
+            breadcrumbs([
+                breadcrumb_item("Workspace").on_press(|| {}),
+                breadcrumb_item("Design notes"),
+            ]),
+            "breadcrumbs([breadcrumb_item(\"Workspace\"), breadcrumb_item(\"Design notes\")])",
+        ),
+        "pagination" => specimen(
+            "Navigate result pages",
+            pagination(signal(1)).total_pages(12).first_last(true),
+            "pagination(page).total_pages(12).first_last(true)",
+        ),
+        "metadata-list" | "metadata-list-item" => specimen(
+            "Document properties",
+            metadata_list((
+                metadata_item("Owner", text("Avery Morgan")),
+                metadata_item("Status", text("In review")),
+            )),
+            "metadata_list((metadata_item(\"Owner\", text(\"Avery Morgan\")), status))",
+        ),
+        "tree-list" => specimen(
+            "Expandable files",
+            tree_list(
+                "Files",
+                vec![
+                    TreeNode::new("src", None, "src"),
+                    TreeNode::new("main.rs", Some("src"), "main.rs"),
+                    TreeNode::new("README.md", None, "README.md"),
+                ],
+                signal(vec!["src"]),
+            )
+            .animated(true)
+            .style(style().width(240)),
+            "tree_list(\"Files\", files, expanded).animated(true)",
+        ),
+        "nav-icon" => specimen(
+            "Navigation icon",
+            row((
+                nav_icon(kivact_ui_soft::icon("columns-2")),
+                text("Documents"),
+            ))
+            .style(style().gap(8)),
+            "nav_icon(icon(\"columns-2\"))",
+        ),
+        "overflow-list" => specimen(
+            "Items in a narrow space",
+            overflow_list(
+                vec!["Design", "Engineering", "Documentation", "Support"],
+                |item| *item,
+                |item| text(move || item.get().to_owned()),
+            )
+            .style(style().width(230)),
+            "overflow_list(teams, |item| *item, render_team)",
+        ),
+        "chat" => specimen(
+            "Messages and composer",
+            chat_layout(kivact::control::column((
+                chat_system_message("Conversation started"),
+                chat_message(
+                    ChatSender::User,
+                    chat_bubble(text("Can you review the notes?")),
+                ),
+                chat_message(
+                    ChatSender::Assistant,
+                    chat_bubble(text("The notes are ready.")),
+                ),
+            )))
+            .composer(|| chat_composer(signal(String::new())))
+            .style(style().width(440).height(300)),
+            "chat_layout(messages).composer(|| chat_composer(draft))",
+        ),
+        "chat-dictation-button" => specimen(
+            "Dictation available",
+            chat_dictation_button(signal(DictationState {
+                supported: true,
+                ..DictationState::default()
+            })),
+            "chat_dictation_button(dictation_state)",
+        ),
+        "chat-tool-calls" => specimen(
+            "Tool activity",
+            chat_tool_calls(vec![
+                ToolCall::new("read", "Read notes").target("notes.md"),
+                ToolCall::new("review", "Review notes").status(ToolStatus::Running),
+            ])
+            .expanded(signal(true)),
+            "chat_tool_calls(calls).expanded(expanded)",
+        ),
+        "table" => {
+            let filters = signal(Vec::<(usize, String)>::new());
+            let expanded = signal(Vec::new());
+            let sort = signal(Vec::new());
+            let typed = signal(std::collections::HashMap::new());
+            let table = data_table(
+                vec![
+                    ("Design", "Active"),
+                    ("Documentation", "Review"),
+                    ("Archive", "Closed"),
+                ],
+                |row| row.0,
+                vec![
+                    DataColumn::new("Project", |row: &(&str, &str)| row.0.to_owned())
+                        .sortable()
+                        .flex(2.0),
+                    DataColumn::new("Status", |row: &(&str, &str)| row.1.to_owned())
+                        .sortable()
+                        .filter(|row, query| row.1 == query)
+                        .filter_field(
+                            FilterField::Choice(
+                                ["Active", "Review", "Closed"]
+                                    .map(|value| (value.to_owned(), value.to_owned()))
+                                    .into(),
+                            ),
+                            |row, value| matches!(value, FilterValue::Choice(choice) if row.1 == choice),
+                        )
+                        .flex(1.0),
+                ],
+            )
+            .multi_sort(sort)
+            .column_filters(filters)
+            .typed_column_filters(typed)
+            .row_details(|item| text(move || item.with(|row| format!("{} is {}", row.0, row.1))))
+            .expanded_rows(expanded)
+            .style(style().width(440));
+            let controls = specimen(
+                "Sort, filter, and expand rows",
+                column((
+                    row((
+                        button("Show active projects")
+                            .on_press(move || filters.set(vec![(1, "Active".into())])),
+                        button("Clear filter").on_press(move || filters.set(Vec::new())),
+                    ))
+                    .style(style().gap(8)),
+                    table,
+                ))
+                .style(style().gap(8)),
+                "data_table(rows, |row| row.0, columns)\n    .multi_sort(sort)\n    .typed_column_filters(typed)\n    .row_details(render_details)\n    .expanded_rows(expanded)",
+            );
+            let pinned = specimen(
+                "Compact table with pinned edges",
+                data_table(
+                    vec![
+                        ["Design", "Kyoto", "Avery", "Active"],
+                        ["Research", "Tokyo", "Morgan", "Review"],
+                    ],
+                    |row| row[0],
+                    ["Workspace", "Office", "Owner", "State"]
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, label)| {
+                            DataColumn::new(label, move |row: &[&str; 4]| row[index].to_owned())
+                                .width(116.0)
+                        })
+                        .collect(),
+                )
+                .sticky_columns(vec![0], vec![3])
+                .density(DataTableDensity::Compact)
+                .style(style().width(350)),
+                "data_table(rows, |row| row[0], columns)\n    .sticky_columns(vec![0], vec![3])\n    .density(DataTableDensity::Compact)",
+            );
+            let folders = specimen(
+                "Folder hierarchy",
+                data_table(
+                    vec![
+                        (1, None, "Planning"),
+                        (2, Some(1), "Brief"),
+                        (3, None, "Delivery"),
+                    ],
+                    |row| row.0,
+                    vec![DataColumn::new(
+                        "Folder",
+                        |row: &(u32, Option<u32>, &str)| row.2.to_owned(),
+                    )],
+                )
+                .tree(|row| row.1, signal(vec![1]))
+                .tree_expand_all(true)
+                .style(style().width(350)),
+                "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .tree_expand_all(true)",
+            );
+            column((controls, pinned, folders)).style(style().gap(12))
+        }
+        "resizable" | "resize-handle" => {
+            let state = use_resizable(ResizableConfig {
+                default_size: ResizeSize::Px(144.0),
+                min_size: ResizeSize::Px(88.0),
+                max_size: ResizeSize::Px(216.0),
+                collapsible: true,
+                snaps: vec![88.0, 144.0, 216.0],
+                ..ResizableConfig::default()
+            });
+            let panel = state.clone();
+            let status = state.clone();
+            specimen(
+                "Drag or use the arrow keys. Enter toggles collapse.",
+                (
+                    layout()
+                        .start(move || layout_panel(text("Navigation")).resizable(panel))
+                        .start_resize_handle(resize_handle(state).divider(true))
+                        .content(|| layout_content(text("Content")))
+                        .style(style().width(360).height(92)),
+                    text(move || format!("Navigation width: {:.0} px", status.size())),
+                ),
+                r#"let state = use_resizable(ResizableConfig {
+    default_size: ResizeSize::Px(144.0),
+    min_size: ResizeSize::Px(88.0),
+    max_size: ResizeSize::Px(216.0),
+    collapsible: true,
+    snaps: vec![88.0, 144.0, 216.0],
+    ..ResizableConfig::default()
+});
+let panel = state.clone();
+layout()
+    .start(move || layout_panel(text("Navigation")).resizable(panel))
+    .start_resize_handle(resize_handle(state).divider(true))
+    .content(|| layout_content(text("Content")))
+    .style(style().width(360).height(92))"#,
+            )
+        }
+        _ => return None,
+    })
+}

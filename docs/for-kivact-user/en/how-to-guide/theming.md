@@ -27,8 +27,8 @@ fn main() -> kivact::Result<()> {
 - `Theme::light()` is the default and `Theme::dark()` its dark counterpart.
   `theme.mode()` returns a `ThemeMode` (`Light` or `Dark`).
 - Every kit exposes `theme(mode: ThemeMode)`: `kivact_ui_basic::theme`,
-  `kivact_ui_pop::theme`, `kivact_ui_game::theme` and
-  `kivact_ui_creative::theme`. Pass the result to `App::theme`. The kit guides
+  `kivact_ui_pop::theme`, `kivact_ui_game::theme`, `kivact_ui_creative::theme`
+  and `kivact_ui_soft::theme`. Pass the result to `App::theme`. The kit guides
   (see the [kits index](../../../for-kivact-ui-user/en/README.md)) describe each
   look and the extra components that come with it.
 - Which mode to use, system or user setting, is your app's decision. Kivact does
@@ -131,8 +131,8 @@ fn main() -> kivact::Result<()> {
   `Shadow`, `Selection`, `Hover`, `Pressed` and `Raised`. `rgb(0x2563eb)` and
   `rgba(..)` give fixed colors.
 - Other tokens are read with accessors: `theme.space().md`, `theme.radius().lg`,
-  `theme.text().size`, `theme.focus_ring()`, `theme.disabled_opacity()` and
-  `theme.control_height()`.
+  `theme.text().size`, `theme.focus_ring()`, `theme.focus_ring_offset()`,
+  `theme.disabled_opacity()` and `theme.control_height()`.
 - Read `current_theme()` **inside** a style closure, not once in setup. A copy
   taken in setup is a fixed snapshot and misses theme switches.
 
@@ -146,7 +146,7 @@ use kivact::style::rgb;
 use kivact::style::theme::Palette;
 
 fn brand() -> Theme {
-    let base = Theme::light().with_focus_ring(3.0);
+    let base = Theme::light().with_focus_ring(3.0).with_focus_ring_offset(2.0);
     let colors = Palette {
         accent: rgb(0x7c3aed),
         focus: rgb(0x7c3aed),
@@ -164,6 +164,11 @@ Every standard component picks the new accent up. The same works for
 `with_space`, `with_radius`, `with_text` (type sizes and the default font
 family), `with_control_height` and `with_icons`. Starting from a kit's theme
 instead of `Theme::light()` keeps the kit's recipes and tokens.
+
+Install `kivact::view::OverlayViewport::new(16.0)` with `Theme::with`
+to fit overlays inside a 16 px viewport margin. Anchored overlays try
+flips, spans and slides before clamping. Use `Overlay::viewport_margin`
+to set the margin on an individual layer.
 
 ## Change how one standard component looks
 
@@ -200,6 +205,13 @@ fn main() -> kivact::Result<()> {
   component never changes how it works.
 - To change a single instance instead of a theme, add `.style(..)` to it. A
   style you set on a component comes after the recipe and wins.
+
+Themes can draw checkbox marks in the `checkbox_check` and `checkbox_mixed`
+recipes inside `checkbox_indicator`, and draw a switch thumb with
+`switch_thumb` inside `switch_track`. Replace the root recipe's drawing
+when drawing these parts separately. The radio group's `mark` recipe
+styles the dot icon. Custom parts stay mounted as the checked state changes,
+so a paint transition can animate opacity, translation or scale.
 
 ### Variants: the same component in another look
 

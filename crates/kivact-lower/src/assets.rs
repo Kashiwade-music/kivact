@@ -193,6 +193,13 @@ impl ArvaneAssets {
     /// The report for `Image` node `id` showing `asset` (the source in the
     /// store) when it failed and was not reported for this node yet.
     pub fn check_image(&mut self, id: NodeId, asset: &Asset) -> Option<HostEvent> {
+        if self
+            .reported_images
+            .get(&id)
+            .is_some_and(|reported| reported != asset)
+        {
+            self.reported_images.remove(&id);
+        }
         match self.store.peek(asset) {
             Some(ImageState::Failed(e)) if self.reported_images.get(&id) != Some(asset) => {
                 self.reported_images.insert(id, asset.clone());

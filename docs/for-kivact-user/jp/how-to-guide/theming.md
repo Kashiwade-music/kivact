@@ -21,7 +21,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 - `Theme::light()` が既定で、`Theme::dark()` がその暗いテーマです。`theme.mode()` は `ThemeMode`(`Light` か `Dark`)を返します。
-- どのキットにも `theme(mode: ThemeMode)` があります。`kivact_ui_basic::theme`、`kivact_ui_pop::theme`、`kivact_ui_game::theme`、`kivact_ui_creative::theme` です。結果を `App::theme` に渡します。それぞれの見た目と、付属の追加コンポーネントは、各キットのガイドで説明しています([キット一覧](../../../for-kivact-ui-user/jp/README.md)を参照)。
+- どのキットにも `theme(mode: ThemeMode)` があります。`kivact_ui_basic::theme`、`kivact_ui_pop::theme`、`kivact_ui_game::theme`、`kivact_ui_creative::theme`、`kivact_ui_soft::theme` です。結果を `App::theme` に渡します。それぞれの見た目と、付属の追加コンポーネントは、各キットのガイドで説明しています([キット一覧](../../../for-kivact-ui-user/jp/README.md)を参照)。
 - システム設定とユーザー設定のどちらでモードを決めるかは、アプリが決めることです。Kivact は代わりに選びません。
 
 ## アプリの実行中にテーマを切り替える
@@ -112,7 +112,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 - 色のトークンは `Surface`、`SurfaceAlt`、`Text`、`TextMuted`、`Accent`、`AccentText`、`Border`、`Focus`、`Danger`、`Success`、`Warning`、`Overlay`、`Shadow`、`Selection`、`Hover`、`Pressed`、`Raised` です。固定の色には `rgb(0x2563eb)` や `rgba(..)` を使います。
-- そのほかのトークンはアクセサーで読みます。`theme.space().md`、`theme.radius().lg`、`theme.text().size`、`theme.focus_ring()`、`theme.disabled_opacity()`、`theme.control_height()` です。
+- そのほかのトークンはアクセサーで読みます。`theme.space().md`、`theme.radius().lg`、`theme.text().size`、`theme.focus_ring()`、`theme.focus_ring_offset()`、`theme.disabled_opacity()`、`theme.control_height()` です。
 - `current_theme()` は、セットアップで 1 回読むのではなく、スタイルのクロージャの**中**で読みます。セットアップで取ったコピーは固定のスナップショットなので、テーマの切り替えに追従できません。
 
 ## トークンを変える
@@ -125,7 +125,7 @@ use kivact::style::rgb;
 use kivact::style::theme::Palette;
 
 fn brand() -> Theme {
-    let base = Theme::light().with_focus_ring(3.0);
+    let base = Theme::light().with_focus_ring(3.0).with_focus_ring_offset(2.0);
     let colors = Palette {
         accent: rgb(0x7c3aed),
         focus: rgb(0x7c3aed),
@@ -140,6 +140,11 @@ fn main() -> kivact::Result<()> {
 ```
 
 標準コンポーネントはすべて新しいアクセントを使います。`with_space`、`with_radius`、`with_text`(文字サイズと既定のフォントファミリー)、`with_control_height`、`with_icons` も同じように使えます。`Theme::light()` ではなくキットのテーマから始めると、キットの recipe とトークンが保たれます。
+
+`Theme::with` で `kivact::view::OverlayViewport::new(16.0)` を設定すると、
+オーバーレイをウィンドウ端から 16 px 内側に配置します。アンカー付きの
+オーバーレイは反転、整列範囲の拡張、スライドの順に試します。
+個別の余白は `Overlay::viewport_margin` で指定できます。
 
 ## 標準コンポーネントの見た目を 1 つ変える
 
@@ -167,6 +172,13 @@ fn main() -> kivact::Result<()> {
 - テーマは**1 回だけ**(起動時、または `static` の中で)作ります。recipe の表は同一性で比較されるため、実行のたびに作り直すテーマは、その下のすべてを毎回スタイルし直します。
 - 振る舞い(キー、フォーカス、アクセシビリティ)は recipe に含まれないので、見た目を変えても動作は変わりません。
 - テーマではなく 1 つのインスタンスだけ変えるなら、そこに `.style(..)` を付けます。コンポーネントに指定したスタイルは recipe の後に重なり、優先されます。
+
+テーマでは `checkbox_indicator` の内側に `checkbox_check` と
+`checkbox_mixed` の印を描けます。スイッチは `switch_track` の内側の
+`switch_thumb` でつまみを描けます。これらを個別に描く場合は、ルート
+recipe の描画も差し替えます。ラジオグループでは `mark` がドット
+アイコンの見た目を決めます。選択状態が変わっても追加した部品はマウントされた
+ままなので、paint transition で透明度、移動、拡大縮小を補間できます。
 
 ### variant: 同じコンポーネントの別の見た目
 

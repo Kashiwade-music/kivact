@@ -10,7 +10,9 @@
 
 use super::transform::Transform;
 use crate::geometry::{NodeId, Point, Rect};
-use crate::semantics::{A11yAction, CheckedState, LiveRegion, Orientation, Role, SortDirection};
+use crate::semantics::{
+    A11yAction, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role, SortDirection,
+};
 use crate::semantics_text::SemanticsText;
 
 /// One accessibility node, usable on any thread.
@@ -146,6 +148,14 @@ pub struct SemanticsProperties {
     pub pos_in_set: Option<u32>,
     /// Whether the node allows more than one selected item.
     pub multiselectable: Option<bool>,
+    /// Whether assistive technology should wait for updates to finish.
+    pub busy: bool,
+    /// Whether a value is required.
+    pub required: bool,
+    /// The type of popup this control opens.
+    pub has_popup: Option<PopupKind>,
+    /// The meaning of the current item in a related set.
+    pub current_item: Option<CurrentItem>,
     /// Invalid value.
     pub invalid: bool,
     /// Read-only text.

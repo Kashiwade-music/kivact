@@ -88,6 +88,8 @@ pub struct TextStyle {
     /// The most lines shown (CSS `line-clamp`): the last one shown ends
     /// in "…" when more follow. `None` shows them all.
     pub max_lines: Option<u32>,
+    /// Trim the first line to its cap height and the last to its baseline.
+    pub capsize: bool,
     /// Case conversion when shaping.
     pub transform: TextTransform,
 }
@@ -115,6 +117,7 @@ impl Default for TextStyle {
             decoration: TextDecoration::default(),
             overflow: TextOverflow::Clip,
             max_lines: None,
+            capsize: false,
             transform: TextTransform::None,
         }
     }

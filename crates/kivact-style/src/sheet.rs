@@ -148,7 +148,7 @@ pub use kivact_wire::Overflow;
 /// Property group animated by `Style::transition`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransitionProp {
-    /// Paint: opacity, a solid background color, border colors, the
+    /// Paint: opacity, a solid background color, border and text colors, the
     /// transform (its translate, rotate, skew and scale parts and its
     /// origin: `rotate(0)` to `rotate(360)` turns once), the first two
     /// shadows (offset, blur, spread, color) and the filter's amounts
@@ -213,7 +213,7 @@ pub struct Style {
     pub(super) border_width: [Option<f32>; 4],
     pub(super) border_color: [Option<Color>; 4],
     pub(super) border_style: Option<BorderStyle>,
-    pub(super) ring: Option<(f32, Color)>,
+    pub(super) ring: Option<(f32, f32, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(super) radius: [Option<CornerRadius>; 4],
     pub(super) shadows: Option<Vec<Shadow>>,
@@ -742,11 +742,22 @@ impl Style {
     /// Focus ring (drawn outside the border box); usually inside
     /// `focus_visible(..)`. A focusable element without a focus look of its
     /// own draws the theme's ([`Theme::focus_ring`](crate::Theme::focus_ring)).
-    pub fn ring(mut self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
+    pub fn ring(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
+        self.ring_with_offset(width, 0, color)
+    }
+
+    /// Draw a focus ring with a gap in logical pixels from the border box.
+    /// A positive offset follows the border box even if the node has a clip path.
+    pub fn ring_with_offset(
+        mut self,
+        width: impl Into<f64>,
+        offset: impl Into<f64>,
+        color: impl ThemeColor,
+    ) -> Self {
         if self.ring.is_some() {
             self.duplicates += 1;
         }
-        self.ring = Some((width.into() as f32, Color::of(color)));
+        self.ring = Some((width.into() as f32, offset.into() as f32, Color::of(color)));
         self
     }
 
@@ -881,8 +892,8 @@ impl Style {
     /// A leaving node keeps its place in the layout until it goes, as with
     /// a CSS exit transition or Framer Motion's `AnimatePresence`: the
     /// nodes after it move into its place when it goes, not when it is
-    /// removed. A node that should leave without holding its place is
-    /// placed out of the flow (`.position(Position::Absolute)`).
+    /// removed. The node builder's `exit_layout(ExitLayout::Pop)` modifier
+    /// releases that space at removal while retaining its last local box.
     ///
     /// Without a paint transition, and under reduced motion with a
     /// decorative one, the node goes at once.
@@ -1169,6 +1180,9 @@ impl Style {
         /// CSS `line-clamp`: show at most `n` lines, the last ending in
         /// "…" when more follow (the box is as high as the lines shown).
         line_clamp, line_clamp, u32, |v| v);
+    text_setter!(
+        /// Trim the first line to the measured cap height and the last to its baseline.
+        text_capsize, capsize, bool, |v| v);
     text_setter!(
         /// CSS `text-transform`: draw the text in upper case, lower case
         /// or capitalized; its accessible name keeps it as written.

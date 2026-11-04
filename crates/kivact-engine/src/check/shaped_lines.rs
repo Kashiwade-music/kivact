@@ -77,24 +77,10 @@ pub(super) fn shape(
                 .map(|editor| editor.editor.state())
                 .is_none() =>
         {
-            let mut style = kivact_lower::assets::text_style(engine, &props);
-            // As the paint shapes it: colors never change a shape.
-            style.color = kivact_types::protocol::TextStyle::default().color;
-            style.decoration.color = None;
-            let width = Some(area.width.max(0.0) + 1.0);
-            let content = n.content().unwrap_or("");
-            let shaped = if n.spans().is_empty() {
-                engine.shape_glyphs(content, &style, width)
-            } else {
-                let spans = crate::measure::leaf::rich_spans(engine, n.spans(), &style);
-                let text = kivact_types::protocol::RichText {
-                    text: content,
-                    spans: &spans,
-                };
-                engine.shape_glyphs(text, &style, width)
-            };
             (
-                shaped.ok()?,
+                crate::model::interact::text_geometry::shape_static_text(
+                    host, id, engine, area.width,
+                )?,
                 Point {
                     x: area.x,
                     y: area.y,

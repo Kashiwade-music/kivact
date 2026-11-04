@@ -161,6 +161,7 @@ impl Model {
         field: impl Fn(&mut NodeProperties) -> Option<&mut Option<T>>,
         mut mutation: Mutation,
     ) -> bool {
+        let animate_text = mutation.text && self.tree.attached(id);
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };
@@ -203,6 +204,13 @@ impl Model {
                 old_states || node.states().is_some_and(crate::tree::states_place)
             };
             mutation.restack |= before.is_some_and(|before| before != self.paint_stacking(id));
+        } else if animate_text {
+            self.prepare_state_motion(id);
+            let node = self
+                .tree
+                .get_mut(id)
+                .expect("invariant: text transition preparation keeps node");
+            *field(&mut node.properties).expect("invariant: setter field keeps its kind") = value;
         } else {
             *old = value;
         }
@@ -396,8 +404,11 @@ impl Model {
 
     /// Remove `id` and its whole subtree: at once, or once the exits in it
     /// end (`model::presence`).
-    pub(crate) fn remove(&mut self, id: NodeId) {
-        if !self.begin_exit(id) {
+    pub(crate) fn remove(&mut self, id: NodeId, pop_layout: bool, notify: bool) {
+        if notify && self.tree.contains(id) {
+            self.presence.notify_exit.insert(id);
+        }
+        if !self.begin_exit(id, pop_layout) {
             self.remove_now(id);
         }
     }
@@ -419,6 +430,9 @@ impl Model {
         self.changes.outdate_viewport();
         self.changes.layout_changed = true;
         for gone in self.remove_slots(id) {
+            if self.presence.notify_exit.remove(&gone) {
+                self.push(HostEvent::ExitComplete { node: gone });
+            }
             self.changes.a11y_removed.insert(gone);
             let previous = self.set_edit(gone, None);
             debug_assert!(previous.is_none());

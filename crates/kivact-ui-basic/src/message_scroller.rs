@@ -1,12 +1,11 @@
 //! Role: The Lyra message scroller that follows new content and offers a jump to the end.
 
 use kivact::control::{Node, NodeBuilder, column, icon, node, scroll};
-use kivact::draw::Point;
 use kivact::i18n::message;
+use kivact::interaction::use_follow_end;
 use kivact::style::{Color, Direction, Position, pct, style};
 use kivact::ui::{ButtonVariant, ControlSize, button};
-use kivact::view::{IntoView, ScrollBehavior, View, node_ref};
-use kivact::{effect, effect_on, memo, signal};
+use kivact::view::{IntoView, View, node_ref};
 
 /// A scrolling column of messages that sticks to the bottom (message-scroller.tsx).
 ///
@@ -57,41 +56,10 @@ const SLACK: f32 = 1.5;
 
 impl IntoView for MessageScroller {
     fn into_view(self) -> View {
-        // Whether the end stays in view: the scroller's own state, like its
-        // scroll offset.
-        let follow = signal(true);
         let viewport = node_ref();
         let body = node_ref();
-        let (view_rect, body_rect) = (viewport.rect(), body.rect());
-        let offset = viewport.scroll_offset();
-        let view_height = memo(move || view_rect.get().map_or(0.0, |r| r.height));
-        let body_height = memo(move || body_rect.get().map_or(0.0, |r| r.height));
-        let is_at_end = move |offset: Point, view: f32, body: f32| offset.y + view >= body - SLACK;
-        let at_end = memo(move || is_at_end(offset.get(), view_height.get(), body_height.get()));
-        let to_end = move || {
-            let max = (body_height.get_untracked() - view_height.get_untracked()).max(0.0);
-            viewport.scroll_to(Point::new(0.0, max), ScrollBehavior::Instant);
-        };
-        // A scroll by the user decides whether to follow. The offset the
-        // scroller starts with is not a scroll.
-        effect_on(offset, move |&offset| {
-            let now = is_at_end(
-                offset,
-                view_height.get_untracked(),
-                body_height.get_untracked(),
-            );
-            let measured = view_height.get_untracked() > 0.0 && body_height.get_untracked() > 0.0;
-            if measured && now != follow.get_untracked() {
-                follow.set(now);
-            }
-        });
-        // New content, or following turned on, moves to the end.
-        effect(move || {
-            body_height.get();
-            if follow.get() {
-                to_end();
-            }
-        });
+        let follow = use_follow_end(viewport, body, SLACK, None);
+        let distance = follow.distance();
         let scroller = scroll(
             column(self.content)
                 .node_ref(body)
@@ -113,11 +81,8 @@ impl IntoView for MessageScroller {
             .hide_label(true)
             .icon(icon("arrow-down"))
             .size(ControlSize::Small)
-            .hidden(move || at_end.get())
-            .on_press(move || {
-                follow.set(true);
-                to_end();
-            })
+            .hidden(move || distance.get() <= SLACK)
+            .on_press(move || follow.jump_to_end())
             .style(
                 style()
                     .position(Position::Absolute)

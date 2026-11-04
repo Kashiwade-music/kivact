@@ -130,6 +130,21 @@ impl NodeStyle {
         }
         true
     }
+
+    /// Replace the box limits in both forms of the style for an overlay pass.
+    pub(crate) fn set_size_bounds(
+        &mut self,
+        min: Size<LengthPercentageAuto>,
+        max: Size<LengthPercentageAuto>,
+    ) {
+        self.min_size = min;
+        self.max_size = max;
+        let min = self.floored_min_size();
+        if let Some(grid) = self.grid.as_mut() {
+            grid.min_size = min;
+            grid.max_size = max;
+        }
+    }
 }
 
 /// An item's place along one axis as taffy reads it.

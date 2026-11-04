@@ -10,10 +10,122 @@ use kivact::motion::{
     Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
 };
 use kivact::prelude::*;
+use kivact::style::TransitionProp;
 use kivact::test::{RenderOptions, Screen};
 
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
+}
+
+#[test]
+fn popped_exit_releases_layout_and_finishes_after_the_last_descendant() {
+    use kivact::view::ExitLayout;
+
+    for exit_layout in [ExitLayout::Keep, ExitLayout::Pop] {
+        let completions = Rc::new(Cell::new(0));
+        let count = completions.clone();
+        let (screen, shown) = mount(move || {
+            let shown = signal(true);
+            let finished = kivact::view::callback(move |()| count.set(count.get() + 1));
+            let exit = |duration| {
+                style().exit(style().opacity(0.0)).transition(
+                    TransitionProp::Paint,
+                    Transition::tween(duration, Easing::Linear),
+                )
+            };
+            let panel = row((
+                show(shown, move || {
+                    node()
+                        .role(Role::Group)
+                        .test_id("leaving")
+                        .exit_layout(exit_layout)
+                        .on_exit_complete(finished)
+                        .style(
+                            exit(80)
+                                .size(50, 30)
+                                .margin_left(6)
+                                .background(rgb(0xff0000)),
+                        )
+                        .child(node().style(exit(180).size(2, 2).background(rgb(0x0000ff))))
+                }),
+                node().test_id("sibling").style(style().size(18, 30)),
+            ))
+            .style(
+                style()
+                    .gap(4)
+                    .padding(10)
+                    .border(3, rgb(0x000000))
+                    .background(rgb(0xffffff)),
+            );
+            (shown, panel)
+        });
+        let sibling_x = || screen.get_by_test_id("sibling").rect().unwrap().x;
+        let before = sibling_x();
+        let leaving = screen.get_by_test_id("leaving").rect().unwrap();
+        let (sample_x, sample_y) = (
+            (leaving.x + leaving.width - 3.0) as u32,
+            (leaving.y + 12.0) as u32,
+        );
+        assert_eq!(
+            screen.screenshot().pixel(sample_x, sample_y),
+            Some(0xff0000)
+        );
+
+        shown.set(false);
+        screen.run_until_idle();
+        assert!(screen.query_by_test_id("leaving").is_none());
+        assert_eq!(completions.get(), 0);
+        let after = sibling_x();
+        if exit_layout == ExitLayout::Pop {
+            assert!(after < before - 40.0);
+        } else {
+            assert_eq!(after, before);
+        }
+        screen.advance(ms(40));
+        // Red continues at its old position while the sibling already moved.
+        let still_red = screen.screenshot().pixel(sample_x, sample_y).unwrap();
+        assert_eq!(still_red >> 16, 0xff);
+        assert!(still_red & 0xffff < 0xffff);
+
+        screen.advance(ms(70));
+        assert_eq!(completions.get(), 0, "longer child still leaving");
+        screen.advance(ms(110));
+        assert_eq!(sibling_x(), leaving.x - 6.0);
+        assert_eq!(completions.get(), 1);
+        screen.advance(ms(200));
+        assert_eq!(completions.get(), 1);
+    }
+}
+
+#[test]
+fn exit_completion_fires_for_instant_removal_and_skips_a_disposed_callback() {
+    let completions = Rc::new(Cell::new(0));
+    let count = completions.clone();
+    let (screen, shown) = mount(move || {
+        let shown = signal(true);
+        let finished = kivact::view::callback(move |()| count.set(count.get() + 1));
+        (
+            shown,
+            show(shown, move || {
+                let disposed =
+                    kivact::view::callback::<(), ()>(|()| panic!("removed callback owner ran"));
+                (
+                    node().on_exit_complete(finished).style(
+                        style().exit(style().opacity(0.0)).transition(
+                            TransitionProp::Paint,
+                            Transition::tween(400, Easing::Linear),
+                        ),
+                    ),
+                    node().on_exit_complete(disposed),
+                )
+            }),
+        )
+    });
+    screen.set_reduced_motion(true);
+    shown.set(false);
+    screen.run_until_idle();
+    assert_eq!(completions.get(), 1);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn counter_app() -> (Screen, (FrameLoop, Rc<Cell<u64>>)) {
@@ -211,4 +323,55 @@ fn zero_iterations_end_at_once_and_springs_repeat() {
         screen.advance(ms(50));
     }
     assert_eq!(shown.get_untracked(), 100.0, "both iterations ended");
+}
+
+#[test]
+fn reactive_text_color_transitions_on_inheriting_children() {
+    let (screen, switched) = mount_with(fast_display(), || {
+        let switched = signal(false);
+        let ink = move || {
+            if switched.get() {
+                rgb(0x0000ff)
+            } else {
+                rgb(0xff0000)
+            }
+        };
+        let child = text("MMMM").test_id("inherited-ink");
+        let explicit = text("MMMM")
+            .test_id("explicit-ink")
+            .style(style().color(rgb(0x008000)));
+        (
+            switched,
+            row((child, explicit)).style(move || {
+                style().font_size(48).weight(700).color(ink()).transition(
+                    TransitionProp::Paint,
+                    Transition::tween(200, Easing::Linear),
+                )
+            }),
+        )
+    });
+
+    let inherited = screen.get_by_test_id("inherited-ink");
+    let explicit = screen.get_by_test_id("explicit-ink");
+    let first = inherited.screenshot();
+    let at = first
+        .pixels
+        .iter()
+        .position(|&pixel| {
+            let (r, g, b) = ((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255);
+            r > 220 && g < 40 && b < 40
+        })
+        .expect("a fully covered red glyph pixel");
+    let explicit_before = explicit.screenshot();
+
+    switched.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(95));
+    let middle = inherited.screenshot().pixels[at];
+    assert!((middle >> 16) & 255 > 15 && middle & 255 > 15);
+    assert_eq!(explicit.screenshot().pixels, explicit_before.pixels);
+    screen.advance(ms(160));
+    let settled = inherited.screenshot().pixels[at];
+    assert!(settled & 255 > 220 && (settled >> 16) & 255 < 40);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

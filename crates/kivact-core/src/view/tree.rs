@@ -41,7 +41,7 @@ use kivact_wire::{
 };
 
 use crate::view::handler_layers::EventHandlers;
-use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
+use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
 use kivact_reactive::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
 use kivact_wire::A11yAction;
 
@@ -53,6 +53,8 @@ pub(crate) struct ScrollState {
     /// Size of the visible area.
     pub viewport: kivact_wire::Size,
 }
+
+type SecondaryContextHandler = Rc<dyn Fn(PointerEvent) -> Result<Handled, UiError>>;
 
 /// Event handlers of one host node.
 ///
@@ -71,6 +73,8 @@ pub(crate) struct Handlers {
     pub key_up: EventHandlers<KeyEvent>,
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
+    /// Fallback for an unclaimed secondary button event in this subtree.
+    pub secondary_context: Option<SecondaryContextHandler>,
     /// Wheel handlers.
     pub wheel: EventHandlers<WheelEvent>,
     /// The input method's events for the node's IME session.
@@ -85,6 +89,8 @@ pub(crate) struct Handlers {
     pub text: Option<Rc<dyn Fn(crate::view::editing_data::TextEditEvent) -> Result<(), UiError>>>,
     /// Session changes of a TextInput (`TextEditing::on_selection`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
+    /// Loading or decoding failed for the node's image source.
+    pub image_error: Option<Rc<dyn Fn(&str) -> Result<(), UiError>>>,
     /// Scroll reports.
     pub scroll: Option<Rc<dyn Fn(ScrollState)>>,
     /// Layout reports (observed nodes): where the box is drawn (window
@@ -202,6 +208,7 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
     pub(crate) rect: Signal<Option<crate::draw::Rect>>,
+    pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::draw::Point>,
     pub(crate) scene_revision: Trigger,
 }
@@ -238,6 +245,8 @@ pub(crate) struct TNode {
     pub at: Option<&'static Location<'static>>,
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
+    pub(crate) exit_layout: crate::view::ExitLayout,
+    pub(crate) exit_complete: Option<kivact_reactive::Callback<()>>,
     /// The graph sources node references read (`Tree::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
     /// The effect that last set each dynamic prop (diagnostics::why).
@@ -255,6 +264,8 @@ impl TNode {
             owner,
             at: None,
             handlers: None,
+            exit_layout: Default::default(),
+            exit_complete: None,
             observation: None,
             origins: Vec::new(),
         }
@@ -274,9 +285,11 @@ pub(crate) struct Tree {
     pub root: NodeId,
     engine: Writer,
     future_text_edits: IdMap<usize>,
+    exit_callbacks: IdMap<kivact_reactive::Callback<()>>,
     removes: bool,
     /// Lazily installed for choice candidates; only Hidden changes notify it.
     visibility_revision: Option<Trigger>,
+    live_region_revision: Option<Trigger>,
 }
 
 impl Tree {
@@ -294,8 +307,10 @@ impl Tree {
             root,
             engine,
             future_text_edits: IdMap::default(),
+            exit_callbacks: IdMap::default(),
             removes: false,
             visibility_revision: None,
+            live_region_revision: None,
         }
     }
 
@@ -365,6 +380,16 @@ impl Tree {
         revision
     }
 
+    /// Lazily track changes to live-region ancestry.
+    pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Trigger {
+        if let Some(revision) = self.live_region_revision {
+            return revision;
+        }
+        let revision = self.root_owner().trigger(at);
+        self.live_region_revision = Some(revision);
+        revision
+    }
+
     /// Create the host-owned record before any reference publishes its binding.
     pub(crate) fn observe_node(
         &mut self,
@@ -377,6 +402,7 @@ impl Tree {
         }
         let observation = NodeObservation {
             rect: node.owner.signal(None::<crate::draw::Rect>, at),
+            text_truncated: node.owner.signal(false, at),
             scroll: node.owner.signal(crate::draw::Point::default(), at),
             scene_revision: node.owner.trigger(at),
         };
@@ -413,6 +439,41 @@ impl Tree {
             };
             id = parent;
         }
+    }
+
+    fn is_live_region(&self, id: NodeId) -> bool {
+        self.with_node(id, |node| {
+            let semantics = node.and_then(|node| node.semantics.as_deref());
+            semantics.is_some_and(|semantics| {
+                matches!(
+                    semantics.role,
+                    Some(
+                        kivact_wire::Role::Alert
+                            | kivact_wire::Role::Status
+                            | kivact_wire::Role::Log
+                    )
+                ) || matches!(
+                    semantics
+                        .accessibility
+                        .as_deref()
+                        .and_then(|a| a.live_region),
+                    Some(kivact_wire::LiveRegion::Polite | kivact_wire::LiveRegion::Assertive)
+                )
+            })
+        })
+    }
+
+    pub(crate) fn is_in_live_region(&self, mut id: NodeId) -> bool {
+        while let Some(node) = self.get(id) {
+            if self.is_live_region(id) {
+                return true;
+            }
+            let Some(parent) = node.parent else {
+                return false;
+            };
+            id = parent;
+        }
+        false
     }
 
     fn notify_visibility(&self, changed: bool) {
@@ -543,8 +604,18 @@ impl Tree {
         }
         let hides = prop == Prop::Hidden;
         let was_hidden = hides && self.hidden(id) == Some(true);
+        let tracks_live = self
+            .live_region_revision
+            .filter(|_| matches!(prop, Prop::Role | Prop::Accessibility));
+        let was_live = tracks_live.is_some() && self.is_live_region(id);
         let changed = self.engine().set(id, value);
         self.notify_visibility(hides && was_hidden != (self.hidden(id) == Some(true)));
+        if let Some(revision) = tracks_live
+            && changed
+            && was_live != self.is_live_region(id)
+        {
+            revision.notify_from_render();
+        }
         changed
     }
 
@@ -737,8 +808,7 @@ impl Tree {
         let mut tops = Vec::new();
         self.top_hosts(id, &mut tops);
         for h in tops {
-            self.removes = true;
-            self.engine().remove(h);
+            self.remove_host(h);
         }
         if let Some(p) = parent.and_then(|p| self.nodes.get_mut(&p))
             && let Some(pos) = p.children.iter().position(|c| *c == id)
@@ -756,8 +826,7 @@ impl Tree {
         let mut tops = Vec::new();
         self.top_hosts(id, &mut tops);
         for h in tops {
-            self.removes = true;
-            self.engine().remove(h);
+            self.remove_host(h);
         }
         self.delete_records(id)
     }
@@ -765,6 +834,26 @@ impl Tree {
     /// First host node of a subtree (public to lists).
     pub(crate) fn first_host_of(&self, id: NodeId) -> Option<NodeId> {
         self.first_host(id)
+    }
+
+    fn remove_host(&mut self, id: NodeId) {
+        self.removes = true;
+        let Some(node) = self.nodes.get_mut(&id) else {
+            return;
+        };
+        let pop = node.exit_layout == crate::view::ExitLayout::Pop;
+        let callback = node.exit_complete.take();
+        if let Some(callback) = callback {
+            self.exit_callbacks.insert(id, callback);
+        }
+        self.engine().remove_with_exit(id, pop, callback.is_some());
+    }
+
+    pub(crate) fn take_exit_callback(
+        &mut self,
+        id: NodeId,
+    ) -> Option<kivact_reactive::Callback<()>> {
+        self.exit_callbacks.remove(&id)
     }
 
     /// Delete core bookkeeping after the engine subtree has been removed.
@@ -878,13 +967,16 @@ impl Tree {
             .find_map(|child| self.first_focus_target(*child))
     }
 
-    /// Focusable (a text input by default) and not disabled.
+    /// Focusable (a text input by default) and eligible while disabled.
     fn is_focusable(&self, id: NodeId) -> bool {
         if self.get(id).is_none() {
             return false;
         }
         let text_input = self.with_node(id, |node| node.is_some_and(|node| node.editing.is_some()));
-        self.focusable(id).unwrap_or(text_input) && self.disabled(id) != Some(true)
+        let retain = self.with_node(id, |node| {
+            node.is_some_and(|n| n.input.focusable_when_disabled == Some(true))
+        });
+        self.focusable(id).unwrap_or(text_input) && (retain || self.disabled(id) != Some(true))
     }
 
     /// The topmost shown modal overlay (the engine's answer) when `id` lies

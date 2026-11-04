@@ -53,6 +53,9 @@ pub enum MenuItemKind {
 /// The state of a menu item for the caller's drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
+    /// Which row is under the held pointer during menu press tracking.
+    /// None leaves highlighting to the ordinary focus and hover states.
+    pub pressed_over: Option<bool>,
     pub input: PartState,
     /// The checked state of a check or radio item; `None` for other items.
     pub check: Option<MenuCheck>,
@@ -141,8 +144,9 @@ struct ItemEntry<K> {
     role: ItemRole<K>,
     /// The shortcut text, published as the item's accessible description.
     shortcut: String,
-    /// A disabled item is skipped by the keys and cannot be chosen.
+    /// A disabled item cannot be chosen.
     disabled: bool,
+    disabled_reason: Option<Reactive<String>>,
     /// An icon shown before the label: a name the theme resolves or an image.
     icon: Option<Icon>,
     /// A secondary line under the label.
@@ -169,6 +173,7 @@ impl<K> MenuEntry<K> {
                 role,
                 shortcut: String::new(),
                 disabled: false,
+                disabled_reason: None,
                 icon: None,
                 description: None,
                 destructive: false,
@@ -291,11 +296,20 @@ impl<K> MenuEntry<K> {
         self
     }
 
-    /// A disabled item is skipped by the arrow keys and typeahead and cannot
-    /// be chosen. A disabled submenu does not open. Items only.
+    /// A disabled item cannot be chosen, and a disabled submenu cannot open.
+    /// By default the arrow keys and typeahead skip disabled items. Items only.
     #[track_caller]
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.item_for("disabled", Location::caller()).disabled = disabled;
+        self
+    }
+
+    /// Explain why the item is unavailable. Themes retaining disabled menu
+    /// focus can show this reason as a tooltip. This does not disable the item.
+    #[track_caller]
+    pub fn disabled_reason(mut self, reason: impl IntoText) -> Self {
+        self.item_for("disabled_reason", Location::caller())
+            .disabled_reason = Some(Reactive::new(reason.into_text()));
         self
     }
 
@@ -371,6 +385,15 @@ impl<K> MenuEntry<K> {
     /// Whether the item is unavailable ([`disabled`](Self::disabled)).
     pub fn is_disabled(&self) -> bool {
         self.item_data().is_some_and(|item| item.disabled)
+    }
+
+    /// The explanation supplied by [`disabled_reason`](Self::disabled_reason).
+    #[track_caller]
+    pub fn disabled_reason_value(&self) -> Option<String> {
+        self.item_data()?
+            .disabled_reason
+            .as_ref()
+            .map(Reactive::get)
     }
 
     /// The checked state of a check or radio item; `None` for other rows.
@@ -513,6 +536,7 @@ impl<K> MenuEntry<K> {
                 },
                 shortcut: item.shortcut,
                 disabled: item.disabled,
+                disabled_reason: item.disabled_reason,
                 icon: item.icon,
                 description: item.description,
                 destructive: item.destructive,
@@ -610,6 +634,8 @@ pub(super) struct Session<K: 'static> {
     pub(super) kept: Value<usize>,
     pub(super) want: Signal<Option<Want<K>>>,
     pub(super) typed: Var<Typeahead>,
+    pub(super) press: Option<super::press_state::Press>,
+    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::draw::Rect)>>,
 }
 
 impl<K: 'static> Clone for Session<K> {

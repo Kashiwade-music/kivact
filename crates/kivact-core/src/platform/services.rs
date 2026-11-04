@@ -149,6 +149,20 @@ pub fn set_fullscreen(on: bool) -> impl Future<Output = Result<(), UiError>> + '
     async move { slot.await.and_then(platform_result).map(|_| ()) }
 }
 
+/// Override the window's reduced-motion preference. Pass `None` to follow
+/// the system again. The override also applies to the host's transitions.
+#[track_caller]
+pub fn set_reduced_motion(
+    override_value: Option<bool>,
+) -> impl Future<Output = Result<(), UiError>> + 'static {
+    let slot = ask(
+        "set_reduced_motion",
+        PlatformRequest::ReducedMotion(override_value),
+        Location::caller(),
+    );
+    async move { slot.await.and_then(platform_result).map(|_| ()) }
+}
+
 /// Copies `text` to the system clipboard.
 #[track_caller]
 pub fn copy_text(text: impl Into<String>) -> impl Future<Output = Result<(), UiError>> + 'static {

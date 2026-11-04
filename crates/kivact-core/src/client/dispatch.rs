@@ -63,6 +63,7 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             pointer,
         } => pointer::activate_event(rt, host_event, *node, *region, *pointer),
         HostEvent::HoverChanged { node } => pointer::hover_changed(rt, *node),
+        HostEvent::MousePosition(position) => crate::view::hover::set_mouse_position(rt, *position),
         HostEvent::Key { .. } => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.
         HostEvent::ModifiersChanged(_) => {}
@@ -81,6 +82,12 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             region,
             visible,
         } => text::focus_changed(rt, *node, *region, *visible),
+        HostEvent::ExitComplete { node } => {
+            let callback = crate::view::state::ViewState::tree_mut(rt).take_exit_callback(*node);
+            if let Some(callback) = callback {
+                callback.call_if_alive(());
+            }
+        }
         HostEvent::FocusResult { request, result } => {
             text::focus_result(rt, *request, result.clone())
         }
@@ -101,9 +108,12 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             viewport,
             ..
         } => env::scroll_changed(rt, *node, *offset, *viewport),
-        HostEvent::LayoutChanged { node, rect, size } => {
-            env::layout_changed(rt, *node, *rect, *size)
-        }
+        HostEvent::LayoutChanged {
+            node,
+            rect,
+            size,
+            text_truncated,
+        } => env::layout_changed(rt, *node, *rect, *size, *text_truncated),
         HostEvent::CloseRequested => env::close_requested(rt),
         HostEvent::EffectResult { request, result } => {
             platform::effect_result(rt, *request, result)

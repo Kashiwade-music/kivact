@@ -52,7 +52,9 @@ pub use grid::{
 /// across updates for the same run (the host gives the platform its own
 /// identity).
 pub use kivact_types::NodeId as TextRunId;
-pub use kivact_types::protocol::{PathCmd, ShapedText, TextLine};
+pub use kivact_types::protocol::{
+    InlineBox, InlineBoxPlacement, PathCmd, ShapedInlineText, ShapedText, TextLine,
+};
 /// GPU texture sharing: kivact-types' vocabulary.
 pub use kivact_types::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,
@@ -74,9 +76,9 @@ pub use measure::{
 };
 pub use motion::MotionClock;
 pub use node::{
-    BoxData, EditingData, FileDialogRequest, ImageData, ImeSession, IntrinsicSize, NodeInput,
-    NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayAt, OverlayProps, PlatformRequest,
-    SceneLayer, TextData,
+    BoxData, EditLineLayout, EditingData, FileDialogRequest, ImageData, ImeSession, IntrinsicSize,
+    NodeInput, NodeKind, NodeProperties, NodeSemantics, NodeType, OverlayAt, OverlayFit,
+    OverlayProps, PlatformRequest, RovingFocus, SceneLayer, TextData,
 };
 pub use paint::{
     BlendMode, Border, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners,
@@ -86,8 +88,8 @@ pub use paint::{
 pub use paint_vec::PaintVec;
 pub use scene::{Region, Scene, SceneCmd, TextRun};
 pub use semantics::{
-    A11yAction, A11yRequest, CheckedState, DismissReason, LiveRegion, Orientation, Role,
-    SemanticsProperties, SortDirection, check_text,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, LiveRegion, Orientation,
+    PopupKind, Role, SemanticsProperties, SortDirection, check_text,
 };
 pub use style::{
     Cursor, ElementTransform, LayoutProps, PaintDelta, PaintProps, ScrollbarDelta, ScrollbarProps,

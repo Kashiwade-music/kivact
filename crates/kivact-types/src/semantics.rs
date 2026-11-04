@@ -104,6 +104,46 @@ pub enum Role {
     /// A landmark of links that navigate the App or the document, such as
     /// a breadcrumb or a pagination (ARIA `navigation`).
     Navigation,
+    /// A region that receives a chronological stream of updates.
+    Log,
+    /// A self-contained article or message.
+    Article,
+    /// The primary content landmark of the application.
+    Main,
+    /// A named section of the application.
+    Region,
+}
+
+/// The meaning of the current item in a related set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CurrentItem {
+    /// A current item without a more specific meaning.
+    True,
+    /// The current page.
+    Page,
+    /// The current step of a process.
+    Step,
+    /// The current location.
+    Location,
+    /// The current date.
+    Date,
+    /// The current time.
+    Time,
+}
+
+/// The kind of popup an accessible control opens.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PopupKind {
+    /// A menu.
+    Menu,
+    /// A list of options.
+    ListBox,
+    /// A tree of options.
+    Tree,
+    /// A grid.
+    Grid,
+    /// A dialog.
+    Dialog,
 }
 
 /// Portable actions requested by assistive technology for a semantics node.

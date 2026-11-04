@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::support::mount;
 use kivact::Asset;
 use kivact::control::ImageFit;
 use kivact::diagnostics::ErrorKind;
@@ -38,6 +39,28 @@ fn asset_errors(screen: &Screen) -> Vec<UiError> {
         .into_iter()
         .filter(|e| *e.kind() == ErrorKind::Asset)
         .collect()
+}
+
+#[test]
+fn an_image_error_handler_can_show_a_fallback_and_observes_retried_sources() {
+    let missing = Asset::from("missing-retry.png");
+    let first = missing.clone();
+    let (screen, source) = mount(move || {
+        let source = signal(first);
+        let failures = signal(0);
+        let view = column((
+            image(source).on_image_error(move |_| failures.update(|count| *count += 1)),
+            text(move || format!("Fallback count {}", failures.get())),
+        ));
+        (source, view)
+    });
+    screen.get_by_text("Fallback count 1");
+    source.set(Asset::from(PNG_2X2));
+    screen.run_until_idle();
+    source.set(missing);
+    screen.run_until_idle();
+    screen.get_by_text("Fallback count 2");
+    assert!(asset_errors(&screen).is_empty());
 }
 
 #[test]

@@ -52,6 +52,8 @@ pub(super) fn resolve(
     at: &'static Location<'static>,
 ) -> Resolved {
     let Common {
+        exit_layout,
+        exit_complete,
         test_id,
         node_ref,
         style,
@@ -69,6 +71,8 @@ pub(super) fn resolve(
         indeterminate,
         expanded,
         focusable,
+        focusable_when_disabled,
+        roving_focus,
         hit_testable,
         focus_on_press,
         mut handlers,
@@ -169,9 +173,13 @@ pub(super) fn resolve(
     };
     Resolved {
         first: FirstWrite {
+            exit_layout,
+            exit_complete,
             test_id,
             role,
             focusable,
+            focusable_when_disabled,
+            roving_focus,
             hit_testable,
             actions,
             handlers,

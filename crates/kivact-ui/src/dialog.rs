@@ -22,13 +22,27 @@ use super::recipes::{Recipe, UiRecipes};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact_core::primitive::{NodeExt, Part};
-use kivact_core::style::{Length, Position, pct, style};
+use kivact_core::style::{Length, Position, Theme, ThemeExtension, current_theme, pct, style};
 use kivact_core::view::{
     IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay,
 };
 use kivact_core::{Binding, Value};
 use kivact_interaction::{DialogKind, Dismiss, PopupState, Side};
 use std::rc::Rc;
+
+/// Where a theme centers modal dialogs opened by an attached trigger.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DialogCenter {
+    #[default]
+    Anchor,
+    Window,
+}
+
+impl ThemeExtension for DialogCenter {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
+    }
+}
 pub struct Dialog {
     open: Binding<bool>,
     title: Value<String>,
@@ -383,8 +397,15 @@ impl Dialog {
                 panel = panel.style(move || style().width(width.get()));
             }
             let popover = kind == DialogKind::Popover;
+            let position_anchor = if matches!(kind, DialogKind::Modal | DialogKind::AlertModal)
+                && *current_theme().get::<DialogCenter>() == DialogCenter::Window
+            {
+                node_ref()
+            } else {
+                anchor
+            };
             let layer = overlay(
-                anchor,
+                position_anchor,
                 if popover {
                     self.placement
                 } else {

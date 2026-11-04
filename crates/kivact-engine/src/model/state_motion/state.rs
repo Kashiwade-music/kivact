@@ -55,13 +55,15 @@ pub(crate) struct StateAnimation {
     /// re-capture, so an interrupted spring goes on with its velocity.
     pub(super) spring: SpringRun,
     pub(super) colors_text: bool,
+    /// Interpolates a base color that descendants may inherit.
+    pub(super) colors_base_text: bool,
     pub(super) phase: AnimPhase,
 }
 
 impl StateAnimation {
-    /// Whether it moves an inherited text color.
-    pub(crate) fn colors_text(&self) -> bool {
-        self.colors_text
+    /// Whether it moves a state color or an unshadowed base color.
+    pub(crate) fn colors_text(&self, inherits_base: impl FnOnce() -> bool) -> bool {
+        self.colors_text || (self.colors_base_text && inherits_base())
     }
     pub(crate) fn current_paint(&self) -> PaintProps {
         let mut p = self.target.clone();

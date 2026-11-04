@@ -7,7 +7,7 @@ use kivact_core::control::{NodeBuilder, node, text};
 use kivact_core::draw::Rect;
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::{
-    IntoText, IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay,
+    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay,
 };
 use kivact_interaction::Side;
 use std::rc::Rc;
@@ -15,6 +15,7 @@ use std::rc::Rc;
 /// [`attach`](Tooltip::attach).
 pub struct Tooltip {
     label: Value<String>,
+    enabled: Value<bool>,
     placement: Placement,
     align: Option<OverlayAlign>,
     offset: f32,
@@ -30,6 +31,7 @@ pub struct Tooltip {
 pub fn tooltip(label: impl IntoText) -> Tooltip {
     Tooltip {
         label: label.into_text_value(),
+        enabled: true.into_value(),
         placement: Placement::Above,
         align: None,
         offset: 4.0,
@@ -60,6 +62,12 @@ impl Tooltip {
         self
     }
 
+    /// Only reveal the hint while enabled.
+    pub fn enabled(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.enabled = enabled.into_value();
+        self
+    }
+
     /// Align the surface along its anchor, preserving the overlay default if unset.
     pub fn align(mut self, align: OverlayAlign) -> Self {
         self.align = Some(align);
@@ -81,7 +89,7 @@ impl Tooltip {
     /// has a description keeps it. The surface is mounted in a fresh owner
     /// while the tooltip is shown.
     pub fn attach<T: NodeBuilder + IntoView>(self, mut trigger: T) -> View {
-        let behavior = kivact_interaction::use_tooltip();
+        let behavior = kivact_interaction::use_tooltip_when(self.enabled);
         let part = behavior.trigger();
         let anchor = part.node_ref();
         let described = trigger.has_description();
@@ -114,6 +122,7 @@ impl Tooltip {
             )
             .part(part)
             .name(self.label)
+            .keep_anchor_clear(true)
             .offset(self.offset);
             match self.align {
                 Some(align) => layer.align(align),

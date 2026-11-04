@@ -15,6 +15,7 @@
 pub(crate) mod boundary;
 pub(crate) mod common;
 pub(crate) mod descriptor;
+mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
 pub(crate) mod handler_layers;
@@ -49,6 +50,8 @@ pub use boundary::{
 };
 #[doc(inline)]
 pub use descriptor::{IntoView, View};
+#[doc(inline)]
+pub use hover::mouse_position;
 #[doc(inline)]
 pub use input::{
     A11yEvent, ButtonPress, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
@@ -111,15 +114,18 @@ pub use modifier_keys::current_modifiers;
 pub use kivact_reactive::constant_value;
 
 #[doc(inline)]
+pub use exit_layout::ExitLayout;
+#[doc(inline)]
 pub use kivact_reactive::{context, try_context};
 #[doc(inline)]
 pub use kivact_wire::{
-    A11yAction, A11yRequest, CheckedState, LiveRegion, Orientation, Role, SortDirection,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
+    SortDirection,
 };
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 #[doc(inline)]
-pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
+pub use overlays::{Overlay, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at};
 
 pub(crate) use part::Part;
 

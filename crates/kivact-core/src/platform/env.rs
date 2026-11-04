@@ -29,6 +29,18 @@ fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) 
     state(api, Location::caller()).field(api, f).get()
 }
 
+/// Whether the App is still building its first host revision.
+///
+/// Read this during mount setup to distinguish content present on the first
+/// screen from content mounted later. This is an untracked snapshot.
+#[track_caller]
+pub fn is_initial_render() -> bool {
+    let rt = kivact_reactive::Owner::ambient("platform::is_initial_render", Location::caller())
+        .runtime();
+    let revision = ViewState::tree(&rt).engine().stats().revision;
+    revision == 0
+}
+
 /// The window's available font families, sorted by name without duplicates.
 ///
 /// Names retain their original case and include fonts registered with
@@ -49,7 +61,8 @@ pub fn fullscreen() -> bool {
     env_field("fullscreen", |e| e.fullscreen)
 }
 
-/// Whether the system asks for reduced motion, tracked.
+/// Whether reduced motion is active, tracked. Uses the system preference
+/// unless the app sets an override with [`super::set_reduced_motion`].
 #[track_caller]
 pub fn reduced_motion() -> bool {
     env_field("reduced_motion", |e| e.reduced_motion)

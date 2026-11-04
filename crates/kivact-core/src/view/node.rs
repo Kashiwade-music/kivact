@@ -24,8 +24,10 @@ use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use crate::view::{HandlerResult, IntoText, IntoValue};
 use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_reactive::{Callback, ErrorKind, UiError};
 use kivact_style::Style;
+
+use super::exit_layout::ExitLayout;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Draw, IntrinsicSize, Size};
 
@@ -244,6 +246,22 @@ pub trait NodeBuilder: Sized {
         self
     }
 
+    /// Set how this node lays out when it is the root of a removed subtree.
+    /// Absolute, fixed and overlay nodes already occupy no slot in normal flow.
+    fn exit_layout(mut self, layout: ExitLayout) -> Self {
+        self.node_mut().common.exit_layout = layout;
+        self
+    }
+
+    /// Run after this node, when directly removed, is no longer drawn.
+    /// The callback runs once even when the removal has no animation or an
+    /// ancestor cuts the animation short. Create it outside the removed
+    /// branch so its owner can still be alive when the exit finishes.
+    fn on_exit_complete(mut self, callback: Callback<()>) -> Self {
+        self.node_mut().common.exit_complete = Some(callback);
+        self
+    }
+
     /// Hide the node and its subtree.
     fn hidden(mut self, v: impl IntoValue<bool>) -> Self {
         self.node_mut().common.hidden = Some(v.into_prop());
@@ -267,6 +285,48 @@ pub trait NodeBuilder: Sized {
     fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
         self.node_mut().common.focusable = Some(on.into_prop());
         self
+    }
+
+    /// Keep an otherwise focusable control in keyboard focus order while it
+    /// is disabled, so users can reach its label and any attached tooltip.
+    /// Activation and editing remain disabled.
+    fn focusable_when_disabled(mut self, on: bool) -> Self {
+        self.node_mut().common.focusable_when_disabled = on;
+        self
+    }
+
+    /// Give this group one Tab stop and move between its eligible controls
+    /// with unhandled arrows along `orientation`, Home and End. A text field
+    /// keeps arrows that still move its caret or selection.
+    #[track_caller]
+    fn roving_focus(mut self, orientation: crate::view::Orientation) -> Self {
+        use crate::view::node_ref::RovingMove;
+        use crate::view::{Handled, Key, Modifiers, Orientation, ReadingDirection};
+        let rtl = crate::view::current_direction() == ReadingDirection::Rtl;
+        let reference = crate::view::node_ref();
+        let common = &mut self.node_mut().common;
+        common.roving_focus = Some(kivact_wire::RovingFocus { orientation, rtl });
+        common.node_ref.push(reference);
+        self.on_key(move |event| {
+            if event.modifiers != Modifiers::default() {
+                return Handled::No;
+            }
+            let movement = match (orientation, event.key) {
+                (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
+                (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,
+                (Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => RovingMove::Next,
+                (Orientation::Vertical, Key::ArrowUp) => RovingMove::Previous,
+                (Orientation::Vertical, Key::ArrowDown) => RovingMove::Next,
+                (_, Key::Home) => RovingMove::First,
+                (_, Key::End) => RovingMove::Last,
+                _ => return Handled::No,
+            };
+            if reference.move_roving_focus(movement) {
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
     }
 
     /// Handle keys reported by the host before existing key handlers,

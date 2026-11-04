@@ -15,9 +15,13 @@ use crate::view::tree::Handlers;
 
 /// The node's first write.
 pub(super) struct FirstWrite {
+    pub(super) exit_layout: crate::view::ExitLayout,
+    pub(super) exit_complete: Option<kivact_reactive::Callback<()>>,
     pub(super) test_id: Option<Rc<str>>,
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,
+    pub(super) focusable_when_disabled: bool,
+    pub(super) roving_focus: Option<kivact_wire::RovingFocus>,
     pub(super) hit_testable: Option<bool>,
     /// The accessibility actions the node offers, its own and its parts'.
     pub(super) actions: Vec<crate::view::A11yAction>,
@@ -34,9 +38,13 @@ pub(super) struct FirstWrite {
 /// editing). This is the only stage that borrows the engine tree for its writes at once.
 pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Location<'static>) {
     let FirstWrite {
+        exit_layout,
+        exit_complete,
         test_id,
         role,
         focusable,
+        focusable_when_disabled,
+        roving_focus,
         hit_testable,
         actions,
         handlers,
@@ -45,7 +53,7 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         editing,
     } = first;
     let listen_file = !handlers.file.is_empty();
-    let listen_pointer = !handlers.pointer.is_empty();
+    let listen_pointer = !handlers.pointer.is_empty() || handlers.secondary_context.is_some();
     let listen_wheel = !handlers.wheel.is_empty();
     // The engine reports the selection sessions of a node that has a session handler.
     let report_session = handlers.selection.is_some();
@@ -57,10 +65,18 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         }
         if let Some(n) = tree.get_mut(id) {
             n.at = Some(at);
+            n.exit_layout = exit_layout;
+            n.exit_complete = exit_complete;
             n.handlers = Some(Box::new(handlers));
         }
         if let Some(r) = role {
             tree.update(id, PropValue::Role(r), writer);
+        }
+        if focusable_when_disabled {
+            tree.update(id, PropValue::FocusableWhenDisabled(true), writer);
+        }
+        if let Some(roving_focus) = roving_focus {
+            tree.update(id, PropValue::RovingFocus(roving_focus), writer);
         }
         if let Some(h) = hit_testable {
             tree.update(id, PropValue::HitTestable(h), writer);

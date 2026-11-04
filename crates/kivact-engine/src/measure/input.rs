@@ -5,6 +5,13 @@ use crate::tree::NodeTree;
 use kivact_text::{EditLines, RefreshError, RefreshMode, Source};
 use kivact_wire::NodeId;
 use std::cell::RefMut;
+
+/// The width available to the editor during measurement or painting.
+#[derive(Clone, Copy)]
+pub(crate) enum LineViewport {
+    Measure(Option<f32>),
+    Paint(f32),
+}
 /// One captured source/style reconciliation, borrowing the retained cache once.
 pub(crate) struct RefreshedLines<'a> {
     pub(crate) lines: RefMut<'a, EditLines>,
@@ -19,10 +26,19 @@ pub(crate) fn edit_lines<'a>(
     columns: &MeasureColumns,
     editors: &'a [Option<Box<EditorNode>>],
     id: NodeId,
+    viewport: LineViewport,
     engine: &mut arvane::Engine,
 ) -> Option<(RefMut<'a, EditLines>, &'a str)> {
-    let refreshed = refresh_lines(tree, columns, editors, id, engine, RefreshMode::Incremental)
-        .expect("invariant: incremental refresh performs no integrity verification")?;
+    let refreshed = refresh_lines(
+        tree,
+        columns,
+        editors,
+        id,
+        viewport,
+        engine,
+        RefreshMode::Incremental,
+    )
+    .expect("invariant: incremental refresh performs no integrity verification")?;
     let text = refreshed
         .lines
         .shown(refreshed.source.value, refreshed.source.placeholder);
@@ -35,6 +51,7 @@ pub(crate) fn refresh_lines<'a>(
     columns: &MeasureColumns,
     editors: &'a [Option<Box<EditorNode>>],
     id: NodeId,
+    viewport: LineViewport,
     engine: &mut arvane::Engine,
     mode: RefreshMode,
 ) -> Result<Option<RefreshedLines<'a>>, RefreshError> {
@@ -47,16 +64,32 @@ pub(crate) fn refresh_lines<'a>(
     let editor = &node.editor;
     let edit = editor.state();
     let style = crate::measure::input_style(tree, columns, id, engine);
-    let Ok(mut slot) = node.lines.try_borrow_mut() else {
+    let wrap = n.edit_line_layout().wrap;
+    let measurement = wrap && matches!(viewport, LineViewport::Measure(_));
+    let width = match viewport {
+        LineViewport::Measure(width) => width,
+        LineViewport::Paint(width) => Some(width),
+    };
+    let cache = if measurement {
+        &node.measure_lines
+    } else {
+        &node.lines
+    };
+    let Ok(mut slot) = cache.try_borrow_mut() else {
         return Ok(None);
     };
     let source = Source {
         value: edit.value(),
         revision: editor.revision(),
-        damage: editor.take_damage(),
+        damage: if measurement {
+            None
+        } else {
+            editor.take_damage()
+        },
         placeholder: n.placeholder(),
         password: n.password(),
         multiline: n.multiline(),
+        wrap_width: width.filter(|width| wrap && width.is_finite() && *width > 0.0),
     };
     #[cfg(all(debug_assertions, feature = "testing"))]
     let reference_style = (mode == RefreshMode::Verify).then(|| style.clone());

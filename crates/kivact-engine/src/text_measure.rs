@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use kivact_wire::{ComputedText, TextMetrics, TextRun, TextShaper};
+use kivact_wire::{ComputedText, InlineBox, ShapedInlineText, TextMetrics, TextRun, TextShaper};
 
 /// Text measurement for one drawing callback, independent of any node: the
 /// shared text engine and the text style the drawn runs inherit. A run
@@ -78,5 +78,26 @@ impl TextShaper for TextMeasurer {
         max_width: Option<f32>,
     ) -> Option<Arc<kivact_types::protocol::ShapedText>> {
         TextMeasurer::shape(self, run, max_width)
+    }
+
+    fn shape_inline(
+        &self,
+        run: &TextRun,
+        max_width: Option<f32>,
+        boxes: &[InlineBox],
+    ) -> Option<ShapedInlineText> {
+        let engine = self.engine.try_borrow_mut();
+        debug_assert!(
+            engine.is_ok(),
+            "text engine is already borrowed during draw shaping"
+        );
+        let mut engine = engine.ok()?;
+        kivact_lower::glyphs::shape_inline_run(
+            &mut engine,
+            run,
+            Some(&self.inherited),
+            max_width,
+            boxes,
+        )
     }
 }

@@ -14,6 +14,7 @@ Kivact は開発初期の段階にあり、API は予告なく変わります。
 | Pop | `kivact-ui-pop` | 落ち着いたスレート色の面、淡い青のグラデーション、黄色のアクセント | 業務アプリ: フォーム、ダッシュボード、表、スケジュール |
 | Game | `kivact-ui-game` | 直線的な角、斜めのボタン、区切りのあるメーター | ゲームの操作パネル、HUD、運用コンソール |
 | Creative | `kivact-ui-creative` | ダークな編集ツールのような、密度の高いコンパクトな見た目（ライトモードもあります） | 制作ツール: プロパティパネル、数値欄、カラーピッカー、ドック |
+| Soft | `kivact-ui-soft` | ライトとダークに対応した Astryx Neutral | 丸みのある操作部品とニュートラルな配色を使うアプリ |
 
 使うキットのチュートリアルから始め、具体的な作業があるときにそのキットの作業別ガイドを使います。
 
@@ -23,6 +24,7 @@ Kivact は開発初期の段階にあり、API は予告なく変わります。
 | Pop | [チュートリアル](pop/getting-started/README.md) | [ガイド](pop/how-to-guide/README.md) | `cargo run -p kivact-ui-pop-catalog` |
 | Game | [チュートリアル](game/getting-started/README.md) | [ガイド](game/how-to-guide/README.md) | `cargo run -p kivact-ui-game-catalog` |
 | Creative | [チュートリアル](creative/getting-started/README.md) | [ガイド](creative/how-to-guide/README.md) | `cargo run -p kivact-ui-creative-catalog` |
+| Soft | [チュートリアル](soft/getting-started/README.md) | [ガイド](soft/how-to-guide/README.md) | `cargo run -p kivact-ui-soft-catalog` |
 
 右端の列は、キットのすべてのコンポーネントを見せるカタログアプリです。リポジトリのチェックアウトから起動してください。キットを見比べるのに最も手早い方法です。
 
@@ -53,7 +55,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`kivact_ui_pop` を `kivact_ui_basic`、`kivact_ui_game`、`kivact_ui_creative` に置き換えると、同じアプリがそのキットの見た目で描かれます。キット固有のコンポーネントは `kivact_ui_pop::名前` のように使います。標準のものと同じビルダーなので、`.style(..)`、`.test_id(..)` などの修飾子を受け取ります。
+`kivact_ui_pop` を `kivact_ui_basic`、`kivact_ui_game`、`kivact_ui_creative`、`kivact_ui_soft` のいずれかに置き換えると、そのキットの外観を適用できます。キット固有のコンポーネントは `kivact_ui_pop::名前` のように使います。標準のものと同じビルダーなので、`.style(..)`、`.test_id(..)` などの修飾子を受け取ります。
 
 ## リファレンス
 
@@ -63,4 +65,4 @@ fn main() -> kivact::Result<()> {
 cargo doc -p kivact-ui-pop --open
 ```
 
-ほかのキットには `kivact-ui-basic`、`kivact-ui-game`、`kivact-ui-creative` を指定します。標準コンポーネントそのものは `kivact::ui` に記載されています（`cargo doc -p kivact --open`）。
+ほかのキットには `kivact-ui-basic`、`kivact-ui-game`、`kivact-ui-creative`、`kivact-ui-soft` を指定します。標準コンポーネントそのものは `kivact::ui` に記載されています（`cargo doc -p kivact --open`）。

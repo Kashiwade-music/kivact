@@ -122,7 +122,7 @@ impl Model {
         if invalid || n.read_only() || n.password() {
             let props = extras.get_or_insert_with(Default::default);
             props.invalid = invalid;
-            props.read_only = n.read_only();
+            props.read_only |= n.read_only();
             props.protected = n.password();
         }
         if let Some(props) = &mut extras {
@@ -401,8 +401,12 @@ pub(super) fn properties(
         set_size: p.set_size,
         pos_in_set,
         multiselectable: p.multiselectable,
+        busy: p.busy.unwrap_or(false),
+        required: p.required.unwrap_or(false),
+        read_only: p.read_only.unwrap_or(false),
+        has_popup: p.has_popup,
+        current_item: p.current_item,
         invalid: false,
-        read_only: false,
         protected: false,
     }
 }

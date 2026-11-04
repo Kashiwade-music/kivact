@@ -77,6 +77,24 @@ pub enum ControlSize {
     Large,
 }
 
+#[derive(Clone, Copy)]
+struct InheritedControlSize(ControlSize);
+
+/// Set the default size of standard controls created in `content`.
+/// A control's explicit `.size(..)` wins, including `ControlSize::Medium`.
+/// Nested providers use the nearest default.
+pub fn provide_control_size<V: kivact_core::view::IntoView>(
+    size: ControlSize,
+    content: impl FnOnce() -> V + 'static,
+) -> kivact_core::view::View {
+    kivact_core::view::provide(InheritedControlSize(size), content)
+}
+
+pub(super) fn default_control_size() -> ControlSize {
+    kivact_core::view::try_context::<InheritedControlSize>()
+        .map_or_else(ControlSize::default, |size| size.0)
+}
+
 /// What a button's recipes know of it: its root, its content row, its
 /// icon boxes and its busy indicator get the same state.
 #[derive(Clone, Debug, PartialEq)]
@@ -154,14 +172,15 @@ pub struct ProgressState {
     pub size: ControlSize,
     /// The fraction the bar is shown at, from 0 to 1: it moves toward
     /// `value` over a short time (at once under reduced motion), starting
-    /// from 0 when the bar appears; 0 while indeterminate. A recipe that
+    /// from 0 by default when the bar appears; 0 while indeterminate. A recipe that
     /// paints the fill reads it in the paint, which follows it. The handle
     /// is made at setup and stays the same for the mounted bar; it is not
     /// part of the state's equality.
     pub shown: kivact_core::Value<f64>,
-    /// A clock from 0 to 1 that repeats about every 1.3 s while the bar is
-    /// indeterminate or [`Progress::moving`](super::Progress::moving) is true,
-    /// and rests at 0 otherwise (and under reduced motion). A recipe reads it
+    /// A clock from 0 to 1 that repeats with the theme's
+    /// [`ProgressMotion`](super::ProgressMotion) period while the bar is
+    /// indeterminate or [`Progress::moving`](super::Progress::moving) is true.
+    /// The clock rests at 0 under reduced motion by default. A recipe reads it
     /// in a paint that moves. The handle is made at setup and stays the same
     /// for the mounted bar; it is not part of the state's equality.
     pub phase: kivact_core::Value<f32>,
@@ -205,6 +224,19 @@ pub struct FieldState {
     pub invalid: bool,
 }
 
+/// The visual position of a switch thumb during an opt-in gesture.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SwitchDragState {
+    /// Physical translation along the writing direction, in logical pixels.
+    pub offset: Option<f32>,
+    /// The side the thumb is showing, before the binding commits.
+    pub visually_on: bool,
+    pub touch: bool,
+    pub tracking: bool,
+    pub lifted: bool,
+    pub released: bool,
+}
+
 /// The state of a check box, a switch or a radio item for its recipe.
 #[derive(Clone, Copy, Debug)]
 pub struct CheckState {
@@ -223,6 +255,8 @@ pub struct CheckState {
     /// stays the same for the mounted control; read it in the paint, which
     /// follows its text. It is not part of the state's equality.
     pub text: Option<kivact_core::Value<String>>,
+    /// Live visual state for an opted-in Switch gesture.
+    pub switch_drag: Option<SwitchDragState>,
 }
 
 impl PartialEq for CheckState {
@@ -231,6 +265,7 @@ impl PartialEq for CheckState {
             && self.checked == other.checked
             && self.size == other.size
             && self.invalid == other.invalid
+            && self.switch_drag == other.switch_drag
     }
 }
 
@@ -347,6 +382,6 @@ pub struct DataTableCheckState {
 pub struct DataTablePageState {
     /// The page shown, from 0.
     pub index: usize,
-    /// How many pages the filtered rows fill; at least 1.
+    /// How many pages the filtered rows fill. Zero for a remote page with unknown total.
     pub pages: usize,
 }

@@ -71,11 +71,11 @@ pub(crate) struct NodeRefState {
 
 /// The node the host last reported under the pointer (`view::hover`).
 #[derive(Clone, Copy)]
-pub(crate) enum Hover {
+pub(crate) enum PointerObservation<T: Clone + PartialEq + 'static> {
     /// No `NodeRef::hovered` asked yet: the last report as a plain value.
-    Plain(Option<NodeId>),
+    Plain(Option<T>),
     /// The graph source the first `NodeRef::hovered` created; it holds the last report.
-    Reactive(Signal<Option<NodeId>>),
+    Reactive(Signal<Option<T>>),
 }
 
 /// A focus request made in this turn and not sent to the host yet.
@@ -226,7 +226,8 @@ pub(crate) struct ViewState {
     /// Missing capabilities the App relied on and that were noted.
     noted_missing: RefCell<std::collections::BTreeSet<&'static str>>,
     /// The node the host reported under the pointer last.
-    hover: Cell<Hover>,
+    hover: Cell<PointerObservation<NodeId>>,
+    pub(crate) mouse: Cell<PointerObservation<crate::draw::Point>>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<bool>,
@@ -248,7 +249,8 @@ impl ViewState {
         ViewState {
             started: OnceCell::new(),
             noted_missing: RefCell::new(std::collections::BTreeSet::new()),
-            hover: Cell::new(Hover::Plain(None)),
+            hover: Cell::new(PointerObservation::Plain(None)),
+            mouse: Cell::new(PointerObservation::Plain(None)),
             pointer_modality: Cell::new(false),
             modifiers: Cell::new(Modifiers::default()),
             requests: RefCell::new(Requests::default()),
@@ -355,12 +357,12 @@ impl ViewState {
     }
 
     /// The node the host reported under the pointer last.
-    pub(crate) fn hover(&self) -> Hover {
+    pub(crate) fn hover(&self) -> PointerObservation<NodeId> {
         self.hover.get()
     }
 
     /// Replace the hover record (a report, or the first `NodeRef::hovered`).
-    pub(crate) fn set_hover(&self, hover: Hover) {
+    pub(crate) fn set_hover(&self, hover: PointerObservation<NodeId>) {
         self.hover.set(hover);
     }
 }

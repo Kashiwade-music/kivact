@@ -25,7 +25,7 @@ pub(crate) struct HostNode {
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<Scene>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) sent_layout: Option<(Rect, Size)>,
+    pub(crate) sent_layout: Option<(Rect, Size, bool)>,
     pub(crate) sent_scroll: Option<(Point, Size, Size)>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
@@ -273,17 +273,33 @@ impl HostNode {
         self.input_data().and_then(|s| s.multiline).unwrap_or(false)
     }
 
+    pub(crate) fn edit_line_layout(&self) -> kivact_wire::EditLineLayout {
+        if self.multiline() {
+            self.input_data()
+                .and_then(|s| s.line_layout)
+                .unwrap_or_default()
+        } else {
+            kivact_wire::EditLineLayout::default()
+        }
+    }
+
     /// Focusable by its own props: `Focusable` (a text input by default),
-    /// neither disabled nor hidden. A tab stop must also be shown
+    /// not hidden and eligible while disabled. A tab stop must also be shown
     /// ([`crate::model::Model::is_tab_stop`]).
     pub(crate) fn focusable(&self, editor_present: bool) -> bool {
         let focusable = self.properties.input.focusable.unwrap_or(editor_present);
-        focusable && !self.disabled() && !self.hidden()
+        focusable
+            && (!self.disabled() || self.properties.input.focusable_when_disabled == Some(true))
+            && !self.hidden()
     }
 
     /// The declared native pointer focus destination, if currently bound.
     pub(crate) fn focus_on_press(&self) -> Option<kivact_wire::FocusTarget> {
         self.properties.input.focus_on_press
+    }
+
+    pub(crate) fn roving_focus(&self) -> Option<kivact_wire::RovingFocus> {
+        self.properties.input.roving_focus
     }
 
     /// Offers `Activate` and is not disabled: a click activates it.

@@ -227,7 +227,15 @@ impl Model {
         id: NodeId,
         engine: &mut arvane::Engine,
     ) -> Option<(RefMut<'_, EditLines>, &str)> {
-        crate::measure::input::edit_lines(&self.tree, &self.measure, &self.editors, id, engine)
+        let width = crate::model::interact::visual::text_box(self, id).width;
+        crate::measure::input::edit_lines(
+            &self.tree,
+            &self.measure,
+            &self.editors,
+            id,
+            crate::measure::input::LineViewport::Paint(width),
+            engine,
+        )
     }
 
     /// Refresh the lines of the input `id` in `mode`; the testing host's
@@ -244,6 +252,9 @@ impl Model {
             &self.measure,
             &self.editors,
             id,
+            crate::measure::input::LineViewport::Paint(
+                crate::model::interact::visual::text_box(self, id).width,
+            ),
             engine,
             mode,
         )

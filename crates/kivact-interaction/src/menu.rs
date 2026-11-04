@@ -19,8 +19,8 @@
 //! A submenu is a child level of the same session; its `shown`, `origin`
 //! and `show` mount the content in a new owner while it is open. A level
 //! moves with the list's menu policy (vertical, wrapping, manual activation)
-//! plus typeahead, and hovering a submenu item opens it after a
-//! 140 ms [`Delayed`](crate::Delayed). A context menu is the same [`MenuApi`] through
+//! plus typeahead, and hovering a submenu item opens it after a delay.
+//! A context menu is the same [`MenuApi`] through
 //! [`MenuApi::context_trigger`]; there is no separate context menu type. A
 //! pointer request reports `MenuOrigin::Pointer` (a window point) and keys
 //! and assistive technology report `MenuOrigin::Anchor`, so the caller picks
@@ -38,8 +38,12 @@
 mod handle;
 mod level;
 mod order;
+mod press;
+mod press_state;
 mod session;
 mod state;
 
 pub use handle::{MenuApi, use_menu};
+pub use level::{DisabledMenuFocus, SubmenuTiming};
+pub use press_state::MenuPress;
 pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};

@@ -1,0 +1,231 @@
+//! Role: Style the standard dialog kinds and share overlay paint helpers.
+use crate::Tokens;
+use kivact::motion::Transition;
+use kivact::style::{
+    Align, Direction, Justify, Position, Style, Theme, TransitionProp, auto, pct, style,
+};
+use kivact::ui::{DialogKind, DialogRecipes, DialogState, Look, Side};
+
+const DIALOG_WIDTH: f32 = 400.0;
+const DIALOG_MAX_HEIGHT_PERCENT: f32 = 75.0;
+const LAYER_ENTER_SCALE: f64 = 0.95;
+
+pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
+    r.surface(|_| surface)
+        .scrim(|_| {
+            |t: &Theme, s: &Look<DialogState>| {
+                let p = t.get::<Tokens>();
+                let base = scrim(&p);
+                let hidden = style().opacity(0.0);
+                if matches!(s.kind, DialogKind::Drawer(_)) {
+                    motion(base, &p, p.motion.medium)
+                        .enter(hidden.clone())
+                        .exit(hidden)
+                } else {
+                    base
+                }
+            }
+        })
+        .header(|_| {
+            |t: &Theme, s: &Look<DialogState>| {
+                let p = t.get::<Tokens>();
+                let base = style().direction(Direction::Column);
+                if matches!(s.kind, DialogKind::Drawer(_)) {
+                    base.padding(p.spacing.dialog_padding)
+                } else {
+                    base
+                }
+            }
+        })
+        .title(|_| {
+            |t: &Theme, _: &Look<DialogState>| {
+                let p = t.get::<Tokens>();
+                let text = p.typography.heading2;
+                style()
+                    .font_size(text.size_px)
+                    .line_height(text.line_height_px / text.size_px)
+                    .weight(text.weight)
+                    .color(p.colors.text_primary)
+            }
+        })
+        .description(|_| {
+            |t: &Theme, s: &Look<DialogState>| {
+                let p = t.get::<Tokens>();
+                let base = style().color(p.colors.text_secondary);
+                if s.kind == DialogKind::AlertModal {
+                    base
+                } else {
+                    base.font_size(p.typography.size_sm)
+                }
+            }
+        })
+        .body(|_| {
+            |t: &Theme, s: &Look<DialogState>| {
+                let base = style().direction(Direction::Column).min_height(0);
+                if matches!(s.kind, DialogKind::Drawer(_)) {
+                    base.padding_x(t.get::<Tokens>().spacing.dialog_padding)
+                } else {
+                    base
+                }
+            }
+        })
+        .footer(|_| {
+            |t: &Theme, s: &Look<DialogState>| {
+                let p = t.get::<Tokens>();
+                let base = style()
+                    .direction(Direction::Row)
+                    .justify_content(Justify::End)
+                    .gap(p.spacing.s2);
+                if matches!(s.kind, DialogKind::Drawer(_)) {
+                    base.margin_top(auto()).padding(p.spacing.dialog_padding)
+                } else {
+                    base
+                }
+            }
+        })
+        .close(|_| close)
+}
+
+fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
+    let p = t.get::<Tokens>();
+    let gutter = p.spacing.layer_viewport_gutter;
+    let base = body_text(&p)
+        .direction(Direction::Column)
+        .radius(p.radius.container)
+        .background(p.colors.bg_surface)
+        .focus_visible(focus(&p));
+    match s.kind {
+        DialogKind::Popover => anchored(
+            shadows(base.background(p.colors.bg_popover), &p.shadows.low)
+                .padding(p.spacing.section_padding)
+                .max_width(pct(100) - gutter * 2.0)
+                .max_height(pct(100) - gutter * 2.0),
+            &p,
+            0.0,
+            -p.spacing.s2,
+        ),
+        DialogKind::Drawer(side) => drawer(shadows(base, &p.shadows.high), &p, side),
+        DialogKind::Modal | DialogKind::AlertModal => modal(
+            shadows(base, &p.shadows.high)
+                .width(DIALOG_WIDTH)
+                .max_width(pct(100) - gutter * 2.0)
+                .max_height(pct(DIALOG_MAX_HEIGHT_PERCENT))
+                .padding(p.spacing.dialog_padding)
+                .gap(p.spacing.dialog_padding),
+            &p,
+        ),
+    }
+}
+
+fn drawer(base: Style, p: &Tokens, side: Side) -> Style {
+    let width = p.sizes.border_width;
+    let color = p.colors.border;
+    let base = base.radius(p.radius.none);
+    let (base, hidden) = match side {
+        Side::Right => (
+            base.width(DIALOG_WIDTH)
+                .max_width(pct(100))
+                .border_left(width, color),
+            style().translate_x(pct(100)),
+        ),
+        Side::Left => (
+            base.width(DIALOG_WIDTH)
+                .max_width(pct(100))
+                .border_right(width, color),
+            style().translate_x(pct(-100)),
+        ),
+        Side::Top => (
+            base.max_height(pct(100)).border_bottom(width, color),
+            style().translate_y(pct(-100)),
+        ),
+        Side::Bottom => (
+            base.max_height(pct(100)).border_top(width, color),
+            style().translate_y(pct(100)),
+        ),
+    };
+    // The drawer slides out through the standard dialog exit lifecycle (C-07).
+    motion(base, p, p.motion.medium)
+        .enter(hidden.clone())
+        .exit(hidden)
+}
+
+fn close(t: &Theme, _: &Look<DialogState>) -> Style {
+    let p = t.get::<Tokens>();
+    style()
+        .position(Position::Absolute)
+        .top(p.spacing.s2)
+        .right(p.spacing.s2)
+        .size(p.sizes.control_md, p.sizes.control_md)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .radius(p.radius.element)
+        .color(p.colors.text_primary)
+        .hover(style().background(p.colors.overlay_hover))
+        .pressed(style().background(p.colors.overlay_pressed))
+        .focus_visible(focus(&p))
+}
+
+pub(crate) fn focus(p: &Tokens) -> Style {
+    style().ring_with_offset(
+        p.sizes.focus_ring_width,
+        p.sizes.focus_ring_offset,
+        p.colors.focus_ring,
+    )
+}
+
+pub(crate) fn scrim(p: &Tokens) -> Style {
+    style()
+        .position(Position::Fixed)
+        .inset(0)
+        .background(p.colors.overlay_scrim)
+        .backdrop_blur(p.spacing.s0_5)
+}
+
+pub(crate) fn body_text(p: &Tokens) -> Style {
+    let text = p.typography.body;
+    style()
+        .font_size(text.size_px)
+        .line_height(text.line_height_px / text.size_px)
+        .weight(text.weight)
+        .color(p.colors.text_primary)
+}
+
+pub(crate) fn supporting_text(p: &Tokens) -> Style {
+    let text = p.typography.supporting;
+    style()
+        .font_size(text.size_px)
+        .line_height(text.line_height_px / text.size_px)
+        .weight(text.weight)
+        .color(p.colors.text_secondary)
+}
+
+pub(crate) fn shadows(base: Style, shadows: &[kivact::draw::Shadow]) -> Style {
+    shadows.iter().copied().fold(base, Style::shadow)
+}
+
+pub(crate) fn motion(base: Style, p: &Tokens, duration: u64) -> Style {
+    base.transition(
+        TransitionProp::Paint,
+        Transition::tween(duration as f64, p.motion.ease_standard),
+    )
+}
+
+pub(crate) fn anchored(base: Style, p: &Tokens, x: f32, y: f32) -> Style {
+    // TODO(soft-core: C-21): Add the coarse-pointer reduced-motion fade.
+    motion(base, p, p.motion.fast_max).enter(
+        style()
+            .opacity(0.0)
+            .translate(x, y)
+            .scale_xy(LAYER_ENTER_SCALE, LAYER_ENTER_SCALE),
+    )
+}
+
+pub(crate) fn modal(base: Style, p: &Tokens) -> Style {
+    // The dialog recipe does not receive the trigger rectangle.
+    motion(base, p, p.motion.medium_max).enter(
+        style()
+            .opacity(0.0)
+            .translate_y(p.spacing.s4)
+            .scale_xy(LAYER_ENTER_SCALE, LAYER_ENTER_SCALE),
+    )
+}

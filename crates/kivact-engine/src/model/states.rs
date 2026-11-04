@@ -220,9 +220,17 @@ impl Model {
     }
 
     fn text_color_with(&self, id: NodeId, entering: bool) -> Rgba {
-        for x in self.tree.chain(Some(id)) {
+        let chain = self.tree.chain(Some(id));
+        for (index, &x) in chain.iter().enumerate() {
             if let Some(a) = self.motion.get(x)
-                && a.colors_text()
+                && a.colors_text(|| {
+                    chain[..index].iter().all(|&descendant| {
+                        self.tree
+                            .get(descendant)
+                            .and_then(|node| node.text())
+                            .is_none_or(|style| style.color.is_none())
+                    })
+                })
             {
                 return a.current_color();
             }

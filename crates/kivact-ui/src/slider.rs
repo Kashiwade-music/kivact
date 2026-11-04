@@ -4,21 +4,46 @@ use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::draw::Rect;
+use kivact_core::motion::{Spring, Transition};
 use kivact_core::primitive::{NodeExt, PartState};
-use kivact_core::style::{Length, Position, Style, style};
+use kivact_core::style::{
+    Length, Position, Style, Theme, ThemeExtension, TransitionProp, current_theme, style,
+};
 use kivact_core::view::{
     HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection, Role, View,
     callback, current_direction, node_ref,
 };
 use kivact_core::{Binding, Callback, Value};
 use kivact_interaction::{
-    EditPhase, IntoScalarRange, RangeThumb, Scalar, ScalarRange, use_range_scalar, use_scalar,
+    EditPhase, IntoScalarRange, RangeThumb, Scalar, ScalarRange, TouchSliderGesture,
+    use_range_scalar, use_scalar,
 };
 
 /// The values a slider edits: one, or the two ends of a range.
 enum Values {
     One(Binding<f64>),
     Two(Binding<f64>, Binding<f64>),
+}
+
+/// Optional touch behavior and thumb motion installed by a slider theme.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum SliderTouchMotion {
+    /// Keep standard mouse-style pointer tracking for all pointer kinds.
+    #[default]
+    Standard,
+    /// Use touch-specific relative tracking and release motion.
+    Direct {
+        gesture: TouchSliderGesture,
+        lifted_scale: f32,
+        lift: Spring,
+        drop: Spring,
+    },
+}
+
+impl ThemeExtension for SliderTouchMotion {
+    fn fallback(_: &Theme) -> Self {
+        Self::Standard
+    }
 }
 
 /// A themed slider, created by [`slider`] or [`range_slider`].
@@ -89,7 +114,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
         range: None,
         step: None,
         orientation: Orientation::Horizontal,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         on_edit: None,
         variants,
     }
@@ -306,11 +331,15 @@ impl IntoView for Slider {
             None => scalar,
         };
         let thumb_ref = node_ref();
+        let touch = *current_theme().get::<SliderTouchMotion>();
         // A range's filled span drags both ends.
         let mut body = None;
         let (track_part, thumbs, fractions): (_, Vec<(Scalar, Value<String>)>, _) = match values {
             Values::One(value) => {
                 let scalar = with_disabled(use_scalar(value, range).on_edit(report));
+                if let SliderTouchMotion::Direct { gesture, .. } = touch {
+                    scalar.touch_gesture(gesture);
+                }
                 (
                     scalar.track(axis),
                     vec![(scalar, label)],
@@ -327,6 +356,9 @@ impl IntoView for Slider {
                     Some(disabled) => pair.disabled(disabled),
                     None => pair,
                 };
+                if let SliderTouchMotion::Direct { gesture, .. } = touch {
+                    pair.end(RangeThumb::Low).touch_gesture(gesture);
+                }
                 body = Some(pair.body());
                 (
                     pair.track(axis),
@@ -390,13 +422,41 @@ impl IntoView for Slider {
                     |r| r.slider_recipes().thumb_recipe(),
                     &variants,
                     move || state(input.get().input),
-                )
-                .style(move || geometry.thumb_style(input.get().fraction));
+                );
                 // Every thumb has the recipe's size; the first one is measured.
                 if index == 0 {
                     thumb = thumb.node_ref(thumb_ref);
                 }
-                thumb.into_view()
+                if let SliderTouchMotion::Direct {
+                    lifted_scale,
+                    lift,
+                    drop,
+                    ..
+                } = touch
+                    && let Some(lifted) = scalar.touch_lifted()
+                {
+                    node()
+                        .child(thumb)
+                        .style(move || {
+                            let position = geometry.thumb_style(input.get().fraction);
+                            if kivact_core::platform::reduced_motion() {
+                                position
+                            } else {
+                                let lifted = lifted.get();
+                                position
+                                    .scale(if lifted { lifted_scale } else { 1.0 })
+                                    .transition(
+                                        TransitionProp::Paint,
+                                        Transition::spring(if lifted { lift } else { drop }),
+                                    )
+                            }
+                        })
+                        .into_view()
+                } else {
+                    thumb
+                        .style(move || geometry.thumb_style(input.get().fraction))
+                        .into_view()
+                }
             })
             .collect();
         // The track is disabled with its thumbs, so a look dims the whole

@@ -45,11 +45,16 @@ pub(crate) fn split(
 
 impl EditLines {
     /// Every line of `text` split again, none shaped.
-    pub(crate) fn rebuild(&mut self, text: &str, height: f32, blank: f32) {
-        let multiline = self.key.multiline;
+    pub(crate) fn rebuild(
+        &mut self,
+        text: &str,
+        height: f32,
+        blank: f32,
+        engine: &mut arvane::Engine,
+    ) {
         self.height = height;
         self.blank = blank;
-        let lines = split(text, 0, text.len(), multiline, true);
+        let lines = self.split_rows(text, engine);
         self.chunks = lines
             .chunks(CHUNK)
             .map(|rows| {
@@ -60,6 +65,60 @@ impl EditLines {
         self.restart(0);
         self.colored = 0;
         self.drawn = 0..0;
+    }
+
+    /// Split hard lines into visual rows without changing the edited byte offsets.
+    pub(crate) fn split_rows(
+        &self,
+        text: &str,
+        engine: &mut arvane::Engine,
+    ) -> Vec<(usize, usize, usize)> {
+        let hard = split(text, 0, text.len(), self.key.multiline, true);
+        let Some(width) = self.key.wrap_width else {
+            return hard;
+        };
+        let mut style = self.key.style.clone();
+        style.wrap = kivact_types::protocol::TextWrap::Wrap;
+        let mut rows = Vec::new();
+        for (start, content, end) in hard {
+            let line = &text[start..content];
+            let masked = self.key.shown == Shown::Masked;
+            let clean = if masked {
+                std::borrow::Cow::Owned("•".repeat(line.chars().count()))
+            } else if line.contains('\r') {
+                std::borrow::Cow::Owned(line.replace('\r', " "))
+            } else {
+                std::borrow::Cow::Borrowed(line)
+            };
+            let shaped = engine.shape(clean.as_ref(), &style, Some(width)).ok();
+            let mut at = start;
+            if let Some(shaped) = shaped {
+                let mut offsets = line.char_indices().map(|(at, _)| at).chain([line.len()]);
+                let mut scalar = 0;
+                for row in &shaped.lines {
+                    let local = if masked {
+                        let next = row.range.end / '•'.len_utf8();
+                        let offset = offsets
+                            .nth(next.saturating_sub(scalar))
+                            .unwrap_or(line.len());
+                        scalar = next + 1;
+                        offset
+                    } else {
+                        row.range.end
+                    };
+                    let next = start + local;
+                    if next >= content {
+                        break;
+                    }
+                    if next > at && text.is_char_boundary(next) {
+                        rows.push((at, next, next));
+                        at = next;
+                    }
+                }
+            }
+            rows.push((at, content, end));
+        }
+        rows
     }
 
     /// The lines `damage` touches split again from `text`, the later ones

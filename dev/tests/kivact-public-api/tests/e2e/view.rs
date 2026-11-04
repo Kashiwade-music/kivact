@@ -5,11 +5,41 @@ use std::rc::Rc;
 
 use crate::support::mount;
 use kivact::diagnostics::ErrorKind;
+use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::{Handled, KeyEvent, RowHeight};
+use kivact::view::{Handled, KeyEvent, LiveRegion, RowHeight};
 
 type Log = Rc<RefCell<Vec<String>>>;
+
+#[test]
+fn announcements_publish_in_separate_persistent_live_regions() {
+    let screen = render(|| {
+        let notices = announcer();
+        column((
+            button("Save").on_press(move || notices.announce("Saved", LiveRegion::Polite)),
+            button("Retry").on_press(move || notices.announce("Failed", LiveRegion::Assertive)),
+            column(notices.outlet()).test_id("notices"),
+        ))
+    });
+    let outlet = screen.get_by_test_id("notices");
+    let regions = outlet.children();
+    assert_eq!(regions.len(), 2);
+    assert_eq!(regions[0].live_region(), LiveRegion::Polite);
+    assert_eq!(regions[1].live_region(), LiveRegion::Assertive);
+
+    let save = screen.get_by_role(Role::Button, "Save");
+    save.click();
+    assert_eq!(regions[0].get_by_role(Role::Text, "Saved").text(), "Saved");
+    save.click();
+    assert_eq!(regions[0].get_by_role(Role::Text, "Saved").text(), "Saved");
+    screen.get_by_role(Role::Button, "Retry").click();
+    assert_eq!(
+        regions[1].get_by_role(Role::Text, "Failed").text(),
+        "Failed"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 fn log() -> Log {
     Rc::new(RefCell::new(Vec::new()))

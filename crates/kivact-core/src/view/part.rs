@@ -435,6 +435,13 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
         self
     }
 
+    /// Keep a focusable node in keyboard navigation while disabled.
+    /// Pointer, key and accessibility activation remain disabled.
+    pub fn focusable_when_disabled(mut self, on: bool) -> Self {
+        self.common.focusable_when_disabled = on;
+        self
+    }
+
     /// Hide the node and its subtree.
     ///
     /// Same as [`NodeBuilder::hidden`](crate::control::NodeBuilder::hidden).
@@ -571,6 +578,39 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
         self
     }
 
+    /// Whether assistive technology should wait for updates to finish.
+    pub fn busy(mut self, value: impl IntoValue<bool>) -> Self {
+        self.common.semantics_mut().busy = Some(value.into_prop());
+        self
+    }
+
+    /// Whether a value is required.
+    pub fn required(mut self, value: impl IntoValue<bool>) -> Self {
+        self.common.semantics_mut().required = Some(value.into_prop());
+        self
+    }
+
+    /// Whether assistive technology should report the value as read-only.
+    /// This changes semantics only; configure editing behavior on the editor.
+    pub fn semantics_read_only(mut self, value: impl IntoValue<bool>) -> Self {
+        self.common.semantics_mut().read_only = Some(value.into_prop());
+        self
+    }
+
+    /// The type of popup this control opens.
+    /// Pass `None` to leave it unstated.
+    pub fn has_popup(mut self, value: impl IntoValue<Option<crate::view::PopupKind>>) -> Self {
+        self.common.semantics_mut().has_popup = Some(value.into_prop());
+        self
+    }
+
+    /// The meaning of the current item in a related set.
+    /// Pass `None` to leave it unstated.
+    pub fn current_item(mut self, value: impl IntoValue<Option<crate::view::CurrentItem>>) -> Self {
+        self.common.semantics_mut().current_item = Some(value.into_prop());
+        self
+    }
+
     /// Name a node that describes this one (`aria-describedby`), for text such as a dialog's message or a field's hint.
     ///
     /// Same as [`NodeExt::described_by`](crate::primitive::NodeExt::described_by).
@@ -629,6 +669,19 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Run before existing pointer behavior, in node-local coordinates.
     ///
+    /// Handle an unclaimed secondary button press or release within this subtree.
+    /// The nearest ordinary pointer handler runs first. The fallback sees the
+    /// original event, so use its window position when anchoring an overlay.
+    pub fn on_secondary_context<F, R>(mut self, handler: F) -> Self
+    where
+        F: Fn(PointerEvent) -> R + 'static,
+        R: KeyHandlerResult,
+    {
+        self.common.handlers.secondary_context =
+            Some(Rc::new(move |event| handler(event).into_handled()));
+        self
+    }
+
     /// Same as [`NodeBuilder::on_pointer`](crate::control::NodeBuilder::on_pointer).
     pub fn on_pointer<F, R>(mut self, f: F) -> Self
     where

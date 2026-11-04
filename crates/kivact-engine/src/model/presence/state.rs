@@ -10,4 +10,5 @@ use kivact_wire::NodeId;
 pub(crate) struct Presences {
     pub(super) arriving: BTreeSet<NodeId>,
     pub(super) leaving: BTreeSet<NodeId>,
+    pub(crate) notify_exit: BTreeSet<NodeId>,
 }

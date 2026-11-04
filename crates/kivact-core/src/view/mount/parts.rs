@@ -36,7 +36,12 @@ impl Common {
         self.handlers
             .wheel
             .absorb_part(std::mem::take(&mut part.handlers.wheel), region_events);
+        replace(
+            &mut self.handlers.secondary_context,
+            part.handlers.secondary_context.take(),
+        );
         self.part_modal |= part.part_modal;
+        self.focusable_when_disabled |= part.focusable_when_disabled;
         self.part_constraints.disabled.extend(part.disabled.take());
         self.part_constraints
             .disabled
@@ -107,6 +112,11 @@ fn merge_semantics(target: &mut SemanticSources, mut part: SemanticSources) {
     replace(&mut target.set_size, part.set_size.take());
     replace(&mut target.pos_in_set, part.pos_in_set.take());
     replace(&mut target.multiselectable, part.multiselectable.take());
+    replace(&mut target.busy, part.busy.take());
+    replace(&mut target.required, part.required.take());
+    replace(&mut target.read_only, part.read_only.take());
+    replace(&mut target.has_popup, part.has_popup.take());
+    replace(&mut target.current_item, part.current_item.take());
     target.described_by.append(&mut part.described_by);
     target.controls.append(&mut part.controls);
     target.labelled_by.append(&mut part.labelled_by);

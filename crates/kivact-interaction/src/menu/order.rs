@@ -112,11 +112,15 @@ pub(super) fn rows<K: Clone + PartialEq>(entries: &[MenuEntry<K>], prefix: &[K])
         .collect()
 }
 
-/// The first or last enabled item of a level.
-pub(super) fn edge_item<K: Clone>(rows: &Rows<K>, edge: Edge) -> Option<K> {
+/// The first or last keyboard-focusable item of a level.
+pub(super) fn edge_item<K: Clone>(
+    rows: &Rows<K>,
+    edge: Edge,
+    retain_disabled_focus: bool,
+) -> Option<K> {
     let mut enabled = rows
         .iter()
-        .filter(|(_, entry)| !entry.is_disabled())
+        .filter(|(_, entry)| retain_disabled_focus || !entry.is_disabled())
         .filter_map(|(_, entry)| entry.key().cloned());
     match edge {
         Edge::First => enabled.next(),

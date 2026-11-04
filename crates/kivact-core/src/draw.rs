@@ -17,9 +17,9 @@ pub use kivact_style::transform::Transform;
 
 #[doc(inline)]
 pub use kivact_style::draw::{
-    Draw, FillRule, ImageOptions, IntrinsicSize, Layer, LineCap, LineJoin, Path, PathContour,
-    Pixels, Point, Rect, RegionId, Size, Stroke, TextBaseline, TextMetrics, TextParagraph,
-    TextStyle,
+    Draw, FillRule, ImageOptions, InlineBox, InlineBoxPlacement, InlineParagraph, IntrinsicSize,
+    Layer, LineCap, LineJoin, Path, PathContour, Pixels, Point, Rect, RegionId, Size, Stroke,
+    TextBaseline, TextMetrics, TextParagraph, TextStyle,
 };
 
 mod offscreen;

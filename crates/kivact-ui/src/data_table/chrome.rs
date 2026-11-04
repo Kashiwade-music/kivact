@@ -3,8 +3,8 @@ use super::types::DataTableContext;
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{
-    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, button, checkbox,
-    text_input,
+    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, ListItem, button,
+    checkbox, select, text_input,
 };
 use kivact_core::control::{NodeBuilder, node, row, text};
 use kivact_core::i18n::{message, message_with};
@@ -47,6 +47,7 @@ pub(super) fn toolbar<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'st
 /// the pager; nothing when the table has neither.
 pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
     context: DataTableContext<R, K>,
+    sizes: Option<Value<Vec<usize>>>,
     variants: &Variants,
 ) -> Option<View> {
     if context.selection.is_none() && context.page.is_none() {
@@ -73,10 +74,35 @@ pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
     let pager = context
         .page
         .map(|(index, _)| pager(context, index, variants));
+    let size_picker = context.page_size.zip(sizes).map(|(size, sizes)| {
+        let options = move || {
+            sizes.with(|sizes| {
+                let mut seen = std::collections::HashSet::new();
+                sizes
+                    .iter()
+                    .copied()
+                    .filter(|size| *size > 0 && seen.insert(*size))
+                    .map(|size| ListItem::new(size, size.to_string()))
+                    .collect::<Vec<_>>()
+            })
+        };
+        select(
+            message("data_table.page_size", "Rows per page"),
+            options,
+            binding(
+                move || Some(size.get().max(1)),
+                move |next: Option<usize>| {
+                    if let Some(next) = next {
+                        size.set(next);
+                    }
+                },
+            ),
+        )
+    });
     let spacer = summary.is_none().then(|| node().style(style().grow(1)));
     Some(
         with_recipe_style(
-            row((summary, spacer, pager)),
+            row((summary, spacer, size_picker, pager)),
             |r| r.data_table_recipes().footer_recipe(),
             variants,
             PartState::default,
@@ -93,17 +119,36 @@ fn pager<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
 ) -> View {
     let pages = context.model.page_count();
     // A page past the last one shows the last page and leaves the binding.
-    let shown = memo(move || index.get().min(pages.get().saturating_sub(1)));
+    let has_more = context.has_more;
+    let shown = memo(move || {
+        if has_more.is_some() {
+            index.get()
+        } else {
+            index.get().min(pages.get().saturating_sub(1))
+        }
+    });
+    let can_advance = move || {
+        has_more.map_or_else(
+            || shown.get().saturating_add(1) < pages.get(),
+            |has_more| has_more.get(),
+        )
+    };
     let state = move || DataTablePageState {
         index: shown.get(),
-        pages: pages.get(),
+        pages: if has_more.is_some() { 0 } else { pages.get() },
     };
-    let label = message_with("data_table.page", "Page {page} of {pages}", move || {
-        [
-            ("page", (shown.get() + 1).to_string()),
-            ("pages", pages.get().to_string()),
-        ]
-    });
+    let label = if has_more.is_some() {
+        message_with("data_table.page_unknown_total", "Page {page}", move || {
+            [("page", shown.get().saturating_add(1).to_string())]
+        })
+    } else {
+        message_with("data_table.page", "Page {page} of {pages}", move || {
+            [
+                ("page", shown.get().saturating_add(1).to_string()),
+                ("pages", pages.get().to_string()),
+            ]
+        })
+    };
     with_recipe_style(
         row((
             text(label),
@@ -115,8 +160,8 @@ fn pager<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
             button(message("data_table.next", "Next"))
                 .variant(ButtonVariant::Outline)
                 .size(ControlSize::Small)
-                .disabled(move || shown.get() + 1 >= pages.get())
-                .on_press(move || index.set(shown.get() + 1)),
+                .disabled(move || !can_advance())
+                .on_press(move || index.set(shown.get().saturating_add(1))),
         )),
         |r| r.data_table_recipes().page_recipe(),
         variants,
@@ -170,7 +215,8 @@ pub(super) fn select_page<K: Clone + Eq + Hash + 'static>(
             binding(all, move |on| select.try_call(on)),
         )
         .hide_label(true)
-        .indeterminate(mixed),
+        .indeterminate(mixed)
+        .disabled(move || keys.with(Vec::is_empty)),
     )
     .into_view()
 }

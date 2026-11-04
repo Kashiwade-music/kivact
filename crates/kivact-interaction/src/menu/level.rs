@@ -9,14 +9,43 @@ use super::state::{
 };
 use crate::{
     Delays, List, ListItem, ListPolicy, ListSelection, PopupCloseReason, PopupState, use_delayed,
-    use_list,
+    use_hover_corridor, use_list,
 };
-use kivact_core::primitive::Part;
+use kivact_core::draw::Rect;
+use kivact_core::primitive::{Part, part};
+use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
-use kivact_core::{Value, effect, memo, on_mount, signal};
+use kivact_core::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
 
-/// How long the pointer rests on a submenu item before it opens.
-const HOVER_OPEN: Duration = Duration::from_millis(140);
+/// Whether disabled menu entries participate in roving keyboard focus.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DisabledMenuFocus {
+    #[default]
+    Skip,
+    Retain,
+}
+
+impl ThemeExtension for DisabledMenuFocus {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
+    }
+}
+
+/// Pointer delays for opening a submenu or leaving it for a sibling item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SubmenuTiming {
+    pub open: Duration,
+    pub close: Duration,
+}
+
+impl ThemeExtension for SubmenuTiming {
+    fn fallback(_: &Theme) -> Self {
+        Self {
+            open: Duration::from_millis(140),
+            close: Duration::ZERO,
+        }
+    }
+}
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: Clone + Eq + Hash + 'static> {
@@ -27,6 +56,10 @@ pub(super) struct Level<K: Clone + Eq + Hash + 'static> {
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
     group: List<K>,
+    anchors: Signal<Vec<(K, Rect)>>,
+    aiming: Value<bool>,
+    timing: SubmenuTiming,
+    retain_disabled_focus: bool,
 }
 
 impl<K: Clone + Eq + Hash + 'static> Clone for Level<K> {
@@ -43,6 +76,8 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         let depth = prefix.len();
         let entries = session.entries;
         let prefix = prefix.into_value();
+        let retain_disabled_focus =
+            *current_theme().get::<DisabledMenuFocus>() == DisabledMenuFocus::Retain;
         let level_rows = memo(move || prefix.with(|prefix| entries.with(|e| rows(e, prefix))));
         // A level the entries no longer keep offers no items, so its group does not
         // move focus to a sibling that is about to go away with it.
@@ -56,7 +91,8 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                         entry.key().cloned().map(|key| ListItem {
                             key,
                             label: entry.label.clone(),
-                            disabled: entry.is_disabled(),
+                            // Menu activation is independently guarded by the row part.
+                            disabled: entry.is_disabled() && !retain_disabled_focus,
                             icon: None,
                             description: None,
                         })
@@ -70,6 +106,35 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             ListPolicy::menu(),
         )
         .shared_typeahead(session.typed);
+        let anchors = signal(Vec::<(K, Rect)>::new());
+        let timing = *current_theme().get::<SubmenuTiming>();
+        let aiming = if timing.close.is_zero() {
+            false.into_value()
+        } else {
+            let anchor = memo(move || {
+                session.path.with(|path| {
+                    let key = path.get(depth)?;
+                    anchors.with(|anchors| {
+                        anchors
+                            .iter()
+                            .find(|(candidate, _)| candidate == key)
+                            .map(|(_, rect)| *rect)
+                    })
+                })
+            });
+            let surface = memo(move || {
+                session.path.with(|path| {
+                    let prefix = path.get(..=depth)?;
+                    session.surface_rects.with(|rects| {
+                        rects
+                            .iter()
+                            .find(|(candidate, _)| candidate == prefix)
+                            .map(|(_, rect)| *rect)
+                    })
+                })
+            });
+            use_hover_corridor(anchor, surface, shown, timing.close)
+        };
         Self {
             session,
             depth,
@@ -77,6 +142,10 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             shown,
             rows: level_rows,
             group,
+            anchors,
+            aiming,
+            timing,
+            retain_disabled_focus,
         }
     }
 
@@ -88,10 +157,42 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             depth,
             rows,
             group,
+            prefix,
+            timing,
+            retain_disabled_focus,
             ..
         } = self;
+        if depth > 0 && !timing.close.is_zero() {
+            observe_rect(
+                session.surface_rects,
+                prefix.get_untracked(),
+                base.node_ref().rect(),
+            );
+        }
+        let surface = base.node_ref();
+        let base = if let Some(press) = session.press {
+            base.on_pointer(move |event| {
+                press.event(session, super::press_state::Source::Menu, event)
+            })
+        } else {
+            base
+        };
         base.role(Role::Menu)
-            .on_key(move |event: KeyEvent| on_key(session, depth, rows, event))
+            .on_key(move |event: KeyEvent| {
+                // Core skips handlers on a disabled row itself. Its menu still
+                // routes navigation through the same roving list from that row.
+                if retain_disabled_focus
+                    && let Some(key) = session.focused_at(depth)
+                    && rows.with(|rows| {
+                        rows.iter()
+                            .any(|(_, entry)| entry.key() == Some(&key) && entry.is_disabled())
+                    })
+                    && group.route_focused_key(&key, event.clone()) == Handled::Yes
+                {
+                    return Handled::Yes;
+                }
+                on_key(session, depth, rows, event)
+            })
             // The host consumes Tab to move focus, so the menu sees only its
             // release, aimed at the item that has the focus now. Tab inside the
             // menu (to another level) leaves it just as Tab out of it does.
@@ -104,6 +205,9 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 }
             })
             .on_bind(move |_| {
+                if let Some(press) = session.press {
+                    press.surface(surface);
+                }
                 if depth == 0 {
                     // Where the focus returns for this opening.
                     session.popup.set_opening_policy(session.focus_return());
@@ -133,15 +237,18 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     };
                     match target {
                         Target::Edge(edge) => {
-                            let target = rows.with_untracked(|rows| edge_item(rows, edge));
+                            let target = rows.with_untracked(|rows| {
+                                edge_item(rows, edge, retain_disabled_focus)
+                            });
                             if let Some(key) = target {
                                 group.focus(key);
                             }
                         }
                         Target::Key(key) => {
                             if !group.focus(key) {
-                                let target =
-                                    rows.with_untracked(|rows| edge_item(rows, Edge::First));
+                                let target = rows.with_untracked(|rows| {
+                                    edge_item(rows, Edge::First, retain_disabled_focus)
+                                });
                                 if let Some(key) = target {
                                     group.focus(key);
                                 }
@@ -177,6 +284,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         // The kind of an item is part of its row's identity.
         let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
         let submenu = kind == Some(MenuItemKind::Submenu);
+        let retain_disabled_focus = self.retain_disabled_focus;
         let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(MenuEntry::is_disabled)));
         let shortcut = memo(move || {
             entry.with(|e| {
@@ -184,6 +292,16 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     .map(|e| e.shortcut_value().to_string())
                     .unwrap_or_default()
             })
+        });
+        let description = memo(move || {
+            if retain_disabled_focus
+                && disabled.get()
+                && let Some(reason) =
+                    entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason_value))
+            {
+                return reason;
+            }
+            shortcut.get()
         });
         let check = memo(move || entry.with(|e| e.as_ref().and_then(MenuEntry::check)));
         let destructive =
@@ -194,23 +312,37 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
         };
 
-        let member = group.item(key.clone());
+        let member = group.item_with_disabled_focus(key.clone(), self.retain_disabled_focus);
         let item_ref = member.node_ref();
+        if let Some(press) = session.press {
+            press.row(item_ref, disabled);
+        }
+        let pressed_over =
+            memo(move || session.press.and_then(|press| press.highlighted(item_ref)));
 
         // The pointer focuses the item it rests on; a submenu opens after a rest.
         let hovered = signal(false);
+        let timing = self.timing;
+        let aiming = self.aiming;
         if submenu {
+            if !timing.close.is_zero() {
+                observe_rect(self.anchors, key.clone(), item_ref.rect());
+            }
             let key = key.clone();
-            let resting = memo(move || hovered.get() && !expanded.get() && !disabled.get());
+            let resting = memo(move || {
+                pressed_over.get().unwrap_or_else(|| hovered.get())
+                    && !expanded.get()
+                    && !disabled.get()
+            });
             let rest = use_delayed(
                 resting,
                 Delays {
-                    open: HOVER_OPEN,
+                    open: timing.open,
                     close: Duration::ZERO,
                 },
             );
             effect(move || {
-                if rest.shown().get() {
+                if rest.shown().get() && !aiming.get() {
                     session.open_hover(depth, key.clone());
                 }
             });
@@ -225,8 +357,15 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             // submenus of this level. A disabled item receives no pointer
             // events, so this follows the item's hover instead.
             let over = item_ref.hovered();
+            let rest = use_delayed(
+                move || pressed_over.get().unwrap_or_else(|| over.get()),
+                Delays {
+                    open: timing.close,
+                    close: Duration::ZERO,
+                },
+            );
             effect(move || {
-                if over.get() && shown.get_untracked() {
+                if rest.shown().get() && !aiming.get() && shown.get_untracked() {
                     session.close_below(depth);
                 }
             });
@@ -241,9 +380,15 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         });
 
         let hover_key = key.clone();
+        effect(move || {
+            if hovered.get() && !aiming.get() && !disabled.get() && shown.get() {
+                session.hover(depth, hover_key.clone());
+            }
+        });
         let invoke_key = key;
         let member = member
             .map_state(move |state| MenuItemState {
+                pressed_over: pressed_over.get(),
                 input: state.input,
                 check: check.get(),
                 expanded: expanded.get(),
@@ -254,20 +399,17 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 Some(MenuItemKind::Checkbox) => Role::MenuItemCheckBox,
                 _ => Role::MenuItem,
             })
-            .description(shortcut)
+            .with(part(|input| input).disabled(disabled))
+            .description(description)
             .on_pointer(move |event: PointerEvent| {
-                match event.phase {
-                    PointerPhase::Enter => {
-                        hovered.set(true);
-                        // Asked for, not requested here: a click delivers its
-                        // move, press and release in one turn, and the choice
-                        // closes the menu before a request for the hovered row
-                        // could be sent. The level's effect carries it out
-                        // after the events, and a closed level never does.
-                        if !disabled.get() {
-                            session.hover(depth, hover_key.clone());
-                        }
+                if let Some(press) = session.press {
+                    let handled = press.event(session, super::press_state::Source::Menu, event);
+                    if handled == Handled::Yes {
+                        return handled;
                     }
+                }
+                match event.phase {
+                    PointerPhase::Enter => hovered.set(true),
                     PointerPhase::Leave => hovered.set(false),
                     _ => {}
                 }
@@ -340,4 +482,22 @@ fn on_key<K: Clone + Eq + Hash + 'static>(
         Key::Char(c) if !c.is_control() => Handled::Yes,
         _ => Handled::No,
     }
+}
+
+fn observe_rect<K: Clone + PartialEq + 'static>(
+    rects: Signal<Vec<(K, Rect)>>,
+    key: K,
+    rect: Value<Option<Rect>>,
+) {
+    let cleanup = key.clone();
+    on_cleanup(move || rects.update(|rects| rects.retain(|(key, _)| key != &cleanup)));
+    effect(move || {
+        let rect = rect.get();
+        rects.update(|rects| {
+            rects.retain(|(candidate, _)| candidate != &key);
+            if let Some(rect) = rect {
+                rects.push((key.clone(), rect));
+            }
+        });
+    });
 }

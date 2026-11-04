@@ -79,7 +79,7 @@ pub fn text_area(label: impl IntoText, value: impl Into<Binding<String>>) -> Tex
     create(label.into_text_value(), value.into(), true)
 }
 fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: bool) -> TextInput {
-    let size = Rc::new(Cell::new(ControlSize::default()));
+    let size = Rc::new(Cell::new(super::values::default_control_size()));
     let read = size.clone();
     let invalid = Rc::new(OnceCell::<Rc<dyn Fn() -> bool>>::new());
     let read_invalid = invalid.clone();
@@ -134,6 +134,23 @@ fn create(label: kivact_core::Value<String>, value: Binding<String>, multiline: 
 }
 
 impl TextInput {
+    /// Soft-wrap a text area's visual rows at its content width.
+    pub fn wrap(mut self, on: bool) -> Self {
+        self.editing = self.editing.wrap(on);
+        self
+    }
+
+    /// Grow a text area between these inclusive visual row counts.
+    pub fn rows(mut self, rows: std::ops::RangeInclusive<usize>) -> Self {
+        self.editing = self.editing.rows(rows);
+        if self.multiline {
+            self.field = self
+                .field
+                .style(kivact_core::style::style().height(kivact_core::style::auto()));
+        }
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same

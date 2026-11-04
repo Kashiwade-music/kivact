@@ -8,9 +8,20 @@
 //! widths stay the caller's: the table keeps no copy of them.
 mod builder;
 mod chrome;
+mod filter_value;
+mod filters;
+mod group_state;
+mod grouped;
+mod row_status;
 mod rows;
 mod runtime;
+mod sticky_paint;
+mod tree;
 mod types;
 
 pub use builder::data_table;
-pub use types::{DataTable, DataTableContext};
+pub use filter_value::{FilterField, FilterUi};
+pub use group_state::DataTableGroupState;
+pub use row_status::{DataTableRowStatusPaint, RowStatus};
+pub use sticky_paint::DataTableStickyPaint;
+pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent};

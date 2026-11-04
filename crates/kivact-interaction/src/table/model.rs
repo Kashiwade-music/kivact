@@ -4,14 +4,51 @@ use super::data::{Header, SortOrder};
 use kivact_core::view::{IntoText, IntoValue, Reactive};
 use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
 type Compare<R> = Rc<dyn Fn(&R, &R) -> Ordering>;
 type Matches<R> = Rc<dyn Fn(&R, &str) -> bool>;
+type MatchesValue<R> = Rc<dyn Fn(&R, &FilterValue) -> bool>;
 type KeyOf<R, K> = Rc<dyn Fn(&R) -> K>;
 /// The caller's sort column and direction.
-type Sort<C> = Binding<Option<(C, SortOrder)>>;
+type Sort<C> = Value<Vec<(C, SortOrder)>>;
+type ColumnQueries<C> = Value<Vec<(C, String)>>;
+type RowArrangement<R> = Rc<dyn Fn(&[R], Vec<usize>) -> Vec<usize>>;
+type TypedQueries<C> = Value<HashMap<C, FilterValue>>;
+
+/// A committed typed column filter.
+#[derive(Clone, Debug, PartialEq)]
+pub enum FilterValue {
+    /// A text query.
+    Text(String),
+    /// A finite number.
+    Number(f64),
+    /// The key of a selected choice.
+    Choice(String),
+    /// The keys of the selected choices.
+    Choices(Vec<String>),
+    /// A calendar date without a time zone.
+    Date(kivact_core::i18n::CalendarDate),
+    /// A local time of day.
+    Time { hour: u8, minute: u8 },
+    /// A list of text tokens.
+    Tokens(Vec<String>),
+}
+
+impl FilterValue {
+    /// Whether this value has no effective query.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Text(text) => text.trim().is_empty(),
+            Self::Number(value) => !value.is_finite(),
+            Self::Choices(values) | Self::Tokens(values) => values.is_empty(),
+            Self::Time { hour, minute } => *hour >= 24 || *minute >= 60,
+            Self::Choice(_) | Self::Date(_) => false,
+        }
+    }
+}
 
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack Table's column definition), and
@@ -26,8 +63,10 @@ pub struct ColumnDef<R, C> {
     key: C,
     label: Reactive<String>,
     width: Option<f64>,
+    pub(super) min_width: Option<f64>,
     compare: Option<Compare<R>>,
     matches: Option<Matches<R>>,
+    matches_value: Option<MatchesValue<R>>,
     visible: Reactive<bool>,
 }
 
@@ -37,8 +76,10 @@ impl<R, C: Clone> Clone for ColumnDef<R, C> {
             key: self.key.clone(),
             label: self.label.clone(),
             width: self.width,
+            min_width: self.min_width,
             compare: self.compare.clone(),
             matches: self.matches.clone(),
+            matches_value: self.matches_value.clone(),
             visible: self.visible.clone(),
         }
     }
@@ -51,8 +92,10 @@ impl<R, C> ColumnDef<R, C> {
             key,
             label: Reactive::new(label.into_text()),
             width: None,
+            min_width: None,
             compare: None,
             matches: None,
+            matches_value: None,
             visible: Reactive::new(true),
         }
     }
@@ -72,6 +115,12 @@ impl<R, C> ColumnDef<R, C> {
         self
     }
 
+    /// Match this column's committed typed filter value.
+    pub fn filter_value(mut self, matches: impl Fn(&R, &FilterValue) -> bool + 'static) -> Self {
+        self.matches_value = Some(Rc::new(matches));
+        self
+    }
+
     /// Show the column while true (a constant or a reactive value). A hidden
     /// column is left out of [`TableModel::columns`] and of filtering.
     pub fn visible(mut self, visible: impl IntoValue<bool>) -> Self {
@@ -85,6 +134,12 @@ impl<R, C> ColumnDef<R, C> {
         self
     }
 
+    /// Set the column-specific lower bound for resizing.
+    pub fn min_width(mut self, width: Option<f64>) -> Self {
+        self.min_width = width.filter(|width| width.is_finite() && *width >= 0.0);
+        self
+    }
+
     /// This definition under another key; its label, width, ordering,
     /// match and visibility keep their identity.
     pub fn with_key<D>(self, key: D) -> ColumnDef<R, D> {
@@ -92,8 +147,10 @@ impl<R, C> ColumnDef<R, C> {
             key,
             label: self.label,
             width: self.width,
+            min_width: self.min_width,
             compare: self.compare,
             matches: self.matches,
+            matches_value: self.matches_value,
             visible: self.visible,
         }
     }
@@ -129,7 +186,7 @@ impl<R, C> ColumnDef<R, C> {
 
     /// Whether the column takes part in filtering ([`filter`](Self::filter)).
     pub fn is_filtered(&self) -> bool {
-        self.matches.is_some()
+        self.matches.is_some() || self.matches_value.is_some()
     }
 
     /// The starting width ([`width`](Self::width)).
@@ -146,6 +203,7 @@ impl<R, C: Clone> ColumnDef<R, C> {
             label: self.label.clone(),
             sortable: self.compare.is_some(),
             width: self.width,
+            min_width: self.min_width,
         }
     }
 }
@@ -165,9 +223,11 @@ impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
         self.key == other.key
             && self.label == other.label
             && self.width == other.width
+            && self.min_width == other.min_width
             && self.visible == other.visible
             && same(self.compare.as_ref(), other.compare.as_ref())
             && same(self.matches.as_ref(), other.matches.as_ref())
+            && same(self.matches_value.as_ref(), other.matches_value.as_ref())
     }
 }
 
@@ -234,6 +294,9 @@ pub struct TableModel<R: 'static, K: 'static, C: 'static> {
     pages: Value<usize>,
     sort: Signal<Option<Sort<C>>>,
     query: Signal<Option<Value<String>>>,
+    column_queries: Signal<Option<ColumnQueries<C>>>,
+    arrangement: Signal<Option<RowArrangement<R>>>,
+    typed_queries: Signal<Option<TypedQueries<C>>>,
     paging: Signal<Option<Paging>>,
 }
 
@@ -266,6 +329,9 @@ where
     let columns: Rc<[ColumnDef<R, C>]> = columns.into();
     let sort = signal(None::<Sort<C>>);
     let query = signal(None::<Value<String>>);
+    let column_queries = signal(None::<Value<Vec<(C, String)>>>);
+    let arrangement = signal(None::<RowArrangement<R>>);
+    let typed_queries = signal(None::<TypedQueries<C>>);
     let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();
@@ -285,34 +351,83 @@ where
                 .get()
                 .map(|query| query.get().trim().to_string())
                 .unwrap_or_default();
-            let sort = sort.get().and_then(|sort| sort.get());
+            let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
+            let column_queries = column_queries
+                .get()
+                .map(|queries| queries.get())
+                .unwrap_or_default();
+            let typed = typed_queries
+                .get()
+                .map(|queries| queries.get())
+                .unwrap_or_default();
+            let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
+                Vec::new()
+            } else {
+                shown()
+            };
+            let global_matchers: Vec<_> = shown
+                .iter()
+                .filter_map(|column| column.matches.as_ref())
+                .collect();
+            let column_matchers: Vec<_> = column_queries
+                .iter()
+                .filter_map(|(key, text)| {
+                    let text = text.trim();
+                    if text.is_empty() {
+                        return None;
+                    }
+                    let column = shown.iter().find(|column| &column.key == key)?;
+                    Some((column.matches.as_ref()?, text))
+                })
+                .collect();
+            let typed_matchers: Vec<_> = shown
+                .iter()
+                .filter_map(|column| {
+                    let value = typed.get(&column.key).filter(|value| !value.is_empty())?;
+                    Some((column.matches_value.as_ref()?, value))
+                })
+                .collect();
             rows.with(|rows| {
-                let mut kept: Vec<usize> = if query.is_empty() {
-                    (0..rows.len()).collect()
-                } else {
-                    let matchers: Vec<_> = shown()
-                        .into_iter()
-                        .filter_map(|column| column.matches)
-                        .collect();
-                    (0..rows.len())
-                        .filter(|&i| matchers.iter().any(|matches| matches(&rows[i], &query)))
-                        .collect()
-                };
-                let compare = sort.and_then(|(key, direction)| {
-                    let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
-                    Some((compare, direction))
-                });
-                if let Some((compare, direction)) = compare {
+                let mut kept: Vec<usize> = (0..rows.len())
+                    .filter(|&i| {
+                        let row = &rows[i];
+                        (query.is_empty()
+                            || global_matchers.iter().any(|matches| matches(row, &query)))
+                            && column_matchers
+                                .iter()
+                                .all(|(matches, text)| matches(row, text))
+                            && typed_matchers
+                                .iter()
+                                .all(|(matches, value)| matches(row, value))
+                    })
+                    .collect();
+                let comparisons: Vec<_> = sort
+                    .into_iter()
+                    .filter_map(|(key, direction)| {
+                        let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
+                        Some((compare, direction))
+                    })
+                    .collect();
+                if !comparisons.is_empty() {
                     kept.sort_by(|&a, &b| {
-                        let order = compare(&rows[a], &rows[b]);
-                        if direction == SortOrder::Descending {
-                            order.reverse()
-                        } else {
-                            order
-                        }
+                        comparisons
+                            .iter()
+                            .find_map(|(compare, direction)| {
+                                let order = compare(&rows[a], &rows[b]);
+                                let order = if *direction == SortOrder::Descending {
+                                    order.reverse()
+                                } else {
+                                    order
+                                };
+                                (order != Ordering::Equal).then_some(order)
+                            })
+                            .unwrap_or(Ordering::Equal)
                     });
                 }
-                kept
+                match arrangement.get() {
+                    Some(arrange) => arrange(rows, kept),
+                    None => kept,
+                }
             })
         })
     };
@@ -362,6 +477,9 @@ where
         pages,
         sort,
         query,
+        column_queries,
+        arrangement,
+        typed_queries,
         paging,
     }
 }
@@ -375,7 +493,13 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     #[track_caller]
     pub fn sort(self, sort: impl Into<Binding<Option<(C, SortOrder)>>>) -> Self {
         let sort = sort.into();
-        self.sort.update(|current| *current = Some(sort));
+        self.multi_sort(move || sort.get().into_iter().collect())
+    }
+
+    /// Sort by an ordered list of column keys, with the first key primary.
+    /// Rows equal on every key retain their original order. Setup only.
+    pub fn multi_sort(self, sort: impl IntoValue<Vec<(C, SortOrder)>>) -> Self {
+        self.sort.set(Some(sort.into_value()));
         self
     }
 
@@ -386,6 +510,31 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     pub fn filter(self, query: impl IntoValue<String>) -> Self {
         let query = query.into_value();
         self.query.update(|current| *current = Some(query));
+        self
+    }
+
+    /// Require each nonblank column query to match that shown column's
+    /// [predicate](ColumnDef::filter), in addition to the global filter.
+    /// Unknown, hidden and non-filterable columns are ignored. Repeated
+    /// queries for a column must all match. The model only reads the queries.
+    #[track_caller]
+    pub fn column_filters(self, queries: impl IntoValue<Vec<(C, String)>>) -> Self {
+        self.column_queries.set(Some(queries.into_value()));
+        self
+    }
+
+    /// Arrange or remove matched source indices after sorting, before paging.
+    /// The arrangement must return only indices from the supplied order.
+    pub fn arrange_rows(self, arrange: impl Fn(&[R], Vec<usize>) -> Vec<usize> + 'static) -> Self {
+        self.arrangement
+            .update(|current| *current = Some(Rc::new(arrange)));
+        self
+    }
+
+    /// Require each typed value to match its shown column, in addition to
+    /// text queries. Empty values and columns without a predicate are ignored.
+    pub fn typed_column_filters(self, values: impl IntoValue<HashMap<C, FilterValue>>) -> Self {
+        self.typed_queries.set(Some(values.into_value()));
         self
     }
 

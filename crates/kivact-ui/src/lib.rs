@@ -145,48 +145,57 @@ mod number_input;
 mod progress;
 mod recipes;
 mod split;
+mod switch_drag;
 mod tag_input;
 mod text_draft;
 mod text_input;
 mod toggle;
 mod toggle_button;
+mod toggle_parts;
+mod tree;
 mod values;
 mod variants;
 
-pub use button::{Button, button};
+pub use button::{Button, ButtonBusyMotion, DisabledButtonFocus, button};
 pub use children::IntoChildren;
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
-pub use data_table::{DataTable, DataTableContext, data_table};
+pub use data_table::{
+    DataTable, DataTableContext, DataTableDensity, DataTableGroupState, DataTableRowStatusPaint,
+    DataTableStickyPaint, DataTableTreeIndent, FilterField, FilterUi, RowStatus, data_table,
+};
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};
 pub use inline_edit::{InlineEdit, use_inline_edit};
+pub use kivact_interaction::FilterValue;
 /// The values and data the standard components and the official kits take,
 /// so an app needs no `kivact::interaction` import (that module is the
 /// component author's).
 pub use kivact_interaction::{
     Command, DialogKind, Dismiss, EditPhase, ListActivation, ListItem, MenuEntry, ScalarRange,
-    ScalarRangeError, Side, Toast, Toaster, Tone, TreeNode, toaster,
+    ScalarRangeError, Side, Toast, ToastOptions, Toaster, Tone, TreeNode, toaster,
 };
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
-pub use progress::{Progress, progress};
+pub use progress::{Progress, ProgressMotion, progress};
 pub use recipes::{
     CommandPaletteRecipes, DataTableRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
     ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,
     SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes, TagInputRecipes,
-    ToastRecipes, TooltipRecipes, UiRecipes,
+    ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
 };
 pub use split::{Split, split};
+pub use switch_drag::SwitchDrag;
 pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
-pub use toggle_button::{Toggle, toggle};
+pub use toggle_button::{Toggle, ToggleLabelReservation, toggle};
+pub use tree::{TreeView, tree, tree_rows, tree_rows_with_reveal};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
-    ProgressState, SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState,
-    TooltipArrowState,
+    ProgressState, SelectTriggerState, SwitchDragState, TextInputState, ToastGroupState,
+    ToggleButtonState, TooltipArrowState, provide_control_size,
 };
 pub use variants::{Look, Variant};
 
@@ -198,13 +207,16 @@ mod slider;
 mod splitter;
 mod tabs;
 mod toast;
+mod toast_rows;
+mod toast_swipe;
 mod tooltip;
-pub use dialog::{Dialog, dialog};
+pub use dialog::{Dialog, DialogCenter, dialog};
 pub use menu::{Menu, menu};
 pub use radio_group::{RadioGroup, radio_group};
-pub use select::{Select, select};
-pub use slider::{Slider, range_slider, slider};
+pub use select::{Select, SelectSheetOption, select};
+pub use slider::{Slider, SliderTouchMotion, range_slider, slider};
 pub use splitter::{Splitter, splitter};
 pub use tabs::{Tabs, tabs};
-pub use toast::{ToastRegion, toast_region};
+pub use toast::{ToastRegion, ToastRowMotion, toast_region};
+pub use toast_swipe::{ToastSwipe, ToastSwipeEdge};
 pub use tooltip::{Tooltip, tooltip};

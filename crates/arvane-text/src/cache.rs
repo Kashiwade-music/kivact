@@ -107,6 +107,7 @@ struct RichKey {
     decoration: Option<DecorationBits>,
     overflow: bool,
     max_lines: Option<u32>,
+    capsize: bool,
     transform: TextTransform,
     spans: Vec<SpanBits>,
 }
@@ -150,6 +151,7 @@ impl TextKey {
             && decoration.is_none()
             && style.overflow == TextOverflow::Clip
             && style.max_lines.is_none()
+            && !style.capsize
             && style.transform == TextTransform::None;
         let rich = (!plain).then(|| {
             Box::new(RichKey {
@@ -160,6 +162,7 @@ impl TextKey {
                 decoration,
                 overflow: style.overflow == TextOverflow::Ellipsis,
                 max_lines: style.max_lines,
+                capsize: style.capsize,
                 transform: style.transform,
                 spans: text
                     .spans

@@ -14,6 +14,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
+type MultiSort<C> = Binding<Vec<(C, SortOrder)>>;
 
 pub(super) struct State<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> {
     pub(super) owner: Owner,
@@ -30,6 +31,7 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + '
     pub(super) focus: TableFocus,
     pub(super) label: Signal<Option<Label<K>>>,
     pub(super) sort: Signal<Binding<Option<(C, SortOrder)>>>,
+    pub(super) multi_sort: Signal<Option<MultiSort<C>>>,
     pub(super) widths: Signal<Binding<HashMap<C, f64>>>,
     pub(super) resize: Signal<(ScalarRange, f64)>,
     headers: RefCell<HashMap<C, NodeRef>>,
@@ -67,6 +69,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
         })
     });
     let policy = match focus {
+        TableFocus::None => ListPolicy::default(),
         TableFocus::Rows(policy) => policy,
         TableFocus::Cells(range) => ListPolicy {
             range,
@@ -126,6 +129,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'sta
         focus,
         label,
         sort,
+        multi_sort: signal(None),
         widths: signal(Binding::from(widths)),
         resize: signal((
             ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),

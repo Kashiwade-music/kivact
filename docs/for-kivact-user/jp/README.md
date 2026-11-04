@@ -47,5 +47,5 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 | --- | --- |
 | [getting-started/](getting-started/README.md) | チュートリアルです。小さな ToDo アプリを 1 ページずつ作ります。まずここから始めてください。 |
 | [how-to-guide/](how-to-guide/README.md) | フォームの検証やダイアログの表示など、目的別のガイドです。 |
-| [UI キット](../../for-kivact-ui-user/jp/README.md) | 公式の 4 つのコンポーネントキット (`kivact-ui-basic`、`kivact-ui-pop`、`kivact-ui-game`、`kivact-ui-creative`) とそのテーマです。 |
+| [UI キット](../../for-kivact-ui-user/jp/README.md) | 公式の 5 つのコンポーネントキット (`kivact-ui-basic`、`kivact-ui-pop`、`kivact-ui-game`、`kivact-ui-creative`、`kivact-ui-soft`) とそのテーマです。 |
 | API リファレンス | Kivact に依存するプロジェクト、またはリポジトリのクローンで `cargo doc -p kivact --open` を実行します。 |

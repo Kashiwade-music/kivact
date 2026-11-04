@@ -115,6 +115,7 @@ pub struct TextProps {
     pub overflow: Option<TextOverflow>,
     /// `Some(0)`: no clamp.
     pub max_lines: Option<u32>,
+    pub capsize: Option<bool>,
     pub transform: Option<TextTransform>,
     pub shadows: Option<Vec<TextShadow>>,
     pub caret_color: Option<Rgba>,
@@ -198,6 +199,7 @@ impl TextProps {
             },
             overflow: self.overflow.unwrap_or_default(),
             max_lines: self.max_lines.filter(|n| *n > 0),
+            capsize: self.capsize.unwrap_or_default(),
             transform: self.transform.unwrap_or_default(),
             shadows: self.shadows.unwrap_or_default(),
             caret_color: self.caret_color,
@@ -263,6 +265,7 @@ pub struct TextMore {
     pub overflow: TextOverflow,
     /// CSS `line-clamp`: the most lines shown, the last ending in "…".
     pub max_lines: Option<u32>,
+    pub capsize: bool,
     pub transform: TextTransform,
     /// CSS `text-shadow`, the first on top.
     pub shadows: Vec<TextShadow>,
@@ -291,6 +294,7 @@ impl TextMore {
         },
         overflow: TextOverflow::Clip,
         max_lines: None,
+        capsize: false,
         transform: TextTransform::None,
         shadows: Vec::new(),
         caret_color: None,

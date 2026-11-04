@@ -119,6 +119,11 @@ impl Variants {
         *ext = std::mem::take(&mut *ext).with(value);
     }
 
+    /// An independent recipe look for one presentation of this component.
+    pub(super) fn with<T: Variant>(&self, value: T) -> Self {
+        Self(Rc::new(RefCell::new(self.0.borrow().clone().with(value))))
+    }
+
     /// `state` with the values collected so far.
     pub(super) fn look<S>(&self, state: S) -> Look<S> {
         Look {

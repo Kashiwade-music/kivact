@@ -1,0 +1,179 @@
+//! Role: Provide Neutral grid tracks and item spans.
+use crate::stack::Space;
+use kivact::control::{Node, NodeBuilder, grid as native_grid};
+use kivact::primitive::NodeExt;
+use kivact::style::{Align, GridPlacement, Track, pct, style};
+use kivact::view::{IntoView, View, node_ref, provide};
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GridRepeat {
+    #[default]
+    Fill,
+    Fit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GridColumns {
+    Fixed(u16),
+    Responsive {
+        min_width: f32,
+        max: Option<u16>,
+        repeat: GridRepeat,
+    },
+}
+
+pub struct Grid {
+    root: Node,
+    columns: GridColumns,
+    gap: Space,
+    row_gap: Option<Space>,
+    column_gap: Option<Space>,
+    row_height: Option<f32>,
+}
+
+pub fn grid(children: impl IntoView) -> Grid {
+    Grid {
+        root: native_grid(children),
+        columns: GridColumns::Fixed(1),
+        gap: Space::S0,
+        row_gap: None,
+        column_gap: None,
+        row_height: None,
+    }
+}
+
+impl Grid {
+    pub fn columns(mut self, columns: GridColumns) -> Self {
+        self.columns = columns;
+        self
+    }
+    pub fn gap(mut self, gap: Space) -> Self {
+        self.gap = gap;
+        self
+    }
+    pub fn row_gap(mut self, gap: Space) -> Self {
+        self.row_gap = Some(gap);
+        self
+    }
+    pub fn column_gap(mut self, gap: Space) -> Self {
+        self.column_gap = Some(gap);
+        self
+    }
+    pub fn row_height(mut self, px: f32) -> Self {
+        self.row_height = Some(px);
+        self
+    }
+    pub fn align(mut self, align: Align) -> Self {
+        self.root = self.root.style(style().align_items(align));
+        self
+    }
+    pub fn justify(mut self, align: Align) -> Self {
+        self.root = self.root.style(style().justify_items(align));
+        self
+    }
+}
+
+impl NodeBuilder for Grid {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+
+impl IntoView for Grid {
+    fn into_view(self) -> View {
+        let Self {
+            root,
+            columns,
+            gap,
+            row_gap,
+            column_gap,
+            row_height,
+        } = self;
+        provide((), move || {
+            let reference = node_ref();
+            root.node_ref(reference).base_style(move || {
+                let column_gap = column_gap.unwrap_or(gap).px();
+                let columns = match columns {
+                    GridColumns::Fixed(count) => Track::repeat(count.max(1), Track::fr(1)),
+                    GridColumns::Responsive {
+                        mut min_width,
+                        max,
+                        repeat,
+                    } => {
+                        if let Some(max) = max.filter(|max| *max > 0)
+                            && let Some(rect) = reference.rect().get()
+                        {
+                            let max = f32::from(max);
+                            let capped = (rect.width - (max - 1.0) * column_gap) / max;
+                            min_width = rect.width.min(min_width.max(capped));
+                        }
+                        let track = Track::minmax(min_width.max(0.0), Track::fr(1));
+                        match repeat {
+                            GridRepeat::Fill => Track::repeat_auto_fill(track),
+                            GridRepeat::Fit => Track::repeat_auto_fit(track),
+                        }
+                    }
+                };
+                let mut base = style()
+                    .grid_template_columns(columns)
+                    .row_gap(row_gap.unwrap_or(gap).px())
+                    .column_gap(column_gap);
+                if let Some(px) = row_height {
+                    base = base.grid_auto_rows(px);
+                }
+                base
+            })
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Span {
+    Cols(u16),
+    Full,
+}
+
+pub struct GridSpan {
+    root: Node,
+}
+
+pub fn grid_span(children: impl IntoView) -> GridSpan {
+    GridSpan {
+        root: native_grid(children).base_style(
+            style()
+                .min_width(0)
+                .height(pct(100))
+                .grid_template_columns(Track::minmax(0, Track::fr(1))),
+        ),
+    }
+}
+
+impl GridSpan {
+    pub fn columns(mut self, span: Span) -> Self {
+        let span = match span {
+            Span::Cols(n) => GridPlacement::span(n.max(1)),
+            Span::Full => GridPlacement::from((1, -1)),
+        };
+        self.root = self.root.style(style().grid_column(span));
+        self
+    }
+
+    pub fn rows(mut self, n: u16) -> Self {
+        self.root = self
+            .root
+            .style(style().grid_row(GridPlacement::span(n.max(1))));
+        self
+    }
+}
+
+impl NodeBuilder for GridSpan {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+
+impl IntoView for GridSpan {
+    fn into_view(self) -> View {
+        self.root.into_view()
+    }
+}

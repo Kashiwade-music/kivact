@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use super::scene::TextRun;
 use super::{Size, TextMetrics};
-use kivact_types::protocol::ShapedText;
+use kivact_types::protocol::{InlineBox, ShapedInlineText, ShapedText};
 
 /// Space available to a node along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -69,6 +69,16 @@ pub trait TextShaper {
     /// `Arc`. `None` when it cannot be shaped. The result owns its data, so
     /// the shaper is not borrowed afterwards.
     fn shape(&self, run: &TextRun, max_width: Option<f32>) -> Option<Arc<ShapedText>>;
+
+    /// Shape a paragraph with measured inline objects when the host supports it.
+    fn shape_inline(
+        &self,
+        _run: &TextRun,
+        _max_width: Option<f32>,
+        _boxes: &[InlineBox],
+    ) -> Option<ShapedInlineText> {
+        None
+    }
 }
 
 /// Text measurement lent to a [`LeafMeasure`] while it runs: the extent a
@@ -79,6 +89,16 @@ pub trait TextShaper {
 pub struct LeafTextMeasurer<'a>(&'a dyn TextShaper);
 
 impl<'a> LeafTextMeasurer<'a> {
+    /// Shape a paragraph with measured inline objects.
+    pub fn shape_inline(
+        &self,
+        run: &TextRun,
+        max_width: Option<f32>,
+        boxes: &[InlineBox],
+    ) -> Option<ShapedInlineText> {
+        self.0.shape_inline(run, max_width, boxes)
+    }
+
     /// Lend a text shaper for the duration of a leaf measure.
     pub fn new(shaper: &'a dyn TextShaper) -> Self {
         LeafTextMeasurer(shaper)
@@ -96,6 +116,15 @@ impl<'a> LeafTextMeasurer<'a> {
 }
 
 impl TextShaper for LeafTextMeasurer<'_> {
+    fn shape_inline(
+        &self,
+        run: &TextRun,
+        max_width: Option<f32>,
+        boxes: &[InlineBox],
+    ) -> Option<ShapedInlineText> {
+        self.0.shape_inline(run, max_width, boxes)
+    }
+
     fn measure(&self, run: &TextRun) -> TextMetrics {
         self.0.measure(run)
     }

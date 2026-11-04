@@ -74,6 +74,30 @@ fn a_change_of_one_environment_field_notifies_only_its_readers() {
 }
 
 #[test]
+fn app_motion_override_survives_system_changes_and_can_be_cleared() {
+    let screen = render(|| {
+        column((
+            text(move || format!("motion {}", platform::reduced_motion())),
+            button("Reduce").on_press(|| {
+                spawn(platform::set_reduced_motion(Some(true)));
+            }),
+            button("Follow system").on_press(|| {
+                spawn(platform::set_reduced_motion(None));
+            }),
+        ))
+    });
+    screen.get_by_text("motion false");
+    screen.get_by_role(Role::Button, "Reduce").click();
+    screen.get_by_text("motion true");
+    screen.set_reduced_motion(true);
+    screen.set_reduced_motion(false);
+    screen.get_by_text("motion true");
+    screen.get_by_role(Role::Button, "Follow system").click();
+    screen.get_by_text("motion false");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn the_safe_area_starts_at_zero_and_follows_the_platform() {
     let screen = render(|| {
         let safe = move || {
@@ -122,5 +146,80 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
         left: 44.0,
     });
     screen.get_by_text("safe 0 0 21 44");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn advanced_semantics_publish_roles_and_reactive_states() {
+    use kivact::primitive::NodeExt;
+    use kivact::view::{CurrentItem, PopupKind};
+
+    let screen = render(|| {
+        let current = signal(true);
+        column((
+            node()
+                .role(Role::Log)
+                .name("Message log")
+                .busy(current)
+                .child(
+                    node()
+                        .role(Role::Article)
+                        .name("First message")
+                        .semantics_read_only(true)
+                        .child(text("Hello")),
+                ),
+            button("Choose")
+                .has_popup(Some(PopupKind::ListBox))
+                .current_item(move || current.get().then_some(CurrentItem::Page)),
+            field("Email", text_input("Email", signal(String::new()))).required(true),
+            button("Working").loading(current),
+            button("Clear").on_press(move || current.set(false)),
+        ))
+    });
+    let log = screen.get_by_role(Role::Log, "Message log");
+    let message = screen.get_by_role(Role::Article, "First message");
+    let choose = screen.get_by_role(Role::Button, "Choose");
+    assert!(log.is_busy());
+    assert!(message.is_read_only());
+    assert!(screen.get_by_role(Role::TextBox, "Email").is_required());
+    let working = screen.get_by_role(Role::Button, "Working");
+    assert!(working.is_busy());
+    assert_eq!(choose.popup_kind(), Some(PopupKind::ListBox));
+    assert_eq!(choose.current_item(), Some(CurrentItem::Page));
+
+    screen.get_by_role(Role::Button, "Clear").click();
+    assert!(!log.is_busy());
+    assert!(!working.is_busy());
+    assert_eq!(choose.current_item(), None);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn control_size_provider_prefers_the_nearest_default_and_explicit_sizes() {
+    use kivact::ui::{ControlSize, provide_control_size};
+
+    let screen = render(|| {
+        column((
+            button("Ordinary"),
+            provide_control_size(ControlSize::Small, || {
+                column((
+                    button("Small"),
+                    button("Explicit medium").size(ControlSize::Medium),
+                    provide_control_size(ControlSize::Large, || button("Large")),
+                ))
+            }),
+        ))
+    });
+
+    let height = |name| {
+        screen
+            .get_by_role(Role::Button, name)
+            .rect()
+            .expect("mounted button")
+            .height
+    };
+    assert!(height("Small") < height("Ordinary"));
+    assert_eq!(height("Explicit medium"), height("Ordinary"));
+    assert!(height("Large") > height("Ordinary"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

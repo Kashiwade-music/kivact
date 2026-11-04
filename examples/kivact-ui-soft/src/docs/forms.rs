@@ -1,0 +1,238 @@
+//! Role: Demonstrate standard form recipes through controlled public components.
+use super::specimen::specimen;
+use kivact::control::{Node, NodeBuilder, column};
+use kivact::interaction::ScalarRange;
+use kivact::signal;
+use kivact::style::style;
+use kivact::ui::{ControlSize, ListItem, field, number_input, text_area, text_input};
+use kivact_ui_soft::{
+    FieldStatusVariant, StatusKind, checkbox_list, complex_selector, field_status, file_input,
+    input_group_text, input_group_with, multi_selector, power_search, rich_text_editor, selector,
+    tokenizer, typeahead,
+};
+
+pub(super) fn examples(slug: &str) -> Option<Node> {
+    Some(match slug {
+        "text-input" => column((
+            specimen(
+                "Empty, filled and disabled",
+                column((
+                    text_input("Search", signal(String::new())).placeholder("Search"),
+                    text_input("Name", signal("Avery".to_owned())),
+                    text_input("Unavailable", signal("Archived".to_owned())).disabled(true),
+                ))
+                .style(style().gap(8).width(260)),
+                r#"text_input("Search", signal(String::new())).placeholder("Search")
+text_input("Name", signal("Avery".to_owned()))
+text_input("Unavailable", signal("Archived".to_owned())).disabled(true)"#,
+            ),
+            specimen(
+                "Small and large read-only inputs",
+                column((
+                    text_input("Small", signal("Avery".to_owned())).size(ControlSize::Small),
+                    text_input("Read only", signal("avery@example.com".to_owned()))
+                        .size(ControlSize::Large)
+                        .read_only(true),
+                ))
+                .style(style().gap(8).width(260)),
+                r#"text_input("Small", signal("Avery".to_owned())).size(ControlSize::Small)
+text_input("Read only", signal("avery@example.com".to_owned()))
+    .size(ControlSize::Large)
+    .read_only(true)"#,
+            ),
+        ))
+        .style(style().gap(12)),
+        "text-area" => column((
+            specimen(
+                "Automatic height",
+                text_area("Notes", signal(String::new()))
+                    .wrap(true)
+                    .rows(2..=5)
+                    .placeholder("Add notes")
+                    .style(style().width(280)),
+                r#"text_area("Notes", signal(String::new()))
+    .wrap(true)
+    .rows(2..=5)
+    .placeholder("Add notes")"#,
+            ),
+            specimen(
+                "Disabled notes",
+                text_area(
+                    "Archived notes",
+                    signal("First line\nSecond line".to_owned()),
+                )
+                .wrap(true)
+                .rows(2..=5)
+                .disabled(true)
+                .style(style().width(280)),
+                r#"text_area("Archived notes", signal("First line\nSecond line".to_owned()))
+    .wrap(true)
+    .rows(2..=5)
+    .disabled(true)"#,
+            ),
+        ))
+        .style(style().gap(12)),
+        "field" | "field-label" => specimen(
+            "Label, description and validation",
+            column((
+                field("Name", text_input("Name", signal(String::new())))
+                    .hint("Shown on your profile"),
+                field("Email", text_input("Email", signal("invalid".to_owned())))
+                    .error(Some("Enter an email address".to_owned())),
+            ))
+            .style(style().gap(12).width(280)),
+            r#"field("Name", text_input("Name", signal(String::new())))
+    .hint("Shown on your profile")
+field("Email", text_input("Email", signal("invalid".to_owned())))
+    .error(Some("Enter an email address".to_owned()))"#,
+        ),
+        "field-status" => column((
+            specimen(
+                "Attached success",
+                column((
+                    text_input("Name", signal("Avery".to_owned())).style(style().z_index(1)),
+                    field_status(StatusKind::Success, "Name is available")
+                        .variant(FieldStatusVariant::Attached),
+                ))
+                .style(style().width(280)),
+                r#"column((
+    text_input("Name", signal("Avery".to_owned())).style(style().z_index(1)),
+    field_status(StatusKind::Success, "Name is available")
+        .variant(FieldStatusVariant::Attached),
+))"#,
+            ),
+            specimen(
+                "Detached warning",
+                column((
+                    text_input("Display name", signal("Avery".to_owned())),
+                    field_status(StatusKind::Warning, "Your changes are pending")
+                        .variant(FieldStatusVariant::Detached),
+                ))
+                .style(style().width(280)),
+                r#"column((
+    text_input("Display name", signal("Avery".to_owned())),
+    field_status(StatusKind::Warning, "Your changes are pending")
+        .variant(FieldStatusVariant::Detached),
+))"#,
+            ),
+        ))
+        .style(style().gap(12)),
+        "selector" => column((
+            specimen(
+                "Placeholder and disabled option",
+                selector("Team", teams(), signal(None))
+                    .placeholder("Choose a team")
+                    .style(style().width(220)),
+                r#"selector("Team", teams(), signal(None)).placeholder("Choose a team")"#,
+            ),
+            specimen(
+                "Selected and disabled",
+                column((
+                    selector("Assigned team", teams(), signal(Some("design"))),
+                    selector("Locked team", teams(), signal(Some("engineering"))).disabled(true),
+                ))
+                .style(style().gap(8).width(220)),
+                r#"selector("Assigned team", teams(), signal(Some("design")))
+selector("Locked team", teams(), signal(Some("engineering"))).disabled(true)"#,
+            ),
+        ))
+        .style(style().gap(12)),
+        "complex-selector" => specimen(
+            "Custom selector content",
+            complex_selector("Workspace", "Design", || {
+                kivact::control::text("Workspace details")
+            }),
+            "complex_selector(\"Workspace\", \"Design\", content)",
+        ),
+        "multi-selector" => specimen(
+            "Multiple selections",
+            multi_selector("Teams", teams(), signal(vec!["design"])).style(style().width(280)),
+            "multi_selector(\"Teams\", options, selected)",
+        ),
+        "typeahead" | "base-typeahead" => specimen(
+            "Search suggestions",
+            typeahead("Team", teams(), signal(None)).style(style().width(280)),
+            "typeahead(\"Team\", options, selected)",
+        ),
+        "power-search" => specimen(
+            "Editable filters",
+            power_search("Team filters", teams(), signal(Vec::new())),
+            "power_search(\"Team filters\", fields, filters)",
+        ),
+        "checkbox-list" | "checkbox-list-item" => specimen(
+            "Choose several teams",
+            checkbox_list("Teams", teams(), signal(vec!["design"])),
+            "checkbox_list(\"Teams\", options, selected)",
+        ),
+        "input-group" | "input-group-text" => specimen(
+            "Address with prefix",
+            input_group_with("Website", || {
+                (
+                    input_group_text("https://"),
+                    text_input("Domain", signal("example.com".to_owned())),
+                )
+            })
+            .style(style().width(280)),
+            "input_group_with(\"Website\", || (input_group_text(\"https://\"), domain()))",
+        ),
+        "file-input" => column((
+            specimen(
+                "Choose a file",
+                file_input("Attachment", signal(Vec::new())).style(style().width(280)),
+                r#"file_input("Attachment", signal(Vec::new()))"#,
+            ),
+            specimen(
+                "Choose or drop images",
+                file_input("Images", signal(Vec::new()))
+                    .dropzone(true)
+                    .multiple(true)
+                    .extensions(["png", "jpg"])
+                    .max_bytes(5 * 1024 * 1024)
+                    .style(style().width(280)),
+                r#"file_input("Images", signal(Vec::new()))
+    .dropzone(true)
+    .multiple(true)
+    .extensions(["png", "jpg"])
+    .max_bytes(5 * 1024 * 1024)"#,
+            ),
+        ))
+        .style(style().gap(12)),
+        "rich-text-editor" => specimen(
+            "Edit blocks, switch to Markdown source, or preview",
+            rich_text_editor(
+                "Notes",
+                signal(
+                    "# Project notes\n\n**Ready for review.**\n\n- [ ] Confirm the delivery date"
+                        .to_owned(),
+                ),
+            )
+            .block_editing(true)
+            .style(style().width(440)),
+            "rich_text_editor(\"Notes\", source).block_editing(true)",
+        ),
+        "number-input" => specimen(
+            "Stepped input",
+            number_input(
+                "Quantity",
+                signal(3.0),
+                ScalarRange::new(0.0, 10.0).expect("invariant: finite range"),
+            )
+            .style(style().width(160)),
+            "number_input(\"Quantity\", quantity, range)",
+        ),
+        "tokenizer" => specimen(
+            "Add and remove tags",
+            tokenizer("Teams", teams(), signal(vec!["design"])).style(style().width(320)),
+            "tokenizer(\"Teams\", options, selected)",
+        ),
+        _ => return None,
+    })
+}
+
+fn teams() -> Vec<ListItem<&'static str>> {
+    vec![
+        ListItem::new("design", "Design"),
+        ListItem::new("engineering", "Engineering"),
+        ListItem::new("archive", "Archive").disabled(true),
+    ]
+}

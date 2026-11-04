@@ -6,7 +6,6 @@ use crate::edit::EditSession;
 use crate::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use crate::policy::scalar::ScalarRange;
 use kivact_core::draw::{Point, Rect};
-use kivact_core::primitive::{Part, PartState, part};
 use kivact_core::view::{NodeRef, ReadingDirection, current_direction};
 use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
 
@@ -17,18 +16,29 @@ pub(crate) struct Target {
     pub(crate) range: Value<ScalarRange>,
     pub(crate) thumb: NodeRef,
     pub(crate) rect: Value<Option<Rect>>,
+    pub(crate) bounds: Option<(Value<f64>, Value<f64>)>,
 }
 
 impl Target {
     /// Normalize by the current range and invoke the writer, as
     /// [`Scalar::set`](super::Scalar::set) does.
-    fn set(self, value: f64) {
+    pub(crate) fn set(self, value: f64) {
         if let Some(value) = self.range.get_untracked().normalize(value) {
             self.binding.set(value);
         }
     }
 
-    fn length(self, geometry: Geometry) -> f32 {
+    pub(crate) fn limits(self) -> (f64, f64) {
+        if let Some((min, max)) = self.bounds {
+            let min = min.get_untracked();
+            (min, max.get_untracked().max(min))
+        } else {
+            let range = self.range.get_untracked();
+            (range.min(), range.max())
+        }
+    }
+
+    pub(crate) fn length(self, geometry: Geometry) -> f32 {
         self.rect.get().map_or(0.0, |rect| geometry.length(rect))
     }
 }
@@ -70,19 +80,19 @@ pub(crate) fn fraction(value: f64, range: ScalarRange) -> f64 {
 /// Where a track is and which way its value grows.
 #[derive(Clone, Copy)]
 pub(crate) struct Geometry {
-    rect: Value<Option<Rect>>,
-    axis: Axis,
+    pub(crate) rect: Value<Option<Rect>>,
+    pub(crate) axis: Axis,
     /// The value grows from the right edge (a horizontal track in a
     /// right-to-left subtree); the thumbs' arrows mirror.
     pub(crate) rtl: bool,
 }
 
 impl Geometry {
-    fn along(self, p: Point) -> f32 {
+    pub(crate) fn along(self, p: Point) -> f32 {
         if self.axis.is_horizontal() { p.x } else { p.y }
     }
 
-    fn length(self, r: Rect) -> f32 {
+    pub(crate) fn length(self, r: Rect) -> f32 {
         if self.axis.is_horizontal() {
             r.width
         } else {
@@ -93,7 +103,7 @@ impl Geometry {
     /// Where `pos` (along the axis, in window coordinates) lies on the
     /// track of a thumb `thumb` long, from 0 at the minimum to 1 at the
     /// maximum.
-    fn fraction_at(self, pos: f32, thumb: f32) -> Option<f64> {
+    pub(crate) fn fraction_at(self, pos: f32, thumb: f32) -> Option<f64> {
         let rect = self.rect.get()?;
         let start = if self.axis.is_horizontal() {
             rect.x
@@ -127,6 +137,12 @@ pub(crate) struct Pointer {
 }
 
 impl Pointer {
+    pub(crate) fn attach_track(self, rect: Value<Option<Rect>>, axis: Axis) {
+        let rtl = axis.is_horizontal() && current_direction() == ReadingDirection::Rtl;
+        self.geometry.set(Some(Geometry { rect, axis, rtl }));
+        self.attached.set(true);
+    }
+
     /// Setup only.
     #[track_caller]
     pub(crate) fn new() -> Self {
@@ -176,7 +192,7 @@ impl Pointer {
         }
     }
 
-    fn write(self, index: usize, pos: f32) {
+    pub(crate) fn write(self, index: usize, pos: f32) {
         let (Some(geometry), Some(thumb)) =
             (self.geometry.get(), self.thumbs.get().get(index).copied())
         else {
@@ -265,30 +281,10 @@ pub(crate) fn drag(
         .on_end(move |_: DragUpdate<Grip>| pointer.grab.set(None))
 }
 
-/// The track of the thumbs `pointer` and `drag` move; a press focuses
-/// `first_thumb`. Setup only.
-#[track_caller]
-pub(crate) fn track(
-    pointer: Pointer,
-    drag: Drag<Grip>,
-    first_thumb: NodeRef,
-    axis: Axis,
-) -> Part<PartState> {
-    let rtl = axis.is_horizontal() && current_direction() == ReadingDirection::Rtl;
-    let surface = part(|input| input).focus_on_press(first_thumb);
-    pointer.geometry.set(Some(Geometry {
-        rect: surface.node_ref().rect(),
-        axis,
-        rtl,
-    }));
-    pointer.attached.set(true);
-    surface.with(drag.source(Grip::Track))
-}
-
 /// The thumb whose value lies nearest to `pointer` (a fraction of the
 /// range); between two thumbs at the same value, the one on the pointer's
 /// side.
-fn nearest(thumbs: &[Target], pointer: Option<f64>) -> usize {
+pub(crate) fn nearest(thumbs: &[Target], pointer: Option<f64>) -> usize {
     let Some(pointer) = pointer else { return 0 };
     let mut best = (0, f64::INFINITY);
     for (index, thumb) in thumbs.iter().enumerate() {

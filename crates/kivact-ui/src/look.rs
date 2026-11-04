@@ -287,8 +287,9 @@ pub(super) fn text_input(theme: &Theme, state: &TextInputState) -> Style {
         .color(ColorToken::Text)
         .font_size(font_size(theme, size))
         // A field shows its focus however it got it, as a browser's does.
-        .focus(style().border_color(ColorToken::Focus).ring(
+        .focus(style().border_color(ColorToken::Focus).ring_with_offset(
             theme.focus_ring(),
+            theme.focus_ring_offset(),
             Color::token(ColorToken::Focus).with_alpha(0.35),
         ));
     if state.invalid {

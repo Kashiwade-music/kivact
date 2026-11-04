@@ -10,6 +10,14 @@ use crate::model::Model;
 use kivact_wire::{NodeId, Point, PointerId, PointerKind};
 
 impl Model {
+    pub(crate) fn reserve_touch_gesture(&mut self, pointer: PointerId) {
+        if let Some(track) = self.pointer.state.tracks.get_mut(&pointer.0)
+            && let Gesture::Route(route) = &mut track.gesture
+        {
+            route.touch = None;
+        }
+    }
+
     pub(super) fn touch_candidate(&mut self, pointer: PointerId, hit: Option<NodeId>, at: Point) {
         if self
             .pointer

@@ -147,6 +147,10 @@ pub(super) fn tabs_list(_: &Theme, s: &TabListState) -> Style {
             .border_bottom(1, ColorToken::Border)
     }
 }
+pub(super) fn no_tab_indicator(_: &Theme, _: &TabState) -> Style {
+    style()
+}
+
 pub(super) fn tab(t: &Theme, s: &TabState) -> Style {
     let mark = if s.orientation == Orientation::Vertical {
         style().border_right(2, ColorToken::Accent)

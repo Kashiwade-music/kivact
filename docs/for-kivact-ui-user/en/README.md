@@ -20,6 +20,7 @@ are not on crates.io yet; add them as Git dependencies (each tutorial shows how)
 | Pop | `kivact-ui-pop` | Calm slate surfaces, soft blue gradients, yellow accents | Business apps: forms, dashboards, tables, schedules |
 | Game | `kivact-ui-game` | Hard edges, slanted buttons, segmented meters | Game control panels, HUDs, operation consoles |
 | Creative | `kivact-ui-creative` | Dense and compact, in the style of a dark editing tool (a light mode exists) | Creative editing tools: property panels, number fields, color pickers, docks |
+| Soft | `kivact-ui-soft` | Astryx Neutral in light and dark appearances | Applications that use rounded controls and neutral surfaces |
 
 Start with the tutorial of the kit you chose, then use its how-to guides when
 you have a specific task.
@@ -30,6 +31,7 @@ you have a specific task.
 | Pop | [Tutorial](pop/getting-started/README.md) | [Guides](pop/how-to-guide/README.md) | `cargo run -p kivact-ui-pop-catalog` |
 | Game | [Tutorial](game/getting-started/README.md) | [Guides](game/how-to-guide/README.md) | `cargo run -p kivact-ui-game-catalog` |
 | Creative | [Tutorial](creative/getting-started/README.md) | [Guides](creative/how-to-guide/README.md) | `cargo run -p kivact-ui-creative-catalog` |
+| Soft | [Tutorial](soft/getting-started/README.md) | [Guides](soft/how-to-guide/README.md) | `cargo run -p kivact-ui-soft-catalog` |
 
 The last column is a catalog app that shows every component of the kit. Run
 it from a checkout of the repository: it is the quickest way to compare the
@@ -64,8 +66,8 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Replace `kivact_ui_pop` with `kivact_ui_basic`, `kivact_ui_game` or
-`kivact_ui_creative` and the same app is drawn in that kit's look. The kit's
+Replace `kivact_ui_pop` with `kivact_ui_basic`, `kivact_ui_game`,
+`kivact_ui_creative`, or `kivact_ui_soft` to apply that kit's look. The kit's
 own components are used as `kivact_ui_pop::name`. They are builders like the
 standard ones: they accept `.style(..)`, `.test_id(..)` and the other
 modifiers.
@@ -79,6 +81,6 @@ documentation, which you generate locally:
 cargo doc -p kivact-ui-pop --open
 ```
 
-Use `kivact-ui-basic`, `kivact-ui-game` or `kivact-ui-creative` for the other
+Use `kivact-ui-basic`, `kivact-ui-game`, `kivact-ui-creative`, or `kivact-ui-soft` for the other
 kits. The standard components themselves are documented under `kivact::ui`
 (`cargo doc -p kivact --open`).

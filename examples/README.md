@@ -10,5 +10,6 @@
 | Pop | [落ち着いた配色の業務アプリ UI](kivact-ui-pop/README.md) | `cargo run -p kivact-ui-pop-catalog` |
 | Game | [ゲーム UI](kivact-ui-game/README.md) | `cargo run -p kivact-ui-game-catalog` |
 | Creative | [制作ツール UI](kivact-ui-creative/README.md) | `cargo run -p kivact-ui-creative-catalog` |
+| Soft | [Astryx Neutral](../crates/kivact-ui-soft/README.md) | `cargo run -p kivact-ui-soft-catalog` |
 
 学習の順番は [チュートリアル](../docs/for-kivact-user/jp/getting-started/README.md)、キットの導入は [UI キット ガイド](../docs/for-kivact-ui-user/jp/README.md) を参照してください。

@@ -56,6 +56,7 @@ impl Model {
                 ..SpringRun::default()
             },
             colors_text,
+            colors_base_text: false,
             phase: AnimPhase::Captured,
         };
         self.motion.0.insert(id, a);
@@ -85,6 +86,7 @@ impl Model {
                 .and_then(|n| n.states())
                 .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
             let c = self.text_color(*id);
+            a.colors_base_text = !a.colors_text && c != a.current_color();
             let mut to = PaintVec::of(&target).components().to_vec();
             to.extend_from_slice(&[c.r, c.g, c.b, c.a]);
             if to == a.current || (reduced && a.transition.decorative) {

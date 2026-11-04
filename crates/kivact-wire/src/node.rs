@@ -7,10 +7,10 @@ use std::path::PathBuf;
 
 use super::ids::{FocusTarget, NodeId};
 use super::measure::LeafMeasure;
-use super::semantics::{A11yAction, CheckedState, Role, SemanticsProperties};
+use super::semantics::{A11yAction, CheckedState, Orientation, Role, SemanticsProperties};
 use super::style::{LayoutProps, PaintProps, StateStyles};
 use super::text::{TextProps, TextSpan};
-use super::{OverlayAlign, Placement, Point, Size};
+use super::{OverlayAlign, Placement, Point, Rect, Size};
 use kivact_types::Key;
 use kivact_types::{Asset, ImageFit};
 
@@ -89,6 +89,10 @@ pub struct NodeInput {
     pub hidden: Option<bool>,
     /// Allow the node to receive keyboard focus.
     pub focusable: Option<bool>,
+    /// Keep an otherwise focusable node in focus order while disabled.
+    pub focusable_when_disabled: Option<bool>,
+    /// Group descendants into one stop in the native Tab order.
+    pub roving_focus: Option<RovingFocus>,
     /// Request routed pointer events.
     pub listen_pointer: Option<bool>,
     /// Where a press moves the focus instead of this node; `None`: the host
@@ -101,6 +105,13 @@ pub struct NodeInput {
     /// `false`: the pointer passes through the node and its subtree to what
     /// lies behind (CSS `pointer-events: none`); `None` is `true`.
     pub hit_testable: Option<bool>,
+}
+
+/// Direction of a group whose active focus target moves with arrow keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RovingFocus {
+    pub orientation: Orientation,
+    pub rtl: bool,
 }
 
 /// Accessible identity, state and actions attached to a node.
@@ -169,10 +180,19 @@ pub struct EditingData {
     pub placeholder: Option<String>,
     /// Allow line breaks in the editable value.
     pub multiline: Option<bool>,
+    /// Visual line layout of a multiline field.
+    pub line_layout: Option<EditLineLayout>,
     /// Request document-change events.
     pub report_text: Option<bool>,
     /// Request selection and composition-session events.
     pub report_session: Option<bool>,
+}
+
+/// Soft wrapping and automatic visual row bounds of a native multiline field.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct EditLineLayout {
+    pub wrap: bool,
+    pub rows: Option<(usize, usize)>,
 }
 
 /// Image content, fitting policy and optional intrinsic sizing.
@@ -251,6 +271,33 @@ pub enum OverlayAt {
     Point(Point),
 }
 
+/// Viewport fitting parameters for an overlay that opts into edge insets.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OverlayFit {
+    pub margin: f32,
+    pub keep_anchor_clear: bool,
+    pub rtl: bool,
+}
+
+impl OverlayFit {
+    /// Inset each axis by as much of the requested margin as fits.
+    pub fn viewport(self, size: Size) -> Rect {
+        let margin = if self.margin.is_finite() {
+            self.margin.max(0.0)
+        } else {
+            0.0
+        };
+        let x = margin.min(size.width / 2.0);
+        let y = margin.min(size.height / 2.0);
+        Rect {
+            x,
+            y,
+            width: size.width - 2.0 * x,
+            height: size.height - 2.0 * y,
+        }
+    }
+}
+
 /// Props of an `Overlay` node. While it is shown, a host sends
 /// `HostEvent::A11y` with `A11yRequest::Dismiss(DismissReason::OutsidePress)`
 /// to an overlay whose `Actions` offer `Dismiss` when a pointer press lands
@@ -266,6 +313,8 @@ pub struct OverlayProps {
     pub align: OverlayAlign,
     /// The gap between the anchor and the overlay (logical px).
     pub offset: f32,
+    /// Optional viewport bounds and ordered placement fallback.
+    pub fit: Option<OverlayFit>,
     /// Confine interaction to this overlay while shown.
     pub modal: bool,
 }
@@ -310,6 +359,8 @@ pub enum PlatformRequest {
     /// Request logical content dimensions.
     RequestWindowSize(Size),
     Fullscreen(bool),
+    /// Override the window's reduced-motion preference, or follow the system.
+    ReducedMotion(Option<bool>),
     CopyText(String),
     ReadText,
     PickFile(FileDialogRequest),

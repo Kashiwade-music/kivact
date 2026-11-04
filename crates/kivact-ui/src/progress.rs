@@ -2,22 +2,52 @@
 //!
 //! The bar is a `Role::ProgressBar` whose track is the root and whose fill is
 //! its one child. Both recipes get one [`ProgressState`]: the value, the
-//! fraction shown (which follows the value over a short time, from 0 when the
-//! bar appears) and a repeating clock for a paint that moves. The clock runs
-//! only while the bar is indeterminate or [`Progress::moving`] is true, only
-//! while the window is active, and not under reduced motion.
+//! fraction shown and a repeating clock for a paint that moves. The theme
+//! sets their timing with [`ProgressMotion`]. The clock only runs in an active
+//! window while the bar is indeterminate or [`Progress::moving`] is true.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, ProgressState};
 use super::variants::{Variant, Variants};
 use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
+use kivact_core::motion::{Animated, Easing, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{reduced_motion, surface_active};
 use kivact_core::primitive::NodeExt;
+use kivact_core::style::{Theme, ThemeExtension, current_theme};
 use kivact_core::view::{IntoValue, IntoView, Role, View};
 use kivact_core::{Value, effect, memo, signal};
 
-/// The period of the clock a moving bar reads, in seconds.
-const PERIOD: f32 = 1.3;
+/// Timing of standard progress bars. Install it with [`Theme::with`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProgressMotion {
+    /// Whether the first determinate fill animates from zero.
+    pub animate_initial: bool,
+    /// Milliseconds for changes to the determinate fill.
+    pub determinate_ms: u64,
+    /// Easing of determinate fill changes.
+    pub determinate_easing: Easing,
+    /// Milliseconds per full cycle of the moving-fill clock.
+    pub period_ms: u64,
+    /// Optional full clock period in reduced motion. None leaves it still.
+    pub reduced_period_ms: Option<u64>,
+}
+
+impl Default for ProgressMotion {
+    fn default() -> Self {
+        Self {
+            animate_initial: true,
+            determinate_ms: 400,
+            determinate_easing: Easing::EaseOut,
+            period_ms: 1300,
+            reduced_period_ms: None,
+        }
+    }
+}
+
+impl ThemeExtension for ProgressMotion {
+    fn fallback(_: &Theme) -> Self {
+        Self::default()
+    }
+}
 
 /// A bar of the share done, created by [`progress`].
 pub struct Progress {
@@ -61,7 +91,7 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
         root: node().role(Role::ProgressBar),
         value,
         fixed_indeterminate,
-        size: ControlSize::Medium,
+        size: super::values::default_control_size(),
         moving: false.into_value(),
         variants: Variants::default(),
     }
@@ -128,18 +158,36 @@ impl IntoView for Progress {
             variants,
         } = self;
         let target = memo(move || fraction(value.get()));
-        let shown = Animated::from(
-            0.0,
-            move || target.get().unwrap_or(0.0),
-            Transition::tween(400, Easing::EaseOut),
-        )
+        let motion = current_theme().get::<ProgressMotion>();
+        let transition = Transition::tween(motion.determinate_ms as f64, motion.determinate_easing);
+        let fill = move || target.get().unwrap_or(0.0);
+        let shown = if motion.animate_initial {
+            Animated::from(0.0, fill, transition)
+        } else {
+            animated(fill, transition)
+        }
         .into_value();
         let phase = signal(0.0f32);
+        let period = memo(|| {
+            let motion = current_theme().get::<ProgressMotion>();
+            if reduced_motion() {
+                motion.reduced_period_ms
+            } else {
+                Some(motion.period_ms)
+            }
+        });
         let clock = frame_loop(move |frame| {
-            phase.set((frame.now.as_secs_f32() / PERIOD).fract());
+            if let Some(period) = period.get() {
+                let period = period.max(1) as f64;
+                let elapsed = frame.now.as_secs_f64() * 1000.0;
+                phase.set((elapsed.rem_euclid(period) / period) as f32);
+            }
         });
         effect(move || {
-            if (target.get().is_none() || moving.get()) && !reduced_motion() && surface_active() {
+            if (target.get().is_none() || moving.get())
+                && period.get().is_some()
+                && surface_active()
+            {
                 clock.start(FrameRate::Hz(30.0));
             } else {
                 clock.stop();

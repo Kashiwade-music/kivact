@@ -225,6 +225,7 @@ pub(crate) struct TextExtras {
     pub(crate) underline_offset: Option<TextLength>,
     pub(crate) overflow: Option<TextOverflow>,
     pub(crate) line_clamp: Option<u32>,
+    pub(crate) capsize: Option<bool>,
     pub(crate) transform: Option<TextTransform>,
     pub(crate) shadows: Option<Vec<Shadow>>,
     pub(crate) caret_color: Option<Color>,
@@ -254,6 +255,7 @@ impl TextExtras {
             underline_offset,
             overflow,
             line_clamp,
+            capsize,
             transform,
             shadows,
             caret_color,
@@ -336,6 +338,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme
     t.underline_offset = x.underline_offset.map(TextLength::to_wire);
     t.overflow = x.overflow;
     t.max_lines = x.line_clamp;
+    t.capsize = x.capsize;
     t.transform = x.transform;
     t.shadows = shadows;
     t.caret_color = color(x.caret_color);

@@ -1,4 +1,5 @@
 //! Role: Default recipes for the list and the data table.
+use super::DataTableGroupState;
 use super::values::{
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState,
 };
@@ -7,11 +8,38 @@ use kivact_core::primitive::PartState;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
 };
-use kivact_interaction::{ListItemState, TableHeaderState};
+use kivact_core::view::{ReadingDirection, current_direction};
+use kivact_interaction::{ListItemState, TableHeaderState, TreeItemState};
+
+pub(super) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
+    style()
+        .direction(Direction::Row)
+        .background(ColorToken::SurfaceAlt)
+        .border_bottom(1, ColorToken::Border)
+}
 
 /// The items in a column.
 pub(super) fn list(t: &Theme, _: &PartState) -> Style {
     style().direction(Direction::Column).gap(t.space().xs)
+}
+
+pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
+    let rtl = current_direction() == ReadingDirection::Rtl;
+    let indent = t.space().md + row.level.saturating_sub(1) as f32 * 16.0;
+    style()
+        .direction(if rtl {
+            Direction::RowReverse
+        } else {
+            Direction::Row
+        })
+        .align_items(Align::Center)
+        .min_height(t.control_height())
+        .padding_left(if rtl { t.space().md } else { indent })
+        .padding_right(if rtl { indent } else { t.space().md })
+        .gap(t.space().xs)
+        .radius(t.radius().sm)
+        .hover(style().background(ColorToken::Hover))
+        .selected(style().background(ColorToken::Selection))
 }
 
 /// An item: its icon beside its label, the whole row marked while it is

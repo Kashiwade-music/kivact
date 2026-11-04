@@ -52,7 +52,7 @@ impl EditLines {
         #[cfg(debug_assertions)]
         if mode == RefreshMode::Verify {
             let text = self.shown(source.value, source.placeholder);
-            let discrepancies = self.discrepancies(text);
+            let discrepancies = self.discrepancies(text, engine);
             if !discrepancies.is_empty() {
                 return Err(RefreshError { discrepancies });
             }
@@ -68,7 +68,7 @@ impl EditLines {
         let blank = engine
             .shape(" ", style, None)
             .map_or(height, |s| s.baseline);
-        self.rebuild(text, height, blank);
+        self.rebuild(text, height, blank, engine);
     }
     /// Bring the lines up to what a text input shows (`source`) in
     /// `style`.
@@ -86,10 +86,11 @@ impl EditLines {
             let text = self.shown(source.value, source.placeholder);
             self.rebuild_with_metrics(text, engine);
         } else if self.revision != source.revision && self.shows_value() {
-            let fits = source
-                .damage
-                .filter(|d| d.base == self.revision)
-                .is_some_and(|d| self.splice(text, d));
+            let fits = self.key.wrap_width.is_none()
+                && source
+                    .damage
+                    .filter(|d| d.base == self.revision)
+                    .is_some_and(|d| self.splice(text, d));
             if !fits {
                 self.rebuild_with_metrics(text, engine);
             }

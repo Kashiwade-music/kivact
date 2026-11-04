@@ -66,8 +66,9 @@ pub use super::path::{FillRule, Path, PathContour};
 #[cfg(feature = "gpu-interop")]
 pub use image::GpuFrame;
 pub use image::{ImageOptions, Pixels};
+pub use kivact_wire::{InlineBox, InlineBoxPlacement};
 pub use layer::Layer;
-pub use paragraph::TextParagraph;
+pub use paragraph::{InlineParagraph, TextParagraph};
 
 pub use kivact_wire::RegionId;
 

@@ -1,10 +1,76 @@
 //! Role: Standard compound components apply recipes to shared interaction parts.
 
 use crate::support::mount;
+use kivact::interaction::ListSelection;
 use kivact::prelude::*;
-use kivact::ui::{self, ListItem, MenuEntry};
-use kivact::view::Placement;
+use kivact::ui::{self, ListItem, MenuEntry, TreeNode};
+use kivact::view::{Orientation, Placement};
 use std::time::Duration;
+
+#[test]
+fn roving_group_has_one_tab_stop_and_leaves_editing_arrows_to_the_caret() {
+    let (screen, ()) = mount(|| {
+        let text = signal("ab".to_owned());
+        (
+            (),
+            column((
+                button("Before"),
+                row((button("First"), text_input("Edit", text), button("Last")))
+                    .roving_focus(Orientation::Horizontal),
+                button("After"),
+            )),
+        )
+    });
+    screen.press_tab(false);
+    screen.press_tab(false);
+    assert!(screen.get_by_role(Role::Button, "First").is_focused());
+    screen.press_key(Key::ArrowRight);
+    let editor = screen.get_by_role(Role::TextBox, "Edit");
+    assert!(editor.is_focused());
+    screen.press_key(Key::Home);
+    for _ in 0..2 {
+        screen.press_key(Key::ArrowRight);
+        assert!(editor.is_focused());
+    }
+    screen.press_key(Key::ArrowRight);
+    let last = screen.get_by_role(Role::Button, "Last");
+    assert!(last.is_focused());
+    screen.press_tab(false);
+    assert!(screen.get_by_role(Role::Button, "After").is_focused());
+    screen.press_tab(true);
+    assert!(last.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn standard_tree_expands_and_moves_focus_into_the_branch() {
+    let (screen, expanded) = mount(|| {
+        let expanded = signal(Vec::<u32>::new());
+        let selected = signal(None);
+        let nodes = vec![
+            TreeNode::new(1, None, "Folder"),
+            TreeNode::new(2, Some(1), "Document"),
+        ];
+        (
+            expanded,
+            ui::tree(
+                "Files",
+                nodes,
+                expanded,
+                ListSelection::Single(selected.into()),
+            ),
+        )
+    });
+    screen.get_by_role(Role::Tree, "Files");
+    let folder = screen.get_by_role(Role::TreeItem, "Folder");
+    assert_eq!(folder.is_expanded(), Some(false));
+    assert!(screen.query_by_role(Role::TreeItem, "Document").is_none());
+    folder.press_key(Key::ArrowRight);
+    assert_eq!(expanded.get_untracked(), [1]);
+    folder.press_key(Key::ArrowRight);
+    assert!(screen.get_by_role(Role::TreeItem, "Document").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
 
 #[test]
 fn select_keeps_reactive_options_placeholder_and_keyboard_selection() {
@@ -166,6 +232,36 @@ fn tooltip_uses_shared_delay_and_native_text_area_remains_controlled() {
     screen.run_until_idle();
     assert_eq!(field.value().as_deref(), Some("Changed"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_soft_wrapping_text_area_grows_to_its_visual_row_limit() {
+    let (screen, value) = mount(|| {
+        let value = signal("alpha".to_owned());
+        (
+            value,
+            column((ui::text_area("Notes", value)
+                .wrap(true)
+                .rows(1..=3)
+                .style(style().width(104).font_size(16)),)),
+        )
+    });
+    let field = screen.get_by_role(Role::TextBox, "Notes");
+    let height = || field.rect().expect("text area layout").height;
+    let one = height();
+    value.set("alpha beta gamma".to_owned());
+    screen.run_until_idle();
+    assert!(height() > one, "soft rows increase the height");
+    value.set("alpha beta gamma ".repeat(8));
+    screen.run_until_idle();
+    let capped = height();
+    value.set("alpha beta gamma ".repeat(16));
+    screen.run_until_idle();
+    assert_eq!(height(), capped, "additional visual rows scroll");
+    assert!(!value.get_untracked().contains('\n'));
+    value.set("alpha".to_owned());
+    screen.run_until_idle();
+    assert_eq!(height(), one, "a shorter value shrinks the field");
 }
 
 #[test]

@@ -23,8 +23,8 @@ use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_core::primitive::NodeExt;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, for_each, overlay,
-    overlay_at,
+    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, PopupKind, View, for_each,
+    overlay, overlay_at,
 };
 use kivact_interaction::{
     MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
@@ -157,19 +157,30 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
     /// menu bar's triggers are `Role::MenuItem`), and one without is a
     /// `Role::Button`.
     pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
-        self.render(Some(trigger), false)
+        self.render(Some(trigger), false, false)
     }
     /// Open the same themed menu by a context press or the context-menu key
     /// on `target`, at the pointer, and return the target with the menu. Its
     /// top level is drawn with the `context_surface` recipe.
     pub fn attach_context<T: NodeBuilder + IntoView>(self, target: T) -> View {
-        self.render(Some(target), true)
+        self.render(Some(target), true, false)
     }
-    fn render<T: NodeBuilder + IntoView>(self, trigger: Option<T>, context: bool) -> View {
-        let part = if context {
+    pub(crate) fn attach_context_fallback<T: NodeBuilder + IntoView>(self, target: T) -> View {
+        self.render(Some(target), true, true)
+    }
+
+    fn render<T: NodeBuilder + IntoView>(
+        self,
+        trigger: Option<T>,
+        context: bool,
+        fallback: bool,
+    ) -> View {
+        let part = if fallback {
+            self.behavior.context_fallback_trigger()
+        } else if context {
             self.behavior.context_trigger()
         } else {
-            self.behavior.trigger()
+            self.behavior.trigger().has_popup(Some(PopupKind::Menu))
         };
         let anchor = part.node_ref();
         let (name, trigger) = match trigger {
@@ -237,7 +248,7 @@ fn named<T: NodeBuilder + IntoView, S: Clone + PartialEq + 'static>(
 }
 impl<K: Clone + Eq + Hash + 'static> IntoView for Menu<K> {
     fn into_view(self) -> View {
-        self.render(None::<Node>, false)
+        self.render(None::<Node>, false, false)
     }
 }
 
@@ -365,6 +376,9 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
         let state = part.state();
         let slot = slot.clone();
         let looks = variants.clone();
+        let retain_disabled_focus = *kivact_core::style::current_theme()
+            .get::<kivact_interaction::DisabledMenuFocus>()
+            == kivact_interaction::DisabledMenuFocus::Retain;
         let rows = for_each(
             behavior.entries(),
             |(key, _)| key.clone(),
@@ -388,6 +402,27 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
                         &looks,
                         move || item_state.get(),
                     );
+                    let row = if retain_disabled_focus {
+                        let reason = kivact_core::memo(move || {
+                            data.with(|entry| {
+                                if entry.is_disabled() {
+                                    entry.disabled_reason_value()
+                                } else {
+                                    None
+                                }
+                            })
+                        });
+                        crate::tooltip(move || reason.get().unwrap_or_default())
+                            .enabled(move || {
+                                reason.with(|reason| {
+                                    reason.as_ref().is_some_and(|reason| !reason.is_empty())
+                                })
+                            })
+                            .placement(Placement::End)
+                            .attach(row)
+                    } else {
+                        row.into_view()
+                    };
                     let child = submenu.then(|| {
                         surface(
                             Level {

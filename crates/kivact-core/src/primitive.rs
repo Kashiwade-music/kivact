@@ -140,7 +140,7 @@
 pub use crate::view::descriptor::view_is_empty;
 pub use crate::view::ime_session::{ImeEvent, ImeSession};
 pub use kivact_style::draw::TextParagraph;
-pub use kivact_wire::{SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
+pub use kivact_wire::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
 
 mod measured_leaf;
 mod measurement;
@@ -158,7 +158,7 @@ pub use measured_leaf::{Primitive, primitive};
 pub use measurement::{AvailableSpace, Constraints, Measurement};
 pub use node::{NodeRefExt, NodeToken, focused_node};
 pub use node_ext::NodeExt;
-pub use text_shaping::shape_paragraph;
+pub use text_shaping::{shape_inline_paragraph, shape_paragraph};
 
 mod text_editing;
 pub use crate::view::editing_data::{
@@ -167,3 +167,6 @@ pub use crate::view::editing_data::{
 pub use kivact_editing::{
     EditCaret, EditContext, EditLine, EditOutcome, EditRequest, EditState, TextLayout,
 };
+
+mod inline_view;
+pub use inline_view::inline_view;

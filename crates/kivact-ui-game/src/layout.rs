@@ -1,7 +1,8 @@
 //! Role: Application-owned expandable file-tree entries and views.
 use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::style::{Align, ColorToken, pct, style};
-use kivact::view::{IntoValue, Role, for_each};
+use kivact::ui::tree_rows;
+use kivact::view::{IntoValue, Role};
 use kivact::{Binding, binding, memo, signal};
 use std::collections::HashMap;
 
@@ -145,17 +146,16 @@ pub fn tree(
             }
         }
     });
-    let rows = for_each(
-        tree.rows(),
+    let rows = tree_rows(
+        tree,
         move |row| {
-            let presentation = facts.with(|facts| {
+            facts.with(|facts| {
                 facts
                     .get(&row.key)
                     .map(|f| (f.label.clone(), f.marker.clone(), f.folder))
-            });
-            (row.key.clone(), row.branch.has_children(), presentation)
+            })
         },
-        move |_, item| {
+        move |_, item, part| {
             let entry = item.get_untracked();
             let Some(facts) = facts.with(|facts| facts.get(&entry.key).cloned()) else {
                 return node();
@@ -214,7 +214,7 @@ pub fn tree(
                             .color(ColorToken::AccentText),
                     ),
             );
-            body.part(tree.item(entry.key))
+            body.part(part)
         },
     );
     column(rows)

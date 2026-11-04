@@ -55,4 +55,4 @@ pub use columns::{
 pub use compare::{Geometry, LayoutDifference};
 pub use image::{image_content_size, style_known};
 pub use pass_state::LayoutState;
-pub use placement::place_overlay;
+pub use placement::{anchor_clear_size, place_overlay};

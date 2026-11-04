@@ -34,10 +34,10 @@ use super::Writer;
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
 use kivact_wire::{
-    A11yAction, Asset, CheckedState, EditingData, FocusTarget, ImageData, ImageFit, ImeSession,
-    IntrinsicSize, Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties, NodeSemantics,
-    OverlayProps, PaintProps, Role, SemanticsProperties, StateStyles, TextData, TextProps,
-    TextSpan,
+    A11yAction, Asset, CheckedState, EditLineLayout, EditingData, FocusTarget, ImageData, ImageFit,
+    ImeSession, IntrinsicSize, Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties,
+    NodeSemantics, OverlayProps, PaintProps, Role, SemanticsProperties, StateStyles, TextData,
+    TextProps, TextSpan,
 };
 
 fn semantics(p: &mut NodeProperties) -> &mut NodeSemantics {
@@ -192,6 +192,14 @@ props! {
     Focusable: set_focusable(v: bool)
         => field(Some(v), |p| Some(&mut p.input.focusable)),
         mut = Mut::NONE;
+    /// Whether a disabled node can still take keyboard focus.
+    FocusableWhenDisabled: set_focusable_when_disabled(v: bool)
+        => field(Some(v), |p| Some(&mut p.input.focusable_when_disabled)),
+        mut = Mut::NONE;
+    /// Group native Tab stops at this node.
+    RovingFocus: set_roving_focus(v: kivact_wire::RovingFocus)
+        => field(Some(v), |p| Some(&mut p.input.roving_focus)),
+        mut = Mut::NONE;
     /// Replace the node's listen pointer when its value differs.
     ListenPointer: set_listen_pointer(v: bool)
         => field(Some(v), |p| Some(&mut p.input.listen_pointer)),
@@ -317,6 +325,10 @@ props! {
     /// Replace the node's multiline when its value differs.
     Multiline: set_multiline(v: bool)
         => field(Some(v), |p| Some(&mut editing(p)?.multiline)),
+        mut = Mut::MEASURE.and(Mut::RESTACK);
+    /// Change the editor's visual line layout.
+    EditLineLayout: set_edit_line_layout(v: EditLineLayout)
+        => field(Some(v), |p| Some(&mut editing(p)?.line_layout)),
         mut = Mut::MEASURE.and(Mut::RESTACK);
     /// Replace the node's image when its value differs.
     Image: set_image(v: Asset)

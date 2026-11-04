@@ -19,4 +19,6 @@ pub struct Source<'a> {
     pub password: bool,
     /// Split at LF hard breaks; an unmasked single line shows LF/CR as spaces.
     pub multiline: bool,
+    /// A multiline editor's content width when soft wrapping is enabled.
+    pub wrap_width: Option<f32>,
 }

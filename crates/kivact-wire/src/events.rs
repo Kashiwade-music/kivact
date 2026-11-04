@@ -125,6 +125,10 @@ pub enum KeyPhase {
 /// (`HostFailure`, `TurnsCut`, `AssetFailed`, `DrawDropped`, `LayoutWarning`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostEvent {
+    /// A requested removal has finished, including any retained exit paint.
+    ExitComplete {
+        node: NodeId,
+    },
     Pointer {
         node: NodeId,
         region: Option<RegionId>,
@@ -187,6 +191,8 @@ pub enum HostEvent {
     HoverChanged {
         node: Option<NodeId>,
     },
+    /// Passive mouse location in logical window pixels, even without a hit.
+    MousePosition(Option<Point>),
     /// Host-side edit of a TextInput: the changes of its text in order
     /// (byte ranges, each in the text the previous one left), its session
     /// after them, and its whole text when its `ReportText` prop is set.
@@ -221,6 +227,8 @@ pub enum HostEvent {
         node: NodeId,
         rect: Rect,
         size: Size,
+        /// A native ellipsis or line clamp cut this node's text.
+        text_truncated: bool,
     },
     /// A request for an offered action: from assistive technology, or a
     /// `Dismiss(OutsidePress)` when a pointer press lands outside a shown

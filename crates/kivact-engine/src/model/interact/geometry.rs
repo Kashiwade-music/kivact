@@ -64,8 +64,9 @@ impl Model {
             self.layout_columns
                 .invalidate_chain(&self.tree, &mut self.layout_state, id);
         }
-        // Scrolls, reveals and reports alone keep the last computation.
-        if self.layout_state.take_changed() && self.tree.root.is_some() {
+        // Scrolls alone keep the main layout, but may change a tooltip's available room.
+        let computed = self.layout_state.take_changed() && self.tree.root.is_some();
+        if computed {
             self.tree.pack_child_orders();
             let mut leaves = crate::measure::leaf::EngineMeasure {
                 tree: &self.tree,
@@ -77,6 +78,16 @@ impl Model {
                 self.viewport,
                 &mut leaves,
             );
+        }
+        let reveal = self.focus.take_reveal();
+        if !reveal.is_empty() {
+            self.stick();
+        }
+        for id in reveal {
+            self.scroll_into_view(id);
+        }
+        let fitted = self.refit_tooltips(engine, !computed);
+        if computed || fitted {
             let geometry: Vec<_> = self.layout_columns.drain_geometry_changes().collect();
             self.changes
                 .a11y_subtrees
@@ -92,15 +103,64 @@ impl Model {
             // Set pass flags even when no local ink dependency changed.
             self.changes.laid_out(repaint);
         }
-        let reveal = self.focus.take_reveal();
-        if !reveal.is_empty() {
-            self.stick();
-        }
-        for id in reveal {
-            self.scroll_into_view(id);
-        }
-        self.report_geometry();
+        self.report_geometry(engine);
         true
+    }
+
+    pub(crate) fn refit_tooltips(&mut self, engine: &mut arvane::Engine, reset: bool) -> bool {
+        let tooltips: Vec<_> = self
+            .tree
+            .overlays
+            .iter()
+            .filter_map(|&id| {
+                let props = self.tree.get(id)?.overlay()?;
+                if !props.fit.is_some_and(|fit| fit.keep_anchor_clear) {
+                    return None;
+                }
+                Some((id, props))
+            })
+            .collect();
+        let mut computed = false;
+        for (id, props) in tooltips {
+            if reset {
+                self.layout_tooltip(engine, id, None);
+                computed = true;
+            }
+            let Some(anchor) = self.overlay_anchor(id, props.at) else {
+                continue;
+            };
+            let Some(size) = self.computed_layout(id).map(|layout| layout.size) else {
+                continue;
+            };
+            if let Some(limit) =
+                kivact_layout::anchor_clear_size(&props, anchor, size, self.viewport)
+            {
+                self.layout_tooltip(engine, id, Some(limit));
+                computed = true;
+            }
+        }
+        computed
+    }
+
+    fn layout_tooltip(
+        &mut self,
+        engine: &mut arvane::Engine,
+        id: NodeId,
+        limit: Option<kivact_wire::Size>,
+    ) {
+        let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
+        let mut leaves = crate::measure::leaf::EngineMeasure {
+            tree: &self.tree,
+            measure: &mut measure,
+        };
+        self.layout_columns.compute_overlay(
+            &self.tree,
+            &self.layout_state,
+            id,
+            self.viewport,
+            limit,
+            &mut leaves,
+        );
     }
 
     /// Window-space border box of `id` (after the last layout pass), a
@@ -167,7 +227,13 @@ impl Model {
         let Some(o) = self.tree.get(id).and_then(|n| n.overlay()) else {
             return Point::default();
         };
-        let anchor = match o.at {
+        let anchor = self.overlay_anchor(id, o.at);
+        let size = self.computed_layout(id).map(|l| l.size).unwrap_or_default();
+        kivact_layout::place_overlay(&o, anchor, size, self.viewport)
+    }
+
+    fn overlay_anchor(&self, id: NodeId, at: OverlayAt) -> Option<Rect> {
+        match at {
             OverlayAt::Point(p) => Some(Rect {
                 x: p.x,
                 y: p.y,
@@ -177,9 +243,7 @@ impl Model {
             OverlayAt::Anchor { node, .. } => node
                 .filter(|a| !self.placed_by(*a, id))
                 .and_then(|a| self.bounds(a)),
-        };
-        let size = self.computed_layout(id).map(|l| l.size).unwrap_or_default();
-        kivact_layout::place_overlay(o.placement, o.align, o.offset, anchor, size, self.viewport)
+        }
     }
 
     /// Whether the position of `node` depends on the placement of the
@@ -482,7 +546,7 @@ impl Model {
         }
     }
 
-    fn report_geometry(&mut self) {
+    fn report_geometry(&mut self, engine: &mut arvane::Engine) {
         let scrollers: Vec<NodeId> = self.tree.scrollers.iter().copied().collect();
         for id in scrollers {
             let Some(l) = self.computed_layout(id) else {
@@ -514,14 +578,16 @@ impl Model {
                 continue;
             };
             let size = l.size;
+            let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
-                && n.sent_layout != Some((rect, size))
+                && n.sent_layout != Some((rect, size, text_truncated))
             {
-                n.sent_layout = Some((rect, size));
+                n.sent_layout = Some((rect, size, text_truncated));
                 self.push(HostEvent::LayoutChanged {
                     node: id,
                     rect,
                     size,
+                    text_truncated,
                 });
             }
         }
