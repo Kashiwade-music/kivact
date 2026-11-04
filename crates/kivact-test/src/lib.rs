@@ -61,7 +61,9 @@
 //! ```no_run
 //! # #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 //! # fn example() -> kivact_core::Result<()> {
-//! use kivact_core::{App, prelude::*};
+//! use kivact_core::App;
+//! use kivact_core::{App, Result};
+//! use kivact_core::view::{NodeBuilder, text};
 //! use kivact_test::TestParent;
 //! let parent = TestParent::open(320, 240)?;
 //! let editor = App::new("Editor").window_size(320, 240)

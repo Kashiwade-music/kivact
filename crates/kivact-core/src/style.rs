@@ -13,8 +13,8 @@ pub use kivact_style::{
     Background, BorderStyle, Color, ColorToken, Cursor, Direction, Display, FontFeature,
     FontKerning, GridAutoFlow, GridPlacement, Icon, IconSet, Justify, Length, LineHeight, Overflow,
     Position, ScrollbarWidth, Style, TextAlign, TextDecorationLine, TextLength, TextOverflow,
-    TextTransform, Theme, ThemeColor, ThemeExtension, ThemeMode, Track, TransitionProp, auto,
-    current_theme, em, hsl, pct, rgb, rgba, style,
+    TextTransform, Theme, ThemeColor, ThemeExtension, ThemeMode, ThemeRef, Track, TransitionProp,
+    auto, em, hsl, pct, rgb, rgba, style, use_theme, use_tokens,
 };
 
 pub mod theme;

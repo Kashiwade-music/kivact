@@ -40,7 +40,7 @@ use crate::task::{Task, sleep, spawn_in};
 /// A pure transition evaluated against a fresh input snapshot for each event.
 pub trait Machine: Sized + 'static {
     /// The observable state of this machine.
-    type State: Clone + PartialEq + 'static;
+    type State: crate::PropValue;
     /// An event accepted by this machine.
     type Event: 'static;
     /// A command executed after the state and timers have been updated.
@@ -114,7 +114,7 @@ struct MachineCell<M: Machine> {
 
 /// A copyable handle to an owner-scoped machine.
 pub struct MachineHandle<M: Machine> {
-    cell: Owned<MachineCell<M>>,
+    cell: Owned<Rc<MachineCell<M>>>,
 }
 impl<M: Machine> Clone for MachineHandle<M> {
     fn clone(&self) -> Self {
@@ -236,7 +236,7 @@ impl<M: Machine> MachineHandle<M> {
     }
     /// Whenever `source` changes, send its new value as an event. Setup only; skips its initial value.
     #[track_caller]
-    pub fn feed<T: Clone + PartialEq + 'static>(
+    pub fn feed<T: crate::PropValue>(
         &self,
         source: impl IntoValue<T>,
         to_event: impl Fn(T) -> M::Event + 'static,

@@ -22,7 +22,7 @@ use std::panic::Location;
 
 use crate::geometry::Point;
 use kivact_runtime::Runtime;
-use kivact_runtime::{Signal, Value, require_setup};
+use kivact_runtime::{Signal, Value};
 use kivact_types::FocusTarget;
 
 use crate::view::state::{PointerObservation, ViewState};
@@ -57,10 +57,9 @@ pub(crate) fn set_hovered(rt: &Runtime, node: Option<FocusTarget>) {
 /// hit testing, capture or node handlers. It is absent outside the window.
 /// Call during setup to observe movement across gaps between floating views.
 #[track_caller]
-pub fn mouse_position() -> Value<Option<Point>> {
+pub fn pointer_position() -> Value<Option<Point>> {
     let at = Location::caller();
-    require_setup("mouse_position");
-    let rt = Runtime::current().expect("mouse_position requires an active App");
+    let rt = Runtime::current().expect("pointer_position requires an active App");
     let state = ViewState::of(&rt);
     let last = match state.mouse.get() {
         PointerObservation::Reactive(source) => return source.into(),
@@ -71,7 +70,7 @@ pub fn mouse_position() -> Value<Option<Point>> {
     source.into()
 }
 
-pub(crate) fn set_mouse_position(rt: &Runtime, position: Option<kivact_types::Point>) {
+pub(crate) fn set_pointer_position(rt: &Runtime, position: Option<kivact_types::Point>) {
     let position = position.map(|point| Point::new(point.x, point.y));
     let state = ViewState::of(rt);
     match state.mouse.get() {

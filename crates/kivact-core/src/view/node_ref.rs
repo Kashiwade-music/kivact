@@ -22,7 +22,7 @@ use kivact_style::draw::Rect;
 #[derive(Clone, Copy, PartialEq)]
 pub struct NodeRef {
     pub(crate) app: AppId,
-    pub(crate) state: Owned<NodeRefState>,
+    pub(crate) state: Owned<Rc<NodeRefState>>,
 }
 
 pub(crate) enum RovingMove {
@@ -68,7 +68,7 @@ impl NodeRef {
 impl NodeRef {
     /// The runtime and state of this ref; located `WrongApp` and `Disposed`.
     pub(crate) fn state(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
-        let s = self.state.get_at(at);
+        let s = self.state.get();
         let rt = Runtime::get(self.app).expect("invariant: a resolved handle's App is registered");
         (rt, s)
     }

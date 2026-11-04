@@ -36,7 +36,7 @@ pub(crate) struct Common {
     /// Style layers, merged in order (a later layer wins per property).
     pub style: Vec<StyleLayer>,
     /// How many of the first layers of `style` are base layers
-    /// (`NodeExt::base_style`).
+    /// (`Node::base_style`).
     pub base_styles: usize,
     /// Role (a builder sets its own before the user's modifiers).
     pub role: Option<Role>,
@@ -63,10 +63,10 @@ pub(crate) struct Common {
     /// Focusability, constant or reactive (a builder sets its own before the
     /// user's modifiers).
     pub focusable: Option<InputProp<bool>>,
-    pub focusable_when_disabled: Option<bool>,
+    pub focusable_when_disabled: Option<InputProp<bool>>,
     pub roving_focus: Option<kivact_engine::contract::RovingFocus>,
     /// `Some(false)`: the pointer passes through the subtree.
-    pub hit_testable: Option<bool>,
+    pub hit_testable: Option<InputProp<bool>>,
     /// Native pointer focus destination, resolved through the reference binding.
     pub(crate) focus_on_press: Option<crate::view::node_ref::NodeRef>,
     /// Event handlers.
@@ -98,13 +98,13 @@ pub(crate) struct Common {
     pub image_fit: Option<InputProp<ImageFit>>,
     /// Paint an image in the text color (image nodes only).
     pub monochrome: Option<InputProp<bool>>,
-    /// Creation location set by `.at(..)`; replaces the builder's call site
+    /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,
 }
 
 /// One style layer: a constant or reactive style (`.style(..)`). Signals
-/// read inside, the theme from `current_theme()` included, are tracked by
+/// read inside, the theme from `use_theme()` included, are tracked by
 /// the node's style effect.
 pub(crate) type StyleLayer = Rc<dyn Fn() -> Style>;
 

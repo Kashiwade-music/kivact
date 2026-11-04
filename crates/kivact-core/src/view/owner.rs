@@ -35,22 +35,20 @@ impl Owner {
     /// Capture the current setup owner. A located `SetupOnly` naming `api`
     /// outside component setup.
     #[track_caller]
-    pub fn current(api: &'static str) -> Self {
-        Self(kivact_runtime::Owner::current(api, Location::caller()))
+    pub fn current() -> Self {
+        Self(kivact_runtime::Owner::current(
+            "Owner::current",
+            Location::caller(),
+        ))
     }
 
     /// Capture the live root of the running App. A located `WrongApp`
     /// outside every App or once its root is gone.
     #[track_caller]
-    pub fn root(api: &'static str) -> Self {
+    pub fn root() -> Self {
         let at = Location::caller();
-        let rt = Runtime::current().unwrap_or_else(|| {
-            raise(
-                ErrorKind::WrongApp,
-                format!("`{api}` needs a running App"),
-                at,
-            )
-        });
+        let rt = Runtime::current()
+            .unwrap_or_else(|| raise(ErrorKind::WrongApp, "`Owner::root` needs a running App", at));
         let owner = Self(ViewState::tree(&rt).root_owner());
         owner.runtime();
         owner
@@ -72,7 +70,7 @@ impl Owner {
     /// Store the supplied shared object until this owner is disposed.
     /// `name` identifies the component handle in disposed-use diagnostics.
     #[track_caller]
-    pub fn store<T: 'static>(self, name: &'static str, value: Rc<T>) -> Owned<T> {
+    pub fn store<T: 'static>(self, name: &'static str, value: T) -> Owned<T> {
         self.registration("Owner::store");
         self.0.store(name, value, Location::caller())
     }
@@ -84,7 +82,7 @@ impl Owner {
     pub fn store_with<T: 'static>(
         self,
         name: &'static str,
-        value: Rc<T>,
+        value: T,
         on_dispose: impl FnOnce() + 'static,
     ) -> Owned<T> {
         self.registration("Owner::store_with");
@@ -117,14 +115,10 @@ impl Owner {
 
     /// Deliver a diagnostic through this owner's error boundary.
     #[track_caller]
-    pub fn report(
-        self,
-        kind: ErrorKind,
-        message: impl Into<String>,
-        at: &'static Location<'static>,
-    ) {
+    pub fn report(self, kind: ErrorKind, message: impl Into<String>) {
         self.runtime();
-        self.0.report(UiError::new(kind, message, Some(at)));
+        self.0
+            .report(UiError::new(kind, message, Some(Location::caller())));
     }
 
     /// Register cleanup under this owner. While the owner is being
@@ -145,7 +139,7 @@ impl Owner {
 /// tasks and effects. Outside a running App it raises a located `WrongApp`.
 #[track_caller]
 pub fn use_app_state<T: Clone + 'static>(init: impl FnOnce() -> T) -> T {
-    let root = Owner::root("use_app_state");
+    let root = Owner::root();
     if let Some(value) = root.context::<T>() {
         return value;
     }

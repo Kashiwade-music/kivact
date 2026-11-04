@@ -70,7 +70,7 @@ pub use owner_handle::{Owned, Owner};
 pub use props::{IntoReactive, IntoText, IntoValue, ItemKey, Prop, PropValue, Reactive};
 pub use selector::{Selector, selector};
 pub use setup::{
-    binding, callback, constant, context, effect, effect_on, memo, notifier, on_cleanup, on_mount,
-    signal, try_context, var,
+    binding, callback, effect, effect_on, memo, notifier, on_cleanup, on_mount, signal,
+    try_use_context, use_context, var,
 };
 pub use trigger::Notifier;

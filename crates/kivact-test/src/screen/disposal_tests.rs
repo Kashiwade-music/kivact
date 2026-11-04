@@ -10,8 +10,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use crate::render;
-use kivact_core::prelude::{column, effect, show, text};
+use kivact_core::state::effect;
 use kivact_core::task::spawn;
+use kivact_core::view::{column, show, text};
 use kivact_runtime::{Owner, on_cleanup, signal};
 
 type Log = Rc<RefCell<Vec<String>>>;

@@ -21,8 +21,8 @@ mod window_loop;
 pub(crate) use env::missing_capabilities;
 #[doc(inline)]
 pub use env::{
-    capabilities, font_families, fullscreen, is_initial_render, reduced_motion, safe_area,
-    scale_factor, surface_active, window_size,
+    capabilities, font_families, is_fullscreen, is_initial_render, is_motion_reduced,
+    is_surface_active, keyboard_inset, pointer_settings, safe_area, scale_factor, window_size,
 };
 #[doc(inline)]
 pub use services::{
@@ -32,4 +32,6 @@ pub use services::{
 pub(crate) use window_loop::run_native;
 
 #[doc(inline)]
-pub use env::{Capabilities, CommandKey, ContextMenuTrigger};
+pub use env::{
+    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
+};

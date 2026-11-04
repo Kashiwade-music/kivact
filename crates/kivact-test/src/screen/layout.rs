@@ -31,6 +31,12 @@ impl Screen {
         self.check_layout_with(&LayoutCheck::default())
     }
 
+    /// Assert that the default layout check finds no violations.
+    #[track_caller]
+    pub fn assert_layout_clean(&self) {
+        self.assert_layout();
+    }
+
     /// [`Screen::check_layout`] with explicit options.
     pub fn check_layout_with(&self, check: &LayoutCheck) -> Vec<LayoutViolation> {
         self.layout_violations(check, None)

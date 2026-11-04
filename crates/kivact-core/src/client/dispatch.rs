@@ -8,7 +8,7 @@
 //! node and message as `ErrorKind::Asset`, located where its node was
 //! created.
 //!
-//! Modifier changes are only recorded (`view::current_modifiers`).
+//! Modifier changes are only recorded (`view::modifiers`).
 //!
 //! While overlays are shown, the engine decides which events are admitted
 //! (`Reader::admit_input`, asked once per event right before it is
@@ -81,7 +81,9 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             pointer,
         } => pointer::activate_event(rt, host_event, *node, *region, *pointer),
         HostEvent::HoverChanged { target } => pointer::hover_changed(rt, *target),
-        HostEvent::MousePosition(position) => crate::view::hover::set_mouse_position(rt, *position),
+        HostEvent::MousePosition(position) => {
+            crate::view::hover::set_pointer_position(rt, *position)
+        }
         HostEvent::Key(_) => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.
         HostEvent::ModifiersChanged(_) => {}

@@ -23,8 +23,8 @@ impl Node {
     /// string (`"save"`, `format!("row-{id}")`). It is not scoped:
     /// a query matching several nodes fails and lists them all;
     /// narrow it with `Screen::within`.
-    pub fn test_id(mut self, id: impl AsRef<str>) -> Self {
-        self.common.test_id = Some(Rc::from(id.as_ref()));
+    pub fn test_id(mut self, id: impl Into<String>) -> Self {
+        self.common.test_id = Some(Rc::from(id.into()));
         self
     }
 
@@ -41,9 +41,9 @@ impl Node {
     /// properties it leaves unset keep their earlier values. A
     /// builder sets its own base style first, so `.style(..)`
     /// written after it overrides only what it sets. A closure that
-    /// reads [`current_theme`](crate::style::current_theme) is
+    /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &current_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
     pub fn style(mut self, s: impl IntoValue<Style>) -> Self {
         self.common.push_style(s.into_prop());
         self
@@ -95,10 +95,20 @@ impl Node {
     /// The callback runs once even when the removal has no animation or an
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
-    pub fn on_exit_complete(mut self, callback: Callback<()>) -> Self {
-        self.common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-            callback.call_if_alive(())
-        }));
+    #[track_caller]
+    pub fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
+        let callback = callback.into();
+        self.common.exit_complete =
+            Some(kivact_runtime::Handler::from_fn(move |()| {
+                match callback.try_call(()) {
+                    Err(error)
+                        if matches!(error.kind(), kivact_runtime::ErrorKind::Disposed { .. }) =>
+                    {
+                        Ok(())
+                    }
+                    result => result,
+                }
+            }));
         self
     }
 
@@ -113,8 +123,8 @@ impl Node {
     /// as CSS `pointer-events: none`: no hover, press or wheel reaches
     /// them, which suits a floating card that follows the pointer.
     /// Keyboard focus and assistive technology are unaffected.
-    pub fn hit_testable(mut self, on: bool) -> Self {
-        self.common.hit_testable = Some(on);
+    pub fn hit_testable(mut self, on: impl IntoValue<bool>) -> Self {
+        self.common.hit_testable = Some(on.into_prop());
         self
     }
 
@@ -130,8 +140,8 @@ impl Node {
     /// Keep an otherwise focusable control in keyboard focus order while it
     /// is disabled, so users can reach its label and any attached tooltip.
     /// Activation and editing remain disabled.
-    pub fn focusable_when_disabled(mut self, on: bool) -> Self {
-        self.common.focusable_when_disabled = Some(on);
+    pub fn focusable_when_disabled(mut self, on: impl IntoValue<bool>) -> Self {
+        self.common.focusable_when_disabled = Some(on.into_prop());
         self
     }
 
@@ -142,7 +152,7 @@ impl Node {
     pub fn roving_focus(mut self, orientation: crate::view::Orientation) -> Self {
         use crate::view::node_ref::RovingMove;
         use crate::view::{Handled, Key, Modifiers, Orientation, ReadingDirection};
-        let rtl = crate::view::current_direction() == ReadingDirection::Rtl;
+        let rtl = crate::view::use_direction().get() == ReadingDirection::Rtl;
         let reference = crate::view::node_ref();
         let common = &mut self.common;
         common.roving_focus = Some(kivact_engine::contract::RovingFocus { orientation, rtl });
@@ -232,12 +242,10 @@ impl Node {
     /// Set the shared pointer, Enter/Space and accessibility Activate action.
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
-    pub fn on_press<F, R>(mut self, f: F) -> Self
-    where
-        F: Fn() -> R + 'static,
-        R: HandlerResult,
-    {
-        self.common.set_press(f);
+    #[track_caller]
+    pub fn on_press(mut self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
+        let f = f.into();
+        self.common.set_press(move || f.call(()));
         self
     }
 
@@ -277,7 +285,7 @@ impl Node {
     /// combine with AND. Caller input customizations run before part defaults,
     /// regardless of whether they are registered before or after attachment.
     /// References, observations and cleanup from earlier parts are retained.
-    pub fn part<S: Clone + PartialEq + 'static>(mut self, part: Part<S>) -> Self {
+    pub fn part<S: kivact_runtime::PropValue>(mut self, part: Part<S>) -> Self {
         self.record_part(part);
         self
     }
@@ -343,14 +351,16 @@ impl Node {
     /// so one `disabled` modifier disables the node and the component's own
     /// input, with no method of the component's to forget.
     #[track_caller]
-    pub fn accessible_disabled(&mut self) -> Option<Rc<dyn Fn() -> bool>> {
-        self.disabled_source().map(kivact_runtime::Prop::into_fn)
+    pub fn accessible_disabled(&mut self) -> Option<kivact_runtime::Value<bool>> {
+        self.disabled_source()
+            .map(kivact_runtime::IntoValue::into_value)
     }
 
     /// Read the preserved accessible-name input without allocating a value.
     #[track_caller]
-    pub fn accessible_name(&mut self) -> Option<Rc<dyn Fn() -> String>> {
-        self.name_source().map(kivact_runtime::Prop::into_fn)
+    pub fn accessible_name(&mut self) -> Option<kivact_runtime::Value<String>> {
+        self.name_source()
+            .map(kivact_runtime::IntoValue::into_value)
     }
 
     /// Copy the preserved label references, in caller/part order, without
@@ -391,8 +401,9 @@ impl Node {
     /// value; `None` when nothing publishes one. A component that draws an
     /// invalid look reads it once its root is complete.
     #[track_caller]
-    pub fn accessible_invalid(&mut self) -> Option<Rc<dyn Fn() -> bool>> {
-        self.invalid_source().map(kivact_runtime::Prop::into_fn)
+    pub fn accessible_invalid(&mut self) -> Option<kivact_runtime::Value<bool>> {
+        self.invalid_source()
+            .map(kivact_runtime::IntoValue::into_value)
     }
 
     /// Read the preserved expanded-state input (`.expanded(..)`, set by the
@@ -401,8 +412,9 @@ impl Node {
     /// an expanded state. A component reads it once its root is complete,
     /// to draw itself as the trigger of what it opens.
     #[track_caller]
-    pub fn accessible_expanded(&mut self) -> Option<Rc<dyn Fn() -> bool>> {
-        self.expanded_source().map(kivact_runtime::Prop::into_fn)
+    pub fn accessible_expanded(&mut self) -> Option<kivact_runtime::Value<bool>> {
+        self.expanded_source()
+            .map(kivact_runtime::IntoValue::into_value)
     }
 
     /// Record `at` as where this element was created, instead of
@@ -412,11 +424,11 @@ impl Node {
     /// constructor already created keep their location. A component
     /// that creates nodes later (in `into_view`) captures
     /// `Location::caller()` in its `#[track_caller]` constructor and
-    /// passes it to `.at(..)` of those nodes, so each instance is
+    /// passes it to `.located_at_caller()` of those nodes, so each instance is
     /// named by its own call site rather than by a line inside the
     /// component.
     #[track_caller]
-    pub fn at(mut self) -> Self {
+    pub fn located_at_caller(mut self) -> Self {
         let at = Location::caller();
         self.common.at = Some(at);
         self
@@ -622,19 +634,6 @@ impl Node {
         self
     }
 
-    /// Offer an assistive-technology action. A node has one handler per
-    /// action: the later registration replaces the earlier one.
-    /// `Activate` is reported and ignored; use `on_press` for activation.
-    #[track_caller]
-    pub fn on_a11y<F, R>(mut self, action: A11yAction, f: F) -> Self
-    where
-        F: Fn() -> R + 'static,
-        R: HandlerResult,
-    {
-        self.common.offer_a11y(action, f);
-        self
-    }
-
     /// Offer an action and receive its [`A11yEvent`]: the region the request
     /// names (`None` for the node itself, else the `RegionId` its
     /// `Draw::region` declared) and the request (a `SetValue`'s text, a
@@ -643,7 +642,7 @@ impl Node {
     /// action wins. A `SetValue` hands the requested text over as it came: parsing it,
     /// checking it is finite and clamping it to the range are the
     /// component's.
-    pub fn on_a11y_event<F, R>(mut self, action: A11yAction, f: F) -> Self
+    pub fn a11y_action<F, R>(mut self, action: A11yAction, f: F) -> Self
     where
         F: Fn(A11yEvent) -> R + 'static,
         R: HandlerResult,

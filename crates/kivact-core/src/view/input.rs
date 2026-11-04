@@ -175,3 +175,13 @@ pub struct FileEvent {
     /// Window logical position.
     pub window_pos: Point,
 }
+
+/// Whether a text editor has an active IME composition.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Composition {
+    /// No composition is active.
+    #[default]
+    Idle,
+    /// The IME is composing text.
+    Composing,
+}

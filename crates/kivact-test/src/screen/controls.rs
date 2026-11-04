@@ -146,7 +146,7 @@ impl Screen {
     }
 
     /// Whether the App exited (it accepted a close request).
-    pub fn exited(&self) -> bool {
+    pub fn has_exited(&self) -> bool {
         self.host.borrow().exited()
     }
 
@@ -224,7 +224,7 @@ impl Screen {
     /// editable text input has the focus (a phone's on-screen keyboard; a
     /// desktop has none and ignores the request, the test window records
     /// it).
-    pub fn soft_keyboard_shown(&self) -> bool {
+    pub fn is_soft_keyboard_shown(&self) -> bool {
         self.host.borrow().soft_keyboard().0
     }
 

@@ -23,7 +23,7 @@ impl<T: 'static> AsRef<keyed::Row<RegionId, T>> for Row<T> {
     }
 }
 
-pub(crate) fn declaration<T: Clone + PartialEq + 'static>(
+pub(crate) fn declaration<T: kivact_runtime::PropValue>(
     items: InputProp<Vec<T>>,
     key: impl Fn(&T) -> RegionId + 'static,
     make: impl Fn(RegionId, Value<T>) -> Common + 'static,

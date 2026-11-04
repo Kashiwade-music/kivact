@@ -31,7 +31,7 @@ const USER_EFFECT_ROUNDS: usize = 100;
 #[derive(Clone)]
 pub struct AppOptions {
     title: String,
-    theme: Theme,
+    theme: kivact_runtime::Prop<Theme>,
     /// `None`: the system's locale (`App::locale`).
     locale: Option<Locale>,
     messages: Messages,
@@ -51,7 +51,7 @@ impl AppOptions {
     pub fn new(title: impl Into<String>) -> AppOptions {
         AppOptions {
             title: title.into(),
-            theme: Theme::default(),
+            theme: kivact_runtime::Prop::constant(Theme::default()),
             locale: None,
             messages: Messages::new(),
             window_size: None,
@@ -64,8 +64,8 @@ impl AppOptions {
 
     /// Theme of the whole App (to switch it at runtime, wrap the root in
     /// `view::provide_theme` with a `Signal<Theme>`).
-    pub fn theme(mut self, theme: Theme) -> Self {
-        self.theme = theme;
+    pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
+        self.theme = theme.into_prop();
         self
     }
 
@@ -171,7 +171,13 @@ impl AppOptions {
     pub fn window_title(&self) -> &str {
         &self.title
     }
-    pub(crate) fn into_view_settings(self) -> (Theme, Option<crate::i18n::Locale>, Messages) {
+    pub(crate) fn into_view_settings(
+        self,
+    ) -> (
+        kivact_runtime::Prop<Theme>,
+        Option<crate::i18n::Locale>,
+        Messages,
+    ) {
         (self.theme, self.locale, self.messages)
     }
 }
@@ -287,7 +293,7 @@ impl Launch {
                     self.at,
                 ));
                 let motion_env = kivact_runtime::MotionEnv {
-                    reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
+                    reduced_motion: env.field("is_motion_reduced", |e| e.reduced_motion),
                     surface_active: kivact_runtime::Value::from(env.surface_active),
                     frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
                 };
@@ -319,6 +325,8 @@ impl Launch {
         // The App's fonts precede the root's mount (the engine registers
         // a font when it is written, so the first layout uses them).
         requests::register_app_fonts(&rt, std::mem::take(&mut options.fonts));
+        let families = ViewState::tree(&rt).reader().font_families();
+        rt.enter(|| ViewState::of(&rt).fonts_value.set(families));
         let (options, root) = match std::mem::replace(
             &mut self.launch,
             LaunchState::Started(Started { rt: rt.clone() }),
@@ -370,6 +378,7 @@ impl Launch {
         stats.turns += 1;
         host.stats.set(stats);
         let turn = rt.begin_turn(events.len());
+        ViewState::of(&rt).initial_render.set(false);
         turn.run_mounts(kivact_types::Revision(before));
         turn.deliver_reports();
         turn.stabilize();

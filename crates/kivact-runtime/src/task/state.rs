@@ -96,7 +96,7 @@ pub struct TaskState {
     pub(super) blocking_threads: Option<usize>,
     /// Owned tasks whose future completed; their objects are removed after
     /// the poll that finished them.
-    pub(super) finished: RefCell<Vec<Owned<TaskCell>>>,
+    pub(super) finished: RefCell<Vec<Owned<Rc<TaskCell>>>>,
     /// Live actions with a queue policy (for the exit drain).
     pub(super) queues: RefCell<Registry<dyn Drain>>,
     /// Queued actions of disposed owners still draining, with their deadline (ns).

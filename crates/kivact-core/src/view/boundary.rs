@@ -36,10 +36,9 @@ pub(crate) fn mount_in(rt: &Rc<Runtime>, owner: Owner, build: impl FnOnce() -> V
 
 /// Provide `value` to the subtree built by `child` (Solid's
 /// `<Context.Provider>`): `child` is set up in a new owner that holds the
-/// context, so `context::<T>()` finds it inside `child` (in setup and in
+/// context, so `use_context::<T>()` finds it inside `child` (in setup and in
 /// handlers) but not in siblings. The value is kept once (in an `Rc`) and
-/// each `context::<T>()` returns a clone: a struct of Copy handles is
-/// copied, and a value that is costly to clone can be provided as an `Rc`.
+/// each `use_context::<T>()` returns a `Value<T>`; read it with `get` or `with`.
 ///
 /// ```ignore
 /// provide(BoardCx { tasks, selected }, || column((toolbar(), lanes())))
@@ -52,6 +51,7 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     let at = Location::caller();
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
+        let value = owner.constant(value, at);
         owner.provide(value);
         let fragment = cx.fragment();
         let child = mount_in(cx.rt, owner, move || child().into_view());
@@ -95,19 +95,20 @@ pub fn provide_theme<V: IntoView>(
 /// Use `locale` for the subtree built by `child` (like
 /// [`provide_theme`]). Pass a `Signal<Locale>`
 /// (or a closure, a memo) to switch it at runtime: everything that reads
-/// [`locale`](crate::i18n::locale) below follows. Siblings keep the locale from
+/// [`locale`](crate::i18n::use_locale) below follows. Siblings keep the locale from
 /// above.
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::i18n::{Locale, locale};
+/// use kivact::i18n::{Locale, use_locale};
 /// use kivact::view::{provide_locale};
-/// use kivact::prelude::*;
+/// use kivact::{App};
+/// use kivact::view::{IntoView, NodeBuilder, text};
 ///
 /// fn quote() -> impl IntoView {
 ///     // The quotation is French whatever the rest of the App speaks.
 ///     provide_locale(Locale::new("fr-FR"), || {
-///         let locale = locale();
+///         let locale = use_locale();
 ///         text(move || locale.get().tag().to_owned())
 ///     })
 /// }
@@ -141,7 +142,7 @@ pub fn provide_locale<V: IntoView>(
 /// # use kivact_core as kivact;
 /// use kivact::i18n::{Messages, message};
 /// use kivact::view::{provide_messages};
-/// use kivact::prelude::*;
+/// use kivact::view::{IntoView, NodeBuilder, text};
 ///
 /// fn confirm() -> impl IntoView {
 ///     provide_messages(Messages::new().with("dialog.close", "Dismiss"), || {
@@ -173,7 +174,7 @@ pub fn provide_messages<V: IntoView>(
 /// the flex direction of a box.
 ///
 /// Direction-aware behavior reads it once at setup with
-/// [`current_direction`]: a horizontal slider's track runs from the right
+/// [`use_direction`]: a horizontal slider's track runs from the right
 /// and its arrow keys mirror. Text layout and the standard components'
 /// rows do not mirror.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -201,8 +202,11 @@ pub fn provide_direction<V: IntoView>(
 /// The reading direction provided above the current owner;
 /// [`ReadingDirection::Ltr`] without one. Setup, handlers and effects.
 #[track_caller]
-pub fn current_direction() -> ReadingDirection {
-    kivact_runtime::try_context::<ReadingDirection>().unwrap_or_default()
+pub fn use_direction() -> Value<ReadingDirection> {
+    let owner = Owner::ambient("use_direction", Location::caller());
+    owner
+        .context::<Value<ReadingDirection>>()
+        .unwrap_or_else(|| owner.constant(ReadingDirection::Ltr, Location::caller()))
 }
 
 /// Context entry for the locale of a subtree.
@@ -272,17 +276,17 @@ pub(crate) fn install_layered_messages(
 /// Works in setup and in handlers, tasks and effects (the nearest owner).
 ///
 /// ```
-/// use kivact_core::control::text;
-/// use kivact_core::i18n::locale;
+/// use kivact_core::view::text;
+/// use kivact_core::i18n::use_locale;
 /// use kivact_core::view::IntoView;
 ///
 /// fn language() -> impl IntoView {
-///     let locale = locale();
+///     let locale = use_locale();
 ///     text(move || locale.get().language().to_owned())
 /// }
 /// ```
 #[track_caller]
-pub fn locale() -> Value<Locale> {
+pub fn use_locale() -> Value<Locale> {
     let owner = Owner::ambient("locale", Location::caller());
     locale_value(owner)
 }
@@ -298,7 +302,7 @@ pub fn locale() -> Value<Locale> {
 /// is English.
 ///
 /// ```
-/// use kivact_core::control::text;
+/// use kivact_core::view::text;
 /// use kivact_core::i18n::message;
 /// use kivact_core::view::IntoView;
 ///
@@ -325,10 +329,10 @@ pub fn message(key: &'static str, default: &'static str) -> Value<String> {
 /// (`"{count} 件選択中"` for `"{count} selected"`).
 ///
 /// ```
-/// use kivact_core::control::text;
+/// use kivact_core::view::text;
 /// use kivact_core::i18n::message_with;
 /// use kivact_core::view::IntoView;
-/// use kivact_core::Signal;
+/// use kivact_core::state::Signal;
 ///
 /// fn selection(selected: Signal<Vec<u64>>) -> impl IntoView {
 ///     // "3 selected", or the App's wording: "3 件選択中".

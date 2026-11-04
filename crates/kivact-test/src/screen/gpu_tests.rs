@@ -26,8 +26,9 @@ use super::results::Screenshot;
 use super::support::button_box;
 use crate::{MirrorMode, RenderOptions};
 use kivact_core::geometry::{Point, Rect};
-use kivact_core::prelude::{IntoView, NodeBuilder, column, node, row, style, text};
+use kivact_core::style::style;
 use kivact_core::view::canvas;
+use kivact_core::view::{IntoView, NodeBuilder, column, node, row, text};
 use kivact_style::{Align, Color, Justify, pct, rgba};
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color

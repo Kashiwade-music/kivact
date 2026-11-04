@@ -9,7 +9,7 @@ use std::panic::Location;
 
 /// Write the editing payload of a text-editing node and bind its values.
 ///
-/// `report_session`: the node has a session handler (`TextEditing::on_selection`), so the engine
+/// `report_session`: the node has a session handler (`TextEditing::on_selection_change`), so the engine
 /// reports the selection sessions.
 pub(super) fn bind(
     cx: &Mcx<'_>,

@@ -106,8 +106,11 @@ impl Common {
         );
         self.part_modal |= part.part_modal;
         if let Some(required) = part.focusable_when_disabled {
+            let caller = self.focusable_when_disabled.take();
             self.focusable_when_disabled =
-                Some(self.focusable_when_disabled.unwrap_or_default() || required);
+                Some(kivact_runtime::Prop::computed(Rc::new(move || {
+                    caller.as_ref().is_some_and(|v| v.get()) || required.get()
+                })));
         }
         self.part_constraints.disabled.extend(part.disabled.take());
         self.part_constraints
@@ -155,7 +158,7 @@ pub(super) fn report_modal_unsupported(cx: &Mcx<'_>, at: &'static Location<'stat
         Some(cx.owner),
         kivact_runtime::UiError::new(
             kivact_runtime::ErrorKind::Unsupported,
-            "Part.modal(true) requires an Overlay attachment; requirement dropped",
+            "Node.modal() requires an Overlay attachment; requirement dropped",
             Some(at),
         ),
     );

@@ -4,8 +4,9 @@
 //! deterministic random driver of `host_sync_tests` (the random probe tests
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
-use kivact_core::prelude::{IntoText, IntoValue, Node, NodeBuilder, Role, node, text};
 use kivact_core::state::Binding;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{Node, NodeBuilder, Role, node, text};
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
@@ -51,18 +52,26 @@ pub(super) fn seeds() -> std::ops::Range<u64> {
     0..40
 }
 
-pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) -> Node {
+pub(super) fn editor(
+    label: impl IntoText,
+    binding: impl kivact_core::state::IntoBinding<String>,
+) -> Node {
     use kivact_core::custom::{NodeRefExt, TextEditing, part};
-    let binding = binding.into();
+    let binding = binding.into_binding();
     let value = binding.into_value();
-    let control = part(|state| state).role(Role::TextBox).focusable(true);
-    let reference = control.node_ref();
-    let text = move || std::rc::Rc::<str>::from(value.get());
-    node().name(label).part(
-        control.text_editing(
+    let control = part(|state| state);
+    let reference = kivact_core::view::node_ref();
+    let text = move || value.get();
+    node()
+        .name(label)
+        .role(Role::TextBox)
+        .focusable(true)
+        .node_ref(reference)
+        .part(control)
+        .text_editing(
             TextEditing::new(text)
-                .report_text(true)
-                .on_edit(move |edit| {
+                .report_text()
+                .on_text_change(move |edit| {
                     if edit.composition().is_some() {
                         return;
                     }
@@ -76,6 +85,5 @@ pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) 
                         reference.set_edit_value(value);
                     }
                 }),
-        ),
-    )
+        )
 }

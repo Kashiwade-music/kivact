@@ -14,7 +14,7 @@ use kivact_types::cell::Generation;
 enum Latest {
     Idle,
     Running {
-        task: Owned<TaskCell>,
+        task: Owned<Rc<TaskCell>>,
         generation: Generation,
     },
 }

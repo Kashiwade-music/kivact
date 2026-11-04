@@ -29,11 +29,13 @@
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{control, prelude};
+/// #     pub use kivact_core::{view, state, style};
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{EditPhase, ScalarRange, use_splitter};
-/// use kivact::prelude::*;
+/// use kivact::custom::{part};
+/// use kivact::state::{signal};
+/// use kivact::view::{NodeBuilder, Role, node};
 /// let width = signal(240.0);
 /// let started_at = signal(240.0);
 /// let undo = signal(Vec::<(f64, f64)>::new());

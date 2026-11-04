@@ -18,12 +18,13 @@ use crate::view::state::ViewState;
 ///
 /// ```ignore
 /// button("Open").on_press(move || {
-///     let held = current_modifiers();
+///     let held = modifiers();
 ///     open_panel(held.ctrl || held.meta);
 /// })
 /// ```
 #[track_caller]
-pub fn current_modifiers() -> Modifiers {
-    let rt = kivact_runtime::Owner::ambient("current_modifiers", Location::caller()).runtime();
+pub fn modifiers() -> kivact_runtime::Value<Modifiers> {
+    let rt =
+        kivact_runtime::Runtime::current().expect("invariant: modifiers requires a running App");
     ViewState::of(&rt).modifiers()
 }

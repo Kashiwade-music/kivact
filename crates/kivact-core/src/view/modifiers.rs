@@ -3,7 +3,7 @@
 //! The modifier methods are written once, as plain default methods:
 //! the everyday set (`common`, `draw`, `intrinsic`) on
 //! `kivact::view::NodeBuilder` and the advanced set (`advanced`,
-//! `draw_over`) on `kivact::custom::NodeExt`. `Node`, `Overlay`,
+//! `draw_over`) on `kivact::view::Node`. `Node`, `Overlay`,
 //! `VirtualList` and every component holding a root `Node` implement
 //! `NodeBuilder`. `Part` has its own inherent methods for the semantic and
 //! input subset, which forward to the same `Common` methods below. Adding a
@@ -40,7 +40,7 @@ use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
 use crate::view::{A11yAction, A11yEvent, A11yRequest, HandlerResult};
 
 /// The shared bodies of the modifiers that are more than a field write.
-/// `NodeBuilder`, `NodeExt` and `Part` forward to them.
+/// `NodeBuilder`, `Node` and `Part` forward to them.
 impl Common {
     /// The rarely allocated box of extra semantic sources.
     pub(crate) fn semantics_mut(&mut self) -> &mut SemanticSources {

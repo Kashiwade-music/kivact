@@ -8,6 +8,6 @@
 
 #[doc(inline)]
 pub use kivact_runtime::{
-    Action, ActionFn, ActionPolicy, AsyncState, BlockingWork, CancelToken, Resource, Task, action,
-    blocking, resource, sleep, spawn, timeout,
+    Action, ActionFn, ActionMode, ActionOutcome, AsyncState, BlockingWork, CancelToken, Resource,
+    Task, action, blocking, resource, sleep, spawn, timeout,
 };

@@ -7,7 +7,7 @@
 //! render effect writes both, so they always agree.
 //!
 //! Invariant: a text node records where it was created (`CoreNode::at`): the
-//! call of `text(..)` (or the location given by `.at(..)`), or nothing
+//! call of `text(..)` (or the location given by `.located_at_caller()`), or nothing
 //! for a plain string child, which diagnostics
 //! show with the location of its nearest located ancestor.
 
@@ -46,7 +46,9 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::view::{Span, rich_text, span};
-/// use kivact::prelude::*;
+/// use kivact::state::{Signal};
+/// use kivact::style::{ColorToken};
+/// use kivact::view::{IntoView, NodeBuilder};
 ///
 /// /// `label` with the first match of `query` bold and highlighted.
 /// fn highlight(label: &str, query: &str) -> Vec<Span> {

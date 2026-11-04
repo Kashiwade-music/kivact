@@ -47,6 +47,8 @@ pub use text::{
     FontFeature, FontKerning, LineHeight, SpanStyle, TextDecorationLine, TextLength, TextOverflow,
     TextTransform, em,
 };
-pub use theme::value::{Theme, ThemeColor, ThemeExtension, ThemeMode, current_theme};
+pub use theme::value::{
+    Theme, ThemeColor, ThemeExtension, ThemeMode, ThemeRef, use_theme, use_tokens,
+};
 
 pub(crate) use sheet::paint_transition;

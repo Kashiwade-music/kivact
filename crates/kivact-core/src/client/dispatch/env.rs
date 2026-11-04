@@ -17,6 +17,8 @@ pub(super) fn env_changed(rt: &Runtime, env: &Environment, surface_active: bool)
     rt.enter(|| {
         state.set(env.clone());
         state.surface_active.set(surface_active);
+        let families = ViewState::tree(rt).reader().font_families();
+        ViewState::of(rt).fonts_value.set(families);
     });
     // Reduced motion ends the running decorative values in this turn, not
     // at the next tick: nothing needs another frame to see it.

@@ -64,6 +64,28 @@ pub fn failure_dir() -> PathBuf {
 }
 
 impl Screen {
+    /// Save catalog evidence when KIVACT_CATALOG_EVIDENCE names an output directory.
+    #[track_caller]
+    pub fn evidence(&self, name: &str) {
+        let Some(dir) = std::env::var_os("KIVACT_CATALOG_EVIDENCE") else {
+            return;
+        };
+        let dir = PathBuf::from(dir);
+        std::fs::create_dir_all(&dir).expect("invariant: catalog evidence directory is writable");
+        self.screenshot()
+            .save_png(dir.join(format!("{name}.png")))
+            .expect("invariant: catalog screenshot is writable");
+        std::fs::write(
+            dir.join(format!("{name}.txt")),
+            format!(
+                "accessibility tree:\n{}\ndebug tree:\n{}",
+                self.accessibility_tree(),
+                self.debug()
+            ),
+        )
+        .expect("invariant: catalog evidence is writable");
+    }
+
     /// The last frame the host presented (settling first).
     pub fn screenshot(&self) -> Screenshot {
         self.run_until_idle();

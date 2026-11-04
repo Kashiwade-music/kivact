@@ -154,7 +154,8 @@ impl Node {
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::style::{style};
+/// use kivact::view::{IntoView, Node, NodeBuilder, node};
 /// use kivact::view::View;
 ///
 /// pub struct Card { root: Node }
@@ -198,8 +199,8 @@ pub trait NodeBuilder: Sized {
     /// string (`"save"`, `format!("row-{id}")`). It is not scoped:
     /// a query matching several nodes fails and lists them all;
     /// narrow it with `Screen::within`.
-    fn test_id(mut self, id: impl AsRef<str>) -> Self {
-        self.node_mut().common.test_id = Some(Rc::from(id.as_ref()));
+    fn test_id(mut self, id: impl Into<String>) -> Self {
+        self.node_mut().common.test_id = Some(Rc::from(id.into()));
         self
     }
 
@@ -216,9 +217,9 @@ pub trait NodeBuilder: Sized {
     /// properties it leaves unset keep their earlier values. A
     /// builder sets its own base style first, so `.style(..)`
     /// written after it overrides only what it sets. A closure that
-    /// reads [`current_theme`](crate::style::current_theme) is
+    /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &current_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
     fn style(mut self, s: impl IntoValue<Style>) -> Self {
         self.node_mut().common.push_style(s.into_prop());
         self
@@ -270,9 +271,18 @@ pub trait NodeBuilder: Sized {
     /// The callback runs once even when the removal has no animation or an
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
-    fn on_exit_complete(mut self, callback: Callback<()>) -> Self {
+    #[track_caller]
+    fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
+        let callback = callback.into();
         self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-            callback.call_if_alive(())
+            match callback.try_call(()) {
+                Err(error)
+                    if matches!(error.kind(), kivact_runtime::ErrorKind::Disposed { .. }) =>
+                {
+                    Ok(())
+                }
+                result => result,
+            }
         }));
         self
     }
@@ -288,8 +298,8 @@ pub trait NodeBuilder: Sized {
     /// as CSS `pointer-events: none`: no hover, press or wheel reaches
     /// them, which suits a floating card that follows the pointer.
     /// Keyboard focus and assistive technology are unaffected.
-    fn hit_testable(mut self, on: bool) -> Self {
-        self.node_mut().common.hit_testable = Some(on);
+    fn hit_testable(mut self, on: impl IntoValue<bool>) -> Self {
+        self.node_mut().common.hit_testable = Some(on.into_prop());
         self
     }
 
@@ -305,8 +315,8 @@ pub trait NodeBuilder: Sized {
     /// Keep an otherwise focusable control in keyboard focus order while it
     /// is disabled, so users can reach its label and any attached tooltip.
     /// Activation and editing remain disabled.
-    fn focusable_when_disabled(mut self, on: bool) -> Self {
-        self.node_mut().common.focusable_when_disabled = Some(on);
+    fn focusable_when_disabled(mut self, on: impl IntoValue<bool>) -> Self {
+        self.node_mut().common.focusable_when_disabled = Some(on.into_prop());
         self
     }
 
@@ -317,7 +327,7 @@ pub trait NodeBuilder: Sized {
     fn roving_focus(mut self, orientation: crate::view::Orientation) -> Self {
         use crate::view::node_ref::RovingMove;
         use crate::view::{Handled, Key, Modifiers, Orientation, ReadingDirection};
-        let rtl = crate::view::current_direction() == ReadingDirection::Rtl;
+        let rtl = crate::view::use_direction().get() == ReadingDirection::Rtl;
         let reference = crate::view::node_ref();
         let common = &mut self.node_mut().common;
         common.roving_focus = Some(kivact_engine::contract::RovingFocus { orientation, rtl });
@@ -407,12 +417,10 @@ pub trait NodeBuilder: Sized {
     /// Set the shared pointer, Enter/Space and accessibility Activate action.
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
-    fn on_press<F, R>(mut self, f: F) -> Self
-    where
-        F: Fn() -> R + 'static,
-        R: HandlerResult,
-    {
-        self.node_mut().common.set_press(f);
+    #[track_caller]
+    fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
+        let f = f.into();
+        self.node_mut().common.set_press(move || f.call(()));
         self
     }
 

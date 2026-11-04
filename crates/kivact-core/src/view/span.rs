@@ -20,7 +20,7 @@ use kivact_style::{Color, Theme, ThemeColor};
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::view::{rich_text, span};
-/// use kivact::prelude::*;
+/// use kivact::view::{NodeBuilder};
 /// use kivact::style::{rgba};
 /// // <p>Open <mark>fi</mark>le</p>, the match bold and highlighted
 /// let line = rich_text(vec![
@@ -32,15 +32,15 @@ use kivact_style::{Color, Theme, ThemeColor};
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Span {
-    pub(crate) text: String,
+    pub(crate) text: kivact_runtime::Reactive<String>,
     style: SpanStyle,
 }
 
 /// A span of rich text showing `text`, in the paragraph's style until its
 /// methods say otherwise.
-pub fn span(text: impl Into<String>) -> Span {
+pub fn span(text: impl kivact_runtime::IntoText) -> Span {
     Span {
-        text: text.into(),
+        text: kivact_runtime::Reactive::new(text.into_text()),
         style: SpanStyle::default(),
     }
 }
@@ -83,8 +83,8 @@ impl Span {
     }
 
     /// Italic (`<em>`, `<i>`), or upright with `false`.
-    pub fn italic(mut self, v: bool) -> Self {
-        self.style.italic = Some(v);
+    pub fn italic(mut self) -> Self {
+        self.style.italic = Some(true);
         self
     }
 
@@ -159,12 +159,12 @@ impl Span {
 /// (colors and paints resolved against `theme`), and how many values were
 /// dropped (feature tags that are not four ASCII characters).
 pub(crate) fn resolve(spans: &[Span], theme: &Theme) -> (String, Vec<p::TextSpan>, u32) {
-    let mut text = String::with_capacity(spans.iter().map(|s| s.text.len()).sum());
+    let mut text = String::with_capacity(spans.iter().map(|s| s.text.get().len()).sum());
     let mut out = Vec::with_capacity(spans.len());
     let mut dropped = 0;
     for span in spans {
         let start = text.len();
-        text.push_str(&span.text);
+        text.push_str(&span.text.get());
         let compiled = kivact_style::internal::compile_span_style(&span.style, theme);
         dropped += compiled.unsupported;
         let style = compiled.props;

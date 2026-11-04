@@ -3,8 +3,9 @@
 //! These cases use the same AppClient and production test host directly,
 //! with existing normal host operations, to exercise later resource changes.
 use kivact_core::launch::{AppOptions, ClientMode, Launch};
-use kivact_core::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
+use kivact_core::style::{Theme, rgb, style};
 use kivact_core::view::View;
+use kivact_core::view::{IntoView, NodeBuilder};
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextFormat};

@@ -4,9 +4,9 @@
 //! - TextEditing methods stay here because highlighting reads ViewState;
 //!   moving them into passive editing_data would create a state/tree cycle.
 //!
-//! `Part::text_editing(TextEditing)` gives an ordinary node the native
+//! `Node::text_editing(TextEditing)` gives an ordinary node the native
 //! editing state, shaping, selection, caret and IME session. The source of
-//! `TextEditing::new(text)` (an `Rc<str>`) and `password`, `read_only`,
+//! `TextEditing::new(text)` (a text input) and `password`, `read_only`,
 //! `max_length` and `placeholder` bind to the one editing payload: whether a
 //! node edits is this payload, not its kind, and a Box, a Text and an Image
 //! take the same path. The author decides the Part's focusability, role and
@@ -125,7 +125,7 @@ impl TextEditing {
     /// colored. A later call replaces an earlier one.
     pub fn highlight<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
-        T: Clone + PartialEq + 'static,
+        T: kivact_runtime::PropValue,
         S: PartialEq + Default + 'static,
         F: Fn(&T, &str, &S) -> (Vec<TextHighlight>, S) + 'static,
     {
@@ -140,15 +140,15 @@ impl TextEditing {
     ///
     /// The editor holds its own copy of the text, which edits change by
     /// range ([`TextEditEvent`]): a source written only when the
-    /// application replaces the text costs nothing per keystroke. The same
-    /// `Rc` given again changes nothing unless the text was edited since.
-    pub fn new(value: impl IntoValue<Rc<str>>) -> Self {
+    /// application replaces the text costs nothing per keystroke. Equal text preserves the current editor selection.
+    pub fn new(value: impl IntoText) -> Self {
+        let value = value.into_text();
         Self {
             props: EditorProps {
                 behavior: None,
                 highlight: None,
                 forward_keys: None,
-                value: value.into_prop(),
+                value: InputProp::computed(Rc::new(move || Rc::<str>::from(value.get()))),
                 multiline: false,
                 line_layout: None,
                 report_text: false,
@@ -163,7 +163,7 @@ impl TextEditing {
     }
 
     /// Accept hard line breaks in the edited value.
-    pub fn multiline(mut self, value: bool) -> Self {
+    pub fn multiline(mut self) -> Self {
         self.props.multiline = value;
         self
     }
@@ -177,7 +177,7 @@ impl TextEditing {
     /// (`event.text`), copied for each edit. An editor that keeps the
     /// value in a `String` binding needs it; one that applies the changes
     /// to its own copy does not.
-    pub fn report_text(mut self, value: bool) -> Self {
+    pub fn report_text(mut self) -> Self {
         self.props.report_text = value;
         self
     }
@@ -209,7 +209,7 @@ impl TextEditing {
     /// and writes the binding only when `event.composition()` is `None`.
     /// Earlier caller handlers run first; an error stops the remaining
     /// handlers for that event.
-    pub fn on_edit<F, R>(mut self, f: F) -> Self
+    pub fn on_text_change<F, R>(mut self, f: F) -> Self
     where
         F: Fn(TextEditEvent) -> R + 'static,
         R: HandlerResult,
@@ -225,9 +225,9 @@ impl TextEditing {
     /// it here. Earlier caller handlers run first; an error stops the
     /// remaining handlers for that change.
     ///
-    /// [`on_edit`]: TextEditing::on_edit
+    /// [`on_edit`]: TextEditing::on_text_change
     /// [`NodeRefExt::set_edit_session`]: crate::custom::NodeRefExt::set_edit_session
-    pub fn on_selection<F, R>(mut self, f: F) -> Self
+    pub fn on_selection_change<F, R>(mut self, f: F) -> Self
     where
         F: Fn(crate::view::editing_data::TextSession) -> R + 'static,
         R: HandlerResult,
@@ -237,7 +237,7 @@ impl TextEditing {
     }
 }
 
-impl<S: Clone + PartialEq + 'static> crate::custom::Part<S> {
+impl crate::view::Node {
     /// Add native editing to this attachment's node.
     ///
     /// Combining Parts keeps the last editing attachment. Regions report
@@ -253,7 +253,7 @@ impl<S: Clone + PartialEq + 'static> crate::custom::Part<S> {
 /// the last (like a primitive's measure function).
 fn bind_highlight<T, S, F>(cx: HighlightAt, src: InputProp<T>, f: Rc<F>)
 where
-    T: Clone + PartialEq + 'static,
+    T: kivact_runtime::PropValue,
     S: PartialEq + Default + 'static,
     F: Fn(&T, &str, &S) -> (Vec<TextHighlight>, S) + 'static,
 {
