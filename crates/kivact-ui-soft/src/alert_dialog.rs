@@ -1,11 +1,24 @@
 //! Role: Compose alert confirmation with the standard modal behavior.
-use kivact::control::NodeBuilder;
-use kivact::control::{column, row};
-use kivact::style::{Justify, Length, pct, style};
-use kivact::ui::{ButtonVariant, DialogKind, button, dialog};
-use kivact::view::IntoValue;
-use kivact::view::{IntoText, IntoView, View, node_ref, show};
-use kivact::{Binding, Value};
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::view::IntoView;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::show;
 use std::rc::Rc;
 
 pub struct AlertDialog {
@@ -20,12 +33,12 @@ pub struct AlertDialog {
 pub fn alert_dialog(
     title: impl IntoText,
     description: impl IntoText,
-    open: impl Into<Binding<bool>>,
+    open: impl IntoBinding<bool>,
 ) -> AlertDialog {
-    let open = open.into();
+    let open = open.into_binding();
     AlertDialog {
         dialog: dialog(title, open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .description(description)
             .width(Length::from(400))
             .closable(false),
@@ -38,8 +51,9 @@ pub fn alert_dialog(
 }
 
 impl AlertDialog {
-    pub fn action(mut self, label: impl Into<String>, action: impl Fn() + 'static) -> Self {
-        self.action = Some((label.into(), Rc::new(action)));
+    pub fn action(mut self, label: impl Into<String>, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some((label.into(), Rc::new(move || action.call(()))));
         self
     }
 
@@ -89,7 +103,7 @@ impl IntoView for AlertDialog {
                             let action = action.clone();
                             button(label.clone())
                                 .variant(variant)
-                                .loading(loading)
+                                .busy(loading)
                                 .on_press(move || action())
                         });
                         if compact {
@@ -108,11 +122,11 @@ impl IntoView for AlertDialog {
                 let desktop = actions.clone();
                 (
                     show(
-                        || kivact::platform::window_size().width <= 640.0,
+                        || kivact::platform::window_size().get().width <= 640.0,
                         move || actions(true),
                     ),
                     show(
-                        || kivact::platform::window_size().width > 640.0,
+                        || kivact::platform::window_size().get().width > 640.0,
                         move || desktop(false),
                     ),
                 )

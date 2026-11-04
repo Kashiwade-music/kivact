@@ -1,14 +1,30 @@
 //! Role: Attach a delayed nonmodal preview to a trigger.
 use crate::recipes_dialog::{anchored, body_text, shadows};
 use crate::theme_access::tokens;
-use kivact::control::{NodeBuilder, column};
-use kivact::interaction::{Delays, use_delayed};
-use kivact::primitive::NodeExt;
-use kivact::style::{Direction, pct};
-use kivact::view::IntoValue;
-use kivact::view::{IntoView, OverlayAlign, Placement, Role, View, node_ref, overlay, show};
-use kivact::{Binding, Value, memo, signal};
-use std::rc::Rc;
+use kivact::interaction::Delays;
+use kivact::interaction::use_delayed;
+use kivact::state::IntoBinding;
+use kivact::view::HandlerResult;
+use kivact::view::IntoViewFn;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+
+use kivact::state::Binding;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Direction;
+use kivact::style::pct;
+use kivact::view::IntoView;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::show;
 use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -20,7 +36,7 @@ pub enum FocusTrigger {
 }
 
 pub struct HoverCard {
-    content: Rc<dyn Fn() -> View>,
+    content: ViewFn,
     placement: Placement,
     align: OverlayAlign,
     delays: Delays,
@@ -29,12 +45,12 @@ pub struct HoverCard {
     focus: FocusTrigger,
     open: Option<Binding<bool>>,
     default_open: bool,
-    on_open_change: Option<Rc<dyn Fn(bool)>>,
+    on_open_change: Option<kivact::state::Callback<bool>>,
 }
 
-pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
+pub fn hover_card<V: IntoView>(content: impl IntoViewFn<V>) -> HoverCard {
     HoverCard {
-        content: Rc::new(move || content().into_view()),
+        content: content.into_view_fn(),
         placement: Placement::Above,
         align: OverlayAlign::Center,
         delays: Delays {
@@ -86,8 +102,8 @@ impl HoverCard {
         self
     }
 
-    pub fn open(mut self, open: impl Into<Binding<bool>>) -> Self {
-        self.open = Some(open.into());
+    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
+        self.open = Some(open.into_binding());
         self
     }
 
@@ -96,8 +112,11 @@ impl HoverCard {
         self
     }
 
-    pub fn on_open_change(mut self, callback: impl Fn(bool) + 'static) -> Self {
-        self.on_open_change = Some(Rc::new(callback));
+    pub fn on_open_change<R: HandlerResult>(
+        mut self,
+        callback: impl Fn(bool) -> R + 'static,
+    ) -> Self {
+        self.on_open_change = Some(kivact::state::callback(callback));
         self
     }
 
@@ -114,15 +133,15 @@ impl HoverCard {
         let initially_open = signal(self.default_open);
         let controlled = self.open;
         let visited = signal(false);
-        kivact::effect(move || {
-            if over_anchor.get() || over_card.get() || anchor_focus.get() || card_focus.get() {
+        kivact::state::effect(move || {
+            if over_anchor.get() || over_card || anchor_focus || card_focus.get() {
                 visited.set(true);
             } else if visited.get() {
                 initially_open.set(false);
             }
         });
         let pointer = use_delayed(
-            memo(move || enabled.get() && (over_anchor.get() || over_card.get())),
+            memo(move || enabled && (over_anchor || over_card.get())),
             self.delays,
         );
         let focus_delay = use_delayed(
@@ -145,13 +164,13 @@ impl HoverCard {
         let open = memo(move || {
             enabled.get()
                 && (controlled.map_or_else(
-                    || initially_open.get() || pointer.shown().get(),
+                    || initially_open || pointer.is_open().get(),
                     |value| value.get(),
-                ) || (!dismissed.get() && focus_delay.shown().get()))
+                ) || (!dismissed.get() && focus_delay.is_open().get()))
         });
         if let Some(callback) = self.on_open_change.clone() {
             let previous = kivact::var(open.get());
-            kivact::effect(move || {
+            kivact::state::effect(move || {
                 let current = open.get();
                 if current != previous.get() {
                     previous.set(current);
@@ -160,7 +179,7 @@ impl HoverCard {
             });
         }
         let panel = show(open, move || {
-            let panel = column((self.content)()).style(move || {
+            let panel = column(self.content.call(())).style(move || {
                 let p = tokens();
                 let base = shadows(body_text(&p), &p.shadows.med)
                     .direction(Direction::Column)
@@ -199,7 +218,7 @@ impl HoverCard {
                 None => layer.role(Role::Group),
             }
         });
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             if !anchor_focus.get() {
                 dismissed.set(false);
             }
@@ -209,8 +228,8 @@ impl HoverCard {
 }
 
 /// A keyboard-reachable text trigger with the native solid underline fallback.
-pub fn hover_card_text(label: impl kivact::view::IntoText) -> kivact::control::Node {
-    kivact::control::text(label).focusable(true).style(|| {
+pub fn hover_card_text(label: impl kivact::state::IntoText) -> kivact::view::Node {
+    kivact::view::text(label).focusable(true).style(|| {
         kivact::style::style()
             .text_decoration(kivact::style::TextDecorationLine::UNDERLINE)
             .text_decoration_color(tokens().colors.border_emphasized)

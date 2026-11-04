@@ -1,6 +1,7 @@
 //! Role: Resolve Astryx Neutral elevation and inset shadows.
 use kivact::draw::Shadow;
-use kivact::style::{rgb, rgba};
+use kivact::style::rgb;
+use kivact::style::rgba;
 
 /// Elevation shadows in front-to-back drawing order.
 #[derive(Clone, Debug, PartialEq)]

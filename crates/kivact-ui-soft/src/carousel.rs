@@ -2,19 +2,46 @@
 use crate::scrollable_area::{ScrollAxis, use_scroll_overflow};
 use crate::stack::{Space, rtl};
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, icon, node, row};
-use kivact::draw::{Point, linear_gradient};
+use kivact::draw::linear_gradient;
+use kivact::geometry::Point;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{
-    Align, Color, Direction, Length, Position, ScrollbarWidth, TransitionProp, pct, rgba, style,
-};
-use kivact::task::{sleep, spawn};
-use kivact::ui::{ButtonVariant, ControlSize, button};
-use kivact::view::{
-    Handled, IntoText, IntoView, NodeRef, Role, ScrollBehavior, View, WheelEvent, node_ref, provide,
-};
-use kivact::{Signal, effect_on, on_cleanup, signal};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+
+use kivact::state::IntoText;
+use kivact::state::Signal;
+use kivact::state::effect_on;
+use kivact::state::on_cleanup;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Length;
+use kivact::style::Position;
+use kivact::style::ScrollbarWidth;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::rgba;
+use kivact::style::style;
+use kivact::task::sleep;
+use kivact::task::spawn;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::NodeRef;
+use kivact::view::Role;
+use kivact::view::ScrollBehavior;
+use kivact::view::View;
+use kivact::view::WheelEvent;
+use kivact::view::node_ref;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -92,7 +119,7 @@ impl CarouselHandle {
     }
 
     fn go_to(self, x: f64) {
-        let motion = if kivact::platform::reduced_motion() {
+        let motion = if kivact::platform::reduced_motion().get() {
             ScrollBehavior::Instant
         } else {
             ScrollBehavior::Smooth
@@ -176,12 +203,12 @@ impl CarouselHandle {
 
 pub struct Carousel {
     root: Node,
-    label: kivact::Value<String>,
+    label: kivact::state::Value<String>,
     slides: Vec<View>,
-    gap: Space,
-    padding: Space,
-    buttons: bool,
-    edge_fade: bool,
+    gap: Value<Space>,
+    padding: Value<Space>,
+    buttons: Value<bool>,
+    edge_fade: Value<bool>,
     options: Options,
     handle: Option<CarouselHandle>,
 }
@@ -195,34 +222,34 @@ pub fn carousel<V: IntoView>(
         root: node().role(Role::Region).name(label),
         label,
         slides: slides.into_iter().map(IntoView::into_view).collect(),
-        gap: Space::S1,
-        padding: Space::S0,
-        buttons: true,
-        edge_fade: true,
+        gap: (Space::S1).into_value(),
+        padding: (Space::S0).into_value(),
+        buttons: (true).into_value(),
+        edge_fade: (true).into_value(),
         options: Options::default(),
         handle: None,
     }
 }
 
 impl Carousel {
-    pub fn gap(mut self, gap: Space) -> Self {
-        self.gap = gap;
+    pub fn gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.gap = gap.into_value();
         self
     }
-    pub fn padding(mut self, padding: Space) -> Self {
-        self.padding = padding;
+    pub fn padding(mut self, padding: impl IntoValue<Space>) -> Self {
+        self.padding = padding.into_value();
         self
     }
-    pub fn buttons(mut self, buttons: bool) -> Self {
-        self.buttons = buttons;
+    pub fn buttons(mut self, buttons: impl IntoValue<bool>) -> Self {
+        self.buttons = buttons.into_value();
         self
     }
-    pub fn edge_fade(mut self, fade: bool) -> Self {
-        self.edge_fade = fade;
+    pub fn edge_fade(mut self, fade: impl IntoValue<bool>) -> Self {
+        self.edge_fade = fade.into_value();
         self
     }
-    pub fn looping(mut self, looping: bool) -> Self {
-        self.options.looping = looping;
+    pub fn looping(mut self) -> Self {
+        self.options.looping = true;
         self
     }
     pub fn snap(mut self, snap: bool) -> Self {
@@ -236,6 +263,7 @@ impl Carousel {
 }
 
 impl NodeBuilder for Carousel {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -267,7 +295,7 @@ impl IntoView for Carousel {
                 .into();
             handle.slides.set(refs.clone());
             handle.options.set(options);
-            handle.padding.set(padding);
+            handle.padding.set(padding.get());
             let slides = slides
                 .into_iter()
                 .enumerate()
@@ -295,14 +323,14 @@ impl IntoView for Carousel {
                     .width(Length::MaxContent)
                     .min_width(pct(100))
                     .shrink(0)
-                    .padding_x(padding.px())
+                    .padding_x(padding.get().px())
                     .direction(if rtl() {
                         Direction::RowReverse
                     } else {
                         Direction::Row
                     })
                     .align_items(Align::Center)
-                    .gap(gap.px())
+                    .gap(gap.get().px())
             });
             let overflow = use_scroll_overflow(handle.viewport, handle.content);
             if options.snap {
@@ -325,7 +353,7 @@ impl IntoView for Carousel {
                 .axis(ScrollAxis::Inline)
                 .node_ref(handle.viewport)
                 .on_wheel(move |event: WheelEvent| {
-                    if event.modifiers().shift
+                    if event.modifiers().get().shift
                         && event.delta().y != 0.0
                         && event.delta().x == 0.0
                         && overflow.any.get()
@@ -344,7 +372,7 @@ impl IntoView for Carousel {
                 })
                 .style(move || {
                     let base = style().scrollbar_width(ScrollbarWidth::None).min_width(0);
-                    if !edge_fade || !overflow.any.get() {
+                    if !edge_fade.get() || !overflow.any.get() {
                         return base;
                     }
                     let fade_start = options.looping || overflow.start.get();
@@ -370,7 +398,9 @@ impl IntoView for Carousel {
                     }
                     base.mask(mask)
                 });
-            let controls = buttons.then(|| (pill(handle, false), pill(handle, true)));
+            let controls = buttons
+                .get()
+                .then(|| (pill(handle, false), pill(handle, true)));
             root.base_style(
                 style()
                     .position(Position::Relative)

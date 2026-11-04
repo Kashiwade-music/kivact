@@ -1,16 +1,41 @@
 //! Role: Preview an image attachment with upload, open, and remove affordances.
 use crate::{IconSize, icon, tokens, visually_hidden};
-use kivact::control::{ImageFit, Node, NodeBuilder, image, node};
 use kivact::i18n::{message, message_with};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Cursor, Direction, Justify, Position, TransitionProp, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, button, tooltip};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, LiveRegion, ReadingDirection, Role, View, current_direction,
-    node_ref, show,
-};
-use kivact::{Asset, Value, signal};
+use kivact::motion::Animated;
+use kivact::motion::Easing;
+use kivact::motion::Repeat;
+use kivact::motion::Transition;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::tooltip;
+use kivact::view::Asset;
+use kivact::view::ImageFit;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::image;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::show;
+use kivact::view::use_direction;
 
 const PLACEHOLDER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-5.5z"/></svg>"#;
 const SPINNER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="white" opacity=".3" stroke-width="2"/><path d="M7 2a5 5 0 0 1 3.5355 8.5355" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>"#;
@@ -34,7 +59,7 @@ pub struct Thumbnail {
     remove: Option<Box<dyn Fn()>>,
     loading: Value<bool>,
     disabled: Value<bool>,
-    reveal: RemoveReveal,
+    reveal: Value<RemoveReveal>,
 }
 
 /// Create an image attachment preview.
@@ -48,7 +73,7 @@ pub fn thumbnail() -> Thumbnail {
         remove: None,
         loading: false.into_value(),
         disabled: false.into_value(),
-        reveal: RemoveReveal::default(),
+        reveal: (RemoveReveal::default()).into_value(),
     }
 }
 
@@ -69,13 +94,15 @@ impl Thumbnail {
         self
     }
     /// Open the image when pressed.
-    pub fn on_press(mut self, action: impl Fn() + 'static) -> Self {
-        self.press = Some(Box::new(action));
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.press = Some(Box::new(move || action.call(())));
         self
     }
     /// Remove the attachment when pressed.
-    pub fn on_remove(mut self, action: impl Fn() + 'static) -> Self {
-        self.remove = Some(Box::new(action));
+    pub fn on_remove(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.remove = Some(Box::new(move || action.call(())));
         self
     }
     /// Show upload progress.
@@ -89,13 +116,14 @@ impl Thumbnail {
         self
     }
     /// Set when the remove control is shown.
-    pub fn show_remove_on(mut self, reveal: RemoveReveal) -> Self {
-        self.reveal = reveal;
+    pub fn show_remove_on(mut self, reveal: impl IntoValue<RemoveReveal>) -> Self {
+        self.reveal = reveal.into_value();
         self
     }
 }
 
 impl NodeBuilder for Thumbnail {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -115,34 +143,33 @@ impl IntoView for Thumbnail {
             reveal,
         } = self;
         let fallback = message("soft.thumbnail.fallback_name", "Thumbnail");
-        let accessible =
-            move || match (label.map(|value| value.get()), alt.map(|value| value.get())) {
-                (Some(label), Some(alt)) if !label.is_empty() && !alt.is_empty() => {
-                    format!("{label} — {alt}")
-                }
-                (Some(label), _) if !label.is_empty() => label,
-                (_, Some(alt)) if !alt.is_empty() => alt,
-                _ => fallback.get(),
-            };
+        let accessible = move || match (label.map(|value| value), alt.map(|value| value)) {
+            (Some(label), Some(alt)) if !label.is_empty() && !alt.is_empty() => {
+                format!("{label} — {alt}")
+            }
+            (Some(label), _) if !label.is_empty() => label,
+            (_, Some(alt)) if !alt.is_empty() => alt,
+            _ => fallback.get(),
+        };
         let reference = node_ref();
         let hovered = reference.hovered();
         let focus_within = reference.focus_within();
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let has_source = source.is_some();
         let media = thumbnail_media(source, alt, loading);
         let open = if let Some(action) = press {
             let label = message_with("soft.thumbnail.open", "Open {name}", move || {
                 [("name", accessible())]
             });
-            let interaction = part(|input| input).on_press(action);
+
             let state = interaction.state();
             node()
                 .role(Role::Button)
                 .name(label)
                 .focusable(true)
                 .focusable_when_disabled(true)
-                .disabled(move || loading.get() || disabled.get())
-                .part(interaction)
+                .disabled(move || loading || disabled.get())
+                .on_press(action)
                 .style(|| {
                     let p = tokens();
                     style().size(SIDE, SIDE).cursor(Cursor::Pointer).transition(
@@ -180,7 +207,7 @@ impl IntoView for Thumbnail {
                         .position(Position::Absolute)
                         .top(p.spacing.s1)
                         .opacity(
-                            if reveal == RemoveReveal::Always || hovered.get() || focus_within.get()
+                            if reveal.get() == RemoveReveal::Always || hovered || focus_within.get()
                             {
                                 1.0
                             } else {
@@ -334,7 +361,7 @@ fn thumbnail_media(
                 })
                 .child(node().style(move || {
                     fill().background(tokens().colors.skeleton).opacity(
-                        if kivact::platform::reduced_motion() {
+                        if kivact::platform::reduced_motion().get() {
                             0.25
                         } else {
                             0.25 + ((pulse.get() - 0.25) / 0.075).floor() * 0.075
@@ -347,7 +374,7 @@ fn thumbnail_media(
 }
 
 fn upload_overlay() -> Node {
-    let duration = if kivact::platform::reduced_motion() {
+    let duration = if kivact::platform::reduced_motion().get() {
         3000
     } else {
         tokens().motion.slow_min
@@ -370,3 +397,5 @@ fn upload_overlay() -> Node {
         })
         .child(image(Asset::from(SPINNER)).style(move || style().size(14, 14).rotate(turn.get())))
 }
+
+kivact::state::constant_value!(RemoveReveal);

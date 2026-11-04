@@ -2,9 +2,13 @@
 use crate::text::{
     Text, TextColor, TextJustify, TextKind, TextWeight, TextWrap, TruncateTooltip, WordBreak, text,
 };
-use kivact::control::{Node, NodeBuilder};
-use kivact::primitive::NodeExt;
-use kivact::view::{IntoText, IntoValue, IntoView, View};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::view::IntoView;
+use kivact::view::View;
 
 /// The heading display option.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,13 +49,13 @@ impl Heading {
     }
 
     /// Set the color.
-    pub fn color(mut self, value: TextColor) -> Self {
+    pub fn color(mut self, value: impl IntoValue<TextColor>) -> Self {
         self.text = self.text.color(value);
         self
     }
 
     /// Set the weight.
-    pub fn weight(mut self, value: TextWeight) -> Self {
+    pub fn weight(mut self, value: impl IntoValue<TextWeight>) -> Self {
         self.text = self.text.weight(value);
         self
     }
@@ -75,7 +79,7 @@ impl Heading {
     }
 
     /// Set the justify.
-    pub fn justify(mut self, value: TextJustify) -> Self {
+    pub fn justify(mut self, value: impl IntoValue<TextJustify>) -> Self {
         self.text = self.text.justify(value);
         self
     }
@@ -87,7 +91,7 @@ impl Heading {
     }
 
     /// Set the capsize.
-    pub fn capsize(mut self, value: bool) -> Self {
+    pub fn capsize(mut self, value: impl IntoValue<bool>) -> Self {
         self.text = self.text.capsize(value);
         self
     }
@@ -100,6 +104,7 @@ impl Heading {
 }
 
 impl NodeBuilder for Heading {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.text.node_mut()
     }

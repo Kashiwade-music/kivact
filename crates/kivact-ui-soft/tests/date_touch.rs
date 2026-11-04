@@ -1,9 +1,11 @@
 //! Role: Verify forced date and time sheets commit immediately and Save closes.
 use kivact::i18n::CalendarDate;
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with_handle};
-use kivact::view::{Key, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::view::Key;
+use kivact::view::Role;
 use kivact_ui_soft::{
     DatePresentation, DateTime, TimeOfDay, date_input, date_time_input, theme, time_input,
 };
@@ -114,7 +116,9 @@ fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
 
 #[test]
 fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
-    use kivact::view::{PointerKind, ReadingDirection, provide_direction};
+    use kivact::view::PointerKind;
+    use kivact::view::ReadingDirection;
+    use kivact::view::provide_direction;
     let start = CalendarDate::new(2026, 10, 14);
     let bound = CalendarDate::new(2026, 11, 30);
     for direction in [ReadingDirection::Ltr, ReadingDirection::Rtl] {
@@ -160,7 +164,8 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
 
 #[test]
 fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
-    use kivact::view::{A11yAction, PointerKind};
+    use kivact::view::A11yAction;
+    use kivact::view::PointerKind;
     let (screen, selected) = render_with_handle(options(), || {
         let selected = signal(TimeOfDay::new(12, 20, 0));
         (

@@ -1,10 +1,15 @@
 //! Role: Verify the Soft Selector keeps the trigger focused while navigating.
-use kivact::control::column;
-use kivact::signal;
+use kivact::interaction::ListItem;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::ui::{ListItem, button};
-use kivact::view::{Key, Modifiers, Role};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::button;
+use kivact::view::Key;
+use kivact::view::Modifiers;
+use kivact::view::Role;
+use kivact::view::column;
 
 #[test]
 fn selector_highlights_without_moving_focus_or_committing_until_activation() {

@@ -1,20 +1,47 @@
 //! Role: Chat tools, token display and grapheme-safe streaming text.
 
+use kivact::state::IntoBinding;
 use std::time::Duration;
 
 use crate::{SpinnerShade, SpinnerSize, spinner, tokens};
-use kivact::control::{Node, NodeBuilder, Span, column, icon, node, rich_text, row, span, text};
+use kivact::custom::EditState;
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{use_content_reveal, use_disclosure};
+use kivact::interaction::use_content_reveal;
+use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::primitive::{EditState, NodeExt};
-use kivact::state::{Machine, Step, machine};
-use kivact::style::{Align, Direction, style};
-use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, Role, View, for_each, node_ref, show,
-    show_some,
-};
-use kivact::{Binding, Value, binding, memo, signal};
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Machine;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::machine;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::Span;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::for_each;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::rich_text;
+use kivact::view::row;
+use kivact::view::show;
+use kivact::view::show_some;
+use kivact::view::span;
+use kivact::view::text;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ToolStatus {
@@ -74,7 +101,7 @@ impl ToolCall {
     }
 }
 
-type ToolDetails = Box<dyn Fn(Value<ToolCall>) -> View>;
+type ToolDetails = kivact::view::ViewFn<Value<ToolCall>>;
 
 pub struct ChatToolCalls {
     root: Node,
@@ -95,6 +122,7 @@ pub fn chat_tool_calls(calls: impl IntoValue<Vec<ToolCall>>) -> ChatToolCalls {
 }
 
 impl NodeBuilder for ChatToolCalls {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -105,12 +133,12 @@ impl ChatToolCalls {
         self.label = Some(label.into_text_value());
         self
     }
-    pub fn expanded(mut self, expanded: impl Into<Binding<bool>>) -> Self {
-        self.expanded = Some(expanded.into());
+    pub fn expanded(mut self, expanded: impl IntoBinding<bool>) -> Self {
+        self.expanded = Some(expanded.into_binding());
         self
     }
     pub fn detail<V: IntoView>(mut self, detail: impl Fn(Value<ToolCall>) -> V + 'static) -> Self {
-        self.detail = Some(Box::new(move |call| detail(call).into_view()));
+        self.detail = Some(detail.into());
         self
     }
 }
@@ -163,7 +191,7 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
         format!("{glyph} {}", status_label.get())
     })
     .name(status_label)
-    .hidden(move || matches!(status.get(), ToolStatus::Pending | ToolStatus::Running))
+    .hidden(move || matches!(status, ToolStatus::Pending | ToolStatus::Running))
     .style(move || {
         let p = tokens();
         style()
@@ -253,16 +281,16 @@ impl IntoView for ChatToolCalls {
             expanded,
             detail,
         } = self;
-        let open = expanded.unwrap_or_else(|| signal(false).into());
+        let open = expanded.unwrap_or_else(|| signal(false).into_binding());
         let multiple = memo(move || calls.with(|calls| calls.len() > 1));
         let rows_open = binding(
-            move || !multiple.get() || open.get(),
+            move || !multiple || open.get(),
             move |shown| open.set(shown),
         );
         let disclosure = use_disclosure(rows_open);
         let motion = tokens().motion;
         let reveal = use_content_reveal(
-            disclosure.shown(),
+            disclosure.is_open(),
             Transition::tween(motion.medium as f64, motion.ease_standard),
         );
         let disclosure = disclosure.leaving(move || reveal.leaving());
@@ -308,7 +336,8 @@ impl IntoView for ChatToolCalls {
             },
         );
         let trigger = node()
-            .part(disclosure.trigger().name(title))
+            .part(disclosure.trigger())
+            .name(title)
             .hidden(move || !multiple.get())
             .base_style(disclosure_style)
             .child((preview, heading, tool_chevron(open)));
@@ -316,7 +345,7 @@ impl IntoView for ChatToolCalls {
         let items = for_each(
             calls,
             |call| call.key.clone(),
-            move |_, call| {
+            move |call| {
                 let (summary, status) = tool_summary(call, rows_visible);
                 let error = text(message_with(
                     "soft.chat.tool_calls.error",
@@ -340,7 +369,9 @@ impl IntoView for ChatToolCalls {
                     );
                     let trigger_ref = node_ref();
                     let trigger = node()
-                        .part(disclosure.trigger().name(detail_label).description(status))
+                        .part(disclosure.trigger())
+                        .name(detail_label)
+                        .description(status)
                         .node_ref(trigger_ref)
                         .base_style(disclosure_style)
                         .child((summary.style(style().grow(1)), tool_chevron(expanded)));
@@ -348,7 +379,7 @@ impl IntoView for ChatToolCalls {
                         .role(Role::Group)
                         .name(detail_label)
                         .part(disclosure.content())
-                        .hidden(move || !rows_visible.get() || !expanded.get())
+                        .hidden(move || !rows_visible || !expanded.get())
                         .on_key(move |event: KeyEvent| {
                             if event.key() == Key::Escape {
                                 expanded.set(false);
@@ -359,7 +390,7 @@ impl IntoView for ChatToolCalls {
                             }
                         })
                         .style(style().padding_left(22).padding_bottom(8))
-                        .child(detail(call));
+                        .child(detail.call(call));
                     column((trigger, error, content))
                 } else {
                     column((summary, error)).style(style().padding_x(6))
@@ -432,7 +463,7 @@ fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Co
     }
 }
 
-pub fn chat_token(token: ChatToken) -> Node {
+pub fn chat_token(token: ChatToken) -> impl kivact::view::Component {
     let tone = token.tone;
     text(token.label).base_style(move || {
         let (fill, ink) = token_colors(tone);
@@ -478,7 +509,10 @@ fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
     spans
 }
 
-pub fn chat_tokenized_text(source: impl IntoText, tokens: impl IntoValue<Vec<ChatToken>>) -> Node {
+pub fn chat_tokenized_text(
+    source: impl IntoText,
+    tokens: impl IntoValue<Vec<ChatToken>>,
+) -> impl kivact::view::Component {
     let source = source.into_text_value();
     let tokens = tokens.into_value();
     rich_text(move || source.with(|source| tokens.with(|tokens| tokenize(source, tokens))))
@@ -512,7 +546,7 @@ pub fn streaming_text(
             target: target.get(),
             animated: streaming.get()
                 && speed != StreamSpeed::Instant
-                && !kivact::platform::reduced_motion(),
+                && !kivact::platform::reduced_motion().get(),
             speed,
         },
         |_, ()| {},
@@ -522,7 +556,7 @@ pub fn streaming_text(
             (
                 target.get(),
                 streaming.get(),
-                kivact::platform::reduced_motion(),
+                kivact::platform::reduced_motion().get(),
             )
         },
         |_| StreamEvent::Changed,

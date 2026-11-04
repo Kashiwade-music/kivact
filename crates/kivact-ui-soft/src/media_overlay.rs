@@ -1,13 +1,22 @@
 //! Role: Layer actions or labels within the bounds of their media.
 use crate::recipes_dialog::{focus as focus_ring, motion};
 use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::NodeBuilder;
-use kivact::control::{Node, column};
-use kivact::style::{Align, Justify, Overflow, Position, pct, rgba, style};
-use kivact::view::IntoValue;
-use kivact::view::{IntoView, OverlayAlign, node_ref};
-use std::rc::Rc;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Overflow;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::rgba;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::OverlayAlign;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ShowOn {
@@ -34,7 +43,7 @@ pub enum OverlayPosition {
 }
 
 pub struct MediaOverlay {
-    content: Rc<dyn Fn() -> kivact::view::View>,
+    content: ViewFn,
     show_on: ShowOn,
     open: Option<Value<bool>>,
     scrim: OverlayScrim,
@@ -42,9 +51,9 @@ pub struct MediaOverlay {
     align: OverlayAlign,
 }
 
-pub fn media_overlay<V: IntoView>(content: impl Fn() -> V + 'static) -> MediaOverlay {
+pub fn media_overlay<V: IntoView>(content: impl IntoViewFn<V>) -> MediaOverlay {
     MediaOverlay {
-        content: Rc::new(move || content().into_view()),
+        content: content.into_view_fn(),
         show_on: ShowOn::Always,
         open: None,
         scrim: OverlayScrim::Dark,
@@ -85,7 +94,7 @@ impl MediaOverlay {
         let focus = root.focus_within();
         let mode = self.show_on;
         let open = self.open;
-        let visible = kivact::memo(move || {
+        let visible = kivact::state::memo(move || {
             open.map_or_else(
                 || match mode {
                     ShowOn::Always => true,
@@ -96,7 +105,7 @@ impl MediaOverlay {
             )
         });
         let reveal_from_keyboard = open.is_none() && mode != ShowOn::Always;
-        let content = column((self.content)())
+        let content = column(self.content.call(()))
             .hidden(move || !visible.get())
             .style(move || {
                 let p = tokens();

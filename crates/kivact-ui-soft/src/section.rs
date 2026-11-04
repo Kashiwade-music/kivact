@@ -2,10 +2,20 @@
 use crate::layout::LayoutInset;
 use crate::stack::{ContainerInset, Padding, Space, padding_options, rtl};
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Color, Direction, style};
-use kivact::view::{IntoView, View, provide, try_context};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::column;
+use kivact::view::node;
+
+use kivact::state::provide;
+use kivact::state::try_use_context;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::View;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SectionVariant {
@@ -44,46 +54,47 @@ struct SectionPadding(f64);
 pub struct Section {
     root: Node,
     content: View,
-    variant: SectionVariant,
+    variant: Value<SectionVariant>,
     padding: Padding,
-    dividers: Edges,
-    bleed_top: bool,
-    bleed_bottom: bool,
+    dividers: Value<Edges>,
+    bleed_top: Value<bool>,
+    bleed_bottom: Value<bool>,
 }
 
 pub fn section(content: impl IntoView) -> Section {
     Section {
         root: node(),
         content: content.into_view(),
-        variant: SectionVariant::Section,
+        variant: (SectionVariant::Section).into_value(),
         padding: Padding::default(),
-        dividers: Edges::default(),
-        bleed_top: false,
-        bleed_bottom: false,
+        dividers: (Edges::default()).into_value(),
+        bleed_top: (false).into_value(),
+        bleed_bottom: (false).into_value(),
     }
 }
 
 impl Section {
     padding_options!();
-    pub fn variant(mut self, variant: SectionVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<SectionVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
-    pub fn dividers(mut self, dividers: Edges) -> Self {
-        self.dividers = dividers;
+    pub fn dividers(mut self, dividers: impl IntoValue<Edges>) -> Self {
+        self.dividers = dividers.into_value();
         self
     }
-    pub fn bleed_top(mut self, bleed: bool) -> Self {
-        self.bleed_top = bleed;
+    pub fn bleed_top(mut self, bleed: impl IntoValue<bool>) -> Self {
+        self.bleed_top = bleed.into_value();
         self
     }
-    pub fn bleed_bottom(mut self, bleed: bool) -> Self {
-        self.bleed_bottom = bleed;
+    pub fn bleed_bottom(mut self, bleed: impl IntoValue<bool>) -> Self {
+        self.bleed_bottom = bleed.into_value();
         self
     }
 }
 
 impl NodeBuilder for Section {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -101,9 +112,12 @@ impl IntoView for Section {
             bleed_bottom,
         } = self;
         provide((), move || {
-            let parent = try_context::<ContainerInset>().unwrap_or_default();
+            let parent = try_use_context::<ContainerInset>()
+                .map(|value| value.get())
+                .unwrap_or_default();
             let (left, right) = parent.sides();
-            let inherited = try_context::<SectionPadding>()
+            let inherited = try_use_context::<SectionPadding>()
+                .map(|value| value.get())
                 .map_or(tokens().spacing.section_padding, |padding| padding.0);
             let inset = padding.resolve(inherited);
             let layout_inset = LayoutInset::from_padding(inset);
@@ -114,7 +128,7 @@ impl IntoView for Section {
             };
             root.base_style(move || {
                 let t = tokens();
-                let color = match variant {
+                let color = match variant.get() {
                     SectionVariant::Section => t.colors.bg_surface,
                     SectionVariant::Transparent => Color::TRANSPARENT,
                     SectionVariant::Muted => t.colors.bg_muted,
@@ -126,16 +140,16 @@ impl IntoView for Section {
                     .background(color)
                     .margin_left(-left)
                     .margin_right(-right);
-                if bleed_top {
+                if bleed_top.get() {
                     base = base.margin_top(-parent.top);
                 }
-                if bleed_bottom {
+                if bleed_bottom.get() {
                     base = base.margin_bottom(-parent.bottom);
                 }
-                if dividers.contains(Edges::TOP) {
+                if dividers.get().contains(Edges::TOP) {
                     base = base.border_top(width, border);
                 }
-                if dividers.contains(Edges::BOTTOM) {
+                if dividers.get().contains(Edges::BOTTOM) {
                     base = base.border_bottom(width, border);
                 }
                 let (left, right) = if rtl() {
@@ -143,10 +157,10 @@ impl IntoView for Section {
                 } else {
                     (Edges::START, Edges::END)
                 };
-                if dividers.contains(left) {
+                if dividers.get().contains(left) {
                     base = base.border_left(width, border);
                 }
-                if dividers.contains(right) {
+                if dividers.get().contains(right) {
                     base = base.border_right(width, border);
                 }
                 base
@@ -155,3 +169,5 @@ impl IntoView for Section {
         })
     }
 }
+
+kivact::state::constant_value!(SectionVariant);

@@ -1,7 +1,8 @@
 //! Role: Read responsive breakpoints from the viewport and measured containers.
 use kivact::platform::window_size;
+use kivact::state::Value;
+use kivact::state::memo;
 use kivact::view::NodeRef;
-use kivact::{Value, memo};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Breakpoint {
@@ -25,21 +26,21 @@ impl Breakpoint {
 }
 
 pub fn viewport_below(breakpoint: Breakpoint) -> Value<bool> {
-    memo(move || window_size().width < breakpoint.px())
+    memo(move || window_size().get().width < breakpoint.px())
 }
 
 pub fn viewport_from(breakpoint: Breakpoint) -> Value<bool> {
-    memo(move || window_size().width >= breakpoint.px())
+    memo(move || window_size().get().width >= breakpoint.px())
 }
 
 pub fn is_compact() -> Value<bool> {
     memo(|| {
-        let size = window_size();
+        let size = window_size().get();
         size.width < Breakpoint::Md.px() || size.height < 500.0
     })
 }
 
 pub fn container_below(node: NodeRef, width: f64) -> Value<bool> {
     let rect = node.rect();
-    memo(move || rect.get().is_some_and(|rect| rect.width < width))
+    memo(move || rect.is_some_and(|rect| rect.width < width))
 }

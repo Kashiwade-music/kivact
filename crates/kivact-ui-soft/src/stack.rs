@@ -1,10 +1,24 @@
 //! Role: Provide Astryx spacing and flex layout primitives.
+use kivact::state::IntoValue;
+use kivact::state::Value;
 
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, ScrollAxes, node, scroll};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, Length, Style, style};
-use kivact::view::{IntoView, ReadingDirection, View, current_direction};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ScrollAxes;
+use kivact::view::node;
+use kivact::view::scroll;
+
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::Style;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::ReadingDirection;
+use kivact::view::View;
+use kivact::view::use_direction;
 
 /// A public Neutral spacing step.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -44,7 +58,7 @@ impl Space {
 }
 
 pub(crate) fn rtl() -> bool {
-    current_direction() == ReadingDirection::Rtl
+    use_direction().get() == ReadingDirection::Rtl
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -218,13 +232,13 @@ pub enum CenterAxis {
 /// A direction-aware flex container.
 pub struct Stack {
     root: Node,
-    direction: Direction,
-    gap: Space,
+    direction: Value<Direction>,
+    gap: Value<Space>,
     padding: Padding,
-    align: Align,
-    justify: Justify,
+    align: Value<Align>,
+    justify: Value<Justify>,
     wrap: StackWrap,
-    scrollable: bool,
+    scrollable: Value<bool>,
     horizontal: Option<StackAlign>,
     vertical: Option<StackAlign>,
 }
@@ -240,13 +254,13 @@ pub fn hstack(children: impl IntoView) -> Stack {
 pub fn vstack(children: impl IntoView) -> Stack {
     Stack {
         root: node().child(children),
-        direction: Direction::Column,
-        gap: Space::S0,
+        direction: (Direction::Column).into_value(),
+        gap: (Space::S0).into_value(),
         padding: Padding::default(),
-        align: Align::Stretch,
-        justify: Justify::Start,
+        align: (Align::Stretch).into_value(),
+        justify: (Justify::Start).into_value(),
         wrap: StackWrap::NoWrap,
-        scrollable: false,
+        scrollable: (false).into_value(),
         horizontal: None,
         vertical: None,
     }
@@ -261,28 +275,28 @@ pub fn center(children: impl IntoView) -> Stack {
 
 impl Stack {
     padding_options!();
-    pub fn direction(mut self, direction: Direction) -> Self {
-        self.direction = direction;
+    pub fn direction(mut self, direction: impl IntoValue<Direction>) -> Self {
+        self.direction = direction.into_value();
         self
     }
-    pub fn gap(mut self, gap: Space) -> Self {
-        self.gap = gap;
+    pub fn gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.gap = gap.into_value();
         self
     }
-    pub fn align(mut self, align: Align) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<Align>) -> Self {
+        self.align = align.into_value();
         self
     }
-    pub fn justify(mut self, justify: Justify) -> Self {
-        self.justify = justify;
+    pub fn justify(mut self, justify: impl IntoValue<Justify>) -> Self {
+        self.justify = justify.into_value();
         self
     }
     pub fn wrap(mut self, wrap: impl Into<StackWrap>) -> Self {
         self.wrap = wrap.into();
         self
     }
-    pub fn scrollable(mut self, scrollable: bool) -> Self {
-        self.scrollable = scrollable;
+    pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
+        self.scrollable = scrollable.into_value();
         self
     }
     pub fn h_align(mut self, align: StackAlign) -> Self {
@@ -323,6 +337,7 @@ impl Stack {
 }
 
 impl NodeBuilder for Stack {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -342,28 +357,28 @@ impl IntoView for Stack {
             horizontal,
             vertical,
         } = self;
-        let is_row = matches!(direction, Direction::Row | Direction::RowReverse);
+        let is_row = matches!(direction.get(), Direction::Row | Direction::RowReverse);
         let (main, cross) = if is_row {
             (horizontal, vertical)
         } else {
             (vertical, horizontal)
         };
         let root = root.base_style(move || {
-            let direction = match (direction, rtl()) {
+            let direction = match (direction.get(), rtl()) {
                 (Direction::Row, true) => Direction::RowReverse,
                 (Direction::RowReverse, true) => Direction::Row,
-                _ => direction,
+                _ => direction.get(),
             };
             padding.resolve(0.0).apply(
                 style()
                     .direction(direction)
-                    .gap(gap.px())
-                    .align_items(cross.map_or(align, StackAlign::cross))
-                    .justify_content(main.map_or(justify, StackAlign::main))
+                    .gap(gap.get().px())
+                    .align_items(cross.map_or(align.get(), StackAlign::cross))
+                    .justify_content(main.map_or(justify.get(), StackAlign::main))
                     .wrap(wrap == StackWrap::Wrap),
             )
         });
-        if scrollable {
+        if scrollable.get() {
             stack_scroll(
                 root,
                 if is_row {
@@ -395,25 +410,25 @@ pub enum StackItemSize {
 
 pub struct StackItem {
     root: Node,
-    size: StackItemSize,
-    scrollable: bool,
+    size: Value<StackItemSize>,
+    scrollable: Value<bool>,
 }
 
 pub fn stack_item(children: impl IntoView) -> StackItem {
     StackItem {
         root: node().child(children),
-        size: StackItemSize::Static,
-        scrollable: false,
+        size: (StackItemSize::Static).into_value(),
+        scrollable: (false).into_value(),
     }
 }
 
 impl StackItem {
-    pub fn size(mut self, size: StackItemSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<StackItemSize>) -> Self {
+        self.size = size.into_value();
         self
     }
-    pub fn scrollable(mut self, scrollable: bool) -> Self {
-        self.scrollable = scrollable;
+    pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
+        self.scrollable = scrollable.into_value();
         self
     }
     pub fn cross_align_self(self, align: Align) -> Self {
@@ -426,6 +441,7 @@ impl StackItem {
 }
 
 impl NodeBuilder for StackItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -433,16 +449,18 @@ impl NodeBuilder for StackItem {
 
 impl IntoView for StackItem {
     fn into_view(self) -> View {
-        let sizing = match self.size {
+        let sizing = match self.size.get() {
             StackItemSize::Auto => style().grow(0).shrink(1),
             StackItemSize::Fill => style().grow(1).shrink(1),
             StackItemSize::Static => style().grow(0).shrink(0),
         };
         let root = self.root.base_style(sizing.min_width(0).min_height(0));
-        if self.scrollable {
+        if self.scrollable.get() {
             stack_scroll(root, ScrollAxes::Vertical)
         } else {
             root.into_view()
         }
     }
 }
+
+kivact::state::constant_value!(Space, StackItemSize);

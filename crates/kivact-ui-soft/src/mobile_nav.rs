@@ -2,18 +2,49 @@
 use crate::layout::LayoutInset;
 use crate::stack::{ContainerInset, rtl};
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, icon, node, row, scroll, text};
 use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::state::{Machine, MachineHandle, Step, machine};
-use kivact::style::{Align, Direction, Justify, Position, TransitionProp, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, DialogKind, Side, button};
-use kivact::view::{
-    IntoText, IntoView, NodeRef, Placement, View, node_ref, overlay, provide, show, try_context,
-};
-use kivact::{Binding, Value, signal};
-use std::rc::Rc;
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::text;
+
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::machine;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::Side;
+use kivact::ui::button;
+use kivact::view::IntoView;
+use kivact::view::NodeRef;
+use kivact::view::Placement;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::show;
 
 #[derive(Clone, Copy, Default)]
 pub struct AppShellMobile {
@@ -61,7 +92,9 @@ impl Machine for MobileMachine {
     }
 }
 pub fn use_app_shell_mobile() -> AppShellMobile {
-    try_context::<AppShellMobile>().unwrap_or_default()
+    try_use_context::<AppShellMobile>()
+        .map(|value| value.get())
+        .unwrap_or_default()
 }
 impl AppShellMobile {
     pub(crate) fn configured(
@@ -155,38 +188,39 @@ pub enum DrawerSide {
 pub struct MobileNav {
     root: Node,
     open: Option<Binding<bool>>,
-    width: f64,
-    side: DrawerSide,
+    width: Value<f64>,
+    side: Value<DrawerSide>,
     label: Option<Value<String>>,
     header: Option<Value<String>>,
-    header_view: Option<Rc<dyn Fn() -> View>>,
-    content: Rc<dyn Fn() -> View>,
+    header_view: Option<ViewFn>,
+    content: ViewFn,
 }
 
-pub fn mobile_nav<V: IntoView>(content: impl Fn() -> V + 'static) -> MobileNav {
+pub fn mobile_nav<V: IntoView>(content: impl IntoViewFn<V>) -> MobileNav {
     MobileNav {
         root: node(),
         open: None,
-        width: 320.0,
-        side: DrawerSide::Auto,
+        width: (320.0).into_value(),
+        side: (DrawerSide::Auto).into_value(),
         label: None,
         header: None,
         header_view: None,
-        content: Rc::new(move || content().into_view()),
+        content: content.into_view_fn(),
     }
 }
 
 impl MobileNav {
-    pub fn open(mut self, open: impl Into<Binding<bool>>) -> Self {
-        self.open = Some(open.into());
+    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
+        self.open = Some(open.into_binding());
         self
     }
-    pub fn width(mut self, width: f64) -> Self {
-        self.width = width.max(0.0);
+    pub fn width(mut self, width: impl IntoValue<f64>) -> Self {
+        let width = width.into_value();
+        self.width = (move || width.get().max(0.0)).into_value();
         self
     }
-    pub fn side(mut self, side: DrawerSide) -> Self {
-        self.side = side;
+    pub fn side(mut self, side: impl IntoValue<DrawerSide>) -> Self {
+        self.side = side.into_value();
         self
     }
     pub fn name(mut self, label: impl IntoText) -> Self {
@@ -197,13 +231,14 @@ impl MobileNav {
         self.header = Some(header.into_text_value());
         self
     }
-    pub fn header_view<V: IntoView>(mut self, header: impl Fn() -> V + 'static) -> Self {
-        self.header_view = Some(Rc::new(move || header().into_view()));
+    pub fn header_view<V: IntoView>(mut self, header: impl IntoViewFn<V>) -> Self {
+        self.header_view = Some(header.into_view_fn());
         self
     }
 }
 
 impl NodeBuilder for MobileNav {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -225,7 +260,7 @@ impl IntoView for MobileNav {
             let mobile = use_app_shell_mobile();
             let open = open
                 .or(mobile.context.map(|context| context.open))
-                .unwrap_or_else(|| signal(false).into());
+                .unwrap_or_else(|| signal(false).into_binding());
             let anchor = mobile
                 .context
                 .map(|context| context.toggle)
@@ -233,13 +268,14 @@ impl IntoView for MobileNav {
             let drawer = mobile.drawer_ref().unwrap_or_else(node_ref);
             let fallback = kivact::i18n::message("soft.mobile_nav.navigation", "Navigation");
             let label = label.or(header).unwrap_or(fallback);
-            let behavior = use_dialog(open, DialogKind::Drawer(Side::Right));
-            root.child(show(behavior.shown(), move || {
-                let right = match side {
+            let behavior = use_dialog(open, DialogMode::Drawer(Side::Right));
+            root.child(show(behavior.is_open(), move || {
+                let right = match side.get() {
                     DrawerSide::Start => rtl(),
                     DrawerSide::End => !rtl(),
                     DrawerSide::Auto => anchor.rect().get().map_or(!rtl(), |rect| {
-                        rect.x + rect.width / 2.0 >= kivact::platform::window_size().width / 2.0
+                        rect.x + rect.width / 2.0
+                            >= kivact::platform::window_size().get().width / 2.0
                     }),
                 };
                 let scrim = node().style(|| {
@@ -309,7 +345,7 @@ impl IntoView for MobileNav {
                 });
                 let content = content.clone();
                 let contents = provide(ContainerInset::default(), move || {
-                    provide(LayoutInset::default(), move || content())
+                    provide(LayoutInset::default(), move || content.call(()))
                 });
                 let body = scroll(
                     node()
@@ -331,7 +367,7 @@ impl IntoView for MobileNav {
                             .position(Position::Fixed)
                             .top(0)
                             .bottom(0)
-                            .width(width)
+                            .width(width.get())
                             .max_width(pct(85))
                             .clip(true)
                             .direction(Direction::Column)
@@ -388,6 +424,7 @@ impl MobileNavToggle {
 }
 
 impl NodeBuilder for MobileNavToggle {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -414,7 +451,7 @@ impl IntoView for MobileNavToggle {
                 .icon(glyph.unwrap_or_else(|| icon("menu").into_view()))
                 .hide_label(true)
                 .on_press(move || mobile.toggle())
-                .expanded(move || mobile.is_open());
+                .with_node(move |node| node.expanded(move || mobile.is_open()));
             if let Some(toggle) = mobile.context.map(|context| context.toggle) {
                 trigger = trigger.node_ref(toggle);
             }
@@ -427,3 +464,5 @@ impl IntoView for MobileNavToggle {
         })
     }
 }
+
+kivact::state::constant_value!(DrawerSide);

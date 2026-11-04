@@ -1,17 +1,34 @@
 //! Role: Joined Neutral action buttons with roving keyboard focus.
+use kivact::view::IntoChildren;
 
 use std::rc::Rc;
 
 use crate::{Elevation, tokens};
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, style};
-use kivact::ui::{Button, ControlSize};
-use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, NodeRef, Orientation, PointerPhase,
-    ReadingDirection, Role, View, current_direction, node_ref,
-};
-use kivact::{Signal, Value, signal};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::ui::Button;
+use kivact::ui::ControlSize;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::NodeRef;
+use kivact::view::Orientation;
+use kivact::view::PointerPhase;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::use_direction;
 
 /// A button-group member with optional explicit divider and size behavior.
 pub struct GroupMember {
@@ -44,72 +61,41 @@ impl GroupMember {
     }
 }
 
-/// Static ordered group membership, accepted as a vector or tuple.
-pub trait GroupMembers {
-    fn into_members(self) -> Vec<GroupMember>;
-}
-
-impl<B: Into<GroupMember>> GroupMembers for Vec<B> {
-    fn into_members(self) -> Vec<GroupMember> {
-        self.into_iter().map(Into::into).collect()
-    }
-}
-
-macro_rules! tuple_members {
-    ($($ty:ident $value:ident),+) => {
-        impl<$($ty: Into<GroupMember>),+> GroupMembers for ($($ty,)+) {
-            fn into_members(self) -> Vec<GroupMember> {
-                let ($($value,)+) = self;
-                vec![$($value.into()),+]
-            }
-        }
-    };
-}
-
-tuple_members!(A a);
-tuple_members!(A a, B b);
-tuple_members!(A a, B b, C c);
-tuple_members!(A a, B b, C c, D d);
-tuple_members!(A a, B b, C c, D d, E e);
-tuple_members!(A a, B b, C c, D d, E e, F f);
-tuple_members!(A a, B b, C c, D d, E e, F f, G g);
-tuple_members!(A a, B b, C c, D d, E e, F f, G g, H h);
-
 /// Joined controls with a shared name, size, elevation, and Tab stop.
-pub struct ButtonGroup {
+pub struct ButtonGroup<C> {
     root: Node,
-    members: Vec<GroupMember>,
-    orientation: Orientation,
-    size: ControlSize,
-    elevation: Elevation,
+    members: C,
+    orientation: Value<Orientation>,
+    size: Value<ControlSize>,
+    elevation: Value<Elevation>,
     disabled: Value<bool>,
 }
 
 #[track_caller]
-pub fn button_group(label: impl IntoText, children: impl GroupMembers) -> ButtonGroup {
+pub fn button_group<C: IntoChildren>(label: impl IntoText, children: C) -> ButtonGroup<C> {
     ButtonGroup {
         root: node().role(Role::Group).name(label),
-        members: children.into_members(),
-        orientation: Orientation::Horizontal,
-        size: ControlSize::Medium,
-        elevation: Elevation::None,
+        members: children,
+        orientation: (Orientation::Horizontal).into_value(),
+        size: (ControlSize::Medium).into_value(),
+        elevation: (Elevation::None).into_value(),
         disabled: false.into_value(),
     }
 }
 
-impl ButtonGroup {
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+impl<C> ButtonGroup<C> {
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
-    pub fn elevation(mut self, elevation: Elevation) -> Self {
-        self.elevation = elevation;
+    pub fn elevation(mut self, elevation: impl IntoValue<Elevation>) -> Self {
+        self.elevation = elevation.into_value();
         self
     }
 
@@ -119,7 +105,8 @@ impl ButtonGroup {
     }
 }
 
-impl NodeBuilder for ButtonGroup {
+impl<C> NodeBuilder for ButtonGroup<C> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -210,80 +197,56 @@ fn corners(vertical: bool, rtl: bool, first: bool, last: bool, r: f64) -> [f64; 
     }
 }
 
-impl IntoView for ButtonGroup {
+impl<C: IntoChildren> IntoView for ButtonGroup<C> {
     fn into_view(self) -> View {
-        let active = signal(0usize);
-        let vertical = self.orientation == Orientation::Vertical;
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let vertical = self.orientation.get() == Orientation::Vertical;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let direction = match (vertical, rtl) {
             (true, _) => Direction::Column,
             (false, true) => Direction::RowReverse,
             _ => Direction::Row,
         };
         let disabled = self.disabled;
-        let size = self.size;
-        let mut members = self.members;
-        let items: Rc<Vec<_>> = Rc::new(
-            members
-                .iter_mut()
-                .map(|member| {
-                    let disabled_by_caller = member.button.accessible_disabled();
-                    RovingItem {
-                        reference: node_ref(),
-                        disabled: (move || {
-                            disabled.get()
-                                || disabled_by_caller
-                                    .as_ref()
-                                    .is_some_and(|is_disabled| is_disabled())
+        let size = self.size.get();
+        let children = kivact::ui::provide_control_size(size, move || {
+            let count = signal(0usize);
+            let next = signal(0usize);
+            kivact::state::provide(
+                MemberLayout {
+                    size,
+                    vertical,
+                    rtl,
+                    count,
+                    next,
+                },
+                move || {
+                    let children = self.members.into_views();
+                    count.set(children.len());
+                    let count = children.len();
+                    children
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, child)| {
+                            node().child(child).style(move || {
+                                let t = tokens();
+                                let [tl, tr, br, bl] = corners(
+                                    vertical,
+                                    rtl,
+                                    index == 0,
+                                    index + 1 == count,
+                                    t.radius.element,
+                                );
+                                style().radius_corners(tl, tr, br, bl).clip(true)
+                            })
                         })
-                        .into_value(),
-                    }
-                })
-                .collect(),
-        );
-        let children = members
-            .into_iter()
-            .enumerate()
-            .map(|(index, member)| {
-                let first = index == 0;
-                let last = index + 1 == items.len();
-                let solid = member.solid;
-                let button = if member.keep_size {
-                    member.button
-                } else {
-                    member.button.default_size(size)
-                };
-                roving_item(
-                    button.disabled(items[index].disabled),
-                    index,
-                    active,
-                    items.clone(),
-                )
-                .style(move || {
-                    let t = tokens();
-                    let [tl, tr, br, bl] = corners(vertical, rtl, first, last, t.radius.element);
-                    let base = style()
-                        .radius_corners(tl, tr, br, bl)
-                        .pressed(style().scale(1));
-                    let divider = if solid {
-                        t.colors.on_accent
-                    } else {
-                        t.colors.border
-                    };
-                    match (first, vertical, rtl) {
-                        (true, _, _) => base,
-                        (false, true, _) => base.border_top(1, divider),
-                        (false, false, true) => base.border_right(1, divider),
-                        (false, false, false) => base.border_left(1, divider),
-                    }
-                })
-                .into_view()
-            })
-            .collect::<Vec<_>>();
-        let elevation = self.elevation;
+                        .collect::<Vec<_>>()
+                },
+            )
+        });
+        let elevation = self.elevation.get();
         self.root
             .disabled(disabled)
-            .on_key(move |event| move_focus(&items, active, event.key(), vertical, rtl))
+            .roving_focus(self.orientation.get())
             .base_style(move || {
                 let t = tokens();
                 elevation.apply(
@@ -295,6 +258,55 @@ impl IntoView for ButtonGroup {
                 )
             })
             .child(children)
+            .into_view()
+    }
+}
+
+#[derive(Clone, Copy)]
+struct MemberLayout {
+    size: ControlSize,
+    vertical: bool,
+    rtl: bool,
+    count: Signal<usize>,
+    next: Signal<usize>,
+}
+impl IntoView for GroupMember {
+    fn into_view(self) -> View {
+        let Some(layout) =
+            kivact::state::try_use_context::<MemberLayout>().map(|value| value.get())
+        else {
+            return self.button.into_view();
+        };
+        let index = layout.next.get_untracked();
+        layout.next.set(index + 1);
+        let solid = self.solid;
+        let button = if self.keep_size {
+            self.button
+        } else {
+            self.button.default_size(layout.size)
+        };
+        button
+            .style(move || {
+                let t = tokens();
+                let first = index == 0;
+                let last = index + 1 == layout.count.get();
+                let [tl, tr, br, bl] =
+                    corners(layout.vertical, layout.rtl, first, last, t.radius.element);
+                let base = style()
+                    .radius_corners(tl, tr, br, bl)
+                    .pressed(style().scale(1));
+                let divider = if solid {
+                    t.colors.on_accent
+                } else {
+                    t.colors.border
+                };
+                match (first, layout.vertical, layout.rtl) {
+                    (true, _, _) => base,
+                    (false, true, _) => base.border_top(1, divider),
+                    (false, false, true) => base.border_right(1, divider),
+                    (false, false, false) => base.border_left(1, divider),
+                }
+            })
             .into_view()
     }
 }

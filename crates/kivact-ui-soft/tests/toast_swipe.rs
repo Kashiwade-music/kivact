@@ -1,9 +1,14 @@
 //! Role: Exercise Soft toast swipes, pointer filtering, and the timer hold.
 
+use kivact::interaction::Toast;
+use kivact::interaction::toaster;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{Toast, toast_region, toaster};
-use kivact::view::{MouseButton, PointerKind, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::toast_region;
+use kivact::view::MouseButton;
+use kivact::view::PointerKind;
+use kivact::view::Role;
 use std::time::Duration;
 
 fn options() -> RenderOptions {

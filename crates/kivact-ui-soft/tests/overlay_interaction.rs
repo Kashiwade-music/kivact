@@ -1,11 +1,22 @@
 //! Role: Verify overlay interaction through the Soft public API.
-use kivact::control::{NodeBuilder, column, row};
-use kivact::interaction::{Delays, use_hover_surface};
-use kivact::signal;
-use kivact::style::{Position, ThemeMode, style};
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{MenuEntry, button, dialog, menu};
-use kivact::view::{Key, Role, node_ref};
+use kivact::interaction::Delays;
+use kivact::interaction::MenuEntry;
+use kivact::interaction::use_hover_surface;
+use kivact::state::signal;
+use kivact::style::Position;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::ui::menu;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::column;
+use kivact::view::node_ref;
+use kivact::view::row;
 use kivact_ui_soft::{
     DialogPurpose, LightboxMedia, SheetHeight, ShowOn, bottom_sheet, lightbox, media_overlay,
 };
@@ -92,8 +103,8 @@ fn soft_submenus_delay_opening_and_remain_open_briefly_over_a_sibling() {
                 MenuEntry::submenu("export", "Export", vec![MenuEntry::item("pdf", "PDF")]),
                 MenuEntry::item("rename", "Rename"),
             ],
-            |_| {},
         )
+        .on_activate(|_| {})
     });
     screen
         .get_by_role(Role::Button, "Actions")
@@ -131,8 +142,8 @@ fn a_diagonal_path_over_a_sibling_keeps_the_open_submenu() {
                 ),
                 MenuEntry::item("rename", "Rename"),
             ],
-            |_| {},
         )
+        .on_activate(|_| {})
     });
     screen
         .get_by_role(Role::Button, "Actions")
@@ -180,7 +191,7 @@ fn hover_surface_renews_its_close_delay_across_a_diagonal_gap() {
                 close: Duration::from_millis(200),
             },
         );
-        let shown = delayed.shown();
+        let shown = delayed.is_open();
         column((
             button("Trigger").node_ref(anchor).style(
                 style()
@@ -254,7 +265,7 @@ fn focus_mode_reveals_the_overlay_even_with_a_noninteractive_base() {
     let screen = render_with(options(), || {
         media_overlay(|| button("Overlay action"))
             .show_on(ShowOn::Focus)
-            .attach(kivact::control::node().style(style().size(120, 60)))
+            .attach(kivact::view::node().style(style().size(120, 60)))
     });
     assert!(
         screen

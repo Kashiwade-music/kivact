@@ -1,22 +1,37 @@
 //! Role: Present a centered empty-state title, description, and actions.
 
 use crate::{TextColor, TextJustify, TextKind, text, tokens};
-use kivact::control::{Node, NodeBuilder, column, node};
 use kivact::interaction::announcer;
-use kivact::primitive::{NodeExt, NodeRefExt, part};
-use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, LiveRegion, ReadingDirection, View, current_direction, node_ref,
-};
-use kivact::{Value, effect, on_mount, signal, var};
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::effect;
+use kivact::state::on_mount;
+use kivact::state::signal;
+use kivact::state::var;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::use_direction;
 
 /// A centered message for a region with no content.
 pub struct EmptyState {
     root: Node,
     title: Value<String>,
     description: Option<Value<String>>,
-    icon: Option<Box<dyn FnOnce() -> View>>,
-    actions: Option<Box<dyn FnOnce() -> View>>,
+    icon: Option<View>,
+    actions: Option<View>,
     heading_level: u32,
     compact: Value<bool>,
 }
@@ -42,14 +57,14 @@ impl EmptyState {
     }
 
     /// Add a decorative visual above the title.
-    pub fn icon<V: IntoView>(mut self, icon: impl FnOnce() -> V + 'static) -> Self {
-        self.icon = Some(Box::new(move || icon().into_view()));
+    pub fn icon(mut self, icon: impl IntoView) -> Self {
+        self.icon = Some(icon.into_view());
         self
     }
 
     /// Add actions below the message.
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V + 'static) -> Self {
-        self.actions = Some(Box::new(move || actions().into_view()));
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(actions.into_view());
         self
     }
 
@@ -67,6 +82,7 @@ impl EmptyState {
 }
 
 impl NodeBuilder for EmptyState {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -142,11 +158,11 @@ impl IntoView for EmptyState {
             }),
         ))
         .node_ref(source)
-        .part(part(|input| input).on_bind(move |_| {
+        .on_attach(move |_| {
             let initial = kivact::platform::is_initial_render();
             // Establish the empty live region before placing any text in it.
             on_mount(move || mounted.set(Some(initial)));
-        }))
+        })
         .style(
             style()
                 .align_items(Align::Center)
@@ -160,7 +176,7 @@ impl IntoView for EmptyState {
                     let spacing = &tokens().spacing;
                     let direction = if compact.get() {
                         Direction::Column
-                    } else if current_direction() == ReadingDirection::Rtl {
+                    } else if use_direction().get() == ReadingDirection::Rtl {
                         Direction::RowReverse
                     } else {
                         Direction::Row
@@ -172,7 +188,7 @@ impl IntoView for EmptyState {
                         .gap(spacing.s2)
                         .margin_top(spacing.s1)
                 })
-                .child(actions())
+                .child(actions)
         });
 
         root.base_style(move || {
@@ -192,7 +208,7 @@ impl IntoView for EmptyState {
                 .padding_x(padding_x)
                 .padding_y(padding_y)
         })
-        .child(icon.map(|icon| icon()))
+        .child(icon.map(|icon| icon))
         .child(text_group)
         .child(actions)
         .child(notices.outlet())

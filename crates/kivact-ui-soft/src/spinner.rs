@@ -1,13 +1,28 @@
 //! Role: Neutral loading spinner and its shared arc paint.
+use kivact::state::IntoValue;
+use kivact::state::Value;
 
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, node, text};
-use kivact::draw::{LineCap, Path, Point, Stroke};
-use kivact::motion::{FrameRate, frame_loop};
-use kivact::primitive::NodeExt;
-use kivact::signal;
-use kivact::style::{Align, Color, Direction, style};
-use kivact::view::{IntoText, IntoView, Role, View};
+use kivact::draw::LineCap;
+use kivact::draw::Path;
+use kivact::draw::Stroke;
+use kivact::geometry::Point;
+use kivact::motion::FrameRate;
+use kivact::motion::frame_loop;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Role;
+use kivact::view::View;
 
 /// Spinner box dimensions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -32,8 +47,8 @@ pub enum SpinnerShade {
 /// Named status indicator for indeterminate work.
 pub struct Spinner {
     root: Node,
-    size: SpinnerSize,
-    shade: SpinnerShade,
+    size: Value<SpinnerSize>,
+    shade: Value<SpinnerShade>,
     label: Option<View>,
     named: bool,
     ink: Option<Color>,
@@ -43,8 +58,8 @@ pub struct Spinner {
 pub fn spinner() -> Spinner {
     Spinner {
         root: node().role(Role::Status),
-        size: SpinnerSize::Md,
-        shade: SpinnerShade::Default,
+        size: (SpinnerSize::Md).into_value(),
+        shade: (SpinnerShade::Default).into_value(),
         label: None,
         named: false,
         ink: None,
@@ -52,13 +67,13 @@ pub fn spinner() -> Spinner {
 }
 
 impl Spinner {
-    pub fn size(mut self, size: SpinnerSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<SpinnerSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
-    pub fn shade(mut self, shade: SpinnerShade) -> Self {
-        self.shade = shade;
+    pub fn shade(mut self, shade: impl IntoValue<SpinnerShade>) -> Self {
+        self.shade = shade.into_value();
         self
     }
 
@@ -80,16 +95,17 @@ impl Spinner {
             self.root = self.root.name(label);
             self.named = true;
         }
-        self.label_view(|| text(label))
+        self.label_view(text(label))
     }
 
-    pub fn label_view<V: IntoView>(mut self, label: impl FnOnce() -> V) -> Self {
-        self.label = Some(label().into_view());
+    pub fn label_view(mut self, label: impl IntoView) -> Self {
+        self.label = Some(label.into_view());
         self
     }
 }
 
 impl NodeBuilder for Spinner {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -102,14 +118,14 @@ impl IntoView for Spinner {
                 .root
                 .name(kivact::i18n::message("soft.spinner.loading", "Loading"));
         }
-        let (diameter, width) = match self.size {
+        let (diameter, width) = match self.size.get() {
             SpinnerSize::Sm => (10.0, 2.0),
             SpinnerSize::Md => (14.0, 3.0),
             SpinnerSize::Lg => (18.0, 3.0),
             SpinnerSize::Xl => (28.0, 4.0),
         };
         let side = diameter + width * 2.0;
-        let shade = self.shade;
+        let shade = self.shade.get();
         let inherit = self.ink;
         let elapsed = signal(0.0f64);
         frame_loop(move |frame| elapsed.set(frame.now.as_secs_f64() * 1000.0))
@@ -127,7 +143,7 @@ impl IntoView for Spinner {
                     (ink, ink.with_alpha(0.3))
                 }
             };
-            let cycle = if kivact::platform::reduced_motion() {
+            let cycle = if kivact::platform::reduced_motion().get() {
                 3000.0
             } else {
                 t.motion.slow_min as f64
@@ -171,3 +187,5 @@ impl IntoView for Spinner {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(SpinnerShade, SpinnerSize);

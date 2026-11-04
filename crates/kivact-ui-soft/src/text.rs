@@ -1,15 +1,25 @@
 //! Role: Render themed body, supporting, code, and display text.
 
 use crate::{TextStyle, Tokens, Typography, tokens};
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, text as control_text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Style, TextAlign, TextDecorationLine, style};
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::text as control_text;
+
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::style::Style;
+use kivact::style::TextAlign;
+use kivact::style::TextDecorationLine;
+use kivact::style::style;
 use kivact::ui::tooltip;
-use kivact::view::{
-    IntoText, IntoValue, IntoView, Placement, ReadingDirection, Role, View, current_direction,
-    node_ref,
-};
+use kivact::view::IntoView;
+use kivact::view::Placement;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::use_direction;
 
 /// The text kind option.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -102,18 +112,18 @@ pub enum TextJustify {
 pub struct Text {
     root: Node,
     value: Value<String>,
-    kind: TextKind,
+    kind: Value<TextKind>,
     heading: Option<u32>,
-    size: Option<TextSize>,
-    color: Option<TextColor>,
-    weight: Option<TextWeight>,
+    size: Option<Value<TextSize>>,
+    color: Option<Value<TextColor>>,
+    weight: Option<Value<TextWeight>>,
     max_lines: u32,
-    truncate_tooltip: TruncateTooltip,
+    truncate_tooltip: Value<TruncateTooltip>,
     wrap: Option<TextWrap>,
-    justify: TextJustify,
+    justify: Value<TextJustify>,
     strikethrough: Value<bool>,
-    tabular_numbers: bool,
-    capsize: bool,
+    tabular_numbers: Value<bool>,
+    capsize: Value<bool>,
 }
 
 /// Show a string or a reactive text value.
@@ -123,43 +133,43 @@ pub fn text(value: impl IntoText) -> Text {
     Text {
         root: control_text(value),
         value,
-        kind: TextKind::default(),
+        kind: (TextKind::default()).into_value(),
         heading: None,
         size: None,
         color: None,
         weight: None,
         max_lines: 0,
-        truncate_tooltip: TruncateTooltip::default(),
+        truncate_tooltip: (TruncateTooltip::default()).into_value(),
         wrap: None,
-        justify: TextJustify::default(),
+        justify: (TextJustify::default()).into_value(),
         strikethrough: false.into_value(),
-        tabular_numbers: false,
-        capsize: false,
+        tabular_numbers: (false).into_value(),
+        capsize: (false).into_value(),
     }
 }
 
 impl Text {
     /// Set the kind.
-    pub fn kind(mut self, value: TextKind) -> Self {
-        self.kind = value;
+    pub fn kind(mut self, value: impl IntoValue<TextKind>) -> Self {
+        self.kind = value.into_value();
         self
     }
 
     /// Set the size.
-    pub fn size(mut self, value: TextSize) -> Self {
-        self.size = Some(value);
+    pub fn size(mut self, value: impl IntoValue<TextSize>) -> Self {
+        self.size = Some(value.into_value());
         self
     }
 
     /// Set the color.
-    pub fn color(mut self, value: TextColor) -> Self {
-        self.color = Some(value);
+    pub fn color(mut self, value: impl IntoValue<TextColor>) -> Self {
+        self.color = Some(value.into_value());
         self
     }
 
     /// Set the weight.
-    pub fn weight(mut self, value: TextWeight) -> Self {
-        self.weight = Some(value);
+    pub fn weight(mut self, value: impl IntoValue<TextWeight>) -> Self {
+        self.weight = Some(value.into_value());
         self
     }
 
@@ -170,8 +180,8 @@ impl Text {
     }
 
     /// Set the truncate tooltip.
-    pub fn truncate_tooltip(mut self, value: TruncateTooltip) -> Self {
-        self.truncate_tooltip = value;
+    pub fn truncate_tooltip(mut self, value: impl IntoValue<TruncateTooltip>) -> Self {
+        self.truncate_tooltip = value.into_value();
         self
     }
 
@@ -182,14 +192,14 @@ impl Text {
     }
 
     /// Set the justify.
-    pub fn justify(mut self, value: TextJustify) -> Self {
-        self.justify = value;
+    pub fn justify(mut self, value: impl IntoValue<TextJustify>) -> Self {
+        self.justify = value.into_value();
         self
     }
 
     /// Set the tabular numbers.
-    pub fn tabular_numbers(mut self, value: bool) -> Self {
-        self.tabular_numbers = value;
+    pub fn tabular_numbers(mut self, value: impl IntoValue<bool>) -> Self {
+        self.tabular_numbers = value.into_value();
         self
     }
 
@@ -199,8 +209,8 @@ impl Text {
     }
 
     /// Trim the text box to the first line’s cap height and last baseline.
-    pub fn capsize(mut self, on: bool) -> Self {
-        self.capsize = on;
+    pub fn capsize(mut self, on: impl IntoValue<bool>) -> Self {
+        self.capsize = on.into_value();
         self
     }
 
@@ -223,6 +233,7 @@ impl Text {
 }
 
 impl NodeBuilder for Text {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -248,11 +259,18 @@ impl IntoView for Text {
         } = self;
         let root = root.base_style(move || {
             let tokens = tokens();
-            let mut look = type_style(&tokens, kind, heading, size, color, weight);
-            if capsize {
+            let mut look = type_style(
+                &tokens,
+                kind.get(),
+                heading,
+                size.map(|v| v.get()),
+                color.map(|v| v.get()),
+                weight.map(|v| v.get()),
+            );
+            if capsize.get() {
                 look = look.text_capsize(true);
             }
-            look = look.text_align(match (justify, current_direction()) {
+            look = look.text_align(match (justify.get(), use_direction().get()) {
                 (TextJustify::Start, ReadingDirection::Ltr)
                 | (TextJustify::End, ReadingDirection::Rtl) => TextAlign::Start,
                 (TextJustify::Center, _) => TextAlign::Center,
@@ -269,12 +287,12 @@ impl IntoView for Text {
             if strikethrough.get() {
                 look = look.text_decoration(TextDecorationLine::LINE_THROUGH);
             }
-            if tabular_numbers {
+            if tabular_numbers.get() {
                 look = look.tabular_nums();
             }
             look
         });
-        let placement = match truncate_tooltip {
+        let placement = match truncate_tooltip.get() {
             TruncateTooltip::Off => None,
             TruncateTooltip::Above => Some(Placement::Above),
             TruncateTooltip::Below => Some(Placement::Below),
@@ -298,9 +316,9 @@ fn type_style(
     tokens: &Tokens,
     kind: TextKind,
     heading: Option<u32>,
-    size: Option<TextSize>,
-    color: Option<TextColor>,
-    weight: Option<TextWeight>,
+    size: Option<Value<TextSize>>,
+    color: Option<Value<TextColor>>,
+    weight: Option<Value<TextWeight>>,
 ) -> Style {
     let t = &tokens.typography;
     let metrics = match kind {
@@ -372,3 +390,12 @@ fn font_size(t: &Typography, size: TextSize) -> f64 {
         TextSize::Xl4 => t.size_4xl,
     }
 }
+
+kivact::state::constant_value!(
+    TextColor,
+    TextJustify,
+    TextKind,
+    TextSize,
+    TextWeight,
+    TruncateTooltip
+);

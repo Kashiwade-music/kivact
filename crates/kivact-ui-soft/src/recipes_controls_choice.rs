@@ -1,9 +1,27 @@
 //! Role: Style the persistent indicator parts of Soft choice controls.
 use crate::Tokens;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Stroke};
-use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
-use kivact::ui::{CheckState, ControlSize, Look, RadioGroupRecipes};
-use kivact::view::{CheckedState, Orientation, ReadingDirection, current_direction};
+use kivact::draw::LineCap;
+use kivact::draw::LineJoin;
+use kivact::draw::Path;
+use kivact::draw::Stroke;
+use kivact::geometry::Point;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::CheckableState;
+use kivact::ui::ControlSize;
+use kivact::ui::Look;
+use kivact::ui::RadioGroupRecipes;
+use kivact::view::CheckedState;
+use kivact::view::Orientation;
+use kivact::view::ReadingDirection;
+use kivact::view::use_direction;
 
 use super::recipe_style::{fast, overlay, ring};
 
@@ -11,7 +29,7 @@ fn small(size: ControlSize) -> bool {
     matches!(size, ControlSize::ExtraSmall | ControlSize::Small)
 }
 
-fn check_side(t: &Tokens, s: &Look<CheckState>) -> f64 {
+fn check_side(t: &Tokens, s: &Look<CheckableState>) -> f64 {
     if small(s.size) {
         t.spacing.s5
     } else {
@@ -19,7 +37,7 @@ fn check_side(t: &Tokens, s: &Look<CheckState>) -> f64 {
     }
 }
 
-fn switch_size(t: &Tokens, s: &Look<CheckState>) -> (f64, f64) {
+fn switch_size(t: &Tokens, s: &Look<CheckableState>) -> (f64, f64) {
     (
         if small(s.size) {
             t.spacing.s8
@@ -31,7 +49,7 @@ fn switch_size(t: &Tokens, s: &Look<CheckState>) -> (f64, f64) {
 }
 
 fn inline_start(base: Style, offset: f64) -> Style {
-    if current_direction() == ReadingDirection::Rtl {
+    if use_direction().get() == ReadingDirection::Rtl {
         base.right(offset)
     } else {
         base.left(offset)
@@ -52,26 +70,26 @@ fn label_row(t: &Tokens, width: f64, height: f64) -> Style {
         .focus_visible(style().ring_none())
         .disabled(style().color(t.colors.text_disabled));
     let padding = width + t.spacing.s2;
-    if current_direction() == ReadingDirection::Rtl {
+    if use_direction().get() == ReadingDirection::Rtl {
         base.padding_right(padding)
     } else {
         base.padding_left(padding)
     }
 }
 
-pub(super) fn checkbox(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn checkbox(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let side = check_side(&t, s);
     label_row(&t, side, side).disabled(style().opacity(t.sizes.disabled_opacity))
 }
 
-pub(super) fn switch(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn switch(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let (width, height) = switch_size(&t, s);
     label_row(&t, width, height)
 }
 
-fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckState>, fill: Color) -> Color {
+fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, fill: Color) -> Color {
     if s.input.pressed && !s.input.disabled {
         overlay(theme, fill, t.colors.overlay_pressed)
     } else {
@@ -79,7 +97,7 @@ fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckState>, fill: Color) ->
     }
 }
 
-fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckState>, radius: f64) -> Style {
+fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, radius: f64) -> Style {
     let c = &t.colors;
     let on = s.checked != CheckedState::Unchecked;
     let hovered = s.input.hovered && !s.input.disabled;
@@ -110,8 +128,8 @@ fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckState>, radius: f64) -
     )
 }
 
-pub(super) fn checkbox_indicator(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn checkbox_indicator(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let side = check_side(&t, s);
     inline_start(check_surface(theme, &t, s, t.radius.inner), 0.0).top(pct(50) - side / 2.0)
 }
@@ -125,8 +143,8 @@ fn centered_mark(width: f64, height: f64, visible: bool) -> Style {
         .opacity(if visible { 1.0 } else { 0.0 })
 }
 
-pub(super) fn checkbox_check(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn checkbox_check(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let side = if small(s.size) {
         t.spacing.s3
     } else {
@@ -147,8 +165,8 @@ pub(super) fn checkbox_check(theme: &Theme, s: &Look<CheckState>) -> Style {
     })
 }
 
-pub(super) fn checkbox_mixed(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn checkbox_mixed(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let width = if small(s.size) {
         t.typography.size_xs
     } else {
@@ -163,8 +181,8 @@ pub(super) fn checkbox_mixed(theme: &Theme, s: &Look<CheckState>) -> Style {
     .background(t.colors.on_accent)
 }
 
-pub(super) fn switch_track(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let (width, height) = switch_size(&t, s);
     let c = &t.colors;
     let drag = s.switch_drag;
@@ -196,7 +214,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckState>) -> Style {
         base
     };
     if touch {
-        let transition = if kivact::platform::reduced_motion() {
+        let transition = if kivact::platform::reduced_motion().get() {
             kivact::motion::Transition::tween(200, t.motion.ease_standard).decorative(false)
         } else if on {
             spring(85.377, 18.480)
@@ -209,8 +227,8 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckState>) -> Style {
     }
 }
 
-pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let drag = s.switch_drag;
     let on = drag
         .filter(|drag| drag.tracking)
@@ -222,12 +240,12 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckState>) -> Style {
         (t.spacing.s4, t.spacing.s1, t.spacing.s5)
     };
     let movement = width - t.spacing.s0_5 - on_side / 2.0 - inset - base_side / 2.0;
-    let sign = if current_direction() == ReadingDirection::Rtl {
+    let sign = if use_direction().get() == ReadingDirection::Rtl {
         -1.0
     } else {
         1.0
     };
-    let reduced = kivact::platform::reduced_motion();
+    let reduced = kivact::platform::reduced_motion().get();
     let lifted = drag.is_some_and(|drag| drag.lifted) && !reduced;
     let side = if on { on_side } else { base_side };
     let lift = if lifted {
@@ -289,7 +307,7 @@ fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
     if orientation.variant::<crate::Segmented>().is_some() {
         return crate::segmented_control::track(theme, orientation);
     }
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     if **orientation == Orientation::Horizontal {
         style().direction(Direction::Row).gap(t.spacing.s5)
     } else {
@@ -297,11 +315,11 @@ fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
     }
 }
 
-fn item(theme: &Theme, s: &Look<CheckState>) -> Style {
+fn item(theme: &Theme, s: &Look<CheckableState>) -> Style {
     if s.variant::<crate::Segmented>().is_some() {
         return crate::segmented_control::segment(theme, s);
     }
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let text = t.typography.body;
     style()
         .direction(Direction::Row)
@@ -316,22 +334,22 @@ fn item(theme: &Theme, s: &Look<CheckState>) -> Style {
         .min_height(check_side(&t, s))
 }
 
-fn indicator(theme: &Theme, s: &Look<CheckState>) -> Style {
+fn indicator(theme: &Theme, s: &Look<CheckableState>) -> Style {
     if s.variant::<crate::Segmented>().is_some() {
         return style().size(0, 0).clip(true);
     }
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     check_surface(theme, &t, s, t.radius.full)
         .position(Position::Relative)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
 }
 
-fn mark(theme: &Theme, s: &Look<CheckState>) -> Style {
+fn mark(theme: &Theme, s: &Look<CheckableState>) -> Style {
     if s.variant::<crate::Segmented>().is_some() {
         return style().size(0, 0).clip(true);
     }
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let side = if small(s.size) {
         t.spacing.s2
     } else {
@@ -342,8 +360,8 @@ fn mark(theme: &Theme, s: &Look<CheckState>) -> Style {
         .background(t.colors.on_accent)
 }
 
-fn description(theme: &Theme, _: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+fn description(theme: &Theme, _: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let text = t.typography.supporting;
     style()
         .font_size(text.size_px)

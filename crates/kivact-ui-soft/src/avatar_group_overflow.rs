@@ -3,14 +3,27 @@ use crate::avatar::{avatar_focus, group_frame};
 use crate::avatar_group::AvatarGroupContext;
 use crate::avatar_options::{AvatarShape, AvatarSize};
 use crate::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, node, text};
 use kivact::i18n::message_with;
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Cursor, Direction, Justify, pct, style};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, ReadingDirection, Role, View, current_direction, try_context,
-};
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node;
+use kivact::view::text;
+use kivact::view::use_direction;
 
 /// A static or actionable count of omitted avatars.
 pub struct AvatarGroupOverflow {
@@ -42,14 +55,16 @@ impl AvatarGroupOverflow {
         self
     }
     /// Open the full list when pressed.
-    pub fn on_press(mut self, action: impl Fn() + 'static) -> Self {
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
         self.root = self.root.role(Role::Button);
-        self.press = Some(Box::new(action));
+        self.press = Some(Box::new(move || action.call(())));
         self
     }
 }
 
 impl NodeBuilder for AvatarGroupOverflow {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -63,9 +78,9 @@ impl IntoView for AvatarGroupOverflow {
             content,
             press,
         } = self;
-        let group = try_context::<AvatarGroupContext>();
+        let group = try_use_context::<AvatarGroupContext>().map(|value| value.get());
         let grouped = group.is_some();
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let (side, shape) = group
             .as_ref()
             .map_or((AvatarSize::Md.side(), AvatarShape::Circle), |cx| {
@@ -73,16 +88,15 @@ impl IntoView for AvatarGroupOverflow {
             });
         let interactive = press.is_some();
         if let Some(press) = press {
-            root = root.part(part(|input| input).on_press(press));
+            root = root.on_press(press);
             root = if let Some(group) = group {
                 group.register(root)
             } else {
                 root.focusable(true)
             };
         }
-        let label = text(move || {
-            content.map_or_else(|| format!("+{}", count.get().max(0)), |value| value.get())
-        });
+        let label =
+            text(move || content.map_or_else(|| format!("+{}", count.max(0)), |value| value.get()));
         let surface = node()
             .style(move || {
                 let p = tokens();

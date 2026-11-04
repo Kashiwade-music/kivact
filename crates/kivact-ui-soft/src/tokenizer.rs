@@ -1,19 +1,22 @@
 //! Role: Choose and remove unique tokens from a keyed suggestion source.
 use crate::typeahead::Typeahead;
-use kivact::interaction::ListSelection;
-use kivact::ui::ListItem;
-use kivact::view::{IntoText, IntoValue};
-use kivact::{Binding, binding, memo};
-use std::hash::Hash;
+use kivact::interaction::ListItem;
+use kivact::interaction::Selection;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::ItemKey;
+use kivact::state::binding;
+use kivact::state::memo;
 
 pub type Tokenizer<K> = Typeahead<K>;
 
-pub fn tokenizer<K: Clone + Eq + Hash + 'static>(
+pub fn tokenizer<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Vec<K>>>,
+    value: impl IntoBinding<Vec<K>>,
 ) -> Tokenizer<K> {
-    let value = value.into();
+    let value = value.into_binding();
     let options = options.into_value();
     let add = binding(
         || None::<K>,
@@ -38,7 +41,7 @@ pub fn tokenizer<K: Clone + Eq + Hash + 'static>(
             })
         })
     });
-    let mut field = Typeahead::new(label, available, ListSelection::Single(add)).exclude_selected();
+    let mut field = Typeahead::new(label, available, Selection::Single(add)).exclude_selected();
     field.chip_labels = Some(options);
     field.chips = Some(value);
     field

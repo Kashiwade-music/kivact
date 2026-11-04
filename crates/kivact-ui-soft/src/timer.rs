@@ -1,10 +1,18 @@
 //! Role: Display the elapsed time since a wall-clock instant.
 use crate::{Text, TextColor, TextKind, TextSize, TextWeight, text};
-use kivact::control::{Node, NodeBuilder};
-use kivact::primitive::NodeExt;
-use kivact::state::{Machine, MachineHandle, Step, machine};
-use kivact::view::{IntoValue, IntoView, LiveRegion, View};
-use kivact::{Value, memo};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+
+use kivact::state::IntoValue;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::machine;
+use kivact::state::memo;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::View;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
@@ -74,22 +82,22 @@ impl Timer {
         self
     }
     /// Set the typography role.
-    pub fn kind(mut self, kind: TextKind) -> Self {
+    pub fn kind(mut self, kind: impl IntoValue<TextKind>) -> Self {
         self.text = self.text.kind(kind);
         self
     }
     /// Override the text size.
-    pub fn size(mut self, size: TextSize) -> Self {
+    pub fn size(mut self, size: impl IntoValue<TextSize>) -> Self {
         self.text = self.text.size(size);
         self
     }
     /// Override the text color.
-    pub fn color(mut self, color: TextColor) -> Self {
+    pub fn color(mut self, color: impl IntoValue<TextColor>) -> Self {
         self.text = self.text.color(color);
         self
     }
     /// Override the text weight.
-    pub fn weight(mut self, weight: TextWeight) -> Self {
+    pub fn weight(mut self, weight: impl IntoValue<TextWeight>) -> Self {
         self.text = self.text.weight(weight);
         self
     }
@@ -100,6 +108,7 @@ impl Timer {
 }
 
 impl NodeBuilder for Timer {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.text.node_mut()
     }

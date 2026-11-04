@@ -2,14 +2,34 @@
 use crate::layout::LayoutInset;
 use crate::stack::{ContainerInset, Space};
 use crate::{Elevation, tokens};
-use kivact::control::{Node, NodeBuilder, ScrollAxes, column, node, scroll};
+use kivact::custom::PartState;
 use kivact::draw::Shadow;
-use kivact::interaction::{use_button, use_checkbox};
+use kivact::interaction::use_button;
+use kivact::interaction::use_checkbox;
 use kivact::motion::Transition;
-use kivact::primitive::{NodeExt, PartState};
-use kivact::style::{Color, Direction, Length, Position, TransitionProp, style};
-use kivact::view::{Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, View, provide};
-use kivact::{Binding, Value};
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::provide;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Length;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ScrollAxes;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::scroll;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CardVariant {
@@ -33,8 +53,8 @@ pub struct Card {
     root: Node,
     content: View,
     padding: Option<Space>,
-    variant: CardVariant,
-    elevation: Elevation,
+    variant: Value<CardVariant>,
+    elevation: Value<Elevation>,
     height: Option<Length>,
     action: CardAction,
     disabled: Value<bool>,
@@ -45,8 +65,8 @@ pub fn card(children: impl IntoView) -> Card {
         root: node(),
         content: children.into_view(),
         padding: None,
-        variant: CardVariant::Default,
-        elevation: Elevation::None,
+        variant: (CardVariant::Default).into_value(),
+        elevation: (Elevation::None).into_value(),
         height: None,
         action: CardAction::Plain,
         disabled: false.into_value(),
@@ -67,11 +87,11 @@ pub fn clickable_card(label: impl IntoText, children: impl IntoView) -> Card {
 
 pub fn selectable_card(
     label: impl IntoText,
-    selected: impl Into<Binding<bool>>,
+    selected: impl IntoBinding<bool>,
     children: impl IntoView,
 ) -> Card {
     let mut card = card(children).name(label);
-    card.action = CardAction::Checkbox(selected.into());
+    card.action = CardAction::Checkbox(selected.into_binding());
     card
 }
 
@@ -84,12 +104,12 @@ impl Card {
         self.padding = Some(padding);
         self
     }
-    pub fn variant(mut self, variant: CardVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<CardVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
-    pub fn elevation(mut self, elevation: Elevation) -> Self {
-        self.elevation = elevation;
+    pub fn elevation(mut self, elevation: impl IntoValue<Elevation>) -> Self {
+        self.elevation = elevation.into_value();
         self
     }
     pub fn height(mut self, height: impl Into<Length>) -> Self {
@@ -103,6 +123,7 @@ impl Card {
 }
 
 impl NodeBuilder for Card {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -122,7 +143,7 @@ impl IntoView for Card {
         } = self;
         provide((), move || {
             let token = tokens();
-            let bordered = variant == CardVariant::Default;
+            let bordered = variant.get() == CardVariant::Default;
             let logical_padding = padding.map_or(token.spacing.card_padding, Space::px);
             let physical_padding = (logical_padding
                 - if bordered {
@@ -151,15 +172,15 @@ impl IntoView for Card {
                 CardAction::Checkbox(selected) => {
                     let part = use_checkbox(selected).disabled(disabled).control();
                     let state = part.state();
-                    let input = kivact::memo(move || state.get().input);
+                    let input = kivact::state::memo(move || state.get().input);
                     let root = root.part(part).on_key(move |event: KeyEvent| {
                         if event.key() == Key::Enter
                             && input.get().focused
                             && !event.repeat()
                             && !disabled.get()
-                            && !event.modifiers().alt
-                            && !event.modifiers().ctrl
-                            && !event.modifiers().meta
+                            && !event.modifiers().get().alt
+                            && !event.modifiers().get().ctrl
+                            && !event.modifiers().get().meta
                         {
                             selected.set(!selected.get());
                             Handled::Yes
@@ -173,7 +194,7 @@ impl IntoView for Card {
             let mut root = root.base_style(move || {
                 let t = tokens();
                 let c = t.colors;
-                let bg = match variant {
+                let bg = match variant.get() {
                     CardVariant::Default => c.bg_card,
                     CardVariant::Transparent => Color::TRANSPARENT,
                     CardVariant::Muted => c.bg_muted,
@@ -196,7 +217,7 @@ impl IntoView for Card {
                     .clip(true)
                     .background(bg);
                 let selected = checked.is_some_and(|checked| checked.get());
-                let ring = match variant {
+                let ring = match variant.get() {
                     CardVariant::Default | CardVariant::Transparent | CardVariant::Muted => {
                         c.accent
                     }
@@ -232,7 +253,7 @@ impl IntoView for Card {
                         base = base.hover(style().border_color(c.border_emphasized));
                     }
                 }
-                base = elevation.apply(base, &t);
+                base = elevation.get().apply(base, &t);
                 if let Some(height) = height {
                     base = base.height(height);
                 }
@@ -279,3 +300,5 @@ fn card_overlay(input: Value<PartState>) -> Node {
             )
     })
 }
+
+kivact::state::constant_value!(CardVariant);

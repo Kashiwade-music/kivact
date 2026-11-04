@@ -1,9 +1,15 @@
 //! Role: Verify that pinned DataTable cells remain at the scroll edges.
-use kivact::control::NodeBuilder;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{DataColumn, DataTableDensity, data_table};
-use kivact::view::{ReadingDirection, Role, provide_direction};
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::DataColumn;
+use kivact::ui::DataTableDensity;
+use kivact::ui::data_table;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::provide_direction;
 
 #[test]
 fn sticky_columns_follow_both_edges_in_ltr_and_rtl() {
@@ -89,8 +95,8 @@ fn soft_sticky_paint_uses_neutral_surface_and_edge_shadow() {
         (ThemeMode::Dark, 77.0 / 255.0),
     ] {
         let theme = kivact_ui_soft::theme(mode);
-        let paint = theme.get::<DataTableStickyPaint>();
-        let tokens = theme.get::<kivact_ui_soft::Tokens>();
+        let paint = theme.ext::<DataTableStickyPaint>();
+        let tokens = theme.ext::<kivact_ui_soft::Tokens>();
         assert_eq!(paint.surface, tokens.colors.bg_card);
         assert_eq!(paint.hover, tokens.colors.overlay_hover);
         assert_eq!(paint.selected, tokens.colors.accent_muted);

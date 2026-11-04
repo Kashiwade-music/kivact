@@ -1,11 +1,27 @@
 //! Role: Static table elements and presentation helpers for the standard DataTable.
 
 use crate::{ItemDensity, tokens};
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Direction, Justify, Length, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View};
-use kivact::{Binding, Value};
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::PropValue;
+use kivact::state::Value;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
 
 pub type TableDensity = ItemDensity;
 
@@ -27,21 +43,21 @@ impl TableAlign {
     }
 }
 
-pub fn table(children: impl IntoView) -> Node {
+pub fn table(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
         .role(Role::Table)
         .base_style(style().width(pct(100)).min_width(0))
 }
 
-pub fn table_header(children: impl IntoView) -> Node {
+pub fn table_header(children: impl IntoView) -> impl kivact::view::Component {
     column(children).role(Role::RowGroup)
 }
 
-pub fn table_body(children: impl IntoView) -> Node {
+pub fn table_body(children: impl IntoView) -> impl kivact::view::Component {
     column(children).role(Role::RowGroup)
 }
 
-pub fn table_footer(children: impl IntoView) -> Node {
+pub fn table_footer(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
         .role(Role::RowGroup)
         .base_style(move || style().background(tokens().colors.bg_muted))
@@ -49,21 +65,22 @@ pub fn table_footer(children: impl IntoView) -> Node {
 
 pub struct TableRow {
     root: Node,
-    dividers: bool,
-    hover: bool,
-    striped: bool,
+    dividers: Value<bool>,
+    hover: Value<bool>,
+    striped: Value<bool>,
 }
 
 pub fn table_row(children: impl IntoView) -> TableRow {
     TableRow {
         root: row(children).role(Role::Row),
-        dividers: true,
-        hover: false,
-        striped: false,
+        dividers: (true).into_value(),
+        hover: (false).into_value(),
+        striped: (false).into_value(),
     }
 }
 
 impl NodeBuilder for TableRow {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -75,16 +92,16 @@ impl TableRow {
         self
     }
 
-    pub fn dividers(mut self, dividers: bool) -> Self {
-        self.dividers = dividers;
+    pub fn dividers(mut self, dividers: impl IntoValue<bool>) -> Self {
+        self.dividers = dividers.into_value();
         self
     }
-    pub fn hover(mut self, hover: bool) -> Self {
-        self.hover = hover;
+    pub fn hover(mut self, hover: impl IntoValue<bool>) -> Self {
+        self.hover = hover.into_value();
         self
     }
-    pub fn striped(mut self, striped: bool) -> Self {
-        self.striped = striped;
+    pub fn striped(mut self, striped: impl IntoValue<bool>) -> Self {
+        self.striped = striped.into_value();
         self
     }
 }
@@ -103,13 +120,13 @@ impl IntoView for TableRow {
                 .width(pct(100))
                 .min_width(0)
                 .selected(style().background(p.colors.accent_muted));
-            if dividers {
+            if dividers.get() {
                 row = row.border_bottom(1, p.colors.border);
             }
-            if hover {
+            if hover.get() {
                 row = row.hover(style().background(p.colors.overlay_hover));
             }
-            if striped {
+            if striped.get() {
                 row = row.background(p.colors.bg_muted);
             }
             row
@@ -124,10 +141,10 @@ pub struct TableCell {
     content: View,
     width: Option<Value<Length>>,
     span: u16,
-    align: TableAlign,
-    density: TableDensity,
-    vertical_align: Align,
-    divider: bool,
+    align: Value<TableAlign>,
+    density: Value<TableDensity>,
+    vertical_align: Value<Align>,
+    divider: Value<bool>,
 }
 
 pub fn table_cell(content: impl IntoView) -> TableCell {
@@ -137,10 +154,10 @@ pub fn table_cell(content: impl IntoView) -> TableCell {
         header: false,
         width: None,
         span: 1,
-        align: TableAlign::Start,
-        density: TableDensity::Balanced,
-        vertical_align: Align::Center,
-        divider: false,
+        align: (TableAlign::Start).into_value(),
+        density: (TableDensity::Balanced).into_value(),
+        vertical_align: (Align::Center).into_value(),
+        divider: (false).into_value(),
     }
 }
 
@@ -152,6 +169,7 @@ pub fn table_head(content: impl IntoView) -> TableCell {
 }
 
 impl NodeBuilder for TableCell {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -167,20 +185,20 @@ impl TableCell {
         self.span = span.max(1);
         self
     }
-    pub fn align(mut self, align: TableAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<TableAlign>) -> Self {
+        self.align = align.into_value();
         self
     }
-    pub fn density(mut self, density: TableDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<TableDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
-    pub fn vertical_align(mut self, align: Align) -> Self {
-        self.vertical_align = align;
+    pub fn vertical_align(mut self, align: impl IntoValue<Align>) -> Self {
+        self.vertical_align = align.into_value();
         self
     }
-    pub fn divider(mut self, divider: bool) -> Self {
-        self.divider = divider;
+    pub fn divider(mut self, divider: impl IntoValue<bool>) -> Self {
+        self.divider = divider.into_value();
         self
     }
 }
@@ -202,18 +220,18 @@ impl IntoView for TableCell {
             let p = tokens();
             let mut cell = style()
                 .direction(Direction::Row)
-                .justify_content(align.justify())
-                .align_items(vertical_align)
+                .justify_content(align.get().justify())
+                .align_items(vertical_align.get())
                 .min_width(0)
-                .padding_y(density.padding())
-                .padding_x(density.padding() + 4)
+                .padding_y(density.get().padding())
+                .padding_x(density.get().padding() + 4)
                 .font_size(14)
                 .line_height(20.0 / 14.0)
                 .color(p.colors.text_primary);
             if header {
                 cell = cell.weight(600);
             }
-            if divider {
+            if divider.get() {
                 cell = cell.border_right(1, p.colors.border);
             }
             match width {
@@ -226,9 +244,9 @@ impl IntoView for TableCell {
     }
 }
 
-type SelectionLabel = Box<dyn FnOnce(Value<usize>) -> View>;
+type SelectionLabel = kivact::view::ViewFn<Value<usize>>;
 
-pub struct TableSelectionToolbar<K: Clone + PartialEq + 'static> {
+pub struct TableSelectionToolbar<K: PropValue> {
     root: Node,
     selection: Binding<Vec<K>>,
     clear_label: Value<String>,
@@ -236,38 +254,39 @@ pub struct TableSelectionToolbar<K: Clone + PartialEq + 'static> {
     actions: Option<View>,
 }
 
-pub fn table_selection_toolbar<K: Clone + PartialEq + 'static>(
-    selection: impl Into<Binding<Vec<K>>>,
+pub fn table_selection_toolbar<K: PropValue>(
+    selection: impl IntoBinding<Vec<K>>,
 ) -> TableSelectionToolbar<K> {
     TableSelectionToolbar {
         root: node().role(Role::Toolbar).name("Bulk actions"),
-        selection: selection.into(),
+        selection: selection.into_binding(),
         clear_label: "Unselect All".into_text_value(),
         selection_label: None,
         actions: None,
     }
 }
 
-impl<K: Clone + PartialEq + 'static> NodeBuilder for TableSelectionToolbar<K> {
+impl<K: PropValue> NodeBuilder for TableSelectionToolbar<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + PartialEq + 'static> TableSelectionToolbar<K> {
+impl<K: PropValue> TableSelectionToolbar<K> {
     pub fn clear_label(mut self, label: impl IntoText) -> Self {
         self.clear_label = label.into_text_value();
         self
     }
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V) -> Self {
-        self.actions = Some(actions().into_view());
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(actions.into_view());
         self
     }
     pub fn selection_label<V: IntoView>(
         mut self,
-        label: impl FnOnce(Value<usize>) -> V + 'static,
+        label: impl Fn(Value<usize>) -> V + 'static,
     ) -> Self {
-        self.selection_label = Some(Box::new(move |count| label(count).into_view()));
+        self.selection_label = Some(label.into());
         self
     }
 }
@@ -279,14 +298,11 @@ fn toolbar_button(
 ) -> Node {
     let label = label.into_text_value();
     node()
-        .part(
-            part(|state| state)
-                .role(Role::Button)
-                .focusable(true)
-                .name(label)
-                .disabled(disabled)
-                .on_press(action),
-        )
+        .role(Role::Button)
+        .focusable(true)
+        .name(label)
+        .disabled(disabled)
+        .on_press(action)
         .base_style(move || {
             let p = tokens();
             style()
@@ -303,7 +319,7 @@ fn toolbar_button(
         .child(text(label))
 }
 
-impl<K: Clone + PartialEq + 'static> IntoView for TableSelectionToolbar<K> {
+impl<K: PropValue> IntoView for TableSelectionToolbar<K> {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -312,7 +328,7 @@ impl<K: Clone + PartialEq + 'static> IntoView for TableSelectionToolbar<K> {
             selection_label,
             actions,
         } = self;
-        let count = kivact::memo(move || selection.with(Vec::len));
+        let count = kivact::state::memo(move || selection.with(Vec::len));
         let count_label = match selection_label {
             Some(render) => render(count),
             None => text(move || format!("{} selected", count.get())).into_view(),
@@ -338,7 +354,10 @@ impl<K: Clone + PartialEq + 'static> IntoView for TableSelectionToolbar<K> {
 }
 
 /// Render a pager from the zero-based page binding and the DataTable model's page count.
-pub fn table_pagination(page: Binding<usize>, page_count: impl IntoValue<usize>) -> Node {
+pub fn table_pagination(
+    page: Binding<usize>,
+    page_count: impl IntoValue<usize>,
+) -> impl kivact::view::Component {
     let page_count = page_count.into_value();
     let last = move || page_count.get().saturating_sub(1);
     let previous = toolbar_button(
@@ -374,9 +393,9 @@ pub fn table_pagination(page: Binding<usize>, page_count: impl IntoValue<usize>)
         })
 }
 
-pub fn table_row_index(index: impl IntoValue<usize>) -> Node {
+pub fn table_row_index(index: impl IntoValue<usize>) -> impl kivact::view::Component {
     let index = index.into_value();
-    text(move || index.get().to_string()).base_style(move || {
+    text(move || index.to_string()).base_style(move || {
         style()
             .font_size(12)
             .text_align(kivact::style::TextAlign::End)
@@ -393,7 +412,10 @@ pub enum RowStatusTone {
     Error,
 }
 
-pub fn table_row_status(label: impl IntoText, tone: impl IntoValue<RowStatusTone>) -> Node {
+pub fn table_row_status(
+    label: impl IntoText,
+    tone: impl IntoValue<RowStatusTone>,
+) -> impl kivact::view::Component {
     let tone = tone.into_value();
     node().role(Role::Image).name(label).base_style(move || {
         let p = tokens();
@@ -406,3 +428,5 @@ pub fn table_row_status(label: impl IntoText, tone: impl IntoValue<RowStatusTone
         style().size(8, 8).radius(4).background(color)
     })
 }
+
+kivact::state::constant_value!(RowStatusTone, TableAlign);

@@ -1,11 +1,18 @@
 //! Role: Format timestamps as calendar dates, wall-clock times, or relative ages.
 use crate::{Text, TextColor, TextKind, TextSize, TextWeight, text};
-use kivact::control::{Node, NodeBuilder};
 use kivact::i18n::message;
-use kivact::state::{Machine, MachineHandle, Step, machine};
+use kivact::state::IntoValue;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::machine;
+use kivact::state::memo;
 use kivact::ui::tooltip;
-use kivact::view::{IntoValue, IntoView, View};
-use kivact::{Value, memo};
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -174,9 +181,9 @@ pub struct Timestamp {
     text: Text,
     clock: MachineHandle<TimestampTick>,
     settings: Rc<RefCell<TimestampSettings>>,
-    details: bool,
+    details: Value<bool>,
     entries: Vec<TimestampEntry>,
-    live: bool,
+    live: Value<bool>,
 }
 
 /// Show a timestamp in automatic relative or absolute format.
@@ -212,9 +219,9 @@ pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
             .color(TextColor::Secondary),
         clock,
         settings,
-        details: true,
+        details: (true).into_value(),
         entries: Vec::new(),
-        live: false,
+        live: (false).into_value(),
     }
 }
 
@@ -238,8 +245,8 @@ impl Timestamp {
         self
     }
     /// Enable or disable the details surface.
-    pub fn hover_card(mut self, on: bool) -> Self {
-        self.details = on;
+    pub fn hover_card(mut self, on: impl IntoValue<bool>) -> Self {
+        self.details = on.into_value();
         self
     }
     /// Supply the rows shown in the details surface.
@@ -258,33 +265,34 @@ impl Timestamp {
         self
     }
     /// Update the relative display while mounted.
-    pub fn live(mut self, live: bool) -> Self {
-        self.live = live;
+    pub fn live(mut self, live: impl IntoValue<bool>) -> Self {
+        self.live = live.into_value();
         self
     }
     /// Select the typography role.
-    pub fn kind(mut self, kind: TextKind) -> Self {
+    pub fn kind(mut self, kind: impl IntoValue<TextKind>) -> Self {
         self.text = self.text.kind(kind);
         self
     }
     /// Override the text size.
-    pub fn size(mut self, size: TextSize) -> Self {
+    pub fn size(mut self, size: impl IntoValue<TextSize>) -> Self {
         self.text = self.text.size(size);
         self
     }
     /// Override the text color.
-    pub fn color(mut self, color: TextColor) -> Self {
+    pub fn color(mut self, color: impl IntoValue<TextColor>) -> Self {
         self.text = self.text.color(color);
         self
     }
     /// Override the text weight.
-    pub fn weight(mut self, weight: TextWeight) -> Self {
+    pub fn weight(mut self, weight: impl IntoValue<TextWeight>) -> Self {
         self.text = self.text.weight(weight);
         self
     }
 }
 
 impl NodeBuilder for Timestamp {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.text.node_mut()
     }
@@ -308,7 +316,7 @@ impl IntoView for Timestamp {
             format,
             TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
         );
-        if live && relative {
+        if live.get() && relative {
             clock.send(TimestampEvent::Tick);
         } else {
             clock.send(TimestampEvent::Refresh);
@@ -324,7 +332,7 @@ impl IntoView for Timestamp {
             )
         };
         let text = if relative { text.name(full) } else { text };
-        if details && (relative || !entries.is_empty()) {
+        if details.get() && (relative || !entries.is_empty()) {
             // Standard tooltip fallback until Soft's interactive hover card is integrated.
             tooltip(move || {
                 if entries.is_empty() {

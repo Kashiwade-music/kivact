@@ -4,18 +4,38 @@ use crate::{
     CitationSource, CitationVariant, CodeLanguage, CodeLanguageInput, blockquote, citation,
     code_block, heading, tokens,
 };
-use kivact::control::{
-    Node, NodeBuilder, ScrollAxes, Span, column, node, rich_text, row, scroll, span, text,
-};
 use kivact::i18n::{message, message_with};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Direction, Justify, TextAlign, TextDecorationLine, pct, style};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::TextAlign;
+use kivact::style::TextDecorationLine;
+use kivact::style::pct;
+use kivact::style::style;
 use kivact::task::spawn;
-use kivact::ui::{ButtonVariant, ControlSize, button};
-use kivact::view::{IntoValue, IntoView, Role, View, dynamic};
-use kivact::{Value, memo};
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::ScrollAxes;
+use kivact::view::Span;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::dynamic;
+use kivact::view::node;
+use kivact::view::rich_text;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::span;
+use kivact::view::text;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// Vertical spacing between Markdown blocks.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -38,10 +58,10 @@ pub struct HeadingLinks {
     pub base_url: String,
 }
 
-type LinkAction = Rc<dyn Fn(&str)>;
-type RenderCode = Rc<dyn Fn(&str, Option<&str>) -> View>;
-type RenderImage = Rc<dyn Fn(&str, &str) -> View>;
-type RenderHeading = Rc<dyn Fn(u32, &str) -> View>;
+type LinkAction = kivact::state::Callback<String>;
+type RenderCode = kivact::view::ViewFn<(String, Option<String>)>;
+type RenderImage = kivact::view::ViewFn<(String, String)>;
+type RenderHeading = kivact::view::ViewFn<(u32, String)>;
 
 /// A reactive Markdown document or inline fragment.
 pub struct Markdown {
@@ -117,8 +137,8 @@ impl Markdown {
         self
     }
     /// Notify the application when a safe link is activated.
-    pub fn on_link(mut self, value: impl Fn(&str) + 'static) -> Self {
-        self.options.on_link = Some(Rc::new(value));
+    pub fn on_link<R: HandlerResult>(mut self, value: impl Fn(&str) -> R + 'static) -> Self {
+        self.options.on_link = Some(kivact::state::callback(move |text: String| value(&text)));
         self
     }
     /// Supply source metadata for inline citation IDs.
@@ -166,26 +186,30 @@ impl Markdown {
         mut self,
         value: impl Fn(&str, Option<&str>) -> V + 'static,
     ) -> Self {
-        self.options.render_code = Some(Rc::new(move |source, language| {
-            value(source, language).into_view()
-        }));
+        self.options.render_code = Some(
+            (move |(source, language): (String, Option<String>)| {
+                value(&source, language.as_deref())
+            })
+            .into(),
+        );
         self
     }
     /// Replace the image renderer.
     pub fn render_image<V: IntoView>(mut self, value: impl Fn(&str, &str) -> V + 'static) -> Self {
         self.options.render_image =
-            Some(Rc::new(move |source, alt| value(source, alt).into_view()));
+            Some((move |(source, alt): (String, String)| value(&source, &alt)).into());
         self
     }
     /// Replace the heading renderer.
     pub fn render_heading<V: IntoView>(mut self, value: impl Fn(u32, &str) -> V + 'static) -> Self {
         self.options.render_heading =
-            Some(Rc::new(move |level, title| value(level, title).into_view()));
+            Some((move |(level, title): (u32, String)| value(level, &title)).into());
         self
     }
 }
 
 impl NodeBuilder for Markdown {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -335,7 +359,10 @@ impl Renderer<'_> {
                     (*language, false)
                 };
                 if let Some(render) = &self.options.render_code {
-                    return render(source, (!language.is_empty()).then_some(language));
+                    return render.call((
+                        source.to_owned(),
+                        (!language.is_empty()).then(|| language.to_owned()),
+                    ));
                 }
                 let syntax = self
                     .options
@@ -376,7 +403,7 @@ impl Renderer<'_> {
 
     fn heading(&mut self, level: u32, title: &str) -> View {
         let view = if let Some(render) = &self.options.render_heading {
-            render(level, title)
+            render.call((level, title.to_owned()))
         } else {
             heading(level, title).into_view()
         };
@@ -574,12 +601,12 @@ impl Renderer<'_> {
                     Err(view) => objects.push((text.len(), view)),
                 }
             }
-            let typography = kivact::draw::TextStyle {
+            let typography = kivact::draw::TextFormat {
                 family: Some(p.typography.family_body.into()),
                 size: p.typography.body.size_px,
                 ..Default::default()
             };
-            return kivact::primitive::inline_view(text, typography, objects).into_view();
+            return kivact::custom::inline_view(text, typography, objects).into_view();
         }
         let nodes: Vec<_> = parts
             .into_iter()
@@ -629,7 +656,9 @@ impl Renderer<'_> {
                     self.options
                         .render_image
                         .as_ref()
-                        .map_or_else(fallback, |render| render(&url, title))
+                        .map_or_else(fallback, |render| {
+                            render.call((url.clone(), title.to_owned()))
+                        })
                 } else {
                     fallback()
                 };
@@ -680,7 +709,7 @@ impl Renderer<'_> {
         Some(if let Some(action) = self.options.on_link.clone() {
             cite.on_open(move |url| {
                 if safe_url(url) {
-                    action(url);
+                    action.call(url.to_owned());
                 }
             })
             .into_view()
@@ -699,12 +728,10 @@ impl Renderer<'_> {
                 .text_decoration(TextDecorationLine::UNDERLINE)
         });
         if let Some(action) = self.options.on_link.clone() {
-            link = link.part(
-                part(|input| input)
-                    .role(Role::Link)
-                    .focusable(true)
-                    .on_press(move || action(&url)),
-            );
+            link = link
+                .role(Role::Link)
+                .focusable(true)
+                .on_press(move || action.call(url.clone()));
         }
         link.into_view()
     }

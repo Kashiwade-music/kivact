@@ -1,20 +1,51 @@
 //! Role: Neutral toolbar layout, shared roving focus and keyboard hints.
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::IntoChildren;
 
 use std::time::Duration;
 
 use crate::{SectionVariant, kbd, tokens};
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::motion::{Easing, Transition};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Color, Direction, Justify, Length, Track, TransitionProp, pct, style};
-use kivact::task::{sleep, spawn};
+use kivact::motion::Easing;
+use kivact::motion::Transition;
+use kivact::state::IntoText;
+use kivact::state::Signal;
+use kivact::state::effect;
+use kivact::state::on_cleanup;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::Track;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::task::sleep;
+use kivact::task::spawn;
 use kivact::ui::ControlSize;
-use kivact::view::{
-    Handled, IntoText, IntoView, Key, NodeRef, Orientation, OverlayAlign, Placement,
-    ReadingDirection, Role, View, current_direction, node_ref, overlay, provide, show_some,
-    try_context,
-};
-use kivact::{Signal, effect, on_cleanup, signal};
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::NodeRef;
+use kivact::view::Orientation;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::row;
+use kivact::view::show_some;
+use kivact::view::text;
+use kivact::view::use_direction;
 
 /// Neutral toolbar surface treatment.
 /// Physical block and logical inline edges of the toolbar.
@@ -26,18 +57,16 @@ pub enum Edge {
     End,
 }
 
-type Slot = Box<dyn FnOnce() -> View>;
-
 /// Toolbar chrome with start, center, and end slots.
 pub struct Toolbar {
     root: Node,
-    start: Option<Slot>,
-    center: Option<Slot>,
-    end: Option<Slot>,
-    size: ControlSize,
-    gap: f64,
-    orientation: Orientation,
-    variant: SectionVariant,
+    start: Option<Vec<View>>,
+    center: Option<Vec<View>>,
+    end: Option<Vec<View>>,
+    size: Value<ControlSize>,
+    gap: Value<f64>,
+    orientation: Value<Orientation>,
+    variant: Value<SectionVariant>,
     dividers: Vec<Edge>,
 }
 
@@ -48,47 +77,47 @@ pub fn toolbar(label: impl IntoText) -> Toolbar {
         start: None,
         center: None,
         end: None,
-        size: ControlSize::Medium,
-        gap: 4.0,
-        orientation: Orientation::Horizontal,
-        variant: SectionVariant::Transparent,
+        size: (ControlSize::Medium).into_value(),
+        gap: (4.0).into_value(),
+        orientation: (Orientation::Horizontal).into_value(),
+        variant: (SectionVariant::Transparent).into_value(),
         dividers: Vec::new(),
     }
 }
 
 impl Toolbar {
-    pub fn start<V: IntoView>(mut self, start: impl FnOnce() -> V + 'static) -> Self {
-        self.start = Some(Box::new(move || start().into_view()));
+    pub fn start(mut self, start: impl IntoChildren) -> Self {
+        self.start = Some(start.into_views());
         self
     }
 
-    pub fn center<V: IntoView>(mut self, center: impl FnOnce() -> V + 'static) -> Self {
-        self.center = Some(Box::new(move || center().into_view()));
+    pub fn center(mut self, center: impl IntoChildren) -> Self {
+        self.center = Some(center.into_views());
         self
     }
 
-    pub fn end<V: IntoView>(mut self, end: impl FnOnce() -> V + 'static) -> Self {
-        self.end = Some(Box::new(move || end().into_view()));
+    pub fn end(mut self, end: impl IntoChildren) -> Self {
+        self.end = Some(end.into_views());
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
-    pub fn gap(mut self, gap: f64) -> Self {
-        self.gap = gap;
+    pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
+        self.gap = gap.into_value();
         self
     }
 
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
 
-    pub fn variant(mut self, variant: SectionVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<SectionVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
 
@@ -99,6 +128,7 @@ impl Toolbar {
 }
 
 impl NodeBuilder for Toolbar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -108,7 +138,7 @@ impl NodeBuilder for Toolbar {
 struct Registration {
     slot: usize,
     reference: NodeRef,
-    focus_visible: kivact::Value<bool>,
+    focus_visible: kivact::state::Value<bool>,
 }
 
 #[derive(Clone, Copy)]
@@ -118,35 +148,40 @@ struct Registrations(Signal<Vec<Registration>>, Signal<usize>);
 /// in a slot participate in the toolbar's arrow navigation.
 #[track_caller]
 pub fn toolbar_item<T: NodeBuilder>(item: T) -> T {
-    let Some(Registrations(items, next)) = try_context::<Registrations>() else {
-        return item;
-    };
     let reference = node_ref();
     let focus_visible = reference.focus_visible();
-    let slot = next.get_untracked();
-    next.set(slot + 1);
-    items.update(|items| {
-        items.push(Registration {
-            slot,
-            focus_visible,
-            reference,
+    item.with_node(move |node| {
+        node.node_ref(reference).on_attach(move |_| {
+            let Some(Registrations(items, next)) =
+                try_use_context::<Registrations>().map(|value| value.get())
+            else {
+                return;
+            };
+            let slot = next.get_untracked();
+            next.set(slot + 1);
+            items.update(|items| {
+                items.push(Registration {
+                    slot,
+                    reference,
+                    focus_visible,
+                })
+            });
+            on_cleanup(move || items.update(|items| items.retain(|item| item.slot != slot)));
         })
-    });
-    on_cleanup(move || items.update(|items| items.retain(|item| item.slot != slot)));
-    item.part(part(|_| ()).reference(reference))
+    })
 }
 
 impl IntoView for Toolbar {
     fn into_view(self) -> View {
         let registry = Registrations(signal(Vec::new()), signal(0));
-        let vertical = self.orientation == Orientation::Vertical;
-        let rtl = current_direction() == ReadingDirection::Rtl;
-        let variant = self.variant;
+        let vertical = self.orientation.get() == Orientation::Vertical;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let variant = self.variant.get();
         let dividers = self.dividers;
-        let orientation = self.orientation;
-        let gap = self.gap;
+        let orientation = self.orientation.get();
+        let gap = self.gap.get();
         let has_center = self.center.is_some();
-        let size = self.size;
+        let size = self.size.get();
         let height = match size {
             ControlSize::ExtraSmall | ControlSize::Small => 28,
             ControlSize::Medium => 32,
@@ -159,7 +194,7 @@ impl IntoView for Toolbar {
                 _ => Direction::Row,
             };
             let reverse_grid = has_center && rtl && !vertical;
-            let make = |slot: Option<Slot>, alignment, grid_column: i32| {
+            let make = |slot: Option<Vec<View>>, alignment, grid_column: i32| {
                 kivact::ui::provide_control_size(size, move || {
                     let base = style()
                         .direction(direction)
@@ -172,7 +207,7 @@ impl IntoView for Toolbar {
                     } else {
                         base
                     };
-                    row(slot.map(|slot| slot())).base_style(base)
+                    row(slot).base_style(base)
                 })
             };
             let start = make(

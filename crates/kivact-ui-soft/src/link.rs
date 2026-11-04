@@ -1,16 +1,33 @@
 //! Role: Neutral text links with explicit native activation.
+use kivact::state::IntoValue;
 
 use crate::feedback::icon_box;
 use crate::recipe_style::ring;
 use crate::{TextKind, tokens};
-use kivact::control::{Node, NodeBuilder, icon, row, text};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Cursor, Direction, TextDecorationLine, pct, style};
-use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoView, Key, ReadingDirection, Role, View, callback,
-    current_direction,
-};
-use kivact::{Callback, Value, memo};
+use kivact::custom::part;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::TextDecorationLine;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::icon;
+use kivact::view::row;
+use kivact::view::text;
+use kivact::view::use_direction;
 
 /// Foreground of a text link.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -31,16 +48,16 @@ pub struct Link {
     content: View,
     press: Option<Callback<()>>,
     new_tab_label: Option<Value<String>>,
-    underline: bool,
-    disabled: bool,
-    external: bool,
-    standalone: bool,
-    kind: TextKind,
+    underline: Value<bool>,
+    disabled: Value<bool>,
+    external: Value<bool>,
+    standalone: Value<bool>,
+    kind: Value<TextKind>,
     size: Option<f64>,
     weight: Option<u16>,
-    color: LinkColor,
+    color: Value<LinkColor>,
     max_lines: u32,
-    as_button: bool,
+    as_button: Value<bool>,
 }
 
 #[track_caller]
@@ -59,16 +76,16 @@ pub fn link_with(content: impl IntoView) -> Link {
         content: content.into_view(),
         press: None,
         new_tab_label: None,
-        underline: false,
-        disabled: false,
-        external: false,
-        standalone: false,
-        kind: TextKind::Body,
+        underline: (false).into_value(),
+        disabled: (false).into_value(),
+        external: (false).into_value(),
+        standalone: (false).into_value(),
+        kind: (TextKind::Body).into_value(),
         size: None,
         weight: None,
-        color: LinkColor::Accent,
+        color: (LinkColor::Accent).into_value(),
         max_lines: 0,
-        as_button: false,
+        as_button: (false).into_value(),
     }
 }
 
@@ -78,29 +95,30 @@ impl Link {
         self
     }
 
-    pub fn on_press<R: HandlerResult>(mut self, press: impl Fn() -> R + 'static) -> Self {
-        self.press = Some(callback(move |_| press()));
+    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.press = Some(callback(move |_| press.call(())));
         self
     }
 
     /// Use the Space and Enter behavior of an action button.
-    pub fn as_button(mut self, value: bool) -> Self {
-        self.as_button = value;
+    pub fn as_button(mut self, value: impl IntoValue<bool>) -> Self {
+        self.as_button = value.into_value();
         self
     }
 
-    pub fn underline(mut self, value: bool) -> Self {
-        self.underline = value;
+    pub fn underline(mut self, value: impl IntoValue<bool>) -> Self {
+        self.underline = value.into_value();
         self
     }
 
-    pub fn disabled(mut self, value: bool) -> Self {
-        self.disabled = value;
+    pub fn disabled(mut self, value: impl IntoValue<bool>) -> Self {
+        self.disabled = value.into_value();
         self
     }
 
-    pub fn external(mut self, value: bool) -> Self {
-        self.external = value;
+    pub fn external(mut self, value: impl IntoValue<bool>) -> Self {
+        self.external = value.into_value();
         self
     }
 
@@ -109,13 +127,13 @@ impl Link {
         self
     }
 
-    pub fn standalone(mut self, value: bool) -> Self {
-        self.standalone = value;
+    pub fn standalone(mut self, value: impl IntoValue<bool>) -> Self {
+        self.standalone = value.into_value();
         self
     }
 
-    pub fn text_type(mut self, kind: TextKind) -> Self {
-        self.kind = kind;
+    pub fn text_type(mut self, kind: impl IntoValue<TextKind>) -> Self {
+        self.kind = kind.into_value();
         self
     }
 
@@ -129,8 +147,8 @@ impl Link {
         self
     }
 
-    pub fn color(mut self, color: LinkColor) -> Self {
-        self.color = color;
+    pub fn color(mut self, color: impl IntoValue<LinkColor>) -> Self {
+        self.color = color.into_value();
         self
     }
 
@@ -141,6 +159,7 @@ impl Link {
 }
 
 impl NodeBuilder for Link {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -148,14 +167,14 @@ impl NodeBuilder for Link {
 
 impl IntoView for Link {
     fn into_view(self) -> View {
-        let disabled = self.disabled;
+        let disabled = self.disabled.get();
         let interactive = self.press.is_some();
         let attachment = part(|state| state);
         let input = attachment.state();
         let mut root = self.root.part(attachment);
         if let Some(press) = self.press {
             root = root
-                .role(if self.as_button {
+                .role(if self.as_button.get() {
                     Role::Button
                 } else {
                     Role::Link
@@ -167,7 +186,7 @@ impl IntoView for Link {
                         press.call(());
                     }
                 });
-            if !self.as_button {
+            if !self.as_button.get() {
                 root = root.on_key(|event| {
                     if event.key() == Key::Space {
                         Handled::Yes
@@ -178,7 +197,7 @@ impl IntoView for Link {
             }
         }
         if let Some(label) = self.label {
-            let label = if self.external {
+            let label = if self.external.get() {
                 let suffix = self.new_tab_label.unwrap_or_else(|| {
                     kivact::i18n::message("soft.link.new_tab", "(opens in new tab)")
                 });
@@ -188,17 +207,17 @@ impl IntoView for Link {
             };
             root = root.name(label);
         }
-        let direction = if current_direction() == ReadingDirection::Rtl {
+        let direction = if use_direction().get() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
         };
-        let kind = self.kind;
+        let kind = self.kind.get();
         let size = self.size;
         let weight = self.weight;
-        let underline = self.underline;
-        let color = self.color;
-        let standalone = self.standalone;
+        let underline = self.underline.get();
+        let color = self.color.get();
+        let standalone = self.standalone.get();
         let lines = self.max_lines;
         root.base_style(move || {
             let t = tokens();
@@ -261,8 +280,11 @@ impl IntoView for Link {
         .child(row(self.content).style(style().min_width(0).line_clamp(lines)))
         .child(
             self.external
+                .get()
                 .then(|| icon_box(icon("external-link").into_view(), 12.0)),
         )
         .into_view()
     }
 }
+
+kivact::state::constant_value!(LinkColor);

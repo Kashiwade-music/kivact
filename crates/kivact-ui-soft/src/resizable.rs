@@ -1,15 +1,36 @@
 //! Role: Resize and optionally collapse a Neutral layout panel.
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::interaction::{ScalarRange, use_splitter};
+use kivact::interaction::ScalarRange;
+use kivact::interaction::use_splitter;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{
-    Align, Color, Cursor, Direction, Justify, Position, TransitionProp, pct, style,
-};
-use kivact::view::{Handled, IntoView, Key, KeyEvent, NodeRef, Orientation, View, provide};
-use kivact::{Binding, Signal, binding, signal};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+
+use kivact::state::Binding;
+use kivact::state::Signal;
+use kivact::state::binding;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::NodeRef;
+use kivact::view::Orientation;
+use kivact::view::View;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -75,7 +96,7 @@ pub struct ResizableState {
 pub fn use_resizable(config: ResizableConfig) -> ResizableState {
     let collapsed = config
         .collapsed
-        .unwrap_or_else(|| signal(config.default_collapsed).into());
+        .unwrap_or_else(|| signal(config.default_collapsed).into_binding());
     let basis = basis(&config);
     let expanded_size = signal(config.default_size.resolve(basis).max(0.0));
     ResizableState {
@@ -93,7 +114,7 @@ fn basis(config: &ResizableConfig) -> f64 {
             |rect| if vertical { rect.height } else { rect.width },
         );
     }
-    let size = kivact::platform::window_size();
+    let size = kivact::platform::window_size().get();
     let axis = if vertical { size.height } else { size.width };
     if axis > 0.0 { axis } else { 1200.0 }
 }
@@ -204,12 +225,12 @@ pub enum PillPlacement {
 pub struct ResizeHandle {
     root: Node,
     state: ResizableState,
-    axis: Orientation,
-    reversed: bool,
-    divider: bool,
-    always_visible: bool,
-    overlay: bool,
-    placement: PillPlacement,
+    axis: Value<Orientation>,
+    reversed: Value<bool>,
+    divider: Value<bool>,
+    always_visible: Value<bool>,
+    overlay: Value<bool>,
+    placement: Value<PillPlacement>,
     grip: Option<View>,
 }
 
@@ -221,48 +242,49 @@ pub fn resize_handle(state: ResizableState) -> ResizeHandle {
             "Resize handle",
         )),
         state,
-        axis,
-        reversed: false,
-        divider: false,
-        always_visible: true,
-        overlay: false,
-        placement: PillPlacement::Auto,
+        axis: (axis).into_value(),
+        reversed: (false).into_value(),
+        divider: (false).into_value(),
+        always_visible: (true).into_value(),
+        overlay: (false).into_value(),
+        placement: (PillPlacement::Auto).into_value(),
         grip: None,
     }
 }
 
 impl ResizeHandle {
-    pub fn axis(mut self, axis: Orientation) -> Self {
-        self.axis = axis;
+    pub fn axis(mut self, axis: impl IntoValue<Orientation>) -> Self {
+        self.axis = axis.into_value();
         self
     }
-    pub fn reversed(mut self, reversed: bool) -> Self {
-        self.reversed = reversed;
+    pub fn reversed(mut self, reversed: impl IntoValue<bool>) -> Self {
+        self.reversed = reversed.into_value();
         self
     }
-    pub fn divider(mut self, divider: bool) -> Self {
-        self.divider = divider;
+    pub fn divider(mut self, divider: impl IntoValue<bool>) -> Self {
+        self.divider = divider.into_value();
         self
     }
-    pub fn always_visible(mut self, always: bool) -> Self {
-        self.always_visible = always;
+    pub fn always_visible(mut self, always: impl IntoValue<bool>) -> Self {
+        self.always_visible = always.into_value();
         self
     }
-    pub fn overlay(mut self, overlay: bool) -> Self {
-        self.overlay = overlay;
+    pub fn overlay(mut self, overlay: impl IntoValue<bool>) -> Self {
+        self.overlay = overlay.into_value();
         self
     }
-    pub fn pill_placement(mut self, placement: PillPlacement) -> Self {
-        self.placement = placement;
+    pub fn pill_placement(mut self, placement: impl IntoValue<PillPlacement>) -> Self {
+        self.placement = placement.into_value();
         self
     }
-    pub fn grip<V: IntoView>(mut self, grip: impl FnOnce() -> V + 'static) -> Self {
-        self.grip = Some(provide((), grip));
+    pub fn grip(mut self, grip: impl IntoView) -> Self {
+        self.grip = Some(provide((), move || grip.into_view()));
         self
     }
 }
 
 impl NodeBuilder for ResizeHandle {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -282,13 +304,13 @@ impl IntoView for ResizeHandle {
             grip,
         } = self;
         provide((), move || {
-            let vertical = axis == Orientation::Vertical;
+            let vertical = axis.get() == Orientation::Vertical;
             let axis = if vertical {
                 Orientation::Vertical
             } else {
                 Orientation::Horizontal
             };
-            let mirror = reversed != (!vertical && rtl());
+            let mirror = reversed.get() != (!vertical && rtl());
             let scalar = {
                 let get = state.clone();
                 let set = state.clone();
@@ -302,15 +324,15 @@ impl IntoView for ResizeHandle {
                     ScalarRange::new(lower, max).expect("valid resize range")
                 }
             };
-            let mut behavior = use_splitter(scalar, range, axis)
+            let mut behavior = use_splitter(scalar, range, axis.get())
                 .key_step(10.0)
                 .expect("positive key step");
-            if reversed {
+            if reversed.get() {
                 behavior = behavior.pointer_scale(-1.0);
             }
             let disabled = root.accessible_disabled();
             if let Some(disabled) = disabled.clone() {
-                behavior = behavior.disabled(move || disabled());
+                behavior = behavior.disabled(move || disabled.get());
             }
             let handle = behavior.handle();
             let visual = handle.state();
@@ -318,10 +340,10 @@ impl IntoView for ResizeHandle {
             let root = root
                 .part(handle)
                 .on_key(move |event: KeyEvent| {
-                    if disabled.as_ref().is_some_and(|disabled| disabled())
-                        || event.modifiers().ctrl
-                        || event.modifiers().alt
-                        || event.modifiers().meta
+                    if disabled.as_ref().is_some_and(|disabled| disabled.get())
+                        || event.modifiers().get().ctrl
+                        || event.modifiers().get().alt
+                        || event.modifiers().get().meta
                     {
                         return Handled::No;
                     }
@@ -349,7 +371,7 @@ impl IntoView for ResizeHandle {
                         }
                         _ => return Handled::No,
                     };
-                    key_state.keyboard_resize(forward != mirror, event.modifiers().shift);
+                    key_state.keyboard_resize(forward != mirror, event.modifiers().get().shift);
                     Handled::Yes
                 })
                 .base_style(move || {
@@ -367,7 +389,7 @@ impl IntoView for ResizeHandle {
                         })
                         .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
                     let hit = t.spacing.s4;
-                    if overlay {
+                    if overlay.get() {
                         let base = base.position(Position::Absolute).z_index(2);
                         if vertical {
                             base.left(0).right(0).bottom(0).height(hit)
@@ -377,7 +399,11 @@ impl IntoView for ResizeHandle {
                             base.top(0).bottom(0).right(0).width(hit)
                         }
                     } else {
-                        let line = if divider { t.sizes.border_width } else { 0.0 };
+                        let line = if divider.get() {
+                            t.sizes.border_width
+                        } else {
+                            0.0
+                        };
                         let extra = (hit - line) / -2.0;
                         if vertical {
                             base.height(hit).margin_y(extra)
@@ -394,11 +420,13 @@ impl IntoView for ResizeHandle {
                 } else {
                     t.colors.border
                 };
-                let line = style().position(Position::Absolute).background(if divider {
-                    color
-                } else {
-                    Color::TRANSPARENT
-                });
+                let line = style()
+                    .position(Position::Absolute)
+                    .background(if divider.get() {
+                        color
+                    } else {
+                        Color::TRANSPARENT
+                    });
                 if vertical {
                     line.width(pct(100)).height(t.sizes.border_width)
                 } else {
@@ -410,16 +438,16 @@ impl IntoView for ResizeHandle {
                     .style(move || {
                         let t = tokens();
                         let state_now = visual.get();
-                        let visible = always_visible
+                        let visible = always_visible.get()
                             || state_now.dragging
                             || state_now.input.hovered
                             || state_now.input.focused;
-                        let side = match placement {
+                        let side = match placement.get() {
                             PillPlacement::Start => -1.0,
                             PillPlacement::End => 1.0,
                             PillPlacement::Center => 0.0,
                             PillPlacement::Auto => {
-                                if reversed != state.is_collapsed() {
+                                if reversed.get() != state.is_collapsed() {
                                     1.0
                                 } else {
                                     -1.0
@@ -451,3 +479,5 @@ impl IntoView for ResizeHandle {
         })
     }
 }
+
+kivact::state::constant_value!(PillPlacement);

@@ -1,11 +1,16 @@
 //! Role: Verify that tree branch exits retain paint while logical rows disappear.
 
-use kivact::control::{NodeBuilder, node};
-use kivact::signal;
-use kivact::style::{ThemeMode, rgb, style};
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::TreeNode;
-use kivact::view::{Key, Role};
+use kivact::interaction::TreeNode;
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::rgb;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::node;
 use std::time::Duration;
 
 #[test]

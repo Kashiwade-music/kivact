@@ -1,9 +1,21 @@
 //! Role: Exercise responsive Soft navigation through the public facade.
-use kivact::control::{NodeBuilder, column, icon, node, row, text};
-use kivact::signal;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, render_with};
-use kivact::view::{IntoView, Key, ReadingDirection, Role, node_ref, provide_direction};
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::provide_direction;
+use kivact::view::row;
+use kivact::view::text;
 use kivact_ui_soft as soft;
 
 fn options(width: f64) -> RenderOptions {

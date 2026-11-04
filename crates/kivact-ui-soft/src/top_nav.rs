@@ -9,20 +9,50 @@ use crate::nav_heading::{
 use crate::side_nav::{SideNavItem, logical_row, side_nav_item, side_row_style};
 use crate::stack::{Space, rtl};
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
-use kivact::interaction::{Delays, use_dialog, use_hover_surface};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::ui::{ControlSize, DialogKind};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, Role, View,
-    callback, node_ref, overlay, provide, show, try_context,
-};
-use kivact::{Binding, Callback, Value, binding, effect_on, signal};
+use kivact::interaction::Delays;
+use kivact::interaction::use_dialog;
+use kivact::interaction::use_hover_surface;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::text;
+
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::callback;
+use kivact::state::effect_on;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::NodeRef;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::show;
 use std::rc::Rc;
 use std::time::Duration;
-
-type Slot = Rc<dyn Fn() -> View>;
 
 #[derive(Clone, Copy)]
 struct TopNavCx {
@@ -32,10 +62,10 @@ struct TopNavCx {
 
 #[derive(Default)]
 struct Slots {
-    heading: Option<Slot>,
-    start: Option<Slot>,
-    center: Option<Slot>,
-    end: Option<Slot>,
+    heading: Option<ViewFn>,
+    start: Option<ViewFn>,
+    center: Option<ViewFn>,
+    end: Option<ViewFn>,
 }
 
 pub struct TopNav {
@@ -54,25 +84,26 @@ pub fn top_nav() -> TopNav {
 }
 
 impl TopNav {
-    pub fn heading<V: IntoView>(mut self, heading: impl Fn() -> V + 'static) -> Self {
-        self.slots.heading = Some(Rc::new(move || heading().into_view()));
+    pub fn heading<V: IntoView>(mut self, heading: impl IntoViewFn<V>) -> Self {
+        self.slots.heading = Some(heading.into_view_fn());
         self
     }
-    pub fn start<V: IntoView>(mut self, start: impl Fn() -> V + 'static) -> Self {
-        self.slots.start = Some(Rc::new(move || start().into_view()));
+    pub fn start<V: IntoView>(mut self, start: impl IntoViewFn<V>) -> Self {
+        self.slots.start = Some(start.into_view_fn());
         self
     }
-    pub fn center<V: IntoView>(mut self, center: impl Fn() -> V + 'static) -> Self {
-        self.slots.center = Some(Rc::new(move || center().into_view()));
+    pub fn center<V: IntoView>(mut self, center: impl IntoViewFn<V>) -> Self {
+        self.slots.center = Some(center.into_view_fn());
         self
     }
-    pub fn end<V: IntoView>(mut self, end: impl Fn() -> V + 'static) -> Self {
-        self.slots.end = Some(Rc::new(move || end().into_view()));
+    pub fn end<V: IntoView>(mut self, end: impl IntoViewFn<V>) -> Self {
+        self.slots.end = Some(end.into_view_fn());
         self
     }
 }
 
 impl NodeBuilder for TopNav {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -93,7 +124,7 @@ impl IntoView for TopNav {
         provide((), move || {
             let anchor = node_ref();
             let mode = shell_nav_mode();
-            let slot = |slot: Option<Slot>, align| {
+            let slot = |slot: Option<ViewFn>, align| {
                 slot.map(|slot| {
                     provide(TopNavCx { anchor, align }, move || {
                         node()
@@ -112,11 +143,11 @@ impl IntoView for TopNav {
                                         Align::Center
                                     })
                             })
-                            .child(slot())
+                            .child(slot.call(()))
                     })
                 })
             };
-            let heading = heading.map(|heading| heading());
+            let heading = heading.map(|heading| heading.call(()));
             let end = slot(end, OverlayAlign::End);
             let start = if mode == ShellNavMode::MobileBar {
                 None
@@ -177,11 +208,11 @@ pub struct TopNavItem {
     label: Value<String>,
     content: Option<View>,
     icon: Option<View>,
-    icon_only: bool,
+    icon_only: Value<bool>,
     selected: Value<bool>,
     disabled: Value<bool>,
     action: Option<Callback<()>>,
-    size: ControlSize,
+    size: Value<ControlSize>,
 }
 
 pub fn top_nav_item(label: impl IntoText) -> TopNavItem {
@@ -190,11 +221,11 @@ pub fn top_nav_item(label: impl IntoText) -> TopNavItem {
         label: label.into_text_value(),
         content: None,
         icon: None,
-        icon_only: false,
+        icon_only: (false).into_value(),
         selected: false.into_value(),
         disabled: false.into_value(),
         action: None,
-        size: ControlSize::Medium,
+        size: (ControlSize::Medium).into_value(),
     }
 }
 
@@ -203,12 +234,12 @@ impl TopNavItem {
         self.icon = Some(icon.into_view());
         self
     }
-    pub fn icon_only(mut self, only: bool) -> Self {
-        self.icon_only = only;
+    pub fn icon_only(mut self, only: impl IntoValue<bool>) -> Self {
+        self.icon_only = only.into_value();
         self
     }
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(provide((), content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(provide((), move || content.into_view()));
         self
     }
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
@@ -219,17 +250,19 @@ impl TopNavItem {
         self.disabled = disabled.into_value();
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
 }
 
 impl NodeBuilder for TopNavItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -252,18 +285,18 @@ impl IntoView for TopNavItem {
             let mode = shell_nav_mode();
             let mobile = use_app_shell_mobile();
             let drawer = mode == ShellNavMode::Drawer;
-            let label_view =
-                (!icon_only || drawer).then(|| content.unwrap_or_else(|| text(label).into_view()));
+            let label_view = (!icon_only.get() || drawer)
+                .then(|| content.unwrap_or_else(|| text(label).into_view()));
             let root = root
                 .name(label)
-                .selected(selected)
+                .with_node(move |node| node.selected(selected))
                 .current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
                 .disabled(disabled)
                 .base_style(move || {
                     if drawer {
-                        side_row_style(size, 0, false, selected.get(), disabled.get())
+                        side_row_style(size.get(), 0, false, selected.get(), disabled.get())
                     } else {
-                        top_item_style(icon_only, selected.get(), disabled.get(), false)
+                        top_item_style(icon_only.get(), selected.get(), disabled.get(), false)
                     }
                 })
                 .child((icon, label_view));
@@ -371,6 +404,7 @@ impl TopNavMenu {
 }
 
 impl NodeBuilder for TopNavMenu {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -390,7 +424,9 @@ impl IntoView for TopNavMenu {
                     .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
                 return root.child(item);
             }
-            let align = try_context::<TopNavCx>().map_or(OverlayAlign::Start, |cx| cx.align);
+            let align = try_use_context::<TopNavCx>()
+                .map(|value| value.get())
+                .map_or(OverlayAlign::Start, |cx| cx.align);
             let menu = nav_heading_menu(items.iter().cloned());
             root.child(nav_menu_view(
                 menu,
@@ -422,7 +458,7 @@ fn menu_trigger(label: Value<String>, open: Value<bool>) -> Node {
 fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
     let mut row = side_nav_item(item.label).disabled(item.disabled);
     if let Some(icon) = &item.icon {
-        row = row.icon(icon());
+        row = row.icon(icon.call(()));
     }
     if let Some(description) = item.description {
         row = row.end_content(move || text(description).style(supporting));
@@ -436,8 +472,8 @@ fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
 pub struct TopNavMegaMenu {
     root: Node,
     label: Value<String>,
-    items: Option<Slot>,
-    featured: Option<Slot>,
+    items: Option<ViewFn>,
+    featured: Option<ViewFn>,
     delays: Delays,
     on_change: Option<Callback<bool>>,
 }
@@ -457,12 +493,12 @@ pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
 }
 
 impl TopNavMegaMenu {
-    pub fn items<V: IntoView>(mut self, items: impl Fn() -> V + 'static) -> Self {
-        self.items = Some(Rc::new(move || items().into_view()));
+    pub fn items<V: IntoView>(mut self, items: impl IntoViewFn<V>) -> Self {
+        self.items = Some(items.into_view_fn());
         self
     }
-    pub fn featured<V: IntoView>(mut self, featured: impl Fn() -> V + 'static) -> Self {
-        self.featured = Some(Rc::new(move || featured().into_view()));
+    pub fn featured<V: IntoView>(mut self, featured: impl IntoViewFn<V>) -> Self {
+        self.featured = Some(featured.into_view_fn());
         self
     }
     pub fn delay_ms(mut self, delay: u64) -> Self {
@@ -483,6 +519,7 @@ impl TopNavMegaMenu {
 }
 
 impl NodeBuilder for TopNavMegaMenu {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -505,8 +542,8 @@ impl IntoView for TopNavMegaMenu {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let disclosure = side_nav_item(label).children(move || {
                     column((
-                        items.as_ref().map(|items| items()),
-                        featured.as_ref().map(|featured| featured()),
+                        items.as_ref().map(|items| items.call(())),
+                        featured.as_ref().map(|featured| featured.call(())),
                     ))
                 });
                 return root.child(disclosure);
@@ -516,12 +553,12 @@ impl IntoView for TopNavMegaMenu {
             let delayed = use_hover_surface(
                 trigger_ref,
                 surface_ref,
-                || !kivact::platform::capabilities().touch,
+                || !kivact::platform::capabilities().get().touch,
                 delays,
             );
             let pinned = signal(false);
             let open = binding(
-                move || pinned.get() || delayed.shown().get(),
+                move || pinned || delayed.is_open().get(),
                 move |open| {
                     pinned.set(open);
                     if !open {
@@ -534,21 +571,21 @@ impl IntoView for TopNavMegaMenu {
                     change.call(*open);
                 });
             }
-            let behavior = use_dialog(open, DialogKind::Popover).anchor(trigger_ref);
+            let behavior = use_dialog(open, DialogMode::Popover).anchor(trigger_ref);
             let trigger = menu_trigger(label, open.into_value())
                 .node_ref(trigger_ref)
                 .role(Role::Button)
                 .focusable(true)
-                .expanded(open)
+                .with_node(move |node| node.expanded(open))
                 .controls(surface_ref)
                 .on_press(move || open.set(!open.get()));
-            let cx = try_context::<TopNavCx>();
+            let cx = try_use_context::<TopNavCx>().map(|value| value.get());
             let align = cx.map_or(OverlayAlign::Start, |cx| cx.align);
             let anchor = cx.map_or(trigger_ref, |cx| cx.anchor);
-            let surface = show(behavior.shown(), move || {
+            let surface = show(behavior.is_open(), move || {
                 let grid = items.as_ref().map(|items| {
                     let items = items.clone();
-                    grid(provide(MegaClose(open), move || items()))
+                    grid(provide(MegaClose(open), move || items.call(())))
                         .columns(GridColumns::Fixed(2))
                         .gap(Space::S2)
                         .style(style().grow(2).shrink(1).basis(300).min_width(0))
@@ -556,7 +593,7 @@ impl IntoView for TopNavMegaMenu {
                 let featured = featured.as_ref().map(|featured| {
                     let featured = featured.clone();
                     node()
-                        .child(provide(MegaClose(open), move || featured()))
+                        .child(provide(MegaClose(open), move || featured.call(())))
                         .style(style().grow(1).shrink(1).basis(200).min_width(0))
                 });
                 let body = row((grid, featured)).style(|| {
@@ -567,7 +604,9 @@ impl IntoView for TopNavMegaMenu {
                         .gap(t.spacing.s6)
                         .padding(t.spacing.s3)
                         .width(960)
-                        .max_width((kivact::platform::window_size().width - t.spacing.s4).max(0.0))
+                        .max_width(
+                            (kivact::platform::window_size().get().width - t.spacing.s4).max(0.0),
+                        )
                 });
                 let panel = scroll(body).node_ref(surface_ref).style(|| {
                     let t = tokens();
@@ -614,13 +653,15 @@ impl TopNavMegaMenuItem {
         self.icon = Some(icon.into_view());
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
 }
 
 impl NodeBuilder for TopNavMegaMenuItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -638,7 +679,7 @@ impl IntoView for TopNavMegaMenuItem {
         provide((), move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
-            let popup = try_context::<MegaClose>();
+            let popup = try_use_context::<MegaClose>().map(|value| value.get());
             let glyph = icon.map(|glyph| {
                 node()
                     .style(move || {
@@ -754,17 +795,15 @@ impl TopNavMegaMenuFeaturedCard {
         self.content = Some(content.into_view());
         self
     }
-    pub fn link<R: HandlerResult>(
-        mut self,
-        label: impl IntoText,
-        action: impl Fn() -> R + 'static,
-    ) -> Self {
-        self.link = Some((label.into_text_value(), callback(move |_| action())));
+    pub fn link(mut self, label: impl IntoText, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.link = Some((label.into_text_value(), callback(move |_| action.call(()))));
         self
     }
 }
 
 impl NodeBuilder for TopNavMegaMenuFeaturedCard {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -783,7 +822,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
         provide((), move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
-            let popup = try_context::<MegaClose>();
+            let popup = try_use_context::<MegaClose>().map(|value| value.get());
             let image = image.map(|image| {
                 node()
                     .style(style().width(pct(100)).height(140).clip(true))

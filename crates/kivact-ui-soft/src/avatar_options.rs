@@ -50,3 +50,5 @@ impl AvatarShape {
         }
     }
 }
+
+kivact::state::constant_value!(AvatarShape, AvatarSize);

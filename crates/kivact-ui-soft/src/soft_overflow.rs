@@ -1,17 +1,34 @@
 //! Role: Width-bounded keyed overflow lists.
 
+use kivact::state::ItemKey;
+use kivact::state::PropValue;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, node, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Overflow, style};
-use kivact::view::{
-    HandlerResult, IntoValue, IntoView, NodeRef, View, callback, for_each, node_ref, show,
-};
-use kivact::{Callback, Value, effect_on, memo, signal};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+use kivact::view::text;
+
+use kivact::state::Callback;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::effect_on;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Overflow;
+use kivact::style::style;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::NodeRef;
+use kivact::view::View;
+use kivact::view::for_each;
+use kivact::view::node_ref;
+use kivact::view::show;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CollapseFrom {
@@ -20,7 +37,7 @@ pub enum CollapseFrom {
     End,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq)]
 pub enum OverflowMeasure {
     #[default]
     OwnWidth,
@@ -28,11 +45,11 @@ pub enum OverflowMeasure {
     ParentWidth(NodeRef),
 }
 
-type ItemRenderer<T> = Box<dyn Fn(Value<T>) -> View>;
+type ItemRenderer<T> = kivact::view::ViewFn<Value<T>>;
 type ItemWidth<T> = Box<dyn Fn(&T) -> f64>;
-type OverflowRenderer<T> = Box<dyn Fn(Value<Vec<T>>) -> View>;
+type OverflowRenderer<T> = kivact::view::ViewFn<Value<Vec<T>>>;
 
-pub struct OverflowList<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> {
+pub struct OverflowList<T: PropValue, K: ItemKey> {
     root: Node,
     items: Value<Vec<T>>,
     key: Rc<dyn Fn(&T) -> K>,
@@ -41,12 +58,12 @@ pub struct OverflowList<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + '
     indicator_width: Box<dyn Fn(usize) -> f64>,
     indicator: OverflowRenderer<T>,
     on_overflow_change: Option<Callback<Vec<K>>>,
-    measure: OverflowMeasure,
-    gap: f64,
+    measure: Value<OverflowMeasure>,
+    gap: Value<f64>,
     min_visible: usize,
     max_visible: usize,
     max_rows: usize,
-    collapse_from: CollapseFrom,
+    collapse_from: Value<CollapseFrom>,
 }
 
 pub fn overflow_list<T, K, V>(
@@ -55,18 +72,18 @@ pub fn overflow_list<T, K, V>(
     item: impl Fn(Value<T>) -> V + 'static,
 ) -> OverflowList<T, K>
 where
-    T: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    T: PropValue,
+    K: ItemKey,
     V: IntoView,
 {
     OverflowList {
         root: node(),
         items: items.into_value(),
         key: Rc::new(key),
-        render: Box::new(move |value| item(value).into_view()),
+        render: item.into(),
         item_width: None,
         indicator_width: Box::new(|count| 18.0 + count.to_string().len() as f64 * 8.0),
-        indicator: Box::new(|hidden| {
+        indicator: kivact::view::ViewFn::from(|hidden: Value<Vec<T>>| {
             text(move || format!("+{}", hidden.with(Vec::len)))
                 .style(move || {
                     style()
@@ -77,24 +94,23 @@ where
                 .into_view()
         }),
         on_overflow_change: None,
-        measure: OverflowMeasure::OwnWidth,
-        gap: 8.0,
+        measure: (OverflowMeasure::OwnWidth).into_value(),
+        gap: (8.0).into_value(),
         min_visible: 0,
         max_visible: usize::MAX,
         max_rows: 1,
-        collapse_from: CollapseFrom::End,
+        collapse_from: (CollapseFrom::End).into_value(),
     }
 }
 
-impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> NodeBuilder
-    for OverflowList<T, K>
-{
+impl<T: PropValue, K: ItemKey> NodeBuilder for OverflowList<T, K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowList<T, K> {
+impl<T: PropValue, K: ItemKey> OverflowList<T, K> {
     /// Provide item widths up front. By default, mounted items are measured and
     /// a provisional width of 80 px is used until each measurement arrives.
     pub fn item_width(mut self, width: impl Fn(&T) -> f64 + 'static) -> Self {
@@ -109,12 +125,13 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowLis
     }
 
     pub fn overflow<V: IntoView>(mut self, render: impl Fn(Value<Vec<T>>) -> V + 'static) -> Self {
-        self.indicator = Box::new(move |hidden| render(hidden).into_view());
+        self.indicator = render.into();
         self
     }
 
-    pub fn gap(mut self, gap: f64) -> Self {
-        self.gap = gap.max(0.0);
+    pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
+        let gap = gap.into_value();
+        self.gap = (move || gap.get().max(0.0)).into_value();
         self
     }
 
@@ -133,13 +150,13 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowLis
         self
     }
 
-    pub fn collapse_from(mut self, edge: CollapseFrom) -> Self {
-        self.collapse_from = edge;
+    pub fn collapse_from(mut self, edge: impl IntoValue<CollapseFrom>) -> Self {
+        self.collapse_from = edge.into_value();
         self
     }
 
-    pub fn measure(mut self, measure: OverflowMeasure) -> Self {
-        self.measure = measure;
+    pub fn measure(mut self, measure: impl IntoValue<OverflowMeasure>) -> Self {
+        self.measure = measure.into_value();
         self
     }
 
@@ -176,9 +193,7 @@ fn fits(widths: impl IntoIterator<Item = f64>, available: f64, gap: f64, max_row
     true
 }
 
-impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
-    for OverflowList<T, K>
-{
+impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -197,7 +212,7 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
             collapse_from,
         } = self;
         let own = node_ref();
-        let rect = match measure {
+        let rect = match measure.get() {
             OverflowMeasure::OwnWidth => own.rect(),
             OverflowMeasure::ParentWidth(parent) => parent.rect(),
         };
@@ -223,17 +238,17 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
                 for count in (floor..=ceiling).rev() {
                     let hidden = items.len() - count;
                     let marker = (hidden > 0).then(|| indicator_width(hidden));
-                    let fit = match collapse_from {
+                    let fit = match collapse_from.get() {
                         CollapseFrom::Start => fits(
                             marker.into_iter().chain(widths[hidden..].iter().copied()),
                             rect.width,
-                            gap,
+                            gap.get(),
                             max_rows,
                         ),
                         CollapseFrom::End => fits(
                             widths[..count].iter().copied().chain(marker),
                             rect.width,
-                            gap,
+                            gap.get(),
                             max_rows,
                         ),
                     };
@@ -247,7 +262,7 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
         let visible = memo(move || {
             items.with(|items| {
                 let count = split.get().min(items.len());
-                match collapse_from {
+                match collapse_from.get() {
                     CollapseFrom::Start => items[items.len() - count..].to_vec(),
                     CollapseFrom::End => items[..count].to_vec(),
                 }
@@ -256,7 +271,7 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
         let hidden = memo(move || {
             items.with(|items| {
                 let count = split.get().min(items.len());
-                match collapse_from {
+                match collapse_from.get() {
                     CollapseFrom::Start => items[..items.len() - count].to_vec(),
                     CollapseFrom::End => items[count..].to_vec(),
                 }
@@ -282,11 +297,13 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
                 widths_cache.update(|cache| cache.retain(|key, _| active.contains(key)));
             });
         }
+        let row_key = key.clone();
         let rows = for_each(
             visible,
             move |item| key(item),
-            move |key, item| {
-                let root = node().style(style().shrink(0)).child(render(item));
+            move |item| {
+                let key = item.with_untracked(|item| row_key(item));
+                let root = node().style(style().shrink(0)).child(render.call(item));
                 if measure_items {
                     let item_ref = node_ref();
                     let rect = item_ref.rect();
@@ -306,21 +323,27 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
         );
         let marker = show(
             move || hidden.with(|items| !items.is_empty()),
-            move || node().style(style().shrink(0)).child(indicator(hidden)),
+            move || {
+                node()
+                    .style(style().shrink(0))
+                    .child(indicator.call(hidden))
+            },
         );
         let root = root.node_ref(own).base_style(
             style()
                 .direction(Direction::Row)
-                .gap(gap)
+                .gap(gap.get())
                 .wrap(max_rows > 1)
                 .align_items(Align::Center)
                 .min_width(0)
                 .overflow(Overflow::Hidden),
         );
-        match collapse_from {
+        match collapse_from.get() {
             CollapseFrom::Start => root.child((marker, rows)),
             CollapseFrom::End => root.child((rows, marker)),
         }
         .into_view()
     }
 }
+
+kivact::state::constant_value!(CollapseFrom, OverflowMeasure);

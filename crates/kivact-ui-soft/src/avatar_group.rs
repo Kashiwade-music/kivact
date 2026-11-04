@@ -1,15 +1,31 @@
 //! Role: Lay out overlapping avatars and manage their keyboard navigation.
 use crate::avatar_options::{AvatarShape, AvatarSize};
-use kivact::control::{Node, NodeBuilder, node};
 use kivact::i18n::message;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, style};
-use kivact::ui::IntoChildren;
-use kivact::view::{
-    Handled, IntoText, IntoView, Key, NodeRef, ReadingDirection, Role, View, current_direction,
-    node_ref, provide,
-};
-use kivact::{Signal, Value, effect, on_cleanup, signal};
+use kivact::state::IntoValue;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+
+use kivact::state::IntoText;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::effect;
+use kivact::state::on_cleanup;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoChildren;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::NodeRef;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::use_direction;
 
 #[derive(Clone)]
 pub(crate) struct AvatarGroupContext {
@@ -72,8 +88,8 @@ impl AvatarGroupContext {
 pub struct AvatarGroup<C> {
     root: Node,
     children: C,
-    size: AvatarSize,
-    shape: AvatarShape,
+    size: Value<AvatarSize>,
+    shape: Value<AvatarShape>,
 }
 
 /// Group avatars or overflow counters in an overlapping row.
@@ -83,20 +99,20 @@ pub fn avatar_group<C: IntoChildren + 'static>(children: C) -> AvatarGroup<C> {
             .role(Role::Group)
             .name(message("soft.avatar_group.label", "Avatars")),
         children,
-        size: AvatarSize::default(),
-        shape: AvatarShape::default(),
+        size: (AvatarSize::default()).into_value(),
+        shape: (AvatarShape::default()).into_value(),
     }
 }
 
 impl<C> AvatarGroup<C> {
     /// Set the size of every avatar.
-    pub fn size(mut self, size: AvatarSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<AvatarSize>) -> Self {
+        self.size = size.into_value();
         self
     }
     /// Set the silhouette of every avatar.
-    pub fn shape(mut self, shape: AvatarShape) -> Self {
-        self.shape = shape;
+    pub fn shape(mut self, shape: impl IntoValue<AvatarShape>) -> Self {
+        self.shape = shape.into_value();
         self
     }
     /// Set the group's accessible label.
@@ -107,6 +123,7 @@ impl<C> AvatarGroup<C> {
 }
 
 impl<C> NodeBuilder for AvatarGroup<C> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -120,12 +137,12 @@ impl<C: IntoChildren + 'static> IntoView for AvatarGroup<C> {
             size,
             shape,
         } = self;
-        let rtl = current_direction() == ReadingDirection::Rtl;
-        let side = size.side();
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let side = size.get().side();
         let entries = signal(Vec::new());
         let context = AvatarGroupContext {
             side,
-            shape,
+            shape: shape.get(),
             entries,
             active: signal(None),
         };

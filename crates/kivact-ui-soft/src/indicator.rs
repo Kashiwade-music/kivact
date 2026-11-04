@@ -4,12 +4,25 @@ use crate::recipes_controls_choice::{
     checkbox_check, checkbox_indicator as checkbox_surface, checkbox_mixed,
 };
 use crate::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, icon, node};
-use kivact::primitive::{NodeExt, PartState};
-use kivact::style::{Align, Justify, Position, current_theme, style};
-use kivact::ui::{CheckState, ControlSize, Look};
-use kivact::view::{CheckedState, IntoValue, IntoView, View, show};
+use kivact::custom::PartState;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::style;
+use kivact::style::use_theme;
+use kivact::ui::CheckableState;
+use kivact::ui::ControlSize;
+use kivact::ui::Look;
+use kivact::view::CheckedState;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::show;
 
 #[derive(Clone, Copy)]
 enum Kind {
@@ -24,7 +37,7 @@ pub struct Indicator {
     kind: Kind,
     checked: Value<CheckedState>,
     input: Value<PartState>,
-    size: ControlSize,
+    size: Value<ControlSize>,
     disabled: Option<Value<bool>>,
     children: Option<View>,
 }
@@ -35,7 +48,7 @@ fn indicator(kind: Kind, checked: Value<CheckedState>) -> Indicator {
         kind,
         checked,
         input: PartState::default.into_value(),
-        size: ControlSize::Medium,
+        size: (ControlSize::Medium).into_value(),
         disabled: None,
         children: None,
     }
@@ -68,8 +81,8 @@ pub fn check_indicator(checked: impl IntoValue<bool>) -> Indicator {
 }
 
 impl Indicator {
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -91,6 +104,7 @@ impl Indicator {
 }
 
 impl NodeBuilder for Indicator {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -98,7 +112,7 @@ impl NodeBuilder for Indicator {
 
 impl IntoView for Indicator {
     fn into_view(self) -> View {
-        let size = self.size;
+        let size = self.size.get();
         let disabled = self.disabled;
         let checked = self.checked;
         let input = self.input;
@@ -106,7 +120,7 @@ impl IntoView for Indicator {
             let mut input = input.get();
             input.disabled |= disabled.is_some_and(|disabled| disabled.get());
             input.focus_visible &= !input.disabled;
-            Look::new(CheckState {
+            Look::new(CheckableState {
                 input,
                 checked: checked.get(),
                 size,
@@ -136,17 +150,14 @@ impl IntoView for Indicator {
                         )
                     })
                     .child(self.children)
-                    .child(
-                        (!custom)
-                            .then(|| show(move || checked.get().is_checked(), || icon("check"))),
-                    )
+                    .child((!custom).then(|| show(move || checked.is_checked(), || icon("check"))))
                     .into_view()
             }
             kind => {
                 let mark = self.children.unwrap_or_else(|| match kind {
                     Kind::Checkbox => (
-                        node().style(move || checkbox_check(&current_theme(), &look())),
-                        node().style(move || checkbox_mixed(&current_theme(), &look())),
+                        node().style(move || checkbox_check(&use_theme().get(), &look())),
+                        node().style(move || checkbox_mixed(&use_theme().get(), &look())),
                     )
                         .into_view(),
                     Kind::Radio => show(
@@ -175,7 +186,7 @@ impl IntoView for Indicator {
                     .base_style(move || {
                         let t = tokens();
                         let look = look();
-                        let mut base = checkbox_surface(&current_theme(), &look)
+                        let mut base = checkbox_surface(&use_theme().get(), &look)
                             .position(Position::Relative)
                             .left(0)
                             .right(0)

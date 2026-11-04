@@ -4,10 +4,15 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use kivact::style::{Theme, ThemeMode};
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{MenuEntry, menu};
-use kivact::view::{A11yAction, Key, Role};
+use kivact::interaction::MenuEntry;
+use kivact::style::Theme;
+use kivact::style::ThemeMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::menu;
+use kivact::view::A11yAction;
+use kivact::view::Key;
+use kivact::view::Role;
 
 fn options(theme: Theme) -> RenderOptions {
     RenderOptions::from_env().theme(theme)
@@ -29,8 +34,8 @@ fn soft_disabled_menu_item_can_explain_why_but_cannot_activate() {
                         .disabled_reason("Only the owner can remove this"),
                     MenuEntry::item("copy", "Copy"),
                 ],
-                move |_| report.set(report.get() + 1),
             )
+            .on_activate(move |_| report.set(report.get() + 1))
         },
     );
 
@@ -84,8 +89,8 @@ fn ordinary_theme_still_skips_disabled_menu_entries() {
                     .disabled_reason("Owner only"),
                 MenuEntry::item("copy", "Copy"),
             ],
-            |_| {},
         )
+        .on_activate(|_| {})
     });
     screen
         .get_by_role(Role::Button, "Actions")

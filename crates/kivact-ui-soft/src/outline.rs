@@ -2,17 +2,46 @@
 use crate::side_nav::logical_row;
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::draw::Point;
-use kivact::motion::{Transition, animated};
-use kivact::primitive::NodeExt;
-use kivact::state::{Machine, MachineHandle, Step, machine};
-use kivact::style::{Align, Direction, Position, TransitionProp, pct, style};
-use kivact::view::{
-    Handled, HandlerResult, IntoValue, IntoView, Key, KeyEvent, NodeRef, Role, ScrollBehavior,
-    View, callback, dynamic, node_ref, provide,
-};
-use kivact::{Binding, Callback, Value, effect_on, memo};
+use kivact::geometry::Point;
+use kivact::motion::Transition;
+use kivact::motion::animated;
+use kivact::state::IntoBinding;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoValue;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::effect_on;
+use kivact::state::machine;
+use kivact::state::memo;
+use kivact::state::provide;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::NodeRef;
+use kivact::view::Role;
+use kivact::view::ScrollBehavior;
+use kivact::view::View;
+use kivact::view::dynamic;
+use kivact::view::node_ref;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -51,11 +80,11 @@ pub struct Outline {
     root: Node,
     items: Value<Vec<OutlineItem>>,
     active: Option<Binding<Option<String>>>,
-    density: OutlineDensity,
-    offset: f64,
+    density: Value<OutlineDensity>,
+    offset: Value<f64>,
     viewport: Option<NodeRef>,
     content: Option<NodeRef>,
-    scroll_on_press: bool,
+    scroll_on_press: Value<bool>,
     change: Option<Callback<String>>,
     start: Option<Callback<String>>,
     end: Option<Callback<String>>,
@@ -69,11 +98,11 @@ pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
         )),
         items: items.into_value(),
         active: None,
-        density: OutlineDensity::Default,
-        offset: 0.0,
+        density: (OutlineDensity::Default).into_value(),
+        offset: (0.0).into_value(),
         viewport: None,
         content: None,
-        scroll_on_press: true,
+        scroll_on_press: (true).into_value(),
         change: None,
         start: None,
         end: None,
@@ -81,16 +110,16 @@ pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
 }
 
 impl Outline {
-    pub fn active(mut self, active: impl Into<Binding<Option<String>>>) -> Self {
-        self.active = Some(active.into());
+    pub fn active(mut self, active: impl IntoBinding<Option<String>>) -> Self {
+        self.active = Some(active.into_binding());
         self
     }
-    pub fn density(mut self, density: OutlineDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<OutlineDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
-    pub fn offset(mut self, offset: f64) -> Self {
-        self.offset = offset;
+    pub fn offset(mut self, offset: impl IntoValue<f64>) -> Self {
+        self.offset = offset.into_value();
         self
     }
     pub fn scroll_container(mut self, viewport: NodeRef) -> Self {
@@ -101,8 +130,8 @@ impl Outline {
         self.content = Some(content);
         self
     }
-    pub fn scroll_on_press(mut self, scroll: bool) -> Self {
-        self.scroll_on_press = scroll;
+    pub fn scroll_on_press(mut self, scroll: impl IntoValue<bool>) -> Self {
+        self.scroll_on_press = scroll.into_value();
         self
     }
     pub fn on_active_change<R: HandlerResult>(
@@ -129,6 +158,7 @@ impl Outline {
 }
 
 impl NodeBuilder for Outline {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -206,7 +236,7 @@ impl Navigation {
             active.set(Some(item.id.clone()));
         }
         let target = item.target;
-        let reduced_motion = kivact::platform::reduced_motion();
+        let reduced_motion = kivact::platform::reduced_motion().get();
         if self.scroll_on_press {
             if let Some(viewport) = self.viewport {
                 if let (Some(viewport_rect), Some(target_rect)) =
@@ -266,14 +296,14 @@ impl IntoView for Outline {
             );
             let navigation = Navigation {
                 viewport,
-                offset,
-                scroll_on_press,
+                offset: offset.get(),
+                scroll_on_press: scroll_on_press.get(),
                 controlled: active,
                 pending,
                 start,
                 end,
             };
-            kivact::on_cleanup(move || navigation.finish());
+            kivact::state::on_cleanup(move || navigation.finish());
             let active = memo(move || {
                 if let Some(active) = active {
                     return active.get();
@@ -294,7 +324,7 @@ impl IntoView for Outline {
                 {
                     return items.last().map(|item| item.id.clone());
                 }
-                let line = viewport_rect.y + offset + 1.0;
+                let line = viewport_rect.y + offset.get() + 1.0;
                 let item = items
                     .iter()
                     .rev()
@@ -310,7 +340,7 @@ impl IntoView for Outline {
             }
             root.base_style(style().direction(Direction::Column).width(pct(100)))
                 .child(dynamic(items, move |items| {
-                    outline_list(items, active, density, navigation)
+                    outline_list(items, active, density.get(), navigation)
                 }))
         })
     }
@@ -339,7 +369,7 @@ fn outline_list(
     let t = tokens();
     let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard);
     let height = animated(
-        move || indicator_rect.get().map_or(0.0, |(_, height)| height),
+        move || indicator_rect.map_or(0.0, |(_, height)| height),
         transition.clone(),
     );
     let track = node()
@@ -394,7 +424,7 @@ fn outline_list(
                 .name(label.clone())
                 .node_ref(reference)
                 .focusable(focusable)
-                .selected(selected)
+                .with_node(move |node| node.selected(selected))
                 .on_press(move || navigation.navigate(&item))
                 .on_key(move |event: KeyEvent| {
                     let next = match event.key() {
@@ -478,3 +508,5 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
             Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
         )
 }
+
+kivact::state::constant_value!(OutlineDensity);

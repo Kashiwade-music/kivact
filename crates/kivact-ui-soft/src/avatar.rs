@@ -3,15 +3,35 @@ use crate::avatar_group::AvatarGroupContext;
 use crate::avatar_options::{AvatarShape, AvatarSize};
 use crate::avatar_status_dot::{AvatarStatusContext, status_metrics};
 use crate::tokens;
-use kivact::control::{ImageFit, Node, NodeBuilder, image, node, text};
 use kivact::i18n::message_with;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, style};
+use kivact::state::Callback;
+use kivact::state::IntoValue;
+use kivact::view::ImageFit;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::image;
+use kivact::view::node;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::style;
 use kivact::ui::tooltip;
-use kivact::view::{
-    IntoText, IntoView, ReadingDirection, Role, View, current_direction, provide, try_context,
-};
-use kivact::{Asset, Value, signal};
+use kivact::view::Asset;
+use kivact::view::IntoView;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::use_direction;
 
 const PERSON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>"#;
 
@@ -43,9 +63,9 @@ pub struct Avatar {
     alt: Option<Value<String>>,
     src: Option<Asset>,
     fallback_src: Option<Asset>,
-    size: AvatarSize,
-    shape: AvatarShape,
-    status: Option<Box<dyn FnOnce() -> View>>,
+    size: Value<AvatarSize>,
+    shape: Value<AvatarShape>,
+    status: Option<View>,
     tooltip: AvatarTooltip,
     press: Option<Box<dyn Fn()>>,
     open: Option<Box<dyn Fn()>>,
@@ -59,8 +79,8 @@ pub fn avatar() -> Avatar {
         alt: None,
         src: None,
         fallback_src: None,
-        size: AvatarSize::default(),
-        shape: AvatarShape::default(),
+        size: (AvatarSize::default()).into_value(),
+        shape: (AvatarShape::default()).into_value(),
         status: None,
         tooltip: AvatarTooltip::default(),
         press: None,
@@ -90,18 +110,18 @@ impl Avatar {
         self
     }
     /// Set the avatar diameter.
-    pub fn size(mut self, size: AvatarSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<AvatarSize>) -> Self {
+        self.size = size.into_value();
         self
     }
     /// Set the avatar silhouette.
-    pub fn shape(mut self, shape: AvatarShape) -> Self {
-        self.shape = shape;
+    pub fn shape(mut self, shape: impl IntoValue<AvatarShape>) -> Self {
+        self.shape = shape.into_value();
         self
     }
     /// Add an overlaid status indicator.
-    pub fn status<V: IntoView>(mut self, status: impl FnOnce() -> V + 'static) -> Self {
-        self.status = Some(Box::new(move || status().into_view()));
+    pub fn status(mut self, status: impl IntoView) -> Self {
+        self.status = Some(status.into_view());
         self
     }
     /// Select the tooltip behavior.
@@ -110,18 +130,21 @@ impl Avatar {
         self
     }
     /// Make the avatar a button.
-    pub fn on_press(mut self, press: impl Fn() + 'static) -> Self {
-        self.press = Some(Box::new(press));
+    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.press = Some(Box::new(move || press.call(())));
         self
     }
     /// Make the avatar a link with an application-supplied action.
-    pub fn on_open(mut self, open: impl Fn() + 'static) -> Self {
-        self.open = Some(Box::new(open));
+    pub fn on_open(mut self, open: impl Into<Callback<()>>) -> Self {
+        let open: Callback<()> = open.into();
+        self.open = Some(Box::new(move || open.call(())));
         self
     }
 }
 
 impl NodeBuilder for Avatar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -142,12 +165,12 @@ impl IntoView for Avatar {
             press,
             open,
         } = self;
-        let group = try_context::<AvatarGroupContext>();
+        let group = try_use_context::<AvatarGroupContext>().map(|value| value.get());
         let (side, shape) = group
             .as_ref()
-            .map_or((size.side(), shape), |cx| (cx.side, cx.shape));
+            .map_or((size.get().side(), shape.get()), |cx| (cx.side, cx.shape));
         let grouped = group.is_some();
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let status_label = signal(None::<String>);
         let named_status = message_with(
             "soft.avatar.name_with_status",
@@ -185,11 +208,7 @@ impl IntoView for Avatar {
                 Role::Button
             };
             if let Some(action) = open.or(press) {
-                root = root.part(
-                    kivact::primitive::part(|input| input)
-                        .role(role)
-                        .on_press(action),
-                );
+                root = root.role(role).on_press(action);
             }
             root = if let Some(group) = group {
                 group.register(root)

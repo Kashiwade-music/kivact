@@ -1,14 +1,32 @@
 //! Role: Add a named, keyboard-accessible Neutral scroll viewport.
 use crate::stack::{ContainerInset, Padding, Space, padding_options, rtl};
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, ScrollAxes, column, node, scroll};
-use kivact::primitive::NodeExt;
-use kivact::style::{Color, Length, pct, style};
-use kivact::view::{
-    Handled, IntoText, IntoView, Key, KeyEvent, NodeRef, Role, ScrollBehavior, View, node_ref,
-    provide, try_context,
-};
-use kivact::{Value, memo};
+use kivact::state::IntoValue;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ScrollAxes;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::scroll;
+
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::state::provide;
+use kivact::state::try_use_context;
+use kivact::style::Color;
+use kivact::style::Length;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::NodeRef;
+use kivact::view::Role;
+use kivact::view::ScrollBehavior;
+use kivact::view::View;
+use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ScrollAxis {
@@ -31,11 +49,11 @@ impl ScrollAxis {
 pub struct ScrollableArea {
     root: Node,
     child: View,
-    axis: ScrollAxis,
+    axis: Value<ScrollAxis>,
     padding: Padding,
-    full_bleed: bool,
-    bleed_top: bool,
-    bleed_bottom: bool,
+    full_bleed: Value<bool>,
+    bleed_top: Value<bool>,
+    bleed_bottom: Value<bool>,
     force_focusable: Option<Value<bool>>,
 }
 
@@ -43,11 +61,11 @@ pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> Scrollable
     ScrollableArea {
         root: node().name(label).role(Role::Region),
         child: child.into_view(),
-        axis: ScrollAxis::Block,
+        axis: (ScrollAxis::Block).into_value(),
         padding: Padding::default(),
-        full_bleed: false,
-        bleed_top: false,
-        bleed_bottom: false,
+        full_bleed: (false).into_value(),
+        bleed_top: (false).into_value(),
+        bleed_bottom: (false).into_value(),
         force_focusable: None,
     }
 }
@@ -58,25 +76,26 @@ impl ScrollableArea {
         self.force_focusable = Some(value);
         self
     }
-    pub fn axis(mut self, axis: ScrollAxis) -> Self {
-        self.axis = axis;
+    pub fn axis(mut self, axis: impl IntoValue<ScrollAxis>) -> Self {
+        self.axis = axis.into_value();
         self
     }
-    pub fn full_bleed(mut self, full_bleed: bool) -> Self {
-        self.full_bleed = full_bleed;
+    pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
+        self.full_bleed = full_bleed.into_value();
         self
     }
-    pub fn bleed_top(mut self, bleed: bool) -> Self {
-        self.bleed_top = bleed;
+    pub fn bleed_top(mut self, bleed: impl IntoValue<bool>) -> Self {
+        self.bleed_top = bleed.into_value();
         self
     }
-    pub fn bleed_bottom(mut self, bleed: bool) -> Self {
-        self.bleed_bottom = bleed;
+    pub fn bleed_bottom(mut self, bleed: impl IntoValue<bool>) -> Self {
+        self.bleed_bottom = bleed.into_value();
         self
     }
 }
 
 impl NodeBuilder for ScrollableArea {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -97,15 +116,17 @@ impl IntoView for ScrollableArea {
         provide((), move || {
             let viewport = node_ref();
             let content = node_ref();
-            let state = use_scroll_state(viewport, content, axis);
+            let state = use_scroll_state(viewport, content, axis.get());
             let inset = padding.resolve(0.0);
-            let parent = try_context::<ContainerInset>().unwrap_or_default();
+            let parent = try_use_context::<ContainerInset>()
+                .map(|value| value.get())
+                .unwrap_or_default();
             let inner = column(provide(inset, move || child))
                 .node_ref(content)
                 .base_style(move || {
                     let base =
                         inset.apply(style().min_width(pct(100)).min_height(pct(100)).shrink(0));
-                    if axis == ScrollAxis::Block {
+                    if axis.get() == ScrollAxis::Block {
                         base
                     } else {
                         base.width(Length::MaxContent)
@@ -121,22 +142,22 @@ impl IntoView for ScrollableArea {
                     .max_height(pct(100))
                     .scrollbar_color(t.colors.neutral, Color::TRANSPARENT)
                     .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                if full_bleed {
+                if full_bleed.get() {
                     let (left, right) = parent.sides();
                     base = base
                         .margin_left(-left)
                         .margin_right(-right)
                         .max_width(pct(100) + left + right);
-                    if bleed_top {
+                    if bleed_top.get() {
                         base = base.margin_top(-parent.top);
                     }
-                    if bleed_bottom {
+                    if bleed_bottom.get() {
                         base = base.margin_bottom(-parent.bottom);
                     }
                 }
                 base
             });
-            let mut viewport_node = scroll(inner).axes(axis.native());
+            let mut viewport_node = scroll(inner).axes(axis.get().native());
             *viewport_node.node_mut() = root;
             viewport_node
                 .node_ref(viewport)
@@ -268,13 +289,13 @@ pub fn use_overflow(
 }
 
 fn scroll_key(viewport: NodeRef, state: ScrollState, event: KeyEvent) -> Handled {
-    use kivact::draw::Point;
+    use kivact::geometry::Point;
     let Some(rect) = viewport.rect().get() else {
         return Handled::No;
     };
     let inline = state.inline.is_scrollable.get();
     let block = state.block.is_scrollable.get();
-    if event.modifiers().ctrl || event.modifiers().alt || event.modifiers().meta {
+    if event.modifiers().get().ctrl || event.modifiers().get().alt || event.modifiers().get().meta {
         return Handled::No;
     }
     let (x, y) = match event.key() {
@@ -284,7 +305,7 @@ fn scroll_key(viewport: NodeRef, state: ScrollState, event: KeyEvent) -> Handled
         Key::ArrowDown if block => (0.0, 40.0),
         Key::PageUp | Key::PageDown | Key::Space | Key::Home | Key::End if inline || block => {
             let backward = matches!(event.key(), Key::PageUp | Key::Home)
-                || event.key() == Key::Space && event.modifiers().shift;
+                || event.key() == Key::Space && event.modifiers().get().shift;
             let sign = if backward { -1.0 } else { 1.0 };
             let distance = if matches!(event.key(), Key::Home | Key::End) {
                 f64::MAX
@@ -304,3 +325,5 @@ fn scroll_key(viewport: NodeRef, state: ScrollState, event: KeyEvent) -> Handled
     viewport.scroll_by(Point { x, y }, ScrollBehavior::Instant);
     Handled::Yes
 }
+
+kivact::state::constant_value!(ScrollAxis);

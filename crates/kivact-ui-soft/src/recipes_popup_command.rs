@@ -1,23 +1,34 @@
 //! Role: Style the standard command palette and its native search field.
 use crate::Tokens;
 use crate::recipes_dialog::{body_text, modal, scrim, shadows, supporting_text};
-use kivact::interaction::{ListItemState, PopupState};
-use kivact::primitive::PartState;
-use kivact::style::{Align, Color, Direction, Overflow, Style, TextAlign, Theme, auto, pct, style};
-use kivact::ui::{CommandPaletteRecipes, Look};
+use kivact::custom::PartState;
+use kivact::interaction::ListItemState;
+use kivact::interaction::PopupState;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Overflow;
+use kivact::style::Style;
+use kivact::style::TextAlign;
+use kivact::style::Theme;
+use kivact::style::auto;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::CommandPaletteRecipes;
+use kivact::ui::Look;
 
 const PALETTE_WIDTH: f64 = 640.0;
 const PALETTE_MAX_HEIGHT: f64 = 480.0;
 
 pub(crate) fn command_palette(r: CommandPaletteRecipes) -> CommandPaletteRecipes {
-    r.scrim(|_| |t: &Theme, _: &Look<PartState>| scrim(&t.get::<Tokens>()))
+    r.scrim(|_| |t: &Theme, _: &Look<PartState>| scrim(&t.ext::<Tokens>()))
         .panel(|_| panel)
         .search(|_| search)
-        .search_icon(|_| |t: &Theme, _: &Look<PartState>| icon_box(&t.get::<Tokens>()))
-        .field(|_| field)
+        .search_icon(|_| |t: &Theme, _: &Look<PartState>| icon_box(&t.ext::<Tokens>()))
+        .project(|_| field)
         .list(|_| {
             |t: &Theme, _: &Look<PartState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 style()
                     .direction(Direction::Column)
                     .min_height(0)
@@ -27,24 +38,24 @@ pub(crate) fn command_palette(r: CommandPaletteRecipes) -> CommandPaletteRecipes
         })
         .group(|_| {
             |t: &Theme, _: &Look<PartState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 supporting_text(&p)
                     .padding_x(p.spacing.s3)
                     .padding_y(p.spacing.s1)
             }
         })
         .row(|_| row)
-        .icon(|_| |t: &Theme, _: &Look<ListItemState>| icon_box(&t.get::<Tokens>()))
+        .icon(|_| |t: &Theme, _: &Look<ListItemState>| icon_box(&t.ext::<Tokens>()))
         .hint(|_| {
             |t: &Theme, _: &Look<ListItemState>| {
-                supporting_text(&t.get::<Tokens>())
+                supporting_text(&t.ext::<Tokens>())
                     .margin_left(auto())
                     .shrink(0)
             }
         })
         .empty(|_| {
             |t: &Theme, _: &Look<PartState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 supporting_text(&p)
                     .padding_x(p.spacing.s4)
                     .padding_y(p.spacing.s8)
@@ -56,7 +67,7 @@ pub(crate) fn command_palette(r: CommandPaletteRecipes) -> CommandPaletteRecipes
 }
 
 fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let gutter = p.spacing.layer_viewport_gutter;
     modal(
         shadows(body_text(&p), &p.shadows.high)
@@ -72,7 +83,7 @@ fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
 }
 
 fn search(t: &Theme, _: &Look<PartState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -84,7 +95,7 @@ fn search(t: &Theme, _: &Look<PartState>) -> Style {
 }
 
 fn field(t: &Theme, _: &Look<PartState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     body_text(&p)
         .grow(1)
         .min_width(0)
@@ -95,7 +106,7 @@ fn field(t: &Theme, _: &Look<PartState>) -> Style {
 }
 
 fn row(t: &Theme, s: &Look<ListItemState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let fill = if s.active {
         p.colors.overlay_hover
     } else if s.selected {
@@ -128,7 +139,7 @@ fn icon_box(p: &Tokens) -> Style {
 }
 
 fn footer(t: &Theme, _: &Look<PartState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     supporting_text(&p)
         .direction(Direction::Row)
         .align_items(Align::Center)

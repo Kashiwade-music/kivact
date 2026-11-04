@@ -1,10 +1,14 @@
 //! Role: Check shared label tracks and the narrow form breakpoint.
-use kivact::control::{NodeBuilder, text};
-use kivact::signal;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{MirrorMode, RenderOptions, render_with};
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
 use kivact::ui::text_input;
+use kivact::view::NodeBuilder;
 use kivact::view::Role;
+use kivact::view::text;
 use kivact_ui_soft::{FormDirection, form_layout, form_row, theme};
 
 #[test]

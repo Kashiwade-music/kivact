@@ -1,10 +1,22 @@
 //! Role: Style the standard select trigger, popup, and option rows for Soft.
 use crate::recipes_field::{frame, height, text};
 use crate::tokens::Tokens;
-use kivact::interaction::{ListItemState, PopupState};
+use kivact::interaction::ListItemState;
+use kivact::interaction::PopupState;
 use kivact::motion::Transition;
-use kivact::style::{Align, Direction, Justify, Style, Theme, TransitionProp, pct, style};
-use kivact::ui::{ControlSize, Look, SelectRecipes, SelectSheetOption, SelectTriggerState};
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::ui::Look;
+use kivact::ui::SelectRecipes;
+use kivact::ui::SelectSheetOption;
+use kivact::ui::SelectTriggerState;
 
 pub(super) fn select(r: SelectRecipes) -> SelectRecipes {
     r.trigger(|_| trigger)
@@ -14,7 +26,7 @@ pub(super) fn select(r: SelectRecipes) -> SelectRecipes {
         .indicator(|_| indicator)
         .description(|_| {
             |theme, look| {
-                let t = theme.get::<Tokens>();
+                let t = theme.ext::<Tokens>();
                 let mut role = t.typography.supporting;
                 if look.variant::<SelectSheetOption>().is_some() {
                     role.size_px = 14.0;
@@ -25,7 +37,7 @@ pub(super) fn select(r: SelectRecipes) -> SelectRecipes {
 }
 
 fn trigger(theme: &Theme, s: &Look<SelectTriggerState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let role = t.typography.body;
     let h = height(&t, s.size);
     let block = (h - role.line_height_px) / 2.0 - t.sizes.border_width;
@@ -48,7 +60,7 @@ fn trigger(theme: &Theme, s: &Look<SelectTriggerState>) -> Style {
 fn surface(theme: &Theme, _: &Look<PopupState>) -> Style {
     const MAX_LIST_HEIGHT: f64 = 300.0;
     const ENTER_SCALE: f64 = 0.95;
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let base = style()
         .max_height(MAX_LIST_HEIGHT)
         .padding_x(t.spacing.s1 + t.sizes.border_width)
@@ -70,7 +82,7 @@ fn surface(theme: &Theme, _: &Look<PopupState>) -> Style {
 }
 
 fn option(theme: &Theme, s: &Look<ListItemState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let mut role = t.typography.body;
     if s.selected {
         role.weight = t.typography.weight_medium;
@@ -106,7 +118,7 @@ fn option(theme: &Theme, s: &Look<ListItemState>) -> Style {
 }
 
 fn check(theme: &Theme, s: &Look<ListItemState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let size = if s.selected { t.sizes.icon_sm } else { 0.0 };
     let color = if s.input.disabled {
         t.colors.icon_disabled
@@ -122,7 +134,7 @@ fn check(theme: &Theme, s: &Look<ListItemState>) -> Style {
 }
 
 fn indicator(theme: &Theme, s: &Look<PopupState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     style()
         .size(t.sizes.icon_sm, t.sizes.icon_sm)
         .shrink(0)

@@ -1,14 +1,39 @@
 //! Role: Render Neutral disclosure triggers and coordinate groups.
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact::interaction::{use_content_reveal, use_disclosure};
-use kivact::motion::{Spring, Transition};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, TransitionProp, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, View, node_ref, provide, show, try_context};
-use kivact::{Binding, Value, binding, memo, signal};
-use std::rc::Rc;
+use kivact::interaction::use_content_reveal;
+use kivact::interaction::use_disclosure;
+use kivact::motion::Spring;
+use kivact::motion::Transition;
+use kivact::state::IntoBinding;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::show;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ChevronPosition {
@@ -66,12 +91,12 @@ impl CollapsibleState {
 }
 
 pub fn use_collapsible(config: CollapsibleConfig) -> CollapsibleState {
-    let group = try_context::<GroupCx>();
+    let group = try_use_context::<GroupCx>().map(|value| value.get());
     let open = match (group, config.value) {
         (Some(group), Some(key)) => group.open_binding(key),
         _ => config
             .open
-            .unwrap_or_else(|| signal(config.default_open).into()),
+            .unwrap_or_else(|| signal(config.default_open).into_binding()),
     };
     CollapsibleState {
         is_enabled: config.enabled,
@@ -86,26 +111,26 @@ pub struct Collapsible {
     label_name: Value<String>,
     open: Binding<bool>,
     disabled: Value<bool>,
-    content: Option<Rc<dyn Fn() -> View>>,
+    content: Option<ViewFn>,
     chevron: Option<ChevronPosition>,
     key: Option<String>,
     keep_mounted: bool,
-    animate_layout: bool,
+    animate_layout: Value<bool>,
 }
 
-pub fn collapsible(trigger: impl IntoText, open: impl Into<Binding<bool>>) -> Collapsible {
+pub fn collapsible(trigger: impl IntoText, open: impl IntoBinding<bool>) -> Collapsible {
     let label_name = trigger.into_text_value();
     Collapsible {
         root: node(),
         label: text(label_name).into_view(),
         label_name,
-        open: open.into(),
+        open: open.into_binding(),
         disabled: false.into_value(),
         content: None,
         chevron: None,
         key: None,
         keep_mounted: false,
-        animate_layout: false,
+        animate_layout: (false).into_value(),
     }
 }
 
@@ -126,25 +151,26 @@ impl Collapsible {
         self.key = Some(key.into());
         self
     }
-    pub fn trigger_view<V: IntoView>(mut self, trigger: impl FnOnce() -> V + 'static) -> Self {
-        self.label = provide((), trigger);
+    pub fn trigger_view(mut self, trigger: impl IntoView) -> Self {
+        self.label = provide((), move || trigger.into_view());
         self
     }
-    pub fn keep_mounted(mut self, keep: bool) -> Self {
-        self.keep_mounted = keep;
+    pub fn keep_mounted(mut self) -> Self {
+        self.keep_mounted = true;
         self
     }
-    pub fn animate_layout(mut self, animate: bool) -> Self {
-        self.animate_layout = animate;
+    pub fn animate_layout(mut self, animate: impl IntoValue<bool>) -> Self {
+        self.animate_layout = animate.into_value();
         self
     }
-    pub fn content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move || content().into_view()));
+    pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.content = Some(content.into_view_fn());
         self
     }
 }
 
 impl NodeBuilder for Collapsible {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -165,7 +191,7 @@ impl IntoView for Collapsible {
             animate_layout,
         } = self;
         provide((), move || {
-            let group = try_context::<GroupCx>();
+            let group = try_use_context::<GroupCx>().map(|value| value.get());
             let position = chevron
                 .or_else(|| group.as_ref().map(|group| group.chevron))
                 .unwrap_or_default();
@@ -177,8 +203,8 @@ impl IntoView for Collapsible {
             });
             let open = state.open;
             let mut disclosure = use_disclosure(open).disabled(disabled);
-            let shown = disclosure.shown();
-            let reveal = animate_layout.then(|| {
+            let shown = disclosure.is_open();
+            let reveal = animate_layout.get().then(|| {
                 use_content_reveal(
                     shown,
                     Transition::spring(Spring {
@@ -191,8 +217,7 @@ impl IntoView for Collapsible {
             if let Some(reveal) = reveal {
                 disclosure = disclosure.leaving(move || reveal.leaving());
             }
-            let present =
-                memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
+            let present = memo(move || reveal.map_or_else(|| shown, |reveal| reveal.present()));
             let chevron = icon(match position {
                 ChevronPosition::Start => "chevron-right",
                 ChevronPosition::End => "chevron-down",
@@ -262,7 +287,7 @@ impl IntoView for Collapsible {
                             .padding_top(t.spacing.s1)
                             .padding_bottom(padding_for(density))
                     })
-                    .child(content.as_ref().map(|content| content()));
+                    .child(content.as_ref().map(|content| content.call(())));
                 if let Some(reveal) = reveal {
                     let measured = node_ref();
                     let height = reveal.container_style(measured);
@@ -330,23 +355,23 @@ pub struct CollapsibleGroup {
     root: Node,
     items: Vec<Collapsible>,
     cx: GroupCx,
-    dividers: bool,
+    dividers: Value<bool>,
 }
 
 pub fn collapsible_group(
-    open: impl Into<Binding<Vec<String>>>,
+    open: impl IntoBinding<Vec<String>>,
     items: Vec<Collapsible>,
 ) -> CollapsibleGroup {
     CollapsibleGroup {
         root: column(()),
         items,
         cx: GroupCx {
-            open: open.into(),
+            open: open.into_binding(),
             mode: GroupMode::Single,
             density: None,
             chevron: ChevronPosition::End,
         },
-        dividers: false,
+        dividers: (false).into_value(),
     }
 }
 
@@ -363,13 +388,14 @@ impl CollapsibleGroup {
         self.cx.chevron = chevron;
         self
     }
-    pub fn dividers(mut self, dividers: bool) -> Self {
-        self.dividers = dividers;
+    pub fn dividers(mut self, dividers: impl IntoValue<bool>) -> Self {
+        self.dividers = dividers.into_value();
         self
     }
 }
 
 impl NodeBuilder for CollapsibleGroup {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -383,7 +409,7 @@ impl IntoView for CollapsibleGroup {
             mut cx,
             dividers,
         } = self;
-        if dividers {
+        if dividers.get() {
             cx.density.get_or_insert_default();
         }
         root.child(provide(cx, move || {
@@ -391,7 +417,7 @@ impl IntoView for CollapsibleGroup {
                 .into_iter()
                 .enumerate()
                 .map(|(index, item)| {
-                    if dividers && index > 0 {
+                    if dividers.get() && index > 0 {
                         item.style(move || {
                             let t = tokens();
                             style().border_top(t.sizes.border_width, t.colors.border)

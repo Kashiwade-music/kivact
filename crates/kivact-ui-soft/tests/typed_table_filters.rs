@@ -1,9 +1,16 @@
 //! Role: Verify typed table filters commit transactionally in popovers.
-use kivact::signal;
+use kivact::interaction::FilterValue;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::ui::{DataColumn, FilterField, FilterUi, FilterValue, data_table};
-use kivact::view::{Key, Role};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::DataColumn;
+use kivact::ui::FilterField;
+use kivact::ui::FilterUi;
+use kivact::ui::data_table;
+use kivact::view::Key;
+use kivact::view::Role;
 use std::collections::HashMap;
 
 type Score = (&'static str, u8);

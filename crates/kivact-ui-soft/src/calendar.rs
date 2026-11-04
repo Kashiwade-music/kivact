@@ -1,16 +1,45 @@
 //! Role: Soft calendar and its single-date and range selection surfaces.
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday, message, message_with};
-use kivact::interaction::{CalendarPolicy, CalendarSelection, CalendarSpan, use_calendar_grid};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Direction, Justify, Length, Position, pct, style};
-use kivact::ui::{ButtonVariant, button};
-use kivact::view::{
-    Handled, IntoValue, IntoView, LiveRegion, PointerEvent, PointerKind, PointerPhase, Role, View,
-    dynamic,
-};
-use kivact::{Binding, binding, on_mount, signal};
+use kivact::interaction::CalendarOptions;
+use kivact::interaction::CalendarSelection;
+use kivact::interaction::CalendarSpan;
+use kivact::interaction::use_calendar_grid;
+use kivact::state::Callback;
+use kivact::state::IntoBinding;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::Binding;
+use kivact::state::IntoValue;
+use kivact::state::binding;
+use kivact::state::on_mount;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::PointerEvent;
+use kivact::view::PointerKind;
+use kivact::view::PointerPhase;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::dynamic;
 use std::rc::Rc;
 
 pub struct Calendar {
@@ -25,11 +54,11 @@ pub struct Calendar {
     max: Option<CalendarDate>,
     min_span: u32,
     max_span: Option<u32>,
-    variable_rows: bool,
-    outside: bool,
+    variable_rows: Value<bool>,
+    outside: Value<bool>,
     week_start: Option<Weekday>,
     on_commit: Option<Rc<dyn Fn()>>,
-    autofocus: bool,
+    autofocus: Value<bool>,
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
@@ -50,22 +79,22 @@ fn new(selection: CalendarSelection) -> Calendar {
         max: None,
         min_span: 1,
         max_span: None,
-        variable_rows: false,
-        outside: true,
+        variable_rows: (false).into_value(),
+        outside: (true).into_value(),
         week_start: None,
         on_commit: None,
-        autofocus: false,
+        autofocus: (false).into_value(),
     }
 }
 
 /// A calendar that selects one day.
-pub fn calendar(value: impl Into<Binding<Option<CalendarDate>>>) -> Calendar {
-    new(CalendarSelection::Single(value.into()))
+pub fn calendar(value: impl IntoBinding<Option<CalendarDate>>) -> Calendar {
+    new(CalendarSelection::Single(value.into_binding()))
 }
 
 /// A calendar that publishes a range after both ends have been chosen.
-pub fn calendar_range(value: impl Into<Binding<Option<DateRange>>>) -> Calendar {
-    new(CalendarSelection::Range(value.into()))
+pub fn calendar_range(value: impl IntoBinding<Option<DateRange>>) -> Calendar {
+    new(CalendarSelection::Range(value.into_binding()))
 }
 
 impl Calendar {
@@ -124,9 +153,9 @@ impl Calendar {
         self
     }
 
-    pub(super) fn gate_disabled(mut self, off: kivact::Value<bool>) -> Self {
+    pub(super) fn gate_disabled(mut self, off: kivact::state::Value<bool>) -> Self {
         let disabled = self.disabled;
-        self.disabled = Rc::new(move |date| off.get() || disabled(date));
+        self.disabled = Rc::new(move |date| off || disabled(date));
         self
     }
 
@@ -155,8 +184,8 @@ impl Calendar {
     }
 
     /// Allow the number of displayed weeks to vary by month.
-    pub fn variable_rows(mut self, variable: bool) -> Self {
-        self.variable_rows = variable;
+    pub fn variable_rows(mut self, variable: impl IntoValue<bool>) -> Self {
+        self.variable_rows = variable.into_value();
         self
     }
 
@@ -165,8 +194,8 @@ impl Calendar {
         self
     }
 
-    pub fn show_outside_days(mut self, show: bool) -> Self {
-        self.outside = show;
+    pub fn show_outside_days(mut self, show: impl IntoValue<bool>) -> Self {
+        self.outside = show.into_value();
         self
     }
 
@@ -175,18 +204,20 @@ impl Calendar {
         self
     }
 
-    pub fn autofocus(mut self, value: bool) -> Self {
-        self.autofocus = value;
+    pub fn autofocus(mut self, value: impl IntoValue<bool>) -> Self {
+        self.autofocus = value.into_value();
         self
     }
 
-    pub fn on_commit(mut self, commit: impl Fn() + 'static) -> Self {
-        self.on_commit = Some(Rc::new(commit));
+    pub fn on_commit(mut self, commit: impl Into<Callback<()>>) -> Self {
+        let commit: Callback<()> = commit.into();
+        self.on_commit = Some(Rc::new(move || commit.call(())));
         self
     }
 }
 
 impl NodeBuilder for Calendar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -216,7 +247,7 @@ const WEEKDAYS: [(&str, &str); 7] = [
     ("soft.calendar.sun", "Su"),
 ];
 
-pub(super) fn calendar_status(message: impl kivact::view::IntoText) -> Node {
+pub(super) fn calendar_status(message: impl kivact::state::IntoText) -> Node {
     text(message)
         .role(Role::Status)
         .live_region(LiveRegion::Polite)
@@ -224,7 +255,9 @@ pub(super) fn calendar_status(message: impl kivact::view::IntoText) -> Node {
         .style(style().position(Position::Absolute).size(1, 1).opacity(0.0))
 }
 
-pub(super) fn month_title(month: kivact::Value<CalendarMonth>) -> kivact::Value<String> {
+pub(super) fn month_title(
+    month: kivact::state::Value<CalendarMonth>,
+) -> kivact::state::Value<String> {
     let names = MONTHS.map(|(key, default)| message(key, default));
     message_with("soft.calendar.caption", "{month} {year}", move || {
         let month = month.get();
@@ -235,7 +268,7 @@ pub(super) fn month_title(month: kivact::Value<CalendarMonth>) -> kivact::Value<
     })
 }
 
-fn title(month: CalendarMonth) -> kivact::Value<String> {
+fn title(month: CalendarMonth) -> kivact::state::Value<String> {
     let (key, default) = MONTHS[usize::from(month.month()) - 1];
     let name = message(key, default);
     message_with("soft.calendar.caption", "{month} {year}", move || {
@@ -282,8 +315,9 @@ impl IntoView for Calendar {
         });
         let month = min.map_or(month, |min| month.max(min.month_of()));
         let month = max.map_or(month, |max| month.min(max.month_of()));
-        let month: Binding<CalendarMonth> = displayed_month.unwrap_or_else(|| signal(month).into());
-        let rtl = kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
+        let month: Binding<CalendarMonth> =
+            displayed_month.unwrap_or_else(|| signal(month).into_binding());
+        let rtl = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
         let swipe = touch_months
             .map(|(min, max)| crate::month_swipe::MonthSwipe::new(month, min, max, rtl));
         let touch = swipe.is_some();
@@ -312,18 +346,18 @@ impl IntoView for Calendar {
         let initial_month = month.get_untracked();
         let previous_month = std::cell::Cell::new(initial_month);
         let month_label = month_title(month_value);
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             let current = month_value.get();
             if previous_month.replace(current) != current {
                 announcement.set(month_label.get_untracked());
             }
         });
-        let mut policy = CalendarPolicy::new()
+        let mut policy = CalendarOptions::new()
             .disabled(move |day| {
                 min.is_some_and(|min| day < min)
                     || max.is_some_and(|max| day > max)
                     || disabled(day)
-                    || pending.get().is_some_and(|anchor| {
+                    || pending.is_some_and(|anchor| {
                         let span = anchor.to_days().abs_diff(day.to_days()) + 1;
                         day != anchor
                             && (span < u64::from(min_span)
@@ -347,7 +381,7 @@ impl IntoView for Calendar {
             }
             CalendarSelection::Range(value) => {
                 let local = signal(value.get_untracked());
-                kivact::effect(move || {
+                kivact::state::effect(move || {
                     local.set(value.get());
                     pending.set(None);
                 });
@@ -392,14 +426,14 @@ impl IntoView for Calendar {
         };
         let grid = use_calendar_grid(month, selection, policy);
         let first = grid.week_start();
-        let autofocus = std::cell::Cell::new(autofocus);
+        let autofocus = std::cell::Cell::new(autofocus.get());
         let status = calendar_status(announcement);
         root.child(status)
             .child(dynamic(
                 move || (month.get(), first.get()),
                 move |(month, first)| {
                     let rtl =
-                        kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
+                        kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
                     let (back, forward) = if rtl {
                         ("chevron-right", "chevron-left")
                     } else {
@@ -472,7 +506,7 @@ impl IntoView for Calendar {
                                 style()
                             });
                             let weeks = month
-                                .weeks(first, if variable_rows { 0 } else { 6 })
+                                .weeks(first, if variable_rows.get() { 0 } else { 6 })
                                 .into_iter()
                                 .map(|week| {
                                     row(week
@@ -480,7 +514,7 @@ impl IntoView for Calendar {
                                         .map(|date| {
                                             if date.month_of() != month {
                                                 return node()
-                                                    .child(text(if outside {
+                                                    .child(text(if outside.get() {
                                                         date.day().to_string()
                                                     } else {
                                                         String::new()
@@ -585,7 +619,7 @@ impl IntoView for Calendar {
                                                     Handled::No
                                                 })
                                                 .on_press(move || {
-                                                    // A pointer can choose a day outside the current tab
+                                                    // A pointer can choose a day outside.get() the current tab
                                                     // stop. Focus the new tab stop after the grid updates.
                                                     kivact::task::spawn(async move {
                                                         grid.focus_active();

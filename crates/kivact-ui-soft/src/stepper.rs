@@ -2,17 +2,41 @@
 use crate::side_nav::logical_row;
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::message;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Direction, Justify, TransitionProp, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, button};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Orientation, Role, View, callback, node_ref,
-    provide,
-};
-use kivact::{Callback, Value, memo};
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::memo;
+use kivact::state::provide;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Orientation;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -54,12 +78,12 @@ pub enum StepIndicator {
     Auto,
     Number,
     None,
-    Custom(Rc<dyn Fn() -> View>),
+    Custom(ViewFn),
 }
 
 impl StepIndicator {
-    pub fn custom<V: IntoView>(glyph: impl Fn() -> V + 'static) -> Self {
-        Self::Custom(Rc::new(move || glyph().into_view()))
+    pub fn custom<V: IntoView>(glyph: impl IntoViewFn<V>) -> Self {
+        Self::Custom(glyph.into_view_fn())
     }
 }
 
@@ -71,8 +95,8 @@ pub struct Step {
     content: Option<View>,
     end: Option<View>,
     disabled: Value<bool>,
-    optional: bool,
-    status: StepStatus,
+    optional: Value<bool>,
+    status: Value<StepStatus>,
     indicator: StepIndicator,
     density: Option<StepDensity>,
 }
@@ -87,8 +111,8 @@ pub fn step(index: usize, label: impl IntoText) -> Step {
         content: None,
         end: None,
         disabled: false.into_value(),
-        optional: false,
-        status: StepStatus::Default,
+        optional: (false).into_value(),
+        status: (StepStatus::Default).into_value(),
         indicator: StepIndicator::Auto,
         density: None,
     }
@@ -99,24 +123,24 @@ impl Step {
         self.description = Some(description.into_text_value());
         self
     }
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(provide((), content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(provide((), move || content.into_view()));
         self
     }
-    pub fn end_content<V: IntoView>(mut self, end: impl FnOnce() -> V + 'static) -> Self {
-        self.end = Some(provide((), end));
+    pub fn end_content(mut self, end: impl IntoView) -> Self {
+        self.end = Some(provide((), move || end.into_view()));
         self
     }
     pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
         self.disabled = disabled.into_value();
         self
     }
-    pub fn optional(mut self, optional: bool) -> Self {
-        self.optional = optional;
+    pub fn optional(mut self, optional: impl IntoValue<bool>) -> Self {
+        self.optional = optional.into_value();
         self
     }
-    pub fn status(mut self, status: StepStatus) -> Self {
-        self.status = status;
+    pub fn status(mut self, status: impl IntoValue<StepStatus>) -> Self {
+        self.status = status.into_value();
         self
     }
     pub fn indicator(mut self, indicator: StepIndicator) -> Self {
@@ -130,6 +154,7 @@ impl Step {
 }
 
 impl NodeBuilder for Step {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -139,12 +164,12 @@ pub struct Stepper {
     root: Node,
     active: Value<usize>,
     steps: Vec<Step>,
-    orientation: Orientation,
+    orientation: Value<Orientation>,
     action: Option<Callback<usize>>,
-    density: StepDensity,
-    position: StepIndicatorPosition,
-    min_width: f64,
-    collapsed: StepCollapsedVariant,
+    density: Value<StepDensity>,
+    position: Value<StepIndicatorPosition>,
+    min_width: Value<f64>,
+    collapsed: Value<StepCollapsedVariant>,
     connector_gap: f64,
 }
 
@@ -153,19 +178,19 @@ pub fn stepper(active: impl IntoValue<usize>, steps: impl IntoIterator<Item = St
         root: node().name(message("soft.stepper.label", "Progress")),
         active: active.into_value(),
         steps: steps.into_iter().collect(),
-        orientation: Orientation::Horizontal,
+        orientation: (Orientation::Horizontal).into_value(),
         action: None,
-        density: StepDensity::Balanced,
-        position: StepIndicatorPosition::Separated,
-        min_width: 112.0,
-        collapsed: StepCollapsedVariant::WithLabelAndControls,
+        density: (StepDensity::Balanced).into_value(),
+        position: (StepIndicatorPosition::Separated).into_value(),
+        min_width: (112.0).into_value(),
+        collapsed: (StepCollapsedVariant::WithLabelAndControls).into_value(),
         connector_gap: 0.0,
     }
 }
 
 impl Stepper {
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
     pub fn on_step_press<R: HandlerResult>(
@@ -175,20 +200,21 @@ impl Stepper {
         self.action = Some(callback(action));
         self
     }
-    pub fn density(mut self, density: StepDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<StepDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
-    pub fn indicator_position(mut self, position: StepIndicatorPosition) -> Self {
-        self.position = position;
+    pub fn indicator_position(mut self, position: impl IntoValue<StepIndicatorPosition>) -> Self {
+        self.position = position.into_value();
         self
     }
-    pub fn min_step_width(mut self, width: f64) -> Self {
-        self.min_width = width.max(0.0);
+    pub fn min_step_width(mut self, width: impl IntoValue<f64>) -> Self {
+        let width = width.into_value();
+        self.min_width = (move || width.get().max(0.0)).into_value();
         self
     }
-    pub fn collapsed_variant(mut self, variant: StepCollapsedVariant) -> Self {
-        self.collapsed = variant;
+    pub fn collapsed_variant(mut self, variant: impl IntoValue<StepCollapsedVariant>) -> Self {
+        self.collapsed = variant.into_value();
         self
     }
     pub fn connector_gap(mut self, gap: f64) -> Self {
@@ -198,6 +224,7 @@ impl Stepper {
 }
 
 impl NodeBuilder for Stepper {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -232,21 +259,21 @@ impl IntoView for Stepper {
             let root_ref = node_ref();
             let rect = root_ref.rect();
             let count = steps.len();
-            let vertical = orientation == Orientation::Vertical;
+            let vertical = orientation.get() == Orientation::Vertical;
             let compact = memo(move || {
                 !vertical
                     && count > 0
                     && rect
                         .get()
-                        .is_some_and(|r| r.width / (count as f64) < min_width)
+                        .is_some_and(|r| r.width / (count as f64) < min_width.get())
             });
             let cx = StepperCx {
                 active,
                 compact,
                 vertical,
                 action,
-                density,
-                position,
+                density: density.get(),
+                position: position.get(),
                 connector_gap,
             };
             let summaries: Rc<[_]> = steps
@@ -266,7 +293,7 @@ impl IntoView for Stepper {
                         })
                         .gap(
                             if !vertical
-                                && position == StepIndicatorPosition::OnTrack
+                                && position.get() == StepIndicatorPosition::OnTrack
                                 && !compact.get()
                             {
                                 0.0
@@ -282,7 +309,7 @@ impl IntoView for Stepper {
                         .map(|(i, step)| step.build(cx, i == 0, i + 1 == count))
                         .collect::<Vec<_>>(),
                 );
-            let summary = (collapsed != StepCollapsedVariant::HiddenLabel).then(|| {
+            let summary = (collapsed.get() != StepCollapsedVariant::HiddenLabel).then(|| {
                 let step_labels = summaries.clone();
                 let summary = kivact::view::dynamic(active, move |index| {
                     step_labels
@@ -291,7 +318,7 @@ impl IntoView for Stepper {
                         .map(|step| {
                             column((
                                 row((
-                                    step_indicator(step.clone(), cx)(),
+                                    step_indicator(step.clone(), cx).call(()),
                                     text(step.label).style(move || step_text(true, false, false)),
                                 ))
                                 .style(|| {
@@ -312,8 +339,8 @@ impl IntoView for Stepper {
                             })
                         })
                 });
-                let controls =
-                    action.is_some() && collapsed == StepCollapsedVariant::WithLabelAndControls;
+                let controls = action.is_some()
+                    && collapsed.get() == StepCollapsedVariant::WithLabelAndControls;
                 row((
                     controls.then(|| summary_button(cx, summaries.clone(), false)),
                     summary,
@@ -461,7 +488,11 @@ impl Step {
                         .gap(gap)
                         .shrink(0)
                 })
-                .child((connector(true, first), indicator(), connector(false, last)))
+                .child((
+                    connector(true, first),
+                    indicator.call(()),
+                    connector(false, last),
+                ))
         });
         let label_node = text(label).style(move || {
             step_text(
@@ -477,7 +508,11 @@ impl Step {
                     .text_wrap(false)
             })
         });
-        let leading = if on_track { None } else { Some(indicator()) };
+        let leading = if on_track {
+            None
+        } else {
+            Some(indicator.call(()))
+        };
         let label_row = row((leading, label_node, optional, end)).style(move || {
             let t = tokens();
             style()
@@ -530,7 +565,7 @@ impl Step {
                 .name(label)
                 .focusable(move || !disabled.get())
                 .disabled(disabled)
-                .selected(move || cx.active.get() == index)
+                .with_node(move |node| node.selected(move || cx.active.get() == index))
                 .on_press(move || {
                     if !disabled.get() {
                         action.call(index);
@@ -576,14 +611,14 @@ impl Step {
                 base.direction(Direction::Column).grow(1).basis(0)
             }
         })
-        .selected(move || cx.active.get() == index)
+        .with_node(move |node| node.selected(move || cx.active.get() == index))
         .current_item(move || (cx.active.get() == index).then_some(kivact::view::CurrentItem::Step))
         .child((bar, track, body))
     }
 }
 
-fn step_indicator(step: Summary, cx: StepperCx) -> Rc<dyn Fn() -> View> {
-    Rc::new(move || {
+fn step_indicator(step: Summary, cx: StepperCx) -> ViewFn {
+    ViewFn::from(move |()| {
         let Summary {
             index,
             disabled,
@@ -602,7 +637,7 @@ fn step_indicator(step: Summary, cx: StepperCx) -> Rc<dyn Fn() -> View> {
         };
         let content = kivact::view::dynamic(cx.active, move |active| {
             if let Some(custom) = &custom {
-                return custom();
+                return custom.call(());
             }
             let (background, foreground) = indicator_colors(status);
             let reached = index <= active;
@@ -764,3 +799,10 @@ fn summary_button(cx: StepperCx, steps: Rc<[Summary]>, next: bool) -> impl IntoV
             }
         })
 }
+
+kivact::state::constant_value!(
+    StepCollapsedVariant,
+    StepDensity,
+    StepIndicatorPosition,
+    StepStatus
+);

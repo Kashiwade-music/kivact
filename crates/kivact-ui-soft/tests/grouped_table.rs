@@ -1,10 +1,17 @@
 //! Role: Exercise grouped standard table rows through the public facade.
-use kivact::interaction::{ListActivation, ListPolicy, SortOrder, TableFocus};
-use kivact::signal;
+use kivact::interaction::ListActivation;
+use kivact::interaction::ListOptions;
+use kivact::interaction::SortOrder;
+use kivact::interaction::TableFocus;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::ui::{DataColumn, data_table};
-use kivact::view::{Key, Role};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::DataColumn;
+use kivact::ui::data_table;
+use kivact::view::Key;
+use kivact::view::Role;
 
 #[derive(Clone, PartialEq)]
 struct Person {
@@ -61,9 +68,9 @@ fn group_disclosure_preserves_selection_and_pages_and_skips_collapsed_rows() {
             .page(page, 3)
             .selection(selected)
             .group_by(|person| person.team, collapsed)
-            .focus(TableFocus::Rows(ListPolicy {
+            .focus(TableFocus::Rows(ListOptions {
                 activation: ListActivation::Manual,
-                ..ListPolicy::default()
+                ..ListOptions::default()
             }));
             ((collapsed, selected, page, filter), table)
         },

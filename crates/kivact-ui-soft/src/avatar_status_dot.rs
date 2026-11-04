@@ -1,10 +1,23 @@
 //! Role: Draw presence indicators and report their labels to the containing avatar.
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Direction, Justify, style};
-use kivact::view::{IntoText, IntoView, Role, View, try_context};
-use kivact::{Signal, Value, effect, on_cleanup};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+
+use kivact::state::IntoText;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::effect;
+use kivact::state::on_cleanup;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Role;
+use kivact::view::View;
 
 #[derive(Clone, Copy)]
 pub(crate) struct AvatarStatusContext {
@@ -62,7 +75,7 @@ pub struct AvatarStatusDot {
     root: Node,
     status: AvatarStatus,
     label: Option<Value<String>>,
-    icon: Option<Box<dyn FnOnce() -> View>>,
+    icon: Option<View>,
 }
 
 /// Create a presence indicator.
@@ -83,13 +96,14 @@ impl AvatarStatusDot {
     }
 
     /// Replace the default glyph at medium and large sizes.
-    pub fn icon<V: IntoView>(mut self, icon: impl FnOnce() -> V + 'static) -> Self {
-        self.icon = Some(Box::new(move || icon().into_view()));
+    pub fn icon(mut self, icon: impl IntoView) -> Self {
+        self.icon = Some(icon.into_view());
         self
     }
 }
 
 impl NodeBuilder for AvatarStatusDot {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -103,7 +117,7 @@ impl IntoView for AvatarStatusDot {
             label,
             icon,
         } = self;
-        let cx = try_context::<AvatarStatusContext>();
+        let cx = try_use_context::<AvatarStatusContext>().map(|value| value.get());
         let StatusMetrics {
             side,
             border,
@@ -132,7 +146,7 @@ impl IntoView for AvatarStatusDot {
                             .align_items(Align::Center)
                             .justify_content(Justify::Center),
                     )
-                    .child(icon()),
+                    .child(icon),
             )
         } else {
             match status {

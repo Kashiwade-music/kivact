@@ -1,9 +1,12 @@
 //! Role: Verify the Soft selector's opt-in arrow opening through public APIs.
-use kivact::signal;
+use kivact::interaction::ListItem;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with_handle};
-use kivact::ui::{ListItem, select};
-use kivact::view::{Key, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::select;
+use kivact::view::Key;
+use kivact::view::Role;
 use kivact_ui_soft::{selector, theme};
 
 fn options() -> RenderOptions {

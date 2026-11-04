@@ -5,14 +5,41 @@ use crate::mobile_nav::{AppShellMobile, mobile_nav, mobile_nav_toggle};
 use crate::scrollable_area::scrollable_area;
 use crate::stack::{ContainerInset, Space, rtl};
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
-use kivact::primitive::NodeExt;
-use kivact::state::{Machine, Step, machine};
-use kivact::style::{Align, Direction, Justify, Position, auto, pct, style};
-use kivact::view::{
-    HandlerResult, IntoValue, IntoView, Role, View, callback, node_ref, provide, show, try_context,
-};
-use kivact::{Binding, Callback, signal};
+use kivact::state::IntoBinding;
+use kivact::state::Value;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::text;
+
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoValue;
+use kivact::state::Machine;
+use kivact::state::Step;
+use kivact::state::callback;
+use kivact::state::machine;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::auto;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::show;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -40,16 +67,16 @@ pub(crate) enum ShellNavMode {
 }
 
 pub(crate) fn shell_nav_mode() -> ShellNavMode {
-    try_context::<ShellNavMode>().unwrap_or_default()
+    try_use_context::<ShellNavMode>()
+        .map(|value| value.get())
+        .unwrap_or_default()
 }
-
-type Slot = Rc<dyn Fn() -> View>;
 
 pub struct MobileNavConfig {
     has_toggle: bool,
     open: Option<Binding<bool>>,
     on_change: Option<Callback<bool>>,
-    content: Option<Slot>,
+    content: Option<ViewFn>,
     breakpoint: Option<Breakpoint>,
 }
 
@@ -70,8 +97,8 @@ impl MobileNavConfig {
         self.has_toggle = has_toggle;
         self
     }
-    pub fn open(mut self, open: impl Into<Binding<bool>>) -> Self {
-        self.open = Some(open.into());
+    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
+        self.open = Some(open.into_binding());
         self
     }
     pub fn on_open_change<R: HandlerResult>(
@@ -81,8 +108,8 @@ impl MobileNavConfig {
         self.on_change = Some(callback(change));
         self
     }
-    pub fn content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move || content().into_view()));
+    pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.content = Some(Rc::new(move || content.into_view()));
         self
     }
     pub fn breakpoint(mut self, breakpoint: impl Into<Option<Breakpoint>>) -> Self {
@@ -94,7 +121,7 @@ impl MobileNavConfig {
 pub enum MobileNavMode {
     Disabled,
     Auto(MobileNavConfig),
-    Custom(Rc<dyn Fn() -> View>),
+    Custom(ViewFn),
 }
 
 impl Default for MobileNavMode {
@@ -104,60 +131,60 @@ impl Default for MobileNavMode {
 }
 
 impl MobileNavMode {
-    pub fn custom<V: IntoView>(content: impl Fn() -> V + 'static) -> Self {
-        Self::Custom(Rc::new(move || content().into_view()))
+    pub fn custom<V: IntoView>(content: impl IntoViewFn<V>) -> Self {
+        Self::Custom(Rc::new(move || content.into_view()))
     }
 }
 
 pub struct AppShell {
     root: Node,
-    content: Box<dyn FnOnce() -> View>,
-    top: Option<Slot>,
-    side: Option<Slot>,
-    banner: Option<Slot>,
-    padding: Space,
-    height: ShellHeight,
-    variant: ShellVariant,
+    content: View,
+    top: Option<ViewFn>,
+    side: Option<ViewFn>,
+    banner: Option<ViewFn>,
+    padding: Value<Space>,
+    height: Value<ShellHeight>,
+    variant: Value<ShellVariant>,
     mobile: MobileNavMode,
 }
 
-pub fn app_shell<V: IntoView>(content: impl FnOnce() -> V + 'static) -> AppShell {
+pub fn app_shell(content: impl IntoView) -> AppShell {
     AppShell {
         root: node(),
-        content: Box::new(move || content().into_view()),
+        content: content.into_view(),
         top: None,
         side: None,
         banner: None,
-        padding: Space::S0,
-        height: ShellHeight::Fill,
-        variant: ShellVariant::Elevated,
+        padding: (Space::S0).into_value(),
+        height: (ShellHeight::Fill).into_value(),
+        variant: (ShellVariant::Elevated).into_value(),
         mobile: MobileNavMode::default(),
     }
 }
 
 impl AppShell {
-    pub fn top_nav<V: IntoView>(mut self, nav: impl Fn() -> V + 'static) -> Self {
-        self.top = Some(Rc::new(move || nav().into_view()));
+    pub fn top_nav<V: IntoView>(mut self, nav: impl IntoViewFn<V>) -> Self {
+        self.top = Some(nav.into_view_fn());
         self
     }
-    pub fn side_nav<V: IntoView>(mut self, nav: impl Fn() -> V + 'static) -> Self {
-        self.side = Some(Rc::new(move || nav().into_view()));
+    pub fn side_nav<V: IntoView>(mut self, nav: impl IntoViewFn<V>) -> Self {
+        self.side = Some(nav.into_view_fn());
         self
     }
-    pub fn banner<V: IntoView>(mut self, banner: impl Fn() -> V + 'static) -> Self {
-        self.banner = Some(Rc::new(move || banner().into_view()));
+    pub fn banner<V: IntoView>(mut self, banner: impl IntoViewFn<V>) -> Self {
+        self.banner = Some(banner.into_view_fn());
         self
     }
-    pub fn content_padding(mut self, padding: Space) -> Self {
-        self.padding = padding;
+    pub fn content_padding(mut self, padding: impl IntoValue<Space>) -> Self {
+        self.padding = padding.into_value();
         self
     }
-    pub fn height(mut self, height: ShellHeight) -> Self {
-        self.height = height;
+    pub fn height(mut self, height: impl IntoValue<ShellHeight>) -> Self {
+        self.height = height.into_value();
         self
     }
-    pub fn variant(mut self, variant: ShellVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<ShellVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
     pub fn mobile_nav(mut self, mobile: MobileNavMode) -> Self {
@@ -167,6 +194,7 @@ impl AppShell {
 }
 
 impl NodeBuilder for AppShell {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -204,8 +232,8 @@ impl IntoView for AppShell {
                 None
             };
             let open = if enabled {
-                let value = config.open.unwrap_or_else(|| signal(false).into());
-                Some(kivact::binding(
+                let value = config.open.unwrap_or_else(|| signal(false).into_binding());
+                Some(kivact::state::binding(
                     move || value.get(),
                     move |open| {
                         if open != value.get() {
@@ -230,7 +258,8 @@ impl IntoView for AppShell {
                     move |_, ()| main_ref.focus(),
                 );
                 skip.feed(main_focused, SkipEvent::Focus);
-                let skip_requested = kivact::memo(move || skip.get() == SkipFocus::Requested);
+                let skip_requested =
+                    kivact::state::memo(move || skip.get() == SkipFocus::Requested);
                 let skip_ref = node_ref();
                 let skip_focused = skip_ref.focused();
                 let label =
@@ -277,21 +306,21 @@ impl IntoView for AppShell {
                 let mobile_top = top.clone();
                 let bar_side = side.clone();
                 let header = column((
-                    banner.map(|banner| banner()),
+                    banner.map(|banner| banner.call(())),
                     show(
                         move || !mobile.is_mobile(),
-                        move || desktop_top.as_ref().map(|slot| slot()),
+                        move || desktop_top.as_ref().map(|slot| slot.call(())),
                     ),
                     show(
                         move || mobile.is_mobile() && (has_top || auto_toggle && enabled),
                         move || {
                             let title = if let Some(slot) = &mobile_top {
                                 let slot = slot.clone();
-                                Some(provide(ShellNavMode::MobileBar, move || slot()))
+                                Some(provide(ShellNavMode::MobileBar, move || slot.call(())))
                             } else {
                                 bar_side.as_ref().map(|slot| {
                                     let slot = slot.clone();
-                                    provide(ShellNavMode::MobileBar, move || slot())
+                                    provide(ShellNavMode::MobileBar, move || slot.call(()))
                                 })
                             };
                             row((
@@ -319,18 +348,20 @@ impl IntoView for AppShell {
                     let t = tokens();
                     let visible =
                         has_banner || has_top || (mobile.is_mobile() && auto_toggle && enabled);
-                    let mut base = style().shrink(0).background(shell_background(variant));
-                    if visible && kivact::platform::capabilities().safe_area {
-                        let safe = kivact::platform::safe_area();
+                    let mut base = style()
+                        .shrink(0)
+                        .background(shell_background(variant.get()));
+                    if visible && kivact::platform::capabilities().get().safe_area {
+                        let safe = kivact::platform::safe_area().get();
                         base = base
                             .padding_top(safe.top)
                             .padding_left(safe.left)
                             .padding_right(safe.right);
                     }
-                    if variant == ShellVariant::Section && has_top {
+                    if variant.get() == ShellVariant::Section && has_top {
                         base = base.border_bottom(t.sizes.border_width, t.colors.border);
                     }
-                    if height == ShellHeight::Auto {
+                    if height.get() == ShellHeight::Auto {
                         base = base.position(Position::Sticky).top(0).z_index(1);
                     }
                     base
@@ -339,26 +370,27 @@ impl IntoView for AppShell {
                 let sidebar = show(
                     move || has_side && !mobile.is_mobile(),
                     move || {
-                        let nav = desktop_side.as_ref().map(|slot| slot());
+                        let nav = desktop_side.as_ref().map(|slot| slot.call(()));
                         node()
                             .style(move || {
                                 let t = tokens();
                                 let mut base =
                                     style().direction(Direction::Column).shrink(0).min_height(0);
-                                if variant == ShellVariant::Section {
+                                if variant.get() == ShellVariant::Section {
                                     base = if rtl() {
                                         base.border_left(t.sizes.border_width, t.colors.border)
                                     } else {
                                         base.border_right(t.sizes.border_width, t.colors.border)
                                     };
                                 }
-                                if height == ShellHeight::Auto {
+                                if height.get() == ShellHeight::Auto {
                                     let top = header_height.get().map_or(0.0, |rect| rect.height);
                                     base = base
                                         .position(Position::Sticky)
                                         .top(top)
                                         .height(
-                                            (kivact::platform::window_size().height - top).max(0.0),
+                                            (kivact::platform::window_size().get().height - top)
+                                                .max(0.0),
                                         )
                                         .clip(true);
                                 }
@@ -374,7 +406,7 @@ impl IntoView for AppShell {
                         .grow(1)
                         .min_height(0)
                         .min_width(0);
-                    if variant == ShellVariant::Elevated {
+                    if variant.get() == ShellVariant::Elevated {
                         base = base.background(t.colors.bg_surface);
                         if has_top && has_side && !mobile.is_mobile() {
                             base = if rtl() {
@@ -391,20 +423,21 @@ impl IntoView for AppShell {
                     ))
                 };
                 let main_name = kivact::i18n::message("soft.app_shell.main", "Main content");
-                let padding_px = padding.px();
+                let padding_px = padding.get().px();
                 let inset = ContainerInset::uniform(padding_px);
                 let content = provide(inset, move || {
                     provide(LayoutInset::from_padding(inset), content)
                 });
                 let contents = column(content).style(move || {
                     let mut base = style().padding(padding_px);
-                    if kivact::platform::capabilities().safe_area {
-                        base =
-                            base.padding_bottom(padding_px + kivact::platform::safe_area().bottom);
+                    if kivact::platform::capabilities().get().safe_area {
+                        base = base.padding_bottom(
+                            padding_px + kivact::platform::safe_area().get().bottom,
+                        );
                     }
                     base
                 });
-                let main = if height == ShellHeight::Fill {
+                let main = if height.get() == ShellHeight::Fill {
                     scrollable_area(main_name, contents)
                         .role(Role::Main)
                         .node_ref(main_ref)
@@ -447,10 +480,13 @@ impl IntoView for AppShell {
                             let side = side.clone();
                             provide(ShellNavMode::Drawer, move || {
                                 if let Some(content) = content {
-                                    content()
+                                    content.call(())
                                 } else {
-                                    column((side.map(|slot| slot()), top.map(|slot| slot())))
-                                        .into_view()
+                                    column((
+                                        side.map(|slot| slot.call(())),
+                                        top.map(|slot| slot.call(())),
+                                    ))
+                                    .into_view()
                                 }
                             })
                         })
@@ -458,7 +494,7 @@ impl IntoView for AppShell {
                     },
                 );
                 let body = column((header, middle)).style(style().min_height(pct(100)).grow(1));
-                let body = if height == ShellHeight::Auto {
+                let body = if height.get() == ShellHeight::Auto {
                     scroll(body)
                         .style(style().grow(1).min_height(0))
                         .into_view()
@@ -468,12 +504,12 @@ impl IntoView for AppShell {
                 (skip, body, drawer)
             });
             root.base_style(move || {
-                let viewport = kivact::platform::window_size().height;
+                let viewport = kivact::platform::window_size().get().height;
                 let base = style()
                     .position(Position::Relative)
                     .direction(Direction::Column)
                     .clip(true)
-                    .background(shell_background(variant));
+                    .background(shell_background(variant.get()));
                 if viewport > 0.0 {
                     base.height(viewport)
                 } else {
@@ -515,3 +551,5 @@ impl Machine for SkipMachine {
         }
     }
 }
+
+kivact::state::constant_value!(ShellHeight, ShellVariant);

@@ -1,8 +1,15 @@
 //! Role: Render themed icons with Neutral sizing and optional color.
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, icon as control_icon};
-use kivact::style::{Icon as IconSource, Style, style};
-use kivact::view::{IntoText, IntoValue, IntoView, View};
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::style::Icon as IconSource;
+use kivact::style::Style;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
+use kivact::view::icon as control_icon;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -81,6 +88,7 @@ impl Icon {
 }
 
 impl NodeBuilder for Icon {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

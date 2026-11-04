@@ -1,17 +1,38 @@
 //! Role: Neutral recipes for standard navigation, split panes and collections.
 
 use crate::Tokens;
-use kivact::draw::{LineCap, Point, Rect, Stroke};
-use kivact::interaction::{SortOrder, TabState, TableHeaderState, TreeItemState};
+use kivact::draw::LineCap;
+use kivact::draw::Stroke;
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
+use kivact::interaction::SortOrder;
+use kivact::interaction::TabState;
+use kivact::interaction::TableHeaderState;
+use kivact::interaction::TreeItemState;
 use kivact::motion::Transition;
-use kivact::style::{
-    Align, Cursor, Direction, Justify, Position, Style, Theme, TransitionProp, pct, style,
-};
-use kivact::ui::{
-    AxisState, DataTableDensity, DataTableRecipes, DisclosureRecipes, ListRecipes, Look,
-    SplitRecipes, SplitterRecipes, TabsRecipes, TreeRecipes,
-};
-use kivact::view::{Orientation, ReadingDirection, current_direction};
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::AxisState;
+use kivact::ui::DataTableDensity;
+use kivact::ui::DataTableRecipes;
+use kivact::ui::DisclosureRecipes;
+use kivact::ui::ListRecipes;
+use kivact::ui::Look;
+use kivact::ui::SplitRecipes;
+use kivact::ui::SplitterRecipes;
+use kivact::ui::TabsRecipes;
+use kivact::ui::TreeRecipes;
+use kivact::view::Orientation;
+use kivact::view::ReadingDirection;
+use kivact::view::use_direction;
 
 fn paint_transition(p: &Tokens, duration: u64) -> Transition {
     Transition::tween(duration as f64, p.motion.ease_standard)
@@ -26,8 +47,8 @@ pub(crate) fn tree(recipes: TreeRecipes) -> TreeRecipes {
         .root(|_| |_: &Theme, _: &_| style().direction(Direction::Column).gap(2))
         .item(|_| {
             |theme: &Theme, row: &Look<TreeItemState>| {
-                let tokens = theme.get::<Tokens>();
-                let rtl = current_direction() == ReadingDirection::Rtl;
+                let tokens = theme.ext::<Tokens>();
+                let rtl = use_direction().get() == ReadingDirection::Rtl;
                 let indent = 8 + row.level.saturating_sub(1) * 16;
                 style()
                     .direction(if rtl {
@@ -53,7 +74,7 @@ pub(crate) fn tree(recipes: TreeRecipes) -> TreeRecipes {
 pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {
     r.list(|_| {
         |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             style()
                 .direction(if s.orientation == Orientation::Vertical {
                     Direction::Column
@@ -69,7 +90,7 @@ pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {
 }
 
 fn tab(t: &Theme, s: &Look<TabState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let height = p.sizes.control_md;
     let ink = if s.selected {
         p.colors.text_primary
@@ -107,7 +128,7 @@ fn tab(t: &Theme, s: &Look<TabState>) -> Style {
 }
 
 fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let inset = p.spacing.s3;
     let indicator = style()
         .position(Position::Absolute)
@@ -120,7 +141,7 @@ fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
         );
     if s.orientation == Orientation::Vertical {
         let indicator = indicator.top(inset).bottom(inset).width(2);
-        if current_direction() == ReadingDirection::Rtl {
+        if use_direction().get() == ReadingDirection::Rtl {
             indicator.right(0)
         } else {
             indicator.left(0)
@@ -134,7 +155,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
     r.root(|_| |_: &Theme, _: &_| style().direction(Direction::Column).width(pct(100)))
         .trigger(|_| {
             |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 style()
                     .direction(Direction::Row)
                     .width(pct(100))
@@ -157,7 +178,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         })
         .indicator(|_| {
             |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let size = p.typography.large.size_px;
                 style()
                     .size(size, size)
@@ -169,7 +190,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         })
         .content(|_| {
             |t: &Theme, _: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 style()
                     .direction(Direction::Column)
                     .padding_top(p.spacing.s1)
@@ -183,7 +204,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
 pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
     r.handle(|_| {
         |t: &Theme, s: &Look<AxisState>| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             let hit = p.spacing.s4;
             let vertical = s.orientation == Orientation::Vertical;
             // Splitter has no grip child, while Split only builds one when its
@@ -237,7 +258,7 @@ pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
 pub(crate) fn split(r: SplitRecipes) -> SplitRecipes {
     r.grip(|_| {
         |t: &Theme, s: &Look<AxisState>| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             let long = p.spacing.s8;
             let grip = style()
                 .shrink(0)
@@ -252,7 +273,7 @@ pub(crate) fn split(r: SplitRecipes) -> SplitRecipes {
                 grip.size(long, 3).translate_y(-5.5)
             } else {
                 grip.size(3, long)
-                    .translate_x(if current_direction() == ReadingDirection::Rtl {
+                    .translate_x(if use_direction().get() == ReadingDirection::Rtl {
                         5.5
                     } else {
                         -5.5
@@ -263,10 +284,10 @@ pub(crate) fn split(r: SplitRecipes) -> SplitRecipes {
 }
 
 pub(crate) fn list(r: ListRecipes) -> ListRecipes {
-    r.root(|prev| move |t: &Theme, s: &_| prev(t, s).gap(t.get::<Tokens>().spacing.s0_5))
+    r.root(|prev| move |t: &Theme, s: &_| prev(t, s).gap(t.ext::<Tokens>().spacing.s0_5))
         .item(|_| {
             |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let mut item = style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)
@@ -296,7 +317,7 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
         })
         .description(|_| {
             |t: &Theme, _: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 style()
                     .font_size(p.typography.supporting.size_px)
                     .line_height(
@@ -319,7 +340,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
     .toolbar(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .gap(p.spacing.s2)
                 .padding(0)
@@ -328,7 +349,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
     .header(|_| {
         |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             table_cell(
                 &p,
                 s.variant::<DataTableDensity>().copied().unwrap_or_default(),
@@ -348,7 +369,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     .sort(|_| sort_mark)
     .row(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .min_height(s.height.unwrap_or(0.0))
                 .border_bottom(p.sizes.border_width, p.colors.border)
@@ -359,7 +380,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
     .group_header(|_| {
         |t: &Theme, _: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             style()
                 .direction(Direction::Row)
                 .background(p.colors.bg_muted)
@@ -369,7 +390,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
     .cell(|_| {
         |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             table_cell(
                 &p,
                 s.variant::<DataTableDensity>().copied().unwrap_or_default(),
@@ -415,7 +436,7 @@ fn table_cell(p: &Tokens, density: DataTableDensity) -> Style {
 }
 
 fn sort_mark(t: &Theme, s: &Look<TableHeaderState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     if !s.sortable {
         return style().size(0, 0).shrink(0);
     }

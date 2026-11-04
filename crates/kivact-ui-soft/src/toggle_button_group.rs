@@ -1,78 +1,66 @@
 //! Role: Group independently tabbable Neutral toggle buttons.
+use kivact::interaction::IntoSelection;
+use kivact::interaction::Selection;
 
-use std::hash::Hash;
+use kivact::state::ItemKey;
 use std::rc::Rc;
 
-use kivact::control::{Node, NodeBuilder, icon, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, style};
-use kivact::ui::{ControlSize, ListItem, toggle};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, Orientation, ReadingDirection, Role, View, current_direction,
-    for_each, show,
-};
-use kivact::{Binding, Signal, Value, binding};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::node;
 
-/// Caller-owned selection for a toggle group.
-pub enum ToggleSelection<K: Clone + PartialEq + 'static> {
-    Single(Binding<Option<K>>),
-    Multiple(Binding<Vec<K>>),
-}
+use kivact::interaction::ListItem;
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::ui::toggle_button;
+use kivact::view::IntoView;
+use kivact::view::Orientation;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::for_each;
+use kivact::view::show;
+use kivact::view::use_direction;
 
-impl<K: Clone + PartialEq + 'static> From<Binding<Option<K>>> for ToggleSelection<K> {
-    fn from(binding: Binding<Option<K>>) -> Self {
-        Self::Single(binding)
-    }
-}
-impl<K: Clone + PartialEq + 'static> From<Binding<Vec<K>>> for ToggleSelection<K> {
-    fn from(binding: Binding<Vec<K>>) -> Self {
-        Self::Multiple(binding)
-    }
-}
-impl<K: Clone + PartialEq + 'static> From<Signal<Option<K>>> for ToggleSelection<K> {
-    fn from(signal: Signal<Option<K>>) -> Self {
-        Self::Single(signal.into())
-    }
-}
-impl<K: Clone + PartialEq + 'static> From<Signal<Vec<K>>> for ToggleSelection<K> {
-    fn from(signal: Signal<Vec<K>>) -> Self {
-        Self::Multiple(signal.into())
-    }
-}
-
-impl<K: Clone + PartialEq + 'static> ToggleSelection<K> {
-    fn member(&self, key: K) -> Binding<bool> {
-        match *self {
-            Self::Single(selected) => {
-                let read = key.clone();
-                binding(
-                    move || selected.get().as_ref() == Some(&read),
-                    move |on| {
-                        if on {
-                            selected.set(Some(key.clone()));
-                        } else if selected.get().as_ref() == Some(&key) {
-                            selected.set(None);
+fn selection_member<K: ItemKey>(selection: &Selection<K>, key: K) -> Binding<bool> {
+    match *selection {
+        Selection::Single(selected) => {
+            let read = key.clone();
+            binding(
+                move || selected.get().as_ref() == Some(&read),
+                move |on| {
+                    if on {
+                        selected.set(Some(key.clone()));
+                    } else if selected.get().as_ref() == Some(&key) {
+                        selected.set(None);
+                    }
+                },
+            )
+        }
+        Selection::Multiple(selected) => {
+            let read = key.clone();
+            binding(
+                move || selected.get().contains(&read),
+                move |on| {
+                    let mut values = selected.get();
+                    if on {
+                        if !values.contains(&key) {
+                            values.push(key.clone());
                         }
-                    },
-                )
-            }
-            Self::Multiple(selected) => {
-                let read = key.clone();
-                binding(
-                    move || selected.get().contains(&read),
-                    move |on| {
-                        let mut values = selected.get();
-                        if on {
-                            if !values.contains(&key) {
-                                values.push(key.clone());
-                            }
-                        } else {
-                            values.retain(|value| value != &key);
-                        }
-                        selected.set(values);
-                    },
-                )
-            }
+                    } else {
+                        values.retain(|value| value != &key);
+                    }
+                    selected.set(values);
+                },
+            )
         }
     }
 }
@@ -80,43 +68,43 @@ impl<K: Clone + PartialEq + 'static> ToggleSelection<K> {
 type PressedIcon<K> = Rc<dyn Fn(&K) -> Option<&'static str>>;
 
 /// Separated ghost toggles with single or multiple selection.
-pub struct ToggleButtonGroup<K: Clone + Eq + Hash + 'static> {
+pub struct ToggleButtonGroup<K: ItemKey> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
-    selection: ToggleSelection<K>,
-    size: ControlSize,
-    orientation: Orientation,
+    selection: Selection<K>,
+    size: Value<ControlSize>,
+    orientation: Value<Orientation>,
     disabled: Value<bool>,
-    icon_only: bool,
+    icon_only: Value<bool>,
     pressed_icon: Option<PressedIcon<K>>,
 }
 
 #[track_caller]
-pub fn toggle_button_group<K: Clone + Eq + Hash + 'static>(
+pub fn toggle_button_group<K: ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<ToggleSelection<K>>,
+    value: impl IntoSelection<K>,
 ) -> ToggleButtonGroup<K> {
     ToggleButtonGroup {
         root: node().role(Role::Group).name(label),
         items: items.into_value(),
-        selection: value.into(),
-        size: ControlSize::Medium,
-        orientation: Orientation::Horizontal,
+        selection: value.into_selection(),
+        size: (ControlSize::Medium).into_value(),
+        orientation: (Orientation::Horizontal).into_value(),
         disabled: false.into_value(),
-        icon_only: false,
+        icon_only: (false).into_value(),
         pressed_icon: None,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> ToggleButtonGroup<K> {
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+impl<K: ItemKey> ToggleButtonGroup<K> {
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -125,8 +113,8 @@ impl<K: Clone + Eq + Hash + 'static> ToggleButtonGroup<K> {
         self
     }
 
-    pub fn icon_only(mut self, icon_only: bool) -> Self {
-        self.icon_only = icon_only;
+    pub fn icon_only(mut self, icon_only: impl IntoValue<bool>) -> Self {
+        self.icon_only = icon_only.into_value();
         self
     }
 
@@ -136,23 +124,24 @@ impl<K: Clone + Eq + Hash + 'static> ToggleButtonGroup<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for ToggleButtonGroup<K> {
+impl<K: ItemKey> NodeBuilder for ToggleButtonGroup<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleButtonGroup<K> {
+impl<K: ItemKey> IntoView for ToggleButtonGroup<K> {
     fn into_view(self) -> View {
-        let vertical = self.orientation == Orientation::Vertical;
-        let direction = match (vertical, current_direction()) {
+        let vertical = self.orientation.get() == Orientation::Vertical;
+        let direction = match (vertical, use_direction().get()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,
             _ => Direction::Row,
         };
-        let size = self.size;
+        let size = self.size.get();
         let disabled = self.disabled;
-        let icon_only = self.icon_only;
+        let icon_only = self.icon_only.get();
         let selection = self.selection;
         let pressed_icon = self.pressed_icon;
         self.root
@@ -169,18 +158,19 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleButtonGroup<K> {
             .child(for_each(
                 self.items,
                 |item| item.key().clone(),
-                move |key, item| {
+                move |item| {
+                    let key = item.with_untracked(|item| item.key().clone());
                     let alternate = pressed_icon.as_ref().and_then(|icon| icon(&key));
-                    let pressed = selection.member(key);
-                    let control = toggle(move || item.get().label(), pressed)
+                    let pressed = selection_member(&selection, key);
+                    let control = toggle_button(move || item.get().label(), pressed)
                         .size(size)
-                        .disabled(move || disabled.get() || item.get().is_disabled());
-                    let has_icon = item.get().icon_value().is_some() || alternate.is_some();
+                        .disabled(move || disabled || item.get().is_disabled());
+                    let has_icon = item.get().icon().is_some() || alternate.is_some();
                     if has_icon {
                         control
                             .icon(show(
                                 move || {
-                                    item.get().icon_value().is_some()
+                                    item.get().icon().is_some()
                                         || (alternate.is_some() && pressed.get())
                                 },
                                 move || {
@@ -190,10 +180,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for ToggleButtonGroup<K> {
                                         {
                                             return alternate.into();
                                         }
-                                        item.get()
-                                            .icon_value()
-                                            .cloned()
-                                            .unwrap_or_else(|| "".into())
+                                        item.get().icon().cloned().unwrap_or_else(|| "".into())
                                     })
                                 },
                             ))

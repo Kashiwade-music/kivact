@@ -4,18 +4,49 @@ use crate::calendar::{Calendar, calendar, month_title};
 use crate::recipes_field::frame;
 use crate::theme_access::tokens;
 use crate::time_of_day::TimeOfDay;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::custom::PartState;
+use kivact::custom::clock_now;
 use kivact::i18n::{CalendarDate, CalendarMonth, message};
-use kivact::interaction::{DragVelocity, nearest_snap, project_release};
-use kivact::motion::{Spring, Transition, animated};
-use kivact::primitive::{NodeExt, PartState, clock_now, part};
-use kivact::style::{Align, Direction, Justify, Position, pct, style};
-use kivact::ui::{ButtonVariant, button};
-use kivact::view::{
-    A11yAction, Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, NodeRef, PointerEvent,
-    PointerId, PointerPhase, Role, WheelEvent, dynamic,
-};
-use kivact::{Binding, Signal, Value, binding, memo, signal, var};
+use kivact::interaction::DragVelocity;
+use kivact::interaction::nearest_snap;
+use kivact::interaction::project_release;
+use kivact::motion::Spring;
+use kivact::motion::Transition;
+use kivact::motion::animated;
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::state::var;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::view::A11yAction;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::Node;
+use kivact::view::NodeRef;
+use kivact::view::PointerEvent;
+use kivact::view::PointerId;
+use kivact::view::PointerPhase;
+use kivact::view::Role;
+use kivact::view::WheelEvent;
+use kivact::view::column;
+use kivact::view::dynamic;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -31,7 +62,7 @@ pub enum DatePresentation {
 impl DatePresentation {
     pub(super) fn sheet(self) -> bool {
         match self {
-            Self::Adaptive => kivact::platform::capabilities().touch,
+            Self::Adaptive => kivact::platform::capabilities().get().touch,
             Self::Desktop => false,
             Self::BottomSheet => true,
         }
@@ -52,7 +83,7 @@ pub(super) fn trigger(
         .icon(icon(glyph))
         .child(text(shown))
         .role(Role::ComboBox)
-        .expanded(open)
+        .with_node(move |node| node.expanded(open))
         .node_ref(target)
         .on_press(press)
         .on_key(move |event: KeyEvent| {
@@ -140,13 +171,13 @@ pub(super) fn date_panel(
         None => base,
     };
     let (initial, min, max) = configured.sheet_months(initial);
-    let month: Binding<CalendarMonth> = signal(initial).into();
+    let month: Binding<CalendarMonth> = signal(initial).into_binding();
     let wheels = signal(false);
     let month_label = month_title(month.into_value());
     let caption = button(month_label)
         .variant(ButtonVariant::Ghost)
-        .trailing_icon(icon("chevron-down"))
-        .expanded(wheels)
+        .trailing(icon("chevron-down"))
+        .with_node(move |node| node.expanded(wheels))
         .on_press(move || wheels.set(!wheels.get_untracked()))
         .style(style().height(36).font_size(17).weight(600));
     let panel = dynamic(
@@ -342,23 +373,87 @@ fn wheel(
         }),
     );
     let settle = move |from: f64| {
-        if kivact::platform::reduced_motion() {
+        if kivact::platform::reduced_motion().get() {
             offset.jump_to(0.0);
         } else {
             offset.jump_to(from.clamp(-112.0, 112.0));
             release.update(|release| *release = release.wrapping_add(1));
         }
     };
-    let interaction = part(|input| input)
+    // The band stays fixed while the labels move. Extra labels prevent a
+    // projected release from exposing the ends of the rendered strip.
+    let band = node().hit_testable(false).style(move || {
+        let t = tokens();
+        style()
+            .position(Position::Absolute)
+            .left(0)
+            .right(0)
+            .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0)
+            .height(WHEEL_ROW)
+            .radius(t.radius.element)
+            .background(t.colors.neutral)
+    });
+    let rows = (-8i32..=8)
+        .map(|delta| {
+            let shown = memo(move || {
+                let raw = value.get() + delta;
+                if !wraps && !(min..=max).contains(&raw) {
+                    String::new()
+                } else {
+                    format(normalize(raw))
+                }
+            });
+            node()
+                .hit_testable(false)
+                .child(text(shown))
+                .style(move || {
+                    let t = tokens();
+                    let distance = delta as f64 * WHEEL_ROW + offset.get();
+                    let falloff = (distance.abs() / 146.0).min(1.0);
+                    let selected = distance.abs() <= WHEEL_ROW / 2.0;
+                    let base = style()
+                        .position(Position::Absolute)
+                        .left(0)
+                        .right(0)
+                        .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0 + delta as f64 * WHEEL_ROW)
+                        .height(WHEEL_ROW)
+                        .translate_y(offset.get())
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .font_size(17)
+                        .opacity(1.0 - 0.7 * falloff)
+                        .weight(if selected { 600 } else { 400 })
+                        .color(if selected {
+                            t.colors.text_accent
+                        } else {
+                            t.colors.text_primary
+                        });
+                    if kivact::platform::reduced_motion().get() {
+                        base
+                    } else {
+                        let scale = 1.0 - 0.14 * falloff;
+                        base.scale_xy(scale, scale * (52.0 * falloff).to_radians().cos())
+                    }
+                })
+        })
+        .collect::<Vec<_>>();
+    node()
+        .child(band)
+        .child(rows)
+        .role(Role::SpinButton)
+        .name(label)
         .focusable(true)
         .value_min(f64::from(min))
         .value_max(f64::from(max))
         .value_now(move || f64::from(value.get()))
         .value_text(move || format(value.get()))
-        .on_a11y(A11yAction::Increment, move || step(1))
-        .on_a11y(A11yAction::Decrement, move || step(-1))
+        .a11y_action(A11yAction::Increment, move |_| step(1))
+        .a11y_action(A11yAction::Decrement, move |_| step(-1))
         .on_key(move |event: KeyEvent| {
-            if event.modifiers().ctrl || event.modifiers().meta || event.modifiers().alt {
+            if event.modifiers().get().ctrl
+                || event.modifiers().get().meta
+                || event.modifiers().get().alt
+            {
                 return Handled::No;
             }
             match event.key() {
@@ -460,70 +555,7 @@ fn wheel(
                 _ => return Handled::No,
             }
             Handled::Yes
-        });
-    // The band stays fixed while the labels move. Extra labels prevent a
-    // projected release from exposing the ends of the rendered strip.
-    let band = node().hit_testable(false).style(move || {
-        let t = tokens();
-        style()
-            .position(Position::Absolute)
-            .left(0)
-            .right(0)
-            .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0)
-            .height(WHEEL_ROW)
-            .radius(t.radius.element)
-            .background(t.colors.neutral)
-    });
-    let rows = (-8i32..=8)
-        .map(|delta| {
-            let shown = memo(move || {
-                let raw = value.get() + delta;
-                if !wraps && !(min..=max).contains(&raw) {
-                    String::new()
-                } else {
-                    format(normalize(raw))
-                }
-            });
-            node()
-                .hit_testable(false)
-                .child(text(shown))
-                .style(move || {
-                    let t = tokens();
-                    let distance = delta as f64 * WHEEL_ROW + offset.get();
-                    let falloff = (distance.abs() / 146.0).min(1.0);
-                    let selected = distance.abs() <= WHEEL_ROW / 2.0;
-                    let base = style()
-                        .position(Position::Absolute)
-                        .left(0)
-                        .right(0)
-                        .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0 + delta as f64 * WHEEL_ROW)
-                        .height(WHEEL_ROW)
-                        .translate_y(offset.get())
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .font_size(17)
-                        .opacity(1.0 - 0.7 * falloff)
-                        .weight(if selected { 600 } else { 400 })
-                        .color(if selected {
-                            t.colors.text_accent
-                        } else {
-                            t.colors.text_primary
-                        });
-                    if kivact::platform::reduced_motion() {
-                        base
-                    } else {
-                        let scale = 1.0 - 0.14 * falloff;
-                        base.scale_xy(scale, scale * (52.0 * falloff).to_radians().cos())
-                    }
-                })
         })
-        .collect::<Vec<_>>();
-    node()
-        .child(band)
-        .child(rows)
-        .role(Role::SpinButton)
-        .name(label)
-        .part(interaction)
         .style(move || {
             let t = tokens();
             style()

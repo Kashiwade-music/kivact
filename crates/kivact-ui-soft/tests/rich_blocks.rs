@@ -1,8 +1,11 @@
 //! Role: Verify block editing preserves source and native caret operations.
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::view::{Key, Role};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::view::Key;
+use kivact::view::Role;
 use kivact_ui_soft::rich_text_editor;
 
 fn options() -> RenderOptions {

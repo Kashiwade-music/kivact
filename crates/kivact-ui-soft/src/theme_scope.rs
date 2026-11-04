@@ -1,8 +1,12 @@
 //! Role: Scope Neutral media contrast and syntax palettes to a subtree.
 use crate::{SyntaxColors, Tokens, theme};
-use kivact::memo;
-use kivact::style::{Color, ThemeMode, current_theme};
-use kivact::view::{IntoView, View, provide_theme};
+use kivact::state::memo;
+use kivact::style::Color;
+use kivact::style::ThemeMode;
+use kivact::style::provide_theme;
+use kivact::style::use_theme;
+use kivact::view::IntoView;
+use kivact::view::View;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MediaMode {
@@ -16,16 +20,16 @@ pub enum MediaMode {
 }
 
 /// Draw content using Neutral colors suited to the media underneath it.
-pub fn media_theme<V: IntoView>(mode: MediaMode, content: impl FnOnce() -> V + 'static) -> View {
+pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
     provide_theme(
         memo(move || {
-            let outer = current_theme();
+            let outer = use_theme().get();
             let mode = match mode {
                 MediaMode::Dark => ThemeMode::Dark,
                 MediaMode::Light => ThemeMode::Light,
                 MediaMode::Off => return outer,
                 MediaMode::Auto { surface } => {
-                    let t = outer.get::<Tokens>();
+                    let t = outer.ext::<Tokens>();
                     let foreground = t.colors.text_primary.resolve(&outer);
                     let surface = surface.resolve(&outer);
                     let background = t.colors.bg_surface.resolve(&outer);
@@ -58,7 +62,7 @@ pub fn media_theme<V: IntoView>(mode: MediaMode, content: impl FnOnce() -> V + '
                 }
             };
             let media = theme(mode);
-            let mut tokens = (*media.get::<Tokens>()).clone();
+            let mut tokens = (*media.ext::<Tokens>()).clone();
             let ink = match mode {
                 ThemeMode::Dark => tokens.colors.on_dark,
                 ThemeMode::Light => tokens.colors.on_light,
@@ -76,14 +80,11 @@ pub fn media_theme<V: IntoView>(mode: MediaMode, content: impl FnOnce() -> V + '
 }
 
 /// Replace only the syntax colors of the active Neutral theme.
-pub fn syntax_theme<V: IntoView>(
-    colors: SyntaxColors,
-    content: impl FnOnce() -> V + 'static,
-) -> View {
+pub fn syntax_theme(colors: SyntaxColors, content: impl IntoView) -> View {
     provide_theme(
         memo(move || {
-            let outer = current_theme();
-            let mut tokens = (*outer.get::<Tokens>()).clone();
+            let outer = use_theme().get();
+            let mut tokens = (*outer.ext::<Tokens>()).clone();
             tokens.colors.syntax = colors;
             outer.with(tokens)
         }),

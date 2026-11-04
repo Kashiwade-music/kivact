@@ -1,10 +1,24 @@
 //! Role: Draw the Neutral separator and its optional label.
 use crate::stack::ContainerInset;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, node, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, style};
-use kivact::view::{IntoText, IntoView, Orientation, Role, View, node_ref, provide, try_context};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::state::provide;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Orientation;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DividerVariant {
@@ -15,37 +29,37 @@ pub enum DividerVariant {
 
 pub struct Divider {
     root: Node,
-    orientation: Orientation,
-    variant: DividerVariant,
+    orientation: Value<Orientation>,
+    variant: Value<DividerVariant>,
     label: Option<View>,
-    full_bleed: bool,
+    full_bleed: Value<bool>,
 }
 
 pub fn divider() -> Divider {
     Divider {
         root: node().role(Role::Separator),
-        orientation: Orientation::Horizontal,
-        variant: DividerVariant::Subtle,
+        orientation: (Orientation::Horizontal).into_value(),
+        variant: (DividerVariant::Subtle).into_value(),
         label: None,
-        full_bleed: false,
+        full_bleed: (false).into_value(),
     }
 }
 
 impl Divider {
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
-    pub fn variant(mut self, variant: DividerVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<DividerVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
-    pub fn full_bleed(mut self, full_bleed: bool) -> Self {
-        self.full_bleed = full_bleed;
+    pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
+        self.full_bleed = full_bleed.into_value();
         self
     }
-    pub fn label<V: IntoView>(mut self, label: impl FnOnce() -> V + 'static) -> Self {
-        self.label = Some(provide((), label));
+    pub fn label(mut self, label: impl IntoView) -> Self {
+        self.label = Some(provide((), move || label.into_view()));
         self
     }
     pub fn label_text(mut self, label: impl IntoText) -> Self {
@@ -57,6 +71,7 @@ impl Divider {
 }
 
 impl NodeBuilder for Divider {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -72,21 +87,23 @@ impl IntoView for Divider {
             full_bleed,
         } = self;
         provide((), move || {
-            let vertical = orientation == Orientation::Vertical;
-            let mut root = root.orientation(orientation).base_style(move || {
-                let inset = try_context::<ContainerInset>().unwrap_or_default();
+            let vertical = orientation.get() == Orientation::Vertical;
+            let mut root = root.orientation(orientation.get()).base_style(move || {
+                let inset = try_use_context::<ContainerInset>()
+                    .map(|value| value.get())
+                    .unwrap_or_default();
                 let mut base = style()
                     .shrink(0)
                     .align_self(Align::Stretch)
                     .align_items(Align::Center);
                 if vertical {
                     base = base.direction(Direction::Column);
-                    if full_bleed {
+                    if full_bleed.get() {
                         base = base.margin_top(-inset.top).margin_bottom(-inset.bottom);
                     }
                 } else {
                     base = base.direction(Direction::Row);
-                    if full_bleed {
+                    if full_bleed.get() {
                         let (left, right) = inset.sides();
                         base = base.margin_left(-left).margin_right(-right);
                     }
@@ -96,7 +113,7 @@ impl IntoView for Divider {
             let rule = || {
                 node().style(move || {
                     let t = tokens();
-                    let color = match variant {
+                    let color = match variant.get() {
                         DividerVariant::Subtle => t.colors.border,
                         DividerVariant::Strong => t.colors.border_emphasized,
                     };
@@ -140,3 +157,5 @@ impl IntoView for Divider {
         })
     }
 }
+
+kivact::state::constant_value!(DividerVariant);
