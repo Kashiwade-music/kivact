@@ -180,7 +180,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         self.machine.send(Event::OpenSubmenu(depth, key));
     }
 
-    /// Open the submenu of `key` and focus its first enabled item.
+    /// Open the submenu of `key` and focus its first focusable item.
     pub(super) fn open_submenu(&self, depth: usize, key: K) {
         self.open_hover(depth, key);
         self.request(depth + 1, Edge::First);

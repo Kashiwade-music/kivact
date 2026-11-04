@@ -208,7 +208,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 if depth == 0 {
                     // Where the focus returns for this opening.
                     session.popup.set_opening_policy(session.focus_return());
-                    // The top level takes the focus on its first enabled item
+                    // The top level takes the focus on its first focusable item
                     // unless the opener asked for another one.
                     if session.want.with_untracked(Option::is_none) {
                         session.request(0, Edge::First);

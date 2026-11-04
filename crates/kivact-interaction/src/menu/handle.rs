@@ -35,7 +35,7 @@ use kivact_core::view::{
 /// own `entries`, `show`, `surface` and `item`; its overlay is anchored to
 /// its item's node, after it.
 ///
-/// Keys inside the menu: Up and Down move through the enabled items of a level
+/// Keys inside the menu: Up and Down move through the focusable items of a level
 /// and wrap, Home and End jump to its ends, a letter key moves to the next
 /// item whose label starts with it (letters typed within 500 ms of each other
 /// are matched together), Enter and Space choose, Right opens a submenu and
@@ -211,7 +211,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     }
 
     /// Open the menu as the trigger's ArrowDown does: it opens on its first
-    /// enabled item, and the focus later returns to the trigger. Does nothing
+    /// focusable item, and the focus later returns to the trigger. Does nothing
     /// while the menu is open. Meant for a component that opens one of several
     /// menus itself, such as a menu bar moving between its menus. Top level
     /// only.
@@ -254,7 +254,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     /// A trigger belonging to a menubar has `Role::MenuItem` in either attachment order.
     ///
     /// Enter, Space, a click and an assistive technology's Activate open the
-    /// menu on its first enabled item (and close it again); ArrowDown does the
+    /// menu on its first focusable item (and close it again); ArrowDown does the
     /// same and ArrowUp opens on the last one. Expand opens it and Collapse
     /// closes it. Releasing Tab on the trigger closes it. These run after the
     /// caller's own handlers. The part binds the reference the top-level

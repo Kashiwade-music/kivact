@@ -47,6 +47,8 @@ fn menu_disabled_items_receive_focus_without_activation() {
         disabled_focus, enabled_focus,
         "published focus follows menu navigation"
     );
+    screen.press_key(Key::ArrowUp);
+    assert!(disabled.a11y_actions().contains(&A11yAction::Focus));
     disabled.a11y(A11yAction::Focus);
     assert!(
         disabled.is_focused(),
