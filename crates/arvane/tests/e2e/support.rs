@@ -317,6 +317,11 @@ impl Harness {
             probe,
             shared,
         };
+        assert_eq!(
+            harness.events(),
+            [ShellEvent::AccessibilityActivated],
+            "the virtual host activates accessibility at startup"
+        );
         if gpu {
             let start = std::time::Instant::now();
             while !harness.shared.borrow().changes.iter().any(|change| {

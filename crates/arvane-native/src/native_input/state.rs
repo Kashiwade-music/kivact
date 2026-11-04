@@ -2,7 +2,9 @@
 
 use std::cell::{Cell, RefCell};
 
-use arvane_shell::{ShellImeText, ShellWaker, WakeReasons};
+use arvane_shell::ShellImeText;
+#[cfg(windows)]
+use arvane_shell::{ShellWaker, WakeReasons};
 use kivact_types::cell::LocalMailbox;
 
 use kivact_types::{Environment, PointerSettings};
@@ -36,6 +38,7 @@ pub(crate) struct NativeInput {
     pub(crate) env_changed: LocalMailbox<()>,
     /// Wakes the event loop when the subclass noted something to deliver
     /// outside a window event (a settings change).
+    #[cfg(windows)]
     pub(crate) wake: InputWake,
     /// The touch and pen pointers of the frame of the last pointer message
     /// (Windows' `WM_POINTER*`: winit reports every pointer of the frame
@@ -59,10 +62,12 @@ pub(crate) struct ContactNote {
 }
 
 /// Delivery route fixed when the input state is constructed.
+#[cfg(windows)]
 pub(crate) enum InputWake {
     Direct,
     EventLoop(ShellWaker),
 }
+#[cfg(windows)]
 impl InputWake {
     pub(crate) fn wake(&self, reasons: WakeReasons) {
         if let Self::EventLoop(waker) = self {
@@ -77,7 +82,7 @@ pub(crate) enum Subclass {
     Installed,
 }
 impl NativeInput {
-    pub(crate) fn new(environment: Environment, wake: InputWake) -> Self {
+    pub(crate) fn new(environment: Environment, #[cfg(windows)] wake: InputWake) -> Self {
         Self {
             ime: RefCell::default(),
             text: RefCell::new(None),
@@ -91,6 +96,7 @@ impl NativeInput {
             mouse: Cell::new(environment.pointer),
             locale: RefCell::new(environment.locale),
             env_changed: LocalMailbox::new(),
+            #[cfg(windows)]
             wake,
             contacts: RefCell::new(Vec::new()),
         }

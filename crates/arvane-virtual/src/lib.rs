@@ -1,4 +1,4 @@
-//! Role: Virtual Arvane backend with scripted input, a virtual clock and optional mirror windows.
+//! Role: Runs scripted input and virtual time with optional mirror windows.
 #![forbid(unsafe_code)]
 
 mod backend;

@@ -14,11 +14,8 @@
 //!   clean so a later change schedules them again.
 
 use crate::reactive::arena::Key;
-use crate::reactive::data::{CompState, EffectKind, NodeData, RNode, Runtime, Sched};
+use crate::reactive::data::{CYCLE_LIMIT, CompState, EffectKind, NodeData, RNode, Runtime, Sched};
 use crate::reactive::error::{ErrorKind, new_error};
-
-/// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
-pub(crate) const CYCLE_LIMIT: usize = 100;
 
 impl Sched {
     /// Queue `key`; returns whether it was not queued yet.

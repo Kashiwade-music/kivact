@@ -1,6 +1,6 @@
 //! Role: Runtime clock and wake scheduling.
 use crate::reactive::data::Runtime;
-use crate::reactive::host::TurnState;
+use crate::reactive::host_types::TurnState;
 impl Runtime {
     /// The App's monotonic clock in nanoseconds.
     pub fn now_ns(&self) -> u64 {

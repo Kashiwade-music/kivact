@@ -77,16 +77,10 @@ impl GpuContext {
     {
         match *self {}
     }
-    pub fn surface_maker<T>(
+    pub fn surface_maker<T: 'static>(
         &self,
-    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static + use<T>
-    where
-        T: raw_window_handle::HasWindowHandle
-            + raw_window_handle::HasDisplayHandle
-            + Send
-            + Sync
-            + 'static,
-    {
+    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static + use<T> {
+        // No window handles are read: an unbuilt GPU context has no values.
         surface_callback::<T>(self)
     }
     pub fn render(

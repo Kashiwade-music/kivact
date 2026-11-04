@@ -47,7 +47,9 @@
 //!   the area a software keyboard covers.
 
 use crate::a11y::native::NativeAccessibility;
-use crate::native_input::state::{InputWake, NativeInput};
+#[cfg(windows)]
+use crate::native_input::state::InputWake;
+use crate::native_input::state::NativeInput;
 use crate::port::winit::key_code::{map_key, physical_code};
 use crate::present::CpuSurface;
 use crate::services::Services;
@@ -669,6 +671,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                     locale: crate::native_input::locale::system_locale(),
                     ..Default::default()
                 },
+                #[cfg(windows)]
                 InputWake::EventLoop(self.waker.clone()),
             ));
             let monitor = window.current_monitor();

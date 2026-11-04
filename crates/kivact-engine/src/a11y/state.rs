@@ -67,7 +67,10 @@ impl Default for A11yState {
         Self {
             native_regions: BTreeMap::new(),
             region_ids: BTreeMap::new(),
-            ids: SemanticsIdAllocator(u64::MAX),
+            ids: SemanticsIdAllocator {
+                next: u64::MAX,
+                empty_root: None,
+            },
             authored: BTreeMap::new(),
             hashes: BTreeMap::new(),
             publish: A11yPublish::Inactive,
@@ -163,11 +166,15 @@ impl A11yState {
 
 /// Monotonic synthetic identities; consumers reject live authored node IDs.
 #[derive(Clone)]
-pub(super) struct SemanticsIdAllocator(u64);
+pub(super) struct SemanticsIdAllocator {
+    next: u64,
+    /// Reserved across authored roots, independently of the published tree.
+    pub(super) empty_root: Option<SemanticsId>,
+}
 impl SemanticsIdAllocator {
     pub(super) fn next(&mut self) -> SemanticsId {
-        let id = self.0;
-        self.0 = id
+        let id = self.next;
+        self.next = id
             .checked_sub(1)
             .expect("invariant: semantics identity space cannot exhaust in a process lifetime");
         SemanticsId(id)

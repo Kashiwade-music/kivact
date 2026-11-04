@@ -24,7 +24,7 @@ use std::rc::Rc;
 use crate::reactive::data::Runtime;
 use crate::reactive::error::{ErrorKind, misuse_at};
 use crate::reactive::execution::executing_app;
-use crate::reactive::host::Host;
+use crate::reactive::host_types::Host;
 
 thread_local! {
     static REGISTRY: RefCell<Vec<Option<Rc<Runtime>>>> = const { RefCell::new(Vec::new()) };

@@ -59,7 +59,6 @@
 //!   handling. Editing chords (Ctrl or Cmd with A, C, X, V) and the
 //!   reported `Key` both use it.
 
-use std::collections::HashMap;
 use std::ops::Range;
 
 use crate::contract::HostEvent;
@@ -71,10 +70,6 @@ use crate::model::changes::Dirty;
 use crate::text_input::{EditLines, Shaping};
 use kivact_editing::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
-
-/// Targets that received a physical key down, until its release.
-#[derive(Default)]
-pub(crate) struct KeyDownTargets(pub(crate) HashMap<KeyCode, kivact_types::FocusTarget>);
 
 /// What became of a key press ([`Model::handle_key`]).
 #[derive(Clone, Debug, PartialEq)]
