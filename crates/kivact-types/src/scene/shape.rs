@@ -26,11 +26,11 @@ pub enum PathCmd {
     /// grow as SVG says; a zero radius draws a line.
     ArcTo {
         /// Horizontal radius before rotation.
-        rx: f32,
+        rx: f64,
         /// Vertical radius before rotation.
-        ry: f32,
+        ry: f64,
         /// Rotation of the ellipse's x axis, in degrees.
-        x_rotation_deg: f32,
+        x_rotation_deg: f64,
         /// Take the arc of more than 180°.
         large_arc: bool,
         /// Go clockwise on screen.
@@ -47,15 +47,15 @@ pub enum PathCmd {
         /// Center.
         center: Point,
         /// Horizontal radius before rotation.
-        rx: f32,
+        rx: f64,
         /// Vertical radius before rotation.
-        ry: f32,
+        ry: f64,
         /// Rotation of the ellipse's x axis, in degrees.
-        x_rotation_deg: f32,
+        x_rotation_deg: f64,
         /// Start angle in degrees (0: along the rotated x axis).
-        start_deg: f32,
+        start_deg: f64,
         /// Swept angle in degrees.
-        sweep_deg: f32,
+        sweep_deg: f64,
     },
     /// Close the contour.
     Close,
@@ -65,14 +65,14 @@ pub enum PathCmd {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Radius {
     /// Horizontal radius.
-    pub x: f32,
+    pub x: f64,
     /// Vertical radius.
-    pub y: f32,
+    pub y: f64,
 }
 
 impl Radius {
     /// A circular corner.
-    pub fn circular(r: f32) -> Self {
+    pub fn circular(r: f64) -> Self {
         Radius { x: r, y: r }
     }
 }
@@ -103,7 +103,7 @@ pub struct RoundedRect {
 
 impl RoundedRect {
     /// `rect` with the same circular radius `r` at every corner.
-    pub fn new(rect: Rect, r: f32) -> Self {
+    pub fn new(rect: Rect, r: f64) -> Self {
         RoundedRect {
             rect,
             radii: [Radius::circular(r); 4],
@@ -112,7 +112,7 @@ impl RoundedRect {
 
     /// `rect` with circular radii: top-left, top-right, bottom-right,
     /// bottom-left.
-    pub fn with_corners(rect: Rect, radii: [f32; 4]) -> Self {
+    pub fn with_corners(rect: Rect, radii: [f64; 4]) -> Self {
         RoundedRect {
             rect,
             radii: radii.map(Radius::circular),
@@ -144,7 +144,7 @@ impl RoundedRect {
             y: positive(r.y),
         });
         let (w, h) = (positive(self.rect.width), positive(self.rect.height));
-        let ratio = |side: f32, sum: f32| if sum > side { side / sum } else { 1.0 };
+        let ratio = |side: f64, sum: f64| if sum > side { side / sum } else { 1.0 };
         let f = ratio(w, radii[0].x + radii[1].x)
             .min(ratio(w, radii[3].x + radii[2].x))
             .min(ratio(h, radii[0].y + radii[3].y))
@@ -244,7 +244,7 @@ fn corner(out: &mut Vec<PathCmd>, from: Point, to: Point, at: Point) {
         }
         return;
     }
-    const K: f32 = 0.552_284_8;
+    const K: f64 = 0.552_284_8;
     let lerp = |a: Point, b: Point| Point {
         x: a.x + (b.x - a.x) * K,
         y: a.y + (b.y - a.y) * K,
@@ -252,7 +252,7 @@ fn corner(out: &mut Vec<PathCmd>, from: Point, to: Point, at: Point) {
     out.push(PathCmd::CubicTo(lerp(from, at), lerp(to, at), to));
 }
 
-fn positive(v: f32) -> f32 {
+fn positive(v: f64) -> f64 {
     if v.is_finite() { v.max(0.0) } else { 0.0 }
 }
 
@@ -356,7 +356,7 @@ fn cmd_points(cmd: &PathCmd) -> impl Iterator<Item = Point> {
 }
 
 pub(crate) fn points_bounds(points: impl Iterator<Item = Point>) -> Rect {
-    let mut bounds: Option<(f32, f32, f32, f32)> = None;
+    let mut bounds: Option<(f64, f64, f64, f64)> = None;
     for p in points {
         bounds = Some(match bounds {
             None => (p.x, p.y, p.x, p.y),
@@ -428,7 +428,7 @@ fn lower_arcs(cmds: &[PathCmd]) -> Vec<PathCmd> {
                 let a0 = start_deg.to_radians();
                 let sweep = sweep_deg
                     .to_radians()
-                    .clamp(-std::f32::consts::TAU, std::f32::consts::TAU);
+                    .clamp(-std::f64::consts::TAU, std::f64::consts::TAU);
                 let first = arc.at(a0);
                 if current.is_some() {
                     out.push(PathCmd::LineTo(first));
@@ -446,14 +446,14 @@ fn lower_arcs(cmds: &[PathCmd]) -> Vec<PathCmd> {
 /// An ellipse: center, radii and rotation (radians' sine and cosine).
 struct Ellipse {
     center: Point,
-    rx: f32,
-    ry: f32,
-    sin: f32,
-    cos: f32,
+    rx: f64,
+    ry: f64,
+    sin: f64,
+    cos: f64,
 }
 
 impl Ellipse {
-    fn new(center: Point, rx: f32, ry: f32, rotation_deg: f32) -> Self {
+    fn new(center: Point, rx: f64, ry: f64, rotation_deg: f64) -> Self {
         let (sin, cos) = rotation_deg.to_radians().sin_cos();
         Ellipse {
             center,
@@ -465,7 +465,7 @@ impl Ellipse {
     }
 
     /// The point at parameter angle `t` (radians).
-    fn at(&self, t: f32) -> Point {
+    fn at(&self, t: f64) -> Point {
         let (s, c) = t.sin_cos();
         let (x, y) = (self.rx * c, self.ry * s);
         Point {
@@ -475,7 +475,7 @@ impl Ellipse {
     }
 
     /// The derivative at `t` (radians).
-    fn tangent(&self, t: f32) -> Point {
+    fn tangent(&self, t: f64) -> Point {
         let (s, c) = t.sin_cos();
         let (x, y) = (-self.rx * s, self.ry * c);
         Point {
@@ -486,9 +486,9 @@ impl Ellipse {
 
     /// Cubics along the arc from `t0` sweeping `sweep` radians, at most a
     /// quarter turn each; returns the end point.
-    fn cubics(&self, out: &mut Vec<PathCmd>, t0: f32, sweep: f32) -> Point {
-        let pieces = (sweep.abs() / std::f32::consts::FRAC_PI_2).ceil().max(1.0) as usize;
-        let step = sweep / pieces as f32;
+    fn cubics(&self, out: &mut Vec<PathCmd>, t0: f64, sweep: f64) -> Point {
+        let pieces = (sweep.abs() / std::f64::consts::FRAC_PI_2).ceil().max(1.0) as usize;
+        let step = sweep / pieces as f64;
         let k = 4.0 / 3.0 * (step / 4.0).tan();
         let mut t = t0;
         let mut p0 = self.at(t);
@@ -519,9 +519,9 @@ impl Ellipse {
 fn svg_arc(
     out: &mut Vec<PathCmd>,
     from: Point,
-    rx: f32,
-    ry: f32,
-    x_rotation_deg: f32,
+    rx: f64,
+    ry: f64,
+    x_rotation_deg: f64,
     large_arc: bool,
     sweep: bool,
     to: Point,
@@ -556,7 +556,7 @@ fn svg_arc(
         x: cos * cx1 - sin * cy1 + (from.x + to.x) / 2.0,
         y: sin * cx1 + cos * cy1 + (from.y + to.y) / 2.0,
     };
-    let angle = |ux: f32, uy: f32, vx: f32, vy: f32| {
+    let angle = |ux: f64, uy: f64, vx: f64, vy: f64| {
         let dot = ux * vx + uy * vy;
         let len = (ux * ux + uy * uy).sqrt() * (vx * vx + vy * vy).sqrt();
         let a = (dot / len).clamp(-1.0, 1.0).acos();
@@ -566,7 +566,7 @@ fn svg_arc(
     let (vx, vy) = ((-x1 - cx1) / rx, (-y1 - cy1) / ry);
     let t0 = angle(1.0, 0.0, ux, uy);
     let mut delta = angle(ux, uy, vx, vy);
-    let tau = std::f32::consts::TAU;
+    let tau = std::f64::consts::TAU;
     if !sweep && delta > 0.0 {
         delta -= tau;
     } else if sweep && delta < 0.0 {
@@ -616,7 +616,7 @@ fn winding(outline: &[PathCmd], p: Point) -> i32 {
             PathCmd::QuadTo(c, q) => {
                 let mut prev = current;
                 for i in 1..=PIECES {
-                    let t = i as f32 / PIECES as f32;
+                    let t = i as f64 / PIECES as f64;
                     let u = 1.0 - t;
                     let next = Point {
                         x: u * u * current.x + 2.0 * u * t * c.x + t * t * q.x,
@@ -630,7 +630,7 @@ fn winding(outline: &[PathCmd], p: Point) -> i32 {
             PathCmd::CubicTo(c1, c2, q) => {
                 let mut prev = current;
                 for i in 1..=PIECES {
-                    let t = i as f32 / PIECES as f32;
+                    let t = i as f64 / PIECES as f64;
                     let u = 1.0 - t;
                     let next = Point {
                         x: u * u * u * current.x
@@ -663,6 +663,6 @@ fn winding(outline: &[PathCmd], p: Point) -> i32 {
 }
 
 /// Positive when `p` is left of `a → b` (y down).
-fn cross(a: Point, b: Point, p: Point) -> f32 {
+fn cross(a: Point, b: Point, p: Point) -> f64 {
     (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y)
 }

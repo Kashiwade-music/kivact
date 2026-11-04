@@ -32,23 +32,23 @@ pub enum Extend {
 /// `px + pct / 100 × reference` (CSS `calc(pct% + px)`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Len {
-    pub px: f32,
-    pub pct: f32,
+    pub px: f64,
+    pub pct: f64,
 }
 
 impl Len {
     pub const ZERO: Len = Len { px: 0.0, pct: 0.0 };
 
-    pub const fn px(px: f32) -> Len {
+    pub const fn px(px: f64) -> Len {
         Len { px, pct: 0.0 }
     }
 
-    pub const fn pct(pct: f32) -> Len {
+    pub const fn pct(pct: f64) -> Len {
         Len { px: 0.0, pct }
     }
 
     /// The length against `reference`.
-    pub fn of(self, reference: f32) -> f32 {
+    pub fn of(self, reference: f64) -> f64 {
         self.px + self.pct / 100.0 * reference
     }
 }
@@ -108,7 +108,7 @@ pub struct CoordinateGradient {
     /// Offsets and colors, in order of offset (the engine draws nothing for
     /// offsets outside `0..=1`, not finite or out of order, or for no stop);
     /// two stops at one offset make a hard edge.
-    pub stops: Vec<(f32, Rgba)>,
+    pub stops: Vec<(f64, Rgba)>,
     pub extend: Extend,
 }
 
@@ -121,13 +121,13 @@ pub enum CoordinateShape {
     /// offset 1 on the circle of `end_radius` around `end_center`.
     RadialTwoCircle {
         start_center: Point,
-        start_radius: f32,
+        start_radius: f64,
         end_center: Point,
-        end_radius: f32,
+        end_radius: f64,
     },
     /// Offsets by angle around `center`, one turn clockwise from
     /// `start_deg` (0 along the positive x axis).
-    Conic { center: Point, start_deg: f32 },
+    Conic { center: Point, start_deg: f64 },
 }
 
 /// What a [`CoordinateGradient`] paints beyond its offsets 0 and 1.
@@ -167,7 +167,7 @@ pub struct GradientStop {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GradientKind {
     /// CSS `linear-gradient(<angle>deg, ..)`: 0 = to top, 90 = to right.
-    Linear { angle_deg: f32 },
+    Linear { angle_deg: f64 },
     /// CSS `radial-gradient(<shape> <size> at <center>, ..)`; the center's
     /// x is against the box width, y against its height.
     Radial {
@@ -176,7 +176,7 @@ pub enum GradientKind {
         center: [Len; 2],
     },
     /// CSS `conic-gradient(from <deg> at <center>, ..)`.
-    Conic { from_deg: f32, center: [Len; 2] },
+    Conic { from_deg: f64, center: [Len; 2] },
 }
 
 /// The size of a radial gradient's ending shape.
@@ -194,14 +194,14 @@ pub enum RadialExtent {
 /// A border inside the border box, per side.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Border {
-    pub widths: Edges<f32>,
+    pub widths: Edges<f64>,
     pub colors: Edges<Rgba>,
     pub style: BorderStyle,
 }
 
 impl Border {
     /// The same width and color on every side, solid.
-    pub fn uniform(width: f32, color: Rgba) -> Border {
+    pub fn uniform(width: f64, color: Rgba) -> Border {
         Border {
             widths: Edges::all(width),
             colors: Edges::all(color),
@@ -304,8 +304,8 @@ pub enum ImageFit {
 /// A focus ring of `width` separated from the border box by `offset`.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Ring {
-    pub width: f32,
-    pub offset: f32,
+    pub width: f64,
+    pub offset: f64,
     pub color: Rgba,
 }
 
@@ -319,7 +319,7 @@ pub struct CornerRadius {
 
 impl CornerRadius {
     /// A circular radius measured in logical pixels.
-    pub const fn px(r: f32) -> CornerRadius {
+    pub const fn px(r: f64) -> CornerRadius {
         CornerRadius {
             x: Len::px(r),
             y: Len::px(r),
@@ -338,7 +338,7 @@ pub struct Corners {
 
 impl Corners {
     /// The same circular radius (px) on every corner.
-    pub fn all(r: f32) -> Self {
+    pub fn all(r: f64) -> Self {
         let c = CornerRadius::px(r);
         Corners {
             top_left: c,
@@ -369,21 +369,21 @@ impl Corners {
 /// One CSS filter function.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum FilterOp {
-    Brightness(f32),
-    Contrast(f32),
-    Saturate(f32),
-    Grayscale(f32),
-    Sepia(f32),
+    Brightness(f64),
+    Contrast(f64),
+    Saturate(f64),
+    Grayscale(f64),
+    Sepia(f64),
     /// Degrees.
-    HueRotate(f32),
-    Invert(f32),
-    Opacity(f32),
+    HueRotate(f64),
+    Invert(f64),
+    Opacity(f64),
     /// CSS `blur(px)`.
-    Blur(f32),
+    Blur(f64),
     /// CSS `drop-shadow(x y blur color)`.
     DropShadow {
         offset: Point,
-        blur: f32,
+        blur: f64,
         color: Rgba,
     },
 }
@@ -462,18 +462,18 @@ const FILTER_LEN: usize = 16;
 const LEN: usize = FILTER + FILTER_LEN;
 
 /// The filter amounts that change nothing.
-const IDENTITY: [f32; FILTER_LEN] = [
+const IDENTITY: [f64; FILTER_LEN] = [
     1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PaintVec([f32; LEN]);
+pub struct PaintVec([f64; LEN]);
 
-fn rgba(c: Rgba) -> [f32; 4] {
+fn rgba(c: Rgba) -> [f64; 4] {
     [c.r, c.g, c.b, c.a]
 }
 
-fn color(v: &[f32]) -> Rgba {
+fn color(v: &[f64]) -> Rgba {
     Rgba {
         r: v[0],
         g: v[1],
@@ -484,7 +484,7 @@ fn color(v: &[f32]) -> Rgba {
 
 /// The filter of `p` as amounts in the canonical order (a function given
 /// twice composes: amounts multiply, angles and blurs add).
-fn filter_amounts(p: &PaintProps) -> [f32; FILTER_LEN] {
+fn filter_amounts(p: &PaintProps) -> [f64; FILTER_LEN] {
     let mut v = IDENTITY;
     for op in p.effects.iter().flat_map(|e| &e.filter) {
         match *op {
@@ -512,9 +512,9 @@ fn filter_amounts(p: &PaintProps) -> [f32; FILTER_LEN] {
 
 /// The filter of the amounts `v`, in the canonical order, leaving out the
 /// functions that change nothing.
-fn filter_of(v: &[f32]) -> Vec<FilterOp> {
+fn filter_of(v: &[f64]) -> Vec<FilterOp> {
     let mut out = Vec::new();
-    let mut push = |i: usize, op: fn(f32) -> FilterOp| {
+    let mut push = |i: usize, op: fn(f64) -> FilterOp| {
         if (v[i] - IDENTITY[i]).abs() > 1e-4 {
             out.push(op(v[i]));
         }
@@ -594,7 +594,7 @@ impl PaintVec {
                 left: side(3),
             };
         }
-        let parts: [f32; 10] = std::array::from_fn(|i| v[TRANSFORM + i]);
+        let parts: [f64; 10] = std::array::from_fn(|i| v[TRANSFORM + i]);
         let o = &v[TRANSFORM + 10..SHADOW];
         p.transform = crate::ElementTransform {
             translate: Point {
@@ -650,10 +650,10 @@ impl PaintVec {
 
 impl PaintVec {
     pub const COMPONENTS: usize = LEN;
-    pub fn components(&self) -> &[f32] {
+    pub fn components(&self) -> &[f64] {
         &self.0
     }
-    pub fn from_components(c: &[f32]) -> Self {
+    pub fn from_components(c: &[f64]) -> Self {
         let mut v = [0.0; LEN];
         for (d, s) in v.iter_mut().zip(c) {
             *d = *s;
@@ -665,8 +665,8 @@ impl PaintVec {
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Shadow {
     pub offset: Point,
-    pub blur: f32,
-    pub spread: f32,
+    pub blur: f64,
+    pub spread: f64,
     pub color: Rgba,
     /// Inside the box (CSS `inset`).
     pub inset: bool,
@@ -685,11 +685,11 @@ pub struct ElementTransform {
     /// `per_size[0] × width + per_size[1] × height`, y by
     /// `per_size[2] × width + per_size[3] × height` (a percentage
     /// translation, mapped by what precedes it in the CSS list).
-    pub per_size: [f32; 4],
+    pub per_size: [f64; 4],
     /// Clockwise, in degrees.
-    pub rotate: f32,
+    pub rotate: f64,
     /// Along x, in degrees.
-    pub skew_x: f32,
+    pub skew_x: f64,
     pub scale: Point,
     /// Against the box's width and height (CSS `transform-origin`,
     /// default `50% 50%`).
@@ -735,7 +735,7 @@ pub struct PaintProps {
     /// CSS order: the first is on top.
     pub shadows: Vec<Shadow>,
     /// Group opacity of the node and its subtree.
-    pub opacity: f32,
+    pub opacity: f64,
     pub transform: ElementTransform,
     /// The paint and hit order among its siblings (CSS `z-index`; ties
     /// keep the tree order).
@@ -776,7 +776,7 @@ pub struct PaintDelta {
     pub border: Option<Border>,
     pub ring: Option<Ring>,
     pub radius: Option<Corners>,
-    pub opacity: Option<f32>,
+    pub opacity: Option<f64>,
     pub shadows: Option<Vec<Shadow>>,
     pub transform: Option<ElementTransform>,
     pub z_index: Option<i32>,
@@ -842,7 +842,7 @@ impl StateStyles {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScrollbarProps {
     /// Preferred border-box width.
-    pub width: f32,
+    pub width: f64,
     pub thumb: Rgba,
     pub track: Rgba,
 }
@@ -851,7 +851,7 @@ pub struct ScrollbarProps {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScrollbarDelta {
     /// Preferred border-box width.
-    pub width: Option<f32>,
+    pub width: Option<f64>,
     pub colors: Option<(Rgba, Rgba)>,
 }
 

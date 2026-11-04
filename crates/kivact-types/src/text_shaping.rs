@@ -15,13 +15,13 @@ pub trait TextShaper {
     /// `max_width` (`None`: one line per hard line). Equal inputs share one
     /// `Arc`. `None` when it cannot be shaped. The result owns its data, so
     /// the shaper is not borrowed afterwards.
-    fn shape(&self, run: &TextRun, max_width: Option<f32>) -> Option<Arc<ShapedText>>;
+    fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<Arc<ShapedText>>;
 
     /// Shape a paragraph with measured inline objects when the host supports it.
     fn shape_inline(
         &self,
         _run: &TextRun,
-        _max_width: Option<f32>,
+        _max_width: Option<f64>,
         _boxes: &[InlineBox],
     ) -> Option<ShapedInlineText> {
         None

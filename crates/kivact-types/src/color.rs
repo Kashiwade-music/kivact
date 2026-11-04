@@ -6,13 +6,13 @@
 /// Rgba.
 pub struct Rgba {
     /// R.
-    pub r: f32,
+    pub r: f64,
     /// G.
-    pub g: f32,
+    pub g: f64,
     /// B.
-    pub b: f32,
+    pub b: f64,
     /// A.
-    pub a: f32,
+    pub a: f64,
 }
 
 impl Rgba {
@@ -25,17 +25,17 @@ impl Rgba {
     };
 
     /// An RGB hex color and an alpha clamped to `0..=1`.
-    pub fn from_hex(hex: u32, alpha: f32) -> Self {
+    pub fn from_hex(hex: u32, alpha: f64) -> Self {
         Self {
-            r: ((hex >> 16) & 0xff) as f32 / 255.0,
-            g: ((hex >> 8) & 0xff) as f32 / 255.0,
-            b: (hex & 0xff) as f32 / 255.0,
+            r: ((hex >> 16) & 0xff) as f64 / 255.0,
+            g: ((hex >> 8) & 0xff) as f64 / 255.0,
+            b: (hex & 0xff) as f64 / 255.0,
             a: alpha.clamp(0.0, 1.0),
         }
     }
 
     /// With alpha mul.
-    pub fn with_alpha_mul(self, factor: f32) -> Self {
+    pub fn with_alpha_mul(self, factor: f64) -> Self {
         Rgba {
             a: (self.a * factor).clamp(0.0, 1.0),
             ..self
@@ -66,7 +66,7 @@ pub fn unpremultiply(rgba: &mut [u8]) {
 impl Rgba {
     /// Clamp straight-alpha components to zero through one; non-finite is zero.
     pub fn sanitize(self) -> Self {
-        let unit = |v: f32| {
+        let unit = |v: f64| {
             if v.is_finite() {
                 v.clamp(0.0, 1.0)
             } else {

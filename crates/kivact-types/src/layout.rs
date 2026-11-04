@@ -170,7 +170,7 @@ pub enum Breadth {
     /// 100%).
     Size(Dimension),
     /// A share of the free space (CSS `fr`; as a minimum, `auto`).
-    Fr(f32),
+    Fr(f64),
     /// CSS `fit-content(limit)` (as a minimum, `auto`).
     FitContent(Dimension),
 }
@@ -210,7 +210,7 @@ pub enum GridPos {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AvailableSpace {
     /// A definite number of pixels.
-    Definite(f32),
+    Definite(f64),
     /// As little as the content allows.
     MinContent,
     /// As much as the content wants.
@@ -221,9 +221,9 @@ pub enum AvailableSpace {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MeasureRequest {
     /// Width the layout already fixed.
-    pub known_width: Option<f32>,
+    pub known_width: Option<f64>,
     /// Height the layout already fixed.
-    pub known_height: Option<f32>,
+    pub known_height: Option<f64>,
     /// Width available.
     pub available_width: AvailableSpace,
     /// Height available.
@@ -233,7 +233,7 @@ pub struct MeasureRequest {
 impl MeasureRequest {
     /// A request for `width` fixed and any height (a host checks whether
     /// new content keeps its size this way, outside a layout pass).
-    pub fn at_width(width: f32) -> Self {
+    pub fn at_width(width: f64) -> Self {
         MeasureRequest {
             known_width: Some(width),
             known_height: None,
@@ -248,10 +248,10 @@ impl MeasureRequest {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Baseline {
     /// This far below the top of the content box.
-    FromTop(f32),
+    FromTop(f64),
     /// This far below the vertical center of the content box (negative:
     /// above it): a line centered in a box taller than itself.
-    FromCenter(f32),
+    FromCenter(f64),
 }
 
 /// A measured leaf's content size and, when it has text on a line, its
@@ -298,7 +298,7 @@ pub enum OverlayAt {
 /// Viewport fitting parameters for an overlay that opts into edge insets.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OverlayFit {
-    pub margin: f32,
+    pub margin: f64,
     pub keep_anchor_clear: bool,
     pub rtl: bool,
 }
@@ -336,7 +336,7 @@ pub struct OverlayProps {
     /// Alignment along the requested anchor side.
     pub align: OverlayAlign,
     /// The gap between the anchor and the overlay (logical px).
-    pub offset: f32,
+    pub offset: f64,
     /// Optional viewport bounds and ordered placement fallback.
     pub fit: Option<OverlayFit>,
     /// Confine interaction to this overlay while shown.
@@ -380,7 +380,7 @@ pub struct LayoutProps {
     /// padding, they take room inside the box (CSS `box-sizing:
     /// border-box`), so a change of width is a layout change and one of
     /// color or style is not.
-    pub border: Edges<f32>,
+    pub border: Edges<f64>,
     /// Space outside the border box.
     pub margin: Edges<Dimension>,
     /// Preferred border-box width.
@@ -396,9 +396,9 @@ pub struct LayoutProps {
     /// Maximum border-box height.
     pub max_height: Dimension,
     /// Share of positive free space assigned to this flex item.
-    pub grow: f32,
+    pub grow: f64,
     /// Relative shrinking factor when flex space is insufficient.
-    pub shrink: f32,
+    pub shrink: f64,
     /// Initial main-axis size of this flex item.
     pub basis: Dimension,
     /// Positioning mode relative to parent or window.
@@ -412,7 +412,7 @@ pub struct LayoutProps {
     /// `display: none`.
     pub hidden: bool,
     /// CSS `aspect-ratio` (width / height; `None`: auto).
-    pub aspect_ratio: Option<f32>,
+    pub aspect_ratio: Option<f64>,
     /// Grid container tracks and grid item placement (`None`: neither).
     pub grid: Option<Box<GridProps>>,
 }
@@ -457,12 +457,12 @@ impl Default for LayoutProps {
 pub enum Dimension {
     #[default]
     Auto,
-    Px(f32),
-    Percent(f32),
+    Px(f64),
+    Percent(f64),
     /// `percent`% of the reference plus `px` (CSS `calc(p% + npx)`).
     Calc {
-        percent: f32,
-        px: f32,
+        percent: f64,
+        px: f64,
     },
     /// CSS `min-content`, `max-content` and `fit-content`: a size (width,
     /// height, flex basis, a grid track) from the content. Elsewhere they

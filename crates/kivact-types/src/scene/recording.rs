@@ -22,7 +22,7 @@ pub struct DrawingLayer {
     /// Logical bounds of the compositing layer.
     pub area: Rect,
     /// Layer opacity multiplier; one is opaque.
-    pub opacity: f32,
+    pub opacity: f64,
     /// Compositing operation against the backdrop.
     pub blend: BlendMode,
     /// Filters applied in order to the layer.
@@ -69,7 +69,7 @@ impl PartialEq for Pixels {
 pub struct TextRun {
     pub text: String,
     pub origin: Point,
-    pub font_size: f32,
+    pub font_size: f64,
     pub weight: u16,
     pub color: Rgba,
     /// A family name or a generic family (`system-ui`, `sans-serif`,
@@ -82,9 +82,9 @@ pub struct TextRun {
     /// scene belongs to (its inherited text style).
     pub line_height: Option<LineHeight>,
     /// Extra space after every character, in px.
-    pub letter_spacing: f32,
+    pub letter_spacing: f64,
     /// Extra space after every space, in px.
-    pub word_spacing: f32,
+    pub word_spacing: f64,
     /// Pair kerning.
     pub kerning: crate::FontKerning,
     /// OpenType features.
@@ -99,7 +99,7 @@ pub enum DrawCmd {
         image: crate::Pixels,
         rect: Rect,
         source: Option<Rect>,
-        opacity: f32,
+        opacity: f64,
         pixelated: bool,
     },
     /// A frame of an image an external render engine shares, drawn like `Pixels` on the GPU of the
@@ -108,14 +108,14 @@ pub enum DrawCmd {
         frame: crate::ExternalFrame,
         rect: Rect,
         source: Option<Rect>,
-        opacity: f32,
+        opacity: f64,
         pixelated: bool,
     },
     ImagePart {
         source: crate::Asset,
         rect: Rect,
         crop: Option<Rect>,
-        opacity: f32,
+        opacity: f64,
         pixelated: bool,
     },
     Shape(Box<crate::ShapePaint>),
@@ -129,19 +129,19 @@ pub enum DrawCmd {
     },
     RoundedRect {
         rect: Rect,
-        radius: f32,
+        radius: f64,
         fill: Fill,
     },
     StrokeRect {
         rect: Rect,
-        width: f32,
+        width: f64,
         color: Rgba,
-        radius: f32,
+        radius: f64,
     },
     Line {
         from: Point,
         to: Point,
-        width: f32,
+        width: f64,
         color: Rgba,
     },
     Text(TextRun),

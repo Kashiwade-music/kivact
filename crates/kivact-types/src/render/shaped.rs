@@ -13,11 +13,11 @@ pub struct Glyph {
     /// Font-specific glyph identifier.
     pub id: u32,
     /// Horizontal baseline position.
-    pub x: f32,
+    pub x: f64,
     /// Vertical baseline position.
-    pub y: f32,
+    pub y: f64,
     /// Logical advance.
-    pub advance: f32,
+    pub advance: f64,
 }
 
 /// A shaped run retaining its font bytes; usable on any thread.
@@ -31,13 +31,13 @@ pub struct GlyphRun {
     /// Font face index.
     pub font_index: u32,
     /// Logical font size.
-    pub font_size: f32,
+    pub font_size: f64,
     /// Glyph positions relative to the run's layout origin.
     pub glyphs: Vec<Glyph>,
     /// Straight-alpha text color.
     pub color: Rgba,
     /// Normalized font variation coordinates.
-    pub normalized_coords: Vec<f32>,
+    pub normalized_coords: Vec<f64>,
 }
 
 /// A measured atomic object inserted at a UTF-8 boundary in a paragraph.
@@ -88,7 +88,7 @@ pub struct ShapedText {
     /// An empty list means every grapheme boundary is a stop.
     pub cluster_boundaries: Vec<u32>,
     /// The first line's baseline, from the top.
-    pub baseline: f32,
+    pub baseline: f64,
     /// The lines drawn with the text (underlines and overlines before the
     /// glyphs, line-throughs after them).
     pub decorations: Vec<TextDecorationRect>,
@@ -114,21 +114,21 @@ pub struct TextLine {
     /// paragraph from top to bottom.
     pub rect: Rect,
     /// The baseline, from the top of the paragraph.
-    pub baseline: f32,
+    pub baseline: f64,
     /// The distance from the baseline up to the top of the tallest font on
     /// the line.
-    pub ascent: f32,
+    pub ascent: f64,
     /// The distance from the baseline down to the bottom of the deepest font
     /// on the line.
-    pub descent: f32,
+    pub descent: f64,
     /// The distance from the baseline up to the top of capital letters
     /// (the largest of the line's fonts); 0 for a line without glyphs or a
     /// font that gives none.
-    pub cap_height: f32,
+    pub cap_height: f64,
     /// The distance from the baseline up to the top of short lowercase
     /// letters (the largest of the line's fonts); 0 for a line without
     /// glyphs or a font that gives none.
-    pub x_height: f32,
+    pub x_height: f64,
     /// Whether an ellipsis cut the line.
     pub cut: bool,
 }

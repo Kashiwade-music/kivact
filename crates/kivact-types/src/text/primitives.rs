@@ -105,39 +105,33 @@ pub enum LineHeight {
     #[default]
     Normal,
     /// A multiple of the font size (CSS `line-height: 1.5`).
-    Scale(f32),
+    Scale(f64),
     /// Logical px (CSS `line-height: 20px`).
-    Px(f32),
+    Px(f64),
 }
 
 impl LineHeight {
     /// A line height in logical pixels, independent of the font size.
     pub fn px(v: impl Into<f64>) -> Self {
-        LineHeight::Px(v.into() as f32)
+        LineHeight::Px(v.into())
     }
 }
 
 impl From<i32> for LineHeight {
     fn from(v: i32) -> Self {
-        LineHeight::Scale(v as f32)
+        LineHeight::Scale(v as f64)
     }
 }
 
 impl From<u32> for LineHeight {
     fn from(v: u32) -> Self {
-        LineHeight::Scale(v as f32)
-    }
-}
-
-impl From<f32> for LineHeight {
-    fn from(v: f32) -> Self {
-        LineHeight::Scale(v)
+        LineHeight::Scale(v as f64)
     }
 }
 
 impl From<f64> for LineHeight {
     fn from(v: f64) -> Self {
-        LineHeight::Scale(v as f32)
+        LineHeight::Scale(v)
     }
 }
 
@@ -150,7 +144,7 @@ pub struct TextMetrics {
     pub size: Size,
     /// The first line's baseline, from the top of the text (`0` for empty
     /// text). Place the text at `y - baseline` to put the baseline at `y`.
-    pub baseline: f32,
+    pub baseline: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
