@@ -339,8 +339,10 @@ pub enum ImeInput {
     },
     /// The IME committed `text`; any composition ended with it.
     Commit(String),
-    /// The IME took this range of the session's text for reconversion: the
-    /// next composition replaces it.
+    /// The IME took this UTF-8 byte range in the last surrounding-text
+    /// snapshot for reconversion: the next composition replaces it.
+    /// An editor that supplied an excerpt adds that excerpt's byte origin
+    /// when applying the range to its complete document.
     Selection(Range<usize>),
     /// The IME session ended without a commit: the composition is gone.
     End,
