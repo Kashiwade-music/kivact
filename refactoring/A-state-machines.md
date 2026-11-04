@@ -388,7 +388,7 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 
 ### SM-C27 共有の link の画素
 - **場所**: `gpu_interop/share/link.rs:110-145`（`Phase` の enum の外の `Open.pixels: Option<Pixels>`）
-- **解消後**: `Phase::Pixels(Pixels)` の variant に入れる
+- **解消後**: `Open.pixels` は `Mailbox<Pixels>`（S-9、V-4 の latest-wins/take-once）として `Phase` と独立して保持する。`publish_pixels` は GPU の request 中にも CPU picture を受け取る現在の契約を保存し、`Phase::Pixels` の variant に閉じ込めない（P-1 で code/doc を照合して主担当が訂正、DECISIONS）
 - **unit**: C-3
 
 ### SM-C28 embed の panic
@@ -1061,3 +1061,247 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **場所**: `kivact-ui-game/src/feedback.rs:274-285`、`surface.rs:120-133`（見えているときだけの `frame_loop` の同じ block）、`navigation.rs:131-133`（作り直しのときの `restore_focus` の var）、`display.rs:461`（`reveal_once`）
 - **解消後**: 見えているときだけ動かす loop は `frame_loop(..).while_shown(node_ref)`（`kivact::motion`。二か所の写しを消す）。focus の復元は `ui::pagination`（付録 C.2）の中の `use_list` の roving が持つ。`reveal_once` は `enum Reveal { Pending, Done }`
 - **unit**: K-4
+
+---
+
+## P-1 全数調査の追加（2026-11-04）
+
+以下の場所は P-1 の調査時点のもの。既存項目の同じ状態は再登録せず、別の状態の持ち主・同期規則だけを追加する。検索の除外理由と検査結果は [DECISIONS](DECISIONS.md) の P-1 に記録する。timer の解消後はすべて 18.13 節の `Step::after`。
+
+### SM-I901 scalar の track の取り付け
+- **場所**: `kivact-interaction/src/scalar/track.rs:130-153,203-252`（`Pointer.geometry`、`attached`、`grab`）
+- **現在**: `attach_track` が `geometry = Some` と `attached = true` を別々に書く。`grab` は geometry があるときだけ有効。
+- **不正**: 取り付け済みなのに geometry がない、未取り付けなのに grab がある。SM-I17 の settings と SM-I18 の touch の coast とは別の track の状態。
+- **解消後**: `Signal<TrackPhase>`、`enum TrackPhase { Detached, Attached { geometry: Geometry, gesture: TrackGesture } }`、`enum TrackGesture { Idle, Grabbing(Grab) }`。`attached` は memo、取り付けと grab の遷移だけが phase を書く。
+- **unit**: I-5
+
+### SM-I902 range の変更に追従する scalar の値
+- **場所**: `kivact-interaction/src/scalar/range.rs:83-92`、`range_scalar.rs:102-113`
+- **現在**: range が変わった後、effect が binding を範囲内へ戻す。二つの end は書く順まで effect が決める。
+- **不正**: 新しい range と古い範囲外の値が別々の段階で見える（S-5）。
+- **解消後**: scalar の machine が `RangeChanged(ScalarRange)` を受け、正規化と値の effect を一つの遷移で決める。range scalar は両端を同じ遷移で計算し、現在の書く順を effect の列に保存する。
+- **unit**: I-5
+
+### SM-I903 calendar の range の選び直し
+- **場所**: `kivact-interaction/src/calendar/state.rs:13-34,64-80`
+- **現在**: `Choice::Range { value, pick }` の `RangePick::End` と、binding が anchor の単日 range であることを effect で一致させる。
+- **不正**: 外部から value が変わっても effect が走るまで古い anchor の続きを選べる。SM-I26 の生存 token とは別。
+- **解消後**: `enum CalendarRangePhase { Start, End { anchor: CalendarDate, before: Option<DateRange> } }` を machine が持ち、`ExternalValueChanged` と日付の選択を同じ遷移入口で処理する。binding の更新と phase の reset は一度に決める。
+- **unit**: I-4
+
+### SM-U901 text input の callback の後付け
+- **場所**: `kivact-ui/src/text_input.rs:32-47,81-97,350-379`
+- **現在**: `invalid` と `edited` の `Rc<OnceCell<Rc<dyn Fn..>>>` を field の作成後、`into_node` で埋める。
+- **不正**: style と binding の callback が構築途中の空の slot を読む。builder の option の束とは別の S-7。
+- **解消後**: `into_node` で draft と validity を解決してから、callback を引数に取る完成した input を構築する。`OnceCell` を消し、draft の有無は `enum InputDraft { Immediate, Drafting(Installed) }` で分ける。公開 builder のメソッドはそのまま。
+- **unit**: U-1
+
+### SM-U902 number input の文字と値
+- **場所**: `kivact-ui/src/number_input.rs:191-239`
+- **現在**: `NumberText` と scalar の binding を effect で同期し、focus を失ったときも effect が文字を戻す。
+- **不正**: 外部値と表示の文字が effect まで食い違う。既存の `NumberText` enum があっても遷移の入口が分散する。
+- **解消後**: `Signal<NumberText>` を machine が持ち、`ValueChanged`・`Typed`・focus の out event を受ける。数値と文字・`produced` は一つの遷移で決める（既存の文字の保持条件は保存）。
+- **unit**: U-1
+
+### SM-U903 toast の退場する行
+- **場所**: `kivact-ui/src/toast_rows.rs:21-47,58-87`
+- **現在**: `slots` は退場中を含む全行、`live_slots` はその live な部分集合。正常な live 行は両方に入る。この包含関係と `mounted`・`height`・animation の値から行の段階を推定し、複数の effect が collection の追加・更新・削除を分担する。
+- **不正**: 同じ live 行を二つの collection に保持する重複と、行の phase が複数の signal/effect に分散するため、包含関係と phase の一致を更新順で保つ必要がある。同じ id の再表示の区別も生の世代 counter に依存する。両方への所属自体は正常。SM-U02 の swipe とは別。
+- **解消後**: `enum ToastRowPhase { Mounting, Live { height: f32 }, Leaving { height: f32 } }` を行ごとの machine が持つ。一つの行表で phase を管理し、animation 完了 event で削除する。再表示の識別は `Generation`。
+- **unit**: U-1
+
+### SM-U904 table の filter の文字と validation
+- **場所**: `kivact-ui/src/data_table/filters.rs:239-269`
+- **現在**: `raw`・`valid`・`sent` を別々に更新し、外部の binding が変わったら effect が三つを戻す。
+- **不正**: 新しい文字と前の validation が共存する。SM-I27 の table settings とは別の ui の入力。
+- **解消後**: `enum FilterDraft { Valid { text: String, value: Option<FilterValue> }, Invalid { text: String } }` を一つの signal に置き、valid は memo。最後に外へ書いた値は `Sent<Option<FilterValue>>`、外部値と文字の編集は一つの遷移で決める。
+- **unit**: U-1
+
+### SM-U905 progress と button の motion の段階
+- **場所**: `kivact-ui/src/progress.rs:166-198`、`button.rs:240-329`
+- **現在**: progress は frame loop の start/stop と `phase` を effect で同期する。button は loading の表示と `reveal_pending`、sleep、fade の開始を別々に持つ。
+- **不正**: 止まった loop に前の phase が残る、loading の内容と spinner の表示の開始が別の状態になる。
+- **解消後**: progress は `enum ProgressMotionPhase { Stopped, Running }`、button は `enum BusyPhase { Idle, Waiting, Revealing, Shown }` を machine が持つ。progress の位相は既存と同じ clock の絶対時刻から計算し、再開時や period 変更時にも開始時刻からの相対計算へ変えない。button の待ちは `Step::after`、start/stop は遷移 effect。
+- **unit**: U-1
+
+### SM-K901 pie menu の公開状態
+- **場所**: `kivact-ui-creative/src/pie.rs:36-62,84-105`
+- **現在**: 公開 `PieState { open, held, center, hot }`。close は `open` だけを書き換える。
+- **不正**: closed でも held/hot が残り、caller は任意の組合せを作れる。
+- **解消後**: 公開 `enum PieState { Closed, Open { mode: PieMode, center: Point, hot: Option<usize> } }`、`enum PieMode { Click, Held }`。閉じる遷移は `Closed`。公開型の変更は P-1 主担当がユーザーの自己判断の指示に従って確定（DECISIONS）。
+- **unit**: K-1
+
+### SM-K902 color wheel と gradient の入力の複製
+- **場所**: `kivact-ui-creative/src/color_wheel/state.rs:20-28`、`color_wheel/view.rs:187-212`、`gradient/state.rs:22-31`、`gradient/view.rs:154-164`
+- **現在**: `blocked: Signal<bool>` を part の disabled/hidden から effect で複製し、別の edit/drag を cancel。drag も `Var<Option<Drag>>` に後付けする。
+- **不正**: part が無効でも effect まで編集が有効。SM-K30 の drag 開始値の写しとは別の S-4/S-7。
+- **解消後**: blocked は part の値からの memo、drag は完成した controller の構築引数。無効化と focus の out event を編集 machine が受け、同じ遷移で cancel を決める。
+- **unit**: K-1
+
+### SM-K903 color wheel の値と active channel
+- **場所**: `kivact-ui-creative/src/color_wheel/view.rs:134-142,200-205`、`color_wheel/fields.rs:172-184`
+- **現在**: hue を外部色から effect で同期し、alpha がなくなると別の effect が active channel を Hue へ、palette の縮小で選択を clamp する。
+- **不正**: 使えない Alpha や消えた swatch を effect まで選んだ状態になる。
+- **解消後**: `Signal<ColorControls>`、`struct ColorControls { channel: Channel, swatch: SwatchSelection, hue: f64 }`、`enum SwatchSelection { None, Selected(usize) }`。channel と swatch は独立して共存する現在の意味を保存し、`ColorChanged`・`AlphaChanged`・`PaletteChanged` の遷移内でそれぞれの有効性を決める。無彩色で hue を保持する現在の規則も保存。
+- **unit**: K-1
+
+### SM-K904 creative range の active end
+- **場所**: `kivact-ui-creative/src/range.rs:205-225`
+- **現在**: pressed を effect で active に写し、前回の両端 `moved` と比較して動いた end を推定する。
+- **不正**: press と active end、値と active end の変更が別の段階（S-4/S-5）。SM-K30 の drag origin とは別。
+- **解消後**: press の event と `ValueChanged { before, now }` を range の machine が受け、`RangePart` の変更を遷移内で決める。前回値は machine の単一の snapshot に閉じる。
+- **unit**: K-4
+
+### SM-K905 picker の column の追従
+- **場所**: `kivact-ui-creative/src/picker.rs:474-480,532-562`
+- **現在**: query/list が変わると effect が `active_column` を次の候補へ直す。
+- **不正**: 候補のない column が effect まで active。既存 `PickerPhase` は報告の一度だけの制御で、この column とは別。
+- **解消後**: `enum PickerColumn { Empty, Active(usize) }` を machine に置き、`QueryChanged`・`ItemsChanged`・column 移動の遷移内で選ぶ。preview と pick は選んだ column と同じ遷移の effect。
+- **unit**: K-1
+
+### SM-K906 creative editor の focus と data の取消し
+- **場所**: `kivact-ui-creative/src/editors/node/view.rs:196-225`、`editors/arrangement/view.rs:288-310`、`editors/time/view.rs:217-235`、`editors/graph/view.rs:243-260`
+- **現在**: node editor は focus/disabled の effect が接続の `mode` と edit を終了する。arrangement/time/graph も focus/visibility/data の effect が現在の drag を cancel する。
+- **不正**: focus を失っても接続/drag が残り、消えた item の drag は effect まで有効。SM-K11 の key と SM-K30 の gesture origin とは別。
+- **解消後**: 各 editor の gesture/接続の machine が focus の out・visibility・無効化・data の変更を受け、取消しと rollback を同じ遷移で決める。
+- **unit**: K-1
+
+### SM-K907 editor の region id の純粋でない計算
+- **場所**: `kivact-ui-creative/src/editors/shared/targets.rs:78-90`
+- **現在**: memo の中で `Var<TargetTable>::update` が region id の割当て表と counter を更新する。
+- **不正**: pure な計算が状態を変更する。単なる geometry cache と違い、割当てた id が外へ出る。
+- **解消後**: target source の変更を controller の遷移で受け、id の割当てと `Scene` を同時に決める。割当ては `Generation` を包む名前の付いた allocator、返す `Value` は完成した scene の memo にする。
+- **unit**: K-1
+
+### SM-K908 meter の clip hold
+- **場所**: `kivact-ui-creative/src/audio/meter.rs:88-103`
+- **現在**: level の effect が clipped を立て、press の handler が下ろす。
+- **不正**: level の変更と hold の開始が別の段階（S-5）。単独 bool を理由に検出するのでなく effect との同期を対象にする。
+- **解消後**: `enum MeterClip { Clear, Held }` の machine が `LevelChanged` と `Reset` を受ける。level > 1 の遷移が Held にする。
+- **unit**: K-1
+
+### SM-K909 soft rich blocks の編集状態
+- **場所**: `kivact-ui-soft/src/rich_blocks.rs:20-52,103-117,176-190,265-293`
+- **現在**: source/document の両方を保存し effect で一致させ、target/composing/whole/focus_after_mount を別々に変更する。
+- **不正**: 外部 source と古い document、全体選択と composition、削除済み target の組合せが表せる。
+- **解消後**: `enum BlockEditPhase { Idle, Focused { target: NodeRef, selection: BlockSelection, composition: BlockComposition }, AwaitingMount { block: usize } }`、`BlockSelection::{Caret, Whole}`、`BlockComposition::{Idle, Composing}`。source の変更と block 編集を一つの遷移で parse/write し、document はその snapshot。focus の event で遷移する。
+- **unit**: K-1
+
+### SM-K910 soft timer と timestamp の表示の更新
+- **場所**: `kivact-ui-soft/src/timer.rs:93-116`、`timestamp.rs:289-329`
+- **現在**: timer は effect ごとに `Option<Task>` を cancel/restart し、display を書く。timestamp は now/value と display を effect で同期する。
+- **不正**: start や now の変更と表示が別の段階。timer の登録/実行中を task の有無で表す。
+- **解消後**: timer は `enum ElapsedTimer { Running { start: SystemTime, next: Duration } }` の machine が start の変更と tick を受け、`Step::after` を返す。文字は snapshot からの memo。timestamp の文字も now/value からの memo、tick の時刻だけを machine が更新する。
+- **unit**: K-1
+
+### SM-K911 soft time input の draft
+- **場所**: `kivact-ui-soft/src/time_input.rs:112-153`
+- **現在**: draft と invalid を別々に持ち、外部 value を effect で draft に写して invalid を消す。
+- **不正**: 無効な文字が新しい value と共存し、memo が空文字の invalid を隠す。SM-K18/19 の日付・日時の field とは別の time field。
+- **解消後**: `enum TimeDraft { Empty, Valid { text: String, value: TimeOfDay }, Invalid(String) }` を signal に持ち、外部値・入力・commit の遷移で一度に決める。invalid は memo。
+- **unit**: K-1
+
+### SM-K912 calendar kit の範囲選択と月の通知
+- **場所**: `kivact-ui-soft/src/calendar.rs:303-319,348-380`、`kivact-ui-pop/src/date/calendar.rs:193-199`
+- **現在**: soft は local range と外部 value、pending anchor、hovered を effect で同期する。月の変更は previous_month との比較で announcement を作る。pop は selected の月を effect で visible に写す。
+- **不正**: 外部 range が変わっても古い pending が残る。月の表示と通知が別の段階。SM-K28/29 の swipe/wheel とは別。
+- **解消後**: range は `enum KitRangePick { Idle, Picking { anchor: CalendarDate, preview: Option<CalendarDate> } }`、range と month の変更を calendar の遷移内で決め、announcement はその effect。pop の visible month も選択変更を同じ controller の event にする。
+- **unit**: K-1
+
+### SM-K913 pop の typed date の追従と validation
+- **場所**: `kivact-ui-pop/src/form.rs:36-70`、`date/text.rs:67-94`
+- **現在**: `Draft::new` の effect が外部 value を text に写す。DateText の checked は focus を見た effect で立てる。
+- **不正**: text/value と validation の段階が分散する。SM-K20 の range の選択順とは別。
+- **解消後**: `enum TypedDate { Following(CalendarDate), Editing { text: String, validation: DateValidation } }`、`DateValidation::{Unchecked, Checked}` を machine が持つ。外部値と入力と focus の out event を遷移入口にし、parsed/shown は memo。
+- **unit**: K-1
+
+### SM-K914 questionnaire の提出の失効
+- **場所**: `kivact-ui-basic/src/questionnaire.rs:448-472`
+- **現在**: 提出済みの `Phase` に step/answers の写しを保存し、effect が変更を見て Asking に戻す。
+- **不正**: 新しい回答なのに effect まで Submitted と見える。
+- **解消後**: 既存 `Phase::{Asking, Submitted { at, answers }}` を machine に置き、`StepChanged`・`AnswersChanged`・`Submit` を遷移入口にする。提出と失効を一つの場所で決める。
+- **unit**: K-1
+
+### SM-K915 skip link の focus の要求
+- **場所**: `kivact-ui-soft/src/app_shell.rs:238-260`
+- **現在**: `skip_requested` を effect が見て focus を要求し、別の effect が focus を失ったら消す。
+- **不正**: focus の要求と focus の状態を effect 二つの順で表す。SM-K09 の mobile nav の状態とは別。
+- **解消後**: `enum SkipFocus { Idle, Requested }` の machine が activate と focus の in/out event を受ける。focus の要求は activate の遷移 effect。
+- **unit**: K-1
+
+### SM-K916 avatar の status label の複製
+- **場所**: `kivact-ui-soft/src/avatar_status_dot.rs:113-121`、`avatar.rs` の `AvatarStatusContext`
+- **現在**: status dot の label を context の signal へ effect で写し、cleanup で None に戻す。
+- **不正**: status の label と avatar の accessible name が effect まで食い違う。SM-K32 の画像 fallback とは別。
+- **解消後**: context は label の `Value` を持つ登録を mount 時に受け、名前は登録された source からの memo。登録の所属は `enum AvatarStatusSource { None, Mounted { label: Value<Option<String>> } }` とし、cleanup はその遷移で外す。
+- **unit**: K-6
+
+### SM-K917 outliner の active item の reveal
+- **場所**: `kivact-ui-creative/src/outliner/view.rs:235-275`
+- **現在**: active の変更を effect が見て ancestors を expanded に足し、未 mount の行は pending に保存する。
+- **不正**: active、展開済みの ancestors、pending の reveal が別々の段階になる。SM-K11 の key と SM-K30 の drag origin とは別。
+- **解消後**: `enum OutlinerReveal { Idle, AwaitingRow { target: u64 } }` を machine が持ち、active の変更と ancestors の展開と reveal を一つの遷移で決める。row の token は `Generation`。
+- **unit**: K-4
+
+### SM-K918 viewport の最後に報告した size
+- **場所**: `kivact-ui-creative/src/viewport_surface.rs:245-263`
+- **現在**: `previous: Var<Option<SurfaceSize>>` を effect が読んで更新し、resize callback の重複を除く。
+- **不正**: 最後に渡した値の規則を生の Option と呼び出し順で表している（13.2 の cache の行）。
+- **解消後**: `Sent<SurfaceSize>`。resize callback を呼ぶ一つの入口だけが `update` する。size 自体は rect と scale の memo。
+- **unit**: K-1
+
+### SM-K919 typeahead の選択済み label の cache
+- **場所**: `kivact-ui-soft/src/typeahead.rs:184-224`
+- **現在**: `cached` は選択済み item の label を保持するための履歴。検索完了後の effect が新しい結果を基に、旧 cache にある選択済み item の不足分を残す。`labels` は source と cache からの memo、`options` は resource の `state` の Ready を直接読む memo（211〜224行）で、cache を候補の状態として使わない。
+- **不正**: label の保持規則を生の signal と effect の更新手順で表しており、cache の責務と保持する条件が明示の型に閉じていない。options の遅延や検索状態の二重保持を問題としない。SM-K16 の open/filtering mode とは別の S-9 の cache。
+- **解消後**: S-9 の明示の `LabelCache<K>` に保持規則を閉じる。検索完了 event で、新しい結果を基に現在と同じ選択済み label の保持規則を更新する。`labels` は source と cache からの memo、`options` は resource 状態を直接読む memo を維持し、現在の検索結果を別 controller にも保存しない。debounce/cancellation は既存 resource が所有し、callback と表示の契約を変えない。
+- **unit**: K-2
+
+### SM-I904 command palette の閉じると query の reset
+- **場所**: `kivact-interaction/src/palette.rs:326-331`
+- **現在**: caller の open と combobox の query/highlight を別々に持ち、閉じた後の effect が `combobox.reset()` を呼ぶ。
+- **不正**: 閉じた palette に前回の query/highlight が effect まで残る（helper 経由の S-5）。
+- **解消後**: palette の machine の `Closed/Open` の遷移が combobox の query/highlight の reset を同時に決める。combobox の snapshot を再利用し、別の query の写しを作らない。
+- **unit**: I-1
+
+### SM-K920 bezier の無効化と drag の取消し
+- **場所**: `kivact-ui-creative/src/bezier/view.rs:178-185`
+- **現在**: part の disabled/hidden を effect が見て `gesture.cancel()` を呼ぶ。
+- **不正**: part が無効になっても effect まで drag が active。SM-K30 の drag origin とは別の入力との同期。
+- **解消後**: gesture の machine が part の入力変化を受け、無効化と cancel を同じ遷移で決める。disabled/hidden の写しは保存しない。
+- **unit**: K-4
+
+### SM-K921 color popup の開閉と edit session
+- **場所**: `kivact-ui-creative/src/color_popup.rs:22-28,54-69`
+- **現在**: open は signal、snapshot は別の EditSession。閉じた後の effect が commit し、Escape は dismiss callback が cancel する。
+- **不正**: 閉じているのに session が active、Escape の cancel と close の commit が二つの入口に分かれる。
+- **解消後**: `enum ColorPopupPhase { Closed, Editing { initial: Color } }` を machine が持つ。開く・Escape・その他の close の遷移が snapshot/rollback/commit と popup の effect を一度に決める。
+- **unit**: K-1
+
+### SM-K922 pagination の page の draft
+- **場所**: `kivact-ui-soft/src/pagination.rs:626-642`
+- **現在**: page と draft を effect で同期し、focus を失った effect が commit する。
+- **不正**: page と前の文字が別の段階で見え、focus の event でなく派生値の観測順で commit する。
+- **解消後**: `enum PageDraft { Following(u32), Editing(String) }` の machine が page の変更・入力・Enter・focus の out を受け、clamp と書く値と表示文字を一つの遷移で決める。
+- **unit**: K-1
+
+### SM-K923 nav heading の二つの開閉状態
+- **場所**: `kivact-ui-soft/src/nav_heading.rs:119-132`
+- **現在**: use_hover_surface の shown と use_menu の shown を別々に持ち、effect が menu の open/close を呼ぶ。
+- **不正**: hover surface が開いて menu が閉じた組合せを effect で直す（S-4/S-5）。SM-K13 の top/side nav とは別の heading の adapter。
+- **解消後**: `use_navigation_menu` の一つの開閉 machine を使い、hover の timing と menu の session を同じ遷移で決める。表示の shown はその snapshot からの memo。
+- **unit**: K-1
+
+### SM-R901 generational arena の slot
+- **場所**: `kivact-reactive/src/arena.rs:33-37,57-68,96-122`
+- **現在**: `Entry { generation, value: Option<T>, tomb: Option<Tomb> }`。free list への所属と generation の飽和から reusable/retired を推定する。
+- **不正**: value と tomb が同時に Some、occupied slot が free list にある組合せを表せる。tomb 自体が None の削除も現在の API が認める。
+- **解消後**: `enum SlotState<T> { Occupied(T), Vacant { tomb: Option<Tomb> }, Retired { tomb: Option<Tomb> } }`。slot の generation は `SlotGeneration(u32)` に閉じ、remove/insert の遷移だけが SlotState と free list を更新する。飽和時の再利用禁止と tomb の診断の現在の規則を保存。
+- **unit**: R-2
+
+### SM-A901 native input の wake と環境の後付け
+- **場所**: `arvane-native/src/native_input/state.rs:33-60`、`runtime.rs:653-664`、`embed/windows/window.rs:295`
+- **現在**: NativeInput::default の後に scale/reduced_motion/mouse/locale と waker を埋める。native runner は Some(waker)、embed は既定の None のままで直接 event を届ける。
+- **不正**: native input が未設定の環境と None の waker で存在でき、subclass の設定通知は waker がないと wake しない。SM-A08 の take mailbox と異なり、waker は一度だけの構築情報。
+- **解消後**: `NativeInput::new(environment, wake)` の構築引数にし、`enum InputWake { Direct, EventLoop(ShellWaker) }` を保存する。embed の Direct と native の EventLoop を明示し、後付けの RefCell<Option<ShellWaker>> を消す。環境のその後の変更は現在と同じ event で更新する。
+- **unit**: A-3
