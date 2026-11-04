@@ -17,7 +17,7 @@ use std::rc::Rc;
 /// How far a text in the style `text` paints out of its box (its font size
 /// and shadows): the culling of the paint list depends on it.
 pub(crate) fn text_reach_of(text: &ComputedTextStyle) -> f64 {
-    kivact_lower::glyphs::text_reach(text.font_size, &text.shadows)
+    crate::lower::glyphs::text_reach(text.font_size, &text.shadows)
 }
 
 impl Model {

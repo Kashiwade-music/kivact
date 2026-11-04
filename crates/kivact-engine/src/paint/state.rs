@@ -23,7 +23,7 @@ pub(crate) struct PaintState {
     pub(crate) look: Vec<Option<Look>>,
     pub(super) scale: f64,
     pub(super) raster: Cell<f64>,
-    pub(crate) scene_cache: RefCell<kivact_lower::SceneCache>,
+    pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
     pub(super) list: PaintList,

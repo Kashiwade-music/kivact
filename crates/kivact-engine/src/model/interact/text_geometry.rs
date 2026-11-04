@@ -6,7 +6,7 @@
 //! itself is the model's (`kivact_editing::EditState`).
 //!
 //! Invariants:
-//! - Everything here reads the input's lines (`kivact-text`), shaped one
+//! - Everything here reads the input's lines (`text_input`), shaped one
 //!   hard line at a time: the caret, the pointer and the IME cost the
 //!   lines they touch, not the text.
 //! - Arvane's shaping carets carry Unicode scalar offsets; the
@@ -48,7 +48,7 @@ use kivact_types::{NodeId, Point, Rect};
 use crate::model::interact::visual;
 use crate::model::transform::map_rect;
 
-use kivact_text::{line_height, line_offset};
+use crate::text_input::{line_height, line_offset};
 
 /// Shape a non-editor text node with the same width allowance and
 /// color-independent typography as the layout diagnostics.
@@ -59,7 +59,7 @@ pub(crate) fn shape_static_text(
     area_width: f64,
 ) -> Option<std::sync::Arc<kivact_types::ShapedText>> {
     let node = host.node(id)?;
-    let mut style = kivact_lower::assets::text_style(engine, &host.text_props(id));
+    let mut style = crate::lower::assets::text_style(engine, &host.text_props(id));
     style.color = kivact_types::ComputedTextStyle::default().color;
     style.decoration.color = None;
     let width = Some(area_width.max(0.0) + 1.0);

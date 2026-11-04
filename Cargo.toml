@@ -15,8 +15,6 @@ members = [
     "crates/kivact-ui-soft",
     "crates/kivact-engine",
     "crates/kivact-editing",
-    "crates/kivact-lower",
-    "crates/kivact-text",
     "crates/kivact-layout",
     "dev/tests/docs",
     "templates/basic",
@@ -172,12 +170,6 @@ opt-level = 3
 [profile.dev.package.accesskit_consumer]
 opt-level = 3
 [profile.dev.package.accesskit_windows]
-opt-level = 3
-
-[profile.dev.package.kivact-lower]
-opt-level = 3
-
-[profile.dev.package.kivact-text]
 opt-level = 3
 
 [profile.dev.package.kivact-layout]

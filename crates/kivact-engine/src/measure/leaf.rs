@@ -32,7 +32,7 @@
 //! - A leaf's first baseline (`LeafSize::baseline`, which the layout
 //!   places from the border box's top as taffy's first baseline): a text's
 //!   first line's; a single-line input's from its content box's centre
-//!   (the line box is centered there, `kivact_text::line_offset`); a
+//!   (the line box is centered there, `crate::text_input::line_offset`); a
 //!   multiline input's from its top; an input with no text a space's. An
 //!   image, and a measured leaf that gives none, have none (the bottom of
 //!   the box). A new baseline at the same size lays out again.
@@ -43,7 +43,7 @@
 //!   half a pixel of slack: the layout rounds boxes to
 //!   pixels, and a box narrower than the shaped line would make the paint
 //!   (which shapes at the box) wrap it.
-//! - Native fields measure from their editing rows (`kivact-text`).
+//! - Native fields measure from their editing rows (`text_input`).
 //!   Multiline fields can wrap to the available width and clamp the
 //!   preferred height to a range of visual rows. Unwrapped fields measure
 //!   the widths of lines starting in the first 16 KiB.
@@ -83,11 +83,11 @@ use crate::tree::NodeTree;
 use kivact_types::{AvailableSpace, MeasureRequest};
 use kivact_types::{Baseline, LeafSize, NodeId, Size};
 
+use crate::lower::assets::ArvaneAssets;
+use crate::lower::assets::text_style;
 use crate::measure::editor::EditorNode;
 use crate::measure::state::{MeasureColumns, TextExtents};
-use kivact_lower::assets::ArvaneAssets;
-use kivact_lower::assets::text_style;
-use kivact_text::{line_height, line_offset};
+use crate::text_input::{line_height, line_offset};
 
 /// Measures leaves with an Arvane engine and the host's assets.
 pub(crate) struct Measure<'a> {
@@ -373,8 +373,8 @@ pub(crate) fn rich_spans(
     if spans.is_empty() {
         return Vec::new();
     }
-    kivact_lower::conversion::spans(spans, style.font_size, kivact_types::Rgba::sanitize, |f| {
-        kivact_lower::assets::family(engine, Some(f))
+    crate::lower::conversion::spans(spans, style.font_size, kivact_types::Rgba::sanitize, |f| {
+        crate::lower::assets::family(engine, Some(f))
     })
 }
 
@@ -410,7 +410,7 @@ struct LeafText<'a> {
 
 impl LeafText<'_> {
     fn inherited(&self, run: &kivact_types::TextRun) -> Option<&kivact_types::ComputedTextStyle> {
-        kivact_lower::glyphs::inherits(run).then(|| {
+        crate::lower::glyphs::inherits(run).then(|| {
             &**self
                 .inherited
                 .get_or_init(|| crate::measure::computed_text(self.tree, self.columns, self.id))
@@ -421,7 +421,7 @@ impl LeafText<'_> {
 impl kivact_types::TextShaper for LeafText<'_> {
     fn measure(&self, run: &kivact_types::TextRun) -> kivact_types::TextMetrics {
         let inherited = self.inherited(run);
-        kivact_lower::glyphs::measure_run(&mut self.engine.borrow_mut(), run, inherited)
+        crate::lower::glyphs::measure_run(&mut self.engine.borrow_mut(), run, inherited)
     }
 
     fn shape(
@@ -430,7 +430,7 @@ impl kivact_types::TextShaper for LeafText<'_> {
         max_width: Option<f64>,
     ) -> Option<std::sync::Arc<kivact_types::render::ShapedText>> {
         let inherited = self.inherited(run);
-        kivact_lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
+        crate::lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
     }
 
     fn shape_inline(
@@ -440,7 +440,7 @@ impl kivact_types::TextShaper for LeafText<'_> {
         boxes: &[kivact_types::InlineBox],
     ) -> Option<kivact_types::ShapedInlineText> {
         let inherited = self.inherited(run);
-        kivact_lower::glyphs::shape_inline_run(
+        crate::lower::glyphs::shape_inline_run(
             &mut self.engine.borrow_mut(),
             run,
             inherited,

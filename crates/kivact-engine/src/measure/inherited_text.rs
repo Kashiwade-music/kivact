@@ -52,7 +52,7 @@ pub(crate) fn input_style(
     id: NodeId,
     engine: &mut arvane::Engine,
 ) -> kivact_types::ComputedTextStyle {
-    let mut style = kivact_lower::assets::text_style(engine, &computed_text(tree, columns, id));
+    let mut style = crate::lower::assets::text_style(engine, &computed_text(tree, columns, id));
     style.wrap = kivact_types::TextWrap::NoWrap;
     style.decoration = kivact_types::TextDecoration::default();
     style.overflow = kivact_types::TextOverflow::Clip;

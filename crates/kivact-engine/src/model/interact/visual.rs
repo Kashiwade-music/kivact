@@ -15,7 +15,7 @@ use kivact_types::{NodeId, PaintProps, Rect};
 /// The paint `id` is drawn with now (state deltas applied), sanitized.
 pub(crate) fn paint(host: &Model, id: NodeId) -> PaintProps {
     let mut p = host.effective_paint(id);
-    kivact_lower::sanitize::paint(&mut p);
+    crate::lower::sanitize::paint(&mut p);
     p
 }
 
@@ -41,7 +41,7 @@ pub(crate) fn content_at(bounds: Rect, content: Rect) -> Rect {
 /// `bounds` without its visible border: where canvas scenes are placed
 /// and the content of a clipping node is clipped (before its inner radii).
 pub(crate) fn padding_box(bounds: Rect, paint: &PaintProps) -> Rect {
-    let b = kivact_lower::shape::border_widths(paint.border.as_ref());
+    let b = crate::lower::shape::border_widths(paint.border.as_ref());
     Rect {
         x: bounds.x + b.left,
         y: bounds.y + b.top,

@@ -1,11 +1,11 @@
 //! Role: A node's look as the paint list compares it: paint props and stacking.
 
 use super::ink::EVERYWHERE;
+use crate::lower::effects;
+use crate::lower::sanitize::{extent, offset, unit};
 use crate::model::Model;
 use crate::paint::state::Look;
 use crate::tree::node::HostNode;
-use kivact_lower::effects;
-use kivact_lower::sanitize::{extent, offset, unit};
 use kivact_types::{Edges, FilterOp, NodeId, PaintProps, Rect};
 
 impl Look {
@@ -25,7 +25,7 @@ impl Look {
             .fold(0.0, f64::max);
         let ring = p.ring.map_or(0.0, |r| extent(r.width));
         let filter: &[FilterOp] = p.effects.as_ref().map_or(&[], |e| &e.filter);
-        let border = kivact_lower::shape::border_widths(p.border.as_ref());
+        let border = crate::lower::shape::border_widths(p.border.as_ref());
         let items = [
             p.background.is_some(),
             border != Edges::all(0.0),

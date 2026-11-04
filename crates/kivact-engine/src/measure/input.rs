@@ -1,8 +1,8 @@
 //! Role: Incrementally reconcile one explicitly borrowed editor source.
 use crate::measure::editor::EditorNode;
 use crate::measure::state::MeasureColumns;
+use crate::text_input::{EditLines, RefreshError, RefreshMode, Source};
 use crate::tree::NodeTree;
-use kivact_text::{EditLines, RefreshError, RefreshMode, Source};
 use kivact_types::NodeId;
 use std::cell::RefMut;
 

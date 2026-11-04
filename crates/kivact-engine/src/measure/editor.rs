@@ -8,9 +8,9 @@ pub(crate) struct EditorNode {
     pub(crate) editor: Editor,
     /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
     /// preserve the future crate DAG.
-    pub(crate) lines: RefCell<Option<kivact_text::EditLines>>,
+    pub(crate) lines: RefCell<Option<crate::text_input::EditLines>>,
     /// Width probes must not evict the geometry of the visible wrapped rows.
-    pub(crate) measure_lines: RefCell<Option<kivact_text::EditLines>>,
+    pub(crate) measure_lines: RefCell<Option<crate::text_input::EditLines>>,
     /// A controlled value given while the IME composes, taken when the
     /// composition ends.
     pub(crate) pending_controlled: Option<Rc<str>>,

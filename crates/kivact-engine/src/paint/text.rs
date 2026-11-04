@@ -1,10 +1,10 @@
 //! Role: Model-aware fill, scene and text painting orchestration.
 
+use crate::lower::context::Context;
+use crate::lower::effects::Tint;
+use crate::lower::glyphs::{Colors, push_text};
+use crate::lower::shape::BoxShape;
 use crate::model::Model;
-use kivact_lower::context::Context;
-use kivact_lower::effects::Tint;
-use kivact_lower::glyphs::{Colors, push_text};
-use kivact_lower::shape::BoxShape;
 use kivact_types::{DrawList, Fill, FillLayer, NodeId, Point, Rect};
 
 impl Model {
@@ -16,13 +16,15 @@ impl Model {
 
     pub(crate) fn fill(
         &self,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
         shape: &BoxShape,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
     ) {
-        self.painting().fill(out, shape, fill, tint, origin);
+        let context = self.painting();
+        context.fill(out, shape, fill, tint, origin);
+        context.finish();
     }
 
     pub(crate) fn layer_paint(
@@ -31,7 +33,10 @@ impl Model {
         area: Rect,
         origin: Point,
     ) -> Option<kivact_types::render::Paint> {
-        self.painting().layer_paint(layer, area, origin)
+        let context = self.painting();
+        let paint = context.layer_paint(layer, area, origin);
+        context.finish();
+        paint
     }
 
     /// Paint `scene`, the draw `layer` (0: draw, 1: draw-over) of node `id`,
@@ -47,16 +52,16 @@ impl Model {
         origin: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let inherited = scene
             .cmds
             .iter()
-            .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if kivact_lower::glyphs::inherits(run)))
+            .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if crate::lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
         let context = self.painting();
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
-        let dropped = context.dropped();
+        let dropped = context.finish().dropped;
         if dropped == 0 {
             self.paint
                 .dropped_reported
@@ -77,14 +82,14 @@ impl Model {
         area: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let Some(n) = self.node(id) else {
             return;
         };
         let props = self.text_props(id);
         let color = tint.color(self.text_color(id));
-        let mut style = kivact_lower::assets::text_style(engine, &props);
+        let mut style = crate::lower::assets::text_style(engine, &props);
         let content = n.content().unwrap_or("");
         let spans = n.spans();
         // One pixel of slack over the laid-out width keeps a pixel-rounded
@@ -106,11 +111,11 @@ impl Model {
         } else {
             style.color = color;
             style.decoration.color = props.decoration.color.map(|c| tint.color(c));
-            let rich = kivact_lower::conversion::spans(
+            let rich = crate::lower::conversion::spans(
                 spans,
                 style.font_size,
                 |c| tint.color(c),
-                |f| kivact_lower::assets::family(engine, Some(f)),
+                |f| crate::lower::assets::family(engine, Some(f)),
             );
             let text = kivact_types::render::RichText {
                 text: content,

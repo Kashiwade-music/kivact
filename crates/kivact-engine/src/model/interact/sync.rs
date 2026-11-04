@@ -31,10 +31,10 @@
 //!   lint, then syncs again to dispatch that geometry.
 
 use crate::contract::{HostEvent, NodeType};
+use crate::lower::AssetEvent;
 use crate::model::Model;
 use crate::model::changes::{Dirty, Geometry};
 use arvane::asset::AssetStore;
-use kivact_lower::AssetEvent;
 use kivact_types::{NodeId, Size};
 
 impl Model {
@@ -188,7 +188,7 @@ impl Model {
         };
         if let Some(p) = n.paint() {
             self.paint
-                .note_backdrop(kivact_lower::effects::backdrop_reach(p));
+                .note_backdrop(crate::lower::effects::backdrop_reach(p));
         }
         let look = n.paint().map_or_else(
             || crate::paint::state::Look::of(&kivact_types::PaintProps::default()),

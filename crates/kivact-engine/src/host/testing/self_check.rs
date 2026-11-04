@@ -21,7 +21,8 @@ impl ArvaneTestHost {
                 .as_deref()
                 .map(|editor| editor.editor.state())
                 .map_or(0, |edit| edit.caret());
-            let checked = model.refresh_lines(*id, &mut engine, kivact_text::RefreshMode::Verify);
+            let checked =
+                model.refresh_lines(*id, &mut engine, crate::text_input::RefreshMode::Verify);
             let discrepancies = match checked {
                 Err(error) => error.discrepancies,
                 Ok(Some(refreshed)) => {

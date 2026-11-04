@@ -2,12 +2,12 @@
 
 use super::state::{Entry, Step};
 use crate::contract::{HostEvent, NodeType};
+use crate::lower::effects::Tint;
+use crate::lower::shape::BoxShape;
+use crate::lower::{border, effects, scene, shape};
 use crate::model::Model;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
-use kivact_lower::effects::Tint;
-use kivact_lower::shape::BoxShape;
-use kivact_lower::{border, effects, scene, shape};
 use kivact_types::render::RenderCmd as D;
 use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
 
@@ -21,7 +21,7 @@ impl Model {
     ) -> kivact_types::render::RenderScene {
         self.paint_list();
         self.assets.borrow_mut().begin_frame();
-        let mut out = kivact_lower::SceneOut::default();
+        let mut out = crate::lower::SceneOut::default();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
         let mut zoom: Vec<f64> = Vec::new();
@@ -136,7 +136,7 @@ impl Model {
         &self,
         step: &Step,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let host = &self;
         let id = step.id;
@@ -224,7 +224,7 @@ impl Model {
         outline: &BoxShape,
         clip_path: bool,
         tint: &Tint,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
@@ -257,7 +257,7 @@ impl Model {
         &self,
         step: &Step,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let id = step.id;
         if step.own
@@ -314,7 +314,7 @@ impl Model {
         source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let mut assets = self.assets.borrow_mut();
         let Some(natural) = assets.natural(source) else {

@@ -39,7 +39,6 @@ entries=(
   kivact-engine/gpu
   kivact-engine/gpu-interop
   kivact-engine/testing
-  kivact-lower/gpu-interop
   kivact-style/gpu-interop
   kivact-ui-creative/gpu-interop
 )

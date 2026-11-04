@@ -1,8 +1,8 @@
 //! Role: Paint a native text input: its text, selection, caret and preedit.
 
+use crate::lower::effects::Tint;
 use crate::model::Model;
 use crate::model::interact::{text_geometry, visual};
-use kivact_lower::effects::Tint;
 use kivact_types::render::RenderCmd as D;
 use kivact_types::{NodeId, Point, Rect, Rgba};
 
@@ -12,7 +12,7 @@ impl Model {
     /// content box, scrolled to its caret, and while focused its selection,
     /// caret and composition underline on them. Its lines are shaped one at
     /// a time and shared with the caret, the pointer and the IME
-    /// (`kivact-text`); its line colors only change the color of its glyph
+    /// (`text_input`); its line colors only change the color of its glyph
     /// runs (a password and a placeholder have none), and are taken only
     /// as far as the lines drawn.
     pub(super) fn paint_input(
@@ -22,7 +22,7 @@ impl Model {
         clip: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let host = &self;
         let Some(n) = host.node(id) else {
@@ -152,7 +152,7 @@ impl Model {
 /// Glyph runs of `shaped` at `(x, y)`, colored `color` of their shaped
 /// color.
 fn push_runs(
-    out: &mut kivact_lower::SceneOut,
+    out: &mut crate::lower::SceneOut,
     shaped: Option<&kivact_types::render::ShapedText>,
     x: f64,
     y: f64,

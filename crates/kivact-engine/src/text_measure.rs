@@ -45,7 +45,7 @@ impl TextMeasurer {
         );
         engine.map_or_else(
             |_| TextMetrics::default(),
-            |mut engine| kivact_lower::glyphs::measure_run(&mut engine, run, Some(&self.inherited)),
+            |mut engine| crate::lower::glyphs::measure_run(&mut engine, run, Some(&self.inherited)),
         )
     }
 
@@ -65,7 +65,7 @@ impl TextMeasurer {
             "text engine is already borrowed during draw shaping"
         );
         let mut engine = engine.ok()?;
-        kivact_lower::glyphs::shape_run(&mut engine, run, Some(&self.inherited), max_width)
+        crate::lower::glyphs::shape_run(&mut engine, run, Some(&self.inherited), max_width)
     }
 }
 
@@ -94,7 +94,7 @@ impl TextShaper for TextMeasurer {
             "text engine is already borrowed during draw shaping"
         );
         let mut engine = engine.ok()?;
-        kivact_lower::glyphs::shape_inline_run(
+        crate::lower::glyphs::shape_inline_run(
             &mut engine,
             run,
             Some(&self.inherited),
