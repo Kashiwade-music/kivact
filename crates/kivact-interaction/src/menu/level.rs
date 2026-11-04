@@ -2,15 +2,13 @@
 
 use crate::Selection;
 use kivact_core::state::IntoBinding;
-use std::time::Duration;
 
 use super::order::{Rows, edge_item, rows};
 use super::state::{
     Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
 };
 use crate::{
-    Delays, ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_delayed,
-    use_hover_corridor, use_list,
+    ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_hover_corridor, use_list,
 };
 use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
@@ -85,7 +83,15 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             Selection::Single(signal(None::<K>).into_binding()),
             ListOptions::menu(),
         )
-        .shared_typeahead(session.typed);
+        .shared_typeahead(session.typed)
+        .shared_highlight(kivact_core::state::binding(
+            move || session.focused_at(depth),
+            move |key| {
+                session
+                    .machine
+                    .send(super::session::SessionEvent::Focus(depth, key))
+            },
+        ));
         let anchors = signal(Vec::<(K, Rect)>::new());
         let timing = use_theme()
             .get()
@@ -242,7 +248,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                             }
                         }
                     }
-                    session.want.set(None);
+                    session
+                        .machine
+                        .send(super::session::SessionEvent::Request(None));
                 });
             })
     }
@@ -317,54 +325,30 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             }
             let key = key.clone();
             let resting = memo(move || {
-                pressed_over.get().unwrap_or_else(|| hovered.get())
-                    && !expanded.get()
-                    && !disabled.get()
+                pressed_over.get().unwrap_or_else(|| hovered.get()) && !disabled.get()
             });
-            let rest = use_delayed(
-                resting,
-                Delays {
-                    open: timing.open,
-                    close: Duration::ZERO,
-                },
-            );
             effect(move || {
-                if rest.is_open().get() && !aiming.get() {
-                    session.open_hover(depth, key.clone());
-                }
-            });
-            // A submenu closed by key stays closed under a resting pointer.
-            effect(move || {
-                if !expanded.get() {
-                    rest.dismiss();
-                }
+                session.machine.send(super::session::SessionEvent::Rest(
+                    depth,
+                    key.clone(),
+                    resting.get() && !aiming.get(),
+                    true,
+                ));
             });
         } else {
-            // Resting on any other item, a disabled one included, closes the
-            // submenus of this level. A disabled item receives no pointer
-            // events, so this follows the item's hover instead.
+            let key = key.clone();
             let over = item_ref.hovered();
-            let rest = use_delayed(
-                move || pressed_over.get().unwrap_or_else(|| over.get()),
-                Delays {
-                    open: timing.close,
-                    close: Duration::ZERO,
-                },
-            );
             effect(move || {
-                if rest.is_open().get() && !aiming.get() && shown.get_untracked() {
-                    session.close_below(depth);
-                }
+                session.machine.send(super::session::SessionEvent::Rest(
+                    depth,
+                    key.clone(),
+                    pressed_over.get().unwrap_or_else(|| over.get())
+                        && !aiming.get()
+                        && shown.get(),
+                    false,
+                ));
             });
         }
-
-        let focused = item_ref.focused();
-        let focus_key = key.clone();
-        effect(move || {
-            if focused.get() {
-                session.focus_key.set(Some((depth, focus_key.clone())));
-            }
-        });
 
         let hover_key = key.clone();
         effect(move || {
