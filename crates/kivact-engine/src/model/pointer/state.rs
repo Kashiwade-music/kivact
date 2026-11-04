@@ -27,11 +27,6 @@ impl Default for Pointer {
 }
 
 impl Pointer {
-    /// The mouse's window position while it is in the window.
-    pub(crate) fn mouse(&self) -> Option<Point> {
-        self.state.mouse
-    }
-
     /// Note `cursor` as shown; whether it differs from the one shown.
     pub(crate) fn show(&mut self, cursor: kivact_types::Cursor) -> bool {
         std::mem::replace(&mut self.shown, cursor) != cursor
