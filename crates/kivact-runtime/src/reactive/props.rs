@@ -525,6 +525,9 @@ constant_value!(
 constant_value!(Rc<str>);
 
 constant_value!(
+    kivact_types::Align,
+    kivact_types::FlexDirection,
+    kivact_types::Justify,
     kivact_types::Asset,
     kivact_types::Pixels,
     kivact_types::Point,
