@@ -294,6 +294,11 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         self.state().holds_focus(key)
     }
     #[track_caller]
+    pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
+        self.state().roving.requested.bind(highlight);
+        self
+    }
+    #[track_caller]
     pub(crate) fn shared_typeahead(self, typed: Binding<typeahead::Typeahead>) -> Self {
         let state = self.state();
         require_setup("ListApi::shared_typeahead");
