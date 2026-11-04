@@ -171,8 +171,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     fn render<T: NodeBuilder + IntoView>(
         self,
         trigger: Option<T>,
-        // xtask-allow(state-fields): Immutable renderer choice for context positioning; session owns the origin.
-    context: bool,
+        context: bool,
         fallback: bool,
     ) -> View {
         let part = if fallback {
