@@ -10,11 +10,11 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
-| CP4 | 19dfddc | 0 | 0（ab3322a） | 0（18件） | 101→失敗19 target個別0 | 101→失敗19 target個別0 | Clippy16.83s / WSL75s | 通過。固定a9e6377 public30/doc0、Creative追加2はc97d2c6で0 |
+| CP4 | 19dfddc | 0 | 0 | 0（ab3322a） | 0（18件） | 101→失敗19 target個別0 | 101→失敗19 target個別0 | Clippy16.83s / WSL75s | 通過。固定a9e6377 public30/doc0、Creative追加2はc97d2c6で0 |
+| CP5 | b3b2cf0 | 0 | 0 | — | — | 固定gate実行中 | — | Clippy19.52s | 軽いgate通過、全E2E待ち |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
-| CP5 | b3b2cf0 | 0 | 0 | — | — | 固定gate実行中 | — | Clippy19.52s | 軽いgate通過、全E2E待ち |
 
 ## Units
 
