@@ -45,7 +45,7 @@ use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
-use kivact_types::{LifecycleEvent, PointerKind, PointerPhase};
+use kivact_types::{KeyInput, KeyPhase, LifecycleEvent, PointerKind, PointerPhase};
 impl arvane::Handler for Host {
     fn start(
         &mut self,
@@ -133,12 +133,16 @@ impl Host {
         if matches!(event, ShellEvent::File(_)) {
             self.layout();
         }
+        // Key releases remain turn boundaries so pending edits reach the client.
         let input = matches!(
             event,
             ShellEvent::Pointer(_)
                 | ShellEvent::Wheel(_)
                 | ShellEvent::Modifiers(_)
-                | ShellEvent::Key(_)
+                | ShellEvent::Key(KeyInput {
+                    phase: KeyPhase::Down,
+                    ..
+                })
                 | ShellEvent::Ime(_)
         );
         if hit_tests(&event) {
