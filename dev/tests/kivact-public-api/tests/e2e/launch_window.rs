@@ -6,7 +6,7 @@
 //! crate-internal `Screen::start_client`. The checks of the values
 //! themselves open no window (`kivact`'s `lib.rs`).
 
-use kivact::draw::Size;
+use kivact::geometry::Size;
 
 use kivact::prelude::{spawn, text};
 use kivact::test::RenderOptions;
@@ -47,7 +47,7 @@ fn resize_dimensions_must_fit_finite_positive_f64() {
         assert_eq!(screen.errors().len(), 1);
         assert_eq!(
             *screen.errors()[0].kind(),
-            kivact::diagnostics::ErrorKind::Message
+            kivact::ErrorKind::Message
         );
     }
 }

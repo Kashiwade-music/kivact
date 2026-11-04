@@ -14,9 +14,7 @@ use kivact::style::{Align, Justify, Style};
 use kivact::style::{Color, Direction, rgb};
 use kivact::test::{RenderOptions, Screen};
 use kivact::ui::Look;
-use kivact::ui::{
-    ButtonState, ButtonVariant, TextInputState, UiRecipes, button, checkbox, switch, text_input,
-};
+use kivact::ui::{ButtonState, ButtonVariant, TextInputState, UiRecipes, button, checkbox, switch, text_input};
 use kivact::view::A11yAction;
 
 const RED: u32 = 0xff0000;

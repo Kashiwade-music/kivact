@@ -5,13 +5,13 @@
 //! bind as cheaply as constants, and the roles added for the official components
 //! reach the screen.
 
-use kivact::primitive::NodeExt;
 use kivact::view::View;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::draw::{Draw, RegionId, Size};
+use kivact::draw::{Draw, RegionId};
+use kivact::geometry::Size;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::render;
@@ -178,7 +178,7 @@ fn disabled_nodes_offer_no_actions_and_lose_the_focus() {
                 .on_press(|| {})
                 .region(
                     RegionId(1),
-                    kivact::primitive::part(|state| state)
+                    kivact::custom::part(|state| state)
                         .role(Role::Button)
                         .name("bar")
                         .on_press(|| {}),
@@ -187,7 +187,7 @@ fn disabled_nodes_offer_no_actions_and_lose_the_focus() {
                     d.region(RegionId(1), size.to_rect());
                 }),
             text("Visual").name("ignored"),
-            kivact::control::node()
+            kivact::view::node()
                 .name("Name")
                 .part(kivact::interaction::use_text_edit(value).control())
                 .disabled(off),

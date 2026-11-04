@@ -1,9 +1,9 @@
 //! Role: Tests for canvas pixels, shaping, compositing, and hit regions.
 use super::paint::{BLACK, BLUE, RED, WHITE, expect, pixel};
-use kivact::control::canvas;
+use kivact::view::canvas;
 use kivact::draw::{BlendMode, Filter, LineCap, Shadow, Shape, Stroke, Transform, radial_gradient};
 use kivact::draw::{FillRule, ImageOptions, Layer, Path};
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::test::render;

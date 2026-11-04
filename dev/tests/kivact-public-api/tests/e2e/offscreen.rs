@@ -4,11 +4,11 @@
 //! `Offscreen`: the same pixels (the windowless behaviour of `Offscreen`
 //! is `tests/offscreen.rs`).
 
-use kivact::Asset;
-use kivact::control::canvas;
+use kivact::view::Asset;
+use kivact::view::canvas;
 use kivact::draw::Transform;
-use kivact::draw::{Draw, Layer, Offscreen, RgbaImage, TextBaseline, TextStyle};
-use kivact::draw::{Point, Rect, Size};
+use kivact::draw::{Draw, Layer, Offscreen, Pixels, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::style::{TextAlign, Theme};
@@ -46,7 +46,7 @@ fn artwork(draw: &mut Draw, size: Size, image: &Asset) {
             draw.text(
                 "Output",
                 Point::new(45.0, 48.0),
-                TextStyle {
+                TextFormat {
                     size: 16.0,
                     color: Color::BLACK,
                     align: TextAlign::Center,
@@ -58,7 +58,7 @@ fn artwork(draw: &mut Draw, size: Size, image: &Asset) {
     );
 }
 
-fn sample(image: &RgbaImage, x: u32, y: u32) -> u32 {
+fn sample(image: &Pixels, x: u32, y: u32) -> u32 {
     let [r, g, b, a] = image.rgba[((y * image.width + x) * 4) as usize..][..4]
         .try_into()
         .expect("invariant: four bytes per pixel");

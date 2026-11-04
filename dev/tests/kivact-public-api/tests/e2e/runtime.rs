@@ -5,13 +5,13 @@
 //! `purity.rs`; handles of another App or a disposed owner in
 //! `handle_validity.rs`.
 
-use kivact::view::callback;
+use kivact::state::callback;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::Binding;
-use kivact::binding;
+use kivact::state::Binding;
+use kivact::state::binding;
 use kivact::prelude::*;
 
 type Log = Rc<RefCell<Vec<String>>>;

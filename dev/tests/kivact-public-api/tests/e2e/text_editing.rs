@@ -45,7 +45,7 @@ fn full_multiline_enter_reaches_the_parent_key_handler() {
                 keys.borrow_mut().push(format!("key {:?}", event.key()));
             })
             .child(
-                kivact::control::node().name("Limited").part(
+                kivact::view::node().name("Limited").part(
                     kivact::interaction::use_text_area(signal(String::from("x")))
                         .max_length(1usize)
                         .control(),
@@ -73,7 +73,7 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
         let value = signal(initial);
         tx.send(value).expect("the test waits");
         let (keys, changes, submits) = (out.clone(), out.clone(), out.clone());
-        let edited = kivact::binding(value, move |v: String| {
+        let edited = kivact::state::binding(value, move |v: String| {
             changes.borrow_mut().push(format!("change {v}"));
             value.set(v);
         });

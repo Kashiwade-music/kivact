@@ -1,9 +1,9 @@
 //! Role: Tests for path rendering and transformation.
 //! paths and stroke outlines are what pixels and hit regions show.
 use super::paint::{BLACK, RED, WHITE, expect};
-use kivact::control::canvas;
+use kivact::view::canvas;
 use kivact::draw::Path;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::draw::{Stroke, Transform};
 use kivact::prelude::*;
 use kivact::style::Color;

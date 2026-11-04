@@ -83,7 +83,7 @@ fn lifecycle_failure_routes_to_its_owner_and_disposal_suppresses_later_events() 
             error_boundary(move || {
                 on_lifecycle(|_| -> Result<(), UiError> {
                     Err(UiError::new(
-                        kivact::diagnostics::ErrorKind::Platform,
+                        kivact::ErrorKind::Platform,
                         "lifecycle failure",
                         None,
                     ))

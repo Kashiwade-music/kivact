@@ -1,9 +1,7 @@
 //! Role: Table parts share grid focus, list selection, sort and resize behavior.
 
 use crate::support::mount_with;
-use kivact::interaction::{
-    ColumnDef, ListRangePolicy, ListSelection, SortOrder, TableFocus, use_table,
-};
+use kivact::interaction::{ColumnDef, ListRangePolicy, ListSelection, SortOrder, TableFocus, use_table};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::view::{Modifiers, for_each};

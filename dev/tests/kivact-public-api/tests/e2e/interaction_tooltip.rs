@@ -10,7 +10,6 @@ use std::time::Duration;
 use crate::support::mount;
 use kivact::interaction::use_tooltip;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 
 use kivact::test::Screen;
 use kivact::view::{OverlayAlign, Placement, overlay};

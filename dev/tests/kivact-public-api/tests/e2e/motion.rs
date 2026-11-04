@@ -6,9 +6,7 @@ use std::time::Duration;
 
 use crate::support::{mount, mount_with};
 use kivact::motion::FrameRate;
-use kivact::motion::{
-    Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
-};
+use kivact::motion::{Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::test::{RenderOptions, Screen};

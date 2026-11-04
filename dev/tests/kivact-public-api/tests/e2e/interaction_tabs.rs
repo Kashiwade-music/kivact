@@ -9,7 +9,7 @@ use crate::support::mount_with;
 use kivact::interaction::{TabsApi, use_tabs};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::ui::{ListActivation, ListItem};
+use kivact::interaction::{ListActivation, ListItem};
 use kivact::view::Orientation;
 
 type Option_ = ListItem<&'static str>;

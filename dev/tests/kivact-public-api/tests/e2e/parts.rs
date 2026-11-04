@@ -4,10 +4,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::control::canvas;
-use kivact::draw::{Rect, RegionId};
+use kivact::view::canvas;
+use kivact::geometry::Rect;
+use kivact::draw::RegionId;
 use kivact::prelude::*;
-use kivact::primitive::part;
+use kivact::custom::part;
 use kivact::view::{A11yAction, Handled};
 use kivact::view::{KeyCode, Modifiers, MouseButton, PointerPhase};
 

@@ -11,16 +11,17 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::draw::{InlineBox, InlineParagraph, Point, Rect, Size, TextParagraph, TextStyle};
+use kivact::draw::{InlineBox, InlineParagraph, TextParagraph, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::primitive::{Constraints, Primitive, primitive};
+use kivact::custom::{Constraints, Primitive, primitive};
 use kivact::style::Align;
 
 /// The text style the tests shape in: a fixed size, so widths are stable.
-fn style_14() -> TextStyle {
-    TextStyle {
+fn style_14() -> TextFormat {
+    TextFormat {
         size: 14.0,
-        ..TextStyle::default()
+        ..TextFormat::default()
     }
 }
 
@@ -252,7 +253,7 @@ fn retained_inline_control_receives_pointer_input() {
             .on_press(move || flag.set(true));
         (
             pressed,
-            column(kivact::primitive::inline_view(
+            column(kivact::custom::inline_view(
                 "First line\n ",
                 style_14(),
                 [(11, item.into_view())],

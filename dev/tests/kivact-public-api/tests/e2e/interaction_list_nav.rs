@@ -4,13 +4,12 @@
 //! multi-select list, the keys of an ARIA list box with multiple selection,
 //! typeahead, the press, and the active row following the rows.
 
-use kivact::primitive::NodeExt;
 
 use crate::support::mount_with;
 use kivact::interaction::{List, ListPolicy, ListSelection, use_list};
 use kivact::prelude::*;
 use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
-use kivact::ui::ListItem;
+use kivact::interaction::ListItem;
 use kivact::view::{KeyCode, Modifiers};
 
 const NAMES: [&str; 12] = [
@@ -56,7 +55,7 @@ fn mount_list_kind(
         let rows = signal(NAMES.to_vec());
         let selected = signal(initial);
         let selection = if single {
-            ListSelection::Single(kivact::binding(
+            ListSelection::Single(kivact::state::binding(
                 memo(move || selected.with(|keys| keys.first().copied())),
                 move |key: Option<&'static str>| selected.set(key.into_iter().collect()),
             ))

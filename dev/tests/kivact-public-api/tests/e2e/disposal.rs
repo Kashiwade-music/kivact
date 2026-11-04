@@ -11,9 +11,9 @@ use std::rc::Rc;
 
 use crate::support::mount;
 use crate::support::random::residue;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
-use kivact::primitive::Owner;
+use kivact::custom::Owner;
 
 type Log = Rc<RefCell<Vec<String>>>;
 

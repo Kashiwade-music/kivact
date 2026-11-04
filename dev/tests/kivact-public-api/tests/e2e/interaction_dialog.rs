@@ -5,7 +5,6 @@
 //! ways to close it, and the modal containing Tab. The tests draw the frame
 //! (scrim, panel, heading, body and footer) themselves, as a kit does.
 
-use kivact::primitive::NodeExt;
 use kivact::view::View;
 
 use crate::support::mount;
@@ -14,7 +13,7 @@ use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::style::{Justify, Style, pct};
 use kivact::test::Screen;
-use kivact::ui::{DialogKind, Side};
+use kivact::interaction::{DialogKind, Side};
 use kivact::view::{Placement, overlay};
 
 fn button(name: &'static str) -> Node {
@@ -69,7 +68,7 @@ fn framed<B: IntoView, F: IntoView>(
             _ => content.into_view(),
         };
         let footer = footer().into_view();
-        let footer = (!kivact::primitive::view_is_empty(&footer))
+        let footer = (!kivact::custom::view_is_empty(&footer))
             .then(|| row(footer).style(style().justify_content(Justify::End)));
         let mut panel = column((row((heading, closer)), intro, content, footer))
             .style(style().padding(16).gap(12).background(ColorToken::Surface))

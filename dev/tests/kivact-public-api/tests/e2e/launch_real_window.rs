@@ -12,12 +12,10 @@
 use std::time::Instant;
 
 use kivact::platform;
-use kivact::signal;
+use kivact::state::signal;
 
 use super::launch_support::button_box;
-use kivact::prelude::{
-    IntoView, NodeBuilder, Role, column, node, node_ref, row, show, style, text,
-};
+use kivact::prelude::{IntoView, NodeBuilder, Role, column, node, node_ref, row, show, style, text};
 use kivact::test::Screen;
 use kivact::test::{MirrorMode, RenderOptions, render, render_with};
 
@@ -161,7 +159,7 @@ fn modal_screen() -> Screen {
                     kivact::view::Placement::Center,
                     button_box("close").on_press(move || open.set(false)),
                 )
-                .modal(true)
+                .modal()
             }),
         ))
     })

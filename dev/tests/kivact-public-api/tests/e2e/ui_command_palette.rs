@@ -5,7 +5,8 @@
 
 use crate::support::mount;
 use kivact::prelude::*;
-use kivact::ui::{Command, command_palette};
+use kivact::interaction::Command;
+use kivact::ui::command_palette;
 
 fn commands() -> Vec<Command<&'static str>> {
     vec![

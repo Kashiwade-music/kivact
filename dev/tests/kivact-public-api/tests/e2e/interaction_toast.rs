@@ -13,7 +13,7 @@ use crate::support::mount;
 use kivact::interaction::ToastId;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::{Toast, ToastOptions, Toaster, toaster};
+use kivact::interaction::{Toast, ToastOptions, Toaster, toaster};
 use kivact::view::{LiveRegion, View};
 
 fn ms(n: u64) -> Duration {

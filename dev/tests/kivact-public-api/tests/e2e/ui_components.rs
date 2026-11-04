@@ -3,7 +3,8 @@
 use crate::support::mount;
 use kivact::interaction::ListSelection;
 use kivact::prelude::*;
-use kivact::ui::{self, ListItem, MenuEntry, TreeNode};
+use kivact::ui::self;
+use kivact::interaction::{ListItem, MenuEntry, TreeNode};
 use kivact::view::{Orientation, Placement};
 use std::time::Duration;
 

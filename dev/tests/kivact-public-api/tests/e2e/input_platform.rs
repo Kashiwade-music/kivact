@@ -1,19 +1,19 @@
 //! Role: Input, scroll and portable platform contracts on real windows.
-use kivact::primitive::NodeExt;
 
 use crate::support::mount;
 use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::{Align, Color};
 use kivact::task::spawn;
-use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection, callback};
+use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection};
+use kivact::state::callback;
 
 #[test]
 fn a_press_handler_reads_the_modifiers_held_at_the_press() {
     let (screen, seen) = mount(|| {
         let seen = signal(None::<bool>);
         let view =
-            button("Open").on_press(move || seen.set(Some(kivact::view::current_modifiers().ctrl)));
+            button("Open").on_press(move || seen.set(Some(kivact::view::modifiers().ctrl)));
         (seen, view)
     });
     let ctrl = Modifiers {
@@ -42,7 +42,7 @@ fn input_alignment_keeps_pixels_pointer_selection_and_ime_in_the_same_place() {
     let (screen, value) = mount(|| {
         let value = signal("AB".to_owned());
         let field = |id, alignment| {
-            kivact::control::node()
+            kivact::view::node()
                 .name(id)
                 .part(kivact::interaction::use_text_edit(value).control())
                 .test_id(id)
@@ -140,7 +140,7 @@ fn password_updates_and_ime_keep_published_text_protected() {
         let password = signal(true);
         (
             (value, password),
-            kivact::control::node().name("Protected fixture").part(
+            kivact::view::node().name("Protected fixture").part(
                 kivact::interaction::use_text_edit(value)
                     .password(password)
                     .control(),
@@ -298,7 +298,7 @@ fn a_reactive_active_descendant_moves_in_the_accessibility_tree() {
 
 #[test]
 fn raw_key_mapping_reaches_handlers() {
-    use kivact::primitive::primitive;
+    use kivact::custom::primitive;
     use kivact::test::raw::{PlatformKey, RawInput, RawKey};
     use kivact::view::{Handled, KeyEvent};
     let (screen, seen) = mount(|| {
@@ -344,7 +344,7 @@ fn raw_ime_composition_commits() {
         let value = signal(String::new());
         (
             value,
-            kivact::control::node()
+            kivact::view::node()
                 .name("Raw IME")
                 .part(kivact::interaction::use_text_edit(value).control()),
         )
@@ -362,8 +362,8 @@ fn raw_ime_composition_commits() {
 
 #[test]
 fn raw_file_drop_reaches_dropzone() {
-    use kivact::draw::Point;
-    use kivact::primitive::primitive;
+    use kivact::geometry::Point;
+    use kivact::custom::primitive;
     use kivact::test::raw::{RawDrop, RawInput};
     use kivact::view::{FileEvent, FilePhase};
     use std::path::PathBuf;

@@ -10,15 +10,15 @@
 
 use crate::paint::{distance, pixel};
 use crate::support::mount;
-use kivact::control::icon;
+use kivact::view::icon;
 use kivact::interaction::{MenuItemState, TabState};
 use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
-use kivact::style::{Color, Icon, ThemeExtension, TransitionProp, current_theme, rgb};
+use kivact::style::{Color, Icon, ThemeExtension, TransitionProp, use_theme, rgb};
 use kivact::test::Screen;
 use kivact::ui::Look;
 use kivact::ui::{ButtonState, UiRecipes};
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 use std::time::Duration;
 
 const RED: u32 = 0xff0000;
@@ -246,7 +246,7 @@ fn a_librarys_tokens_are_read_again_on_a_theme_switch_without_a_remount() {
             column((
                 button("Go").test_id("go"),
                 node().test_id("box").style(move || {
-                    let fill = current_theme().get::<Brand>().fill;
+                    let fill = use_theme().get::<Brand>().fill;
                     style().size(20, 20).background(fill)
                 }),
             ))

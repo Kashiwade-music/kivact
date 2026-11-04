@@ -6,10 +6,9 @@
 //! cancelled the pointer, and once the hit is hidden, removed or outside an
 //! open modal.
 
-use kivact::primitive::NodeExt;
 
 use crate::support::mount;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::{Handled, Placement};
 use kivact::view::{MouseButton, overlay_at};
@@ -47,7 +46,7 @@ fn hovered_follows_the_hit_through_listeners_capture_and_tree_changes() {
                 .style(style().size(100, 30).shrink(0.0)),
             show(modal, || {
                 overlay_at(Point::new(400.0, 400.0), Placement::Center, text("notice"))
-                    .modal(true)
+                    .modal()
                     .role(Role::Dialog)
             }),
         ));

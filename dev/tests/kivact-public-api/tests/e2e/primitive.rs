@@ -1,6 +1,6 @@
 //! Role: Tests for extension primitives and custom rendering.
 //!
-//! Extension primitives (`kivact::primitive`, experimental) on real
+//! Extension primitives (`kivact::custom`, experimental) on real
 //! windows: the layout sizes a primitive by its measure function and
 //! places its siblings by that size, new content changes that geometry,
 //! its draw layer runs again when its size changes,
@@ -8,15 +8,14 @@
 //! found by role and test id like any element, and unmounting it drops
 //! its measure function.
 
-use kivact::primitive::NodeExt;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
 use crate::support::mount;
-use kivact::draw::{Point, Rect, Size};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::primitive::{Constraints, primitive};
+use kivact::custom::{Constraints, primitive};
 use kivact::style::Align;
 use kivact::test::Screen;
 use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent};

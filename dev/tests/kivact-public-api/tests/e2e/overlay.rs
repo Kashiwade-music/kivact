@@ -5,18 +5,15 @@
 //! overlay is open, keys go to it and stop at it, and events aimed outside
 //! it are dropped. Overlays flip and stay inside the window.
 
-use kivact::primitive::NodeExt;
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::{Point, Rect};
+use kivact::ErrorKind;
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::{RenderOptions, render, render_with};
-use kivact::view::{
-    A11yAction, Handled, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at,
-};
+use kivact::view::{A11yAction, Handled, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at};
 
 #[test]
 fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
@@ -252,7 +249,7 @@ fn keys_go_to_an_open_modal_without_focus_and_stop_there() {
                 let m = m.clone();
                 // No tab stop inside: nothing is focused while it is open.
                 overlay(opener, Placement::Center, text("お知らせ"))
-                    .modal(true)
+                    .modal()
                     .role(Role::Dialog)
                     .on_key(move |event| {
                         assert_eq!(event.target_role(), Some(Role::Dialog));

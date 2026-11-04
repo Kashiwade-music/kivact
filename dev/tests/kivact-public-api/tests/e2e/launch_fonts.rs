@@ -7,7 +7,7 @@
 //! `tests/assets.rs`); only the App's fonts
 //! need the crate-internal `Screen::start`.
 
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::{UiError, diagnostics::ErrorKind};
 
 use kivact::prelude::{IntoView, NodeBuilder, column, style, text};

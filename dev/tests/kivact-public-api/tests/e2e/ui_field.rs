@@ -8,7 +8,7 @@
 
 use crate::support::mount;
 use kivact::prelude::*;
-use kivact::ui::{self};
+use kivact::ui::self;
 
 /// A control that is built from `node()` and has no name of its own.
 fn unnamed_input() -> Node {
@@ -62,7 +62,7 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
                     show(
                         move || rename.is_open(&id),
                         move || {
-                            rename.field(
+                            rename.project(
                                 id,
                                 format!("Name {id}"),
                                 signal(name.get_untracked().1),

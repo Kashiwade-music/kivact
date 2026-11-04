@@ -6,7 +6,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::platform::{self, Insets};
+use kivact::platform::self;
+use kivact::geometry::Insets;
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::render;
@@ -151,8 +152,7 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
 
 #[test]
 fn advanced_semantics_publish_roles_and_reactive_states() {
-    use kivact::primitive::NodeExt;
-    use kivact::view::{CurrentItem, PopupKind};
+        use kivact::view::{CurrentItem, PopupKind};
 
     let screen = render(|| {
         let current = signal(true);

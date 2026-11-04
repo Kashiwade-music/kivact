@@ -1,6 +1,6 @@
 //! Role: Failure reports (snapshots), the structured trace and why chains.
 
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 
 use kivact::prelude::*;
 use kivact::style::{Align, Justify};
@@ -21,7 +21,7 @@ fn app() -> impl IntoView {
                     .name(label)
                     .child(text(label))
                     .style(move || {
-                        let t = &current_theme();
+                        let t = &use_theme();
                         style()
                             .direction(kivact::style::Direction::Row)
                             .align_items(Align::Center)
@@ -41,7 +41,7 @@ fn app() -> impl IntoView {
                     .name(label)
                     .child(text(label))
                     .style(move || {
-                        let t = &current_theme();
+                        let t = &use_theme();
                         style()
                             .direction(kivact::style::Direction::Row)
                             .align_items(Align::Center)
@@ -163,7 +163,7 @@ fn the_app_reads_the_errors_of_its_default_sink() {
         column((
             button("Fail").on_press(|| -> kivact::Result<()> {
                 Err(UiError::new(
-                    kivact::diagnostics::ErrorKind::Message,
+                    kivact::ErrorKind::Message,
                     "export failed",
                     None,
                 ))

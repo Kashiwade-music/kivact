@@ -3,14 +3,13 @@
 //! The unstyled `Menu` from a button and as a context menu: opening, keys,
 //! typeahead, submenus, choosing, focus return, changing entries and semantics.
 
-use kivact::primitive::NodeExt;
-use kivact::ui::MenuEntry;
+use kivact::interaction::MenuEntry;
 use kivact::view::View;
 use std::hash::Hash;
 use std::time::Duration;
 
 use crate::support::mount_with;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
 use kivact::style::Align;

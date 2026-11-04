@@ -3,7 +3,6 @@
 //! closed trigger, opening, keys in the list, choosing, closing, focus return
 //! and semantics.
 
-use kivact::primitive::NodeExt;
 use kivact::view::View;
 use std::hash::Hash;
 
@@ -11,7 +10,7 @@ use crate::support::mount_with;
 use kivact::interaction::{SelectApi, use_select};
 use kivact::prelude::*;
 use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
-use kivact::ui::ListItem;
+use kivact::interaction::ListItem;
 use kivact::view::Modifiers;
 use kivact::view::{A11yAction, Placement, overlay};
 
@@ -302,7 +301,7 @@ fn a_preview_given_after_the_content_part_is_reported() {
         let api = use_select(options, selected);
         // The surface part exists before the preview is given.
         let content = std::cell::RefCell::new(Some(api.content()));
-        let api = api.on_preview(move |key| seen.borrow_mut().push(key));
+        let api = api.on_active_change(move |key| seen.borrow_mut().push(key));
         let part = api.trigger();
         let anchor = part.node_ref();
         let label = api.label();

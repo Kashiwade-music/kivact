@@ -11,7 +11,8 @@ use std::rc::Rc;
 use crate::support::mount_with;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::ui::{EditPhase, ScalarRange, Toast, toaster};
+use kivact::view::EditPhase;
+use kivact::interaction::{ScalarRange, Toast, toaster};
 use kivact::ui::{range_slider, splitter, toast_region};
 use kivact::view::{A11yAction, MouseButton, Orientation};
 

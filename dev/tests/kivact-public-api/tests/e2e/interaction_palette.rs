@@ -3,7 +3,6 @@
 //! The unstyled `CommandPalette`: opening, the active row, keys, filtering,
 //! running, groups, the empty list, scrolling and the App's texts.
 
-use kivact::primitive::NodeExt;
 use kivact::view::View;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -13,8 +12,9 @@ use kivact::i18n::message;
 use kivact::interaction::{CommandPalette, use_command_palette};
 use kivact::prelude::*;
 use kivact::test::{Element, Screen};
-use kivact::ui::Command;
-use kivact::view::{Placement, callback, overlay};
+use kivact::interaction::Command;
+use kivact::view::{Placement, overlay};
+use kivact::state::callback;
 
 type Cmd = Command<&'static str>;
 
@@ -106,7 +106,7 @@ fn palette_with_height(p: CommandPalette<&'static str>, height: f64) -> View {
             node_ref(),
             Placement::Center,
             column((
-                kivact::control::node()
+                kivact::view::node()
                     .name("")
                     .part(kivact::interaction::use_text_edit(p.query()).control())
                     .part(p.input()),
@@ -182,7 +182,7 @@ impl Page {
     }
     /// The one active row, if any: the field's active descendant.
     fn active(&self) -> Option<String> {
-        let field = self.field();
+        let field = self.project();
         let rows = self.rendered();
         let mut active = rows.iter().filter(|r| field.has_active_descendant(r));
         let first = active.next().map(|r| r.name());
@@ -222,7 +222,7 @@ fn it_is_a_modal_dialog_named_after_the_palette_with_no_visible_heading() {
             .is_none()
     );
     p.screen.get_by_role(Role::ListBox, "Command palette");
-    assert_eq!(p.field().role(), Some(Role::TextBox));
+    assert_eq!(p.project().role(), Some(Role::TextBox));
     p.no_errors();
 }
 
@@ -252,7 +252,7 @@ fn the_arrow_keys_move_the_active_row_over_enabled_rows_and_wrap() {
     p.screen.press_key(Key::ArrowUp);
     assert_eq!(p.active().as_deref(), Some("Zoom in"));
     assert_eq!(p.selected(), ["Zoom in"]);
-    assert!(p.field().is_focused());
+    assert!(p.project().is_focused());
     p.no_errors();
 }
 

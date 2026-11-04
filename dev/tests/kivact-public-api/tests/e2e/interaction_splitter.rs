@@ -11,7 +11,7 @@ use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::style::Cursor;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::ui::ScalarRange;
+use kivact::interaction::ScalarRange;
 use kivact::view::{Handled, KeyEvent};
 use kivact::view::{MouseButton, Orientation};
 

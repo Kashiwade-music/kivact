@@ -4,7 +4,7 @@
 //! deterministic random driver of `host_sync_tests` (the random probe tests
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::prelude::{IntoText, IntoValue, Node, NodeBuilder, Role, node, text};
 
 /// What the screen tests press: an element that is a button to assistive
@@ -22,7 +22,7 @@ pub(super) fn button_box(label: &'static str) -> Node {
 }
 
 pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) -> Node {
-    use kivact::primitive::{NodeRefExt, TextEditing, part};
+    use kivact::custom::{NodeRefExt, TextEditing, part};
     let binding = binding.into();
     let value = binding.into_value();
     let control = part(|state| state).role(Role::TextBox).focusable(true);
@@ -31,7 +31,7 @@ pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) 
     node().name(label).part(
         control.text_editing(
             TextEditing::new(text)
-                .report_text(true)
+                .report_text()
                 .on_edit(move |edit| {
                     if edit.composition().is_some() {
                         return;

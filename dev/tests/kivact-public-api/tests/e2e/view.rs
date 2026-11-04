@@ -4,7 +4,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
@@ -220,7 +220,7 @@ fn text_field_binding_is_two_way_without_echo() {
         (
             name,
             column((
-                kivact::control::node()
+                kivact::view::node()
                     .name("Name")
                     .part(kivact::interaction::use_text_edit(name).control()),
                 text(move || format!("hello {}", name.get())),

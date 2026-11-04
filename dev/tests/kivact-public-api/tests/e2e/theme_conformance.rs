@@ -3,7 +3,8 @@ use crate::paint::distance;
 use kivact::prelude::*;
 use kivact::style::{Align, ColorToken, Style, ThemeMode};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render_with_handle};
-use kivact::ui::{self, ListItem, Look, Recipe, UiRecipes};
+use kivact::ui::{self, Look, Recipe, UiRecipes};
+use kivact::interaction::ListItem;
 
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
@@ -198,7 +199,7 @@ const KIT_RECIPES: [(&str, &[&str]); 5] = [
 ];
 
 /// Whether any pixel of `rect` differs visibly between the two frames.
-fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::draw::Rect) -> bool {
+fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::geometry::Rect) -> bool {
     let (x, y) = (rect.x.floor() as u32, rect.y.floor() as u32);
     let (width, height) = (rect.width.ceil() as u32 + 1, rect.height.ceil() as u32 + 1);
     let kit = kit.crop(x, y, width, height);
@@ -231,7 +232,7 @@ fn recipes_without(kit: &UiRecipes, name: &str) -> UiRecipes {
         "Editor" => kit.text_input(|_| same(d.text_input_recipe().clone())),
         "Field" => kit
             .text_input(|_| same(d.text_input_recipe().clone()))
-            .field(|_| d.field_recipes().clone()),
+            .project(|_| d.field_recipes().clone()),
         "Level" => kit.slider(|_| d.slider_recipes().clone()),
         "Progress" => kit.progress(|_| d.progress_recipes().clone()),
         "Details" => kit.disclosure(|_| d.disclosure_recipes().clone()),

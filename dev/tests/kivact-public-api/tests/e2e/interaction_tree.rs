@@ -9,7 +9,7 @@ use crate::support::mount_with;
 use kivact::interaction::{Tree, TreeBranch};
 use kivact::prelude::*;
 use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
-use kivact::ui::TreeNode;
+use kivact::interaction::TreeNode;
 
 type FileNode = TreeNode<&'static str>;
 
@@ -65,7 +65,7 @@ fn mount_nodes_kind(
         let expanded = signal(expanded);
         let selected = signal(Vec::<&'static str>::new());
         let selection = if single {
-            kivact::interaction::ListSelection::Single(kivact::binding(
+            kivact::interaction::ListSelection::Single(kivact::state::binding(
                 memo(move || selected.with(|keys| keys.first().copied())),
                 move |key: Option<&'static str>| selected.set(key.into_iter().collect()),
             ))

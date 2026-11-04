@@ -4,7 +4,6 @@
 //! `switch`, `for_each`, `for_index`, `virtual_list`, `dynamic`,
 //! `error_boundary`) with plain-function components.
 
-use kivact::primitive::NodeExt;
 
 use crate::support::mount;
 use kivact::prelude::*;
@@ -304,7 +303,7 @@ fn scroll_to_brings_a_row_that_is_not_mounted_into_view() {
 fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus() {
     use kivact::interaction::{ListPolicy, ListSelection, use_list};
     use kivact::test::{MirrorMode, RenderOptions};
-    use kivact::ui::ListItem;
+    use kivact::interaction::ListItem;
     use kivact::view::Key;
 
     let (screen, nav) = crate::support::mount_with(

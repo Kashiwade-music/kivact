@@ -11,7 +11,8 @@ use crate::support::mount_with;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::ui::{EditPhase, ScalarRange};
+use kivact::view::EditPhase;
+use kivact::interaction::ScalarRange;
 use kivact::view::A11yAction;
 use kivact::view::MouseButton;
 

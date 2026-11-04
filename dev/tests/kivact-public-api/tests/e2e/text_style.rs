@@ -12,8 +12,8 @@
 
 use std::rc::Rc;
 
-use kivact::control::{Span, rich_text, span};
-use kivact::draw::Rect;
+use kivact::view::{Span, rich_text, span};
+use kivact::geometry::Rect;
 use kivact::draw::Shadow;
 use kivact::prelude::*;
 use kivact::style::{Align, Color};
