@@ -164,12 +164,17 @@ pub(super) fn dropped(state: &Rc<super::state::State>, drop: isize) {
     // SAFETY: release exactly the HDROP transferred by this message before invoking application code.
     unsafe { DragFinish(drop) };
     let scale = state.shared.scale();
-    state.event(arvane_shell::ShellEvent::File(kivact_types::FileDrop {
-        phase: arvane_shell::FilePhase::Drop,
+    let mut session = arvane_shell::pipeline::DropSession::default();
+    // WM_DROPFILES supplies the complete list and its position atomically.
+    let _ = session.input(arvane_shell::pipeline::RawDrop::Hover {
         files,
-        position: kivact_types::Point {
+        at: Some(kivact_types::Point {
             x: point.x as f64 / scale,
             y: point.y as f64 / scale,
-        },
-    }));
+        }),
+    });
+    let _ = session.input(arvane_shell::pipeline::RawDrop::Drop);
+    if let Some(event) = session.take_dropped() {
+        state.event(event);
+    }
 }

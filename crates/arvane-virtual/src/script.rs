@@ -39,6 +39,8 @@ pub(crate) struct Input {
     clicks: ClickCounter,
     contacts: Contacts,
     keys: arvane_shell::pipeline::KeyPipeline,
+    ime: arvane_shell::pipeline::ImeDriver,
+    dnd: arvane_shell::pipeline::DropSession,
 }
 /// Cloneable write-only controls for the virtual platform.
 #[derive(Clone)]
@@ -62,26 +64,20 @@ impl Script {
         let mut input = self.0.borrow_mut();
         let modifiers = input.modifiers;
         let pointer = input.mouse.window_position();
-        let event = match raw {
-            arvane_shell::pipeline::RawInput::Key(key) => input.keys.key(key, modifiers, pointer),
-            arvane_shell::pipeline::RawInput::Ime(ime) => ShellEvent::Ime(match ime {
-                arvane_shell::pipeline::RawIme::Preedit { text, caret } => {
-                    kivact_types::ImeInput::Preedit {
-                        text,
-                        selection: caret.map(|(start, end)| start..end),
-                    }
-                }
-                arvane_shell::pipeline::RawIme::Commit(text) => {
-                    kivact_types::ImeInput::Commit(text)
-                }
-                arvane_shell::pipeline::RawIme::End => kivact_types::ImeInput::End,
-                arvane_shell::pipeline::RawIme::Reconvert { selection } => {
-                    kivact_types::ImeInput::Selection(selection.0..selection.1)
-                }
-            }),
-            arvane_shell::pipeline::RawInput::Drop(_) => return,
+        let events = match raw {
+            arvane_shell::pipeline::RawInput::Key(key) => {
+                vec![input.keys.key(key, modifiers, pointer)]
+            }
+            arvane_shell::pipeline::RawInput::Ime(ime) => input.ime.input(ime),
+            arvane_shell::pipeline::RawInput::Drop(drop) => {
+                let mut events = input.dnd.input(drop);
+                events.extend(input.dnd.take_dropped());
+                events
+            }
         };
-        enqueue(&mut input, event);
+        for event in events {
+            enqueue(&mut input, event);
+        }
     }
     pub fn mouse(&self, phase: PointerPhase, position: Option<Point>) {
         let mut input = self.0.borrow_mut();

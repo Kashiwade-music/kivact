@@ -52,6 +52,7 @@ use crate::port::winit::key_code::{map_key, physical_code};
 use crate::present::CpuSurface;
 use crate::services::Services;
 use arvane_shell::ShellImeText;
+use arvane_shell::pipeline::{DropSession, ImePort, RawDrop, RawIme};
 use arvane_shell::{Backend, ShellEvent, ShellHandler, ShellWindow};
 use arvane_shell::{ShellControl, ShellError, ShellOptions, ShellWaker};
 use kivact_types::{
@@ -65,7 +66,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalPosition, LogicalSize};
+use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Ime, MouseScrollDelta, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{CursorIcon, Window, WindowId};
@@ -393,7 +394,10 @@ impl ShellWindow for WinitWindow {
     }
     /// Enable IME when an editable control owns focus.
     fn set_ime_allowed(&self, allowed: bool) {
-        self.window.set_ime_allowed(allowed);
+        self.input
+            .ime
+            .borrow_mut()
+            .set_allowed(&mut ImeWindow(self), allowed);
     }
     /// Show or hide the software keyboard. winit 0.30 shows it with the IME
     /// on Android and iOS (`set_ime_allowed`); desktops have none, so the
@@ -405,23 +409,28 @@ impl ShellWindow for WinitWindow {
     }
     /// Position the native IME candidate UI at a logical caret rectangle.
     fn set_ime_cursor_area(&self, area: Rect) {
-        self.window.set_ime_cursor_area(
-            LogicalPosition::new(area.x, area.y),
-            LogicalSize::new(area.width, area.height),
-        );
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.window.scale_factor();
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.input
+            .ime
+            .borrow_mut()
+            .set_cursor_area(&mut ImeWindow(self), area);
     }
     /// What the focused text input shows the IME (`None`: no text input
     /// has focus), answering the platform IME's queries about it
     /// (reconversion, the text around the composition, character
     /// positions; Windows).
     fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.window
-            .set_ime_purpose(if text.as_ref().is_some_and(|t| t.password) {
-                winit::window::ImePurpose::Password
-            } else {
-                winit::window::ImePurpose::Normal
-            });
-        *self.input.text.borrow_mut() = text;
+        self.input
+            .ime
+            .borrow_mut()
+            .set_text(&mut ImeWindow(self), text);
     }
     /// The refresh period (ns) of the display the window is on: its
     /// monitor's reported rate, a whole-hertz report read as the common
@@ -531,23 +540,6 @@ impl Run {
         }
     }
 }
-/// Files dragged from the operating system over the window.
-enum Dnd {
-    /// No file drag over the window.
-    Idle,
-    /// These files are dragged over the window (winit reports each hovered file); `at` is the
-    /// last position delivered for them (`None` until the platform told one).
-    Hovering {
-        files: Vec<std::path::PathBuf>,
-        at: Option<kivact_types::Point>,
-    },
-    /// These files were dropped (delivered when winit's batch ends, in `about_to_wait`, after
-    /// every `DroppedFile` of it); `at` is the drag's last delivered position.
-    Dropped {
-        files: Vec<std::path::PathBuf>,
-        at: Option<kivact_types::Point>,
-    },
-}
 struct Runner<'a> {
     handler: &'a mut dyn ShellHandler,
     options: ShellOptions,
@@ -561,7 +553,7 @@ struct Runner<'a> {
     mouse: arvane_shell::Mouse,
     /// Shift is held (a vertical wheel then scrolls horizontally).
     modifiers: arvane_shell::ModifierState,
-    dnd: Dnd,
+    dnd: DropSession,
     /// Counts the presses of the pointer events delivered.
     clicks: arvane_shell::ClickCounter,
     /// The touch and pen contacts in progress.
@@ -577,20 +569,11 @@ impl Runner<'_> {
     }
     /// Deliver the files dropped in this batch of winit events, after every `DroppedFile` of it.
     fn deliver_drop(&mut self, el: &ActiveEventLoop) {
-        match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-            Dnd::Dropped { files, at } => {
-                if let Some(position) = self.file_position().or(at) {
-                    self.input(
-                        el,
-                        ShellEvent::File(kivact_types::FileDrop {
-                            phase: arvane_shell::FilePhase::Drop,
-                            files,
-                            position,
-                        }),
-                    );
-                }
-            }
-            other => self.dnd = other,
+        if let Some(position) = self.file_position() {
+            let _ = self.dnd.input(RawDrop::Move(position));
+        }
+        if let Some(event) = self.dnd.take_dropped() {
+            self.input(el, event);
         }
     }
     /// Where a file drag is now: the operating system's answer, else the last pointer position;
@@ -746,22 +729,14 @@ impl ApplicationHandler<()> for Runner<'_> {
         if reasons.is_empty() {
             return;
         }
-        if let Dnd::Hovering { files, at } = &mut self.dnd
-            && let Some(position) = self
-                .run
-                .live_ref()
-                .and_then(|w| w.input.file_pointer.take())
+        if let Some(position) = self
+            .run
+            .live_ref()
+            .and_then(|w| w.input.file_pointer.take())
         {
-            *at = Some(position);
-            let files = files.clone();
-            self.input(
-                el,
-                ShellEvent::File(kivact_types::FileDrop {
-                    phase: arvane_shell::FilePhase::Over,
-                    files,
-                    position,
-                }),
-            );
+            for event in self.dnd.input(RawDrop::Move(position)) {
+                self.input(el, event);
+            }
         }
         let environment = self
             .run
@@ -811,7 +786,14 @@ impl ApplicationHandler<()> for Runner<'_> {
             // A range the IME took for reconversion.
             WindowEvent::Ime(_) => {
                 before = window.input.reconvert.take().map(|(start, end)| {
-                    ShellEvent::Ime(kivact_types::ImeInput::Selection(start..end))
+                    window
+                        .input
+                        .ime
+                        .borrow_mut()
+                        .input(RawIme::Reconvert {
+                            selection: (start, end),
+                        })
+                        .remove(0)
                 });
             }
             // winit reports buttons and wheels without a position: the
@@ -886,21 +868,15 @@ impl ApplicationHandler<()> for Runner<'_> {
             WindowEvent::Focused(focus) => Some(ShellEvent::Focused(focus)),
             WindowEvent::CursorMoved { position, .. } => {
                 let at = logical((position.x, position.y), scale);
-                match &mut self.dnd {
-                    Dnd::Hovering { files, at: last } => {
-                        *last = Some(at);
-                        Some(ShellEvent::File(kivact_types::FileDrop {
-                            phase: arvane_shell::FilePhase::Over,
-                            files: files.clone(),
-                            position: at,
-                        }))
-                    }
-                    Dnd::Idle | Dnd::Dropped { .. } => self
-                        .mouse
+                if matches!(self.dnd, DropSession::Hovering { .. }) {
+                    self.dnd.input(RawDrop::Move(at)).into_iter().next()
+                } else {
+                    self.mouse
                         .event(PointerPhase::Move, Some(at))
-                        .map(ShellEvent::Pointer),
+                        .map(ShellEvent::Pointer)
                 }
             }
+
             // The mouse keeps its position and buttons: a button held keeps
             // its capture and is released outside.
             WindowEvent::CursorLeft { .. } => self
@@ -965,86 +941,61 @@ impl ApplicationHandler<()> for Runner<'_> {
                 ))
             }
             WindowEvent::HoveredFile(path) => {
-                if matches!(self.dnd, Dnd::Dropped { .. }) {
+                if matches!(self.dnd, DropSession::Dropped { .. }) {
                     self.deliver_drop(el);
                 }
-                let (phase, files, last) = match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-                    Dnd::Hovering { mut files, at } => {
-                        if !files.contains(&path) {
-                            files.push(path);
-                        }
-                        (arvane_shell::FilePhase::Over, files, at)
-                    }
-                    Dnd::Idle | Dnd::Dropped { .. } => {
-                        (arvane_shell::FilePhase::Enter, vec![path], None)
-                    }
+                let (mut files, last) = match &self.dnd {
+                    DropSession::Hovering { files, at } => (files.clone(), *at),
+                    _ => (Vec::new(), None),
                 };
+                if !files.contains(&path) {
+                    files.push(path);
+                }
                 if let Some(window) = self.run.live_ref() {
                     crate::native_input::track_files(&window.window, true);
                 }
                 let at = self.file_position().or(last);
-                self.dnd = Dnd::Hovering {
-                    files: files.clone(),
-                    at,
-                };
-                at.map(|position| {
-                    ShellEvent::File(kivact_types::FileDrop {
-                        phase,
-                        files,
-                        position,
-                    })
-                })
+                self.dnd
+                    .input(RawDrop::Hover { files, at })
+                    .into_iter()
+                    .next()
             }
             WindowEvent::HoveredFileCancelled => {
-                match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-                    Dnd::Hovering { files, at } => {
-                        if let Some(window) = self.run.live_ref() {
-                            crate::native_input::track_files(&window.window, false);
-                        }
-                        self.file_position().or(at).map(|position| {
-                            ShellEvent::File(kivact_types::FileDrop {
-                                phase: arvane_shell::FilePhase::Leave,
-                                files,
-                                position,
-                            })
-                        })
-                    }
-                    other => {
-                        self.dnd = other;
-                        None
-                    }
+                if let Some(window) = self.run.live_ref() {
+                    crate::native_input::track_files(&window.window, false);
                 }
+                if let Some(position) = self.file_position() {
+                    let _ = self.dnd.input(RawDrop::Move(position));
+                }
+                self.dnd.input(RawDrop::Leave).into_iter().next()
             }
             WindowEvent::DroppedFile(path) => {
                 if let Some(window) = self.run.live_ref() {
                     crate::native_input::track_files(&window.window, false);
                 }
-                self.dnd = match std::mem::replace(&mut self.dnd, Dnd::Idle) {
-                    Dnd::Dropped { mut files, at } => {
-                        files.push(path);
-                        Dnd::Dropped { files, at }
-                    }
-                    Dnd::Hovering { at, .. } => Dnd::Dropped {
-                        files: vec![path],
-                        at,
-                    },
-                    Dnd::Idle => Dnd::Dropped {
-                        files: vec![path],
-                        at: None,
-                    },
+                let (mut files, at) = match &self.dnd {
+                    DropSession::Dropped { files, at } => (files.clone(), *at),
+                    DropSession::Hovering { at, .. } => (Vec::new(), *at),
+                    DropSession::Idle => (Vec::new(), None),
                 };
+                files.push(path);
+                let _ = self.dnd.input(RawDrop::Hover { files, at });
+                let _ = self.dnd.input(RawDrop::Drop);
                 None
             }
-            WindowEvent::Ime(Ime::Preedit(text, selection)) => {
-                Some(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
-                    text,
-                    selection: (selection).map(|(start, end)| start..end),
-                }))
+            WindowEvent::Ime(ime) => {
+                let raw = match ime {
+                    Ime::Preedit(text, caret) => Some(RawIme::Preedit { text, caret }),
+                    Ime::Commit(text) => Some(RawIme::Commit(text)),
+                    Ime::Disabled => Some(RawIme::End),
+                    Ime::Enabled => None,
+                };
+                raw.and_then(|raw| {
+                    self.run.live_ref().and_then(|window| {
+                        window.input.ime.borrow_mut().input(raw).into_iter().next()
+                    })
+                })
             }
-            WindowEvent::Ime(Ime::Commit(text)) => {
-                Some(ShellEvent::Ime(kivact_types::ImeInput::Commit(text)))
-            }
-            WindowEvent::Ime(Ime::Disabled) => Some(ShellEvent::Ime(kivact_types::ImeInput::End)),
             WindowEvent::ThemeChanged(_) => Some(ShellEvent::EnvironmentChanged),
             _ => None,
         };
@@ -1105,7 +1056,7 @@ impl Backend for NativeBackend {
             waker,
             wake_reasons,
             mouse: arvane_shell::Mouse::default(),
-            dnd: Dnd::Idle,
+            dnd: DropSession::Idle,
             modifiers: arvane_shell::ModifierState::default(),
             clicks: arvane_shell::ClickCounter::default(),
             contacts: arvane_shell::Contacts::default(),
@@ -1129,5 +1080,28 @@ impl Backend for NativeBackend {
         };
         result.map_err(|e| ShellError::new(e.to_string()))?;
         failure.map_or(Ok(()), Err)
+    }
+}
+
+struct ImeWindow<'a>(&'a WinitWindow);
+impl ImePort for ImeWindow<'_> {
+    fn allow(&mut self, allowed: bool) {
+        self.0.window.set_ime_allowed(allowed);
+    }
+    fn cursor_area(&mut self, area: Rect) {
+        self.0.window.set_ime_cursor_area(
+            PhysicalPosition::new(area.x, area.y),
+            PhysicalSize::new(area.width, area.height),
+        );
+    }
+    fn surrounding(&mut self, text: Option<&ShellImeText>) {
+        self.0
+            .window
+            .set_ime_purpose(if text.is_some_and(|t| t.password) {
+                winit::window::ImePurpose::Password
+            } else {
+                winit::window::ImePurpose::Normal
+            });
+        *self.0.input.text.borrow_mut() = text.cloned();
     }
 }

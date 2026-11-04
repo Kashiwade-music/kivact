@@ -245,14 +245,34 @@ impl ShellWindow for Window {
         }
     }
     fn set_ime_allowed(&self, allowed: bool) {
-        super::ime::allowed(&self.0, allowed);
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_allowed(&mut super::ime::Port(&self.0), allowed);
     }
     fn set_soft_keyboard(&self, _: bool) {}
     fn set_ime_cursor_area(&self, area: Rect) {
-        super::ime::area(&self.0, area);
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.0.shared.scale();
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_cursor_area(&mut super::ime::Port(&self.0), area);
     }
     fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.0.input.text.replace(text);
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_text(&mut super::ime::Port(&self.0), text);
     }
     fn frame_period_ns(&self) -> u64 {
         frame_period(self.0.native.hwnd())

@@ -37,6 +37,7 @@ pub(super) struct Window {
     pub(super) accessibility: super::a11y::Bridge,
     services: super::services::Services,
     pub(super) ime: RefCell<super::ime::Ime>,
+    pub(super) ime_driver: RefCell<arvane_shell::pipeline::ImeDriver>,
     pub(super) dnd: super::dnd::Dnd,
     cursors: super::cursor::Cursors,
     // The child is destroyed only after presentation and service resources.
@@ -72,6 +73,7 @@ impl Window {
             accessibility: super::a11y::Bridge::new(f64::from(scale), waker),
             services: super::services::Services::default(),
             ime,
+            ime_driver: RefCell::default(),
             dnd,
             cursors: super::cursor::Cursors::default(),
         })
@@ -244,17 +246,41 @@ impl ShellWindow for Window {
         }
     }
     fn set_ime_allowed(&self, allowed: bool) {
-        if let Err(error) = self.ime.borrow_mut().allow(allowed) {
-            self.shared.fail(error);
-        }
+        self.ime_driver.borrow_mut().set_allowed(
+            &mut super::ime::Port {
+                ime: &mut self.ime.borrow_mut(),
+                scale: self.scale,
+            },
+            allowed,
+        );
     }
     fn set_soft_keyboard(&self, _: bool) {}
     fn set_ime_cursor_area(&self, area: Rect) {
-        if let Err(error) = self.ime.borrow_mut().cursor(area, self.scale) {
-            self.shared.fail(error);
-        }
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.scale;
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.ime_driver.borrow_mut().set_cursor_area(
+            &mut super::ime::Port {
+                ime: &mut self.ime.borrow_mut(),
+                scale: 1.0,
+            },
+            area,
+        );
     }
-    fn set_ime_text(&self, _: Option<arvane_shell::ShellImeText>) {}
+    fn set_ime_text(&self, text: Option<arvane_shell::ShellImeText>) {
+        self.ime_driver.borrow_mut().set_text(
+            &mut super::ime::Port {
+                ime: &mut self.ime.borrow_mut(),
+                scale: self.scale,
+            },
+            text,
+        );
+    }
     fn frame_period_ns(&self) -> u64 {
         kivact_types::defaults::FRAME_PERIOD_NS
     }

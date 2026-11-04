@@ -86,9 +86,12 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             state.input.scale.set(state.shared.scale());
             let result = crate::native_input::ime_request(hwnd, &state.input, w, l);
             if let Some((start, end)) = state.input.reconvert.take() {
-                state.event(ShellEvent::Ime(kivact_types::ImeInput::Selection(
-                    start..end,
-                )));
+                super::ime::input(
+                    state,
+                    arvane_shell::pipeline::RawIme::Reconvert {
+                        selection: (start, end),
+                    },
+                );
             }
             result.unwrap_or_else(|| original_if_alive(state, hwnd, message, w, l))
         }

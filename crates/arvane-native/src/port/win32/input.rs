@@ -262,7 +262,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             if let Some(text) = text
                 && !text.chars().all(char::is_control)
             {
-                state.event(ShellEvent::Ime(kivact_types::ImeInput::Commit(text)));
+                super::ime::input(state, arvane_shell::pipeline::RawIme::Commit(text));
             }
             Some(0)
         }
