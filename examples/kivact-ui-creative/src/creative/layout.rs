@@ -738,7 +738,7 @@ fn layer_property(
             let written = bind(value, move |v| {
                 value.set(v);
                 if watch.get_untracked() {
-                    let frame = state.get_untracked().frame.round() as f64;
+                    let frame = state.get_untracked().frame.round();
                     keys.update(|ks| {
                         if !ks.contains(&frame) {
                             ks.push(frame);
@@ -768,7 +768,7 @@ fn layer_property(
             bind(watch, move |on| {
                 watch.set(on);
                 if on {
-                    keys.update(|ks| ks.push(state.get_untracked().frame.round() as f64));
+                    keys.update(|ks| ks.push(state.get_untracked().frame.round()));
                 } else {
                     keys.set(Vec::new());
                 }
@@ -801,7 +801,7 @@ fn layer_property(
                         p.accent,
                     );
                 }
-                let x = state.get().frame as f64 / 240.0 * s.width;
+                let x = state.get().frame / 240.0 * s.width;
                 d.line(
                     Point::new(x, 0.0),
                     Point::new(x, s.height),

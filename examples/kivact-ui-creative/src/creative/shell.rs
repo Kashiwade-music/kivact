@@ -579,7 +579,7 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
                 .map(|(label, value)| {
                     line((
                         text(label).style(style().font_size(8.0)),
-                        kivact::ui::progress(Some(f64::from(value)))
+                        kivact::ui::progress(Some(value))
                             .name(label)
                             .style(style().size(56, 4))
                             .draw(move |d, size| {
