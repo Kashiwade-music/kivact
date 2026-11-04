@@ -20,14 +20,14 @@
 //! `frame` (the frame stack: tracking, purity, setup, owners), `graph`
 //! (nodes and edges, push-pull), `owner` (owners and disposal), `object`
 //! (owner-bound objects), `report` (error routing), `turn` (effect
-//! scheduling), `mounts` (`on_mount`), `driver` (clock and turn requests),
+//! scheduling), `mounts` (`on_mount`), `clock` (clock and turn requests),
 //! `ext` (per-App extensions), `diag` (the trace ring), `host` (the host's
 //! entry points).
 
 mod arena;
+mod clock;
 mod data;
 mod diag;
-mod driver;
 mod error;
 mod execution;
 mod ext;
@@ -52,11 +52,11 @@ mod setup;
 mod trigger;
 mod turn;
 
+pub use clock::clock_now;
 pub use data::{
     Binding, Callback, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
     TraceRun, TraceWrite, Turn, TurnRecord, UiThreadOnly, Value, Var,
 };
-pub use driver::clock_now;
 pub use error::{ErrorKind, HandlerResult, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub use host::{ExitState, Host, Pending, Stage, ThreadWaker, TurnGuard, TurnReport};
