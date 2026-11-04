@@ -369,6 +369,8 @@ and returns focus to the opener when it closes.
 `EditSession` makes the gesture one edit: `Begin`, the writes, then `Commit`,
 or `Cancel` when the user presses Escape (the value goes back to where it started).
 
+A drag starts at the press by default. Add `.slop(10)` to wait until movement exceeds 10 logical pixels, and `.axis_lock()` to keep its delta on the first movement axis after that threshold. Add `.track_velocity()` to read `DragUpdate.velocity` in logical pixels per millisecond over the latest 100 ms; without it, velocity is zero. Pending presses that end before the threshold produce no start, update, end or edit callbacks. These are setup options on the existing drag handle.
+
 ```rust,test_harness
 use std::cell::RefCell;
 use std::rc::Rc;

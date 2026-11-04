@@ -6,8 +6,7 @@ use crate::options_cell::OptionsCell;
 use kivact_core::ErrorKind;
 use kivact_core::state::{MachineHandle, machine, memo};
 
-#[path = "machine.rs"]
-mod machine;
+use super::machine;
 use kivact_core::custom::{
     EditLineLayout, NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise,
     require_setup,
@@ -387,9 +386,9 @@ impl TextEditApi {
                         return Ok(());
                     }
                     let composing = edit.composition().is_some();
-                    data.control
-                        .send(machine::Event::Composition { id, composing });
                     if composing {
+                        data.control
+                            .send(machine::Event::Composition { id, composing });
                         return Ok(());
                     }
                     let edited = edit.text.unwrap_or_default();
@@ -397,6 +396,10 @@ impl TextEditApi {
                         edited();
                     }
                     binding.set(edited.clone());
+                    data.control.send(machine::Event::Composition {
+                        id,
+                        composing: false,
+                    });
                     if let Some(value) = value.try_get()
                         && value != edited
                     {

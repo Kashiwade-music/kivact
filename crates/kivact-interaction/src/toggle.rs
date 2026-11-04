@@ -115,6 +115,7 @@ struct Core {
     // xtask-allow(state-fields): The checked binding is caller-owned input, independent of mount observation.
     checked: Binding<bool>,
     kind: Kind,
+    // xtask-allow(state-fields): EditSession already owns the edit lifecycle machine; bool is its payload type.
     edit: crate::EditSession<bool>,
     observed: Signal<Option<Value<ToggleState>>>,
     options: OptionsCell<ToggleOptions>,

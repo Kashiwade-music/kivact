@@ -20,6 +20,13 @@ impl DragVelocity {
         }
     }
 
+    pub(crate) fn fork(&self) -> Self {
+        Self {
+            window_ns: self.window_ns,
+            samples: self.samples.clone(),
+        }
+    }
+
     /// Drop the previous gesture and record the initial sample.
     pub fn reset(&mut self, at_ns: u64, position: Point) {
         self.samples.clear();
