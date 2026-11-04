@@ -341,7 +341,17 @@ impl Host {
                 kivact_types::ImeInput::End => self.model.borrow_mut().ime_disabled(),
             },
             ShellEvent::EnvironmentChanged => self.environment_changed(window),
-            ShellEvent::AccessibilityActivated | ShellEvent::AccessibilityDeactivated => {}
+            ShellEvent::AccessibilityActivated => {
+                let mut model = self.model.borrow_mut();
+                if model.a11y.publish == crate::a11y::state::A11yPublish::Inactive {
+                    model.a11y.publish = crate::a11y::state::A11yPublish::AwaitingFirstTree;
+                    model.a11y.invalidate();
+                    self.frame_log.borrow_mut().note("accessibility=on");
+                }
+            }
+            ShellEvent::AccessibilityDeactivated => {
+                self.model.borrow_mut().a11y.publish = crate::a11y::state::A11yPublish::Inactive;
+            }
             ShellEvent::Accessibility { node, request } => {
                 self.model.borrow_mut().accessibility_action(node, request)
             }

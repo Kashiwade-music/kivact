@@ -55,7 +55,7 @@ impl Model {
 
     /// Move an attached node before a sibling (append if `None`).
     pub(crate) fn move_before(&mut self, id: NodeId, before: Option<NodeId>) {
-        self.changes.a11y_structure = true;
+        self.a11y.request_publication(std::iter::empty());
         self.changes.restack = true;
         if let Some(parent) = self.tree.detach(id) {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
@@ -75,8 +75,8 @@ impl Model {
         };
         if let Some(n) = self.tree.get_mut(id) {
             n.scenes[layer_index(layer)] = Some(scene);
-            self.changes
-                .mark(id, Dirty::WRITTEN.union(Dirty::A11Y_METADATA));
+            self.changes.mark(id, Dirty::WRITTEN);
+            self.a11y.node(id);
         }
         if let Some(focus) = self
             .focused()
@@ -115,6 +115,7 @@ impl Model {
             if n.scroll != offset {
                 self.changes.moved();
                 self.changes.mark(id, Dirty::SCROLLED);
+                self.a11y.subtree(id);
             }
             n.scroll = offset;
             self.changes.needs_layout = true;
@@ -133,7 +134,7 @@ impl Model {
 
     /// Create a detached node with its static props.
     pub(crate) fn create(&mut self, id: NodeId, kind: NodeKind) {
-        self.changes.a11y_structure = true;
+        self.a11y.request_publication(std::iter::empty());
         self.create_slot(id, kind);
         self.arrive(id);
         let edit = self
@@ -248,16 +249,13 @@ impl Model {
                 || mutation.paint
                 || mutation.states
                 || mutation.read_only);
-        self.changes.mark(
-            id,
-            if local {
-                Dirty::A11Y_LOCAL_TEXT
-            } else {
-                Dirty::A11Y_METADATA
-            },
-        );
+        if local {
+            self.a11y.local_text(id);
+        } else {
+            self.a11y.node(id);
+        }
         if mutation.style || mutation.text || mutation.placed || mutation.subtree {
-            self.changes.a11y_subtrees.insert(id);
+            self.a11y.subtree(id);
         }
         self.changes.restack |= mutation.restack;
         let Mutation {
@@ -296,6 +294,7 @@ impl Model {
                     // Its parent draws it differently (in flow, stuck, or as a
                     // layer of its own).
                     self.changes.regroup(parent);
+                    self.a11y.node(parent);
                 }
             }
             if !place.sticky
@@ -340,16 +339,24 @@ impl Model {
                 self.measure.forget_computed_text(slot);
                 if drawn {
                     self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
+                    self.a11y.node(x);
                     let now = text_reach_of(&self.text_props(x));
                     self.changes.restack |= before.is_none_or(|b| text_reach_of(&b) != now);
                 } else if kind == NodeType::Image {
                     self.changes.mark(x, Dirty::REDRAW);
+                    self.a11y.node(x);
                 }
             }
             self.changes.needs_layout = true;
         }
         if let Some(parent) = stacks {
             self.tree.stacks(self.tree.nodes.id_at(parent));
+        }
+        if self
+            .node(id)
+            .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
+        {
+            self.a11y.subtree(id);
         }
         self.changes.mark(id, Dirty::WRITTEN);
     }
@@ -367,8 +374,8 @@ impl Model {
         // have been measured as an overlay or fixed layer before attachment.
         let inherited =
             (inherit && self.computed_layout(id).is_some()).then(|| self.text_props(id));
-        self.changes.a11y_structure = true;
-        self.changes.a11y_subtrees.insert(id);
+        self.a11y.request_publication(std::iter::empty());
+        self.a11y.subtree(id);
         self.changes.restack = true;
         if self.tree.insert(parent, id, before).is_none() {
             return;
@@ -395,9 +402,11 @@ impl Model {
                     self.changes.mark(child, Dirty::MEASURE);
                 }
                 self.changes.mark(child, Dirty::REDRAW);
+                self.a11y.node(child);
             }
         }
         self.changes.regroup(parent);
+        self.a11y.node(parent);
         self.changes.needs_layout = true;
     }
 
@@ -417,7 +426,7 @@ impl Model {
 
     /// Remove and destroy `id` and its whole subtree now.
     pub(crate) fn remove_now(&mut self, id: NodeId) {
-        self.changes.a11y_structure = true;
+        self.a11y.request_publication(std::iter::empty());
         self.changes.restack = true;
         let focus_lost = self.focus_in_removal(id);
         let next = if focus_lost.is_some() {
@@ -453,7 +462,7 @@ impl Model {
             if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
             }
-            self.changes.a11y_removed.insert(gone);
+            self.a11y.request_publication(std::iter::once(gone));
             let previous = self.set_edit(gone, None);
             debug_assert!(previous.is_none());
             self.changes.forget(gone);
@@ -463,6 +472,7 @@ impl Model {
         self.pointer.forget_missing(&self.tree);
         if let Some(p) = parent {
             self.changes.regroup(p);
+            self.a11y.node(p);
         }
         if let Some(left) = focus_lost {
             // Move the focus to the next tab stop before reporting, out of

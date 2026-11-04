@@ -72,7 +72,6 @@ pub(crate) fn new(
         suspended: false,
         soft_keyboard: false,
         frame_log,
-        accessibility_noted: false,
         phase: Phase::Starting,
         adapter: None,
     }

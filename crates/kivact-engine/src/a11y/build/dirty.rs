@@ -37,13 +37,13 @@ impl Model {
     ) -> Built {
         let full = *dirt == Dirt::Full;
         let Some(root) = self.tree().root() else {
-            let id = match self.a11y.empty_root {
-                Some(id) => id,
-                None => {
-                    let id = self.next_semantics_identity();
-                    self.a11y.empty_root = Some(id);
-                    id
+            let id = match self.a11y.publish {
+                crate::a11y::state::A11yPublish::Published { root }
+                    if !self.tree.contains(types::NodeId(root.0)) =>
+                {
+                    root.0
                 }
+                _ => self.next_semantics_identity(),
             };
             let node = structural(
                 types::NodeId(id),

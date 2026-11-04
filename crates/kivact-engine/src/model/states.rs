@@ -164,7 +164,7 @@ impl Model {
             .and_then(|n| n.states())
             .is_some_and(crate::tree::states_place)
         {
-            self.changes.a11y_subtrees.insert(id);
+            self.a11y.subtree(id);
             self.changes.needs_layout = true;
             self.changes.moved();
         }

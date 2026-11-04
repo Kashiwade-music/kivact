@@ -74,7 +74,6 @@ pub(crate) struct Host {
     /// the window's renderer observer.
     pub(super) frame_log: Rc<RefCell<FrameLog>>,
     /// The frame log noted that assistive technology reads the tree.
-    pub(super) accessibility_noted: bool,
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
     pub(super) adapter: Option<kivact_types::GpuAdapter>,
@@ -313,14 +312,6 @@ impl Host {
             window.set_title(&title);
             window.set_min_size(min_size);
         }
-        let active = window.accessibility_active();
-        if active && !self.accessibility_noted {
-            // Assistive technology (a UI Automation client) asked for the
-            // tree: from now on it is kept up to date; benchmarks need to
-            // know.
-            self.accessibility_noted = true;
-            self.frame_log.borrow_mut().note("accessibility=on");
-        }
         let caret = {
             let mut model = self.model.borrow_mut();
             // A native editor's caret first; else the caret of a node with an
@@ -360,7 +351,7 @@ impl Host {
         if !after_frame {
             self.model
                 .borrow_mut()
-                .accessibility(window, active, &mut self.engine.borrow_mut());
+                .accessibility(window, &mut self.engine.borrow_mut());
         }
         Ok(self.control(window))
     }

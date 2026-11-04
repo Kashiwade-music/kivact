@@ -86,7 +86,12 @@ impl Model {
         candidate
     }
 
-    pub(super) fn next_semantics_identity(&mut self) -> u64 {
-        self.a11y.next_identity(&self.tree)
+    pub(in crate::a11y) fn next_semantics_identity(&mut self) -> u64 {
+        loop {
+            let id = self.a11y.ids.next().0;
+            if !self.tree.contains(types::NodeId(id)) {
+                return id;
+            }
+        }
     }
 }

@@ -90,9 +90,9 @@ impl Model {
         let fitted = self.refit_tooltips(engine, !computed);
         if computed || fitted {
             let geometry: Vec<_> = self.layout_columns.drain_geometry_changes().collect();
-            self.changes
-                .a11y_subtrees
-                .extend(geometry.iter().map(|change| change.id));
+            for change in &geometry {
+                self.a11y.subtree(change.id);
+            }
             let tree = &self.tree;
             let repaint = geometry.into_iter().filter_map(|change| match change.kind {
                 kivact_layout::GeometryChangeKind::Local => Some(change.id),
@@ -439,6 +439,7 @@ impl Model {
             n.scroll = o;
         }
         self.changes.scrolled(id);
+        self.a11y.subtree(id);
         true
     }
 

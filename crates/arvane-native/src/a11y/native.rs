@@ -183,12 +183,6 @@ impl NativeAccessibility {
             .update_if_active(|| shared.pending_with(root, convert_update).expect(TREE_KEPT));
     }
 
-    /// Whether assistive technology reads the tree (it asked for it and has
-    /// not let go of it): otherwise an application need not build it.
-    pub(crate) fn active(&self) -> bool {
-        self.shared.active()
-    }
-
     pub(crate) fn drain_actions(&mut self) -> Vec<ShellEvent> {
         self.shared.drain_actions()
     }

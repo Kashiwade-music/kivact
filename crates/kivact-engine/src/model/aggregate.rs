@@ -133,19 +133,21 @@ impl Model {
     /// promote this to a subtree/metadata refresh during the same settle.
     pub(crate) fn repaint_text(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.changes.mark(
-                id,
-                super::changes::Dirty::REDRAW.union(super::changes::Dirty::A11Y_LOCAL_TEXT),
-            );
+            self.a11y.local_text(id);
+            self.changes.mark(id, super::changes::Dirty::REDRAW);
         }
     }
 
     pub(crate) fn repaint(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.changes.mark(
-                id,
-                super::changes::Dirty::REDRAW.union(super::changes::Dirty::A11Y_METADATA),
-            );
+            self.a11y.node(id);
+            if self
+                .node(id)
+                .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
+            {
+                self.a11y.subtree(id);
+            }
+            self.changes.mark(id, super::changes::Dirty::REDRAW);
         }
     }
 }

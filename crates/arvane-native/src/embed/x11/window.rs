@@ -182,9 +182,6 @@ impl ShellWindow for Window {
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }
-    fn accessibility_active(&self) -> bool {
-        self.accessibility.tree.active()
-    }
     fn size(&self) -> Size {
         Size {
             width: self.width as f64 / self.scale,

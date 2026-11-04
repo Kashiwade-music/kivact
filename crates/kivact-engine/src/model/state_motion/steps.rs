@@ -145,7 +145,7 @@ impl Model {
             if target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
-                self.changes.a11y_subtrees.insert(*id);
+                self.a11y.subtree(*id);
                 self.changes.needs_layout = true;
                 self.changes.moved();
             }

@@ -2,10 +2,11 @@
 //!
 //! Payload ownership belongs exclusively to the shell. IDs may be allocated
 //! before acceptance; fingerprints and pending dirt commit only after acceptance.
-use kivact_types::{NodeId, RegionId};
+use kivact_types::{NodeId, RegionId, SemanticsId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+// xtask-allow(state-fields): Accepted identity metadata is a rebuildable cache.
 #[derive(Clone, Default)]
 pub(super) struct Metadata {
     pub clipped: BTreeSet<NodeId>,
@@ -38,16 +39,21 @@ pub(super) enum Dirt {
     Full,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum A11yPublish {
+    Inactive,
+    AwaitingFirstTree,
+    Published { root: SemanticsId },
+}
+
 #[derive(Clone)]
 pub(crate) struct A11yState {
     pub(super) native_regions: BTreeMap<u64, (NodeId, RegionId)>,
     pub(super) region_ids: BTreeMap<(NodeId, RegionId), u64>,
-    pub(super) next_semantics_id: u64,
+    pub(super) ids: SemanticsIdAllocator,
     pub(super) authored: BTreeMap<(NodeId, u64), u64>,
     pub(super) hashes: BTreeMap<u64, u64>,
-    pub(super) root: Option<kivact_types::SemanticsId>,
-    pub(super) empty_root: Option<u64>,
-    pub(super) focus: Option<kivact_types::SemanticsId>,
+    pub(crate) publish: A11yPublish,
     /// What changed since the last accepted publication.
     pub(super) dirt: Dirt,
     pub(super) metadata: Rc<Metadata>,
@@ -61,12 +67,10 @@ impl Default for A11yState {
         Self {
             native_regions: BTreeMap::new(),
             region_ids: BTreeMap::new(),
-            next_semantics_id: u64::MAX,
+            ids: SemanticsIdAllocator(u64::MAX),
             authored: BTreeMap::new(),
             hashes: BTreeMap::new(),
-            root: None,
-            empty_root: None,
-            focus: None,
+            publish: A11yPublish::Inactive,
             dirt: Dirt::Full,
             metadata: Rc::default(),
             #[cfg(feature = "testing")]
@@ -157,19 +161,15 @@ impl A11yState {
     }
 }
 
-impl A11yState {
-    /// A new native identity: no node of `tree`, no scene region, and
-    /// never given before.
-    pub(super) fn next_identity(&mut self, tree: &crate::tree::NodeTree) -> u64 {
-        loop {
-            let candidate = self.next_semantics_id;
-            self.next_semantics_id = candidate.checked_sub(1).expect(
-                "invariant: native semantics identity space cannot exhaust in a process lifetime",
-            );
-            // The counter only decreases, so this candidate cannot be an earlier synthetic ID.
-            if !tree.contains(NodeId(candidate)) && !self.native_regions.contains_key(&candidate) {
-                return candidate;
-            }
-        }
+/// Monotonic synthetic identities; consumers reject live authored node IDs.
+#[derive(Clone)]
+pub(super) struct SemanticsIdAllocator(u64);
+impl SemanticsIdAllocator {
+    pub(super) fn next(&mut self) -> SemanticsId {
+        let id = self.0;
+        self.0 = id
+            .checked_sub(1)
+            .expect("invariant: semantics identity space cannot exhaust in a process lifetime");
+        SemanticsId(id)
     }
 }
