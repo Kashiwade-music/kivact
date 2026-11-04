@@ -2,10 +2,11 @@
 use super::geometry::Channel;
 use super::{color_from_hsv, color_to_hsv};
 use crate::editors::shared::owned_edit::OwnedEdit;
-use kivact::interaction::Drag;
+use kivact::interaction::DragApi;
+use kivact::state::IntoValue;
+use kivact::state::{Binding, Callback, Signal, Var, signal, var};
 use kivact::style::Color;
-use kivact::ui::EditPhase;
-use kivact::{Binding, Callback, Signal, Var, signal, var};
+use kivact::view::EditPhase;
 
 type Snapshot = (Color, f64, Option<Vec<Color>>);
 /// Who began the active edit of the shared session.
@@ -23,7 +24,7 @@ pub(super) struct State {
     pub(super) palette: Option<Binding<Vec<Color>>>,
     pub(super) edit: OwnedEdit<ColorOwner, Snapshot>,
     /// The wheel's drag, once the wheel made it; a drag owns the color.
-    pub(super) drag: Var<Option<Drag<Channel>>>,
+    pub(super) drag: Var<Option<DragApi<Channel>>>,
     pub(super) blocked: Signal<bool>,
 }
 impl State {
@@ -116,4 +117,3 @@ impl State {
         }
     }
 }
-use kivact::view::IntoValue;

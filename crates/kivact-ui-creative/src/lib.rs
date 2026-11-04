@@ -3,7 +3,7 @@
 //! The only dependency is the public `kivact` facade. Components expose
 //! their root through `NodeBuilder`, so ordinary `NodeBuilder` modifiers
 //! apply to official and third-party components in exactly the same way.
-//! Install [`theme`] on an App or with `kivact::view::provide_theme`.
+//! Install [`theme`] on an App or with `kivact::style::provide_theme`.
 //!
 //! The texts the components show themselves (a window's close button, the
 //! transport's button names) are English and read through
@@ -44,7 +44,6 @@ mod range;
 mod recipes;
 mod recipes_collections;
 mod recipes_controls;
-mod slot;
 mod tabs;
 mod theme;
 mod timeline;
@@ -99,7 +98,7 @@ pub use numeric::{
 pub use outliner::{Outliner, Restriction, RestrictionFlag, TreeDrop, TreeItem, outliner};
 pub use panel_group::{InspectorPanel, panel_group};
 pub use picker::{PickerItem, SearchPicker, search_picker};
-pub use pie::{PieEntry, PieState, pie_menu};
+pub use pie::{PieEntry, PieMenu, PieState, pie_menu};
 pub use property_row::{PropertyRow, PropertyStateButton, property_row, property_state_button};
 pub use range::{Range, range};
 pub use tabs::{DocumentTabs, document_tabs};

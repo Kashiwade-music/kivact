@@ -3,7 +3,7 @@
 use crate::editors::graph::gesture::VisibleKey;
 use crate::editors::graph::model::GraphView;
 use crate::editors::shared::metrics::{RULER, SIDEBAR};
-use kivact::draw::{Point, Rect, Size};
+use kivact::geometry::{Point, Rect, Size};
 
 pub(crate) fn axis(range: (f64, f64), fallback: (f64, f64)) -> (f64, f64) {
     if !range.0.is_finite() || !range.1.is_finite() || range.0 >= range.1 {

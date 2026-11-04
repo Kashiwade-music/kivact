@@ -1,7 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::arrangement::model::TimelineTool;
-use kivact::draw::Point;
-use kivact::{Binding, signal};
+use kivact::geometry::Point;
+use kivact::state::{Binding, signal};
 /// The view state of an [`arrangement`](crate::editors::arrangement).
 #[derive(Clone, Copy)]
 pub struct ArrangementState {

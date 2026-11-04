@@ -4,8 +4,8 @@ use crate::editors::node::gesture::{DragMode, NodeMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControlValue, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
-use kivact::draw::{Point, Rect};
-use kivact::interaction::{Drag as Gesture, ListGesture};
+use kivact::geometry::{Point, Rect};
+use kivact::interaction::{DragApi as Gesture, ListGesture};
 use kivact::view::{ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
 
 fn moved(state: State, point: Point) {
@@ -86,7 +86,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
             button: MouseButton::Primary,
             ..
         })
-    ) && state.zoom.space_armed().get_untracked()
+    ) && state.zoom.is_space_armed().get_untracked()
     {
         return if state.busy() {
             Handled::Yes
@@ -116,7 +116,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                         &state.selected.get(),
                         id,
                         event.modifiers(),
-                        &kivact::interaction::ListPolicy::default(),
+                        &kivact::interaction::ListOptions::default(),
                     ) {
                         selection::Press::Pending(id) => pending = Some(id),
                         selection::Press::Select(gesture) => state.select(id, gesture),

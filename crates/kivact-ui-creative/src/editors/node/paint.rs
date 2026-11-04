@@ -7,8 +7,10 @@ use crate::editors::node::layout::{control, rect, socket};
 use crate::editors::node::model::{NodeControlValue, NodeData};
 use crate::editors::shared::targets::Scene;
 use crate::editors::shared::text::label;
-use kivact::draw::{Draw, Rect};
-use kivact::draw::{Layer, Size, Transform};
+use kivact::draw::Draw;
+use kivact::draw::{Layer, Transform};
+use kivact::geometry::Rect;
+use kivact::geometry::Size;
 use kivact::style::ColorToken;
 
 fn item(
@@ -18,7 +20,7 @@ fn item(
     scene: Option<&Scene<Target>>,
     texts: crate::editors::shared::texts::Texts,
 ) {
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     let r = rect(node);
     draw.rounded_rect(r, 10.0, ColorToken::Raised);
     draw.rounded_rect(
@@ -107,8 +109,8 @@ fn item(
     }
     if node.muted {
         draw.line(
-            kivact::draw::Point::new(r.x, r.y + r.height),
-            kivact::draw::Point::new(r.x + r.width, r.y),
+            kivact::geometry::Point::new(r.x, r.y + r.height),
+            kivact::geometry::Point::new(r.x + r.width, r.y),
             2.0,
             p.x,
         );
@@ -116,7 +118,7 @@ fn item(
 }
 
 pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     for x in (0..size.width.max(0.0) as usize).step_by(20) {
         for y in (0..size.height.max(0.0) as usize).step_by(20) {
             draw.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, p.hair);

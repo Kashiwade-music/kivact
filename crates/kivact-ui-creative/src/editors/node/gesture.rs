@@ -2,10 +2,12 @@
 
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
-use kivact::draw::{Point, RegionId};
-use kivact::interaction::{Drag as Gesture, EditSession, List, ViewTransform, ZoomPan};
+use kivact::UiError;
+use kivact::draw::RegionId;
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ViewTransform, ZoomPanApi};
+use kivact::state::{Binding, Callback, Signal, Value};
 use kivact::view::{NodeRef, Role};
-use kivact::{Binding, Callback, Signal, UiError, Value};
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -120,7 +122,7 @@ pub(crate) struct State {
     pub(crate) links: Value<Vec<NodeLink>>,
     pub(crate) selected: Binding<Vec<u64>>,
     pub(crate) selected_link: Binding<Option<NodeLink>>,
-    pub(crate) choose: List<u64>,
+    pub(crate) choose: ListApi<u64>,
     pub(crate) transform: Binding<ViewTransform>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) snap: Value<bool>,
@@ -138,7 +140,7 @@ pub(crate) struct State {
     /// The editor is disabled, hidden or not visible.
     pub(crate) blocked: Value<bool>,
     /// The canvas's pan and zoom, which also tracks Space.
-    pub(crate) zoom: ZoomPan,
+    pub(crate) zoom: ZoomPanApi,
 }
 
 impl State {

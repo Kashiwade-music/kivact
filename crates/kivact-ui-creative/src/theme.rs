@@ -11,7 +11,7 @@ use kivact::style::{LineHeight, Theme, ThemeMode, rgb, rgba};
 /// icon set has every icon name the kit draws over the standard marks.
 ///
 /// The result is a plain [`Theme`]: give it to `App::theme` or
-/// `kivact::view::provide_theme` as it is.
+/// `kivact::style::provide_theme` as it is.
 pub fn theme(mode: ThemeMode) -> Theme {
     let p = Tokens::new(mode, Accent::default(), Density::default());
     let dark = mode == ThemeMode::Dark;
@@ -73,12 +73,12 @@ pub trait ThemeOptions {
 
 impl ThemeOptions for Theme {
     fn accent(self, accent: Accent) -> Theme {
-        let p = self.get::<Tokens>().as_ref().clone().with_accent(accent);
+        let p = self.ext::<Tokens>().as_ref().clone().with_accent(accent);
         install(self, p)
     }
 
     fn density(self, density: Density) -> Theme {
-        let p = self.get::<Tokens>().as_ref().clone().with_density(density);
+        let p = self.ext::<Tokens>().as_ref().clone().with_density(density);
         install(self, p)
     }
 }

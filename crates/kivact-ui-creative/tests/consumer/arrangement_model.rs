@@ -1,16 +1,16 @@
 //! Role: Application reducer and gesture snapshots for arrangement requests.
-use kivact::{Signal, signal};
+use kivact::state::{Signal, signal};
 use kivact_ui_creative as ui;
 
 pub(super) fn edits(
     clips: Signal<Vec<ui::Clip>>,
     tracks: Signal<Vec<ui::TimelineTrack>>,
-    observe: impl Fn(kivact::ui::EditPhase) + 'static,
+    observe: impl Fn(kivact::view::EditPhase) + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::ArrangementRequest>) + 'static {
     let snapshot = signal(None::<(Vec<ui::Clip>, Vec<ui::TimelineTrack>)>);
     let point = signal(None::<u64>);
     move |event| {
-        use kivact::ui::EditPhase;
+        use kivact::view::EditPhase;
         match event {
             ui::EditorEvent::Begin => {
                 snapshot.set(Some((clips.get_untracked(), tracks.get_untracked())));

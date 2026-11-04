@@ -2,12 +2,11 @@
 
 use super::data::{DockCx, Shared, Texts};
 use super::model::{DockLayout, DockSide, DockTab};
-use kivact::Value;
-use kivact::draw::Rect;
+use kivact::geometry::Rect;
 use kivact::i18n::message;
-use kivact::interaction::{ListCommandModifier, ListRangePolicy};
+use kivact::interaction::{ListCommandModifier, ListRangeOptions};
+use kivact::state::Value;
 use kivact::view::{Handled, Key, KeyEvent, Modifiers};
-use std::hash::Hash;
 use std::rc::Rc;
 
 impl Texts {
@@ -60,7 +59,7 @@ impl Texts {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> DockCx<K> {
+impl<K: kivact::state::ItemKey> DockCx<K> {
     pub(super) fn shared(self) -> Rc<Shared<K>> {
         self.shared.with(Rc::clone)
     }
@@ -105,7 +104,7 @@ impl<K: Clone + Eq + Hash + 'static> DockCx<K> {
         let token = shared.next_rect.get().wrapping_add(1);
         shared.next_rect.set(token);
         shared.rects.borrow_mut().insert(id.clone(), (token, rect));
-        kivact::on_cleanup(move || {
+        kivact::state::on_cleanup(move || {
             let mut rects = shared.rects.borrow_mut();
             if rects.get(&id).is_some_and(|(owner, _)| *owner == token) {
                 rects.remove(&id);
@@ -135,7 +134,7 @@ impl<K: Clone + Eq + Hash + 'static> DockCx<K> {
 /// Whether the application command modifier is held, as selections read it
 /// (Ctrl or Cmd).
 fn command_held(modifiers: Modifiers) -> bool {
-    match ListRangePolicy::default().command {
+    match ListRangeOptions::default().command {
         ListCommandModifier::Control => modifiers.ctrl,
         ListCommandModifier::Meta => modifiers.meta,
         ListCommandModifier::ControlOrMeta => modifiers.ctrl || modifiers.meta,

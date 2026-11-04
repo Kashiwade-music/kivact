@@ -5,21 +5,23 @@ use crate::editors::arrangement::model::TrackFlag;
 use crate::editors::shared::metrics::{ARRANGEMENT_SIDEBAR as LEFT, ARRANGEMENT_TOP, LOOP_RULER};
 use crate::editors::shared::model::drawable;
 use crate::editors::shared::region_parts::bounded_range;
-use kivact::draw::{
-    Draw, Layer, LineCap, LineJoin, Path, Point, Rect, RegionId, Size, Stroke, TextStyle,
-};
+use kivact::draw::{Draw, Layer, LineCap, LineJoin, Path, RegionId, Stroke, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::{Color, ColorToken};
 
 use super::layout::{automation_y, clamp_pan_y, track_layout};
 pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     let tracks = state.track_data.get();
     let data = state.data.get();
-    let scale = state.pixels.get().clamp(state.bounds.0, state.bounds.1);
+    let scale = state
+        .pixels
+        .get()
+        .clamp(state.bounds.get().min(), state.bounds.get().max());
     let pan = state.offset.get();
     let pan_y = clamp_pan_y(&tracks, size.height, pan.y);
     let selected = state.selection.get();
     let regions = state.regions.get();
-    let p = d.theme().get::<crate::tokens::Tokens>();
+    let p = d.theme().ext::<crate::tokens::Tokens>();
     d.fill_rect(size.to_rect(), p.canvas);
     let first = ((-pan.x / scale).floor().max(0.0)) as u64;
     let last = ((size.width - LEFT - pan.x) / scale)
@@ -43,7 +45,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     let (lo, hi) = bounded_range(
         state.range.get(),
         state.length.get(),
-        state.loop_min_duration,
+        state.loop_min_duration.get(),
     );
     let lx = LEFT + lo * scale + pan.x;
     let hx = LEFT + hi * scale + pan.x;
@@ -252,7 +254,7 @@ fn label(d: &mut Draw, text: &str, x: f64, y: f64, color: Color) {
     d.text(
         text,
         Point::new(x, y),
-        TextStyle {
+        TextFormat {
             size: 10.5,
             color,
             ..Default::default()

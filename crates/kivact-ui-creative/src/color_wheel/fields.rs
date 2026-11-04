@@ -4,12 +4,17 @@ use super::color_to_hsv;
 use super::geometry::Channel;
 use super::state::{ColorOwner, State};
 use crate::number;
-use kivact::control::{NodeBuilder, column, row};
 use kivact::i18n::message;
+use kivact::interaction::ListItem;
+use kivact::state::IntoValue;
+use kivact::state::callback;
+use kivact::state::{Binding, Value, binding, effect, memo, signal};
 use kivact::style::{Color, pct, style};
-use kivact::ui::{EditPhase, ListItem};
-use kivact::view::{IntoValue, IntoView, View, callback, dynamic, for_each, show};
-use kivact::{Binding, Value, binding, effect, memo, signal};
+use kivact::view::EditPhase;
+use kivact::view::IntoView;
+use kivact::view::NodeBuilder;
+use kivact::view::{View, dynamic, for_each, show};
+use kivact::view::{column, row};
 
 pub(super) fn fields(state: State, model: Binding<ColorModel>, alpha: Value<bool>) -> View {
     let current = model.into_value();
@@ -25,7 +30,7 @@ pub(super) fn fields(state: State, model: Binding<ColorModel>, alpha: Value<bool
             choices,
             selected,
         )
-        .disabled(state.blocked),
+        .with_node(move |node| node.disabled(state.blocked)),
         dynamic(current, move |model| match model {
             ColorModel::Hex => hex(state, alpha),
             ColorModel::Rgb | ColorModel::Hsv => {
@@ -48,7 +53,7 @@ pub(super) fn fields(state: State, model: Binding<ColorModel>, alpha: Value<bool
 }
 fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
     let owner = ColorOwner::Field { hsv, index };
-    kivact::on_cleanup(move || {
+    kivact::state::on_cleanup(move || {
         state.edit.cancel_owned(owner);
     });
     let value = state.color.into_value();
@@ -98,12 +103,15 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
         message(key, label),
         binding(read.into_value(), move |value| write.try_call(value)),
     )
-    .disabled(state.blocked)
-    .range(0.0, if hsv && index == 0 { 360.0 } else { 1.0 })
+    .with_node(move |node| node.disabled(state.blocked))
+    .range(
+        kivact::interaction::ScalarRange::new(0.0, if hsv && index == 0 { 360.0 } else { 1.0 })
+            .expect("invariant: finite ordered control range"),
+    )
     .step(if hsv && index == 0 { 1.0 } else { 0.001 })
     .precision(3)
     .on_edit(move |phase| state.phase(owner, phase))
-    .style(style().grow(1).min_width(0).width(60))
+    .with_node(move |node| node.style(style().grow(1).min_width(0).width(60)))
 }
 fn encode(color: Color, alpha: bool) -> String {
     let c = color
@@ -188,7 +196,7 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
         |(index, _)| *index,
         move |index, item: Value<(usize, Color)>| {
             kivact::ui::button(move || format!("{} {}", swatch_label.get(), index + 1))
-                .disabled(state.blocked)
+                .with_node(move |node| node.disabled(state.blocked))
                 .on_press(move || {
                     selected.set(Some(index));
                     state.once(ColorOwner::Swatch, || {
@@ -200,11 +208,13 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                         });
                     });
                 })
-                .style(move || {
-                    style().size(28, 28).background(item.get().1).border(
-                        if selected.get() == Some(index) { 2 } else { 0 },
-                        Color::WHITE,
-                    )
+                .with_node(move |node| {
+                    node.style(move || {
+                        style().size(28, 28).background(item.get().1).border(
+                            if selected.get() == Some(index) { 2 } else { 0 },
+                            Color::WHITE,
+                        )
+                    })
                 })
         },
     );
@@ -213,7 +223,7 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
             row(buttons).style(style().gap(4)),
             row((
                 kivact::ui::button(message("creative.color.add_swatch", "Add swatch"))
-                    .disabled(state.blocked)
+                    .with_node(move |node| node.disabled(state.blocked))
                     .on_press(move || {
                         state.once(ColorOwner::Swatch, || {
                             let mut colors = colors.get();
@@ -223,7 +233,9 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                         })
                     }),
                 kivact::ui::button(message("creative.color.remove_swatch", "Remove swatch"))
-                    .disabled(move || state.blocked.get() || selected.get().is_none())
+                    .with_node(move |node| {
+                        node.disabled(move || state.blocked.get() || selected.get().is_none())
+                    })
                     .on_press(move || {
                         if let Some(index) = selected.get() {
                             state.once(ColorOwner::Swatch, || {

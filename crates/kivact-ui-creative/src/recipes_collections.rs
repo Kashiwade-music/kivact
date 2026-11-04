@@ -12,7 +12,7 @@ use kivact::ui::{DataTableRecipes, ListRecipes};
 pub(crate) fn list(r: ListRecipes) -> ListRecipes {
     r.item(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .min_height(p.row)
                 .padding_x(9)
@@ -26,13 +26,13 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     r.frame(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s).radius(0).border_color(p.hair)
         }
     })
     .header(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .min_height(30)
                 .padding_x(9)
@@ -44,7 +44,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
     .row(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .min_height(s.height.unwrap_or(p.row + 4.0))
                 .color(p.text)

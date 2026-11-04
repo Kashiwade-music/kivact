@@ -5,7 +5,7 @@
 //! takes, a roving segment included.
 use kivact::style::{Align, ColorToken, Direction, Style, TextOverflow, Theme, rgba, style};
 pub(crate) fn check_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -16,7 +16,7 @@ pub(crate) fn check_style(t: &Theme) -> Style {
 }
 
 pub(crate) fn field_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -37,11 +37,11 @@ pub(crate) fn segmented_style(t: &Theme) -> Style {
         .padding(2)
         .radius(9)
         .background(rgba(0x000000, 0.28))
-        .border(1, t.get::<crate::tokens::Tokens>().hair)
+        .border(1, t.ext::<crate::tokens::Tokens>().hair)
 }
 
 pub(crate) fn segmented_option_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .min_width(0)

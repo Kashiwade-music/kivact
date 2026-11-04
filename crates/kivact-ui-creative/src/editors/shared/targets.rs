@@ -1,8 +1,9 @@
 //! Role: Stable private region allocation independent of application identities.
 
+use kivact::UiError;
 use kivact::draw::RegionId;
-use kivact::view::callback;
-use kivact::{UiError, Value};
+use kivact::state::Value;
+use kivact::state::callback;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -75,15 +76,15 @@ impl<T: Eq + Hash + Clone> TargetTable<T> {
     }
 }
 
-pub(crate) fn targets<T: Eq + Hash + Clone + 'static>(
+pub(crate) fn targets<T: kivact::state::ItemKey>(
     source: impl Fn() -> Result<Vec<T>, UiError> + 'static,
 ) -> Value<Result<Rc<Scene<T>>, UiError>> {
-    let table = kivact::var(TargetTable::default());
-    let scene = kivact::memo(move || {
+    let table = kivact::state::var(TargetTable::default());
+    let scene = kivact::state::memo(move || {
         table.update(|table| source().and_then(|targets| table.synchronize(targets)))
     });
     let report = callback(|error| -> kivact::Result<()> { Err(error) });
-    kivact::effect(move || {
+    kivact::state::effect(move || {
         if let Err(error) = scene.get() {
             report.call(error);
         }

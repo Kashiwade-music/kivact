@@ -2,19 +2,22 @@
 
 use super::data::CubicBezier;
 use super::geometry::Plane;
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::{Path, RegionId, Size, Stroke};
+use kivact::custom::part;
+use kivact::draw::{Path, RegionId, Stroke};
+use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, EditSession, use_drag};
-use kivact::primitive::part;
-use kivact::style::{current_theme, style};
-use kivact::ui::EditPhase;
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::state::callback;
+use kivact::state::{Binding, Callback, effect, var};
+use kivact::style::{style, use_theme};
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
-    callback, node_ref,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
 };
-use kivact::{Binding, Callback, effect, var};
+use kivact::view::{Node, NodeBuilder, node};
 
 /// Two editable control points of a [`CubicBezier`].
 /// Arrow keys move X/Y by 0.01, Shift by 0.1 and Ctrl by 0.001.
@@ -39,13 +42,13 @@ pub struct BezierCurve {
 /// }
 /// ```
 #[track_caller]
-pub fn bezier_curve(value: impl Into<Binding<CubicBezier>>) -> BezierCurve {
+pub fn bezier_curve(value: impl IntoBinding<CubicBezier>) -> BezierCurve {
     BezierCurve {
         root: node()
             .role(Role::Canvas)
             .name(message("creative.bezier.label", "Cubic bezier curve"))
             .style(style().size(240, 200).min_width(0).min_height(0)),
-        value: value.into(),
+        value: value.into_binding(),
         on_edit: None,
     }
 }
@@ -64,6 +67,7 @@ impl BezierCurve {
 }
 
 impl NodeBuilder for BezierCurve {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -132,7 +136,7 @@ impl IntoView for BezierCurve {
         let mut root = self.root.node_ref(reference).draw(move |draw, size| {
             let value = value.get().clean();
             let area = plane(value, size);
-            let p = current_theme().get::<crate::tokens::Tokens>();
+            let p = use_theme().get().ext::<crate::tokens::Tokens>();
             let from = area.point(0.0, 0.0);
             let to = area.point(1.0, 1.0);
             let first = area.point(value.x1, value.y1);
@@ -164,19 +168,27 @@ impl IntoView for BezierCurve {
                 "Control point 2",
             ),
         ] {
-            let attachment = part(|input| input)
-                .role(Role::Slider)
-                .name(message(key, fallback))
-                .focusable(true)
-                .value_text(move || {
-                    let (x, y) = value.get().clean().point(index);
-                    format!("{x},{y}")
+            let attachment = {
+                let input_part = part(|input| input);
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .role(Role::Slider)
+                        .name(message(key, fallback))
+                        .focusable(true)
+                        .value_text(move || {
+                            let (x, y) = value.get().clean().point(index);
+                            format!("{x},{y}")
+                        })
+                        .value_min(0.0)
+                        .value_max(1.0)
+                        .value_now(move || value.get().clean().point(index).0)
                 })
-                .value_min(0.0)
-                .value_max(1.0)
-                .value_now(move || value.get().clean().point(index).0);
+            };
             let state = attachment.state();
-            let target = attachment.node_ref();
+            let target = kivact::view::node_ref();
+            let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
+                node.part(attachment).node_ref(target)
+            });
             effect(move || {
                 let state = state.get();
                 if state.disabled || state.hidden {
@@ -202,32 +214,34 @@ impl IntoView for BezierCurve {
                     change(index, next);
                 }
             };
-            let attachment = attachment
-                .with(gesture.source(index))
-                .on_key(move |event: KeyEvent| {
-                    let step = if event.modifiers().ctrl {
-                        0.001
-                    } else if event.modifiers().shift {
-                        0.1
-                    } else {
-                        0.01
-                    };
-                    let (x, y) = value.get().clean().point(index);
-                    let next = match event.key() {
-                        Key::ArrowLeft => (x - step, y),
-                        Key::ArrowRight => (x + step, y),
-                        Key::ArrowUp => (x, y + step),
-                        Key::ArrowDown => (x, y - step),
-                        _ => return Handled::No,
-                    };
-                    change(index, next);
-                    Handled::Yes
-                })
-                .on_a11y_event(A11yAction::Select, action)
-                .on_a11y_event(A11yAction::Activate, action)
-                .on_a11y_event(A11yAction::SetValue, action)
-                .on_a11y_event(A11yAction::Increment, action)
-                .on_a11y_event(A11yAction::Decrement, action);
+            let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
+                node.part(attachment)
+                    .part(gesture.source(index))
+                    .on_key(move |event: KeyEvent| {
+                        let step = if event.modifiers().ctrl {
+                            0.001
+                        } else if event.modifiers().shift {
+                            0.1
+                        } else {
+                            0.01
+                        };
+                        let (x, y) = value.get().clean().point(index);
+                        let next = match event.key() {
+                            Key::ArrowLeft => (x - step, y),
+                            Key::ArrowRight => (x + step, y),
+                            Key::ArrowUp => (x, y + step),
+                            Key::ArrowDown => (x, y - step),
+                            _ => return Handled::No,
+                        };
+                        change(index, next);
+                        Handled::Yes
+                    })
+                    .a11y_action(A11yAction::Select, action)
+                    .a11y_action(A11yAction::Activate, action)
+                    .a11y_action(A11yAction::SetValue, action)
+                    .a11y_action(A11yAction::Increment, action)
+                    .a11y_action(A11yAction::Decrement, action)
+            });
             root = root.region(id, attachment);
         }
         root.into_view()

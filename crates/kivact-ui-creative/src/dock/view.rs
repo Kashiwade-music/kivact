@@ -7,21 +7,23 @@ use super::items::Item;
 use super::items::{ItemKey, build_items};
 use super::model::{DockAxis, DockLayout, DockPlacement, DockTabs};
 use crate::Color;
-use kivact::control::{Node, NodeBuilder, node, text};
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_splitter;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::view::{Node, NodeBuilder, node, text};
+
+use kivact::interaction::{MenuEntry, ScalarRange};
+use kivact::state::callback;
+use kivact::state::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::style::use_theme;
 use kivact::style::{Cursor, Direction, Overflow, Position, pct, style};
-use kivact::ui::{EditPhase, MenuEntry, ScalarRange};
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
-use kivact::view::{
-    Handled, IntoValue, IntoView, Key, Orientation, Role, View, callback, for_each, node_ref,
-};
-use kivact::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::view::{Handled, IntoView, Key, Orientation, Role, View, for_each, node_ref};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::rc::Rc;
 
 /// A docking workspace bound to an application-owned [`DockLayout`].
@@ -38,10 +40,10 @@ use std::rc::Rc;
 ///
 /// The texts the dock shows itself read through `kivact::i18n::message` with
 /// the keys `dock.*`.
-pub struct Dock<K: Clone + Eq + Hash + 'static> {
+pub struct Dock<K: kivact::state::ItemKey> {
     root: Node,
     layout: Binding<DockLayout<K>>,
-    panel: Rc<dyn Fn(K) -> View>,
+    panel: kivact::view::ViewFn<K>,
     menu: MenuBuilder<K>,
     on_close: Option<Callback<K>>,
     on_edit: Option<Callback<EditPhase>>,
@@ -53,11 +55,11 @@ pub struct Dock<K: Clone + Eq + Hash + 'static> {
 /// `.style(style().height(600))`.
 #[track_caller]
 pub fn dock<K, V>(
-    layout: impl Into<Binding<DockLayout<K>>>,
+    layout: impl IntoBinding<DockLayout<K>>,
     panel: impl Fn(K) -> V + 'static,
 ) -> Dock<K>
 where
-    K: Clone + Eq + Hash + 'static,
+    K: kivact::state::ItemKey,
     V: IntoView,
 {
     Dock {
@@ -70,15 +72,17 @@ where
                     .min_height(0)
                     .overflow(Overflow::Hidden),
             ),
-        layout: layout.into(),
-        panel: Rc::new(move |key| panel(key).into_view()),
-        menu: Rc::new(|input| super::chrome::container_menu::<K, ()>(input, None)),
+        layout: layout.into_binding(),
+        panel: kivact::view::ViewFn::from(panel),
+        menu: kivact::view::ViewFn::from(|input| {
+            super::chrome::container_menu::<K, ()>(input, None)
+        }),
         on_close: None,
         on_edit: None,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> Dock<K> {
+impl<K: kivact::state::ItemKey> Dock<K> {
     /// Observe splitter edits using the core splitter's Begin/Commit/Cancel
     /// contract. Tab activation, tab drags and other dock commands do not
     /// report these phases. Escape and disposal restore an active splitter edit.
@@ -95,7 +99,7 @@ impl<K: Clone + Eq + Hash + 'static> Dock<K> {
     ///
     /// `entries` receives the container; `choose` receives its active tab and
     /// the key of the chosen entry.
-    pub fn menu<C: Clone + Eq + Hash + 'static, R: HandlerResult>(
+    pub fn menu<C: kivact::state::ItemKey, R: HandlerResult>(
         mut self,
         entries: impl Fn(&DockTabs<K>) -> Vec<MenuEntry<C>> + 'static,
         choose: impl Fn((K, C)) -> R + 'static,
@@ -104,7 +108,9 @@ impl<K: Clone + Eq + Hash + 'static> Dock<K> {
             entries: Rc::new(entries),
             choose: callback(choose),
         };
-        self.menu = Rc::new(move |input| super::chrome::container_menu(input, Some(app.clone())));
+        self.menu = kivact::view::ViewFn::from(move |input| {
+            super::chrome::container_menu(input, Some(app.clone()))
+        });
         self
     }
     /// Observe each tab removed by a close command, after the layout write.
@@ -114,13 +120,14 @@ impl<K: Clone + Eq + Hash + 'static> Dock<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Dock<K> {
+impl<K: kivact::state::ItemKey> NodeBuilder for Dock<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
+impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -142,7 +149,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
             on_edit,
             current,
             drag: signal(None),
-            rename: kivact::ui::use_inline_edit(signal(None)),
+            rename: kivact::interaction::use_inline_edit(signal(None)),
             root: reference.rect(),
             shared: var(Rc::new(Shared {
                 rects: RefCell::new(HashMap::new()),
@@ -187,8 +194,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
         let overlay = node()
             .hidden(move || preview.get().is_none())
             .style(move || {
-                let t = &current_theme();
-                let p = t.get::<crate::tokens::Tokens>();
+                let t = &use_theme().get();
+                let p = t.ext::<crate::tokens::Tokens>();
                 let Some((rect, bar, edge)) = preview.get() else {
                     return style();
                 };
@@ -222,11 +229,11 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
     }
 }
 
-fn content<K: Clone + Eq + Hash + 'static>(
+fn content<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     id: K,
     item: Value<Item<K>>,
-    panel: Rc<dyn Fn(K) -> View>,
+    panel: kivact::view::ViewFn<K>,
 ) -> View {
     let title = memo(move || match item.with(Clone::clone) {
         Item::Content { title, .. } => title,
@@ -254,7 +261,7 @@ fn content<K: Clone + Eq + Hash + 'static>(
                         .min_height(0)
                         .direction(Direction::Column),
                 )
-                .child(panel(id)),
+                .child(panel.call(id)),
         )
         .into_view()
 }
@@ -263,7 +270,7 @@ fn content<K: Clone + Eq + Hash + 'static>(
 ///
 /// Its value is the leading neighbor's share of the two neighbors' weights, in
 /// percent.
-fn divider<K: Clone + Eq + Hash + 'static>(
+fn divider<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     path: Vec<usize>,
     index: usize,
@@ -356,6 +363,6 @@ fn divider<K: Clone + Eq + Hash + 'static>(
         .hidden(move || !item.with(Item::shown))
         .style(move || state.with(|divider| divider.as_ref().map_or_else(style, Divider::style)))
         .style(style().cursor(cursor))
-        .style(move || crate::dock_style::splitter_look(&current_theme()))
+        .style(move || crate::dock_style::splitter_look(&use_theme().get()))
         .into_view()
 }

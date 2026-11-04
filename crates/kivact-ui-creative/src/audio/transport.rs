@@ -1,12 +1,14 @@
 //! Role: The transport bar: its TransportState and play, stop and position view.
 
-use kivact::control::{Node, NodeBuilder, row};
 use kivact::i18n::message;
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::state::callback;
+use kivact::state::{Binding, Callback};
 use kivact::style::{Align, style};
 use kivact::ui::ButtonVariant;
-use kivact::view::HandlerResult;
-use kivact::view::{IntoValue, IntoView, Role, View, callback};
-use kivact::{Binding, Callback};
+use kivact::view::{IntoView, Role, View};
+use kivact::view::{Node, NodeBuilder, row};
 
 /// Playback button state; the application owns its clock.
 #[derive(Clone, Debug, PartialEq)]
@@ -35,7 +37,7 @@ pub struct Transport {
 
 /// Create controls for the application's playback state.
 #[track_caller]
-pub fn transport(binding: impl Into<Binding<TransportState>>) -> Transport {
+pub fn transport(binding: impl IntoBinding<TransportState>) -> Transport {
     Transport {
         root: row(())
             .role(Role::Toolbar)
@@ -48,20 +50,21 @@ pub fn transport(binding: impl Into<Binding<TransportState>>) -> Transport {
                     .radius(9)
                     .background(crate::Color::Canvas),
             ),
-        binding: binding.into(),
+        binding: binding.into_binding(),
         to_start: None,
     }
 }
 
 impl Transport {
     /// Report a request to return to the application's start position.
-    pub fn on_to_start<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.to_start = Some(callback(move |_| f()));
+    pub fn on_to_start(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.to_start = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for Transport {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -88,33 +91,33 @@ fn transport_view(
         to_start.map(|callback| {
             kivact::ui::button(message("creative.transport.start", "To Start"))
                 .hide_label(true)
-                .icon(kivact::control::icon("start"))
+                .icon(kivact::view::icon("start"))
                 .variant(ButtonVariant::Ghost)
                 .on_press(move || callback.call(()))
         }),
         kivact::ui::button(message("creative.transport.stop", "Stop"))
             .hide_label(true)
-            .icon(kivact::control::icon("stop"))
+            .icon(kivact::view::icon("stop"))
             .variant(ButtonVariant::Ghost)
             .on_press(move || modify(|s| s.playing = false)),
         kivact::ui::button(message("creative.transport.play", "Play"))
             .hide_label(true)
-            .icon(kivact::control::icon("play"))
+            .icon(kivact::view::icon("play"))
             .variant(ButtonVariant::Ghost)
-            .selected(move || state.get().playing)
+            .with_node(move |node| node.selected(move || state.get().playing))
             .on_press(move || modify(|s| s.playing = !s.playing)),
         kivact::ui::button(message("creative.transport.record", "Record"))
             .hide_label(true)
-            .icon(kivact::control::icon("record"))
+            .icon(kivact::view::icon("record"))
             .variant(ButtonVariant::Ghost)
-            .selected(move || state.get().recording)
-            .style(style().color(crate::Color::X))
+            .with_node(move |node| node.selected(move || state.get().recording))
+            .with_node(move |node| node.style(style().color(crate::Color::X)))
             .on_press(move || modify(|s| s.recording = !s.recording)),
         kivact::ui::button(message("creative.transport.cycle", "Cycle"))
             .hide_label(true)
-            .icon(kivact::control::icon("repeat"))
+            .icon(kivact::view::icon("repeat"))
             .variant(ButtonVariant::Ghost)
-            .selected(move || state.get().cycling)
+            .with_node(move |node| node.selected(move || state.get().cycling))
             .on_press(move || modify(|s| s.cycling = !s.cycling)),
     ))
 }

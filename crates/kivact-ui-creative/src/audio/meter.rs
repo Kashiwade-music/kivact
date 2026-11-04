@@ -1,18 +1,19 @@
 //! Role: The level Meter: segmented, oriented, multi-channel level bars.
 
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::Rect;
-use kivact::primitive::NodeExt;
+use kivact::geometry::Rect;
+use kivact::view::{Node, NodeBuilder, node};
+
+use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Value, effect, memo, signal};
 use kivact::style::{Color, ColorToken, style};
-use kivact::view::{IntoText, IntoValue, IntoView, Orientation, Role, View};
-use kivact::{Value, effect, memo, signal};
+use kivact::view::{IntoView, Orientation, Role, View};
 
 /// An audio meter with clip hold and accessible numeric level.
 pub struct Meter {
     root: Node,
     level: Value<f64>,
     horizontal: Value<bool>,
-    channels: usize,
+    channels: Value<usize>,
     segmented: Value<bool>,
 }
 
@@ -33,7 +34,7 @@ pub fn meter(label: impl IntoText, level: impl IntoValue<f64>) -> Meter {
             ),
         level: level.into_value(),
         horizontal: false.into_value(),
-        channels: 2,
+        channels: 2.into_value(),
         segmented: false.into_value(),
     }
 }
@@ -64,13 +65,15 @@ impl Meter {
         self
     }
     /// Display one to eight channels.
-    pub fn channels(mut self, channels: usize) -> Self {
-        self.channels = channels.clamp(1, 8);
+    pub fn channels(mut self, channels: impl IntoValue<usize>) -> Self {
+        let channels = channels.into_value();
+        self.channels = memo(move || channels.get().clamp(1, 8));
         self
     }
 }
 
 impl NodeBuilder for Meter {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -103,7 +106,7 @@ impl IntoView for Meter {
             .on_press(move || clipped.set(false))
             .draw(move |d, size| {
                 let (horizontal, segmented) = (horizontal.get(), segmented.get());
-                let p = d.theme().get::<crate::tokens::Tokens>();
+                let p = d.theme().ext::<crate::tokens::Tokens>();
                 let v = level.get().clamp(0.0, 1.0);
                 let extent = if horizontal {
                     size.width - 10.0
@@ -111,11 +114,11 @@ impl IntoView for Meter {
                     size.height - 12.0
                 };
                 let width = if horizontal {
-                    (size.height - 4.0) / channels as f64
+                    (size.height - 4.0) / channels.get() as f64
                 } else {
-                    (size.width - 4.0) / channels as f64
+                    (size.width - 4.0) / channels.get() as f64
                 };
-                for ch in 0..channels {
+                for ch in 0..channels.get() {
                     let amp = v;
                     for i in 0..40 {
                         let n = i as f64 / 40.0;

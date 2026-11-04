@@ -1,5 +1,6 @@
 //! Role: Key marker shapes for keyframes and similar points on an editor.
-use kivact::draw::{Draw, Path, Point, Rect};
+use kivact::draw::{Draw, Path};
+use kivact::geometry::{Point, Rect};
 use kivact::style::Color;
 
 /// The shape a keyframe or marker is drawn with.

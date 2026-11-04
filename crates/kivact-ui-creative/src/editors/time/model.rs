@@ -49,7 +49,7 @@ pub enum TimeRequest {
     Delete(Vec<u64>),
 }
 
-pub(crate) trait TimeItem: Clone + PartialEq + 'static {
+pub(crate) trait TimeItem: kivact::state::PropValue {
     fn valid(&self) -> bool;
     fn id(&self) -> u64;
     fn lane(&self) -> u64;

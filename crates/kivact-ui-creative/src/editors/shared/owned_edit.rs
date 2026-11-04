@@ -1,7 +1,7 @@
 //! Role: An edit session shared by several sources, owned by the one that began it.
-use kivact::Callback;
 use kivact::interaction::EditSession;
-use kivact::ui::EditPhase;
+use kivact::state::Callback;
+use kivact::view::EditPhase;
 
 /// An [`EditSession`] whose value carries who began the edit (`O`) beside the
 /// snapshot it restores (`S`), so a source can end only its own edit and a
@@ -33,7 +33,7 @@ impl<O: Copy + PartialEq + 'static, S: Clone + 'static> OwnedEdit<O, S> {
         }
     }
 
-    /// The session, for [`Drag::edit`](kivact::interaction::Drag::edit).
+    /// The session, for [`Drag::edit`](kivact::interaction::DragApi::edit).
     pub(crate) fn session(self) -> EditSession<(O, S)> {
         self.session
     }

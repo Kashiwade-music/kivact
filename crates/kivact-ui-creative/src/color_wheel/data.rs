@@ -10,4 +10,4 @@ pub enum ColorModel {
     /// A hexadecimal RGB or RGBA draft.
     Hex,
 }
-kivact::view::constant_value!(ColorModel);
+kivact::state::constant_value!(ColorModel);

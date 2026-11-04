@@ -9,7 +9,7 @@ macro_rules! time_editor_builder {
         #[doc = $function_doc]
         #[track_caller]
         pub fn $function(
-            items: impl kivact::view::IntoValue<Vec<$item>>,
+            items: impl kivact::state::IntoValue<Vec<$item>>,
             state: $crate::TimeState,
         ) -> $type {
             $type {
@@ -29,27 +29,27 @@ macro_rules! time_editor_builder {
                 ) -> R
                 + 'static,
             ) -> Self {
-                self.inner.on_edit = Some(kivact::view::callback(f));
+                self.inner.on_edit = Some(kivact::state::callback(f));
                 self
             }
             /// Provide reactive lane labels and ordering.
             pub fn lanes(
                 mut self,
-                lanes: impl kivact::view::IntoValue<Vec<$crate::editors::shared::model::Lane>>,
+                lanes: impl kivact::state::IntoValue<Vec<$crate::editors::shared::model::Lane>>,
             ) -> Self {
-                self.inner.lanes = Some(kivact::view::IntoValue::into_value(lanes));
+                self.inner.lanes = Some(kivact::state::IntoValue::into_value(lanes));
                 self
             }
             /// Enable snapping for pointer edits.
-            pub fn snap(mut self, snap: impl kivact::view::IntoValue<bool>) -> Self {
-                self.inner.snap = kivact::view::IntoValue::into_value(snap);
+            pub fn snap(mut self, snap: impl kivact::state::IntoValue<bool>) -> Self {
+                self.inner.snap = kivact::state::IntoValue::into_value(snap);
                 self
             }
             /// Set the reactive time increment for keys and pointer snapping (default: 1).
             /// Non-finite or non-positive values use 1. Shift keys move by ten increments.
             /// Moves beyond the finite numeric range leave the value unchanged.
-            pub fn step(mut self, step: impl kivact::view::IntoValue<f64>) -> Self {
-                self.inner.step = kivact::view::IntoValue::into_value(step);
+            pub fn step(mut self, step: impl kivact::state::IntoValue<f64>) -> Self {
+                self.inner.step = kivact::state::IntoValue::into_value(step);
                 self
             }
             /// Format ruler ticks and the playhead using application time units.
@@ -66,36 +66,24 @@ macro_rules! time_editor_builder {
                 self
             }
             /// Set finite positive zoom bounds; invalid bounds report a usage error.
-            pub fn zoom_range(mut self, min: f64, max: f64) -> Self {
-                if min.is_finite() && max.is_finite() && min > 0.0 && min <= max {
-                    self.inner.ruler.zoom = (min, max);
-                } else {
-                    self.inner.ruler.usage.push(format!(
-                        "{}::zoom_range({min}, {max}) needs finite bounds with 0 < min <= max",
-                        stringify!($type),
-                        min = min,
-                        max = max
-                    ));
-                }
+            pub fn zoom_range(
+                mut self,
+                range: impl kivact::state::IntoValue<kivact::interaction::ScalarRange>,
+            ) -> Self {
+                self.inner.ruler.zoom = kivact::state::IntoValue::into_value(range);
                 self
             }
             /// Set the minimum clip duration; invalid lengths report a usage error.
-            pub fn min_duration(mut self, duration: f64) -> Self {
-                if duration.is_finite() && duration >= 0.0 {
-                    self.inner.ruler.min_duration = duration;
-                } else {
-                    self.inner.ruler.usage.push(format!(
-                        "{}::min_duration({duration}) needs a finite, non-negative length",
-                        stringify!($type),
-                        duration = duration
-                    ));
-                }
+            pub fn min_duration(mut self, duration: impl kivact::state::IntoValue<f64>) -> Self {
+                self.inner.ruler.min_duration =
+                    $crate::editors::shared::ruler::duration(duration, 0.0625);
                 self
             }
         }
-        impl kivact::control::NodeBuilder for $type {
+        impl kivact::view::NodeBuilder for $type {
             /// Return the editor root for ordinary node modifiers.
-            fn node_mut(&mut self) -> &mut kivact::control::Node {
+            #[doc(hidden)]
+            fn node_mut(&mut self) -> &mut kivact::view::Node {
                 &mut self.inner.root
             }
         }

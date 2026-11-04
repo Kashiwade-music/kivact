@@ -41,7 +41,7 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
             let (a, b) = bounded_range(
                 state.range.get(),
                 state.length.get(),
-                state.loop_min_duration,
+                state.loop_min_duration.get(),
             );
             info.now = match target {
                 Target::LoopStart => a,

@@ -67,9 +67,9 @@ pub struct ItemTime {
     pub duration: f64,
 }
 
-use kivact::Callback;
 use kivact::interaction::EditSession;
-use kivact::ui::EditPhase;
+use kivact::state::Callback;
+use kivact::view::EditPhase;
 
 /// `session` reporting its phases to the kit's stored observer, if any.
 pub(crate) fn observed<T: Clone + 'static>(

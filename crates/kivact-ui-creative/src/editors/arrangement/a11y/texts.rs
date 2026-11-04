@@ -1,7 +1,7 @@
 //! Role: Localized arrangement region names read during setup.
 use crate::editors::shared::texts::Texts;
-use kivact::Value;
 use kivact::i18n::{interpolate, message};
+use kivact::state::Value;
 /// The arrangement's texts (`arrangement.*`).
 #[derive(Clone, Copy)]
 pub(crate) struct ArrangementTexts {

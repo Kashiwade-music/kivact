@@ -4,19 +4,21 @@ use super::data::GradientStop;
 use super::data::position_value;
 use super::geometry::Ramp;
 use super::state::{GradientOwner, State};
-use kivact::control::{Node, NodeBuilder, column, node, row};
-use kivact::draw::Size;
+use kivact::custom::part;
+use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::primitive::part;
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::state::callback;
+use kivact::state::{Binding, Callback, binding, effect, memo, var};
 use kivact::style::{Color, pct, style};
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
-    callback, node_ref,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
 };
-use kivact::{Binding, Callback, binding, effect, memo, var};
+use kivact::view::{Node, NodeBuilder, column, node, row};
 use std::rc::Rc;
 
 /// An inline ramp, selected position field and color wheel. Stops use vector indices.
@@ -43,15 +45,15 @@ pub struct GradientEditor {
 /// root name is set with NodeBuilder::name.
 #[track_caller]
 pub fn gradient_editor(
-    stops: impl Into<Binding<Vec<GradientStop>>>,
-    selection: impl Into<Binding<Option<usize>>>,
+    stops: impl IntoBinding<Vec<GradientStop>>,
+    selection: impl IntoBinding<Option<usize>>,
 ) -> GradientEditor {
     GradientEditor {
         root: column(())
             .role(Role::Group)
             .style(style().gap(8).width(pct(100)).min_width(0)),
-        stops: stops.into(),
-        selection: selection.into(),
+        stops: stops.into_binding(),
+        selection: selection.into_binding(),
         to_display: Rc::new(|c| c),
         from_display: Rc::new(|c| c),
         edit: None,
@@ -79,6 +81,7 @@ impl GradientEditor {
 }
 
 impl NodeBuilder for GradientEditor {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -201,25 +204,35 @@ impl IntoView for GradientEditor {
                 move |_, info| {
                     let id = info.get_untracked().1;
                     let label = message("creative.gradient.stop", "Gradient stop");
-                    let part = part(|input| input)
-                        .role(Role::Slider)
-                        .focusable(true)
-                        .name(move || format!("{} {id}", label.get()))
-                        .value_min(0.0)
-                        .value_max(1.0)
-                        .value_now(move || {
-                            stops.with(|stops| {
-                                stops.get(id).map_or(0.0, |s| position_value(s.position))
-                            })
-                        })
-                        .value_text(move || {
-                            stops
-                                .with(|stops| {
-                                    stops.get(id).map_or(0.0, |s| position_value(s.position))
+                    let part = {
+                        let input_part = part(|input| input);
+                        kivact::custom::Part::new(input_part.state(), move |node| {
+                            node.part(input_part)
+                                .role(Role::Slider)
+                                .focusable(true)
+                                .name(move || format!("{} {id}", label.get()))
+                                .value_min(0.0)
+                                .value_max(1.0)
+                                .value_now(move || {
+                                    stops.part(|stops| {
+                                        stops.get(id).map_or(0.0, |s| position_value(s.position))
+                                    })
                                 })
-                                .to_string()
-                        });
-                    let target = part.node_ref();
+                                .value_text(move || {
+                                    stops
+                                        .part(|stops| {
+                                            stops
+                                                .get(id)
+                                                .map_or(0.0, |s| position_value(s.position))
+                                        })
+                                        .to_string()
+                                })
+                        })
+                    };
+                    let target = kivact::view::node_ref();
+                    let part = kivact::custom::Part::new(part.state(), move |node| {
+                        node.part(part).node_ref(target)
+                    });
                     let action = move |event: A11yEvent| {
                         if !state.enabled() {
                             return;
@@ -246,13 +259,16 @@ impl IntoView for GradientEditor {
                             state.change_position(id, next);
                         }
                     };
-                    part.with(gesture.source(id))
-                        .on_key(move |event| key(state, id, event))
-                        .on_a11y_event(A11yAction::Select, action)
-                        .on_a11y_event(A11yAction::Activate, action)
-                        .on_a11y_event(A11yAction::SetValue, action)
-                        .on_a11y_event(A11yAction::Increment, action)
-                        .on_a11y_event(A11yAction::Decrement, action)
+                    kivact::custom::Part::new(part.state(), move |node| {
+                        node.part(part)
+                            .part(gesture.source(id))
+                            .on_key(move |event| key(state, id, event))
+                            .a11y_action(A11yAction::Select, action)
+                            .a11y_action(A11yAction::Activate, action)
+                            .a11y_action(A11yAction::SetValue, action)
+                            .a11y_action(A11yAction::Increment, action)
+                            .a11y_action(A11yAction::Decrement, action)
+                    })
                 },
             );
         self.root
@@ -307,17 +323,20 @@ fn fields(
         message("creative.gradient.position", "Stop position"),
         position,
     )
-    .range(0.0, 1.0)
+    .range(
+        kivact::interaction::ScalarRange::new(0.0, 1.0)
+            .expect("invariant: finite ordered control range"),
+    )
     .step(0.01)
     .precision(3)
-    .disabled(field_disabled)
+    .with_node(move |node| node.disabled(field_disabled))
     .on_edit(move |phase| state.phase(GradientOwner::Position, phase));
     let buttons = row((
         kivact::ui::button(message("creative.gradient.add", "Add stop"))
-            .disabled(move || state.blocked.get() || !state.valid.get())
+            .with_node(move |node| node.disabled(move || state.blocked.get() || !state.valid.get()))
             .on_press(move || state.add()),
         kivact::ui::button(message("creative.gradient.remove", "Remove stop"))
-            .disabled(field_disabled)
+            .with_node(move |node| node.disabled(field_disabled))
             .on_press(move || {
                 if let Some(index) = state.selection.into_value().get() {
                     state.remove(index);
@@ -328,10 +347,10 @@ fn fields(
     column((
         position,
         buttons,
-        crate::color_wheel(color, kivact::signal(crate::ColorModel::Rgb))
+        crate::color_wheel(color, kivact::state::signal(crate::ColorModel::Rgb))
             .alpha(true)
             .wheel_size(160.0)
-            .disabled(field_disabled)
+            .with_node(move |node| node.disabled(field_disabled))
             .on_edit(move |phase| state.phase(GradientOwner::Color, phase)),
     ))
     .style(style().gap(8).min_width(0).width(pct(100)))

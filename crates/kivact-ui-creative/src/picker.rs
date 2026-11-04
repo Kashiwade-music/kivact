@@ -1,27 +1,28 @@
 //! Role: A searchable, sectioned list of keyed items in a popup.
 
 use crate::Color;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
-use std::hash::Hash;
+use kivact::state::IntoBinding;
+
+use kivact::style::use_theme;
 use std::rc::Rc;
 
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
-use kivact::draw::Point;
+use kivact::custom::Reactive;
+use kivact::geometry::Point;
 use kivact::i18n::message;
+use kivact::interaction::ListItem;
 use kivact::interaction::{
-    Combobox, ListSelection, Popup, PopupCloseReason, use_combobox, use_popup,
+    ComboboxApi, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
 };
+use kivact::state::{
+    Callback, Signal, Value, Var, binding, effect, memo, on_cleanup, signal, untrack, var,
+};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Icon, pct, style};
-use kivact::ui::ListItem;
 use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, KeyEvent, NodeRef, Overlay,
-    Placement, PointerEvent, PointerPhase, Reactive, Role, View, callback, dynamic, for_each,
-    node_ref, overlay, overlay_at,
+    Handled, HandlerResult, IntoView, Key, KeyEvent, NodeRef, Overlay, Placement, PointerEvent,
+    PointerPhase, Role, View, dynamic, for_each, node_ref, overlay, overlay_at,
 };
-use kivact::{
-    Binding, Callback, Signal, Value, Var, binding, effect, memo, on_cleanup, signal, untrack, var,
-};
+use kivact::view::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 
 use crate::feedback::glass_style;
 
@@ -163,7 +164,7 @@ impl<K> PickerItem<K> {
 ///     ])
 ///     .placeholder("Type a layer name")
 ///     .on_pick(move |key| layers.update(|all| all.push(key)))
-///     .attach(kivact::ui::button("Add layer").hide_label(true).icon(kivact::control::icon("plus")))
+///     .attach(kivact::ui::button("Add layer").hide_label(true).icon(kivact::view::icon("plus")))
 /// }
 /// ```
 pub struct SearchPicker<K: 'static> {
@@ -189,7 +190,7 @@ struct Column<K: 'static> {
 
 /// A searchable picker over `items`. Setup only.
 #[track_caller]
-pub fn search_picker<K: Clone + Eq + Hash + 'static>(
+pub fn search_picker<K: kivact::state::ItemKey>(
     items: impl IntoValue<Vec<PickerItem<K>>>,
 ) -> SearchPicker<K> {
     SearchPicker {
@@ -204,7 +205,7 @@ pub fn search_picker<K: Clone + Eq + Hash + 'static>(
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
+impl<K: kivact::state::ItemKey> SearchPicker<K> {
     /// Append a named column to the right of the initial column. Setup only.
     ///
     /// All columns share the search field and keys must be unique across the
@@ -255,8 +256,8 @@ impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
     /// Tab in a single-column picker, a second press on the button, or the
     /// popup being removed. Setup only.
     #[track_caller]
-    pub fn on_cancel<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.parts.cancel = Some(callback(move |()| f()));
+    pub fn on_cancel(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.parts.cancel = Some(f.into());
         self
     }
 
@@ -272,12 +273,13 @@ impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
         let field = node_ref();
         let popup = use_popup(signal(false)).initial_focus(field);
         let part = popup.trigger();
-        let anchor = part.node_ref();
+        let anchor = kivact::view::node_ref();
+        let part =
+            kivact::custom::Part::new(part.state(), move |node| node.part(part).node_ref(anchor));
         let layer = self.layer(popup, field, move |content| {
             overlay(anchor, Placement::Below, content).offset(5)
         });
-        let root = std::mem::replace(trigger.node_mut(), node());
-        *trigger.node_mut() = root.part(part);
+        let trigger = trigger.with_node(move |root| root.part(part));
         (trigger, layer).into_view()
     }
 
@@ -293,7 +295,7 @@ impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
     ///
     /// ```no_run
     /// use kivact::prelude::*;
-    /// use kivact::draw::{Point};
+    /// use kivact::geometry::{Point};
     /// use kivact::view::{Handled, KeyEvent};
     /// use kivact_ui_creative as ui;
     /// fn viewer() -> impl IntoView {
@@ -319,8 +321,8 @@ impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
     /// }
     /// ```
     #[track_caller]
-    pub fn at(self, anchor: NodeRef, position: impl Into<Binding<Option<Point>>>) -> View {
-        let position = position.into();
+    pub fn at(self, anchor: NodeRef, position: impl IntoBinding<Option<Point>>) -> View {
+        let position = position.into_binding();
         let point = position.into_value();
         let open = binding(
             (move || point.get().is_some()).into_value(),
@@ -342,12 +344,12 @@ impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
     #[track_caller]
     fn layer(
         self,
-        popup: Popup,
+        popup: PopupApi,
         field: NodeRef,
         place: impl Fn(Node) -> Overlay + 'static,
     ) -> View {
         let parts = self.parts;
-        kivact::view::show(popup.shown(), move || {
+        kivact::view::show(popup.is_open(), move || {
             let panel = parts.clone().panel(popup, field);
             place(panel)
                 .part(popup.content())
@@ -413,21 +415,21 @@ enum PickerPhase<K> {
 }
 
 /// What the picker reports to the application, once per opening.
-struct Outcomes<K: Clone + PartialEq + 'static> {
+struct Outcomes<K: kivact::state::PropValue> {
     phase: Var<PickerPhase<K>>,
     pick: Option<Callback<K>>,
     preview: Option<Callback<Option<K>>>,
     cancel: Option<Callback<()>>,
 }
 
-impl<K: Clone + PartialEq + 'static> Clone for Outcomes<K> {
+impl<K: kivact::state::PropValue> Clone for Outcomes<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: Clone + PartialEq + 'static> Copy for Outcomes<K> {}
+impl<K: kivact::state::PropValue> Copy for Outcomes<K> {}
 
-impl<K: Clone + PartialEq + 'static> Outcomes<K> {
+impl<K: kivact::state::PropValue> Outcomes<K> {
     /// While open: report `key` when it differs from the one last reported.
     fn preview(self, key: Option<K>) {
         let changed = self
@@ -471,24 +473,24 @@ impl<K: Clone + PartialEq + 'static> Outcomes<K> {
 }
 
 /// The handles one opening of the picker shares.
-struct Session<K: Clone + Eq + Hash + 'static> {
+struct Session<K: kivact::state::ItemKey> {
     active: Value<Option<K>>,
-    combo: Combobox<K>,
+    combo: ComboboxApi<K>,
     outcomes: Outcomes<K>,
     field: NodeRef,
     column: Option<Signal<Option<usize>>>,
 }
 
-impl<K: Clone + Eq + Hash + 'static> Clone for Session<K> {
+impl<K: kivact::state::ItemKey> Clone for Session<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Copy for Session<K> {}
+impl<K: kivact::state::ItemKey> Copy for Session<K> {}
 
-impl<K: Clone + Eq + Hash + 'static> Parts<K> {
+impl<K: kivact::state::ItemKey> Parts<K> {
     /// The content of one opening: the search field over the list.
-    fn panel(self, popup: Popup, field: NodeRef) -> Node {
+    fn panel(self, popup: PopupApi, field: NodeRef) -> Node {
         let Parts {
             items,
             columns,
@@ -535,20 +537,19 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
             outcomes.settle(PickerOutcome::Picked(key));
             popup.close(PopupCloseReason::Selection);
         });
-        let combo =
-            use_combobox(options, ListSelection::Single(value)).filter(move |query, option| {
-                let query = query.trim().to_lowercase();
-                lists.with(|all| {
-                    available_column(all, &query, active_column.get().unwrap_or(0), 1)
-                        .and_then(|column| {
-                            all[column]
-                                .iter()
-                                .find(|item| &item.key == option.key())
-                                .filter(|item| accepts(&query, item))
-                        })
-                        .is_some()
-                })
-            });
+        let combo = use_combobox(options, Selection::Single(value)).filter(move |query, option| {
+            let query = query.trim().to_lowercase();
+            lists.with(|all| {
+                available_column(all, &query, active_column.get().unwrap_or(0), 1)
+                    .and_then(|column| {
+                        all[column]
+                            .iter()
+                            .find(|item| &item.key == option.key())
+                            .filter(|item| accepts(&query, item))
+                    })
+                    .is_some()
+            })
+        });
         let query = combo.query();
         if multiple {
             effect(move || {
@@ -656,8 +657,8 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
                 move |none| {
                     none.then(|| {
                         text(empty).style(move || {
-                            let t = &current_theme();
-                            let p = t.get::<crate::tokens::Tokens>();
+                            let t = &use_theme().get();
+                            let p = t.ext::<crate::tokens::Tokens>();
                             style().height(p.row).padding_x(7).color(p.dim)
                         })
                     })
@@ -665,7 +666,7 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
             ),
         ))
         .style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             glass_style(t)
                 .gap(6)
                 .align_items(Align::Stretch)
@@ -682,7 +683,7 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
     }
 }
 
-fn column_rows<K: Clone + Eq + Hash + 'static>(
+fn column_rows<K: kivact::state::ItemKey>(
     session: Session<K>,
     shown: Value<Vec<PickerItem<K>>>,
     index: usize,
@@ -717,7 +718,7 @@ fn column_rows<K: Clone + Eq + Hash + 'static>(
 }
 
 /// The search field with its icon and its keys.
-fn search_field<K: Clone + Eq + Hash + 'static>(
+fn search_field<K: kivact::state::ItemKey>(
     session: Session<K>,
     placeholder: Value<String>,
     navigate: impl Fn(KeyEvent) -> Handled + 'static,
@@ -729,11 +730,11 @@ fn search_field<K: Clone + Eq + Hash + 'static>(
         search
     };
     let search = search
-        .part(session.combo.input())
+        .with_node(move |node| node.part(session.combo.input()))
         .placeholder(placeholder)
-        .node_ref(session.field)
-        .on_key(navigate)
-        .style(style().grow(1).min_width(0));
+        .with_node(move |node| node.node_ref(session.field))
+        .with_node(move |node| node.on_key(navigate))
+        .with_node(move |node| node.style(style().grow(1).min_width(0)));
     row((
         icon("search")
             .style(style().shrink(0))
@@ -745,7 +746,7 @@ fn search_field<K: Clone + Eq + Hash + 'static>(
 
 /// One run of items: its rows, in a named group below a heading if it has a
 /// section.
-fn run_view<K: Clone + Eq + Hash + 'static>(
+fn run_view<K: kivact::state::ItemKey>(
     session: Session<K>,
     run: Value<Run<K>>,
     index: usize,
@@ -783,7 +784,7 @@ fn run_view<K: Clone + Eq + Hash + 'static>(
     .into_view()
 }
 
-fn item_row<K: Clone + Eq + Hash + 'static>(
+fn item_row<K: kivact::state::ItemKey>(
     session: Session<K>,
     item: Value<PickerItem<K>>,
     index: usize,
@@ -811,8 +812,8 @@ fn item_row<K: Clone + Eq + Hash + 'static>(
         dynamic(shortcut, |shortcut| {
             shortcut.map(|shortcut| {
                 text(shortcut).style(style().shrink(0)).style(move || {
-                    let t = &current_theme();
-                    let p = t.get::<crate::tokens::Tokens>();
+                    let t = &use_theme().get();
+                    let p = t.ext::<crate::tokens::Tokens>();
                     style()
                         .font_family(p.mono_font.as_str())
                         .font_size(10)
@@ -832,8 +833,8 @@ fn item_row<K: Clone + Eq + Hash + 'static>(
     .selected(is_active)
     .disabled(disabled)
     .style(move || {
-        let t = &current_theme();
-        let p = t.get::<crate::tokens::Tokens>();
+        let t = &use_theme().get();
+        let p = t.ext::<crate::tokens::Tokens>();
         style()
             .height(p.row + 3.0)
             .gap(9)

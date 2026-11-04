@@ -4,8 +4,8 @@ use crate::editors::graph::gesture::{DragKind, Gesture, Snapshot, State, Target}
 use crate::editors::graph::model::Interpolation;
 
 use crate::editors::shared::selection;
-use kivact::draw::Point;
-use kivact::interaction::{Drag, ListGesture};
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi, ListGesture};
 use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, WheelEvent};
 
 impl State {
@@ -34,7 +34,7 @@ impl State {
                                 &self.selected.get(),
                                 id,
                                 event.modifiers(),
-                                &kivact::interaction::ListPolicy::default(),
+                                &kivact::interaction::ListOptions::default(),
                             ) {
                                 selection::Press::Pending(id) => single = Some(id),
                                 selection::Press::Select(gesture) => {
@@ -81,7 +81,7 @@ impl State {
     /// gesture the press chose, one edit from its first change. The returned
     /// drag has the callbacks its sources need; `self.gesture` is the same
     /// session.
-    pub(crate) fn drag(self) -> Drag<()> {
+    pub(crate) fn drag(self) -> DragApi<()> {
         let drag = self.gesture.on_start(move |_| {
             if self
                 .drag_state()

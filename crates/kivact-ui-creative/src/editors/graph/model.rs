@@ -72,7 +72,7 @@ impl Default for GraphView {
         }
     }
 }
-kivact::view::constant_value!(GraphView);
+kivact::state::constant_value!(GraphView);
 /// An absolute proposed position and tangents for one graph key.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KeyMove {

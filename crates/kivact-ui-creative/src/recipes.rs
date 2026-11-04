@@ -3,14 +3,16 @@
 //! `radio_group`, `slider`, `toast_region` and `splitter` of `kivact::ui`
 //! take the kit's look from `recipes_controls`.
 use crate::Color;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Shadow, Stroke};
+use kivact::custom::PartState;
+use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke};
+use kivact::geometry::{Point, Rect};
+use kivact::interaction::DialogMode;
 use kivact::interaction::{ListItemState, MenuItemState, PopupState, TabListState, TabState};
-use kivact::primitive::PartState;
 use kivact::style::{Align, Direction, Justify, Position, Style, Theme, pct, rgba, style};
 use kivact::ui::Look;
 use kivact::ui::{
-    ButtonState, ButtonVariant, CheckState, ControlSize, DialogKind, DialogState,
-    SelectTriggerState, TextInputState, ToggleButtonState, UiRecipes,
+    ButtonState, ButtonVariant, CheckableState, ControlSize, DialogState, SelectTriggerState,
+    TextInputState, ToggleButtonState, UiRecipes,
 };
 use kivact::view::CheckedState;
 
@@ -36,20 +38,20 @@ fn build() -> UiRecipes {
             }
         })
         .toggle(|_| toggle_button)
-        .checkbox(|_| |t: &Theme, s: &Look<CheckState>| toggle(t, s, false))
-        .switch(|_| |t: &Theme, s: &Look<CheckState>| toggle(t, s, true))
+        .checkbox(|_| |t: &Theme, s: &Look<CheckableState>| toggle(t, s, false))
+        .switch(|_| |t: &Theme, s: &Look<CheckableState>| toggle(t, s, true))
         .text_input(|_| {
             |t: &Theme, _: &Look<TextInputState>| {
                 crate::control_style::field_style(t)
                     .padding_y(0)
-                    .min_height(t.get::<Tokens>().row)
+                    .min_height(t.ext::<Tokens>().row)
             }
         })
         .text_area(|_| {
             |t: &Theme, _: &Look<TextInputState>| {
                 crate::control_style::field_style(t)
                     .height(100)
-                    .min_height(t.get::<Tokens>().row)
+                    .min_height(t.ext::<Tokens>().row)
             }
         })
         .select(|select| {
@@ -73,7 +75,7 @@ fn build() -> UiRecipes {
                 .shortcut(|_| {
                     |t: &Theme, _: &Look<MenuItemState>| {
                         style()
-                            .font_family(t.get::<Tokens>().mono_font.as_str())
+                            .font_family(t.ext::<Tokens>().mono_font.as_str())
                             .font_size(10)
                     }
                 })
@@ -149,10 +151,10 @@ fn select_check(t: &Theme, _: &Look<ListItemState>) -> Style {
         .right(5)
         .top(pct(50) - 8)
         .size(16, 16)
-        .color(t.get::<Tokens>().text)
+        .color(t.ext::<Tokens>().text)
 }
 fn menu_item(t: &Theme, _: &Look<MenuItemState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .direction(Direction::Row)
         .height(27)
@@ -165,7 +167,7 @@ fn menu_item(t: &Theme, _: &Look<MenuItemState>) -> Style {
 }
 fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
     match s.kind {
-        DialogKind::Drawer(_) => crate::feedback::glass_style(t)
+        DialogMode::Drawer(_) => crate::feedback::glass_style(t)
             .padding(18)
             .gap(14)
             .width(400)
@@ -179,7 +181,7 @@ fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
     }
 }
 fn button(t: &Theme, s: &Look<ButtonState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = crate::controls::button_style(t);
     let base = match s.variant::<ButtonVariant>().copied().unwrap_or_default() {
         ButtonVariant::Primary => base
@@ -210,7 +212,7 @@ fn button(t: &Theme, s: &Look<ButtonState>) -> Style {
 }
 /// A tool toggle: the secondary button, in the selection colors while pressed.
 fn toggle_button(t: &Theme, s: &Look<ToggleButtonState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let mut state = ButtonState::new(s.input, s.size);
     state.leading_icon = s.leading_icon;
     state.icon_only = s.icon_only;
@@ -223,12 +225,12 @@ fn toggle_button(t: &Theme, s: &Look<ToggleButtonState>) -> Style {
         base
     }
 }
-fn toggle(t: &Theme, s: &CheckState, switch: bool) -> Style {
+fn toggle(t: &Theme, s: &CheckableState, switch: bool) -> Style {
     let state = *s;
     crate::control_style::check_style(t)
         .padding_left(if switch { 37 } else { 21 })
         .paint(move |d, size| {
-            let p = d.theme().get::<Tokens>();
+            let p = d.theme().ext::<Tokens>();
             let on = state.checked.is_checked();
             let mixed = state.checked == CheckedState::Indeterminate;
             let y = (size.height - 16.) / 2.;
@@ -281,11 +283,11 @@ fn dropdown_surface(t: &Theme) -> Style {
         .background(rgba(0x1e1f26, 0.94))
         .backdrop_blur(22)
         .border(1, rgba(0xffffff, 0.1))
-        .color(t.get::<Tokens>().text)
+        .color(t.ext::<Tokens>().text)
         .shadow(Shadow::new(0., 10., 24., rgba(0, 0.6)))
 }
 fn dropdown_option(t: &Theme) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .direction(Direction::Row)
         .height(27)

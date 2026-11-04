@@ -4,8 +4,8 @@ use super::gesture::{Snapshot, State};
 use crate::editors::arrangement::a11y::targets::Target;
 use crate::editors::arrangement::model::ArrangementRequest;
 use crate::editors::shared::region_parts::bounded_range;
-use kivact::Callback;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::state::Callback;
 use kivact::view::{A11yEvent, A11yRequest};
 
 /// Restores only bound scalar and view values; the application restores items.
@@ -24,11 +24,11 @@ pub(crate) fn restore(s: Restore, snapshot: Snapshot) {
 
 #[derive(Clone, Copy)]
 pub(crate) struct Restore {
-    pub playhead: kivact::Binding<f64>,
-    pub loop_range: kivact::Binding<(f64, f64)>,
-    pub cycling: kivact::Binding<bool>,
-    pub zoom: kivact::Binding<f64>,
-    pub pan: kivact::Binding<Point>,
+    pub playhead: kivact::state::Binding<f64>,
+    pub loop_range: kivact::state::Binding<(f64, f64)>,
+    pub cycling: kivact::state::Binding<bool>,
+    pub zoom: kivact::state::Binding<f64>,
+    pub pan: kivact::state::Binding<Point>,
 }
 
 impl State {
@@ -146,10 +146,10 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
                 }
                 Target::LoopStart | Target::LoopEnd => {
                     let length = state.length.get();
-                    let (a, b) = bounded_range(range.get(), length, state.loop_min_duration);
+                    let (a, b) = bounded_range(range.get(), length, state.loop_min_duration.get());
                     let a = a.min(length);
                     let b = b.min(length);
-                    let unit = state.loop_min_duration.min(length);
+                    let unit = state.loop_min_duration.get().min(length);
                     state.edit.once(Snapshot::Loop(range.get()), || {
                         loop_range.set(if target == Target::LoopStart {
                             (value.clamp(0.0, (b - unit).max(0.0)), b)

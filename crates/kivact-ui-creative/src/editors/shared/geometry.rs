@@ -1,6 +1,6 @@
 //! Role: Share editor marquee geometry and pointer-anchored time-axis zoom.
 
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::view::WheelEvent;
 
 const WHEEL_ZOOM: f64 = 1.1;

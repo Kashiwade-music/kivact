@@ -1,7 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::node::model::NodeLink;
 use kivact::interaction::ViewTransform;
-use kivact::{Binding, signal};
+use kivact::state::{Binding, signal};
 /// The view state of a [`node_editor`](crate::editors::node).
 #[derive(Clone, Copy)]
 pub struct NodeState {

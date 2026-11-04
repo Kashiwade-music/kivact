@@ -1,9 +1,10 @@
 //! Role: Shared editor selection uses the public list gesture policy.
 
-use kivact::Binding;
-use kivact::interaction::{List, ListGesture, ListPolicy, ListSelection, use_list};
-use kivact::ui::ListItem;
-use kivact::view::{IntoValue, Key, KeyEvent, Modifiers};
+use kivact::interaction::ListItem;
+use kivact::interaction::{ListApi, ListGesture, ListOptions, Selection, use_list};
+use kivact::state::Binding;
+use kivact::state::IntoValue;
+use kivact::view::{Key, KeyEvent, Modifiers};
 
 /// Whether the key press is Ctrl+A or Meta+A (without Alt).
 pub(crate) fn select_all(event: &KeyEvent) -> bool {
@@ -15,11 +16,11 @@ pub(crate) fn select_all(event: &KeyEvent) -> bool {
 pub(crate) fn controller(
     items: impl IntoValue<Vec<ListItem<u64>>>,
     selection: Binding<Vec<u64>>,
-) -> List<u64> {
+) -> ListApi<u64> {
     use_list(
         items,
-        ListSelection::Multiple(selection),
-        ListPolicy::default(),
+        Selection::Multiple(selection),
+        ListOptions::default(),
     )
 }
 
@@ -28,7 +29,12 @@ pub(crate) enum Press {
     Select(ListGesture),
 }
 
-pub(crate) fn press(selected: &[u64], id: u64, modifiers: Modifiers, policy: &ListPolicy) -> Press {
+pub(crate) fn press(
+    selected: &[u64],
+    id: u64,
+    modifiers: Modifiers,
+    policy: &ListOptions,
+) -> Press {
     let gesture = ListGesture::from_modifiers(modifiers, policy);
     if gesture == ListGesture::Replace && selected.contains(&id) {
         Press::Pending(id)

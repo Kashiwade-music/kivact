@@ -6,7 +6,7 @@
 
 use std::hash::Hash;
 
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 use kivact::style::{Length, Position, Style, pct, style};
 
 use super::model::{DockAxis, DockLayout, DockNode, DockPlacement, DockSide, DockTabs};

@@ -5,13 +5,15 @@ use crate::editors::graph::model::Curve;
 use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, LaneExtensions, graph_lane_y};
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::ruler::{Ruler, RulerTicks};
-use kivact::control::{Node, NodeBuilder, node};
+use kivact::custom::part;
+use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_space_pan};
-use kivact::primitive::{NodeExt, NodeRefExt, part};
+use kivact::state::{Callback, Value, signal};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
-use kivact::ui::{EditPhase, ListItem};
-use kivact::view::{A11yAction, IntoValue, IntoView, MouseButton, Role, View, callback, node_ref};
-use kivact::{Callback, Value, signal};
+use kivact::view::EditPhase;
+use kivact::view::{A11yAction, IntoView, MouseButton, Role, View, node_ref};
+use kivact::view::{Node, NodeBuilder, node};
 use std::rc::Rc;
 
 /// An editable graph whose curves and view intervals use application domain units.
@@ -59,7 +61,7 @@ pub fn graph_editor(curves: impl IntoValue<Vec<Curve>>, state: crate::GraphState
             },
             value_format: Rc::new(|v| v.to_string()),
             step: (1.0.into_value(), 0.01.into_value()),
-            cells_width: 0.0,
+            cells_width: 0.0.into_value(),
         },
         on_edit: None,
         extensions: LaneExtensions::default(),
@@ -114,6 +116,7 @@ impl GraphEditor {
 }
 
 impl NodeBuilder for GraphEditor {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -131,12 +134,14 @@ impl IntoView for GraphEditor {
             on_edit,
             extensions,
         } = self;
-        settings.cells_width = extensions
-            .cells
-            .iter()
-            .map(|(width, _)| *width)
-            .sum::<f64>()
-            .min(GRAPH_LANE_WIDTH);
+        let cell_widths: Vec<_> = extensions.cells.iter().map(|(width, _)| *width).collect();
+        settings.cells_width = kivact::state::memo(move || {
+            cell_widths
+                .iter()
+                .map(|width| width.get())
+                .sum::<f64>()
+                .min(GRAPH_LANE_WIDTH)
+        });
         settings.ruler.report();
         let settings = Rc::new(settings);
         let crate::GraphState {
@@ -145,7 +150,7 @@ impl IntoView for GraphEditor {
             playhead,
         } = state;
         let lanes = lanes.unwrap_or_else(|| {
-            kivact::memo(move || {
+            kivact::state::memo(move || {
                 curves
                     .get()
                     .iter()
@@ -154,7 +159,7 @@ impl IntoView for GraphEditor {
             })
         });
         let visible = crate::editors::graph::a11y::visible(curves, lanes, settings.clone());
-        let order = kivact::memo(move || {
+        let order = kivact::state::memo(move || {
             visible
                 .get()
                 .into_iter()
@@ -167,7 +172,7 @@ impl IntoView for GraphEditor {
             lanes,
             &extensions,
             |index| {
-                kivact::draw::Rect::new(
+                kivact::geometry::Rect::new(
                     0.0,
                     graph_lane_y(index),
                     GRAPH_LANE_WIDTH,
@@ -218,9 +223,9 @@ impl IntoView for GraphEditor {
             visible,
             scene,
             choose,
-            size: kivact::memo(move || {
+            size: kivact::state::memo(move || {
                 let r = rect.get().unwrap_or_default();
-                kivact::draw::Size::new(r.width, r.height)
+                kivact::geometry::Size::new(r.width, r.height)
             }),
             snap,
             step: settings.step,
@@ -240,7 +245,7 @@ impl IntoView for GraphEditor {
         };
         let gesture = state.drag();
         let focus = reference.focus_within();
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             let focused = focus.get();
             let visible = reference.is_visible();
             let keys = state.visible.get();
@@ -282,22 +287,25 @@ impl IntoView for GraphEditor {
             .on_pointer_default(move |event| state.pointer(event))
             .part(gesture.source(()))
             // After the drag's sources, which take Escape during a drag.
-            .part(
-                part(|input| input)
-                    .region_events()
-                    .on_key(move |event| state.key(event)),
-            )
+            .part({
+                let input_part = part(|input| input);
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .region_events()
+                        .on_key(move |event| state.key(event))
+                })
+            })
             // Space arms the pan; it reaches ancestors like on any pan surface.
             .part(state.space.control())
             .on_wheel(move |event| state.wheel(event));
         match extensions.menu {
-            Some(menu) => menu(
-                root.on_a11y_event(A11yAction::ShowMenu, move |event| {
+            Some(menu) => menu.call((
+                root.a11y_action(A11yAction::ShowMenu, move |event| {
                     state.cancel();
                     state.context_request(event.region);
                 }),
                 state.context.into_value(),
-            ),
+            )),
             None => root.into_view(),
         }
     }

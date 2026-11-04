@@ -5,9 +5,11 @@
 //! length keep.
 
 use crate::editors::shared::text::label;
-use kivact::draw::{Draw, Point, Rect, Size, TextStyle};
+use kivact::draw::{Draw, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
+use kivact::state::IntoValue;
+use kivact::state::callback;
 use kivact::style::TextAlign;
-use kivact::view::callback;
 use std::rc::Rc;
 
 /// How the editor's time ruler spaces its ticks ([`Timeline::ruler_ticks`](crate::Timeline::ruler_ticks)).
@@ -98,8 +100,8 @@ impl Default for RulerTicks {
 pub(crate) struct Ruler {
     pub(crate) format: Rc<dyn Fn(f64) -> String>,
     pub(crate) ticks: RulerTicks,
-    pub(crate) zoom: (f64, f64),
-    pub(crate) min_duration: f64,
+    pub(crate) zoom: Value<kivact::interaction::ScalarRange>,
+    pub(crate) min_duration: Value<f64>,
     /// Arguments the builder refused, reported when the editor is mounted.
     pub(crate) usage: Vec<String>,
 }
@@ -109,8 +111,10 @@ impl Default for Ruler {
         Self {
             format: Rc::new(|time| format!("{}", time.trunc() as i64)),
             ticks: RulerTicks::default(),
-            zoom: (0.25, 4.0),
-            min_duration: 1.0,
+            zoom: kivact::interaction::ScalarRange::new(0.25, 4.0)
+                .expect("invariant: default zoom bounds")
+                .into_value(),
+            min_duration: 1.0.into_value(),
             usage: Vec::new(),
         }
     }
@@ -132,13 +136,13 @@ impl Ruler {
 
     /// The playhead's badge centered on `x`, wide enough for its label.
     pub(crate) fn badge(&self, d: &mut Draw, x: f64, time: f64) {
-        let p = d.theme().get::<crate::tokens::Tokens>();
+        let p = d.theme().ext::<crate::tokens::Tokens>();
         let text = self.label(time);
-        let style = TextStyle {
+        let style = TextFormat {
             size: 9.0,
             color: p.canvas,
             align: TextAlign::Center,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         let width = (d.measure_text(&text, &style).size.width + 8.0).max(14.0);
         d.rounded_rect(
@@ -152,7 +156,7 @@ impl Ruler {
     /// Grid lines, ticks and labels of the area right of `left`, below the
     /// ruler band `0..top`.
     pub(crate) fn draw(&self, d: &mut Draw, size: Size, left: f64, z: f64, pan: Point, top: f64) {
-        let p = d.theme().get::<crate::tokens::Tokens>();
+        let p = d.theme().ext::<crate::tokens::Tokens>();
         let interval = self.ticks.interval(z);
         let step = interval * z;
         if !step.is_finite() || step <= 0.0 {
@@ -190,4 +194,26 @@ impl Ruler {
             }
         }
     }
+}
+
+/// Normalize a reactive editor duration and report invalid caller input.
+pub(crate) fn duration(value: impl kivact::state::IntoValue<f64>, fallback: f64) -> Value<f64> {
+    let value = value.into_value();
+    let report = kivact::state::callback(|error| -> kivact::Result<()> { Err(error) });
+    kivact::state::effect(move || {
+        let value = value.get();
+        if !value.is_finite() || value < 0.0 {
+            report.call(kivact::UiError::msg(
+                "editor duration must be finite and non-negative",
+            ));
+        }
+    });
+    kivact::state::memo(move || {
+        let value = value.get();
+        if value.is_finite() && value >= 0.0 {
+            value
+        } else {
+            fallback
+        }
+    })
 }

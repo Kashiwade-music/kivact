@@ -1,17 +1,21 @@
 //! Role: Two-endpoint range control of the Creative kit.
 
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::{Rect, RegionId};
+use kivact::custom::PartState;
+use kivact::draw::RegionId;
+use kivact::geometry::Rect;
 use kivact::i18n::{interpolate, message};
+use kivact::interaction::ScalarRange;
 use kivact::interaction::{RangeThumb, use_range_scalar};
-use kivact::primitive::{NodeExt, PartState};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Callback, Value, binding, effect, memo, signal, var};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Cursor, pct, style};
-use kivact::ui::{EditPhase, ScalarRange};
+use kivact::view::EditPhase;
 use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoText, IntoValue, IntoView, Key,
-    Orientation, Role, View, callback,
+    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoView, Key, Orientation, Role,
+    View,
 };
-use kivact::{Binding, Callback, Value, binding, effect, memo, signal, var};
+use kivact::view::{Node, NodeBuilder, node};
 
 /// The side of an end's square region, which the pointer grabs.
 const THUMB: f64 = 20.0;
@@ -40,9 +44,9 @@ pub struct Range {
     root: Node,
     label: Value<String>,
     state: Binding<(f64, f64)>,
-    min: f64,
-    max: f64,
-    step: f64,
+    min: Value<f64>,
+    max: Value<f64>,
+    step: Value<f64>,
     interval: Option<Value<kivact::style::Color>>,
     movable: Value<bool>,
     on_edit: Option<Callback<EditPhase>>,
@@ -62,7 +66,7 @@ pub struct Range {
 /// ([`on_edit`](Range::on_edit)); Escape and a canceled pointer during a drag
 /// write both endpoints from before the press back.
 #[track_caller]
-pub fn range(label: impl IntoText, value: impl Into<Binding<(f64, f64)>>) -> Range {
+pub fn range(label: impl IntoText, value: impl IntoBinding<(f64, f64)>) -> Range {
     let label = label.into_text_value();
     Range {
         root: node()
@@ -71,10 +75,10 @@ pub fn range(label: impl IntoText, value: impl Into<Binding<(f64, f64)>>) -> Ran
             .focusable(true)
             .style(style().width(pct(100)).height(24).cursor(Cursor::EwResize)),
         label,
-        state: value.into(),
-        min: 0.0,
-        max: 240.0,
-        step: 1.0,
+        state: value.into_binding(),
+        min: 0.0.into_value(),
+        max: 240.0.into_value(),
+        step: 1.0.into_value(),
         interval: None,
         movable: false.into_value(),
         on_edit: None,
@@ -101,21 +105,29 @@ impl Range {
         self
     }
     /// Inclusive finite bounds; invalid configurations keep the default bounds.
-    pub fn limits(mut self, min: f64, max: f64) -> Self {
-        if min.is_finite() && max.is_finite() && max > min {
-            self.min = min;
-            self.max = max;
-        }
+    pub fn limits(mut self, range: impl IntoValue<ScalarRange>) -> Self {
+        let range = range.into_value();
+        self.min = memo(move || range.get().min());
+        self.max = memo(move || range.get().max());
         self
     }
-    pub fn step(mut self, step: f64) -> Self {
-        if step.is_finite() && step > 0.0 {
-            self.step = step;
-        }
+    /// Keyboard and wheel increment.
+    pub fn step(mut self, step: impl IntoValue<f64>) -> Self {
+        let step = step.into_value();
+        self.step = memo(move || {
+            let step = step.get();
+            if step.is_finite() && step > 0.0 {
+                step
+            } else {
+                1.0
+            }
+        });
         self
     }
 }
+
 impl NodeBuilder for Range {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -139,17 +151,22 @@ impl IntoView for Range {
         let value = state.into_value();
         // What the root's keys and actions edit.
         let active = signal(RangePart::Start);
-        let range = ScalarRange::new(min, max).expect("invariant: finite endpoint bounds");
+        let range = memo(move || {
+            ScalarRange::new(min.get(), max.get()).expect("invariant: finite endpoint bounds")
+        });
         let bounded = move |v: (f64, f64)| {
             let a = if v.0.is_finite() {
-                range.normalize(v.0).expect("invariant: finite endpoint")
+                range
+                    .get()
+                    .normalize(v.0)
+                    .expect("invariant: finite endpoint")
             } else {
-                min
+                min.get()
             };
             let b = if v.1.is_finite() {
-                v.1.clamp(a, max)
+                v.1.clamp(a, max.get())
             } else {
-                max
+                max.get()
             };
             (a, b)
         };
@@ -227,7 +244,7 @@ impl IntoView for Range {
         use crate::editors::shared::region_parts::{self as region_parts, Kind, RegionInfo};
         let mut root = root;
         if interval.is_some() {
-            let info = kivact::memo(move || {
+            let info = kivact::state::memo(move || {
                 RegionInfo::new(
                     RangePart::Body.region(),
                     Kind::RangeBody,
@@ -235,7 +252,10 @@ impl IntoView for Range {
                 )
             });
             let select = callback(move |_| active.set(RangePart::Body));
-            let body = region_parts::attachment(Kind::RangeBody, info, select).with(ends.body());
+            let body = region_parts::attachment(Kind::RangeBody, info, select);
+            let body = kivact::custom::Part::new(body.state(), move |node| {
+                node.part(body).part(ends.body())
+            });
             follow_press(pressed(body.state()), RangePart::Body);
             root = root.region(RangePart::Body.region(), body);
         }
@@ -248,11 +268,13 @@ impl IntoView for Range {
             };
             // The root keeps the one keyboard focus of the control; an
             // endpoint is reached by assistive technology and the pointer.
-            let control = endpoint
-                .thumb()
-                .focusable(false)
-                .name(move || interpolate(&template.get(), &[("label", &label.get())]))
-                .on_a11y(A11yAction::Select, move || active.set(part));
+            let control = endpoint.thumb();
+            let control = kivact::custom::Part::new(control.state(), move |node| {
+                node.part(control)
+                    .focusable(false)
+                    .name(move || interpolate(&template.get(), &[("label", &label.get())]))
+                    .a11y_action(A11yAction::Select, move |_| active.set(part))
+            });
             let state = control.state();
             follow_press(memo(move || state.get().input.pressed), part);
             root = root.region(part.region(), control);
@@ -260,12 +282,15 @@ impl IntoView for Range {
         root.part(track)
             .value_text(move || format!("{} – {}", value.get().0, value.get().1))
             .draw(move |d, s| {
-                let p = d.theme().get::<crate::tokens::Tokens>();
+                let p = d.theme().ext::<crate::tokens::Tokens>();
                 let (a, b) = bounded(value.get());
                 let y = s.height / 2.0;
                 // The center of an end's 20 px region, where the track puts
                 // the value: the track's length less one region.
-                let x = |v| THUMB / 2.0 + ((v - min) / (max - min)) * (s.width - THUMB).max(0.0);
+                let x = |v| {
+                    THUMB / 2.0
+                        + ((v - min.get()) / (max.get() - min.get())) * (s.width - THUMB).max(0.0)
+                };
                 if let Some(color) = interval {
                     let r = Rect::new(x(a), y - 7.0, (x(b) - x(a)).max(1.0), 14.0);
                     d.rounded_rect(r, 3.0, color.get().with_alpha(0.35));
@@ -299,10 +324,10 @@ impl IntoView for Range {
                     );
                 }
             })
-            .on_a11y_event(A11yAction::Select, |_| {})
-            .on_a11y_event(A11yAction::SetValue, act)
-            .on_a11y_event(A11yAction::Increment, act)
-            .on_a11y_event(A11yAction::Decrement, act)
+            .a11y_action(A11yAction::Select, |_| {})
+            .a11y_action(A11yAction::SetValue, act)
+            .a11y_action(A11yAction::Increment, act)
+            .a11y_action(A11yAction::Decrement, act)
             .on_key_default(move |e| {
                 let part = active.get();
                 let factor = if e.modifiers().ctrl {
@@ -315,13 +340,13 @@ impl IntoView for Range {
                 if part == RangePart::Body && movable.get() {
                     let v = bounded(value.get());
                     let delta = match e.key() {
-                        Key::ArrowLeft | Key::ArrowDown => -step * factor,
-                        Key::ArrowRight | Key::ArrowUp => step * factor,
-                        Key::Home => min - v.0,
-                        Key::End => max - v.1,
+                        Key::ArrowLeft | Key::ArrowDown => -step.get() * factor,
+                        Key::ArrowRight | Key::ArrowUp => step.get() * factor,
+                        Key::Home => min.get() - v.0,
+                        Key::End => max.get() - v.1,
                         _ => return Handled::No,
                     }
-                    .clamp(min - v.0, max - v.1);
+                    .clamp(min.get() - v.0, max.get() - v.1);
                     ends.once(|| {
                         state.set((v.0 + delta, v.1 + delta));
                         true
@@ -332,8 +357,8 @@ impl IntoView for Range {
                 match e.key() {
                     Key::ArrowLeft | Key::ArrowDown => ends.once(|| scalar.step_by(-factor)),
                     Key::ArrowRight | Key::ArrowUp => ends.once(|| scalar.step_by(factor)),
-                    Key::Home => ends.once(|| scalar.set(min)),
-                    Key::End => ends.once(|| scalar.set(max)),
+                    Key::Home => ends.once(|| scalar.set(min.get())),
+                    Key::End => ends.once(|| scalar.set(max.get())),
                     _ => return Handled::No,
                 };
                 Handled::Yes

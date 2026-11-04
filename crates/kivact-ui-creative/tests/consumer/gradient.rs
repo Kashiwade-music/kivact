@@ -1,7 +1,7 @@
 //! Role: Stable gradient stop editing, transforms and exact cancellation.
 use crate::support::clean;
 use kivact::prelude::*;
-use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::{A11yAction, Modifiers};
 use kivact_ui_creative as ui;
 use std::cell::RefCell;

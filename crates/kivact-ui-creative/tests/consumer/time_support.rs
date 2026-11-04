@@ -1,7 +1,7 @@
 //! Role: Consumer-owned clip and keyframe edits for the timeline and dope sheet.
 
 use kivact::prelude::*;
-use kivact::view::callback;
+use kivact::state::callback;
 use kivact_ui_creative as ui;
 
 pub(crate) fn apply_clips(items: &mut Vec<ui::Clip>, request: &ui::TimeRequest) {
@@ -32,7 +32,7 @@ pub(crate) fn apply_keys(items: &mut Vec<ui::Keyframe>, request: &ui::TimeReques
     }
 }
 
-pub(crate) trait TestTime: Clone + PartialEq + 'static {
+pub(crate) trait TestTime: kivact::state::PropValue {
     fn timing(&self) -> ui::ItemTime;
 }
 
@@ -57,15 +57,15 @@ impl TestTime for ui::Keyframe {
 }
 
 pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
-    items: impl Into<kivact::Binding<Vec<T>>>,
+    items: impl Into<kivact::state::Binding<Vec<T>>>,
     apply: fn(&mut Vec<T>, &ui::TimeRequest),
-    observer: impl Fn(kivact::ui::EditPhase) -> R + 'static,
+    observer: impl Fn(kivact::view::EditPhase) -> R + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::TimeRequest>) + 'static {
     let items = items.into();
     let initial = signal(None::<Vec<T>>);
     let observer = callback(observer);
     move |event| {
-        use kivact::ui::EditPhase;
+        use kivact::view::EditPhase;
         match event {
             ui::EditorEvent::Begin => {
                 initial.set(Some(items.get_untracked()));
@@ -97,7 +97,7 @@ pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
 }
 
 pub(crate) fn app_timeline(
-    items: impl Into<kivact::Binding<Vec<ui::Clip>>>,
+    items: impl Into<kivact::state::Binding<Vec<ui::Clip>>>,
     state: ui::TimeState,
 ) -> ui::Timeline {
     let items = items.into();
@@ -105,7 +105,7 @@ pub(crate) fn app_timeline(
 }
 
 pub(crate) fn app_dope_sheet(
-    items: impl Into<kivact::Binding<Vec<ui::Keyframe>>>,
+    items: impl Into<kivact::state::Binding<Vec<ui::Keyframe>>>,
     state: ui::TimeState,
 ) -> ui::DopeSheet {
     let items = items.into();

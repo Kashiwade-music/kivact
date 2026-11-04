@@ -2,7 +2,8 @@
 
 use crate::editors::shared::metrics::{SOCKET_START, SOCKET_STEP};
 use crate::{NodeData, NodeLink};
-use kivact::draw::{Draw, Path, Point, Rect};
+use kivact::draw::{Draw, Path};
+use kivact::geometry::{Point, Rect};
 use kivact::style::Color;
 
 pub(crate) fn rect(node: &NodeData) -> Rect {

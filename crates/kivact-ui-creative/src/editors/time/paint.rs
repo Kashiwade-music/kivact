@@ -6,9 +6,10 @@ use crate::editors::shared::model::Lane;
 use crate::editors::shared::ruler::Ruler;
 use crate::editors::shared::text::label;
 use crate::editors::time::model::TimeItem;
-use kivact::draw::{Draw, Layer, Point, Rect, Size, TextStyle};
+use kivact::draw::{Draw, Layer, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 pub(crate) fn paint_item<T: TimeItem>(draw: &mut Draw, item: &T, rect: Rect, selected: bool) {
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     let color = if selected { p.accent } else { item.color() }.with_alpha(if item.muted() {
         0.28
     } else {
@@ -38,7 +39,7 @@ pub(crate) fn paint_grid(
     layout: (f64, f64),
 ) {
     let (height, cells_width) = layout;
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     draw.fill_rect(Rect::new(0.0, 0.0, size.width, RULER), p.header);
     draw.fill_rect(
         Rect::new(0.0, RULER, SIDEBAR, (size.height - RULER).max(0.0)),
@@ -51,7 +52,7 @@ pub(crate) fn paint_grid(
         let text_height = draw
             .measure_text(
                 &lane.label,
-                &TextStyle {
+                &TextFormat {
                     size: 11.5,
                     ..Default::default()
                 },
@@ -109,7 +110,7 @@ pub(crate) fn paint<T: TimeItem>(
     let selection = state.selection;
     let frame = state.playhead;
 
-    let z = scale.get().clamp(bounds.0, bounds.1);
+    let z = scale.get().clamp(bounds.get().min(), bounds.get().max());
     let offset = offset.get();
     let lanes = visible.get();
     paint_grid(
@@ -160,7 +161,7 @@ pub(crate) fn paint<T: TimeItem>(
             Point::new(x, RULER),
             Point::new(x, size.height),
             1.0,
-            draw.theme().get::<crate::tokens::Tokens>().text_high,
+            draw.theme().ext::<crate::tokens::Tokens>().text_high,
         );
         ruler.badge(draw, x, frame.get());
         if let Some(id) = scene.id(&Target::Playhead) {
@@ -174,7 +175,7 @@ pub(crate) fn paint<T: TimeItem>(
         draw.stroke_rect(
             Rect::from_points(from, to),
             1.0,
-            draw.theme().get::<crate::tokens::Tokens>().accent,
+            draw.theme().ext::<crate::tokens::Tokens>().accent,
         );
     }
 }

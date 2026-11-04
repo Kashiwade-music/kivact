@@ -3,7 +3,7 @@
 use crate::support::clean;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::EditPhase::{self, Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::MouseButton;
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
@@ -29,7 +29,10 @@ fn gain(log: &Log) -> (Screen, Signal<f64>) {
         (
             value,
             ui::number("Gain", value)
-                .range(0.0, 100.0)
+                .range(
+                    kivact::interaction::ScalarRange::new(0.0, 100.0)
+                        .expect("invariant: finite ordered control range"),
+                )
                 .step(1.0)
                 .precision(1)
                 .on_edit(observer(value, &seen)),
@@ -65,7 +68,12 @@ fn numeric_arithmetic_submit_cancel_and_blur_commit() {
         (
             value,
             column((
-                ui::number("Gain", value).range(-10.0, 10.0).precision(3),
+                ui::number("Gain", value)
+                    .range(
+                        kivact::interaction::ScalarRange::new(-10.0, 10.0)
+                            .expect("invariant: finite ordered control range"),
+                    )
+                    .precision(3),
                 kivact::ui::button("Outside").variant(kivact::ui::ButtonVariant::Secondary),
             )),
         )
