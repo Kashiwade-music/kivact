@@ -86,10 +86,10 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                     continue;
                 }
                 for member in &item.items {
-                    if let syn::ImplItem::Fn(method) = member {
-                        if matches!(method.vis, syn::Visibility::Public(_)) {
-                            check_signature(source, &method.sig, true, errors);
-                        }
+                    if let syn::ImplItem::Fn(method) = member
+                        && matches!(method.vis, syn::Visibility::Public(_))
+                    {
+                        check_signature(source, &method.sig, true, errors);
                     }
                 }
             }

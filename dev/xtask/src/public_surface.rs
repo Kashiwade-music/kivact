@@ -277,6 +277,26 @@ pub(crate) fn export_span(source: &Source) -> proc_macro2::Span {
         .unwrap_or_else(proc_macro2::Span::call_site)
 }
 
+impl Surface {
+    pub(crate) fn resolve_type(&self, source: &Source, ty: &syn::Type) -> Option<String> {
+        let syn::Type::Path(path) = ty else {
+            return None;
+        };
+        let name = path
+            .path
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::");
+        let scope = definition(source, "");
+        Some(resolve(
+            &absolutize(scope.trim_end_matches("::"), &name),
+            &self.aliases,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Role: Follow aliases through private modules without exposing private items.
@@ -312,25 +332,5 @@ mod tests {
         );
         assert!(surface.exports.contains_key("kivact::ui::Internal"));
         assert!(!surface.exports.contains_key("kivact::hidden::Thing"));
-    }
-}
-
-impl Surface {
-    pub(crate) fn resolve_type(&self, source: &Source, ty: &syn::Type) -> Option<String> {
-        let syn::Type::Path(path) = ty else {
-            return None;
-        };
-        let name = path
-            .path
-            .segments
-            .iter()
-            .map(|s| s.ident.to_string())
-            .collect::<Vec<_>>()
-            .join("::");
-        let scope = definition(source, "");
-        Some(resolve(
-            &absolutize(scope.trim_end_matches("::"), &name),
-            &self.aliases,
-        ))
     }
 }

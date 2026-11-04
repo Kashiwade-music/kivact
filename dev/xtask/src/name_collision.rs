@@ -58,10 +58,10 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
     }
     let mut reserved: BTreeSet<&str> = STANDARD.iter().copied().collect();
     for path in surface.exports.keys() {
-        if path.starts_with("kivact::prelude::") || path.starts_with("kivact::ui::") {
-            if let Some(name) = path.rsplit("::").next() {
-                reserved.insert(name);
-            }
+        if (path.starts_with("kivact::prelude::") || path.starts_with("kivact::ui::"))
+            && let Some(name) = path.rsplit("::").next()
+        {
+            reserved.insert(name);
         }
     }
     let prefix = source.identity_root() + "::";

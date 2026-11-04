@@ -113,14 +113,14 @@ impl<'ast> Visit<'ast> for Effects<'_> {
     }
     fn visit_item_impl(&mut self, item: &'ast syn::ItemImpl) {
         let previous = std::mem::take(&mut self.self_fields);
-        if let syn::Type::Path(path) = item.self_ty.as_ref() {
-            if let Some(name) = path.path.segments.last() {
-                self.self_fields = self
-                    .fields
-                    .get(&name.ident.to_string())
-                    .cloned()
-                    .unwrap_or_default();
-            }
+        if let syn::Type::Path(path) = item.self_ty.as_ref()
+            && let Some(name) = path.path.segments.last()
+        {
+            self.self_fields = self
+                .fields
+                .get(&name.ident.to_string())
+                .cloned()
+                .unwrap_or_default();
         }
         syn::visit::visit_item_impl(self, item);
         self.self_fields = previous;
