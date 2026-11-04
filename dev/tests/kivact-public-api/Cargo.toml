@@ -10,6 +10,7 @@ description = "Public Kivact API consumer tests: one real-window E2E binary and 
 [features]
 embed = ["kivact/embed"]
 default = ["gpu"]
+tokio = ["kivact/tokio"]
 # The consumer selects the renderer independently of the testing API.
 gpu = ["kivact/gpu"]
 # GPU texture sharing (`kivact::gpu_interop`, tests/e2e/gpu_interop.rs).
