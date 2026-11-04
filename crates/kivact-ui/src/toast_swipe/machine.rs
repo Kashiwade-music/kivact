@@ -21,28 +21,7 @@ pub(super) enum Swipe {
     Pressed(Contact),
     Dragging { contact: Contact, offset: f64 },
     Blocked { pointer: PointerId },
-}
-#[derive(Clone, Copy, PartialEq)]
-pub(super) enum Visual {
-    Rest,
-    Drag { travel: f64, height: f64 },
-    DismissOn { travel: f64, height: f64 },
-}
-#[derive(Clone, Copy, PartialEq)]
-pub(super) struct State {
-    pub swipe: Swipe,
-    pub exit: Visual,
-}
-impl State {
-    pub(super) fn visual(self) -> Visual {
-        match self.swipe {
-            Swipe::Dragging { contact, offset } => Visual::Drag {
-                travel: offset,
-                height: contact.height,
-            },
-            _ => self.exit,
-        }
-    }
+    Released { travel: f64, height: f64 },
 }
 pub(super) enum Event {
     Pointer(PointerEvent),
@@ -50,6 +29,7 @@ pub(super) enum Event {
 }
 pub(super) enum Effect {
     Hold(bool),
+    Dismiss,
 }
 pub(super) struct Machine {
     pub edge: Edge,
@@ -58,31 +38,22 @@ pub(super) struct Machine {
     pub slop: f64,
 }
 impl MachineTrait for Machine {
-    type State = State;
+    type State = Swipe;
     type Event = Event;
     type Effect = Effect;
-    fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
+    fn transition(&self, state: &Swipe, event: Event) -> Step<Swipe, Event, Effect> {
         if let Event::Protect(pointer) = event {
-            return Step::to(State {
-                swipe: Swipe::Blocked { pointer },
-                ..*state
-            });
+            return Step::to(Swipe::Blocked { pointer });
         }
         let Event::Pointer(event) = event else {
             return Step::stay();
         };
         if !matches!(event.kind(), PointerKind::Touch | PointerKind::Pen)
-            || matches!(state.exit, Visual::DismissOn { .. })
+            || matches!(state, Swipe::Released { .. })
         {
             return Step::stay();
         }
-        let reset = || {
-            Step::to(State {
-                swipe: Swipe::Rest,
-                exit: Visual::Rest,
-            })
-            .with(Effect::Hold(false))
-        };
+        let reset = || Step::to(Swipe::Rest).with(Effect::Hold(false));
         let pos = event.window_pos();
         if !pos.x.is_finite() || !pos.y.is_finite() {
             return reset();
@@ -91,27 +62,24 @@ impl MachineTrait for Machine {
             if !event.is_primary() && event.kind() == PointerKind::Touch {
                 return reset();
             }
-            if matches!(state.swipe, Swipe::Blocked { pointer } if pointer == event.id()) {
+            if matches!(*state, Swipe::Blocked { pointer } if pointer == event.id()) {
                 return reset();
             }
             if press.button == MouseButton::Primary
-                && matches!(state.swipe, Swipe::Rest | Swipe::Blocked { .. })
+                && matches!(*state, Swipe::Rest | Swipe::Blocked { .. })
                 && let Some(rect) = self.rect
             {
-                return Step::to(State {
-                    swipe: Swipe::Pressed(Contact {
-                        pointer: event.id(),
-                        origin: pos,
-                        started: self.now,
-                        height: rect.height.max(1.0),
-                    }),
-                    exit: Visual::Rest,
-                })
+                return Step::to(Swipe::Pressed(Contact {
+                    pointer: event.id(),
+                    origin: pos,
+                    started: self.now,
+                    height: rect.height.max(1.0),
+                }))
                 .with(Effect::Hold(true));
             }
             return Step::stay();
         }
-        let (contact, promoted) = match state.swipe {
+        let (contact, promoted) = match *state {
             Swipe::Pressed(contact) => (contact, false),
             Swipe::Dragging { contact, .. } => (contact, true),
             _ => return Step::stay(),
@@ -131,24 +99,19 @@ impl MachineTrait for Machine {
                         Intent::Promote => {}
                     }
                 }
-                Step::to(State {
-                    swipe: Swipe::Dragging {
-                        contact,
-                        offset: travel,
-                    },
-                    exit: Visual::Rest,
+                Step::to(Swipe::Dragging {
+                    contact,
+                    offset: travel,
                 })
             }
             PointerPhase::Up(_) => {
                 let elapsed = self.now.saturating_sub(contact.started) as f64 / 1_000_000.0;
                 if promoted && qualifies(travel, contact.height, elapsed) {
-                    Step::to(State {
-                        swipe: Swipe::Rest,
-                        exit: Visual::DismissOn {
-                            travel,
-                            height: contact.height,
-                        },
+                    Step::to(Swipe::Released {
+                        travel,
+                        height: contact.height,
                     })
+                    .with(Effect::Dismiss)
                 } else {
                     reset()
                 }

@@ -338,6 +338,8 @@ recipe_table! {
         region(region_recipe): PartState = look_controls::toast_region,
         /// The column of one live region's toasts (polite, then assertive).
         group(group_recipe): ToastGroupState = look_controls::toast_group,
+        /// The size-presence shell around one card, including its spacing.
+        row(row_recipe): PartState = look_controls::toast_row,
         /// One toast: its title, its body, its action and its close button.
         toast(toast_recipe): ToastState = look_controls::toast,
         title(title_recipe): ToastState = look_controls::toast_title,

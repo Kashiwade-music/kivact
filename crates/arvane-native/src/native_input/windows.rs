@@ -625,7 +625,7 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
             // SAFETY: this call only queries the system's digitizer capabilities.
             && unsafe {
                 GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_DIGITIZER)
-            } & 0x40
+            } & windows_sys::Win32::UI::WindowsAndMessaging::NID_READY as i32
                 != 0
         {
             kivact_types::PointerClass::Coarse
@@ -633,6 +633,34 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
             kivact_types::PointerClass::Fine
         },
         ..defaults
+    }
+}
+
+/// Read the documented per-user app color mode; missing settings use light.
+pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
+    use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
+    let key =
+        windows_sys::core::w!("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
+    let name = windows_sys::core::w!("AppsUseLightTheme");
+    let mut light = 1u32;
+    let mut size = std::mem::size_of_val(&light) as u32;
+    // SAFETY: the terminated UTF-16 names live through the call; the DWORD filter
+    // and its four-byte output buffer agree, and no registry handle is retained.
+    let result = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            key,
+            name,
+            RRF_RT_REG_DWORD,
+            std::ptr::null_mut(),
+            (&raw mut light).cast(),
+            &raw mut size,
+        )
+    };
+    if result == 0 && light == 0 {
+        kivact_types::ThemeHint::Dark
+    } else {
+        kivact_types::ThemeHint::Light
     }
 }
 

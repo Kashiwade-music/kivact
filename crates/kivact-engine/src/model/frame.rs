@@ -27,7 +27,8 @@
 //!   queues one `EnvChanged` per change of any of it, and none when the
 //!   value did not change.
 //! - A smooth scroll allocates its state only while it animates; reduced
-//!   motion makes it a jump. It eases out (cubic) over 240 ms.
+//!   motion makes it a jump. It uses the requested easing over 240 ms; touch flings decay per platform settings.
 
+mod scroll_snap;
 pub(crate) mod state;
 mod ticks;

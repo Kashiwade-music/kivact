@@ -1,7 +1,7 @@
 //! Role: The pointer state machine: chains, press, release, move, cancel and wheel.
 
 use super::space::PointerSpace;
-use super::state::{MouseGesture, PointerSource, Press, Track};
+use super::state::{Capture, MouseGesture, PointerSource, Press, Track};
 use crate::contract::HostEvent;
 use crate::model::Model;
 use kivact_types::{
@@ -292,7 +292,10 @@ impl Model {
         let target =
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
         if let Some(t) = target.filter(|t| self.tree.get(*t).is_some_and(|n| !n.disabled())) {
-            self.pointer.state.track_mut(pointer).route_mut().capture = Some(t);
+            let route = self.pointer.state.track_mut(pointer).route_mut();
+            if route.capture.is_none() {
+                route.capture = Some(Capture::Implicit(t));
+            }
             self.send_pointer(
                 pointer,
                 t,
@@ -465,7 +468,9 @@ impl Model {
             route.capture = None;
         }
 
-        if let Some(t) = capture {
+        if let Some(t) =
+            capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())))
+        {
             self.send_pointer(
                 pointer,
                 t,
@@ -511,6 +516,39 @@ impl Model {
             })
     }
 
+    pub(crate) fn pointer_capture(&self, pointer: PointerId) -> Option<NodeId> {
+        self.pointer
+            .state
+            .tracks
+            .get(&pointer.0)
+            .and_then(Track::capture)
+    }
+
+    /// Explicit capture shares the gesture route with implicit press capture.
+    pub(crate) fn set_pointer_capture(&mut self, node: NodeId, pointer: PointerId, capture: bool) {
+        if (capture && !self.in_scope(node))
+            || !self.tree.live(node)
+            || self.tree.get(node).is_none_or(|n| n.disabled())
+        {
+            return;
+        }
+        if capture {
+            self.reserve_touch_gesture(pointer);
+        }
+        if let Some(track) = self.pointer.state.tracks.get_mut(&pointer.0)
+            && let Some(route) = track.routed_mut()
+        {
+            if capture {
+                route.capture = Some(Capture::Explicit(node));
+            } else if route
+                .capture
+                .is_some_and(|capture| capture.target() == node)
+            {
+                route.capture = None;
+            }
+        }
+    }
+
     /// `pointer` moved over `hit`, with the buttons its source holds.
     pub(crate) fn pointer_move(
         &mut self,
@@ -522,7 +560,14 @@ impl Model {
         let held = self.pointer.state.track(pointer).source().buttons;
         // No button held while a capture is active: the release happened
         // where the host could not see it. End the drag with `Cancel`.
-        if held.is_empty() && self.pointer.state.track(pointer).capture().is_some() {
+        if held.is_empty()
+            && self
+                .pointer
+                .state
+                .track(pointer)
+                .route()
+                .is_some_and(|route| matches!(route.capture, Some(Capture::Implicit(_))))
+        {
             self.cancel_pointer_input(pointer);
         }
         let hit = self.scoped(hit);

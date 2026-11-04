@@ -168,7 +168,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         }
         let base = if let Some(press) = session.press {
             base.on_pointer(move |event| {
-                press.event(session, super::press::machine::Source::Menu, event)
+                press.event(session, super::press_machine::Source::Menu, event)
             })
         } else {
             base
@@ -394,7 +394,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 .on_pointer(move |event: PointerEvent| {
                     if let Some(press) = session.press {
                         let handled =
-                            press.event(session, super::press::machine::Source::Menu, event);
+                            press.event(session, super::press_machine::Source::Menu, event);
                         if handled == Handled::Yes {
                             return handled;
                         }

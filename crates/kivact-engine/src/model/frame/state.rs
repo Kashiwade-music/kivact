@@ -9,10 +9,16 @@ pub(super) enum SmoothScroll {
     Scheduled {
         start: Point,
         target: Point,
+        easing: kivact_types::Easing,
+    },
+    Fling {
+        velocity: Point,
+        last_ns: u64,
     },
     Running {
         start: Point,
         target: Point,
+        easing: kivact_types::Easing,
         began_ns: u64,
     },
 }

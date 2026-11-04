@@ -125,7 +125,7 @@ pub(super) fn position<T>(active: &Active<T>, pos: Point, now: u64, lock: bool) 
         };
     }
     if let Velocity::Tracking(samples) = &active.velocity {
-        let mut samples = samples.fork();
+        let mut samples = (**samples).clone();
         samples.record(now, pos);
         active.velocity = Velocity::Tracking(Rc::new(samples));
     }

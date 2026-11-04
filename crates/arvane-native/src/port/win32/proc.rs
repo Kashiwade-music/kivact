@@ -64,6 +64,16 @@ pub(super) unsafe extern "system" fn wndproc(
 }
 fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     match message {
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_SETTINGCHANGE
+        | windows_sys::Win32::UI::WindowsAndMessaging::WM_THEMECHANGED => {
+            let environment = super::window::environment(state);
+            let changed = *state.environment.borrow() != environment;
+            state.environment.replace(environment);
+            if changed {
+                state.event(ShellEvent::EnvironmentChanged);
+            }
+            original(state, hwnd, message, w, l)
+        }
         WM_GETOBJECT => super::a11y::get_object(state, w, l)
             .unwrap_or_else(|| original(state, hwnd, message, w, l)),
         WM_DROPFILES => {

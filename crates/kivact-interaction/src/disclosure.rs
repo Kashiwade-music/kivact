@@ -6,11 +6,8 @@
 //! `Binding<bool>`; [`DisclosureApi::close`] writes `false` to it. A delayed
 //! shown state is a [`DelayedApi`](crate::DelayedApi).
 //! The parts are the trigger and the content, with [`DisclosureState`]
-//! (`input`, `open`). Whether the content is unmounted with `show` or kept
-//! mounted and hidden is the caller's choice; the kits' toggles and
-//! accordions share these rules. A content that animates its closing (an
-//! accordion's height) stays visible while [`DisclosureApi::leaving`] says the
-//! animation runs; the trigger's `expanded` follows the shown state at once.
+//! (`input`, `open`). Mount content with `show` so engine presence owns
+//! enter and exit paint; the trigger follows the requested state immediately.
 
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
@@ -31,7 +28,7 @@ pub struct DisclosureState {
 /// The disclosure edits one `bool`, the requested open state, through the
 /// caller's [`Binding`]. The caller draws the trigger and the content and
 /// decides whether the content is unmounted (`show(d.is_open(), ..)`) or kept
-/// mounted; [`content`](Self::content) hides a mounted content while closed.
+/// mounted; the caller controls visibility of content kept mounted.
 ///
 /// The [`trigger`](Self::trigger) is a focusable `Role::Button` publishing
 /// `expanded` and `controls` to the content. A click, Enter, Space and the
@@ -65,7 +62,6 @@ pub struct DisclosureApi {
 #[derive(Clone, Copy, Default)]
 struct DisclosureOptions {
     disabled: Option<Value<bool>>,
-    leaving: Option<Value<bool>>,
 }
 
 /// Create a disclosure whose requested state is `open`, the sole writer.
@@ -118,17 +114,6 @@ impl DisclosureApi {
         let disabled = disabled.into_value();
         self.settings
             .update(|settings| settings.disabled = Some(disabled));
-        self
-    }
-
-    /// Keep the [`content`](Self::content) visible after it stops being shown
-    /// while `leaving` is true: the caller's closing animation (a height that
-    /// collapses) still runs. The trigger's `expanded` and the content's
-    /// [`DisclosureState::open`] follow the shown state at once. Setup only.
-    pub fn leaving(self, leaving: impl IntoValue<bool>) -> Self {
-        let leaving = leaving.into_value();
-        self.settings
-            .update(|settings| settings.leaving = Some(leaving));
         self
     }
 
@@ -209,12 +194,11 @@ impl DisclosureApi {
         })
     }
 
-    /// The content the trigger `controls`, hidden while not shown (nor
-    /// [`leaving`](Self::leaving)).
+    /// The content the trigger `controls`. Mount it with `show(is_open(), ..)`;
+    /// engine presence retains its exit paint after unmount.
     #[track_caller]
     pub fn content(self) -> Part<DisclosureState> {
         let shown = self.shown;
-        let settings = self.settings;
         let input = part(move |input| DisclosureState {
             input,
             open: shown.get(),
@@ -223,17 +207,7 @@ impl DisclosureApi {
         self.content_state.set(Some(part_state));
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
-            host.part(input)
-                .node_ref(target)
-                .node_ref(self.content)
-                .hidden(move || {
-                    let leaving = settings
-                        .value()
-                        .get()
-                        .leaving
-                        .is_some_and(|leaving| leaving.get());
-                    !shown.get() && !leaving
-                })
+            host.part(input).node_ref(target).node_ref(self.content)
         })
     }
 }

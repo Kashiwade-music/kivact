@@ -1692,7 +1692,7 @@ SOFT_UI_WORK_ORDER の 7 章のうち未実装のもの:
 | C-25 | `TextDecorationStyle::{Solid, Dashed, Dotted, Wavy}` |
 | C-34 | `Style::visibility(Visibility::Hidden)`（layout に参加し、paint・支援技術・focus・当たり判定から外れる） |
 | C-35 | `use_combobox`・`use_select`・`use_calendar_grid` の option（soft-ui-work-order の付録 02 の「Kivact 実装方針」の節が列挙したもの。名前と型はその付録の記述のとおり） |
-| C-37 | `Style::scroll_snap(ScrollSnap)`、touch の fling の慣性、`ScrollBehavior::Smooth(Easing)`。慣性は、指を離したときの速度（`DragApi::velocity` と同じ計算）から、`PointerSettings.fling_deceleration`（既定 0.998 / ms の減衰率）で減速し、速度が `PointerSettings.fling_min_velocity`（既定 0.05 px/ms）を下回ったら止める。snap がある scroll では、止まる位置を `nearest_snap` で snap の位置に寄せる |
+| C-37 | `Style::scroll_snap(ScrollSnap)`（`ScrollSnap::{None, Start, Center, End}`、既定 None。ScrollAxes に従い直下の in-flow 子の border box を viewport に整列し、Contents は透過）、touch の fling の慣性、`ScrollBehavior::Smooth(Easing)`。慣性は、指を離したときの速度（`DragApi::velocity` と同じ計算）から、`PointerSettings.fling_deceleration`（既定 0.998 / ms の減衰率）で減速し、速度が `PointerSettings.fling_min_velocity`（既定 0.05 px/ms）を下回ったら止める。snap がある scroll では、止まる位置を `nearest_snap` で snap の位置に寄せる |
 
 - **unit:** G-4。
 

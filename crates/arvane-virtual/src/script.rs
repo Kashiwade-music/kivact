@@ -20,6 +20,7 @@ pub(crate) enum Item {
     Period(u64),
     Reduced(bool),
     Dark(bool),
+    Pointer(kivact_types::PointerSettings),
     Locale(Option<String>),
     SafeArea(Insets),
     Surface(bool),
@@ -59,6 +60,10 @@ impl Script {
     }
     fn push(&self, item: Item) {
         self.0.borrow_mut().queue.push_back(item);
+    }
+    /// Update the platform pointer preferences and primary device class.
+    pub fn pointer_settings(&self, settings: kivact_types::PointerSettings) {
+        self.push(Item::Pointer(settings));
     }
     pub fn input(&self, event: ShellEvent) {
         let mut input = self.0.borrow_mut();

@@ -19,6 +19,11 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// The listener retaining this pointer, if its gesture holds capture.
+    pub fn pointer_capture(&self, pointer: kivact_types::PointerId) -> Option<NodeId> {
+        self.model.borrow().pointer_capture(pointer)
+    }
+
     /// Client mutation totals and the last committed revision.
     pub fn stats(&self) -> crate::mutation::WriteStats {
         let model = self.model.borrow();

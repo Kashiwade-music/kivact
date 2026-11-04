@@ -1,3 +1,4 @@
+# ScrollSnap and release sampling are pure shared types; interaction reexports their canonical implementations.
 # Layout transitions and Retarget are shared kivact-types motion contracts consumed by runtime/style/engine.
 # TextDecorationStyle and Visibility remain shared kivact-types values; style resolves them for the engine.
 # `cargo xtask check`（xtask-core）が読む workspace の規則（CONTRIBUTING.md）。
@@ -232,10 +233,10 @@ frame_log = ["contract"]
 measure = ["text_input", "lower", "contract", "tree"]
 model = ["text_input", "lower", "contract", "tree", "measure", "mutation"]
 text_measure = ["lower", "contract", "tree", "measure", "model"]
-paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure"]
+paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen"]
 a11y = ["contract", "tree", "measure", "mutation", "model"]
 check = ["lower", "contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
-host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log"]
+host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen"]
 offscreen = ["lower", "contract", "text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
 api = ["contract", "host", "offscreen", "text_measure", "mutation"]
@@ -404,7 +405,7 @@ reason = "Glue: the binary entry only wires xtask-core's run to this workspace's
 skip = ["kivact", "kivact-test", "kivact-core", "kivact-public-api-tests", "kivact-runtime", "kivact-i18n", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-virtual", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
 record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
-value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check"]
+value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check"]
 
 [effect_writes]
 skip = ["kivact", "kivact-test", "kivact-core", "kivact-public-api-tests", "kivact-runtime", "kivact-i18n", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-virtual", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]

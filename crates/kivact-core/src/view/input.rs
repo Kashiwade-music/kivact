@@ -88,11 +88,30 @@ impl KeyEvent {
 }
 
 /// Pointer sample and node-local route delivered to a handler.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub struct PointerEvent {
     pub(crate) routed: kivact_engine::contract::Routed<p::PointerSample>,
+    pub(crate) capture_action: fn(&PointerEvent, bool),
+}
+impl PartialEq for PointerEvent {
+    fn eq(&self, other: &Self) -> bool {
+        self.routed == other.routed
+    }
 }
 impl PointerEvent {
+    /// Route this pointer's subsequent events to this node. Call from its handler.
+    /// Capture ends on the final button release, cancellation, or removal of the node.
+    /// Capturing a hovering pointer also works without a button held.
+    pub fn capture(&self) {
+        (self.capture_action)(self, true);
+    }
+
+    /// Release explicit or implicit capture so subsequent events follow hit testing.
+    /// Call from the capturing node's pointer handler.
+    pub fn release_capture(&self) {
+        (self.capture_action)(self, false);
+    }
+
     pub fn id(&self) -> PointerId {
         self.routed.input.id
     }

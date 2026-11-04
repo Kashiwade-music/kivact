@@ -1,8 +1,6 @@
 //! Role: Track a held menu pointer and activate the eligible row at release.
-use self::machine::{Event, Input, PressGesture, Source};
+use super::press_machine::{Event, Input, PressGesture, Source};
 use super::press_state::Press;
-#[path = "press/machine.rs"]
-pub(super) mod machine;
 use super::session::Session;
 use super::state::MenuOrigin;
 use crate::PopupCloseReason;
