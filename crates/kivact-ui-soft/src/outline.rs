@@ -6,13 +6,13 @@ use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::draw::Point;
 use kivact::motion::{Transition, animated};
 use kivact::primitive::NodeExt;
+use kivact::state::{Machine, MachineHandle, Step, machine};
 use kivact::style::{Align, Direction, Position, TransitionProp, pct, style};
-use kivact::task::{Task, sleep, spawn};
 use kivact::view::{
     Handled, HandlerResult, IntoValue, IntoView, Key, KeyEvent, NodeRef, Role, ScrollBehavior,
     View, callback, dynamic, node_ref, provide,
 };
-use kivact::{Binding, Callback, Signal, Value, effect_on, memo, signal};
+use kivact::{Binding, Callback, Value, effect_on, memo};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -134,10 +134,51 @@ impl NodeBuilder for Outline {
     }
 }
 
-#[derive(Clone)]
-struct Pending {
-    id: String,
-    completion: Task,
+#[derive(Clone, PartialEq)]
+enum OutlineScroll {
+    Idle,
+    Scrolling { target: String },
+}
+enum ScrollEvent {
+    Begin(String),
+    Finish,
+}
+struct ScrollMachine;
+impl Machine for ScrollMachine {
+    type State = OutlineScroll;
+    type Event = ScrollEvent;
+    type Effect = String;
+    fn transition(
+        &self,
+        state: &OutlineScroll,
+        event: ScrollEvent,
+    ) -> Step<OutlineScroll, ScrollEvent, String> {
+        match event {
+            ScrollEvent::Begin(target) => Step::to(OutlineScroll::Scrolling { target })
+                .after(Duration::from_millis(250), ScrollEvent::Finish),
+            ScrollEvent::Finish => {
+                let step = Step::to(OutlineScroll::Idle).cancel(ScrollEvent::Finish);
+                match state {
+                    OutlineScroll::Idle => step,
+                    OutlineScroll::Scrolling { target } => step.with(target.clone()),
+                }
+            }
+        }
+    }
+}
+#[derive(Clone, PartialEq)]
+enum OutlineFocus {
+    Unset,
+    At(String),
+}
+struct FocusMachine;
+impl Machine for FocusMachine {
+    type State = OutlineFocus;
+    type Event = String;
+    type Effect = ();
+    fn transition(&self, _: &OutlineFocus, id: String) -> Step<OutlineFocus, String, ()> {
+        Step::to(OutlineFocus::At(id))
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -146,21 +187,14 @@ struct Navigation {
     offset: f64,
     scroll_on_press: bool,
     controlled: Option<Binding<Option<String>>>,
-    pending: Signal<Option<Pending>>,
+    pending: MachineHandle<ScrollMachine>,
     start: Option<Callback<String>>,
     end: Option<Callback<String>>,
 }
 
 impl Navigation {
     fn finish(self) {
-        let pending = self.pending.get();
-        self.pending.update(|slot| *slot = None);
-        if let Some(pending) = pending {
-            pending.completion.cancel();
-            if let Some(end) = self.end {
-                end.call(pending.id);
-            }
-        }
+        self.pending.send(ScrollEvent::Finish);
     }
 
     fn navigate(self, item: &OutlineItem) {
@@ -198,22 +232,7 @@ impl Navigation {
             }
         }
         if self.scroll_on_press && self.viewport.is_some() && !reduced_motion {
-            let pending = self.pending;
-            let end = self.end;
-            let id = item.id.clone();
-            let completion = spawn(async move {
-                sleep(Duration::from_millis(250)).await;
-                pending.update(|slot| *slot = None);
-                if let Some(end) = end {
-                    end.call(id);
-                }
-            });
-            self.pending.update(|slot| {
-                *slot = Some(Pending {
-                    id: item.id.clone(),
-                    completion,
-                })
-            });
+            self.pending.send(ScrollEvent::Begin(item.id.clone()));
         } else if let Some(end) = self.end {
             end.call(item.id.clone());
         }
@@ -236,7 +255,15 @@ impl IntoView for Outline {
             end,
         } = self;
         provide((), move || {
-            let pending = signal(None);
+            let pending = machine(
+                OutlineScroll::Idle,
+                || ScrollMachine,
+                move |_, id| {
+                    if let Some(end) = end {
+                        end.call(id);
+                    }
+                },
+            );
             let navigation = Navigation {
                 viewport,
                 offset,
@@ -251,8 +278,8 @@ impl IntoView for Outline {
                 if let Some(active) = active {
                     return active.get();
                 }
-                if let Some(pending) = pending.get() {
-                    return Some(pending.id);
+                if let OutlineScroll::Scrolling { target } = pending.get() {
+                    return Some(target);
                 }
                 let items = items.get();
                 let first = items.first()?;
@@ -297,7 +324,7 @@ fn outline_list(
 ) -> Node {
     let list = node_ref();
     let focused = list.focus_within();
-    let roving = signal(None::<String>);
+    let roving = machine(OutlineFocus::Unset, || FocusMachine, |_, ()| {});
     let items = Rc::new(items);
     let refs = Rc::new(items.iter().map(|_| node_ref()).collect::<Vec<_>>());
     let active_items = items.clone();
@@ -355,7 +382,7 @@ fn outline_list(
             let selected = memo(move || active.get().as_deref() == Some(selected_id.as_str()));
             let focusable = move || {
                 if focused.get()
-                    && let Some(roving) = roving.get()
+                    && let OutlineFocus::At(roving) = roving.get()
                 {
                     return roving == roving_id;
                 }
@@ -377,7 +404,7 @@ fn outline_list(
                         Key::End => items.len() - 1,
                         _ => return Handled::No,
                     };
-                    roving.set(Some(items[next].id.clone()));
+                    roving.send(items[next].id.clone());
                     refs[next].focus();
                     Handled::Yes
                 })

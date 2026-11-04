@@ -6,6 +6,7 @@ use kivact::control::{Node, NodeBuilder, icon, node, row, scroll, text};
 use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
 use kivact::primitive::NodeExt;
+use kivact::state::{Machine, MachineHandle, Step, machine};
 use kivact::style::{Align, Direction, Justify, Position, TransitionProp, pct, style};
 use kivact::ui::{ButtonVariant, ControlSize, DialogKind, Side, button};
 use kivact::view::{
@@ -16,46 +17,129 @@ use std::rc::Rc;
 
 #[derive(Clone, Copy, Default)]
 pub struct AppShellMobile {
-    pub(crate) mobile: Option<Value<bool>>,
-    pub(crate) open: Option<Binding<bool>>,
-    pub(crate) toggle: Option<NodeRef>,
-    pub(crate) drawer: Option<NodeRef>,
-    pub(crate) auto_toggle: Option<bool>,
+    context: Option<MobileContext>,
 }
-
+// xtask-allow(state-fields): This bundles immutable drawer configuration and external ports.
+#[derive(Clone, Copy)]
+struct MobileContext {
+    state: MachineHandle<MobileMachine>,
+    open: Binding<bool>,
+    toggle: NodeRef,
+    drawer: NodeRef,
+    auto_toggle: bool,
+}
+#[derive(Clone, PartialEq)]
+enum AppShellMobileState {
+    Desktop,
+    Mobile { nav: MobileNavState },
+}
+#[derive(Clone, PartialEq)]
+enum MobileNavState {
+    Closed,
+    Open,
+}
+enum MobileMachine {
+    Desktop { nav: MobileNavState },
+    Mobile { nav: MobileNavState },
+}
+impl Machine for MobileMachine {
+    type State = AppShellMobileState;
+    type Event = ();
+    type Effect = ();
+    fn transition(&self, _: &AppShellMobileState, (): ()) -> Step<AppShellMobileState, (), ()> {
+        match self {
+            Self::Mobile { nav } => Step::to(AppShellMobileState::Mobile { nav: nav.clone() }),
+            Self::Desktop { nav } => {
+                let step = Step::to(AppShellMobileState::Desktop);
+                if *nav == MobileNavState::Open {
+                    step.with(())
+                } else {
+                    step
+                }
+            }
+        }
+    }
+}
 pub fn use_app_shell_mobile() -> AppShellMobile {
     try_context::<AppShellMobile>().unwrap_or_default()
 }
-
 impl AppShellMobile {
+    pub(crate) fn configured(
+        mobile: Option<Value<bool>>,
+        open: Option<Binding<bool>>,
+        auto_toggle: bool,
+    ) -> Self {
+        let Some(open) = open else {
+            return Self::default();
+        };
+        let state = machine(
+            AppShellMobileState::Desktop,
+            move || {
+                let nav = if open.get() {
+                    MobileNavState::Open
+                } else {
+                    MobileNavState::Closed
+                };
+                if mobile.is_some_and(|mobile| mobile.get()) {
+                    MobileMachine::Mobile { nav }
+                } else {
+                    MobileMachine::Desktop { nav }
+                }
+            },
+            move |_, ()| open.set(false),
+        );
+        state.feed(
+            move || (mobile.is_some_and(|mobile| mobile.get()), open.get()),
+            |_| (),
+        );
+        state.send(());
+        Self {
+            context: Some(MobileContext {
+                state,
+                open,
+                toggle: node_ref(),
+                drawer: node_ref(),
+                auto_toggle,
+            }),
+        }
+    }
     pub fn is_mobile(self) -> bool {
-        self.mobile.is_some_and(|mobile| mobile.get())
+        self.context.is_some_and(|context| {
+            matches!(context.state.get(), AppShellMobileState::Mobile { .. })
+        })
     }
     pub fn is_open(self) -> bool {
-        self.open.is_some_and(|open| open.get())
+        self.context.is_some_and(|context| {
+            matches!(
+                context.state.get(),
+                AppShellMobileState::Mobile {
+                    nav: MobileNavState::Open
+                }
+            )
+        })
     }
     pub fn is_enabled(self) -> bool {
-        self.open.is_some()
+        self.context.is_some()
     }
     pub fn has_auto_toggle(self) -> bool {
-        self.auto_toggle.unwrap_or(true)
+        self.context.is_none_or(|context| context.auto_toggle)
     }
     pub fn drawer_ref(self) -> Option<NodeRef> {
-        self.drawer
+        self.context.map(|context| context.drawer)
     }
     pub fn open(self) {
-        if let Some(open) = self.open {
-            open.set(true);
+        if let Some(context) = self.context {
+            context.open.set(true);
         }
     }
     pub fn close(self) {
-        if let Some(open) = self.open {
-            open.set(false);
+        if let Some(context) = self.context {
+            context.open.set(false);
         }
     }
     pub fn toggle(self) {
-        if let Some(open) = self.open {
-            open.set(!open.get());
+        if let Some(context) = self.context {
+            context.open.set(!context.open.get());
         }
     }
 }
@@ -139,9 +223,14 @@ impl IntoView for MobileNav {
         } = self;
         provide((), move || {
             let mobile = use_app_shell_mobile();
-            let open = open.or(mobile.open).unwrap_or_else(|| signal(false).into());
-            let anchor = mobile.toggle.unwrap_or_else(node_ref);
-            let drawer = mobile.drawer.unwrap_or_else(node_ref);
+            let open = open
+                .or(mobile.context.map(|context| context.open))
+                .unwrap_or_else(|| signal(false).into());
+            let anchor = mobile
+                .context
+                .map(|context| context.toggle)
+                .unwrap_or_else(node_ref);
+            let drawer = mobile.drawer_ref().unwrap_or_else(node_ref);
             let fallback = kivact::i18n::message("soft.mobile_nav.navigation", "Navigation");
             let label = label.or(header).unwrap_or(fallback);
             let behavior = use_dialog(open, DialogKind::Drawer(Side::Right));
@@ -326,10 +415,10 @@ impl IntoView for MobileNavToggle {
                 .hide_label(true)
                 .on_press(move || mobile.toggle())
                 .expanded(move || mobile.is_open());
-            if let Some(toggle) = mobile.toggle {
+            if let Some(toggle) = mobile.context.map(|context| context.toggle) {
                 trigger = trigger.node_ref(toggle);
             }
-            if let Some(drawer) = mobile.drawer {
+            if let Some(drawer) = mobile.drawer_ref() {
                 trigger = trigger.controls(drawer);
             }
             root.hidden(move || !mobile.is_mobile())

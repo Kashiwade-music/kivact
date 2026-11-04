@@ -1,7 +1,5 @@
 //! Role: Chat tools, token display and grapheme-safe streaming text.
 
-use std::cell::Cell;
-use std::rc::Rc;
 use std::time::Duration;
 
 use crate::{SpinnerShade, SpinnerSize, spinner, tokens};
@@ -10,13 +8,13 @@ use kivact::i18n::{message, message_with};
 use kivact::interaction::{use_content_reveal, use_disclosure};
 use kivact::motion::Transition;
 use kivact::primitive::{EditState, NodeExt};
+use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Direction, style};
-use kivact::task::{Task, sleep, spawn};
 use kivact::view::{
     Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, Role, View, for_each, node_ref, show,
     show_some,
 };
-use kivact::{Binding, Value, binding, effect, memo, signal};
+use kivact::{Binding, Value, binding, memo, signal};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ToolStatus {
@@ -505,67 +503,119 @@ pub fn streaming_text(
 ) -> Value<String> {
     let target = target.into_text_value();
     let streaming = streaming.into_value();
-    let visible = signal(String::new());
-    let task = Rc::new(Cell::<Option<Task>>::new(None));
-    effect(move || {
-        let received = target.get();
-        let animated =
-            streaming.get() && speed != StreamSpeed::Instant && !kivact::platform::reduced_motion();
-        if !animated || received.is_empty() {
-            if let Some(task) = task.take() {
-                task.cancel();
-            }
-            visible.set(received);
-            return;
+    let stream = machine(
+        StreamSnapshot {
+            source: String::new(),
+            phase: Stream::Idle,
+        },
+        move || StreamInput {
+            target: target.get(),
+            animated: streaming.get()
+                && speed != StreamSpeed::Instant
+                && !kivact::platform::reduced_motion(),
+            speed,
+        },
+        |_, ()| {},
+    );
+    stream.feed(
+        move || {
+            (
+                target.get(),
+                streaming.get(),
+                kivact::platform::reduced_motion(),
+            )
+        },
+        |_| StreamEvent::Changed,
+    );
+    stream.send(StreamEvent::Changed);
+    memo(move || {
+        let state = stream.get();
+        match state.phase {
+            Stream::Idle => String::new(),
+            Stream::Revealing { shown } => state.source[..shown].to_owned(),
+            Stream::Done => state.source,
         }
-        if !visible.with_untracked(|shown| received.starts_with(shown)) {
-            visible.set(String::new());
-        }
-        if task.get().is_some() || visible.with_untracked(|shown| *shown == received) {
-            return;
-        }
-        let task_slot = task.clone();
-        let (delay_ms, budget) = match speed {
-            StreamSpeed::Natural => (10, 10),
-            StreamSpeed::Fast => (5, 4),
-            StreamSpeed::Instant => unreachable!(),
+    })
+    .into_value()
+}
+
+#[derive(Clone, PartialEq)]
+enum Stream {
+    Idle,
+    Revealing { shown: usize },
+    Done,
+}
+#[derive(Clone, PartialEq)]
+struct StreamSnapshot {
+    source: String,
+    phase: Stream,
+}
+enum StreamEvent {
+    Changed,
+    Tick,
+}
+struct StreamInput {
+    target: String,
+    animated: bool,
+    speed: StreamSpeed,
+}
+impl Machine for StreamInput {
+    type State = StreamSnapshot;
+    type Event = StreamEvent;
+    type Effect = ();
+    fn transition(
+        &self,
+        state: &StreamSnapshot,
+        event: StreamEvent,
+    ) -> Step<StreamSnapshot, StreamEvent, ()> {
+        let next = |phase| StreamSnapshot {
+            source: self.target.clone(),
+            phase,
         };
-        task.set(Some(spawn(async move {
-            let mut editor = EditState::default();
-            let mut end = 0;
-            loop {
-                sleep(Duration::from_millis(delay_ms)).await;
-                let received = target.get_untracked();
-                if !streaming.get_untracked() || kivact::platform::reduced_motion() {
-                    visible.set(received);
-                    break;
-                }
-                if editor.value() != received {
-                    let shown = visible.get_untracked();
-                    end = if received.starts_with(&shown) {
-                        shown.len()
-                    } else {
-                        0
-                    };
-                    editor = EditState::new(&received);
-                    // A new chunk can extend the final grapheme of the previous chunk.
-                    if end > 0 && end < received.len() {
-                        end = editor.next_grapheme(editor.prev_grapheme(end));
-                    }
-                }
-                let start = end;
-                while end < received.len()
-                    && (end == start || received[start..end].encode_utf16().count() < budget)
-                {
-                    end = editor.next_grapheme(end);
-                }
-                visible.set(received[..end].to_owned());
-                if end == received.len() {
-                    break;
-                }
+        if !self.animated || self.target.is_empty() {
+            return Step::to(next(Stream::Done)).cancel(StreamEvent::Tick);
+        }
+        let previous = match state.phase {
+            Stream::Revealing { shown } => &state.source[..shown],
+            Stream::Idle => "",
+            Stream::Done => &state.source,
+        };
+        let mut shown = if self.target.starts_with(previous) {
+            previous.len()
+        } else {
+            0
+        };
+        let editor = EditState::new(&self.target);
+        if matches!(event, StreamEvent::Tick) {
+            if shown > 0 && shown < self.target.len() {
+                shown = editor.next_grapheme(editor.prev_grapheme(shown));
             }
-            task_slot.set(None);
-        })));
-    });
-    visible.into_value()
+            let start = shown;
+            let budget = if self.speed == StreamSpeed::Fast {
+                4
+            } else {
+                10
+            };
+            while shown < self.target.len()
+                && (shown == start || self.target[start..shown].encode_utf16().count() < budget)
+            {
+                shown = editor.next_grapheme(shown);
+            }
+        }
+        if shown == self.target.len() {
+            return Step::to(next(Stream::Done)).cancel(StreamEvent::Tick);
+        }
+        if matches!(event, StreamEvent::Changed) && matches!(state.phase, Stream::Revealing { .. })
+        {
+            return Step::to(next(Stream::Revealing { shown }));
+        }
+        Step::to(next(Stream::Revealing { shown })).after(
+            Duration::from_millis(if self.speed == StreamSpeed::Fast {
+                5
+            } else {
+                10
+            }),
+            StreamEvent::Tick,
+        )
+    }
 }
