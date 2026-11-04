@@ -147,13 +147,13 @@ impl Variants {
 ///
 /// ```
 /// use kivact::style::{Theme, rgb};
-/// use kivact::ui::{CheckState, Look, UiRecipes, Variant};
+/// use kivact::ui::{CheckableState, Look, UiRecipes, Variant};
 /// #[derive(Clone, Copy, Debug, PartialEq)]
 /// struct Pill;
 /// impl Variant for Pill {}
 /// let recipes = UiRecipes::default().radio_group(|table| {
 ///     table.item(|prev| {
-///         move |theme: &Theme, look: &Look<CheckState>| match look.variant::<Pill>() {
+///         move |theme: &Theme, look: &Look<CheckableState>| match look.variant::<Pill>() {
 ///             Some(Pill) => prev(theme, look).radius(999).background(rgb(0xe8eefc)),
 ///             None => prev(theme, look),
 ///         }
@@ -187,7 +187,7 @@ impl<S> Look<S> {
     /// The variant of type `T` the component was given with
     /// `.variant(..)`, if any.
     pub fn variant<T: 'static>(&self) -> Option<&T> {
-        self.ext.get::<T>()
+        self.ext.ext::<T>()
     }
 }
 

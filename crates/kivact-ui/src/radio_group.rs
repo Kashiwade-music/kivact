@@ -1,27 +1,26 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
 use super::layer::{recipes, with_recipe_style};
-use super::values::{CheckState, ControlSize};
+use super::values::{CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
-use kivact_core::style::current_theme;
+use kivact_core::style::use_theme;
+use kivact_core::view::EditPhase;
 use kivact_core::view::{
-    CheckedState, HandlerResult, IntoView, Orientation, ReadingDirection, Role, View,
-    current_direction, for_each, show,
+    CheckedState, HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each,
+    show, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, icon, node};
-use kivact_interaction::{EditPhase, EditSession, ListItem, ListPolicy, ListSelection, use_list};
+use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
 use std::cell::Cell;
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// What an option shows, from its item and its state.
-type OptionContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<CheckState>) -> View>;
+type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<CheckableState>)>;
 
 /// A set of mutually exclusive choices (`Role::RadioGroup`), created by
 /// [`radio_group`].
-pub struct RadioGroup<K: Clone + Eq + Hash + 'static> {
+pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     value: Binding<Option<K>>,
@@ -64,10 +63,10 @@ pub struct RadioGroup<K: Clone + Eq + Hash + 'static> {
 /// }
 /// ```
 #[track_caller]
-pub fn radio_group<K: Clone + Eq + Hash + 'static>(
+pub fn radio_group<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
     let layout = Rc::new(Cell::new((Orientation::Vertical, false)));
     let read = layout.clone();
@@ -93,7 +92,7 @@ pub fn radio_group<K: Clone + Eq + Hash + 'static>(
     RadioGroup {
         root,
         options: options.into_value(),
-        value: value.into(),
+        value: value.into_binding(),
         orientation: Orientation::Vertical,
         layout,
         size: super::values::default_control_size(),
@@ -103,7 +102,7 @@ pub fn radio_group<K: Clone + Eq + Hash + 'static>(
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> RadioGroup<K> {
+impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -120,7 +119,7 @@ impl<K: Clone + Eq + Hash + 'static> RadioGroup<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> RadioGroup<K> {
+impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     /// Lay the options out in a column (the default) or a row; the recipe
     /// reads it. A constant: the orientation is the shape of the layout.
     pub fn orientation(mut self, orientation: Orientation) -> Self {
@@ -129,7 +128,7 @@ impl<K: Clone + Eq + Hash + 'static> RadioGroup<K> {
     }
 
     /// The size (default [`ControlSize::Medium`]), given to the item and
-    /// indicator recipes in [`CheckState::size`].
+    /// indicator recipes in [`CheckableState::size`].
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
         self
@@ -169,20 +168,22 @@ impl<K: Clone + Eq + Hash + 'static> RadioGroup<K> {
     /// ```
     pub fn item<V: IntoView>(
         mut self,
-        content: impl Fn(Value<ListItem<K>>, Value<CheckState>) -> V + 'static,
+        content: impl Fn(Value<ListItem<K>>, Value<CheckableState>) -> V + 'static,
     ) -> Self {
-        self.item = Some(Rc::new(move |item, state| content(item, state).into_view()));
+        self.item = Some(kivact_core::view::ViewFn::from(move |(item, state)| {
+            content(item, state)
+        }));
         self
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for RadioGroup<K> {
+impl<K: kivact_core::state::ItemKey> NodeBuilder for RadioGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
+impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
     fn into_view(self) -> View {
         let RadioGroup {
             root,
@@ -202,7 +203,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
         let chosen = binding(value.into_value(), move |next: Option<K>| {
             edit.once(value.get(), || value.set(next));
         });
-        let group = use_list(options, ListSelection::Single(chosen), ListPolicy::radio());
+        let group = use_list(options, Selection::Single(chosen), ListOptions::radio());
         let looks = variants.clone();
         let rows = for_each(
             options,
@@ -210,9 +211,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
             move |key, item| {
                 let member = group.item(key);
                 let state = member.state();
-                let check = kivact_core::memo(move || {
+                let check = kivact_core::state::memo(move || {
                     let state = state.get();
-                    CheckState {
+                    CheckableState {
                         input: state.input,
                         checked: CheckedState::from_bool(state.selected),
                         size,
@@ -231,7 +232,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
                 )
                 .child(show(
                     move || {
-                        recipes(&current_theme())
+                        recipes(&use_theme().get())
                             .radio_group_recipes()
                             .has_custom_mark()
                             || check.get().checked.is_checked()
@@ -246,12 +247,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
                     },
                 ));
                 let content = match &slot {
-                    Some(slot) => slot(item, check),
+                    Some(slot) => slot.call((item, check)),
                     None => (
-                        super::helpers::item_icon(move || item.get().icon_value().cloned()),
+                        super::helpers::item_icon(move || item.get().icon().cloned()),
                         super::helpers::label_and_description(
                             move || item.get().label(),
-                            move || item.get().description_value(),
+                            move || item.get().description(),
                             move |line| {
                                 with_recipe_style(
                                     line,
@@ -277,8 +278,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for RadioGroup<K> {
                 .child(content)
             },
         );
-        let reversed =
-            orientation == Orientation::Horizontal && current_direction() == ReadingDirection::Rtl;
+        let reversed = orientation == Orientation::Horizontal
+            && use_direction().get() == ReadingDirection::Rtl;
         layout.set((orientation, reversed));
         root.orientation(orientation).child(rows).into_view()
     }

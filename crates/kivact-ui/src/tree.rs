@@ -8,46 +8,59 @@ use kivact_core::state::{Binding, Value, effect, memo, signal};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Overflow, TransitionProp, style};
 use kivact_core::view::{
-    ExitLayout, HandlerResult, IntoView, ReadingDirection, Role, View, current_direction, for_each,
-    node_ref, show,
+    ExitLayout, HandlerResult, IntoView, ReadingDirection, Role, View, for_each, node_ref, show,
+    use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, column, node, text};
-use kivact_interaction::{ListSelection, Tree, TreeItemState, TreeNode, TreeRow, use_tree};
+use kivact_interaction::{Selection, TreeApi, TreeItemState, TreeNode, TreeRow, use_tree};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
-type RowContent<K> = Rc<dyn Fn(Value<TreeRow<K>>, Value<TreeItemState>) -> View>;
+type RowContent<K> = kivact_core::view::ViewFn<(Value<TreeRow<K>>, Value<TreeItemState>)>;
 
 /// A keyed tree view drawn with the current theme's tree recipes.
-pub struct TreeView<K: Clone + Eq + Hash + 'static> {
+pub struct Tree<K: kivact_core::state::ItemKey> {
     root: Node,
-    behavior: Tree<K>,
+    nodes: Value<Vec<TreeNode<K>>>,
+    selection: Selection<K>,
+    expanded: Binding<Vec<K>>,
     item: Option<RowContent<K>>,
     variants: Variants,
+    activate: Option<kivact_core::state::Callback<K>>,
 }
 
 /// A named tree with application-owned expansion and selection.
 #[track_caller]
-pub fn tree<K: Clone + Eq + Hash + 'static>(
+pub fn tree<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     nodes: impl IntoValue<Vec<TreeNode<K>>>,
-    expanded: impl Into<Binding<Vec<K>>>,
-    selection: ListSelection<K>,
-) -> TreeView<K> {
-    TreeView {
+) -> Tree<K> {
+    Tree {
         root: node().name(label),
-        behavior: use_tree(nodes, expanded, selection),
+        nodes: nodes.into_value(),
+        selection: kivact_interaction::IntoSelection::into_selection(signal(None)),
+        expanded: kivact_core::state::IntoBinding::into_binding(signal(Vec::new())),
         item: None,
         variants: Variants::default(),
+        activate: None,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> TreeView<K> {
+impl<K: kivact_core::state::ItemKey> Tree<K> {
+    /// Bind the selected keys.
+    pub fn selection(mut self, selection: impl kivact_interaction::IntoSelection<K>) -> Self {
+        self.selection = selection.into_selection();
+        self
+    }
+    /// Bind expanded branches.
+    pub fn expanded(mut self, expanded: impl kivact_core::state::IntoBinding<Vec<K>>) -> Self {
+        self.expanded = expanded.into_binding();
+        self
+    }
     /// Call `activate` when a row is activated through Enter or double click.
     pub fn on_activate<R: HandlerResult>(mut self, activate: impl Fn(K) -> R + 'static) -> Self {
-        self.behavior = self.behavior.on_activate(activate);
+        self.activate = Some(kivact_core::state::callback(activate));
         self
     }
 
@@ -56,7 +69,9 @@ impl<K: Clone + Eq + Hash + 'static> TreeView<K> {
         mut self,
         item: impl Fn(Value<TreeRow<K>>, Value<TreeItemState>) -> V + 'static,
     ) -> Self {
-        self.item = Some(Rc::new(move |row, state| item(row, state).into_view()));
+        self.item = Some(kivact_core::view::ViewFn::from(move |(row, state)| {
+            item(row, state)
+        }));
         self
     }
 
@@ -67,7 +82,7 @@ impl<K: Clone + Eq + Hash + 'static> TreeView<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for TreeView<K> {
+impl<K: kivact_core::state::ItemKey> NodeBuilder for Tree<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -78,12 +93,15 @@ impl<K: Clone + Eq + Hash + 'static> NodeBuilder for TreeView<K> {
 /// key for changes that require rebuilding the row. Use `|_| ()` for a
 /// row whose presentation stays reactive.
 #[track_caller]
-pub fn tree_rows<K: Clone + Eq + Hash + 'static, P: Clone + Eq + Hash + 'static>(
-    tree: Tree<K>,
+pub fn tree_rows<K: kivact_core::state::ItemKey, P: kivact_core::state::ItemKey>(
+    tree: TreeApi<K>,
     presentation: impl Fn(&TreeRow<K>) -> P + 'static,
     render: impl Fn(K, Value<TreeRow<K>>, Part<TreeItemState>) -> Node + 'static,
-) -> View {
-    for_each(
+) -> TreeRows<K> {
+    let tree_for_rows = tree;
+    let render: RowNode<K> = Rc::new(render);
+    let ordinary = render.clone();
+    let view = for_each(
         tree.rows(),
         move |row| {
             (
@@ -92,12 +110,38 @@ pub fn tree_rows<K: Clone + Eq + Hash + 'static, P: Clone + Eq + Hash + 'static>
                 presentation(row),
             )
         },
-        move |(key, _, _), row| {
-            let part = tree.item(key.clone());
-            render(key, row, part)
-        },
+        move |(key, _, _), row| ordinary(key.clone(), row, tree_for_rows.item(key)),
     )
-    .into_view()
+    .into_view();
+    TreeRows {
+        tree,
+        view,
+        render,
+        reveal: None,
+    }
+}
+
+/// Visible tree rows with optional animated branch reveals.
+pub struct TreeRows<K: kivact_core::state::ItemKey> {
+    tree: TreeApi<K>,
+    view: View,
+    render: RowNode<K>,
+    reveal: Option<(f64, Transition)>,
+}
+impl<K: kivact_core::state::ItemKey> TreeRows<K> {
+    /// Reveal each branch with the supplied spacing and transition.
+    pub fn reveal(mut self, gap: impl Into<f64>, transition: Transition) -> Self {
+        self.reveal = Some((gap.into(), transition));
+        self
+    }
+}
+impl<K: kivact_core::state::ItemKey> IntoView for TreeRows<K> {
+    fn into_view(self) -> View {
+        match self.reveal {
+            Some((gap, transition)) => revealed_rows(self.tree, gap, transition, self.render),
+            None => self.view,
+        }
+    }
 }
 
 type BranchRows<K> = HashMap<Option<K>, Vec<TreeRow<K>>>;
@@ -107,11 +151,11 @@ type RowNode<K> = Rc<dyn Fn(K, Value<TreeRow<K>>, Part<TreeItemState>) -> Node>;
 /// logical tree. The host retains removed branch paint without focus, hit
 /// testing or accessibility. Reopening mounts fresh branch content.
 #[track_caller]
-pub fn tree_rows_with_reveal<K: Clone + Eq + Hash + 'static>(
-    tree: Tree<K>,
+fn revealed_rows<K: kivact_core::state::ItemKey>(
+    tree: TreeApi<K>,
     gap: f64,
     transition: Transition,
-    render: impl Fn(K, Value<TreeRow<K>>, Part<TreeItemState>) -> Node + 'static,
+    render: RowNode<K>,
 ) -> View {
     let visible = tree.rows();
     let branches = memo(move || {
@@ -125,11 +169,11 @@ pub fn tree_rows_with_reveal<K: Clone + Eq + Hash + 'static>(
         }
         result
     });
-    branch_rows(tree, branches, None, gap, transition, Rc::new(render))
+    branch_rows(tree, branches, None, gap, transition, render)
 }
 
-fn branch_rows<K: Clone + Eq + Hash + 'static>(
-    tree: Tree<K>,
+fn branch_rows<K: kivact_core::state::ItemKey>(
+    tree: TreeApi<K>,
     branches: Value<BranchRows<K>>,
     parent: Option<K>,
     gap: f64,
@@ -226,15 +270,22 @@ fn branch_rows<K: Clone + Eq + Hash + 'static>(
     .into_view()
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for TreeView<K> {
+impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
     fn into_view(self) -> View {
         let Self {
             root,
-            behavior,
+            nodes,
+            selection,
+            expanded,
+            activate,
             item,
             variants,
         } = self;
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let mut behavior = use_tree(nodes, expanded, selection);
+        if let Some(activate) = activate {
+            behavior = behavior.on_activate(move |key| activate.call(key));
+        }
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let list = behavior.list();
         let state = list.state();
         let row_variants = variants.clone();
@@ -265,7 +316,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeView<K> {
                 };
                 let content = item
                     .as_ref()
-                    .map_or_else(|| text(label).into_view(), |item| item(row, state));
+                    .map_or_else(|| text(label).into_view(), |item| item.call((row, state)));
                 with_recipe_style(
                     node().part(part),
                     |r| r.tree_recipes().item_recipe(),

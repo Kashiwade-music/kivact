@@ -1,16 +1,15 @@
 //! Role: Arrange hierarchical table rows and render their disclosure controls.
 use super::types::{DataTableTreeIndent, Key, TreeConfig};
 use crate::{Button, ButtonVariant, button};
-use kivact_core::custom::NodeExt;
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
-use kivact_core::view::{IntoView, ReadingDirection, View, current_direction, dynamic};
-use kivact_core::view::{NodeBuilder, icon, node, row};
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{ReadingDirection, View, dynamic, use_direction};
+use kivact_core::view::{icon, node, row};
 use kivact_interaction::{TreeNode, TreeRow, flatten_tree_rows};
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 impl DataTableTreeIndent {
     fn pixels(self) -> f64 {
@@ -39,7 +38,7 @@ impl<K> Clone for Plan<K> {
 
 impl<K> Copy for Plan<K> {}
 
-pub(super) fn arrange<R, K: Clone + Eq + Hash + 'static>(
+pub(super) fn arrange<R, K: kivact_core::state::ItemKey>(
     rows: &[R],
     order: Vec<usize>,
     key: &Key<R, K>,
@@ -63,7 +62,7 @@ pub(super) fn arrange<R, K: Clone + Eq + Hash + 'static>(
         .collect()
 }
 
-impl<K: Clone + Eq + Hash + 'static> Plan<K> {
+impl<K: kivact_core::state::ItemKey> Plan<K> {
     pub(super) fn new<R: 'static>(
         source: Value<Vec<R>>,
         key: Key<R, K>,
@@ -149,7 +148,7 @@ impl<K: Clone + Eq + Hash + 'static> Plan<K> {
                 })
                 .into_view()
         });
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         row((trigger, content))
             .style(move || {
                 let inset = level.get().saturating_sub(1) as f64 * self.indent.pixels();
@@ -210,7 +209,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
             message("soft.table.tree.collapse", "Collapse row"),
         )
     };
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     button(move || {
         if open.get() {
             collapse.get()

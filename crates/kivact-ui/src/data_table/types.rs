@@ -1,27 +1,29 @@
 //! Role: The state of a data table: its builder fields, slots and live context.
 use crate::DataColumn;
 use crate::variants::Variants;
+
 use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::style::Color;
 use kivact_core::view::Node;
 use kivact_core::view::View;
-use kivact_interaction::{ScalarRange, SortOrder, TableFocus, TableModel};
+use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus};
 use std::rc::Rc;
 
 /// The sorted column (an index into the columns) and its direction.
 pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
 pub(super) type ColumnFilters = Binding<Vec<(usize, String)>>;
-pub(super) type TypedFilters = Binding<std::collections::HashMap<usize, crate::FilterValue>>;
+pub(super) type TypedFilters =
+    Binding<std::collections::HashMap<usize, kivact_interaction::FilterValue>>;
 /// The page shown and the rows on a page.
 pub(super) type Paging = (Binding<usize>, Value<usize>);
 pub(super) type Key<R, K> = Rc<dyn Fn(&R) -> K>;
 /// What a row shows beside its cells: its actions or its details.
-pub(super) type RowSlot<R> = Rc<dyn Fn(Value<R>) -> View>;
+pub(super) type RowSlot<R> = kivact_core::view::ViewFn<Value<R>>;
 /// The controls of one cell, from its row and its column's index.
-pub(super) type CellSlot<R> = Rc<dyn Fn(Value<R>, usize) -> View>;
+pub(super) type CellSlot<R> = kivact_core::view::ViewFn<(Value<R>, usize)>;
 /// A region the caller fills, built once from the table's state.
 pub(super) type Slot<R, K> = Box<dyn FnOnce(DataTableContext<R, K>) -> View>;
-pub(super) type RowContextMenu<R> = Rc<dyn Fn(Value<R>, Node) -> View>;
+pub(super) type RowContextMenu<R> = kivact_core::view::ViewFn<(Value<R>, Node)>;
 pub(super) type RowSelectable<R> = Rc<dyn Fn(&R) -> bool>;
 pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<super::RowStatus>>;
 pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
@@ -33,7 +35,7 @@ pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
 /// handle is reactive; the context is `Copy` and holds no copy of the rows.
 pub struct DataTableContext<R: 'static, K: 'static> {
     /// The filter, sort and page model: its counts and its filtered keys.
-    pub model: TableModel<R, K, usize>,
+    pub model: DataTableModelApi<R, K, usize>,
     /// The caller's selection, when the table has one.
     pub selection: Option<Binding<Vec<K>>>,
     /// The sorted column (by position) and direction. It is the caller's
@@ -44,7 +46,8 @@ pub struct DataTableContext<R: 'static, K: 'static> {
     /// The caller's queries by column index, when supplied.
     pub column_filters: Option<Binding<Vec<(usize, String)>>>,
     /// Committed typed values keyed by the column's original position.
-    pub typed_column_filters: Option<Binding<std::collections::HashMap<usize, crate::FilterValue>>>,
+    pub typed_column_filters:
+        Option<Binding<std::collections::HashMap<usize, kivact_interaction::FilterValue>>>,
     /// The caller's page number and the rows on a page, when the table
     /// pages.
     pub page: Option<(Binding<usize>, Value<usize>)>,
@@ -124,7 +127,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) row_label: Option<RowName<R>>,
     pub(super) actions: Option<(f64, RowSlot<R>)>,
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
-    pub(super) reorder: Option<Callback<(K, usize)>>,
+    pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) toolbar: Option<Slot<R, K>>,
     pub(super) footer: Option<Slot<R, K>>,
     pub(super) empty: Option<Box<dyn Fn() -> View>>,

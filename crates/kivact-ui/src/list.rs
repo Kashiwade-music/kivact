@@ -1,26 +1,23 @@
 //! Role: Render a themed selectable list over the shared keyed list parts.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
+
 use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
+use kivact_core::view::EditPhase;
 use kivact_core::view::{HandlerResult, IntoView, View, for_each};
 use kivact_core::view::{Node, NodeBuilder, node};
-use kivact_interaction::{
-    EditPhase, EditSession, ListItem, ListItemState, ListPolicy, ListSelection, use_list,
-};
-use std::hash::Hash;
-use std::rc::Rc;
+use kivact_interaction::{EditSession, ListItem, ListItemState, ListOptions, Selection, use_list};
 
 /// What an item shows, from its data and its state.
-type ItemContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<ListItemState>) -> View>;
+type ItemContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<ListItemState>)>;
 
 /// A list of items the user picks from (`Role::ListBox`), created by
 /// [`list`].
-pub struct List<K: Clone + Eq + Hash + 'static> {
+pub struct List<K: kivact_core::state::ItemKey> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
-    multiple: Option<Binding<Vec<K>>>,
+    selection: Selection<K>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<ItemContent<K>>,
     variants: Variants,
@@ -31,7 +28,7 @@ pub struct List<K: Clone + Eq + Hash + 'static> {
 ///
 /// Each item is a `Role::Option` named by its label, showing its icon, its
 /// label and its description. The arrow keys move the focus and select
-/// (Shift extends in a [`multiple`](List::multiple) list), Tab enters at the
+/// (Shift extends when `.selection(..)` receives multiple keys), Tab enters at the
 /// selected item, a press or Space selects, typing a name jumps to the item
 /// that starts with it, and a disabled item is skipped. The label is the
 /// list's accessible name; it is not drawn. [`item`](List::item) replaces
@@ -45,30 +42,29 @@ pub struct List<K: Clone + Eq + Hash + 'static> {
 ///     list(
 ///         "Colors",
 ///         vec![ListItem::new("red", "Red"), ListItem::new("blue", "Blue")],
-///         selected,
-///     )
+///     ).selection(selected)
 /// }
 /// ```
 #[track_caller]
-pub fn list<K: Clone + Eq + Hash + 'static>(
+pub fn list<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl Into<Binding<Option<K>>>,
 ) -> List<K> {
     // The variants are shared: `.variant` adds to them before mount.
     let variants = Variants::default();
     List {
         root: node().name(label),
         items: items.into_value(),
-        selected: selected.into(),
-        multiple: None,
+        selection: Selection::Single(kivact_core::state::IntoBinding::into_binding(
+            kivact_core::state::signal(None),
+        )),
         on_edit: None,
         item: None,
         variants,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> List<K> {
+impl<K: kivact_core::state::ItemKey> List<K> {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -84,13 +80,9 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         self
     }
 
-    /// Let the user pick several items, keeping the picked keys in
-    /// `selection`: a press selects one, Ctrl (Cmd) toggles one and Shift
-    /// extends from the last one. The list then reads and writes
-    /// `selection` only; the single `selected` binding given to [`list`] is
-    /// not used.
-    pub fn multiple(mut self, selection: impl Into<Binding<Vec<K>>>) -> Self {
-        self.multiple = Some(selection.into());
+    /// Bind a single or multiple selection.
+    pub fn selection(mut self, selection: impl kivact_interaction::IntoSelection<K>) -> Self {
+        self.selection = selection.into_selection();
         self
     }
 
@@ -130,19 +122,21 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         mut self,
         content: impl Fn(Value<ListItem<K>>, Value<ListItemState>) -> V + 'static,
     ) -> Self {
-        self.item = Some(Rc::new(move |item, state| content(item, state).into_view()));
+        self.item = Some(kivact_core::view::ViewFn::from(move |(item, state)| {
+            content(item, state)
+        }));
         self
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for List<K> {
+impl<K: kivact_core::state::ItemKey> NodeBuilder for List<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 /// `value` whose writes are each reported to `on_edit` as one edit.
-fn edited<T: Clone + PartialEq + 'static>(
+fn edited<T: kivact_core::state::PropValue>(
     value: Binding<T>,
     on_edit: Option<Callback<EditPhase>>,
 ) -> Binding<T> {
@@ -156,27 +150,26 @@ fn edited<T: Clone + PartialEq + 'static>(
     })
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for List<K> {
+impl<K: kivact_core::state::ItemKey> IntoView for List<K> {
     fn into_view(self) -> View {
         let List {
             root,
             items,
-            selected,
-            multiple,
+            selection,
             on_edit,
             item: slot,
             variants,
         } = self;
-        let selection = match multiple {
-            Some(keys) => ListSelection::Multiple(edited(keys, on_edit)),
-            None => ListSelection::Single(edited(selected, on_edit)),
+        let selection = match selection {
+            Selection::Multiple(keys) => Selection::Multiple(edited(keys, on_edit)),
+            Selection::Single(selected) => Selection::Single(edited(selected, on_edit)),
         };
         let behavior = use_list(
             items,
             selection,
-            ListPolicy {
+            ListOptions {
                 typeahead: true,
-                ..ListPolicy::default()
+                ..ListOptions::default()
             },
         );
         let container = behavior.list();
@@ -189,12 +182,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for List<K> {
                 let part = behavior.item(key);
                 let state = part.state();
                 let content = match &slot {
-                    Some(slot) => slot(item, state),
+                    Some(slot) => slot.call((item, state)),
                     None => (
-                        super::helpers::item_icon(move || item.get().icon_value().cloned()),
+                        super::helpers::item_icon(move || item.get().icon().cloned()),
                         super::helpers::label_and_description(
                             move || item.get().label(),
-                            move || item.get().description_value(),
+                            move || item.get().description(),
                             {
                                 let looks = looks.clone();
                                 move |line| {

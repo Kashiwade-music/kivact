@@ -2,27 +2,26 @@
 //!
 //! The root, the content row, the icon boxes and the busy indicator all get
 //! one [`ButtonState`]. Its `expanded` is read from the finished root's
-//! semantics (`NodeExt::accessible_expanded`): `Some(open)` when a popup,
+//! semantics (`Node::accessible_expanded`): `Some(open)` when a popup,
 //! menu or disclosure trigger part was attached or the caller set
-//! `.expanded`, `None` otherwise. The `.icon` and `.trailing_icon` views go
+//! `.expanded`, `None` otherwise. The `.icon` and `.trailing` views go
 //! into `button_icon` boxes, where a kit sizes the icon by the button's size.
-//! While loading, the busy part uses the theme's [`ButtonBusyMotion`].
+//! While busy, the busy part uses the theme's [`ButtonBusyMotion`].
 //! A [`ButtonVariant`] is only a meaning,
 //! given with `.variant(..)` like a kit's tone or slanted shape and read by
 //! the recipe with `look.variant::<ButtonVariant>()` (a button without one is
 //! the default, `Primary`). A kit drawing its own part as a button calls the
 //! recipe with
 //! `Look::new(ButtonState::new(input, size)).with_variant(variant)`.
-//! The caller's view in `.icon`, `.trailing_icon` and `.child` is composed
+//! The caller's view in `.icon`, `.trailing` and `.child` is composed
 //! in, without reimplementing activation.
 use super::layer::with_recipe_style;
 use super::values::{ButtonState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Value, on_cleanup, signal};
-use kivact_core::style::{Theme, ThemeExtension, current_theme, style};
+use kivact_core::style::{Theme, ThemeExtension, style, use_theme};
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{IntoView, View, show};
 use kivact_core::view::{Node, NodeBuilder, node, row};
@@ -85,45 +84,55 @@ pub struct Button {
     children: Vec<View>,
     settings: Rc<RefCell<Settings>>,
     variants: Variants,
-    loading: Rc<Cell<Value<bool>>>,
+    busy: Rc<Cell<Value<bool>>>,
     expanded: Rc<Cell<Option<Value<bool>>>>,
     state: Value<ButtonState>,
     hide_label: Rc<Cell<Option<Value<bool>>>>,
 }
 /// What the builder knows of the button once it is configured.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Settings {
-    size: ControlSize,
+    size: Value<ControlSize>,
     size_explicit: bool,
     leading_icon: bool,
     trailing_icon: bool,
+}
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            size: super::values::default_control_size().into_value(),
+            size_explicit: false,
+            leading_icon: false,
+            trailing_icon: false,
+        }
+    }
 }
 /// A themed button activated through the shared button part ([`use_button`]).
 pub fn button(label: impl IntoText) -> Button {
     let label = label.into_text_value();
     let settings = Rc::new(RefCell::new(Settings {
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         ..Settings::default()
     }));
     let expanded = Rc::new(Cell::new(None::<Value<bool>>));
     let read_expanded = expanded.clone();
-    let loading = Rc::new(Cell::new(false.into_value()));
-    let read_loading = loading.clone();
+    let busy = Rc::new(Cell::new(false.into_value()));
+    let read_loading = busy.clone();
     let hide_label = Rc::new(Cell::new(None::<Value<bool>>));
     let read_hide = hide_label.clone();
-    let busy = (move || read_loading.get().get()).into_value();
-    let part = use_button().control().disabled(busy);
+    let busy_value = (move || read_loading.get().get()).into_value();
+    let part = use_button().disabled(busy_value).control();
     let input = part.state();
     let read = settings.clone();
-    let state = kivact_core::memo(move || {
+    let state = kivact_core::state::memo(move || {
         let settings = read.borrow().clone();
         ButtonState {
             input: input.get(),
-            size: settings.size,
-            loading: busy.get(),
+            size: settings.size.get(),
+            busy: busy_value.get(),
             expanded: read_expanded.get().map(|open| open.get()),
             leading_icon: settings.leading_icon,
-            trailing_icon: settings.trailing_icon,
+            trailing_icon: settings.trailing,
             icon_only: settings.leading_icon && read_hide.get().is_some_and(|hide| hide.get()),
         }
     });
@@ -133,7 +142,7 @@ pub fn button(label: impl IntoText) -> Button {
             .style(super::helpers::single_line_text())
             .part(part)
             .focusable_when_disabled(matches!(
-                *current_theme().get::<DisabledButtonFocus>(),
+                *use_theme().get().ext::<DisabledButtonFocus>(),
                 DisabledButtonFocus::Retain
             ))
             .name(label),
@@ -149,7 +158,7 @@ pub fn button(label: impl IntoText) -> Button {
         children: Vec::new(),
         settings,
         variants,
-        loading,
+        busy,
         expanded,
         state,
         hide_label,
@@ -160,28 +169,10 @@ impl Button {
         f(&mut self.settings.borrow_mut());
         self
     }
-    /// Selected state of a toggle-like button (semantics and the `selected`
-    /// style).
-    ///
-    /// Same as [`NodeExt::selected`](kivact_core::custom::NodeExt::selected).
-    pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {
-        self.root = self.root.selected(v);
-        self
-    }
-
-    /// Expanded state of a button that opens or closes something (a
-    /// disclosure trigger).
-    ///
-    /// Same as [`NodeExt::expanded`](kivact_core::custom::NodeExt::expanded).
-    pub fn expanded(mut self, v: impl IntoValue<bool>) -> Self {
-        self.root = self.root.expanded(v);
-        self
-    }
-
     /// Set the size explicitly, overriding a size provider or group default.
-    pub fn size(self, size: ControlSize) -> Self {
+    pub fn size(self, size: impl IntoValue<ControlSize>) -> Self {
         self.configure(|settings| {
-            settings.size = size;
+            settings.size = size.into_value();
             settings.size_explicit = true;
         })
     }
@@ -190,16 +181,16 @@ impl Button {
     pub fn default_size(self, size: ControlSize) -> Self {
         self.configure(|settings| {
             if !settings.size_explicit {
-                settings.size = size;
+                settings.size = size.into_value();
             }
         })
     }
     /// Show the busy indicator and ignore presses while true (constant or
     /// reactive). Its spin and reveal use the theme's [`ButtonBusyMotion`].
-    pub fn loading(mut self, loading: impl IntoValue<bool>) -> Self {
-        let loading = loading.into_value();
-        self.root = self.root.busy(loading);
-        self.loading.set(loading);
+    pub fn busy(mut self, busy: impl IntoValue<bool>) -> Self {
+        let busy = busy.into_value();
+        self.root = self.root.busy(busy);
+        self.busy.set(busy);
         self
     }
     /// A view before the label, in a box the theme's
@@ -212,9 +203,9 @@ impl Button {
     }
     /// A view after the label, in a box styled like [`Self::icon`]'s; the
     /// recipe knows it from [`ButtonState::trailing_icon`].
-    pub fn trailing_icon(mut self, icon: impl IntoView) -> Self {
+    pub fn trailing(mut self, icon: impl IntoView) -> Self {
         self.trailing = Some(icon.into_view());
-        self.configure(|s| s.trailing_icon = true)
+        self.configure(|s| s.trailing = true)
     }
     /// Keep the accessible name while omitting the visible label (while
     /// true; constant or reactive). A button with a leading
@@ -258,7 +249,7 @@ impl Button {
         // A popup or disclosure attaches its trigger before the button is
         // finished; the recipe draws the button as that trigger.
         if let Some(open) = self.root.accessible_expanded() {
-            self.expanded.set(Some((move || open()).into_value()));
+            self.expanded.set(Some((move || open.get()).into_value()));
         }
         let state = self.state;
         let variants = self.variants;
@@ -282,16 +273,16 @@ impl Button {
             &variants,
             move || {
                 let mut state = state.get();
-                state.loading &= !reveal_pending.get();
+                state.busy &= !reveal_pending.get();
                 state
             },
         );
         let busy = show(
-            move || state.get().loading,
+            move || state.get().busy,
             move || {
                 let phase = signal(0.0f64);
-                let period = kivact_core::memo(|| {
-                    let motion = current_theme().get::<ButtonBusyMotion>();
+                let period = kivact_core::state::memo(|| {
+                    let motion = use_theme().get().ext::<ButtonBusyMotion>();
                     if kivact_core::platform::reduced_motion() {
                         motion.reduced_spin_ms
                     } else {
@@ -304,14 +295,14 @@ impl Button {
                     let elapsed = frame.now.as_secs_f64() * 1000.0;
                     phase.set(elapsed.rem_euclid(period) / period);
                 });
-                kivact_core::effect(move || {
+                kivact_core::state::effect(move || {
                     if kivact_core::platform::surface_active() {
                         clock.start(FrameRate::Hz(60.0));
                     } else {
                         clock.stop();
                     }
                 });
-                let motion = current_theme().get::<ButtonBusyMotion>();
+                let motion = use_theme().get().ext::<ButtonBusyMotion>();
                 let delay = if kivact_core::platform::reduced_motion() {
                     0
                 } else {

@@ -3,12 +3,12 @@ use super::layer::with_recipe_style;
 use super::text_input::text_input;
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
-use kivact_core::custom::{NodeExt, PartState};
+use kivact_core::custom::PartState;
 use kivact_core::i18n::message_with;
 use kivact_core::state::signal;
 use kivact_core::state::{Callback, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
-use kivact_core::style::{Align, Track, auto, current_theme, style};
+use kivact_core::style::{Align, Track, auto, style, use_theme};
 use kivact_core::view::NodeRef;
 use kivact_core::view::{
     Handled, HandlerResult, IntoView, Key, PointerPhase, View, for_index, node_ref,
@@ -47,23 +47,15 @@ pub struct TagInput {
 ///
 /// fn labels() -> impl IntoView {
 ///     let tags = signal(vec!["rust".to_string()]);
-///     tag_input(
-///         "Labels",
-///         tags,
-///         move |tag| tags.update(|tags| tags.push(tag)),
-///         move |index| tags.update(|tags| {
+///     tag_input("Labels", tags)
+///         .on_add(move |tag| tags.update(|tags| tags.push(tag)))
+///         .on_remove(move |index| tags.update(|tags| {
 ///             tags.remove(index);
-///         }),
-///     )
+///         }))
 /// }
 /// ```
 #[track_caller]
-pub fn tag_input<R: HandlerResult, S: HandlerResult>(
-    label: impl IntoText,
-    tags: impl IntoValue<Vec<String>>,
-    on_add: impl Fn(String) -> R + 'static,
-    on_remove: impl Fn(usize) -> S + 'static,
-) -> TagInput {
+pub fn tag_input(label: impl IntoText, tags: impl IntoValue<Vec<String>>) -> TagInput {
     let variants = Variants::default();
     let input_ref = node_ref();
     // The box rings while the focus is in its input.
@@ -82,8 +74,8 @@ pub fn tag_input<R: HandlerResult, S: HandlerResult>(
         root,
         label: label.into_text_value(),
         tags: tags.into_value(),
-        on_add: callback(on_add),
-        on_remove: callback(on_remove),
+        on_add: callback(|_: String| {}),
+        on_remove: callback(|_: usize| {}),
         placeholder: None,
         input_ref,
         variants,
@@ -91,6 +83,16 @@ pub fn tag_input<R: HandlerResult, S: HandlerResult>(
 }
 
 impl TagInput {
+    /// Handle a new tag.
+    pub fn on_add<R: HandlerResult>(mut self, f: impl Fn(String) -> R + 'static) -> Self {
+        self.on_add = callback(f);
+        self
+    }
+    /// Handle removal of a tag by index.
+    pub fn on_remove<R: HandlerResult>(mut self, f: impl Fn(usize) -> R + 'static) -> Self {
+        self.on_remove = callback(f);
+        self
+    }
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -131,16 +133,15 @@ impl IntoView for TagInput {
             variants,
         } = self;
         let disabled = root
-            .accessible_disabled()
-            .map(|read| (move || read()).into_value())
+            .accessible_disabled
+            .get()
+            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
-        let label = root
-            .accessible_name()
-            .map(|read| (move || read()).into_value())
-            .unwrap_or(label);
+        let label = root.accessible_name().map(|read| read).unwrap_or(label);
         let invalid = root
-            .accessible_invalid()
-            .map(|read| (move || read()).into_value())
+            .accessible_invalid
+            .get()
+            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
         let described_by = root.accessible_described_by();
@@ -176,7 +177,7 @@ impl IntoView for TagInput {
             text_input(label, pending)
                 .disabled(disabled)
                 .invalid(invalid)
-                .base_style(style().grid_row(1).grid_column(2))
+                .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
                 .node_ref(input_ref)
                 .placeholder(placeholder)
                 .on_submit(move || {
@@ -200,10 +201,10 @@ impl IntoView for TagInput {
             PartState::default,
         );
         for reference in labelled_by {
-            field = field.labelled_by(reference);
+            field = field.with_node(|node| node.labelled_by(reference));
         }
         for reference in described_by {
-            field = field.described_by(reference);
+            field = field.with_node(|node| node.described_by(reference));
         }
         let chips = row(chips).style(move || {
             style()
@@ -211,7 +212,7 @@ impl IntoView for TagInput {
                 .grid_column(1)
                 .wrap(true)
                 .min_width(0)
-                .gap(current_theme().space().sm)
+                .gap(use_theme().get().space().sm)
                 .align_items(Align::Center)
         });
         root.child((field, chips))

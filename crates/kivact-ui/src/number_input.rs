@@ -3,14 +3,15 @@ use super::layer::with_recipe_style;
 use super::text_input::text_input;
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
-use kivact_core::custom::{NodeExt, PartState};
-use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, locale, message};
+use kivact_core::custom::PartState;
+use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message, use_locale};
 use kivact_core::state::{Binding, Value, binding, effect_on, memo, signal};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Track, auto, style};
+use kivact_core::view::EditPhase;
 use kivact_core::view::{IntoView, View, node_ref};
 use kivact_core::view::{Node, NodeBuilder, grid, icon};
-use kivact_interaction::{EditPhase, ScalarRange, use_scalar};
+use kivact_interaction::{ScalarRange, use_scalar};
 
 /// What a number field shows: the value formatted, or what the user typed
 /// while the field has the focus.
@@ -39,8 +40,8 @@ pub struct NumberInput {
     root: Node,
     label: Value<String>,
     value: Binding<f64>,
-    range: ScalarRange,
-    on_edit: Option<kivact_core::Callback<EditPhase>>,
+    range: Value<ScalarRange>,
+    on_edit: Option<kivact_core::state::Callback<EditPhase>>,
     variants: Variants,
 }
 
@@ -63,7 +64,8 @@ pub struct NumberInput {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::ui::{ScalarRange, number_input};
+/// use kivact::interaction::ScalarRange;
+/// use kivact::ui::number_input;
 ///
 /// fn quantity() -> impl IntoView {
 ///     let value = signal(2.0);
@@ -74,8 +76,8 @@ pub struct NumberInput {
 #[track_caller]
 pub fn number_input(
     label: impl IntoText,
-    value: impl Into<Binding<f64>>,
-    range: ScalarRange,
+    value: impl kivact_core::state::IntoBinding<f64>,
+    range: impl IntoValue<ScalarRange>,
 ) -> NumberInput {
     let variants = Variants::default();
     let root = with_recipe_style(
@@ -87,8 +89,8 @@ pub fn number_input(
     NumberInput {
         root,
         label: label.into_text_value(),
-        value: value.into(),
-        range,
+        value: value.into_binding(),
+        range: range.into_value(),
         on_edit: None,
         variants,
     }
@@ -178,16 +180,15 @@ impl IntoView for NumberInput {
             variants,
         } = self;
         let disabled = root
-            .accessible_disabled()
-            .map(|read| (move || read()).into_value())
+            .accessible_disabled
+            .get()
+            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
-        let label = root
-            .accessible_name()
-            .map(|read| (move || read()).into_value())
-            .unwrap_or(label);
+        let label = root.accessible_name().map(|read| read).unwrap_or(label);
         let invalid = root
-            .accessible_invalid()
-            .map(|read| (move || read()).into_value())
+            .accessible_invalid
+            .get()
+            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
         let described_by = root.accessible_described_by();
@@ -196,10 +197,10 @@ impl IntoView for NumberInput {
             number = number.on_edit(move |phase| on_edit.call(phase));
         }
         let shown = number.value();
-        let locale = locale();
+        let locale = use_locale();
         let typed = signal(NumberText::Value(format_value(
             shown.get_untracked(),
-            range,
+            range.get_untracked(),
             &locale.get_untracked(),
         )));
         let input_ref = node_ref();
@@ -207,8 +208,8 @@ impl IntoView for NumberInput {
         // A value that changes elsewhere replaces the text, unless the text
         // already parses to it or the user's own typing just produced it.
         effect_on(
-            memo(move || (shown.get(), locale.get())),
-            move |&(now, ref current)| {
+            memo(move || (shown.get(), locale.get(), range.get())),
+            move |&(now, ref current, _)| {
                 let keeps = typed.with_untracked(|shown_text| {
                 current.parse_number(shown_text.text()) == Some(now)
                     || matches!(shown_text, NumberText::Typed { produced: Some(p), .. } if *p == now)
@@ -216,7 +217,7 @@ impl IntoView for NumberInput {
                 if !keeps {
                     typed.set(NumberText::Value(format_value(
                         now,
-                        range,
+                        range.get_untracked(),
                         &locale.get_untracked(),
                     )));
                 }
@@ -242,15 +243,15 @@ impl IntoView for NumberInput {
         let field = text_input(label, edit)
             .disabled(disabled)
             .invalid(invalid)
-            .base_style(style().grid_row(1).grid_column(2))
+            .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
             .node_ref(input_ref)
-            .part(number.input());
+            .with_node(|node| node.part(number.input()));
         // Leaving the field shows the written value again.
         effect_on(focused, move |&now| {
             if !now {
                 typed.set(NumberText::Value(format_value(
                     shown.get_untracked(),
-                    range,
+                    range.get_untracked(),
                     &locale.get_untracked(),
                 )));
             }
@@ -262,10 +263,10 @@ impl IntoView for NumberInput {
             PartState::default,
         );
         for reference in labelled_by {
-            field = field.labelled_by(reference);
+            field = field.with_node(|node| node.labelled_by(reference));
         }
         for reference in described_by {
-            field = field.described_by(reference);
+            field = field.with_node(|node| node.described_by(reference));
         }
         let step = move |steps: f64| {
             move || {

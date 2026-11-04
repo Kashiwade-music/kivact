@@ -3,9 +3,10 @@ use crate::{Tone, tooltip};
 use kivact_core::i18n::message;
 use kivact_core::state::Value;
 use kivact_core::style::{
-    Align, Color, ColorToken, Icon, Justify, Theme, ThemeExtension, current_theme, style,
+    Align, Color, ColorToken, Icon, Justify, Theme, ThemeExtension, style, use_theme,
 };
-use kivact_core::view::{Node, NodeBuilder, icon, node};
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{Node, icon, node};
 use kivact_core::view::{Role, View, dynamic};
 
 /// A status announced by name and shown in the table's leading lane.
@@ -36,7 +37,7 @@ impl RowStatus {
 
     /// Display a named or custom icon instead of the default mark.
     pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.icon = Some(icon.into());
+        self.icon = Some(icon.into_binding());
         self
     }
 }
@@ -79,7 +80,7 @@ fn lane() -> Node {
 }
 
 pub(super) fn header() -> Node {
-    let paint = current_theme().get::<DataTableRowStatusPaint>();
+    let paint = use_theme().get().ext::<DataTableRowStatusPaint>();
     lane()
         .role(Role::ColumnHeader)
         .name(message(paint.header_key, "Row status"))
@@ -116,7 +117,7 @@ fn marker(status: RowStatus) -> View {
         .focusable(true)
         .child(glyph.map(icon))
         .style(move || {
-            let paint = current_theme().get::<DataTableRowStatusPaint>();
+            let paint = use_theme().get().ext::<DataTableRowStatusPaint>();
             let color = color.unwrap_or(match tone {
                 Tone::Neutral => paint.neutral,
                 Tone::Info => paint.info,

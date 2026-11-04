@@ -6,7 +6,6 @@ use kivact_core::view::Node;
 use kivact_core::view::{IntoView, View};
 use kivact_interaction::ColumnDef;
 use std::cmp::Ordering;
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// Names a row in text.
@@ -25,7 +24,7 @@ type HeaderMenu = Rc<dyn Fn(Node) -> View>;
 /// [`filter`](Self::filter) say how, and it is sortable exactly when it has
 /// a comparison. The column is plain data the app builds; the table gives its
 /// [`definition`](Self::definition) to
-/// [`use_table_model`](kivact_interaction::use_table_model), which sorts and
+/// [`use_data_table_model`](kivact_interaction::use_data_table_model), which sorts and
 /// filters the rows.
 ///
 /// ```no_run
@@ -97,7 +96,7 @@ impl<R: 'static> DataColumn<R> {
     }
 
     /// Open a menu from this column header's secondary click or context-menu key.
-    pub fn header_context_menu<K: Clone + Eq + Hash + 'static>(
+    pub fn header_context_menu<K: kivact_core::state::ItemKey>(
         mut self,
         menu: impl Fn() -> Menu<K> + 'static,
     ) -> Self {
@@ -143,7 +142,7 @@ impl<R: 'static> DataColumn<R> {
     pub fn filter_field(
         mut self,
         field: crate::FilterField,
-        matches: impl Fn(&R, &crate::FilterValue) -> bool + 'static,
+        matches: impl Fn(&R, &kivact_interaction::FilterValue) -> bool + 'static,
     ) -> Self {
         let kind = field.clone();
         self.def = self
@@ -174,23 +173,26 @@ impl<R: 'static> DataColumn<R> {
     /// Give the column a fixed `width` in logical pixels (the unit a table's
     /// column resizing works in); a width that is not positive leaves the
     /// width to the table.
-    pub fn width(mut self, width: f64) -> Self {
+    pub fn width(mut self, width: impl Into<f64>) -> Self {
+        let width = width.into();
         self.flex = None;
-        self.def = self.def.width((width > 0.0).then_some(width));
+        self.def = self.def.with_width((width > 0.0).then_some(width));
         self
     }
 
     /// Share available space by this positive weight. Bound resize widths
     /// take precedence. Invalid weights restore automatic sizing.
-    pub fn flex(mut self, weight: f64) -> Self {
+    pub fn flex(mut self, weight: impl Into<f64>) -> Self {
+        let weight = weight.into();
         self.flex = (weight.is_finite() && weight > 0.0).then_some(weight);
-        self.def = self.def.width(None);
+        self.def = self.def.with_width(None);
         self
     }
 
     /// Set the lower bound in logical pixels, including during resizing.
     /// Flexible columns default to 120 pixels when no minimum is supplied.
-    pub fn min_width(mut self, width: f64) -> Self {
+    pub fn min_width(mut self, width: impl Into<f64>) -> Self {
+        let width = width.into();
         self.min_width = (width.is_finite() && width >= 0.0).then_some(width);
         self
     }
@@ -216,7 +218,7 @@ impl<R: 'static> DataColumn<R> {
     /// The title as a value of the current owner. Setup only.
     #[track_caller]
     pub fn title(&self) -> Value<String> {
-        self.def.label_value()
+        self.def.label()
     }
 
     /// The text of `row`'s cell, which also names the cell.
@@ -254,7 +256,7 @@ impl<R: 'static> DataColumn<R> {
 
     /// The fixed width given to [`width`](Self::width).
     pub(crate) fn width_value(&self) -> Option<f64> {
-        self.def.width_value()
+        self.def.width()
     }
 
     /// The column of the headless row model, keyed by `key` (a table uses

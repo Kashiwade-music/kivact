@@ -1,16 +1,15 @@
 //! Role: Render typed filters in table headers and commit validated drafts.
 use super::filter_value::{FilterField, FilterUi};
 use super::types::TypedFilters;
-use crate::{
-    ButtonVariant, ControlSize, DialogKind, FilterValue, button, checkbox, dialog, select,
-    tag_input, text_input,
-};
+use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::{Binding, Signal, Value, binding, effect, memo, signal, var};
 use kivact_core::style::{ColorToken, Justify, Length, pct, style};
-use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref};
-use kivact_core::view::{NodeBuilder, column, icon, node, row};
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
+use kivact_core::view::{column, icon, node, row};
 use kivact_interaction::ListItem;
+use kivact_interaction::{DialogMode, FilterValue};
 
 #[derive(Clone, Copy)]
 pub(super) struct Filters {
@@ -111,7 +110,7 @@ fn popover(
         .node_ref(reference)
         .style(style().size(20, 20).min_width(0).min_height(0).padding(0));
     dialog(label, open)
-        .kind(DialogKind::Popover)
+        .kind(DialogMode::Popover)
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
         .width(Length::from(240))
@@ -178,7 +177,7 @@ fn editor(
                 },
             );
             select(label, options, choice)
-                .retain_trigger_focus(true)
+                .keep_trigger_focus(true)
                 .size(size)
                 .style(style().width(pct(100)))
                 .into_view()
@@ -212,25 +211,22 @@ fn editor(
                     _ => Vec::new(),
                 })
             });
-            tag_input(
-                label,
-                tags,
-                move |tag| {
+            tag_input(label, tags)
+                .on_add(move |tag| {
                     let mut next = tags.get_untracked();
                     if !next.contains(&tag) {
                         next.push(tag);
                         value.set(Some(FilterValue::Tokens(next)));
                     }
-                },
-                move |index| {
+                })
+                .on_remove(move |index| {
                     let mut next = tags.get_untracked();
                     if index < next.len() {
                         next.remove(index);
                         value.set((!next.is_empty()).then_some(FilterValue::Tokens(next)));
                     }
-                },
-            )
-            .into_view()
+                })
+                .into_view()
         }
         field => text_editor(field, label, value, valid, size),
     }

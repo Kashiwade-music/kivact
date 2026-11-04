@@ -8,7 +8,7 @@
 //! | Component | First argument | Behavior and semantics from |
 //! |---|---|---|
 //! | [`button`] | the visible text, also the name | `Role::Button`; click, Enter, Space and the accessibility `Activate` action activate it |
-//! | [`checkbox`], [`switch`] | the visible label, also the name | [`CheckboxApi`](kivact_interaction::CheckboxApi) and [`Toggle`](kivact_interaction::Toggle) of kind `Switch` |
+//! | [`checkbox`], [`switch`] | the visible label, also the name | [`CheckboxApi`](kivact_interaction::CheckboxApi) and [`SwitchApi`](kivact_interaction::SwitchApi) |
 //! | [`select`] | the assistive name; not drawn | shared interaction parts |
 //! | [`menu`] | the visible label of the trigger, also the name | shared interaction parts |
 //! | [`dialog`] | the title, drawn unless hidden, and the dialog's name | shared interaction parts |
@@ -18,7 +18,7 @@
 //! | [`slider`], [`range_slider`] | the assistive name; not drawn | [`use_scalar`](kivact_interaction::use_scalar) and [`use_range_scalar`](kivact_interaction::use_range_scalar) |
 //! | [`splitter`] | the assistive name of the separator; not drawn | [`use_splitter`](kivact_interaction::use_splitter) |
 //! | [`split`] | none; it takes the panes and their fractions, and names its handles "Resize" | [`use_splitter`](kivact_interaction::use_splitter), one per pair of panes |
-//! | [`toggle`] | the visible label, also the name | [`use_toggle_button`](kivact_interaction::use_toggle_button) |
+//! | [`toggle_button`] | the visible label, also the name | [`use_toggle_button`](kivact_interaction::use_toggle_button) |
 //! | [`progress`] | none; it takes the value (`None` is indeterminate), and the caller names it | `Role::ProgressBar` with a range of 0 to 1 |
 //! | [`disclosure`] | the title of the trigger, also its name | [`use_disclosure`](kivact_interaction::use_disclosure) |
 //! | [`toast_region`] | none; it takes the [`Toaster`] | [`Toaster`]'s regions and items |
@@ -26,7 +26,7 @@
 //! | [`tag_input`] | the assistive name of the text input; not drawn | [`use_text_edit`](kivact_interaction::use_text_edit) |
 //! | [`number_input`] | the assistive name of the field; not drawn | [`use_scalar`](kivact_interaction::use_scalar) as a spin button |
 //! | [`list`] | the assistive name of the list; not drawn | [`use_list`](kivact_interaction::use_list) with the default policy and typeahead |
-//! | [`data_table`] | the rows; the first argument is not text, the grid's name is the message `data_table.label` | [`use_table_model`](kivact_interaction::use_table_model) and [`use_table`](kivact_interaction::use_table) |
+//! | [`data_table`] | the rows; the first argument is not text, the grid's name is the message `data_table.label` | [`use_data_table_model`](kivact_interaction::use_data_table_model) and [`use_data_table`](kivact_interaction::use_data_table) |
 //! | [`text_input`], [`text_area`] | the assistive name; not drawn | [`text_edit`](kivact_interaction::use_text_edit) with native editing and IME |
 //! | [`field`] | the visible label, which also names the control | a visible label, hint and error wired to any control: `labelled_by`, `described_by` and `invalid` |
 //!
@@ -58,7 +58,7 @@
 //!    [`UiRecipes`]). A recipe returns style only; hover, press, focus and
 //!    disabled looks are the style's state styles.
 //! 3. **Slots.** What an item shows ([`Tabs::item`], [`Menu::item`],
-//!    [`Select::option`], [`List::item`]) is a view the caller builds, and
+//!    [`Select::item`], [`List::item`]) is a view the caller builds, and
 //!    the regions of a [`data_table`] ([`DataTable::toolbar`],
 //!    [`DataTable::footer`], [`DataTable::row_details`],
 //!    [`DataTable::cell_controls`]) are filled the same way; without one
@@ -93,7 +93,7 @@
 //! `theme(mode: ThemeMode, ..)`; its tokens are one type implementing
 //! [`ThemeExtension`](kivact_core::style::ThemeExtension) (its `fallback` follows
 //! the theme), installed with `Theme::with` and read only with
-//! `theme.get::<Tokens>()`, its colors are also named by a field-less `Color`
+//! `theme.ext::<Tokens>()`, its colors are also named by a field-less `Color`
 //! enum implementing [`ThemeColor`](kivact_core::style::ThemeColor) (a style
 //! takes `basic::Color::Border` and reads the theme it is painted in), and its
 //! icons are added with `Theme::with_icon`. The
@@ -145,7 +145,6 @@ mod recipes;
 mod split;
 mod switch_drag;
 mod tag_input;
-mod text_draft;
 mod text_input;
 mod toggle;
 mod toggle_button;
@@ -177,10 +176,10 @@ pub use switch_drag::SwitchDrag;
 pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
-pub use toggle_button::{Toggle, ToggleLabelReservation, toggle};
-pub use tree::{TreeView, tree, tree_rows, tree_rows_with_reveal};
+pub use toggle_button::{ToggleButton, ToggleLabelReservation, toggle_button};
+pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
-    AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DataTableCellState,
+    AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
     ProgressState, SelectTriggerState, SwitchDragState, TextInputState, ToastGroupState,
     ToggleButtonState, TooltipArrowState, provide_control_size,

@@ -9,7 +9,7 @@ use kivact_core::geometry::Point;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
 };
-use kivact_core::view::{ReadingDirection, current_direction};
+use kivact_core::view::{ReadingDirection, use_direction};
 use kivact_interaction::{ListItemState, TableHeaderState, TreeItemState};
 
 pub(super) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
@@ -25,7 +25,7 @@ pub(super) fn list(t: &Theme, _: &PartState) -> Style {
 }
 
 pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     let indent = t.space().md + row.level.saturating_sub(1) as f64 * 16.0;
     style()
         .direction(if rtl {

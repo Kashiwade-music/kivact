@@ -3,20 +3,21 @@ use super::types::DataTableContext;
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{
-    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, ListItem, button,
-    checkbox, select, text_input,
+    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, button, checkbox, select,
+    text_input,
 };
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{message, message_with};
 use kivact_core::state::{Binding, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
-use kivact_core::view::{IntoView, Role, View};
-use kivact_core::view::{NodeBuilder, node, row, text};
-use std::hash::Hash;
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{Role, View};
+use kivact_core::view::{node, row, text};
+use kivact_interaction::ListItem;
 
 /// The row above the grid: the filter field, when the table has a filter.
-pub(super) fn toolbar<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+pub(super) fn toolbar<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     variants: &Variants,
 ) -> Option<View> {
@@ -45,7 +46,7 @@ pub(super) fn toolbar<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'st
 
 /// The row under the grid: how many of the filtered rows are selected and
 /// the pager; nothing when the table has neither.
-pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     sizes: Option<Value<Vec<usize>>>,
     variants: &Variants,
@@ -112,7 +113,7 @@ pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
 }
 
 /// The page shown, Previous and Next.
-fn pager<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     index: Binding<usize>,
     variants: &Variants,
@@ -172,7 +173,7 @@ fn pager<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
 
 /// The header check box in its box: it checks or clears the rows of the page
 /// and is mixed while some of them are checked.
-pub(super) fn select_page<K: Clone + Eq + Hash + 'static>(
+pub(super) fn select_page<K: kivact_core::state::ItemKey>(
     selection: Binding<Vec<K>>,
     keys: Value<Vec<K>>,
     variants: &Variants,

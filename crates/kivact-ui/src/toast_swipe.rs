@@ -44,7 +44,7 @@ struct Contact {
 enum Visual {
     Rest,
     Drag { travel: f64, height: f64 },
-    Dismiss { travel: f64, height: f64 },
+    DismissOn { travel: f64, height: f64 },
 }
 
 #[derive(Clone, Copy)]
@@ -69,12 +69,12 @@ impl Swipe {
         // Publish the exit target and restore its transition before removing
         // the card. The first display tick observes that committed paint.
         let clock = frame_loop(move |_| {
-            if matches!(visual.get(), Visual::Dismiss { .. }) {
+            if matches!(visual.get(), Visual::DismissOn { .. }) {
                 toaster.dismiss(id);
             }
         });
         effect(move || {
-            if matches!(visual.get(), Visual::Dismiss { .. }) {
+            if matches!(visual.get(), Visual::DismissOn { .. }) {
                 clock.start(FrameRate::Display);
             } else {
                 clock.stop();
@@ -105,7 +105,7 @@ impl Swipe {
 
     pub(super) fn event(self, event: PointerEvent) -> Handled {
         if !matches!(event.kind(), PointerKind::Touch | PointerKind::Pen)
-            || matches!(self.visual.get(), Visual::Dismiss { .. })
+            || matches!(self.visual.get(), Visual::DismissOn { .. })
         {
             return Handled::No;
         }
@@ -173,7 +173,7 @@ impl Swipe {
                 let elapsed_ms = clock_now().saturating_sub(contact.start_ns) as f64 / 1_000_000.0;
                 if contact.promoted && qualifies(travel, contact.height, elapsed_ms) {
                     self.contact.set(None);
-                    self.visual.set(Visual::Dismiss {
+                    self.visual.set(Visual::DismissOn {
                         travel,
                         height: contact.height,
                     });
@@ -204,13 +204,13 @@ impl Swipe {
         let base = style().transition(TransitionProp::Paint, timing);
         match visual {
             Visual::Rest => base,
-            Visual::Drag { travel, height } | Visual::Dismiss { travel, height } => {
+            Visual::Drag { travel, height } | Visual::DismissOn { travel, height } => {
                 let progress = (travel / height).clamp(0.0, 1.0);
                 let card = base
                     .translate_y(travel * edge_sign(self.edge))
                     .opacity(1.0 - 0.4 * progress)
                     .scale(1.0 - 0.02 * progress);
-                if matches!(visual, Visual::Dismiss { .. }) {
+                if matches!(visual, Visual::DismissOn { .. }) {
                     card.exit(
                         style()
                             .opacity(0.0)

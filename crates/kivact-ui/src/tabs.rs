@@ -4,7 +4,7 @@
 //! `.content(factory)` it also draws the panel of the selected valid key in a
 //! new owner each time the selection changes: beside the list when vertical,
 //! under it otherwise, with the recipes laying the tabs out by orientation
-//! (`TabListState` and `TabState`). With `keep_mounted(true)` each option's
+//! (`TabListState` and `TabState`). With `keep_mounted()` each option's
 //! panel is built once and the tab panel part hides it while it is not
 //! selected. A selected key that is not among the options stays in the
 //! binding, but the factory is not called for it. A kit's domain tab bar
@@ -14,25 +14,24 @@ use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::style::current_theme;
+use kivact_core::style::use_theme;
 use kivact_core::view::{IntoView, Orientation, View, dynamic, for_each, show};
 use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use kivact_interaction::TabState;
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// What a tab shows, from its item and its state.
-type TabContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<TabState>) -> View>;
+type TabContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<TabState>)>;
 
-pub struct Tabs<K: Clone + Eq + Hash + 'static> {
+pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     binding: Binding<K>,
     activation: ListActivation,
     orientation: Orientation,
     item: Option<TabContent<K>>,
-    content: Option<Rc<dyn Fn(K) -> View>>,
+    content: Option<kivact_core::view::ViewFn<K>>,
     variants: Variants,
     keep_mounted: bool,
 }
@@ -46,16 +45,16 @@ pub struct Tabs<K: Clone + Eq + Hash + 'static> {
 ///
 /// Each tab shows its item's icon and label; [`item`](Tabs::item) replaces
 /// what a tab shows, keeping its keys, semantics and recipe.
-pub fn tabs<K: Clone + Eq + Hash + 'static>(
+pub fn tabs<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    binding: impl Into<Binding<K>>,
+    binding: impl kivact_core::state::IntoBinding<K>,
 ) -> Tabs<K> {
     let variants = Variants::default();
     Tabs {
         root: node().name(label),
         options: options.into_value(),
-        binding: binding.into(),
+        binding: binding.into_binding(),
         activation: ListActivation::Automatic,
         orientation: Orientation::Horizontal,
         item: None,
@@ -64,7 +63,7 @@ pub fn tabs<K: Clone + Eq + Hash + 'static>(
         keep_mounted: false,
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
+impl<K: kivact_core::state::ItemKey> Tabs<K> {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -80,7 +79,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
         self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
+impl<K: kivact_core::state::ItemKey> Tabs<K> {
     pub fn activation(mut self, activation: ListActivation) -> Self {
         self.activation = activation;
         self
@@ -125,7 +124,9 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
         mut self,
         content: impl Fn(Value<ListItem<K>>, Value<TabState>) -> V + 'static,
     ) -> Self {
-        self.item = Some(Rc::new(move |item, state| content(item, state).into_view()));
+        self.item = Some(kivact_core::view::ViewFn::from(move |(item, state)| {
+            content(item, state)
+        }));
         self
     }
     fn into_list(self) -> (Node, Behavior<K>) {
@@ -143,9 +144,9 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
                 let part = behavior.item(key);
                 let state = part.state();
                 let content = match &slot {
-                    Some(slot) => slot(item, state),
+                    Some(slot) => slot.call((item, state)),
                     None => (
-                        super::helpers::item_icon(move || item.get().icon_value().cloned()),
+                        super::helpers::item_icon(move || item.get().icon().cloned()),
                         text(move || item.get().label()),
                     )
                         .into_view(),
@@ -153,7 +154,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
                 let indicator_variants = variants.clone();
                 let indicator = show(
                     || {
-                        recipes(&current_theme())
+                        recipes(&use_theme().get())
                             .tabs_recipes()
                             .has_custom_indicator()
                     },
@@ -194,7 +195,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
     /// (beside it when vertical), in a fresh owner each time the selection
     /// changes. A selected key that is not among the options builds nothing.
     pub fn content<V: IntoView>(mut self, factory: impl Fn(K) -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move |key| factory(key).into_view()));
+        self.content = Some(kivact_core::view::ViewFn::from(factory));
         self
     }
     /// Build each option's panel once and keep it mounted, hidden while its
@@ -204,8 +205,8 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
     ///
     /// A constant: it chooses whether a panel's owner lives with the
     /// selection or with the option, fixed when the tabs are built.
-    pub fn keep_mounted(mut self, keep: bool) -> Self {
-        self.keep_mounted = keep;
+    pub fn keep_mounted(mut self) -> Self {
+        self.keep_mounted = true;
         self
     }
     fn with_panels(mut self) -> View {
@@ -220,7 +221,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
         let selected = behavior.selected();
         // One panel: the tab panel part, named by its tab, around the
         // factory's view; the part hides it while its tab is not selected.
-        let panel = Rc::new(move |key: K, factory: &Rc<dyn Fn(K) -> View>| {
+        let panel = Rc::new(move |key: K, factory: &kivact_core::view::ViewFn<K>| {
             let named = key.clone();
             let name = move || {
                 options.with(|options| {
@@ -234,7 +235,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
             let part = behavior.panel(key.clone());
             let state = part.state();
             with_recipe_style(
-                node().part(part).name(name).child(factory(key)),
+                node().part(part).name(name).child(factory.call(key)),
                 |r| r.tabs_recipes().panel_recipe(),
                 &variants,
                 move || state.get(),
@@ -252,7 +253,7 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
                 column((list, panels)).into_view()
             };
         }
-        let present = kivact_core::memo(move || {
+        let present = kivact_core::state::memo(move || {
             let key = selected.get();
             options
                 .with(|rows| rows.iter().any(|row| *row.key() == key))
@@ -267,12 +268,12 @@ impl<K: Clone + Eq + Hash + 'static> Tabs<K> {
         }
     }
 }
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Tabs<K> {
+impl<K: kivact_core::state::ItemKey> NodeBuilder for Tabs<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
-impl<K: Clone + Eq + Hash + 'static> IntoView for Tabs<K> {
+impl<K: kivact_core::state::ItemKey> IntoView for Tabs<K> {
     fn into_view(self) -> View {
         self.with_panels()
     }

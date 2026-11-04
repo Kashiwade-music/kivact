@@ -1,9 +1,9 @@
 //! Role: A standard keyed data table composes the one interaction model and table.
 //!
 //! [`data_table`] filters, sorts and pages the caller's rows with
-//! [`use_table_model`](kivact_interaction::use_table_model) and gives the
+//! [`use_data_table_model`](kivact_interaction::use_data_table_model) and gives the
 //! grid keys, selection and semantics of
-//! [`use_table`](kivact_interaction::use_table) to the nodes it draws. The
+//! [`use_data_table`](kivact_interaction::use_data_table) to the nodes it draws. The
 //! rows, the selection, the sort, the filter text, the page and the column
 //! widths stay the caller's: the table keeps no copy of them.
 mod builder;

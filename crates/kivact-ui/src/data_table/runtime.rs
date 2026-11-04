@@ -2,14 +2,14 @@
 use super::rows::{self, Grid};
 use super::types::{DataTable, DataTableContext, RowName};
 use kivact_core::i18n::message;
-use kivact_core::state::IntoValue;
+use kivact_core::view::NodeBuilder;
+
 use kivact_core::state::{Binding, binding, memo, signal};
 use kivact_core::style::{Length, pct, style};
 use kivact_core::view::{IntoView, Role, View, for_each, show};
-use kivact_core::view::{NodeBuilder, column, scroll, text};
-use kivact_interaction::{ListSelection, ScalarRange, SortOrder, use_table, use_table_model};
+use kivact_core::view::{column, scroll, text};
+use kivact_interaction::{ScalarRange, Selection, SortOrder, use_data_table, use_data_table_model};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// The narrowest and widest a resized column may be, and the key step.
@@ -19,8 +19,8 @@ const KEY_STEP: f64 = 10.0;
 
 impl<R, K> IntoView for DataTable<R, K>
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     fn into_view(self) -> View {
         mount(self)
@@ -29,8 +29,8 @@ where
 
 fn mount<R, K>(table: DataTable<R, K>) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let DataTable {
         root,
@@ -90,7 +90,7 @@ where
         })
         .collect();
     let model_key = key.clone();
-    let mut model = use_table_model(data, move |row| model_key(row), definitions);
+    let mut model = use_data_table_model(data, move |row| model_key(row), definitions);
     let tree = tree.map(|config| {
         let (key_for_order, parent, expanded) =
             (key.clone(), config.parent.clone(), config.expanded);
@@ -152,11 +152,11 @@ where
     let table_key = key.clone();
     // Without the caller's selection, nothing is selected.
     let chosen = selection.unwrap_or_else(|| binding(Vec::new, |_| ()));
-    let mut behavior = use_table(
+    let mut behavior = use_data_table(
         display,
         move |row| table_key(row),
         shown,
-        ListSelection::Multiple(chosen),
+        Selection::Multiple(chosen),
         focus,
     );
     let eligible = row_selectable.as_ref().map(|selectable| {
@@ -377,12 +377,12 @@ where
 
 /// Share the widths of the columns, by position, with the caller's `sizes`,
 /// and bound a resize handle's writes.
-fn share_widths<K: Clone + Eq + Hash + 'static>(
-    behavior: kivact_interaction::Table<K, usize>,
+fn share_widths<K: kivact_core::state::ItemKey>(
+    behavior: kivact_interaction::DataTableApi<K, usize>,
     sizes: Binding<Vec<f64>>,
     count: usize,
     range: ScalarRange,
-) -> kivact_interaction::Table<K, usize> {
+) -> kivact_interaction::DataTableApi<K, usize> {
     let current = sizes.into_value();
     behavior
         .widths(binding(

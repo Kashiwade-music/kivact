@@ -3,10 +3,10 @@ use crate::values::{ControlSize, SwitchDragState};
 use kivact_core::custom::{Part, clock_now};
 use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, Signal, Value, Var, signal, var};
-use kivact_core::style::{Theme, ThemeExtension, current_theme};
+use kivact_core::style::{Theme, ThemeExtension, use_theme};
 use kivact_core::view::{
     Handled, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase, ReadingDirection,
-    current_direction,
+    use_direction,
 };
 use kivact_interaction::ToggleState;
 use std::time::Duration;
@@ -47,7 +47,7 @@ struct Geometry {
 
 impl Geometry {
     fn new(size: ControlSize) -> Self {
-        let sign = if current_direction() == ReadingDirection::Rtl {
+        let sign = if use_direction().get() == ReadingDirection::Rtl {
             -1.0
         } else {
             1.0
@@ -104,7 +104,7 @@ pub(super) fn switch(
     value: Binding<bool>,
     size: ControlSize,
 ) -> (Part<ToggleState>, Visual) {
-    if !current_theme().get::<SwitchDrag>().0 {
+    if !use_theme().get().ext::<SwitchDrag>().0 {
         return (control, None);
     }
     let gesture = Gesture {
@@ -115,14 +115,17 @@ pub(super) fn switch(
         generation: signal(0),
     };
     let state = control.state();
-    kivact_core::effect(move || {
+    kivact_core::state::effect(move || {
         if state.get().input.disabled {
             gesture.contact.set(None);
             gesture.visual.set(None);
             gesture.generation.update(|id| *id = id.wrapping_add(1));
         }
     });
-    let control = control.on_pointer(move |event| gesture.pointer(event));
+    let control = Part::new(state, move |host| {
+        host.part(control)
+            .on_pointer(move |event| gesture.pointer(event))
+    });
     (control, Some(gesture.visual.into()))
 }
 

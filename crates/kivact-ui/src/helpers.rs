@@ -22,8 +22,8 @@ pub(super) fn label_style() -> Style {
 /// A control's visible label, left out while `hidden` reads true (the
 /// control keeps its accessible name either way).
 pub(super) fn visible_label(
-    label: kivact_core::Value<String>,
-    hidden: Option<kivact_core::Value<bool>>,
+    label: kivact_core::state::Value<String>,
+    hidden: Option<kivact_core::state::Value<bool>>,
 ) -> kivact_core::view::View {
     use kivact_core::view::IntoView;
     let label = move || kivact_core::view::text(label).style(label_style());
@@ -49,7 +49,7 @@ pub(super) fn label_and_description(
     description: impl Fn() -> Option<String> + 'static,
     styled: impl Fn(kivact_core::view::Node) -> kivact_core::view::Node + 'static,
 ) -> kivact_core::view::Node {
-    let description = kivact_core::memo(description);
+    let description = kivact_core::state::memo(description);
     kivact_core::view::column((
         kivact_core::view::text(label).style(label_style()),
         kivact_core::view::show(
