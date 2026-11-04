@@ -2,8 +2,8 @@
 use crate::protocol::shape::PathCmd;
 use crate::scene::primitives::Stroke;
 use crate::{
-    A11yAction, BlendMode, ClipShape, Corners, Fill, FillLayer, FilterOp, FontFeature, LineHeight,
-    Point, Rect, RegionId, Rgba, Role, TextDecoration,
+    BlendMode, ClipShape, Corners, Fill, FillLayer, FilterOp, FontFeature, LineHeight, Point, Rect,
+    RegionId, Rgba, TextDecoration,
 };
 
 /// Resolved geometry for clipping or painting in logical coordinates.
@@ -165,30 +165,15 @@ pub enum SceneCmd {
 pub struct Region {
     /// Stable declaration order for keyboard navigation, independent of paint order.
     pub focus_order: u32,
-    pub focusable: bool,
     /// Native pointer focus destination; never changes activation identity.
     pub focus_on_press: Option<crate::FocusTarget>,
-    pub disabled: bool,
-    pub hidden: bool,
-    pub description: Option<String>,
-    /// Checked state of the region (`None`: not a toggle).
-    pub checked: Option<crate::CheckedState>,
-    /// Selection state.
-    pub selected: bool,
-    /// Disclosure state (`None`: not expandable).
-    pub expanded: Option<bool>,
-    /// The region's value is invalid.
-    pub invalid: bool,
-    pub properties: Option<Box<crate::SemanticsProperties>>,
+    /// Canonical accessible identity, state, relations and text properties.
+    pub semantics: crate::semantics::Semantics<crate::FocusTarget>,
     pub shape: Option<crate::DrawingShape>,
     pub transform: [f32; 6],
     pub local_rect: Rect,
     pub id: RegionId,
     pub rect: Rect,
-    pub role: Role,
-    pub name: String,
-    pub value: Option<String>,
-    pub actions: Vec<A11yAction>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]

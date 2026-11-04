@@ -22,7 +22,7 @@ pub use effect::{Backdrop, BoxShadow, Layer, LayerFilter, Mask};
 pub use image::ImageData;
 pub use paint::{Gradient, GradientShape, Paint, Pattern, PatternSource};
 pub use scene::{CpuFrame, DrawCommand, SHADOW_REACH, Scene};
-pub use semantics::{SemanticsNode, SemanticsProperties, SemanticsTree, SemanticsUpdate};
+pub use semantics::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 pub use shape::{PathCmd, Radius, RoundedRect, Shape};
 pub use shaped::{
     Glyph, GlyphRun, InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText,
