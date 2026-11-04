@@ -81,4 +81,4 @@ pub(crate) mod transform;
 
 #[cfg(feature = "gpu-interop")]
 pub(crate) use aggregate::ExternalWrite;
-pub(crate) use aggregate::Model;
+pub(crate) use aggregate::{DeferredRequest, Model};

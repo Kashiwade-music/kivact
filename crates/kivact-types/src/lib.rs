@@ -30,7 +30,8 @@ pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
 pub use color::Rgba;
 pub use embed::{EmbedOptions, ParentWindow};
 pub use env::{
-    Capabilities, Environment, LifecycleEvent, PointerClass, PointerSettings, ThemeHint,
+    Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
+    PointerSettings, ThemeHint,
 };
 pub use geometry::{Edges, Insets, Point, Rect, Size, Transform};
 pub use gpu::{

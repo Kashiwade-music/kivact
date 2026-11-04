@@ -30,7 +30,7 @@
 //!   creation, to the default sink only). The failure of a scene's image or
 //!   of a background image is not reported.
 //! - A font file is registered at once, while its write is applied
-//!   (`PlatformRequest::RegisterFont`: `Engine::register_font`), so the
+//!   (`HostRequest::RegisterFont`: `Engine::register_font`), so the
 //!   next layout measures with it; the answer is its families
 //!   (`PlatformResult::Fonts`) or why it failed.
 //! - Thread: lives on the UI thread with the model; only the store's
@@ -228,7 +228,7 @@ impl ArvaneAssets {
     // ----- fonts ------------------------------------------------------------
 
     /// Register the font file `asset` with Arvane
-    /// (`PlatformRequest::RegisterFont`): its families, or why it failed.
+    /// (`HostRequest::RegisterFont`): its families, or why it failed.
     pub(crate) fn register_font(
         &mut self,
         engine: &mut arvane::Engine,

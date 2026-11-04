@@ -4,15 +4,13 @@
 //! policy; CPU frames and native GPU targets cross the ordinary shell SPI.
 
 use crate::surface::TestSurface;
-use arvane_shell::{
-    Accessibility, AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow,
-};
+use arvane_shell::{Accessibility, AccessibilityError, ShellError, ShellImeText, ShellWindow};
 use kivact_types::Environment;
 use kivact_types::render::{SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// GPU presentation policy for a virtual window.
@@ -62,6 +60,7 @@ impl Default for VirtualOptions {
     }
 }
 pub(crate) struct VirtualShell {
+    pub(crate) responders: Vec<crate::script::Responder>,
     pub(crate) now: u64,
     /// The single snapshot of the window's environment and preferences.
     pub(crate) env: RefCell<Environment>,
@@ -131,6 +130,60 @@ pub(crate) trait Mirror {
 }
 
 impl ShellWindow for VirtualShell {
+    fn perform(&mut self, request: kivact_types::PlatformRequest) -> kivact_types::PlatformResult {
+        use kivact_types::{PlatformRequest, PlatformResult};
+        for responder in self.responders.iter_mut().rev() {
+            if let Some(result) = responder(&request) {
+                return result;
+            }
+        }
+        if !matches!(request, PlatformRequest::Fullscreen(_)) {
+            if let Err(error) = self.effect_result() {
+                return match error {
+                    ShellError::Unsupported(_) => PlatformResult::Unsupported,
+                    ShellError::Failed(failure) => PlatformResult::Failed(failure),
+                };
+            }
+        }
+        match request {
+            PlatformRequest::CopyText(text) => {
+                self.clipboard = text;
+                PlatformResult::Done
+            }
+            PlatformRequest::ReadText => PlatformResult::Text(self.clipboard.clone()),
+            PlatformRequest::PickFile(_)
+            | PlatformRequest::SaveFile(_)
+            | PlatformRequest::PickFolder(_) => PlatformResult::Path(
+                self.dialogs
+                    .pop_front()
+                    .flatten()
+                    .and_then(|paths| paths.into_iter().next()),
+            ),
+            PlatformRequest::PickFiles(_) => {
+                PlatformResult::Paths(self.dialogs.pop_front().flatten())
+            }
+            PlatformRequest::OpenPath(path) => {
+                self.opened.push(path);
+                PlatformResult::Done
+            }
+            PlatformRequest::RevealPath(path) => {
+                self.revealed.push(path);
+                PlatformResult::Done
+            }
+            PlatformRequest::RequestWindowSize(size) => {
+                self.requested_sizes.push(size);
+                PlatformResult::Done
+            }
+            PlatformRequest::Fullscreen(fullscreen) => {
+                self.env.borrow_mut().fullscreen = fullscreen;
+                PlatformResult::Done
+            }
+        }
+    }
+    fn cpu_format(&self) -> arvane_shell::CpuFormat {
+        arvane_shell::CpuFormat::Xrgb8888
+    }
+
     fn keeps_frames(&self) -> bool {
         true
     }
@@ -138,11 +191,6 @@ impl ShellWindow for VirtualShell {
         self.frame = Some((frame.width, frame.height, frame.to_softbuffer().into()));
     }
 
-    fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        self.effect_result()?;
-        self.requested_sizes.push(size);
-        Ok(())
-    }
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool {
         let started = std::time::Instant::now();
         while !done() {
@@ -154,53 +202,6 @@ impl ShellWindow for VirtualShell {
         true
     }
 
-    fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
-        self.effect_result()?;
-        text.clone_into(&mut self.clipboard);
-        Ok(())
-    }
-    fn read_text(&mut self) -> Result<String, ShellError> {
-        self.effect_result()?;
-        Ok(self.clipboard.clone())
-    }
-    fn pick_file(&mut self, _: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        self.effect_result()?;
-        Ok(self
-            .dialogs
-            .pop_front()
-            .flatten()
-            .and_then(|paths| paths.into_iter().next()))
-    }
-    fn pick_files(&mut self, _: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
-        self.effect_result()?;
-        Ok(self.dialogs.pop_front().flatten())
-    }
-    fn save_file(&mut self, _: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        self.effect_result()?;
-        Ok(self
-            .dialogs
-            .pop_front()
-            .flatten()
-            .and_then(|paths| paths.into_iter().next()))
-    }
-    fn pick_folder(&mut self, _: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        self.effect_result()?;
-        Ok(self
-            .dialogs
-            .pop_front()
-            .flatten()
-            .and_then(|paths| paths.into_iter().next()))
-    }
-    fn open_path(&mut self, path: &Path) -> Result<(), ShellError> {
-        self.effect_result()?;
-        self.opened.push(path.to_path_buf());
-        Ok(())
-    }
-    fn reveal_path(&mut self, path: &Path) -> Result<(), ShellError> {
-        self.effect_result()?;
-        self.revealed.push(path.to_path_buf());
-        Ok(())
-    }
     fn replace_accessibility(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
         self.accessibility().replace(tree)
     }
@@ -221,6 +222,14 @@ impl ShellWindow for VirtualShell {
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            clipboard_text: true,
+            file_dialogs: true,
+            open_path: true,
+            reveal_path: true,
+            fullscreen: true,
+            min_size: true,
+            command_key: kivact_types::CommandKey::Ctrl,
+            context_menu_on: kivact_types::ContextMenuTrigger::Release,
             touch: true,
             pen: true,
             soft_keyboard: true,
@@ -249,10 +258,7 @@ impl ShellWindow for VirtualShell {
     fn environment(&self) -> Environment {
         self.env.borrow().clone()
     }
-    fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError> {
-        self.env.borrow_mut().fullscreen = fullscreen;
-        Ok(())
-    }
+
     fn fullscreen(&self) -> bool {
         self.env.borrow().fullscreen
     }

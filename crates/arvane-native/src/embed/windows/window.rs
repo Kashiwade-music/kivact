@@ -3,13 +3,13 @@ use super::native::Native;
 use super::state::{CpuFrame, DrainGuard, ReentryGuard, ScaleSource, State};
 use crate::embed::child::{ChildPort, Command, Shared};
 use crate::embed::session::{Session, negotiate};
-use arvane_shell::{AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow};
+use arvane_shell::{AccessibilityError, ShellError, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
+use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::num::NonZeroU32;
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -72,6 +72,70 @@ fn frame_period(hwnd: isize) -> u64 {
     }
 }
 impl ShellWindow for Window {
+    fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
+        match request {
+            PlatformRequest::CopyText(text) => self
+                .0
+                .services
+                .borrow_mut()
+                .copy_text(&text)
+                .map(|()| PlatformResult::Done),
+            PlatformRequest::ReadText => self
+                .0
+                .services
+                .borrow_mut()
+                .read_text()
+                .map(PlatformResult::Text),
+            PlatformRequest::PickFile(request) => super::services::pick_file(
+                &super::services::Parent::new(self.0.native.hwnd()),
+                &request,
+            )
+            .map(PlatformResult::Path),
+            PlatformRequest::PickFiles(request) => super::services::pick_files(
+                &super::services::Parent::new(self.0.native.hwnd()),
+                &request,
+            )
+            .map(PlatformResult::Paths),
+            PlatformRequest::SaveFile(request) => super::services::save_file(
+                &super::services::Parent::new(self.0.native.hwnd()),
+                &request,
+            )
+            .map(PlatformResult::Path),
+            PlatformRequest::PickFolder(request) => super::services::pick_folder(
+                &super::services::Parent::new(self.0.native.hwnd()),
+                &request,
+            )
+            .map(PlatformResult::Path),
+            PlatformRequest::OpenPath(path) => {
+                crate::open::open_path(&path).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::RevealPath(path) => {
+                crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::RequestWindowSize(size) => {
+                debug_assert!(!self.0.session.opening());
+                debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
+                negotiate(
+                    size,
+                    self.scale(),
+                    super::native::MAX_DIMENSION,
+                    self.0.on_resize_request.as_deref(),
+                    &self.0.shared,
+                    || self.0.native.wake(),
+                )
+                .map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
+        }
+        .unwrap_or_else(|error| match error {
+            ShellError::Unsupported(_) => PlatformResult::Unsupported,
+            ShellError::Failed(failure) => PlatformResult::Failed(failure),
+        })
+    }
+    fn cpu_format(&self) -> arvane_shell::CpuFormat {
+        arvane_shell::CpuFormat::Xrgb8888
+    }
+
     fn keeps_frames(&self) -> bool {
         false
     }
@@ -79,43 +143,6 @@ impl ShellWindow for Window {
         unreachable!("invariant: native windows do not retain presented frames");
     }
 
-    fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        debug_assert!(!self.0.session.opening());
-        debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
-        negotiate(
-            size,
-            self.scale(),
-            super::native::MAX_DIMENSION,
-            self.0.on_resize_request.as_deref(),
-            &self.0.shared,
-            || self.0.native.wake(),
-        )
-    }
-
-    fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
-        self.0.services.borrow_mut().copy_text(text)
-    }
-    fn read_text(&mut self) -> Result<String, ShellError> {
-        self.0.services.borrow_mut().read_text()
-    }
-    fn pick_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        super::services::pick_file(&super::services::Parent::new(self.0.native.hwnd()), request)
-    }
-    fn pick_files(&mut self, request: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
-        super::services::pick_files(&super::services::Parent::new(self.0.native.hwnd()), request)
-    }
-    fn save_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        super::services::save_file(&super::services::Parent::new(self.0.native.hwnd()), request)
-    }
-    fn pick_folder(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        super::services::pick_folder(&super::services::Parent::new(self.0.native.hwnd()), request)
-    }
-    fn open_path(&mut self, path: &Path) -> Result<(), ShellError> {
-        crate::open::open_path(path)
-    }
-    fn reveal_path(&mut self, path: &Path) -> Result<(), ShellError> {
-        crate::open::reveal_path(path)
-    }
     fn recover_surface(&mut self) -> Result<(), ShellError> {
         self.release_cpu_surface();
         Ok(())
@@ -167,6 +194,14 @@ impl ShellWindow for Window {
     }
     fn capabilities(&self) -> kivact_types::Capabilities {
         kivact_types::Capabilities {
+            clipboard_text: true,
+            file_dialogs: true,
+            open_path: true,
+            reveal_path: true,
+            fullscreen: false,
+            min_size: false,
+            command_key: kivact_types::CommandKey::Ctrl,
+            context_menu_on: kivact_types::ContextMenuTrigger::Release,
             native_accessibility: true,
             ime_reconversion: true,
             ..Default::default()
@@ -191,11 +226,7 @@ impl ShellWindow for Window {
     fn environment(&self) -> kivact_types::Environment {
         environment(&self.0)
     }
-    fn set_fullscreen(&self, _: bool) -> Result<(), ShellError> {
-        Err(ShellError::unsupported(
-            "fullscreen is unavailable for an embedded window",
-        ))
-    }
+
     fn fullscreen(&self) -> bool {
         false
     }

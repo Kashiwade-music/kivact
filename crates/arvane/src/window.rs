@@ -3,8 +3,8 @@
 use crate::presentation::{Notes, Observer};
 use crate::presenter::Presenter;
 use crate::{
-    AccessibilityError, Failure, FileDialog, FramePlan, Presented, RendererChange, ShellControl,
-    ShellError, ShellEvent, ShellImeText, ShellWaker,
+    AccessibilityError, Failure, FramePlan, Presented, RendererChange, ShellControl, ShellError,
+    ShellEvent, ShellImeText, ShellWaker,
 };
 use arvane_shell::{
     Backend, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
@@ -15,7 +15,6 @@ use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
-use std::path::{Path, PathBuf};
 
 /// The native window of a running [`Shell`], handed to the [`Handler`]'s
 /// callbacks.
@@ -25,9 +24,13 @@ pub struct Window<'a> {
 }
 
 impl Window<'_> {
-    pub fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        self.shell.request_size(size)
+    pub fn perform(
+        &mut self,
+        request: kivact_types::PlatformRequest,
+    ) -> kivact_types::PlatformResult {
+        self.shell.perform(request)
     }
+
     pub fn size(&self) -> Size {
         self.shell.size()
     }
@@ -52,9 +55,7 @@ impl Window<'_> {
     pub fn request_redraw(&self) {
         self.shell.request_redraw();
     }
-    pub fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError> {
-        self.shell.set_fullscreen(fullscreen)
-    }
+
     pub fn fullscreen(&self) -> bool {
         self.shell.fullscreen()
     }
@@ -109,30 +110,7 @@ impl Window<'_> {
     ) -> Result<(), AccessibilityError> {
         self.shell.update_accessibility(update)
     }
-    pub fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
-        self.shell.copy_text(text)
-    }
-    pub fn read_text(&mut self) -> Result<String, ShellError> {
-        self.shell.read_text()
-    }
-    pub fn pick_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        self.shell.pick_file(request)
-    }
-    pub fn pick_files(&mut self, request: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
-        self.shell.pick_files(request)
-    }
-    pub fn save_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        self.shell.save_file(request)
-    }
-    pub fn pick_folder(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
-        self.shell.pick_folder(request)
-    }
-    pub fn open_path(&mut self, path: &Path) -> Result<(), ShellError> {
-        self.shell.open_path(path)
-    }
-    pub fn reveal_path(&mut self, path: &Path) -> Result<(), ShellError> {
-        self.shell.reveal_path(path)
-    }
+
     #[cfg(feature = "gpu-interop")]
     pub fn gpu_adapter(&self) -> Option<GpuAdapter> {
         self.presenter.gpu_adapter()

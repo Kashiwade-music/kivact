@@ -29,6 +29,7 @@ pub struct VirtualBackend {
 impl VirtualBackend {
     pub fn new(options: VirtualOptions) -> Self {
         let shell = VirtualShell {
+            responders: Vec::new(),
             now: 0,
             env: RefCell::new(Environment {
                 window_size: options.size,
@@ -298,6 +299,10 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
         }
         Item::Dialog(paths) => {
             shell.dialogs.push_back(paths);
+            None
+        }
+        Item::Respond(responder) => {
+            shell.responders.push(responder);
             None
         }
         Item::FailEffect(error) => {

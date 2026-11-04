@@ -2,8 +2,8 @@
 
 use super::client::{Boundary, Client};
 use crate::contract::HostEvent;
-use crate::model::Model;
 use crate::model::edit::state::ImeUpdate;
+use crate::model::{DeferredRequest, Model};
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
 use kivact_types::{PlatformRequest, PlatformResult};
@@ -131,52 +131,26 @@ impl Host {
                 return;
             }
             let result = match effect {
-                PlatformRequest::RequestWindowSize(size) => {
-                    window.request_size(size).map(|_| PlatformResult::Done)
-                }
-                PlatformRequest::Fullscreen(fullscreen) => {
-                    window.set_fullscreen(fullscreen).map(|()| {
+                DeferredRequest::Platform(request) => {
+                    let fullscreen_request = matches!(request, PlatformRequest::Fullscreen(_));
+                    let result = window.perform(request);
+                    if fullscreen_request {
                         let fullscreen = window.fullscreen();
                         self.model
                             .borrow_mut()
                             .update_env(|env, _| env.fullscreen = fullscreen);
-                        PlatformResult::Done
-                    })
+                    }
+                    result
                 }
-                PlatformRequest::ReducedMotion(override_value) => {
+                DeferredRequest::ReducedMotion(override_value) => {
                     self.reduced_motion_override = override_value;
                     self.model.borrow_mut().update_env(|env, _| {
                         env.reduced_motion =
                             override_value.unwrap_or(self.environment.reduced_motion);
                     });
-                    Ok(PlatformResult::Done)
+                    PlatformResult::Done
                 }
-                PlatformRequest::CopyText(text) => {
-                    window.copy_text(&text).map(|()| PlatformResult::Done)
-                }
-                PlatformRequest::ReadText => window.read_text().map(PlatformResult::Text),
-                PlatformRequest::PickFile(p) => window.pick_file(&p).map(PlatformResult::Path),
-                PlatformRequest::PickFiles(p) => window.pick_files(&p).map(PlatformResult::Paths),
-                PlatformRequest::SaveFile(p) => window.save_file(&p).map(PlatformResult::Path),
-                PlatformRequest::PickFolder(p) => window.pick_folder(&p).map(PlatformResult::Path),
-                PlatformRequest::OpenPath(path) => {
-                    window.open_path(&path).map(|()| PlatformResult::Done)
-                }
-                PlatformRequest::RevealPath(path) => {
-                    window.reveal_path(&path).map(|()| PlatformResult::Done)
-                }
-                PlatformRequest::RegisterFont(_) => {
-                    unreachable!("font registrations are answered by the write")
-                }
-            }
-            .unwrap_or_else(|e| {
-                // A service the platform does not have is `Unsupported`
-                // (`ErrorKind::Unsupported` in the App), not a failure.
-                match e {
-                    arvane::ShellError::Unsupported(_) => PlatformResult::Unsupported,
-                    arvane::ShellError::Failed(failure) => PlatformResult::Failed(failure),
-                }
-            });
+            };
             if self.closing() {
                 return;
             }

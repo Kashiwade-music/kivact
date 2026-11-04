@@ -9,17 +9,35 @@ use arvane_shell::{FileDialog, ShellError};
 
 #[derive(Default)]
 pub(crate) struct Services {
-    pub(crate) clipboard: Option<arboard::Clipboard>,
+    clipboard: Clipboard,
+}
+
+#[derive(Default)]
+enum Clipboard {
+    #[default]
+    Unopened,
+    Open(arboard::Clipboard),
+    Failed(kivact_types::Failure),
 }
 
 impl Services {
     fn clipboard(&mut self) -> Result<&mut arboard::Clipboard, ShellError> {
-        if self.clipboard.is_none() {
-            self.clipboard = Some(arboard::Clipboard::new().map_err(platform_error)?);
+        if matches!(self.clipboard, Clipboard::Unopened) {
+            self.clipboard = match arboard::Clipboard::new() {
+                Ok(clipboard) => Clipboard::Open(clipboard),
+                Err(error) => Clipboard::Failed(kivact_types::Failure::new(
+                    kivact_types::FailureKind::Backend,
+                    format!("clipboard: {error}"),
+                )),
+            };
         }
-        self.clipboard
-            .as_mut()
-            .ok_or_else(|| ShellError::new("clipboard initialization did not produce a handle"))
+        match &mut self.clipboard {
+            Clipboard::Open(clipboard) => Ok(clipboard),
+            Clipboard::Failed(failure) => Err(ShellError::Failed(failure.clone())),
+            Clipboard::Unopened => {
+                unreachable!("invariant: clipboard initialization has completed")
+            }
+        }
     }
 
     pub(crate) fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
