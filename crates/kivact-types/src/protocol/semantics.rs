@@ -11,26 +11,17 @@
 use super::transform::Transform;
 use crate::geometry::{Point, Rect};
 use crate::ids::SemanticsId;
-use crate::semantics::{
-    A11yAction, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role, SortDirection,
-};
-use crate::semantics_text::SemanticsText;
+use crate::semantics::Semantics;
 
 /// One accessibility node, usable on any thread.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SemanticsNode {
     /// Stable node identity.
     pub id: SemanticsId,
-    /// Assistive-technology role.
-    pub role: Role,
     /// Children in reading order.
     pub children: Vec<SemanticsId>,
-    /// Accessible name.
-    pub label: String,
-    /// Accessible description.
-    pub description: String,
-    /// Current accessible value.
-    pub value: Option<String>,
+    /// Canonical accessible identity, state, relations and text properties.
+    pub semantics: Semantics<SemanticsId>,
     /// Logical bounds in the window as laid out before the scroll offsets
     /// of its ancestors (see the module documentation).
     pub bounds: Rect,
@@ -42,24 +33,6 @@ pub struct SemanticsNode {
     /// first) are shown mapped by it, then by its ancestors' scrolls and
     /// transforms. See [`SemanticsTree::window_bounds`].
     pub transform: Transform,
-    /// Whether interaction is disabled.
-    pub disabled: bool,
-    /// Whether this node is hidden from assistive technology.
-    pub hidden: bool,
-    /// Whether keyboard focus is allowed.
-    pub focusable: bool,
-    /// Toggle state; `None` for a node that is not a toggle.
-    pub checked: Option<CheckedState>,
-    /// Selection state.
-    pub selected: bool,
-    /// Expansion state.
-    pub expanded: Option<bool>,
-    /// Author automation identity.
-    pub test_id: Option<String>,
-    /// Supported accessibility actions.
-    pub actions: Vec<A11yAction>,
-    /// Rare control properties; absent for ordinary nodes.
-    pub properties: Option<Box<SemanticsProperties>>,
 }
 
 /// Complete accessibility tree, usable on any thread.
@@ -111,56 +84,4 @@ pub struct SemanticsUpdate {
     pub focus: Option<SemanticsId>,
     /// New or possibly changed nodes; each id occurs at most once.
     pub nodes: Vec<SemanticsNode>,
-}
-
-/// Optional semantics used by advanced controls.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct SemanticsProperties {
-    /// Native editing text, selection and geometry. Omit for protected text.
-    pub text: Option<SemanticsText>,
-    /// Numeric lower bound.
-    pub value_min: Option<f64>,
-    /// Numeric upper bound.
-    pub value_max: Option<f64>,
-    /// Current numeric value.
-    pub value_now: Option<f64>,
-    /// Live announcement policy.
-    pub live_region: Option<LiveRegion>,
-    /// Sort direction.
-    pub sort: SortDirection,
-    /// Direction of the control.
-    pub orientation: Orientation,
-    /// Active descendant identity.
-    pub active_descendant: Option<SemanticsId>,
-    /// Nodes that describe this one, in order. Each names a node of the
-    /// same tree.
-    pub described_by: Vec<SemanticsId>,
-    /// Nodes this one controls, in order. Each names a node of the same
-    /// tree.
-    pub controls: Vec<SemanticsId>,
-    /// Nodes that label this one, in order. Each names a node of the same
-    /// tree.
-    pub labelled_by: Vec<SemanticsId>,
-    /// Depth in a hierarchy, counted from 1.
-    pub level: Option<u32>,
-    /// Number of items in the set this node belongs to or holds.
-    pub set_size: Option<u32>,
-    /// Position in its set, counted from 1.
-    pub pos_in_set: Option<u32>,
-    /// Whether the node allows more than one selected item.
-    pub multiselectable: Option<bool>,
-    /// Whether assistive technology should wait for updates to finish.
-    pub busy: bool,
-    /// Whether a value is required.
-    pub required: bool,
-    /// The type of popup this control opens.
-    pub has_popup: Option<PopupKind>,
-    /// The meaning of the current item in a related set.
-    pub current_item: Option<CurrentItem>,
-    /// Invalid value.
-    pub invalid: bool,
-    /// Read-only text.
-    pub read_only: bool,
-    /// Password text.
-    pub protected: bool,
 }

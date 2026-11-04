@@ -1,5 +1,6 @@
 //! Role: Portable editable text runs, carets and selection snapshots.
 
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::geometry::Rect;
@@ -22,6 +23,8 @@ use crate::ids::TextRunId;
 /// touch and gives them again (and the whole list while none changed),
 /// and two snapshots compare their runs by identity first, so an update of
 /// a long text hands the platform only the runs that changed.
+/// Hashing uses run and caret contents, never Arc addresses; both signed zeros
+/// have the same hash without changing float equality or NaN comparisons.
 #[derive(Clone, Debug)]
 pub struct SemanticsText {
     /// Text runs in reading order; even empty text has one empty run. A
@@ -53,6 +56,15 @@ impl PartialEq for SemanticsText {
     }
 }
 
+impl Hash for SemanticsText {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runs.hash(state);
+        self.start.hash(state);
+        self.selection.hash(state);
+        hash_rect(self.caret, state);
+    }
+}
+
 /// One line of selectable text and the carets used to locate its characters.
 ///
 /// A hard line break belongs to the end of its run. The native adapter treats
@@ -70,6 +82,15 @@ pub struct SemanticsTextRun {
     pub carets: Vec<TextCaret>,
 }
 
+impl Hash for SemanticsTextRun {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.value.hash(state);
+        hash_rect(self.bounds, state);
+        self.carets.hash(state);
+    }
+}
+
 /// A cursor position in shaped text; usable on any thread.
 ///
 /// Combining marks and ligatures can share a cluster and therefore a rectangle.
@@ -81,4 +102,19 @@ pub struct TextCaret {
     pub offset: u32,
     /// Logical caret bounds relative to the text layout origin.
     pub rect: Rect,
+}
+
+impl Hash for TextCaret {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.offset.hash(state);
+        hash_rect(self.rect, state);
+    }
+}
+
+/// Hash geometry by value, preserving the existing float equality contract.
+fn hash_rect<H: Hasher>(rect: Rect, state: &mut H) {
+    for value in [rect.x, rect.y, rect.width, rect.height] {
+        let value = if value == 0.0 { 0.0 } else { value };
+        value.to_bits().hash(state);
+    }
 }

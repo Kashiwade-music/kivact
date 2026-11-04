@@ -70,8 +70,8 @@ pub use scene::{
     SceneCmd, ShapePaint, Stroke, TextRun,
 };
 pub use semantics::{
-    A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, LiveRegion, Orientation,
-    PopupKind, Role, SemanticsProperties, SortDirection, check_text,
+    A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, Finite, LiveRegion,
+    Orientation, PopupKind, Role, Semantics, SortDirection, check_text,
 };
 pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
 pub use text::{
