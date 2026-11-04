@@ -10,11 +10,11 @@ use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{
     Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
 };
-use kivact_core::view::{IntoView, ReadingDirection, Role, View, current_direction, for_each};
-use kivact_core::view::{NodeBuilder, icon, node, row, text};
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{ReadingDirection, Role, View, for_each, use_direction};
+use kivact_core::view::{icon, node, row, text};
 use kivact_interaction::TableFocus;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 #[derive(Clone, PartialEq)]
@@ -42,7 +42,7 @@ impl<R> Clone for Plan<R> {
 
 impl<R> Copy for Plan<R> {}
 
-pub(super) fn plan<R: Clone + PartialEq + 'static>(
+pub(super) fn plan<R: kivact_core::state::PropValue>(
     rows: Value<Vec<R>>,
     grouping: Grouping<R>,
 ) -> Plan<R> {
@@ -79,7 +79,7 @@ pub(super) fn plan<R: Clone + PartialEq + 'static>(
     Plan { entries, collapsed }
 }
 
-impl<R: Clone + PartialEq + 'static> Plan<R> {
+impl<R: kivact_core::state::PropValue> Plan<R> {
     pub(super) fn rows(self) -> Value<Vec<R>> {
         memo(move || {
             self.entries.with(|entries| {
@@ -94,7 +94,7 @@ impl<R: Clone + PartialEq + 'static> Plan<R> {
         })
     }
 
-    pub(super) fn view<K: Clone + Eq + Hash + 'static>(
+    pub(super) fn view<K: kivact_core::state::ItemKey>(
         self,
         grid: Grid<R, K>,
         key: Rc<dyn Fn(&R) -> K>,
@@ -129,7 +129,7 @@ impl<R: Clone + PartialEq + 'static> Plan<R> {
     }
 }
 
-fn header<R: 'static, K: Clone + Eq + Hash + 'static>(
+fn header<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     label: String,
     state: Value<DataTableGroupState>,
@@ -155,7 +155,7 @@ fn header<R: 'static, K: Clone + Eq + Hash + 'static>(
             }
         })
     };
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     let mark = icon("chevron-right").style(move || {
         let angle = if !state.get().collapsed {
             90

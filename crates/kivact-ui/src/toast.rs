@@ -6,9 +6,10 @@ use super::variants::{Variant, Variants};
 use kivact_core::custom::part;
 use kivact_core::motion::Transition;
 use kivact_core::state::signal;
-use kivact_core::style::{Theme, ThemeExtension, current_theme};
+use kivact_core::style::{Theme, ThemeExtension, use_theme};
+use kivact_core::view::NodeBuilder;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
-use kivact_core::view::{NodeBuilder, column, node, text};
+use kivact_core::view::{column, node, text};
 use kivact_interaction::{ToastId, Toaster, Tone};
 
 /// Where the toasts of `toaster` show: two live regions (polite and
@@ -47,7 +48,7 @@ pub fn toast_region(toaster: Toaster) -> ToastRegion {
     ToastRegion {
         toaster,
         variants: Variants::default(),
-        hold_all: false,
+        hold_all: false.into_value(),
     }
 }
 
@@ -73,7 +74,7 @@ impl ThemeExtension for ToastRowMotion {
 pub struct ToastRegion {
     toaster: Toaster,
     variants: Variants,
-    hold_all: bool,
+    hold_all: Value<bool>,
 }
 
 impl ToastRegion {
@@ -98,8 +99,8 @@ impl ToastRegion {
     /// the focus, while the pointer is over the region or the focus is in it
     /// ([`Toaster::hold_while`]): what a stack of toasts that opens under the
     /// pointer does (sonner). A constant: it is the region's behavior.
-    pub fn hold_all_on_hover(mut self, on: bool) -> Self {
-        self.hold_all = on;
+    pub fn hold_all_on_hover(mut self, on: impl IntoValue<bool>) -> Self {
+        self.hold_all = on.into_value();
         self
     }
 }
@@ -112,7 +113,7 @@ impl IntoView for ToastRegion {
             hold_all,
         } = self;
         let polite = toaster.visible(false);
-        let row_motion = current_theme().get::<ToastRowMotion>();
+        let row_motion = use_theme().get().ext::<ToastRowMotion>();
         let (rows, groups) = (variants.clone(), variants.clone());
         let group = move |assertive: bool, live: LiveRegion| {
             let rows = rows.clone();
@@ -138,18 +139,21 @@ impl IntoView for ToastRegion {
             )
         };
         let region = part(|input| input);
+        let anchor = kivact_core::view::node_ref();
         let state = region.state();
-        if hold_all {
-            let anchor = region.node_ref();
+        {
             let hovered = anchor.hovered();
             let focused = anchor.focus_within();
-            toaster.hold_while(kivact_core::memo(move || hovered.get() || focused.get()));
+            toaster.hold_while(kivact_core::state::memo(move || {
+                hold_all.get() && (hovered.get() || focused.get())
+            }));
         }
         with_recipe_style(
             column((
                 group(false, LiveRegion::Polite),
                 group(true, LiveRegion::Assertive),
             ))
+            .node_ref(anchor)
             .part(region),
             |r| r.toast_recipes().region_recipe(),
             &variants,
@@ -170,7 +174,8 @@ fn tone_icon(tone: Tone) -> Option<&'static str> {
         Tone::Danger => "toast-danger",
         Tone::Accent => "toast-accent",
     };
-    kivact_core::style::current_theme()
+    kivact_core::style::use_theme()
+        .get()
         .icons()
         .get(name)
         .map(|_| name)
@@ -181,13 +186,14 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
     let Some(content) = toaster.toast(id) else {
         return ().into_view();
     };
-    let swipe = current_theme().get::<ToastSwipe>();
-    let (part, swipe) = match swipe.as_ref() {
+    let card_ref = kivact_core::view::node_ref();
+    let swipe = use_theme().get().ext::<ToastSwipe>();
+    let (part, swipe) = match &*swipe {
         ToastSwipe::Disabled => (toaster.item(id), None),
         ToastSwipe::Enabled { edge, transition } => {
             let held = signal(false);
             let part = toaster.item_while(id, held);
-            let swipe = Swipe::new(*edge, part.node_ref().rect(), held, toaster, id);
+            let swipe = Swipe::new(*edge, card_ref.rect(), held, toaster, id);
             (part, Some((swipe, transition.clone())))
         }
     };
@@ -208,7 +214,7 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
         )
     });
     let icon = match &content.icon {
-        Some(icon) => Some(icon()),
+        Some(icon) => Some(icon.call(())),
         None => tone_icon(content.tone).map(|name| {
             with_recipe_style(
                 kivact_core::view::icon(name),
@@ -249,6 +255,7 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
     );
     let card = with_recipe_style(
         node()
+            .node_ref(card_ref)
             .part(part)
             .child(icon)
             .child(column((title, body)).style(kivact_core::style::style().grow(1).min_width(0)))

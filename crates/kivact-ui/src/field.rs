@@ -10,7 +10,6 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::FieldState;
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Value, memo};
 use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
@@ -130,20 +129,20 @@ impl<C: NodeBuilder + IntoView> IntoView for Field<C> {
             (node_ref(), node_ref(), node_ref(), node_ref());
         control = control
             .name(label)
-            .labelled_by(label_ref)
+            .with_node(|node| node.labelled_by(label_ref))
             .node_ref(control_ref);
         if let Some(required) = required {
-            control = control.required(required);
+            control = control.with_node(|node| node.required(required));
         }
         if hint.is_some() {
-            control = control.described_by(hint_ref);
+            control = control.with_node(|node| node.described_by(hint_ref));
         }
         let failed = memo(move || error.is_some_and(|error| error.with(Option::is_some)));
         if error.is_some() {
-            let own = control.accessible_invalid();
+            let own = control.node_mut().accessible_invalid();
             control = control
-                .described_by(error_ref)
-                .invalid(move || failed.get() || own.as_ref().is_some_and(|own| own()));
+                .with_node(|node| node.described_by(error_ref))
+                .invalid(move || failed.get() || own.as_ref().is_some_and(|own| own.get()));
         }
         let state = memo(move || FieldState {
             invalid: failed.get(),

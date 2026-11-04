@@ -20,15 +20,14 @@ use super::DialogState;
 use super::layer::with_recipe_style;
 use super::recipes::{Recipe, UiRecipes};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::{NodeExt, Part};
+use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::style::{Length, Position, Theme, ThemeExtension, current_theme, pct, style};
+use kivact_core::style::{Length, Position, Theme, ThemeExtension, pct, style, use_theme};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
-use kivact_interaction::{DialogKind, Dismiss, PopupState};
-use std::rc::Rc;
+use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
 /// Where a theme centers modal dialogs opened by an attached trigger.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -47,17 +46,17 @@ pub struct Dialog {
     open: Binding<bool>,
     title: Value<String>,
     title_hidden: Value<bool>,
-    kind: DialogKind,
+    kind: DialogMode,
     placement: Placement,
     align: Option<OverlayAlign>,
     width: Option<Value<Length>>,
     description: Option<Value<String>>,
     initial_focus: Option<NodeRef>,
-    dismiss: Option<Dismiss>,
+    dismiss: Option<DismissOn>,
     closable: Value<bool>,
-    media: Option<Rc<dyn Fn() -> View>>,
-    content: Option<Rc<dyn Fn() -> View>>,
-    footer: Option<Rc<dyn Fn() -> View>>,
+    media: Option<kivact_core::view::ViewFn>,
+    content: Option<kivact_core::view::ViewFn>,
+    footer: Option<kivact_core::view::ViewFn>,
     variants: Variants,
 }
 /// A themed modal, alert, drawer or anchored popover on the shared dialog parts.
@@ -65,12 +64,12 @@ pub struct Dialog {
 /// The builder is the view: give it a body with [`content`](Dialog::content)
 /// and optional actions with [`footer`](Dialog::footer). Open it by writing
 /// `open`, or from a button with [`attach`](Dialog::attach); a
-/// [`DialogKind::Popover`] is placed at the button it is attached to and
+/// [`DialogMode::Popover`] is placed at the button it is attached to and
 /// needs one.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::ui::DialogKind;
+/// use kivact::ui::DialogMode;
 ///
 /// fn rename(open: Signal<bool>) -> impl IntoView {
 ///     dialog("Rename", open)
@@ -81,18 +80,18 @@ pub struct Dialog {
 /// fn help() -> impl IntoView {
 ///     let open = signal(false);
 ///     dialog("Help", open)
-///         .kind(DialogKind::Popover)
+///         .kind(DialogMode::Popover)
 ///         .content(|| text("Press Tab to move between fields."))
 ///         .attach(button("Help"))
 /// }
 /// ```
 #[track_caller]
-pub fn dialog(title: impl IntoText, open: impl Into<Binding<bool>>) -> Dialog {
+pub fn dialog(title: impl IntoText, open: impl kivact_core::state::IntoBinding<bool>) -> Dialog {
     Dialog {
-        open: open.into(),
+        open: open.into_binding(),
         title: title.into_text_value(),
         title_hidden: false.into_value(),
-        kind: DialogKind::Modal,
+        kind: DialogMode::Modal,
         placement: Placement::Below,
         align: None,
         width: None,
@@ -125,7 +124,7 @@ impl Dialog {
 /// What every part of one dialog tells its recipes besides its own state.
 #[derive(Clone, Copy)]
 struct Shape {
-    kind: DialogKind,
+    kind: DialogMode,
     media: bool,
 }
 impl Shape {
@@ -197,30 +196,30 @@ impl Dialog {
     /// `AlertDialogMedia`). It is built each time the dialog opens, in a box
     /// the `media` recipe styles, and the header's recipes know of it from
     /// [`DialogState::media`].
-    pub fn media<V: IntoView>(mut self, media: impl Fn() -> V + 'static) -> Self {
-        self.media = Some(Rc::new(move || media().into_view()));
+    pub fn media<V: IntoView>(mut self, media: impl kivact_core::view::IntoViewFn<V>) -> Self {
+        self.media = Some(media.into_view_fn());
         self
     }
 
     /// The body, built in a fresh owner each time the dialog opens.
-    pub fn content<V: IntoView>(mut self, body: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move || body().into_view()));
+    pub fn content<V: IntoView>(mut self, body: impl kivact_core::view::IntoViewFn<V>) -> Self {
+        self.content = Some(body.into_view_fn());
         self
     }
 
     /// The actions row under the body, built each time the dialog opens; a
     /// footer that builds nothing is left out.
-    pub fn footer<V: IntoView>(mut self, footer: impl Fn() -> V + 'static) -> Self {
-        self.footer = Some(Rc::new(move || footer().into_view()));
+    pub fn footer<V: IntoView>(mut self, footer: impl kivact_core::view::IntoViewFn<V>) -> Self {
+        self.footer = Some(footer.into_view_fn());
         self
     }
 
-    pub fn kind(mut self, kind: DialogKind) -> Self {
-        self.kind = kind;
+    pub fn mode(mut self, mode: DialogMode) -> Self {
+        self.kind = mode;
         self
     }
 
-    /// The side of its trigger a [`DialogKind::Popover`] opens on (default
+    /// The side of its trigger a [`DialogMode::Popover`] opens on (default
     /// [`Placement::Below`]); the host flips it to the opposite side when
     /// the panel does not fit. The other kinds are centred or fixed to their
     /// edge and ignore it. A constant: it is the shape of the layout.
@@ -229,7 +228,7 @@ impl Dialog {
         self
     }
 
-    /// Where along its trigger's side a [`DialogKind::Popover`] sits (the
+    /// Where along its trigger's side a [`DialogMode::Popover`] sits (the
     /// overlay's [`align`](kivact_core::view::Overlay::align); its start by
     /// default). The other kinds ignore it. A constant, as the placement.
     pub fn align(mut self, align: OverlayAlign) -> Self {
@@ -245,7 +244,7 @@ impl Dialog {
         self.initial_focus = Some(target);
         self
     }
-    pub fn dismiss(mut self, dismiss: Dismiss) -> Self {
+    pub fn dismiss(mut self, dismiss: DismissOn) -> Self {
         self.dismiss = Some(dismiss);
         self
     }
@@ -254,7 +253,7 @@ impl Dialog {
     /// trigger also closes it) and return the trigger with the dialog. The
     /// trigger publishes `expanded` and `controls`, keeps its own name and
     /// role (a button without a role becomes a `Role::Button`), and is where
-    /// a [`DialogKind::Popover`] is placed and where the focus goes back to.
+    /// a [`DialogMode::Popover`] is placed and where the focus goes back to.
     pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
         self.render(Some(trigger))
     }
@@ -277,12 +276,12 @@ impl Dialog {
         }
         let mut anchor = node_ref();
         let trigger = trigger.map(|mut trigger| {
-            let role = trigger.accessible_role();
+            let role = trigger.node_mut().accessible_role();
             let part = behavior.trigger();
-            anchor = part.node_ref();
-            let trigger = trigger.part(part);
+            anchor = node_ref();
+            let trigger = trigger.node_ref(anchor).with_node(|node| node.part(part));
             match role {
-                Some(role) => trigger.role(role),
+                Some(role) => trigger.with_node(|node| node.role(role)),
                 None => trigger,
             }
             .into_view()
@@ -296,7 +295,7 @@ impl Dialog {
         let title = self.title;
         let hidden = self.title_hidden;
         let variants = self.variants.clone();
-        let dialog = kivact_core::view::show(behavior.shown(), move || {
+        let dialog = kivact_core::view::show(behavior.shown.get(), move || {
             let variants = &variants;
             let heading = {
                 let variants = variants.clone();
@@ -307,7 +306,7 @@ impl Dialog {
                 }
             };
             let closable = self.closable;
-            let close = (kind != DialogKind::Popover).then(|| {
+            let close = (kind != DialogMode::Popover).then(|| {
                 let variants = variants.clone();
                 kivact_core::view::show(closable, move || {
                     themed(
@@ -327,7 +326,7 @@ impl Dialog {
                 })
             });
             let media = self.media.as_ref().map(|media| {
-                wrapper(node().child(media()), open, shape, variants, |r| {
+                wrapper(node().child(media.call(())), open, shape, variants, |r| {
                     r.dialog_recipes().media_recipe()
                 })
             });
@@ -361,10 +360,10 @@ impl Dialog {
             // A dialog without content has no body, so the surface's gap
             // does not open twice between the header and the footer.
             let content = self.content.as_ref().map(|body| {
-                let content = wrapper(node().child(body()), open, shape, variants, |r| {
+                let content = wrapper(node().child(body.call(())), open, shape, variants, |r| {
                     r.dialog_recipes().body_recipe()
                 });
-                if matches!(kind, DialogKind::Drawer(_)) {
+                if matches!(kind, DialogMode::Drawer(_)) {
                     scroll(content)
                         .style(style().grow(1).min_height(0))
                         .into_view()
@@ -375,7 +374,7 @@ impl Dialog {
             let footer = self
                 .footer
                 .as_ref()
-                .map(|footer| footer())
+                .map(|footer| footer.call(()))
                 .filter(|footer| !kivact_core::custom::view_is_empty(footer))
                 .map(|footer| {
                     wrapper(row(footer), open, shape, variants, |r| {
@@ -390,15 +389,15 @@ impl Dialog {
                 variants,
                 move || shape.state(surface_state.get()),
             );
-            if let DialogKind::Drawer(side) = kind {
+            if let DialogMode::Drawer(side) = kind {
                 panel = panel.style(edge(side));
             }
             if let Some(width) = self.width {
                 panel = panel.style(move || style().width(width.get()));
             }
-            let popover = kind == DialogKind::Popover;
-            let position_anchor = if matches!(kind, DialogKind::Modal | DialogKind::AlertModal)
-                && *current_theme().get::<DialogCenter>() == DialogCenter::Window
+            let popover = kind == DialogMode::Popover;
+            let position_anchor = if matches!(kind, DialogMode::Modal | DialogMode::AlertModal)
+                && *use_theme().get().ext::<DialogCenter>() == DialogCenter::Window
             {
                 node_ref()
             } else {
@@ -413,7 +412,7 @@ impl Dialog {
                 },
                 panel,
             )
-            .part(surface)
+            .with_node(|node| node.part(surface))
             .name(title);
             if popover {
                 let layer = match self.align {
@@ -437,12 +436,12 @@ impl Dialog {
 /// The edge a drawer is fixed to. A side drawer's width is its surface
 /// recipe's (the default recipe keeps it within the window); a top or
 /// bottom one spans the window.
-fn edge(side: Side) -> kivact_core::style::Style {
+fn edge(side: Edge) -> kivact_core::style::Style {
     let fixed = style().position(Position::Fixed);
     match side {
-        Side::Left => fixed.left(0).top(0).bottom(0),
-        Side::Right => fixed.right(0).top(0).bottom(0),
-        Side::Top => fixed.left(0).right(0).top(0).width(pct(100)),
-        Side::Bottom => fixed.left(0).right(0).bottom(0).width(pct(100)),
+        Edge::Left => fixed.left(0).top(0).bottom(0),
+        Edge::Right => fixed.right(0).top(0).bottom(0),
+        Edge::Top => fixed.left(0).right(0).top(0).width(pct(100)),
+        Edge::Bottom => fixed.left(0).right(0).bottom(0).width(pct(100)),
     }
 }

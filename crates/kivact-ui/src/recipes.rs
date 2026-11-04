@@ -6,7 +6,7 @@
 //! [`Recipe`] is the only shape of a recipe; it is `Send + Sync` so that a
 //! theme can be passed from a worker to the UI. A recipe never returns a
 //! view: what an item shows belongs to the component's slot (`Tabs::item`,
-//! `RadioGroup::item`, `Menu::item`, `Select::option`, each given the item
+//! `RadioGroup::item`, `Menu::item`, `Select::item`, each given the item
 //! and its state as `Value`s), and without a slot the component draws the
 //! item's icon, label, description, check and radio marks and headings.
 //!
@@ -46,7 +46,7 @@
 //! look without a mark makes the recipe's box zero-sized.
 use super::DataTableGroupState;
 use super::values::{
-    AxisState, ButtonState, CheckState, DataTableCellState, DataTableCheckState,
+    AxisState, ButtonState, CheckableState, DataTableCellState, DataTableCheckState,
     DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
     SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
 };
@@ -68,10 +68,35 @@ use std::sync::{Arc, OnceLock};
 /// A recipe returns only style (layout, paint, local `Style::paint`
 /// drawing, and the hover, press, focus and disabled looks as state
 /// styles); what a part shows is the component's, or a slot the caller
-/// fills (`Tabs::item`, `Menu::item`, `Select::option`). Tables compare
+/// fills (`Tabs::item`, `Menu::item`, `Select::item`). Tables compare
 /// their recipes by identity, so installing an unchanged table never
 /// restyles.
-pub type Recipe<S> = Arc<dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync>;
+pub struct Recipe<S>(Arc<dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync>);
+
+impl<S> Clone for Recipe<S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<S, F> From<F> for Recipe<S>
+where
+    F: Fn(&Theme, &Look<S>) -> Style + Send + Sync + 'static,
+{
+    fn from(value: F) -> Self {
+        Self(Arc::new(value))
+    }
+}
+impl<S> std::ops::Deref for Recipe<S> {
+    type Target = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+impl<S> Recipe<S> {
+    fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
 
 /// A recipe table: one recipe per part and the tables of the parts'
 /// components. A component reads a recipe with the part's `_recipe` method
@@ -98,7 +123,7 @@ macro_rules! recipe_table {
             fn default_table() -> &'static Self {
                 static DEFAULT: OnceLock<$name> = OnceLock::new();
                 DEFAULT.get_or_init(|| Self {
-                    $( $field: Arc::new(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
+                    $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
                     $( $( $table: Default::default(), )* )?
                 })
             }
@@ -120,7 +145,7 @@ macro_rules! recipe_table {
                 where
                     F: Fn(&Theme, &Look<$state>) -> Style + Send + Sync + 'static,
                 {
-                    self.$field = Arc::new(f(self.$field));
+                    self.$field = Recipe::from(f(self.$field));
                     self
                 }
             )*
@@ -153,7 +178,7 @@ macro_rules! recipe_table {
         impl PartialEq for $name {
             fn eq(&self, other: &Self) -> bool {
                 true
-                    $( && Arc::ptr_eq(&self.$field, &other.$field) )*
+                    $( && self.$field.same(&other.$field) )*
                     $( $( && self.$table == other.$table )* )?
             }
         }
@@ -161,7 +186,7 @@ macro_rules! recipe_table {
         impl std::fmt::Debug for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.debug_struct(stringify!($name))
-                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field).cast::<()>()) )*
+                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field.0).cast::<()>()) )*
                     $( $( .field(stringify!($table), &self.$table) )* )?
                     .finish()
             }
@@ -182,7 +207,7 @@ recipe_table! {
         option(option_recipe): ListItemState = look_extra::option,
         /// The trailing box of an option, holding the theme's `check` icon
         /// while the option is selected. Every option has the box, so the
-        /// labels line up; a custom [`Select::option`](super::Select::option)
+        /// labels line up; a custom [`Select::item`](super::Select::item)
         /// row shows no check.
         check(check_recipe): ListItemState = look_extra::option_check,
         /// The box of the trigger's `chevron-down` icon.
@@ -278,14 +303,14 @@ recipe_table! {
         /// The group, laid out in its orientation.
         group(group_recipe): Orientation = look_controls::radio_group,
         /// A radio item: its indicator and its label.
-        item(item_recipe): CheckState = look_controls::radio_item,
+        item(item_recipe): CheckableState = look_controls::radio_item,
         /// The item's indicator, holding the theme's `dot` icon while
         /// it is checked.
-        indicator(indicator_recipe): CheckState = look_controls::radio_indicator,
+        indicator(indicator_recipe): CheckableState = look_controls::radio_indicator,
         /// The dot icon, mounted through selection changes so its paint can transition.
-        mark(mark_recipe): CheckState = look_controls::radio_mark,
+        mark(mark_recipe): CheckableState = look_controls::radio_mark,
         /// The secondary line of an option with a description.
-        description(description_recipe): CheckState = look_controls::radio_description,
+        description(description_recipe): CheckableState = look_controls::radio_description,
     }
 }
 
@@ -514,8 +539,8 @@ recipe_table! {
     /// use kivact::style::Theme;
     /// use kivact::ui::UiRecipes;
     /// let theme = Theme::light();
-    /// let recipes = theme.get::<UiRecipes>();
-    /// let square = UiRecipes::clone(&recipes)
+    /// let recipes = theme.ext::<UiRecipes>();
+    /// let square = recipes.to_owned()
     ///     .button(|prev| move |theme, state| prev(theme, state).radius(0))
     ///     .menu(|menu| menu.item(|prev| move |theme, state| prev(theme, state).padding_x(16)));
     /// let theme = theme.with(square);
@@ -525,25 +550,25 @@ recipe_table! {
         button(button_recipe): ButtonState = look::button,
         /// The row of a button's icons, label and children.
         button_content(button_content_recipe): ButtonState = look::button_content,
-        /// The busy indicator while `loading`; the button turns it about
+        /// The busy indicator while `busy`; the button turns it about
         /// its centre.
         button_busy(button_busy_recipe): ButtonState = look::button_busy,
         /// The box around a button's leading and trailing icon: where a kit
         /// sizes the icon for the button's size.
         button_icon(button_icon_recipe): ButtonState = look::button_icon,
-        checkbox(checkbox_recipe): CheckState = look::checkbox,
+        checkbox(checkbox_recipe): CheckableState = look::checkbox,
         /// The checkbox indicator box. Default recipes draw the indicator in the root.
-        checkbox_indicator(checkbox_indicator_recipe): CheckState = look_controls::empty_toggle_part,
+        checkbox_indicator(checkbox_indicator_recipe): CheckableState = look_controls::empty_toggle_part,
         /// A persistent part inside the checkbox indicator for the checked mark.
-        checkbox_check(checkbox_check_recipe): CheckState = look_controls::empty_toggle_part,
+        checkbox_check(checkbox_check_recipe): CheckableState = look_controls::empty_toggle_part,
         /// A persistent part inside the checkbox indicator for the indeterminate mark.
-        checkbox_mixed(checkbox_mixed_recipe): CheckState = look_controls::empty_toggle_part,
-        switch(switch_recipe): CheckState = look::switch,
+        checkbox_mixed(checkbox_mixed_recipe): CheckableState = look_controls::empty_toggle_part,
+        switch(switch_recipe): CheckableState = look::switch,
         /// The switch track. Default recipes draw the track and thumb in the root.
-        switch_track(switch_track_recipe): CheckState = look_controls::empty_toggle_part,
+        switch_track(switch_track_recipe): CheckableState = look_controls::empty_toggle_part,
         /// A persistent part inside the track for the moving thumb.
-        switch_thumb(switch_thumb_recipe): CheckState = look_controls::empty_toggle_part,
-        /// A [`toggle`](super::toggle) button: the icon and the label in a row.
+        switch_thumb(switch_thumb_recipe): CheckableState = look_controls::empty_toggle_part,
+        /// A [`toggle_button`](super::toggle) button: the icon and the label in a row.
         toggle(toggle_recipe): ToggleButtonState = look::toggle_button,
         text_input(text_input_recipe): TextInputState = look::text_input,
         text_area(text_area_recipe): TextInputState = look::text_area,
@@ -580,26 +605,26 @@ impl ThemeExtension for UiRecipes {
 impl UiRecipes {
     pub(super) fn has_checkbox_parts(&self) -> bool {
         let default = Self::default_table();
-        !Arc::ptr_eq(&self.checkbox_indicator, &default.checkbox_indicator)
-            || !Arc::ptr_eq(&self.checkbox_check, &default.checkbox_check)
-            || !Arc::ptr_eq(&self.checkbox_mixed, &default.checkbox_mixed)
+        !self.checkbox_indicator.same(&default.checkbox_indicator)
+            || !self.checkbox_check.same(&default.checkbox_check)
+            || !self.checkbox_mixed.same(&default.checkbox_mixed)
     }
 
     pub(super) fn has_switch_parts(&self) -> bool {
         let default = Self::default_table();
-        !Arc::ptr_eq(&self.switch_track, &default.switch_track)
-            || !Arc::ptr_eq(&self.switch_thumb, &default.switch_thumb)
+        !self.switch_track.same(&default.switch_track)
+            || !self.switch_thumb.same(&default.switch_thumb)
     }
 }
 
 impl RadioGroupRecipes {
     pub(super) fn has_custom_mark(&self) -> bool {
-        !Arc::ptr_eq(&self.mark, &Self::default_table().mark)
+        !self.mark.same(&Self::default_table().mark)
     }
 }
 
 impl TabsRecipes {
     pub(super) fn has_custom_indicator(&self) -> bool {
-        !Arc::ptr_eq(&self.indicator, &Self::default_table().indicator)
+        !self.indicator.same(&Self::default_table().indicator)
     }
 }

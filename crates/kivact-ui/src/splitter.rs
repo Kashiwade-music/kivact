@@ -2,15 +2,15 @@
 use super::layer::with_recipe_style;
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, callback};
 use kivact_core::style::{Direction, style};
+use kivact_core::view::EditPhase;
 use kivact_core::view::{
-    HandlerResult, IntoView, Orientation, ReadingDirection, View, current_direction,
+    HandlerResult, IntoView, Orientation, ReadingDirection, View, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
-use kivact_interaction::{EditPhase, IntoScalarRange, ScalarRange, use_splitter};
+use kivact_interaction::{ScalarRange, use_splitter};
 
 /// Two panes and a handle between them, created by [`splitter`].
 pub struct Splitter {
@@ -53,14 +53,14 @@ pub struct Splitter {
 #[track_caller]
 pub fn splitter(
     name: impl IntoText,
-    size: impl Into<Binding<f64>>,
-    range: impl IntoScalarRange,
+    size: impl kivact_core::state::IntoBinding<f64>,
+    range: impl IntoValue<ScalarRange>,
 ) -> Splitter {
     Splitter {
         root: node(),
         name: name.into_text_value(),
-        size: size.into(),
-        range: range.into_range(),
+        size: size.into_binding(),
+        range: range.into_value(),
         orientation: Orientation::Horizontal,
         start: None,
         end: None,
@@ -151,7 +151,7 @@ impl IntoView for Splitter {
         // `.disabled(..)` on the splitter ignores input and assistive
         // technology and cancels a drag in progress.
         if let Some(disabled) = root.accessible_disabled() {
-            behavior = behavior.disabled(move || disabled());
+            behavior = behavior.disabled(move || disabled.get());
         }
         let part = behavior.handle();
         let input = part.state();
@@ -178,7 +178,7 @@ impl IntoView for Splitter {
         let trailing = node()
             .child(end)
             .style(style().grow(1).basis(0).min_width(0).min_height(0));
-        let direction = match (vertical, current_direction()) {
+        let direction = match (vertical, use_direction().get()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,

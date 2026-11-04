@@ -17,7 +17,7 @@ use kivact_core::style::{
 };
 
 use super::values::{
-    ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, ToggleButtonState,
+    ButtonState, ButtonVariant, CheckableState, ControlSize, TextInputState, ToggleButtonState,
 };
 use super::variants::Look;
 use kivact_core::view::CheckedState;
@@ -158,19 +158,19 @@ fn toggle(theme: &Theme, size: ControlSize, switch: bool) -> Style {
         .pressed(style().background(ColorToken::Pressed))
 }
 
-pub(super) fn checkbox(theme: &Theme, look: &CheckState) -> Style {
+pub(super) fn checkbox(theme: &Theme, look: &CheckableState) -> Style {
     let (theme, state) = (theme.clone(), *look);
     toggle(&theme, state.size, false).paint(move |d, size| draw_checkbox(&theme, &state, d, size))
 }
 
-pub(super) fn switch(theme: &Theme, look: &CheckState) -> Style {
+pub(super) fn switch(theme: &Theme, look: &CheckableState) -> Style {
     let (theme, state) = (theme.clone(), *look);
     toggle(&theme, state.size, true).paint(move |d, size| draw_switch(&theme, &state, d, size))
 }
 
 /// The box of a check box: filled with the accent and a check mark (or a
 /// bar when mixed) while on, an outlined box otherwise.
-pub(super) fn draw_checkbox(theme: &Theme, look: &CheckState, d: &mut Draw, size: Size) {
+pub(super) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
     let side = indicator(theme, look.size);
     let r = theme.radius().sm;
     let rect = Rect::new(leading(theme), (size.height - side) / 2.0, side, side);
@@ -207,7 +207,7 @@ pub(super) fn draw_checkbox(theme: &Theme, look: &CheckState, d: &mut Draw, size
 }
 
 /// The track and thumb of a switch.
-pub(super) fn draw_switch(theme: &Theme, look: &CheckState, d: &mut Draw, size: Size) {
+pub(super) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
     let on = look.checked.is_checked();
     let h = indicator(theme, look.size);
     let w = indicator_width(theme, look.size, true);

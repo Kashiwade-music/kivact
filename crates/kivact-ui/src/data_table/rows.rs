@@ -9,29 +9,30 @@ use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
 use kivact_core::custom::Part;
 use kivact_core::draw::linear_gradient;
+use kivact_core::view::NodeBuilder;
+
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
 use kivact_core::state::{Binding, Callback, Value, binding, memo, signal};
 use kivact_core::style::{
-    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, current_theme, pct, style,
+    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
 use kivact_core::view::{
-    ButtonPress, CheckedState, Handled, IntoView, MouseButton, NodeRef, PointerEvent, PointerPhase,
-    ReadingDirection, Role, View, current_direction, dynamic, node_ref,
+    ButtonPress, CheckedState, Handled, MouseButton, NodeRef, PointerEvent, PointerPhase,
+    ReadingDirection, Role, View, dynamic, node_ref, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
-    DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState, TableFocus,
+    DataTableApi, DragCoordinates, DragState, DragUpdate, ListGesture, TableCellState, TableFocus,
     TableRowState, use_disclosure, use_drag,
 };
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// What the header and the rows of one table share.
-pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
+pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
     pub(super) tree: Option<super::tree::Plan<K>>,
-    pub(super) behavior: Table<K, usize>,
+    pub(super) behavior: DataTableApi<K, usize>,
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
@@ -49,7 +50,7 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) details: Option<RowSlot<R>>,
     pub(super) expanded_rows: Option<Binding<Vec<K>>>,
-    pub(super) reorder: Option<Callback<(K, usize)>>,
+    pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
@@ -93,7 +94,7 @@ impl StickyColumns {
         });
         Self {
             edges,
-            rtl: current_direction() == ReadingDirection::Rtl,
+            rtl: use_direction().get() == ReadingDirection::Rtl,
             headers,
             widths,
             viewport,
@@ -113,7 +114,7 @@ impl StickyColumns {
     }
 }
 
-impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
+impl<R: 'static, K: kivact_core::state::ItemKey> Clone for Grid<R, K> {
     fn clone(&self) -> Self {
         Self {
             tree: self.tree,
@@ -146,7 +147,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
     }
 }
 
-impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
+impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
     /// Whether rows have check boxes: the table has a selection and cells
     /// hold the focus (with rows, a press selects the row).
     fn checks(&self) -> Option<Binding<Vec<K>>> {
@@ -156,7 +157,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
 
     fn direction(&self) -> Style {
         if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
-            || (self.row_status.is_some() && current_direction() == ReadingDirection::Rtl)
+            || (self.row_status.is_some() && use_direction().get() == ReadingDirection::Rtl)
         {
             style().direction(Direction::RowReverse)
         } else {
@@ -210,7 +211,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
         let visible = self.visible;
         let on_left = start != sticky.rtl;
         Some(node().hit_testable(false).style(move || {
-            let paint = current_theme().get::<DataTableStickyPaint>();
+            let paint = use_theme().get().ext::<DataTableStickyPaint>();
             let width = paint.shadow_width;
             let boundary = visible.with(|columns| {
                 let mut pinned = columns
@@ -294,7 +295,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
 
 /// The header row: the check column, the shown columns' headers and the
 /// actions column's.
-pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
 ) -> View {
     let check = grid
@@ -333,7 +334,7 @@ pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
 
 /// The header of column `index`: its title, the sort mark and, when the
 /// table is resizable, the resize handle.
-fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     index: usize,
 ) -> View {
@@ -432,8 +433,8 @@ fn keep_selection(event: PointerEvent) -> Handled {
 /// The check box of the row `id`, in its box: it selects or clears the row.
 fn row_check<R, K>(grid: &Grid<R, K>, selection: Binding<Vec<K>>, id: K, item: Value<R>) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let behavior = grid.behavior;
     let key = id.clone();
@@ -475,8 +476,8 @@ where
 /// with the details under it.
 pub(super) fn body<R, K>(grid: &Grid<R, K>, id: K, item: Value<R>) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     if let Some(tree) = grid.tree {
         let grid = grid.clone();
@@ -490,14 +491,18 @@ where
 
 fn body_row<R, K>(grid: &Grid<R, K>, id: K, item: Value<R>, branch: bool) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let mut part = grid.behavior.row(id.clone());
     if let Some(tree) = grid.tree {
-        part = part.level(tree.level(id.clone()));
+        let level = tree.level(id.clone());
+        let state = part.state();
+        part = Part::new(state, move |host| host.part(part).level(level));
         if branch {
-            part = part.expanded(tree.open(id.clone()));
+            let expanded = tree.open(id.clone());
+            let state = part.state();
+            part = Part::new(state, move |host| host.part(part).expanded(expanded));
         }
     }
     let state = part.state();
@@ -525,14 +530,14 @@ where
                     .direction(kivact_core::style::Direction::Row)
                     .align_items(kivact_core::style::Align::Center),
             )
-            .child(render(item))
+            .child(render.call(item))
     });
     let (trigger, details) = match (&grid.details, grid.expanded_rows) {
         (Some(render), Some(expanded)) => {
             let (trigger, region) = row_disclosure(grid, id.clone(), item, expanded, render);
             (Some(trigger), Some(region.into_view()))
         }
-        (Some(render), None) => (None, Some(render(item))),
+        (Some(render), None) => (None, Some(render.call(item))),
         (None, _) => (None, None),
     };
     let index = grid.indexed.map(|positions| {
@@ -573,7 +578,7 @@ where
         None => line,
     };
     let line = match &grid.row_context_menu {
-        Some(menu) => menu(item, line),
+        Some(menu) => menu.call((item, line)),
         None => line.into_view(),
     };
     match details {
@@ -611,7 +616,7 @@ fn expansion_cell() -> Node {
     )
 }
 
-fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
+fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     key: K,
     item: Value<R>,
@@ -635,7 +640,7 @@ fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
         },
     );
     let disclosure = use_disclosure(open);
-    let shown = disclosure.shown();
+    let shown = disclosure.shown.get();
     let row_label = grid.row_label.clone();
     let name = message_with("data_table.row_details", "{row} details", move || {
         [("row", item.with(|row| row_label(row)))]
@@ -657,7 +662,7 @@ fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
                 "chevron-right"
             })
         }));
-    let region = column(render(item))
+    let region = column(render.call(item))
         .role(Role::Group)
         .name(name)
         .part(disclosure.content());
@@ -674,12 +679,12 @@ fn cell<R, K>(
     row: Value<TableRowState>,
 ) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let def = grid.columns[index].clone();
     let content = match &grid.cells {
-        Some(render) => render(item, index),
+        Some(render) => render.call((item, index)),
         None if def.has_cell() => {
             let def = def.clone();
             dynamic(item, move |row: R| def.cell_of(&row)).into_view()
@@ -742,10 +747,14 @@ where
 
 /// The drag part of a row that reports moves of one row in the caller's
 /// order and clears the sort.
-fn drag_source<R, K>(grid: &Grid<R, K>, id: K, reorder: Callback<(K, usize)>) -> Part<DragState>
+fn drag_source<R, K>(
+    grid: &Grid<R, K>,
+    id: K,
+    reorder: Callback<kivact_interaction::Reorder<K>>,
+) -> Part<DragState>
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let consumed = signal(0.0_f64);
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
@@ -765,7 +774,10 @@ where
                 })
             });
             if let Some(destination) = destination {
-                reorder.call((id.clone(), destination));
+                reorder.call(kivact_interaction::Reorder {
+                    key: id.clone(),
+                    to: destination,
+                });
                 sort.set(None);
                 consumed.set(update.delta.y);
             }

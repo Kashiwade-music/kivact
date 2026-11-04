@@ -2,21 +2,21 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::{NodeExt, PartState};
+use kivact_core::custom::PartState;
 use kivact_core::geometry::Rect;
 use kivact_core::motion::{Spring, Transition};
 use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{
-    Length, Position, Style, Theme, ThemeExtension, TransitionProp, current_theme, style,
+    Length, Position, Style, Theme, ThemeExtension, TransitionProp, style, use_theme,
 };
+use kivact_core::view::EditPhase;
 use kivact_core::view::{
-    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, current_direction, node_ref,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{
-    EditPhase, IntoScalarRange, RangeThumb, Scalar, ScalarRange, TouchSliderGesture,
-    use_range_scalar, use_scalar,
+    RangeThumb, ScalarApi, ScalarRange, TouchSliderGesture, use_range_scalar, use_scalar,
 };
 
 /// The values a slider edits: one, or the two ends of a range.
@@ -80,8 +80,8 @@ pub struct Slider {
 /// }
 /// ```
 #[track_caller]
-pub fn slider(label: impl IntoText, value: impl Into<Binding<f64>>) -> Slider {
-    create(label.into_text_value(), Values::One(value.into()))
+pub fn slider(label: impl IntoText, value: impl kivact_core::state::IntoBinding<f64>) -> Slider {
+    create(label.into_text_value(), Values::One(value.into_binding()))
 }
 
 /// A themed slider named `label` with two thumbs editing the ends of a
@@ -91,16 +91,16 @@ pub fn slider(label: impl IntoText, value: impl Into<Binding<f64>>) -> Slider {
 /// `slider.minimum` and `slider.maximum` ("Minimum", "Maximum"). Keys,
 /// pointer, assistive technology and edits are as [`slider`]'s; a press on
 /// the track moves the thumb nearest to it, and a drag of the filled range
-/// between the thumbs moves both ([`RangeScalar::body`](kivact_interaction::RangeScalar::body)).
+/// between the thumbs moves both ([`RangeScalarApi::body`](kivact_interaction::RangeScalarApi::body)).
 #[track_caller]
 pub fn range_slider(
     label: impl IntoText,
-    low: impl Into<Binding<f64>>,
-    high: impl Into<Binding<f64>>,
+    low: impl kivact_core::state::IntoBinding<f64>,
+    high: impl kivact_core::state::IntoBinding<f64>,
 ) -> Slider {
     create(
         label.into_text_value(),
-        Values::Two(low.into(), high.into()),
+        Values::Two(low.into_binding(), high.into_binding()),
     )
 }
 
@@ -142,8 +142,8 @@ impl Slider {
     /// (`0.0..=1.0`), a [`ScalarRange`], or a closure, `Signal` or `Value` of
     /// one when the bounds change.
     #[track_caller]
-    pub fn range(mut self, range: impl IntoScalarRange) -> Self {
-        self.range = Some(range.into_range());
+    pub fn range(mut self, range: impl IntoValue<ScalarRange>) -> Self {
+        self.range = Some(range.into_value());
         self
     }
 
@@ -151,15 +151,15 @@ impl Slider {
     /// keys step by it too. The default is continuous (the keys step by 1).
     /// A step that is not a positive finite number is a usage error.
     #[track_caller]
-    pub fn step(mut self, step: f64) -> Self {
+    pub fn step(mut self, step: impl Into<f64>) -> Self {
+        let step = step.into();
         if !(step.is_finite() && step > 0.0) {
             kivact_core::custom::raise(
-                kivact_core::diagnostics::ErrorKind::Message,
+                kivact_core::ErrorKind::Message,
                 format!("Slider::step: the step {step} is not a positive finite number"),
-                std::panic::Location::caller(),
             );
         }
-        self.step = Some(step);
+        self.step = Some(step.into());
         self
     }
 
@@ -295,9 +295,7 @@ impl IntoView for Slider {
         // `.disabled(..)` on the slider ends a drag in progress and ignores
         // input and assistive technology; the track is disabled with its
         // thumbs, so its recipe's disabled state style dims the whole slider.
-        let disabled = root
-            .accessible_disabled()
-            .map(|read| (move || read()).into_value());
+        let disabled = root.accessible_disabled().map(|read| read);
         let vertical = orientation == Orientation::Vertical;
         let range = range.unwrap_or_else(|| {
             ScalarRange::new(0.0, 100.0)
@@ -305,7 +303,7 @@ impl IntoView for Slider {
                 .into_value()
         });
         let range = match step {
-            Some(step) => kivact_core::memo(move || {
+            Some(step) => kivact_core::state::memo(move || {
                 let range = range.get();
                 range.with_step(step).unwrap_or(range)
             }),
@@ -326,15 +324,16 @@ impl IntoView for Slider {
                 on_edit.call(phase);
             }
         };
-        let with_disabled = move |scalar: Scalar| match disabled {
+        let with_disabled = move |scalar: ScalarApi| match disabled {
             Some(disabled) => scalar.disabled(disabled),
             None => scalar,
         };
         let thumb_ref = node_ref();
-        let touch = *current_theme().get::<SliderTouchMotion>();
+        let touch = *use_theme().get().ext::<SliderTouchMotion>();
         // A range's filled span drags both ends.
         let mut body = None;
-        let (track_part, thumbs, fractions): (_, Vec<(Scalar, Value<String>)>, _) = match values {
+        let (track_part, thumbs, fractions): (_, Vec<(ScalarApi, Value<String>)>, _) = match values
+        {
             Values::One(value) => {
                 let scalar = with_disabled(use_scalar(value, range).on_edit(report));
                 if let SliderTouchMotion::Direct { gesture, .. } = touch {
@@ -381,12 +380,12 @@ impl IntoView for Slider {
             }
         };
         let track_state = track_part.state();
-        let track_ref = track_part.node_ref();
+        let track_ref = node_ref();
         let geometry = std::rc::Rc::new(Geometry {
             track: track_ref.rect(),
             thumb: thumb_ref.rect(),
             vertical,
-            rtl: !vertical && current_direction() == ReadingDirection::Rtl,
+            rtl: !vertical && use_direction().get() == ReadingDirection::Rtl,
         });
         let state = move |input: PartState| AxisState {
             input,
@@ -467,6 +466,7 @@ impl IntoView for Slider {
             &variants,
             move || state(track_state.get()),
         )
+        .node_ref(track_ref)
         .part(track_part);
         let root = if fractions.from.is_some() {
             let mut root = root.role(Role::Group);

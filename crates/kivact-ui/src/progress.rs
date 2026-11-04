@@ -8,12 +8,11 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, ProgressState};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{reduced_motion, surface_active};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, effect, memo, signal};
-use kivact_core::style::{Theme, ThemeExtension, current_theme};
+use kivact_core::style::{Theme, ThemeExtension, use_theme};
 use kivact_core::view::{IntoView, Role, View};
 use kivact_core::view::{Node, NodeBuilder, node};
 
@@ -159,7 +158,7 @@ impl IntoView for Progress {
             variants,
         } = self;
         let target = memo(move || fraction(value.get()));
-        let motion = current_theme().get::<ProgressMotion>();
+        let motion = use_theme().get().ext::<ProgressMotion>();
         let transition = Transition::tween(motion.determinate_ms as f64, motion.determinate_easing);
         let fill = move || target.get().unwrap_or(0.0);
         let shown = if motion.animate_initial {
@@ -170,7 +169,7 @@ impl IntoView for Progress {
         .into_value();
         let phase = signal(0.0f64);
         let period = memo(|| {
-            let motion = current_theme().get::<ProgressMotion>();
+            let motion = use_theme().get().ext::<ProgressMotion>();
             if reduced_motion() {
                 motion.reduced_period_ms
             } else {

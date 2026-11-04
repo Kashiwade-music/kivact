@@ -8,7 +8,6 @@
 //! write one `Binding<Vec<K>>`.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
 use kivact_core::state::{Binding, Value, memo};
@@ -16,14 +15,13 @@ use kivact_core::style::{Overflow, style};
 use kivact_core::view::{IntoView, View, node_ref, show};
 use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::{use_content_reveal, use_disclosure};
-use std::rc::Rc;
 
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
     root: Node,
     title: Value<String>,
     open: Binding<bool>,
-    content: Rc<dyn Fn() -> View>,
+    content: kivact_core::view::ViewFn,
     keep_mounted: bool,
     animated: bool,
     variants: Variants,
@@ -61,7 +59,7 @@ pub struct Disclosure {
 ///                 })
 ///             },
 ///         );
-///         disclosure(title, is_open, move || text(body))
+///         disclosure(title, is_open).content(move || text(body))
 ///     };
 ///     column((
 ///         section("shipping", "Shipping", "Ships in 2 days."),
@@ -70,16 +68,15 @@ pub struct Disclosure {
 /// }
 /// ```
 #[track_caller]
-pub fn disclosure<V: IntoView>(
+pub fn disclosure(
     title: impl IntoText,
-    open: impl Into<Binding<bool>>,
-    content: impl Fn() -> V + 'static,
+    open: impl kivact_core::state::IntoBinding<bool>,
 ) -> Disclosure {
     Disclosure {
         root: node(),
         title: title.into_text_value(),
-        open: open.into(),
-        content: Rc::new(move || content().into_view()),
+        open: open.into_binding(),
+        content: kivact_core::view::ViewFn::from(|()| ()),
         keep_mounted: false,
         animated: false,
         variants: Variants::default(),
@@ -87,13 +84,18 @@ pub fn disclosure<V: IntoView>(
 }
 
 impl Disclosure {
+    /// Build this section each time it opens.
+    pub fn content<V: IntoView>(mut self, content: impl kivact_core::view::IntoViewFn<V>) -> Self {
+        self.content = content.into_view_fn();
+        self
+    }
     /// Build the content once and keep it mounted, hidden while the section
     /// is closed, so the state inside it (a draft, a scroll position)
     /// survives closing (Radix's `forceMount`). A constant: it chooses
     /// whether the content's owner lives with each opening or with the
     /// disclosure.
-    pub fn keep_mounted(mut self, keep: bool) -> Self {
-        self.keep_mounted = keep;
+    pub fn keep_mounted(mut self) -> Self {
+        self.keep_mounted = true;
         self
     }
 
@@ -133,9 +135,9 @@ impl IntoView for Disclosure {
         let mut details = use_disclosure(self.open);
         // `.disabled(..)` ignores input and assistive technology.
         if let Some(disabled) = self.root.accessible_disabled() {
-            details = details.disabled(move || disabled());
+            details = details.disabled(move || disabled.get());
         }
-        let shown = details.shown();
+        let shown = details.shown.get();
         let reveal = self
             .animated
             .then(|| use_content_reveal(shown, Transition::tween(200, Easing::EaseOut)));
@@ -176,7 +178,7 @@ impl IntoView for Disclosure {
                     move || content_state.get(),
                 );
                 let Some(reveal) = reveal else {
-                    return region.child(build());
+                    return region.child(build.call(()));
                 };
                 let measured = node_ref();
                 let height = reveal.container_style(measured);
@@ -187,7 +189,7 @@ impl IntoView for Disclosure {
                         node()
                             .node_ref(measured)
                             .style(style().shrink(0))
-                            .child(build()),
+                            .child(build.call(())),
                     )
             }
         };

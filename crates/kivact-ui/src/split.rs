@@ -9,18 +9,18 @@
 use super::layer::with_recipe_style;
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::i18n::message;
 use kivact_core::state::{Binding, Callback, Value, binding, memo};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::{Direction, pct, style};
+use kivact_core::view::EditPhase;
 use kivact_core::view::IntoChildren;
 use kivact_core::view::{
-    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, View, current_direction,
-    node_ref, show,
+    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, View, node_ref, show,
+    use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
-use kivact_interaction::{EditPhase, ScalarRange, use_splitter};
+use kivact_interaction::{ScalarRange, use_splitter};
 use std::rc::Rc;
 
 /// The pixels used until the host has laid the panes out.
@@ -67,17 +67,20 @@ pub struct Split {
 ///
 /// fn workspace() -> impl IntoView {
 ///     let sizes = signal(vec![0.25f64, 0.75]);
-///     split((text("Files"), text("Editor")), sizes)
+///     split(sizes, (text("Files"), text("Editor")))
 ///         .grip(true)
 ///         .style(style().height(200).width(400))
 /// }
 /// ```
 #[track_caller]
-pub fn split(panes: impl IntoChildren, sizes: impl Into<Binding<Vec<f64>>>) -> Split {
+pub fn split(
+    sizes: impl kivact_core::state::IntoBinding<Vec<f64>>,
+    panes: impl IntoChildren,
+) -> Split {
     Split {
         root: node(),
         orientation: Orientation::Horizontal,
-        sizes: sizes.into(),
+        sizes: sizes.into_binding(),
         panes: panes.into_views(),
         grip: false.into_value(),
         min_size: 0.1,
@@ -106,7 +109,8 @@ impl Split {
     }
 
     /// The smallest fraction of the group a pane may take (0.1 by default).
-    pub fn min_size(mut self, fraction: f64) -> Self {
+    pub fn min_size(mut self, fraction: impl Into<f64>) -> Self {
+        let fraction = fraction.into();
         self.min_size = if fraction.is_finite() {
             fraction.clamp(0.0, 0.5)
         } else {
@@ -167,7 +171,7 @@ struct Group {
     grip: Value<bool>,
     min_size: f64,
     on_edit: Option<Callback<EditPhase>>,
-    disabled: Option<Rc<dyn Fn() -> bool>>,
+    disabled: Option<Value<bool>>,
     variants: Variants,
 }
 
@@ -238,7 +242,7 @@ impl IntoView for Split {
                 children.push(handle(at, &group).into_view());
             }
         }
-        let direction = match (stacked, current_direction()) {
+        let direction = match (stacked, use_direction().get()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,
@@ -310,7 +314,7 @@ fn handle(at: usize, group: &Group) -> Node {
         }
     });
     if let Some(disabled) = disabled {
-        behavior = behavior.disabled(move || disabled());
+        behavior = behavior.disabled(move || disabled.get());
     }
     let part = behavior.handle();
     let input = part.state();

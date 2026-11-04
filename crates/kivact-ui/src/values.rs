@@ -1,7 +1,7 @@
 //! Role: Passive state and appearance settings for standard component recipes.
 //!
 //! Each recipe gets the actual state of the part it styles. Checkbox, switch
-//! and radio items get [`CheckState`] (the real `CheckedState` plus size and
+//! and radio items get [`CheckableState`] (the real `CheckedState` plus size and
 //! invalid); a select's trigger gets [`SelectTriggerState`], its surface
 //! `PopupState` and its options `ListItemState`; a tooltip's optional arrow
 //! gets [`TooltipArrowState`], found from the anchor's and the surface's
@@ -25,9 +25,10 @@
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
 use kivact_core::custom::PartState;
+use kivact_core::geometry::Edge;
 use kivact_core::view::CheckedState;
 use kivact_core::view::Orientation;
-use kivact_interaction::DialogKind;
+use kivact_interaction::DialogMode;
 
 /// What a button does, which its recipe draws (shadcn's `variant`).
 ///
@@ -87,11 +88,12 @@ pub fn provide_control_size<V: kivact_core::view::IntoView>(
     size: ControlSize,
     content: impl FnOnce() -> V + 'static,
 ) -> kivact_core::view::View {
-    kivact_core::view::provide(InheritedControlSize(size), content)
+    kivact_core::state::provide(InheritedControlSize(size), content)
 }
 
 pub(super) fn default_control_size() -> ControlSize {
-    kivact_core::view::try_context::<InheritedControlSize>()
+    kivact_core::state::try_use_context::<InheritedControlSize>()
+        .get()
         .map_or_else(ControlSize::default, |size| size.0)
 }
 
@@ -106,7 +108,7 @@ pub struct ButtonState {
     /// decoration is not a state style property).
     pub input: PartState,
     pub size: ControlSize,
-    pub loading: bool,
+    pub busy: bool,
     /// Whether the button opens something and whether that is open: `None`
     /// for a plain button, `Some(open)` when the button publishes an
     /// expanded state (a popup, menu or disclosure attached its trigger to
@@ -117,7 +119,7 @@ pub struct ButtonState {
     /// Whether the button shows a leading icon ([`Button::icon`](super::Button::icon)).
     pub leading_icon: bool,
     /// Whether the button shows a trailing icon
-    /// ([`Button::trailing_icon`](super::Button::trailing_icon)).
+    /// ([`Button::trailing`](super::Button::trailing)).
     pub trailing_icon: bool,
     /// Whether the button shows only its leading icon: it has one and its
     /// label is hidden ([`Button::hide_label`](super::Button::hide_label)).
@@ -135,7 +137,7 @@ impl ButtonState {
         ButtonState {
             input,
             size,
-            loading: false,
+            busy: false,
             expanded: None,
             leading_icon: false,
             trailing_icon: false,
@@ -144,7 +146,7 @@ impl ButtonState {
     }
 }
 
-/// The state of a [`toggle`](super::toggle) for its recipe.
+/// The state of a [`toggle_button`](super::toggle) for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ToggleButtonState {
     /// The actual input state of the toggle.
@@ -153,10 +155,10 @@ pub struct ToggleButtonState {
     pub pressed: bool,
     /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
-    /// Whether the toggle shows a leading icon ([`Toggle::icon`](super::Toggle::icon)).
+    /// Whether the toggle shows a leading icon ([`ToggleButton::icon`](super::ToggleButton::icon)).
     pub leading_icon: bool,
     /// Whether the toggle shows only its leading icon: it has one and its
-    /// label is hidden ([`Toggle::hide_label`](super::Toggle::hide_label)).
+    /// label is hidden ([`ToggleButton::hide_label`](super::ToggleButton::hide_label)).
     /// A look draws it as a square of the toggle's height.
     pub icon_only: bool,
 }
@@ -176,14 +178,14 @@ pub struct ProgressState {
     /// paints the fill reads it in the paint, which follows it. The handle
     /// is made at setup and stays the same for the mounted bar; it is not
     /// part of the state's equality.
-    pub shown: kivact_core::Value<f64>,
+    pub shown: kivact_core::state::Value<f64>,
     /// A clock from 0 to 1 that repeats with the theme's
     /// [`ProgressMotion`](super::ProgressMotion) period while the bar is
     /// indeterminate or [`Progress::moving`](super::Progress::moving) is true.
     /// The clock rests at 0 under reduced motion by default. A recipe reads it
     /// in a paint that moves. The handle is made at setup and stays the same
     /// for the mounted bar; it is not part of the state's equality.
-    pub phase: kivact_core::Value<f64>,
+    pub phase: kivact_core::state::Value<f64>,
 }
 
 impl ProgressState {
@@ -239,7 +241,7 @@ pub struct SwitchDragState {
 
 /// The state of a check box, a switch or a radio item for its recipe.
 #[derive(Clone, Copy, Debug)]
-pub struct CheckState {
+pub struct CheckableState {
     /// The actual input state of the control.
     pub input: PartState,
     /// Whether it is on; only a check box is ever
@@ -254,12 +256,12 @@ pub struct CheckState {
     /// for a check box and a radio item. The handle is made at setup and
     /// stays the same for the mounted control; read it in the paint, which
     /// follows its text. It is not part of the state's equality.
-    pub text: Option<kivact_core::Value<String>>,
+    pub text: Option<kivact_core::state::Value<String>>,
     /// Live visual state for an opted-in Switch gesture.
     pub switch_drag: Option<SwitchDragState>,
 }
 
-impl PartialEq for CheckState {
+impl PartialEq for CheckableState {
     fn eq(&self, other: &Self) -> bool {
         self.input == other.input
             && self.checked == other.checked
@@ -273,7 +275,7 @@ impl PartialEq for CheckState {
 pub struct DialogState {
     pub input: PartState,
     pub open: bool,
-    pub kind: DialogKind,
+    pub kind: DialogMode,
     /// The dialog has a [`media`](super::Dialog::media) view in its header,
     /// which the header recipe lays out beside or above the title.
     pub media: bool,

@@ -1,7 +1,7 @@
 //! Role: Theme policy and paint for sticky data table cells.
 use kivact_core::motion::Transition;
 use kivact_core::style::{
-    Color, ColorToken, Style, Theme, ThemeExtension, TransitionProp, current_theme, style,
+    Color, ColorToken, Style, Theme, ThemeExtension, TransitionProp, style, use_theme,
 };
 
 /// Theme-owned paint for pinned table columns.
@@ -31,8 +31,8 @@ impl ThemeExtension for DataTableStickyPaint {
 }
 
 pub(super) fn surface(header: bool, selected: bool, tint: Option<Color>) -> Style {
-    let theme = current_theme();
-    let paint = theme.get::<DataTableStickyPaint>();
+    let theme = use_theme().get();
+    let paint = theme.ext::<DataTableStickyPaint>();
     let mut color = paint.surface;
     if let Some(tint) = tint {
         color = over(&theme, tint, color);

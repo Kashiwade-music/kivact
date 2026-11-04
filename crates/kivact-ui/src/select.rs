@@ -2,7 +2,6 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, SelectTriggerState};
 use super::variants::{Variant, Variants};
-use kivact_core::custom::NodeExt;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, Callback, Value, binding, effect_on, signal, var};
 use kivact_core::state::{IntoText, IntoValue, callback};
@@ -14,11 +13,10 @@ use kivact_core::view::{
 };
 use kivact_core::view::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// What an option row shows, from its item and its state.
-type OptionContent<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<ListItemState>) -> View>;
+type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<ListItemState>)>;
 
 /// Recipe variant supplied to options mounted in a select's touch sheet.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,10 +24,10 @@ pub struct SelectSheetOption(pub ControlSize);
 
 impl Variant for SelectSheetOption {}
 
-type SheetContent = Rc<dyn Fn() -> Node>;
+type SheetContent = kivact_core::view::ViewFn;
 type SheetFactory = Rc<dyn Fn(Value<String>, Binding<bool>, NodeRef, SheetContent) -> View>;
 
-pub struct Select<K: Clone + Eq + Hash + 'static> {
+pub struct Select<K: kivact_core::state::ItemKey> {
     root: Node,
     label: Value<String>,
     options: Value<Vec<ListItem<K>>>,
@@ -40,8 +38,8 @@ pub struct Select<K: Clone + Eq + Hash + 'static> {
     size: ControlSize,
     option: Option<OptionContent<K>>,
     variants: Variants,
-    arrow_open: bool,
-    retain_trigger_focus: bool,
+    arrow_open: Value<bool>,
+    keep_trigger_focus: Value<bool>,
     touch_sheet: Option<(Rc<dyn Fn() -> bool>, SheetFactory)>,
 }
 /// A themed keyed select whose value, focus and keys belong to interaction.
@@ -49,12 +47,12 @@ pub struct Select<K: Clone + Eq + Hash + 'static> {
 /// The trigger shows the selected option's label and the theme's
 /// `chevron-down` icon; an option row shows its icon, its label over its
 /// description and, while it is the selected one, the theme's `check` icon.
-/// [`option`](Select::option) replaces what an option row shows, the check
+/// [`option`](Select::item) replaces what an option row shows, the check
 /// included.
-pub fn select<K: Clone + Eq + Hash + 'static>(
+pub fn select<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl Into<Binding<Option<K>>>,
+    selected: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> Select<K> {
     let label = label.into_text_value();
     let variants = Variants::default();
@@ -62,19 +60,19 @@ pub fn select<K: Clone + Eq + Hash + 'static>(
         root: node().name(label),
         label,
         options: options.into_value(),
-        selected: selected.into(),
+        selected: selected.into_binding(),
         placeholder: None,
         preview: None,
         icon: None,
         size: super::values::default_control_size(),
         option: None,
         variants,
-        arrow_open: false,
-        retain_trigger_focus: false,
+        arrow_open: false.into_value(),
+        keep_trigger_focus: false.into_value(),
         touch_sheet: None,
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Select<K> {
+impl<K: kivact_core::state::ItemKey> Select<K> {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -90,16 +88,16 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
         self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Select<K> {
+impl<K: kivact_core::state::ItemKey> Select<K> {
     /// Open the options on a bare ArrowDown or ArrowUp without selecting.
-    pub fn open_on_arrow(mut self, enabled: bool) -> Self {
-        self.arrow_open = enabled;
+    pub fn open_on_arrow(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.arrow_open = enabled.into_value();
         self
     }
 
     /// Keep keyboard focus on the trigger while highlighting options.
-    pub fn retain_trigger_focus(mut self, enabled: bool) -> Self {
-        self.retain_trigger_focus = enabled;
+    pub fn keep_trigger_focus(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.keep_trigger_focus = enabled.into_value();
         self
     }
 
@@ -109,7 +107,8 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
     pub fn touch_sheet<V: IntoView>(
         mut self,
         eligible: impl Fn() -> bool + 'static,
-        factory: impl Fn(Value<String>, Binding<bool>, NodeRef, Rc<dyn Fn() -> Node>) -> V + 'static,
+        factory: impl Fn(Value<String>, Binding<bool>, NodeRef, kivact_core::view::ViewFn) -> V
+        + 'static,
     ) -> Self {
         self.touch_sheet = Some((
             Rc::new(eligible),
@@ -124,7 +123,7 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
         self.placeholder = Some(text.into_text_value());
         self
     }
-    pub fn on_preview<R: HandlerResult>(
+    pub fn on_active_change<R: HandlerResult>(
         mut self,
         preview: impl Fn(Option<K>) -> R + 'static,
     ) -> Self {
@@ -160,34 +159,36 @@ impl<K: Clone + Eq + Hash + 'static> Select<K> {
     ///     })
     /// }
     /// ```
-    pub fn option<V: IntoView>(
+    pub fn item<V: IntoView>(
         mut self,
         content: impl Fn(Value<ListItem<K>>, Value<ListItemState>) -> V + 'static,
     ) -> Self {
-        self.option = Some(Rc::new(move |item, state| content(item, state).into_view()));
+        self.option = Some(kivact_core::view::ViewFn::from(move |(item, state)| {
+            content(item, state)
+        }));
         self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Select<K> {
+impl<K: kivact_core::state::ItemKey> NodeBuilder for Select<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
-impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
+impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     fn into_view(mut self) -> View {
         let mut behavior = kivact_interaction::use_select(self.options, self.selected)
             .open_on_arrow(self.arrow_open)
-            .retain_trigger_focus(self.retain_trigger_focus);
+            .keep_trigger_focus(self.keep_trigger_focus);
         if let Some(text) = self.placeholder {
             behavior = behavior.placeholder(text);
         }
         if let Some(preview) = self.preview {
-            behavior = behavior.on_preview(move |key| preview.try_call(key));
+            behavior = behavior.on_active_change(move |key| preview.try_call(key));
         }
         let trigger = behavior.trigger();
         let state = trigger.state();
         let (options, selected, size) = (self.options, self.selected.into_value(), self.size);
-        let trigger_state = kivact_core::memo(move || {
+        let trigger_state = kivact_core::state::memo(move || {
             let PopupState { input, open } = state.get();
             let placeholder = selected.with(|key| {
                 key.as_ref()
@@ -206,12 +207,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
             &self.variants,
             move || trigger_state.get(),
         );
-        let anchor = trigger.node_ref();
+        let anchor = kivact_core::view::node_ref();
         let name = self.root.accessible_name();
         let fallback = self.label;
-        let label = kivact_core::memo(move || {
+        let label = kivact_core::state::memo(move || {
             name.as_ref()
-                .map(|read| read())
+                .map(|read| read.get())
                 .unwrap_or_else(|| fallback.get())
         });
         let variants = self.variants;
@@ -222,7 +223,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
             move || state.get(),
         )
         .child(kivact_core::view::icon("chevron-down"));
-        let shown = behavior.shown();
+        let shown = behavior.shown.get();
         let open = behavior.open_binding();
         let sheet_open = signal(false);
         let (trigger, sheet_factory) = if let Some((eligible, factory)) = self.touch_sheet {
@@ -237,74 +238,78 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                     sheet_open.set(false);
                 }
             });
-            let trigger = trigger
-                .on_pointer(move |event| {
-                    if matches!(event.phase(), PointerPhase::Down(_)) {
-                        released.set(None);
-                        if event.kind() == PointerKind::Touch
-                            && event.is_primary()
-                            && !shown.get()
-                            && !disabled.as_ref().is_some_and(|read| read())
-                        {
-                            contact.set(Some((event.id(), event.window_pos(), false)));
-                        }
-                        return Handled::No;
-                    }
-                    let Some((id, start, moved)) =
-                        contact.get().filter(|(id, _, _)| *id == event.id())
-                    else {
-                        return Handled::No;
-                    };
-                    let pos = event.window_pos();
-                    let moved = moved || (pos.x - start.x).hypot(pos.y - start.y) > 10.0;
-                    match event.phase() {
-                        PointerPhase::Move => contact.set(Some((id, start, moved))),
-                        PointerPhase::Up(_) => {
-                            contact.set(None);
-                            released.set(
-                                bounds
-                                    .get()
-                                    .is_some_and(|rect| rect.contains(pos))
-                                    .then_some(!moved),
-                            );
-                        }
-                        PointerPhase::Cancel => {
-                            contact.set(None);
+            let trigger_state = trigger.state();
+            let trigger = kivact_core::custom::Part::new(trigger_state, move |host| {
+                host.part(trigger)
+                    .on_pointer(move |event| {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
                             released.set(None);
+                            if event.kind() == PointerKind::Touch
+                                && event.is_primary()
+                                && !shown.get()
+                                && !disabled.as_ref().is_some_and(|read| read.get())
+                            {
+                                contact.set(Some((event.id(), event.window_pos(), false)));
+                            }
+                            return Handled::No;
                         }
-                        _ => {}
-                    }
-                    Handled::No
-                })
-                .on_key(move |_| {
-                    released.set(None);
-                    Handled::No
-                })
-                .on_press(move || {
-                    let choice = released.get();
-                    released.set(None);
-                    match choice {
-                        Some(true) if eligible() => {
-                            sheet_open.set(true);
-                            open.set(true);
+                        let Some((id, start, moved)) =
+                            contact.get().filter(|(id, _, _)| *id == event.id())
+                        else {
+                            return Handled::No;
+                        };
+                        let pos = event.window_pos();
+                        let moved = moved || (pos.x - start.x).hypot(pos.y - start.y) > 10.0;
+                        match event.phase() {
+                            PointerPhase::Move => contact.set(Some((id, start, moved))),
+                            PointerPhase::Up(_) => {
+                                contact.set(None);
+                                released.set(
+                                    bounds
+                                        .get()
+                                        .is_some_and(|rect| rect.contains(pos))
+                                        .then_some(!moved),
+                                );
+                            }
+                            PointerPhase::Cancel => {
+                                contact.set(None);
+                                released.set(None);
+                            }
+                            _ => {}
                         }
-                        Some(false) => {}
-                        _ => behavior.toggle(),
-                    }
-                })
-                .has_popup(move || {
-                    Some(if sheet_open.get() {
-                        PopupKind::Dialog
-                    } else {
-                        PopupKind::ListBox
+                        Handled::No
                     })
-                });
+                    .on_key(move |_| {
+                        released.set(None);
+                        Handled::No
+                    })
+                    .on_press(move || {
+                        let choice = released.get();
+                        released.set(None);
+                        match choice {
+                            Some(true) if eligible() => {
+                                sheet_open.set(true);
+                                open.set(true);
+                            }
+                            Some(false) => {}
+                            _ => behavior.toggle(),
+                        }
+                    })
+                    .has_popup(move || {
+                        Some(if sheet_open.get() {
+                            PopupKind::Dialog
+                        } else {
+                            PopupKind::ListBox
+                        })
+                    })
+            });
             (trigger, Some(factory))
         } else {
             (trigger, None)
         };
         let trigger = self
             .root
+            .node_ref(anchor)
             .part(trigger)
             .child(self.icon)
             .child(text(behavior.label()).style(style().grow(1).single_line()))
@@ -332,12 +337,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                     };
                     let state = part.state();
                     let content = match &slot {
-                        Some(slot) => slot(item, state),
+                        Some(slot) => slot.call((item, state)),
                         None => (
-                            super::helpers::item_icon(move || item.get().icon_value().cloned()),
+                            super::helpers::item_icon(move || item.get().icon().cloned()),
                             super::helpers::label_and_description(
                                 move || item.get().label(),
-                                move || item.get().description_value(),
+                                move || item.get().description(),
                                 move |line| {
                                     with_recipe_style(
                                         line,
@@ -386,10 +391,10 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                         move || state.get(),
                     ),
                 )
-                .part(part)
+                .with_node(|node| node.part(part))
                 .name(label)
                 .offset(4.0)
-                .at_least_anchor_width(true)
+                .at_least_anchor_width()
             },
         );
         let sheet = sheet_factory.map(|factory| {
@@ -405,7 +410,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                 label,
                 visible,
                 anchor,
-                Rc::new(move || {
+                kivact_core::view::ViewFn::from(move |()| {
                     column(build(true))
                         .part(behavior.sheet_content())
                         .name(label)
