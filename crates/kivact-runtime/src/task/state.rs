@@ -17,25 +17,56 @@ use crate::task::worker_pool::{self, Pool};
 use crate::{ErrorKind, UiError};
 use crate::{Owned, Runtime};
 
-/// The pending host-clock timers of an App, by deadline and arrival.
+/// Arrival identity of a registered timer.
+pub(crate) type TimerId = u64;
+
+/// Cancellation handoffs never borrow the timer table.
 #[derive(Default)]
-pub(crate) struct TimeState {
-    pub(crate) timers: BTreeMap<(u64, u64), Waker>,
-    pub(crate) next_id: u64,
+pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerId>>);
+
+impl CancelQueue {
+    pub(crate) fn push(&self, id: TimerId) {
+        let mut pending = self.0.take().unwrap_or_default();
+        pending.push(id);
+        self.0.put(pending);
+    }
 }
 
-impl TimeState {
-    pub(crate) fn next_deadline(&self) -> Option<u64> {
+/// Pending host-clock timers ordered by deadline and arrival.
+#[derive(Default)]
+pub(crate) struct Scheduler {
+    pub(crate) timers: BTreeMap<(u64, TimerId), Waker>,
+    pub(crate) next_id: u64,
+    pub(crate) cancel: Rc<CancelQueue>,
+}
+
+impl Scheduler {
+    fn drain_cancel(&mut self) {
+        while let Some(pending) = self.cancel.0.take() {
+            for id in pending {
+                self.timers.retain(|(_, timer), _| *timer != id);
+            }
+        }
+    }
+
+    pub(crate) fn next_deadline(&mut self) -> Option<u64> {
+        self.drain_cancel();
         self.timers.keys().next().map(|k| k.0)
     }
 
-    pub(crate) fn len(&self) -> usize {
+    pub(crate) fn len(&mut self) -> usize {
+        self.drain_cancel();
         self.timers.len()
     }
 
     /// Remove and return wakers of timers due at `now` (ns).
     pub(crate) fn take_due(&mut self, now: u64) -> Vec<Waker> {
-        let due: Vec<(u64, u64)> = self.timers.range(..(now + 1, 0)).map(|(k, _)| *k).collect();
+        self.drain_cancel();
+        let due: Vec<(u64, TimerId)> = self
+            .timers
+            .range(..=(now, u64::MAX))
+            .map(|(k, _)| *k)
+            .collect();
         due.into_iter()
             .filter_map(|k| self.timers.remove(&k))
             .collect()
@@ -59,7 +90,7 @@ pub struct TaskState {
     /// The UI-thread executor of spawned futures and action queue workers.
     pub(super) exec: Executor,
     /// Pending host-clock timers.
-    pub(super) time: RefCell<TimeState>,
+    pub(super) time: RefCell<Scheduler>,
     /// Worker count of the blocking pool (`None`: the default).
     pub(super) blocking_threads: Option<usize>,
     /// Owned tasks whose future completed; their objects are removed after
@@ -80,7 +111,7 @@ impl TaskState {
     pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
         TaskState {
             exec: Executor::new(waker),
-            time: RefCell::new(TimeState::default()),
+            time: RefCell::new(Scheduler::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
             queues: RefCell::new(Vec::new()),
@@ -112,7 +143,7 @@ impl TaskState {
     /// earlier of the next pending timer and the next drain deadline of a
     /// draining action. `None` when neither exists.
     pub fn next_deadline(&self) -> Option<u64> {
-        let timer = self.time.borrow().next_deadline();
+        let timer = self.time.borrow_mut().next_deadline();
         let drain = self.draining.borrow().iter().map(|(_, d)| *d).min();
         [timer, drain].into_iter().flatten().min()
     }
@@ -121,7 +152,7 @@ impl TaskState {
     /// (not the blocking pool).
     pub fn stats(&self) -> TaskStats {
         TaskStats {
-            timers: self.time.borrow().len(),
+            timers: self.time.borrow_mut().len(),
             outstanding_blocking: self
                 .pool
                 .borrow()
