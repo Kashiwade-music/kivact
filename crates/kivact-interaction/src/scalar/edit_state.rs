@@ -4,6 +4,7 @@ use super::touch::{Touch, TouchSliderGesture};
 use super::track::{self, Grip, Pointer};
 use crate::drag::DragApi;
 use crate::edit::EditSession;
+use kivact_core::custom::Owner;
 use kivact_core::geometry::Rect;
 use kivact_core::state::{Signal, Value, Var, effect, effect_on, memo, on_cleanup, signal, var};
 use kivact_core::view::{Handled, NodeRef, node_ref};
@@ -21,7 +22,7 @@ pub(crate) struct Shared {
     /// The caller's disabled value, given to [`ScalarApi::disabled`].
     pub(crate) disabled: Signal<Option<Value<bool>>>,
     /// The keyboard increment given to `key_step`; the range's step else.
-    pub(crate) key_step: Var<Option<f64>>,
+    pub(crate) key_step: Var<Option<(Value<f64>, Owner)>>,
     /// Whether each thumb has the focus; a drag the focus leaves is canceled.
     thumb_focus: Signal<Vec<Value<bool>>>,
 }

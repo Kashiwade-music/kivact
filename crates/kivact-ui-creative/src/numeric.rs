@@ -348,7 +348,7 @@ impl IntoView for Numeric {
         let scalar = use_scalar(state, move || {
             ScalarRange::new(min.get(), max.get()).expect("invariant: numeric bounds are finite")
         })
-        .key_step(step.get_untracked())
+        .key_step(step)
         .expect("invariant: numeric step is finite and positive");
         let scalar = match edit_observer {
             Some(observer) => scalar.on_edit(move |phase| observer.call(phase)),
