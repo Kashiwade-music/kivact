@@ -89,7 +89,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | N-D2 | merged | b0beeae | fmt 0、build 不可の定義段 |
 | N-F1 | merged | 909b7df | fmt 0、ambient/ThemeRef/Outcome/owner/test API |
 | N-F1-props | merged | 2ef7cce | fmt 0、安定 root の reactive props/identity equality |
-| N-F2 | doing | | interaction API の追従 |
+| N-F2 | merged | 7efa8aa | fmt 0、62 files、Part/Selection/shared draft/state reads |
 | N-F3 | merged | aba3e97 | fmt 0、Recipe/TreeRows/drafting、追加の旧 caller なし |
 | N-F4 | merged | 39220fd | fmt 0、139 files、reactive Calendar/headless menubar |
 | N-F5 | merged | 50dd85c | fmt 0、117 files、typed builder/slot/prop 移行 |
