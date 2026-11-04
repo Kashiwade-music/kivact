@@ -29,8 +29,6 @@ use kivact_core::view::{
     node_ref,
 };
 
-use crate::tooltip_policy::TooltipTiming;
-
 use super::machine::{Event, Machine, State as TooltipHub, TooltipId, Warmth};
 
 /// The owner-scoped App hub and its independent identity allocator.
@@ -91,10 +89,11 @@ fn now_ns() -> u64 {
 /// caller's content, and so is the overlay's accessible name.
 ///
 /// It shows when the pointer is over the trigger or the keyboard focus is on
-/// it or inside it, after the [`TooltipTiming::delay`] (500 ms by default).
+/// it or inside it, after the [`crate::TooltipTiming::delay`] (500 ms by default).
 /// The pointer is judged by what the host hits ([`NodeRef::hovered`]),
 /// so a child with its own `on_pointer` or a pointer captured elsewhere does
-/// not change it. When the condition stops it hides at once.
+/// not change it. While the pointer is over the hint itself it also stays
+/// shown; it hides when the pointer leaves both and the trigger has no focus.
 ///
 /// It hides at once on Escape (only while it is shown: Escape is consumed by
 /// the tooltip then and goes on as usual otherwise), on a pointer press on the
@@ -106,7 +105,7 @@ fn now_ns() -> u64 {
 /// outside still hide the tooltip.
 ///
 /// One tooltip is shown at a time in an App: showing a tooltip hides the one
-/// before it. When a tooltip hid less than [`TooltipTiming::skip_delay`] ago
+/// before it. When a tooltip hid less than [`crate::TooltipTiming::skip_delay`] ago
 /// (300 ms by default), or another is shown, the next one shows without the
 /// delay. A tooltip that another one took over while it was still engaged
 /// shows again when that one hides. This state is created by the first
@@ -148,7 +147,7 @@ struct TooltipOptions {
     disabled: Option<Value<bool>>,
 }
 
-/// Create a tooltip under the current setup owner, reading [`TooltipTiming`].
+/// Create a tooltip under the current setup owner, reading [`crate::TooltipTiming`].
 ///
 /// The first tooltip of an App creates the App's shared one-at-a-time state.
 /// Setup only.
@@ -160,7 +159,9 @@ pub fn use_tooltip() -> TooltipApi {
     let id = hub.take_id();
 
     let anchor = node_ref();
+    let surface = node_ref();
     let hover = anchor.hovered();
+    let surface_hover = surface.hovered();
     let focus = anchor.focus_within();
     let engaged = memo(move || {
         !options
@@ -168,7 +169,7 @@ pub fn use_tooltip() -> TooltipApi {
             .get()
             .disabled
             .is_some_and(|disabled| disabled.get())
-            && (hover.get() || focus.get())
+            && (hover.get() || surface_hover.get() || focus.get())
     });
 
     // The delay, or none while another tooltip is warm; both end with the
@@ -221,7 +222,7 @@ pub fn use_tooltip() -> TooltipApi {
         delayed,
         visible,
         anchor,
-        surface: node_ref(),
+        surface,
     }
 }
 

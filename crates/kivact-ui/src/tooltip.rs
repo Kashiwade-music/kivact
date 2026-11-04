@@ -9,6 +9,7 @@ use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_core::view::{NodeBuilder, node, text};
 
+// xtask-allow(state-fields): Setup-only builder options; content and alignment are independent.
 /// A themed hint for a trigger, created by [`tooltip`]; attach it with
 /// [`attach`](Tooltip::attach).
 pub struct Tooltip {
@@ -86,7 +87,8 @@ impl Tooltip {
     /// Show the hint for `trigger` and return the trigger with it. A trigger
     /// without a description of its own is described by the label; one that
     /// has a description keeps it. The surface is mounted in a fresh owner
-    /// while the tooltip is shown.
+    /// while the tooltip is shown. Moving the pointer onto the hint keeps it
+    /// shown until the pointer leaves both the trigger and the hint.
     pub fn attach<T: NodeBuilder + IntoView>(self, mut trigger: T) -> View {
         let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
         let part = behavior.trigger();
