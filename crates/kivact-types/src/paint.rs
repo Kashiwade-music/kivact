@@ -395,7 +395,7 @@ pub enum FilterOp {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClipShape {
     Path {
-        cmds: Vec<crate::protocol::shape::PathCmd>,
+        cmds: Vec<crate::scene::PathCmd>,
         even_odd: bool,
     },
     /// CSS `inset(top right bottom left round radii)`.

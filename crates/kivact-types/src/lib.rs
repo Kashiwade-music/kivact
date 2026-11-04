@@ -17,7 +17,7 @@ pub mod motion;
 pub mod paint;
 pub mod platform;
 pub mod process;
-pub mod protocol;
+pub mod render;
 pub mod scene;
 pub mod semantics;
 pub mod semantics_text;
@@ -32,7 +32,7 @@ pub use embed::{EmbedOptions, ParentWindow};
 pub use env::{
     Capabilities, Environment, LifecycleEvent, PointerClass, PointerSettings, ThemeHint,
 };
-pub use geometry::{Edges, Insets, Point, Rect, Size};
+pub use geometry::{Edges, Insets, Point, Rect, Size, Transform};
 pub use gpu::{
     AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter, GpuBackend, GpuPower,
     GpuPreference, SharedHandle, SharedTextureFormat, SharedTextures,
@@ -61,13 +61,10 @@ pub use paint::{
     PaintVec, RadialExtent, Ring, ScrollbarDelta, ScrollbarProps, Shadow, StateStyles,
 };
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
-pub use protocol::{
-    FontFeature, InlineBox, InlineBoxPlacement, PathCmd, ShapedInlineText, ShapedText, TextLine,
-    TextWrap,
-};
+pub use render::{InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, TextLine};
 pub use scene::{
-    BorderStyle, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin, Pixels, Region, Scene,
-    SceneCmd, ShapePaint, Stroke, TextRun,
+    BorderStyle, DrawCmd, DrawList, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin,
+    PathCmd, PathData, Pixels, Region, ShapePaint, Stroke, TextRun,
 };
 pub use semantics::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, Finite, LiveRegion,
@@ -75,8 +72,8 @@ pub use semantics::{
 };
 pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
 pub use text::{
-    ComputedText, DecorationLines, FontKerning, LineHeight, SpanProps, TextAlign, TextData,
-    TextDecoration, TextLen, TextMetrics, TextMore, TextOverflow, TextProps, TextShadow, TextSpan,
-    TextTransform,
+    ComputedTextStyle, DecorationLines, FontFeature, FontKerning, LineHeight, SpanProps, TextAlign,
+    TextData, TextDecoration, TextLen, TextMetrics, TextOverflow, TextShadow, TextSpan, TextStyle,
+    TextTransform, TextWrap,
 };
 pub use text_shaping::TextShaper;

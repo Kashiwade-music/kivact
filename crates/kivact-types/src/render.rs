@@ -7,27 +7,19 @@
 
 mod color;
 mod effect;
-mod image;
 mod paint;
 mod scene;
 mod semantics;
-pub(crate) mod shape;
 mod shaped;
 mod text;
-mod transform;
-mod window;
 
 pub use color::ColorMatrix;
 pub use effect::{Backdrop, BoxShadow, Layer, LayerFilter, Mask};
-pub use image::ImageData;
 pub use paint::{Gradient, GradientShape, Paint, Pattern, PatternSource};
-pub use scene::{CpuFrame, DrawCommand, SHADOW_REACH, Scene};
+pub use scene::{CpuFrame, RenderCmd, RenderScene, SHADOW_REACH};
 pub use semantics::{SemanticsNode, SemanticsTree, SemanticsUpdate};
-pub use shape::{PathCmd, Radius, RoundedRect, Shape};
 pub use shaped::{
     Glyph, GlyphRun, InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText,
     TextDecorationRect, TextHighlight, TextLine,
 };
-pub use text::{FontFeature, RichText, SpanStyle, TextDecoration, TextSpan, TextStyle, TextWrap};
-pub use transform::Transform;
-pub use window::{Environment, MouseSettings, ParentWindow, PointerInput};
+pub use text::{RichText, SpanStyle, TextSpan};

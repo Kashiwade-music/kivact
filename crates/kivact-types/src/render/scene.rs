@@ -3,22 +3,22 @@
 
 use super::color::ColorMatrix;
 use super::effect::{Backdrop, BoxShadow, Layer};
-use super::image::ImageData;
 use super::paint::Paint;
-use super::shape::{PathCmd, Shape};
 use super::shaped::GlyphRun;
-use super::transform::Transform;
 use crate::color::Rgba;
+use crate::geometry::Transform;
 use crate::geometry::{Point, Rect};
 use crate::gpu::ExternalFrame;
+use crate::scene::Pixels;
 use crate::scene::Stroke;
+use crate::scene::{PathCmd, Shape};
 use std::sync::Arc;
 
 /// Portable drawing operation, usable on any thread.
 ///
 /// Coordinates are logical pixels, mapped by the open transforms. Groups
-/// nest: [`DrawCommand::PushClip`], [`DrawCommand::PushTransform`] and
-/// [`DrawCommand::PushLayer`] each open a group that the next pop of the
+/// nest: [`RenderCmd::PushClip`], [`RenderCmd::PushTransform`] and
+/// [`RenderCmd::PushLayer`] each open a group that the next pop of the
 /// same kind closes, and every pop must close the innermost open group (at
 /// most 256 open at once); groups that cross are an invalid scene.
 /// `arvane-render`'s `draw.rs` gives every command its meaning, the same on
@@ -32,11 +32,11 @@ use std::sync::Arc;
 /// value is Arvane's own type: no rasterizer vocabulary (vello, peniko,
 /// kurbo) appears here.
 #[derive(Clone, Debug, PartialEq)]
-pub enum DrawCommand {
+pub enum RenderCmd {
     /// An image with a source rectangle in natural pixels and optional nearest-neighbor sampling.
     ImageSampled {
         /// Pixels.
-        image: ImageData,
+        image: Pixels,
         /// Destination.
         rect: Rect,
         /// Source pixels; None draws the whole image.
@@ -50,7 +50,7 @@ pub enum DrawCommand {
     },
     /// A frame of an image an external render engine shares with the
     /// window ([`crate::SharedTextures`]), drawn as
-    /// [`DrawCommand::ImageSampled`] draws its pixels (no color matrix:
+    /// [`RenderCmd::ImageSampled`] draws its pixels (no color matrix:
     /// the frame is already premultiplied RGBA8). Only the GPU renderer
     /// draws it, and only in the window the image was imported into, once
     /// the frame is ready; otherwise nothing is drawn, and the scene is
@@ -162,7 +162,7 @@ pub enum DrawCommand {
     /// An image stretched to bounds.
     Image {
         /// Pixels.
-        image: ImageData,
+        image: Pixels,
         /// Destination.
         rect: Rect,
         /// Alpha multiplier in `[0, 1]`, applied by the renderer.
@@ -198,13 +198,13 @@ pub enum DrawCommand {
     /// A CSS box shadow, outer or inset, of a box with elliptical corners.
     BoxShadow(BoxShadow),
     /// Map the coordinates of every command up to the matching
-    /// [`DrawCommand::PopTransform`] by this transform, then by the
+    /// [`RenderCmd::PopTransform`] by this transform, then by the
     /// enclosing ones. Glyphs under a rotation, skew or non-uniform scale
     /// are drawn from unhinted outlines.
     PushTransform(Transform),
     /// Close the innermost transform.
     PopTransform,
-    /// Draw the commands up to the matching [`DrawCommand::PopLayer`] as
+    /// Draw the commands up to the matching [`RenderCmd::PopLayer`] as
     /// one group: filtered, clipped, masked, faded and blended as the
     /// [`Layer`] says.
     PushLayer(Layer),
@@ -215,7 +215,7 @@ pub enum DrawCommand {
     Backdrop(Backdrop),
 }
 
-/// How many standard deviations beyond its rect a [`DrawCommand::Shadow`]
+/// How many standard deviations beyond its rect a [`RenderCmd::Shadow`]
 /// can be drawn (renderers cut the gaussian off within it, where it is
 /// below 0.1%).
 pub const SHADOW_REACH: f32 = 3.6;
@@ -224,9 +224,9 @@ pub const SHADOW_REACH: f32 = 3.6;
 /// window pixels before their nested transforms and the frame's raster
 /// scale. Source image rectangles explicitly use image pixels instead.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Scene {
+pub struct RenderScene {
     /// Drawing operations in paint order.
-    pub commands: Vec<DrawCommand>,
+    pub commands: Vec<RenderCmd>,
 }
 
 /// Owned CPU raster output; usable on any thread. Its dimensions are

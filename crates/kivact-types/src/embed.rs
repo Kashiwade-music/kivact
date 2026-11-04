@@ -1,5 +1,6 @@
 //! Role: Pure options and parent identities for embedded windows.
 
+use crate::defaults::DEFAULT_WINDOW_SIZE;
 use crate::{GpuPreference, Size};
 
 /// A host window's raw handle value; this type never dereferences it.
@@ -26,10 +27,7 @@ pub struct EmbedOptions {
 impl Default for EmbedOptions {
     fn default() -> Self {
         Self {
-            size: Size {
-                width: 960.0,
-                height: 720.0,
-            },
+            size: DEFAULT_WINDOW_SIZE,
             scale: None,
             prefer_gpu: true,
             gpu_preference: GpuPreference::default(),

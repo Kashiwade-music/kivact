@@ -1,5 +1,6 @@
 //! Role: Host environment, capabilities and lifecycle events.
 use crate::cell::Generation;
+use crate::defaults::{DEFAULT_WINDOW_SIZE, DOUBLE_CLICK, FRAME_PERIOD_NS};
 use crate::{Insets, Size};
 
 /// System preference for a light or dark color scheme.
@@ -47,13 +48,10 @@ impl Default for Environment {
             scale_factor: 1.0,
             reduced_motion: false,
             theme_hint: ThemeHint::default(),
-            frame_period_ns: 16_666_667,
+            frame_period_ns: FRAME_PERIOD_NS,
             safe_area: Insets::default(),
             keyboard_inset: Insets::default(),
-            window_size: Size {
-                width: 960.0,
-                height: 720.0,
-            },
+            window_size: DEFAULT_WINDOW_SIZE,
             locale: None,
             fullscreen: false,
             pointer: PointerSettings::default(),
@@ -96,8 +94,8 @@ pub struct PointerSettings {
 impl Default for PointerSettings {
     fn default() -> Self {
         Self {
-            double_click_ns: 500_000_000,
-            double_click_distance: (4.0, 4.0),
+            double_click_ns: DOUBLE_CLICK.0,
+            double_click_distance: DOUBLE_CLICK.1,
             wheel_lines: 3,
             wheel_chars: 3,
             drag_slop: 4.0,

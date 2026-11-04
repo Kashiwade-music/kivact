@@ -1,6 +1,6 @@
 //! Role: Authored draw records and their geometry and text payloads.
-use crate::protocol::shape::PathCmd;
 use crate::scene::primitives::Stroke;
+use crate::scene::{FillRule, PathData};
 use crate::{
     BlendMode, ClipShape, Corners, Fill, FillLayer, FilterOp, FontFeature, LineHeight, Point, Rect,
     RegionId, Rgba, TextDecoration,
@@ -10,7 +10,7 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 pub enum DrawingShape {
     Basic { shape: ClipShape, rect: Rect },
-    Path { cmds: Vec<PathCmd>, even_odd: bool },
+    Path { path: PathData, rule: FillRule },
     Rounded { rect: Rect, corners: Corners },
 }
 
@@ -51,7 +51,9 @@ pub struct Pixels {
     pub width: u32,
     /// Pixel height of the buffer.
     pub height: u32,
-    /// Tightly packed RGBA8 bytes, width times height times four.
+    /// Tightly packed straight-alpha RGBA8, row-major from the top left,
+    /// width times height times four bytes with no row padding.
+    /// Keep the same allocation for unchanged pixels; renderers cache by Arc identity.
     pub rgba: std::sync::Arc<[u8]>,
 }
 
@@ -92,7 +94,7 @@ pub struct TextRun {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum SceneCmd {
+pub enum DrawCmd {
     Pixels {
         image: crate::Pixels,
         rect: Rect,
@@ -101,7 +103,7 @@ pub enum SceneCmd {
         pixelated: bool,
     },
     /// A frame of an image an external render engine shares, drawn like `Pixels` on the GPU of the
-    /// window it was imported into; nothing elsewhere (Arvane's `DrawCommand::External`).
+    /// window it was imported into; nothing elsewhere (Arvane's `RenderCmd::External`).
     External {
         frame: crate::ExternalFrame,
         rect: Rect,
@@ -119,7 +121,7 @@ pub enum SceneCmd {
     Shape(Box<crate::ShapePaint>),
     PushLayer(Box<crate::DrawingLayer>),
     PopLayer,
-    PushTransform([f32; 6]),
+    PushTransform(crate::geometry::Transform),
     PopTransform,
     Rect {
         rect: Rect,
@@ -147,7 +149,7 @@ pub enum SceneCmd {
     /// drawn exactly as shaped: its glyph runs and decorations at `origin`
     /// in `color`, with no shaping again.
     Paragraph {
-        shaped: std::sync::Arc<crate::protocol::ShapedText>,
+        shaped: std::sync::Arc<crate::render::ShapedText>,
         origin: Point,
         color: Rgba,
     },
@@ -170,19 +172,19 @@ pub struct Region {
     /// Canonical accessible identity, state, relations and text properties.
     pub semantics: crate::semantics::Semantics<crate::FocusTarget>,
     pub shape: Option<crate::DrawingShape>,
-    pub transform: [f32; 6],
+    pub transform: crate::geometry::Transform,
     pub local_rect: Rect,
     pub id: RegionId,
     pub rect: Rect,
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
-pub struct Scene {
-    pub cmds: Vec<SceneCmd>,
+pub struct DrawList {
+    pub cmds: Vec<DrawCmd>,
     pub regions: Vec<Region>,
 }
 
-impl Scene {
+impl DrawList {
     pub fn is_empty(&self) -> bool {
         self.cmds.is_empty() && self.regions.is_empty()
     }

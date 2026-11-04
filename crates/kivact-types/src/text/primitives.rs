@@ -152,3 +152,31 @@ pub struct TextMetrics {
     /// text). Place the text at `y - baseline` to put the baseline at `y`.
     pub baseline: f32,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+/// Textwrap.
+pub enum TextWrap {
+    #[default]
+    /// Wrap.
+    Wrap,
+    /// Nowrap.
+    NoWrap,
+}
+
+/// An OpenType feature setting (CSS `font-feature-settings: "tnum" 1`):
+/// a four byte tag and its value (`1` on, `0` off, or an alternate's
+/// index).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FontFeature {
+    /// The feature's tag (`*b"tnum"`).
+    pub tag: [u8; 4],
+    /// Its value.
+    pub value: u16,
+}
+
+impl FontFeature {
+    /// The feature `tag` set to `value`.
+    pub const fn new(tag: [u8; 4], value: u16) -> Self {
+        Self { tag, value }
+    }
+}

@@ -224,6 +224,58 @@ impl SpringRun {
 }
 
 impl Transition {
+    fn new(kind: Kind) -> Self {
+        Self {
+            kind,
+            delay_ms: 0.0,
+            repeat: Repeat::Times(1),
+            direction: PlayDirection::Normal,
+            decorative: true,
+        }
+    }
+
+    /// A tween over `ms` milliseconds along `easing`.
+    pub fn tween(ms: impl Into<f64>, easing: Easing) -> Self {
+        Self::new(Kind::Tween {
+            ms: (ms.into() as f32).max(0.0),
+            easing,
+        })
+    }
+
+    /// A spring with the given stiffness, damping and mass.
+    pub fn spring(spring: Spring) -> Self {
+        Self::new(Kind::Spring(spring))
+    }
+
+    /// Wait `ms` milliseconds before the first iteration starts.
+    pub fn delay(mut self, ms: impl Into<f64>) -> Self {
+        self.delay_ms = (ms.into() as f32).max(0.0);
+        self
+    }
+
+    /// Set the number of iterations.
+    pub fn repeat(mut self, repeat: Repeat) -> Self {
+        self.repeat = repeat;
+        self
+    }
+
+    /// Play every other iteration backwards.
+    pub fn alternate(mut self) -> Self {
+        self.direction = PlayDirection::Alternate;
+        self
+    }
+
+    /// Let decorative motion complete immediately under reduced motion.
+    pub fn decorative(mut self, decorative: bool) -> Self {
+        self.decorative = decorative;
+        self
+    }
+
+    /// Keep motion that communicates information under reduced motion.
+    pub fn essential(self) -> Self {
+        self.decorative(false)
+    }
+
     /// Step a run from `from` to `to` that began at `start_ns` to `now_ns`:
     /// write its value into `current` (the value of the previous step) and
     /// return whether it is done (then `current` is `to`). The one stepper of

@@ -8,7 +8,7 @@
 //! carries its own transform the same way: it maps the node's bounds and
 //! everything below it, so changing it changes one node.
 
-use super::transform::Transform;
+use crate::geometry::Transform;
 use crate::geometry::{Point, Rect};
 use crate::ids::SemanticsId;
 use crate::semantics::Semantics;

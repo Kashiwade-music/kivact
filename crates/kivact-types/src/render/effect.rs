@@ -3,10 +3,10 @@
 
 use super::color::ColorMatrix;
 use super::paint::Paint;
-use super::shape::{RoundedRect, Shape};
 use crate::color::Rgba;
 use crate::geometry::{Point, Rect};
 use crate::paint::BlendMode;
+use crate::scene::{RoundedRect, Shape};
 
 /// A filter a layer's content goes through before it is clipped, masked
 /// and composited.
@@ -41,7 +41,7 @@ pub struct Mask {
     pub paint: Paint,
 }
 
-/// A group of commands composited as one ([`crate::protocol::DrawCommand::PushLayer`]).
+/// A group of commands composited as one ([`crate::render::RenderCmd::PushLayer`]).
 ///
 /// In CSS order: the content is drawn, goes through `filter`, is clipped
 /// to `clip`, masked by `mask`, faded by `opacity` and blended with what is
@@ -49,7 +49,7 @@ pub struct Mask {
 ///
 /// ```
 /// use kivact_types::BlendMode;
-/// use kivact_types::protocol::Layer;
+/// use kivact_types::render::Layer;
 /// let faded = Layer { opacity: 0.5, ..Layer::default() };
 /// assert_eq!(faded.blend, BlendMode::Normal);
 /// ```
@@ -81,7 +81,7 @@ impl Default for Layer {
 }
 
 /// A CSS `box-shadow` of a box with elliptical corners
-/// ([`crate::protocol::DrawCommand::BoxShadow`]).
+/// ([`crate::render::RenderCmd::BoxShadow`]).
 ///
 /// The shadow's shape is the box moved by `offset` and grown by `spread`
 /// (inset: shrunk), its corner radii grown (inset: shrunk) as CSS says,
@@ -110,7 +110,7 @@ pub struct BoxShadow {
 }
 
 /// What lies behind a shape, filtered (CSS `backdrop-filter`)
-/// ([`crate::protocol::DrawCommand::Backdrop`]).
+/// ([`crate::render::RenderCmd::Backdrop`]).
 ///
 /// The renderer draws again the commands before this one that reach the
 /// shape's bounds grown by the blur's reach, clipped to the shape, through

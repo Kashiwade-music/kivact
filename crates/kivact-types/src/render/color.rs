@@ -13,13 +13,13 @@ use crate::color::Rgba;
 /// them as a CSS `filter` list does.
 ///
 /// Arvane applies one to the pixels of an image
-/// ([`crate::protocol::DrawCommand::Image`]) and to the colors a backdrop replays
-/// ([`crate::protocol::Backdrop`]); a host applies one to the colors of what it
-/// draws ([`ColorMatrix::apply`], [`crate::protocol::Paint::filtered`]).
+/// ([`crate::render::RenderCmd::Image`]) and to the colors a backdrop replays
+/// ([`crate::render::Backdrop`]); a host applies one to the colors of what it
+/// draws ([`ColorMatrix::apply`], [`crate::render::Paint::filtered`]).
 ///
 /// ```
 /// use kivact_types::Rgba;
-/// use kivact_types::protocol::ColorMatrix;
+/// use kivact_types::render::ColorMatrix;
 /// let red = Rgba { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
 /// let gray = ColorMatrix::grayscale(1.0).apply(red);
 /// assert!((gray.r - 0.2126).abs() < 1e-4 && gray.r == gray.g && gray.g == gray.b);
