@@ -167,6 +167,8 @@ pub(crate) struct Requests {
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
+    /// Actual capture releases awaiting the current pointer dispatch's cleanup.
+    pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
 }
 
 impl Requests {

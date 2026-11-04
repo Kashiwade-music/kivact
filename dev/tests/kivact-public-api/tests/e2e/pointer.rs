@@ -332,6 +332,8 @@ fn captured_pointer_keeps_moving_events_outside_the_node() {
 fn release_capture_returns_to_hit_testing() {
     let log: Log = Rc::default();
     let out = log.clone();
+    let release_on_press = Rc::new(std::cell::Cell::new(false));
+    let release_now = release_on_press.clone();
     let (screen, state) = crate::support::mount(move || {
         let first = out.clone();
         let second = out.clone();
@@ -347,6 +349,9 @@ fn release_capture_returns_to_hit_testing() {
                     .on_pointer(move |event: PointerEvent| {
                         if matches!(event.phase(), PointerPhase::Down(_)) {
                             event.capture();
+                            if release_now.get() {
+                                event.release_capture();
+                            }
                         }
                         if event.phase() == PointerPhase::Move {
                             first.borrow_mut().push("captured".into());
@@ -380,6 +385,18 @@ fn release_capture_returns_to_hit_testing() {
     );
     screen.mouse_move(ox + 1.0, oy);
     assert_eq!(&*log.borrow(), &["captured", "hit"]);
+    screen.mouse_up(MouseButton::Primary);
+    release_on_press.set(true);
+    screen.mouse_move(x, y);
+    log.borrow_mut().clear();
+    screen.mouse_down(MouseButton::Primary);
+    assert!(
+        !state.get().pressed,
+        "capture and release in one callback ends the part press"
+    );
+    screen.mouse_move(ox, oy);
+    screen.mouse_move(ox + 1.0, oy);
+    assert_eq!(&*log.borrow(), &["hit"]);
     screen.mouse_up(MouseButton::Primary);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

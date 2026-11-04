@@ -233,6 +233,42 @@ pub(crate) fn take_activations(rt: &Runtime) -> Vec<kivact_types::FocusTarget> {
     std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().pending_activations)
 }
 
+/// Bridge an actual engine capture release to the current part router.
+pub(crate) fn request_pointer_release(
+    rt: &Runtime,
+    node: kivact_types::NodeId,
+    pointer: kivact_types::PointerId,
+) {
+    ViewState::of(rt)
+        .requests
+        .borrow_mut()
+        .pointer_releases
+        .push((node, pointer));
+}
+
+/// Consume releases for this router after all its pointer defaults have run.
+pub(crate) fn take_pointer_release(
+    rt: &Runtime,
+    node: kivact_types::NodeId,
+    pointer: kivact_types::PointerId,
+) -> bool {
+    let mut requests = ViewState::of(rt).requests.borrow_mut();
+    let before = requests.pointer_releases.len();
+    requests
+        .pointer_releases
+        .retain(|release| *release != (node, pointer));
+    before != requests.pointer_releases.len()
+}
+
+/// Plain nodes have no part router; their event facts end with dispatch.
+pub(crate) fn clear_pointer_releases(rt: &Runtime) {
+    ViewState::of(rt)
+        .requests
+        .borrow_mut()
+        .pointer_releases
+        .clear();
+}
+
 /// Whether activations wait to run.
 pub(crate) fn has_activations(rt: &Runtime) -> bool {
     !ViewState::of(rt)
