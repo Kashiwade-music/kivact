@@ -37,9 +37,9 @@ pub struct Grid {
     root: Node,
     columns: Value<GridColumns>,
     gap: Value<Space>,
-    row_gap: Option<Space>,
-    column_gap: Option<Space>,
-    row_height: Option<f64>,
+    row_gap: Option<Value<Space>>,
+    column_gap: Option<Value<Space>>,
+    row_height: Option<Value<f64>>,
 }
 
 pub fn grid(children: impl IntoView) -> Grid {
@@ -62,16 +62,16 @@ impl Grid {
         self.gap = gap.into_value();
         self
     }
-    pub fn row_gap(mut self, gap: Space) -> Self {
-        self.row_gap = Some(gap);
+    pub fn row_gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.row_gap = Some(gap.into_value());
         self
     }
-    pub fn column_gap(mut self, gap: Space) -> Self {
-        self.column_gap = Some(gap);
+    pub fn column_gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.column_gap = Some(gap.into_value());
         self
     }
-    pub fn row_height(mut self, px: f64) -> Self {
-        self.row_height = Some(px);
+    pub fn row_height(mut self, px: impl IntoValue<f64>) -> Self {
+        self.row_height = Some(px.into_value());
         self
     }
     pub fn align(mut self, align: Align) -> Self {
@@ -104,7 +104,7 @@ impl IntoView for Grid {
         provide((), move || {
             let reference = node_ref();
             root.node_ref(reference).base_style(move || {
-                let column_gap = column_gap.unwrap_or(gap.get()).px();
+                let column_gap = column_gap.map_or_else(|| gap.get(), |gap| gap.get()).px();
                 let columns = match columns.get() {
                     GridColumns::Fixed(count) => Track::repeat(count.max(1), Track::fr(1)),
                     GridColumns::Responsive {
@@ -128,10 +128,10 @@ impl IntoView for Grid {
                 };
                 let mut base = style()
                     .grid_template_columns(columns)
-                    .row_gap(row_gap.unwrap_or(gap.get()).px())
+                    .row_gap(row_gap.map_or_else(|| gap.get(), |gap| gap.get()).px())
                     .column_gap(column_gap);
                 if let Some(px) = row_height {
-                    base = base.grid_auto_rows(px);
+                    base = base.grid_auto_rows(px.get());
                 }
                 base
             })

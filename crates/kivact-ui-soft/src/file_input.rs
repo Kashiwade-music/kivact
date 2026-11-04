@@ -41,7 +41,7 @@ pub struct FileInput {
     label: Value<String>,
     value: Binding<Vec<PathBuf>>,
     extensions: Rc<Vec<String>>,
-    max_bytes: Option<u64>,
+    max_bytes: Option<Value<u64>>,
     multiple: Value<bool>,
     dropzone: Value<bool>,
 }
@@ -75,8 +75,8 @@ impl FileInput {
         self
     }
 
-    pub fn max_bytes(mut self, max_bytes: u64) -> Self {
-        self.max_bytes = Some(max_bytes);
+    pub fn max_bytes(mut self, max_bytes: impl IntoValue<u64>) -> Self {
+        self.max_bytes = Some(max_bytes.into_value());
         self
     }
 
@@ -147,8 +147,9 @@ impl IntoView for FileInput {
                     Some(invalid_file.get())
                 } else if max_bytes.is_some_and(|max| {
                     files.iter().any(|file| {
-                        std::fs::metadata(file)
-                            .map_or(true, |metadata| !metadata.is_file() || metadata.len() > max)
+                        std::fs::metadata(file).map_or(true, |metadata| {
+                            !metadata.is_file() || metadata.len() > max.get()
+                        })
                     })
                 }) {
                     Some(too_large.get())

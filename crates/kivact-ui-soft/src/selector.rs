@@ -56,7 +56,7 @@ impl<K: ItemKey> Selector<K> {
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.inner = self.inner.size(size);
         self
     }

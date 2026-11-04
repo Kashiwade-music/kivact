@@ -44,8 +44,9 @@ impl Heading {
     }
 
     /// Override the level reported to assistive technology.
-    pub fn accessibility_level(self, level: u32) -> Self {
-        self.level(level.clamp(1, 6))
+    pub fn accessibility_level(self, level: impl IntoValue<u32>) -> Self {
+        let level = level.into_value();
+        self.with_node(move |node| node.level(move || level.get().clamp(1, 6)))
     }
 
     /// Set the color.
@@ -61,7 +62,7 @@ impl Heading {
     }
 
     /// Set the max lines.
-    pub fn max_lines(mut self, value: u32) -> Self {
+    pub fn max_lines(mut self, value: impl IntoValue<u32>) -> Self {
         self.text = self.text.max_lines(value);
         self
     }

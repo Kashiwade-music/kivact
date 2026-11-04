@@ -203,7 +203,7 @@ pub struct ChatBubble {
     sender: Value<ChatSender>,
     density: Value<ChatDensity>,
     group: Option<BubbleGroup>,
-    width: Option<Length>,
+    width: Option<Value<Length>>,
     name: Option<Value<String>>,
     metadata: Option<View>,
 }
@@ -246,8 +246,8 @@ impl ChatBubble {
         self.group = Some(group);
         self
     }
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        self.width = Some(width.into_value());
         self
     }
     pub fn name(mut self, name: impl IntoText) -> Self {
@@ -296,7 +296,7 @@ impl IntoView for ChatBubble {
                     .line_height(20.0 / 14.0)
                     .color(p.colors.text_primary);
                 if let Some(width) = width {
-                    bubble = bubble.width(width);
+                    bubble = bubble.width(width.get());
                 } else {
                     bubble = bubble.max_width(pct(100));
                 }
@@ -548,7 +548,7 @@ pub struct ChatMessageList {
     loading_top: Value<bool>,
     streaming: Value<bool>,
     density: Value<ChatDensity>,
-    gap: Option<f64>,
+    gap: Option<Value<f64>>,
     align: Value<ChatListAlign>,
 }
 
@@ -600,8 +600,8 @@ impl ChatMessageList {
         self.density = density.into_value();
         self
     }
-    pub fn gap(mut self, gap: f64) -> Self {
-        self.gap = Some(gap.max(0.0));
+    pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
+        self.gap = Some(gap.into_value());
         self
     }
     pub fn align(mut self, align: impl IntoValue<ChatListAlign>) -> Self {
@@ -626,7 +626,7 @@ impl IntoView for ChatMessageList {
         root.role(Role::Log)
             .live_region(LiveRegion::Polite)
             .busy(move || streaming || loading_top.get())
-            .base_style(
+            .base_style(move || {
                 style()
                     .direction(Direction::Column)
                     .grow(1)
@@ -637,8 +637,8 @@ impl IntoView for ChatMessageList {
                     })
                     .padding_y(density.get().gap())
                     .padding_x(density.get().gap().max(12))
-                    .gap(gap.unwrap_or(density.get().gap() as f64)),
-            )
+                    .gap(gap.map_or_else(|| density.get().gap() as f64, |gap| gap.get().max(0.0)))
+            })
             .child((
                 show(loading_top, || {
                     text("Loading earlier messages…").role(Role::Status)

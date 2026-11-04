@@ -73,16 +73,16 @@ pub struct Markdown {
 }
 
 struct Options {
-    inline: bool,
-    density: MarkdownDensity,
-    level: u32,
+    inline: Value<bool>,
+    density: Value<MarkdownDensity>,
+    level: Value<u32>,
     on_link: Option<LinkAction>,
-    citation_style: CitationVariant,
-    width: Option<f64>,
-    align: ContentAlign,
+    citation_style: Value<CitationVariant>,
+    width: Value<Option<f64>>,
+    align: Value<ContentAlign>,
     heading_links: Option<HeadingLinks>,
-    soft_breaks: bool,
-    autolink: bool,
+    soft_breaks: Value<bool>,
+    autolink: Value<bool>,
     code_languages: Vec<CodeLanguage>,
     render_code: Option<RenderCode>,
     render_image: Option<RenderImage>,
@@ -97,16 +97,16 @@ pub fn markdown(source: impl IntoValue<String>) -> Markdown {
         sources: Vec::new().into_value(),
         streaming: false.into_value(),
         options: Options {
-            inline: false,
-            density: MarkdownDensity::Default,
-            level: 1,
+            inline: false.into_value(),
+            density: MarkdownDensity::Default.into_value(),
+            level: 1.into_value(),
             on_link: None,
-            citation_style: CitationVariant::Label,
-            width: Some(680.0),
-            align: ContentAlign::Start,
+            citation_style: CitationVariant::Label.into_value(),
+            width: Some(680.0).into_value(),
+            align: ContentAlign::Start.into_value(),
             heading_links: None,
-            soft_breaks: false,
-            autolink: false,
+            soft_breaks: false.into_value(),
+            autolink: false.into_value(),
             code_languages: Vec::new(),
             render_code: None,
             render_image: None,
@@ -117,18 +117,19 @@ pub fn markdown(source: impl IntoValue<String>) -> Markdown {
 
 impl Markdown {
     /// Render inline markup only.
-    pub fn inline(mut self, value: bool) -> Self {
-        self.options.inline = value;
+    pub fn inline(mut self, value: impl IntoValue<bool>) -> Self {
+        self.options.inline = value.into_value();
         self
     }
     /// Set the vertical density.
-    pub fn density(mut self, value: MarkdownDensity) -> Self {
-        self.options.density = value;
+    pub fn density(mut self, value: impl IntoValue<MarkdownDensity>) -> Self {
+        self.options.density = value.into_value();
         self
     }
     /// Remap the first heading level.
-    pub fn heading_level_start(mut self, value: u32) -> Self {
-        self.options.level = value.clamp(1, 6);
+    pub fn heading_level_start(mut self, value: impl IntoValue<u32>) -> Self {
+        let value = value.into_value();
+        self.options.level = (move || value.get().clamp(1, 6)).into_value();
         self
     }
     /// Treat the source as an incomplete stream.
@@ -147,18 +148,18 @@ impl Markdown {
         self
     }
     /// Select how source references appear.
-    pub fn citation_style(mut self, value: CitationVariant) -> Self {
-        self.options.citation_style = value;
+    pub fn citation_style(mut self, value: impl IntoValue<CitationVariant>) -> Self {
+        self.options.citation_style = value.into_value();
         self
     }
     /// Set the prose width limit.
-    pub fn content_width(mut self, value: Option<f64>) -> Self {
-        self.options.width = value;
+    pub fn content_width(mut self, value: impl IntoValue<Option<f64>>) -> Self {
+        self.options.width = value.into_value();
         self
     }
     /// Align the bounded prose.
-    pub fn content_align(mut self, value: ContentAlign) -> Self {
-        self.options.align = value;
+    pub fn content_align(mut self, value: impl IntoValue<ContentAlign>) -> Self {
+        self.options.align = value.into_value();
         self
     }
     /// Add permalink controls to headings.
@@ -167,13 +168,13 @@ impl Markdown {
         self
     }
     /// Preserve source soft breaks as newlines.
-    pub fn soft_breaks(mut self, value: bool) -> Self {
-        self.options.soft_breaks = value;
+    pub fn soft_breaks(mut self, value: impl IntoValue<bool>) -> Self {
+        self.options.soft_breaks = value.into_value();
         self
     }
     /// Recognize bare web and email links.
-    pub fn autolink(mut self, value: bool) -> Self {
-        self.options.autolink = value;
+    pub fn autolink(mut self, value: impl IntoValue<bool>) -> Self {
+        self.options.autolink = value.into_value();
         self
     }
     /// Supply custom fenced-code languages.
@@ -225,10 +226,32 @@ impl IntoView for Markdown {
             options,
         } = self;
         let inline = options.inline;
-        let input = memo(move || (source.get(), sources.get(), streaming.get(), tokens()));
+        let render_props = (
+            options.density,
+            options.level,
+            options.citation_style,
+            options.soft_breaks,
+            options.autolink,
+        );
+        let input = memo(move || {
+            (
+                source.get(),
+                sources.get(),
+                streaming.get(),
+                tokens(),
+                (
+                    inline.get(),
+                    render_props.0.get(),
+                    render_props.1.get(),
+                    render_props.2.get(),
+                    render_props.3.get(),
+                    render_props.4.get(),
+                ),
+            )
+        });
         root.base_style(move || {
             let look = style().direction(Direction::Column).min_width(0);
-            if inline {
+            if inline.get() {
                 return look;
             }
             let p = tokens();
@@ -239,7 +262,7 @@ impl IntoView for Markdown {
                 .line_height(body.line_height_px / body.size_px)
                 .color(p.colors.text_primary)
         })
-        .child(dynamic(input, move |(source, sources, streaming, _)| {
+        .child(dynamic(input, move |(source, sources, streaming, _, _)| {
             let source = if streaming {
                 settled_tail(&source)
             } else {
@@ -258,11 +281,11 @@ impl IntoView for Markdown {
                 numbers: HashMap::new(),
                 slugs: HashMap::new(),
             };
-            if options.inline {
+            if options.inline.get() {
                 renderer.inline(source, false, true)
             } else {
                 renderer
-                    .blocks(&parse(&lines, options.soft_breaks, 0), 0)
+                    .blocks(&parse(&lines, options.soft_breaks.get(), 0), 0)
                     .into_view()
             }
         }))
@@ -289,18 +312,25 @@ impl Renderer<'_> {
                 let gap = if index == 0 { 0.0 } else { previous.max(top) };
                 previous = bottom;
                 let view = self.block(block, depth);
-                let mut look = style().margin_top(gap).min_width(0);
-                if depth == 0 && !matches!(block, Block::Table(..) | Block::Code(..) | Block::Rule)
-                {
-                    if let Some(width) = self.options.width {
-                        look = look.max_width(width).width(pct(100));
-                    }
-                    look = look.align_self(match self.options.align {
-                        ContentAlign::Start => Align::Start,
-                        ContentAlign::Center => Align::Center,
-                    });
-                }
-                node().style(look).child(view)
+                let bounded = depth == 0
+                    && !matches!(block, Block::Table(..) | Block::Code(..) | Block::Rule);
+                let width = self.options.width;
+                let align = self.options.align;
+                node()
+                    .style(move || {
+                        let mut look = style().margin_top(gap).min_width(0);
+                        if bounded {
+                            if let Some(width) = width.get() {
+                                look = look.max_width(width).width(pct(100));
+                            }
+                            look = look.align_self(match align.get() {
+                                ContentAlign::Start => Align::Start,
+                                ContentAlign::Center => Align::Center,
+                            });
+                        }
+                        look
+                    })
+                    .child(view)
             })
             .collect::<Vec<_>>();
         column(children)
@@ -309,9 +339,9 @@ impl Renderer<'_> {
     fn spacing(&self, block: &Block<'_>) -> (f64, f64) {
         let p = tokens();
         let s = p.spacing;
-        let compact = self.options.density == MarkdownDensity::Compact;
+        let compact = self.options.density.get() == MarkdownDensity::Compact;
         match block {
-            Block::Heading(level, _) if level + self.options.level - 1 <= 3 => {
+            Block::Heading(level, _) if level + self.options.level.get() - 1 <= 3 => {
                 if compact {
                     (s.s4, s.s2)
                 } else {
@@ -343,7 +373,7 @@ impl Renderer<'_> {
     fn block(&mut self, block: &Block<'_>, depth: usize) -> View {
         match block {
             Block::Heading(level, title) => {
-                self.heading((*level + self.options.level - 1).min(6), title)
+                self.heading((*level + self.options.level.get() - 1).min(6), title)
             }
             Block::Paragraph(source) => self.inline(source, false, true),
             Block::Quote(blocks) => {
@@ -672,7 +702,7 @@ impl Renderer<'_> {
                 .citation(id)
                 .map(|view| (rest.len() - after.len(), view));
         }
-        if self.options.autolink {
+        if self.options.autolink.get() {
             let (candidate, used) = if let Some(candidate) = rest.strip_prefix('<') {
                 let (candidate, after) = candidate.split_once('>')?;
                 (candidate, rest.len() - after.len())
@@ -705,7 +735,7 @@ impl Renderer<'_> {
         let (_, source) = self.sources.iter().find(|(source, _)| source == id)?;
         let next = self.numbers.len() as u32 + 1;
         let number = *self.numbers.entry(id.to_owned()).or_insert(next);
-        let cite = citation(number, source.clone()).variant(self.options.citation_style);
+        let cite = citation(number, source.clone()).variant(self.options.citation_style.get());
         Some(if let Some(action) = self.options.on_link.clone() {
             cite.on_open(move |url| {
                 if safe_url(url) {
@@ -918,3 +948,5 @@ fn settled_tail(source: &str) -> &str {
     }
     source.trim_end_matches(['*', '~'])
 }
+
+kivact::state::constant_value!(MarkdownDensity, ContentAlign);

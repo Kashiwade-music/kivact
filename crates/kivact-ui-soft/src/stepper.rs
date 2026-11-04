@@ -170,7 +170,7 @@ pub struct Stepper {
     position: Value<StepIndicatorPosition>,
     min_width: Value<f64>,
     collapsed: Value<StepCollapsedVariant>,
-    connector_gap: f64,
+    connector_gap: Value<f64>,
 }
 
 pub fn stepper(active: impl IntoValue<usize>, steps: impl IntoIterator<Item = Step>) -> Stepper {
@@ -184,7 +184,7 @@ pub fn stepper(active: impl IntoValue<usize>, steps: impl IntoIterator<Item = St
         position: (StepIndicatorPosition::Separated).into_value(),
         min_width: (112.0).into_value(),
         collapsed: (StepCollapsedVariant::WithLabelAndControls).into_value(),
-        connector_gap: 0.0,
+        connector_gap: 0.0.into_value(),
     }
 }
 
@@ -217,8 +217,8 @@ impl Stepper {
         self.collapsed = variant.into_value();
         self
     }
-    pub fn connector_gap(mut self, gap: f64) -> Self {
-        self.connector_gap = gap.clamp(0.0, 8.0);
+    pub fn connector_gap(mut self, gap: impl IntoValue<f64>) -> Self {
+        self.connector_gap = gap.into_value();
         self
     }
 }
@@ -238,7 +238,7 @@ struct StepperCx {
     action: Option<Callback<usize>>,
     density: StepDensity,
     position: StepIndicatorPosition,
-    connector_gap: f64,
+    connector_gap: Value<f64>,
 }
 
 impl IntoView for Stepper {
@@ -403,7 +403,7 @@ impl IntoView for Step {
                 action: None,
                 density: StepDensity::Balanced,
                 position: StepIndicatorPosition::Separated,
-                connector_gap: 0.0,
+                connector_gap: 0.0.into_value(),
             };
             self.build(cx, true, true)
         })
@@ -485,7 +485,7 @@ impl Step {
                             logical_row()
                         })
                         .align_items(Align::Center)
-                        .gap(gap)
+                        .gap(gap.get().clamp(0.0, 8.0))
                         .shrink(0)
                 })
                 .child((

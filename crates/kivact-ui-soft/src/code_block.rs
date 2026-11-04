@@ -172,9 +172,9 @@ pub struct CodeBlock {
     on_copy: Option<Rc<dyn Fn()>>,
     end_content: Option<View>,
     wrap: Value<bool>,
-    max_height: Option<Length>,
+    max_height: Option<Value<Length>>,
     collapsible: Value<bool>,
-    collapsible_threshold: usize,
+    collapsible_threshold: Value<usize>,
     expanded: Signal<bool>,
     size: Value<CodeBlockSize>,
     width: Value<CodeBlockWidth>,
@@ -199,7 +199,7 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
         wrap: false.into_value(),
         max_height: None,
         collapsible: (false).into_value(),
-        collapsible_threshold: 10,
+        collapsible_threshold: 10.into_value(),
         expanded: signal(true),
         size: (CodeBlockSize::Md).into_value(),
         width: (CodeBlockWidth::Fit).into_value(),
@@ -261,8 +261,8 @@ impl CodeBlock {
         self
     }
     /// Limit the scrolling viewport's height.
-    pub fn max_height(mut self, value: impl Into<Length>) -> Self {
-        self.max_height = Some(value.into());
+    pub fn max_height(mut self, value: impl IntoValue<Length>) -> Self {
+        self.max_height = Some(value.into_value());
         self
     }
     /// Make a sufficiently long block collapsible.
@@ -271,8 +271,8 @@ impl CodeBlock {
         self
     }
     /// Set the minimum number of lines for the collapse control.
-    pub fn collapsible_threshold(mut self, value: usize) -> Self {
-        self.collapsible_threshold = value;
+    pub fn collapsible_threshold(mut self, value: impl IntoValue<usize>) -> Self {
+        self.collapsible_threshold = value.into_value();
         self
     }
     /// Supply the expansion state.
@@ -357,10 +357,12 @@ impl IntoView for CodeBlock {
             }
         });
         let can_collapse = memo(move || {
-            has_header && collapsible.get() && code.get().lines().count() >= collapsible_threshold
+            has_header
+                && collapsible.get()
+                && code.get().lines().count() >= collapsible_threshold.get()
         });
         let disclosure = use_disclosure(binding(
-            move || !can_collapse || expanded.get(),
+            move || !can_collapse.get() || expanded.get(),
             move |open| expanded.set(open),
         ));
         let motion = tokens().motion;
@@ -441,7 +443,7 @@ impl IntoView for CodeBlock {
                     ScrollAxes::Both
                 })
                 .style(move || match max_height {
-                    Some(height) => style().max_height(height),
+                    Some(height) => style().max_height(height.get()),
                     None => style(),
                 })
         };

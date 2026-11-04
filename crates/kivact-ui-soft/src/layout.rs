@@ -67,7 +67,7 @@ pub struct Layout {
     end_resize: Option<ResizeHandle>,
     height: Value<LayoutHeight>,
     padding: Option<Space>,
-    content_width: Option<Length>,
+    content_width: Option<Value<Length>>,
     default_dividers: Value<bool>,
 }
 
@@ -117,8 +117,8 @@ impl Layout {
         self.padding = Some(padding);
         self
     }
-    pub fn content_width(mut self, width: impl Into<Length>) -> Self {
-        self.content_width = Some(width.into());
+    pub fn content_width(mut self, width: impl IntoValue<Length>) -> Self {
+        self.content_width = Some(width.into_value());
         self
     }
     pub fn start_resize_handle(mut self, handle: ResizeHandle) -> Self {
@@ -149,7 +149,7 @@ struct LayoutSlots {
     footer_divider: Option<bool>,
     has_start: bool,
     has_end: bool,
-    content_width: Option<Length>,
+    content_width: Option<Value<Length>>,
 }
 
 impl IntoView for Layout {
@@ -228,7 +228,7 @@ impl IntoView for Layout {
                                             .grow(1)
                                             .min_height(0)
                                             .min_width(0);
-                                        match content_width {
+                                        match content_width.map(|value| value.get()) {
                                             Some(Length::Px(width))
                                                 if !(slots.has_start && slots.has_end) =>
                                             {
@@ -285,7 +285,7 @@ pub struct LayoutRegion {
     padding_bottom: Option<Space>,
     scrollable: Value<bool>,
     resizable: Option<ResizableState>,
-    width: Option<Length>,
+    width: Option<Value<Length>>,
 }
 
 fn region(kind: Region, children: impl IntoView) -> LayoutRegion {
@@ -340,12 +340,13 @@ impl LayoutRegion {
         self.scrollable = scrollable.into_value();
         self
     }
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        self.width = Some(width.into_value());
         self
     }
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.root = self.root.style(style().height(height));
+    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
+        let height = height.into_value();
+        self.root = self.root.style(move || style().height(height.get()));
         self
     }
 }
@@ -432,7 +433,7 @@ impl IntoView for LayoutRegion {
                     && !slots.has_start
                     && !slots.has_end
                     && let (Some(root), Some(Length::Px(width))) =
-                        (slots.root_ref, slots.content_width)
+                        (slots.root_ref, slots.content_width.map(|value| value.get()))
                 {
                     let gutter = center_gutter(root, width);
                     let (left, right) = inset.sides();
@@ -445,7 +446,7 @@ impl IntoView for LayoutRegion {
                 {
                     base = base
                         .width(pct(100))
-                        .max_width(width)
+                        .max_width(width.get())
                         .margin_x(kivact::style::auto());
                 }
                 base
@@ -461,7 +462,7 @@ impl IntoView for LayoutRegion {
                     if let Some(state) = &resizable {
                         base = base.width(state.size());
                     } else if let Some(width) = width {
-                        base = base.width(width);
+                        base = base.width(width.get());
                     }
                 }
                 let divider = divider.unwrap_or_default();

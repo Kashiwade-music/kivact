@@ -86,7 +86,7 @@ pub struct BottomSheet {
     height: SheetHeight,
     snap_points: Vec<SnapPoint>,
     scrim: kivact::state::Value<bool>,
-    padding: f64,
+    padding: kivact::state::Value<f64>,
     final_focus: Option<NodeRef>,
     content: Option<ViewFn>,
 }
@@ -99,7 +99,7 @@ pub fn bottom_sheet(label: impl IntoText, open: impl IntoBinding<bool>) -> Botto
         height: SheetHeight::Capped,
         snap_points: Vec::new(),
         scrim: true.into_value(),
-        padding: 16.0,
+        padding: 16.0.into_value(),
         final_focus: None,
         content: None,
     }
@@ -148,8 +148,9 @@ impl BottomSheet {
         self
     }
 
-    pub fn padding(mut self, step: u8) -> Self {
-        self.padding = f64::from(step) * 4.0;
+    pub fn padding(mut self, step: impl IntoValue<f64>) -> Self {
+        let step = step.into_value();
+        self.padding = (move || step.get() * 4.0).into_value();
         self
     }
 
@@ -280,7 +281,7 @@ impl IntoView for BottomSheet {
                 );
             let body = column(self.content.as_ref().map(|content| content.call(())))
                 .node_ref(body_ref)
-                .style(style().padding(self.padding));
+                .style(move || style().padding(self.padding.get()));
             let body = scroll(body)
                 .name(self.label)
                 .style(style().grow(1).min_height(0));

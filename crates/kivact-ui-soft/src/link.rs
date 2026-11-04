@@ -53,10 +53,10 @@ pub struct Link {
     external: Value<bool>,
     standalone: Value<bool>,
     kind: Value<TextKind>,
-    size: Option<f64>,
+    size: Option<Value<f64>>,
     weight: Option<u16>,
     color: Value<LinkColor>,
-    max_lines: u32,
+    max_lines: Value<u32>,
     as_button: Value<bool>,
 }
 
@@ -84,7 +84,7 @@ pub fn link_with(content: impl IntoView) -> Link {
         size: None,
         weight: None,
         color: (LinkColor::Accent).into_value(),
-        max_lines: 0,
+        max_lines: 0.into_value(),
         as_button: (false).into_value(),
     }
 }
@@ -137,8 +137,8 @@ impl Link {
         self
     }
 
-    pub fn text_size(mut self, px: f64) -> Self {
-        self.size = Some(px);
+    pub fn text_size(mut self, px: impl IntoValue<f64>) -> Self {
+        self.size = Some(px.into_value());
         self
     }
 
@@ -152,8 +152,8 @@ impl Link {
         self
     }
 
-    pub fn max_lines(mut self, lines: u32) -> Self {
-        self.max_lines = lines;
+    pub fn max_lines(mut self, lines: impl IntoValue<u32>) -> Self {
+        self.max_lines = lines.into_value();
         self
     }
 }
@@ -258,7 +258,7 @@ impl IntoView for Link {
                 base = base.color(ink);
             }
             if let Some(size) = size {
-                base = base.font_size(size);
+                base = base.font_size(size.get());
             }
             if let Some(weight) = weight {
                 base = base.weight(weight);
@@ -277,7 +277,7 @@ impl IntoView for Link {
                 base
             }
         })
-        .child(row(self.content).style(style().min_width(0).line_clamp(lines)))
+        .child(row(self.content).style(move || style().min_width(0).line_clamp(lines.get())))
         .child(
             self.external
                 .get()

@@ -72,8 +72,8 @@ pub struct Pagination {
     page_label: Option<Value<String>>,
     size: Value<ControlSize>,
     first_last: Option<Value<bool>>,
-    step: u32,
-    siblings: u32,
+    step: Value<u32>,
+    siblings: Value<u32>,
     on_change: Option<Callback<u32>>,
 }
 
@@ -93,8 +93,8 @@ pub fn pagination(page: impl IntoBinding<u32>) -> Pagination {
         page_label: None,
         size: (ControlSize::Medium).into_value(),
         first_last: None,
-        step: 1,
-        siblings: 1,
+        step: 1.into_value(),
+        siblings: 1.into_value(),
         on_change: None,
     }
 }
@@ -132,12 +132,13 @@ impl Pagination {
         self.first_last = Some(first_last.into_value());
         self
     }
-    pub fn step(mut self, step: u32) -> Self {
-        self.step = step.max(1);
+    pub fn step(mut self, step: impl IntoValue<u32>) -> Self {
+        let step = step.into_value();
+        self.step = (move || step.get().max(1)).into_value();
         self
     }
-    pub fn siblings(mut self, siblings: u32) -> Self {
-        self.siblings = siblings;
+    pub fn siblings(mut self, siblings: impl IntoValue<u32>) -> Self {
+        self.siblings = siblings.into_value();
         self
     }
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
@@ -306,7 +307,7 @@ impl IntoView for Pagination {
                         PaginationVariant::Pages => for_each(
                             move || {
                                 model.total.get().map_or_else(Vec::new, |total| {
-                                    page_window(model.page(), total, siblings)
+                                    page_window(model.page(), total, siblings.get())
                                 })
                             },
                             |cell| *cell,
@@ -536,7 +537,11 @@ enum Arrow {
     Last,
 }
 
-fn arrow(model: Model, which: Arrow, size: ControlSize, step: u32) -> impl IntoView {
+fn arrow(model: Model, which: Arrow, size: ControlSize, step: Value<u32>) -> impl IntoView {
+    kivact::view::dynamic(step, move |step| arrow_step(model, which, size, step))
+}
+
+fn arrow_step(model: Model, which: Arrow, size: ControlSize, step: u32) -> impl IntoView {
     let leading = matches!(which, Arrow::First | Arrow::Previous);
     let edges = matches!(which, Arrow::First | Arrow::Last);
     let label = match which {

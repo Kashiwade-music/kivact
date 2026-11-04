@@ -150,7 +150,8 @@ impl ResizableState {
         self.collapsed.set(false);
     }
 
-    pub fn resize(&self, requested: f64) {
+    pub fn resize(&self, requested: impl Into<f64>) {
+        let requested = requested.into();
         if !requested.is_finite() {
             return;
         }

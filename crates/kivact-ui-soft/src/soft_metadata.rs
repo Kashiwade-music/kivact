@@ -74,26 +74,26 @@ impl MetadataItem {
         self
     }
 
-    fn render(self, position: LabelPosition, width: Value<Option<f64>>) -> View {
+    fn render(self, position: Value<LabelPosition>, width: Value<Option<f64>>) -> View {
         let (root, label, value) = self.parts();
-        root.base_style(
+        root.base_style(move || {
             style()
-                .direction(if position == LabelPosition::Start {
+                .direction(if position.get() == LabelPosition::Start {
                     Direction::Row
                 } else {
                     Direction::Column
                 })
-                .gap(if position == LabelPosition::Start {
+                .gap(if position.get() == LabelPosition::Start {
                     16
                 } else {
                     2
                 })
-                .min_width(0),
-        )
+                .min_width(0)
+        })
         .child((
             row(label).style(move || {
                 let mut box_style = style().align_items(Align::Start);
-                if position == LabelPosition::Start {
+                if position.get() == LabelPosition::Start {
                     box_style = box_style.shrink(0);
                     if let Some(width) = width.get() {
                         box_style = box_style.width(width);
@@ -142,14 +142,14 @@ impl IntoView for MetadataItem {
             layout.labels.update(|labels| labels.push(self.label_ref));
             self.render(layout.position, layout.width)
         } else {
-            self.render(LabelPosition::Top, None.into_value())
+            self.render(LabelPosition::Top.into_value(), None.into_value())
         }
     }
 }
 
 #[derive(Clone)]
 struct MetadataLayout {
-    position: LabelPosition,
+    position: Value<LabelPosition>,
     width: Value<Option<f64>>,
     labels: kivact::state::Signal<Vec<NodeRef>>,
 }
@@ -158,9 +158,9 @@ pub struct MetadataList<C> {
     root: Node,
     items: C,
     columns: Value<MetadataColumns>,
-    position: Option<LabelPosition>,
-    label_width: Option<f64>,
-    max_items: Option<usize>,
+    position: Option<Value<LabelPosition>>,
+    label_width: Option<Value<f64>>,
+    max_items: Option<Value<usize>>,
     expanded: Option<Binding<bool>>,
     orientation: Value<Orientation>,
     title: Option<View>,
@@ -193,18 +193,18 @@ impl<C> MetadataList<C> {
         self
     }
 
-    pub fn label_position(mut self, position: LabelPosition) -> Self {
-        self.position = Some(position);
+    pub fn label_position(mut self, position: impl IntoValue<LabelPosition>) -> Self {
+        self.position = Some(position.into_value());
         self
     }
 
-    pub fn label_width(mut self, width: f64) -> Self {
-        self.label_width = Some(width.max(0.0));
+    pub fn label_width(mut self, width: impl IntoValue<f64>) -> Self {
+        self.label_width = Some(width.into_value());
         self
     }
 
-    pub fn max_items(mut self, max: usize) -> Self {
-        self.max_items = Some(max);
+    pub fn max_items(mut self, max: impl IntoValue<usize>) -> Self {
+        self.max_items = Some(max.into_value());
         self
     }
 
@@ -237,33 +237,36 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
             orientation,
             title,
         } = self;
-        let horizontal = orientation.get() == Orientation::Horizontal;
-        let single = matches!(
-            columns.get(),
-            MetadataColumns::Single | MetadataColumns::Count(0 | 1)
-        );
-        let position = if horizontal {
-            LabelPosition::Top
-        } else {
-            position.unwrap_or(if single {
-                LabelPosition::Start
-            } else {
+        let horizontal = memo(move || orientation.get() == Orientation::Horizontal);
+        let position = memo(move || {
+            if horizontal.get() {
                 LabelPosition::Top
-            })
-        };
+            } else {
+                position.map(|position| position.get()).unwrap_or_else(|| {
+                    if matches!(
+                        columns.get(),
+                        MetadataColumns::Single | MetadataColumns::Count(0 | 1)
+                    ) {
+                        LabelPosition::Start
+                    } else {
+                        LabelPosition::Top
+                    }
+                })
+            }
+        });
         let labels = signal(Vec::new());
-        let width = if position == LabelPosition::Start && label_width.is_none() {
-            memo(move || {
+        let width = memo(move || {
+            if position.get() == LabelPosition::Start && label_width.is_none() {
                 labels.with(|labels: &Vec<NodeRef>| {
                     labels
                         .iter()
                         .filter_map(|label| label.rect().get().map(|rect| rect.width))
                         .reduce(f64::max)
                 })
-            })
-        } else {
-            label_width.into_value()
-        };
+            } else {
+                label_width.map(|width| width.get().max(0.0))
+            }
+        });
         let children = kivact::state::provide(
             MetadataLayout {
                 position,
@@ -271,38 +274,60 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                 labels,
             },
             move || {
-                let mut items = items.into_views();
-                let extra = if horizontal {
-                    Vec::new()
-                } else {
-                    max_items
-                        .filter(|&limit| limit < items.len())
-                        .map_or_else(Vec::new, |limit| items.split_off(limit))
-                };
+                let items = items.into_views();
+                let count = items.len();
+                let open = expanded.unwrap_or_else(|| signal(false).into_binding());
+                let has_extra = memo(move || {
+                    !horizontal.get() && max_items.is_some_and(|limit| limit.get() < count)
+                });
+                let items = items
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, item)| {
+                        node()
+                            .child(item)
+                            .hidden(move || {
+                                !horizontal.get()
+                                    && max_items.is_some_and(|limit| index >= limit.get())
+                                    && !open.get()
+                            })
+                            .style(move || {
+                                if !horizontal.get()
+                                    && max_items.is_some_and(|limit| index == limit.get())
+                                {
+                                    style().min_width(0).grid_column(1)
+                                } else {
+                                    style().min_width(0)
+                                }
+                            })
+                            .into_view()
+                    })
+                    .collect::<Vec<_>>();
                 let render = |items: Vec<View>| {
-                    if horizontal {
-                        let items = items.into_iter().map(|item| item).collect::<Vec<_>>();
-                        return row(items).style(style().wrap(true).gap(16));
-                    }
-                    let columns = match columns.get() {
-                        MetadataColumns::Single => Track::fr(1),
-                        MetadataColumns::Count(count) => {
-                            Track::repeat(u16::from(count.max(1)), Track::minmax(0, Track::fr(1)))
+                    node().child(items).style(move || {
+                        if horizontal.get() {
+                            style().direction(Direction::Row).wrap(true).gap(16)
+                        } else {
+                            let tracks = match columns.get() {
+                                MetadataColumns::Single => Track::fr(1),
+                                MetadataColumns::Count(count) => Track::repeat(
+                                    u16::from(count.max(1)),
+                                    Track::minmax(0, Track::fr(1)),
+                                ),
+                                MetadataColumns::Multi => {
+                                    Track::repeat_auto_fill(Track::minmax(280, Track::fr(1)))
+                                }
+                            };
+                            style()
+                                .display(kivact::style::Display::Grid)
+                                .grid_template_columns(tracks)
+                                .row_gap(8)
+                                .column_gap(16)
                         }
-                        MetadataColumns::Multi => {
-                            Track::repeat_auto_fill(Track::minmax(280, Track::fr(1)))
-                        }
-                    };
-                    let gap = style()
-                        .grid_template_columns(columns)
-                        .row_gap(8)
-                        .column_gap(16);
-                    let items = items.into_iter().map(|item| item).collect::<Vec<_>>();
-                    grid(items).style(gap)
+                    })
                 };
                 let main = render(items);
-                let disclosure = (!extra.is_empty()).then(|| {
-                    let open = expanded.unwrap_or_else(|| signal(false).into_binding());
+                let disclosure = {
                     let show_less = message("soft.metadata_list.show_less", "Show less");
                     let show_more = message("soft.metadata_list.show_more", "Show more");
                     let label = move || {
@@ -313,8 +338,8 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                         }
                     };
                     let disclosure = use_disclosure(open);
-                    let content = render(extra).part(disclosure.content());
                     let trigger = node()
+                        .hidden(move || !has_extra.get())
                         .part(disclosure.trigger())
                         .name(label)
                         .base_style(move || {
@@ -331,8 +356,8 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                                 )
                         })
                         .child(text(label));
-                    column((content, trigger)).style(style().gap(8))
-                });
+                    trigger
+                };
                 (main, disclosure)
             },
         );
@@ -342,4 +367,4 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
     }
 }
 
-kivact::state::constant_value!(MetadataColumns);
+kivact::state::constant_value!(MetadataColumns, LabelPosition);

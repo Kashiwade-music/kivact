@@ -82,7 +82,7 @@ impl NavHeadingMenuItem {
 pub struct NavHeadingMenu {
     items: Rc<[NavHeadingMenuItem]>,
     size: ControlSize,
-    min_width: Option<f64>,
+    min_width: Option<kivact::state::Value<f64>>,
 }
 
 pub fn nav_heading_menu(items: impl IntoIterator<Item = NavHeadingMenuItem>) -> NavHeadingMenu {
@@ -98,8 +98,8 @@ impl NavHeadingMenu {
         self.size = size;
         self
     }
-    pub fn min_width(mut self, width: f64) -> Self {
-        self.min_width = Some(width);
+    pub fn min_width(mut self, width: impl IntoValue<f64>) -> Self {
+        self.min_width = Some(width.into_value());
         self
     }
 }
@@ -154,7 +154,7 @@ pub(crate) fn nav_menu_view(
     let opened = behavior.is_open();
     let trigger = trigger(opened).part(part);
     let heading = matches!(look, NavMenuLook::Heading);
-    let min_width = min_width.unwrap_or(if heading {
+    let default_min_width = if heading {
         match size {
             ControlSize::Small => 160.0,
             ControlSize::Large => 240.0,
@@ -162,7 +162,8 @@ pub(crate) fn nav_menu_view(
         }
     } else {
         280.0
-    });
+    };
+    let min_width = min_width.unwrap_or_else(|| default_min_width.into_value());
     let surface = behavior.show(move || {
         let items = items.clone();
         let rows = for_each(
@@ -270,9 +271,9 @@ pub(crate) fn nav_menu_view(
                 let anchor_width = anchor.rect().get().map_or(0.0, |rect| rect.width);
                 popup_surface()
                     .min_width(if heading {
-                        min_width.max(anchor_width + t.spacing.s4)
+                        min_width.get().max(anchor_width + t.spacing.s4)
                     } else {
-                        min_width
+                        min_width.get()
                     })
                     .padding(t.spacing.s1)
                     .gap(if heading {

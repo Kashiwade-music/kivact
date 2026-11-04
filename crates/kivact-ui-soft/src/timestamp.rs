@@ -182,7 +182,7 @@ pub struct Timestamp {
     clock: MachineHandle<TimestampTick>,
     settings: Rc<RefCell<TimestampSettings>>,
     details: Value<bool>,
-    entries: Vec<TimestampEntry>,
+    entries: Value<Vec<TimestampEntry>>,
     live: Value<bool>,
 }
 
@@ -190,10 +190,10 @@ pub struct Timestamp {
 pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
     let settings = Rc::new(RefCell::new(TimestampSettings {
         value: value.into_value(),
-        format: TimestampFormat::Auto,
-        threshold: Duration::from_secs(604_800),
-        zone: TimeZone::default(),
-        show_zone: false,
+        format: TimestampFormat::Auto.into_value(),
+        threshold: Duration::from_secs(604_800).into_value(),
+        zone: TimeZone::default().into_value(),
+        show_zone: false.into_value(),
     }));
     let input = settings.clone();
     let clock = machine(
@@ -220,28 +220,28 @@ pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
         clock,
         settings,
         details: (true).into_value(),
-        entries: Vec::new(),
+        entries: Vec::new().into_value(),
         live: (false).into_value(),
     }
 }
 
 struct TimestampSettings {
     value: Value<Instant>,
-    format: TimestampFormat,
-    threshold: Duration,
-    zone: TimeZone,
-    show_zone: bool,
+    format: Value<TimestampFormat>,
+    threshold: Value<Duration>,
+    zone: Value<TimeZone>,
+    show_zone: Value<bool>,
 }
 
 impl Timestamp {
     /// Select the timestamp format.
-    pub fn format(self, format: TimestampFormat) -> Self {
-        self.settings.borrow_mut().format = format;
+    pub fn format(self, format: impl IntoValue<TimestampFormat>) -> Self {
+        self.settings.borrow_mut().format = format.into_value();
         self
     }
     /// Set the relative window for automatic format.
-    pub fn auto_threshold(self, threshold: Duration) -> Self {
-        self.settings.borrow_mut().threshold = threshold;
+    pub fn auto_threshold(self, threshold: impl IntoValue<Duration>) -> Self {
+        self.settings.borrow_mut().threshold = threshold.into_value();
         self
     }
     /// Enable or disable the details surface.
@@ -250,18 +250,18 @@ impl Timestamp {
         self
     }
     /// Supply the rows shown in the details surface.
-    pub fn entries(mut self, entries: Vec<TimestampEntry>) -> Self {
-        self.entries = entries;
+    pub fn entries(mut self, entries: impl IntoValue<Vec<TimestampEntry>>) -> Self {
+        self.entries = entries.into_value();
         self
     }
     /// Set the wall-clock offset supplied by the application.
-    pub fn time_zone(self, zone: TimeZone) -> Self {
-        self.settings.borrow_mut().zone = zone;
+    pub fn time_zone(self, zone: impl IntoValue<TimeZone>) -> Self {
+        self.settings.borrow_mut().zone = zone.into_value();
         self
     }
     /// Append the time zone label to time formats.
-    pub fn show_time_zone(self, on: bool) -> Self {
-        self.settings.borrow_mut().show_zone = on;
+    pub fn show_time_zone(self, on: impl IntoValue<bool>) -> Self {
+        self.settings.borrow_mut().show_zone = on.into_value();
         self
     }
     /// Update the relative display while mounted.
@@ -308,38 +308,56 @@ impl IntoView for Timestamp {
             entries,
             live,
         } = self;
+        let presentation_settings = settings.clone();
         let settings = settings.borrow();
         let value = settings.value;
         let format = settings.format;
-        let zone = settings.zone.clone();
-        let relative = matches!(
-            format,
-            TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
-        );
-        if live.get() && relative {
-            clock.send(TimestampEvent::Tick);
-        } else {
-            clock.send(TimestampEvent::Refresh);
-        }
+        let zone = settings.zone;
+        let relative = memo(move || {
+            matches!(
+                format.get(),
+                TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
+            )
+        });
+        kivact::state::effect(move || {
+            if live.get() && relative.get() {
+                clock.send(TimestampEvent::Tick);
+            } else {
+                clock.send(TimestampEvent::Refresh);
+            }
+        });
         let full_zone = zone.clone();
         let full = move || {
             calendar_text(
                 value.get(),
                 TimestampFormat::DateTime,
-                &full_zone,
+                &full_zone.get(),
                 true,
                 true,
             )
         };
-        let text = if relative { text.name(full) } else { text };
-        if details.get() && (relative || !entries.is_empty()) {
+        let now_label = message("soft.relative_time.now", "now");
+        let yesterday = message("soft.relative_time.yesterday", "yesterday");
+        let text = text.name(move || {
+            if relative.get() {
+                full()
+            } else {
+                let TimestampClock::Running { now } = clock.get();
+                timestamp_presentation(&presentation_settings.borrow(), now, now_label, yesterday)
+            }
+        });
+        let enabled = memo(move || {
+            details.get() && (relative.get() || entries.with(|entries| !entries.is_empty()))
+        });
+        {
             // Standard tooltip fallback until Soft's interactive hover card is integrated.
             tooltip(move || {
+                let entries = entries.get();
                 if entries.is_empty() {
                     return calendar_text(
                         value.get(),
                         TimestampFormat::DateTime,
-                        &zone,
+                        &zone.get(),
                         true,
                         true,
                     );
@@ -362,7 +380,7 @@ impl IntoView for Timestamp {
                         let value = calendar_text(
                             value.get(),
                             format,
-                            entry.zone.as_ref().unwrap_or(&zone),
+                            entry.zone.as_ref().unwrap_or(&zone.get()),
                             entry.zone.is_some() || full,
                             full,
                         );
@@ -374,9 +392,8 @@ impl IntoView for Timestamp {
                     .collect::<Vec<_>>()
                     .join("\n")
             })
-            .attach(text.focusable(true))
-        } else {
-            text.into_view()
+            .enabled(enabled)
+            .attach(text.focusable(enabled))
         }
     }
 }
@@ -551,14 +568,14 @@ fn timestamp_presentation(
 ) -> String {
     let instant = settings.value.get();
     let diff = difference(now, instant);
-    let format = if settings.format == TimestampFormat::Auto {
-        if diff.unsigned_abs() <= settings.threshold.as_secs() {
+    let format = if settings.format.get() == TimestampFormat::Auto {
+        if diff.unsigned_abs() <= settings.threshold.get().as_secs() {
             TimestampFormat::Relative
         } else {
             TimestampFormat::DateTime
         }
     } else {
-        settings.format
+        settings.format.get()
     };
     match format {
         TimestampFormat::Relative | TimestampFormat::RelativeShort => relative_text(
@@ -567,6 +584,14 @@ fn timestamp_presentation(
             now_label,
             yesterday,
         ),
-        _ => calendar_text(instant, format, &settings.zone, settings.show_zone, false),
+        _ => calendar_text(
+            instant,
+            format,
+            &settings.zone.get(),
+            settings.show_zone.get(),
+            false,
+        ),
     }
 }
+
+kivact::state::constant_value!(Instant, TimestampFormat, TimeZone);

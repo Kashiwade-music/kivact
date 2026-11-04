@@ -70,8 +70,8 @@ pub struct DateRangeInput {
     min: Option<CalendarDate>,
     max: Option<CalendarDate>,
     constraints: Vec<DateConstraint>,
-    min_span: u32,
-    max_span: Option<u32>,
+    min_span: Value<u32>,
+    max_span: Value<Option<u32>>,
 }
 
 pub fn date_range_input(
@@ -87,8 +87,8 @@ pub fn date_range_input(
         min: None,
         max: None,
         constraints: Vec::new(),
-        min_span: 1,
-        max_span: None,
+        min_span: 1.into_value(),
+        max_span: None.into_value(),
     }
 }
 
@@ -115,13 +115,14 @@ impl DateRangeInput {
         self
     }
 
-    pub fn min_range_span(mut self, days: u32) -> Self {
-        self.min_span = days;
+    pub fn min_range_span(mut self, days: impl IntoValue<u32>) -> Self {
+        self.min_span = days.into_value();
         self
     }
 
-    pub fn max_range_span(mut self, days: u32) -> Self {
-        self.max_span = Some(days);
+    pub fn max_range_span(mut self, days: impl IntoValue<u32>) -> Self {
+        let days = days.into_value();
+        self.max_span = (move || Some(days.get())).into_value();
         self
     }
 

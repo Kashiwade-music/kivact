@@ -1,7 +1,7 @@
 //! Role: Read responsive breakpoints from the viewport and measured containers.
 use kivact::platform::window_size;
-use kivact::state::Value;
 use kivact::state::memo;
+use kivact::state::{IntoValue, Value};
 use kivact::view::NodeRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,7 +40,8 @@ pub fn is_compact() -> Value<bool> {
     })
 }
 
-pub fn container_below(node: NodeRef, width: f64) -> Value<bool> {
+pub fn container_below(node: NodeRef, width: impl IntoValue<f64>) -> Value<bool> {
     let rect = node.rect();
-    memo(move || rect.is_some_and(|rect| rect.width < width))
+    let width = width.into_value();
+    memo(move || rect.is_some_and(|rect| rect.width < width.get()))
 }

@@ -117,7 +117,7 @@ pub struct Text {
     size: Option<Value<TextSize>>,
     color: Option<Value<TextColor>>,
     weight: Option<Value<TextWeight>>,
-    max_lines: u32,
+    max_lines: Value<u32>,
     truncate_tooltip: Value<TruncateTooltip>,
     wrap: Option<TextWrap>,
     justify: Value<TextJustify>,
@@ -138,7 +138,7 @@ pub fn text(value: impl IntoText) -> Text {
         size: None,
         color: None,
         weight: None,
-        max_lines: 0,
+        max_lines: 0.into_value(),
         truncate_tooltip: (TruncateTooltip::default()).into_value(),
         wrap: None,
         justify: (TextJustify::default()).into_value(),
@@ -174,8 +174,8 @@ impl Text {
     }
 
     /// Set the max lines.
-    pub fn max_lines(mut self, value: u32) -> Self {
-        self.max_lines = value;
+    pub fn max_lines(mut self, value: impl IntoValue<u32>) -> Self {
+        self.max_lines = value.into_value();
         self
     }
 
@@ -221,7 +221,7 @@ impl Text {
     }
 
     /// Give the text heading semantics without changing its appearance.
-    pub fn heading_level(mut self, level: u32) -> Self {
+    pub fn heading_level(mut self, level: impl IntoValue<u32>) -> Self {
         self.root = self.root.role(Role::Heading).level(level).name(self.value);
         self
     }
@@ -279,7 +279,7 @@ impl IntoView for Text {
             if let Some(wrap) = wrap {
                 look = look.text_wrap(wrap != TextWrap::NoWrap);
             }
-            look = match max_lines {
+            look = match max_lines.get() {
                 0 => look,
                 1 => look.single_line(),
                 n => look.min_width(0).line_clamp(n),
@@ -299,7 +299,7 @@ impl IntoView for Text {
             TruncateTooltip::Start => Some(Placement::Start),
             TruncateTooltip::End => Some(Placement::End),
         };
-        match placement.filter(|_| max_lines > 0) {
+        match placement.filter(|_| max_lines.get() > 0) {
             Some(placement) => {
                 let anchor = node_ref();
                 tooltip(value)

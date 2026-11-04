@@ -55,7 +55,7 @@ pub struct Card {
     padding: Option<Space>,
     variant: Value<CardVariant>,
     elevation: Value<Elevation>,
-    height: Option<Length>,
+    height: Option<Value<Length>>,
     action: CardAction,
     disabled: Value<bool>,
 }
@@ -112,12 +112,13 @@ impl Card {
         self.elevation = elevation.into_value();
         self
     }
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = Some(height.into());
+    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
+        self.height = Some(height.into_value());
         self
     }
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.root = self.root.style(style().width(width));
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        let width = width.into_value();
+        self.root = self.root.style(move || style().width(width.get()));
         self
     }
 }
@@ -255,11 +256,11 @@ impl IntoView for Card {
                 }
                 base = elevation.get().apply(base, &t);
                 if let Some(height) = height {
-                    base = base.height(height);
+                    base = base.height(height.get());
                 }
                 base
             });
-            if height.is_some_and(|height| height != Length::Auto) {
+            if height.is_some() {
                 root = root.child(
                     scroll(content)
                         .axes(ScrollAxes::Vertical)

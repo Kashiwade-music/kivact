@@ -36,7 +36,7 @@ pub struct Timer {
 pub fn timer() -> Timer {
     let settings = Rc::new(RefCell::new(TimerSettings {
         start: None,
-        format: TimerFormat::default(),
+        format: TimerFormat::default().into_value(),
     }));
     let input = settings.clone();
     let clock = machine(
@@ -45,7 +45,7 @@ pub fn timer() -> Timer {
             next: Duration::ZERO,
         },
         move || ElapsedClock {
-            format: input.borrow().format,
+            format: input.borrow().format.get(),
             now: SystemTime::now(),
         },
         |_, ()| {},
@@ -53,7 +53,7 @@ pub fn timer() -> Timer {
     let format = settings.clone();
     let display = memo(move || {
         let ElapsedTimer::Running { start, next } = clock.get();
-        presentation(start, start + next, format.borrow().format).0
+        presentation(start, start + next, format.borrow().format.get()).0
     });
     Timer {
         text: text(display)
@@ -67,7 +67,7 @@ pub fn timer() -> Timer {
 
 struct TimerSettings {
     start: Option<Value<SystemTime>>,
-    format: TimerFormat,
+    format: Value<TimerFormat>,
 }
 
 impl Timer {
@@ -77,8 +77,8 @@ impl Timer {
         self
     }
     /// Set the elapsed time format.
-    pub fn format(self, format: TimerFormat) -> Self {
-        self.settings.borrow_mut().format = format;
+    pub fn format(self, format: impl IntoValue<TimerFormat>) -> Self {
+        self.settings.borrow_mut().format = format.into_value();
         self
     }
     /// Set the typography role.
@@ -102,8 +102,8 @@ impl Timer {
         self
     }
     /// Optionally announce the changing text.
-    pub fn live(self, live: LiveRegion) -> Self {
-        self.live_region(live)
+    pub fn live(self, live: impl IntoValue<LiveRegion>) -> Self {
+        self.with_node(move |node| node.live_region(live))
     }
 }
 
@@ -121,6 +121,8 @@ impl IntoView for Timer {
             clock,
             settings,
         } = self;
+        let format = settings.borrow().format;
+        kivact::state::effect_on(format, move |_| clock.send(ElapsedEvent::Tick));
         let start = settings.borrow().start;
         if let Some(start) = start {
             clock.feed(start, ElapsedEvent::Start);
@@ -195,3 +197,5 @@ impl Machine for ElapsedClock {
         Step::to(ElapsedTimer::Running { start, next }).after(delay, ElapsedEvent::Tick)
     }
 }
+
+kivact::state::constant_value!(TimerFormat);

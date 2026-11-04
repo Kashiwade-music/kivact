@@ -27,7 +27,7 @@ pub struct MoreMenu<K: ItemKey> {
     menu: Menu<K>,
     label: Value<String>,
     variant: ButtonVariant,
-    size: ControlSize,
+    size: Value<ControlSize>,
     icon: Option<View>,
     disabled: Value<bool>,
 }
@@ -46,7 +46,7 @@ where
         menu: menu(label, entries).on_activate(choose),
         label,
         variant: ButtonVariant::Ghost,
-        size: ControlSize::Medium,
+        size: ControlSize::Medium.into_value(),
         icon: None,
         disabled: false.into_value(),
     }
@@ -63,8 +63,8 @@ impl<K: ItemKey> MoreMenu<K> {
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 

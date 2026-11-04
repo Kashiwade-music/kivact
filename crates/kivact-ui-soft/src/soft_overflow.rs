@@ -60,9 +60,9 @@ pub struct OverflowList<T: PropValue, K: ItemKey> {
     on_overflow_change: Option<Callback<Vec<K>>>,
     measure: Value<OverflowMeasure>,
     gap: Value<f64>,
-    min_visible: usize,
-    max_visible: usize,
-    max_rows: usize,
+    min_visible: Value<usize>,
+    max_visible: Value<usize>,
+    max_rows: Value<usize>,
     collapse_from: Value<CollapseFrom>,
 }
 
@@ -96,9 +96,9 @@ where
         on_overflow_change: None,
         measure: (OverflowMeasure::OwnWidth).into_value(),
         gap: (8.0).into_value(),
-        min_visible: 0,
-        max_visible: usize::MAX,
-        max_rows: 1,
+        min_visible: 0.into_value(),
+        max_visible: usize::MAX.into_value(),
+        max_rows: 1.into_value(),
         collapse_from: (CollapseFrom::End).into_value(),
     }
 }
@@ -135,18 +135,19 @@ impl<T: PropValue, K: ItemKey> OverflowList<T, K> {
         self
     }
 
-    pub fn min_visible(mut self, count: usize) -> Self {
-        self.min_visible = count;
+    pub fn min_visible(mut self, count: impl IntoValue<usize>) -> Self {
+        self.min_visible = count.into_value();
         self
     }
 
-    pub fn max_visible(mut self, count: usize) -> Self {
-        self.max_visible = count;
+    pub fn max_visible(mut self, count: impl IntoValue<usize>) -> Self {
+        self.max_visible = count.into_value();
         self
     }
 
-    pub fn max_rows(mut self, rows: usize) -> Self {
-        self.max_rows = rows.max(1);
+    pub fn max_rows(mut self, rows: impl IntoValue<usize>) -> Self {
+        let rows = rows.into_value();
+        self.max_rows = (move || rows.get().max(1)).into_value();
         self
     }
 
@@ -221,8 +222,8 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
         let widths_key = key.clone();
         let split = memo(move || {
             items.with(|items| {
-                let floor = min_visible.min(items.len());
-                let ceiling = max_visible.max(floor).min(items.len());
+                let floor = min_visible.get().min(items.len());
+                let ceiling = max_visible.get().max(floor).min(items.len());
                 let Some(rect) = rect.get() else {
                     return ceiling;
                 };
@@ -243,13 +244,13 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                             marker.into_iter().chain(widths[hidden..].iter().copied()),
                             rect.width,
                             gap.get(),
-                            max_rows,
+                            max_rows.get(),
                         ),
                         CollapseFrom::End => fits(
                             widths[..count].iter().copied().chain(marker),
                             rect.width,
                             gap.get(),
-                            max_rows,
+                            max_rows.get(),
                         ),
                     };
                     if fit {
@@ -329,15 +330,15 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                     .child(indicator.call(hidden))
             },
         );
-        let root = root.node_ref(own).base_style(
+        let root = root.node_ref(own).base_style(move || {
             style()
                 .direction(Direction::Row)
                 .gap(gap.get())
-                .wrap(max_rows > 1)
+                .wrap(max_rows.get() > 1)
                 .align_items(Align::Center)
                 .min_width(0)
-                .overflow(Overflow::Hidden),
-        );
+                .overflow(Overflow::Hidden)
+        });
         match collapse_from.get() {
             CollapseFrom::Start => root.child((marker, rows)),
             CollapseFrom::End => root.child((rows, marker)),

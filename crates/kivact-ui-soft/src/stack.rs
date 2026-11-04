@@ -326,12 +326,14 @@ impl Stack {
         }
         self
     }
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.root = self.root.style(style().width(width));
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        let width = width.into_value();
+        self.root = self.root.style(move || style().width(width.get()));
         self
     }
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.root = self.root.style(style().height(height));
+    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
+        let height = height.into_value();
+        self.root = self.root.style(move || style().height(height.get()));
         self
     }
 }

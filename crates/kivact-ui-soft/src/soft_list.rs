@@ -77,8 +77,8 @@ pub struct Item {
     density: Value<ItemDensity>,
     align: Value<ItemAlign>,
     layout: Value<ItemLayout>,
-    label_lines: u32,
-    description_lines: u32,
+    label_lines: Value<u32>,
+    description_lines: Value<u32>,
     on_press: Option<Callback<()>>,
     delegate: Option<NodeRef>,
     disabled: Value<bool>,
@@ -100,8 +100,8 @@ pub fn item(label: impl IntoText) -> Item {
         density: (ItemDensity::Balanced).into_value(),
         align: (ItemAlign::Center).into_value(),
         layout: (ItemLayout::Stacked).into_value(),
-        label_lines: 1,
-        description_lines: 1,
+        label_lines: 1.into_value(),
+        description_lines: 1.into_value(),
         on_press: None,
         delegate: None,
         disabled: false.into_value(),
@@ -171,13 +171,15 @@ impl Item {
         self
     }
 
-    pub fn label_lines(mut self, lines: u32) -> Self {
-        self.label_lines = lines.max(1);
+    pub fn label_lines(mut self, lines: impl IntoValue<u32>) -> Self {
+        let lines = lines.into_value();
+        self.label_lines = (move || lines.get().max(1)).into_value();
         self
     }
 
-    pub fn description_lines(mut self, lines: u32) -> Self {
-        self.description_lines = lines.max(1);
+    pub fn description_lines(mut self, lines: impl IntoValue<u32>) -> Self {
+        let lines = lines.into_value();
+        self.description_lines = (move || lines.get().max(1)).into_value();
         self
     }
 
@@ -264,7 +266,7 @@ impl Item {
                         .font_size(14)
                         .line_height(20.0 / 14.0)
                         .color(p.colors.text_primary)
-                        .line_clamp(label_lines)
+                        .line_clamp(label_lines.get())
                         .text_overflow(TextOverflow::Ellipsis)
                 })
                 .into_view(),
@@ -279,7 +281,7 @@ impl Item {
                             .font_size(12)
                             .line_height(20.0 / 12.0)
                             .color(p.colors.text_secondary)
-                            .line_clamp(description_lines)
+                            .line_clamp(description_lines.get())
                             .text_overflow(TextOverflow::Ellipsis)
                     })
                     .into_view()
@@ -372,11 +374,11 @@ enum ListRows<C> {
 
 #[derive(Clone, Copy)]
 struct ListAppearance {
-    density: ListDensity,
-    dividers: bool,
-    edge: ListEdge,
-    marker: ListMarker,
-    start: u32,
+    density: Value<ListDensity>,
+    dividers: Value<bool>,
+    edge: Value<ListEdge>,
+    marker: Value<ListMarker>,
+    start: Value<u32>,
 }
 
 pub struct List<C> {
@@ -387,7 +389,7 @@ pub struct List<C> {
     dividers: Value<bool>,
     edge: Value<ListEdge>,
     marker: Value<ListMarker>,
-    start: u32,
+    start: Value<u32>,
 }
 
 pub fn list<C: IntoChildren>(items: C) -> List<C> {
@@ -399,7 +401,7 @@ pub fn list<C: IntoChildren>(items: C) -> List<C> {
         dividers: (false).into_value(),
         edge: (ListEdge::Padded).into_value(),
         marker: (ListMarker::None).into_value(),
-        start: 1,
+        start: 1.into_value(),
     }
 }
 
@@ -484,8 +486,8 @@ impl<C> List<C> {
         self
     }
 
-    pub fn start(mut self, start: u32) -> Self {
-        self.start = start;
+    pub fn start(mut self, start: impl IntoValue<u32>) -> Self {
+        self.start = start.into_value();
         self
     }
 }
@@ -503,10 +505,10 @@ impl<C: IntoChildren> IntoView for List<C> {
             start,
         } = self;
         let appearance = ListAppearance {
-            density: density.get(),
-            dividers: dividers.get(),
-            edge: edge.get(),
-            marker: marker.get(),
+            density,
+            dividers,
+            edge,
+            marker,
             start,
         };
         let header_ref = node_ref();
@@ -535,11 +537,11 @@ impl<C: IntoChildren> IntoView for List<C> {
         };
         column((
             header.map(|content| node().node_ref(header_ref).child(content)),
-            root.base_style(style().direction(Direction::Column).gap(if dividers.get() {
-                0
-            } else {
-                2
-            }))
+            root.base_style(move || {
+                style()
+                    .direction(Direction::Column)
+                    .gap(if dividers.get() { 0 } else { 2 })
+            })
             .child(rows),
         ))
         .into_view()
@@ -550,32 +552,41 @@ impl ListAppearance {
     fn decorate(self, mut item: Item, position: Value<(usize, usize)>) -> View {
         item.list_item = true;
         item.density = self.density;
-        if self.marker.get() != ListMarker::None {
+        {
+            let fallback = item.marker.take();
             let marker = self.marker;
-            let start = u64::from(self.start);
-            item = item.marker({
+            let start = self.start;
+            let generated = node()
+                .style(move || {
+                    let (_, count) = position.get();
+                    let width = if marker.get() == ListMarker::Decimal {
+                        let digits = (u64::from(start.get()) + count.saturating_sub(1) as u64)
+                            .to_string()
+                            .len();
+                        digits as f64 * 8.0 + 8.0
+                    } else {
+                        16.0
+                    };
+                    style()
+                        .direction(Direction::Row)
+                        .justify_content(Justify::End)
+                        .width(width)
+                        .shrink(0)
+                })
+                .child(text(move || match marker.get() {
+                    ListMarker::None => String::new(),
+                    ListMarker::Disc => "•".to_owned(),
+                    ListMarker::Circle => "◦".to_owned(),
+                    ListMarker::Decimal => {
+                        format!("{}.", u64::from(start.get()) + position.get().0 as u64)
+                    }
+                }));
+            item = item.marker((
                 node()
-                    .style(move || {
-                        let (_, count) = position.get();
-                        let width = if marker == ListMarker::Decimal {
-                            let digits = (start + count.saturating_sub(1) as u64).to_string().len();
-                            digits as f64 * 8.0 + 8.0
-                        } else {
-                            16.0
-                        };
-                        style()
-                            .direction(Direction::Row)
-                            .justify_content(Justify::End)
-                            .width(width)
-                            .shrink(0)
-                    })
-                    .child(text(move || match marker {
-                        ListMarker::None => String::new(),
-                        ListMarker::Disc => "•".to_owned(),
-                        ListMarker::Circle => "◦".to_owned(),
-                        ListMarker::Decimal => format!("{}.", start + position.get().0 as u64),
-                    }))
-            });
+                    .hidden(move || marker.get() != ListMarker::None)
+                    .child(fallback),
+                generated.hidden(move || marker.get() == ListMarker::None),
+            ));
         }
         item.style(move || {
             let mut row = style();
@@ -586,7 +597,7 @@ impl ListAppearance {
                 row = row.radius(0);
             }
             let (index, count) = position.get();
-            if self.dividers && index + 1 < count {
+            if self.dividers.get() && index + 1 < count {
                 row = row.border_bottom(1, tokens().colors.border);
             }
             row

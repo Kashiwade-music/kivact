@@ -32,7 +32,7 @@ pub struct EmptyState {
     description: Option<Value<String>>,
     icon: Option<View>,
     actions: Option<View>,
-    heading_level: u32,
+    heading_level: kivact::state::Value<u32>,
     compact: Value<bool>,
 }
 
@@ -44,7 +44,7 @@ pub fn empty_state(title: impl IntoText) -> EmptyState {
         description: None,
         icon: None,
         actions: None,
-        heading_level: 3,
+        heading_level: 3.into_value(),
         compact: false.into_value(),
     }
 }
@@ -69,8 +69,9 @@ impl EmptyState {
     }
 
     /// Override the heading's accessibility level.
-    pub fn heading_level(mut self, level: u32) -> Self {
-        self.heading_level = level.clamp(1, 6);
+    pub fn heading_level(mut self, level: impl IntoValue<u32>) -> Self {
+        let level = level.into_value();
+        self.heading_level = (move || level.get().clamp(1, 6)).into_value();
         self
     }
 
