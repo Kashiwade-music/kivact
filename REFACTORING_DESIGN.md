@@ -2376,6 +2376,7 @@ enum PoolState { NotStarted, Running(Arc<Pool>), ShutDown }
 ```
 
 - `AsyncCell` は二つの signal を持ち、書くのは上の三つのメソッドだけ。`state()`・`latest()` は memo にしない。理由: memo は `PartialEq` を求めるが、`Resource`・`Action` の `T` は `Clone` だけ（`kivact-task/src/resource.rs:47-52`）。一つの signal にすると `latest` の読み手が state の変化のたびに再実行される。
+- queue に待機仕事が残れば、完了が失敗でも公開 state と完了 handler 内の読み出しは `Pending` を保つ。個別の失敗は completion の結果で通知し、`latest` は直前の成功値を保つ。旧 failure 保持の rustdoc・E2E より新版の Pending と busy の一致を優先する。
 - `Drain` は `Runner::Queue`・`Runner::All` からだけ作れる型。`queues` の Weak の表は `kivact_types::Registry<dyn Drain>`。
 - `PoolState::ShutDown` の後の `blocking` は invariant の panic（`expect("invariant: no App code runs after the blocking pool shut down")`）。`ErrorKind::Shutdown` は足さない。理由: `blocking` は `impl Future<Output = R>` を返し（`blocking.rs:187-193`）`UiError` を返せない。pool の shutdown は `AppClient::drop` が root の破棄と task の最後の poll の後に呼ぶので、App の code から届かない。
 - `TaskCell.task: OnceCell` は残す（SM-R17 は行わない）。理由: task の future は owner に保存した後の object の key を持つ必要があり（`spawn.rs:48-62`）、key は cell を保存して初めてできる。cell は同じ関数の中で最初の poll の前に埋まり、空の状態は外から見えない。

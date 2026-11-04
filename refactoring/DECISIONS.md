@@ -2,6 +2,8 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | A-1b | MIRROR off の public API binary でも native embed parent が実窓を開く | embed/smoke を含む binary・全 workspace は window-lock で実行。mirror off と GPU の理由付き skip は維持。 |
+| 2026-11-05 | A-5 | GPU loss の二重 counter を FrameHealth に集約 | 設計 19.6 どおり skip は連続 loss を戻す。最初の device-loss 診断は private 同期 wrapper で保持。 |
 | 2026-11-05 | A-1a | 次 Wake の test helper に借用 closure を保存できない | Harness::with の closure/result に static 制約を付け、move/clone で移行。製品 API を変えず unsafe bridge を避ける。 |
 | 2026-11-05 | A-1a | policy は dev 依存と未作成 consumer も検査する | native E2E 用の arvane dev consumer は残し、virtual の kivact-test consumer は C-1 の crate 作成時に足す。通常の native 依存は削除。 |
 | 2026-11-05 | A-4 | child frame と CpuSurface の提示方式がまだ異なる | frame Option の解消は既定の softbuffer 提示統合 A-6a で行う。lifecycle の所有は A-4 で一元化。 |

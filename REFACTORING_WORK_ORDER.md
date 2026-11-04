@@ -73,6 +73,7 @@
 - **状態機械の unit は振る舞いを変えない**（設計書 16.2 節）。振る舞いを意図して変える unit（13 章の表の「振る舞いの変更」の列）だけが E2E を足す。
 - **既存の試験の期待値:** 既存の試験が失敗したら、まず code を直す。f64 化による数値の端数だけが原因で（差が 0.001 論理 px 未満、または相対 1e-9 未満）、code を安定した値にする簡単な直し方がないときに限り、期待値を新しい値に直し、`DECISIONS.md` に一行書く。振る舞いの assertion を弱めない。
 - window を開くコマンド（mirror を有効にした `cargo test`）は必ず `bash dev/tools/window-lock.sh [--timeout 秒] -- <command>` を通す。`KIVACT_TEST_MIRROR=off` の `cargo test`（A-1b の後）は window を開かないので lock を通さない。終了コード 124 は時間切れ。出力が空でも終了コードを確かめる。
+- **native 試験の lock の例外**: `MIRROR=off` でも `TestParent::open` を使う embed と native smoke は実窓を開く。これらを含む public-api binary と全 workspace の試験も window-lock を通す。
 - GUI の OS 入力の harness、実機の IME・screen reader・browser の手動の確認は作者が行う。エージェントは行わない。
 - commit は conventional commits で目的ごとに分ける。公開 API を壊す commit は `!` を付ける（例: `refactor(core)!: ...`）。commit が build できる状態である必要はない。
 - `vendor/xtask-core` は変えない（検査は `dev/xtask` に足す）。
@@ -2607,7 +2608,7 @@ wave W7。
 | W2 | R-2 host との境界と turn の状態 | M | |
 | W2 | R-3 reactive の内部の状態 | M | |
 | W2 | R-4 時間と動きの状態 | M | 同じ安定化の中で完了と再開が起きた animation は `on_complete` を呼ばない |
-| W2 | R-5 非同期の状態 | M | |
+| W2 | R-5 非同期の状態 | M | queue の待機仕事が残れば完了通知中も Pending |
 | W2 | R-6 `Machine` | S | |
 | W3 | C-1 起動の経路と `kivact-test` | L | |
 | W3 | C-2 i18n と style の純粋化 | M | |

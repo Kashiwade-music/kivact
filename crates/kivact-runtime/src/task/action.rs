@@ -50,8 +50,8 @@ pub enum ActionPolicy {
     /// Start at once; a pending run is cancelled (latest wins). The run is
     /// cancelled when the action's owner is disposed.
     Latest,
-    /// Run one at a time in `run` order. A failure stays in the state until
-    /// a later run succeeds; later runs still start. After the action's
+    /// Run one at a time in `run` order. State stays pending while work remains;
+    /// each completion is delivered to its handlers. After the action's
     /// owner is disposed the waiting runs keep going for up to 3 s, and
     /// closing the App waits for them with the same deadline; leftovers
     /// are reported as `ErrorKind::Closed`.

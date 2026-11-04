@@ -31,7 +31,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | A-2 | todo | | |
 | A-3 | todo | | |
 | A-4 | merged | 19f1a69 | 新 trait 前提の確認は A-1a/1b 合流で |
-| A-5 | doing | | GPU の状態 |
+| A-5 | merged | 9d59292 | 対象 4 package check 0、全体は A-1b 合流で |
 | A-6a | todo | | |
 | A-6b | todo | | |
 | E-1 | merged | 3f3b930 | 初回 check 0、xtask 0、統合 check 0 |
