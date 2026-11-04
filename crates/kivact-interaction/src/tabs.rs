@@ -16,13 +16,14 @@
 //! too.
 
 use crate::Selection;
+use crate::options_cell::OptionsCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use kivact_core::custom::{Owned, Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, memo, signal, var};
+use kivact_core::state::{Binding, Value, memo, var};
 use kivact_core::view::{NodeRef, Orientation, Role};
 
 use super::axis::Axis;
@@ -30,7 +31,7 @@ use super::{ListActivation, ListApi, ListItem, ListOptions, use_list};
 
 /// What the setters of [`TabsApi`] store; read where the parts use it.
 #[derive(Clone, Copy)]
-struct TabsSettings {
+struct TabsOptions {
     activation: ListActivation,
     axis: Axis,
 }
@@ -89,7 +90,7 @@ pub struct TabsApi<K: kivact_core::state::ItemKey> {
     edit: crate::EditSession<K>,
     owner: Owner,
     refs: Owned<Rc<Refs<K>>>,
-    settings: Signal<TabsSettings>,
+    settings: OptionsCell<TabsOptions>,
     /// The layout direction, derived from the settings.
     orientation: Value<Orientation>,
 }
@@ -121,11 +122,12 @@ pub fn use_tabs<K: kivact_core::state::ItemKey>(
         Selection::Single(selected.optional()),
         ListOptions::tabs(),
     );
-    let settings = signal(TabsSettings {
+    let settings = OptionsCell::new(TabsOptions {
         activation: ListActivation::Automatic,
         axis: Axis::Horizontal,
     });
-    let orientation = memo(move || settings.with(|settings| settings.axis.orientation()));
+    let settings_value = settings.value();
+    let orientation = memo(move || settings_value.with(|settings| settings.axis.orientation()));
     let refs = owner.store(
         "Tabs",
         Rc::new(Refs::<K> {
@@ -201,7 +203,7 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
     /// Give the list the settings' activation and axis.
     #[track_caller]
     fn tune(self) -> Self {
-        let TabsSettings { activation, axis } = self.settings.get_untracked();
+        let TabsOptions { activation, axis } = self.settings.get();
         self.group.retune(|policy| {
             policy.activation = activation;
             policy.axis = Some(axis.orientation());
