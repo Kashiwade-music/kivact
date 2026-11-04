@@ -271,10 +271,11 @@ impl Presenter {
                 None => {}
                 Some(Ok((presentation, present))) => {
                     window.release_cpu_surface();
-                    if window.keeps_frames() && presentation == arvane_render::Presentation::Shown {
-                        if let Some(frame) = self.gpu.read_back() {
-                            window.keep_frame(frame.map_err(error::render)?);
-                        }
+                    if window.keeps_frames()
+                        && presentation == arvane_render::Presentation::Shown
+                        && let Some(frame) = self.gpu.read_back()
+                    {
+                        window.keep_frame(frame.map_err(error::render)?);
                     }
                     return Ok(Drawn {
                         renderer: Renderer::Gpu,
@@ -296,10 +297,9 @@ impl Presenter {
                         Some(Ok((presentation, present))) => {
                             if window.keeps_frames()
                                 && presentation == arvane_render::Presentation::Shown
+                                && let Some(frame) = self.gpu.read_back()
                             {
-                                if let Some(frame) = self.gpu.read_back() {
-                                    window.keep_frame(frame.map_err(error::render)?);
-                                }
+                                window.keep_frame(frame.map_err(error::render)?);
                             }
                             return Ok(Drawn {
                                 renderer: Renderer::Cpu,
