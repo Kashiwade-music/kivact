@@ -1,5 +1,7 @@
 //! Role: Theme-wide interaction policy and its per-control options.
-use crate::{DisabledMenuFocus, MenuPress, SubmenuTiming, TooltipTiming, TouchSliderGesture};
+use crate::TouchSliderGesture;
+use crate::menu_policy::{DisabledMenuFocus, MenuPress, SubmenuTiming};
+use crate::tooltip_policy::TooltipTiming;
 use kivact_core::geometry::Edge;
 use kivact_core::motion::{Spring, Transition};
 use kivact_core::style::{Theme, ThemeExtension};

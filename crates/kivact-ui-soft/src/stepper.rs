@@ -1,5 +1,5 @@
 //! Role: Render Neutral progress steps and a width-sensitive summary.
-use crate::side_nav::logical_row;
+use crate::side_nav::items::logical_row;
 use crate::stack::rtl;
 use crate::tokens;
 use kivact::i18n::message;

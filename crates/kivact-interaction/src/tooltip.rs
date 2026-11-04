@@ -27,26 +27,7 @@ use kivact_core::view::{
     node_ref,
 };
 
-/// Theme-wide tooltip timing, configured through [`crate::InteractionPolicy`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TooltipTiming {
-    /// How long the pointer or the keyboard focus has to stay before a
-    /// tooltip shows. Zero shows it at once.
-    pub delay: Duration,
-    /// After a tooltip hides, a tooltip of another trigger that becomes
-    /// engaged within this time shows without the delay, so moving along a
-    /// toolbar does not wait at every button.
-    pub skip_delay: Duration,
-}
-
-impl Default for TooltipTiming {
-    fn default() -> Self {
-        Self {
-            delay: Duration::from_millis(500),
-            skip_delay: Duration::from_millis(300),
-        }
-    }
-}
+pub use crate::tooltip_policy::TooltipTiming;
 
 /// What every tooltip of an App shares, created under the App's root owner by
 /// the first tooltip and kept for the App's lifetime. An App without tooltips

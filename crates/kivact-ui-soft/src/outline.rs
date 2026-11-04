@@ -1,5 +1,5 @@
 //! Role: Track visible document headings and navigate their outline.
-use crate::side_nav::logical_row;
+use crate::side_nav::items::logical_row;
 use crate::stack::rtl;
 use crate::tokens;
 use kivact::geometry::Point;
