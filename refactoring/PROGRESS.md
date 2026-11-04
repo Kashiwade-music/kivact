@@ -17,15 +17,15 @@ Baseline gates completed (serial E2E as documented below). Logs: `target/foundat
 | clippy all targets/features | exit 0; 31.54 seconds after xtask. |
 | all-features serial E2E + doctest | exit 0; 1338 passed, 52 ignored; 960.0 seconds including lock wait. |
 | resource settings | Completed with CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, CARGO_BUILD_JOBS=2. |
-| all-features E2E | wrapper exit 127, 390.5 seconds; arvane 33 + native 6 passed; GPU read_back passed 5/6 before STATUS_HEAP_CORRUPTION (0xc0000374). Serial rerun queued to isolate concurrency. |
+| all-features E2E | wrapper exit 127, 390.5 seconds; arvane 33 + native 6 passed; GPU read_back passed 5/6 before STATUS_HEAP_CORRUPTION (0xc0000374). Serial rerun passed; retained as the existing GPU concurrency issue. |
 
 ## Units
 
 | ID | Unit | Status | Merge commit | Gates | Time | Issues |
 |---|---|---|---|---|---|---|
-| P-0 | 準備 | doing | — | — | — | — |
-| P-1 | 状態の全数調査 | doing | — | — | — | — |
-| P-2 | 比較用の trace | doing | — | — | — | — |
+| P-0 | 準備 | merged | 19e720f (+ fixes below) | CP0 pass; 28 tool tests | see gate logs | none |
+| P-1 | 状態の全数調査 | merged | 6758cb4 | 34 new / 203 total; unprocessed 0 | reports 173s; clippy 153s | none |
+| P-2 | 比較用の trace | merged | ab50865 (+ 35375f9, 468deac) | CP0 trace pass | full trace 503.1s | documented GPU empty polls |
 | V-1a | 名前の衝突を先に解く | todo | — | — | — | — |
 | V-1b | `kivact-wire` の解体 | todo | — | — | — | — |
 | V-2 | semantics を一つに | todo | — | — | — | — |
@@ -104,3 +104,27 @@ Baseline gates completed (serial E2E as documented below). Logs: `target/foundat
 | F-1 | 文書 | todo | — | — | — | — |
 | F-2 | 検査の仕上げ | todo | — | — | — | — |
 | F-3 | 最後の確認と PR の説明の下書き | todo | — | — | — | — |
+
+## CP0
+
+Initial integrated checks: fmt exit 0; xtask exit 1 (three client-to-diagnostics module edges); clippy exit 101 (eight new tool style diagnostics). Logs: `target/foundation-v3/cp0/`.
+
+- `fix-cp0-xtask` c47fceb: separate policy helpers from check dispatch to preserve the module DAG; 28 tool tests pass.
+- `fix-cp0-core` 35375f9: move private tracing to client; core all-targets/all-features check passes.
+- Tool Clippy syntax fixes 09952b2 are merged; the phased lint configuration 5a24aee is merged and its crate-deny override was checked with a scratch compiler fixture.
+- CP0 all-features E2E/doctest: exit 0, 634.8 seconds. Remaining checks restarted after the lint configuration merge; interrupted logs are retained.
+- Checkpoint resources: jobs 4, incremental/debug symbols off, bundled XTASK_NODE; RUST_TEST_THREADS=1 for GPU concurrency; RUSTDOCFLAGS=--test-args=--test-threads=4 for doctest concurrency.
+- P-1 raw report logs archived under `target/foundation-v3/p1/`. State inventory: 34 new / 203 total; 521 checker lines and 43 unique Clippy locations classified, unprocessed 0.
+
+- Final CP0 fmt/xtask/Clippy: all exit 0 (257.3 seconds to xtask, 276.0 cumulative to Clippy); 43 crates / 145 graphs. Final E2E/feature/trace results are recorded below.
+
+- Trace-only performance fix 468deac: buffered writes and ephemeral O(n) snapshot lookup, preserving DFS/removal order. Tool checks and core Clippy pass; final fmt/xtask/full Clippy rechecked with exit 0 (154.1 seconds cumulative).
+- Unbuffered trace run interrupted at the large Creative catalog; partial reference files retained at target/foundation-v3/cp0/trace-before-buffering/. One restart hit an executable lock from the orphaned catalog test; the verified old test process was stopped and the final trace run restarted.
+
+### CP0 result: PASS
+
+- Final fmt, xtask, full Clippy, feature checks: exit 0.
+- All features: 1362 passed / 52 ignored (634.8s). No default features: 1349 passed / 51 ignored (405.6s). Trace all features: 1362 passed / 52 ignored (503.1s).
+- 915 trace files, 87,069,573 bytes, saved at target/foundation-v3/traces/cp0/ with SHA-256 manifest beside it.
+- Buffered trace content: 781/782 completed reference files byte-identical; one DX12 async poll difference classified and normalized as documented in DECISIONS/work order. Creative catalog all 3 tests passed in 132.13s with tracing.
+- W0 complete. Next: W1 V-1a → V-1b definition/follow-up → V-2–V-6 definition/follow-up → CP1.

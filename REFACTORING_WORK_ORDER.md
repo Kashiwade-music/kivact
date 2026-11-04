@@ -125,6 +125,7 @@ KIVACT_TRACE=stage,semantics,host_events KIVACT_TEST_MIRROR=off cargo test --wor
 ```
 
 - **trace の比較:** 振る舞いを変えない unit を含む wave では、前の checkpoint の trace（`target/kivact-trace/`、commit しない）と今の trace を比べる。差は、その wave の unit が意図した差（13 章の表の「振る舞いの変更」の列、名前の変更）だけであること。意図しない差があれば、差の出た試験の名前から原因の unit を特定する。
+  - GPU など実機の非同期完了では空の poll turn の回数が揺れる。event・semantics・write・rerun・op がなく、`next_wake_ns: None`・`exit: false` の turn だけは、回数と file 名を記録して比較から外し、それに伴う turn 番号の差を正規化してよい。raw log は保存し、残る payload と順序は厳密に比較する（CP0 で確認した実機の揺らぎ。データを変更する turn は除外しない）。
 - **失敗したとき:** オーケストレータは失敗を crate ごとにまとめ、0.10 節の crate の組ごとに直す unit（`fix/<cp>-<組>`）を作って、最大 6 つ並べて直させる。全部が通るまで次の wave に進まない。
 - **mirror と WSL:** CP2（Phase A・R・E の後）と F-3 では、上に加えて mirror を有効にした試験（`bash dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --all-features`）と、WSL の gate（Wayland と X11 を分けて記録）を回す:
 
@@ -312,6 +313,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
   - **lower の `HostEvent` の使用**: `kivact-lower` は engine の contract に依存できない（循環）。lower が `HostEvent` を作っている asset の報告は、lower の型 `kivact_lower::AssetEvent`（variant は今の `HostEvent` の asset の variant の中身）の列を返す形にし、engine が `HostEvent` に包む（設計書 8.3 節の `LowerReport.asset_events` の先取り）。
   - `kivact-layout` の trait `LeafMeasure` を `LeafMeasurer` と改名する（contract の struct `LeafMeasure` と名前を分ける、設計書 5.2 節）。
   - **実コードに基づく訂正（2026-11-04）**: 上の値の一覧の `BoxData` は `measure: Option<LeafMeasure>` に closure を持つため `kivact-engine::contract` に移す。types から contract への依存は作らない。wire の grid の `Repeat` は `kivact_types::layout::GridRepeat` と改名し、motion の `Repeat` と区別する。旧い alias は残さず、追従の段で全呼び出し元を直す。
+  - **共有の問い合わせ trait の訂正（2026-11-04）**: `TextShaper` は style の描画 recorder も使うため、上の contract の一覧から除き `kivact-types::text_shaping` へ移す（types root で再公開）。一つの trait を style・engine・core が使い、style から engine への依存や第二の trait は作らない。`LeafTextMeasurer` と `LeafMeasure` は contract に残す。
   - `kivact-core` は `kivact-types` に直接依存する（現在は wire の再公開で受け取っている）。
   - policy: `visible_to` から `kivact-wire` の行を消す。`kivact-types` の `visible_to` を外す（制限なし）。`kivact-engine` の `visible_to` は `["kivact-core"]` のまま。
 - **手順**（一つの worktree で順に。途中で workspace が build できない状態があってよいのは、この unit の commit の中だけ）:

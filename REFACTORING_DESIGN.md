@@ -384,6 +384,7 @@ kivact-core の `prelude` は消える（prelude は facade の `kivact::prelude
 | `layout` | `LayoutStyle`（現 `LayoutProps`）、`Dimension`、`Align`、`Justify`、`FlexDirection`、`Position`、`Overflow`、`ScrollAxes`、grid の型、`OverlayAlign`、`Placement`、`IntrinsicSize`、`AvailableSpace`、`Baseline`、`MeasureRequest`、`LeafSize`、`OverlayProps`、`OverlayFit`、`OverlayAt` | types `layout`、wire `style`・`grid`・`measure` の値 |
 | `paint` | `PaintStyle`（現 `PaintProps`）、`Fill`、`Border`、`Ring`、`CornerRadius`、`Gradient`…、`Effects`、`Shadow`、`FilterOp`、`BlendMode`、`ClipShape`、`ImageFit`、`Cursor`、`StateStyles` | types `paint`・`effect`・`cursor`、wire `paint`・`style` |
 | `text` | `TextStyle`（宣言。全 field が `Option` = 継承）、`ComputedTextStyle`（解決済み）、`TextAlign`、`TextWrap`、`TextOverflow`、`LineHeight`、`FontFeature`、`TextDecoration`、`TextTransform`、`TextMetrics`（`ShapedText` は `render`） | types `text`、wire `text`、protocol `text`・`shaped` |
+| `text_shaping` | `TextShaper`（値だけを入出力する backend 中立の問い合わせ trait。style・engine・core が共有するためここに置く） | wire `measure` の trait |
 | `scene` | `DrawList`・`DrawCmd`（作成側の描画の記録。現 wire `Scene`/`SceneCmd`）、`Path`/`PathCmd`、`Stroke`、`LineCap`、`LineJoin`、`FillRule`、`Pixels`（直線 alpha の RGBA8。全層で一つ）、`InlineBox` | wire `scene`・`drawing`、types `shape` |
 | `render` | `RenderScene`・`RenderCmd`（現 protocol `Scene`/`DrawCommand`）、`ShapedText`、`ShapedInlineText`、`TextLine`、`CpuFrame`。変換は `geometry::Transform`、画素は `scene::Pixels` を使う（render 側の二つ目の `Transform` と `ImageData` は作らない） | protocol 全体 |
 | `motion` | `Transition`、`Easing`、`Spring`、`SpringRun`、`Repeat`、`PlayDirection`、`MotionClock` と純粋な step の関数 | types `motion`、wire `motion` |
@@ -403,13 +404,15 @@ kivact-core の `prelude` は消える（prelude は facade の `kivact::prelude
 
 - `NodeProperties`、`NodeKind`、`NodeType`、`BoxData`、`EditingData`、`ImeSession`、`RovingFocus`、`SceneLayer`、`NodeSemantics`、`NodeInput`
 - `HostEvent`、`HostInfo`、`TurnOutput`、`HostError`
-- `LeafMeasure`（struct）、`LeafTextMeasurer`、`TextShaper`（trait）
+- `LeafMeasure`（struct）、`LeafTextMeasurer`
 - `CloseSignal`（embed の「閉じて」を host へ伝える `Arc<AtomicBool>` の包み。8.2 節）
 - `Routed<T>`、`Activation`（5.4 節）
 
 `contract` は値と trait だけを持ち、engine のほかの module に依存しない（4.4 節の `contract = []`）。core が使う handle（`Writer`、`Reader`、`Client`、`Boundary`、`HostWaker`、`OffscreenRenderer`（現在の engine の `Offscreen`。core の公開の `draw::Offscreen` と名前を分ける）、`TextMeasurer`、`WriteStats`）は、それを定義する module（`host`、`offscreen`、`text_measure`、`mutation`）に置いたまま、`kivact_engine::api` が再公開する（現在の `bridge.rs` と同じ役割の、再公開だけの module）。`ImeSession` は core の公開の `custom::ImeSession` と名前を分けて `ImeSessionProps` と改名する（VOC-3）。
 
 値の `TextData`、`ImageData`（node の props）、`OverlayProps`、`OverlayFit`、`OverlayAt`、`IntrinsicSize`、`MeasureRequest`、`LeafSize`、`AvailableSpace`、`Baseline`、`FileDialogRequest`、`PlatformRequest`、`PlatformResult` は `kivact-types` へ。`BoxData` は `measure: Option<LeafMeasure>` に closure を持つため contract に置く（2026-11-04、実コードに基づく訂正）。grid の反復は `GridRepeat` とし、motion の `Repeat` と名前を分ける。
+
+`TextShaper` は `kivact-style::draw::Draw` も使っているため、core と engine だけの契約ではない。既存の一つの trait を `kivact-types::text_shaping` に置き、root から再公開する。入出力は共有の text・scene・render の値と std の型だけで、types に実装の状態や closure は置かない。style から engine への依存、trait の複製、engine contract からの互換再公開は作らない（2026-11-04、実コードに基づく訂正）。
 
 `kivact-layout` の trait `LeafMeasure` は `LeafMeasurer` と改名し、struct と名前を分ける（VOC-3。作業手順書 V-1 で行う）。
 
