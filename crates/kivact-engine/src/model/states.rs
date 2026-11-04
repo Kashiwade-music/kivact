@@ -165,7 +165,9 @@ impl Model {
             .is_some_and(crate::tree::states_place)
         {
             self.changes.a11y_subtrees.insert(id);
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
             self.changes.moved();
         }
     }

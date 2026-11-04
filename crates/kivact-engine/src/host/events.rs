@@ -115,7 +115,7 @@ impl Host {
             return Ok(ShellControl::Wait);
         }
         self.externals(window);
-        self.layout();
+        self.settle();
         self.pump(window)
     }
     /// Handle one shell event in `window`: the shell's events, and the
@@ -137,7 +137,7 @@ impl Host {
             self.model.borrow_mut().frame.stop_smooth_scrolls();
         }
         if matches!(event, ShellEvent::File(_)) {
-            self.layout();
+            self.settle();
         }
         // Key releases remain turn boundaries so pending edits reach the client.
         let input = matches!(
@@ -153,14 +153,14 @@ impl Host {
         );
         if hit_tests(&event) {
             // Deferred turns leave edits laid out lazily; hit test current geometry.
-            self.layout();
+            self.settle();
         }
         match event {
             ShellEvent::Redraw => {
                 let surface_active = self.model.borrow().frame.surface_active();
                 if surface_active {
                     let started = std::time::Instant::now();
-                    self.layout();
+                    self.settle();
                     match self.present(window, started) {
                         Ok(Presented::Shown { .. }) => {
                             self.model.borrow_mut().paint.drawn();
@@ -230,7 +230,7 @@ impl Host {
                     *surface_active = drawable;
                 });
                 drop(model);
-                self.layout();
+                self.settle();
             }
             ShellEvent::CloseRequested => self.model.borrow_mut().push(HostEvent::CloseRequested),
             ShellEvent::Focused(false) => self
@@ -293,7 +293,7 @@ impl Host {
                 // A native scroll is reported (`ScrollChanged`) by the
                 // layout pass: run it now, so the client's turn is due at
                 // once instead of waiting for the next paint.
-                self.layout();
+                self.settle();
             }
             ShellEvent::Modifiers(m) => {
                 let mut model = self.model.borrow_mut();

@@ -118,7 +118,7 @@ impl Model {
             }
             Gesture::Scrollbar(_) => return false,
         }
-        self.relayout(engine);
+        self.settle(engine);
         true
     }
 

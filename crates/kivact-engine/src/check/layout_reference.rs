@@ -5,9 +5,8 @@ impl Model {
     pub(crate) fn layout_self_check(&mut self, engine: &mut arvane::Engine) -> Vec<String> {
         let mut fresh = self.tree.clone();
         fresh.pack_child_orders();
-        let mut state = self.layout_state.clone();
-        let mut columns = self.layout_columns.clone();
-        columns.rebuild_all(&fresh, &mut state);
+        let mut columns = self.layout.clone();
+        columns.rebuild_all(&fresh);
         let cache = self.measure.clone();
         for extents in &cache.extents {
             *extents.borrow_mut() = None;
@@ -18,18 +17,14 @@ impl Model {
             tree: &fresh,
             measure: &mut measure,
         };
-        let mut differences = self
-            .layout_columns
-            .compare_measurements(&self.tree, &mut leaves);
-        columns.compute(&fresh, &mut state, self.viewport, &mut leaves);
+        let mut differences = self.layout.compare_measurements(&self.tree, &mut leaves);
+        columns.compute(&fresh, self.viewport, &mut leaves);
         // Placement reads anchor bounds from the model. Give it the fresh
         // geometry during the second pass, then restore the retained owners.
-        std::mem::swap(&mut self.layout_columns, &mut columns);
-        std::mem::swap(&mut self.layout_state, &mut state);
+        std::mem::swap(&mut self.layout, &mut columns);
         self.refit_tooltips(engine, false);
-        std::mem::swap(&mut self.layout_columns, &mut columns);
-        std::mem::swap(&mut self.layout_state, &mut state);
-        differences.extend(self.layout_columns.compare(&columns, &self.tree));
+        std::mem::swap(&mut self.layout, &mut columns);
+        differences.extend(self.layout.compare(&columns, &self.tree));
         differences
             .into_iter()
             .map(|d| format!("layout node {} {}", d.id.0, d.detail))

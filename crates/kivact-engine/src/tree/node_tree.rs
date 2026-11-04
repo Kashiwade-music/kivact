@@ -246,7 +246,7 @@ impl NodeTree {
             self.observed.remove(&id)
         };
         if changed && let Some(n) = self.nodes.get_mut(&id) {
-            n.sent_layout = None;
+            n.sent_layout = Default::default();
         }
         changed
     }
@@ -271,7 +271,7 @@ impl NodeTree {
         let c = self.nodes.at_mut(child);
         let (overlay, z) = (c.kind() == NodeType::Overlay, c.place.has_z());
         if z {
-            self.nodes.at_mut(parent_index).place.stacks = true;
+            self.nodes.at_mut(parent_index).place.stacks = crate::tree::node::Stacking::Stacks;
         }
         if overlay {
             self.overlays.push(id);
@@ -283,7 +283,7 @@ impl NodeTree {
     /// has one).
     pub(crate) fn stacks(&mut self, parent: NodeId) {
         if let Some(p) = self.nodes.get_mut(&parent) {
-            p.place.stacks = true;
+            p.place.stacks = crate::tree::node::Stacking::Stacks;
         }
     }
 

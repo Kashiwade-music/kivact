@@ -25,8 +25,8 @@ pub(crate) struct HostNode {
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<DrawList>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) sent_layout: Option<(Rect, Size, bool)>,
-    pub(crate) sent_scroll: Option<(Point, Size, Size)>,
+    pub(crate) sent_layout: kivact_types::cell::Sent<LayoutReport>,
+    pub(crate) sent_scroll: kivact_types::cell::Sent<ScrollReport>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
@@ -35,6 +35,26 @@ pub(crate) struct HostNode {
     pub(crate) shift: Point,
     /// Whether it shows its enter or exit paint (`model::presence`).
     pub(crate) presence: Presence,
+}
+
+/// The last published geometry and text clipping observation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct LayoutReport(pub(crate) Rect, pub(crate) Size, pub(crate) Clipping);
+/// The last published scroll offset, viewport and content extents.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ScrollReport(pub(crate) Point, pub(crate) Size, pub(crate) Size);
+/// Whether observed text is clipped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Clipping {
+    No,
+    Yes,
+}
+/// Whether children require stacking order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Stacking {
+    #[default]
+    Flat,
+    Stacks,
 }
 
 /// Where a node is between its mount and its removal, for its enter and
@@ -64,7 +84,7 @@ pub(crate) struct Place {
     /// One of its children has (or had) a z-index or a state style that
     /// sets one: its children are ordered by z-index (`Model::stacked`).
     /// Kept once set.
-    pub(crate) stacks: bool,
+    pub(crate) stacks: Stacking,
     /// `position: sticky`: moved by its scrollport's scroll, and drawn and
     /// hit over its in-flow siblings of the same z-index (CSS paints
     /// positioned boxes after in-flow ones).
@@ -89,8 +109,8 @@ impl HostNode {
             index,
             scenes: [None, None],
             scroll: Point::default(),
-            sent_layout: None,
-            sent_scroll: None,
+            sent_layout: Default::default(),
+            sent_scroll: Default::default(),
             place: Place::default(),
             shift: Point::default(),
             presence: Presence::Mounted,

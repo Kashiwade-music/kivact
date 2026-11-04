@@ -33,7 +33,7 @@ impl NodeLayoutColumns {
     /// `slot` is zero-based. Outside allocated capacity this returns None.
     /// A value within capacity does not prove that the slot contains a live node;
     /// callers needing identity must resolve it in the paired authoritative tree.
-    pub fn geometry(&self, slot: usize) -> Option<Geometry> {
+    pub(crate) fn geometry(&self, slot: usize) -> Option<Geometry> {
         let values = &self.values;
         let at = slot.checked_add(1)?;
         Some(Geometry {
@@ -45,9 +45,14 @@ impl NodeLayoutColumns {
     /// No result is copied back.
     /// `slot` must be live and allocated in this instance's domain, and `id` must
     /// identify that same node. The measurer must describe its current content.
-    pub fn remeasures_same(&self, slot: usize, id: NodeId, measure: &mut dyn LeafMeasurer) -> bool {
+    pub(crate) fn remeasures_same(
+        &self,
+        slot: usize,
+        id: NodeId,
+        measure: &mut dyn LeafMeasurer,
+    ) -> bool {
         let record = &self.states[slot + 1].measured;
-        !record.incomplete
+        record.state == crate::columns::RecordState::Complete
             && record
                 .sizes
                 .iter()
@@ -58,7 +63,7 @@ impl NodeLayoutColumns {
     /// `tree` must have the same live identity-to-slot mapping and allocated slot
     /// domain as these columns. The measurer may describe an independent source
     /// snapshot with that mapping; this does not support unrelated trees.
-    pub fn compare_measurements(
+    pub(crate) fn compare_measurements(
         &self,
         tree: &dyn LayoutTree,
         measure: &mut dyn LeafMeasurer,
@@ -87,7 +92,11 @@ impl NodeLayoutColumns {
     /// results for detached nodes or replace any authoritative source state.
     /// Tree, state and columns must be paired within the same slot allocation
     /// domain, including vacant slots; this never migrates or remaps an allocation.
-    pub fn rebuild_all(&mut self, tree: &dyn LayoutTree, state: &mut LayoutState) {
+    pub(crate) fn rebuild_all<T: LayoutTree + ?Sized>(
+        &mut self,
+        tree: &T,
+        state: &mut LayoutState,
+    ) {
         for slot in 0..self.states.len().saturating_sub(1) {
             if let Some(id) = tree.id_at(slot) {
                 self.rebuild_style(tree, state, id);
@@ -111,7 +120,7 @@ impl NodeLayoutColumns {
     /// Both columns instances and `tree` must have the same capacity, live identity
     /// set and identity-to-slot mapping (for example, snapshots of one allocation).
     /// This compares derived results, not arbitrary unrelated or reordered trees.
-    pub fn compare(&self, other: &Self, tree: &dyn LayoutTree) -> Vec<LayoutDifference> {
+    pub(crate) fn compare(&self, other: &Self, tree: &dyn LayoutTree) -> Vec<LayoutDifference> {
         let mut errors = Vec::new();
         let before = &self.values;
         let after = &other.values;

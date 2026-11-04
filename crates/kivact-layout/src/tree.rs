@@ -100,7 +100,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
                 let leaf = measure.measure(id, request);
                 if record.sizes.len() == 16 {
                     record.sizes.remove(0);
-                    record.incomplete = true;
+                    record.state = crate::columns::RecordState::Incomplete;
                 }
                 record.sizes.push((request, leaf));
                 leaf
@@ -330,7 +330,7 @@ impl NodeLayoutColumns {
     /// Outside capacity or before layout this returns None; it does not resolve
     /// identity or establish whether an allocated slot is currently live.
     #[inline]
-    pub fn layout_at(&self, slot: usize) -> Option<NodeLayout> {
+    pub(crate) fn layout_at(&self, slot: usize) -> Option<NodeLayout> {
         let l = self
             .values
             .final_layout
@@ -365,7 +365,7 @@ impl NodeLayoutColumns {
     /// Resolve a logical identity, then read its rounded layout.
     /// `tree` must use this columns instance's identity-to-slot allocation domain.
     #[inline]
-    pub fn computed_layout<Tree: LayoutTree + ?Sized>(
+    pub(crate) fn computed_layout<Tree: LayoutTree + ?Sized>(
         &self,
         tree: &Tree,
         id: NodeId,
@@ -375,7 +375,7 @@ impl NodeLayoutColumns {
     /// Replace compiled style from authoritative raw props and invalidate its chain.
     /// Tree, state and columns must share the same slot allocation domain.
     /// An absent identity is ignored; every resolved slot must already be allocated.
-    pub fn rebuild_style<Tree: LayoutTree + ?Sized>(
+    pub(crate) fn rebuild_style<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
@@ -413,7 +413,7 @@ impl NodeLayoutColumns {
     /// Invalidate a content measurement and its dependency chain.
     /// Tree, state and columns must share the same slot allocation domain.
     /// Absent node identities mark work changed without accessing a slot.
-    pub fn invalidate_chain<Tree: LayoutTree + ?Sized>(
+    pub(crate) fn invalidate_chain<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
@@ -426,7 +426,7 @@ impl NodeLayoutColumns {
         }
     }
     /// Invalidate the shared viewport's layout (the container of the fixed boxes).
-    pub fn invalidate_viewport(&mut self, state: &mut LayoutState) {
+    pub(crate) fn invalidate_viewport(&mut self, state: &mut LayoutState) {
         state.changed = true;
         self.values.caches[0].clear();
     }
@@ -562,7 +562,7 @@ impl NodeLayoutColumns {
     /// Topology and raw properties must remain stable throughout the computation.
     /// Measurement callbacks may inspect content/resources; they cannot reach
     /// these columns, which are lent mutably for the whole computation.
-    pub fn compute<Tree: LayoutTree + ?Sized>(
+    pub(crate) fn compute<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
@@ -589,7 +589,7 @@ impl NodeLayoutColumns {
         }
     }
     /// Compute one overlay root again with an optional limit from anchor placement.
-    pub fn compute_overlay<Tree: LayoutTree + ?Sized>(
+    pub(crate) fn compute_overlay<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,
         state: &LayoutState,

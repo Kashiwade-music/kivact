@@ -59,7 +59,9 @@ impl Model {
         if let Some(parent) = self.tree.detach(id) {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
             self.changes.outdate_viewport();
-            self.changes.layout_changed = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::STYLE);
             self.insert(parent, id, before, false);
         }
     }
@@ -116,7 +118,9 @@ impl Model {
                 self.changes.mark(id, Dirty::SCROLLED);
             }
             n.scroll = offset;
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
     }
 
@@ -125,7 +129,9 @@ impl Model {
     pub(crate) fn observe_layout(&mut self, id: NodeId, on: bool) -> bool {
         let changed = self.tree.set_observed(id, on);
         if changed {
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         changed
     }
@@ -145,8 +151,12 @@ impl Model {
         }
         self.changes
             .mark(id, Dirty::LAYOUT_STYLE.union(Dirty::WRITTEN));
-        self.changes.layout_changed = true;
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// Store one typed property of `id` when it differs and record what it
@@ -283,7 +293,9 @@ impl Model {
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
             self.changes.mark(id, Dirty::LAYOUT_STYLE);
             if place.fixed != was.1 {
-                self.changes.layout_changed = true;
+                self.changes
+                    .layout
+                    .insert(crate::model::changes::LayoutReasons::STYLE);
             }
             if let Some(parent) = parent {
                 if place.fixed != was.1 {
@@ -302,18 +314,24 @@ impl Model {
             {
                 n.shift = Point::default();
             }
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         if measure {
             self.changes.mark(id, Dirty::MEASURE);
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         if placed {
             // A new anchor or placement moves the overlay's subtree, a new
             // transform the node's (no layout computation: origins and
             // transforms are placed live), so the geometry reports run and
             // positions are redrawn.
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
             self.changes.moved();
         }
         if text {
@@ -345,7 +363,9 @@ impl Model {
                     self.changes.mark(x, Dirty::REDRAW);
                 }
             }
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         if let Some(parent) = stacks {
             self.tree.stacks(self.tree.nodes.id_at(parent));
@@ -376,7 +396,9 @@ impl Model {
         self.forget_text_below(id);
         self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         self.changes.outdate_viewport();
-        self.changes.layout_changed = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
         if inherited.is_some_and(|old| old != self.text_props(id)) {
             let mut stack = vec![id];
             while let Some(child) = stack.pop() {
@@ -397,7 +419,9 @@ impl Model {
             }
         }
         self.changes.regroup(parent);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// Remove `id` and its whole subtree: at once, or once the exits in it
@@ -426,7 +450,9 @@ impl Model {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         }
         self.changes.outdate_viewport();
-        self.changes.layout_changed = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
         for gone in self.remove_slots(id) {
             if self.presence.notify_exit.remove(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
@@ -447,6 +473,8 @@ impl Model {
             // the groups it was in (read before the removal).
             self.move_focus_off_removed(&left, next);
         }
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 }

@@ -119,7 +119,7 @@ impl Model {
                 }
                 self.set_scroll(drag.node, offset);
                 self.sync();
-                self.relayout(engine);
+                self.settle(engine);
                 return;
             }
             self.pointer.state.track_mut(PointerId::MOUSE).gesture = Gesture::default();
@@ -208,7 +208,7 @@ impl Model {
                         offset: if bar.vertical { offset.y } else { offset.x },
                     });
                 self.sync();
-                self.relayout(engine);
+                self.settle(engine);
                 return;
             }
         }

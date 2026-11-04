@@ -339,7 +339,7 @@ impl Model {
         &'a self,
         n: &'a HostNode,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator + 'a {
-        let children = if n.place.stacks {
+        let children = if n.place.stacks == crate::tree::node::Stacking::Stacks {
             let mut children: Vec<_> = self.tree.nodes.links(n.index).children.iter().collect();
             children.sort_by_key(|index| self.stack_key(self.tree.nodes.id_at(*index)));
             StackOrder::Sorted(children.into_iter())
