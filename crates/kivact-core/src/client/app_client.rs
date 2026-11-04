@@ -96,7 +96,7 @@ impl AppOptions {
     /// [`platform::window_size`](crate::platform::window_size) (to save it for the next start, say).
     /// Both values must be finite, at least one logical pixel, fit the native
     /// window extent, and not be smaller than
-    /// [`App::min_window_size`]: otherwise [`App::run`] returns an error
+    /// [`crate::App::min_window_size`]: otherwise [`crate::App::run`] returns an error
     /// of kind `ErrorKind::Message` without opening the window.
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
         self.window_size = Some(Size::new(width.into(), height.into()));
@@ -107,7 +107,7 @@ impl AppOptions {
     /// window to, e.g. `.min_window_size(480, 320)` (default: no minimum).
     /// Both values must be finite, at least one logical pixel, fit the native
     /// window extent, and not be larger than
-    /// [`App::window_size`] when that is set: otherwise [`App::run`]
+    /// [`crate::App::window_size`] when that is set: otherwise [`crate::App::run`]
     /// returns an error of kind `ErrorKind::Message` without opening the
     /// window.
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
@@ -156,11 +156,20 @@ impl AppOptions {
         self.title = title.into();
         self
     }
-    pub(crate) fn host_options(&self) -> kivact_engine::api::HostOptions {
+    /// Initial engine settings, derived from the application options.
+    pub fn host_options(&self) -> kivact_engine::api::HostOptions {
+        #[cfg(feature = "gpu-interop")]
+        let gpu_preference = self.gpu_preference;
+        #[cfg(not(feature = "gpu-interop"))]
+        let gpu_preference = kivact_types::GpuPreference::default();
         kivact_engine::api::HostOptions {
             window_size: self.window_size,
-            gpu_preference: self.gpu_preference,
+            gpu_preference,
         }
+    }
+    /// The single title used for both engine startup and later window effects.
+    pub fn window_title(&self) -> &str {
+        &self.title
     }
     pub(crate) fn into_view_settings(self) -> (Theme, Option<crate::i18n::Locale>, Messages) {
         (self.theme, self.locale, self.messages)
@@ -172,7 +181,7 @@ enum LaunchState {
     /// Waiting for the host's `start`, which consumes the config.
     Waiting {
         options: Box<AppOptions>,
-        root: Option<Box<dyn FnOnce() -> View>>,
+        root: Box<dyn FnOnce() -> View>,
     },
     /// The host started the App.
     Started(Started),
@@ -192,14 +201,10 @@ impl kivact_runtime::Host for ClientHost {
 }
 
 pub struct Launch {
-    #[cfg(debug_assertions)]
-    trace_name: Option<String>,
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
     launch: LaunchState,
-    /// The embedder's close flag, set by `Embedded::drop`: the turn in
-    /// progress finishes, but the rest of its event batch is not delivered.
-    /// `None`: the App has a window of its own.
+    /// Host mode and its close/timing protocol for this application.
     mode: ClientMode,
 }
 
@@ -215,11 +220,9 @@ impl Launch {
             at: Location::caller(),
             launch: LaunchState::Waiting {
                 options: Box::new(options),
-                root: Some(Box::new(root)),
+                root: Box::new(root),
             },
             mode,
-            #[cfg(debug_assertions)]
-            trace_name: None,
         }
     }
 
@@ -237,7 +240,7 @@ impl Launch {
 
     /// The App's runtime (the Testing Library reads the tree and the
     /// extensions through it).
-    pub(crate) fn runtime(&self) -> &Rc<Runtime> {
+    fn runtime(&self) -> &Rc<Runtime> {
         match &self.launch {
             LaunchState::Started(started) => &started.rt,
             LaunchState::Waiting { .. } => {
@@ -245,7 +248,7 @@ impl Launch {
             }
         }
     }
-    pub(crate) fn shared_client(
+    fn shared_client(
         shared: Rc<RefCell<Self>>,
         timing: Option<Rc<dyn Fn(u64)>>,
     ) -> Client {
@@ -270,8 +273,6 @@ impl Launch {
             LaunchState::Waiting { options, root } => (options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        #[cfg(debug_assertions)]
-        let trace_name = self.trace_name.clone();
         let ready = waker.clone();
         let rt = Runtime::new(
             Rc::new(ClientHost(waker)),
@@ -306,9 +307,6 @@ impl Launch {
                 #[cfg(debug_assertions)]
                 let extensions = {
                     let trace = crate::client::trace::Trace::default();
-                    if let Some(name) = &trace_name {
-                        trace.open(name);
-                    }
                     extensions.with(trace)
                 };
                 extensions
@@ -328,9 +326,7 @@ impl Launch {
             &mut self.launch,
             LaunchState::Started(Started { rt: rt.clone() }),
         ) {
-            LaunchState::Waiting { options, root } => {
-                (*options, root.expect("invariant: root is consumed once"))
-            }
+            LaunchState::Waiting { options, root } => (*options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
         crate::view::root::mount_root(&rt, root_owner, options, root, self.at);

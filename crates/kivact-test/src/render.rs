@@ -52,7 +52,7 @@ pub fn render_with<V: IntoView>(
 /// ```no_run
 /// # use kivact_core as kivact;
 /// use kivact::prelude::*;
-/// use kivact::test::{RenderOptions, render_with_handle};
+/// use kivact_test::{RenderOptions, render_with_handle};
 /// let (screen, count) = render_with_handle(RenderOptions::from_env(), || {
 ///     let count = signal(0);
 ///     (count, text(move || format!("Count: {}", count.get())))

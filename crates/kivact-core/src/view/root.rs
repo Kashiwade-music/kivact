@@ -7,7 +7,7 @@
 //! Invariants:
 //! - Started once per App, when the host starts: the client creates the
 //!   root owner (recorded in the runtime so that it disposes it first at
-//!   shutdown), [`start`] installs the tree with the root node, then
+//!   shutdown), runtime construction installs the complete view state, then
 //!   [`mount_root`] mounts the App's view below it.
 //! - The root node resolves its style on the one style path of every node
 //!   (`mount::bind_style`): it fills the window with the theme's

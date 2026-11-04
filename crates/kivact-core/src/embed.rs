@@ -30,7 +30,9 @@ use std::panic::Location;
 /// If the parent dies first, the child stops safely without undefined behavior.
 #[derive(Clone)]
 pub struct Parent {
+    // xtask-allow(state-fields): optional validated constructor input, independent of parent scale.
     window: Option<ParentWindow>,
+    // xtask-allow(state-fields): optional host scale configuration, independent of callback presence.
     scale: Option<f64>,
     on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
 }
@@ -163,16 +165,16 @@ impl EmbeddedGuard {
             .state
             .lock()
             .expect("invariant: embedded state is not poisoned");
-        if matches!(*state, EmbeddedState::Running) {
-            if let Some(payload) = self.panic.take() {
-                *state = EmbeddedState::Panicked(payload);
-            }
+        if matches!(*state, EmbeddedState::Running)
+            && let Some(payload) = self.panic.take()
+        {
+            *state = EmbeddedState::Panicked(payload);
         }
         if matches!(*state, EmbeddedState::Panicked(_)) {
             let EmbeddedState::Panicked(payload) =
                 std::mem::replace(&mut *state, EmbeddedState::Closed)
             else {
-                unreachable!()
+                unreachable!("invariant: panicked state contains the original payload")
             };
             drop(state);
             std::panic::resume_unwind(payload);
@@ -215,6 +217,7 @@ impl App {
         self.embed_impl(parent, root, Location::caller())
     }
 
+    #[track_caller]
     pub(crate) fn embed_impl<V: IntoView>(
         self,
         parent: Parent,

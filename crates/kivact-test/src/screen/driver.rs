@@ -24,6 +24,7 @@ impl Screen {
     /// Mount `root` on the test driver with `options`, the App fonts
     /// `fonts` (as `App::font` passes them), drawing on the GPU when `gpu`
     /// (the GPU smoke test), and settle.
+    #[track_caller]
     pub(crate) fn start(
         options: RenderOptions,
         gpu: bool,
@@ -33,7 +34,7 @@ impl Screen {
     ) -> Screen {
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
-        let (app, host_options) = options.into_host(&name, gpu, fonts);
+        let (app, host_options) = options.into_host(gpu, fonts);
         let scale = host_options.scale;
         let timed = record.clone();
         let (client, launch) = Launch::new(
@@ -49,7 +50,6 @@ impl Screen {
         let s = Screen {
             host: RefCell::new(host),
             launch,
-            scripted: Rc::new(Cell::new(false)),
             record,
             actions: RefCell::new(Vec::new()),
             name,
@@ -84,7 +84,7 @@ impl Screen {
             if host.exited() {
                 return;
             }
-            if self.scripted.replace(false) || host.due() || host.woken() || self.pending() {
+            if host.due() || host.woken() || self.pending() {
                 host.wake();
                 continue;
             }

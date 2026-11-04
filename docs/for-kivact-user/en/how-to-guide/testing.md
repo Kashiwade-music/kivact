@@ -452,7 +452,7 @@ scripted too: `clipboard` and `set_clipboard`, `respond_file_dialog`,
 Text is shaped with a **bundled font** (Tuffy) by default, so layout and pixels
 are the same on every machine. That font has no Japanese or other CJK glyphs:
 such text takes the same space on every machine but is drawn as empty boxes. To
-test with real glyphs, set `fonts: TestFonts::Only(vec![bytes])` with a font file
+test with real glyphs, set `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` with a font file
 you ship, or `TestFonts::System` to use the machine's fonts (layout then depends
 on the machine).
 

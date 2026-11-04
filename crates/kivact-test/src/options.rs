@@ -4,7 +4,7 @@ use kivact_core::i18n::{Locale, Messages};
 use kivact_style::Theme;
 
 /// The fonts text is shaped with ([`RenderOptions::fonts`]).
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum TestFonts {
     /// Only the bundled test font (Tuffy, no CJK glyphs): the same layout
     /// and pixels on every machine.
@@ -35,33 +35,26 @@ pub struct RenderOptions {
     host_locale: Option<String>,
     reduced_motion: bool,
     dark: bool,
-    width: f64,
-    height: f64,
     scale: f64,
     fonts: TestFonts,
     mirror: MirrorMode,
     gpu: bool,
     frame_period_ns: u64,
-    title: Option<String>,
-    gpu_preference: kivact_types::GpuPreference,
 }
 
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
-            app: AppOptions::new("test").window_size(800, 600),
+            app: AppOptions::new(std::thread::current().name().unwrap_or("test"))
+                .window_size(800, 600),
             host_locale: None,
             reduced_motion: false,
             dark: false,
-            width: 800.,
-            height: 600.,
             scale: 1.,
             fonts: TestFonts::Bundled,
             mirror: mirror_from_env(),
             gpu: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
-            title: None,
-            gpu_preference: Default::default(),
         }
     }
 }
@@ -75,9 +68,7 @@ impl RenderOptions {
         Self::default().theme(theme)
     }
     pub fn title(mut self, title: impl Into<String>) -> Self {
-        let title = title.into();
-        self.app = self.app.title(title.clone());
-        self.title = Some(title);
+        self.app = self.app.title(title);
         self
     }
     pub fn host_locale(mut self, tag: impl Into<String>) -> Self {
@@ -122,14 +113,11 @@ impl RenderOptions {
         self
     }
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.width = width.into();
-        self.height = height.into();
-        self.app = self.app.window_size(self.width, self.height);
+        self.app = self.app.window_size(width, height);
         self
     }
     #[cfg(feature = "gpu-interop")]
     pub fn gpu_preference(mut self, preference: kivact_types::GpuPreference) -> Self {
-        self.gpu_preference = preference;
         self.app = self.app.gpu_preference(preference);
         self
     }
@@ -160,7 +148,6 @@ impl RenderOptions {
     }
     pub(crate) fn into_host(
         self,
-        name: &str,
         gpu: bool,
         fonts: Vec<(kivact_core::Asset, &'static std::panic::Location<'static>)>,
     ) -> (AppOptions, kivact_engine::testing::TestHostOptions) {
@@ -170,11 +157,14 @@ impl RenderOptions {
         }
         app.check_window_sizes()
             .expect("valid test application window sizes");
-        let title = self.title.unwrap_or_else(|| name.to_owned());
-        app = app.title(title.clone());
+        let title = app.window_title().to_owned();
+        let initial = app.host_options();
+        let size = initial
+            .window_size
+            .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE);
         let host = kivact_engine::testing::TestHostOptions {
-            width: self.width,
-            height: self.height,
+            width: size.width,
+            height: size.height,
             scale: self.scale,
             fonts: match self.fonts {
                 TestFonts::Bundled => kivact_engine::testing::TestFonts::Bundled,
@@ -208,8 +198,25 @@ impl RenderOptions {
             } else {
                 kivact_engine::testing::GpuMode::Off
             },
-            gpu_preference: self.gpu_preference,
+            gpu_preference: initial.gpu_preference,
         };
         (app, host)
+    }
+}
+
+impl std::fmt::Debug for RenderOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RenderOptions")
+            .field("title", &self.app.window_title())
+            .field("window_size", &self.app.host_options().window_size)
+            .field("host_locale", &self.host_locale)
+            .field("reduced_motion", &self.reduced_motion)
+            .field("dark", &self.dark)
+            .field("scale", &self.scale)
+            .field("fonts", &self.fonts)
+            .field("mirror", &self.mirror)
+            .field("gpu", &self.gpu)
+            .field("frame_period_ns", &self.frame_period_ns)
+            .finish_non_exhaustive()
     }
 }

@@ -6,9 +6,12 @@ use kivact_types::NodeId;
 use std::collections::HashMap;
 use std::panic::Location;
 pub(super) struct Node {
+    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
     pub(super) kind: Option<NodeType>,
     pub(super) children: Vec<NodeId>,
+    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
     pub(super) parent: Option<NodeId>,
+    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
     pub(super) at: Option<&'static Location<'static>>,
 }
 impl Node {

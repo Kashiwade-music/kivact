@@ -332,6 +332,9 @@ impl ArvaneTestHost {
 
     /// Whether the host wants to run now.
     pub fn due(&self) -> bool {
+        if !self.script.is_empty() {
+            return true;
+        }
         self.next_deadline().is_some_and(|t| t <= self.now_ns())
     }
 
@@ -347,6 +350,9 @@ impl ArvaneTestHost {
     /// at the virtual time, the asset store's results and the client's
     /// turn.
     pub fn wake(&mut self) {
+        if !self.script.is_empty() {
+            self.step(Step::Input);
+        }
         self.step(Step::Wake);
     }
 

@@ -17,7 +17,6 @@ pub(super) const FIND_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct Screen {
     pub(super) host: RefCell<ArvaneTestHost>,
     pub(super) launch: LaunchHandle,
-    pub(super) scripted: Rc<Cell<bool>>,
     pub(super) record: Rc<Record>,
     pub(super) actions: RefCell<Vec<String>>,
     /// The file name failure artifacts are written under.
@@ -25,6 +24,7 @@ pub struct Screen {
     /// Where the screen was rendered (the location of a node created
     /// outside every builder).
     pub(super) at: &'static std::panic::Location<'static>,
+    // xtask-allow(state-fields): independent report-once flag for failure artifact publication.
     /// Failure artifacts were written (by a failing query).
     pub(super) artifacts_written: Cell<bool>,
     /// Physical pixels per logical pixel.
@@ -32,6 +32,7 @@ pub struct Screen {
     /// The touch and pen contacts the test has down (`contact_*`), in the
     /// order they went down, each at its last position.
     pub(super) contacts: RefCell<Vec<(Contact, kivact_style::draw::Point)>>,
+    // xtask-allow(state-fields): identifier allocator, not an event or phase.
     /// The platform's id of the last contact (the window gives each
     /// contact a pointer id of its own, never the mouse's).
     pub(super) last_contact: Cell<u64>,
@@ -101,7 +102,6 @@ impl Screen {
     pub fn script(&self) -> crate::Script {
         crate::Script {
             platform: self.host.borrow().script(),
-            queued: self.scripted.clone(),
         }
     }
     pub(super) fn inspect(&self) -> Inspect<'_> {
