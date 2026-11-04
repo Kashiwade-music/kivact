@@ -19,6 +19,10 @@ use kivact_ui_creative as ui;
 pub(super) fn properties() -> impl IntoView {
     let tab = signal(2_usize);
     let display_color = signal(rgb(0xffffff));
+    let display_name = signal(false);
+    let display_axes = signal(true);
+    let display_wireframe = signal(false);
+    let display_as = signal(Some("textured".to_owned()));
     row((
         column(
             ["camera", "settings", "box", "link", "eye"]
@@ -121,33 +125,28 @@ pub(super) fn properties() -> impl IntoView {
             "パネル操作",
             col((
                 note("ヘッダーをクリックで開閉。内部値を保持したまま折りたたみます。"),
-                kivact::ui::disclosure("Viewport Display", signal(true))
-                    .content(move || {
-                        col((
-                            kivact::ui::checkbox("Name", signal(false)),
-                            kivact::ui::checkbox("Axes", signal(true)),
-                            kivact::ui::checkbox("Wireframe", signal(false)),
-                            ui::property_row(
-                                "Display As",
-                                kivact::ui::select(
-                                    "Selection",
-                                    keyed_options([
-                                        ("textured", "Textured"),
-                                        ("solid", "Solid"),
-                                        ("wire", "Wire"),
-                                    ]),
-                                    signal(Some("textured".to_owned())),
-                                )
-                                .placeholder(""),
-                            ),
-                            ui::property_row(
-                                "Color",
-                                ui::color_popup("Viewport color", display_color),
+                kivact::ui::disclosure("Viewport Display", signal(true)).content(move || {
+                    col((
+                        kivact::ui::checkbox("Name", display_name),
+                        kivact::ui::checkbox("Axes", display_axes),
+                        kivact::ui::checkbox("Wireframe", display_wireframe),
+                        ui::property_row(
+                            "Display As",
+                            kivact::ui::select(
+                                "Selection",
+                                keyed_options([
+                                    ("textured", "Textured"),
+                                    ("solid", "Solid"),
+                                    ("wire", "Wire"),
+                                ]),
+                                display_as,
                             )
+                            .placeholder(""),
+                        ),
+                        ui::property_row("Color", ui::color_popup("Viewport color", display_color))
                             .test_id("creative-property-display-color"),
-                        ))
-                    })
-                    .keep_mounted(),
+                    ))
+                }),
                 ui::notice(
                     kivact::interaction::Tone::Info,
                     "Property Editing",

@@ -112,7 +112,6 @@ pub struct Collapsible {
     content: Option<ViewFn>,
     chevron: Option<ChevronPosition>,
     key: Option<String>,
-    keep_mounted: bool,
     animate_layout: Value<bool>,
 }
 
@@ -127,7 +126,6 @@ pub fn collapsible(trigger: impl IntoText, open: impl IntoBinding<bool>) -> Coll
         content: None,
         chevron: None,
         key: None,
-        keep_mounted: false,
         animate_layout: (false).into_value(),
     }
 }
@@ -151,10 +149,6 @@ impl Collapsible {
     }
     pub fn trigger_view(mut self, trigger: impl IntoView) -> Self {
         self.label = provide((), move || trigger.into_view());
-        self
-    }
-    pub fn keep_mounted(mut self) -> Self {
-        self.keep_mounted = true;
         self
     }
     pub fn animate_layout(mut self, animate: impl IntoValue<bool>) -> Self {
@@ -185,7 +179,6 @@ impl IntoView for Collapsible {
             content,
             chevron,
             key,
-            keep_mounted,
             animate_layout,
         } = self;
         provide((), move || {
@@ -295,11 +288,7 @@ impl IntoView for Collapsible {
                 };
                 region.child(details)
             };
-            let details = if keep_mounted {
-                body().hidden(move || !shown.get()).into_view()
-            } else {
-                show(shown, body).into_view()
-            };
+            let details = show(shown, body);
             root.with_node(move |node| node.base_style(style().direction(Direction::Column)))
                 .child((trigger, details))
         })
