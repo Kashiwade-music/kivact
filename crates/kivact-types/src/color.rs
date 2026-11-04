@@ -42,3 +42,23 @@ impl Rgba {
         }
     }
 }
+
+/// Convert premultiplied RGBA8 pixels to straight alpha in place.
+///
+/// RGB channels are rounded to nearest with integer arithmetic and clamped to
+/// 255. Alpha is preserved; zero-alpha pixels become transparent black. A
+/// trailing incomplete pixel is left unchanged, matching frame and GPU readback.
+pub fn unpremultiply(rgba: &mut [u8]) {
+    for pixel in rgba.as_chunks_mut::<4>().0 {
+        let alpha = u32::from(pixel[3]);
+        match alpha {
+            0 => pixel[..3].fill(0),
+            255 => {}
+            _ => {
+                for channel in &mut pixel[..3] {
+                    *channel = ((u32::from(*channel) * 255 + alpha / 2) / alpha).min(255) as u8;
+                }
+            }
+        }
+    }
+}
