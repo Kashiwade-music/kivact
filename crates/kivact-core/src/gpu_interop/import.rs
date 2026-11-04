@@ -14,7 +14,7 @@
 //!   whatever handles to it are left, and forgets it (a later answer is
 //!   ignored).
 //! - The adapter signal is part of what the host's start establishes
-//!   (`ViewState::adapter`), made in the root owner. It starts `None` and follows
+//!   (`gpu_interop::State`), made in the root owner. It starts `None` and follows
 //!   `HostEvent::GpuAdapterChanged`. An import that is `Ready` is `Lost`
 //!   once the adapter's generation is not the one it was imported into
 //!   (a new device, or none).

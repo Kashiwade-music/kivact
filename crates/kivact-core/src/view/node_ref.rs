@@ -294,7 +294,7 @@ impl NodeRef {
         super::requests::request_focus(
             &rt,
             self.target(),
-            super::state::FocusWaiter::Report(owner, at),
+            super::state::FocusReply::Report(super::state::FocusCompletion { owner, at }),
             !ViewState::of(&rt).pointer_modality(),
         );
     }

@@ -248,10 +248,7 @@ impl Launch {
             }
         }
     }
-    fn shared_client(
-        shared: Rc<RefCell<Self>>,
-        timing: Option<Rc<dyn Fn(u64)>>,
-    ) -> Client {
+    fn shared_client(shared: Rc<RefCell<Self>>, timing: Option<Rc<dyn Fn(u64)>>) -> Client {
         let start = shared.clone();
         Client::new(
             move |info, waker, writer| start.borrow_mut().start(info, waker, writer),
@@ -303,7 +300,7 @@ impl Launch {
                     self.at,
                 );
                 let extensions = Extensions::new().with(view).with(motion_env);
-                let extensions = extensions.with(crate::gpu_interop::State::default());
+                let extensions = extensions.with(crate::gpu_interop::State::new(root, self.at));
                 #[cfg(debug_assertions)]
                 let extensions = {
                     let trace = crate::client::trace::Trace::default();

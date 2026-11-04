@@ -78,13 +78,29 @@ pub(crate) enum PointerObservation<T: Clone + PartialEq + 'static> {
     Reactive(Signal<Option<T>>),
 }
 
-/// A focus request made in this turn and not sent to the host yet.
-pub(crate) struct QueuedFocus {
-    pub(crate) id: u64,
+/// Focus requests, with ordering independent from their stage.
+#[derive(Default)]
+pub(crate) struct FocusRequests {
+    pub(crate) requests: HashMap<kivact_types::RequestId, FocusRequest>,
+    pub(crate) order: Vec<kivact_types::RequestId>,
+}
+
+pub(crate) struct FocusRequest {
     pub(crate) target: kivact_types::FocusTarget,
-    /// Whether the host shows a focus indicator for it.
+    pub(crate) reply: FocusReply,
+    pub(crate) stage: RequestStage,
+    /// The requested focus indicator, independent of request progress.
     pub(crate) visible: bool,
-    pub(crate) waiter: FocusWaiter,
+}
+
+pub(crate) enum RequestStage {
+    Queued,
+    Sent,
+}
+
+pub(crate) struct FocusCompletion {
+    pub(crate) owner: Owner,
+    pub(crate) at: &'static Location<'static>,
 }
 
 /// The App's host environment: one signal holding the whole `Environment` the
@@ -155,20 +171,11 @@ pub(crate) struct FocusKeys {
     pub(crate) visible: Signal<bool>,
 }
 
-/// Who waits for the answer of a focus request.
-pub(crate) enum FocusWaiter {
-    /// Report a failure to the owner's error chain, located at the call.
-    Report(Owner, &'static Location<'static>),
-    /// A focus restore: the core's own when a popup or modal overlay
-    /// closes (`report: None`), or `NodeRef::restore_focus` (the ref's
-    /// owner and the call). It is dropped without a request or an answer
-    /// when, at the flush, its target may not take the focus back
-    /// (`Reader::can_take_focus`), the reporting owner is gone, or an
-    /// explicit request of the same flush wins; a request the host then
-    /// refuses is reported like `Report` when `report` names where.
-    Restore {
-        report: Option<(Owner, &'static Location<'static>)>,
-    },
+/// How a focus request completes.
+pub(crate) enum FocusReply {
+    Report(FocusCompletion),
+    Restore,
+    RestoreAndReport(FocusCompletion),
 }
 
 /// Who waits for the answer of a platform effect.
@@ -189,10 +196,7 @@ pub(crate) enum EffectWaiter {
 #[derive(Default)]
 pub(crate) struct Requests {
     pub(crate) next_request: u64,
-    /// Focus requests of this turn, in request order (`requests::flush_focus` sends or cancels each).
-    pub(crate) queued_focus: Vec<QueuedFocus>,
-    /// Focus requests sent to the host, by request id, until it answers.
-    pub(crate) sent_focus: HashMap<u64, FocusWaiter>,
+    pub(crate) focus: FocusRequests,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
@@ -219,9 +223,6 @@ pub(crate) struct ViewState {
     pub(super) focus: FocusKeys,
     /// The window's minimum size (`None`: no minimum).
     pub(super) min_window_size: Option<kivact_types::Size>,
-    /// The adapter of the window's GPU device that can import shared
-    /// textures (`None` until the host reports one).
-    pub(super) adapter: Signal<Option<kivact_types::GpuAdapter>>,
     /// Missing capabilities the App relied on and that were noted.
     noted_missing: RefCell<std::collections::BTreeSet<&'static str>>,
     /// The node the host reported under the pointer last.
@@ -252,7 +253,6 @@ impl ViewState {
             capabilities: info.capabilities,
             focus: crate::view::focus::keys(owner, at),
             min_window_size,
-            adapter: owner.signal(None, at),
             noted_missing: RefCell::new(Default::default()),
             hover: Cell::new(PointerObservation::Plain(None)),
             mouse: Cell::new(PointerObservation::Plain(None)),
@@ -267,8 +267,8 @@ impl ViewState {
     pub(crate) fn release_capacity(&self) {
         self.tree.borrow_mut().release_capacity();
         let mut requests = self.requests.borrow_mut();
-        requests.queued_focus.shrink_to_fit();
-        requests.sent_focus.shrink_to_fit();
+        requests.focus.order.shrink_to_fit();
+        requests.focus.requests.shrink_to_fit();
         requests.effects.shrink_to_fit();
         requests.pending_activations.shrink_to_fit();
     }
@@ -318,12 +318,6 @@ impl ViewState {
     /// The window's minimum size (`None`: no minimum).
     pub(crate) fn min_window_size(&self) -> Option<kivact_types::Size> {
         self.min_window_size
-    }
-
-    /// The adapter of the window's GPU device that can import shared
-    /// textures.
-    pub(crate) fn adapter(&self) -> Signal<Option<kivact_types::GpuAdapter>> {
-        self.adapter
     }
 
     /// Whether the last key or pointer press was a pointer press.
