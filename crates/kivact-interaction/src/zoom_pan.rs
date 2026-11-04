@@ -24,18 +24,21 @@
 //! deliver these events again itself.
 
 use crate::EditSession;
+use crate::options_cell::OptionsCell;
+use std::rc::Rc;
+mod machine;
 use crate::space_pan::{SpacePanApi, use_space_pan};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{Part, PartState, part, raise};
 use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, Var, effect, memo, signal, untrack, var};
+use kivact_core::state::{Binding, MachineHandle, Signal, Value, machine, memo, signal};
 use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase,
-    WheelEvent,
+    Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerId, PointerPhase, WheelEvent,
 };
+use machine::Gesture;
 
 /// Content-to-view coordinates: `view = content * scale + offset`.
 /// Invalid (non-positive or non-finite) scales are treated as 1 by operations.
@@ -103,13 +106,13 @@ fn finite(point: Point) -> bool {
 /// What the setters of [`ZoomPanApi`] store; read at the event, so they work in
 /// any order.
 #[derive(Clone, Copy)]
-struct ZoomSettings {
+struct ZoomPanOptions {
     min: f64,
     max: f64,
     content: Option<Value<Rect>>,
 }
 
-impl Default for ZoomSettings {
+impl Default for ZoomPanOptions {
     fn default() -> Self {
         Self {
             min: 0.01,
@@ -119,16 +122,8 @@ impl Default for ZoomSettings {
     }
 }
 
-/// The one gesture of the surface: nothing, a pan or a pinch.
-#[derive(Clone, Copy)]
-enum Gesture {
-    Idle,
-    Pan(Pan),
-    Pinch(Pinch),
-}
-
 /// A pan: the pointer that runs it and the transform it started from.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Pan {
     pointer: PointerId,
     position: Point,
@@ -142,14 +137,12 @@ struct Pan {
 pub struct ZoomPanApi {
     observed: Signal<Option<Value<PartState>>>,
     transform: Binding<ViewTransform>,
-    settings: Var<ZoomSettings>,
+    settings: OptionsCell<ZoomPanOptions>,
     edit: EditSession<ViewTransform>,
     space: SpacePanApi,
     /// The one gesture; a Signal so that `is_gesturing` and `is_space_armed`
     /// follow it.
-    gesture: Signal<Gesture>,
-    /// The touch contacts down on the surface, at their last positions.
-    touches: Var<Vec<(PointerId, Point)>>,
+    gesture: MachineHandle<machine::Machine>,
     gesturing: Value<bool>,
     armed: Value<bool>,
 }
@@ -159,24 +152,50 @@ pub struct ZoomPanApi {
 pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransform>) -> ZoomPanApi {
     let transform = transform.into_binding();
     let space = use_space_pan();
-    let gesture = signal(Gesture::Idle);
-    let gesturing = memo(move || !matches!(gesture.with(|gesture| *gesture), Gesture::Idle));
+    let settings = OptionsCell::new(ZoomPanOptions::default());
+    let edit = EditSession::new(move |initial| transform.set(initial));
+    let session = Rc::new(edit);
+    let gesture = machine(
+        Gesture::Idle {
+            touches: Vec::new(),
+        },
+        move || machine::Machine {
+            options: settings.get(),
+            transform: transform.get(),
+            disabled: false,
+            armed: space.armed().get(),
+            session: session.clone(),
+        },
+        move |_, effect| match effect {
+            machine::Effect::Begin(session, initial) => session.begin(initial),
+            machine::Effect::Write(value) => {
+                transform.set(value);
+            }
+            machine::Effect::Finish(session, commit) => {
+                if commit {
+                    session.commit();
+                } else {
+                    session.cancel();
+                }
+            }
+        },
+    );
+    let gesturing = memo(move || gesture.get().active());
     let armed = memo(move || space.armed().get() && !gesturing.get());
     ZoomPanApi {
         observed: signal(None),
         transform,
-        settings: var(ZoomSettings::default()),
-        edit: EditSession::new(move |initial| transform.set(initial)),
+        settings,
+        edit,
         space,
         gesture,
-        touches: var(Vec::new()),
         gesturing,
         armed,
     }
 }
 
 /// One finger of a pinch: where it went down and where it is.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Finger {
     pointer: PointerId,
     start: Point,
@@ -184,7 +203,7 @@ struct Finger {
 }
 
 /// A two-finger pinch: its fingers and the transform at its start.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Pinch {
     fingers: [Finger; 2],
     transform: ViewTransform,
@@ -258,29 +277,8 @@ impl ZoomPanApi {
         self.gesturing
     }
 
-    /// The transform `pinch` makes: the content point under the fingers'
-    /// starting midpoint follows their midpoint, scaled by how far apart
-    /// they are now against at the start (clamped to the scale range).
-    fn pinched(self, pinch: Pinch) -> ViewTransform {
-        let ZoomSettings { min, max, .. } = self.settings.get();
-        let [a, b] = pinch.fingers;
-        let (start, now) = (distance(a.start, b.start), distance(a.now, b.now));
-        let factor = if start > 0.0 && now.is_finite() {
-            now / start
-        } else {
-            1.0
-        };
-        let scale = (valid_scale(pinch.transform.scale) * factor).clamp(min, max);
-        let content = pinch.transform.to_content(midpoint(a.start, b.start));
-        let anchor = midpoint(a.now, b.now);
-        ViewTransform {
-            scale,
-            offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
-        }
-    }
-
     fn zoom(self, current: ViewTransform, anchor: Point, factor: f64) -> ViewTransform {
-        let ZoomSettings { min, max, .. } = self.settings.get();
+        let ZoomPanOptions { min, max, .. } = self.settings.get();
         let scale = (valid_scale(current.scale) * factor).clamp(min, max);
         let content = current.to_content(anchor);
         ViewTransform {
@@ -292,14 +290,7 @@ impl ZoomPanApi {
     /// End the gesture (if any) and its edit: committed, or cancelled with
     /// the starting transform written back. The only place a gesture ends.
     fn stop(self, commit: bool) {
-        if self.gesturing.get_untracked() {
-            self.gesture.update(|gesture| *gesture = Gesture::Idle);
-        }
-        if commit {
-            self.edit.commit();
-        } else {
-            self.edit.cancel();
-        }
+        self.gesture.send(machine::Event::Stop(commit));
     }
 
     /// A focusable surface using the existing native capture and focus paths.
@@ -354,64 +345,34 @@ impl ZoomPanApi {
             let rect = target.rect();
             let focus = target.focus_within();
             self.space.watch(target, state);
-            effect(move || {
-                let state = state.get();
-                if !focus.get() || state.disabled || state.hidden {
-                    untrack(|| self.stop(false));
-                }
-            });
+            self.gesture.feed(
+                memo(move || {
+                    let state = state.get();
+                    focus.get() && !state.disabled && !state.hidden
+                }),
+                machine::Event::Available,
+            );
             surface
                 .on_pointer(move |event: PointerEvent| {
-                    if event.kind() == PointerKind::Touch
-                        && let Some(handled) = self.touch(event, state)
-                    {
-                        return handled;
-                    }
-                    if let PointerPhase::Down(press) = event.phase() {
-                        let button = press.button;
-                        if self.gesturing.get_untracked()
-                            || state.get().disabled
-                            || !finite(event.pos())
-                            || !(button == MouseButton::Middle
-                                || (button == MouseButton::Primary && self.armed.get_untracked()))
-                        {
-                            return Handled::No;
-                        }
-                        let transform = value.get();
-                        self.gesture.update(|gesture| {
-                            *gesture = Gesture::Pan(Pan {
-                                pointer: event.id(),
-                                position: event.pos(),
-                                transform,
-                                button,
-                            });
-                        });
-                        edit.begin(transform);
-                        return Handled::Yes;
-                    }
                     if event.phase() == PointerPhase::Cancel {
                         self.space.disarm();
                     }
-                    let Gesture::Pan(active) = self.gesture.get_untracked() else {
-                        return Handled::No;
+                    let snapshot = machine::Machine {
+                        options: self.settings.get(),
+                        transform: value.get_untracked(),
+                        disabled: state.get_untracked().disabled,
+                        armed: self.armed.get_untracked(),
+                        session: Rc::new(edit),
                     };
-                    if event.id() != active.pointer {
+                    let handled = snapshot.pointer(&self.gesture.get(), event).1;
+                    // The machine input reads the same surface snapshot used to accept input.
+                    if state.get_untracked().disabled
+                        && matches!(event.phase(), PointerPhase::Down(_))
+                    {
                         return Handled::No;
                     }
-                    match event.phase() {
-                        PointerPhase::Cancel => self.stop(false),
-                        PointerPhase::Up(press) if press.button == active.button => {
-                            if finite(event.pos()) {
-                                binding.set(panned(active, event.pos()));
-                            }
-                            self.stop(true);
-                        }
-                        PointerPhase::Move if finite(event.pos()) => {
-                            binding.set(panned(active, event.pos()));
-                        }
-                        _ => return Handled::No,
-                    }
-                    Handled::Yes
+                    self.gesture.send(machine::Event::Pointer(event));
+                    handled
                 })
                 .on_wheel(move |event: WheelEvent| {
                     if self.gesturing.get_untracked() {
@@ -459,8 +420,7 @@ impl ZoomPanApi {
                         Key::Char('+') => self.zoom(current, anchor, 1.2),
                         Key::Char('-') => self.zoom(current, anchor, 1.0 / 1.2),
                         Key::Char('0') => {
-                            let Some(content) = self.settings.with(|settings| settings.content)
-                            else {
+                            let Some(content) = self.settings.get().content else {
                                 return Handled::No;
                             };
                             let bounds = content.get();
@@ -499,99 +459,6 @@ impl ZoomPanApi {
                 })
         })
     }
-
-    /// A touch contact's event on the surface: the pinch it starts, moves or
-    /// ends (`Some`), or `None` to go on as any pointer's event (a pan with
-    /// Space, else unhandled).
-    fn touch(self, event: PointerEvent, state: Value<PartState>) -> Option<Handled> {
-        let finite = finite(event.pos());
-        let touches = self.touches;
-        match event.phase() {
-            PointerPhase::Down(_) => {
-                if finite {
-                    touches.update(|t| t.push((event.id(), event.pos())));
-                }
-                let others: Vec<(PointerId, Point)> = touches.with(|t| {
-                    t.iter()
-                        .copied()
-                        .filter(|(id, _)| *id != event.id())
-                        .collect()
-                });
-                if !finite
-                    || others.len() != 1
-                    || self.gesturing.get_untracked()
-                    || state.get().disabled
-                {
-                    return None;
-                }
-                let (first, at) = others[0];
-                let transform = self.transform.into_value().get();
-                self.gesture.update(|gesture| {
-                    *gesture = Gesture::Pinch(Pinch {
-                        fingers: [
-                            Finger {
-                                pointer: first,
-                                start: at,
-                                now: at,
-                            },
-                            Finger {
-                                pointer: event.id(),
-                                start: event.pos(),
-                                now: event.pos(),
-                            },
-                        ],
-                        transform,
-                    });
-                });
-                self.edit.begin(transform);
-                Some(Handled::Yes)
-            }
-            PointerPhase::Move => {
-                if finite {
-                    touches.update(|t| {
-                        if let Some(touch) = t.iter_mut().find(|(id, _)| *id == event.id()) {
-                            touch.1 = event.pos();
-                        }
-                    });
-                }
-                let Gesture::Pinch(mut active) = self.gesture.get_untracked() else {
-                    return None;
-                };
-                let finger = active
-                    .fingers
-                    .iter_mut()
-                    .find(|f| f.pointer == event.id())?;
-                if finite {
-                    finger.now = event.pos();
-                    self.gesture
-                        .update(|gesture| *gesture = Gesture::Pinch(active));
-                    self.transform.set(self.pinched(active));
-                }
-                Some(Handled::Yes)
-            }
-            PointerPhase::Up(_) | PointerPhase::Cancel => {
-                touches.update(|t| t.retain(|(id, _)| *id != event.id()));
-                let Gesture::Pinch(mut active) = self.gesture.get_untracked() else {
-                    return None;
-                };
-                let finger = active
-                    .fingers
-                    .iter_mut()
-                    .find(|f| f.pointer == event.id())?;
-                if matches!(event.phase(), PointerPhase::Up(_)) {
-                    if finite {
-                        finger.now = event.pos();
-                        self.transform.set(self.pinched(active));
-                    }
-                    self.stop(true);
-                } else {
-                    self.stop(false);
-                }
-                Some(Handled::Yes)
-            }
-            PointerPhase::Enter | PointerPhase::Leave => None,
-        }
-    }
 }
 
 /// The transform of `pan` with the pointer at `pos`.
@@ -602,5 +469,26 @@ fn panned(pan: Pan, pos: Point) -> ViewTransform {
             pan.transform.offset.x + pos.x - pan.position.x,
             pan.transform.offset.y + pos.y - pan.position.y,
         ),
+    }
+}
+
+/// The transform `pinch` makes: the content point under the fingers'
+/// starting midpoint follows their midpoint, scaled by how far apart
+/// they are now against at the start (clamped to the scale range).
+fn pinched(pinch: Pinch, options: ZoomPanOptions) -> ViewTransform {
+    let ZoomPanOptions { min, max, .. } = options;
+    let [a, b] = pinch.fingers;
+    let (start, now) = (distance(a.start, b.start), distance(a.now, b.now));
+    let factor = if start > 0.0 && now.is_finite() {
+        now / start
+    } else {
+        1.0
+    };
+    let scale = (valid_scale(pinch.transform.scale) * factor).clamp(min, max);
+    let content = pinch.transform.to_content(midpoint(a.start, b.start));
+    let anchor = midpoint(a.now, b.now);
+    ViewTransform {
+        scale,
+        offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
     }
 }
