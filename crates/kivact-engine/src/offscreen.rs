@@ -31,17 +31,17 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use crate::lower::assets::ArvaneAssets;
+use crate::lower::context::Context;
+use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
-use kivact_lower::assets::ArvaneAssets;
-use kivact_lower::context::Context;
-use kivact_lower::effects::Tint;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
 pub struct OffscreenRenderer {
     assets: RefCell<ArvaneAssets>,
-    scene_cache: RefCell<kivact_lower::SceneCache>,
+    scene_cache: RefCell<crate::lower::SceneCache>,
     engine: Rc<RefCell<arvane::Engine>>,
     rasterizer: arvane::Rasterizer,
 }
@@ -129,7 +129,7 @@ impl OffscreenRenderer {
         self.assets.get_mut().discard_failures();
         let raster = Cell::new(1.0);
         let context = Context::new(&self.assets, &raster, &self.scene_cache);
-        let mut lowered = kivact_lower::SceneOut::default();
+        let mut lowered = crate::lower::SceneOut::default();
         context.paint_scene(
             scene,
             Some(inherited),
@@ -147,8 +147,9 @@ impl OffscreenRenderer {
             &mut lowered,
         );
         // Invalid values are the drawing's fault, so they come first.
-        let dropped = context.dropped();
-        let failure = context.finish();
+        let report = context.finish();
+        let dropped = report.dropped;
+        let failure = report.failures;
         if dropped > 0 {
             return Err(OffscreenError::Dropped(dropped));
         }

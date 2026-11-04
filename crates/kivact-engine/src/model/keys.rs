@@ -67,9 +67,9 @@ use kivact_types::{A11yAction, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
 use crate::measure::editor::EditorNode;
 use crate::model::Model;
 use crate::model::changes::Dirty;
+use crate::text_input::{EditLines, Shaping};
 use kivact_editing::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
-use kivact_text::{EditLines, Shaping};
 
 /// What became of a key press ([`Model::handle_key`]).
 #[derive(Clone, Debug, PartialEq)]

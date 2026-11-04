@@ -387,11 +387,11 @@ impl Model {
         };
         let paint = n.paint();
         // A clip path clips the node and its subtree.
-        if paint.is_some_and(|paint| !kivact_lower::shape::in_clip_path(paint, r, p)) {
+        if paint.is_some_and(|paint| !crate::lower::shape::in_clip_path(paint, r, p)) {
             return None;
         }
-        let inside = kivact_lower::shape::hits(paint, r, p);
-        if n.clips() && !kivact_lower::shape::in_child_clip(paint, r, p) {
+        let inside = crate::lower::shape::hits(paint, r, p);
+        if n.clips() && !crate::lower::shape::in_child_clip(paint, r, p) {
             return inside.then_some(id);
         }
         if self

@@ -38,7 +38,7 @@ pub(super) fn visual_parent(
         host.node(*a).is_some_and(|n| {
             n.paint().is_some_and(|p| {
                 p.background.as_ref().is_some_and(paints)
-                    || kivact_lower::shape::border_widths(p.border.as_ref()) != Edges::all(0.0)
+                    || crate::lower::shape::border_widths(p.border.as_ref()) != Edges::all(0.0)
             }) || n.clips()
                 || semantic_role(n, host.editors[n.index.0].is_some())
                     .is_some_and(|r| check.single_line_roles.contains(&r))

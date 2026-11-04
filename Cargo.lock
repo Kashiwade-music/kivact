@@ -1847,10 +1847,9 @@ dependencies = [
  "arvane",
  "kivact-editing",
  "kivact-layout",
- "kivact-lower",
- "kivact-text",
  "kivact-types",
  "png 0.18.1",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -1923,14 +1922,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kivact-lower"
-version = "0.1.0"
-dependencies = [
- "arvane",
- "kivact-types",
-]
-
-[[package]]
 name = "kivact-motion"
 version = "0.1.0"
 dependencies = [
@@ -1990,17 +1981,6 @@ name = "kivact-template-basic"
 version = "0.1.0"
 dependencies = [
  "kivact",
-]
-
-[[package]]
-name = "kivact-text"
-version = "0.1.0"
-dependencies = [
- "arvane",
- "kivact-editing",
- "kivact-lower",
- "kivact-types",
- "unicode-segmentation",
 ]
 
 [[package]]

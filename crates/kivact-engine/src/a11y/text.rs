@@ -1,7 +1,7 @@
 //! Role: Publish native editing selections and shaped text runs.
 //!
 //! An editor's text is published as one run per hard line, made from the
-//! lines the editor draws (`kivact-text`) and kept with them: an edit makes
+//! lines the editor draws (`text_input`) and kept with them: an edit makes
 //! again the runs of the lines it changed (and of the lines it moved),
 //! and gives the others again as they were, so the platform is handed
 //! only those (`kivact_types::SemanticsText`). Only the lines around the caret

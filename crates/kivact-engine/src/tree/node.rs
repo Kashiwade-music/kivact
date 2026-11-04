@@ -359,7 +359,7 @@ impl HostNode {
                 };
                 let point = inverse.apply(local);
                 match &r.shape {
-                    Some(shape) => kivact_lower::scene_shape::shape(shape).contains(point),
+                    Some(shape) => crate::lower::scene_shape::shape(shape).contains(point),
                     None => r.local_rect.contains(point),
                 }
             })

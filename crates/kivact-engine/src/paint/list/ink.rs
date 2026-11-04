@@ -185,7 +185,7 @@ fn scene_reach(scene: &DrawList, canvas: Rect) -> Option<Rect> {
             DrawCmd::PopTransform => transform = transforms.pop().unwrap_or_default(),
             DrawCmd::PushLayer(layer) => {
                 layers.push(reach);
-                reach += kivact_lower::effects::filter_reach(&layer.filter);
+                reach += crate::lower::effects::filter_reach(&layer.filter);
             }
             DrawCmd::PopLayer => reach = layers.pop().unwrap_or(0.0),
             _ => {
@@ -260,7 +260,7 @@ fn plain_scene_reach(cmds: &[DrawCmd], canvas: Rect) -> Option<Rect> {
                 });
             }
             DrawCmd::Shape(p) => add(grow(
-                at(kivact_lower::scene_shape::shape(&p.shape).bounds()),
+                at(crate::lower::scene_shape::shape(&p.shape).bounds()),
                 p.stroke
                     .as_ref()
                     .map_or(0.0, |s| s.width.abs() * s.miter_limit.max(1.0)),

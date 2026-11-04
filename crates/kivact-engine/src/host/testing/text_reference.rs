@@ -1,7 +1,7 @@
 //! Role: Compare normal line queries using disposable retained and rebuilt copies.
 
 use crate::measure::input::RefreshedLines;
-use kivact_text::{EditLines, Source};
+use crate::text_input::{EditLines, Source};
 use kivact_types::Point;
 
 fn equal<T: PartialEq + std::fmt::Debug>(out: &mut Vec<String>, label: &str, a: T, b: T) {

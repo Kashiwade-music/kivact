@@ -1,0 +1,307 @@
+//! Role: CSS paint correction and graceful local-command adaptation.
+//!
+//! Correct supported CSS paint inputs and select drawable local commands.
+//! Colors are clamped before lowering. These adaptations do not certify a
+//! complete scene: Arvane rendering validation is the final boundary.
+
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{
+    ClipShape, CoordinateShape, Corners, Fill, FillImage, FillLayer, FillSize, GradientKind, Len,
+    PaintProps, Point, RadialExtent, Rect, Rgba,
+};
+
+/// A fraction in `[0, 1]`, or `fallback` when not finite.
+pub(crate) fn unit(value: f64, fallback: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        fallback
+    }
+}
+
+/// A non-negative length; non-finite and negative values become zero.
+pub(crate) fn extent(value: f64) -> f64 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
+}
+
+/// Preserve a finite signed offset; non-finite values become zero.
+pub(crate) fn offset(value: f64) -> f64 {
+    if value.is_finite() { value } else { 0.0 }
+}
+
+/// A paint-time length with non-finite parts made zero.
+fn len(l: &mut Len) {
+    l.px = offset(l.px);
+    l.pct = offset(l.pct);
+}
+
+fn corners(c: &mut Corners) {
+    for radius in [
+        &mut c.top_left,
+        &mut c.top_right,
+        &mut c.bottom_right,
+        &mut c.bottom_left,
+    ] {
+        len(&mut radius.x);
+        len(&mut radius.y);
+    }
+}
+
+/// A fill layer's lengths made finite (colors use `Rgba::sanitize`).
+pub(crate) fn fill_layer(l: &mut FillLayer) {
+    l.position.iter_mut().for_each(len);
+    if let FillSize::Explicit(w, h) = &mut l.size {
+        w.iter_mut().chain(h.iter_mut()).for_each(len);
+    }
+    if let FillImage::Coordinate(g) = &mut l.image {
+        let point = |p: &mut Point| {
+            p.x = offset(p.x);
+            p.y = offset(p.y);
+        };
+        match &mut g.shape {
+            CoordinateShape::Linear { start, end } => {
+                point(start);
+                point(end);
+            }
+            CoordinateShape::RadialTwoCircle {
+                start_center,
+                start_radius,
+                end_center,
+                end_radius,
+            } => {
+                point(start_center);
+                point(end_center);
+                *start_radius = extent(*start_radius);
+                *end_radius = extent(*end_radius);
+            }
+            CoordinateShape::Conic { center, start_deg } => {
+                point(center);
+                *start_deg = offset(*start_deg);
+            }
+        }
+    }
+    if let FillImage::Gradient(g) = &mut l.image {
+        match &mut g.kind {
+            GradientKind::Linear { angle_deg } => *angle_deg = offset(*angle_deg),
+            GradientKind::Radial { extent, center, .. } => {
+                center.iter_mut().for_each(len);
+                if let RadialExtent::Radii(x, y) = extent {
+                    len(x);
+                    len(y);
+                }
+            }
+            GradientKind::Conic { from_deg, center } => {
+                *from_deg = offset(*from_deg);
+                center.iter_mut().for_each(len);
+            }
+        }
+        for stop in &mut g.stops {
+            stop.at.iter_mut().for_each(len);
+        }
+    }
+}
+
+/// Clamp evaluated paint props into renderable ranges.
+pub(crate) fn paint(p: &mut PaintProps) {
+    p.opacity = unit(p.opacity, 1.0);
+    if let Some(b) = &mut p.border {
+        let w = &mut b.widths;
+        for width in [&mut w.top, &mut w.right, &mut w.bottom, &mut w.left] {
+            *width = extent(*width);
+        }
+    }
+    if let Some(ring) = &mut p.ring {
+        ring.width = extent(ring.width);
+        ring.offset = extent(ring.offset);
+    }
+    corners(&mut p.radius);
+    if let Some(Fill::Layers(layers)) = &mut p.background {
+        layers.iter_mut().for_each(fill_layer);
+    }
+    if let Some(e) = &mut p.effects {
+        if let Some(m) = &mut e.mask {
+            fill_layer(m);
+        }
+        match &mut e.clip_path {
+            Some(ClipShape::Path { .. }) => {}
+            Some(ClipShape::Inset { edges, radius }) => {
+                for side in [
+                    &mut edges.top,
+                    &mut edges.right,
+                    &mut edges.bottom,
+                    &mut edges.left,
+                ] {
+                    len(side);
+                }
+                corners(radius);
+            }
+            Some(ClipShape::Circle { radius, center }) => {
+                len(radius);
+                center.iter_mut().for_each(len);
+            }
+            Some(ClipShape::Ellipse {
+                radius_x,
+                radius_y,
+                center,
+            }) => {
+                len(radius_x);
+                len(radius_y);
+                center.iter_mut().for_each(len);
+            }
+            Some(ClipShape::Polygon { points, .. }) => {
+                points.iter_mut().flatten().for_each(len);
+            }
+            None => {}
+        }
+    }
+    for shadow in &mut p.shadows {
+        shadow.offset.x = offset(shadow.offset.x);
+        shadow.offset.y = offset(shadow.offset.y);
+        shadow.blur = extent(shadow.blur);
+        shadow.spread = offset(shadow.spread);
+    }
+    // A transform with a value that is not finite is none
+    // (`model::transform::resolve`).
+}
+
+fn finite(values: &[f64]) -> bool {
+    values.iter().all(|value| value.is_finite())
+}
+fn point(p: Point) -> bool {
+    finite(&[p.x, p.y])
+}
+fn rect(r: Rect) -> bool {
+    finite(&[r.x, r.y, r.width, r.height, r.x + r.width, r.y + r.height])
+        && r.width >= 0.0
+        && r.height >= 0.0
+}
+fn length(value: f64) -> bool {
+    value.is_finite() && value >= 0.0
+}
+/// Gradient stops Arvane draws: at least one, offsets finite, within
+/// `[0, 1]` and not decreasing. Colors are clamped here before lowering.
+fn stops(stops: &[(f64, Rgba)]) -> bool {
+    !stops.is_empty()
+        && stops
+            .iter()
+            .all(|(offset, _)| offset.is_finite() && (0.0..=1.0).contains(offset))
+        && stops.windows(2).all(|pair| pair[0].0 <= pair[1].0)
+}
+/// A gradient Arvane draws: valid stops and finite geometry (a conic one
+/// sweeps forward).
+fn gradient(value: &kivact_types::render::Gradient) -> bool {
+    stops(&value.stops)
+        && match value.shape {
+            kivact_types::render::GradientShape::Linear { start, end } => {
+                point(start) && point(end)
+            }
+            kivact_types::render::GradientShape::Radial {
+                center,
+                radius_x,
+                radius_y,
+            } => point(center) && length(radius_x) && length(radius_y),
+            kivact_types::render::GradientShape::RadialTwoCircle {
+                start_center,
+                start_radius,
+                end_center,
+                end_radius,
+            } => {
+                point(start_center)
+                    && point(end_center)
+                    && length(start_radius)
+                    && length(end_radius)
+            }
+            kivact_types::render::GradientShape::Conic {
+                center,
+                start_deg,
+                end_deg,
+            } => point(center) && finite(&[start_deg, end_deg]) && end_deg > start_deg,
+        }
+}
+pub(crate) fn fill(value: &kivact_types::render::Paint) -> bool {
+    match value {
+        kivact_types::render::Paint::Solid(_) => true,
+        kivact_types::render::Paint::Pattern(p) => {
+            (match &p.source {
+                kivact_types::render::PatternSource::Gradient(g) => gradient(g),
+                kivact_types::render::PatternSource::Image { .. } => true,
+            }) && rect(p.tile)
+                && p.tile.width > 0.0
+                && p.tile.height > 0.0
+        }
+        kivact_types::render::Paint::LinearGradient {
+            angle_deg,
+            stops: s,
+        } => angle_deg.is_finite() && stops(s),
+        kivact_types::render::Paint::Gradient(g) => gradient(g),
+    }
+}
+/// Whether the commands form contours with finite points and arcs.
+pub(crate) fn path(cmds: &[kivact_types::scene::PathCmd]) -> bool {
+    let mut open = false;
+    cmds.iter().all(|cmd| match cmd {
+        kivact_types::scene::PathCmd::MoveTo(p) => {
+            open = true;
+            point(*p)
+        }
+        kivact_types::scene::PathCmd::LineTo(p) => open && point(*p),
+        kivact_types::scene::PathCmd::QuadTo(p, q) => open && point(*p) && point(*q),
+        kivact_types::scene::PathCmd::CubicTo(p, q, r) => {
+            open && point(*p) && point(*q) && point(*r)
+        }
+        kivact_types::scene::PathCmd::ArcTo {
+            to,
+            rx,
+            ry,
+            x_rotation_deg,
+            ..
+        } => open && point(*to) && finite(&[*rx, *ry, *x_rotation_deg]),
+        kivact_types::scene::PathCmd::Arc {
+            center,
+            rx,
+            ry,
+            x_rotation_deg,
+            start_deg,
+            sweep_deg,
+        } => {
+            open = true;
+            point(*center) && finite(&[*rx, *ry, *x_rotation_deg, *start_deg, *sweep_deg])
+        }
+        kivact_types::scene::PathCmd::Close => std::mem::replace(&mut open, false),
+    })
+}
+
+/// Whether a converted client command can be rendered; clips are balanced
+/// by the caller.
+pub(crate) fn drawable(cmd: &D) -> bool {
+    match cmd {
+        D::Rect { rect: r, fill: f } => rect(*r) && fill(f),
+        D::RoundedRect {
+            rect: r,
+            radius,
+            fill: f,
+        } => rect(*r) && length(*radius) && fill(f),
+        D::StrokeRect {
+            rect: r,
+            width,
+            radius,
+            ..
+        } => rect(*r) && length(*width) && length(*radius),
+        D::Line {
+            from, to, width, ..
+        } => point(*from) && point(*to) && length(*width),
+        D::Path { cmds, stroke, .. } => path(cmds) && stroke.is_none_or(|(width, _)| length(width)),
+        D::PushClip(r) => rect(*r),
+        D::External {
+            rect: r,
+            source,
+            opacity,
+            ..
+        } => rect(*r) && source.is_none_or(rect) && opacity.is_finite(),
+        _ => true,
+    }
+}

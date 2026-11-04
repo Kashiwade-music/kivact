@@ -21,8 +21,8 @@
 //!   test driver.
 //!
 //! Protocol values and pure motion live in `kivact-types`; value lowering,
-//! local scene adaptation and resources live in `kivact-lower`; retained
-//! hard lines and lazy text queries live in `kivact-text`. Borrowed-tree
+//! local scene adaptation and resources live in `lower`; retained
+//! hard lines and lazy text queries live in `text_input`. Borrowed-tree
 //! computation and derived layout column types live in `kivact-layout`;
 //! Model owns those columns, editors, assets and the other derived state.
 //!
@@ -66,11 +66,13 @@ mod check;
 pub mod contract;
 mod frame_log;
 mod host;
+mod lower;
 mod measure;
 mod model;
 mod mutation;
 mod offscreen;
 mod paint;
+mod text_input;
 mod text_measure;
 mod tree;
 

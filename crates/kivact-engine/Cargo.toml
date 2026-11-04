@@ -8,9 +8,8 @@ repository.workspace = true
 description = "Kivact internal engine: retained UI state, interaction, scene generation and the Arvane window bridge"
 
 [dependencies]
-kivact-text = { path = "../kivact-text", version = "0.1.0" }
+unicode-segmentation.workspace = true
 kivact-layout = { path = "../kivact-layout", version = "0.1.0" }
-kivact-lower = { path = "../kivact-lower", version = "0.1.0" }
 kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
 arvane = { path = "../arvane", version = "0.1.0" }
@@ -28,7 +27,7 @@ gpu = ["arvane/gpu"]
 # Drawing textures an application's render engine shares (experimental;
 # kivact's `gpu-interop` turns it on): the writes that import and drop them,
 # the scene's external frames and the adapter the window reports.
-gpu-interop = ["kivact-lower/gpu-interop", "gpu", "arvane/gpu-interop"]
+gpu-interop = ["gpu", "arvane/gpu-interop"]
 # The in-process test driver on real windows (`testing`).
 testing = ["arvane/testing", "dep:png"]
 

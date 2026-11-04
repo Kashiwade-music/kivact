@@ -6,10 +6,10 @@ use crate::measure::editor::EditorNode;
 use crate::measure::input::RefreshedLines;
 use crate::model::Model;
 use crate::mutation::Mutation;
-use kivact_editing::{EditState, Editor, Taken, TextSession};
-use kivact_text::EditLines;
+use crate::text_input::EditLines;
 #[cfg(all(debug_assertions, feature = "testing"))]
-use kivact_text::{RefreshError, RefreshMode};
+use crate::text_input::{RefreshError, RefreshMode};
+use kivact_editing::{EditState, Editor, Taken, TextSession};
 use kivact_types::NodeId;
 use std::cell::RefMut;
 use std::rc::Rc;
