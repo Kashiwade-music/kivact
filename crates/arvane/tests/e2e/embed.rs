@@ -1,10 +1,8 @@
 //! Role: Arvane's embedded host contract, without Kivact or a virtual window.
 #![cfg(any(windows, target_os = "linux"))]
 use arvane::embed::{self, EmbedOptions, Embedder};
-use arvane::test_display::TestParent;
-use arvane::{
-    Handler, NativeWindow, ShellControl, ShellError, ShellEvent, ShellWaker, Window as _,
-};
+use arvane::{Handler, ShellControl, ShellError, ShellEvent, ShellWaker, Window};
+use arvane_native::embed::TestParent;
 use kivact_types::Size;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -22,7 +20,7 @@ struct Host(Arc<Mutex<Seen>>);
 impl Handler for Host {
     fn start(
         &mut self,
-        window: &mut NativeWindow<'_>,
+        window: &mut Window<'_>,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
         assert_eq!(window.surface_generation(), Some(1));
@@ -47,7 +45,7 @@ impl Handler for Host {
     fn event(
         &mut self,
         event: ShellEvent,
-        window: &mut NativeWindow<'_>,
+        window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
         let mut seen = self
             .0

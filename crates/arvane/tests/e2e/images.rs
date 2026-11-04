@@ -288,7 +288,7 @@ fn scaled_vocabulary() -> Vec<RenderCmd> {
 
 #[test]
 fn the_gpu_draws_the_whole_vocabulary_as_the_cpu_does() {
-    if let Some(reason) = arvane::test_display::gpu_unavailable() {
+    if let Some(reason) = arvane::gpu_unavailable() {
         eprintln!("SKIPPED the_gpu_draws_the_whole_vocabulary_as_the_cpu_does: {reason}");
         return;
     }

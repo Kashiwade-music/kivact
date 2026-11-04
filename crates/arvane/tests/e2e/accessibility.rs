@@ -4,7 +4,7 @@
 //! transactionally, and assistive technology's requests checked against
 //! it.
 
-use arvane::{ShellEvent, Window as _};
+use arvane::ShellEvent;
 use kivact_types::Transform;
 use kivact_types::render::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use kivact_types::{A11yAction, A11yRequest, DismissReason, Point, Role, SemanticsId};
@@ -72,9 +72,11 @@ fn ids(tree: &SemanticsTree) -> Vec<u64> {
 #[test]
 fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
     let mut window = open(100.0, 100.0);
-    assert_eq!(window.accessibility().tree(), None);
-    window.replace_accessibility(&tree()).expect("a valid tree");
-    assert_eq!(window.accessibility().tree(), Some(tree()));
+    assert_eq!(window.probe().accessibility(), None);
+    window
+        .with(move |w| w.replace_accessibility(&tree()))
+        .expect("a valid tree");
+    assert_eq!(window.probe().accessibility(), Some(tree()));
     // A label changes, the focus moves, a node is added under the group.
     let update = SemanticsUpdate {
         root: SemanticsId(1),
@@ -95,9 +97,9 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
         ],
     };
     window
-        .update_accessibility(&update)
+        .with(move |w| w.update_accessibility(&update))
         .expect("a valid update");
-    let accepted = window.accessibility().tree().expect("a tree");
+    let accepted = window.probe().accessibility().expect("a tree");
     assert_eq!(accepted.focus, Some(SemanticsId(6)));
     assert_eq!(
         ids(&accepted),
@@ -107,13 +109,18 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
     assert_eq!(accepted.nodes[3].semantics.name.as_deref(), Some("renamed"));
     // Dropping the group from the root takes its subtree with it.
     window
-        .update_accessibility(&SemanticsUpdate {
-            root: SemanticsId(1),
-            focus: None,
-            nodes: vec![node(1, Role::Generic, &[5])],
+        .with(move |w| {
+            w.update_accessibility(&SemanticsUpdate {
+                root: SemanticsId(1),
+                focus: None,
+                nodes: vec![node(1, Role::Generic, &[5])],
+            })
         })
         .expect("a valid update");
-    assert_eq!(ids(&window.accessibility().tree().expect("a tree")), [1, 5]);
+    assert_eq!(
+        ids(&window.probe().accessibility().expect("a tree")),
+        [1, 5]
+    );
 }
 
 #[test]
@@ -121,7 +128,7 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
     let mut window = open(100.0, 100.0);
     let event = |node: u64, request: A11yRequest| ShellEvent::Accessibility { node, request };
     assert_eq!(
-        window.accessibility_action(3, A11yRequest::Activate),
+        request(&mut window, 3, A11yRequest::Activate),
         None,
         "no tree yet"
     );
@@ -141,34 +148,42 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
         }
     });
     tree.nodes[0].children.push(SemanticsId(6));
-    window.replace_accessibility(&tree).expect("a valid tree");
-    let request = |node: u64, request: A11yRequest| window.accessibility_action(node, request);
+    window
+        .with({
+            let tree = tree.clone();
+            move |w| w.replace_accessibility(&tree)
+        })
+        .expect("a valid tree");
     assert_eq!(
-        request(3, A11yRequest::Activate),
+        request(&mut window, 3, A11yRequest::Activate),
         Some(event(3, A11yRequest::Activate))
     );
     assert_eq!(
-        request(3, A11yRequest::Focus),
+        request(&mut window, 3, A11yRequest::Focus),
         Some(event(3, A11yRequest::Focus))
     );
     // One default action: a toggle arrives as Activate.
     assert_eq!(
-        request(6, A11yRequest::Toggle),
+        request(&mut window, 6, A11yRequest::Toggle),
         Some(event(6, A11yRequest::Activate))
     );
     assert_eq!(
-        request(6, A11yRequest::SetValue("on".to_string())),
+        request(&mut window, 6, A11yRequest::SetValue("on".to_string())),
         Some(event(6, A11yRequest::SetValue("on".to_string())))
     );
     assert_eq!(
-        request(6, A11yRequest::Dismiss(DismissReason::Accessibility)),
+        request(
+            &mut window,
+            6,
+            A11yRequest::Dismiss(DismissReason::Accessibility)
+        ),
         Some(event(6, A11yRequest::Dismiss(DismissReason::Accessibility)))
     );
     // Not declared, not focusable, absent.
-    assert_eq!(request(3, A11yRequest::Increment), None);
-    assert_eq!(request(5, A11yRequest::Focus), None);
-    assert_eq!(request(6, A11yRequest::Focus), None);
-    assert_eq!(request(42, A11yRequest::Activate), None);
+    assert_eq!(request(&mut window, 3, A11yRequest::Increment), None);
+    assert_eq!(request(&mut window, 5, A11yRequest::Focus), None);
+    assert_eq!(request(&mut window, 6, A11yRequest::Focus), None);
+    assert_eq!(request(&mut window, 42, A11yRequest::Activate), None);
     // A disabled or hidden ancestor drops the request.
     for change in [
         {
@@ -192,38 +207,53 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
             }
         },
     ] {
-        window.replace_accessibility(&tree).expect("a valid tree");
         window
-            .update_accessibility(&SemanticsUpdate {
-                root: SemanticsId(1),
-                focus: None,
-                nodes: vec![change],
+            .with({
+                let tree = tree.clone();
+                move |w| w.replace_accessibility(&tree)
+            })
+            .expect("a valid tree");
+        window
+            .with(move |w| {
+                w.update_accessibility(&SemanticsUpdate {
+                    root: SemanticsId(1),
+                    focus: None,
+                    nodes: vec![change],
+                })
             })
             .expect("a valid update");
-        assert_eq!(window.accessibility_action(3, A11yRequest::Activate), None);
-        assert_eq!(window.accessibility_action(4, A11yRequest::Focus), None);
-        assert!(
-            window
-                .accessibility_action(6, A11yRequest::Toggle)
-                .is_some()
-        );
+        assert_eq!(request(&mut window, 3, A11yRequest::Activate), None);
+        assert_eq!(request(&mut window, 4, A11yRequest::Focus), None);
+        assert!(request(&mut window, 6, A11yRequest::Toggle).is_some());
     }
     // So does a disabled node itself.
+    let original = tree.nodes[5].clone();
     window
-        .update_accessibility(&SemanticsUpdate {
-            root: SemanticsId(1),
-            focus: None,
-            nodes: vec![{
-                let base = tree.nodes[5].clone();
-                SemanticsNode {
-                    semantics: kivact_types::Semantics {
-                        disabled: true,
-                        ..base.semantics
-                    },
-                    ..base
-                }
-            }],
+        .with(move |w| {
+            w.update_accessibility(&SemanticsUpdate {
+                root: SemanticsId(1),
+                focus: None,
+                nodes: vec![{
+                    let base = original;
+                    SemanticsNode {
+                        semantics: kivact_types::Semantics {
+                            disabled: true,
+                            ..base.semantics
+                        },
+                        ..base
+                    }
+                }],
+            })
         })
         .expect("a valid update");
-    assert_eq!(window.accessibility_action(6, A11yRequest::Toggle), None);
+    assert_eq!(request(&mut window, 6, A11yRequest::Toggle), None);
+}
+
+fn request(
+    window: &mut crate::support::Harness,
+    node: u64,
+    request: A11yRequest,
+) -> Option<ShellEvent> {
+    window.script().accessibility_action(node, request);
+    window.events().into_iter().next()
 }
