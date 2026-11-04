@@ -7,12 +7,10 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{LoopCell, LoopRun, MotionState};
+use super::state::{LoopCell, LoopRun, LoopState, MotionState};
 use super::values::{FrameInfo, FrameRate};
 
-use crate::{
-    ErrorKind, HandlerResult, IntoValue, Owned, Owner, Runtime, UiError, Value, require_effectful,
-};
+use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
 
 /// Copy handle of a frame loop.
 #[derive(Clone, Copy)]
@@ -31,12 +29,11 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
     let rt = owner.runtime();
     let cell = Rc::new(LoopCell {
         owner,
-        f: Rc::new(move |info| f(info).into_result()),
-        rate: owner.signal(None::<FrameRate>, at),
-        run: Cell::new(None),
+        f: crate::reactive::Handler::from_fn(f),
+        state: owner.signal(LoopState::Stopped, at),
         frames: Cell::new(0),
     });
-    MotionState::of(&rt).register_loop(Rc::downgrade(&cell));
+    MotionState::of(&rt).register_loop(&cell);
     FrameLoop {
         handle: owner.store("FrameLoop", cell, at),
     }
@@ -68,7 +65,10 @@ impl FrameLoop {
             );
             return;
         }
-        let current = cell.run.get();
+        let current = match cell.state.get_untracked() {
+            LoopState::Stopped => None,
+            LoopState::Running(run) => Some(run),
+        };
         if current.is_some_and(|r| r.rate == rate) {
             return;
         }
@@ -97,6 +97,15 @@ impl FrameLoop {
     /// Current rate (`None` when stopped).
     #[track_caller]
     pub fn rate(&self) -> Value<Option<FrameRate>> {
-        self.cell(Location::caller()).1.rate.into_value()
+        {
+            let cell = self.cell(Location::caller()).1;
+            let state = cell.state;
+            cell.owner.with_setup(|| {
+                crate::memo(move || match state.get() {
+                    LoopState::Stopped => None,
+                    LoopState::Running(run) => Some(run.rate),
+                })
+            })
+        }
     }
 }

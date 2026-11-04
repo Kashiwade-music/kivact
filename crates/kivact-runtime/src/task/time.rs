@@ -12,43 +12,65 @@ use std::time::Duration;
 use crate::Runtime;
 use crate::{ErrorKind, UiError, raise};
 
+enum SleepState {
+    Unregistered { deadline: u64 },
+    Registered { id: super::state::TimerId },
+    Fired,
+}
+
 /// Future returned by [`sleep`].
 pub(crate) struct Sleep {
     rt: Weak<Runtime>,
-    /// When it is due on the App's clock (ns), fixed when it is made.
-    deadline: u64,
-    /// The timer it registered while it waits.
-    timer: Option<(u64, u64)>,
+    state: SleepState,
+    cancel: Rc<super::state::CancelQueue>,
 }
 
 impl Future for Sleep {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-        let Some(rt) = self.rt.upgrade() else {
-            return Poll::Ready(());
-        };
-        let now = rt.now_ns();
-        let deadline = self.deadline;
-        let mut t = super::TaskState::of(&rt).time.borrow_mut();
-        if now >= deadline {
-            let fired = self.timer.take().and_then(|k| t.timers.remove(&k));
-            drop(t);
-            // A waker is dropped outside the timer table's borrow.
-            drop(fired);
+        if matches!(self.state, SleepState::Fired) {
             return Poll::Ready(());
         }
-        let key = match self.timer {
-            Some(k) => k,
-            None => {
-                t.next_id += 1;
-                let k = (deadline, t.next_id);
-                self.timer = Some(k);
-                k
-            }
+        let Some(rt) = self.rt.upgrade() else {
+            self.state = SleepState::Fired;
+            return Poll::Ready(());
         };
-        let old = t.timers.insert(key, cx.waker().clone());
-        drop(t);
+        let mut scheduler = super::TaskState::of(&rt).time.borrow_mut();
+        let key = match self.state {
+            SleepState::Unregistered { deadline } => {
+                if rt.now_ns() >= deadline {
+                    self.state = SleepState::Fired;
+                    return Poll::Ready(());
+                }
+                scheduler.next_id += 1;
+                let id = scheduler.next_id;
+                self.state = SleepState::Registered { id };
+                (deadline, id)
+            }
+            SleepState::Registered { id } => {
+                let key = scheduler
+                    .timers
+                    .keys()
+                    .find(|(_, timer)| *timer == id)
+                    .copied();
+                let Some(key) = key else {
+                    self.state = SleepState::Fired;
+                    return Poll::Ready(());
+                };
+                if rt.now_ns() >= key.0 {
+                    let fired = scheduler.timers.remove(&key);
+                    self.state = SleepState::Fired;
+                    drop(scheduler);
+                    drop(fired);
+                    return Poll::Ready(());
+                }
+                key
+            }
+            SleepState::Fired => return Poll::Ready(()),
+        };
+        let old = scheduler.timers.insert(key, cx.waker().clone());
+        drop(scheduler);
         drop(old);
         rt.request_turn();
         Poll::Pending
@@ -57,10 +79,8 @@ impl Future for Sleep {
 
 impl Drop for Sleep {
     fn drop(&mut self) {
-        if let (Some(k), Some(rt)) = (self.timer.take(), self.rt.upgrade())
-            && let Ok(mut t) = super::TaskState::of(&rt).time.try_borrow_mut()
-        {
-            t.timers.remove(&k);
+        if let SleepState::Registered { id } = self.state {
+            self.cancel.push(id);
         }
     }
 }
@@ -68,8 +88,10 @@ impl Drop for Sleep {
 pub(crate) fn sleep_ns(rt: &Rc<Runtime>, ns: u64) -> Sleep {
     Sleep {
         rt: Rc::downgrade(rt),
-        deadline: rt.now_ns().saturating_add(ns),
-        timer: None,
+        state: SleepState::Unregistered {
+            deadline: rt.now_ns().saturating_add(ns),
+        },
+        cancel: super::TaskState::of(rt).time.borrow().cancel.clone(),
     }
 }
 

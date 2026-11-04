@@ -2,26 +2,50 @@
 
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU64;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::time::Duration;
 
 use crate::Signal;
-use crate::UiError;
 use crate::Value;
+use crate::reactive::Handler;
 use crate::{Owner, Runtime};
 use kivact_types::MotionClock;
+use kivact_types::cell::Registry;
 
 use super::values::{FrameInfo, FrameRate};
 
-/// Frame-driven work of an App and the outstanding frame request.
+/// Frame request and delivered tick history.
 #[derive(Default)]
-struct Frames {
-    loops: Vec<Weak<LoopCell>>,
-    anims: Vec<Weak<dyn Anim>>,
-    /// Time of the outstanding `RequestFrame`, if any.
-    requested: Option<u64>,
-    last_tick: Option<u64>,
+struct FrameClock {
+    phase: FramePhase,
+    offset: ClockOffset,
     ticks: u64,
+}
+
+#[derive(Default)]
+struct ClockOffset(u64);
+
+#[derive(Default)]
+enum FramePhase {
+    #[default]
+    Idle,
+    Requested {
+        at: u64,
+        last_tick: Option<u64>,
+    },
+    Ticked {
+        last: u64,
+    },
+}
+
+impl FramePhase {
+    fn last_tick(&self) -> Option<u64> {
+        match *self {
+            Self::Idle => None,
+            Self::Requested { last_tick, .. } => last_tick,
+            Self::Ticked { last } => Some(last),
+        }
+    }
 }
 
 /// Counts of what the motion subsystem holds now ([`MotionState::stats`]).
@@ -35,8 +59,7 @@ pub struct MotionStats {
     pub ticks: u64,
 }
 
-/// What frame planning reads of the host's environment, attached once by the
-/// view root ([`MotionState::attach_env`]); each value is read untracked.
+/// Environment values installed at runtime construction and read untracked.
 #[derive(Clone, Copy)]
 pub struct MotionEnv {
     /// The host asks for reduced motion.
@@ -47,23 +70,12 @@ pub struct MotionEnv {
     pub frame_period_ns: Value<u64>,
 }
 
-/// Per-App state of the motion subsystem, driven by the host that runs the
-/// App's turns: it installs the state (`default`) as a runtime extension when
-/// the App is created, attaches the environment it reads (`attach_env`:
-/// reduced motion, surface activity and the frame period), asks it which
-/// frame to request (`plan_frame`) and delivers `FrameTick`s
-/// (`on_frame_tick`) and applies a newly enabled reduced-motion preference
-/// (`reduce_motion`). The engine's `MotionClock` a tick carries is the one
-/// place that says a stop of the frame clock ended; this state keeps no stop
-/// of its own.
+/// Per-App frame clock and weak registrations driven by host frame ticks.
 #[derive(Default)]
 pub struct MotionState {
-    frames: RefCell<Frames>,
-    /// The host's environment, once the view root attached it.
-    env: Cell<Option<MotionEnv>>,
-    /// The part of the clock's `offset_ns` the animations are already moved
-    /// by.
-    applied_offset_ns: Cell<u64>,
+    clock: RefCell<FrameClock>,
+    loops: RefCell<Registry<LoopCell>>,
+    anims: RefCell<Registry<dyn Anim>>,
 }
 
 impl MotionState {
@@ -73,66 +85,46 @@ impl MotionState {
         rt.ext::<MotionState>()
     }
 
-    /// Attach the host's environment frame planning reads (untracked). The
-    /// view root calls it once, when the App's environment exists.
-    pub fn attach_env(&self, env: MotionEnv) {
-        let previous = self.env.replace(Some(env));
-        assert!(
-            previous.is_none(),
-            "invariant: the motion environment is attached once"
-        );
-    }
-
-    fn env(&self) -> MotionEnv {
-        self.env.get().expect(
-            "invariant: the view root attaches the motion environment before anything moves",
-        )
-    }
-
     /// Whether the host asks for reduced motion (untracked; a disposed root
     /// reads as no).
-    pub(crate) fn reduced_motion(&self) -> bool {
-        let v = self.env().reduced_motion;
+    pub(crate) fn reduced_motion(&self, rt: &Runtime) -> bool {
+        let v = rt.ext::<MotionEnv>().reduced_motion;
         crate::untrack(|| v.try_get()).unwrap_or(false)
     }
 
     /// Whether a surface can be drawn on (untracked; a disposed root reads as
     /// yes).
-    fn surface_active(&self) -> bool {
-        let v = self.env().surface_active;
+    fn surface_active(&self, rt: &Runtime) -> bool {
+        let v = rt.ext::<MotionEnv>().surface_active;
         crate::untrack(|| v.try_get()).unwrap_or(true)
     }
 
     /// The display refresh period; `None` once the view root is disposed (the
     /// App is closing and no frame work is left).
-    fn period(&self) -> Option<NonZeroU64> {
-        let v = self.env().frame_period_ns;
+    fn period(&self, rt: &Runtime) -> Option<NonZeroU64> {
+        let v = rt.ext::<MotionEnv>().frame_period_ns;
         let ns = crate::untrack(|| v.try_get())?;
         Some(NonZeroU64::new(ns).expect(
             "invariant: hosts report a positive frame period (`Environment::frame_period_ns`)",
         ))
     }
 
-    /// Track a frame loop (weakly; it is dropped with its owner).
-    pub(crate) fn register_loop(&self, l: Weak<LoopCell>) {
-        self.frames.borrow_mut().loops.push(l);
+    /// Track a frame loop without owning it.
+    pub(crate) fn register_loop(&self, l: &Rc<LoopCell>) {
+        self.loops.borrow_mut().insert(l);
     }
 
-    /// Track an animation (weakly; it is dropped with its owner).
-    pub(crate) fn register_anim(&self, a: Weak<dyn Anim>) {
-        self.frames.borrow_mut().anims.push(a);
+    /// Track an animation without owning it.
+    pub(crate) fn register_anim(&self, a: &Rc<dyn Anim>) {
+        self.anims.borrow_mut().insert(a);
     }
 
     fn live_loops(&self) -> Vec<Rc<LoopCell>> {
-        let mut m = self.frames.borrow_mut();
-        m.loops.retain(|w| w.strong_count() > 0);
-        m.loops.iter().filter_map(|w| w.upgrade()).collect()
+        self.loops.borrow_mut().live()
     }
 
     fn live_anims(&self) -> Vec<Rc<dyn Anim>> {
-        let mut m = self.frames.borrow_mut();
-        m.anims.retain(|w| w.strong_count() > 0);
-        m.anims.iter().filter_map(|w| w.upgrade()).collect()
+        self.anims.borrow_mut().live()
     }
 
     /// An enabled preference completes active decorative runs immediately.
@@ -151,16 +143,16 @@ impl MotionState {
     /// the frame clock that ended. Animations go on from where they stood
     /// and frame loops count from `now` again.
     fn apply_clock(&self, now: u64, clock: &MotionClock) {
-        let applied = self.applied_offset_ns.get();
+        let applied = self.clock.borrow().offset.0;
         if clock.offset_ns > applied {
-            self.applied_offset_ns.set(clock.offset_ns);
+            self.clock.borrow_mut().offset.0 = clock.offset_ns;
             let stopped = clock.offset_ns - applied;
             let paused = clock.resumed_ns.saturating_sub(stopped);
             for a in self.live_anims() {
                 a.shift_clock(paused, clock.resumed_ns);
             }
             for l in self.live_loops() {
-                if let Some(run) = l.run.get() {
+                if let LoopState::Running(run) = l.state.get_untracked() {
                     l.set_run(Some(LoopRun {
                         start_ns: now,
                         index: 0,
@@ -179,15 +171,18 @@ impl MotionState {
     pub fn on_frame_tick(&self, rt: &Runtime, now: u64, present: u64, clock: &MotionClock) {
         self.apply_clock(now, clock);
         {
-            let mut m = self.frames.borrow_mut();
-            m.requested = None;
-            m.last_tick = Some(now);
+            let mut m = self.clock.borrow_mut();
+            m.phase = FramePhase::Ticked { last: now };
             m.ticks += 1;
         }
-        let Some(period) = self.period() else { return };
+        let Some(period) = self.period(rt) else {
+            return;
+        };
         let period = period.get();
         for l in self.live_loops() {
-            let Some(run) = l.run.get() else { continue };
+            let LoopState::Running(run) = l.state.get_untracked() else {
+                continue;
+            };
             if run.due(period) > now {
                 continue;
             }
@@ -214,7 +209,7 @@ impl MotionState {
             };
             let f = l.f.clone();
             l.owner.run_handler(|| {
-                if let Err(err) = f(info) {
+                if let Err(err) = f.call(info) {
                     l.owner.report(err);
                 }
             });
@@ -231,15 +226,15 @@ impl MotionState {
 
     /// Frame time to request from the host, if any frame-driven work exists.
     fn wanted_frame(&self, rt: &Runtime) -> Option<u64> {
-        if !self.surface_active() {
+        if !self.surface_active(rt) {
             return None;
         }
-        let period = self.period()?.get();
+        let period = self.period(rt)?.get();
         let now = rt.now_ns();
-        let last = self.frames.borrow().last_tick;
+        let last = self.clock.borrow().phase.last_tick();
         let mut want: Option<u64> = None;
         for l in self.live_loops() {
-            if let Some(run) = l.run.get() {
+            if let LoopState::Running(run) = l.state.get_untracked() {
                 let d = run.due(period);
                 want = Some(want.map_or(d, |w| w.min(d)));
             }
@@ -255,11 +250,14 @@ impl MotionState {
     /// work appeared (recorded as the outstanding request).
     pub fn plan_frame(&self, rt: &Runtime) -> Option<u64> {
         let want = self.wanted_frame(rt)?;
-        let mut m = self.frames.borrow_mut();
-        if m.requested.is_some_and(|r| r <= want) {
+        let mut m = self.clock.borrow_mut();
+        if matches!(m.phase, FramePhase::Requested { at, .. } if at <= want) {
             return None;
         }
-        m.requested = Some(want);
+        m.phase = FramePhase::Requested {
+            at: want,
+            last_tick: m.phase.last_tick(),
+        };
         Some(want)
     }
 
@@ -269,7 +267,7 @@ impl MotionState {
         MotionStats {
             loops: self.live_loops().len(),
             animations: self.live_anims().len(),
-            ticks: self.frames.borrow().ticks,
+            ticks: self.clock.borrow().ticks,
         }
     }
 }
@@ -289,19 +287,21 @@ pub(crate) trait Anim {
     fn shift_clock(&self, paused_ns: u64, now_ns: u64);
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum LoopState {
+    Stopped,
+    Running(LoopRun),
+}
+
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
-    pub(crate) f: Rc<dyn Fn(FrameInfo) -> Result<(), UiError>>,
-    /// The rate `FrameLoop::rate` readers see: written only by `set_run`.
-    pub(crate) rate: Signal<Option<FrameRate>>,
-    /// The running loop; `None` while stopped.
-    pub(crate) run: Cell<Option<LoopRun>>,
-    /// Callbacks so far (`FrameInfo::frame`).
+    pub(crate) f: Handler<FrameInfo>,
+    pub(crate) state: Signal<LoopState>,
     pub(crate) frames: Cell<u64>,
 }
 
 /// A running frame loop.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) struct LoopRun {
     pub(crate) rate: FrameRate,
     /// When the loop started at this rate (host ns; `Hz` ticks count from here).
@@ -327,7 +327,7 @@ impl LoopRun {
 impl LoopCell {
     /// Start, change or stop (`None`) the loop.
     pub(crate) fn set_run(&self, run: Option<LoopRun>) {
-        self.run.set(run);
-        self.rate.set(run.map(|r| r.rate));
+        self.state
+            .set(run.map_or(LoopState::Stopped, LoopState::Running));
     }
 }

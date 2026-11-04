@@ -2,7 +2,7 @@
 //! Its current value is a graph source, so memos and effects
 //! track it like any signal.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -19,25 +19,22 @@ use kivact_types::motion::SpringRun;
 pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,
     pub(crate) value: Signal<T>,
-    /// Whether a run is in progress (`Animated::is_running`): written only by
-    /// `set_phase`.
-    pub(crate) running: Signal<bool>,
     pub(crate) transition: Transition,
     pub(crate) from: RefCell<Vec<f64>>,
     pub(crate) to: RefCell<Vec<f64>>,
     pub(crate) current: RefCell<Vec<f64>>,
     /// A spring's velocity, step time and iteration (`Transition::step`).
     pub(crate) spring: RefCell<SpringRun>,
-    pub(crate) phase: Cell<Phase>,
-    /// Runs that ended `RunEnd::Completed` so far (`on_complete` follows it).
-    pub(crate) completed: Signal<u64>,
+    pub(crate) phase: Signal<AnimPhase>,
 }
 
 /// Where an animated value stands.
-#[derive(Clone, Copy)]
-pub(crate) enum Phase {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AnimPhase {
     /// At rest on `to`: no run.
     Idle,
+    /// A naturally completed run at its target.
+    Completed,
     /// A run toward `to` that started at `start_ns` on the App's clock (its
     /// delay and timing count from here).
     Running { start_ns: u64 },
@@ -82,19 +79,18 @@ impl<T: Animatable> AnimCell<T> {
         self.value.update(move |slot| *slot = v);
     }
 
-    fn set_phase(&self, phase: Phase) {
+    fn set_phase(&self, phase: AnimPhase) {
         self.phase.set(phase);
-        self.running.set(matches!(phase, Phase::Running { .. }));
     }
 
     fn finish(&self, end: RunEnd) {
-        self.set_phase(Phase::Idle);
+        self.set_phase(match end {
+            RunEnd::Completed => AnimPhase::Completed,
+            RunEnd::Cancelled => AnimPhase::Idle,
+        });
         let to = self.to.borrow().clone();
         self.publish(&to);
         self.spring.borrow_mut().velocity.fill(0.0);
-        if end == RunEnd::Completed {
-            self.completed.update(|n| *n += 1);
-        }
     }
 
     /// Run from `from` toward `to` on `clock`, or end at once: a target equal
@@ -108,15 +104,15 @@ impl<T: Animatable> AnimCell<T> {
         } else if reduced && wire.decorative {
             self.finish(RunEnd::Completed);
         } else {
-            self.set_phase(Phase::Running { start_ns });
+            self.set_phase(AnimPhase::Running { start_ns });
         }
     }
 
     /// Start moving from the current value to `target` at `now`.
     pub(crate) fn retarget(&self, target: &T, now: u64, reduced: bool) {
         let to = comps(target);
-        let phase = self.phase.get();
-        if *self.to.borrow() == to && !matches!(phase, Phase::Idle) {
+        let phase = self.phase.get_untracked();
+        if *self.to.borrow() == to && !matches!(phase, AnimPhase::Idle | AnimPhase::Completed) {
             return;
         }
         *self.from.borrow_mut() = self.current.borrow().clone();
@@ -130,8 +126,8 @@ impl<T: Animatable> AnimCell<T> {
         }
         // A paused run stays paused, now toward the new target, and keeps its
         // current value.
-        if let Phase::Paused { .. } = phase {
-            self.set_phase(Phase::Paused {
+        if let AnimPhase::Paused { .. } = phase {
+            self.set_phase(AnimPhase::Paused {
                 start_ns: now,
                 at_ns: now,
             });
@@ -143,7 +139,7 @@ impl<T: Animatable> AnimCell<T> {
 
 impl<T: Animatable> Anim for AnimCell<T> {
     fn is_running(&self) -> bool {
-        matches!(self.phase.get(), Phase::Running { .. })
+        matches!(self.phase.get_untracked(), AnimPhase::Running { .. })
     }
 
     fn finish_decorative(&self) {
@@ -153,18 +149,18 @@ impl<T: Animatable> Anim for AnimCell<T> {
     }
 
     fn shift_clock(&self, paused: u64, now: u64) {
-        match self.phase.get() {
-            Phase::Idle => return,
-            Phase::Running { start_ns } => self.set_phase(Phase::Running {
+        match self.phase.get_untracked() {
+            AnimPhase::Idle | AnimPhase::Completed => return,
+            AnimPhase::Running { start_ns } => self.set_phase(AnimPhase::Running {
                 start_ns: shift(start_ns, paused, now),
             }),
-            Phase::Paused { start_ns, at_ns } => {
+            AnimPhase::Paused { start_ns, at_ns } => {
                 let at_ns = if at_ns <= now {
                     at_ns.max(paused).saturating_add(now.saturating_sub(paused))
                 } else {
                     at_ns
                 };
-                self.set_phase(Phase::Paused {
+                self.set_phase(AnimPhase::Paused {
                     start_ns: shift(start_ns, paused, now),
                     at_ns,
                 });
@@ -175,7 +171,7 @@ impl<T: Animatable> Anim for AnimCell<T> {
     }
 
     fn step(&self, now: u64) {
-        let Phase::Running { start_ns } = self.phase.get() else {
+        let AnimPhase::Running { start_ns } = self.phase.get_untracked() else {
             return;
         };
         let mut current = self.current.borrow().clone();
@@ -200,6 +196,7 @@ pub struct Animated<T: 'static> {
     app: AppId,
     cell: Owned<AnimCell<T>>,
     value: Value<T>,
+    running: Value<bool>,
 }
 
 impl<T: 'static> Clone for Animated<T> {
@@ -242,7 +239,6 @@ impl<T: Animatable> Animated<T> {
         let cell = Rc::new(AnimCell {
             owner,
             value,
-            running: owner.signal(false, at),
             transition,
             from: RefCell::new(c.clone()),
             to: RefCell::new(c.clone()),
@@ -251,36 +247,40 @@ impl<T: Animatable> Animated<T> {
                 velocity: vec![0.0; T::COMPONENTS],
                 ..SpringRun::default()
             }),
-            phase: Cell::new(Phase::Idle),
-            completed: owner.signal(0u64, at),
+            phase: owner.signal(AnimPhase::Idle, at),
         });
         let anim: Rc<dyn Anim> = cell.clone();
-        MotionState::of(&rt).register_anim(Rc::downgrade(&anim));
+        MotionState::of(&rt).register_anim(&anim);
         drop(anim);
         let stored = owner.store("Animated", cell.clone(), at);
         let weak = Rc::downgrade(&cell);
-        let first_cell = Cell::new(true);
-        owner.effect(
-            EffectKind::Internal,
-            move || {
-                let Some(rt) = Runtime::get(app) else { return };
-                // The target only computes a value: pure.
-                let t = crate::pure(|| target.get());
-                if first_cell.replace(false) && !explicit_start {
-                    return;
-                }
-                let Some(cell) = weak.upgrade() else { return };
-                let now = rt.now_ns();
-                let reduced = MotionState::of(&rt).reduced_motion();
-                crate::untrack(|| cell.retarget(&t, now, reduced));
-                rt.request_turn();
-            },
-            at,
-        );
+        let retarget = move |t: &T| {
+            let Some(rt) = Runtime::get(app) else { return };
+            let Some(cell) = weak.upgrade() else { return };
+            let now = rt.now_ns();
+            let reduced = MotionState::of(&rt).reduced_motion(&rt);
+            crate::untrack(|| cell.retarget(t, now, reduced));
+            rt.request_turn();
+        };
+        if explicit_start {
+            owner.effect(
+                EffectKind::Internal,
+                move || {
+                    let t = crate::pure(|| target.get());
+                    retarget(&t);
+                },
+                at,
+            );
+        } else {
+            crate::reactive::watch(move || target.get(), EffectKind::Internal, retarget);
+        }
+        let phase = cell.phase;
+        let running = crate::memo(move || matches!(phase.get(), AnimPhase::Running { .. }));
         Animated {
             app,
             cell: stored,
             value: Value::from(value),
+            running,
         }
     }
 }
@@ -331,8 +331,8 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::pause");
-        if let Phase::Running { start_ns } = cell.phase.get() {
-            cell.set_phase(Phase::Paused {
+        if let AnimPhase::Running { start_ns } = cell.phase.get_untracked() {
+            cell.set_phase(AnimPhase::Paused {
                 start_ns,
                 at_ns: rt.now_ns(),
             });
@@ -346,9 +346,9 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::resume");
-        if let Phase::Paused { start_ns, at_ns } = cell.phase.get() {
+        if let AnimPhase::Paused { start_ns, at_ns } = cell.phase.get_untracked() {
             let now = rt.now_ns();
-            let reduced = MotionState::of(&rt).reduced_motion();
+            let reduced = MotionState::of(&rt).reduced_motion(&rt);
             {
                 let mut run = cell.spring.borrow_mut();
                 run.last_ns = shift(run.last_ns, at_ns, now);
@@ -375,31 +375,30 @@ impl<T: Animatable> Animated<T> {
         );
         let cell = self.cell(at);
         let owner = cell.owner;
-        let completed = cell.completed;
-        let seen = Cell::new(completed.get_untracked());
+        let phase = cell.phase;
         drop(rt);
-        owner.effect(
-            EffectKind::Internal,
-            move || {
-                let n = completed.get();
-                if seen.replace(n) == n {
-                    return;
-                }
-                owner.run_handler(|| {
-                    if let Err(err) = f().into_result() {
-                        owner.report(err);
+        owner.with_setup(|| {
+            crate::reactive::watch(
+                move || phase.get(),
+                EffectKind::Internal,
+                move |phase| {
+                    if matches!(phase, AnimPhase::Completed) {
+                        owner.run_handler(|| {
+                            if let Err(err) = f().into_result() {
+                                owner.report(err);
+                            }
+                        });
                     }
-                });
-            },
-            at,
-        );
+                },
+            )
+        });
         self
     }
 
     /// Whether an animation is in progress (tracked).
     #[track_caller]
     pub fn is_running(&self) -> bool {
-        self.cell(Location::caller()).running.get()
+        self.running.get()
     }
 }
 
