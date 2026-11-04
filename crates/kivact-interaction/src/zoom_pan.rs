@@ -22,8 +22,6 @@
 //! pointer, key and wheel input of a canvas's regions reaches it; a menu's
 //! context trigger (`crate::menu`) uses the same opt-in, and a kit does not
 //! deliver these events again itself.
-use kivact_core::state::IntoBinding;
-use std::panic::Location;
 
 use crate::EditSession;
 use crate::space_pan::{SpacePanApi, use_space_pan};

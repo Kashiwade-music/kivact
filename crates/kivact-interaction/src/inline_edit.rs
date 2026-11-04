@@ -1,7 +1,6 @@
 //! Role: In-place renaming shares the native text editor's draft lifecycle.
 
 use crate::{TextEditApi, use_text_edit};
-use kivact_core::state::IntoBinding;
 use kivact_core::state::{Binding, IntoBinding, IntoText, ItemKey, callback, on_cleanup};
 
 /// Tracks the item being renamed without drawing a field.

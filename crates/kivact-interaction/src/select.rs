@@ -16,8 +16,7 @@
 
 use crate::Selection;
 use crate::list::typeahead::Typeahead;
-use kivact_core::custom::Part;
-use kivact_core::state::IntoBinding;
+use kivact_core::custom::{Part, part};
 use kivact_core::view::HandlerResult;
 
 use super::{
@@ -78,7 +77,7 @@ use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -254,7 +253,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// # pub use kivact_core::{view, state, style};
     /// # pub mod prelude {
     /// # //! Role: Supply the canonical imports used by this documentation example.
-    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+    /// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
     /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
     /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
     /// # }
@@ -545,7 +544,8 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let base = member;
         let part_state = base.state();
         Part::new(part_state, move |host| {
-            let option_ref = host.part(base).node_ref();
+            let option_ref = kivact_core::view::node_ref();
+            let member = host.part(base).node_ref(option_ref);
             let hover_key = key.clone();
             let invoke_key = key;
             member

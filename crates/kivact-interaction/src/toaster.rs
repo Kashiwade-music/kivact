@@ -37,7 +37,7 @@ use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{
-    Handled, HandlerResult, IntoView, Key, KeyEvent, LiveRegion, Modifiers, Role, View,
+    Handled, HandlerResult, IntoView, Key, KeyEvent, LiveRegion, Modifiers, Role,
 };
 
 use super::Tone;
@@ -401,7 +401,6 @@ impl Toaster {
             raise(
                 ErrorKind::Message,
                 "Toaster::max_visible: show at least one toast",
-                std::panic::Location::caller(),
             );
         }
         self.limit.set(n);

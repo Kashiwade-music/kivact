@@ -1,10 +1,9 @@
 //! Role: A headless row model: filter, sort and page the caller's rows by column.
 
 use super::data::{Header, SortOrder};
-use kivact_core::state::IntoBinding;
+use kivact_core::custom::Reactive;
 use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::view::Reactive;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -250,7 +249,7 @@ struct Paging {
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -364,7 +363,7 @@ where
             let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
                 Vec::new()
             } else {
-                is_open()
+                shown()
             };
             let global_matchers: Vec<_> = shown
                 .iter()
@@ -466,7 +465,7 @@ where
     });
     let keys =
         memo(move || shown_rows.with(|rows: &Vec<R>| rows.iter().map(|row| key_of(row)).collect()));
-    let columns = memo(move || is_open().into_iter().collect::<Vec<_>>());
+    let columns = memo(move || shown().into_iter().collect::<Vec<_>>());
     DataTableModelApi {
         source: rows,
         ordered,

@@ -12,7 +12,7 @@ use crate::{
     Delays, ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_delayed,
     use_hover_corridor, use_list,
 };
-use kivact_core::custom::{Part, part};
+use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};

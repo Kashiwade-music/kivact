@@ -97,7 +97,7 @@ pub(super) fn create(
         let shown =
             |day: &CalendarDate| (0..count as i32).contains(&first.months_until(day.month_of()));
         let available = |day: &CalendarDate| {
-            is_open(day)
+            shown(day)
                 && !disabled(*day)
                 && registry
                     .with_members(|members| members.get(day).is_some_and(|entry| entry.available()))

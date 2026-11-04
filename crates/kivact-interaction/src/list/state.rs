@@ -12,7 +12,6 @@ use kivact_core::state::{Binding, Callback, Signal, Value, Var, effect, memo, si
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::view::NodeRef;
 use std::cell::{Cell, RefCell};
-use std::panic::Location;
 use std::rc::Rc;
 
 type Leave<K> = Rc<dyn Fn(&K) -> Option<K>>;
@@ -65,7 +64,6 @@ pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) scroll: RefCell<Option<Scroll<K>>>,
     pub(super) typed: Cell<Var<Typeahead>>,
     pending: RefCell<Option<Pending<K>>>,
-    pub(super) at: &'static Location<'static>,
 }
 
 pub(super) fn selected<K: kivact_core::state::PropValue>(selection: Selection<K>) -> Vec<K> {
@@ -79,7 +77,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     items: Value<Vec<ListItem<K>>>,
     selection: Selection<K>,
     policy: ListOptions,
-    at: &'static Location<'static>,
 ) -> Owned<Rc<State<K>>> {
     let owner = Owner::current();
     let root = Owner::root();
@@ -172,7 +169,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         scroll: RefCell::new(None),
         typed: Cell::new(var(Typeahead::default())),
         pending: RefCell::new(None),
-        at,
     });
     let stored = owner.store("ListApi", state.clone());
     let duplicates = RefCell::new(Vec::<K>::new());
@@ -235,7 +231,7 @@ impl<K: kivact_core::state::ItemKey> State<K> {
                         .filter(|key| order.enabled(key) && self.can_select(key))
                         .collect::<Vec<_>>()
                 });
-                let next = kivact_core::untrack(|| {
+                let next = kivact_core::state::untrack(|| {
                     selection_transition(
                         &selected(self.selection),
                         anchor.get_untracked().as_ref(),

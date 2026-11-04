@@ -6,11 +6,10 @@ use crate::policy::scalar::ScalarRange;
 use crate::roving::{Observation, Roving};
 use crate::{ListApi, ListItem, ListOptions, use_list};
 use kivact_core::custom::{Owned, Owner};
-use kivact_core::state::{Binding, Signal, Value, effect, memo, signal};
+use kivact_core::state::{Binding, IntoBinding, Signal, Value, effect, memo, signal};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::panic::Location;
 use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
@@ -47,7 +46,6 @@ pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::I
     pub(super) roving: Roving<(K, C)>,
     /// The cell holding the tab stop.
     pub(super) active: Value<Option<(K, C)>>,
-    pub(super) at: &'static Location<'static>,
 }
 
 pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
@@ -55,7 +53,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     columns: Value<Vec<Header<C>>>,
     selection: Selection<K>,
     focus: TableFocus,
-    at: &'static Location<'static>,
 ) -> Owned<Rc<State<K, C>>> {
     let owner = Owner::current();
     let root = Owner::root();
@@ -149,7 +146,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         headers: RefCell::new(HashMap::new()),
         roving,
         active,
-        at,
     });
     let stored = owner.store("DataTableApi", state.clone());
     effect(move || reconcile(&state));

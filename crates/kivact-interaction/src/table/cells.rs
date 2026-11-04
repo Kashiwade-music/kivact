@@ -11,7 +11,6 @@ use kivact_core::state::{Value, Var, memo, var};
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Role,
 };
-use std::panic::Location;
 use std::rc::Rc;
 
 fn row_name<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
@@ -79,7 +78,6 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
     state: Rc<State<K, C>>,
     key: K,
     column: C,
-    at: &'static Location<'static>,
 ) -> Part<TableCellState> {
     let id = var((key, column));
     let selected = state.list.selected();

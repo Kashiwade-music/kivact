@@ -7,7 +7,7 @@ use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
-use kivact_core::custom::{Part, part};
+use kivact_core::custom::{Part, PartState, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::state::{Value, memo};
@@ -16,7 +16,6 @@ use kivact_core::view::{
     A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
     dynamic,
 };
-use std::panic::Location;
 
 /// An application menu over keyed [`MenuEntry`] rows, without a look of its own.
 ///
@@ -172,7 +171,8 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     }
 
     /// A submenu handle has no `name`: only the menu from `use_menu` does.
-    fn top_level(self, name: &'static str, at: &'static Location<'static>) {
+    #[track_caller]
+    fn top_level(self, name: &'static str) {
         if self.level.depth > 0 {
             raise(
                 ErrorKind::Message,
@@ -208,7 +208,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     /// only.
     #[track_caller]
     pub fn open(self) {
-        self.top_level("open", Location::caller());
+        self.top_level("open");
         if self.session.is_open().get_untracked() {
             return;
         }
@@ -221,7 +221,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     /// is closed. Top level only.
     #[track_caller]
     pub fn close(self) {
-        self.top_level("close", Location::caller());
+        self.top_level("close");
         self.session.close(PopupCloseReason::Programmatic);
     }
 
@@ -251,20 +251,21 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     /// overlay is anchored to and the focus returns to. Top level only.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
-        self.top_level("trigger", Location::caller());
+        self.top_level("trigger");
         let session = self.session;
         let trigger = session.popup.trigger();
-        let trigger = if let Some(press) = session.press {
-            trigger.on_pointer(move |event| {
-                press.event(session, super::press_state::Source::Trigger, event)
-            })
-        } else {
-            trigger
-        };
         let base = trigger;
         let part_state = base.state();
         Part::new(part_state, move |host| {
-            host.part(base)
+            let trigger = host.part(base);
+            let trigger = if let Some(press) = session.press {
+                trigger.on_pointer(move |event| {
+                    press.event(session, super::press_state::Source::Trigger, event)
+                })
+            } else {
+                trigger
+            };
+            trigger
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.ctrl || m.alt || m.meta {
@@ -327,7 +328,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
 
     #[track_caller]
     fn context_trigger_with_fallback(self, fallback: bool) -> Part<PopupState> {
-        self.top_level("context_trigger", Location::caller());
+        self.top_level("context_trigger");
         let session = self.session;
         let open = session.is_open();
         let pointer = move |event: PointerEvent| {

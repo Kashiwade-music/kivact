@@ -10,12 +10,10 @@ use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use crate::{ListGesture, ListMode, SplitterState, use_splitter};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{Owned, Part, PartState, part, raise, require_setup};
-use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, binding, memo, var};
+use kivact_core::state::{Value, binding, memo, var};
 use kivact_core::view::{Handled, Key, KeyEvent, Orientation, Role, SortDirection, modifiers};
 use std::collections::HashMap;
-use std::panic::Location;
 use std::rc::Rc;
 
 /// A Copy table handle over caller-owned rows, columns and selection.
@@ -51,7 +49,7 @@ use std::rc::Rc;
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
@@ -119,7 +117,6 @@ where
     C: kivact_core::state::ItemKey,
 {
     let selection = selection.into_selection();
-    let at = Location::caller();
     if let TableFocus::Rows(policy) = focus {
         if policy.mode != ListMode::Select {
             raise(
@@ -141,7 +138,7 @@ where
         })
     });
     DataTableApi {
-        state: state::create(keys, headers, selection, focus, at),
+        state: state::create(keys, headers, selection, focus),
     }
 }
 
@@ -530,7 +527,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     pub fn cell(self, key: K, column: C) -> Part<TableCellState> {
         let state = self.state();
         require_setup("DataTableApi::cell");
-        cells::cell(state, key, column, Location::caller())
+        cells::cell(state, key, column)
     }
 
     /// A splitter on the trailing boundary of a column that edits its width.

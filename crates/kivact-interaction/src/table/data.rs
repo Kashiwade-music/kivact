@@ -2,7 +2,8 @@
 
 use crate::{ListOptions, ListRangeOptions};
 use kivact_core::custom::PartState;
-use kivact_core::view::{Reactive, SortDirection};
+use kivact_core::custom::Reactive;
+use kivact_core::view::SortDirection;
 
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a
 /// [`DataTableApi`](crate::DataTableApi) reads: its key, label, whether a header
