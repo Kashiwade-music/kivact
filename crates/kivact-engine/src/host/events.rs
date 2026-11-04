@@ -212,10 +212,11 @@ impl Host {
                 self.settle();
             }
             ShellEvent::CloseRequested => self.model.borrow_mut().push(HostEvent::CloseRequested),
-            ShellEvent::Focused(false) => self
-                .model
-                .borrow_mut()
-                .cancel_pointer(&mut self.engine.borrow_mut()),
+            ShellEvent::Focused(false) => {
+                let mut model = self.model.borrow_mut();
+                model.key_down_targets.0.clear();
+                model.cancel_pointer(&mut self.engine.borrow_mut());
+            }
             ShellEvent::Focused(true) => {
                 // A window coming back (after skipped frames) draws at once.
                 if let LastPresent::Skipped { .. } = self.last_present {
@@ -276,10 +277,7 @@ impl Host {
             }
             ShellEvent::Modifiers(m) => {
                 let mut model = self.model.borrow_mut();
-                if model.modifiers != m {
-                    model.modifiers = m;
-                    model.push(HostEvent::ModifiersChanged(m));
-                }
+                model.report_modifiers(m);
             }
             ShellEvent::File(input) => {
                 self.model

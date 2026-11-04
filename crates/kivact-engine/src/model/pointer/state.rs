@@ -13,6 +13,8 @@ use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
     pub(super) file_target: Option<NodeId>,
+    // xtask-allow(state-fields): Sent is the last hover report, independent of file drag state.
+    pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
     pub(super) shown: kivact_types::Cursor,
 }
 
@@ -21,6 +23,11 @@ impl Default for Pointer {
         Self {
             state: PointerState::default(),
             file_target: None,
+            hover_sent: {
+                let mut sent = kivact_types::cell::Sent::new();
+                sent.update(None);
+                sent
+            },
             shown: kivact_types::Cursor::Default,
         }
     }
@@ -50,70 +57,94 @@ pub(crate) struct PointerState {
     /// In id order, so the mouse comes first and the contacts in the order
     /// they began.
     pub(crate) tracks: BTreeMap<u64, Track>,
-    /// The mouse's window position while it is in the window (it moved
-    /// there and has not left, a held button or not), reported with key
-    /// events (`HostEvent::Key::pointer`). A touch or pen contact does not
-    /// move it.
-    pub(crate) mouse: Option<Point>,
 }
 
 impl Default for PointerState {
     fn default() -> Self {
         Self {
             tracks: BTreeMap::from([(PointerId::MOUSE.0, Track::new(PointerSource::MOUSE))]),
-            mouse: None,
         }
     }
 }
 
-/// What the state machine follows of one pointer.
+/// Each pointer kind owns only the gestures it supports.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Track {
-    /// Which pointer it is; `source.buttons` is the one record of the
-    /// buttons it holds.
+pub(crate) enum Track {
+    Mouse(MouseTrack),
+    Touch(TouchTrack),
+    Pen(PenTrack),
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Hover {
+    pub(crate) chain: Vec<NodeId>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct MouseTrack {
     pub(crate) source: PointerSource,
-    /// The window position of its last event.
-    pub(crate) at: Point,
-    /// The hit node and its ancestors; always empty for a pointer that is
-    /// not primary (it hovers nothing).
-    pub(crate) hover: Vec<NodeId>,
-    /// The nearest pointer listener under the pointer (`Enter`/`Leave`).
+    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
     pub(crate) over: Option<NodeId>,
-    /// What its buttons do now.
-    pub(crate) gesture: Gesture,
+    pub(crate) at: Option<Point>,
+    pub(crate) hover: Hover,
+    pub(crate) gesture: MouseGesture,
 }
 
-/// What a pointer's buttons do, one mode at a time.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Gesture {
-    /// Its events go to the listeners (`Route::default()` between gestures).
-    Route(Route),
-    /// The mouse's primary press landed on a scrollbar: its moves drag the bar
-    /// and its other buttons do nothing until the primary release. Only the
-    /// mouse's track.
-    Scrollbar(ScrollDrag),
-    /// A single touch moved past the slop over a scroll container: its capture
-    /// and press were cancelled and its moves scroll natively until it ends.
-    /// Only a touch track.
-    Pan(TouchPan),
+pub(crate) struct TouchTrack {
+    pub(crate) source: PointerSource,
+    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    pub(crate) over: Option<NodeId>,
+    pub(crate) at: Point,
+    pub(crate) hover: Option<Hover>,
+    pub(crate) gesture: TouchGesture,
 }
 
-impl Default for Gesture {
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PenTrack {
+    pub(crate) source: PointerSource,
+    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    pub(crate) over: Option<NodeId>,
+    pub(crate) at: Point,
+    pub(crate) hover: Option<Hover>,
+    pub(crate) route: Route,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum MouseGesture {
+    Route(Route),
+    Scrollbar(ScrollDrag),
+    SelectText { editor: NodeId, route: Route },
+}
+
+impl Default for MouseGesture {
     fn default() -> Self {
-        Gesture::Route(Route::default())
+        Self::Route(Route::default())
     }
 }
 
-/// A routed gesture: each part lives while its condition holds.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum TouchGesture {
+    Route(Route),
+    Pending {
+        route: Route,
+        candidate: TouchCandidate,
+    },
+    Pan(TouchPan),
+}
+
+impl Default for TouchGesture {
+    fn default() -> Self {
+        Self::Route(Route::default())
+    }
+}
+
+/// Capture and primary press are independent facts of a routed gesture.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Route {
-    /// The listener that received the gesture's first `Down`; it gets every
-    /// later `Down`, `Move`, `Up` and `Cancel` until the last button releases.
+    // xtask-allow(state-fields): capture and primary press have independent lifetimes.
     pub(crate) capture: Option<NodeId>,
-    /// While a primary pointer holds its primary button.
     pub(crate) press: Option<Press>,
-    /// A single touch over a scroll container, still within the slop.
-    pub(super) touch: Option<TouchCandidate>,
 }
 
 /// A primary press of a primary pointer.
@@ -157,41 +188,152 @@ pub(crate) enum Axis {
 
 impl Track {
     pub(crate) fn new(source: PointerSource) -> Self {
-        Self {
-            source,
-            at: Point::default(),
-            hover: Vec::new(),
-            over: None,
-            gesture: Gesture::default(),
+        match source.kind {
+            PointerKind::Mouse => Self::Mouse(MouseTrack {
+                source,
+                over: None,
+                at: None,
+                hover: Hover::default(),
+                gesture: MouseGesture::default(),
+            }),
+            PointerKind::Touch => Self::Touch(TouchTrack {
+                source,
+                over: None,
+                at: Point::default(),
+                hover: source.primary.then(Hover::default),
+                gesture: TouchGesture::default(),
+            }),
+            PointerKind::Pen => Self::Pen(PenTrack {
+                source,
+                over: None,
+                at: Point::default(),
+                hover: source.primary.then(Hover::default),
+                route: Route::default(),
+            }),
         }
     }
 
-    /// The listener holding the capture, if any.
-    pub(crate) fn capture(&self) -> Option<NodeId> {
-        match &self.gesture {
-            Gesture::Route(route) => route.capture,
+    pub(crate) fn source(&self) -> &PointerSource {
+        match self {
+            Self::Mouse(t) => &t.source,
+            Self::Touch(t) => &t.source,
+            Self::Pen(t) => &t.source,
+        }
+    }
+
+    pub(crate) fn source_mut(&mut self) -> &mut PointerSource {
+        match self {
+            Self::Mouse(t) => &mut t.source,
+            Self::Touch(t) => &mut t.source,
+            Self::Pen(t) => &mut t.source,
+        }
+    }
+
+    pub(crate) fn at(&self) -> Point {
+        match self {
+            Self::Mouse(t) => t.at.unwrap_or_default(),
+            Self::Touch(t) => t.at,
+            Self::Pen(t) => t.at,
+        }
+    }
+
+    pub(super) fn set_at(&mut self, at: Point) {
+        match self {
+            Self::Mouse(t) => t.at = Some(at),
+            Self::Touch(t) => t.at = at,
+            Self::Pen(t) => t.at = at,
+        }
+    }
+
+    pub(crate) fn hover(&self) -> Option<&Hover> {
+        match self {
+            Self::Mouse(t) => Some(&t.hover),
+            Self::Touch(t) => t.hover.as_ref(),
+            Self::Pen(t) => t.hover.as_ref(),
+        }
+    }
+
+    pub(super) fn hover_mut(&mut self) -> Option<&mut Hover> {
+        match self {
+            Self::Mouse(t) => Some(&mut t.hover),
+            Self::Touch(t) => t.hover.as_mut(),
+            Self::Pen(t) => t.hover.as_mut(),
+        }
+    }
+
+    pub(crate) fn chain(&self) -> &[NodeId] {
+        self.hover().map_or(&[], |hover| hover.chain.as_slice())
+    }
+
+    pub(super) fn over(&self) -> Option<NodeId> {
+        match self {
+            Self::Mouse(t) => t.over,
+            Self::Touch(t) => t.over,
+            Self::Pen(t) => t.over,
+        }
+    }
+
+    pub(super) fn set_over(&mut self, over: Option<NodeId>) {
+        match self {
+            Self::Mouse(t) => t.over = over,
+            Self::Touch(t) => t.over = over,
+            Self::Pen(t) => t.over = over,
+        }
+    }
+
+    pub(super) fn route(&self) -> Option<&Route> {
+        match self {
+            Self::Mouse(MouseTrack {
+                gesture: MouseGesture::Route(r) | MouseGesture::SelectText { route: r, .. },
+                ..
+            }) => Some(r),
+            Self::Touch(TouchTrack {
+                gesture: TouchGesture::Route(r) | TouchGesture::Pending { route: r, .. },
+                ..
+            }) => Some(r),
+            Self::Pen(t) => Some(&t.route),
             _ => None,
         }
     }
 
-    /// The pressed chain (empty without a press).
-    pub(crate) fn pressed(&self) -> &[NodeId] {
-        match &self.gesture {
-            Gesture::Route(Route {
-                press: Some(press), ..
-            }) => &press.chain,
-            _ => &[],
+    pub(super) fn routed_mut(&mut self) -> Option<&mut Route> {
+        match self {
+            Self::Mouse(MouseTrack {
+                gesture: MouseGesture::Route(r) | MouseGesture::SelectText { route: r, .. },
+                ..
+            }) => Some(r),
+            Self::Touch(TouchTrack {
+                gesture: TouchGesture::Route(r) | TouchGesture::Pending { route: r, .. },
+                ..
+            }) => Some(r),
+            Self::Pen(t) => Some(&mut t.route),
+            _ => None,
         }
     }
 
-    /// The routed gesture; only called where the pointer is routed.
+    pub(crate) fn capture(&self) -> Option<NodeId> {
+        self.route().and_then(|r| r.capture)
+    }
+
+    pub(crate) fn pressed(&self) -> &[NodeId] {
+        self.route()
+            .and_then(|r| r.press.as_ref())
+            .map_or(&[], |p| p.chain.as_slice())
+    }
+
     pub(super) fn route_mut(&mut self) -> &mut Route {
-        let Gesture::Route(route) = &mut self.gesture else {
-            unreachable!(
-                "invariant: a press is routed only while the pointer drags no scrollbar and pans nothing"
-            )
-        };
-        route
+        self.routed_mut()
+            .expect("invariant: the pointer gesture is routed")
+    }
+
+    pub(super) fn reset_gesture(&mut self) -> Option<NodeId> {
+        let capture = self.capture();
+        match self {
+            Self::Mouse(t) => t.gesture = MouseGesture::default(),
+            Self::Touch(t) => t.gesture = TouchGesture::default(),
+            Self::Pen(t) => t.route = Route::default(),
+        }
+        capture
     }
 }
 
@@ -203,8 +345,10 @@ pub(crate) struct PointerSource {
     pub(crate) id: PointerId,
     /// Mouse, touch or pen.
     pub(crate) kind: PointerKind,
+    // xtask-allow(state-fields): optional shell sample data, independent of primary identity.
     /// The pressure at its last event, when reported.
     pub(crate) pressure: Option<f64>,
+    // xtask-allow(state-fields): optional shell sample data, independent of pressure.
     /// The pen's tilt at its last event, when reported.
     pub(crate) tilt: Option<(f64, f64)>,
     /// The buttons held after its last event (none after a `Cancel`).
@@ -256,29 +400,47 @@ impl PointerState {
     /// Drop removed and leaving nodes.
     pub(crate) fn forget_missing(&mut self, tree: &NodeTree) {
         for track in self.tracks.values_mut() {
-            track.hover.retain(|n| tree.live(*n));
-            if track.over.is_some_and(|n| !tree.live(n)) {
-                track.over = None;
+            if let Some(hover) = track.hover_mut() {
+                hover.chain.retain(|n| tree.live(*n));
             }
-            let ended = match &mut track.gesture {
-                Gesture::Route(route) => {
-                    if route.capture.is_some_and(|n| !tree.live(n)) {
-                        route.capture = None;
-                    }
-                    if let Some(press) = &mut route.press {
-                        press.chain.retain(|n| tree.live(*n));
-                        if press.target.is_some_and(|t| !tree.live(t.node)) {
-                            press.target = None;
-                        }
-                    }
-                    false
+            if track.over().is_some_and(|n| !tree.live(n)) {
+                track.set_over(None);
+            }
+            if let Some(route) = track.routed_mut() {
+                if route.capture.is_some_and(|n| !tree.live(n)) {
+                    route.capture = None;
                 }
-                Gesture::Scrollbar(drag) => !tree.live(drag.node),
-                Gesture::Pan(_) => false,
-            };
-            if ended {
-                track.gesture = Gesture::default();
+                if let Some(press) = &mut route.press {
+                    press.chain.retain(|n| tree.live(*n));
+                    if press.target.is_some_and(|t| !tree.live(t.node)) {
+                        press.target = None;
+                    }
+                }
+            }
+            if let Track::Mouse(mouse) = track
+                && let MouseGesture::SelectText { editor, route } = &mut mouse.gesture
+                && !tree.live(*editor)
+            {
+                mouse.gesture = MouseGesture::Route(std::mem::take(route));
+            }
+            if matches!(track, Track::Mouse(MouseTrack { gesture: MouseGesture::Scrollbar(drag), .. }) if !tree.live(drag.node))
+            {
+                track.reset_gesture();
             }
         }
+    }
+
+    pub(crate) fn mouse(&self) -> &MouseTrack {
+        let Track::Mouse(mouse) = self.track(PointerId::MOUSE) else {
+            unreachable!("invariant: the mouse id belongs to the mouse");
+        };
+        mouse
+    }
+
+    pub(super) fn mouse_mut(&mut self) -> &mut MouseTrack {
+        let Track::Mouse(mouse) = self.track_mut(PointerId::MOUSE) else {
+            unreachable!("invariant: the mouse id belongs to the mouse");
+        };
+        mouse
     }
 }

@@ -11,7 +11,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .any(|t| t.hover.contains(&id))
+            .any(|t| t.chain().contains(&id))
     }
 
     /// The nearest ancestor of `id` that is a group.
@@ -84,7 +84,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .any(|t| t.pressed().contains(&id) && t.hover.contains(&id))
+            .any(|t| t.pressed().contains(&id) && t.chain().contains(&id))
     }
 
     /// The node under the pointer: the head of the first non-empty hover
@@ -94,7 +94,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .find_map(|t| t.hover.first().copied())
+            .find_map(|t| t.chain().first().copied())
     }
 
     /// The cursor the mouse shows, decided by the first of the mouse's
@@ -107,7 +107,7 @@ impl Model {
         for id in mouse
             .capture()
             .into_iter()
-            .chain(mouse.hover.iter().copied())
+            .chain(mouse.chain().iter().copied())
         {
             if let Some(n) = self.tree.get(id) {
                 let specified = self.effective_paint(id).cursor;

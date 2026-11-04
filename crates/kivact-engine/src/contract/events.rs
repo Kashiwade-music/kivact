@@ -55,7 +55,7 @@ pub enum HostEvent {
     /// window, a cancelled pointer, a hit removed, hidden or outside the
     /// shown modal).
     HoverChanged {
-        node: Option<NodeId>,
+        target: Option<kivact_types::FocusTarget>,
     },
     /// Passive mouse location in logical window pixels, even without a hit.
     MousePosition(Option<Point>),
