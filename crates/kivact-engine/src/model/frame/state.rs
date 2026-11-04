@@ -67,6 +67,12 @@ impl Default for Frame {
 }
 
 impl Frame {
+    /// Schedule motion at the current host time.
+    pub(crate) fn request_motion_frame(&mut self) -> u64 {
+        self.frames.0.insert(self.now);
+        self.now
+    }
+
     /// The host clock (ns) of the event or turn being handled.
     pub(crate) fn set_now(&mut self, now: u64) {
         self.now = now;

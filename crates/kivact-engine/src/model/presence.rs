@@ -30,5 +30,6 @@
 //!   one, a node neither enters nor leaves: it shows its paint and goes at
 //!   once.
 
+mod size;
 pub(crate) mod state;
 mod transitions;

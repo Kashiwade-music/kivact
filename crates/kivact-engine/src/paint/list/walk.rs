@@ -96,6 +96,21 @@ impl Walk<'_> {
             None => (None, clip, origin),
         };
         let clips = n.clips();
+        let presence_clip = host.presence.sizes.get(&id).map(|m| {
+            let mut rect = clip;
+            match m.axis {
+                kivact_types::Orientation::Horizontal => {
+                    rect.x = o.x;
+                    rect.width = layout.size.width;
+                }
+                kivact_types::Orientation::Vertical => {
+                    rect.y = o.y;
+                    rect.height = layout.size.height;
+                }
+                kivact_types::Orientation::Unspecified => {}
+            }
+            rect
+        });
         // Group opacity over more than one thing it draws.
         let content = match n.kind() {
             _ if host.editors[n.index.0]
@@ -133,6 +148,7 @@ impl Walk<'_> {
             transform,
             alpha,
             clips,
+            presence_clip,
             rounded: look.rounded,
             own: visible,
             layers,
@@ -157,6 +173,7 @@ impl Walk<'_> {
         } else {
             clip
         };
+        let child_clip = presence_clip.map_or(child_clip, |p| child_clip.intersect(&p));
         let scroll = n.scroll();
         // The children's layout locations are relative to this origin.
         let base = Point {

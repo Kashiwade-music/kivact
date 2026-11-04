@@ -1,7 +1,7 @@
 //! Role: Owns derived layout columns and their pending computation state.
 use crate::{GeometryChanges, LayoutDifference, LayoutTree, LeafMeasurer, NodeLayout};
 use crate::{LayoutState, NodeLayoutColumns};
-use kivact_types::{NodeId, Size};
+use kivact_types::{NodeId, Orientation, Size};
 
 /// Derived layout and invalidation for one structural slot allocation domain.
 #[derive(Clone, Default)]
@@ -17,6 +17,21 @@ impl Layout {
     /// Reset an allocated zero-based structural slot before reuse.
     pub fn reset(&mut self, slot: usize) {
         self.columns.reset(slot);
+    }
+    /// Scale one output axis while retaining the natural layout of its children.
+    /// The slot must belong to this layout's allocated structural domain.
+    pub fn set_presence_scale(&mut self, slot: usize, scale: Option<(Orientation, f64)>) {
+        let current = &mut self.columns.values.presence_scale[slot + 1];
+        if *current == scale {
+            return;
+        }
+        *current = scale;
+        // A changed scale changes the cache key of every ancestor. This API
+        // borrows no topology, so expire all dependent cached outputs together.
+        for cache in &mut self.columns.values.caches {
+            cache.clear();
+        }
+        self.state.changed = true;
     }
     /// Rebuild one live node style from its authoritative properties.
     pub fn rebuild_style<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId) {

@@ -171,6 +171,9 @@ impl Model {
         if step.own {
             self.paint_box(step, &p, &outline, clip_path.is_some(), &tint, out);
         }
+        if let Some(clip) = step.presence_clip {
+            out.push(D::PushClip(clip));
+        }
         if step.clips {
             // Closed as the list says (a rect clip or a rounded layer).
             let padding =
@@ -297,6 +300,9 @@ impl Model {
             } else {
                 D::PopClip
             });
+        }
+        if step.presence_clip.is_some() {
+            out.push(D::PopClip);
         }
         out.extend(std::iter::repeat_n(D::PopLayer, usize::from(step.layers)));
         if step.transform.is_some() {

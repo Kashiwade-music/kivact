@@ -3,7 +3,7 @@
 use crate::calcs::Calcs;
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
-use kivact_types::{LeafSize, MeasureRequest, Point, Rect, Size};
+use kivact_types::{LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
 
 /// The computed layout of one node.
@@ -99,6 +99,8 @@ pub(crate) struct NodeLayoutState {
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {
     pub(crate) styles: Vec<NodeStyle>,
+    pub(crate) presence_scale: Vec<Option<(Orientation, f64)>>,
+    pub(crate) natural_size: Vec<Option<taffy::Size<f32>>>,
     pub(crate) caches: Vec<taffy::Cache>,
     pub(crate) unrounded: Vec<taffy::Layout>,
     pub(crate) final_layout: Vec<Option<taffy::Layout>>,
@@ -113,6 +115,8 @@ impl Default for NodeLayoutValues {
     fn default() -> Self {
         Self {
             styles: vec![NodeStyle::default()],
+            presence_scale: vec![None],
+            natural_size: vec![None],
             caches: vec![taffy::Cache::new()],
             unrounded: vec![taffy::Layout::new()],
             final_layout: vec![None],
@@ -169,6 +173,8 @@ impl NodeLayoutColumns {
         self.states.push(NodeLayoutState::default());
         let values = &mut self.values;
         values.styles.push(NodeStyle::default());
+        values.presence_scale.push(None);
+        values.natural_size.push(None);
         values.caches.push(taffy::Cache::new());
         values.unrounded.push(taffy::Layout::new());
         values.final_layout.push(None);
@@ -188,6 +194,8 @@ impl NodeLayoutColumns {
         self.cursors[index] = ChildCursor::default();
         let values = &mut self.values;
         values.styles[index] = NodeStyle::default();
+        values.presence_scale[index] = None;
+        values.natural_size[index] = None;
         values.caches[index] = taffy::Cache::new();
         values.unrounded[index] = taffy::Layout::new();
         values.final_layout[index] = None;

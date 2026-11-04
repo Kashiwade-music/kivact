@@ -105,6 +105,13 @@ fn layout(s: &Style) -> LayoutProps {
         None => (ov, ov),
     };
     LayoutProps {
+        enter_size: s.enter_size,
+        exit_size: s.exit_size,
+        size_transition: s
+            .transitions
+            .iter()
+            .find(|(p, _)| *p == super::sheet::TransitionProp::Size)
+            .map(|(_, t)| t.clone()),
         direction: s.direction.unwrap_or(Direction::Column),
         align_items: s.align,
         align_self: s.align_self,
@@ -378,6 +385,8 @@ const DELTA: &[&str] = &[
 /// classified here.
 fn set_properties(s: &Style) -> Vec<&'static str> {
     let Style {
+        enter_size,
+        exit_size,
         local_paint,
         padding,
         margin,
@@ -457,6 +466,8 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
             out.push(name);
         }
     };
+    add(enter_size.is_some(), "enter_size");
+    add(exit_size.is_some(), "exit_size");
     add(local_paint.is_some(), "paint");
     add(*padding != sides, "padding");
     add(*margin != sides, "margin");

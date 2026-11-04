@@ -41,7 +41,9 @@ use crate::{
     Flow, GeometryChange, GeometryChangeKind, LayoutState, LayoutTree, LeafMeasurer, NodeLayout,
     NodeLayoutColumns, NodeLayoutState, NodeLayoutValues,
 };
-use kivact_types::{AvailableSpace, Baseline, MeasureRequest, NodeId, Point, Rect, Size};
+use kivact_types::{
+    AvailableSpace, Baseline, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
+};
 use taffy::{
     CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
     LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,
@@ -55,6 +57,9 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     no_grid: &'a TStyle,
     records: &'a mut [NodeLayoutState],
     styles: &'a [NodeStyle],
+    item_styles: &'a [NodeStyle],
+    presence_scale: &'a [Option<(Orientation, f64)>],
+    natural_size: &'a mut [Option<taffy::Size<f32>>],
     caches: &'a mut [taffy::Cache],
     unrounded: &'a mut [Layout],
     final_layout: &'a mut [Option<Layout>],
@@ -168,6 +173,62 @@ fn same_from_outside(before: &LayoutOutput, after: &LayoutOutput) -> bool {
         && reach(before) == reach(after)
 }
 
+fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs) -> Option<f32> {
+    use taffy::style::CompactLength;
+    match value.tag() {
+        CompactLength::LENGTH_TAG => Some(value.value()),
+        CompactLength::PERCENT_TAG => basis.map(|basis| basis * value.value()),
+        CompactLength::CALC_TAG => {
+            basis.map(|basis| calcs.resolve(value.into_raw().calc_value(), basis))
+        }
+        _ => None,
+    }
+}
+
+fn scaled_dimension(
+    value: taffy::Dimension,
+    scale: f64,
+    calcs: &Calcs,
+    alloc: &mut CalcAlloc<'_>,
+) -> taffy::Dimension {
+    use taffy::style::CompactLength;
+    match value.tag() {
+        CompactLength::LENGTH_TAG => taffy::Dimension::length(value.value() * scale as f32),
+        CompactLength::PERCENT_TAG => taffy::Dimension::percent(value.value() * scale as f32),
+        CompactLength::CALC_TAG => {
+            let handle = value.into_raw().calc_value();
+            let px = f64::from(calcs.resolve(handle, 0.0));
+            let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
+            taffy::Dimension::calc(alloc.calc(percent * scale, px * scale))
+        }
+        _ => value,
+    }
+}
+
+fn scaled_length(
+    value: taffy::LengthPercentageAuto,
+    scale: f64,
+    calcs: &Calcs,
+    alloc: &mut CalcAlloc<'_>,
+) -> taffy::LengthPercentageAuto {
+    use taffy::style::CompactLength;
+    match value.into_raw().tag() {
+        CompactLength::LENGTH_TAG => {
+            taffy::LengthPercentageAuto::length(value.into_raw().value() * scale as f32)
+        }
+        CompactLength::PERCENT_TAG => {
+            taffy::LengthPercentageAuto::percent(value.into_raw().value() * scale as f32)
+        }
+        CompactLength::CALC_TAG => {
+            let handle = value.into_raw().calc_value();
+            let px = f64::from(calcs.resolve(handle, 0.0));
+            let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
+            taffy::LengthPercentageAuto::calc(alloc.calc(percent * scale, px * scale))
+        }
+        _ => value,
+    }
+}
+
 fn from_taffy(space: taffy::AvailableSpace) -> AvailableSpace {
     match space {
         taffy::AvailableSpace::Definite(v) => AvailableSpace::Definite(f64::from(v)),
@@ -205,15 +266,63 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
             return taffy::compute_hidden_layout(self, t);
         }
         let output = taffy::compute_cached_layout(self, t, inputs, |pass, t, inputs| {
-            match (
+            let scale = pass.presence_scale[usize::from(t)];
+            let mut natural_inputs = inputs;
+            let mut natural = pass.natural_size[usize::from(t)];
+            if let Some((axis, _)) = scale {
+                let style = &pass.styles[usize::from(t)];
+                let preferred = match axis {
+                    Orientation::Horizontal => {
+                        resolve_dimension(style.size.width, inputs.parent_size.width, pass.calcs)
+                    }
+                    Orientation::Vertical => {
+                        resolve_dimension(style.size.height, inputs.parent_size.height, pass.calcs)
+                    }
+                    Orientation::Unspecified => None,
+                };
+                if let Some(preferred) = preferred {
+                    let natural = natural.get_or_insert(taffy::Size::ZERO);
+                    match axis {
+                        Orientation::Horizontal => natural.width = preferred,
+                        Orientation::Vertical => natural.height = preferred,
+                        Orientation::Unspecified => {}
+                    }
+                }
+            }
+            // Restore an intrinsic outer size that the parent read from this
+            // hook. Preserve independent flex or grid allocations unchanged.
+            if let (Some((axis, scale)), Some(natural)) = (scale, natural) {
+                let (known, natural) = match axis {
+                    Orientation::Horizontal => {
+                        (&mut natural_inputs.known_dimensions.width, natural.width)
+                    }
+                    Orientation::Vertical => {
+                        (&mut natural_inputs.known_dimensions.height, natural.height)
+                    }
+                    Orientation::Unspecified => {
+                        (&mut natural_inputs.known_dimensions.width, natural.width)
+                    }
+                };
+                if known.is_some_and(|known| known == natural * scale as f32) {
+                    *known = Some(natural);
+                }
+            }
+            let mut output = match (
                 pass.styles[usize::from(t)].display,
                 pass.child_count(t) == 0,
             ) {
                 (Display::None, _) => taffy::compute_hidden_layout(pass, t),
-                (Display::Grid, false) => taffy::compute_grid_layout(pass, t, inputs),
-                (_, false) => taffy::compute_flexbox_layout(pass, t, inputs),
-                (_, true) => pass.leaf(t, inputs),
+                (Display::Grid, false) => taffy::compute_grid_layout(pass, t, natural_inputs),
+                (_, false) => taffy::compute_flexbox_layout(pass, t, natural_inputs),
+                (_, true) => pass.leaf(t, natural_inputs),
+            };
+            pass.natural_size[usize::from(t)] = Some(output.size);
+            match scale {
+                Some((Orientation::Horizontal, scale)) => output.size.width *= scale as f32,
+                Some((Orientation::Vertical, scale)) => output.size.height *= scale as f32,
+                None | Some((Orientation::Unspecified, _)) => {}
             }
+            output
         });
         if inputs.run_mode == RunMode::PerformLayout {
             self.performed[usize::from(t)] = Some(inputs);
@@ -257,7 +366,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutFlexboxContainer for LayoutPass<'_, Tree> 
 
     #[inline(always)]
     fn get_flexbox_child_style(&self, t: TId) -> Self::FlexboxItemStyle<'_> {
-        &self.styles[usize::from(t)]
+        &self.item_styles[usize::from(t)]
     }
 }
 
@@ -282,7 +391,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutGridContainer for LayoutPass<'_, Tree> {
 
     #[inline(always)]
     fn get_grid_child_style(&self, t: TId) -> Self::GridItemStyle<'_> {
-        &self.styles[usize::from(t)]
+        &self.item_styles[usize::from(t)]
     }
 }
 
@@ -530,12 +639,64 @@ impl NodeLayoutColumns {
         } = self;
         let NodeLayoutValues {
             styles,
+            presence_scale,
+            natural_size,
             caches,
             unrounded,
             final_layout,
             geometry_changed,
             performed,
         } = values;
+        let mut pass_calcs = std::borrow::Cow::Borrowed(&*calcs);
+        let mut item_styles = presence_scale
+            .iter()
+            .any(Option::is_some)
+            .then(|| styles.clone());
+        for (index, (style, scale)) in item_styles
+            .iter_mut()
+            .flat_map(|styles| styles.iter_mut())
+            .zip(presence_scale.iter())
+            .enumerate()
+        {
+            let Some((axis, scale)) = *scale else {
+                continue;
+            };
+            if axis == Orientation::Unspecified {
+                continue;
+            }
+            let mut alloc = CalcAlloc {
+                calcs: pass_calcs.to_mut(),
+                owned: Vec::new(),
+            };
+            let (size, min, max) = match axis {
+                Orientation::Horizontal => (
+                    &mut style.size.width,
+                    &mut style.min_size.width,
+                    &mut style.max_size.width,
+                ),
+                Orientation::Vertical => (
+                    &mut style.size.height,
+                    &mut style.min_size.height,
+                    &mut style.max_size.height,
+                ),
+                Orientation::Unspecified => continue,
+            };
+            *size = scaled_dimension(*size, scale, calcs, &mut alloc);
+            *min = scaled_length(*min, scale, calcs, &mut alloc);
+            *max = scaled_length(*max, scale, calcs, &mut alloc);
+            if axis == Orientation::Horizontal {
+                style.min_width_floor *= scale as f32;
+            }
+            if let Some(parent) = index.checked_sub(1).and_then(|slot| tree.parent(slot)) {
+                let row = matches!(
+                    styles[parent + 1].flex_direction,
+                    taffy::FlexDirection::Row | taffy::FlexDirection::RowReverse
+                );
+                if row == (axis == Orientation::Horizontal) {
+                    style.flex_basis = scaled_dimension(style.flex_basis, scale, calcs, &mut alloc);
+                }
+            }
+        }
         let mut pass = LayoutPass {
             tree,
             traversal: Traversal {
@@ -543,10 +704,13 @@ impl NodeLayoutColumns {
                 cursors,
                 state,
             },
-            calcs,
+            calcs: &pass_calcs,
             no_grid: &state.no_grid,
             records: states,
             styles,
+            item_styles: item_styles.as_deref().unwrap_or(styles),
+            presence_scale,
+            natural_size,
             caches,
             unrounded,
             final_layout,

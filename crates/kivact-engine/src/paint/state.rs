@@ -142,6 +142,7 @@ pub(crate) struct Step {
     /// times its ancestors').
     pub(super) alpha: f64,
     pub(super) clips: bool,
+    pub(super) presence_clip: Option<Rect>,
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
     pub(super) rounded: bool,

@@ -366,6 +366,12 @@ pub enum Display {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutProps {
     pub display: Display,
+    /// Axis revealed during entrance.
+    pub enter_size: Option<crate::Orientation>,
+    /// Axis collapsed during removal.
+    pub exit_size: Option<crate::Orientation>,
+    /// Timing shared by presence size changes.
+    pub size_transition: Option<crate::motion::Transition>,
     /// Main-axis direction of the flex container.
     pub direction: FlexDirection,
     /// Default cross-axis child alignment; absent uses stretch.
@@ -430,6 +436,9 @@ pub struct LayoutProps {
 impl Default for LayoutProps {
     fn default() -> Self {
         LayoutProps {
+            enter_size: None,
+            exit_size: None,
+            size_transition: None,
             direction: FlexDirection::Column,
             align_items: None,
             align_self: None,
