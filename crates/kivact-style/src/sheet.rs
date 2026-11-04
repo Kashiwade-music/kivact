@@ -261,6 +261,7 @@ pub struct Style {
     pub(super) exit_size: Option<kivact_types::Orientation>,
     pub(super) enter: Option<Box<Style>>,
     pub(super) exit: Option<Box<Style>>,
+    pub(super) layout_transition: Option<Transition>,
     pub(super) transitions: Vec<(TransitionProp, Transition)>,
     pub(super) duplicates: u32,
 }
@@ -920,6 +921,11 @@ impl Style {
     }
 
     /// Animate changes of a property group with `t`.
+    pub fn layout_transition(mut self, transition: Transition) -> Self {
+        self.layout_transition = Some(transition);
+        self
+    }
+
     pub fn transition(mut self, prop: TransitionProp, t: Transition) -> Self {
         self.transitions.retain(|(p, _)| *p != prop);
         self.transitions.push((prop, t));
@@ -1077,6 +1083,9 @@ impl Style {
                     None => (**b).clone(),
                 }));
             }
+        }
+        if o.layout_transition.is_some() {
+            self.layout_transition = o.layout_transition.clone();
         }
         for t in &o.transitions {
             self.transitions.retain(|(p, _)| *p != t.0);

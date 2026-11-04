@@ -176,6 +176,16 @@ pub enum Kind {
     },
 }
 
+/// Timing when an active animation receives a new target.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Retarget {
+    /// Start again with the configured duration.
+    #[default]
+    Restart,
+    /// Scale duration by the distance to the new target.
+    Proportional,
+}
+
 /// How a value moves to a new target.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transition {
@@ -189,6 +199,8 @@ pub struct Transition {
     pub direction: PlayDirection,
     /// Allow the host to suppress this transition for reduced motion.
     pub decorative: bool,
+    /// Timing policy when interrupted.
+    pub retarget: Retarget,
 }
 
 /// Copy `values` into `out`, component by component.
@@ -228,6 +240,37 @@ impl SpringRun {
 }
 
 impl Transition {
+    /// Choose timing when the target changes during a run.
+    pub fn retarget(mut self, retarget: Retarget) -> Self {
+        self.retarget = retarget;
+        self
+    }
+
+    /// Derive timing for an interrupted component animation.
+    #[doc(hidden)]
+    pub fn retargeted(&self, from: &[f64], to: &[f64], current: &[f64], target: &[f64]) -> Self {
+        let mut timing = self.clone();
+        if self.retarget == Retarget::Proportional {
+            let distance = |a: &[f64], b: &[f64]| {
+                a.iter()
+                    .zip(b)
+                    .map(|(a, b)| (b - a).powi(2))
+                    .sum::<f64>()
+                    .sqrt()
+            };
+            let original = distance(from, to);
+            if original > f64::EPSILON {
+                let ratio = distance(current, target) / original;
+                match &mut timing.kind {
+                    Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => *ms *= ratio,
+                    Kind::Spring(_) => {}
+                }
+                timing.delay_ms = 0.0;
+            }
+        }
+        timing
+    }
+
     /// Play absolute component keyframes in offset order.
     pub fn keyframes<T: crate::Animatable>(
         frames: impl IntoIterator<Item = (f64, T)>,
@@ -255,6 +298,7 @@ impl Transition {
             repeat: Repeat::Times(1),
             direction: PlayDirection::Normal,
             decorative: true,
+            retarget: Retarget::Restart,
         }
     }
 
