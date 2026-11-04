@@ -72,10 +72,10 @@ impl Sink {
 }
 
 pub(crate) fn event(rt: &Runtime, text: Arguments<'_>) {
-    if let Some(sink) = Trace::of(rt).sink.borrow_mut().as_mut() {
-        if sink.host_events {
-            sink.line(text);
-        }
+    let mut state = Trace::of(rt).sink.borrow_mut();
+    let Some(sink) = state.as_mut() else { return };
+    if sink.host_events {
+        sink.line(text);
     }
 }
 
@@ -122,9 +122,20 @@ pub(crate) fn stage(rt: &Runtime, name: &str) {
 pub(crate) fn record(rt: &Runtime) {
     let mut state = Trace::of(rt).sink.borrow_mut();
     let Some(sink) = state.as_mut() else { return };
-    if sink.stage {
-        if let Some(record) = rt.turns().last() {
-            sink.line(format_args!("stage {:?} events={} causes={:?} writes={:?} reruns={:?} runs={} ops={} notes={:?}", record.turn, record.events, record.causes, record.writes, record.reruns, record.runs, record.ops, record.notes));
-        }
+    if !sink.stage {
+        return;
+    }
+    if let Some(record) = rt.turns().last() {
+        sink.line(format_args!(
+            "stage {:?} events={} causes={:?} writes={:?} reruns={:?} runs={} ops={} notes={:?}",
+            record.turn,
+            record.events,
+            record.causes,
+            record.writes,
+            record.reruns,
+            record.runs,
+            record.ops,
+            record.notes
+        ));
     }
 }

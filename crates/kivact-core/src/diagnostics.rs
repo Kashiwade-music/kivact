@@ -4,7 +4,13 @@
 //! `target/kivact-trace/<test-name>.txt`. `KIVACT_TRACE` selects `stage`,
 //! `semantics`, and `host_events` with a comma-separated list. These traces
 //! include semantic and host event values, in observed order, and omit wall
-//! clock durations. Multiple screens use the same suffixes as failure artifacts.
+//! clock durations. `stage` records phase entries and structured turn summaries;
+//! `semantics` records node changes observed at phase and commit boundaries;
+//! `host_events` records incoming events, commits, and turn outputs. Files keep
+//! observation order. Test names come from the test thread, with the render
+//! location as a fallback; multiple screens use the same numeric suffixes as
+//! failure artifacts. `CARGO_TARGET_DIR` overrides the target directory.
+//! Release builds do not read this variable or record comparison traces.
 //!
 //! Diagnostics: errors routed to the default sink (read back with
 //! [`errors`]), a ring buffer of
