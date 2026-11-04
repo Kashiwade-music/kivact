@@ -2478,6 +2478,7 @@ wave W6。付録 C の作業。
     `arvane`・`kivact-engine` の `gpu`・`gpu-interop`・`embed`、`kivact-style` の `gpu-interop`、`kivact-core` の `gpu` を消す。facade の `arvane-render`・`arvane-native` は optional の直接の依存（feature を有効にするためだけ。code から使わない）。
   - 間の crate（`arvane`、`kivact-engine`、`kivact-style`、`kivact-core` の内部）は経路を常に compile する。実装がないときは実行時に `Unsupported` か「GPU なし」になる。
   - `arvane-render` は feature `gpu` がなくても `GpuContext`・`GpuSurface`・`GpuEnv` を同じ名前で公開する: `gpu` なしでは `pub enum GpuContext {}`・`pub enum GpuSurface {}`（値がない型。メソッドは `match *self {}`）、`GpuContext::new(..)` は `Err(RenderError::NoAdapter("built without the gpu feature".into()))`、`GpuEnv::from_env(..)` は値を読まない空の struct。`pub const GPU_BUILT: bool = cfg!(feature = "gpu");`（arvane の `Capabilities.gpu` は今の `cfg!(feature = "gpu")` の代わりにこれを読む）。外部の texture の import（`gpu-interop`）も同じく、feature なしでは `Unsupported` の `Failure` を返す関数を常に出す。
+  - render の外部 texture import の既存 `Result<(), RenderError>` は維持し、未対応は `RenderError::External`。`arvane` の公開境界で `FailureKind::Unsupported` を返す。
   - `arvane-native` の `embed` なし: `arvane_native::embed::open` は常にあり、`Unsupported` を返す。
   - core の `gpu-interop`・`embed` の feature は公開 API（`kivact::gpu_interop`、`view::viewport(..).gpu_frame(..)`、`App::embed`、`kivact::embed`）の `cfg` だけを持つ。core の中の engine を呼ぶ経路は常に compile する。
 - **手順**:

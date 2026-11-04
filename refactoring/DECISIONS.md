@@ -2,6 +2,7 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | X-1 | render の import は Failure ではなく RenderError を返す | 既存署名を維持し未対応は External、arvane の公開境界で Unsupported にする。新しい error variant は足さない。 |
 | 2026-11-05 | A-3 | 遅延 activation と snapshot が最新 focus を要する | AcceptedTree の focus は削除し Shared の最新 update 値だけを保持。PlatformUpdate::focus() で渡し木の差分計算を除く。 |
 | 2026-11-05 | fix-G3-1 | core test と virtual backend が同じ MirrorMode を定義する | engine 経由で virtual の正準 enum を再公開し、環境読取りは core の private 関数へ。公開 path と設定挙動は維持。 |
 | 2026-11-05 | A-1b | 新しい描画経路で診断 turn と queue state の既存期待が変わる | why の turn を 3、待機中 queue を Pending に更新。残る順序・latest・回復 assertion は維持し公開 API E2E 285 件成功。 |
