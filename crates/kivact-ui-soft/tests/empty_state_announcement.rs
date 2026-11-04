@@ -1,5 +1,4 @@
 //! Role: Verify Empty State speaks only after initial render and while eligible.
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 
 use kivact::state::signal;

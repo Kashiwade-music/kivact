@@ -37,11 +37,13 @@ pub struct AvatarGroupOverflow {
 pub fn avatar_group_overflow(count: impl IntoValue<i64>) -> AvatarGroupOverflow {
     let count = count.into_value();
     AvatarGroupOverflow {
-        root: node().role(Role::Image).name(message_with(
-            "soft.avatar_group.overflow",
-            "{count} more",
-            move || [("count", count.get().max(0).to_string())],
-        )),
+        root: node()
+            .with_node(move |node| node.role(Role::Image))
+            .name(message_with(
+                "soft.avatar_group.overflow",
+                "{count} more",
+                move || [("count", count.get().max(0).to_string())],
+            )),
         count,
         content: None,
         press: None,
@@ -57,7 +59,7 @@ impl AvatarGroupOverflow {
     /// Open the full list when pressed.
     pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
-        self.root = self.root.role(Role::Button);
+        self.root = self.root.with_node(move |node| node.role(Role::Button));
         self.press = Some(Box::new(move || action.call(())));
         self
     }
@@ -95,8 +97,9 @@ impl IntoView for AvatarGroupOverflow {
                 root.focusable(true)
             };
         }
-        let label =
-            text(move || content.map_or_else(|| format!("+{}", count.max(0)), |value| value.get()));
+        let label = text(move || {
+            content.map_or_else(|| format!("+{}", count.get().max(0)), |value| value.get())
+        });
         let surface = node()
             .style(move || {
                 let p = tokens();
@@ -115,25 +118,27 @@ impl IntoView for AvatarGroupOverflow {
                     .text_wrap(false)
             })
             .child(label);
-        root.base_style(move || {
-            let p = tokens();
-            let look = style()
-                .height(side + 4.0)
-                .min_width(side + 4.0)
-                .shrink(0)
-                .radius(shape.radius())
-                .background(p.colors.bg_surface)
-                .border(2, p.colors.bg_surface);
-            let look = if grouped {
-                group_frame(look, side, rtl)
-            } else {
-                look
-            };
-            if interactive {
-                avatar_focus(look.cursor(Cursor::Pointer))
-            } else {
-                look
-            }
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let look = style()
+                    .height(side + 4.0)
+                    .min_width(side + 4.0)
+                    .shrink(0)
+                    .radius(shape.radius())
+                    .background(p.colors.bg_surface)
+                    .border(2, p.colors.bg_surface);
+                let look = if grouped {
+                    group_frame(look, side, rtl)
+                } else {
+                    look
+                };
+                if interactive {
+                    avatar_focus(look.cursor(Cursor::Pointer))
+                } else {
+                    look
+                }
+            })
         })
         .child(surface)
         .into_view()

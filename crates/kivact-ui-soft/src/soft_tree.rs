@@ -156,9 +156,11 @@ impl<K: ItemKey> IntoView for TreeList<K> {
             tree = tree.on_activate(move |key| activate.call(key));
         }
         let header_ref = node_ref();
-        let mut root = root.part(tree.list()).name(label);
+        let mut root = root
+            .with_node(move |node| node.part(tree.list()))
+            .name(label);
         if header.is_some() {
-            root = root.labelled_by(header_ref);
+            root = root.with_node(move |node| node.labelled_by(header_ref));
         }
         let rows = tree.rows();
         let has_branches =
@@ -173,9 +175,9 @@ impl<K: ItemKey> IntoView for TreeList<K> {
             let row_key = key.clone();
             let chevron = branch.then(|| {
                 node()
-                    .role(Role::Button)
+                    .with_node(move |node| node.role(Role::Button))
                     .disabled(move || state.get().input.disabled)
-                    .expanded(move || state.get().branch.is_expanded())
+                    .with_node(move |node| node.expanded(move || state.get().branch.is_expanded()))
                     .name(message("soft.tree_list.toggle_children", "Toggle children"))
                     .on_press(move || tree.toggle(key.clone()))
                     .style(
@@ -216,66 +218,70 @@ impl<K: ItemKey> IntoView for TreeList<K> {
                     .into_view()
             };
             node()
-                .part(attachment)
-                .base_style(move || {
-                    let p = tokens();
-                    let state = state.get();
-                    let level = state.level.saturating_sub(1);
-                    let mut style = style()
-                        .direction(if rtl {
-                            Direction::RowReverse
-                        } else {
-                            Direction::Row
-                        })
-                        .position(Position::Relative)
-                        .align_items(Align::Center)
-                        .min_width(0)
-                        .gap(8)
-                        .padding_y(density.get().padding())
-                        .padding_left(if rtl { 8 } else { 8 + level * 16 })
-                        .padding_right(if rtl { 8 + level * 16 } else { 8 })
-                        .radius(p.radius.element)
-                        .color(p.colors.text_primary)
-                        .hover(style().background(p.colors.overlay_hover))
-                        .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring));
-                    if state.selected {
-                        style = style.background(p.colors.accent_muted);
-                    }
-                    if let Some(ancestors) = guides
-                        .and_then(|guides| guides.with(|guides| guides.get(&row_key).cloned()))
-                        && !ancestors.is_empty()
-                    {
-                        let mut lines: Vec<_> = ancestors
-                            .into_iter()
-                            .skip(1)
-                            .map(|last| (!last).then_some(true))
-                            .collect();
-                        lines.push(Some(!row.with(|row| row.is_last())));
-                        let guide = p.colors.border_emphasized;
-                        style = style.paint(move |draw, size| {
-                            for (ancestor, extend) in lines.iter().enumerate() {
-                                if let Some(extend) = extend {
-                                    let inset = 16.0 + ancestor as f64 * 16.0;
-                                    let x = if rtl {
-                                        size.width - inset - 0.5
-                                    } else {
-                                        inset - 0.5
-                                    };
-                                    let height = if *extend {
-                                        size.height + 2.0
-                                    } else {
-                                        size.height
-                                    };
-                                    draw.rounded_rect(
-                                        kivact::geometry::Rect::new(x, 0.0, 1.0, height),
-                                        0.5,
-                                        guide,
-                                    );
+                .with_node(move |node| node.part(attachment))
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let p = tokens();
+                        let state = state.get();
+                        let level = state.level.saturating_sub(1);
+                        let mut style = style()
+                            .direction(if rtl {
+                                Direction::RowReverse
+                            } else {
+                                Direction::Row
+                            })
+                            .position(Position::Relative)
+                            .align_items(Align::Center)
+                            .min_width(0)
+                            .gap(8)
+                            .padding_y(density.get().padding())
+                            .padding_left(if rtl { 8 } else { 8 + level * 16 })
+                            .padding_right(if rtl { 8 + level * 16 } else { 8 })
+                            .radius(p.radius.element)
+                            .color(p.colors.text_primary)
+                            .hover(style().background(p.colors.overlay_hover))
+                            .focus_visible(
+                                style().ring(p.sizes.focus_ring_width, p.colors.focus_ring),
+                            );
+                        if state.selected {
+                            style = style.background(p.colors.accent_muted);
+                        }
+                        if let Some(ancestors) = guides
+                            .and_then(|guides| guides.with(|guides| guides.get(&row_key).cloned()))
+                            && !ancestors.is_empty()
+                        {
+                            let mut lines: Vec<_> = ancestors
+                                .into_iter()
+                                .skip(1)
+                                .map(|last| (!last).then_some(true))
+                                .collect();
+                            lines.push(Some(!row.with(|row| row.is_last())));
+                            let guide = p.colors.border_emphasized;
+                            style = style.paint(move |draw, size| {
+                                for (ancestor, extend) in lines.iter().enumerate() {
+                                    if let Some(extend) = extend {
+                                        let inset = 16.0 + ancestor as f64 * 16.0;
+                                        let x = if rtl {
+                                            size.width - inset - 0.5
+                                        } else {
+                                            inset - 0.5
+                                        };
+                                        let height = if *extend {
+                                            size.height + 2.0
+                                        } else {
+                                            size.height
+                                        };
+                                        draw.rounded_rect(
+                                            kivact::geometry::Rect::new(x, 0.0, 1.0, height),
+                                            0.5,
+                                            guide,
+                                        );
+                                    }
                                 }
-                            }
-                        });
-                    }
-                    style
+                            });
+                        }
+                        style
+                    })
                 })
                 .child((
                     chevron,
@@ -294,8 +300,10 @@ impl<K: ItemKey> IntoView for TreeList<K> {
         };
         column((
             header.map(|header| node().node_ref(header_ref).child(header)),
-            root.base_style(style().direction(Direction::Column).gap(2))
-                .child(rows),
+            root.with_node(move |node| {
+                node.base_style(style().direction(Direction::Column).gap(2))
+            })
+            .child(rows),
         ))
         .into_view()
     }

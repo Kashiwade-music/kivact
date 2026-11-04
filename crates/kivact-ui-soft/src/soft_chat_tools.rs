@@ -191,7 +191,7 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
         format!("{glyph} {}", status_label.get())
     })
     .name(status_label)
-    .hidden(move || matches!(status, ToolStatus::Pending | ToolStatus::Running))
+    .hidden(move || matches!(status.get(), ToolStatus::Pending | ToolStatus::Running))
     .style(move || {
         let p = tokens();
         style()
@@ -284,7 +284,7 @@ impl IntoView for ChatToolCalls {
         let open = expanded.unwrap_or_else(|| signal(false).into_binding());
         let multiple = memo(move || calls.with(|calls| calls.len() > 1));
         let rows_open = binding(
-            move || !multiple || open.get(),
+            move || !multiple.get() || open.get(),
             move |shown| open.set(shown),
         );
         let disclosure = use_disclosure(rows_open);
@@ -336,10 +336,10 @@ impl IntoView for ChatToolCalls {
             },
         );
         let trigger = node()
-            .part(disclosure.trigger())
+            .with_node(move |node| node.part(disclosure.trigger()))
             .name(title)
             .hidden(move || !multiple.get())
-            .base_style(disclosure_style)
+            .with_node(move |node| node.base_style(disclosure_style))
             .child((preview, heading, tool_chevron(open)));
         let rows_visible = rows_open.into_value();
         let items = for_each(
@@ -369,17 +369,17 @@ impl IntoView for ChatToolCalls {
                     );
                     let trigger_ref = node_ref();
                     let trigger = node()
-                        .part(disclosure.trigger())
+                        .with_node(move |node| node.part(disclosure.trigger()))
                         .name(detail_label)
                         .description(status)
                         .node_ref(trigger_ref)
-                        .base_style(disclosure_style)
+                        .with_node(move |node| node.base_style(disclosure_style))
                         .child((summary.style(style().grow(1)), tool_chevron(expanded)));
                     let content = node()
-                        .role(Role::Group)
+                        .with_node(move |node| node.role(Role::Group))
                         .name(detail_label)
-                        .part(disclosure.content())
-                        .hidden(move || !rows_visible || !expanded.get())
+                        .with_node(move |node| node.part(disclosure.content()))
+                        .hidden(move || !rows_visible.get() || !expanded.get())
                         .on_key(move |event: KeyEvent| {
                             if event.key() == Key::Escape {
                                 expanded.set(false);
@@ -395,28 +395,30 @@ impl IntoView for ChatToolCalls {
                 } else {
                     column((summary, error)).style(style().padding_x(6))
                 };
-                summary.role(Role::ListItem)
+                summary.with_node(move |node| node.role(Role::ListItem))
             },
         );
         let measured = node_ref();
         let items = column(items)
-            .role(Role::List)
+            .with_node(move |node| node.role(Role::List))
             .name(title)
             .node_ref(measured)
             .style(style().gap(2).shrink(0));
         let items = column(items)
-            .role(Role::Group)
-            .part(disclosure.content())
+            .with_node(move |node| node.role(Role::Group))
+            .with_node(move |node| node.part(disclosure.content()))
             .style(style().clip(true))
             .style(reveal.container_style(measured));
         root.hidden(move || calls.with(Vec::is_empty))
-            .base_style(
-                style()
-                    .direction(Direction::Column)
-                    .gap(2)
-                    .margin_top(8)
-                    .font_size(12),
-            )
+            .with_node(move |node| {
+                node.base_style(
+                    style()
+                        .direction(Direction::Column)
+                        .gap(2)
+                        .margin_top(8)
+                        .font_size(12),
+                )
+            })
             .child((trigger, items))
             .into_view()
     }
@@ -465,18 +467,20 @@ fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Co
 
 pub fn chat_token(token: ChatToken) -> impl kivact::view::Component {
     let tone = token.tone;
-    text(token.label).base_style(move || {
-        let (fill, ink) = token_colors(tone);
-        style()
-            .height(20)
-            .padding_x(8)
-            .radius(10)
-            .font_size(12)
-            .line_height(20.0 / 12.0)
-            .weight(500)
-            .single_line()
-            .background(fill)
-            .color(ink)
+    text(token.label).with_node(move |node| {
+        node.base_style(move || {
+            let (fill, ink) = token_colors(tone);
+            style()
+                .height(20)
+                .padding_x(8)
+                .radius(10)
+                .font_size(12)
+                .line_height(20.0 / 12.0)
+                .weight(500)
+                .single_line()
+                .background(fill)
+                .color(ink)
+        })
     })
 }
 
@@ -498,7 +502,7 @@ fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
         }
         let (fill, ink) = token_colors(token.tone);
         spans.push(
-            span(&token.label)
+            span(token.label.clone())
                 .font_size(12)
                 .weight(500)
                 .background(fill)
@@ -546,7 +550,7 @@ pub fn streaming_text(
             target: target.get(),
             animated: streaming.get()
                 && speed != StreamSpeed::Instant
-                && !kivact::platform::reduced_motion().get(),
+                && !kivact::platform::is_motion_reduced().get(),
             speed,
         },
         |_, ()| {},
@@ -556,7 +560,7 @@ pub fn streaming_text(
             (
                 target.get(),
                 streaming.get(),
-                kivact::platform::reduced_motion().get(),
+                kivact::platform::is_motion_reduced().get(),
             )
         },
         |_| StreamEvent::Changed,

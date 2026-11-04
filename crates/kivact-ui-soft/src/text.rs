@@ -222,7 +222,11 @@ impl Text {
 
     /// Give the text heading semantics without changing its appearance.
     pub fn heading_level(mut self, level: impl IntoValue<u32>) -> Self {
-        self.root = self.root.role(Role::Heading).level(level).name(self.value);
+        self.root = self
+            .root
+            .with_node(move |node| node.role(Role::Heading))
+            .with_node(move |node| node.level(level))
+            .name(self.value);
         self
     }
 
@@ -257,40 +261,42 @@ impl IntoView for Text {
             tabular_numbers,
             capsize,
         } = self;
-        let root = root.base_style(move || {
-            let tokens = tokens();
-            let mut look = type_style(
-                &tokens,
-                kind.get(),
-                heading,
-                size.map(|v| v.get()),
-                color.map(|v| v.get()),
-                weight.map(|v| v.get()),
-            );
-            if capsize.get() {
-                look = look.text_capsize(true);
-            }
-            look = look.text_align(match (justify.get(), use_direction().get()) {
-                (TextJustify::Start, ReadingDirection::Ltr)
-                | (TextJustify::End, ReadingDirection::Rtl) => TextAlign::Start,
-                (TextJustify::Center, _) => TextAlign::Center,
-                _ => TextAlign::End,
-            });
-            if let Some(wrap) = wrap {
-                look = look.text_wrap(wrap != TextWrap::NoWrap);
-            }
-            look = match max_lines.get() {
-                0 => look,
-                1 => look.single_line(),
-                n => look.min_width(0).line_clamp(n),
-            };
-            if strikethrough.get() {
-                look = look.text_decoration(TextDecorationLine::LINE_THROUGH);
-            }
-            if tabular_numbers.get() {
-                look = look.tabular_nums();
-            }
-            look
+        let root = root.with_node(move |node| {
+            node.base_style(move || {
+                let tokens = tokens();
+                let mut look = type_style(
+                    &tokens,
+                    kind.get(),
+                    heading,
+                    size.map(|v| v.get()),
+                    color.map(|v| v.get()),
+                    weight.map(|v| v.get()),
+                );
+                if capsize.get() {
+                    look = look.text_capsize(true);
+                }
+                look = look.text_align(match (justify.get(), use_direction().get()) {
+                    (TextJustify::Start, ReadingDirection::Ltr)
+                    | (TextJustify::End, ReadingDirection::Rtl) => TextAlign::Start,
+                    (TextJustify::Center, _) => TextAlign::Center,
+                    _ => TextAlign::End,
+                });
+                if let Some(wrap) = wrap {
+                    look = look.text_wrap(wrap != TextWrap::NoWrap);
+                }
+                look = match max_lines.get() {
+                    0 => look,
+                    1 => look.single_line(),
+                    n => look.min_width(0).line_clamp(n),
+                };
+                if strikethrough.get() {
+                    look = look.text_decoration(TextDecorationLine::LINE_THROUGH);
+                }
+                if tabular_numbers.get() {
+                    look = look.tabular_nums();
+                }
+                look
+            })
         });
         let placement = match truncate_tooltip.get() {
             TruncateTooltip::Off => None,
@@ -316,9 +322,9 @@ fn type_style(
     tokens: &Tokens,
     kind: TextKind,
     heading: Option<u32>,
-    size: Option<Value<TextSize>>,
-    color: Option<Value<TextColor>>,
-    weight: Option<Value<TextWeight>>,
+    size: Option<TextSize>,
+    color: Option<TextColor>,
+    weight: Option<TextWeight>,
 ) -> Style {
     let t = &tokens.typography;
     let metrics = match kind {

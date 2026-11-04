@@ -86,7 +86,9 @@ pub fn toggle_button_group<K: ItemKey>(
     value: impl IntoSelection<K>,
 ) -> ToggleButtonGroup<K> {
     ToggleButtonGroup {
-        root: node().role(Role::Group).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::Group))
+            .name(label),
         items: items.into_value(),
         selection: value.into_selection(),
         size: (ControlSize::Medium).into_value(),
@@ -145,16 +147,18 @@ impl<K: ItemKey> IntoView for ToggleButtonGroup<K> {
         let selection = self.selection;
         let pressed_icon = self.pressed_icon;
         self.root
-            .base_style(
-                style()
-                    .direction(direction)
-                    .gap(4)
-                    .align_items(if vertical {
-                        Align::Stretch
-                    } else {
-                        Align::Center
-                    }),
-            )
+            .with_node(move |node| {
+                node.base_style(
+                    style()
+                        .direction(direction)
+                        .gap(4)
+                        .align_items(if vertical {
+                            Align::Stretch
+                        } else {
+                            Align::Center
+                        }),
+                )
+            })
             .child(for_each(
                 self.items,
                 |item| item.key().clone(),
@@ -164,7 +168,7 @@ impl<K: ItemKey> IntoView for ToggleButtonGroup<K> {
                     let pressed = selection_member(&selection, key);
                     let control = toggle_button(move || item.get().label(), pressed)
                         .size(size)
-                        .disabled(move || disabled || item.get().is_disabled());
+                        .disabled(move || disabled.get() || item.get().is_disabled());
                     let has_icon = item.get().icon().is_some() || alternate.is_some();
                     if has_icon {
                         control

@@ -53,8 +53,7 @@ fn reduced_motion_progress_pulses_in_place() {
     let screen = render_with(
         RenderOptions::from_env()
             .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .reduced_motion()
-            .get(),
+            .reduced_motion(),
         || {
             progress(None::<f64>)
                 .name("Preparing")

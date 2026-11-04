@@ -407,7 +407,7 @@ impl IntoView for CodeBlock {
                     }),
                     label,
                 ))
-                .part(disclosure.trigger())
+                .with_node(move |node| node.part(disclosure.trigger()))
                 .name(disclosure_label)
                 .style(|| style().gap(tokens().spacing.s1).align_items(Align::Center))
             } else {
@@ -457,9 +457,9 @@ impl IntoView for CodeBlock {
                     .style(style().shrink(0))
             },
         ))
-        .role(Role::Group)
+        .with_node(move |node| node.role(Role::Group))
         .name(viewport_label)
-        .part(disclosure.content())
+        .with_node(move |node| node.part(disclosure.content()))
         .style(style().clip(true))
         .style(reveal.container_style(measured));
         let inside = if has_header {
@@ -493,25 +493,27 @@ impl IntoView for CodeBlock {
                 }),
             ))
         };
-        root.base_style(move || {
-            let p = tokens();
-            let look = style()
-                .direction(Direction::Column)
-                .min_width(0)
-                .max_width(pct(100));
-            let look = match width.get() {
-                CodeBlockWidth::Fit => look.align_self(Align::Start),
-                CodeBlockWidth::Fill => look.width(pct(100)),
-                CodeBlockWidth::Px(width) => look.width(width),
-            };
-            if container.get() == CodeBlockContainer::Card {
-                look.background(palette.get().background)
-                    .border(p.sizes.border_width, p.colors.border)
-                    .radius(p.radius.element)
-                    .clip(true)
-            } else {
-                look
-            }
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let look = style()
+                    .direction(Direction::Column)
+                    .min_width(0)
+                    .max_width(pct(100));
+                let look = match width.get() {
+                    CodeBlockWidth::Fit => look.align_self(Align::Start),
+                    CodeBlockWidth::Fill => look.width(pct(100)),
+                    CodeBlockWidth::Px(width) => look.width(width),
+                };
+                if container.get() == CodeBlockContainer::Card {
+                    look.background(palette.get().background)
+                        .border(p.sizes.border_width, p.colors.border)
+                        .radius(p.radius.element)
+                        .clip(true)
+                } else {
+                    look
+                }
+            })
         })
         .child(inside)
         .child(

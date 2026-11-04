@@ -16,6 +16,7 @@ use kivact::view::row;
 use kivact::view::scroll;
 use kivact::view::text;
 
+use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
 use kivact::state::Binding;
 use kivact::state::IntoText;
@@ -36,7 +37,6 @@ use kivact::style::pct;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
-use kivact::ui::Side;
 use kivact::ui::button;
 use kivact::view::IntoView;
 use kivact::view::NodeRef;
@@ -268,7 +268,7 @@ impl IntoView for MobileNav {
             let drawer = mobile.drawer_ref().unwrap_or_else(node_ref);
             let fallback = kivact::i18n::message("soft.mobile_nav.navigation", "Navigation");
             let label = label.or(header).unwrap_or(fallback);
-            let behavior = use_dialog(open, DialogMode::Drawer(Side::Right));
+            let behavior = use_dialog(open, DialogMode::Drawer(Edge::Right));
             root.child(show(behavior.is_open(), move || {
                 let right = match side.get() {
                     DrawerSide::Start => rtl(),
@@ -297,11 +297,11 @@ impl IntoView for MobileNav {
                         )
                 });
                 let title = if let Some(header_view) = &header_view {
-                    Some(header_view())
+                    Some(header_view.call(()))
                 } else {
                     header.map(|label| {
                         text(label)
-                            .part(behavior.title())
+                            .with_node(move |node| node.part(behavior.title()))
                             .style(|| {
                                 let t = tokens();
                                 let text = t.typography.heading2;
@@ -390,7 +390,7 @@ impl IntoView for MobileNav {
                 (
                     scrim,
                     overlay(anchor, Placement::Center, panel)
-                        .part(behavior.content())
+                        .with_node(move |node| node.part(behavior.content()))
                         .name(label),
                 )
             }))
@@ -451,12 +451,14 @@ impl IntoView for MobileNavToggle {
                 .icon(glyph.unwrap_or_else(|| icon("menu").into_view()))
                 .hide_label(true)
                 .on_press(move || mobile.toggle())
-                .with_node(move |node| node.expanded(move || mobile.is_open()));
+                .with_node(move |node| {
+                    node.with_node(move |node| node.expanded(move || mobile.is_open()))
+                });
             if let Some(toggle) = mobile.context.map(|context| context.toggle) {
                 trigger = trigger.node_ref(toggle);
             }
             if let Some(drawer) = mobile.drawer_ref() {
-                trigger = trigger.controls(drawer);
+                trigger = trigger.with_node(move |node| node.controls(drawer));
             }
             root.hidden(move || !mobile.is_mobile())
                 .child(trigger)

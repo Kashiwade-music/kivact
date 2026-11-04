@@ -75,26 +75,28 @@ impl IntoView for FormLayout {
             content,
             context,
         } = self;
-        root.base_style(move || {
-            let spacing = tokens().spacing;
-            let base = style().gap(spacing.s4);
-            match context.direction {
-                FormDirection::Horizontal => base
-                    .display(kivact::style::Display::Grid)
-                    .grid_auto_flow(GridAutoFlow::Column)
-                    .grid_auto_columns(Track::fr(1)),
-                FormDirection::HorizontalLabels
-                    if kivact::platform::window_size().get().width > 480.0 =>
-                {
-                    base.display(kivact::style::Display::Grid)
-                        .grid_template_columns((Track::from(auto()), Track::fr(1)))
-                        .row_gap(spacing.s3)
-                        .align_items(Align::Start)
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let spacing = tokens().spacing;
+                let base = style().gap(spacing.s4);
+                match context.direction {
+                    FormDirection::Horizontal => base
+                        .display(kivact::style::Display::Grid)
+                        .grid_auto_flow(GridAutoFlow::Column)
+                        .grid_auto_columns(Track::fr(1)),
+                    FormDirection::HorizontalLabels
+                        if kivact::platform::window_size().get().width > 480.0 =>
+                    {
+                        base.display(kivact::style::Display::Grid)
+                            .grid_template_columns((Track::from(auto()), Track::fr(1)))
+                            .row_gap(spacing.s3)
+                            .align_items(Align::Start)
+                    }
+                    _ => base
+                        .direction(Direction::Column)
+                        .align_items(Align::Stretch),
                 }
-                _ => base
-                    .direction(Direction::Column)
-                    .align_items(Align::Stretch),
-            }
+            })
         })
         .child(provide(context, move || content))
         .into_view()
@@ -105,24 +107,26 @@ impl IntoView for FormLayout {
 pub fn form_row(label: impl IntoView, field: impl IntoView) -> impl IntoView {
     (
         node()
-            .base_style(move || {
-                let cx = kivact::state::try_use_context::<FormLayoutCx>()
-                    .map(|value| value.get())
-                    .unwrap_or_default();
-                let t = tokens();
-                let base = style();
-                if cx.direction == FormDirection::HorizontalLabels
-                    && kivact::platform::window_size().get().width > 480.0
-                {
-                    let base = base.padding_top(t.sizes.border_width + t.spacing.s1);
-                    if rtl() {
-                        base.align_self(Align::End)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let cx = kivact::state::try_use_context::<FormLayoutCx>()
+                        .map(|value| value.get())
+                        .unwrap_or_default();
+                    let t = tokens();
+                    let base = style();
+                    if cx.direction == FormDirection::HorizontalLabels
+                        && kivact::platform::window_size().get().width > 480.0
+                    {
+                        let base = base.padding_top(t.sizes.border_width + t.spacing.s1);
+                        if rtl() {
+                            base.align_self(Align::End)
+                        } else {
+                            base
+                        }
                     } else {
                         base
                     }
-                } else {
-                    base
-                }
+                })
             })
             .child(label),
         field,

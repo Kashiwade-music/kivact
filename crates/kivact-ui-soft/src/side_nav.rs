@@ -57,7 +57,6 @@ use kivact::view::View;
 use kivact::view::node_ref;
 use kivact::view::overlay;
 use kivact::view::show;
-use std::rc::Rc;
 use std::time::Duration;
 
 #[derive(Clone, Copy, Default)]
@@ -119,8 +118,8 @@ pub struct SideNav {
 pub fn side_nav(children: impl IntoView) -> SideNav {
     SideNav {
         root: node()
-            .role(Role::Navigation)
-            .name(message("soft.side_nav.label", "Side navigation")),
+            .with_node(move |node| node.role(Role::Navigation))
+            .name(message("soft.side_nav.label", "Edge navigation")),
         children: children.into_view(),
         header: None,
         top: None,
@@ -138,7 +137,7 @@ impl SideNav {
         self
     }
     pub fn top_content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.top = Some(Rc::new(move || content.into_view()));
+        self.top = Some(content.into_view_fn());
         self
     }
     pub fn footer<V: IntoView>(mut self, footer: impl IntoViewFn<V>) -> Self {
@@ -185,15 +184,17 @@ impl IntoView for SideNav {
         } = self;
         provide((), move || {
             let mode = shell_nav_mode();
-            let root = root.base_style(move || {
-                style()
-                    .direction(if mode == ShellNavMode::MobileBar {
-                        logical_row()
-                    } else {
-                        Direction::Column
-                    })
-                    .min_width(0)
-                    .min_height(0)
+            let root = root.with_node(move |node| {
+                node.base_style(move || {
+                    style()
+                        .direction(if mode == ShellNavMode::MobileBar {
+                            logical_row()
+                        } else {
+                            Direction::Column
+                        })
+                        .min_width(0)
+                        .min_height(0)
+                })
             });
             if mode == ShellNavMode::MobileBar {
                 return root
@@ -375,7 +376,7 @@ impl IntoView for SideNav {
                     .pill_placement(PillPlacement::End)
                     .always_visible(false)
                     .name(message("soft.side_nav.resize", "Resize sidebar"))
-                    .controls(nav_ref)
+                    .with_node(move |node| node.controls(nav_ref))
             });
             root.child((controls, grip))
         })
@@ -455,7 +456,7 @@ impl IntoView for SideNavCollapseButton {
                 .size(size.get())
                 .icon(glyph)
                 .hide_label(label.is_none())
-                .expanded(move || !collapsed.get())
+                .with_node(move |node| node.expanded(move || !collapsed.get()))
                 .on_press(move || collapsed.set(!collapsed.get()));
             root.child(tooltip(title).placement(Placement::End).attach(trigger))
                 .into_view()
@@ -463,6 +464,7 @@ impl IntoView for SideNavCollapseButton {
     }
 }
 
+#[derive(Clone)]
 pub enum ItemCollapse {
     AlwaysOpen,
     Uncontrolled { default_collapsed: bool },
@@ -588,7 +590,7 @@ impl IntoView for SideNavItem {
                 ItemCollapse::Controlled(binding) => Some(binding),
             };
             let open = collapse.map(|collapse: Binding<bool>| {
-                binding(move || !collapse, move |open| collapse.set(!open))
+                binding(move || !collapse.get(), move |open| collapse.set(!open))
             });
             let (disclosure, reveal) = if let Some(open) = open.filter(|_| has_children) {
                 let disclosure = use_disclosure(open).disabled(disabled);
@@ -619,7 +621,7 @@ impl IntoView for SideNavItem {
                 );
                 let pinned = signal(false);
                 Some(binding(
-                    move || cx.rail() && (pinned || delayed.is_open().get()),
+                    move || cx.rail() && (pinned.get() || delayed.is_open().get()),
                     move |open| {
                         pinned.set(open);
                         if !open {
@@ -675,7 +677,7 @@ impl IntoView for SideNavItem {
                     .size(ControlSize::Small)
                     .hide_label(true)
                     .icon(glyph)
-                    .part(disclosure.trigger())
+                    .with_node(move |node| node.part(disclosure.trigger()))
                     .hidden(move || cx.rail())
                     .into_view()
                 } else {
@@ -691,17 +693,23 @@ impl IntoView for SideNavItem {
             let primary = node()
                 .node_ref(anchor)
                 .name(label)
-                .role(if action.is_some() {
-                    Role::Link
-                } else {
-                    Role::Button
+                .with_node(move |node| {
+                    node.role(if action.is_some() {
+                        Role::Link
+                    } else {
+                        Role::Button
+                    })
                 })
                 .focusable(move || {
                     !disabled.get() && (action.is_some() || disclosure.is_some() || popup.is_some())
                 })
                 .disabled(disabled)
                 .selected(selected)
-                .current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
+                .with_node(move |node| {
+                    node.current_item(move || {
+                        selected.get().then_some(kivact::view::CurrentItem::Page)
+                    })
+                })
                 .style(move || {
                     style()
                         .direction(logical_row())
@@ -720,7 +728,7 @@ impl IntoView for SideNavItem {
                 .child((leading, selected_glyph, label_view, end, inline_chevron));
             let primary = if !independent {
                 if let Some(disclosure) = disclosure.filter(|_| popup.is_none()) {
-                    primary.part(disclosure.trigger())
+                    primary.with_node(move |node| node.part(disclosure.trigger()))
                 } else {
                     primary
                 }
@@ -781,11 +789,11 @@ impl IntoView for SideNavItem {
                             let measured = node_ref();
                             let height = reveal.container_style(measured);
                             column(group.node_ref(measured).style(style().shrink(0)))
-                                .role(Role::Group)
-                                .part(disclosure.content())
+                                .with_node(move |node| node.role(Role::Group))
+                                .with_node(move |node| node.part(disclosure.content()))
                                 .style(move || height.get())
                         } else {
-                            group.role(Role::Group)
+                            group.with_node(move |node| node.role(Role::Group))
                         }
                     })
                 },
@@ -830,12 +838,12 @@ impl IntoView for SideNavItem {
                     });
                     overlay(anchor, Placement::End, surface)
                         .offset(4)
-                        .part(behavior.content())
+                        .with_node(move |node| node.part(behavior.content()))
                         .name(title)
                 })
             });
             root.hidden(move || cx.rail() && !has_icon)
-                .base_style(style().direction(Direction::Column))
+                .with_node(move |node| node.base_style(style().direction(Direction::Column)))
                 .child((bar, nested, flyout))
         })
     }
@@ -941,7 +949,9 @@ pub struct SideNavSection {
 pub fn side_nav_section(title: impl IntoText, children: impl IntoView) -> SideNavSection {
     let title = title.into_text_value();
     SideNavSection {
-        root: node().role(Role::Group).name(title),
+        root: node()
+            .with_node(move |node| node.role(Role::Group))
+            .name(title),
         title,
         subtitle: None,
         end: None,
@@ -993,7 +1003,7 @@ impl IntoView for SideNavSection {
                 column((title, subtitle.map(text))).style(style().grow(1).min_width(0)),
                 end,
             ))
-            .hidden(move || header_hidden || cx.rail())
+            .hidden(move || header_hidden.get() || cx.rail())
             .style(|| {
                 let t = tokens();
                 style()
@@ -1008,17 +1018,19 @@ impl IntoView for SideNavSection {
                     )
                     .color(t.colors.text_secondary)
             });
-            root.base_style(move || {
-                let t = tokens();
-                let base = style()
-                    .direction(Direction::Column)
-                    .padding_y(t.spacing.s1)
-                    .gap(t.spacing.s0_5);
-                if cx.rail() {
-                    base.align_items(Align::Center)
-                } else {
-                    base
-                }
+            root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let base = style()
+                        .direction(Direction::Column)
+                        .padding_y(t.spacing.s1)
+                        .gap(t.spacing.s0_5);
+                    if cx.rail() {
+                        base.align_items(Align::Center)
+                    } else {
+                        base
+                    }
+                })
             })
             .child((header, children))
         })

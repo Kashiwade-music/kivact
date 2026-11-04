@@ -75,7 +75,7 @@ pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
             palette.accent = ink;
             media.with_colors(palette).with(tokens)
         }),
-        content,
+        move || content,
     )
 }
 
@@ -88,7 +88,7 @@ pub fn syntax_theme(colors: SyntaxColors, content: impl IntoView) -> View {
             tokens.colors.syntax = colors;
             outer.with(tokens)
         }),
-        content,
+        move || content,
     )
 }
 

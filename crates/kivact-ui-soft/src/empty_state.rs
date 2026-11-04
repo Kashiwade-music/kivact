@@ -1,4 +1,5 @@
 //! Role: Present a centered empty-state title, description, and actions.
+use kivact::custom::NodeRefExt;
 
 use crate::{TextColor, TextJustify, TextKind, text, tokens};
 use kivact::interaction::announcer;
@@ -160,7 +161,7 @@ impl IntoView for EmptyState {
         ))
         .node_ref(source)
         .on_attach(move |_| {
-            let initial = kivact::platform::is_initial_render();
+            let initial = kivact::platform::is_initial_render().get();
             // Establish the empty live region before placing any text in it.
             on_mount(move || mounted.set(Some(initial)));
         })
@@ -192,22 +193,24 @@ impl IntoView for EmptyState {
                 .child(actions)
         });
 
-        root.base_style(move || {
-            let spacing = &tokens().spacing;
-            let (gap, padding_x, padding_y) = if compact.get() {
-                (spacing.s2, spacing.s4, spacing.s4)
-            } else {
-                (spacing.s4, spacing.s6, spacing.s8)
-            };
-            style()
-                .direction(Direction::Column)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .width(pct(100))
-                .min_width(0)
-                .gap(gap)
-                .padding_x(padding_x)
-                .padding_y(padding_y)
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let spacing = &tokens().spacing;
+                let (gap, padding_x, padding_y) = if compact.get() {
+                    (spacing.s2, spacing.s4, spacing.s4)
+                } else {
+                    (spacing.s4, spacing.s6, spacing.s8)
+                };
+                style()
+                    .direction(Direction::Column)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .width(pct(100))
+                    .min_width(0)
+                    .gap(gap)
+                    .padding_x(padding_x)
+                    .padding_y(padding_y)
+            })
         })
         .child(icon.map(|icon| icon))
         .child(text_group)

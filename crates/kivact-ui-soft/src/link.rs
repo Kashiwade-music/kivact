@@ -171,13 +171,15 @@ impl IntoView for Link {
         let interactive = self.press.is_some();
         let attachment = part(|state| state);
         let input = attachment.state();
-        let mut root = self.root.part(attachment);
+        let mut root = self.root.with_node(move |node| node.part(attachment));
         if let Some(press) = self.press {
             root = root
-                .role(if self.as_button.get() {
-                    Role::Button
-                } else {
-                    Role::Link
+                .with_node(move |node| {
+                    node.role(if self.as_button.get() {
+                        Role::Button
+                    } else {
+                        Role::Link
+                    })
                 })
                 .focusable(true)
                 .disabled(disabled)
@@ -219,63 +221,65 @@ impl IntoView for Link {
         let color = self.color.get();
         let standalone = self.standalone.get();
         let lines = self.max_lines;
-        root.base_style(move || {
-            let t = tokens();
-            let typography = &t.typography;
-            let metrics = match kind {
-                TextKind::Body => Some(typography.body),
-                TextKind::Label => Some(typography.label),
-                TextKind::Supporting => Some(typography.supporting),
-                TextKind::Large => Some(typography.large),
-                TextKind::Code => Some(typography.code),
-                TextKind::Display1 => Some(typography.display1),
-                TextKind::Display2 => Some(typography.display2),
-                TextKind::Display3 => Some(typography.display3),
-                TextKind::Inherit if standalone => Some(typography.body),
-                TextKind::Inherit => None,
-            };
-            let ink = match color {
-                LinkColor::Accent => Some(t.colors.text_accent),
-                LinkColor::Primary => Some(t.colors.text_primary),
-                LinkColor::Secondary | LinkColor::Placeholder => Some(t.colors.text_secondary),
-                LinkColor::Disabled => Some(t.colors.text_disabled),
-                LinkColor::Inherit => None,
-            };
-            let mut base = style()
-                .direction(direction)
-                .align_items(Align::Center)
-                .gap(2)
-                .min_width(0)
-                .max_width(pct(100));
-            if let Some(metrics) = metrics {
-                base = base
-                    .font_family(metrics.family)
-                    .font_size(metrics.size_px)
-                    .weight(metrics.weight)
-                    .line_height(metrics.line_height_px / metrics.size_px);
-            }
-            if let Some(ink) = ink {
-                base = base.color(ink);
-            }
-            if let Some(size) = size {
-                base = base.font_size(size.get());
-            }
-            if let Some(weight) = weight {
-                base = base.weight(weight);
-            }
-            if underline || (interactive && !disabled && input.get().hovered) {
-                base = base.text_decoration(TextDecorationLine::UNDERLINE);
-            }
-            if disabled {
-                base.opacity(t.sizes.disabled_opacity)
-                    .cursor(Cursor::Default)
-            } else if interactive {
-                base.cursor(Cursor::Pointer)
-                    .pressed(style().background(t.colors.overlay_pressed))
-                    .focus_visible(ring(&t, t.colors.focus_ring))
-            } else {
-                base
-            }
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let t = tokens();
+                let typography = &t.typography;
+                let metrics = match kind {
+                    TextKind::Body => Some(typography.body),
+                    TextKind::Label => Some(typography.label),
+                    TextKind::Supporting => Some(typography.supporting),
+                    TextKind::Large => Some(typography.large),
+                    TextKind::Code => Some(typography.code),
+                    TextKind::Display1 => Some(typography.display1),
+                    TextKind::Display2 => Some(typography.display2),
+                    TextKind::Display3 => Some(typography.display3),
+                    TextKind::Inherit if standalone => Some(typography.body),
+                    TextKind::Inherit => None,
+                };
+                let ink = match color {
+                    LinkColor::Accent => Some(t.colors.text_accent),
+                    LinkColor::Primary => Some(t.colors.text_primary),
+                    LinkColor::Secondary | LinkColor::Placeholder => Some(t.colors.text_secondary),
+                    LinkColor::Disabled => Some(t.colors.text_disabled),
+                    LinkColor::Inherit => None,
+                };
+                let mut base = style()
+                    .direction(direction)
+                    .align_items(Align::Center)
+                    .gap(2)
+                    .min_width(0)
+                    .max_width(pct(100));
+                if let Some(metrics) = metrics {
+                    base = base
+                        .font_family(metrics.family)
+                        .font_size(metrics.size_px)
+                        .weight(metrics.weight)
+                        .line_height(metrics.line_height_px / metrics.size_px);
+                }
+                if let Some(ink) = ink {
+                    base = base.color(ink);
+                }
+                if let Some(size) = size {
+                    base = base.font_size(size.get());
+                }
+                if let Some(weight) = weight {
+                    base = base.weight(weight);
+                }
+                if underline || (interactive && !disabled && input.get().hovered) {
+                    base = base.text_decoration(TextDecorationLine::UNDERLINE);
+                }
+                if disabled {
+                    base.opacity(t.sizes.disabled_opacity)
+                        .cursor(Cursor::Default)
+                } else if interactive {
+                    base.cursor(Cursor::Pointer)
+                        .pressed(style().background(t.colors.overlay_pressed))
+                        .focus_visible(ring(&t, t.colors.focus_ring))
+                } else {
+                    base
+                }
+            })
         })
         .child(row(self.content).style(move || style().min_width(0).line_clamp(lines.get())))
         .child(

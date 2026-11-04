@@ -10,6 +10,7 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::button;
 use kivact::view::IntoView;
 use kivact::view::Node;
+use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::View;
 use kivact::view::column;
@@ -38,7 +39,7 @@ pub struct DialogHeader {
 pub fn dialog_header(title: impl IntoText) -> DialogHeader {
     DialogHeader {
         title: text(title)
-            .role(Role::Heading)
+            .with_node(move |node| node.role(Role::Heading))
             .style(|| {
                 let p = tokens();
                 style()

@@ -184,7 +184,7 @@ impl IntoView for Banner {
         let title = self.title;
         let elevation = self.elevation.get();
         let has_end = self.end.is_some();
-        let has_actions = has_end || self.dismissable || disclosure.is_some();
+        let has_actions = has_end || self.dismissable.get() || disclosure.is_some();
         let description = self.description;
         let has_description = description.is_some();
         let direction = if use_direction().get() == ReadingDirection::Rtl {
@@ -227,7 +227,7 @@ impl IntoView for Banner {
                 .variant(ButtonVariant::Ghost)
                 .hide_label(true)
                 .icon(chevron)
-                .part(details.trigger());
+                .with_node(move |node| node.part(details.trigger()));
             tooltip(label).attach(control)
         });
         let dismiss = self.dismissable.get().then(|| {
@@ -261,17 +261,19 @@ impl IntoView for Banner {
             tooltip(label).attach(control)
         });
         let action_area = has_actions.then(|| {
-            row((self.end, toggle, dismiss)).base_style(move || {
-                style()
-                    .direction(direction)
-                    .wrap(true)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::End)
-                    .gap(8)
-                    .shrink(0)
-                    .max_width(pct(100))
-                    .margin_y(-4)
-                    .color(tokens().colors.text_primary)
+            row((self.end, toggle, dismiss)).with_node(move |node| {
+                node.base_style(move || {
+                    style()
+                        .direction(direction)
+                        .wrap(true)
+                        .align_items(Align::Center)
+                        .justify_content(Justify::End)
+                        .gap(8)
+                        .shrink(0)
+                        .max_width(pct(100))
+                        .margin_y(-4)
+                        .color(tokens().colors.text_primary)
+                })
             })
         });
         let label = column((
@@ -280,10 +282,12 @@ impl IntoView for Banner {
                 text(description).style(style().font_size(12).line_height(20.0 / 12.0).weight(400))
             }),
         ))
-        .base_style(if has_end {
-            style().grow(1).basis(128).min_width(0)
-        } else {
-            style().grow(1).min_width(0)
+        .with_node(move |node| {
+            node.base_style(if has_end {
+                style().grow(1).basis(128).min_width(0)
+            } else {
+                style().grow(1).min_width(0)
+            })
         });
         let leading_icon = self.icon.unwrap_or_else(|| {
             icon(match status {
@@ -295,48 +299,52 @@ impl IntoView for Banner {
             .into_view()
         });
         let header =
-            row((icon_box(leading_icon, 20.0), label, action_area)).base_style(move || {
-                let t = tokens();
-                let background = match status {
-                    BannerStatus::Info => t.colors.info_muted,
-                    BannerStatus::Warning => t.colors.warning_muted,
-                    BannerStatus::Error => t.colors.error_muted,
-                    BannerStatus::Success => t.colors.success_muted,
-                };
-                let radius = if card { t.radius.container } else { 0.0 };
-                let bottom = if open() { 0.0 } else { radius };
-                style()
-                    .direction(direction)
-                    .wrap(true)
-                    .column_gap(8)
-                    .row_gap(12)
-                    .padding_y(12)
-                    .padding_x(16)
-                    .align_items(if has_actions && !has_description {
-                        Align::Center
-                    } else {
-                        Align::Start
-                    })
-                    .radius_corners(radius, radius, bottom, bottom)
-                    .background(background)
-                    .color(foreground())
+            row((icon_box(leading_icon, 20.0), label, action_area)).with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let background = match status {
+                        BannerStatus::Info => t.colors.info_muted,
+                        BannerStatus::Warning => t.colors.warning_muted,
+                        BannerStatus::Error => t.colors.error_muted,
+                        BannerStatus::Success => t.colors.success_muted,
+                    };
+                    let radius = if card { t.radius.container } else { 0.0 };
+                    let bottom = if open() { 0.0 } else { radius };
+                    style()
+                        .direction(direction)
+                        .wrap(true)
+                        .column_gap(8)
+                        .row_gap(12)
+                        .padding_y(12)
+                        .padding_x(16)
+                        .align_items(if has_actions && !has_description {
+                            Align::Center
+                        } else {
+                            Align::Start
+                        })
+                        .radius_corners(radius, radius, bottom, bottom)
+                        .background(background)
+                        .color(foreground())
+                })
             });
         let content = self.content.map(|content| {
             show(open, move || {
-                let mut area = column(content.call(())).base_style(move || {
-                    let t = tokens();
-                    let radius = if card { t.radius.container } else { 0.0 };
-                    style()
-                        .padding_y(12)
-                        .padding_x(16)
-                        .background(t.colors.bg_card)
-                        .radius_corners(0, 0, radius, radius)
-                        .border_left(1, t.colors.border)
-                        .border_right(1, t.colors.border)
-                        .border_bottom(1, t.colors.border)
+                let mut area = column(content.call(())).with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        let radius = if card { t.radius.container } else { 0.0 };
+                        style()
+                            .padding_y(12)
+                            .padding_x(16)
+                            .background(t.colors.bg_card)
+                            .radius_corners(0, 0, radius, radius)
+                            .border_left(1, t.colors.border)
+                            .border_right(1, t.colors.border)
+                            .border_bottom(1, t.colors.border)
+                    })
                 });
                 if let Some(details) = disclosure {
-                    area = area.part(details.content());
+                    area = area.with_node(move |node| node.part(details.content()));
                 }
                 area
             })
@@ -346,12 +354,14 @@ impl IntoView for Banner {
             root = root.node_ref(reference);
         }
         root.hidden(move || dismissed.get())
-            .base_style(move || {
-                let t = tokens();
-                elevation.apply(
-                    style().radius(if card { t.radius.container } else { 0.0 }),
-                    &t,
-                )
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    elevation.apply(
+                        style().radius(if card { t.radius.container } else { 0.0 }),
+                        &t,
+                    )
+                })
             })
             .child(header)
             .child(content)

@@ -1,4 +1,6 @@
 //! Role: Display a parsed keyboard shortcut as a sequence of key caps.
+use kivact::state::IntoValue;
+use kivact::view::NodeBuilder;
 
 use crate::tokens;
 use kivact::i18n::{message, message_with};
@@ -87,7 +89,7 @@ pub fn kbd(shortcut: &str) -> impl kivact::view::Component {
             })
         })
         .collect::<Vec<_>>())
-    .role(Role::Image)
+    .with_node(move |node| node.role(Role::Image))
     .name(name)
     .style(style().align_items(Align::Center).gap(4).shrink(0))
 }

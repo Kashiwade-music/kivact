@@ -1,5 +1,6 @@
 //! Role: The Neutral segmented radio presentation.
 use kivact::state::Value;
+use kivact::view::node;
 
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
@@ -9,7 +10,6 @@ use crate::recipe_style::{fast, ring};
 use kivact::interaction::ListItem;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
-use kivact::state::Signal;
 use kivact::state::effect;
 use kivact::state::signal;
 use kivact::style::Align;
@@ -64,7 +64,7 @@ pub struct SegmentedControl<K: ItemKey> {
     size: Value<ControlSize>,
     layout: Value<SegmentedLayout>,
     icon_only: Value<bool>,
-    disabled: Signal<bool>,
+    disabled: std::rc::Rc<std::cell::Cell<Value<bool>>>,
     disabled_reason: Option<kivact::state::Value<String>>,
 }
 
@@ -74,11 +74,12 @@ pub fn segmented_control<K: ItemKey>(
     options: impl IntoValue<Vec<ListItem<K>>>,
     value: impl IntoBinding<Option<K>>,
 ) -> SegmentedControl<K> {
-    let disabled = signal(false);
+    let disabled = std::rc::Rc::new(std::cell::Cell::new(false.into_value()));
+    let disabled_source = disabled.clone();
     let options = options.into_value();
     let options = move || {
         let items = options.get();
-        if disabled.get() {
+        if disabled_source.get().get() {
             items.into_iter().map(|item| item.disabled(true)).collect()
         } else {
             items
@@ -113,7 +114,7 @@ impl<K: ItemKey> SegmentedControl<K> {
     }
 
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled.set(disabled);
+        self.disabled.set(disabled.into_value());
         self
     }
 
@@ -134,7 +135,7 @@ impl<K: ItemKey> IntoView for SegmentedControl<K> {
     fn into_view(self) -> View {
         let icon_only = self.icon_only.get();
         let size = self.size.get();
-        let disabled = self.disabled.get_untracked();
+        let disabled = self.disabled.get();
         let focused = signal(None);
         let (hint_anchor, hint) = crate::toolbar::keyboard_hint(false, move || focused.get());
         let radio = self
@@ -144,7 +145,7 @@ impl<K: ItemKey> IntoView for SegmentedControl<K> {
             .item(move |item, state| {
                 let reference = node_ref();
                 effect(move || {
-                    if !disabled && state.get().input.focus_visible {
+                    if !disabled.get() && state.get().input.focus_visible {
                         focused.set(Some(reference));
                     } else if focused.get_untracked() == Some(reference) {
                         focused.set(None);
@@ -158,8 +159,11 @@ impl<K: ItemKey> IntoView for SegmentedControl<K> {
                             ControlSize::Medium => 16,
                             ControlSize::Large => 18,
                         };
-                        icon(move || item.icon().cloned().unwrap_or_else(|| "".into()))
-                            .style(style().size(side, side).shrink(0))
+                        icon(move || {
+                            item.with(|item| item.icon().cloned())
+                                .unwrap_or_else(|| "".into())
+                        })
+                        .style(style().size(side, side).shrink(0))
                     },
                 );
                 let label = (!icon_only).then(|| {
@@ -175,32 +179,32 @@ impl<K: ItemKey> IntoView for SegmentedControl<K> {
         } else {
             radio
         };
-        if disabled {
-            let radio = radio
-                .disabled(true)
-                .style(|| style().opacity(crate::tokens().sizes.disabled_opacity));
-            if let Some(reason) = self.disabled_reason {
-                tooltip(reason).attach(radio)
-            } else {
-                radio.into_view()
-            }
+        let radio = radio
+            .disabled(disabled)
+            .style(move || {
+                if disabled.get() {
+                    style().opacity(crate::tokens().sizes.disabled_opacity)
+                } else {
+                    style()
+                }
+            })
+            .on_key(move |event| {
+                if matches!(
+                    event.key(),
+                    kivact::view::Key::ArrowUp
+                        | kivact::view::Key::ArrowDown
+                        | kivact::view::Key::ArrowLeft
+                        | kivact::view::Key::ArrowRight
+                ) {
+                    hint_anchor.set(None);
+                }
+            });
+        let radio = if let Some(reason) = self.disabled_reason {
+            tooltip(reason).enabled(disabled).attach(radio)
         } else {
-            (
-                radio.on_key(move |event| {
-                    if matches!(
-                        event.key(),
-                        kivact::view::Key::ArrowUp
-                            | kivact::view::Key::ArrowDown
-                            | kivact::view::Key::ArrowLeft
-                            | kivact::view::Key::ArrowRight
-                    ) {
-                        hint_anchor.set(None);
-                    }
-                }),
-                hint,
-            )
-                .into_view()
-        }
+            radio.into_view()
+        };
+        (radio, node().hidden(disabled).child(hint)).into_view()
     }
 }
 

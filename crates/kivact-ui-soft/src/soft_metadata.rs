@@ -22,8 +22,6 @@ use kivact::view::NodeRef;
 use kivact::view::Orientation;
 use kivact::view::Role;
 use kivact::view::View;
-use kivact::view::column;
-use kivact::view::grid;
 use kivact::view::node;
 use kivact::view::node_ref;
 use kivact::view::row;
@@ -76,19 +74,21 @@ impl MetadataItem {
 
     fn render(self, position: Value<LabelPosition>, width: Value<Option<f64>>) -> View {
         let (root, label, value) = self.parts();
-        root.base_style(move || {
-            style()
-                .direction(if position.get() == LabelPosition::Start {
-                    Direction::Row
-                } else {
-                    Direction::Column
-                })
-                .gap(if position.get() == LabelPosition::Start {
-                    16
-                } else {
-                    2
-                })
-                .min_width(0)
+        root.with_node(move |node| {
+            node.base_style(move || {
+                style()
+                    .direction(if position.get() == LabelPosition::Start {
+                        Direction::Row
+                    } else {
+                        Direction::Column
+                    })
+                    .gap(if position.get() == LabelPosition::Start {
+                        16
+                    } else {
+                        2
+                    })
+                    .min_width(0)
+            })
         })
         .child((
             row(label).style(move || {
@@ -121,8 +121,8 @@ impl MetadataItem {
         .node_ref(label_ref)
         .style(style().gap(4).align_items(Align::Center).shrink(0));
         let value = node()
-            .role(Role::Group)
-            .labelled_by(label_ref)
+            .with_node(move |node| node.role(Role::Group))
+            .with_node(move |node| node.labelled_by(label_ref))
             .style(move || {
                 style()
                     .min_width(0)
@@ -340,20 +340,22 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                     let disclosure = use_disclosure(open);
                     let trigger = node()
                         .hidden(move || !has_extra.get())
-                        .part(disclosure.trigger())
+                        .with_node(move |node| node.part(disclosure.trigger()))
                         .name(label)
-                        .base_style(move || {
-                            let p = tokens();
-                            style()
-                                .align_self(Align::Start)
-                                .padding_x(8)
-                                .padding_y(4)
-                                .radius(p.radius.element)
-                                .color(p.colors.text_secondary)
-                                .hover(style().background(p.colors.overlay_hover))
-                                .focus_visible(
-                                    style().ring(p.sizes.focus_ring_width, p.colors.focus_ring),
-                                )
+                        .with_node(move |node| {
+                            node.base_style(move || {
+                                let p = tokens();
+                                style()
+                                    .align_self(Align::Start)
+                                    .padding_x(8)
+                                    .padding_y(4)
+                                    .radius(p.radius.element)
+                                    .color(p.colors.text_secondary)
+                                    .hover(style().background(p.colors.overlay_hover))
+                                    .focus_visible(
+                                        style().ring(p.sizes.focus_ring_width, p.colors.focus_ring),
+                                    )
+                            })
                         })
                         .child(text(label));
                     trigger
@@ -361,7 +363,7 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                 (main, disclosure)
             },
         );
-        root.base_style(style().direction(Direction::Column).gap(8))
+        root.with_node(move |node| node.base_style(style().direction(Direction::Column).gap(8)))
             .child((title, children))
             .into_view()
     }

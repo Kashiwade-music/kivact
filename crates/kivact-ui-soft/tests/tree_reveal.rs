@@ -8,7 +8,6 @@ use kivact::style::style;
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::view::Key;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::node;
 use std::time::Duration;

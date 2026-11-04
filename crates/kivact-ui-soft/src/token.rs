@@ -178,56 +178,63 @@ impl IntoView for Token {
         };
         let interactive = self.press.is_some();
         let removable = self.remove.is_some();
-        let mut main = row(())
-            .base_style(move || {
-                let t = tokens();
-                let mut base = style()
-                    .direction(direction)
-                    .gap(4)
-                    .min_width(0)
-                    .height(height)
-                    .align_items(Align::Center)
-                    .padding_x(8)
-                    .radius(t.radius.inner);
-                if removable {
-                    base = match direction {
-                        Direction::RowReverse => base.padding_left(0),
-                        _ => base.padding_right(0),
-                    };
-                }
-                if interactive && !disabled {
-                    let theme = use_theme().get();
-                    let (fill, _) = color
-                        .hue(&t.colors.hue)
-                        .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
-                            (hue.bg, hue.text)
-                        });
-                    base = base
-                        .cursor(Cursor::Pointer)
-                        .hover(style().background(overlay(&theme, fill, t.colors.overlay_hover)))
-                        .pressed(style().background(overlay(
-                            &theme,
-                            fill,
-                            t.colors.overlay_pressed,
-                        )))
-                        .focus_visible(style().ring_none());
-                }
-                base
-            })
-            .child(self.icon.map(|icon| icon_box(icon, 12.0)))
-            .child(
-                (!self.label_hidden.get()).then(|| {
+        let mut main =
+            row(())
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        let mut base = style()
+                            .direction(direction)
+                            .gap(4)
+                            .min_width(0)
+                            .height(height)
+                            .align_items(Align::Center)
+                            .padding_x(8)
+                            .radius(t.radius.inner);
+                        if removable {
+                            base = match direction {
+                                Direction::RowReverse => base.padding_left(0),
+                                _ => base.padding_right(0),
+                            };
+                        }
+                        if interactive && !disabled {
+                            let theme = use_theme().get();
+                            let (fill, _) = color
+                                .hue(&t.colors.hue)
+                                .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
+                                    (hue.bg, hue.text)
+                                });
+                            base = base
+                                .cursor(Cursor::Pointer)
+                                .hover(style().background(overlay(
+                                    &theme,
+                                    fill,
+                                    t.colors.overlay_hover,
+                                )))
+                                .pressed(style().background(overlay(
+                                    &theme,
+                                    fill,
+                                    t.colors.overlay_pressed,
+                                )))
+                                .focus_visible(style().ring_none());
+                        }
+                        base
+                    })
+                })
+                .child(self.icon.map(|icon| icon_box(icon, 12.0)))
+                .child((!self.label_hidden.get()).then(|| {
                     text(label).style(style().min_width(0).text_wrap(false).line_clamp(1))
-                }),
-            )
-            .child(self.end);
+                }))
+                .child(self.end);
         if let Some(press) = self.press {
             main = main
                 .node_ref(main_ref)
-                .role(if self.as_link.get() {
-                    Role::Link
-                } else {
-                    Role::Button
+                .with_node(move |node| {
+                    node.role(if self.as_link.get() {
+                        Role::Link
+                    } else {
+                        Role::Button
+                    })
                 })
                 .name(label)
                 .disabled(disabled)
@@ -240,7 +247,7 @@ impl IntoView for Token {
         }
         let remove = self.remove.map(|remove| {
             row(icon_box(icon("x").into_view(), 12.0))
-                .role(Role::Button)
+                .with_node(move |node| node.role(Role::Button))
                 .name(kivact::i18n::message_with(
                     "soft.token.remove",
                     "Remove {label}",
@@ -248,52 +255,56 @@ impl IntoView for Token {
                 ))
                 .disabled(disabled)
                 .on_press(move || remove.call(()))
-                .base_style(move || {
-                    let t = tokens();
-                    style()
-                        .size(24, 24)
-                        .shrink(0)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .radius(t.radius.full)
-                        .cursor(if disabled {
-                            Cursor::Default
-                        } else {
-                            Cursor::Pointer
-                        })
-                        .focus_visible(ring(&t, t.colors.focus_ring))
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        style()
+                            .size(24, 24)
+                            .shrink(0)
+                            .align_items(Align::Center)
+                            .justify_content(Justify::Center)
+                            .radius(t.radius.full)
+                            .cursor(if disabled {
+                                Cursor::Default
+                            } else {
+                                Cursor::Pointer
+                            })
+                            .focus_visible(ring(&t, t.colors.focus_ring))
+                    })
                 })
         });
         self.root
-            .base_style(move || {
-                let t = tokens();
-                let (fill, ink) = color
-                    .hue(&t.colors.hue)
-                    .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
-                        (hue.bg, hue.text)
-                    });
-                let base = style()
-                    .direction(direction)
-                    .height(height)
-                    .min_width(0)
-                    .max_width(pct(100))
-                    .radius(t.radius.inner)
-                    .background(fill)
-                    .color(ink)
-                    .align_items(Align::Center)
-                    .opacity(if disabled {
-                        t.sizes.disabled_opacity
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let (fill, ink) = color
+                        .hue(&t.colors.hue)
+                        .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
+                            (hue.bg, hue.text)
+                        });
+                    let base = style()
+                        .direction(direction)
+                        .height(height)
+                        .min_width(0)
+                        .max_width(pct(100))
+                        .radius(t.radius.inner)
+                        .background(fill)
+                        .color(ink)
+                        .align_items(Align::Center)
+                        .opacity(if disabled {
+                            t.sizes.disabled_opacity
+                        } else {
+                            1.0
+                        })
+                        .font_size(12)
+                        .line_height(20.0 / 12.0)
+                        .weight(t.typography.weight_medium);
+                    if interactive && !disabled && focus.get() {
+                        base.merge(&ring(&t, t.colors.focus_ring))
                     } else {
-                        1.0
-                    })
-                    .font_size(12)
-                    .line_height(20.0 / 12.0)
-                    .weight(t.typography.weight_medium);
-                if interactive && !disabled && focus.get() {
-                    base.merge(&ring(&t, t.colors.focus_ring))
-                } else {
-                    base
-                }
+                        base
+                    }
+                })
             })
             .child(main)
             .child(remove)

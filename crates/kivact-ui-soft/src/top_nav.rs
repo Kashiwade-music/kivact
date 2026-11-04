@@ -75,10 +75,12 @@ pub struct TopNav {
 
 pub fn top_nav() -> TopNav {
     TopNav {
-        root: node().role(Role::Navigation).name(kivact::i18n::message(
-            "soft.top_nav.label",
-            "Top navigation",
-        )),
+        root: node()
+            .with_node(move |node| node.role(Role::Navigation))
+            .name(kivact::i18n::message(
+                "soft.top_nav.label",
+                "Top navigation",
+            )),
         slots: Slots::default(),
     }
 }
@@ -181,22 +183,24 @@ impl IntoView for TopNav {
                 })
                 .child((heading, start));
             root.node_ref(anchor)
-                .base_style(move || {
-                    let t = tokens();
-                    let base = style().min_width(0).gap(t.spacing.s1);
-                    if mode == ShellNavMode::Drawer {
-                        base.direction(Direction::Column).width(pct(100))
-                    } else {
-                        let base = base
-                            .direction(logical_row())
-                            .align_items(Align::Center)
-                            .justify_content(Justify::SpaceBetween);
-                        if mode == ShellNavMode::Desktop {
-                            base.padding(t.spacing.s2)
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        let base = style().min_width(0).gap(t.spacing.s1);
+                        if mode == ShellNavMode::Drawer {
+                            base.direction(Direction::Column).width(pct(100))
                         } else {
-                            base
+                            let base = base
+                                .direction(logical_row())
+                                .align_items(Align::Center)
+                                .justify_content(Justify::SpaceBetween);
+                            if mode == ShellNavMode::Desktop {
+                                base.padding(t.spacing.s2)
+                            } else {
+                                base
+                            }
                         }
-                    }
+                    })
                 })
                 .child((leading, center, end))
         })
@@ -290,18 +294,24 @@ impl IntoView for TopNavItem {
             let root = root
                 .name(label)
                 .with_node(move |node| node.selected(selected))
-                .current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
+                .with_node(move |node| {
+                    node.current_item(move || {
+                        selected.get().then_some(kivact::view::CurrentItem::Page)
+                    })
+                })
                 .disabled(disabled)
-                .base_style(move || {
-                    if drawer {
-                        side_row_style(size.get(), 0, false, selected.get(), disabled.get())
-                    } else {
-                        top_item_style(icon_only.get(), selected.get(), disabled.get(), false)
-                    }
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        if drawer {
+                            side_row_style(size.get(), 0, false, selected.get(), disabled.get())
+                        } else {
+                            top_item_style(icon_only.get(), selected.get(), disabled.get(), false)
+                        }
+                    })
                 })
                 .child((icon, label_view));
             if let Some(action) = action {
-                root.role(Role::Link)
+                root.with_node(move |node| node.role(Role::Link))
                     .focusable(move || !disabled.get())
                     .on_press(move || {
                         if !disabled.get() {
@@ -461,7 +471,7 @@ fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
         row = row.icon(icon.call(()));
     }
     if let Some(description) = item.description {
-        row = row.end_content(move || text(description).style(supporting));
+        row = row.end_content(text(description).style(supporting));
     }
     if let Some(action) = item.action {
         row = row.on_press(move || action.call(()));
@@ -558,7 +568,7 @@ impl IntoView for TopNavMegaMenu {
             );
             let pinned = signal(false);
             let open = binding(
-                move || pinned || delayed.is_open().get(),
+                move || pinned.get() || delayed.is_open().get(),
                 move |open| {
                     pinned.set(open);
                     if !open {
@@ -574,10 +584,10 @@ impl IntoView for TopNavMegaMenu {
             let behavior = use_dialog(open, DialogMode::Popover).anchor(trigger_ref);
             let trigger = menu_trigger(label, open.into_value())
                 .node_ref(trigger_ref)
-                .role(Role::Button)
+                .with_node(move |node| node.role(Role::Button))
                 .focusable(true)
-                .with_node(move |node| node.expanded(open))
-                .controls(surface_ref)
+                .with_node(move |node| node.with_node(move |node| node.expanded(open)))
+                .with_node(move |node| node.controls(surface_ref))
                 .on_press(move || open.set(!open.get()));
             let cx = try_use_context::<TopNavCx>().map(|value| value.get());
             let align = cx.map_or(OverlayAlign::Start, |cx| cx.align);
@@ -618,7 +628,7 @@ impl IntoView for TopNavMegaMenu {
                 overlay(anchor, Placement::Below, panel)
                     .offset(4)
                     .align(align)
-                    .part(behavior.content())
+                    .with_node(move |node| node.part(behavior.content()))
                     .name(label)
             });
             root.child((trigger, surface))
@@ -713,38 +723,42 @@ impl IntoView for TopNavMegaMenuItem {
             });
             let root = root
                 .name(title)
-                .base_style(move || {
-                    let t = tokens();
-                    let base = style()
-                        .direction(logical_row())
-                        .align_items(Align::Start)
-                        .gap(if drawer { t.spacing.s2 } else { t.spacing.s3 })
-                        .padding(t.spacing.s3)
-                        .radius(t.radius.element)
-                        .width(pct(100))
-                        .hover(style().background(t.colors.overlay_hover))
-                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                    if drawer {
-                        if rtl() {
-                            base.padding_right(t.spacing.s6)
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        let base = style()
+                            .direction(logical_row())
+                            .align_items(Align::Start)
+                            .gap(if drawer { t.spacing.s2 } else { t.spacing.s3 })
+                            .padding(t.spacing.s3)
+                            .radius(t.radius.element)
+                            .width(pct(100))
+                            .hover(style().background(t.colors.overlay_hover))
+                            .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                        if drawer {
+                            if rtl() {
+                                base.padding_right(t.spacing.s6)
+                            } else {
+                                base.padding_left(t.spacing.s6)
+                            }
                         } else {
-                            base.padding_left(t.spacing.s6)
+                            base
                         }
-                    } else {
-                        base
-                    }
+                    })
                 })
                 .child((glyph, labels));
             if let Some(action) = action {
-                root.role(Role::Link).focusable(true).on_press(move || {
-                    action.call(());
-                    if let Some(popup) = popup {
-                        popup.0.set(false);
-                    }
-                    if drawer {
-                        mobile.close();
-                    }
-                })
+                root.with_node(move |node| node.role(Role::Link))
+                    .focusable(true)
+                    .on_press(move || {
+                        action.call(());
+                        if let Some(popup) = popup {
+                            popup.0.set(false);
+                        }
+                        if drawer {
+                            mobile.close();
+                        }
+                    })
             } else {
                 root
             }
@@ -831,7 +845,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             let link = link.map(|(label, action)| {
                 row((text(label), text(if rtl() { "←" } else { "→" })))
                     .name(label)
-                    .role(Role::Link)
+                    .with_node(move |node| node.role(Role::Link))
                     .focusable(true)
                     .on_press(move || {
                         action.call(());
@@ -862,23 +876,25 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                 let t = tokens();
                 style().padding(t.spacing.s4).gap(t.spacing.s2)
             });
-            root.base_style(move || {
-                let t = tokens();
-                let base = style()
-                    .direction(Direction::Column)
-                    .clip(true)
-                    .radius(t.radius.container)
-                    .background(t.colors.bg_muted);
-                if drawer {
-                    let base = base.margin_top(t.spacing.s2);
-                    if rtl() {
-                        base.margin_right(t.spacing.s6)
+            root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let base = style()
+                        .direction(Direction::Column)
+                        .clip(true)
+                        .radius(t.radius.container)
+                        .background(t.colors.bg_muted);
+                    if drawer {
+                        let base = base.margin_top(t.spacing.s2);
+                        if rtl() {
+                            base.margin_right(t.spacing.s6)
+                        } else {
+                            base.margin_left(t.spacing.s6)
+                        }
                     } else {
-                        base.margin_left(t.spacing.s6)
+                        base
                     }
-                } else {
-                    base
-                }
+                })
             })
             .child((image, body))
         })

@@ -8,6 +8,7 @@ use kivact::style::pct;
 use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::MouseButton;
+use kivact::view::NodeBuilder;
 use kivact::view::NodeRef;
 use kivact::view::PointerEvent;
 use kivact::view::PointerId;

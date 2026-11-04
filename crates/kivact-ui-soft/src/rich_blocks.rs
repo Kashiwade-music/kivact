@@ -6,6 +6,7 @@ use kivact::custom::EditLineLayout;
 use kivact::custom::EditOutcome;
 use kivact::custom::EditRequest;
 use kivact::custom::EditState;
+use kivact::custom::NodeRefExt;
 use kivact::custom::TextEditing;
 use kivact::custom::TextHighlight;
 use kivact::custom::TextSession;
@@ -34,8 +35,10 @@ use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::checkbox;
 use kivact::view::Handled;
+use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::Node;
+use kivact::view::NodeBuilder;
 use kivact::view::NodeRef;
 use kivact::view::PointerPhase;
 use kivact::view::Role;
@@ -91,7 +94,7 @@ pub(super) fn edit_blocks(
             composing.set(next_composing);
         },
     );
-    state.feed(move || source, |_| BlockEvent::Source);
+    state.feed(move || source.get(), |_| BlockEvent::Source);
     let document = memo(move || state.get().document);
     let editor = Editor {
         source,
@@ -105,7 +108,7 @@ pub(super) fn edit_blocks(
         move |block| editor.block(label, block.with_untracked(|block| block.id), block),
     );
     column(blocks)
-        .role(Role::Group)
+        .with_node(move |node| node.role(Role::Group))
         .name(label)
         .style(style().gap(8).padding(12).width(pct(100)).min_width(0))
 }
@@ -187,61 +190,61 @@ impl Editor {
         let command = Rc::new(Cell::new(None));
         let native_command = command.clone();
         let prose = kind.prose();
-        let editing =
-            TextEditing::new(move || block.with(|block| Rc::<str>::from(block.body.as_str())))
-                .multiline(true)
-                .line_layout(|| EditLineLayout {
-                    wrap: true,
-                    rows: Some((1, 24)),
-                })
-                .report_text(true)
-                .behavior(move |state, request, context| {
-                    let action = key_command(state, &request, context, prose, self.whole());
-                    native_command.set(action);
-                    if action.is_some() {
-                        EditOutcome::NotEditing
+        let editing = TextEditing::new(move || block.with(|block| block.body.clone()))
+            .multiline()
+            .line_layout(|| EditLineLayout {
+                wrap: true,
+                rows: Some((1, 24)),
+            })
+            .report_text()
+            .behavior(move |state, request, context| {
+                let action = key_command(state, &request, context, prose, self.whole());
+                native_command.set(action);
+                if action.is_some() {
+                    EditOutcome::NotEditing
+                } else {
+                    text_edit_policy(state, request, context)
+                }
+            })
+            .highlight(
+                move || tokens().colors.text_secondary,
+                move |color, line, &()| {
+                    let marks = if prose {
+                        line.char_indices()
+                            .filter_map(|(at, character)| {
+                                matches!(character, '*' | '_' | '`' | '~' | '[' | ']').then_some(
+                                    TextHighlight {
+                                        range: at..at + 1,
+                                        color: *color,
+                                    },
+                                )
+                            })
+                            .collect()
                     } else {
-                        text_edit_policy(state, request, context)
-                    }
-                })
-                .highlight(
-                    move || tokens().colors.text_secondary,
-                    move |color, line, &()| {
-                        let marks = if prose {
-                            line.char_indices()
-                                .filter_map(|(at, character)| {
-                                    matches!(character, '*' | '_' | '`' | '~' | '[' | ']')
-                                        .then_some(TextHighlight {
-                                            range: at..at + 1,
-                                            color: *color,
-                                        })
-                                })
-                                .collect()
-                        } else {
-                            Vec::new()
-                        };
-                        (marks, ())
-                    },
-                )
-                .on_edit(move |event| {
-                    let composing = event.composition().is_some();
-                    self.state.send(BlockEvent::Composition(if composing {
-                        BlockComposition::Composing
-                    } else {
-                        BlockComposition::Idle
-                    }));
-                    if !composing && let Some(text) = event.text {
-                        self.change(|doc| doc.replace(id, text));
-                    }
-                })
-                .on_selection(move |_| {
-                    self.state
-                        .send(BlockEvent::Selection(BlockSelection::Caret))
-                });
+                        Vec::new()
+                    };
+                    (marks, ())
+                },
+            )
+            .on_text_change(move |event| {
+                let composing = event.composition().is_some();
+                self.state.send(BlockEvent::Composition(if composing {
+                    BlockComposition::Composing
+                } else {
+                    BlockComposition::Idle
+                }));
+                if !composing && let Some(text) = event.text {
+                    self.change(|doc| doc.replace(id, text));
+                }
+            })
+            .on_selection_change(move |_| {
+                self.state
+                    .send(BlockEvent::Selection(BlockSelection::Caret))
+            });
         let style_kind = kind.clone();
         let field = node()
             .node_ref(reference)
-            .role(Role::TextBox)
+            .with_node(move |node| node.role(Role::TextBox))
             .focusable(true)
             .name(name)
             .text_editing(editing)

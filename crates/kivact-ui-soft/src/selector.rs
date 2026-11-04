@@ -130,7 +130,7 @@ pub fn selector<K: ItemKey>(
         inner: select(label, options, value)
             .open_on_arrow(true)
             .keep_trigger_focus(true)
-            .has_popup(|| Some(PopupKind::ListBox)),
+            .with_node(move |node| node.has_popup(|| Some(PopupKind::ListBox))),
         presentation: SelectorPresentation::Popover,
     }
 }
@@ -174,7 +174,7 @@ pub fn complex_selector_with_presentation<V: IntoView>(
         .hide_label(true)
         .child(text(value_label))
         .trailing(icon("chevron-down"))
-        .with_node(move |node| node.expanded(open))
+        .with_node(move |node| node.with_node(move |node| node.expanded(open)))
         .node_ref(target)
         .on_pointer(move |event| {
             if matches!(event.phase(), PointerPhase::Down(_)) {
@@ -216,7 +216,7 @@ pub fn complex_selector_with_presentation<V: IntoView>(
         .content(move || scroll(popup_body.call(())).style(style().max_height(480).padding(12)))
         .attach(trigger);
     let sheet = (presentation != SelectorPresentation::Popover).then(|| {
-        let shown = binding(memo(move || open && sheet_open), move |shown| {
+        let shown = binding(memo(move || open.get() && sheet_open.get()), move |shown| {
             if !shown {
                 open.set(false);
                 sheet_open.set(false);

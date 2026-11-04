@@ -214,8 +214,8 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
         base
     };
     if touch {
-        let transition = if kivact::platform::reduced_motion().get() {
-            kivact::motion::Transition::tween(200, t.motion.ease_standard).decorative(false)
+        let transition = if kivact::platform::is_motion_reduced().get() {
+            kivact::motion::Transition::tween(200, t.motion.ease_standard).essential()
         } else if on {
             spring(85.377, 18.480)
         } else {
@@ -245,7 +245,7 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
     } else {
         1.0
     };
-    let reduced = kivact::platform::reduced_motion().get();
+    let reduced = kivact::platform::is_motion_reduced().get();
     let lifted = drag.is_some_and(|drag| drag.lifted) && !reduced;
     let side = if on { on_side } else { base_side };
     let lift = if lifted {

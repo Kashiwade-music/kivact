@@ -1,5 +1,6 @@
 //! Role: Source-preserving Markdown editing and a formatted read-only preview.
 use crate::markdown::markdown;
+use kivact::custom::NodeRefExt;
 use kivact::custom::TextSession;
 use kivact::i18n::message;
 use kivact::state::Binding;
@@ -94,7 +95,7 @@ fn toolbar(
             button(label)
                 .variant(ButtonVariant::Ghost)
                 .size(ControlSize::Small)
-                .disabled(move || preview || composing || editor.get().is_none())
+                .disabled(move || preview.get() || composing.get() || editor.get().is_none())
                 .on_press(move || {
                     if let Some(editor) = editor.get_untracked() {
                         format_selection(editor, marker);
@@ -118,7 +119,7 @@ fn toolbar(
         mode(message("soft.rich_text.write", "Write"), false, false),
         mode(message("soft.rich_text.preview", "Preview"), true, false),
     ))
-    .role(Role::Toolbar)
+    .with_node(move |node| node.role(Role::Toolbar))
     .roving_focus(kivact::view::Orientation::Horizontal)
     .name(message("soft.rich_text.toolbar", "Editor toolbar"))
     .style(style().align_items(Align::Center).gap(4))
@@ -248,7 +249,7 @@ impl IntoView for RichTextEditor {
         let blocks = block_editing.get().then(|| signal(true));
         let composing = signal(false);
         let surface = dynamic(
-            move || (previewing, blocks.is_some_and(|blocks| blocks.get())),
+            move || (previewing.get(), blocks.is_some_and(|blocks| blocks.get())),
             move |(previewing, blocks)| {
                 if previewing {
                     rich_text_view(move || source.get())
@@ -261,7 +262,9 @@ impl IntoView for RichTextEditor {
                     on_mount(move || target.set(Some(editor)));
                     text_area(label, source)
                         .node_ref(editor)
-                        .on_composition_change(move |active| composing.set(active))
+                        .on_composition_change(move |active| {
+                            composing.set(active == kivact::view::Composition::Composing)
+                        })
                         .wrap(true)
                         .rows(6..=16)
                         .into_view()
@@ -269,7 +272,7 @@ impl IntoView for RichTextEditor {
             },
         );
         let toolbar = (!read_only.get())
-            .then(|| toolbar(previewing.into(), Some((target, composing)), blocks));
+            .then(|| toolbar(previewing.into_binding(), Some((target, composing)), blocks));
         root.child(column((toolbar, surface)).style(style().gap(4)))
             .into_view()
     }

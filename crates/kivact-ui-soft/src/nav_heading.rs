@@ -7,6 +7,7 @@ use kivact::interaction::Delays;
 use kivact::interaction::use_hover_surface;
 use kivact::interaction::use_menu;
 use kivact::motion::Transition;
+use kivact::state::IntoValue;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -136,7 +137,7 @@ pub(crate) fn nav_menu_view(
         }
     });
     let part = behavior.trigger();
-    let anchor = part.node_ref();
+    let anchor = node_ref();
     let panel_ref = node_ref();
     let delayed = use_hover_surface(
         anchor,
@@ -152,7 +153,9 @@ pub(crate) fn nav_menu_view(
         }
     });
     let opened = behavior.is_open();
-    let trigger = trigger(opened).part(part);
+    let trigger = trigger(opened)
+        .node_ref(anchor)
+        .with_node(move |node| node.part(part));
     let heading = matches!(look, NavMenuLook::Heading);
     let default_min_width = if heading {
         match size {
@@ -215,7 +218,7 @@ pub(crate) fn nav_menu_view(
                         })
                     }),
                 ))
-                .part(part)
+                .with_node(move |node| node.part(part))
                 .style(move || {
                     let t = tokens();
                     let input = state.get().input;
@@ -290,7 +293,7 @@ pub(crate) fn nav_menu_view(
         overlay(anchor, Placement::Below, surface)
             .align(align)
             .offset(offset)
-            .part(behavior.content())
+            .with_node(move |node| node.part(behavior.content()))
             .name(dialog_name)
     });
     (trigger, surface).into_view()
@@ -529,7 +532,7 @@ fn heading_text(label: Value<String>, action: Option<Callback<()>>, primary: boo
     });
     if let Some(action) = action {
         node()
-            .role(Role::Link)
+            .with_node(move |node| node.role(Role::Link))
             .name(label)
             .focusable(true)
             .on_press(move || action.call(()))

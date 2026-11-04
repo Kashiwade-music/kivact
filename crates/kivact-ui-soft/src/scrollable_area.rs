@@ -59,7 +59,9 @@ pub struct ScrollableArea {
 
 pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> ScrollableArea {
     ScrollableArea {
-        root: node().name(label).role(Role::Region),
+        root: node()
+            .name(label)
+            .with_node(move |node| node.role(Role::Region)),
         child: child.into_view(),
         axis: (ScrollAxis::Block).into_value(),
         padding: Padding::default(),
@@ -123,39 +125,43 @@ impl IntoView for ScrollableArea {
                 .unwrap_or_default();
             let inner = column(provide(inset, move || child))
                 .node_ref(content)
-                .base_style(move || {
-                    let base =
-                        inset.apply(style().min_width(pct(100)).min_height(pct(100)).shrink(0));
-                    if axis.get() == ScrollAxis::Block {
-                        base
-                    } else {
-                        base.width(Length::MaxContent)
-                    }
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let base =
+                            inset.apply(style().min_width(pct(100)).min_height(pct(100)).shrink(0));
+                        if axis.get() == ScrollAxis::Block {
+                            base
+                        } else {
+                            base.width(Length::MaxContent)
+                        }
+                    })
                 });
             let focused = viewport.focused();
-            let root = root.base_style(move || {
-                let t = tokens();
-                let mut base = style()
-                    .min_height(0)
-                    .min_width(0)
-                    .max_width(pct(100))
-                    .max_height(pct(100))
-                    .scrollbar_color(t.colors.neutral, Color::TRANSPARENT)
-                    .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                if full_bleed.get() {
-                    let (left, right) = parent.sides();
-                    base = base
-                        .margin_left(-left)
-                        .margin_right(-right)
-                        .max_width(pct(100) + left + right);
-                    if bleed_top.get() {
-                        base = base.margin_top(-parent.top);
+            let root = root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let mut base = style()
+                        .min_height(0)
+                        .min_width(0)
+                        .max_width(pct(100))
+                        .max_height(pct(100))
+                        .scrollbar_color(t.colors.neutral, Color::TRANSPARENT)
+                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                    if full_bleed.get() {
+                        let (left, right) = parent.sides();
+                        base = base
+                            .margin_left(-left)
+                            .margin_right(-right)
+                            .max_width(pct(100) + left + right);
+                        if bleed_top.get() {
+                            base = base.margin_top(-parent.top);
+                        }
+                        if bleed_bottom.get() {
+                            base = base.margin_bottom(-parent.bottom);
+                        }
                     }
-                    if bleed_bottom.get() {
-                        base = base.margin_bottom(-parent.bottom);
-                    }
-                }
-                base
+                    base
+                })
             });
             let mut viewport_node = scroll(inner).axes(axis.get().native());
             *viewport_node.node_mut() = root;
@@ -295,7 +301,7 @@ fn scroll_key(viewport: NodeRef, state: ScrollState, event: KeyEvent) -> Handled
     };
     let inline = state.inline.is_scrollable.get();
     let block = state.block.is_scrollable.get();
-    if event.modifiers().get().ctrl || event.modifiers().get().alt || event.modifiers().get().meta {
+    if event.modifiers().ctrl || event.modifiers().alt || event.modifiers().meta {
         return Handled::No;
     }
     let (x, y) = match event.key() {
@@ -305,7 +311,7 @@ fn scroll_key(viewport: NodeRef, state: ScrollState, event: KeyEvent) -> Handled
         Key::ArrowDown if block => (0.0, 40.0),
         Key::PageUp | Key::PageDown | Key::Space | Key::Home | Key::End if inline || block => {
             let backward = matches!(event.key(), Key::PageUp | Key::Home)
-                || event.key() == Key::Space && event.modifiers().get().shift;
+                || event.key() == Key::Space && event.modifiers().shift;
             let sign = if backward { -1.0 } else { 1.0 };
             let distance = if matches!(event.key(), Key::Home | Key::End) {
                 f64::MAX

@@ -103,37 +103,39 @@ impl IntoView for Grid {
         } = self;
         provide((), move || {
             let reference = node_ref();
-            root.node_ref(reference).base_style(move || {
-                let column_gap = column_gap.map_or_else(|| gap.get(), |gap| gap.get()).px();
-                let columns = match columns.get() {
-                    GridColumns::Fixed(count) => Track::repeat(count.max(1), Track::fr(1)),
-                    GridColumns::Responsive {
-                        mut min_width,
-                        max,
-                        repeat,
-                    } => {
-                        if let Some(max) = max.filter(|max| *max > 0)
-                            && let Some(rect) = reference.rect().get()
-                        {
-                            let max = f64::from(max);
-                            let capped = (rect.width - (max - 1.0) * column_gap) / max;
-                            min_width = rect.width.min(min_width.max(capped));
+            root.node_ref(reference).with_node(move |node| {
+                node.base_style(move || {
+                    let column_gap = column_gap.map_or_else(|| gap.get(), |gap| gap.get()).px();
+                    let columns = match columns.get() {
+                        GridColumns::Fixed(count) => Track::repeat(count.max(1), Track::fr(1)),
+                        GridColumns::Responsive {
+                            mut min_width,
+                            max,
+                            repeat,
+                        } => {
+                            if let Some(max) = max.filter(|max| *max > 0)
+                                && let Some(rect) = reference.rect().get()
+                            {
+                                let max = f64::from(max);
+                                let capped = (rect.width - (max - 1.0) * column_gap) / max;
+                                min_width = rect.width.min(min_width.max(capped));
+                            }
+                            let track = Track::minmax(min_width.max(0.0), Track::fr(1));
+                            match repeat {
+                                GridRepeat::Fill => Track::repeat_auto_fill(track),
+                                GridRepeat::Fit => Track::repeat_auto_fit(track),
+                            }
                         }
-                        let track = Track::minmax(min_width.max(0.0), Track::fr(1));
-                        match repeat {
-                            GridRepeat::Fill => Track::repeat_auto_fill(track),
-                            GridRepeat::Fit => Track::repeat_auto_fit(track),
-                        }
+                    };
+                    let mut base = style()
+                        .grid_template_columns(columns)
+                        .row_gap(row_gap.map_or_else(|| gap.get(), |gap| gap.get()).px())
+                        .column_gap(column_gap);
+                    if let Some(px) = row_height {
+                        base = base.grid_auto_rows(px.get());
                     }
-                };
-                let mut base = style()
-                    .grid_template_columns(columns)
-                    .row_gap(row_gap.map_or_else(|| gap.get(), |gap| gap.get()).px())
-                    .column_gap(column_gap);
-                if let Some(px) = row_height {
-                    base = base.grid_auto_rows(px.get());
-                }
-                base
+                    base
+                })
             })
         })
     }
@@ -151,12 +153,14 @@ pub struct GridSpan {
 
 pub fn grid_span(children: impl IntoView) -> GridSpan {
     GridSpan {
-        root: native_grid(children).base_style(
-            style()
-                .min_width(0)
-                .height(pct(100))
-                .grid_template_columns(Track::minmax(0, Track::fr(1))),
-        ),
+        root: native_grid(children).with_node(move |node| {
+            node.base_style(
+                style()
+                    .min_width(0)
+                    .height(pct(100))
+                    .grid_template_columns(Track::minmax(0, Track::fr(1))),
+            )
+        }),
     }
 }
 

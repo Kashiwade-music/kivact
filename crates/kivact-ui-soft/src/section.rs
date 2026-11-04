@@ -126,48 +126,52 @@ impl IntoView for Section {
                 Some(space) => provide(SectionPadding(space.px()), move || content),
                 None => content,
             };
-            root.base_style(move || {
-                let t = tokens();
-                let color = match variant.get() {
-                    SectionVariant::Section => t.colors.bg_surface,
-                    SectionVariant::Transparent => Color::TRANSPARENT,
-                    SectionVariant::Muted => t.colors.bg_muted,
-                };
-                let border = t.colors.border;
-                let width = t.sizes.border_width;
-                let mut base = style()
-                    .direction(Direction::Column)
-                    .background(color)
-                    .margin_left(-left)
-                    .margin_right(-right);
-                if bleed_top.get() {
-                    base = base.margin_top(-parent.top);
-                }
-                if bleed_bottom.get() {
-                    base = base.margin_bottom(-parent.bottom);
-                }
-                if dividers.get().contains(Edges::TOP) {
-                    base = base.border_top(width, border);
-                }
-                if dividers.get().contains(Edges::BOTTOM) {
-                    base = base.border_bottom(width, border);
-                }
-                let (left, right) = if rtl() {
-                    (Edges::END, Edges::START)
-                } else {
-                    (Edges::START, Edges::END)
-                };
-                if dividers.get().contains(left) {
-                    base = base.border_left(width, border);
-                }
-                if dividers.get().contains(right) {
-                    base = base.border_right(width, border);
-                }
-                base
+            root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let color = match variant.get() {
+                        SectionVariant::Section => t.colors.bg_surface,
+                        SectionVariant::Transparent => Color::TRANSPARENT,
+                        SectionVariant::Muted => t.colors.bg_muted,
+                    };
+                    let border = t.colors.border;
+                    let width = t.sizes.border_width;
+                    let mut base = style()
+                        .direction(Direction::Column)
+                        .background(color)
+                        .margin_left(-left)
+                        .margin_right(-right);
+                    if bleed_top.get() {
+                        base = base.margin_top(-parent.top);
+                    }
+                    if bleed_bottom.get() {
+                        base = base.margin_bottom(-parent.bottom);
+                    }
+                    if dividers.get().contains(Edges::TOP) {
+                        base = base.border_top(width, border);
+                    }
+                    if dividers.get().contains(Edges::BOTTOM) {
+                        base = base.border_bottom(width, border);
+                    }
+                    let (left, right) = if rtl() {
+                        (Edges::END, Edges::START)
+                    } else {
+                        (Edges::START, Edges::END)
+                    };
+                    if dividers.get().contains(left) {
+                        base = base.border_left(width, border);
+                    }
+                    if dividers.get().contains(right) {
+                        base = base.border_right(width, border);
+                    }
+                    base
+                })
             })
-            .child(column(content).base_style(inset.apply(style())))
+            .child(column(content).with_node(move |node| node.base_style(inset.apply(style()))))
         })
     }
 }
 
 kivact::state::constant_value!(SectionVariant);
+
+kivact::state::constant_value!(Edges);

@@ -44,7 +44,7 @@ fn join<V: NodeBuilder + IntoView>(
         .map(|value| value.get())
         .is_some_and(|setting| setting.0)
     {
-        child.base_style(size_style)
+        child.with_node(move |node| node.base_style(size_style))
     } else {
         child.style(size_style)
     };
@@ -76,7 +76,7 @@ pub struct InputGroup<C> {
 
 enum Controls<C> {
     Built(C),
-    Scoped(C),
+    Scoped(Box<dyn FnOnce() -> C>),
 }
 
 pub fn input_group<C: IntoChildren>(label: impl IntoText, controls: C) -> InputGroup<C> {
@@ -90,11 +90,14 @@ pub fn input_group<C: IntoChildren>(label: impl IntoText, controls: C) -> InputG
 
 /// Build the controls in the group's size scope. A control with its own size
 /// uses that size. Unstyled members still receive the group's default height.
-pub fn input_group_with<C: IntoChildren>(label: impl IntoText, controls: C) -> InputGroup<C> {
+pub fn input_group_with<C: IntoChildren>(
+    label: impl IntoText,
+    controls: impl FnOnce() -> C + 'static,
+) -> InputGroup<C> {
     InputGroup {
         root: node(),
         label: label.into_text_value(),
-        controls: Controls::Scoped(controls),
+        controls: Controls::Scoped(Box::new(controls)),
         size: (ControlSize::Medium).into_value(),
     }
 }
@@ -141,9 +144,9 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
                     })
                     .collect::<Vec<_>>()
             })
-            .role(Role::Group)
+            .with_node(move |node| node.role(Role::Group))
             .name(label)
-            .labelled_by(label_ref)
+            .with_node(move |node| node.labelled_by(label_ref))
             .style(
                 style()
                     .direction(if rtl {
@@ -159,7 +162,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
                 provide(InheritMemberSize(false), move || members(controls))
             }
             Controls::Scoped(controls) => provide_control_size(size.get(), move || {
-                provide(InheritMemberSize(true), move || members(controls))
+                provide(InheritMemberSize(true), move || members(controls()))
             }),
         };
         root.child(

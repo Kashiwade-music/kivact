@@ -29,9 +29,9 @@ fn rtl_toolbar_moves_between_unwrapped_slots_in_visual_order() {
     let screen = render_with(options(800.0), || {
         provide_direction(ReadingDirection::Rtl, || {
             soft::toolbar("Document tools")
-                .start(|| kivact::ui::button("Start"))
-                .center(|| kivact::ui::button("Center"))
-                .end(|| kivact::ui::button("End"))
+                .start((kivact::ui::button("Start"),))
+                .center((kivact::ui::button("Center"),))
+                .end((kivact::ui::button("End"),))
         })
     });
     let start = screen.get_by_role(Role::Button, "Start");
@@ -62,10 +62,10 @@ fn layout_components_mount_and_interact() {
             soft::card(
                 soft::layout()
                     .height(soft::LayoutHeight::Auto)
-                    .header(|| soft::layout_header(text("Header")).divider(true))
-                    .start(move || soft::layout_panel(text("Panel")).resizable(panel))
+                    .header(soft::layout_header(text("Header")).divider(true))
+                    .start(soft::layout_panel(text("Panel")).resizable(panel))
                     .start_resize_handle(soft::resize_handle(resize))
-                    .content(|| {
+                    .content({
                         soft::layout_content(soft::section(soft::vstack((
                             soft::grid((text("First"), text("Second")))
                                 .columns(soft::GridColumns::Fixed(2)),
@@ -133,7 +133,7 @@ fn layout_components_mount_and_interact() {
 #[test]
 fn shell_adapts_navigation_and_opens_the_mobile_drawer() {
     let screen = render_with(options(850.0), || {
-        soft::app_shell(|| text("Main body"))
+        soft::app_shell(text("Main body"))
             .top_nav(|| {
                 soft::top_nav()
                     .heading(|| soft::top_nav_heading("Acme").icon(|| soft::nav_icon(icon("menu"))))

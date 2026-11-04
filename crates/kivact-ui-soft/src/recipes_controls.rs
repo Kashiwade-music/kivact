@@ -126,7 +126,7 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
         ButtonVariant::Outline => base.border(t.sizes.border_width, t.colors.border_emphasized),
         ButtonVariant::Link => {
             let base = base.height(t.typography.label.line_height_px).padding_x(0);
-            if s.input.hovered && !s.loading {
+            if s.input.hovered && !s.busy {
                 base.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 base
@@ -140,7 +140,7 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
         bg
     };
     let base = fast(&t, base.background(bg));
-    if s.loading {
+    if s.busy {
         // Busy also sets the behavior's disabled state, so preserve its full opacity.
         base.disabled(style().opacity(1.0).cursor(Cursor::Default))
     } else if variant == ButtonVariant::Link {
@@ -166,7 +166,7 @@ fn button_content(theme: &Theme, s: &Look<ButtonState>) -> Style {
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .gap(t.spacing.s2)
-        .opacity(if s.loading { 0.0 } else { 1.0 })
+        .opacity(if s.busy { 0.0 } else { 1.0 })
 }
 
 fn button_icon(theme: &Theme, s: &Look<ButtonState>) -> Style {

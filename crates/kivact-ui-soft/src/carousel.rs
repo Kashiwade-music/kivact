@@ -119,7 +119,7 @@ impl CarouselHandle {
     }
 
     fn go_to(self, x: f64) {
-        let motion = if kivact::platform::reduced_motion().get() {
+        let motion = if kivact::platform::is_motion_reduced().get() {
             ScrollBehavior::Instant
         } else {
             ScrollBehavior::Smooth
@@ -219,7 +219,9 @@ pub fn carousel<V: IntoView>(
 ) -> Carousel {
     let label = label.into_text_value();
     Carousel {
-        root: node().role(Role::Region).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::Region))
+            .name(label),
         label,
         slides: slides.into_iter().map(IntoView::into_view).collect(),
         gap: (Space::S1).into_value(),
@@ -312,7 +314,7 @@ impl IntoView for Carousel {
                     );
                     node()
                         .node_ref(refs[index])
-                        .role(Role::Group)
+                        .with_node(move |node| node.role(Role::Group))
                         .name(name)
                         .style(style().shrink(0))
                         .child(slide)
@@ -353,7 +355,7 @@ impl IntoView for Carousel {
                 .axis(ScrollAxis::Inline)
                 .node_ref(handle.viewport)
                 .on_wheel(move |event: WheelEvent| {
-                    if event.modifiers().get().shift
+                    if event.modifiers().shift
                         && event.delta().y != 0.0
                         && event.delta().x == 0.0
                         && overflow.any.get()
@@ -401,13 +403,15 @@ impl IntoView for Carousel {
             let controls = buttons
                 .get()
                 .then(|| (pill(handle, false), pill(handle, true)));
-            root.base_style(
-                style()
-                    .position(Position::Relative)
-                    .direction(Direction::Column)
-                    .min_width(0)
-                    .max_width(pct(100)),
-            )
+            root.with_node(move |node| {
+                node.base_style(
+                    style()
+                        .position(Position::Relative)
+                        .direction(Direction::Column)
+                        .min_width(0)
+                        .max_width(pct(100)),
+                )
+            })
             .child((viewport, controls))
         })
     }

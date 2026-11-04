@@ -73,7 +73,7 @@ pub fn reveal_content(
             None => focused || touch || hover,
         }
     });
-    let fade_out = if kivact::platform::reduced_motion().get() {
+    let fade_out = if kivact::platform::is_motion_reduced().get() {
         0
     } else {
         tokens().motion.fast

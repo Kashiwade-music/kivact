@@ -96,7 +96,7 @@ pub struct AvatarGroup<C> {
 pub fn avatar_group<C: IntoChildren + 'static>(children: C) -> AvatarGroup<C> {
     AvatarGroup {
         root: node()
-            .role(Role::Group)
+            .with_node(move |node| node.role(Role::Group))
             .name(message("soft.avatar_group.label", "Avatars")),
         children,
         size: (AvatarSize::default()).into_value(),
@@ -160,16 +160,18 @@ impl<C: IntoChildren + 'static> IntoView for AvatarGroup<C> {
                 }
             });
         }
-        root.base_style(
-            style()
-                .direction(if rtl {
-                    Direction::RowReverse
-                } else {
-                    Direction::Row
-                })
-                .align_items(Align::Center)
-                .shrink(0),
-        )
+        root.with_node(move |node| {
+            node.base_style(
+                style()
+                    .direction(if rtl {
+                        Direction::RowReverse
+                    } else {
+                        Direction::Row
+                    })
+                    .align_items(Align::Center)
+                    .shrink(0),
+            )
+        })
         .on_key(move |event| keyboard.navigate(event.key(), rtl))
         .child(provide(context, move || {
             let children = children.into_views();

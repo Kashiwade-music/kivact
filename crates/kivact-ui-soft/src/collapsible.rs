@@ -217,7 +217,8 @@ impl IntoView for Collapsible {
             if let Some(reveal) = reveal {
                 disclosure = disclosure.leaving(move || reveal.leaving());
             }
-            let present = memo(move || reveal.map_or_else(|| shown, |reveal| reveal.present()));
+            let present =
+                memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
             let chevron = icon(match position {
                 ChevronPosition::Start => "chevron-right",
                 ChevronPosition::End => "chevron-down",
@@ -248,7 +249,7 @@ impl IntoView for Collapsible {
                 ChevronPosition::End => (label.into_view(), chevron.into_view()),
             })
             .name(label_name)
-            .part(disclosure.trigger())
+            .with_node(move |node| node.part(disclosure.trigger()))
             .disabled(disabled)
             .style(move || {
                 let t = tokens();
@@ -270,14 +271,18 @@ impl IntoView for Collapsible {
                     .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
             });
             let body = move || {
-                let region = node().part(disclosure.content()).style(move || {
-                    let t = tokens();
-                    style()
-                        .direction(Direction::Column)
-                        .font_size(t.typography.body.size_px)
-                        .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
-                        .color(t.colors.text_primary)
-                });
+                let region = node()
+                    .with_node(move |node| node.part(disclosure.content()))
+                    .style(move || {
+                        let t = tokens();
+                        style()
+                            .direction(Direction::Column)
+                            .font_size(t.typography.body.size_px)
+                            .line_height(
+                                t.typography.body.line_height_px / t.typography.body.size_px,
+                            )
+                            .color(t.colors.text_primary)
+                    });
                 let details = node()
                     .style(move || {
                         let t = tokens();
@@ -304,7 +309,7 @@ impl IntoView for Collapsible {
             } else {
                 show(present, body).into_view()
             };
-            root.base_style(style().direction(Direction::Column))
+            root.with_node(move |node| node.base_style(style().direction(Direction::Column)))
                 .child((trigger, details))
         })
     }

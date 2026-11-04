@@ -210,52 +210,54 @@ impl IntoView for Layout {
                 LayoutHeight::Auto => base.min_height(pct(100)),
             };
             root.node_ref(root_ref)
-                .base_style(base)
+                .with_node(move |node| node.base_style(base))
                 .child(provide(insets, move || {
                     provide(ContainerInset::default(), move || {
                         provide(slots, move || {
                             (
                                 header,
                                 node()
-                                    .base_style(move || {
-                                        let direction = if rtl() {
-                                            Direction::RowReverse
-                                        } else {
-                                            Direction::Row
-                                        };
-                                        let mut base = style()
-                                            .direction(direction)
-                                            .grow(1)
-                                            .min_height(0)
-                                            .min_width(0);
-                                        match content_width.map(|value| value.get()) {
-                                            Some(Length::Px(width))
-                                                if !(slots.has_start && slots.has_end) =>
-                                            {
-                                                let gutter = center_gutter(root_ref, width);
-                                                if slots.has_start {
-                                                    base = if rtl() {
-                                                        base.padding_right(gutter)
-                                                    } else {
-                                                        base.padding_left(gutter)
-                                                    };
-                                                } else if slots.has_end {
-                                                    base = if rtl() {
-                                                        base.padding_left(gutter)
-                                                    } else {
-                                                        base.padding_right(gutter)
-                                                    };
+                                    .with_node(move |node| {
+                                        node.base_style(move || {
+                                            let direction = if rtl() {
+                                                Direction::RowReverse
+                                            } else {
+                                                Direction::Row
+                                            };
+                                            let mut base = style()
+                                                .direction(direction)
+                                                .grow(1)
+                                                .min_height(0)
+                                                .min_width(0);
+                                            match content_width.map(|value| value.get()) {
+                                                Some(Length::Px(width))
+                                                    if !(slots.has_start && slots.has_end) =>
+                                                {
+                                                    let gutter = center_gutter(root_ref, width);
+                                                    if slots.has_start {
+                                                        base = if rtl() {
+                                                            base.padding_right(gutter)
+                                                        } else {
+                                                            base.padding_left(gutter)
+                                                        };
+                                                    } else if slots.has_end {
+                                                        base = if rtl() {
+                                                            base.padding_left(gutter)
+                                                        } else {
+                                                            base.padding_right(gutter)
+                                                        };
+                                                    }
                                                 }
+                                                Some(width) => {
+                                                    base = base
+                                                        .width(pct(100))
+                                                        .max_width(width)
+                                                        .margin_x(kivact::style::auto());
+                                                }
+                                                None => {}
                                             }
-                                            Some(width) => {
-                                                base = base
-                                                    .width(pct(100))
-                                                    .max_width(width)
-                                                    .margin_x(kivact::style::auto());
-                                            }
-                                            None => {}
-                                        }
-                                        base
+                                            base
+                                        })
                                     })
                                     .child((start, start_resize, content, end_resize, end)),
                                 footer,
@@ -427,65 +429,71 @@ impl IntoView for LayoutRegion {
             if let Some(bottom) = padding_bottom {
                 inset.bottom = bottom.px();
             }
-            let content = column(provide(inset, move || children)).base_style(move || {
-                let mut base = inset.apply(style().min_width(0));
-                if kind == Region::Content
-                    && !slots.has_start
-                    && !slots.has_end
-                    && let (Some(root), Some(Length::Px(width))) =
-                        (slots.root_ref, slots.content_width.map(|value| value.get()))
-                {
-                    let gutter = center_gutter(root, width);
-                    let (left, right) = inset.sides();
-                    base = base
-                        .padding_left(left + gutter)
-                        .padding_right(right + gutter);
-                }
-                if matches!(kind, Region::Header | Region::Footer)
-                    && let Some(width) = slots.content_width
-                {
-                    base = base
-                        .width(pct(100))
-                        .max_width(width.get())
-                        .margin_x(kivact::style::auto());
-                }
-                base
+            let content = column(provide(inset, move || children)).with_node(move |node| {
+                node.base_style(move || {
+                    let mut base = inset.apply(style().min_width(0));
+                    if kind == Region::Content
+                        && !slots.has_start
+                        && !slots.has_end
+                        && let (Some(root), Some(Length::Px(width))) =
+                            (slots.root_ref, slots.content_width.map(|value| value.get()))
+                    {
+                        let gutter = center_gutter(root, width);
+                        let (left, right) = inset.sides();
+                        base = base
+                            .padding_left(left + gutter)
+                            .padding_right(right + gutter);
+                    }
+                    if matches!(kind, Region::Header | Region::Footer)
+                        && let Some(width) = slots.content_width
+                    {
+                        base = base
+                            .width(pct(100))
+                            .max_width(width.get())
+                            .margin_x(kivact::style::auto());
+                    }
+                    base
+                })
             });
-            let root = root.base_style(move || {
-                let t = tokens();
-                let mut base = style().direction(Direction::Column).shrink(0).min_width(0);
-                if kind == Region::Content {
-                    base = base.grow(1).shrink(1).min_height(0).clip(true);
-                }
-                if matches!(kind, Region::Start | Region::End) {
-                    base = base.clip(true);
-                    if let Some(state) = &resizable {
-                        base = base.width(state.size());
-                    } else if let Some(width) = width {
-                        base = base.width(width.get());
+            let root = root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let mut base = style().direction(Direction::Column).shrink(0).min_width(0);
+                    if kind == Region::Content {
+                        base = base.grow(1).shrink(1).min_height(0).clip(true);
                     }
-                }
-                let divider = divider.unwrap_or_default();
-                let right = (kind == Region::Start) != rtl();
-                match kind {
-                    Region::Header if divider => {
-                        base.border_bottom(t.sizes.border_width, t.colors.border)
+                    if matches!(kind, Region::Start | Region::End) {
+                        base = base.clip(true);
+                        if let Some(state) = &resizable {
+                            base = base.width(state.size());
+                        } else if let Some(width) = width {
+                            base = base.width(width.get());
+                        }
                     }
-                    Region::Footer if divider => {
-                        base.border_top(t.sizes.border_width, t.colors.border)
+                    let divider = divider.unwrap_or_default();
+                    let right = (kind == Region::Start) != rtl();
+                    match kind {
+                        Region::Header if divider => {
+                            base.border_bottom(t.sizes.border_width, t.colors.border)
+                        }
+                        Region::Footer if divider => {
+                            base.border_top(t.sizes.border_width, t.colors.border)
+                        }
+                        Region::Start | Region::End if divider && right => {
+                            base.border_right(t.sizes.border_width, t.colors.border)
+                        }
+                        Region::Start | Region::End if divider => {
+                            base.border_left(t.sizes.border_width, t.colors.border)
+                        }
+                        Region::Start | Region::End if padding.is_none() && right => {
+                            base.margin_right(-inner_x)
+                        }
+                        Region::Start | Region::End if padding.is_none() => {
+                            base.margin_left(-inner_x)
+                        }
+                        _ => base,
                     }
-                    Region::Start | Region::End if divider && right => {
-                        base.border_right(t.sizes.border_width, t.colors.border)
-                    }
-                    Region::Start | Region::End if divider => {
-                        base.border_left(t.sizes.border_width, t.colors.border)
-                    }
-                    Region::Start | Region::End if padding.is_none() && right => {
-                        base.margin_right(-inner_x)
-                    }
-                    Region::Start | Region::End if padding.is_none() => base.margin_left(-inner_x),
-                    _ => base,
-                }
+                })
             });
             if scrollable.get() {
                 root.child(scroll(content).style(style().grow(1).min_height(0).min_width(0)))

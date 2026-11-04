@@ -1,8 +1,6 @@
 //! Role: Joined Neutral action buttons with roving keyboard focus.
 use kivact::view::IntoChildren;
 
-use std::rc::Rc;
-
 use crate::{Elevation, tokens};
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -18,16 +16,11 @@ use kivact::style::Direction;
 use kivact::style::style;
 use kivact::ui::Button;
 use kivact::ui::ControlSize;
-use kivact::view::Handled;
 use kivact::view::IntoView;
-use kivact::view::Key;
-use kivact::view::NodeRef;
 use kivact::view::Orientation;
-use kivact::view::PointerPhase;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::View;
-use kivact::view::node_ref;
 use kivact::view::use_direction;
 
 /// A button-group member with optional explicit divider and size behavior.
@@ -74,7 +67,9 @@ pub struct ButtonGroup<C> {
 #[track_caller]
 pub fn button_group<C: IntoChildren>(label: impl IntoText, children: C) -> ButtonGroup<C> {
     ButtonGroup {
-        root: node().role(Role::Group).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::Group))
+            .name(label),
         members: children,
         orientation: (Orientation::Horizontal).into_value(),
         size: (ControlSize::Medium).into_value(),
@@ -110,82 +105,6 @@ impl<C> NodeBuilder for ButtonGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) struct RovingItem {
-    pub reference: NodeRef,
-    pub disabled: Value<bool>,
-}
-
-pub(crate) fn tab_stop(items: &[RovingItem], active: usize) -> Option<usize> {
-    if items.get(active).is_some_and(|item| !item.disabled.get()) {
-        Some(active)
-    } else {
-        items.iter().position(|item| !item.disabled.get())
-    }
-}
-
-pub(crate) fn move_focus(
-    items: &[RovingItem],
-    active: Signal<usize>,
-    key: Key,
-    vertical: bool,
-    rtl: bool,
-) -> Handled {
-    let enabled: Vec<_> = items
-        .iter()
-        .enumerate()
-        .filter(|(_, item)| !item.disabled.get())
-        .collect();
-    let Some(first) = enabled.first() else {
-        return Handled::No;
-    };
-    let Some(last) = enabled.last() else {
-        return Handled::No;
-    };
-    let step = match key {
-        Key::Home => Some(first.0),
-        Key::End => Some(last.0),
-        Key::ArrowDown if vertical => Some(next(&enabled, active.get(), true)),
-        Key::ArrowUp if vertical => Some(next(&enabled, active.get(), false)),
-        Key::ArrowRight if !vertical => Some(next(&enabled, active.get(), !rtl)),
-        Key::ArrowLeft if !vertical => Some(next(&enabled, active.get(), rtl)),
-        _ => None,
-    };
-    if let Some(step) = step {
-        active.set(step);
-        items[step].reference.focus();
-        Handled::Yes
-    } else {
-        Handled::No
-    }
-}
-
-fn next(enabled: &[(usize, &RovingItem)], active: usize, forward: bool) -> usize {
-    let index = enabled
-        .iter()
-        .position(|(index, _)| *index == active)
-        .unwrap_or(0);
-    let count = enabled.len();
-    enabled[(index + if forward { 1 } else { count - 1 }) % count].0
-}
-
-pub(crate) fn roving_item<T: NodeBuilder>(
-    item: T,
-    index: usize,
-    active: Signal<usize>,
-    items: Rc<Vec<RovingItem>>,
-) -> T {
-    let reference = items[index].reference;
-    let disabled = items[index].disabled;
-    item.node_ref(reference)
-        .focusable(move || tab_stop(&items, active.get()) == Some(index))
-        .on_pointer(move |event| {
-            if matches!(event.phase(), PointerPhase::Down(_)) && !disabled.get() {
-                active.set(index);
-            }
-        })
 }
 
 fn corners(vertical: bool, rtl: bool, first: bool, last: bool, r: f64) -> [f64; 4] {
@@ -247,15 +166,17 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
         self.root
             .disabled(disabled)
             .roving_focus(self.orientation.get())
-            .base_style(move || {
-                let t = tokens();
-                elevation.apply(
-                    style()
-                        .direction(direction)
-                        .align_items(Align::Stretch)
-                        .radius(t.radius.element),
-                    &t,
-                )
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    elevation.apply(
+                        style()
+                            .direction(direction)
+                            .align_items(Align::Stretch)
+                            .radius(t.radius.element),
+                        &t,
+                    )
+                })
             })
             .child(children)
             .into_view()

@@ -11,7 +11,6 @@ use kivact::test::render_with_handle;
 use kivact::ui::ToggleLabelReservation;
 use kivact::ui::toggle_button;
 use kivact::view::CheckedState;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact::view::icon;

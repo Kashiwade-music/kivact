@@ -156,7 +156,8 @@ impl IntoView for Card {
             let actual_inset = ContainerInset::uniform(physical_padding);
             let layout_inset = LayoutInset::from_padding(ContainerInset::uniform(logical_padding));
             let content = provide(actual_inset, move || provide(layout_inset, move || content));
-            let content = column(content).base_style(style().padding(physical_padding));
+            let content = column(content)
+                .with_node(move |node| node.base_style(style().padding(physical_padding)));
             let interactive = !matches!(action, CardAction::Plain);
             let clickable = matches!(action, CardAction::Button);
             let checked = match action {
@@ -168,97 +169,101 @@ impl IntoView for Card {
                 CardAction::Button => {
                     let part = use_button().disabled(disabled).control();
                     let state = part.state();
-                    (root.part(part), Some(state))
+                    (root.with_node(move |node| node.part(part)), Some(state))
                 }
                 CardAction::Checkbox(selected) => {
                     let part = use_checkbox(selected).disabled(disabled).control();
                     let state = part.state();
                     let input = kivact::state::memo(move || state.get().input);
-                    let root = root.part(part).on_key(move |event: KeyEvent| {
-                        if event.key() == Key::Enter
-                            && input.get().focused
-                            && !event.repeat()
-                            && !disabled.get()
-                            && !event.modifiers().get().alt
-                            && !event.modifiers().get().ctrl
-                            && !event.modifiers().get().meta
-                        {
-                            selected.set(!selected.get());
-                            Handled::Yes
-                        } else {
-                            Handled::No
-                        }
-                    });
+                    let root = root.with_node(move |node| node.part(part)).on_key(
+                        move |event: KeyEvent| {
+                            if event.key() == Key::Enter
+                                && input.get().focused
+                                && !event.repeat()
+                                && !disabled.get()
+                                && !event.modifiers().alt
+                                && !event.modifiers().ctrl
+                                && !event.modifiers().meta
+                            {
+                                selected.set(!selected.get());
+                                Handled::Yes
+                            } else {
+                                Handled::No
+                            }
+                        },
+                    );
                     (root, Some(input))
                 }
             };
-            let mut root = root.base_style(move || {
-                let t = tokens();
-                let c = t.colors;
-                let bg = match variant.get() {
-                    CardVariant::Default => c.bg_card,
-                    CardVariant::Transparent => Color::TRANSPARENT,
-                    CardVariant::Muted => c.bg_muted,
-                    CardVariant::Blue => c.hue.blue.bg,
-                    CardVariant::Cyan => c.hue.cyan.bg,
-                    CardVariant::Gray => c.hue.gray.bg,
-                    CardVariant::Green => c.hue.green.bg,
-                    CardVariant::Orange => c.hue.orange.bg,
-                    CardVariant::Pink => c.hue.pink.bg,
-                    CardVariant::Purple => c.hue.purple.bg,
-                    CardVariant::Red => c.hue.red.bg,
-                    CardVariant::Teal => c.hue.teal.bg,
-                    CardVariant::Yellow => c.hue.yellow.bg,
-                };
-                let mut base = style()
-                    .direction(Direction::Column)
-                    .position(Position::Relative)
-                    .min_width(0)
-                    .radius(t.radius.container)
-                    .clip(true)
-                    .background(bg);
-                let selected = checked.is_some_and(|checked| checked.get());
-                let ring = match variant.get() {
-                    CardVariant::Default | CardVariant::Transparent | CardVariant::Muted => {
-                        c.accent
+            let mut root = root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let c = t.colors;
+                    let bg = match variant.get() {
+                        CardVariant::Default => c.bg_card,
+                        CardVariant::Transparent => Color::TRANSPARENT,
+                        CardVariant::Muted => c.bg_muted,
+                        CardVariant::Blue => c.hue.blue.bg,
+                        CardVariant::Cyan => c.hue.cyan.bg,
+                        CardVariant::Gray => c.hue.gray.bg,
+                        CardVariant::Green => c.hue.green.bg,
+                        CardVariant::Orange => c.hue.orange.bg,
+                        CardVariant::Pink => c.hue.pink.bg,
+                        CardVariant::Purple => c.hue.purple.bg,
+                        CardVariant::Red => c.hue.red.bg,
+                        CardVariant::Teal => c.hue.teal.bg,
+                        CardVariant::Yellow => c.hue.yellow.bg,
+                    };
+                    let mut base = style()
+                        .direction(Direction::Column)
+                        .position(Position::Relative)
+                        .min_width(0)
+                        .radius(t.radius.container)
+                        .clip(true)
+                        .background(bg);
+                    let selected = checked.is_some_and(|checked| checked.get());
+                    let ring = match variant.get() {
+                        CardVariant::Default | CardVariant::Transparent | CardVariant::Muted => {
+                            c.accent
+                        }
+                        CardVariant::Blue => c.hue.blue.border,
+                        CardVariant::Cyan => c.hue.cyan.border,
+                        CardVariant::Gray => c.hue.gray.border,
+                        CardVariant::Green => c.hue.green.border,
+                        CardVariant::Orange => c.hue.orange.border,
+                        CardVariant::Pink => c.hue.pink.border,
+                        CardVariant::Purple => c.hue.purple.border,
+                        CardVariant::Red => c.hue.red.border,
+                        CardVariant::Teal => c.hue.teal.border,
+                        CardVariant::Yellow => c.hue.yellow.border,
+                    };
+                    if bordered {
+                        base = base
+                            .border(t.sizes.border_width, if selected { ring } else { c.border });
                     }
-                    CardVariant::Blue => c.hue.blue.border,
-                    CardVariant::Cyan => c.hue.cyan.border,
-                    CardVariant::Gray => c.hue.gray.border,
-                    CardVariant::Green => c.hue.green.border,
-                    CardVariant::Orange => c.hue.orange.border,
-                    CardVariant::Pink => c.hue.pink.border,
-                    CardVariant::Purple => c.hue.purple.border,
-                    CardVariant::Red => c.hue.red.border,
-                    CardVariant::Teal => c.hue.teal.border,
-                    CardVariant::Yellow => c.hue.yellow.border,
-                };
-                if bordered {
-                    base =
-                        base.border(t.sizes.border_width, if selected { ring } else { c.border });
-                }
-                if checked.is_some() {
-                    let color = if selected { ring } else { Color::TRANSPARENT };
-                    base = base.shadow(Shadow::new(0, 0, 0, color).spread(2).inset());
-                }
-                if interactive {
-                    base = base
-                        .focus_visible(crate::recipe_style::ring(&t, c.accent))
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
-                        );
-                    if disabled.get() {
-                        base = base.opacity(t.sizes.disabled_opacity);
-                    } else if clickable && bordered {
-                        base = base.hover(style().border_color(c.border_emphasized));
+                    if checked.is_some() {
+                        let color = if selected { ring } else { Color::TRANSPARENT };
+                        base = base.shadow(Shadow::new(0, 0, 0, color).spread(2).inset());
                     }
-                }
-                base = elevation.get().apply(base, &t);
-                if let Some(height) = height {
-                    base = base.height(height.get());
-                }
-                base
+                    if interactive {
+                        base = base
+                            .focus_visible(crate::recipe_style::ring(&t, c.accent))
+                            .transition(
+                                TransitionProp::Paint,
+                                Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+                            );
+                        if disabled.get() {
+                            base = base.opacity(t.sizes.disabled_opacity);
+                        } else if clickable && bordered {
+                            base = base.hover(style().border_color(c.border_emphasized));
+                        }
+                    }
+                    base = elevation.get().apply(base, &t);
+                    if let Some(height) = height {
+                        base = base.height(height.get());
+                    }
+                    base
+                })
             });
             if height.is_some() {
                 root = root.child(

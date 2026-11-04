@@ -1,4 +1,5 @@
 //! Role: Composer controls for application-owned chat state.
+use kivact::custom::NodeRefExt;
 
 use kivact::state::IntoBinding;
 use std::cell::RefCell;
@@ -150,7 +151,7 @@ impl IntoView for ChatSendButton {
             .child(stop_icon.unwrap_or_else(|| text("■").into_view()));
         let send_label = message("soft.chat_send_button.send", "Send");
         let stop_label = message("soft.chat_send_button.stop", "Stop");
-        root.role(Role::Button)
+        root.with_node(move |node| node.role(Role::Button))
             .focusable(true)
             .disabled(disabled)
             .name(move || {
@@ -166,21 +167,23 @@ impl IntoView for ChatSendButton {
                     action.call(());
                 }
             })
-            .base_style(move || {
-                let p = tokens();
-                style()
-                    .direction(Direction::Row)
-                    .size(side, side)
-                    .shrink(0)
-                    .radius(side as f64 / 2.0)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .font_size(18)
-                    .background(p.colors.accent)
-                    .color(p.colors.on_accent)
-                    .hover(style().background(p.colors.accent_hover))
-                    .disabled(style().opacity(0.5))
-                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let p = tokens();
+                    style()
+                        .direction(Direction::Row)
+                        .size(side, side)
+                        .shrink(0)
+                        .radius(side as f64 / 2.0)
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .font_size(18)
+                        .background(p.colors.accent)
+                        .color(p.colors.on_accent)
+                        .hover(style().background(p.colors.accent_hover))
+                        .disabled(style().opacity(0.5))
+                        .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+                })
             })
             .child((send, stop))
             .into_view()
@@ -372,11 +375,10 @@ impl IntoView for ChatComposer {
                 .node_ref(input_ref)
                 .forward_keys(vec![Key::Enter])
                 .on_key(move |event: KeyEvent| {
-                    if event.key() == Key::Enter && event.modifiers().get() == Modifiers::default()
-                    {
+                    if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
                         send.call(());
                         Handled::Yes
-                    } else if event.modifiers().get() == Modifiers::default()
+                    } else if event.modifiers() == Modifiers::default()
                         && matches!(event.key(), Key::ArrowUp | Key::ArrowDown)
                         && let Some(history) = &history
                         && let Some(editor) = input_ref.edit_state()
@@ -453,7 +455,7 @@ impl IntoView for ChatComposer {
                         None => String::new(),
                     })
                 })
-                .role(Role::Status)
+                .with_node(move |node| node.role(Role::Status))
                 .style(move || {
                     let p = tokens();
                     style().font_size(12).padding_x(8).color(
@@ -466,7 +468,9 @@ impl IntoView for ChatComposer {
                 })
             },
         );
-        let root = root.base_style(style().direction(Direction::Column).width(pct(100)).gap(4));
+        let root = root.with_node(move |node| {
+            node.base_style(style().direction(Direction::Column).width(pct(100)).gap(4))
+        });
         match status_position.get() {
             ComposerStatusPosition::Top => root.child((status, drawer, surface)),
             ComposerStatusPosition::Bottom => root.child((drawer, surface, status)),
@@ -566,17 +570,19 @@ impl IntoView for ChatComposerDrawer {
             collapsed,
             summary,
         } = self;
-        let root = root.base_style(move || {
-            let p = tokens();
-            style()
-                .direction(Direction::Column)
-                .padding_x(16)
-                .padding_y(12)
-                .gap(8)
-                .radius_top_left(28)
-                .radius_top_right(28)
-                .background(p.colors.bg_muted)
-                .color(p.colors.text_secondary)
+        let root = root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                style()
+                    .direction(Direction::Column)
+                    .padding_x(16)
+                    .padding_y(12)
+                    .gap(8)
+                    .radius_top_left(28)
+                    .radius_top_right(28)
+                    .background(p.colors.bg_muted)
+                    .color(p.colors.text_secondary)
+            })
         });
         let Some(count) = count else {
             return root.child(content).into_view();
@@ -584,23 +590,27 @@ impl IntoView for ChatComposerDrawer {
         let collapsed = collapsed.unwrap_or_else(|| signal(false).into_binding());
         let controlled = node_ref();
         let button = node()
-            .role(Role::Button)
+            .with_node(move |node| node.role(Role::Button))
             .focusable(true)
-            .controls(controlled)
+            .with_node(move |node| node.controls(controlled))
             .name(label)
-            .with_node(move |node| node.expanded(move || !collapsed.get()))
+            .with_node(move |node| {
+                node.with_node(move |node| node.expanded(move || !collapsed.get()))
+            })
             .on_press(move || collapsed.set(!collapsed.get_untracked()))
-            .base_style(move || {
-                let p = tokens();
-                style()
-                    .direction(Direction::Row)
-                    .align_items(Align::Center)
-                    .gap(8)
-                    .padding_y(2)
-                    .font_size(14)
-                    .line_height(20.0 / 14.0)
-                    .hover(style().color(p.colors.text_primary))
-                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let p = tokens();
+                    style()
+                        .direction(Direction::Row)
+                        .align_items(Align::Center)
+                        .gap(8)
+                        .padding_y(2)
+                        .font_size(14)
+                        .line_height(20.0 / 14.0)
+                        .hover(style().color(p.colors.text_primary))
+                        .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+                })
             })
             .child((
                 text(move || count.get().to_string()),
@@ -704,7 +714,7 @@ impl IntoView for ChatDictationButton {
         let waveform = row(bars)
             .hidden(move || !listening())
             .style(style().gap(2).align_items(Align::Center));
-        root.role(Role::Button)
+        root.with_node(move |node| node.role(Role::Button))
             .focusable(true)
             .name(label)
             .checked(listening)
@@ -714,18 +724,20 @@ impl IntoView for ChatDictationButton {
                     toggle.call(());
                 }
             })
-            .hidden(move || hide_when_unsupported && !state.with(|state| state.supported))
-            .base_style(move || {
-                let p = tokens();
-                style()
-                    .direction(Direction::Row)
-                    .size(side, side)
-                    .radius(side as f64 / 2.0)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .color(p.colors.text_primary)
-                    .hover(style().background(p.colors.overlay_hover))
-                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            .hidden(move || hide_when_unsupported.get() && !state.with(|state| state.supported))
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let p = tokens();
+                    style()
+                        .direction(Direction::Row)
+                        .size(side, side)
+                        .radius(side as f64 / 2.0)
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .color(p.colors.text_primary)
+                        .hover(style().background(p.colors.overlay_hover))
+                        .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+                })
             })
             .child((icon, waveform))
             .into_view()

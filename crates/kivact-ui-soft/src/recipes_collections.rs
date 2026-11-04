@@ -137,7 +137,7 @@ fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
         .opacity(if s.selected { 1.0 } else { 0.0 })
         .transition(
             TransitionProp::Paint,
-            paint_transition(&p, p.motion.fast).decorative(false),
+            paint_transition(&p, p.motion.fast).essential(),
         );
     if s.orientation == Orientation::Vertical {
         let indicator = indicator.top(inset).bottom(inset).width(2);

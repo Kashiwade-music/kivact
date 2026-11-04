@@ -134,14 +134,14 @@ impl HoverCard {
         let controlled = self.open;
         let visited = signal(false);
         kivact::state::effect(move || {
-            if over_anchor.get() || over_card || anchor_focus || card_focus.get() {
+            if over_anchor.get() || over_card.get() || anchor_focus.get() || card_focus.get() {
                 visited.set(true);
             } else if visited.get() {
                 initially_open.set(false);
             }
         });
         let pointer = use_delayed(
-            memo(move || enabled && (over_anchor || over_card.get())),
+            memo(move || enabled.get() && (over_anchor.get() || over_card.get())),
             self.delays,
         );
         let focus_delay = use_delayed(
@@ -164,17 +164,17 @@ impl HoverCard {
         let open = memo(move || {
             enabled.get()
                 && (controlled.map_or_else(
-                    || initially_open || pointer.is_open().get(),
+                    || initially_open.get() || pointer.is_open().get(),
                     |value| value.get(),
                 ) || (!dismissed.get() && focus_delay.is_open().get()))
         });
         if let Some(callback) = self.on_open_change.clone() {
-            let previous = kivact::var(open.get());
+            let previous = kivact::state::var(open.get());
             kivact::state::effect(move || {
                 let current = open.get();
                 if current != previous.get() {
                     previous.set(current);
-                    callback(current);
+                    callback.call(current);
                 }
             });
         }
@@ -214,8 +214,10 @@ impl HoverCard {
                     focus_delay.dismiss();
                 });
             match &self.label {
-                Some(label) => layer.role(Role::Dialog).name(label.clone()),
-                None => layer.role(Role::Group),
+                Some(label) => layer
+                    .with_node(move |node| node.role(Role::Dialog))
+                    .name(label.clone()),
+                None => layer.with_node(move |node| node.role(Role::Group)),
             }
         });
         kivact::state::effect(move || {
