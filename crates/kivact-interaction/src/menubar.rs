@@ -18,7 +18,6 @@
 //! and the last trigger. With a menu open, resting the pointer on another
 //! trigger opens that menu.
 
-use crate::Selection;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;

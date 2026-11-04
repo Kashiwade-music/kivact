@@ -93,7 +93,7 @@ impl Touch {
             session.commit();
         });
         // A completed coast need not keep requesting frames.
-        kivact_core::effect_on(
+        kivact_core::state::effect_on(
             move || coast.with(Option::is_some),
             move |running| {
                 if *running {
@@ -117,7 +117,7 @@ impl Touch {
     }
 
     pub(crate) fn lifted(self, index: usize) -> Value<bool> {
-        kivact_core::memo(move || self.lifted.get() == Some(index))
+        kivact_core::state::memo(move || self.lifted.get() == Some(index))
     }
 
     pub(crate) fn finish(self, restore: bool) -> bool {

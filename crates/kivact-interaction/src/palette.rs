@@ -19,7 +19,7 @@
 //! the scroll height and the look are the caller's drawing.
 
 use crate::Selection;
-use kivact_core::state::IntoBinding;
+use kivact_core::custom::Reactive;
 use kivact_core::view::HandlerResult;
 use std::rc::Rc;
 
@@ -33,7 +33,7 @@ use kivact_core::i18n::message;
 use kivact_core::state::{Binding, Signal, Value, binding, effect, memo, signal};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::Icon;
-use kivact_core::view::{Handled, IntoView, KeyEvent, Reactive, Role, View};
+use kivact_core::view::{Handled, IntoView, KeyEvent, Role, View};
 
 /// One command a [`CommandPaletteApi`] lists.
 ///
@@ -235,7 +235,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }

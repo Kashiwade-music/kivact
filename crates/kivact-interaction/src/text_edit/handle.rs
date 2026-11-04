@@ -8,14 +8,12 @@ use kivact_core::custom::{
     EditLineLayout, NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise,
     require_setup,
 };
-use kivact_core::state::IntoBinding;
 use kivact_core::state::{Binding, Signal, Value, on_cleanup, signal};
 use kivact_core::state::{Callback, callback};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::{Composition as CompositionState, EditPhase, NodeRef, node_ref};
 use kivact_core::view::{Handled, HandlerResult, Key, Role};
 use std::cell::{Cell, RefCell};
-use std::panic::Location;
 use std::rc::Rc;
 
 /// Headless controlled editing attached to one native leaf at a time.
@@ -252,7 +250,6 @@ impl TextEditApi {
     /// Create the focusable TextBox Part for this editor's native leaf.
     #[track_caller]
     pub fn control(self) -> Part<PartState> {
-        let at = Location::caller();
         self.data.get();
         require_setup("TextEditApi::control");
         let input = part(|state| state);

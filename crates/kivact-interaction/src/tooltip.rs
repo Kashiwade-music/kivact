@@ -217,7 +217,7 @@ pub struct TooltipApi {
 #[track_caller]
 pub fn use_tooltip() -> TooltipApi {
     let disabled = signal(None::<Value<bool>>);
-    let config = try_use_context::<TooltipConfig>().unwrap_or_default();
+    let config = try_use_context::<TooltipConfig>();
     let hub = Hub::of_app();
     let id = hub.take_id();
 
@@ -234,10 +234,16 @@ pub fn use_tooltip() -> TooltipApi {
     let delayed = delayed(
         engaged,
         move || {
-            if hub.warm_for(id, config.skip_delay) {
+            if hub.warm_for(
+                id,
+                config
+                    .map(|value| value.get())
+                    .unwrap_or_default()
+                    .skip_delay,
+            ) {
                 Duration::ZERO
             } else {
-                config.delay
+                config.map(|value| value.get()).unwrap_or_default().delay
             }
         },
         Duration::ZERO,

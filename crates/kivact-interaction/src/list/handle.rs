@@ -6,11 +6,9 @@ use super::{input, parts, state, typeahead};
 use crate::Selection;
 use crate::axis::check_list_axis;
 use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
-use kivact_core::state::IntoBinding;
-use kivact_core::state::{Binding, Value, Var};
 use kivact_core::state::{IntoValue, callback};
+use kivact_core::state::{Value, Var};
 use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
-use std::panic::Location;
 use std::rc::Rc;
 
 /// A Copy list handle over caller-owned item order and authoritative selection.
@@ -47,7 +45,7 @@ pub fn use_list<K: kivact_core::state::ItemKey>(
     let selection = selection.into_selection();
     check_list_axis(policy.axis, "use_list");
     ListApi {
-        state: state::create(items.into_value(), selection, policy, Location::caller()),
+        state: state::create(items.into_value(), selection, policy),
     }
 }
 
@@ -212,7 +210,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub(crate) fn item_with_disabled_focus(self, key: K, retain: bool) -> Part<ListItemState> {
         let state = self.state();
         require_setup("ListApi::item");
-        parts::item(state, key, Location::caller(), retain)
+        parts::item(state, key, retain)
     }
 
     pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {

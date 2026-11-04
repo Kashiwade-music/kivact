@@ -13,7 +13,6 @@
 //! animation runs; the trigger's `expanded` follows the shown state at once.
 
 use kivact_core::custom::{Part, PartState, part};
-use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Signal, Value, signal};
 use kivact_core::view::{A11yAction, NodeRef, Role, node_ref};

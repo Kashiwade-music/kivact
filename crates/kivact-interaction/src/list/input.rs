@@ -97,7 +97,7 @@ pub(super) fn key<K: kivact_core::state::ItemKey>(
             Key::Space => {
                 let gesture = gesture(state, modifiers);
                 if gesture != ListGesture::Replace
-                    || !kivact_core::untrack(|| selected(state.selection).contains(from))
+                    || !kivact_core::state::untrack(|| selected(state.selection).contains(from))
                 {
                     state.select(from.clone(), gesture);
                 }
@@ -250,7 +250,7 @@ pub(super) fn key_selection<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     event: &KeyEvent,
 ) -> Handled {
-    let current = kivact_core::untrack(|| selected(state.selection).into_iter().next());
+    let current = kivact_core::state::untrack(|| selected(state.selection).into_iter().next());
     let policy = state.policy();
     if let Some(movement) = movement(event.key(), event.modifiers(), policy.axis, state.mode) {
         let Some(next) = destination(state, current.as_ref(), Some(movement), None, true) else {

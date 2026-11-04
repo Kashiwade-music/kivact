@@ -1,6 +1,6 @@
 //! Role: Store menu entries and shared session state.
 
-use std::panic::Location;
+use kivact_core::custom::Reactive;
 
 use crate::PopupApi;
 use crate::list::typeahead::Typeahead;
@@ -10,7 +10,7 @@ use kivact_core::geometry::Point;
 use kivact_core::state::IntoText;
 use kivact_core::state::{Callback, Signal, Value, Var};
 use kivact_core::style::Icon;
-use kivact_core::view::{NodeRef, Reactive};
+use kivact_core::view::NodeRef;
 
 /// Where an open menu was asked to appear.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -255,12 +255,9 @@ impl<K> MenuEntry<K> {
     }
 
     /// The item data for a modifier that only items have; any other kind is a
-    /// usage error at `at`.
-    fn item_for(
-        &mut self,
-        name: &'static str,
-        at: &'static Location<'static>,
-    ) -> &mut ItemEntry<K> {
+    /// usage error at the caller.
+    #[track_caller]
+    fn item_for(&mut self, name: &'static str) -> &mut ItemEntry<K> {
         let what = self.what();
         match &mut self.kind {
             EntryKind::Item(item) => item,
@@ -275,15 +272,14 @@ impl<K> MenuEntry<K> {
     /// or an image [`Asset`](kivact_core::view::Asset). Items only.
     #[track_caller]
     pub fn with_icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.item_for("icon", Location::caller()).icon = Some(icon.into());
+        self.item_for("icon").icon = Some(icon.into());
         self
     }
 
     /// A secondary line of text under the label. Items only.
     #[track_caller]
     pub fn with_description(mut self, text: impl IntoText) -> Self {
-        self.item_for("description", Location::caller()).description =
-            Some(Reactive::new(text.into_text()));
+        self.item_for("description").description = Some(Reactive::new(text.into_text()));
         self
     }
 
@@ -292,7 +288,7 @@ impl<K> MenuEntry<K> {
     /// menu binds no key. Items only.
     #[track_caller]
     pub fn with_shortcut(mut self, text: impl Into<String>) -> Self {
-        self.item_for("shortcut", Location::caller()).shortcut = text.into();
+        self.item_for("shortcut").shortcut = text.into();
         self
     }
 
@@ -300,7 +296,7 @@ impl<K> MenuEntry<K> {
     /// By default the arrow keys and typeahead skip disabled items. Items only.
     #[track_caller]
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.item_for("disabled", Location::caller()).disabled = disabled;
+        self.item_for("disabled").disabled = disabled;
         self
     }
 
@@ -308,8 +304,7 @@ impl<K> MenuEntry<K> {
     /// focus can show this reason as a tooltip. This does not disable the item.
     #[track_caller]
     pub fn with_disabled_reason(mut self, reason: impl IntoText) -> Self {
-        self.item_for("disabled_reason", Location::caller())
-            .disabled_reason = Some(Reactive::new(reason.into_text()));
+        self.item_for("disabled_reason").disabled_reason = Some(Reactive::new(reason.into_text()));
         self
     }
 
@@ -318,7 +313,7 @@ impl<K> MenuEntry<K> {
     /// behavior and semantics do not change. Items only.
     #[track_caller]
     pub fn destructive(mut self, destructive: bool) -> Self {
-        self.item_for("destructive", Location::caller()).destructive = destructive;
+        self.item_for("destructive").destructive = destructive;
         self
     }
 
@@ -343,8 +338,7 @@ impl<K> MenuEntry<K> {
     /// visibility menu. Items and check items only; a submenu has none.
     #[track_caller]
     pub fn keep_open(mut self, keep_open: bool) -> Self {
-        let at = Location::caller();
-        let item = self.item_for("keep_open", at);
+        let item = self.item_for("keep_open");
         if matches!(item.role, ItemRole::Submenu(_)) {
             raise(
                 ErrorKind::Message,

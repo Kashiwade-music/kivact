@@ -33,11 +33,10 @@
 //! focus rules.
 
 use kivact_core::geometry::Edge;
-use std::panic::Location;
 
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Part, PartState, part, raise};
-use kivact_core::state::{Binding, Value, Var, on_mount, var};
+use kivact_core::state::{Value, Var, on_mount, var};
 use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
@@ -265,7 +264,6 @@ impl DialogApi {
     /// trigger or an anchor is a usage error when it opens.
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
-        let at = Location::caller();
         let allowed = move |reason: DismissReason| match reason {
             DismissReason::Escape => self.rules().escape,
             DismissReason::OutsidePress => {
@@ -318,13 +316,13 @@ impl DialogApi {
                 })
                 .labelled_by(self.title)
                 .described_by(self.description)
-                .on_attach(move |mount| self.bind(mount.node, at))
+                .on_attach(move |mount| self.bind(mount.node))
         })
     }
 
     /// Per-opening focus: the start and, for a popover, the return. Setup
     /// only, under the mounted surface's owner.
-    fn bind(self, surface: NodeRef, at: &'static Location<'static>) {
+    fn bind(self, surface: NodeRef) {
         if self.popover() && !self.anchored.get() {
             raise(
                 ErrorKind::Message,

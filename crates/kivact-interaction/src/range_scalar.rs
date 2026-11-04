@@ -4,7 +4,6 @@ use crate::drag::DragApi;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, pulled_inside};
 use kivact_core::custom::{Part, PartState, part};
-use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Value, binding, effect_on, memo};
 use kivact_core::view::EditPhase;
@@ -52,7 +51,7 @@ pub struct RangeScalarApi {
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }

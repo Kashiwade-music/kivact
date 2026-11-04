@@ -16,7 +16,6 @@
 //! too.
 
 use crate::Selection;
-use kivact_core::state::IntoBinding;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

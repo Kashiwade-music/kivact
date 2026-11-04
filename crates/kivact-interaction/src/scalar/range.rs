@@ -6,7 +6,6 @@ use kivact_core::custom::raise;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Value, effect_on};
 use std::ops::RangeInclusive;
-use std::panic::Location;
 
 impl IntoValue<ScalarRange> for RangeInclusive<f64> {
     #[track_caller]

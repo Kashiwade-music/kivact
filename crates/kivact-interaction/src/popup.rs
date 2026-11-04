@@ -32,13 +32,11 @@
 //! the focus is briefly `None` (a tab switch, say) it stays open and waits
 //! for the next tracked focus.
 
-use std::panic::Location;
-
 use kivact_core::ErrorKind;
 use kivact_core::custom::{
     NodeRefExt, NodeToken, Owner, Part, PartState, focused_node, part, raise,
 };
-use kivact_core::state::{Binding, Value, Var, effect, on_cleanup, on_mount, var};
+use kivact_core::state::{Binding, IntoValue, Value, Var, effect, memo, on_cleanup, on_mount, var};
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
 };
@@ -370,7 +368,6 @@ impl PopupApi {
         self,
         allow: impl Fn(DismissReason) -> bool + 'static,
     ) -> Part<PopupState> {
-        let at = Location::caller();
         let open = self.is_open();
         let input = part(move |input| PopupState {
             input,
@@ -402,13 +399,13 @@ impl PopupApi {
                         DismissReason::Timeout => PopupCloseReason::Programmatic,
                     });
                 })
-                .on_attach(move |_| self.watch(at))
+                .on_attach(move |_| self.watch())
         })
     }
 
     /// Per-mount focus range, anchor removal and initial focus. Setup only,
     /// under the mounted surface's owner.
-    fn watch(self, at: &'static Location<'static>) {
+    fn watch(self) {
         if self.opening.with(Option::is_some) {
             raise(
                 ErrorKind::Message,

@@ -7,10 +7,8 @@ use crate::roving::Member;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Part, PartState, part, raise, require_setup};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
-use kivact_core::state::IntoBinding;
-use kivact_core::state::{Binding, Value, memo};
+use kivact_core::state::{Value, memo};
 use kivact_core::view::{Handled, KeyEvent, Role};
-use std::panic::Location;
 use std::rc::Rc;
 
 /// How a day lies in the selection.
@@ -195,7 +193,6 @@ impl CalendarGridApi {
     /// disabled as the selection and the policy say.
     #[track_caller]
     pub fn cell(self, month: CalendarMonth, day: CalendarDate) -> Part<CalendarDayState> {
-        let at = std::panic::Location::caller();
         let state = self.state();
         let disabled = {
             let policy = state.policy.disabled.clone();

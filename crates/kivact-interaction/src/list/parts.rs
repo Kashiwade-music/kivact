@@ -9,7 +9,6 @@ use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{memo, signal, var};
 use kivact_core::view::{A11yAction, Orientation, Role};
-use std::panic::Location;
 use std::rc::Rc;
 
 pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> Part<PartState> {
@@ -42,7 +41,6 @@ enum ItemMount {
 pub(super) fn item<K: kivact_core::state::ItemKey>(
     state: Rc<State<K>>,
     key: K,
-    at: &'static Location<'static>,
     retain_disabled_focus: bool,
 ) -> Part<ListItemState> {
     let key = var(key);

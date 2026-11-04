@@ -14,7 +14,7 @@
 //! `Selection::Single`. The Creative outliner is built on a
 //! `TreeApi<u64>`.
 
-use kivact_core::state::IntoBinding;
+use kivact_core::custom::Reactive;
 use kivact_core::view::HandlerResult;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -29,7 +29,7 @@ use super::{ListApi, ListItem, ListOptions, ListRangeOptions, use_list};
 use kivact_core::state::{Binding, Callback, Signal, Value, memo, signal};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::A11yAction;
-use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Reactive, Role};
+use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
 
 /// One node of the data a [`TreeApi`] shows: its key, the key of its parent,
 /// its label and whether it is disabled.
@@ -380,7 +380,7 @@ pub struct TreeItemState {
 /// # pub use kivact_core::{view, state, style};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
 /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
