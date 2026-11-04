@@ -3,6 +3,19 @@
 Integration: `refactor/kashiwade/foundation-v3`
 Date: 2026-11-04
 
+## ユーザー指示による中断（CP1 未通過）
+
+- 2026-11-04 の中断・記録・commit/push 指示に従い、W1 の source と回帰修正までを保存する。通常の checkpoint push と違い、ユーザーが明示的に依頼した途中保存である。**CP1 は PASS にしない。W2 の実装は始めていない。**
+- 検証済み Rust source: `97689c4`（以降は記録の変更のみ）。W0/CP0 完了、V-1a〜V-6 の定義・追従は merged。最近の修正は native text endpoints `342a2d0`、pointer fixture metadata `22aa80b`、継承 decoration の font basis `fcd40ae`、KeyUp turn 境界 `44d752d` + `130ee3e`、cubic easing の正確な端点 `38641d4`。
+- 最終 static/feature gate: fmt exit 0 (3.88s)、全 workspace Clippy / warnings denied exit 0 (18.93s)、xtask exit 0 (141.37s; 42 crates / 143 graphs)、feature 検査 exit 0 (96.76s)。architecture は更新済みで追加差分なし。
+- 最終 trace all-features: exit 0、1365 passed / 0 failed / 51 ignored (602.87s)。no-default: exit 0、1352 passed / 0 failed / 50 ignored (355.01s)。通常 all-features も exit 0、1365 passed / 0 failed / 51 ignored (519.05s; window-lock 待ちを含む)。receipt は `checkpoint-cp1/checks.json`、原 log は `target/foundation-v3/cp1/`。
+- 原 trace: `target/foundation-v3/traces/cp0/` と `cp1-after-boundary/`。後者は 915 files / 113,524,027 bytes、全 manifest hash 検証済み。古い試行も保存。raw、大きな JSON、build/test log は commit しない。
+- 最終 strict 比較 `comparison-final/`: **REVIEW_REQUIRED / 58,176 records**。parse/adapter/malformed metadata/alignment-unresolved error は 0。schema 531,150 件、type/cause/source location の全件 review 記録はあるが、数値・実行順序・通知差の同値性は未完了。
+- 主要な残件: FrameTick epoch を跨ぐ誤った対応付け 24 件、同 epoch 内の touch rect 10 件、既存 f64 semantic sink の upstream 計算 replay、f32MAX→f64MAX の sentinel、counter 609 / list length 45、113 sequence spans（29 files）。8 files に実際の receive-event 順序差の候補が残る。微小な差や f32 投影だけで受理していない。
+- 再開用の比較ツールと軽量 review 記録を [`checkpoint-cp1/`](checkpoint-cp1/README.md) に保存。詳細 raw/全件 JSON は `target/foundation-v3/cp1/`。既存結果を保持し、epoch-aware alignment を修正 → baseline 自己比較 → 新しい出力先へ再比較 → 残件の因果確認 → CP1 PASS の順で再開する。
+- W2 は read-only 準備のみ。R-1/A-0 の決定事項は DECISIONS と work order に反映済み。R-2 の construction / DAG / turn-order 調査 packet は `target/foundation-v3/w2-preparation/` にある。CP1 通過前に実装しない。
+- 作業 worktree は全て取り込み・削除済み。main/PR は変更していない。push 後はユーザーの再開指示まで停止する。
+
 ## Baseline
 
 Baseline gates completed (serial E2E as documented below). Logs: `target/foundation-v3/baseline/` (not committed).

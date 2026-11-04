@@ -2391,6 +2391,12 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 
 ## Orchestrator follow-up decisions
 
+### User-requested pause checkpoint (2026-11-04)
+
+- The user explicitly requested stopping at a suitable boundary and committing/pushing the current results and records. Finish the already-running checks, stop all implementation/review expansion, and save an intermediate integration branch even though CP1 trace equivalence is not yet proven. This user instruction supersedes the usual checkpoint-PASS-before-push sequence for this pause only.
+- Do not mark CP1 or the overall goal complete. W2 implementation has not started. All final source test/static gates pass, but strict trace comparison remains REVIEW_REQUIRED. Preserve incorrect-epoch matching evidence, unresolved numeric forward replay, and notification/work-order differences rather than converting them into accepted rounding differences.
+- Commit a temporary diagnostic/resume bundle under `refactoring/checkpoint-cp1/`; keep raw traces, large full-record JSON and build logs in ignored target directories as required. The saved scripts are diagnostic tooling, not golden tests. Remove this bundle with the rest of `refactoring/` at F-3 after archiving long-term rationale.
+
 ### Read-only W2 preparation (implementation still waits for CP1)
 
 - A-0: retain Send `MakeHandler` plus separate `ChildHooks` for embedded UI-thread construction; an Rc-owning handler cannot cross threads directly. Keep borrowed blocking handlers with `Box<dyn ShellHandler + '_>`.
