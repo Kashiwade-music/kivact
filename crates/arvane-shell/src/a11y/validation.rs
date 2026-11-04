@@ -93,7 +93,9 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
         let node = lookup
             .get(&focus)
             .ok_or(AccessibilityError::InvalidFocus(focus))?;
-        if hidden_nodes.contains(&focus) || (focus != tree.root && !node.semantics.focusable) {
+        if hidden_nodes.contains(&focus)
+            || (!node.semantics.focusable && (node.semantics.disabled || focus != tree.root))
+        {
             return Err(AccessibilityError::InvalidFocus(focus));
         }
     }
