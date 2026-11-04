@@ -144,9 +144,13 @@ data の record と `*Api` の、同じ名詞の setter と読み出し（例: `
 
 `ui` は `interaction` の型を再公開しない（`Toaster` などは `kivact::interaction` か prelude から使う）。`UiPolicy` は作らない（振る舞いの knob は `InteractionPolicy`、見た目の動きは `UiTokens`。設計書 18.15 節）。
 
+`tree_rows(..)` の公開 builder は `TreeRows<K>`（複数 root の `IntoView`）。`reveal(gap, transition)` はこの builder に置く。
+
 ### `kivact::custom`（旧 `primitive`）
 
 設計書 10.10 節の一覧（17.12 節の `Decoration`、`LineIndex`、`LineRange`、`Node::draw_with_layout` を含む）と、`PartMount`（`Node::on_attach` の引数）、`Owned`（`Owner::store` の戻り値。`get(&self) -> T`（`T: Clone`）、`with(f)`、`try_get`、`try_with`）、`raise(kind, message)`（`#[track_caller]`）。`Part::new(state: Value<S>, apply: impl FnOnce(Node) -> Node + 'static)`（modifier を自分では持たない。設計書 7.4 節）。`Owner` は core の newtype（現在の `kivact_core::primitive::Owner`）で、公開メソッド: `current()`、`root()`、`is_alive()`(新)、`provide`、`context`、`store`、`report`（どれも `#[track_caller]`）。`api: &'static str` と `at: &'static Location` の引数は `#[track_caller]` で置き換えて消す。
+
+Part の参照が必要な呼出し側は `node_ref()` を作り、実 node に `Node::node_ref(target)` を付ける（Part closure または builder の `with_node`）。`Part::node_ref` は残さない。behavior 内部の参照も同じ実 node に束縛できる。
 
 ### `kivact::test`（feature `test`、`kivact-test` crate）
 

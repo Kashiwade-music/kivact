@@ -114,3 +114,5 @@
 | 2026-11-05 | N-F1 | Transition の定義が types にある | 他 unit の所有と重ならない motion.rs の obsolete decorative 削除を N-F1 に含め、既存 essential と default を保つ。 |
 | 2026-11-05 | N fan-out | opaque Component が固有 option を隠す | 設計の「独自部品」に従い合成部品を impl Component、固有 option を持つ標準・kit constructor は具体 builder とし、fluent API を維持。 |
 | 2026-11-05 | N-F1 | ActionOutcome の variant が未定義 | Clone の Succeeded(T)/Failed(UiError) とし既存の完了だけ通知、キャンセル時の挙動は増やさない。 |
+| 2026-11-05 | N-F2〜N-F6 | Part の参照と InlineEdit の focus 復帰 | 明示的 node_ref を実 node に束縛し Part getter は残さない。共有 TextEditApi の return_focus は既存の commit/cancel 復帰を保つ。 |
+| 2026-11-05 | N-F3 | tree_rows の builder 名が未定義 | 複数 root の TreeRows<K>: IntoView を公開し reveal(gap, transition) を持たせる。 |
