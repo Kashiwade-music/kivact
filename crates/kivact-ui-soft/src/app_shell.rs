@@ -7,11 +7,12 @@ use crate::stack::{ContainerInset, Space, rtl};
 use crate::tokens;
 use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::primitive::NodeExt;
+use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Direction, Justify, Position, auto, pct, style};
 use kivact::view::{
     HandlerResult, IntoValue, IntoView, Role, View, callback, node_ref, provide, show, try_context,
 };
-use kivact::{Binding, Callback, effect_on, signal};
+use kivact::{Binding, Callback, signal};
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -219,35 +220,17 @@ impl IntoView for AppShell {
                 None
             };
             let auto_toggle = automatic && config.has_toggle;
-            let mobile = AppShellMobile {
-                mobile: mobile_width,
-                open,
-                toggle: enabled.then(node_ref),
-                drawer: enabled.then(node_ref),
-                auto_toggle: Some(auto_toggle),
-            };
-            effect_on(
-                move || mobile.is_mobile(),
-                move |is_mobile| {
-                    if !is_mobile && mobile.is_open() {
-                        mobile.close();
-                    }
-                },
-            );
+            let mobile = AppShellMobile::configured(mobile_width, open, auto_toggle);
             let shell = provide(mobile, move || {
                 let main_ref = node_ref();
                 let main_focused = main_ref.focused();
-                let skip_requested = signal(false);
-                effect_on(skip_requested, move |requested| {
-                    if *requested {
-                        main_ref.focus();
-                    }
-                });
-                effect_on(main_focused, move |focused| {
-                    if !focused && skip_requested.get() {
-                        skip_requested.set(false);
-                    }
-                });
+                let skip = machine(
+                    SkipFocus::Idle,
+                    || SkipMachine,
+                    move |_, ()| main_ref.focus(),
+                );
+                skip.feed(main_focused, SkipEvent::Focus);
+                let skip_requested = kivact::memo(move || skip.get() == SkipFocus::Requested);
                 let skip_ref = node_ref();
                 let skip_focused = skip_ref.focused();
                 let label =
@@ -257,7 +240,7 @@ impl IntoView for AppShell {
                     .name(label)
                     .focusable(true)
                     .node_ref(skip_ref)
-                    .on_press(move || skip_requested.set(true))
+                    .on_press(move || skip.send(SkipEvent::Activate))
                     .style(move || {
                         let t = tokens();
                         if skip_focused.get() {
@@ -507,5 +490,28 @@ fn shell_background(variant: ShellVariant) -> kivact::style::Color {
     match variant {
         ShellVariant::Wash | ShellVariant::Elevated => colors.bg_body,
         ShellVariant::Surface | ShellVariant::Section => colors.bg_surface,
+    }
+}
+
+#[derive(Clone, PartialEq)]
+enum SkipFocus {
+    Idle,
+    Requested,
+}
+enum SkipEvent {
+    Activate,
+    Focus(bool),
+}
+struct SkipMachine;
+impl Machine for SkipMachine {
+    type State = SkipFocus;
+    type Event = SkipEvent;
+    type Effect = ();
+    fn transition(&self, _: &SkipFocus, event: SkipEvent) -> Step<SkipFocus, SkipEvent, ()> {
+        match event {
+            SkipEvent::Activate => Step::to(SkipFocus::Requested).with(()),
+            SkipEvent::Focus(false) => Step::to(SkipFocus::Idle),
+            SkipEvent::Focus(true) => Step::stay(),
+        }
     }
 }

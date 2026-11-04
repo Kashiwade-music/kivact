@@ -2,10 +2,12 @@
 use crate::{Text, TextColor, TextKind, TextSize, TextWeight, text};
 use kivact::control::{Node, NodeBuilder};
 use kivact::i18n::message;
-use kivact::task::{sleep, spawn};
+use kivact::state::{Machine, MachineHandle, Step, machine};
 use kivact::ui::tooltip;
 use kivact::view::{IntoValue, IntoView, View};
-use kivact::{Value, signal};
+use kivact::{Value, memo};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// A UTC instant measured in Unix milliseconds.
@@ -170,45 +172,69 @@ pub enum TimestampFormat {
 /// A date or relative timestamp with optional details.
 pub struct Timestamp {
     text: Text,
-    display: kivact::Signal<String>,
-    value: Value<Instant>,
-    format: TimestampFormat,
-    threshold: Duration,
+    clock: MachineHandle<TimestampTick>,
+    settings: Rc<RefCell<TimestampSettings>>,
     details: bool,
     entries: Vec<TimestampEntry>,
-    zone: TimeZone,
-    show_zone: bool,
     live: bool,
 }
 
 /// Show a timestamp in automatic relative or absolute format.
 pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
-    let display = signal(String::new());
+    let settings = Rc::new(RefCell::new(TimestampSettings {
+        value: value.into_value(),
+        format: TimestampFormat::Auto,
+        threshold: Duration::from_secs(604_800),
+        zone: TimeZone::default(),
+        show_zone: false,
+    }));
+    let input = settings.clone();
+    let clock = machine(
+        TimestampClock::Running {
+            now: Instant::from(SystemTime::now()),
+        },
+        move || TimestampTick {
+            value: input.borrow().value.get(),
+            now: Instant::from(SystemTime::now()),
+        },
+        |_, ()| {},
+    );
+    let presentation = settings.clone();
+    let now_label = message("soft.relative_time.now", "now");
+    let yesterday = message("soft.relative_time.yesterday", "yesterday");
+    let display = memo(move || {
+        let TimestampClock::Running { now } = clock.get();
+        timestamp_presentation(&presentation.borrow(), now, now_label, yesterday)
+    });
     Timestamp {
         text: text(display)
             .kind(TextKind::Supporting)
             .color(TextColor::Secondary),
-        display,
-        value: value.into_value(),
-        format: TimestampFormat::Auto,
-        threshold: Duration::from_secs(604_800),
+        clock,
+        settings,
         details: true,
         entries: Vec::new(),
-        zone: TimeZone::default(),
-        show_zone: false,
         live: false,
     }
 }
 
+struct TimestampSettings {
+    value: Value<Instant>,
+    format: TimestampFormat,
+    threshold: Duration,
+    zone: TimeZone,
+    show_zone: bool,
+}
+
 impl Timestamp {
     /// Select the timestamp format.
-    pub fn format(mut self, format: TimestampFormat) -> Self {
-        self.format = format;
+    pub fn format(self, format: TimestampFormat) -> Self {
+        self.settings.borrow_mut().format = format;
         self
     }
     /// Set the relative window for automatic format.
-    pub fn auto_threshold(mut self, threshold: Duration) -> Self {
-        self.threshold = threshold;
+    pub fn auto_threshold(self, threshold: Duration) -> Self {
+        self.settings.borrow_mut().threshold = threshold;
         self
     }
     /// Enable or disable the details surface.
@@ -222,13 +248,13 @@ impl Timestamp {
         self
     }
     /// Set the wall-clock offset supplied by the application.
-    pub fn time_zone(mut self, zone: TimeZone) -> Self {
-        self.zone = zone;
+    pub fn time_zone(self, zone: TimeZone) -> Self {
+        self.settings.borrow_mut().zone = zone;
         self
     }
     /// Append the time zone label to time formats.
-    pub fn show_time_zone(mut self, on: bool) -> Self {
-        self.show_zone = on;
+    pub fn show_time_zone(self, on: bool) -> Self {
+        self.settings.borrow_mut().show_zone = on;
         self
     }
     /// Update the relative display while mounted.
@@ -268,63 +294,24 @@ impl IntoView for Timestamp {
     fn into_view(self) -> View {
         let Self {
             text,
-            display,
-            value,
-            format,
-            threshold,
+            clock,
+            settings,
             details,
             entries,
-            zone,
-            show_zone,
             live,
         } = self;
-        let now = signal(Instant::from(SystemTime::now()));
+        let settings = settings.borrow();
+        let value = settings.value;
+        let format = settings.format;
+        let zone = settings.zone.clone();
         let relative = matches!(
             format,
             TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
         );
-        let now_label = message("soft.relative_time.now", "now");
-        let yesterday = message("soft.relative_time.yesterday", "yesterday");
-        let clock_zone = zone.clone();
-        kivact::effect(move || {
-            let instant = value.get();
-            let diff = difference(now.get(), instant);
-            let format = if format == TimestampFormat::Auto {
-                if diff.unsigned_abs() <= threshold.as_secs() {
-                    TimestampFormat::Relative
-                } else {
-                    TimestampFormat::DateTime
-                }
-            } else {
-                format
-            };
-            let formatted = match format {
-                TimestampFormat::Relative | TimestampFormat::RelativeShort => relative_text(
-                    diff,
-                    format == TimestampFormat::RelativeShort,
-                    now_label,
-                    yesterday,
-                ),
-                _ => calendar_text(instant, format, &clock_zone, show_zone, false),
-            };
-            if formatted != display.get_untracked() {
-                display.set(formatted);
-            }
-        });
         if live && relative {
-            spawn::<()>(async move {
-                loop {
-                    let age = difference(now.get_untracked(), value.get_untracked()).unsigned_abs();
-                    let delay = match age {
-                        0..=59 => 1,
-                        60..=3599 => 30,
-                        3600..=86399 => 60,
-                        _ => 300,
-                    };
-                    sleep(Duration::from_secs(delay)).await;
-                    now.set(Instant::from(SystemTime::now()));
-                }
-            });
+            clock.send(TimestampEvent::Tick);
+        } else {
+            clock.send(TimestampEvent::Refresh);
         }
         let full_zone = zone.clone();
         let full = move || {
@@ -510,4 +497,68 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
         march_month - 9
     };
     (era * 400 + year_of_era + i64::from(month <= 2), month, day)
+}
+
+#[derive(Clone, PartialEq)]
+enum TimestampClock {
+    Running { now: Instant },
+}
+struct TimestampTick {
+    value: Instant,
+    now: Instant,
+}
+impl Machine for TimestampTick {
+    type State = TimestampClock;
+    type Event = TimestampEvent;
+    type Effect = ();
+    fn transition(
+        &self,
+        _: &TimestampClock,
+        event: TimestampEvent,
+    ) -> Step<TimestampClock, TimestampEvent, ()> {
+        let age = difference(self.now, self.value).unsigned_abs();
+        let delay = match age {
+            0..=59 => 1,
+            60..=3599 => 30,
+            3600..=86399 => 60,
+            _ => 300,
+        };
+        let step = Step::to(TimestampClock::Running { now: self.now });
+        match event {
+            TimestampEvent::Refresh => step,
+            TimestampEvent::Tick => step.after(Duration::from_secs(delay), TimestampEvent::Tick),
+        }
+    }
+}
+
+enum TimestampEvent {
+    Refresh,
+    Tick,
+}
+fn timestamp_presentation(
+    settings: &TimestampSettings,
+    now: Instant,
+    now_label: Value<String>,
+    yesterday: Value<String>,
+) -> String {
+    let instant = settings.value.get();
+    let diff = difference(now, instant);
+    let format = if settings.format == TimestampFormat::Auto {
+        if diff.unsigned_abs() <= settings.threshold.as_secs() {
+            TimestampFormat::Relative
+        } else {
+            TimestampFormat::DateTime
+        }
+    } else {
+        settings.format
+    };
+    match format {
+        TimestampFormat::Relative | TimestampFormat::RelativeShort => relative_text(
+            diff,
+            format == TimestampFormat::RelativeShort,
+            now_label,
+            yesterday,
+        ),
+        _ => calendar_text(instant, format, &settings.zone, settings.show_zone, false),
+    }
 }

@@ -2,10 +2,11 @@
 use crate::{Text, TextColor, TextKind, TextSize, TextWeight, text};
 use kivact::control::{Node, NodeBuilder};
 use kivact::primitive::NodeExt;
-use kivact::task::{sleep, spawn};
+use kivact::state::{Machine, MachineHandle, Step, machine};
 use kivact::view::{IntoValue, IntoView, LiveRegion, View};
-use kivact::{Value, effect, signal};
+use kivact::{Value, memo};
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 /// How elapsed time is displayed.
@@ -19,34 +20,57 @@ pub enum TimerFormat {
 /// A live elapsed-time display.
 pub struct Timer {
     text: Text,
-    display: kivact::Signal<String>,
-    start: Option<Value<SystemTime>>,
-    format: TimerFormat,
+    clock: MachineHandle<ElapsedClock>,
+    settings: Rc<RefCell<TimerSettings>>,
 }
 
 /// Start a timer when mounted.
 pub fn timer() -> Timer {
-    let display = signal(String::new());
+    let settings = Rc::new(RefCell::new(TimerSettings {
+        start: None,
+        format: TimerFormat::default(),
+    }));
+    let input = settings.clone();
+    let clock = machine(
+        ElapsedTimer::Running {
+            start: SystemTime::now(),
+            next: Duration::ZERO,
+        },
+        move || ElapsedClock {
+            format: input.borrow().format,
+            now: SystemTime::now(),
+        },
+        |_, ()| {},
+    );
+    let format = settings.clone();
+    let display = memo(move || {
+        let ElapsedTimer::Running { start, next } = clock.get();
+        presentation(start, start + next, format.borrow().format).0
+    });
     Timer {
         text: text(display)
             .kind(TextKind::Supporting)
             .color(TextColor::Secondary)
             .tabular_numbers(true),
-        display,
-        start: None,
-        format: TimerFormat::default(),
+        clock,
+        settings,
     }
+}
+
+struct TimerSettings {
+    start: Option<Value<SystemTime>>,
+    format: TimerFormat,
 }
 
 impl Timer {
     /// Measure elapsed time from a caller-supplied wall-clock instant.
-    pub fn start(mut self, start: impl IntoValue<SystemTime>) -> Self {
-        self.start = Some(start.into_value());
+    pub fn start(self, start: impl IntoValue<SystemTime>) -> Self {
+        self.settings.borrow_mut().start = Some(start.into_value());
         self
     }
     /// Set the elapsed time format.
-    pub fn format(mut self, format: TimerFormat) -> Self {
-        self.format = format;
+    pub fn format(self, format: TimerFormat) -> Self {
+        self.settings.borrow_mut().format = format;
         self
     }
     /// Set the typography role.
@@ -85,31 +109,16 @@ impl IntoView for Timer {
     fn into_view(self) -> View {
         let Self {
             text,
-            display,
-            start,
-            format,
+            clock,
+            settings,
         } = self;
-        let mounted = SystemTime::now();
-        let task = RefCell::new(None::<kivact::task::Task>);
-        effect(move || {
-            let start = start.map_or(mounted, |value| value.get());
-            if let Some(previous) = task.borrow_mut().take() {
-                previous.cancel();
-            }
-            let (initial, delay) = presentation(start, SystemTime::now(), format);
-            display.set(initial);
-            *task.borrow_mut() = Some(spawn::<()>(async move {
-                let mut delay = delay;
-                loop {
-                    sleep(delay).await;
-                    let (next, next_delay) = presentation(start, SystemTime::now(), format);
-                    if next != display.get_untracked() {
-                        display.set(next);
-                    }
-                    delay = next_delay;
-                }
-            }));
-        });
+        let start = settings.borrow().start;
+        if let Some(start) = start {
+            clock.feed(start, ElapsedEvent::Start);
+        }
+        clock.send(ElapsedEvent::Start(
+            start.map_or_else(SystemTime::now, |value| value.get()),
+        ));
         text.into_view()
     }
 }
@@ -144,4 +153,36 @@ fn presentation(start: SystemTime, now: SystemTime, format: TimerFormat) -> (Str
         },
     );
     (text, delay)
+}
+
+#[derive(Clone, PartialEq)]
+enum ElapsedTimer {
+    Running { start: SystemTime, next: Duration },
+}
+enum ElapsedEvent {
+    Start(SystemTime),
+    Tick,
+}
+struct ElapsedClock {
+    format: TimerFormat,
+    now: SystemTime,
+}
+impl Machine for ElapsedClock {
+    type State = ElapsedTimer;
+    type Event = ElapsedEvent;
+    type Effect = ();
+    fn transition(
+        &self,
+        state: &ElapsedTimer,
+        event: ElapsedEvent,
+    ) -> Step<ElapsedTimer, ElapsedEvent, ()> {
+        let ElapsedTimer::Running { start, .. } = *state;
+        let start = match event {
+            ElapsedEvent::Start(start) => start,
+            ElapsedEvent::Tick => start,
+        };
+        let next = self.now.duration_since(start).unwrap_or_default();
+        let delay = presentation(start, self.now, self.format).1;
+        Step::to(ElapsedTimer::Running { start, next }).after(delay, ElapsedEvent::Tick)
+    }
 }

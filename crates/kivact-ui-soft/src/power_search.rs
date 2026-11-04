@@ -2,10 +2,11 @@
 use crate::theme_access::tokens;
 use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::message;
+use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Length, style};
 use kivact::ui::{ButtonVariant, DialogKind, ListItem, button, dialog, select, text_input};
 use kivact::view::{IntoText, IntoValue, IntoView, View, for_each};
-use kivact::{Binding, Value, signal};
+use kivact::{Binding, Value, binding};
 use std::hash::Hash;
 
 /// A filter over a named field. Values are stored as text for caller-defined search backends.
@@ -57,11 +58,35 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
             fields,
             filters,
         } = self;
-        let open = signal(false);
-        let editing = signal(None::<(usize, SearchFilter<K>)>);
-        let field = signal(None::<K>);
-        let operator = signal(Some(SearchOperator::Is));
-        let value = signal(String::new());
+        let editor = machine(
+            PowerSearchState::Closed,
+            move || SearchMachine {
+                filters: filters.get_untracked(),
+            },
+            move |_, entries| filters.set(entries),
+        );
+        let open = binding(
+            move || !matches!(editor.get(), PowerSearchState::Closed),
+            move |open| {
+                if !open {
+                    editor.send(SearchEvent::Close);
+                } else if matches!(editor.get(), PowerSearchState::Closed) {
+                    editor.send(SearchEvent::Add);
+                }
+            },
+        );
+        let field = binding(
+            move || editor.get().draft().field,
+            move |field| editor.send(SearchEvent::Field(field)),
+        );
+        let operator = binding(
+            move || editor.get().draft().operator,
+            move |operator| editor.send(SearchEvent::Operator(operator)),
+        );
+        let value = binding(
+            move || editor.get().draft().value,
+            move |value| editor.send(SearchEvent::Value(value)),
+        );
         let entries =
             kivact::memo(move || filters.with(|filters| (0..filters.len()).collect::<Vec<_>>()));
         let tokens_view = for_each(
@@ -90,11 +115,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
                     .variant(ButtonVariant::Ghost)
                     .on_press(move || {
                         if let Some(filter) = filters.with(|entries| entries.get(index).cloned()) {
-                            editing.set(Some((index, filter.clone())));
-                            field.set(Some(filter.field));
-                            operator.set(Some(filter.operator));
-                            value.set(filter.value);
-                            open.set(true);
+                            editor.send(SearchEvent::Edit(index, filter));
                         }
                     });
                 let remove = button(move || format!("Remove {}", name.get()))
@@ -122,11 +143,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
             .variant(ButtonVariant::Ghost)
             .icon(icon("plus"))
             .on_press(move || {
-                editing.set(None);
-                field.set(None);
-                operator.set(Some(SearchOperator::Is));
-                value.set(String::new());
-                open.set(true);
+                editor.send(SearchEvent::Add);
             });
         let trigger = root
             .name(label)
@@ -154,35 +171,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
                             || value.get().trim().is_empty()
                     })
                     .on_press(move || {
-                        let (Some(field), Some(operator)) =
-                            (field.get_untracked(), operator.get_untracked())
-                        else {
-                            return;
-                        };
-                        let value = value.get_untracked();
-                        if value.trim().is_empty() {
-                            return;
-                        }
-                        let filter = SearchFilter {
-                            field,
-                            operator,
-                            value,
-                        };
-                        let mut entries = filters.get_untracked();
-                        match editing.get_untracked() {
-                            Some((index, original)) => {
-                                let Some(entry) = entries.get_mut(index) else {
-                                    return;
-                                };
-                                if *entry != original {
-                                    return;
-                                }
-                                *entry = filter;
-                            }
-                            None => entries.push(filter),
-                        }
-                        filters.set(entries);
-                        open.set(false);
+                        editor.send(SearchEvent::Apply);
                     });
                 row((
                     select(message("soft.power_search.field", "Field"), fields, field),
@@ -197,5 +186,135 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
                 .style(style().wrap(true).gap(8).padding(12))
             })
             .attach(trigger)
+    }
+}
+
+// xtask-allow(state-fields): Field and operator are independent incomplete form inputs.
+#[derive(Clone, PartialEq)]
+struct FilterDraft<K> {
+    field: Option<K>,
+    operator: Option<SearchOperator>,
+    value: String,
+}
+impl<K> Default for FilterDraft<K> {
+    fn default() -> Self {
+        Self {
+            field: None,
+            operator: Some(SearchOperator::Is),
+            value: String::new(),
+        }
+    }
+}
+#[derive(Clone, PartialEq)]
+enum PowerSearchState<K> {
+    Closed,
+    Composing {
+        draft: FilterDraft<K>,
+    },
+    Editing {
+        index: usize,
+        draft: FilterDraft<K>,
+        original: SearchFilter<K>,
+    },
+}
+impl<K: Clone> PowerSearchState<K> {
+    fn draft(&self) -> FilterDraft<K> {
+        match self {
+            Self::Closed => FilterDraft::default(),
+            Self::Composing { draft } | Self::Editing { draft, .. } => draft.clone(),
+        }
+    }
+}
+enum SearchEvent<K> {
+    Close,
+    Add,
+    Edit(usize, SearchFilter<K>),
+    Field(Option<K>),
+    Operator(Option<SearchOperator>),
+    Value(String),
+    Apply,
+}
+struct SearchMachine<K> {
+    filters: Vec<SearchFilter<K>>,
+}
+impl<K: Clone + Eq + 'static> Machine for SearchMachine<K> {
+    type State = PowerSearchState<K>;
+    type Event = SearchEvent<K>;
+    type Effect = Vec<SearchFilter<K>>;
+    fn transition(
+        &self,
+        state: &PowerSearchState<K>,
+        event: SearchEvent<K>,
+    ) -> Step<PowerSearchState<K>, SearchEvent<K>, Vec<SearchFilter<K>>> {
+        let mut next = state.clone();
+        match event {
+            SearchEvent::Close => return Step::to(PowerSearchState::Closed),
+            SearchEvent::Add => {
+                return Step::to(PowerSearchState::Composing {
+                    draft: FilterDraft::default(),
+                });
+            }
+            SearchEvent::Edit(index, original) => {
+                return Step::to(PowerSearchState::Editing {
+                    index,
+                    draft: FilterDraft {
+                        field: Some(original.field.clone()),
+                        operator: Some(original.operator),
+                        value: original.value.clone(),
+                    },
+                    original,
+                });
+            }
+            SearchEvent::Apply => {
+                let draft = state.draft();
+                let (Some(field), Some(operator)) = (draft.field, draft.operator) else {
+                    return Step::stay();
+                };
+                if draft.value.trim().is_empty() {
+                    return Step::stay();
+                }
+                let filter = SearchFilter {
+                    field,
+                    operator,
+                    value: draft.value,
+                };
+                let mut entries = self.filters.clone();
+                match state {
+                    PowerSearchState::Closed => return Step::stay(),
+                    PowerSearchState::Composing { .. } => entries.push(filter),
+                    PowerSearchState::Editing {
+                        index, original, ..
+                    } => {
+                        let Some(entry) = entries.get_mut(*index) else {
+                            return Step::stay();
+                        };
+                        if entry != original {
+                            return Step::stay();
+                        }
+                        *entry = filter;
+                    }
+                }
+                return Step::to(PowerSearchState::Closed).with(entries);
+            }
+            event => {
+                let draft = match &mut next {
+                    PowerSearchState::Closed => return Step::stay(),
+                    PowerSearchState::Composing { draft }
+                    | PowerSearchState::Editing { draft, .. } => draft,
+                };
+                match event {
+                    SearchEvent::Field(field) => draft.field = field,
+                    SearchEvent::Operator(operator) => draft.operator = operator,
+                    SearchEvent::Value(value) => draft.value = value,
+                    SearchEvent::Close
+                    | SearchEvent::Add
+                    | SearchEvent::Edit(..)
+                    | SearchEvent::Apply => {
+                        unreachable!("invariant: structural events return before draft updates")
+                    }
+                }
+            }
+        }
+        Step::to(next)
     }
 }
