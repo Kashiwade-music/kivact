@@ -31,7 +31,7 @@ impl Path {
     /// assert!((b.y - 3.0).abs() < 1e-3 && (b.height - 4.0).abs() < 1e-3);
     /// ```
     pub fn stroke_outline(&self, stroke: &Stroke) -> Path {
-        let width = f64::from(stroke.width);
+        let width = stroke.width;
         let valid = width.is_finite()
             && width > 0.0
             && stroke.miter_limit.is_finite()
@@ -55,9 +55,9 @@ impl Path {
         let mut style = kurbo::Stroke::new(width)
             .with_caps(cap)
             .with_join(join)
-            .with_miter_limit(f64::from(stroke.miter_limit));
+            .with_miter_limit(stroke.miter_limit);
         if !stroke.dash.is_empty() {
-            let mut dash: Vec<f64> = stroke.dash.iter().map(|d| f64::from(*d)).collect();
+            let mut dash: Vec<f64> = stroke.dash.to_vec();
             if dash.len() % 2 == 1 {
                 dash.extend_from_within(..);
             }
@@ -69,7 +69,7 @@ impl Path {
                     }
                 }
             }
-            style = style.with_dashes(f64::from(stroke.dash_offset), dash);
+            style = style.with_dashes(stroke.dash_offset, dash);
         }
         let outline = kurbo::stroke(
             bez.elements().iter().copied(),
