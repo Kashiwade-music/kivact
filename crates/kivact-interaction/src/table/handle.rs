@@ -433,14 +433,8 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             }
         };
         let focused = reference.focused();
-        let tab_stop = state.tab_stop;
         let focus_mode = state.focus;
-        let header_key = key;
-        let focusable = memo(move || {
-            (sortable.get() || matches!(focus_mode, TableFocus::Cells(_)))
-                && (!matches!(focus_mode, TableFocus::Cells(_))
-                    || tab_stop.get() == Some(Target::Header(header_key.get())))
-        });
+        let focusable = memo(move || sortable.get() || matches!(focus_mode, TableFocus::Cells(_)));
         let keyboard = state.clone();
         let mounted = state.clone();
         let input = part(move |input| TableHeaderState {

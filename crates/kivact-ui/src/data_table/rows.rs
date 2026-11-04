@@ -48,8 +48,12 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
     let cell = node_ref();
     let inside = node_ref();
     root.node_ref(cell)
-        .roving_focus(kivact_core::view::Orientation::Horizontal)
-        .child(node().node_ref(inside).child(content))
+        .child(
+            node()
+                .node_ref(inside)
+                .roving_focus(kivact_core::view::Orientation::Horizontal)
+                .child(content),
+        )
         .on_key(move |event| {
             if (event.key() == KeyboardKey::F(2) || enter && event.key() == KeyboardKey::Enter)
                 && cell.holds_focus()
@@ -70,6 +74,8 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
+    pub(super) row_metadata: Value<super::metadata::Rows<K>>,
+    pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
@@ -157,6 +163,8 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Clone for Grid<R, K> {
         Self {
             tree: self.tree,
             behavior: self.behavior,
+            row_metadata: self.row_metadata,
+            column_metadata: self.column_metadata,
             filters: self.filters,
             keys: self.keys,
             indexed: self.indexed,
@@ -186,6 +194,10 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Clone for Grid<R, K> {
 }
 
 impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
+    fn column_index(&self, key: usize) -> Value<u32> {
+        let metadata = self.column_metadata;
+        memo(move || metadata.with(|metadata| metadata.1.get(&key).copied().unwrap_or(0)))
+    }
     /// Whether rows have check boxes: the table has a selection and cells
     /// hold the focus (with rows, a press selects the row).
     fn checks(&self) -> Option<Binding<Vec<K>>> {
@@ -343,6 +355,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
 ) -> View {
     let check = grid.checks().map(|selection| {
         let (root, content) = super::chrome::select_page(selection, grid.keys, &grid.variants);
+        let root = root.column_index(grid.column_index(CHECK));
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(CHECK))
         } else {
@@ -351,7 +364,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
         content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
     });
     let actions = grid.actions.as_ref().map(|(width, _)| {
-        let root = node();
+        let root = node().column_index(grid.column_index(ACTIONS));
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(ACTIONS))
         } else {
@@ -369,7 +382,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
             .collect::<Vec<_>>()
     });
     let disclosure = (grid.details.is_some() && grid.expanded_rows.is_some()).then(|| {
-        let root = expansion_cell();
+        let root = expansion_cell().column_index(grid.column_index(DETAILS));
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(DETAILS))
         } else {
@@ -379,7 +392,9 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
             .name(kivact_core::i18n::message("data_table.details", "Details"))
     });
     let index = grid.indexed.map(|_| {
-        let root = index_cell(Role::ColumnHeader, text("#")).name("#");
+        let root = index_cell(Role::ColumnHeader, text("#"))
+            .name("#")
+            .column_index(grid.column_index(INDEX));
         if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(INDEX))
         } else {
@@ -387,7 +402,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
         }
     });
     let status = grid.row_status.as_ref().map(|_| {
-        let root = super::row_status::header();
+        let root = super::row_status::header().column_index(grid.column_index(STATUS));
         if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(STATUS))
         } else {
@@ -397,6 +412,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
     row((status, index, check, disclosure, columns, actions))
         .style(grid.direction())
         .role(Role::Row)
+        .row_index(1)
         .into_view()
 }
 
@@ -442,7 +458,10 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     let filter = grid
         .filters
         .map(|filters| filters.control(index, field, title, filter_anchor));
-    let mut header = node().part(part).name(title);
+    let mut header = node()
+        .part(part)
+        .name(title)
+        .column_index(grid.column_index(index));
     if let Some(anchor) = filter_anchor {
         header = header.node_ref(anchor);
     }
@@ -532,7 +551,7 @@ where
     } else {
         Role::GridCell
     };
-    let root = node().role(role);
+    let root = node().role(role).column_index(grid.column_index(CHECK));
     let root = if matches!(grid.focus, TableFocus::Cells(_)) {
         root.part(grid.behavior.cell(id.clone(), CHECK))
             .on_pointer(keep_selection)
@@ -608,11 +627,13 @@ where
         })
     };
     let actions = grid.actions.as_ref().map(|(width, render)| {
-        let root = node().role(if grid.focus == TableFocus::None {
-            Role::Cell
-        } else {
-            Role::GridCell
-        });
+        let root = node().column_index(grid.column_index(ACTIONS)).role(
+            if grid.focus == TableFocus::None {
+                Role::Cell
+            } else {
+                Role::GridCell
+            },
+        );
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.cell(id.clone(), ACTIONS))
                 .on_pointer(keep_selection)
@@ -655,9 +676,10 @@ where
             }),
         );
         if matches!(grid.focus, TableFocus::Cells(_)) {
-            root.part(grid.behavior.cell(cell_key, INDEX))
+            root.column_index(grid.column_index(INDEX))
+                .part(grid.behavior.cell(cell_key, INDEX))
         } else {
-            root
+            root.column_index(grid.column_index(INDEX))
         }
     });
     let (color, height) = (grid.row_color.clone(), grid.row_height);
@@ -670,6 +692,7 @@ where
         let status = status.clone();
         let (root, content) =
             super::row_status::cell(memo(move || item.with(|row| status(row))), role);
+        let root = root.column_index(grid.column_index(STATUS));
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.cell(id.clone(), STATUS))
                 .on_pointer(keep_selection)
@@ -678,10 +701,22 @@ where
         };
         content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
     });
+    let metadata = grid.row_metadata;
+    let coordinate_key = id.clone();
+    let row_index = memo(move || {
+        metadata.with(|metadata| {
+            metadata
+                .positions
+                .get(&coordinate_key)
+                .copied()
+                .unwrap_or(0)
+        })
+    });
     let line = with_recipe_style(
         row((status, index, check, trigger, cells, actions))
             .style(style().group())
-            .part(part),
+            .part(part)
+            .row_index(row_index),
         |r| r.data_table_recipes().row_recipe(),
         &grid.variants,
         move || DataTableRowState {
@@ -785,7 +820,9 @@ fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
         .role(Role::Group)
         .name(name)
         .part(disclosure.content());
-    let root = expansion_cell().role(role);
+    let root = expansion_cell()
+        .role(role)
+        .column_index(grid.column_index(DETAILS));
     let root = if matches!(grid.focus, TableFocus::Cells(_)) {
         root.part(grid.behavior.cell(cell_key, DETAILS))
     } else {
@@ -866,6 +903,7 @@ where
         },
     )
     .name(move || item.with(|row| named.text_of(row)))
+    .column_index(grid.column_index(index))
     .style(grid.width(index, numeric))
     .style(grid.sticky_style(index, false, Some(state), tint))
     .child(grid.sticky_shadow(index));

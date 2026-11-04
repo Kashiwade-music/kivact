@@ -141,7 +141,7 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
         host.part(input)
             .role(Role::GridCell)
             .selected(is_selected)
-            .focusable(is_active)
+            .focusable(true)
             .on_key(move |event: KeyEvent| key_down(&keys, &id.get(), &event))
             .on_pointer(move |event: PointerEvent| {
                 if matches!(

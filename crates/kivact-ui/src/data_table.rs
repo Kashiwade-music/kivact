@@ -12,6 +12,7 @@ mod filter_value;
 mod filters;
 mod group_state;
 mod grouped;
+mod metadata;
 mod row_status;
 mod rows;
 mod runtime;

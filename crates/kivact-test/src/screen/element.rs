@@ -269,6 +269,25 @@ impl<'a> Element<'a> {
         }
     }
 
+    /// Total table rows, including headers; None means unknown or unstated.
+    pub fn row_count(&self) -> Option<u32> {
+        self.published().and_then(|node| node.semantics.row_count)
+    }
+    /// Total table columns, including hidden columns; None means unknown or unstated.
+    pub fn column_count(&self) -> Option<u32> {
+        self.published()
+            .and_then(|node| node.semantics.column_count)
+    }
+    /// This row or cell's one-based logical table row, including header rows.
+    pub fn row_index(&self) -> Option<u32> {
+        self.published().and_then(|node| node.semantics.row_index)
+    }
+    /// This cell's one-based logical table column, including hidden columns.
+    pub fn column_index(&self) -> Option<u32> {
+        self.published()
+            .and_then(|node| node.semantics.column_index)
+    }
+
     /// The depth the host publishes for this element (`.level(..)`),
     /// counted from 1. `None` when not exposed or not set.
     pub fn level(&self) -> Option<u32> {

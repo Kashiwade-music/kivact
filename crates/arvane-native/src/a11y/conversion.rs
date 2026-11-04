@@ -277,6 +277,19 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
         if !props.labelled_by.is_empty() {
             node.set_labelled_by(accesskit_ids(&props.labelled_by));
         }
+        if let Some(count) = props.row_count {
+            node.set_row_count(count as usize);
+        }
+        if let Some(count) = props.column_count {
+            node.set_column_count(count as usize);
+        }
+        // Canonical semantics follows ARIA's one-based indices; AccessKit uses zero-based indices.
+        if let Some(index) = props.row_index.and_then(|index| index.checked_sub(1)) {
+            node.set_row_index(index as usize);
+        }
+        if let Some(index) = props.column_index.and_then(|index| index.checked_sub(1)) {
+            node.set_column_index(index as usize);
+        }
         if let Some(level) = props.level {
             node.set_level(level as usize);
         }

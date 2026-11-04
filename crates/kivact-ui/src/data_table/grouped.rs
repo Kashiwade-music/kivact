@@ -143,6 +143,11 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     collapsed: Binding<Vec<String>>,
 ) -> View {
     let row_name = label.clone();
+    let metadata = grid.row_metadata;
+    let coordinate_label = label.clone();
+    let row_index = memo(move || {
+        metadata.with(|metadata| metadata.groups.get(&coordinate_label).copied().unwrap_or(0))
+    });
     let name = {
         let group = label.clone();
         let expand = message_with("data_table.group.expand", "Expand group {group}", {
@@ -231,9 +236,11 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     with_recipe_style(
         row(node()
             .role(cell_role)
+            .column_index(1)
             .style(style().grow(1))
             .child(disclosure))
         .role(Role::Row)
+        .row_index(row_index)
         .name(row_name),
         |recipes| recipes.data_table_recipes().group_header_recipe(),
         &grid.variants,
