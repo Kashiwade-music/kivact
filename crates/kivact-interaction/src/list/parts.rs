@@ -1,6 +1,7 @@
 //! Role: ListApi parts bind and unregister exact mounted focus targets.
 
 use super::data::ListItemState;
+use super::machine;
 use super::state::{State, selected};
 use crate::Selection;
 use crate::roving::Member;
@@ -12,7 +13,7 @@ use kivact_core::view::{Orientation, Role};
 use std::rc::Rc;
 
 pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> Part<PartState> {
-    let policy = state.policy;
+    let policy = state.policy.value();
     let input = part(|input| input);
     let part_state = input.state();
     state.container_state.set(Some(part_state));
@@ -101,13 +102,15 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
         let attachment = host.part(input);
         let keys = state.clone();
         let pointers = state.clone();
-        let retained_focus = state.retained_focus;
+        let focus_mode = state.pending;
         let attachment = attachment
             .role(Role::Option)
             .name(name)
             .selected(selected_state)
             .disabled(disabled)
-            .focusable(move || !retained_focus.get() && active.get())
+            .focusable(move || {
+                focus_mode.state().get().focus == machine::Focus::Physical && active.get()
+            })
             .focusable_when_disabled(retain_disabled_focus)
             .on_key(move |event| super::input::key(&keys, &key.get(), event, None))
             .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
@@ -131,11 +134,19 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
                 );
                 return;
             }
+            // Resolve structural focus only after validating the mounting App.
+            let retained_focus = state.options.get().retained_focus.get_untracked();
+            let focus = if retained_focus {
+                machine::Focus::Retained
+            } else {
+                machine::Focus::Physical
+            };
+            state.pending.send(machine::Event::MountFocus(focus));
             state.roving.insert(
                 item_key.clone(),
                 Member {
                     node: mount.node,
-                    eligible: if retained_focus.get() {
+                    eligible: if retained_focus {
                         true.into_value()
                     } else {
                         mount.eligible

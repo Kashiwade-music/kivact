@@ -14,9 +14,9 @@
 //! `Selection::Single`. The Creative outliner is built on a
 //! `TreeApi<u64>`.
 
+use crate::options_cell::OptionsCell;
 use kivact_core::custom::Reactive;
 use kivact_core::view::HandlerResult;
-use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -26,7 +26,7 @@ use kivact_core::custom::{Owned, Owner, Part, PartState};
 
 use super::press::is_double_press;
 use super::{ListApi, ListItem, ListOptions, ListRangeOptions, use_list};
-use kivact_core::state::{Binding, Callback, Signal, Value, memo, signal};
+use kivact_core::state::{Binding, Callback, Value, memo};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::A11yAction;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
@@ -309,14 +309,19 @@ fn flatten<K: Clone + Eq + Hash>(
 
 type TreeMarker<K> = PhantomData<(fn() -> K, kivact_core::custom::UiThreadOnly)>;
 
+#[derive(Clone)]
+struct TreeOptions<K: 'static> {
+    filter: Reactive<String>,
+    activate: Option<Callback<K>>,
+}
+
 struct Shared<K: kivact_core::state::ItemKey> {
     nodes: Value<Vec<TreeNode<K>>>,
     expanded: Binding<Vec<K>>,
     list: ListApi<K>,
-    filter: Signal<Reactive<String>>,
+    options: OptionsCell<TreeOptions<K>>,
     rows: Value<Vec<TreeRow<K>>>,
     info: Value<HashMap<K, Entry<K>>>,
-    activate: Cell<Option<Callback<K>>>,
 }
 
 /// Actual input, selection and reactive metadata of an attached tree row.
@@ -324,6 +329,7 @@ struct Shared<K: kivact_core::state::ItemKey> {
 pub struct TreeItemState {
     pub input: PartState,
     pub selected: bool,
+    // xtask-allow(state-fields): Public derived part output, independent of selection.
     pub active: bool,
     pub branch: TreeBranch,
     pub level: u32,
@@ -437,11 +443,15 @@ pub fn use_tree<K: kivact_core::state::ItemKey>(
     let owner = Owner::current();
     let nodes = nodes.into_value();
     let expanded = expanded.into_binding();
-    let filter = signal(Reactive::<String>::new(String::new()));
+    let options = OptionsCell::new(TreeOptions {
+        filter: Reactive::<String>::new(String::new()),
+        activate: None,
+    });
+    let option_values = options.value();
     let entries = {
         memo(move || {
             let open: HashSet<K> = expanded.with(|open| open.iter().cloned().collect());
-            let query = filter.with(|query| query.get());
+            let query = option_values.with(|options| options.filter.get());
             nodes.with(|nodes| flatten(nodes, &open, &query))
         })
     };
@@ -505,10 +515,9 @@ pub fn use_tree<K: kivact_core::state::ItemKey>(
         nodes,
         expanded,
         list,
-        filter,
+        options,
         rows,
         info,
-        activate: Cell::new(None),
     });
     TreeApi {
         state: owner.store("TreeApi", shared as Rc<dyn std::any::Any>),
@@ -560,7 +569,9 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
     /// written by it. Setup only.
     #[track_caller]
     pub fn filter(self, query: impl IntoValue<String>) -> Self {
-        self.state().filter.set(Reactive::<String>::new(query));
+        self.state()
+            .options
+            .update(|options| options.filter = Reactive::<String>::new(query));
         self
     }
 
@@ -569,7 +580,9 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
     /// button, which calls [`toggle`](Self::toggle). Setup only.
     #[track_caller]
     pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
-        self.state().activate.set(Some(callback(f)));
+        self.state()
+            .options
+            .update(|options| options.activate = Some(callback(f)));
         self
     }
 
@@ -748,7 +761,7 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
 
     #[track_caller]
     fn activate(self, key: &K) {
-        if let Some(callback) = self.state().activate.get() {
+        if let Some(callback) = self.state().options.get().activate {
             callback.call(key.clone());
         }
     }
@@ -765,7 +778,7 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
             Key::ArrowRight => Self::right(&state, from),
             Key::ArrowLeft => Self::left(&state, from),
             Key::Char('*') => Self::open_siblings(&state, from),
-            Key::Enter if !m.shift && state.activate.get().is_some() => {
+            Key::Enter if !m.shift && state.options.get().activate.is_some() => {
                 self.activate(from);
                 Handled::Yes
             }
@@ -819,9 +832,7 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
         let Some(entry) = Self::entry(state, from) else {
             return Handled::No;
         };
-        let filtering = state
-            .filter
-            .with_untracked(|query| !query.get_untracked().is_empty());
+        let filtering = !state.options.get().filter.get_untracked().is_empty();
         if entry.row.branch.is_expanded() && !filtering {
             Self::set_open(state, from, false);
             return Handled::Yes;
