@@ -163,9 +163,9 @@ fn fixed_rates_tick_the_theoretical_number_of_times() {
     }
 }
 
-fn animated_app(tr: Transition) -> (Screen, (Signal<f32>, Animated<f32>)) {
+fn animated_app(tr: Transition) -> (Screen, (Signal<f64>, Animated<f64>)) {
     mount(move || {
-        let target = signal(0.0f32);
+        let target = signal(0.0f64);
         let shown = animated(target, tr);
         ((target, shown), text(move || format!("{:.1}", shown.get())))
     })
@@ -224,7 +224,7 @@ fn reduced_motion_completes_decorative_transitions_only() {
 
 #[test]
 fn keyframes_delay_and_repeat() {
-    let tr = Transition::keyframes([(0.0, 0.0f32), (0.5, 100.0), (1.0, 50.0)], 100).delay(20);
+    let tr = Transition::keyframes([(0.0, 0.0f64), (0.5, 100.0), (1.0, 50.0)], 100).delay(20);
     let (screen, (target, shown)) = animated_app(tr);
     target.set(50.0);
     screen.run_until_idle();
@@ -255,7 +255,7 @@ fn on_complete_runs_only_when_a_run_reaches_its_target() {
     let completions = Rc::new(Cell::new(0u32));
     let c2 = completions.clone();
     let (screen, (target, shown)) = mount(move || {
-        let target = signal(0.0f32);
+        let target = signal(0.0f64);
         let c3 = c2.clone();
         let shown = animated(target, Transition::tween(100, Easing::Linear))
             .on_complete(move || c3.set(c3.get() + 1));

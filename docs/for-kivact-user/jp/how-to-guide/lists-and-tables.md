@@ -325,7 +325,7 @@ mod tests {
 | `.sort(Binding<Option<(usize, SortOrder)>>)` | 並べ替え中の列(位置)と向きの読み書き。渡さなくても、ヘッダーは自分で並べ替える |
 | `.filter(Signal<String>)` | 絞り込みの欄。`DataColumn::filter` が一致する行だけを残す |
 | `.page(Signal<usize>, size)` | `size` 行ごとの頁と、前へ・次へ |
-| `.resizable(Signal<Vec<f32>>)` | ヘッダーの幅変更ハンドル。幅はあなたの値になる |
+| `.resizable(Signal<Vec<f64>>)` | ヘッダーの幅変更ハンドル。幅はあなたの値になる |
 | `.row_actions(width, \|row\| view)` | ボタンやメニューを置く最後の列 |
 | `.toolbar(\|ctx\| view)`、`.footer(\|ctx\| view)` | 上部または下部の領域を置き換える。`ctx` は件数のモデルとバインディングを公開する |
 | `.row_details(\|row\| view)`、`.cell_controls(\|row, column\| view)` | 行の key ごとに 1 回だけ作る view。行が並べ替えや頁送りで動いても、入力は状態を保つ |

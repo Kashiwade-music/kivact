@@ -17,7 +17,7 @@ fn paint_only_style_tracks_size_signals_theme_and_removal() {
     let evaluations = Rc::new(Cell::new(0));
     let count = evaluations.clone();
     let (screen, (width, color, enabled, theme)) = mount(move || {
-        let width = signal(40.0_f32);
+        let width = signal(40.0_f64);
         let color = signal(false);
         let enabled = signal(false);
         let theme = signal(Theme::light());

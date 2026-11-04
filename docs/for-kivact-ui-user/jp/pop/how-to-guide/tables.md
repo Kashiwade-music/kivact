@@ -166,7 +166,7 @@ fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
 ## 行ごとのコントロール
 
 - `.row_actions(width, |row| view)` は、メニューボタンのようなコントロールを並べた最後の列を足します。見出しにタイトルはなく、"Actions" という名前が付きます。
-- `.resizable(signal_of_widths)` は、見出しにリサイズのハンドルを付け、幅（列ごとの `Vec<f32>`）をシグナルに保持します。
+- `.resizable(signal_of_widths)` は、見出しにリサイズのハンドルを付け、幅（列ごとの `Vec<f64>`）をシグナルに保持します。
 - `.row_details(|row| view)` は各行の下にビューを置き、`.cell_controls(..)` はセルの中にコントロールを置きます。どちらも、並べ替えやページ送りのあいだ配置されたままなので、入力途中の状態が保たれます。
 - `.row_color(|row| Option<Color>)` は行に色を付けます。期限切れの行などに使えます。
 

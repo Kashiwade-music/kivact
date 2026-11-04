@@ -43,7 +43,7 @@ fn figures() -> impl IntoView {
 - `.tone(hue)` colors the trend text: `Mint` for good, `Red` for bad, `Gray`
   (the default) for neutral. The kit does not decide what a good trend is.
 - `.points(..)` draws a sparkline of the samples under the number. The
-  samples are `f32` and the card never changes them.
+  samples are `f64` and the card never changes them.
 - `.icon(..)` takes an icon name from the kit's icon set. Names such as
   `home`, `users`, `calendar`, `chart-bar`, `coin` and `clipboard-list` are
   included.

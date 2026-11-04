@@ -67,7 +67,7 @@ fn opener(open: Signal<bool>) -> Node {
         .on_press(move || open.set(true))
 }
 
-fn palette_with_height(p: CommandPalette<&'static str>, height: f32) -> View {
+fn palette_with_height(p: CommandPalette<&'static str>, height: f64) -> View {
     p.show(move || {
         let rows = for_each(
             p.visible(),
@@ -134,7 +134,7 @@ fn page_with(
 fn page_with_height(
     commands: Vec<Cmd>,
     tweak: impl Fn(CommandPalette<&'static str>) -> CommandPalette<&'static str> + 'static,
-    height: f32,
+    height: f64,
 ) -> Page {
     let ran = Rc::new(RefCell::new(Vec::new()));
     let log = ran.clone();

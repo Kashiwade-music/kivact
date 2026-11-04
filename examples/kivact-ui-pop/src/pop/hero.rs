@@ -50,7 +50,7 @@ pub(super) fn hero(
     .draw(|d, s| {
         let stripe = kivact::style::rgba(0xffffff, 0.06);
         for i in 0..((s.width / 22.0) as usize + 20) {
-            let x = i as f32 * 22.0 - 250.0;
+            let x = i as f64 * 22.0 - 250.0;
             d.line(
                 kivact::draw::Point::new(x, s.height),
                 kivact::draw::Point::new(x + s.height * 0.47, 0.0),
@@ -72,7 +72,7 @@ pub(super) fn hero(
         let center = kivact::draw::Point::new(s.width - 130.0, 110.0);
         let mut circle = kivact::draw::Path::new();
         for i in 0..=80 {
-            let a = std::f32::consts::TAU * i as f32 / 80.0;
+            let a = std::f64::consts::TAU * i as f64 / 80.0;
             let pt =
                 kivact::draw::Point::new(center.x + 180.0 * a.cos(), center.y + 180.0 * a.sin());
             circle = if i == 0 {

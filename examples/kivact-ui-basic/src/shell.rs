@@ -11,8 +11,8 @@ use kivact_ui_basic as basic;
 /// The theme text family: Inter for Latin, Noto Sans JP for Japanese.
 const FAMILY: &str = "Inter, 'Noto Sans JP', sans-serif";
 
-const TOP_BAR_HEIGHT: f32 = 56.0;
-const LIST_WIDTH: f32 = 256.0;
+const TOP_BAR_HEIGHT: f64 = 56.0;
+const LIST_WIDTH: f64 = 256.0;
 
 /// Mount the complete catalog through public component APIs.
 pub fn catalog() -> impl IntoView {

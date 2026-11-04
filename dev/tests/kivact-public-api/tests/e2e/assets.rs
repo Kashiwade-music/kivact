@@ -28,7 +28,7 @@ fn fixture(path: &str) -> PathBuf {
         .join(path)
 }
 
-fn size(screen: &Screen, id: &str) -> (f32, f32) {
+fn size(screen: &Screen, id: &str) -> (f64, f64) {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     (r.width, r.height)
 }

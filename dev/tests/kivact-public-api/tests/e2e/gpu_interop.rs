@@ -81,7 +81,7 @@ impl Viewport {
                                 pixelated,
                                 ..ImageOptions::default()
                             };
-                            let rect = Rect::new(x as f32, 0.0, W as f32, H as f32);
+                            let rect = Rect::new(x as f64, 0.0, W as f64, H as f64);
                             d.gpu_frame(&f, rect, options);
                         }
                     }
@@ -133,8 +133,8 @@ impl Viewport {
 
 fn gpu_options(backend: GpuBackend) -> RenderOptions {
     RenderOptions {
-        width: (2 * W) as f32,
-        height: (H + 40) as f32,
+        width: (2 * W) as f64,
+        height: (H + 40) as f64,
         gpu: true,
         window: WindowMode::Real,
         gpu_preference: GpuPreference {
@@ -342,10 +342,10 @@ impl SharedViewport {
                         ..ImageOptions::default()
                     };
                     if let Some(f) = shared.frame() {
-                        let rect = Rect::new(0.0, 0.0, f.width() as f32, f.height() as f32);
+                        let rect = Rect::new(0.0, 0.0, f.width() as f64, f.height() as f64);
                         d.gpu_frame(&f, rect, options);
                     } else if let Some(p) = shared.pixels() {
-                        let rect = Rect::new(0.0, 0.0, p.width as f32, p.height as f32);
+                        let rect = Rect::new(0.0, 0.0, p.width as f64, p.height as f64);
                         d.pixels(&p, rect, options);
                     }
                 })

@@ -258,7 +258,7 @@ fn keys_go_to_an_open_modal_without_focus_and_stop_there() {
                     .modal(true)
                     .role(Role::Dialog)
                     .on_key(move |event| {
-                        assert_eq!(event.target_role, Some(Role::Dialog));
+                        assert_eq!(event.target_role(), Some(Role::Dialog));
                         m();
                         Handled::No
                     })
@@ -295,7 +295,7 @@ fn keys_go_to_an_open_modal_without_focus_and_stop_there() {
 fn overlays_flip_clamp_center_stay_out_of_flow_and_follow_their_anchor() {
     let s = render(|| {
         let (left, right) = (node_ref(), node_ref());
-        let push = signal(0.0_f32);
+        let push = signal(0.0_f64);
         column((
             node()
                 .test_id("push")

@@ -172,7 +172,7 @@ fn center(element: &Element<'_>) -> Point {
     Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
 }
 
-fn near(a: f32, b: f32) -> bool {
+fn near(a: f64, b: f64) -> bool {
     (a - b).abs() < 1.5
 }
 

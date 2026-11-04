@@ -25,7 +25,7 @@ fn playhead(state: Signal<TransportState>) -> Binding<f64> {
 }
 
 pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
-    let curve_specs: [&[(f32, f32)]; 3] = [
+    let curve_specs: [&[(f64, f64)]; 3] = [
         &[(0.0, 0.0), (60.0, 2.2), (120.0, -1.4), (180.0, 0.0)],
         &[(0.0, 0.0), (90.0, 1.6), (180.0, 0.0)],
         &[
@@ -312,9 +312,9 @@ pub(super) fn grading() -> impl IntoView {
         let tint = wheels[0].get().components();
         (0..4096)
             .map(|i| {
-                let x = (i % 128) as f32 / 127.0;
-                let y = (i / 128) as f32 / 31.0;
-                let noise = ((i as u64 * 1664525 + 1013904223) % 65536) as f32 / 65535.0 - 0.5;
+                let x = (i % 128) as f64 / 127.0;
+                let y = (i / 128) as f64 / 31.0;
+                let noise = ((i as u64 * 1664525 + 1013904223) % 65536) as f64 / 65535.0 - 0.5;
                 let c = if y < 0.58 {
                     mix(rgb(0x183961), rgb(0xffb272), y / 0.58)
                 } else {
@@ -331,7 +331,7 @@ pub(super) fn grading() -> impl IntoView {
                         c[k] = (c[k] + (tint[k] - 0.478) * 0.3 + noise * 0.10).clamp(0.0, 1.0);
                     }
                 }
-                Color::from_rgba_f32(c[0], c[1], c[2], 1.0)
+                Color::from_rgba_f64(c[0], c[1], c[2], 1.0)
             })
             .collect::<Vec<_>>()
     });
@@ -446,24 +446,24 @@ pub(super) fn scene() -> Node {
             let h = size.height;
             let horizon = h * 0.66;
             for y in 0..64 {
-                let t = y as f32 / 63.0;
+                let t = y as f64 / 63.0;
                 let sky = if t < 0.7 {
                     mix(rgb(0x153565), rgb(0xf89973), t / 0.7)
                 } else {
                     mix(rgb(0xf89973), rgb(0xffd481), (t - 0.7) / 0.3)
                 };
                 d.fill_rect(
-                    Rect::new(0.0, y as f32 * horizon / 64.0, w, horizon / 64.0 + 1.0),
+                    Rect::new(0.0, y as f64 * horizon / 64.0, w, horizon / 64.0 + 1.0),
                     sky,
                 );
             }
             for i in 0..3 {
                 let mut path = Path::new().move_to(Point::new(0.0, horizon));
                 for x in 0..26 {
-                    let px = x as f32 * w / 25.0;
+                    let px = x as f64 * w / 25.0;
                     let ridge =
-                        horizon - (0.13 + (x as f32 * 1.9 + i as f32).sin().abs() * 0.12) * h;
-                    path = path.line_to(Point::new(px, ridge + i as f32 * h * 0.04));
+                        horizon - (0.13 + (x as f64 * 1.9 + i as f64).sin().abs() * 0.12) * h;
+                    path = path.line_to(Point::new(px, ridge + i as f64 * h * 0.04));
                 }
                 d.fill_path(
                     &path.line_to(Point::new(w, horizon)).close(),
@@ -471,7 +471,7 @@ pub(super) fn scene() -> Node {
                 );
             }
             for y in 0..32 {
-                let t = y as f32 / 31.0;
+                let t = y as f64 / 31.0;
                 d.fill_rect(
                     Rect::new(
                         0.0,
@@ -492,8 +492,8 @@ pub(super) fn scene() -> Node {
                 rgb(0x075532),
             );
             for i in 0..12 {
-                let x = i as f32 * w * 0.025;
-                let top = h * (0.43 + (i as f32 * 2.4).sin().abs() * 0.12);
+                let x = i as f64 * w * 0.025;
+                let top = h * (0.43 + (i as f64 * 2.4).sin().abs() * 0.12);
                 d.fill_path(
                     &Path::new()
                         .move_to(Point::new(x, top))
@@ -526,10 +526,10 @@ pub(super) fn scene() -> Node {
             );
         })
 }
-fn mix(a: Color, b: Color, t: f32) -> Color {
+fn mix(a: Color, b: Color, t: f64) -> Color {
     let a = a.components();
     let b = b.components();
-    Color::from_rgba_f32(
+    Color::from_rgba_f64(
         a[0] + (b[0] - a[0]) * t,
         a[1] + (b[1] - a[1]) * t,
         a[2] + (b[2] - a[2]) * t,
@@ -684,8 +684,8 @@ fn picker_channel(color: Signal<Color>, index: usize, label: &str, name: &str) -
             move || f64::from(color.get().components()[index]),
             move |v| {
                 let mut c = color.get_untracked().components();
-                c[index] = v as f32;
-                color.set(Color::from_rgba_f32(c[0], c[1], c[2], c[3]));
+                c[index] = v;
+                color.set(Color::from_rgba_f64(c[0], c[1], c[2], c[3]));
             },
         ),
     )
@@ -703,8 +703,8 @@ fn channel(color: Signal<Color>, index: usize, label: &str) -> ui::Numeric {
             move || f64::from(color.get().components()[index]),
             move |v| {
                 let mut c = color.get_untracked().components();
-                c[index] = v as f32;
-                color.set(Color::from_rgba_f32(c[0], c[1], c[2], c[3]));
+                c[index] = v;
+                color.set(Color::from_rgba_f64(c[0], c[1], c[2], c[3]));
             },
         ),
     )

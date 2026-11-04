@@ -21,7 +21,7 @@ use kivact::view::{Handled, KeyEvent, MouseButton};
 /// ends `on_end` saw, and the Escapes that reached the component.
 #[derive(Default)]
 struct Log {
-    edits: Vec<(EditPhase, f32)>,
+    edits: Vec<(EditPhase, f64)>,
     ends: Vec<(DragPhase, MouseButton)>,
     escapes: usize,
 }
@@ -37,9 +37,9 @@ fn real_window() -> RenderOptions {
 
 /// A handle whose drag moves `x` in whole steps of 10 and edits it from the
 /// first step; its own Escape (a part after the drag's source) counts in the log.
-fn stepper(x: Signal<f32>, log: &Shared) -> Node {
+fn stepper(x: Signal<f64>, log: &Shared) -> Node {
     let (edits, ends, escapes) = (log.clone(), log.clone(), log.clone());
-    let origin = signal(0.0_f32);
+    let origin = signal(0.0_f64);
     let edit = EditSession::new(move |start| x.set(start))
         .on_edit(move |phase| edits.borrow_mut().edits.push((phase, x.get_untracked())));
     let drag = use_drag::<()>(DragCoordinates::Window)
@@ -56,7 +56,7 @@ fn stepper(x: Signal<f32>, log: &Shared) -> Node {
         }
     });
     let own = part(|input| input).on_key(move |event: KeyEvent| {
-        if event.key == Key::Escape {
+        if event.key() == Key::Escape {
             escapes.borrow_mut().escapes += 1;
             Handled::Yes
         } else {
@@ -80,11 +80,11 @@ fn center(screen: &Screen) -> Point {
         .center()
 }
 
-fn mount_stepper() -> (Screen, Signal<f32>, Shared) {
+fn mount_stepper() -> (Screen, Signal<f64>, Shared) {
     let log = Shared::default();
     let seen = log.clone();
     let (screen, x) = mount_with(real_window(), move || {
-        let x = signal(0.0_f32);
+        let x = signal(0.0_f64);
         (x, stepper(x, &seen))
     });
     (screen, x, log)
@@ -166,7 +166,7 @@ fn a_drag_during_an_edit_it_did_not_begin_leaves_that_edit_open() {
     let log = Shared::default();
     let seen = log.clone();
     let (screen, x) = mount_with(real_window(), move || {
-        let x = signal(0.0_f32);
+        let x = signal(0.0_f64);
         let edits = seen.clone();
         let edit = EditSession::new(move |start| x.set(start))
             .on_edit(move |phase| edits.borrow_mut().edits.push((phase, x.get_untracked())));

@@ -25,7 +25,7 @@ type Log = Rc<RefCell<Vec<String>>>;
 
 /// `left` within `tolerance` of `right`.
 #[track_caller]
-fn near(left: f32, right: f32, tolerance: f32, what: &str) {
+fn near(left: f64, right: f64, tolerance: f64, what: &str) {
     assert!(
         (left - right).abs() <= tolerance,
         "{what}: {left} is not {right} (±{tolerance})"
@@ -34,7 +34,7 @@ fn near(left: f32, right: f32, tolerance: f32, what: &str) {
 
 /// `a` and `b` are the same rect within `tolerance`.
 #[track_caller]
-fn same_rect(a: Rect, b: Rect, tolerance: f32, what: &str) {
+fn same_rect(a: Rect, b: Rect, tolerance: f64, what: &str) {
     near(a.x, b.x, tolerance, &format!("{what} x"));
     near(a.y, b.y, tolerance, &format!("{what} y"));
     near(a.width, b.width, tolerance, &format!("{what} width"));
@@ -76,7 +76,7 @@ fn a_rotated_square_is_hit_on_its_diamond_and_reports_its_bounds() {
     screen.click_at(120.0, 94.0);
     assert_eq!(*log.borrow(), ["diamond"], "the tip is");
 
-    let half = 20.0 * std::f32::consts::SQRT_2;
+    let half = 20.0 * std::f64::consts::SQRT_2;
     let bounds = Rect::new(120.0 - half, 120.0 - half, 2.0 * half, 2.0 * half);
     let drawn = rect.get_untracked().expect("reported");
     same_rect(drawn, bounds, 0.01, "NodeRef::rect is the drawn bounds");
@@ -99,16 +99,16 @@ fn a_rotated_square_is_hit_on_its_diamond_and_reports_its_bounds() {
 /// a world box scaled and moved by them (its origin top-left), holding
 /// live widgets.
 struct World {
-    zoom: Signal<f32>,
-    pan: Signal<(f32, f32)>,
+    zoom: Signal<f64>,
+    pan: Signal<(f64, f64)>,
     pad: Rc<RefCell<Vec<Point>>>,
     name: Signal<String>,
     snap: Signal<bool>,
 }
 
 fn world() -> (World, impl IntoView) {
-    let zoom = signal(2.0f32);
-    let pan = signal((30.0f32, 20.0f32));
+    let zoom = signal(2.0f64);
+    let pan = signal((30.0f64, 20.0f64));
     let name = signal(String::new());
     let snap = signal(false);
     let pad: Rc<RefCell<Vec<Point>>> = Rc::default();
@@ -128,17 +128,17 @@ fn world() -> (World, impl IntoView) {
             .test_id("viewport")
             .on_wheel(move |e: WheelEvent| {
                 // Wheel down zooms out, up zooms in.
-                zoom.update(|z| *z *= if e.delta.y > 0.0 { 0.5 } else { 2.0 });
+                zoom.update(|z| *z *= if e.delta().y > 0.0 { 0.5 } else { 2.0 });
                 Handled::Yes
             })
             .on_pointer(move |e: PointerEvent| {
                 use kivact::view::PointerPhase::{Down, Move, Up};
                 let mut at = grab.borrow_mut();
-                match (e.phase, *at) {
-                    (Down(_), _) => *at = Some(e.pos),
+                match (e.phase(), *at) {
+                    (Down(_), _) => *at = Some(e.pos()),
                     (Move, Some(last)) => {
-                        pan.update(|p| *p = (p.0 + e.pos.x - last.x, p.1 + e.pos.y - last.y));
-                        *at = Some(e.pos);
+                        pan.update(|p| *p = (p.0 + e.pos().x - last.x, p.1 + e.pos().y - last.y));
+                        *at = Some(e.pos());
                     }
                     (Up(_), _) => *at = None,
                     _ => {}
@@ -157,8 +157,8 @@ fn world() -> (World, impl IntoView) {
                         .name("pad")
                         .test_id("pad")
                         .on_pointer(move |e: PointerEvent| {
-                            if matches!(e.phase, kivact::view::PointerPhase::Down(_)) {
-                                seen.borrow_mut().push(e.pos);
+                            if matches!(e.phase(), kivact::view::PointerPhase::Down(_)) {
+                                seen.borrow_mut().push(e.pos());
                             }
                             Handled::Yes
                         })

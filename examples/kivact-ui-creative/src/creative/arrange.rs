@@ -156,6 +156,6 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
     ))
     .style(style().gap(0))
 }
-fn clip(id: u64, label: &str, beat: f32, length: f32, lane: usize, color: u32) -> ui::Clip {
+fn clip(id: u64, label: &str, beat: f64, length: f64, lane: usize, color: u32) -> ui::Clip {
     ui::Clip::new(id, lane as u64, f64::from(beat), f64::from(length), label).color(rgb(color))
 }

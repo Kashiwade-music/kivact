@@ -34,7 +34,7 @@ struct Seen {
 
 /// A primitive that measures `text` as a paragraph wrapped at `width` and
 /// draws the paragraph it lays out in its draw closure.
-fn paragraph_node(text: &'static str, width: Option<f32>, seen: Rc<RefCell<Seen>>) -> Primitive {
+fn paragraph_node(text: &'static str, width: Option<f64>, seen: Rc<RefCell<Seen>>) -> Primitive {
     let measured = seen.clone();
     primitive()
         .measure(text.to_string(), move |text: &String, c: Constraints| {

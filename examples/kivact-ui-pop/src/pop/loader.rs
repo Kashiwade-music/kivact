@@ -10,8 +10,8 @@ use kivact_ui_pop::Tokens;
 #[track_caller]
 pub(super) fn halo_loader() -> Node {
     let pulse = Animated::from(
-        0.0f32,
-        1.0f32,
+        0.0f64,
+        1.0f64,
         Transition::tween(800, Easing::EaseInOut)
             .repeat(Repeat::Forever)
             .alternate()
@@ -26,7 +26,7 @@ pub(super) fn halo_loader() -> Node {
             let phase = pulse.get();
             let mut ring = Path::new();
             for i in 0..=64 {
-                let a = std::f32::consts::TAU * i as f32 / 64.0;
+                let a = std::f64::consts::TAU * i as f64 / 64.0;
                 let point = Point::new(24.0 + 20.0 * a.cos(), 20.0 - phase * 6.0 + 8.0 * a.sin());
                 ring = if i == 0 {
                     ring.move_to(point)

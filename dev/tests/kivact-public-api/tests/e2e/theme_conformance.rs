@@ -34,7 +34,7 @@ fn focus_pixels(screen: &Screen, theme: &Theme) {
     let painted = after.pixel(x, y).expect("ring pixel");
     let focus = theme.colors().focus.resolve(theme);
     let channel = |shift: u32| {
-        let base = ((background >> shift) & 255u32) as f32;
+        let base = ((background >> shift) & 255u32) as f64;
         let color = match shift {
             16 => focus.r,
             8 => focus.g,

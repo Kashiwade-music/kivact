@@ -24,14 +24,14 @@ pub(super) fn segmented<K: Clone + Eq + Hash + 'static>(
 }
 
 pub(super) fn suppress_search_shortcut(event: kivact::view::KeyEvent) -> Handled {
-    if event.key == Key::Char('/') {
+    if event.key() == Key::Char('/') {
         Handled::Yes
     } else {
         Handled::No
     }
 }
 
-pub(super) fn cards(children: impl IntoView, minimum: f32) -> Node {
+pub(super) fn cards(children: impl IntoView, minimum: f64) -> Node {
     grid(children).style(
         style()
             .grid_template_columns(Track::repeat_auto_fill(Track::minmax(

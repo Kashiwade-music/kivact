@@ -68,7 +68,7 @@ pub(super) fn menus(
                 .node_ref(pie_zone)
                 .test_id("creative-pie-zone")
                 .on_pointer(move |event| {
-                    pointer.set(event.window_pos);
+                    pointer.set(event.window_pos());
                     Handled::No
                 })
                 .style(style().height(156).width(pct(100)))
@@ -195,7 +195,7 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
     ))
 }
 
-fn window_options(title: &str, width: f32) -> ui::WindowOptions {
+fn window_options(title: &str, width: f64) -> ui::WindowOptions {
     ui::WindowOptions::default()
         .title(title)
         .width(width)
@@ -405,7 +405,7 @@ fn close_project(status: Signal<String>) -> Node {
             ))
             .style(style().gap(0))
             .on_key(move |event| {
-                if event.key == Key::Enter {
+                if event.key() == Key::Enter {
                     save.call(());
                     Handled::Yes
                 } else {
@@ -476,7 +476,7 @@ pub(super) fn operator_search(
         .modal(true)
         .on_dismiss(move |_| open.set(false))
         .on_key(move |e| {
-            match e.key {
+            match e.key() {
                 Key::ArrowDown => {
                     hot.update(|i| *i = (*i + 1).min(matches.with(Vec::len).saturating_sub(1)))
                 }

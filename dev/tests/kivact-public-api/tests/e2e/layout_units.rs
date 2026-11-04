@@ -22,8 +22,8 @@ pub(crate) fn rect_of(screen: &Screen, id: &str) -> Rect {
 
 /// `a` is `(x, y, width, height)` within half a pixel.
 #[track_caller]
-pub(crate) fn assert_rect(a: Rect, (x, y, w, h): (f32, f32, f32, f32), what: &str) {
-    let close = |p: f32, q: f32| (p - q).abs() <= 0.5;
+pub(crate) fn assert_rect(a: Rect, (x, y, w, h): (f64, f64, f64, f64), what: &str) {
+    let close = |p: f64, q: f64| (p - q).abs() <= 0.5;
     assert!(
         close(a.x, x) && close(a.y, y) && close(a.width, w) && close(a.height, h),
         "{what}: {a:?} is not ({x}, {y}, {w}, {h})"
@@ -31,7 +31,7 @@ pub(crate) fn assert_rect(a: Rect, (x, y, w, h): (f32, f32, f32, f32), what: &st
 }
 
 /// An 800 × 600 window (or `w × h`).
-pub(crate) fn window(w: f32, h: f32) -> RenderOptions {
+pub(crate) fn window(w: f64, h: f64) -> RenderOptions {
     RenderOptions {
         width: w,
         height: h,

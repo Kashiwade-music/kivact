@@ -359,12 +359,12 @@ pub fn catalog() -> impl IntoView {
     let shell = super::shell::app_shell(sidebar, topbar, content, scroll_node)
         .test_id("game-catalog")
         .on_key(move |e| {
-            if (e.modifiers.ctrl || e.modifiers.meta) && e.key == Key::Char('k') {
+            if (e.modifiers().ctrl || e.modifiers().meta) && e.key() == Key::Char('k') {
                 scene.palette.update(|v| *v = !*v);
                 Handled::Yes
-            } else if e.key == Key::Char('/')
+            } else if e.key() == Key::Char('/')
                 && !matches!(
-                    e.target_role,
+                    e.target_role(),
                     Some(
                         Role::TextBox
                             | Role::CheckBox

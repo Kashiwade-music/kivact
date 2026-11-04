@@ -27,7 +27,7 @@ pub(super) fn media() -> impl IntoView {
     let rows = signal(fixtures());
     let tile_size = signal(120.0);
     let widths = signal(vec![
-        18.0_f32, 190.0, 86.0, 98.0, 96.0, 62.0, 130.0, 70.0, 84.0, 128.0,
+        18.0_f64, 190.0, 86.0, 98.0, 96.0, 62.0, 130.0, 70.0, 84.0, 128.0,
     ]);
     let shown = (move || {
         rows.get()
@@ -127,8 +127,8 @@ pub(super) fn media() -> impl IntoView {
                     .filter(query)
                     .row_label(|row| row.cells.get(1).cloned().unwrap_or_default())
                     .resizable(widths)
-                    .style(move || style().width(widths.with(|v| v.iter().sum::<f32>()) + 3.0))
-                    .row_height(30.0_f32)
+                    .style(move || style().width(widths.with(|v| v.iter().sum::<f64>()) + 3.0))
+                    .row_height(30.0_f64)
                     .name("Media Pool table")
                     .cell_controls(|item, c| {
                         if c == 0 {
@@ -171,7 +171,7 @@ pub(super) fn media() -> impl IntoView {
                     shown,
                     |r| r.id,
                     move |id, item| {
-                        let scrub = signal(None::<f32>);
+                        let scrub = signal(None::<f64>);
                         let preview = node()
                             .style(
                                 style()
@@ -185,7 +185,7 @@ pub(super) fn media() -> impl IntoView {
                                 for n in 0..12 {
                                     d.fill_rect(
                                         Rect::new(
-                                            n as f32 * s.width / 12.0,
+                                            n as f64 * s.width / 12.0,
                                             0.0,
                                             s.width / 12.0 + 1.0,
                                             s.height,
@@ -213,17 +213,17 @@ pub(super) fn media() -> impl IntoView {
                                 }
                             })
                             .on_pointer(move |e| {
-                                match e.phase {
+                                match e.phase() {
                                     PointerPhase::Enter | PointerPhase::Move => {
-                                        scrub.set(Some(e.pos.x))
+                                        scrub.set(Some(e.pos().x))
                                     }
                                     PointerPhase::Down(ButtonPress {
                                         button: MouseButton::Primary,
                                         ..
                                     }) => pick(
                                         id,
-                                        e.modifiers.shift,
-                                        e.modifiers.ctrl || e.modifiers.meta,
+                                        e.modifiers().shift,
+                                        e.modifiers().ctrl || e.modifiers().meta,
                                     ),
                                     PointerPhase::Leave => scrub.set(None),
                                     _ => {}
@@ -239,7 +239,7 @@ pub(super) fn media() -> impl IntoView {
                         .on_a11y(A11yAction::Select, move || pick(id, false, false))
                         .on_pointer(move |event| {
                             if matches!(
-                                event.phase,
+                                event.phase(),
                                 PointerPhase::Down(ButtonPress {
                                     button: MouseButton::Primary,
                                     ..
@@ -247,8 +247,8 @@ pub(super) fn media() -> impl IntoView {
                             ) {
                                 pick(
                                     id,
-                                    event.modifiers.shift,
-                                    event.modifiers.ctrl || event.modifiers.meta,
+                                    event.modifiers().shift,
+                                    event.modifiers().ctrl || event.modifiers().meta,
                                 );
                                 Handled::Yes
                             } else {
@@ -260,7 +260,7 @@ pub(super) fn media() -> impl IntoView {
                 scroll(grid(tiles).style(move || {
                     style()
                         .grid_template_columns(Track::repeat_auto_fill(Track::minmax(
-                            tile_size.get() as f32,
+                            tile_size.get() as f64,
                             Track::fr(1.0),
                         )))
                         .gap(10)

@@ -42,7 +42,7 @@ fn full_multiline_enter_reaches_the_parent_key_handler() {
     let screen = render(move || {
         node()
             .on_key(move |event: KeyEvent| {
-                keys.borrow_mut().push(format!("key {:?}", event.key));
+                keys.borrow_mut().push(format!("key {:?}", event.key()));
             })
             .child(
                 kivact::control::node().name("Limited").part(
@@ -86,7 +86,7 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
         column((
             node()
                 .on_key(move |e: KeyEvent| {
-                    keys.borrow_mut().push(format!("key {:?}", e.key));
+                    keys.borrow_mut().push(format!("key {:?}", e.key()));
                 })
                 .child(
                     node()

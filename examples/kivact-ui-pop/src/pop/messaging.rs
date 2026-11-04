@@ -235,7 +235,7 @@ pub(super) fn messaging() -> Node {
         for x in (0..s.width as usize).step_by(18) {
             for y in (0..s.height as usize).step_by(18) {
                 d.rounded_rect(
-                    Rect::new(x as f32, y as f32, 2.0, 2.0),
+                    Rect::new(x as f64, y as f64, 2.0, 2.0),
                     1.0,
                     ColorToken::Border,
                 );

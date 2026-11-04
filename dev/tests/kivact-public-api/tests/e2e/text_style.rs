@@ -174,7 +174,7 @@ fn an_ellipsis_cuts_a_line_and_the_name_keeps_the_whole_text() {
     let cut = rect(&screen, "cut");
     // Nothing is drawn past the box (but the ellipsis' last pixel).
     let right = (cut.x + cut.width) as u32 + 2;
-    let beyond = Rect::new(right as f32, cut.y, 100.0, cut.height);
+    let beyond = Rect::new(right as f64, cut.y, 100.0, cut.height);
     assert_eq!(count(&shot, beyond, BLACK), 0, "ink past the box");
     assert!(count(&shot, cut, BLACK) > 0);
     // The accessible text is the whole text.

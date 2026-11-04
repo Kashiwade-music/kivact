@@ -30,9 +30,9 @@ use kivact_ui_pop as ui;
 use std::rc::Rc;
 use std::time::Duration;
 
-const SIDEBAR_WIDTH: f32 = 256.0;
+const SIDEBAR_WIDTH: f64 = 256.0;
 
-const TOPBAR_HEIGHT: f32 = 56.0;
+const TOPBAR_HEIGHT: f64 = 56.0;
 
 /// What the command palette can do; the key of each of its commands.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -461,16 +461,16 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .draw(|draw, size| {
                     for x in (0..size.width as usize).step_by(32) {
                         draw.line(
-                            Point::new(x as f32, 0.0),
-                            Point::new(x as f32, size.height),
+                            Point::new(x as f64, 0.0),
+                            Point::new(x as f64, size.height),
                             1.0,
                             rgba(0x2b8bd8, 0.025),
                         );
                     }
                     for y in (0..size.height as usize).step_by(32) {
                         draw.line(
-                            Point::new(0.0, y as f32),
-                            Point::new(size.width, y as f32),
+                            Point::new(0.0, y as f64),
+                            Point::new(size.width, y as f64),
                             1.0,
                             rgba(0x2b8bd8, 0.025),
                         );
@@ -746,8 +746,8 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
 /// Ctrl+K: opens the command palette, and closes it from inside (a modal
 /// keeps the keys to itself, so the palette is given the same matcher).
 fn is_palette_shortcut(key: &KeyEvent) -> bool {
-    key.modifiers.ctrl
-        && matches!(key.key, Key::Char(character) if character.eq_ignore_ascii_case(&'k'))
+    key.modifiers().ctrl
+        && matches!(key.key(), Key::Char(character) if character.eq_ignore_ascii_case(&'k'))
 }
 
 fn overview(action: impl Fn() + 'static, command: Signal<bool>) -> Node {

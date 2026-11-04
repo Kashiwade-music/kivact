@@ -8,8 +8,8 @@ pub(super) fn gradient(width: u32, height: u32, mode: usize, grid: bool) -> Pixe
     let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
     for y in 0..height {
         for x in 0..width {
-            let u = x as f32 / width.max(1) as f32;
-            let v = y as f32 / height.max(1) as f32;
+            let u = x as f64 / width.max(1) as f64;
+            let v = y as f64 / height.max(1) as f64;
             let mut color = match mode {
                 0 => [u * 0.4 + 0.1, v * 0.4 + 0.1, 0.3],
                 2 => [0.2 + u * 0.6, 0.2 + v * 0.4, 0.6 - u * 0.3],
@@ -57,11 +57,11 @@ pub(super) fn histogram(samples: &[Color], mode: &str) -> Pixels {
             bins[channel][(channels[channel].clamp(0.0, 1.0) * 255.0) as usize] += 1;
         }
     }
-    let peak = bins.iter().flatten().copied().max().unwrap_or(1).max(1) as f32;
+    let peak = bins.iter().flatten().copied().max().unwrap_or(1).max(1) as f64;
     let mut rgba = [16, 18, 23, 255].repeat(width as usize * height as usize);
     for x in 0..256 {
         for (channel, bins) in bins.iter().enumerate() {
-            let h = (bins[x] as f32 / peak * height as f32) as usize;
+            let h = (bins[x] as f64 / peak * height as f64) as usize;
             for y in 0..h {
                 let p = ((height as usize - 1 - y) * width as usize + x) * 4;
                 rgba[p + channel] = if mode == "waveform" { 190 } else { 235 };

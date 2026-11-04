@@ -47,7 +47,7 @@ fn viewer() -> impl IntoView {
             ui::value_slider("Tint", tint).range(0.0, 1.0).step(0.01).precision(2),
             button("Fit").on_press(move || {
                 transform.set(ViewTransform::fit(
-                    Size::new(WIDTH as f32, HEIGHT as f32),
+                    Size::new(WIDTH as f64, HEIGHT as f64),
                     surface.get_untracked(),
                 ));
             }),
