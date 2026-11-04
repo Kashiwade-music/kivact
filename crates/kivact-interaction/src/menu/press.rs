@@ -71,9 +71,17 @@ impl Press {
         let gesture = self.machine.get().gesture;
         let input = match gesture {
             PressGesture::Idle => return Handled::No,
-            PressGesture::Pending { input, .. }
-            | PressGesture::Holding { input, .. }
-            | PressGesture::Dragging { input, .. } => input,
+            PressGesture::Pending {
+                source,
+                kind,
+                origin,
+                ..
+            } => Input {
+                id: source,
+                kind,
+                source: origin,
+            },
+            PressGesture::Holding { input, .. } | PressGesture::Dragging { input, .. } => input,
         };
         if input.id != event.id() {
             return Handled::No;

@@ -20,7 +20,8 @@ pub(super) enum PressGesture {
     Pending {
         from: Point,
         source: PointerId,
-        input: Input,
+        kind: PointerKind,
+        origin: Source,
     },
     Holding {
         at: Point,
@@ -81,7 +82,8 @@ impl Machine for PressMachine {
                 next.gesture = PressGesture::Pending {
                     from,
                     source: input.id,
-                    input,
+                    kind: input.kind,
+                    origin: input.source,
                 };
                 return Step::to(next).after(
                     std::time::Duration::from_millis(500),

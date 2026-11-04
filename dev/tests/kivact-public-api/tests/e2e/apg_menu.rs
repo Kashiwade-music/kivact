@@ -20,7 +20,7 @@ fn menu_disabled_items_receive_focus_without_activation() {
     screen
         .get_by_role(Role::Button, "Actions")
         .press_key(Key::Enter);
-    let disabled = screen.get_by_role(Role::MenuItem, "Disabled");
+    let disabled = screen.find_by_role(Role::MenuItem, "Disabled");
     assert!(disabled.is_focused());
     screen.press_key(Key::Enter);
     screen.press_key(Key::Space);
