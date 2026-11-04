@@ -73,8 +73,9 @@ Two rules decide whether sharing is possible at all:
 fallback the same image carries for windows that cannot import.
 
 ```rust,ignore
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Rect};
+use kivact::view::canvas;
+use kivact::draw::{ImageOptions};
+use kivact::geometry::{Rect};
 use kivact::gpu_interop;
 use kivact::prelude::*;
 

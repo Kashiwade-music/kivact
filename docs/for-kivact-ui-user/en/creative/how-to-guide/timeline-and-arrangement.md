@@ -53,7 +53,7 @@ fn timeline_panel() -> impl IntoView {
     // View state the app owns: the playhead is the app's time.
     let playhead = signal(0.0);
     let state = ui::TimeState {
-        playhead: playhead.into(),
+        playhead: playhead.into_binding(),
         ..ui::TimeState::new()
     };
 
@@ -324,7 +324,7 @@ fn mixer_panel() -> impl IntoView {
             // Seek your player to the start here.
         }),
         ui::mixer_strip("Drums", rgb(0x8b7cff), drums)
-            .gain_range(-60.0, 6.0)
+            .gain_range(kivact::interaction::ScalarRange::new(-60.0, 6.0).expect("valid range"))
             .level(level),
         ui::meter("Master", level).orientation(Orientation::Horizontal),
     ))

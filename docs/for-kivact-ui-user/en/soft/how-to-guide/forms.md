@@ -17,7 +17,7 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
         text_input("Event name", name),
         soft::date_input("Event date", date),
         button("Save event")
-            .variant(ButtonVariant::Primary)
+            .variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || name.get().trim().is_empty() || date.get().is_none())
             .on_press(move || {
                 if let Some(date) = date.get() {

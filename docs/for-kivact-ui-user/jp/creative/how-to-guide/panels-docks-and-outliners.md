@@ -241,7 +241,7 @@ fn sections() -> impl IntoView {
             1 => ui::property_row("X", ui::number("X", position).label_visible(false)).into_view(),
             _ => ui::property_row(
                 "不透明度",
-                ui::number("不透明度", opacity).range(0.0, 1.0).label_visible(false),
+                ui::number("不透明度", opacity).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).label_visible(false),
             )
             .into_view(),
         }
@@ -249,7 +249,7 @@ fn sections() -> impl IntoView {
 }
 ```
 
-区画の本体は、折りたたまれても並べ替えられてもマウントされたままなので、フィールドはフォーカスと状態を保ちます。見出しを `Ctrl`（または `Cmd`）を押しながらクリックすると、その区画だけが開き、ほかは閉じます。区画の中では、`ui::property_row(label, control)` がラベルを列にそろえます。状態のボタンやアクションを置くには `.leading(..)` と `.trailing(..)` のスロットを使います。グループ化せずにタイトル付きの 1 つの箱が欲しいときは `ui::panel(title, content)` を使います。サイズを変えられる 2 つのペインには、標準の `kivact::ui::split((first, second), sizes)` を使います。見た目はドックの境界線と同じです。
+区画の本体は、折りたたまれても並べ替えられてもマウントされたままなので、フィールドはフォーカスと状態を保ちます。見出しを `Ctrl`（または `Cmd`）を押しながらクリックすると、その区画だけが開き、ほかは閉じます。区画の中では、`ui::property_row(label, control)` がラベルを列にそろえます。状態のボタンやアクションを置くには `.leading(..)` と `.trailing(..)` のスロットを使います。グループ化せずにタイトル付きの 1 つの箱が欲しいときは `ui::panel(title, content)` を使います。サイズを変えられる 2 つのペインには、標準の `kivact::ui::split(sizes, (first, second))` を使います。見た目はドックの境界線と同じです。
 
 ## コマンドやアイテムを検索できるようにする
 

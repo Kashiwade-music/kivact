@@ -6,7 +6,7 @@ Keep the current view in application state. For a short set of related views, bi
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::ListItem;
+use kivact::interaction::ListItem;
 use kivact::view::dynamic;
 use kivact_ui_soft as soft;
 

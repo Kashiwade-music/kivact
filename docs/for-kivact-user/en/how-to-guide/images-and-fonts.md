@@ -66,7 +66,7 @@ image as wide as the column.
 | a closure, `Signal<Asset>` or `Value<Asset>` | an image that changes |
 
 ```rust,no_run
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn gallery(paths: Vec<&'static str>) -> impl IntoView {
@@ -93,7 +93,7 @@ the expression runs. So for bytes you produced yourself, create the `Asset` once
 in setup and clone the `Asset`:
 
 ```rust,no_run
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn avatar(bytes: Vec<u8>) -> impl IntoView {
@@ -119,7 +119,7 @@ bytes with a `resource` and show the image when they arrive (see
 ## Size and fit
 
 ```rust,no_run
-use kivact::control::ImageFit;
+use kivact::view::ImageFit;
 use kivact::prelude::*;
 
 static PHOTO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#888"/></svg>"##;

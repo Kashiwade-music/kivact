@@ -12,7 +12,8 @@ Replace `src/main.rs` with:
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::{Tone, progress};
+use kivact::interaction::{Tone};
+use kivact::ui::{progress};
 use kivact_ui_game::{self as game, Density, ThemeOptions as _};
 
 /// A monospaced caption over a meter.

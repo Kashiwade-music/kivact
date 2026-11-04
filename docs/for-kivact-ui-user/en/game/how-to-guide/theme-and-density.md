@@ -59,7 +59,7 @@ typed text, scroll position and focus stay.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 use kivact_ui_game::{self as game, Density, ThemeOptions as _};
 
 fn app() -> impl IntoView {
@@ -114,7 +114,7 @@ fn console_theme() -> Theme {
     let theme = game::theme(ThemeMode::Dark).density(Density::Compact);
 
     // The kit's own tokens: display and monospaced families, an accent color.
-    let mut tokens = (*theme.get::<game::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<game::Tokens>()).clone();
     tokens.display_family = "Barlow Condensed".into();
     tokens.mono_family = "JetBrains Mono".into();
     tokens.yellow = rgb(0xffb300);

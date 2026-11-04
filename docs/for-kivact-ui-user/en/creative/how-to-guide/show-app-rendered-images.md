@@ -9,7 +9,8 @@ The kit draws and navigates; it never renders your scene. You give it RGBA pixel
 ## Show an image with zoom and pan
 
 ```rust,no_run
-use kivact::draw::{Pixels, Point, Rect, Size};
+use kivact::draw::{Pixels};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::interaction::ViewTransform;
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
@@ -44,7 +45,7 @@ fn viewer() -> impl IntoView {
 
     column((
         row((
-            ui::value_slider("Tint", tint).range(0.0, 1.0).step(0.01).precision(2),
+            ui::value_slider("Tint", tint).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).step(0.01).precision(2),
             button("Fit").on_press(move || {
                 transform.set(ViewTransform::fit(
                     Size::new(WIDTH as f64, HEIGHT as f64),

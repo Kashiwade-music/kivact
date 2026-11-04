@@ -12,7 +12,8 @@ In this step the screen learns three things. A switch in the header changes betw
 use kivact::prelude::*;
 use kivact::style::theme::Typography;
 use kivact::style::{Direction, Theme, ThemeMode};
-use kivact::ui::{DialogKind, Toast, Tone, toast_region, toaster};
+use kivact::interaction::{DialogMode, Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
@@ -43,13 +44,13 @@ fn profile_card(
         .header(
             basic::card_header("Profile")
                 .description("Choose how others see you.")
-                .action(move || {
+                .action({
                     show(changed, || {
                         basic::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 field("Display name", text_input("Display name", name))
                     .hint("Shown on your public page."),
@@ -73,7 +74,7 @@ fn notifications_card(
         .header(
             basic::card_header("Notifications").description("Choose what you want to hear about."),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 field("Weekly digest", switch("Weekly digest", digest).hide_label(true))
                     .hint("A summary of your week, every Monday.")
@@ -131,23 +132,23 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
             .variant(basic::AlertVariant::Destructive)
             .icon(icon("triangle-alert"))
             .description("Deleting your account cannot be undone.")
-            .action(move || {
+            .action({
                 button("Delete account")
-                    .variant(ButtonVariant::Danger)
+                    .variant(kivact::ui::ButtonVariant::Danger)
                     .on_press(move || confirm_delete.set(true))
             })
             .style(style().width(856)),
         dialog("Delete your account?", confirm_delete)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("All of your settings will be removed.")
             .footer(move || {
                 (
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || confirm_delete.set(false)),
                     button("Delete")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             confirm_delete.set(false);
                             toaster().push(Toast::new("Account deleted"));
@@ -168,7 +169,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
 
 fn root() -> impl IntoView {
     let dark = signal(false);
-    kivact::view::provide_theme(
+    kivact::style::provide_theme(
         move || theme(if dark.get() { ThemeMode::Dark } else { ThemeMode::Light }),
         move || settings(dark),
     )
@@ -244,7 +245,7 @@ Run `cargo run`. You should see the same two cards with a "Dark mode" switch at 
 
 - **Switching the theme.** `provide_theme(theme, child)` gives the subtree below it a theme. Its first argument is a closure that reads `dark`, so every time `dark` changes the theme is rebuilt and every style re-resolves its colors. Components keep their state because they are not remounted. Pass the same kind of closure instead of a fixed `Theme` whenever the theme can change.
 - **Toasts.** `toast_region(toaster())` is mounted once; it is the place the toasts appear. Any handler can then call `toaster().push(Toast::new(title))`. `.tone(..)` picks the icon and urgency, `.body(..)` adds a second line. A toast closes itself after five seconds, pauses while the pointer is over it, and has a close button.
-- **Alert dialog.** `dialog(title, open)` is the standard dialog; `.kind(DialogKind::AlertModal)` makes it the kit's alert dialog. `open` is a plain `signal(bool)`: a button sets it to `true`, and the buttons in `.footer(..)` set it to `false`. `.closable(false)` removes the close button an alert dialog does not have.
+- **Alert dialog.** `dialog(title, open)` is the standard dialog; `.mode(DialogMode::AlertModal)` makes it the kit's alert dialog. `open` is a plain `signal(bool)`: a button sets it to `true`, and the buttons in `.footer(..)` set it to `false`. `.closable(false)` removes the close button an alert dialog does not have.
 - **Alert vs. alert dialog.** `basic::alert(..)` is a static callout on the page (the "Danger zone" box). The dialog is the pop-up that interrupts.
 
 ## The test

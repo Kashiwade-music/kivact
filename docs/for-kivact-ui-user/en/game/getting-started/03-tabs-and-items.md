@@ -13,7 +13,7 @@ Replace `src/main.rs` with the complete program, tests included:
 ```rust,test_harness
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game::{self as game, Density, ThemeOptions as _};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -75,12 +75,12 @@ fn loadout() -> impl IntoView {
                     .map(|i| {
                         let mark = if i.equipped { " / EQUIPPED" } else { "" };
                         ListItem::new(i.id, i.name)
-                            .description(format!("POWER {}{mark}", i.power))
+                            .with_description(format!("POWER {}{mark}", i.power))
                     })
                     .collect::<Vec<_>>()
             })
         });
-        list("Items", rows, selected)
+        list("Items", rows).selection(selected)
     };
 
     game::hud(
@@ -100,11 +100,11 @@ fn loadout() -> impl IntoView {
             game::property_list(vec![
                 (
                     "NAME".to_owned(),
-                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())),
+                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())).into_view(),
                 ),
                 (
                     "POWER".to_owned(),
-                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.power.to_string())),
+                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.power.to_string())).into_view(),
                 ),
             ]),
             row((
@@ -185,10 +185,10 @@ a `Signal<Option<u32>>`. The list and the tabs show them and write the user's
 choices back into the signals you pass; they keep no copy. When you equip an
 item, you change `items`, and everything derived from it updates.
 
-**`list(label, items, selected)`** is a standard component: a list of options
+**`list(label, items).selection(selected)`** is a standard component: a list of options
 with keyboard movement, typeahead and selection. Its first argument names the
 list for assistive technology and is not drawn. Each row is a
-`ListItem::new(key, label)` with an optional `.description(..)`, and the key
+`ListItem::new(key, label)` with an optional `.with_description(..)`, and the key
 (`u32` here) is what ends up in `selected`. The rows come from a `memo` so the
 list rebuilds when `items` changes. The Game theme draws the rows with hard
 edges and a selection edge.

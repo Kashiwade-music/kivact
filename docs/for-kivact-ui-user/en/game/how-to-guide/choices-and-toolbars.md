@@ -71,8 +71,8 @@ fn plans() -> impl IntoView {
     radio_group(
         "Plan",
         vec![
-            ListItem::new("solo", "SOLO").description("1 seat"),
-            ListItem::new("team", "TEAM").description("50 seats"),
+            ListItem::new("solo", "SOLO").with_description("1 seat"),
+            ListItem::new("team", "TEAM").with_description("50 seats"),
         ],
         plan,
     )
@@ -98,7 +98,7 @@ open section; `.content(..)` shows the section.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn menu() -> impl IntoView {
@@ -106,8 +106,8 @@ fn menu() -> impl IntoView {
     tabs(
         "Sections",
         vec![
-            ListItem::new("inbox", "INBOX").icon("bell"),
-            ListItem::new("squad", "SQUAD").icon("users"),
+            ListItem::new("inbox", "INBOX").with_icon("bell"),
+            ListItem::new("squad", "SQUAD").with_icon("users"),
         ],
         section,
     )
@@ -129,7 +129,7 @@ fn menu() -> impl IntoView {
 slot puts a badge or a count after it. For horizontal tabs, the default look is
 underlined and `.variant(game::Boxed)` puts the tabs in a box, as in the
 [tutorial](../getting-started/03-tabs-and-items.md). To keep what is typed in
-a panel when the player switches tabs, add `.keep_mounted(true)`: every panel is
+a panel when the player switches tabs, add `.keep_mounted()`: every panel is
 built once and hidden while its tab is not selected.
 
 ## Add quick actions to a toolbar

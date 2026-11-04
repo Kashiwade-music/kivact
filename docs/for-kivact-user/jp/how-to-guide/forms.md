@@ -104,12 +104,12 @@ fn app() -> impl IntoView {
     });
     let draft = signal(saved.get_untracked());
 
-    let name = draft.field(|p| &p.name, |p| &mut p.name);
-    let bio = draft.field(|p| &p.bio, |p| &mut p.bio);
-    let plan = draft.field(|p| &p.plan, |p| &mut p.plan).optional();
-    let volume = draft.field(|p| &p.volume, |p| &mut p.volume);
-    let public = draft.field(|p| &p.public, |p| &mut p.public);
-    let terms = draft.field(|p| &p.terms, |p| &mut p.terms);
+    let name = draft.project(|p| &p.name, |p| &mut p.name);
+    let bio = draft.project(|p| &p.bio, |p| &mut p.bio);
+    let plan = draft.project(|p| &p.plan, |p| &mut p.plan).optional();
+    let volume = draft.project(|p| &p.volume, |p| &mut p.volume);
+    let public = draft.project(|p| &p.public, |p| &mut p.public);
+    let terms = draft.project(|p| &p.terms, |p| &mut p.terms);
 
     let name_error = memo(move || {
         draft.with(|p| p.name.trim().is_empty()).then(|| "名前を入力してください".to_owned())
@@ -184,7 +184,7 @@ mod tests {
 
 各部分の役割です。
 
-- `draft.field(get, get_mut)` は、1 つのフィールドへの `Binding<U>` を返します。1 つ目のクロージャは読むためにフィールドを借用し、2 つ目は書くために借用します。何も clone しません。読み出しは memo なので、入力は自分のフィールドが変わったときだけ再描画されます。
+- `draft.project(get, get_mut)` は、1 つのフィールドへの `Binding<U>` を返します。1 つ目のクロージャは読むためにフィールドを借用し、2 つ目は書くために借用します。何も clone しません。読み出しは memo なので、入力は自分のフィールドが変わったときだけ再描画されます。
 - `select` と `radio_group` は `Option<K>` を編集します(何も選ばれていない状態が `None` です)。モデルが素の値を持つときは `.optional()` を付けます。読むと `Some(現在の値)` になり、`None` の書き込みは無視されます。`K` には `Clone + Eq + Hash` が必要で、上のような小さな enum なら derive できます。
 - `changed` は `with` で 2 つのコピーを、clone せずに借用して比較します。構造体が `PartialEq` を derive しているのはこのためです。
 - `field` は、入力のアクセシブルな名前をそのラベルで置き換えます。そのため上のチェックボックスは、支援技術からもテストからも「規約」として見つかります。
@@ -250,13 +250,13 @@ fn main() -> kivact::Result<()> {
 
 ## 1 つの欄を Enter かフォーカス移動で確定する
 
-その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).draft(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
+その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).on_draft_commit(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
 
 その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`open(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::use_inline_edit;
+use kivact::interaction::use_inline_edit;
 
 fn names() -> impl IntoView {
     let items = signal(vec![(1u32, "はじめに".to_owned()), (2, "おわりに".to_owned())]);
@@ -264,7 +264,8 @@ fn names() -> impl IntoView {
     column(for_each(
         items,
         |(id, _)| *id,
-        move |id, item| {
+        move |item| {
+            let id = item.get_untracked().0;
             row((
                 text(move || item.get().1),
                 show(
@@ -274,13 +275,14 @@ fn names() -> impl IntoView {
                 show(
                     move || rename.is_open(&id),
                     move || {
-                        rename.field(id, "名前", signal(item.get_untracked().1), move |name| {
+                        let api = rename.field(id, "名前", signal(item.get_untracked().1)).on_draft_commit(move |name| {
                             items.update(|all| {
                                 if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
                                     row.1 = name;
                                 }
                             });
-                        })
+                        });
+                        node().part(api.control())
                     },
                 ),
             ))
@@ -293,7 +295,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-欄は現れたときにフォーカスを取り、文字列を選択した状態になります。Enter か、変更したまま欄を離れると、文字列を渡して確定の関数が呼ばれます。Escape は編集を捨てます。どちらの場合も欄は閉じます。行が取り除かれたときも欄は閉じるので、名前変更が項目より長く残ることはありません。`invalid` の入力は確定されません。画面に残る欄には、`text_input(..).draft(on_commit)` だけを使います。Enter は下書きのものになるため `draft` は `on_submit` の代わりになり、`.on_edit(..)` は `Begin`、`Commit`、`Cancel` を報告します。
+欄は現れたときにフォーカスを取り、文字列を選択した状態になります。Enter か、変更したまま欄を離れると、文字列を渡して確定の関数が呼ばれます。Escape は編集を捨てます。どちらの場合も欄は閉じます。行が取り除かれたときも欄は閉じるので、名前変更が項目より長く残ることはありません。`invalid` の入力は確定されません。画面に残る欄には、`text_input(..).on_draft_commit(on_commit)` だけを使います。Enter は下書きのものになるため `draft` は `on_submit` の代わりになり、`.on_edit(..)` は `Begin`、`Commit`、`Cancel` を報告します。
 
 ## 関連項目
 

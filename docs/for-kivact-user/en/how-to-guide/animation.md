@@ -199,8 +199,9 @@ time since the previous tick (`delta`), a frame counter and the estimated
 presentation time. Start it with a rate:
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
@@ -256,9 +257,9 @@ acts on it for you in most cases:
 - Transitions are *decorative* by default. With reduced motion on, they finish
   at once: `animated` jumps to its target, and `enter`/`exit` apply immediately.
 - Mark motion that carries meaning, such as a spinner that says "working", with
-  `Transition::tween(…).decorative(false)`. It keeps moving.
+  `Transition::tween(…).essential()`. It keeps moving.
 - `frame_loop` is **not** stopped by reduced motion, because it may be a game or
-  a simulation. If your loop only decorates, read `kivact::platform::reduced_motion()`
+  a simulation. If your loop only decorates, read `kivact::platform::is_motion_reduced().get()`
   (a tracked read) and skip or slow it:
 
 ```rust,no_run
@@ -268,7 +269,7 @@ fn drifting_background() -> impl IntoView {
     let shift = signal(0.0_f64);
     let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
     effect(move || {
-        if kivact::platform::reduced_motion() {
+        if kivact::platform::is_motion_reduced().get() {
             frames.stop();
         } else {
             frames.start(FrameRate::Hz(30.0));

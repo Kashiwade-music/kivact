@@ -114,7 +114,7 @@ use kivact::prelude::*;
 
 fn save_form() -> impl IntoView {
     let name = signal(String::new());
-    let save = action(ActionPolicy::Latest, |name: String| async move {
+    let save = action(ActionMode::Latest, |name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
             Err(UiError::msg("名前が空です"))
@@ -160,29 +160,32 @@ mod tests {
 }
 ```
 
-`action` の最初の引数は、前の処理が終わらないうちに新しい `run` が来たときの扱いです（後述）。`ActionPolicy::Latest` は古い処理を取り消します。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
+`action` の最初の引数は、前の処理が終わらないうちに新しい `run` が来たときの扱いです（後述）。`ActionMode::Latest` は古い処理を取り消します。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
 
 `resource` と `action` は、イベントハンドラの中ではなく、コンポーネントの組み立て中に作ります。ハンドラの中では、すでにあるハンドルに対して `run`・`refetch`・`cancel` を呼びます。
 
 ### 利用者が続けて 2 回クリックしたら
 
-`action` に渡す `ActionPolicy` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
+`action` に渡す `ActionMode` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
 
 | ポリシー | 動き |
 |---|---|
-| `ActionPolicy::Latest` | 新しい処理をすぐに始め、古い処理を取り消します。 |
-| `ActionPolicy::Queue` | 処理を 1 つずつ、`run` の順に実行します。 |
-| `ActionPolicy::QueueLatest` | `Queue` と同じですが、新しい `run` は待機中の処理を置き換えます。実行中の処理は中断されません。 |
+| `ActionMode::Latest` | 新しい処理をすぐに始め、古い処理を取り消します。 |
+| `ActionMode::Queue` | 処理を 1 つずつ、`run` の順に実行します。 |
+| `ActionMode::QueueLatest` | `Queue` と同じですが、新しい `run` は待機中の処理を置き換えます。実行中の処理は中断されません。 |
 
 ```rust,no_run
 # use kivact::prelude::*;
 fn drafts() -> impl IntoView {
     let draft = signal(String::new());
-    let save = action(ActionPolicy::QueueLatest, |text: String| async move {
+    let save = action(ActionMode::QueueLatest, |text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
     });
-    save.on_done(|result| println!("saved: {result:?}"));
+    let save = save.on_complete(|outcome| match outcome {
+        kivact::task::ActionOutcome::Succeeded(count) => println!("saved: {count}"),
+        kivact::task::ActionOutcome::Failed(error) => eprintln!("save failed: {error}"),
+    });
     column((
         text_input("下書き", draft),
         // 10 回すばやく押すと、最初の保存と最後の保存が実行されます。
@@ -194,7 +197,7 @@ fn drafts() -> impl IntoView {
 
 ファイルへの書き込みなど、利用者が別の操作に移っても最後まで終えたい処理には、`Queue` か `QueueLatest` を使います。キューに積んだ action は、コンポーネントがなくなった後も最大 3 秒間は処理を続け、ウィンドウを閉じるときも同じ時間だけ完了を待ちます。
 
-`Action` のそのほかのメソッド: `retry()` は直近の実行の入力でやり直し、`cancel()` は実行中の処理を止め、`input()` は現在の状態が表す実行の入力を返し、`on_done(|result| …)` は実行が終わったとき（取り消されたときは除く）に呼ばれるハンドラを登録します。複数登録できます。
+`Action` のそのほかのメソッド: `retry()` は直近の実行の入力でやり直し、`cancel()` は実行中の処理を止め、`input()` は現在の状態が表す実行の入力を返し、`on_complete(|outcome| …)` は実行が終わったとき（取り消されたときは除く）に呼ばれるハンドラを登録します。複数登録できます。
 
 ## 表示する結果のない future を動かす
 

@@ -13,11 +13,11 @@ when to show one, stores a history or marks it read.
 ## Show an alert on the page
 
 `pop::alert(title)` is an inline box with a title, an optional description and
-optional actions. Its color comes from the standard `kivact::ui::Tone`.
+optional actions. Its color comes from the standard `kivact::interaction::Tone`.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
@@ -25,7 +25,7 @@ fn payment_status(failed: Signal<bool>) -> impl IntoView {
         pop::alert("Payment failed")
             .tone(Tone::Danger)
             .description("Your card was declined. Update it and try again.")
-            .actions(|| button("Update card").variant(ButtonVariant::Outline))
+            .actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))
     })
 }
 # fn main() {}
@@ -47,7 +47,8 @@ root, and push messages from anywhere.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 use kivact_ui_pop as pop;
 use std::time::Duration;
 
@@ -91,7 +92,7 @@ fn main() -> kivact::Result<()> {
 
 ## Keep a history of notifications
 
-`pop::notification_menu(trigger, items, mark_read)` shows a popup list of
+`pop::notification_menu(trigger, items).on_mark_read(mark_read)` shows a popup list of
 notifications from a trigger, usually a bell button. A dot on the trigger
 shows while any item is unread.
 
@@ -112,10 +113,9 @@ fn bell() -> impl IntoView {
         button("Notifications")
             .icon(icon("bell"))
             .hide_label(true)
-            .variant(ButtonVariant::Ghost),
+            .variant(kivact::ui::ButtonVariant::Ghost),
         items,
-        move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)),
-    )
+    ).on_mark_read(move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)))
 }
 # fn main() {}
 ```
@@ -143,7 +143,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
         show(move || !loading.get() && count.get() == 0, || {
             pop::empty_state("No orders yet")
                 .description("Orders appear here as soon as customers check out.")
-                .content(|| button("Create an order").variant(ButtonVariant::Primary))
+                .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
         show(loading, || row((pop::spinner(), text("Loading orders")))
             .style(style().gap(8))),

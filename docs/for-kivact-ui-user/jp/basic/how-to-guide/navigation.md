@@ -26,9 +26,9 @@ fn shell() -> impl IntoView {
     let sidebar = basic::sidebar()
         .collapsible(basic::SidebarCollapsible::Icon)
         .rail(true)
-        .header(|| basic::large("Acme Inc"))
-        .content(move || {
-            basic::sidebar_group("Application").content(move || {
+        .header(basic::large("Acme Inc"))
+        .content({
+            basic::sidebar_group("Application").content({
                 basic::sidebar_menu((
                     entry("home", "Home", "house"),
                     entry("inbox", "Inbox", "inbox"),
@@ -64,7 +64,7 @@ fn shell() -> impl IntoView {
 - provider は親いっぱいに広がります。枠の中に置くときは、親に幅と高さを与えてください。
 - `.collapsible(..)` は、閉じたときの動作を決めます。`Offcanvas`（既定）は画面外へスライドし、`Icon` は幅 48 px のアイコンの列に縮んでラベルがツールチップになり、`None` は閉じられません。`.rail(true)` は、端に細い帯を足し、それで開閉できるようにします。
 - `basic::sidebar_trigger()`、rail、Ctrl+B（macOS では Cmd+B）は、どれも `open` を書きます。ショートカットをウィンドウのどこでも効かせたいときは、provider をアプリのルートの view にします。
-- `.side(basic::SidebarSide::Right)` はサイドバーを右に置き、`.variant(basic::SidebarVariant::Floating)` や `Inset` は枠の付け方を変えます。
+- `.side(basic::SidebarEdge::Right)` はサイドバーを右に置き、`.variant(basic::SidebarVariant::Floating)` や `Inset` は枠の付け方を変えます。
 - `.header(..)`、`.content(..)`、`.footer(..)` は関数を取ります。グループは `sidebar_group(label)` に `.content(..)` と、必要なら `.action(..)` を付けたもので、グループの間は `basic::sidebar_separator()` で区切ります。
 - ボタンには `.badge("12")` で件数を、`.sub(|| (basic::sidebar_menu_sub_button("Overview").active(true), basic::sidebar_menu_sub_button("Roadmap")))` で入れ子の一覧を付けられます。
 - サイドバーに検索欄を置くには `basic::sidebar_input(label, signal)` を使います。
@@ -124,7 +124,7 @@ fn trail() -> impl IntoView {
 
 ## メニューバーを足す
 
-`basic::menubar(menus, choose)` は `(タイトル, 項目)` の組の一覧を取り、タイトルを横に並べます。それぞれが標準のメニューを開きます。`choose` は、選ばれた項目の key を受け取ります。
+`basic::menubar(menus).on_activate(choose)` は `(タイトル, 項目)` の組の一覧を取り、タイトルを横に並べます。それぞれが標準のメニューを開きます。`choose` は、選ばれた項目の key を受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -133,26 +133,23 @@ use kivact_ui_basic as basic;
 fn bar() -> impl IntoView {
     let last = signal(String::from("Nothing chosen yet."));
     column((
-        basic::menubar(
-            vec![
+        basic::menubar(vec![
                 (
                     "File".to_string(),
                     vec![
-                        MenuEntry::item("new", "New tab").shortcut("Ctrl+T"),
+                        MenuEntry::item("new", "New tab").with_shortcut("Ctrl+T"),
                         MenuEntry::separator(),
-                        MenuEntry::item("print", "Print...").shortcut("Ctrl+P"),
+                        MenuEntry::item("print", "Print...").with_shortcut("Ctrl+P"),
                     ],
                 ),
                 (
                     "Edit".to_string(),
                     vec![
-                        MenuEntry::item("undo", "Undo").shortcut("Ctrl+Z"),
-                        MenuEntry::item("redo", "Redo").shortcut("Ctrl+Y"),
+                        MenuEntry::item("undo", "Undo").with_shortcut("Ctrl+Z"),
+                        MenuEntry::item("redo", "Redo").with_shortcut("Ctrl+Y"),
                     ],
                 ),
-            ],
-            move |key: &'static str| last.set(format!("Chosen: {key}")),
-        )
+            ]).on_activate(move |key: &'static str| last.set(format!("Chosen: {key}")))
         .style(style().width(240)),
         basic::muted(last),
     ))

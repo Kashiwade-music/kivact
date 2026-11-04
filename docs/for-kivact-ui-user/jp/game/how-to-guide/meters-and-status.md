@@ -10,7 +10,8 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{Tone, progress};
+use kivact::interaction::{Tone};
+use kivact::ui::{progress};
 use kivact_ui_game as game;
 
 fn vitals() -> impl IntoView {
@@ -52,7 +53,7 @@ fn vitals() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn scoreboard() -> impl IntoView {
@@ -86,7 +87,7 @@ fn scoreboard() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn statuses() -> impl IntoView {
@@ -109,7 +110,7 @@ fn statuses() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn warning() -> impl IntoView {
@@ -130,7 +131,7 @@ fn warning() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn sheet() -> impl IntoView {
@@ -147,7 +148,7 @@ fn sheet() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn log(events: Signal<Vec<(String, String)>>) -> impl IntoView {

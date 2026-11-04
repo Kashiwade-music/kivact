@@ -9,7 +9,7 @@ The finished app keeps all layers in one signal. The outliner and the inspector 
 Replace `src/main.rs` with the whole program below. It reuses the fields from step 2, now bound to a *layer* instead of to loose signals.
 
 ```rust,test_harness
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::prelude::*;
 use kivact::style::{Color, ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -84,7 +84,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "X",
             ui::number("X", x)
-                .range(-1000.0, 1000.0)
+                .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                 .step(1.0)
                 .precision(1)
                 .unit(" px")
@@ -93,7 +93,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "Opacity",
             ui::number("Opacity", opacity)
-                .range(0.0, 1.0)
+                .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                 .step(0.01)
                 .precision(2)
                 .label_visible(false),

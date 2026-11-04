@@ -59,7 +59,7 @@ mod tests {
 | クロージャ、`Signal<Asset>`、`Value<Asset>` | 変化する画像 |
 
 ```rust,no_run
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn gallery(paths: Vec<&'static str>) -> impl IntoView {
@@ -82,7 +82,7 @@ fn main() -> kivact::Result<()> {
 `Asset` は内容ではなく**同一性**でキャッシュされます。同じファイルパス、同じ埋め込みスライス、同じ `Arc` のアロケーションが、同じ Asset です。`Asset::from(bytes.clone())` は式が実行されるたびに新しいアロケーションを作り、したがって新しい Asset になって、そのたびにデコードし直されます。自分で作ったバイト列は、セットアップで `Asset` を 1 回だけ作り、その `Asset` を clone してください。
 
 ```rust,no_run
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn avatar(bytes: Vec<u8>) -> impl IntoView {
@@ -105,7 +105,7 @@ fn main() -> kivact::Result<()> {
 ## サイズとフィット
 
 ```rust,no_run
-use kivact::control::ImageFit;
+use kivact::view::ImageFit;
 use kivact::prelude::*;
 
 static PHOTO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#888"/></svg>"##;

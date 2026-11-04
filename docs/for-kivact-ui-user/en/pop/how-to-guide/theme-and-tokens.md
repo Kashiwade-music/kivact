@@ -19,7 +19,7 @@ use kivact_ui_pop as pop;
 fn app() -> impl IntoView {
     column((
         text("Settings"),
-        button("Save").variant(ButtonVariant::Primary),
+        button("Save").variant(kivact::ui::ButtonVariant::Primary),
     ))
     .style(style().gap(12).padding(24))
 }
@@ -47,7 +47,7 @@ are.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 use kivact_ui_pop as pop;
 
 fn app() -> impl IntoView {
@@ -100,7 +100,7 @@ use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
     let theme = pop::theme(ThemeMode::Light);
-    let mut tokens = (*theme.get::<pop::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<pop::Tokens>()).clone();
     tokens.blue = rgb(0x0f766e);
     let mut colors = theme.colors().clone();
     colors.accent = tokens.blue;
@@ -110,7 +110,7 @@ fn brand_theme() -> Theme {
 fn main() -> kivact::Result<()> {
     App::new("Teal")
         .theme(brand_theme())
-        .run(|| button("Teal").variant(ButtonVariant::Primary))
+        .run(|| button("Teal").variant(kivact::ui::ButtonVariant::Primary))
 }
 ```
 
@@ -133,13 +133,13 @@ Do it in a style closure, so the result follows theme switches:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact_ui_pop as pop;
 
 fn highlight(content: impl IntoView) -> Node {
     column(content).style(move || {
-        let theme = current_theme();
-        let tokens = theme.get::<pop::Tokens>();
+        let theme = use_theme().get();
+        let tokens = theme.ext::<pop::Tokens>();
         let (background, foreground) = tokens.hue(pop::Hue::Yellow);
         style()
             .padding(12)

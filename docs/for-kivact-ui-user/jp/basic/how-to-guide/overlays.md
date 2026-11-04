@@ -21,7 +21,7 @@ fn edit_profile() -> impl IntoView {
     let name = signal(String::from("Ada"));
     column((
         button("Edit profile")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Edit profile", open)
             .description("Make changes to your profile here.")
@@ -39,7 +39,7 @@ fn edit_profile() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
+use kivact::interaction::DialogMode;
 use kivact_ui_basic as basic;
 
 fn delete_chat() -> impl IntoView {
@@ -47,20 +47,20 @@ fn delete_chat() -> impl IntoView {
     let deleted = signal(false);
     column((
         button("Delete chat")
-            .variant(ButtonVariant::Danger)
+            .variant(kivact::ui::ButtonVariant::Danger)
             .on_press(move || open.set(true)),
         basic::muted(move || if deleted.get() { "Chat deleted." } else { "Chat kept." }),
         dialog("Delete chat?", open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("This will permanently delete this conversation.")
             .footer(move || {
                 (
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                     button("Delete")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
                             open.set(false);
@@ -83,17 +83,18 @@ fn delete_chat() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{DialogKind, Side};
+use kivact::interaction::{DialogMode};
+use kivact::geometry::{Edge};
 use kivact_ui_basic as basic;
 
 fn notifications() -> impl IntoView {
     let open = signal(false);
     column((
         button("Notifications")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Notifications", open)
-            .kind(DialogKind::Drawer(Side::Right))
+            .mode(DialogMode::Drawer(Edge::Right))
             .description("Choose what you want to hear about.")
             .content(|| basic::muted("No new notifications."))
             .footer(move || button("Close").on_press(move || open.set(false))),
@@ -101,7 +102,7 @@ fn notifications() -> impl IntoView {
 }
 ```
 
-`Side` は `Left`、`Right`、`Top`、`Bottom` です。スワイプで閉じられる下からのパネルが欲しいときは、キットの `basic::drawer(open, title)` を使います。`.description(..)`、`.content(..)`、`.footer(..)` と、`.side(Side::..)`（既定は下）を同じように取ります。
+`Side` は `Left`、`Right`、`Top`、`Bottom` です。スワイプで閉じられる下からのパネルが欲しいときは、キットの `basic::drawer(open, title)` を使います。`.description(..)`、`.content(..)`、`.footer(..)` と、`.side(Edge::..)`（既定は下）を同じように取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -112,7 +113,7 @@ fn move_goal() -> impl IntoView {
     let goal = signal(350);
     column((
         button("Open drawer")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         basic::drawer(open, "Move goal")
             .description("Set your daily activity goal.")
@@ -121,7 +122,7 @@ fn move_goal() -> impl IntoView {
                 (
                     button("Submit").on_press(move || open.set(false)),
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                 )
             }),
@@ -137,19 +138,19 @@ fn move_goal() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
+use kivact::interaction::DialogMode;
 use kivact::view::{OverlayAlign, Placement};
 
 fn dimensions() -> impl IntoView {
     let open = signal(false);
     let width = signal(String::from("100%"));
     dialog("Dimensions", open)
-        .kind(DialogKind::Popover)
+        .mode(DialogMode::Popover)
         .description("Set the dimensions for the layer.")
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
         .content(move || text_input("Width", width))
-        .attach(button("Open popover").variant(ButtonVariant::Outline))
+        .attach(button("Open popover").variant(kivact::ui::ButtonVariant::Outline))
 }
 ```
 
@@ -174,7 +175,7 @@ fn mention() -> impl IntoView {
         ))
         .style(style().gap(8))
     })
-    .attach(button("@kivact").variant(ButtonVariant::Link))
+    .attach(button("@kivact").variant(kivact::ui::ButtonVariant::Link))
 }
 ```
 
@@ -182,7 +183,7 @@ fn mention() -> impl IntoView {
 
 ## ボタンや右クリックからメニューを開く
 
-メニューは標準の `menu(label, entries, choose)` です。`entries` は `MenuEntry` の一覧で、`choose` はユーザーが選んだ項目の key を受け取ります。`.attach(trigger)` はボタンから、`.attach_context(target)` は `target` の上の右クリックで開きます。
+メニューは標準の `menu(label, entries).on_activate(choose)` です。`entries` は `MenuEntry` の一覧で、`choose` はユーザーが選んだ項目の key を受け取ります。`.attach(trigger)` はボタンから、`.attach_context(target)` は `target` の上の右クリックで開きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -192,17 +193,17 @@ fn account_menu() -> impl IntoView {
     let picked = signal(String::from("Nothing chosen yet."));
     let entries = vec![
         MenuEntry::heading("My account"),
-        MenuEntry::item("profile", "Profile").icon("user").shortcut("Ctrl+P"),
-        MenuEntry::item("settings", "Settings").icon("settings").disabled(true),
+        MenuEntry::item("profile", "Profile").with_icon("user").with_shortcut("Ctrl+P"),
+        MenuEntry::item("settings", "Settings").with_icon("settings").disabled(true),
         MenuEntry::separator(),
-        MenuEntry::item("logout", "Log out").icon("log-out").destructive(true),
+        MenuEntry::item("logout", "Log out").with_icon("log-out").destructive(true),
     ];
     column((
-        menu("Account", entries, move |key: &'static str| {
+        menu("Account", entries).on_activate(move |key: &'static str| {
             picked.set(format!("Chosen: {key}"))
         })
-        .at_least_trigger_width(true)
-        .attach(button("Account").variant(ButtonVariant::Outline)),
+        .at_least_anchor_width()
+        .attach(button("Account").variant(kivact::ui::ButtonVariant::Outline)),
         basic::muted(picked),
     ))
     .style(style().gap(12))
@@ -215,11 +216,7 @@ fn context_menu() -> impl IntoView {
         .focusable(true)
         .style(style().width(240).height(96).border(1, basic::Color::Border))
         .child(text("Right click here"));
-    menu(
-        "Notes menu",
-        vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")],
-        |_key: &'static str| {},
-    )
+    menu("Notes menu", vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")]).on_activate(|_key: &'static str| {})
     .attach_context(area)
 }
 ```
@@ -242,15 +239,15 @@ fn view_menu() -> impl IntoView {
             MenuEntry::radio("bottom", "Bottom", position.get() == "bottom").keep_open(true),
         ]
     };
-    menu("View", entries, move |key: &'static str| match key {
+    menu("View", entries).on_activate(move |key: &'static str| match key {
         "status" => status.update(|on| *on = !*on),
         other => position.set(other),
     })
-    .attach(button("View").variant(ButtonVariant::Outline))
+    .attach(button("View").variant(kivact::ui::ButtonVariant::Outline))
 }
 ```
 
-- ウィンドウの上端のメニューバーは `basic::menubar(menus, choose)` です。[ナビゲーション](navigation.md)を参照してください。
+- ウィンドウの上端のメニューバーは `basic::menubar(menus).on_activate(choose)` です。[ナビゲーション](navigation.md)を参照してください。
 
 ## トーストを出す
 
@@ -258,12 +255,13 @@ fn view_menu() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 
 fn root() -> impl IntoView {
     column((
         button("Create event")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(|| {
                 toaster().push(
                     Toast::new("Event has been created")

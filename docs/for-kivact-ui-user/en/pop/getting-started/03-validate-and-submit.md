@@ -14,7 +14,7 @@ Replace `src/main.rs` with the complete program, tests included:
 use kivact::i18n::CalendarDate;
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn sign_up(today: CalendarDate) -> impl IntoView {
@@ -209,7 +209,7 @@ so the two messages never overlap.
 
 **`show(condition, || view)`** mounts the view only while the condition is
 true. `Tone::Success` turns `pop::alert` green; alerts and similar display
-components take their meaning from the standard `kivact::ui::Tone`.
+components take their meaning from the standard `kivact::interaction::Tone`.
 
 **The test** passes `pop::theme(..)` through `RenderOptions`, so it draws the
 same theme as the app, and queries by role and accessible name, the same words

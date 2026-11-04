@@ -90,7 +90,7 @@ component: the component stays the same, only its drawing changes.
 
 **`button(..).variant(pop::ButtonTone::Accent)`** picks one of the kit's
 button tones. Pop has `Accent` (yellow), `Pink`, `Soft`, `Glass` and `Dark`.
-Without a tone, `ButtonVariant::Primary`, `Secondary`, `Outline`, `Ghost` and
+Without a tone, `kivact::ui::ButtonVariant::Primary`, `Secondary`, `Outline`, `Ghost` and
 `Link` from the core tutorial still work and are drawn in Pop colors. A button
 can take a tone and a shape: add `.variant(pop::Slant)` to draw it as a
 parallelogram. Try `button("Create account").variant(pop::ButtonTone::Pink)

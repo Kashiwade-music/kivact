@@ -11,7 +11,7 @@
 ```rust,test_harness
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game::{self as game, Density, ThemeOptions as _};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -72,12 +72,12 @@ fn loadout() -> impl IntoView {
                     .map(|i| {
                         let mark = if i.equipped { " / 装備中" } else { "" };
                         ListItem::new(i.id, i.name)
-                            .description(format!("威力 {}{mark}", i.power))
+                            .with_description(format!("威力 {}{mark}", i.power))
                     })
                     .collect::<Vec<_>>()
             })
         });
-        list("アイテム", rows, selected)
+        list("アイテム", rows).selection(selected)
     };
 
     game::hud(
@@ -97,11 +97,11 @@ fn loadout() -> impl IntoView {
             game::property_list(vec![
                 (
                     "名前".to_owned(),
-                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())),
+                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())).into_view(),
                 ),
                 (
                     "威力".to_owned(),
-                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.power.to_string())),
+                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.power.to_string())).into_view(),
                 ),
             ]),
             row((
@@ -173,7 +173,7 @@ mod tests {
 
 **アイテムはアプリが持ちます。** `items` は `Signal<Vec<Item>>`、`selected` は `Signal<Option<u32>>` です。一覧とタブはそれらを表示し、ユーザーの選択を渡されたシグナルに書き戻すだけで、コピーは持ちません。アイテムを装備するときは `items` を変更し、そこから導き出されるものがすべて更新されます。
 
-**`list(label, items, selected)`** は標準コンポーネントで、キーボード移動、先頭文字検索、選択を備えた選択肢の一覧です。第 1 引数は支援技術向けに一覧の名前を付けるもので、画面には表示されません。各行は `ListItem::new(key, label)` に任意の `.description(..)` を付けたもので、キー（ここでは `u32`）が `selected` に入ります。行は `memo` から作るので、`items` が変わると一覧が作り直されます。Game テーマは、行を直線的な角と選択の縁取りで描きます。
+**`list(label, items).selection(selected)`** は標準コンポーネントで、キーボード移動、先頭文字検索、選択を備えた選択肢の一覧です。第 1 引数は支援技術向けに一覧の名前を付けるもので、画面には表示されません。各行は `ListItem::new(key, label)` に任意の `.with_description(..)` を付けたもので、キー（ここでは `u32`）が `selected` に入ります。行は `memo` から作るので、`items` が変わると一覧が作り直されます。Game テーマは、行を直線的な角と選択の縁取りで描きます。
 
 **`tabs(label, tab_items, selected_key)`** も標準コンポーネントです。選択中のタブは必ずタブのどれかなので、シグナルは `Option` ではなくキーそのもの（`Slot`）を持ちます。`Clone + Eq + Hash` を満たす型ならキーに使え、`enum` は最適な選択です。`.variant(game::Boxed)` は Game キットの箱型の見た目で、指定しないと下線タブになります。`.content(|key| view)` は、タブが切り替わるたびに、開いたタブのパネルを作ります。
 

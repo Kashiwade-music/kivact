@@ -53,7 +53,7 @@ fn timeline_panel() -> impl IntoView {
     // アプリが持つ表示状態: 再生ヘッドはアプリの時間。
     let playhead = signal(0.0);
     let state = ui::TimeState {
-        playhead: playhead.into(),
+        playhead: playhead.into_binding(),
         ..ui::TimeState::new()
     };
 
@@ -324,7 +324,7 @@ fn mixer_panel() -> impl IntoView {
             // ここでプレイヤーを先頭へシークする。
         }),
         ui::mixer_strip("ドラム", rgb(0x8b7cff), drums)
-            .gain_range(-60.0, 6.0)
+            .gain_range(kivact::interaction::ScalarRange::new(-60.0, 6.0).expect("valid range"))
             .level(level),
         ui::meter("マスター", level).orientation(Orientation::Horizontal),
     ))

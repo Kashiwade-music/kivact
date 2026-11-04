@@ -72,7 +72,7 @@ fn main() -> kivact::Result<()> {
 
 **`radio_group(..).variant(pop::Segmented)`** はラジオグループをセグメントコントロールとして描きます。セグメントコントロールは選択肢を必ず 1 つ選ぶので、タブではなくラジオグループです。`.orientation(Orientation::Horizontal)` で選択肢を横に並べます。`.variant(..)` はキットが標準コンポーネントに見た目を足す方法で、コンポーネント自体は同じまま、描き方だけが変わります。
 
-**`button(..).variant(pop::ButtonTone::Accent)`** はキット固有のボタンの色調を選びます。Pop には `Accent`（黄色）、`Pink`、`Soft`、`Glass`、`Dark` があります。色調を付けなければ、コアのチュートリアルで使った `ButtonVariant::Primary`、`Secondary`、`Outline`、`Ghost`、`Link` が Pop の色で描かれます。ボタンには色調と形を両方付けられます。`.variant(pop::Slant)` を足すと平行四辺形になります。`button("アカウントを作成").variant(pop::ButtonTone::Pink).variant(pop::Slant)` を試してみてください。
+**`button(..).variant(pop::ButtonTone::Accent)`** はキット固有のボタンの色調を選びます。Pop には `Accent`（黄色）、`Pink`、`Soft`、`Glass`、`Dark` があります。色調を付けなければ、コアのチュートリアルで使った `kivact::ui::ButtonVariant::Primary`、`Secondary`、`Outline`、`Ghost`、`Link` が Pop の色で描かれます。ボタンには色調と形を両方付けられます。`.variant(pop::Slant)` を足すと平行四辺形になります。`button("アカウントを作成").variant(pop::ButtonTone::Pink).variant(pop::Slant)` を試してみてください。
 
 シグナル `name`、`email`、`plan`、`terms` がフォームの状態です。まだどこからも読まれていません。次のステップで使います。
 

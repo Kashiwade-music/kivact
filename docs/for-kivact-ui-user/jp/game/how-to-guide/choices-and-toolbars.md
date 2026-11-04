@@ -61,8 +61,8 @@ fn plans() -> impl IntoView {
     radio_group(
         "Plan",
         vec![
-            ListItem::new("solo", "SOLO").description("1 seat"),
-            ListItem::new("team", "TEAM").description("50 seats"),
+            ListItem::new("solo", "SOLO").with_description("1 seat"),
+            ListItem::new("team", "TEAM").with_description("50 seats"),
         ],
         plan,
     )
@@ -86,7 +86,7 @@ fn plans() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn menu() -> impl IntoView {
@@ -94,8 +94,8 @@ fn menu() -> impl IntoView {
     tabs(
         "Sections",
         vec![
-            ListItem::new("inbox", "INBOX").icon("bell"),
-            ListItem::new("squad", "SQUAD").icon("users"),
+            ListItem::new("inbox", "INBOX").with_icon("bell"),
+            ListItem::new("squad", "SQUAD").with_icon("users"),
         ],
         section,
     )
@@ -113,7 +113,7 @@ fn menu() -> impl IntoView {
 # fn main() {}
 ```
 
-`game::navigation_label` はアイコン、ラベル、説明を描き、スロットはその後ろにバッジや件数を置きます。横のタブは、既定では下線の見た目で、`.variant(game::Boxed)` を付けるとタブが箱の中に収まります（[チュートリアル](../getting-started/03-tabs-and-items.md) と同じ）。タブを切り替えても、パネルに入力した内容を保ちたいときは `.keep_mounted(true)` を足します。すべてのパネルが一度だけ作られ、選択されていないタブのパネルは隠されます。
+`game::navigation_label` はアイコン、ラベル、説明を描き、スロットはその後ろにバッジや件数を置きます。横のタブは、既定では下線の見た目で、`.variant(game::Boxed)` を付けるとタブが箱の中に収まります（[チュートリアル](../getting-started/03-tabs-and-items.md) と同じ）。タブを切り替えても、パネルに入力した内容を保ちたいときは `.keep_mounted()` を足します。すべてのパネルが一度だけ作られ、選択されていないタブのパネルは隠されます。
 
 ## ツールバーにクイック操作を置く
 

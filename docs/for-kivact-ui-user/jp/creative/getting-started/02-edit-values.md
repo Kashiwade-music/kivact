@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
 fn inspector() -> impl IntoView {
@@ -40,7 +40,7 @@ fn inspector() -> impl IntoView {
             ui::property_row(
                 "X",
                 ui::number("X", x)
-                    .range(-1000.0, 1000.0)
+                    .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                     .step(1.0)
                     .precision(1)
                     .unit(" px")
@@ -51,7 +51,7 @@ fn inspector() -> impl IntoView {
             ui::property_row(
                 "不透明度",
                 ui::number("不透明度", opacity)
-                    .range(0.0, 1.0)
+                    .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                     .step(0.01)
                     .precision(2)
                     .label_visible(false),
@@ -59,7 +59,7 @@ fn inspector() -> impl IntoView {
             ui::property_row(
                 "フェード",
                 ui::value_slider("フェード", opacity)
-                    .range(0.0, 1.0)
+                    .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                     .step(0.01)
                     .precision(2)
                     .label_visible(false),

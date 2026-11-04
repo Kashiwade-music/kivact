@@ -125,12 +125,12 @@ fn app() -> impl IntoView {
     });
     let draft = signal(saved.get_untracked());
 
-    let name = draft.field(|p| &p.name, |p| &mut p.name);
-    let bio = draft.field(|p| &p.bio, |p| &mut p.bio);
-    let plan = draft.field(|p| &p.plan, |p| &mut p.plan).optional();
-    let volume = draft.field(|p| &p.volume, |p| &mut p.volume);
-    let public = draft.field(|p| &p.public, |p| &mut p.public);
-    let terms = draft.field(|p| &p.terms, |p| &mut p.terms);
+    let name = draft.project(|p| &p.name, |p| &mut p.name);
+    let bio = draft.project(|p| &p.bio, |p| &mut p.bio);
+    let plan = draft.project(|p| &p.plan, |p| &mut p.plan).optional();
+    let volume = draft.project(|p| &p.volume, |p| &mut p.volume);
+    let public = draft.project(|p| &p.public, |p| &mut p.public);
+    let terms = draft.project(|p| &p.terms, |p| &mut p.terms);
 
     let name_error = memo(move || {
         draft.with(|p| p.name.trim().is_empty()).then(|| "Enter a name".to_owned())
@@ -205,7 +205,7 @@ mod tests {
 
 What each piece does:
 
-- `draft.field(get, get_mut)` returns a `Binding<U>` for one field. The first
+- `draft.project(get, get_mut)` returns a `Binding<U>` for one field. The first
   closure borrows the field for reading, the second borrows it for writing; you
   do not clone anything. Reading is a memo, so a control re-renders only when its
   own field changes.
@@ -294,7 +294,7 @@ Other rules:
 ## Commit a single field with Enter or blur
 
 For an inline rename you may want the edit to apply only when the user confirms
-it. `text_input(..).draft(on_commit)` turns the field into a draft: Enter or
+it. `text_input(..).on_draft_commit(on_commit)` turns the field into a draft: Enter or
 leaving the field calls `on_commit` with the text, Escape restores the text from
 before the edit.
 
@@ -305,7 +305,7 @@ that: `open(id)` starts a rename, `is_open(&id)` tells whether it runs, and
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::use_inline_edit;
+use kivact::interaction::use_inline_edit;
 
 fn names() -> impl IntoView {
     let items = signal(vec![(1u32, "Intro".to_owned()), (2, "Outro".to_owned())]);
@@ -313,7 +313,8 @@ fn names() -> impl IntoView {
     column(for_each(
         items,
         |(id, _)| *id,
-        move |id, item| {
+        move |item| {
+            let id = item.get_untracked().0;
             row((
                 text(move || item.get().1),
                 show(
@@ -323,13 +324,14 @@ fn names() -> impl IntoView {
                 show(
                     move || rename.is_open(&id),
                     move || {
-                        rename.field(id, "Name", signal(item.get_untracked().1), move |name| {
+                        let api = rename.field(id, "Name", signal(item.get_untracked().1)).on_draft_commit(move |name| {
                             items.update(|all| {
                                 if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
                                     row.1 = name;
                                 }
                             });
-                        })
+                        });
+                        node().part(api.control())
                     },
                 ),
             ))
@@ -347,7 +349,7 @@ leaving it changed calls the commit function with the text, Escape drops the
 edit, and either one closes the field. The field also closes when its row is
 removed, so a rename never outlives its item. An input marked `invalid` does
 not commit. For a field that stays on screen, use
-`text_input(..).draft(on_commit)` alone: `draft` replaces `on_submit`, because
+`text_input(..).on_draft_commit(on_commit)` alone: `draft` replaces `on_submit`, because
 Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 `Cancel`.
 

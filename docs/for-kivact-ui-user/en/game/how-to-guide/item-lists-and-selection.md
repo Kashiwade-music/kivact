@@ -9,7 +9,7 @@ writes the player's choices back; it keeps no copy.
 
 ## Pick one item from a list
 
-`list(label, items, selected)` is a standard component. The Game theme draws
+`list(label, items).selection(selected)` is a standard component. The Game theme draws
 it with hard edges and a selection edge.
 
 ```rust,no_run
@@ -20,12 +20,12 @@ use kivact_ui_game as game;
 fn inventory() -> impl IntoView {
     let selected = signal(Some(2_u32));
     let items = vec![
-        ListItem::new(1, "Rail Rifle").description("POWER 42").icon("bolt"),
-        ListItem::new(2, "Pulse Blade").description("POWER 35"),
-        ListItem::new(3, "Prototype Cannon").description("LOCKED").disabled(true),
+        ListItem::new(1, "Rail Rifle").with_description("POWER 42").with_icon("bolt"),
+        ListItem::new(2, "Pulse Blade").with_description("POWER 35"),
+        ListItem::new(3, "Prototype Cannon").with_description("LOCKED").disabled(true),
     ];
     column((
-        list("Inventory", items, selected),
+        list("Inventory", items).selection(selected),
         game::mono(move || format!("SELECTED {:?}", selected.get())),
     ))
     .style(style().gap(12).width(320).margin(24))
@@ -69,11 +69,11 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
     let rows = memo(move || {
         all.with(|all| {
             all.iter()
-                .map(|w| ListItem::new(w.id, w.name.clone()).description(format!("AMMO {}", w.ammo)))
+                .map(|w| ListItem::new(w.id, w.name.clone()).with_description(format!("AMMO {}", w.ammo)))
                 .collect::<Vec<_>>()
         })
     });
-    list("Weapons", rows, selected)
+    list("Weapons", rows).selection(selected)
 }
 # fn main() {}
 ```
@@ -83,9 +83,8 @@ list never edits your signals except to write the player's choice.
 
 ## Pick several items
 
-`.multiple(signal)` turns the list into a multi-select. The list then reads and
-writes only that signal (a `Signal<Vec<K>>`); the single `selected` argument is
-unused, so pass any signal. A click selects one, Ctrl (Cmd on macOS) toggles
+`.selection(signal)` accepts `Signal<Option<K>>` for one choice or
+`Signal<Vec<K>>` for several. A click selects one, Ctrl (Cmd on macOS) toggles
 one, and Shift extends from the last one.
 
 ```rust,no_run
@@ -99,10 +98,7 @@ fn squad() -> impl IntoView {
             ListItem::new(1, "Aya"),
             ListItem::new(2, "Ben"),
             ListItem::new(3, "Cho"),
-        ],
-        signal(None::<u32>),
-    )
-    .multiple(picked)
+        ]).selection(picked)
 }
 # fn main() {}
 ```
@@ -121,9 +117,7 @@ fn missions() -> impl IntoView {
     let selected = signal(Some("alpha"));
     list(
         "Missions",
-        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")],
-        selected,
-    )
+        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")]).selection(selected)
     .item(|item, state| {
         row((
             game::mono(move || if state.get().selected { ">" } else { " " }),
@@ -188,7 +182,7 @@ through `.cell(..)`:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 #[derive(Clone, PartialEq)]

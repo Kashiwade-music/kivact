@@ -139,7 +139,7 @@ use kivact::prelude::*;
 
 fn save_form() -> impl IntoView {
     let name = signal(String::new());
-    let save = action(ActionPolicy::Latest, |name: String| async move {
+    let save = action(ActionMode::Latest, |name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
             Err(UiError::msg("Name is empty"))
@@ -186,7 +186,7 @@ mod tests {
 ```
 
 The first argument of `action` says what a new `run` does while one is still
-going (see below); `ActionPolicy::Latest` cancels the old one. The closure
+going (see below); `ActionMode::Latest` cancels the old one. The closure
 takes the input (`|name: String|`) or no input at all (`|| async { … }`, run
 with `save.run(())`). Rust cannot infer an argument's type before it sees how
 you use it, so write the type when you call a method on the input.
@@ -197,23 +197,26 @@ handles you already have.
 
 ### What happens when the user clicks twice
 
-The `ActionPolicy` you pass to `action` decides how a new `run` treats one that is still going:
+The `ActionMode` you pass to `action` decides how a new `run` treats one that is still going:
 
 | Policy | Behaviour |
 |---|---|
-| `ActionPolicy::Latest` | The new run starts at once and cancels the old one. |
-| `ActionPolicy::Queue` | Runs go one at a time, in order. |
-| `ActionPolicy::QueueLatest` | Like `Queue`, but a new run replaces the one that is waiting. The running one is never interrupted. |
+| `ActionMode::Latest` | The new run starts at once and cancels the old one. |
+| `ActionMode::Queue` | Runs go one at a time, in order. |
+| `ActionMode::QueueLatest` | Like `Queue`, but a new run replaces the one that is waiting. The running one is never interrupted. |
 
 ```rust,no_run
 # use kivact::prelude::*;
 fn drafts() -> impl IntoView {
     let draft = signal(String::new());
-    let save = action(ActionPolicy::QueueLatest, |text: String| async move {
+    let save = action(ActionMode::QueueLatest, |text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
     });
-    save.on_done(|result| println!("saved: {result:?}"));
+    let save = save.on_complete(|outcome| match outcome {
+        kivact::task::ActionOutcome::Succeeded(count) => println!("saved: {count}"),
+        kivact::task::ActionOutcome::Failed(error) => eprintln!("save failed: {error}"),
+    });
     column((
         text_input("Draft", draft),
         // Pressing this ten times quickly runs the first save and the last one.
@@ -230,7 +233,7 @@ the same time.
 
 Other `Action` methods: `retry()` re-runs the input of the latest run,
 `cancel()` stops the run in flight, `input()` returns the input of the run
-the state describes, and `on_done(|result| …)` registers a handler that runs
+the state describes, and `on_complete(|outcome| …)` registers a handler that runs
 when a run finishes (not when it is cancelled). You can register several.
 
 ## Start a future that has no result to show

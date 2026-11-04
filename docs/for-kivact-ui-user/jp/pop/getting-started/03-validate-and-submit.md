@@ -12,7 +12,7 @@
 use kivact::i18n::CalendarDate;
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn sign_up(today: CalendarDate) -> impl IntoView {
@@ -187,7 +187,7 @@ mod tests {
 
 **`.valid(signal)`** は、テキストが実在する日付のあいだ `true`、そうでなければ `false` を書き込みます。コンポーネントは自前の形式エラー（"Use YYYY-MM-DD" や "This date does not exist"）を表示します。「過去であること」のような業務ルールはアプリの責任です。`birth_error` と `start_error` は、テキストが有効なときだけ値を検査するので、2 つのメッセージが重なることはありません。
 
-**`show(condition, || view)`** は、条件が真のあいだだけビューを配置します。`Tone::Success` は `pop::alert` を緑にします。アラートなどの表示コンポーネントは、意味を標準の `kivact::ui::Tone` で受け取ります。
+**`show(condition, || view)`** は、条件が真のあいだだけビューを配置します。`Tone::Success` は `pop::alert` を緑にします。アラートなどの表示コンポーネントは、意味を標準の `kivact::interaction::Tone` で受け取ります。
 
 **テスト**は、アプリと同じテーマを `RenderOptions` で渡して同じ見た目で描き、ロールとアクセシブルな名前、つまりスクリーンリーダーが読み上げる言葉で要素を探します。日付欄のテキストを置き換えるには、Ctrl+A で全選択してから入力します。
 

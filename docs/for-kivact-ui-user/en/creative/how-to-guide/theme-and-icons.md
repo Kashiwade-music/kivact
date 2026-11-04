@@ -50,7 +50,7 @@ fn compact_lime() -> Theme {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 use kivact_ui_creative::{self as ui, ThemeOptions as _};
 
 fn themed() -> impl IntoView {
@@ -103,7 +103,7 @@ fn app_with_font(font: &'static [u8]) -> App {
     let theme = ui::theme(ThemeMode::Dark);
 
     // The kit's tokens: change the families and put them back.
-    let mut tokens = (*theme.get::<ui::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
     tokens.body_font = "Geist".into();
     tokens.mono_font = "Geist Mono".into();
 
@@ -125,8 +125,8 @@ fn app_with_font(font: &'static [u8]) -> App {
 An icon is a name in the theme's icon set. The kit's theme includes 16-pixel Tabler outline icons such as `play`, `pause`, `eye`, `eye-off`, `lock`, `folder`, `stack`, `layout-columns`, `adjustments`, `keyframes`, `palette`, `color-picker`, `chevron-down`, `plus`, `trash`, `search` and `x`. Draw one with `icon(name)`; it takes the surrounding text color.
 
 ```rust,no_run
-use kivact::Asset;
-use kivact::control::icon;
+use kivact::view::Asset;
+use kivact::view::icon;
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;

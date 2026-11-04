@@ -44,13 +44,13 @@ fn profile_card(
         .header(
             basic::card_header("Profile")
                 .description("Choose how others see you.")
-                .action(move || {
+                .action({
                     show(changed, || {
                         basic::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 field("Display name", text_input("Display name", name))
                     .hint("Shown on your public page."),
@@ -74,7 +74,7 @@ fn notifications_card(
         .header(
             basic::card_header("Notifications").description("Choose what you want to hear about."),
         )
-        .content(move || {
+        .content({
             basic::field_group((
                 field("Weekly digest", switch("Weekly digest", digest).hide_label(true))
                     .hint("A summary of your week, every Monday.")
@@ -147,7 +147,7 @@ Run it. You should see two bordered cards side by side under the heading, with t
 - **`changed` is a closure.** `show(changed, || ..)` calls it whenever the signals it reads change, and mounts the badge only while it returns `true`. A plain closure is enough for a reactive value.
 - **Choices are `ListItem`s.** A `ListItem::new(key, label)` pairs a key you choose with the text shown. `select` and `toggle_group` hold the chosen key as `Option<K>`, here `Option<&'static str>`; `None` means nothing is chosen.
 - **Slots take closures.** `card().header(..)` takes a ready header, while `.content(|| ..)` and `.footer(|| ..)` take a closure that the card calls once when it mounts. They are written `move || ..` so that they own the signals they use; since signals are `Copy`, no clone is needed.
-- **`field(label, control)`** from Kivact pairs a visible label with a control and an optional `.hint(..)`. Pressing the label activates the control, and screen readers announce the label as the control's name. The switch inside has `.hide_label(true)` because the field already shows the label.
+- **`field(label, control)`** from Kivact pairs a visible label with a control and an optional `.with_hint(..)`. Pressing the label activates the control, and screen readers announce the label as the control's name. The switch inside has `.hide_label(true)` because the field already shows the label.
 - **`basic::field_group`** stacks fields with the kit's spacing, and `basic::field_separator()` draws a rule between them.
 
 ## Next

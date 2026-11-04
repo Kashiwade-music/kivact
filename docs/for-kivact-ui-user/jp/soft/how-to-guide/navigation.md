@@ -6,7 +6,7 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::ListItem;
+use kivact::interaction::ListItem;
 use kivact::view::dynamic;
 use kivact_ui_soft as soft;
 

@@ -15,7 +15,7 @@ back to the list.
 | Records with an id, rows with their own state or controls | `for_each(items, key, row)` | the key you return |
 | Plain values (numbers, strings) with no id | `for_index(items, row)` | the position |
 | Thousands of rows, all alike in height | `virtual_list(items, key, row)` | the key; only visible rows exist |
-| A list the user selects from | `list(name, items, selected)` | the item's key |
+| A list the user selects from | `list(name, items).selection(selected)` | the item's key |
 | Columns that sort, filter, page and select | `data_table(rows, key, columns)` | the row's key |
 
 All of them take the items as a `Signal<Vec<T>>`, a `Value`, a memo or a closure
@@ -45,9 +45,10 @@ fn app() -> impl IntoView {
     column(for_each(
         todos,
         |todo| todo.id,
-        move |id, todo| {
+        move |todo| {
+            let id = todo.get_untracked().id;
             // Write the checkbox back to this row of the list.
-            let done = todos.item(|t| t.id, id).field(|t| &t.done, |t| &mut t.done);
+            let done = bind!(todo.done);
             // State owned by the row: it lives as long as the key `id` does.
             let open = signal(false);
             column((
@@ -99,7 +100,7 @@ How it works:
   row keeps its owner, and every `signal` created inside the row closure, as
   long as its key stays in the list. Reordering moves the existing rows;
   removing an item disposes only its row.
-- The row closure runs **once per row**, with the key and a `Value<Todo>` that
+- The row closure runs **once per row**, with one `Binding<Todo>` that
   always holds the row's current item. Read it inside a closure
   (`move || todo.get().title`) so the text follows edits; do not read it once
   and store the result.
@@ -109,14 +110,14 @@ How it works:
 
 ## Write back to the list from a row
 
-A row holds a copy of its item, so it must say which item to change. Three ways,
+A signal-backed row receives a binding to its item. Three ways to write,
 from most to least convenient:
 
-1. **A binding to one field.** `todos.item(|t| t.id, id)` is a `Binding<Todo>`
-   for the item whose key is `id`, and `.field(get, get_mut)` narrows it to one
-   field. Hand that binding to a control, as the checkbox above does. Make it in
-   the row closure's setup, not inside a handler. If the item disappears the
-   binding keeps the last value it saw, and writing to it does nothing.
+1. **A binding to one field.** The row's `todo` is already a `Binding<Todo>`.
+   Use `bind!(todo.done)` or `todo.project(get, get_mut)` to narrow it to a
+   field. Make it during row setup. If the item disappears the binding keeps
+   the last value it saw, and writes do nothing. A `Value<Vec<T>>`, a plain
+   `Vec<T>` or a closure source instead gives each row a read-only `Value<T>`.
 2. **An update by key** in a handler: `todos.update(|list| list.retain(|t| t.id
    != id))` or `list.iter_mut().find(|t| t.id == id)`. Use it for remove, move
    and anything that changes the list itself.
@@ -230,7 +231,7 @@ mod tests {
 
 ## A list the user picks from
 
-`list(name, items, selected)` shows `ListItem`s as a listbox and writes the
+`list(name, items).selection(selected)` shows `ListItem`s as a listbox and writes the
 chosen key to a `Signal<Option<K>>`. The name is the accessible name of the
 list and is not drawn.
 
@@ -246,18 +247,11 @@ fn app() -> impl IntoView {
             "Colors",
             vec![
                 ListItem::new(1_u32, "Red"),
-                ListItem::new(2, "Blue").description("A calm color"),
+                ListItem::new(2, "Blue").with_description("A calm color"),
                 ListItem::new(3, "Green").disabled(true),
-            ],
-            selected,
-        ),
+            ]).selection(selected),
         text(move || format!("selected: {:?}", selected.get())),
-        list(
-            "Files",
-            vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")],
-            signal(None),
-        )
-        .multiple(picked_many)
+        list("Files", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")]).selection(picked_many)
         .item(|item, state| {
             text(move || {
                 let mark = if state.get().selected { "[x] " } else { "[ ] " };
@@ -386,7 +380,7 @@ accessible name. `.numeric(true)` right-aligns, `.width(px)` fixes the width and
 the other columns share the rest, and `.visible(..)` hides a column.
 
 By default the keyboard moves a focus between cells and Space selects the row.
-`.focus(TableFocus::Rows(ListPolicy::default()))` makes a whole row the focus stop instead. For a table
+`.focus(TableFocus::Rows(ListOptions::default()))` makes a whole row the focus stop instead. For a table
 with many thousands of rows, combine `.page(..)` with data you already
 filtered, because every row of the current page is mounted.
 
@@ -394,7 +388,7 @@ filtered, because every row of the current page is mounted.
 
 - Keep the item type cheap to compare: `for_each` and `data_table` compare items
   with `PartialEq` on every change. Put large payloads behind an `Rc` or an id.
-- Update one item with `update` or `item(..).field(..)` instead of replacing the
+- Update one item with `update` or `the row binding’s `project(..)`` instead of replacing the
   whole `Vec`; only the changed rows are touched.
 - Prefer `virtual_list` for long logs and feeds, and `data_table` with `.page(..)`
   for tabular data.

@@ -241,7 +241,7 @@ fn sections() -> impl IntoView {
             1 => ui::property_row("X", ui::number("X", position).label_visible(false)).into_view(),
             _ => ui::property_row(
                 "Opacity",
-                ui::number("Opacity", opacity).range(0.0, 1.0).label_visible(false),
+                ui::number("Opacity", opacity).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).label_visible(false),
             )
             .into_view(),
         }
@@ -249,7 +249,7 @@ fn sections() -> impl IntoView {
 }
 ```
 
-The bodies stay mounted while a section is collapsed or reordered, so a field keeps its focus and state. `Ctrl` (or `Cmd`) plus a click on a heading opens only that section and collapses the others. Inside a section, `ui::property_row(label, control)` lines up labels in a column; give it `.leading(..)` and `.trailing(..)` slots for a state button or an action. For one titled box without grouping, use `ui::panel(title, content)`; for two resizable panes, the standard `kivact::ui::split((first, second), sizes)` is drawn like the dock's dividers.
+The bodies stay mounted while a section is collapsed or reordered, so a field keeps its focus and state. `Ctrl` (or `Cmd`) plus a click on a heading opens only that section and collapses the others. Inside a section, `ui::property_row(label, control)` lines up labels in a column; give it `.leading(..)` and `.trailing(..)` slots for a state button or an action. For one titled box without grouping, use `ui::panel(title, content)`; for two resizable panes, the standard `kivact::ui::split(sizes, (first, second))` is drawn like the dock's dividers.
 
 ## Let the user search for a command or an item
 

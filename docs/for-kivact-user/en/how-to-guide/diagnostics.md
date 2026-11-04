@@ -64,7 +64,7 @@ Every error carries a message and, when known, the place in your code that
 caused it:
 
 ```rust,no_run
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::prelude::*;
 
 fn main() {
@@ -112,7 +112,7 @@ reaches the **default sink**: a `tracing::error!` line and a ring buffer of the
 last 256 errors. The app does not stop.
 
 ```rust,test_harness
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::prelude::*;
 use kivact::view::error_boundary;
 
@@ -135,7 +135,7 @@ fn app() -> impl IntoView {
         .fallback(|error, reset| {
             column((
                 text(format!("Failed: {error}")),
-                button("Retry").on_press(move || reset()),
+                button("Retry").on_press(move || reset.run()),
             ))
         }),
     ))
