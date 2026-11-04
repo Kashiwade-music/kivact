@@ -130,7 +130,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | I-4a | merged | a64fe5a | public26/Soft4 passed、check/state-fields0 |
 | I-4b | merged | afc0a71 | APG grid8・Soft7 passed、check/state-fields0 |
 | I-5a | merged | 1156889 | public19/slider4/Soft8 passed、check/state-fields0 |
-| I-5b | doing | | |
+| I-5b | merged | 5e85bb7 | public10/state-fields5scope passed、最終leafは親整合check待ち |
 | I-6 | merged | cca5c70 | public7/Soft2、固定follow2 passed、check/state-fields0 |
 | U-1 | merged | 0c87c70 | public12/Soft6 passed、check/state-fields0 |
 | U-2 | merged | 257f8d5 | public56/APG2/Soft5 passed、check/state-fields0。details残件はI7 |
@@ -143,7 +143,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-3 | doing | | |
 | G-4a | merged | 586a75c | style_paint6 passed、check/fmt 0 |
 | G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
-| G-4c | doing | | |
+| G-4c | merged | 814ca08 | 固定統合environment/scroll17 passed、workspacecheck/fmt0 |
 | G-5 | merged | a3d8db9 | async6/doc538+1 passed、scopedcheck/state-fields0 |
 | K-0 | todo | | |
 | K-1a | todo | | |
@@ -185,5 +185,5 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G4-12 | merged | 291e2de | Generation/active payload、check0/E2E1 passed |
 | fix-G4-13 | merged | 507ea44 | 元のgrouped-table試験1/list11 passed、check/state-fields0 |
 | fix-G5-9 | merged | 2ed4bfb | Creative9親を葉へ分離、check0/state-fields所有0 |
-| fix-G4-14 | doing | 613aec1 | interaction循環/virtual requested修正、check0/state-fields0、E2E待ち |
-| fix-G5-10 | doing | | Basic tooltip説明・ComboBox role追従 |
+| fix-G4-14 | merged | 8382d72 | no-default flow1/allfeature20 passed、check/state-fields0 |
+| fix-G5-10 | merged | 03ad2c5 | Basic2/publictooltip6/Soft4 passed、fmt/diff0 |

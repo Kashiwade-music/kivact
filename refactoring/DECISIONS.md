@@ -142,3 +142,5 @@
 | 2026-11-05 | U-2 | inline field は open 後に条件付き mount される | Requested{key} を実際の要求として持ち field mount で Editing へ遷移。dummy session・事前登録の順序要求・後付け slot は作らない。 |
 | 2026-11-05 | G-5 | async_view が PartialEq を追加要求する | canonical AsyncCell の Rc publication identity を dynamic が観測。単一 state のまま T:Clone を保ち、Idle は空表示、Pending だけ loading にする。 |
 | 2026-11-05 | fix-G5-10 | 既存Basic menuのskip試験とAPG既定Retain | fixtureへ明示Skipを渡し全assertを保持。tooltip fallbackはdeferred Partの既存descriptionを見て決め、空説明でshortcutを消さない。 |
+| 2026-11-05 | I-7/G-4b | duration切替で以前のtimingが新設定を上書き | retargetは新target/configured Transitionを基準にする。duration0のdrag即時追従とProportionalの累積短縮を正しく扱い、motion/swipe12件で確認。 |
+| 2026-11-05 | G-3 | restored_stateの同期読み取り経路 | Environmentにlaunch時readonly snapshotを一箇所で持つ。virtual scriptだけが永続mapを所有し次launch snapshotを作る。desktop capability false、coreのshadow cacheは作らない。 |
