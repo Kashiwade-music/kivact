@@ -71,7 +71,9 @@ use std::sync::{Arc, OnceLock};
 /// fills (`Tabs::item`, `Menu::item`, `Select::item`). Tables compare
 /// their recipes by identity, so installing an unchanged table never
 /// restyles.
-pub struct Recipe<S>(Arc<dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync>);
+pub struct Recipe<S>(Arc<RecipeFn<S>>);
+
+type RecipeFn<S> = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
 
 impl<S> Clone for Recipe<S> {
     fn clone(&self) -> Self {

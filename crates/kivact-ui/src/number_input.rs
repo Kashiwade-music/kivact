@@ -181,12 +181,10 @@ impl IntoView for NumberInput {
         } = self;
         let disabled = root
             .accessible_disabled()
-            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
-        let label = root.accessible_name().map(|read| read).unwrap_or(label);
+        let label = root.accessible_name().unwrap_or(label);
         let invalid = root
             .accessible_invalid()
-            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
         let described_by = root.accessible_described_by();

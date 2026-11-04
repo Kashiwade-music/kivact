@@ -159,7 +159,7 @@ impl Slider {
                 format!("Slider::step: the step {step} is not a positive finite number"),
             );
         }
-        self.step = Some(step.into());
+        self.step = Some(step);
         self
     }
 
@@ -295,7 +295,7 @@ impl IntoView for Slider {
         // `.disabled(..)` on the slider ends a drag in progress and ignores
         // input and assistive technology; the track is disabled with its
         // thumbs, so its recipe's disabled state style dims the whole slider.
-        let disabled = root.accessible_disabled().map(|read| read);
+        let disabled = root.accessible_disabled();
         let vertical = orientation == Orientation::Vertical;
         let range = range.unwrap_or_else(|| {
             ScalarRange::new(0.0, 100.0)
