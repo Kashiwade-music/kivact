@@ -28,6 +28,20 @@ impl Reader {
             .map_or(kivact_types::Presence::Leaving, |node| node.presence.into())
     }
 
+    /// The logical parent, including transparent containers.
+    pub fn parent(&self, id: NodeId) -> Option<NodeId> {
+        let model = self.model.borrow();
+        model
+            .tree()
+            .get(id)
+            .and_then(|node| model.tree().parent_id(node))
+    }
+
+    /// Logical children, excluding nodes already removed by the client.
+    pub fn children(&self, id: NodeId) -> Vec<NodeId> {
+        self.model.borrow().tree().logical_children(id)
+    }
+
     /// Clone the one canonical semantics value stored for this node.
     pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
         self.model.borrow().tree().get(id)?.semantics().cloned()

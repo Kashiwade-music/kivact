@@ -10,11 +10,11 @@
 pub use kivact_style::Align;
 #[doc(inline)]
 pub use kivact_style::{
-    Background, BorderStyle, Color, ColorToken, Cursor, Direction, FontFeature, FontKerning,
-    GridAutoFlow, GridPlacement, Icon, IconSet, Justify, Length, LineHeight, Overflow, Position,
-    ScrollbarWidth, Style, TextAlign, TextDecorationLine, TextLength, TextOverflow, TextTransform,
-    Theme, ThemeColor, ThemeExtension, ThemeMode, Track, TransitionProp, auto, current_theme, em,
-    hsl, pct, rgb, rgba, style,
+    Background, BorderStyle, Color, ColorToken, Cursor, Direction, Display, FontFeature,
+    FontKerning, GridAutoFlow, GridPlacement, Icon, IconSet, Justify, Length, LineHeight, Overflow,
+    Position, ScrollbarWidth, Style, TextAlign, TextDecorationLine, TextLength, TextOverflow,
+    TextTransform, Theme, ThemeColor, ThemeExtension, ThemeMode, Track, TransitionProp, auto,
+    current_theme, em, hsl, pct, rgb, rgba, style,
 };
 
 pub mod theme;

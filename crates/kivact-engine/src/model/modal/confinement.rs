@@ -31,7 +31,7 @@ impl Model {
             // Several: the last one in tree order is on top.
             _ => self
                 .tree
-                .preorder()
+                .flat_preorder()
                 .into_iter()
                 .rev()
                 .find(|id| shown.contains(id)),
@@ -60,7 +60,7 @@ impl Model {
             0 => None,
             1 => candidates.pop(),
             _ => {
-                let order = self.tree.preorder();
+                let order = self.tree.flat_preorder();
                 candidates
                     .into_iter()
                     .max_by_key(|c| order.iter().position(|x| x == c))
@@ -190,7 +190,7 @@ impl Model {
         if self.tree.is_in_subtree(focus.node, modal) {
             return;
         }
-        let order = self.tree.preorder();
+        let order = self.tree.flat_preorder();
         let start = order.iter().position(|x| *x == focus.node).unwrap_or(0);
         let ranks: std::collections::HashMap<_, _> = order[start..]
             .iter()

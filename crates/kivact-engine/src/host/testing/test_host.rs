@@ -699,13 +699,7 @@ impl ArvaneTestHost {
         let launch = self.host.borrow();
         let host = launch.host();
         let model = host.model.borrow();
-        model.node(id).map(|n| {
-            model
-                .tree
-                .children_ids(n)
-                .filter(|c| model.tree.live(*c))
-                .collect()
-        })
+        model.node(id).map(|_| model.tree.logical_children(id))
     }
 
     /// The props node `id` holds (as the client sent them; a text input's

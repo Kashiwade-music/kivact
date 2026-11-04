@@ -353,9 +353,19 @@ impl OverlayProps {
     }
 }
 
+/// How a node contributes a layout box.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Display {
+    #[default]
+    Flex,
+    Grid,
+    Contents,
+}
+
 /// Flex or grid layout of a node. Hosts own the layout algorithm.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutProps {
+    pub display: Display,
     /// Main-axis direction of the flex container.
     pub direction: FlexDirection,
     /// Default cross-axis child alignment; absent uses stretch.
@@ -446,6 +456,7 @@ impl Default for LayoutProps {
             overflow_y: Overflow::Visible,
             hidden: false,
             aspect_ratio: None,
+            display: Display::Flex,
             grid: None,
         }
     }

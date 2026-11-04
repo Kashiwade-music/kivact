@@ -116,7 +116,7 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
     let mut style = NodeStyle {
         display: if l.hidden || hidden {
             Display::None
-        } else if container.is_some() {
+        } else if l.display == kivact_types::Display::Grid {
             Display::Grid
         } else {
             Display::Flex

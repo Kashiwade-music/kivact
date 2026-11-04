@@ -108,7 +108,7 @@ impl Walk<'_> {
             NodeType::Text | NodeType::Image => 1,
             _ => 0,
         };
-        let more = !host.tree().nodes.links(n.index).children.is_empty()
+        let more = host.tree().flat_children(id).len() != 0
             || n.scenes().iter().any(Option::is_some)
             || look.items + content > 1
             || look.layers > 0;
@@ -198,7 +198,7 @@ impl Walk<'_> {
             x: base.x + at.x,
             y: base.y + at.y,
         };
-        if host.tree().nodes.links(n.index).children.len() < INDEXED {
+        if host.tree().flat_children(id).len() < INDEXED {
             for child in host.stacked(n) {
                 let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                     continue;
@@ -211,7 +211,12 @@ impl Walk<'_> {
         self.used.insert(id);
         let (pass, generation) = (self.pass, self.generation);
         let index = self.indices.entry(id).or_insert_with(|| {
-            ChildIndex::build(host, host.tree().children_ids(n), pass, generation)
+            ChildIndex::build(
+                host,
+                host.tree().flat_children(host.tree().nodes.id_at(n.index)),
+                pass,
+                generation,
+            )
         });
         index.refresh(host, pass, generation);
         // The clip in the index's space (the children's layout space).

@@ -56,14 +56,17 @@ impl Model {
         let Some(n) = self.tree.get(node) else {
             return out;
         };
-        let mut stack: Vec<NodeId> = self.tree.children_ids(n).collect();
+        let mut stack: Vec<NodeId> = self
+            .tree
+            .flat_children(self.tree.nodes.id_at(n.index))
+            .collect();
         while let Some(x) = stack.pop() {
             let Some(c) = self.tree.get(x) else { continue };
             if c.states().is_some_and(&has) {
                 out.push(x);
             }
             if !self.is_group(x) {
-                stack.extend(self.tree.children_ids(c));
+                stack.extend(self.tree.flat_children(self.tree.nodes.id_at(c.index)));
             }
         }
         out

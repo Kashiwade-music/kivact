@@ -47,7 +47,7 @@ pub use input::{
     MouseButton, PointerButtons, PointerId, PointerKind, PointerPhase, PointerSample, WheelInput,
 };
 pub use layout::{
-    Align, AvailableSpace, Baseline, Breadth, Dimension, EditLineLayout, FlexDirection,
+    Align, AvailableSpace, Baseline, Breadth, Dimension, Display, EditLineLayout, FlexDirection,
     GridContainer, GridFlow, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize,
     Justify, LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
     OverlayProps, Placement, Position, ScrollAxes, TrackSize,

@@ -66,7 +66,7 @@ impl Model {
         let mut stack = vec![id];
         while let Some(x) = stack.pop() {
             let Some(n) = self.tree.get(x) else { continue };
-            stack.extend(self.tree.children_ids(n));
+            stack.extend(self.tree.flat_children(self.tree.nodes.id_at(n.index)));
             self.measure.forget_computed_text(n.index.0);
         }
     }

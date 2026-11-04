@@ -94,7 +94,7 @@ pub(super) fn ink(
         let mut rect = reach(host, id, n, layout, &look);
         if !n.clips() {
             let scroll = n.scroll();
-            for child in host.tree().children_ids(n) {
+            for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
                 let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                     continue;
                 };

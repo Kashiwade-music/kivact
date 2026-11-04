@@ -68,7 +68,7 @@ impl Model {
             return None;
         }
         let inset = n.layout()?.inset;
-        let parent = self.tree.parent_id(n)?;
+        let parent = self.tree.flat_parent(n)?;
         let r = self.rect(id)?;
         // Where layout put it, with the scrolls and outer shifts of now.
         let at = Rect {

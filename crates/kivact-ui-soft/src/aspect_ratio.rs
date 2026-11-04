@@ -78,7 +78,7 @@ impl IntoView for AspectRatio {
                 .justify_content(Justify::Center);
         } else if matches!(fit, RatioFit::Cover | RatioFit::Contain) {
             slot = slot
-                .display_grid()
+                .display(kivact::style::Display::Grid)
                 .grid_template_rows(pct(100))
                 .grid_template_columns(pct(100))
                 .align_items(Align::Stretch)

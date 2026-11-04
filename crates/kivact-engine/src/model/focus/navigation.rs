@@ -49,6 +49,9 @@ impl Model {
         let Some(node) = self.tree.get(target.node) else {
             return false;
         };
+        if node.is_transparent() {
+            return false;
+        }
         match target.region {
             None => node.focusable(self.editors[node.index.0].is_some()),
             Some(id) => {
@@ -63,7 +66,7 @@ impl Model {
     /// All declared targets in node, region, then descendant order.
     pub(in crate::model) fn focus_order(&self) -> Vec<FocusTarget> {
         let mut targets = Vec::new();
-        for id in self.tree.preorder() {
+        for id in self.tree.flat_preorder() {
             targets.push(FocusTarget {
                 node: id,
                 region: None,

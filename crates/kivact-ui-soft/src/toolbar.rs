@@ -239,11 +239,13 @@ impl IntoView for Toolbar {
                             Align::Center
                         });
                     if has_center && !vertical {
-                        base = base.display_grid().grid_template_columns((
-                            Track::minmax(0, Track::fr(1)),
-                            Length::Auto,
-                            Track::minmax(0, Track::fr(1)),
-                        ));
+                        base = base
+                            .display(kivact::style::Display::Grid)
+                            .grid_template_columns((
+                                Track::minmax(0, Track::fr(1)),
+                                Length::Auto,
+                                Track::minmax(0, Track::fr(1)),
+                            ));
                     } else {
                         base = base.justify_content(Justify::SpaceBetween);
                     }

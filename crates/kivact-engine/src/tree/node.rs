@@ -152,6 +152,10 @@ impl HostNode {
     }
 
     pub(crate) fn update_place(&mut self) {
+        if self.is_transparent() {
+            self.place = Place::default();
+            return;
+        }
         let base = self.paint();
         let deltas = self.states().into_iter().flat_map(|s| s.deltas());
         let (mut moved, mut z_states) = (false, false);
@@ -168,6 +172,11 @@ impl HostNode {
         let position = self.layout().map(|l| l.position);
         self.place.sticky = position == Some(Position::Sticky);
         self.place.fixed = position == Some(Position::Fixed);
+    }
+
+    pub(crate) fn is_transparent(&self) -> bool {
+        self.layout()
+            .is_some_and(|l| l.display == kivact_types::Display::Contents)
     }
 
     pub(crate) fn semantics(&self) -> Option<&kivact_types::Semantics<FocusTarget>> {
@@ -341,6 +350,7 @@ impl HostNode {
     pub(crate) fn focusable(&self, editor_present: bool) -> bool {
         let focusable = self.properties.input.focusable.unwrap_or(editor_present);
         focusable
+            && !self.is_transparent()
             && (!self.disabled() || self.properties.input.focusable_when_disabled == Some(true))
             && !self.hidden()
     }
@@ -371,6 +381,9 @@ impl HostNode {
 
     /// Which axes scroll (`overflow: Scroll`), `(x, y)`.
     pub(crate) fn scroll_axes(&self) -> (bool, bool) {
+        if self.is_transparent() {
+            return (false, false);
+        }
         match self.layout() {
             Some(l) => (
                 l.overflow_x == Overflow::Scroll,
@@ -382,10 +395,11 @@ impl HostNode {
 
     /// Clips its children (paint clip or a non-visible overflow).
     pub(crate) fn clips(&self) -> bool {
-        self.paint().is_some_and(|p| p.clip)
-            || self.layout().is_some_and(|l| {
-                l.overflow_x != Overflow::Visible || l.overflow_y != Overflow::Visible
-            })
+        !self.is_transparent()
+            && (self.paint().is_some_and(|p| p.clip)
+                || self.layout().is_some_and(|l| {
+                    l.overflow_x != Overflow::Visible || l.overflow_y != Overflow::Visible
+                }))
     }
 
     /// The scene region `id` of either draw layer.

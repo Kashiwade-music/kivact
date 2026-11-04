@@ -53,7 +53,7 @@ pub fn row(children: impl IntoView) -> Node {
 /// ```
 #[track_caller]
 pub fn grid(children: impl IntoView) -> Node {
-    container(children, style().display_grid())
+    container(children, style().display(kivact_types::Display::Grid))
 }
 
 /// A scroll container. Wheel at the edge of a short area passes to the parent.

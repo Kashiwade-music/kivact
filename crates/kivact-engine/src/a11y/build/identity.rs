@@ -58,7 +58,7 @@ impl Model {
     pub(super) fn prepare_region_ids(&mut self) {
         let targets: Vec<_> = self
             .tree()
-            .preorder()
+            .flat_preorder()
             .into_iter()
             .flat_map(|node| {
                 self.node(node).into_iter().flat_map(move |n| {

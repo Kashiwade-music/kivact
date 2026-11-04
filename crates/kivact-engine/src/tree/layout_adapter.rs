@@ -29,15 +29,24 @@ impl LayoutTree for NodeTree {
     }
     #[inline]
     fn parent(&self, slot: usize) -> Option<usize> {
-        self.nodes.links(NodeIndex(slot)).parent.map(|i| i.0)
+        self.flat_parent(self.nodes.at(NodeIndex(slot)))
+            .and_then(|id| self.nodes.index_of(id))
+            .map(|index| index.0)
     }
     #[inline]
     fn child_count(&self, slot: usize) -> usize {
-        self.nodes.links(NodeIndex(slot)).children.len()
+        self.flat_children(self.nodes.id_at(NodeIndex(slot))).len()
     }
     #[inline]
     fn child_at(&self, slot: usize, raw_child: usize) -> usize {
-        self.nodes.links(NodeIndex(slot)).children.as_slice()[raw_child].0
+        self.nodes
+            .index_of(
+                self.flat_children(self.nodes.id_at(NodeIndex(slot)))
+                    .nth(raw_child)
+                    .expect("invariant: layout child exists"),
+            )
+            .expect("invariant: layout child is retained")
+            .0
     }
     #[inline]
     fn flow(&self, slot: usize) -> Flow {

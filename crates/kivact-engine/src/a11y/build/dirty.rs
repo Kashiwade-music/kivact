@@ -96,13 +96,13 @@ impl Model {
             modal: self.modal(),
             ..Default::default()
         };
-        let order = self.tree().preorder();
+        let order = self.tree().flat_preorder();
         for &id in &order {
             let Some(n) = self.node(id) else { continue };
-            metadata.parents.insert(id, self.tree().parent_id(n));
+            metadata.parents.insert(id, self.tree().flat_parent(n));
             let mut children = DefaultHasher::new();
             let mut count = 0usize;
-            for child in self.tree().children_ids(n) {
+            for child in self.tree().flat_children(self.tree().nodes.id_at(n.index)) {
                 child.hash(&mut children);
                 count += 1;
             }
@@ -245,7 +245,7 @@ impl Model {
                 };
                 stack.extend(
                     self.tree()
-                        .children_ids(n)
+                        .flat_children(self.tree().nodes.id_at(n.index))
                         .rev()
                         .map(|child| (child, below)),
                 );

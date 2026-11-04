@@ -117,9 +117,6 @@ impl ChildOrder {
             Order::Editing(v) => v.links.len(),
         }
     }
-    pub(crate) fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
     fn editing(&mut self) -> &mut Editing {
         if let Order::Packed(packed) = &mut self.0 {
             let packed = std::mem::take(packed);
@@ -162,13 +159,6 @@ impl ChildOrder {
     }
     pub(crate) fn is_editing(&self) -> bool {
         matches!(&self.0, Order::Editing(_))
-    }
-    /// Layout alone requires packing; precommit semantic walks use iter().
-    pub(crate) fn as_slice(&self) -> &[NodeIndex] {
-        match &self.0 {
-            Order::Packed(packed) => packed,
-            Order::Editing(_) => panic!("invariant: sibling order packed before layout"),
-        }
     }
     pub(crate) fn iter(&self) -> Children<'_> {
         let (first, last) = match &self.0 {

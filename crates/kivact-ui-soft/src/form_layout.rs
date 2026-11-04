@@ -70,13 +70,13 @@ impl IntoView for FormLayout {
             let base = style().gap(spacing.s4);
             match context.direction {
                 FormDirection::Horizontal => base
-                    .display_grid()
+                    .display(kivact::style::Display::Grid)
                     .grid_auto_flow(GridAutoFlow::Column)
                     .grid_auto_columns(Track::fr(1)),
                 FormDirection::HorizontalLabels
                     if kivact::platform::window_size().width > 480.0 =>
                 {
-                    base.display_grid()
+                    base.display(kivact::style::Display::Grid)
                         .grid_template_columns((Track::from(auto()), Track::fr(1)))
                         .row_gap(spacing.s3)
                         .align_items(Align::Start)
