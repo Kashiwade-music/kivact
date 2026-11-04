@@ -1,13 +1,12 @@
 //! Role: Public application builder and native window entry.
+use crate::Result;
 use crate::i18n::{Locale, Messages};
 use crate::launch::AppOptions;
 use crate::view::Asset;
 use crate::view::IntoView;
-use crate::{Result, UiError};
-use kivact_runtime::ErrorKind;
+
 use kivact_style::Theme;
-use kivact_types::Size;
-use std::panic::Location;
+
 #[derive(Clone)]
 pub struct App {
     pub(crate) options: AppOptions,
@@ -130,38 +129,8 @@ impl App {
             move || root().into_view(),
         )
         .into_engine_client();
-        crate::platform::run_native(client, options)
+        crate::launch::run_native(client, options)
     }
-}
-
-/// Refuse a window size or minimum size that cannot form a drawable extent,
-/// and a minimum larger than the size, as an error located at `at`
-/// (`App::run`): the platform would otherwise clamp or ignore it silently.
-pub(crate) fn check_window_sizes(
-    window: Option<Size>,
-    min: Option<Size>,
-    at: &'static Location<'static>,
-) -> Result<()> {
-    let fail = |message: String| Err(UiError::new(ErrorKind::Message, message, Some(at)));
-    for (name, size) in [("window_size", window), ("min_window_size", min)] {
-        if let Some(s) = size
-            && !kivact_types::env::is_valid_window_size(s)
-        {
-            return fail(format!(
-                "App::{name}: {} by {} must be finite, at least one logical pixel and fit the native window extent",
-                s.width, s.height
-            ));
-        }
-    }
-    if let (Some(window), Some(min)) = (window, min)
-        && (min.width > window.width || min.height > window.height)
-    {
-        return fail(format!(
-            "App::min_window_size: {} by {} is larger than App::window_size {} by {}",
-            min.width, min.height, window.width, window.height
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -171,7 +140,11 @@ mod window_size_tests {
     //! The window settings are checked before anything starts, so these
     //! need no window.
 
-    use super::*;
+    use super::App;
+    use crate::{Result, launch::check_window_sizes};
+    use kivact_runtime::ErrorKind;
+    use kivact_types::Size;
+    use std::panic::Location;
 
     fn check(window: Option<(f64, f64)>, min: Option<(f64, f64)>) -> Result<()> {
         let size = |(w, h): (f64, f64)| Size::new(w, h);

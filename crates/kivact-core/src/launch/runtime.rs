@@ -6,10 +6,9 @@ use std::rc::Rc;
 
 use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
 use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
-use kivact_types::Size;
 
 use crate::client::state::HostState;
-use crate::i18n::{Locale, Messages};
+
 use crate::view::View;
 use crate::view::requests;
 use crate::view::state::ViewState;
@@ -19,208 +18,14 @@ use kivact_runtime::{
     ErrorKind, ExitState, Extensions, Runtime, RuntimeConfig, Stage, ThreadWaker, TurnGuard,
     TurnReport, UiError,
 };
-use kivact_style::Theme;
-use kivact_style::asset::Asset;
 
 /// Rounds of `on_mount` callbacks and user effects one turn runs before
 /// the rest is cut as a `Cycle`.
 const USER_EFFECT_ROUNDS: usize = 100;
 
-/// An application: title, window size, theme, fonts and the root
-/// component.
-#[derive(Clone)]
-pub struct AppOptions {
-    theme: kivact_runtime::Prop<Theme>,
-    settings: AppSettings,
-}
-
-/// Canonical application settings that can cross the embedded UI thread boundary.
-#[derive(Clone)]
-pub(crate) struct AppSettings {
-    title: String,
-    /// `None`: the system's locale (`App::locale`).
-    locale: Option<Locale>,
-    messages: Messages,
-    /// The window's first size (`window_size`); the engine's default when
-    /// `None`.
-    window_size: Option<Size>,
-    /// The window's minimum size (`min_window_size`).
-    min_window_size: Option<Size>,
-    blocking_threads: Option<usize>,
-    fonts: Vec<(Asset, &'static Location<'static>)>,
-    /// How the window's GPU device is made (`gpu_preference`).
-    gpu_preference: kivact_types::GpuPreference,
-}
-
-impl AppOptions {
-    /// An app whose window is titled `title`, with the default theme.
-    pub fn new(title: impl Into<String>) -> AppOptions {
-        AppOptions {
-            theme: kivact_runtime::Prop::constant(Theme::default()),
-            settings: AppSettings {
-                title: title.into(),
-                locale: None,
-                messages: Messages::new(),
-                window_size: None,
-                min_window_size: None,
-                blocking_threads: None,
-                fonts: Vec::new(),
-                gpu_preference: kivact_types::GpuPreference::default(),
-            },
-        }
-    }
-
-    /// Theme of the whole App, evaluated reactively under its root owner.
-    /// Embedded startup accepts only a fixed theme; create reactive themes with
-    /// `view::provide_theme` inside the embedded root factory.
-    pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
-        self.theme = theme.into_prop();
-        self
-    }
-
-    /// The App's locale: the language and region components format for.
-    /// Without it the App speaks the system's locale (`en-US` where the
-    /// system names none) and follows it when the user changes it while
-    /// the App runs; with it the App keeps this locale whatever the system
-    /// says. To switch it at runtime, wrap the root in
-    /// [`view::provide_locale`](crate::view::provide_locale) with a `Signal<Locale>`. Read it with
-    /// [`i18n::locale`](crate::i18n::locale).
-    pub fn locale(mut self, locale: Locale) -> Self {
-        self.settings.locale = Some(locale);
-        self
-    }
-
-    /// The App's texts: the replacements for the default (English) texts
-    /// of components, by key (`"dialog.close"`). Each component lists its
-    /// keys. To switch them at runtime, wrap the root in
-    /// [`view::provide_messages`](crate::view::provide_messages) with a `Signal<Messages>`.
-    pub fn messages(mut self, messages: Messages) -> Self {
-        self.settings.messages = messages;
-        self
-    }
-
-    /// The window's first content size in logical pixels (default 960 by
-    /// 720), e.g. `.window_size(1280, 800)`. The user can resize the
-    /// window afterwards; read the current size with
-    /// [`platform::window_size`](crate::platform::window_size) (to save it for the next start, say).
-    /// Both values must be finite, at least one logical pixel, fit the native
-    /// window extent, and not be smaller than
-    /// [`crate::App::min_window_size`]: otherwise [`crate::App::run`] returns an error
-    /// of kind `ErrorKind::Message` without opening the window.
-    pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.settings.window_size = Some(Size::new(width.into(), height.into()));
-        self
-    }
-
-    /// The smallest content size in logical pixels the user can resize the
-    /// window to, e.g. `.min_window_size(480, 320)` (default: no minimum).
-    /// Both values must be finite, at least one logical pixel, fit the native
-    /// window extent, and not be larger than
-    /// [`crate::App::window_size`] when that is set: otherwise [`crate::App::run`]
-    /// returns an error of kind `ErrorKind::Message` without opening the
-    /// window.
-    pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.settings.min_window_size = Some(Size::new(width.into(), height.into()));
-        self
-    }
-
-    /// Register the fonts of a TTF, OTF or TTC file before the first
-    /// screen, so text can name their families with
-    /// `style().font_family(..)` from the start (like CSS `@font-face`).
-    /// Call it once per file; a family is the name written in the font,
-    /// not the file name. Usually embedded:
-    /// `.font(include_bytes!("../assets/Inter-Regular.ttf"))`. A file that
-    /// is not a usable font (WOFF, unreadable) is reported as
-    /// `ErrorKind::Asset`, located here; the App starts anyway.
-    #[track_caller]
-    pub fn font(mut self, font: impl Into<Asset>) -> Self {
-        self.settings.fonts.push((font.into(), Location::caller()));
-        self
-    }
-
-    /// What the App wishes of the window's GPU device (experimental,
-    /// feature `gpu-interop`): the kind of adapter, the graphics API and
-    /// the adapter itself (default: Arvane's own choice). A wish: the
-    /// device is made on another adapter or API when the one asked for is
-    /// not there, and the environment variables `WGPU_BACKEND` and
-    /// `WGPU_POWER_PREF` override it. Read the adapter the device is on
-    /// with [`gpu_interop::adapter`](crate::gpu_interop::adapter).
-    #[cfg(feature = "gpu-interop")]
-    pub fn gpu_preference(mut self, preference: crate::gpu_interop::GpuPreference) -> Self {
-        self.settings.gpu_preference = preference;
-        self
-    }
-
-    /// Size of the blocking pool (default `min(4, CPUs)`).
-    pub fn blocking_threads(mut self, n: usize) -> Self {
-        self.settings.blocking_threads = Some(n.max(1));
-        self
-    }
-
-    #[track_caller]
-    pub fn check_window_sizes(&self) -> crate::Result<()> {
-        crate::app::check_window_sizes(
-            self.settings.window_size,
-            self.settings.min_window_size,
-            Location::caller(),
-        )
-    }
-    pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.settings.title = title.into();
-        self
-    }
-    /// Initial engine settings, derived from the application options.
-    pub fn host_options(&self) -> kivact_engine::api::HostOptions {
-        #[cfg(feature = "gpu-interop")]
-        let gpu_preference = self.settings.gpu_preference;
-        #[cfg(not(feature = "gpu-interop"))]
-        let gpu_preference = kivact_types::GpuPreference::default();
-        kivact_engine::api::HostOptions {
-            window_size: self.settings.window_size,
-            gpu_preference,
-        }
-    }
-    /// The single title used for both engine startup and later window effects.
-    pub fn window_title(&self) -> &str {
-        &self.settings.title
-    }
-    /// Extract only a fixed theme; reactive inputs stay on their owning thread.
-    pub(crate) fn into_embed_settings(
-        self,
-        at: &'static Location<'static>,
-    ) -> crate::Result<(AppSettings, Theme)> {
-        let theme = self.theme.fixed().ok_or_else(|| {
-            UiError::new(
-                ErrorKind::Unsupported,
-                "App::embed requires a fixed App theme; use view::provide_theme inside the Send root factory for an embedded reactive theme",
-                Some(at),
-            )
-        })?;
-        Ok((self.settings, theme))
-    }
-
-    pub(crate) fn into_view_settings(
-        self,
-    ) -> (
-        kivact_runtime::Prop<Theme>,
-        Option<crate::i18n::Locale>,
-        Messages,
-    ) {
-        (self.theme, self.settings.locale, self.settings.messages)
-    }
-}
-
-impl AppSettings {
-    pub(crate) fn with_theme(self, theme: Theme) -> AppOptions {
-        AppOptions {
-            theme: kivact_runtime::Prop::constant(theme),
-            settings: self,
-        }
-    }
-}
-
+use super::settings::AppOptions;
 /// Whether the host started the App.
-enum LaunchState {
+pub(super) enum LaunchState {
     /// Waiting for the host's `start`, which consumes the config.
     Waiting {
         options: Box<AppOptions>,
@@ -232,7 +37,7 @@ enum LaunchState {
 
 /// The App side of the host boundary: owns the App's runtime and implements
 /// concrete callbacks for the engine window loop or test driver.
-struct Started {
+pub(super) struct Started {
     rt: Rc<Runtime>,
 }
 
@@ -246,9 +51,9 @@ impl kivact_runtime::Host for ClientHost {
 pub struct Launch {
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
-    launch: LaunchState,
+    pub(super) launch: LaunchState,
     /// Host mode and its close/timing protocol for this application.
-    mode: ClientMode,
+    pub(super) mode: ClientMode,
 }
 
 impl Launch {
@@ -269,21 +74,9 @@ impl Launch {
         }
     }
 
-    pub fn into_engine_client(self) -> (Client, LaunchHandle) {
-        let timing = match &self.mode {
-            ClientMode::Test(TestTiming(timing)) => Some(timing.clone()),
-            _ => None,
-        };
-        let shared = Rc::new(RefCell::new(self));
-        (
-            Self::shared_client(shared.clone(), timing),
-            LaunchHandle(shared),
-        )
-    }
-
     /// The App's runtime (the Testing Library reads the tree and the
     /// extensions through it).
-    fn runtime(&self) -> &Rc<Runtime> {
+    pub(super) fn runtime(&self) -> &Rc<Runtime> {
         match &self.launch {
             LaunchState::Started(started) => &started.rt,
             LaunchState::Waiting { .. } => {
@@ -291,7 +84,10 @@ impl Launch {
             }
         }
     }
-    fn shared_client(shared: Rc<RefCell<Self>>, timing: Option<Rc<dyn Fn(u64)>>) -> Client {
+    pub(super) fn shared_client(
+        shared: Rc<RefCell<Self>>,
+        timing: Option<Rc<dyn Fn(u64)>>,
+    ) -> Client {
         let start = shared.clone();
         Client::new(
             move |info, waker, writer| start.borrow_mut().start(info, waker, writer),
@@ -374,13 +170,13 @@ impl Launch {
             LaunchState::Waiting { options, root } => (*options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        crate::view::root::mount_root(&rt, root_owner, options, root, self.at);
+        crate::view::root::mount_root(&rt, root_owner, options.into_view_settings(), root, self.at);
         // What the platform cannot do is diagnosed, not silently ignored:
         // `tracing` says it at start, and the turn trace when the App
         // relies on it (`platform::safe_area`).
         let missing = crate::platform::missing_capabilities(&ViewState::of(&rt).capabilities());
         if !missing.is_empty() {
-            super::notice::inform(&format!("the platform lacks: {}", missing.join(", ")));
+            crate::client::notice::inform(&format!("the platform lacks: {}", missing.join(", ")));
         }
         setup.stabilize();
         let written = commit(&setup, &rt, &writer);
@@ -642,99 +438,10 @@ pub enum ClientMode {
 }
 /// Reports the duration of each core turn to the test harness.
 pub struct TestTiming(pub Rc<dyn Fn(u64)>);
-/// Read-only handle shared with an engine client.
-pub struct LaunchHandle(Rc<RefCell<Launch>>);
-pub struct Inspect<'a> {
-    launch: std::cell::Ref<'a, Launch>,
-}
-impl LaunchHandle {
-    pub fn inspect(&self) -> Option<Inspect<'_>> {
-        let launch = self.0.borrow();
-        if matches!(launch.launch, LaunchState::Started(_)) {
-            Some(Inspect { launch })
-        } else {
-            None
-        }
-    }
-}
-impl Inspect<'_> {
-    fn rt(&self) -> &Runtime {
-        self.launch.runtime()
-    }
-    pub fn reader(&self) -> kivact_engine::api::Reader {
-        ViewState::tree(self.rt()).reader()
-    }
-    pub fn root(&self) -> kivact_types::NodeId {
-        ViewState::tree(self.rt()).root
-    }
-    pub fn app_view(&self) -> Option<kivact_types::NodeId> {
-        self.reader().children(self.root()).first().copied()
-    }
-    pub fn located_at(&self, node: kivact_types::NodeId) -> Option<&'static Location<'static>> {
-        ViewState::tree(self.rt()).get(node).and_then(|n| n.at)
-    }
-    pub fn contains(&self, node: kivact_types::NodeId) -> bool {
-        ViewState::tree(self.rt()).contains(node)
-    }
-    pub fn why(&self, node: kivact_types::NodeId) -> crate::diagnostics::Why {
-        crate::diagnostics::why::explain(self.rt(), node)
-    }
-    pub fn turns(&self) -> Vec<kivact_runtime::TurnRecord> {
-        self.rt().turns()
-    }
-    #[cfg(debug_assertions)]
-    pub fn open_trace(&self, name: &str) {
-        crate::client::trace::Trace::of(self.rt()).open(name);
-    }
-}
 
-impl Inspect<'_> {
-    pub fn stats(&self) -> crate::diagnostics::Stats {
-        let ts = ViewState::tree(self.rt()).engine().stats();
-        let host = HostState::of(self.rt());
-        let live = self.rt().live_counts();
-        let motion = kivact_runtime::MotionState::of(self.rt()).stats();
-        crate::diagnostics::Stats {
-            live_reactive: live.reactive,
-            live_owners: live.owners,
-            live_objects: live.objects,
-            live_constants: live.constants,
-            arena_slots: live.slots,
-            tree_nodes: ViewState::tree(self.rt()).len(),
-            timers: TaskState::of(self.rt()).stats().timers,
-            frame_loops: motion.loops,
-            animations: motion.animations,
-            batches: ts.batches,
-            a11y_constructed: ts.a11y_constructed,
-            a11y_published: ts.a11y_published,
-            ops: ts.ops,
-            last_batch_ops: ts.last_ops,
-            creates: ts.creates,
-            set_props: ts.set_props,
-            structural: ts.structural,
-            host_touched_last: ts.touched_last,
-            turns: host.turns(),
-            stale_events: host.stale_events(),
-            core_ns: 0,
-        }
-    }
-}
-
-impl Inspect<'_> {
-    pub fn errors(&self) -> Vec<UiError> {
-        self.rt().errors()
-    }
-    pub fn pending(&self) -> bool {
-        let pending = self.rt().pending();
-        pending.turn_requested
-            || pending.user
-            || pending.render
-            || TaskState::of(self.rt()).has_ready()
-    }
-    pub fn outstanding_blocking(&self) -> usize {
-        TaskState::of(self.rt()).stats().outstanding_blocking
-    }
-    pub fn motion_ticks(&self) -> u64 {
-        kivact_runtime::MotionState::of(self.rt()).stats().ticks
-    }
+pub(crate) fn run_native(
+    client: Client,
+    options: kivact_engine::api::HostOptions,
+) -> crate::Result<()> {
+    crate::platform::run_native(client, options)
 }
