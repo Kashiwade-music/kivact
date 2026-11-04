@@ -1,19 +1,24 @@
 //! Role: Normalizes X11 input, focus, geometry and XEmbed notifications.
-
 use super::keyboard::Keyboard;
-use super::window::Window;
+use super::window::{ChildRedraw, Window};
 use arvane_shell::{ClickCounter, Mouse, ShellError, ShellEvent, ShellWindow};
 use kivact_types::{MouseButton, Point, PointerPhase};
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{ConnectionExt, InputFocus};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum WindowFocus {
+    Blurred,
+    Focused,
+}
+
 pub(super) struct Input {
     mouse: Mouse,
     clicks: ClickCounter,
     pub(super) keyboard: Keyboard,
     /// The window has the keyboard focus as last reported; reported again only on change.
-    focused: bool,
+    focused: WindowFocus,
 }
 
 impl Input {
@@ -22,7 +27,7 @@ impl Input {
             mouse: Mouse::default(),
             clicks: ClickCounter::default(),
             keyboard,
-            focused: false,
+            focused: WindowFocus::Blurred,
         }
     }
     pub(super) fn translate(
@@ -45,7 +50,7 @@ impl Input {
             })
         };
         match event {
-            Event::Expose(_) => window.redraw.set(true),
+            Event::Expose(_) => window.redraw.set(ChildRedraw::Needed),
             Event::ConfigureNotify(e) if e.window == window.native.id.get() => {
                 // Only confirmed native geometry changes notify the handler.
                 if (u32::from(e.width), u32::from(e.height)) != (window.width, window.height) {
@@ -207,16 +212,16 @@ impl Input {
         }
     }
     fn focus_in(&mut self, out: &mut Vec<ShellEvent>) {
-        if !self.focused {
-            self.focused = true;
+        if self.focused == WindowFocus::Blurred {
+            self.focused = WindowFocus::Focused;
             out.push(ShellEvent::Focused(true));
         }
     }
     fn blur(&mut self, out: &mut Vec<ShellEvent>) {
-        if !self.focused {
+        if self.focused == WindowFocus::Blurred {
             return;
         }
-        self.focused = false;
+        self.focused = WindowFocus::Blurred;
         if let Some(cancel) = self.mouse.cancel() {
             out.push(ShellEvent::Pointer(cancel));
         }

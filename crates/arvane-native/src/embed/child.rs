@@ -27,7 +27,7 @@ pub(super) struct Shared {
     panic: PanicSlot,
 }
 struct Inner {
-    state: ChildState,
+    state: ChildStatus,
     applied: Applied,
     /// Advanced by every host size (`queue_host_size`); negotiated sizes carry the generation they
     /// were accepted at.
@@ -41,7 +41,7 @@ pub(super) struct Applied {
     pub(super) height: u32,
     pub(super) scale: f64,
 }
-enum ChildState {
+enum ChildStatus {
     /// The App runs.
     Running,
     /// No more App work starts.
@@ -67,7 +67,7 @@ impl Shared {
     pub(super) fn new(width: u32, height: u32, scale: f64, panic: PanicSlot) -> Self {
         Self {
             inner: Mutex::new(Inner {
-                state: ChildState::Running,
+                state: ChildStatus::Running,
                 applied: Applied {
                     width,
                     height,
@@ -89,12 +89,12 @@ impl Shared {
     pub(super) fn keep_panic(&self, payload: Box<dyn Any + Send>) {
         self.panic.put(payload);
         let mut inner = self.lock();
-        inner.state = match std::mem::replace(&mut inner.state, ChildState::Running) {
-            ChildState::Running => ChildState::Stopped {
+        inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
+            ChildStatus::Running => ChildStatus::Stopped {
                 cause: Stop::Panicked { failure: None },
                 window: NativeWindow::Live,
             },
-            ChildState::Stopped { cause, window } => ChildState::Stopped {
+            ChildStatus::Stopped { cause, window } => ChildStatus::Stopped {
                 cause: match cause {
                     Stop::Closed => Stop::Panicked { failure: None },
                     Stop::Failed(error) => Stop::Panicked {
@@ -109,7 +109,7 @@ impl Shared {
     pub(super) fn panicked(&self) -> bool {
         matches!(
             self.lock().state,
-            ChildState::Stopped {
+            ChildStatus::Stopped {
                 cause: Stop::Panicked { .. },
                 ..
             }
@@ -117,8 +117,8 @@ impl Shared {
     }
     pub(super) fn request_close(&self) {
         let mut inner = self.lock();
-        if matches!(inner.state, ChildState::Running) {
-            inner.state = ChildState::Stopped {
+        if matches!(inner.state, ChildStatus::Running) {
+            inner.state = ChildStatus::Stopped {
                 cause: Stop::Closed,
                 window: NativeWindow::Live,
             };
@@ -127,12 +127,12 @@ impl Shared {
     /// The native window is gone (Win32 `WM_DESTROY`; X11: the UI thread ended).
     pub(super) fn window_gone(&self) {
         let mut inner = self.lock();
-        inner.state = match std::mem::replace(&mut inner.state, ChildState::Running) {
-            ChildState::Running => ChildState::Stopped {
+        inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
+            ChildStatus::Running => ChildStatus::Stopped {
                 cause: Stop::Closed,
                 window: NativeWindow::Gone,
             },
-            ChildState::Stopped { cause, .. } => ChildState::Stopped {
+            ChildStatus::Stopped { cause, .. } => ChildStatus::Stopped {
                 cause,
                 window: NativeWindow::Gone,
             },
@@ -141,33 +141,33 @@ impl Shared {
     /// Record a failure and stop; the first failure wins.
     pub(super) fn fail(&self, error: ShellError) {
         let mut inner = self.lock();
-        inner.state = match std::mem::replace(&mut inner.state, ChildState::Running) {
-            ChildState::Running => ChildState::Stopped {
+        inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
+            ChildStatus::Running => ChildStatus::Stopped {
                 cause: Stop::Failed(error),
                 window: NativeWindow::Live,
             },
-            ChildState::Stopped {
+            ChildStatus::Stopped {
                 cause: Stop::Closed,
                 window,
-            } => ChildState::Stopped {
+            } => ChildStatus::Stopped {
                 cause: Stop::Failed(error),
                 window,
             },
-            ChildState::Stopped {
+            ChildStatus::Stopped {
                 cause: Stop::Panicked { failure: None },
                 window,
-            } => ChildState::Stopped {
+            } => ChildStatus::Stopped {
                 cause: Stop::Panicked {
                     failure: Some(error),
                 },
                 window,
             },
-            stopped @ ChildState::Stopped { .. } => stopped,
+            stopped @ ChildStatus::Stopped { .. } => stopped,
         };
     }
     pub(super) fn failure(&self) -> Option<ShellError> {
         match &self.lock().state {
-            ChildState::Stopped {
+            ChildStatus::Stopped {
                 cause:
                     Stop::Failed(error)
                     | Stop::Panicked {
@@ -179,14 +179,14 @@ impl Shared {
         }
     }
     pub(super) fn stopped(&self) -> bool {
-        !matches!(self.lock().state, ChildState::Running)
+        !matches!(self.lock().state, ChildStatus::Running)
     }
     /// Whether the native window and its UI loop still exist.
     pub(super) fn alive(&self) -> bool {
         matches!(
             self.lock().state,
-            ChildState::Running
-                | ChildState::Stopped {
+            ChildStatus::Running
+                | ChildStatus::Stopped {
                     window: NativeWindow::Live,
                     ..
                 }
@@ -197,7 +197,7 @@ impl Shared {
     /// generation check and are never dropped here.
     pub(super) fn queue(&self, command: Command) {
         let mut inner = self.lock();
-        if matches!(inner.state, ChildState::Running) {
+        if matches!(inner.state, ChildStatus::Running) {
             inner.push(command);
         }
     }
@@ -205,7 +205,7 @@ impl Shared {
     /// stale.
     pub(super) fn queue_host_size(&self, width: u32, height: u32) {
         let mut inner = self.lock();
-        if matches!(inner.state, ChildState::Running) {
+        if matches!(inner.state, ChildStatus::Running) {
             inner.generation += 1;
             inner.push(Command::SetSize {
                 width,

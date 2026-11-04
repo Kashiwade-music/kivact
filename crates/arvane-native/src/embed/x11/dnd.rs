@@ -229,9 +229,7 @@ impl Dnd {
                         Ok(translated) => translated,
                         Err(error) if super::error::destroyed(&error, native.id.get()) => {
                             // The host destroyed our parent: a close, not a failure.
-                            native
-                                .exists
-                                .store(false, std::sync::atomic::Ordering::Release);
+                            native.exists.end();
                             self.drag = Drag::Idle;
                             return Ok(out);
                         }
