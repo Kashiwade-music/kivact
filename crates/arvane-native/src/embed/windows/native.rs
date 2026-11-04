@@ -2,7 +2,7 @@
 use crate::embed::child::{ChildPort, Shared};
 use std::num::NonZeroIsize;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::ThreadId;
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -11,10 +11,20 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
 pub(super) const TIMER: usize = 1;
+#[derive(Default)]
+pub(super) struct WakeCoalescer(AtomicBool);
+impl WakeCoalescer {
+    pub(super) fn request(&self) -> bool {
+        !self.0.swap(true, Ordering::AcqRel)
+    }
+    pub(super) fn clear(&self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
 pub(super) struct Native {
     pub(super) hwnd: NonZeroIsize,
     pub(super) ui_thread: ThreadId,
-    pub(super) wake_pending: AtomicBool,
+    pub(super) wake_pending: WakeCoalescer,
 }
 impl Native {
     pub(super) fn hwnd(&self) -> HWND {

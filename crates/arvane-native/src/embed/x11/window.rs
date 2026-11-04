@@ -4,26 +4,33 @@ use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::cpu::CpuSurface;
 use crate::embed::child::{ChildPort as _, Shared};
-use crate::embed::session::negotiate;
+use crate::embed::session::{Session, negotiate};
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::Environment;
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConfigureWindowAux, ConnectionExt};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ChildRedraw {
+    Clean,
+    Needed,
+}
+
 pub(super) struct Window {
     pub(super) shared: Arc<Shared>,
     pub(super) backend: Arc<Notifier>,
-    pub(super) opening: bool,
+    pub(super) session: Rc<Session>,
     pub(super) width: u32,
     pub(super) height: u32,
     pub(super) scale: f64,
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
-    pub(super) redraw: Cell<bool>,
+    pub(super) redraw: Cell<ChildRedraw>,
     started: Instant,
     cpu: CpuSurface<Arc<Native>, Arc<Native>>,
     pub(super) accessibility: super::a11y::Bridge,
@@ -51,14 +58,14 @@ impl Window {
         let dnd = super::dnd::Dnd::new(&native)?;
         Ok(Self {
             native,
+            session: Rc::new(Session::new(shared.clone())),
             shared,
             backend,
-            opening: true,
             width,
             height,
             scale,
             on_resize_request,
-            redraw: Cell::new(true),
+            redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
             cpu: CpuSurface::Released,
             accessibility: super::a11y::Bridge::new(f64::from(scale), waker),
@@ -72,7 +79,7 @@ impl Window {
         self.width = width;
         self.height = height;
         self.shared.update(width, height, self.scale);
-        self.redraw.set(true);
+        self.redraw.set(ChildRedraw::Needed);
     }
     pub(super) fn resize(&self, width: u32, height: u32) -> Result<(), ShellError> {
         debug_assert!(width > 0 && height > 0 && width <= MAX_DIMENSION && height <= MAX_DIMENSION);
@@ -94,8 +101,15 @@ impl Window {
 }
 
 impl ShellWindow for Window {
+    fn keeps_frames(&self) -> bool {
+        false
+    }
+    fn keep_frame(&mut self, _frame: arvane_shell::CpuFrame) {
+        unreachable!("invariant: native windows do not retain presented frames");
+    }
+
     fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        debug_assert!(!self.opening);
+        debug_assert!(!self.session.opening());
         negotiate(
             size,
             self.scale,
@@ -193,7 +207,7 @@ impl ShellWindow for Window {
         Some(1)
     }
     fn request_redraw(&self) {
-        self.redraw.set(true);
+        self.redraw.set(ChildRedraw::Needed);
     }
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}

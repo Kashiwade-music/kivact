@@ -1,76 +1,122 @@
-//! Role: Own the embedded handler and share failure, shutdown and negotiation.
-//!
-//! Invariants: a stop request, the first failure or a panic stops event delivery. Close consumes the
-//! handler exactly once before native resources are released. Callbacks are
-//! not caught here: panic payloads are kept in the child's `PanicSlot`, and after one the handler is
-//! forgotten, never run again, and the backend forgets all remaining resources.
+//! Role: Own the embedded UI lifecycle, handler and module-retention sentinel.
 use super::child::{Command, Shared};
 use arvane_shell::{
     MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler, ShellWaker, ShellWindow,
 };
+use std::cell::RefCell;
 use std::sync::Arc;
 
-enum HandlerState {
-    /// `start` has not built the handler.
+enum HandlerSlot {
     Unstarted,
-    /// The handler runs; `control` is what it last returned.
     Running {
         handler: Box<dyn ShellHandler>,
         control: ShellControl,
     },
-    /// `close` consumed the handler.
-    Closed,
+}
+enum ChildLifecycle {
+    Opening(HandlerSlot),
+    Live(HandlerSlot),
+    Disposed,
+    Leaked,
 }
 pub(super) struct Session {
-    state: HandlerState,
+    state: RefCell<ChildLifecycle>,
     shared: Arc<Shared>,
     retention: ModuleRetention,
+}
+// Temporarily lend the handler to a callback while leaving its lifecycle observable on reentry.
+struct Callback<'a> {
+    session: &'a Session,
+    slot: HandlerSlot,
+}
+impl Drop for Callback<'_> {
+    fn drop(&mut self) {
+        let slot = std::mem::replace(&mut self.slot, HandlerSlot::Unstarted);
+        match &mut *self.session.state.borrow_mut() {
+            ChildLifecycle::Opening(current) | ChildLifecycle::Live(current) => *current = slot,
+            ChildLifecycle::Disposed | ChildLifecycle::Leaked => {
+                unreachable!("invariant: callbacks defer disposal")
+            }
+        }
+    }
 }
 impl Session {
     pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self {
-            state: HandlerState::Unstarted,
+            state: RefCell::new(ChildLifecycle::Opening(HandlerSlot::Unstarted)),
             shared,
             retention: ModuleRetention,
         }
     }
-    pub(super) fn start(
-        &mut self,
-        make: MakeHandler,
-        window: &mut dyn ShellWindow,
-        waker: ShellWaker,
-    ) {
-        debug_assert!(matches!(self.state, HandlerState::Unstarted));
+    pub(super) fn opening(&self) -> bool {
+        matches!(*self.state.borrow(), ChildLifecycle::Opening(_))
+    }
+    #[cfg(windows)]
+    pub(super) fn live(&self) -> bool {
+        matches!(*self.state.borrow(), ChildLifecycle::Live(_))
+    }
+    #[cfg(windows)]
+    pub(super) fn active(&self) -> bool {
+        matches!(
+            *self.state.borrow(),
+            ChildLifecycle::Opening(_) | ChildLifecycle::Live(_)
+        )
+    }
+    pub(super) fn opened(&self) {
+        let mut state = self.state.borrow_mut();
+        if let ChildLifecycle::Opening(slot) =
+            std::mem::replace(&mut *state, ChildLifecycle::Disposed)
+        {
+            *state = ChildLifecycle::Live(slot);
+        } else {
+            unreachable!("invariant: only opening sessions become live");
+        }
+    }
+    fn callback(&self) -> Option<Callback<'_>> {
+        match &mut *self.state.borrow_mut() {
+            ChildLifecycle::Opening(slot) | ChildLifecycle::Live(slot) => Some(Callback {
+                session: self,
+                slot: std::mem::replace(slot, HandlerSlot::Unstarted),
+            }),
+            ChildLifecycle::Disposed | ChildLifecycle::Leaked => None,
+        }
+    }
+    pub(super) fn start(&self, make: MakeHandler, window: &mut dyn ShellWindow, waker: ShellWaker) {
         if self.shared.stopped() {
             return;
         }
-        self.state = HandlerState::Running {
+        let mut callback = self
+            .callback()
+            .expect("invariant: start owns an opening session");
+        debug_assert!(matches!(callback.slot, HandlerSlot::Unstarted));
+        callback.slot = HandlerSlot::Running {
             handler: make(),
             control: ShellControl::Wait,
         };
-        let HandlerState::Running { handler, .. } = &mut self.state else {
-            unreachable!("invariant: the handler was just installed");
+        let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
+            unreachable!("invariant: handler just installed");
         };
         let result = if self.shared.stopped() {
             Ok(ShellControl::Wait)
         } else {
             handler.start(window, waker)
         };
-        self.accept(result);
+        self.accept(&mut callback.slot, result);
     }
-    pub(super) fn deliver(&mut self, event: ShellEvent, window: &mut dyn ShellWindow) {
+    pub(super) fn deliver(&self, event: ShellEvent, window: &mut dyn ShellWindow) {
         if self.shared.stopped() {
             return;
         }
-        let HandlerState::Running { handler, .. } = &mut self.state else {
+        let Some(mut callback) = self.callback() else {
+            return;
+        };
+        let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
             return;
         };
         let result = handler.event(event, window);
-        self.accept(result);
+        self.accept(&mut callback.slot, result);
     }
-    fn accept(&mut self, result: Result<ShellControl, ShellError>) {
-        // Closing cancels successful control output, but must not hide a real
-        // callback error that occurred before the callback returned.
+    fn accept(&self, slot: &mut HandlerSlot, result: Result<ShellControl, ShellError>) {
         match result {
             Err(error) => self.shared.fail(error),
             Ok(_) if self.shared.stopped() => {}
@@ -78,38 +124,42 @@ impl Session {
                 "the App asked to exit; an embedded App cannot exit by itself",
             )),
             Ok(next) => {
-                if let HandlerState::Running { control, .. } = &mut self.state {
+                if let HandlerSlot::Running { control, .. } = slot {
                     *control = next;
                 }
             }
         }
     }
-    /// The wake deadline the running handler asked for.
     pub(super) fn deadline(&self) -> Option<u64> {
-        match &self.state {
-            HandlerState::Running { control, .. } => control.deadline(),
-            HandlerState::Unstarted | HandlerState::Closed => None,
+        match &*self.state.borrow() {
+            ChildLifecycle::Opening(HandlerSlot::Running { control, .. })
+            | ChildLifecycle::Live(HandlerSlot::Running { control, .. }) => control.deadline(),
+            _ => None,
         }
     }
-    /// Returns false when the backend must forget its remaining native resources.
-    pub(super) fn close(&mut self, window: &mut dyn ShellWindow) -> bool {
+    pub(super) fn close(&self, window: &mut dyn ShellWindow) -> bool {
         self.shared.request_close();
-        match std::mem::replace(&mut self.state, HandlerState::Closed) {
-            HandlerState::Unstarted | HandlerState::Closed => true,
-            HandlerState::Running { mut handler, .. } => {
-                if self.shared.panicked() {
-                    // After a panic no more App code runs: not even its close.
-                    // Forgotten owners can bypass every worker's shutdown/drop guard.
-                    crate::module::retain_module();
-                    std::mem::forget(handler);
-                    return false;
-                }
-                handler.close(window);
-                drop(handler);
-                self.retention.retain();
-                true
+        let state = self.state.replace(ChildLifecycle::Disposed);
+        let slot = match state {
+            ChildLifecycle::Opening(slot) | ChildLifecycle::Live(slot) => slot,
+            ChildLifecycle::Disposed => return true,
+            ChildLifecycle::Leaked => {
+                self.state.replace(ChildLifecycle::Leaked);
+                return false;
             }
+        };
+        if let HandlerSlot::Running { mut handler, .. } = slot {
+            if self.shared.panicked() {
+                self.state.replace(ChildLifecycle::Leaked);
+                crate::module::retain_module();
+                std::mem::forget(handler);
+                return false;
+            }
+            handler.close(window);
+            drop(handler);
+            self.retention.retain();
         }
+        true
     }
 }
 pub(super) fn negotiate(
@@ -143,7 +193,7 @@ pub(super) fn negotiate(
     Ok(())
 }
 
-// Fields drop in declaration order: Session releases its handler and presenter first.
+// Fields drop in declaration order: the handler and presenter are released first.
 struct ModuleRetention;
 impl ModuleRetention {
     fn retain(&self) {

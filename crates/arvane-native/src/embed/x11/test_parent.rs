@@ -8,7 +8,6 @@ use kivact_types::{KeyCode, MouseButton};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
@@ -385,7 +384,7 @@ impl TestParent {
                     Ok(Some(x11rb::protocol::Event::DestroyNotify(event)))
                         if event.window == self.native.id.get() =>
                     {
-                        self.native.exists.store(false, Ordering::Release);
+                        self.native.exists.end();
                     }
                     Ok(Some(x11rb::protocol::Event::Expose(event)))
                         if event.window == self.native.id.get() =>
@@ -404,7 +403,7 @@ impl TestParent {
                     Ok(Some(_)) => {}
                     Ok(None) => break,
                     Err(_) => {
-                        self.native.exists.store(false, Ordering::Release);
+                        self.native.exists.end();
                         break;
                     }
                 }
@@ -660,7 +659,7 @@ impl TestParent {
     }
     /// Destroy the host and its children, then wait boundedly for its WM frame.
     pub fn close(&self) {
-        if self.native.exists.swap(false, Ordering::AcqRel) {
+        if self.native.exists.end() {
             let destroyed = self
                 .native
                 .connection
@@ -711,7 +710,7 @@ impl TestParent {
     }
     /// Whether this host has been explicitly closed.
     pub fn is_closed(&self) -> bool {
-        !self.native.exists.load(Ordering::Acquire)
+        !self.native.exists.is_alive()
     }
 
     fn child(&self) -> Result<u32, ShellError> {

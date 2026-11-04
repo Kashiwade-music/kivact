@@ -1,6 +1,6 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
-use super::state::{CpuFrame, Hold, Phase, ScaleSource, State};
+use super::state::{CpuFrame, DrainGuard, ReentryGuard, ScaleSource, State};
 use crate::embed::child::{ChildPort, Command, Shared};
 use crate::embed::session::{Session, negotiate};
 use arvane_shell::{AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow};
@@ -12,7 +12,6 @@ use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use windows_sys::Win32::Graphics::Gdi::{
     DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, InvalidateRect,
@@ -73,8 +72,15 @@ fn frame_period(hwnd: isize) -> u64 {
     }
 }
 impl ShellWindow for Window {
+    fn keeps_frames(&self) -> bool {
+        false
+    }
+    fn keep_frame(&mut self, _frame: arvane_shell::CpuFrame) {
+        unreachable!("invariant: native windows do not retain presented frames");
+    }
+
     fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        debug_assert!(self.0.phase.get() != Phase::Opening);
+        debug_assert!(!self.0.session.opening());
         debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
         negotiate(
             size,
@@ -289,7 +295,7 @@ impl State {
     ) -> Self {
         Self {
             a11y: PlatformTree::new(shared.scale()),
-            uia: RefCell::new(None),
+            uia: RefCell::new(super::state::Uia::Inactive),
             services: RefCell::new(crate::services::Services::default()),
             input: crate::native_input::state::NativeInput::default(),
             target: Arc::new(super::target::Target {
@@ -297,17 +303,16 @@ impl State {
                 native: native.clone(),
                 shared: shared.clone(),
             }),
-            session: RefCell::new(Session::new(shared.clone())),
+            session: Session::new(shared.clone()),
             shared,
             native,
             on_resize_request,
             events: RefCell::new(VecDeque::new()),
-            phase: Cell::new(Phase::Opening),
-            in_callback: Cell::new(false),
-            draining: Cell::new(false),
+            in_callback: ReentryGuard::default(),
+            draining: DrainGuard::default(),
             original_proc: Cell::new(None),
             cursor: Cell::new(kivact_types::Cursor::Auto),
-            pending_surrogate: Cell::new(None),
+            decoder: RefCell::new(super::state::Utf16Decoder::default()),
             mouse: Cell::new(Mouse::default()),
             clicks: RefCell::new(ClickCounter::default()),
             environment: RefCell::new(kivact_types::Environment::default()),
@@ -327,20 +332,21 @@ impl State {
             let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
                 return;
             };
-            if shared.alive() && !native.wake_pending.swap(true, Ordering::AcqRel) {
+            if shared.alive() && native.wake_pending.request() {
                 // SAFETY: posting uses only the opaque HWND and never accesses UI state.
                 if unsafe { PostMessageW(native.hwnd(), super::native::WAKE, 0, 0) } == 0 {
-                    native.wake_pending.store(false, Ordering::Release);
+                    native.wake_pending.clear();
                 }
             }
         })
     }
     pub(super) fn start(self: &Rc<Self>, make: MakeHandler) {
         {
-            let _callback = Hold::enter(&self.in_callback)
+            let _callback = self
+                .in_callback
+                .enter()
                 .expect("invariant: open runs no App callback before start");
             self.session
-                .borrow_mut()
                 .start(make, &mut Window(self.clone()), self.waker());
         }
         if self.shared.stopped() {
@@ -360,12 +366,12 @@ impl State {
             return;
         }
         self.events.borrow_mut().push_back(event);
-        if self.phase.get() == Phase::Live {
+        if self.session.live() {
             self.drain();
         }
     }
     pub(super) fn drain(self: &Rc<Self>) {
-        if self.in_callback.get() || self.phase.get() != Phase::Live {
+        if self.in_callback.get() || !self.session.live() {
             return;
         }
         loop {
@@ -385,12 +391,10 @@ impl State {
     }
     fn invoke(self: &Rc<Self>, event: ShellEvent) {
         {
-            let Some(_callback) = Hold::enter(&self.in_callback) else {
+            let Some(_callback) = self.in_callback.enter() else {
                 return;
             };
-            self.session
-                .borrow_mut()
-                .deliver(event, &mut Window(self.clone()));
+            self.session.deliver(event, &mut Window(self.clone()));
         }
         if self.shared.stopped() {
             self.stop();
@@ -402,7 +406,7 @@ impl State {
         if self.shared.stopped() {
             return;
         }
-        let deadline = self.session.borrow().deadline();
+        let deadline = self.session.deadline();
         let hwnd = self.native.hwnd();
         // SAFETY: cancel only the HWND-scoped timer owned by this child.
         unsafe {
@@ -423,10 +427,10 @@ impl State {
         }
     }
     pub(super) fn commands(self: &Rc<Self>) {
-        if self.in_callback.get() || self.phase.get() != Phase::Live {
+        if self.in_callback.get() || !self.session.live() {
             return;
         }
-        let Some(drain) = Hold::enter(&self.draining) else {
+        let Some(drain) = self.draining.enter() else {
             return;
         };
         while !self.shared.stopped() {
@@ -483,16 +487,15 @@ impl State {
     }
     /// Close the handler and release the child's resources, exactly once.
     pub(super) fn dispose(self: &Rc<Self>) {
-        if !matches!(self.phase.get(), Phase::Opening | Phase::Live) {
+        if !self.session.active() {
             return;
         }
         let closed = {
             // Deferred while App code runs: the callback's caller stops the child.
-            let Some(_callback) = Hold::enter(&self.in_callback) else {
+            let Some(_callback) = self.in_callback.enter() else {
                 return;
             };
-            self.phase.set(Phase::Disposed);
-            self.session.borrow_mut().close(&mut Window(self.clone()))
+            self.session.close(&mut Window(self.clone()))
         };
         if !closed {
             self.leak_resources();
@@ -503,7 +506,7 @@ impl State {
         // Explicit close disposes before DestroyWindow; parent destruction enters
         // through WM_DESTROY. Both paths disconnect before adapter destruction.
         super::a11y::disconnect(self);
-        drop(self.uia.borrow_mut().take());
+        drop(self.uia.replace(super::state::Uia::Inactive));
         // SAFETY: this child owns the HWND-scoped timer; cleanup runs on its UI thread.
         unsafe {
             KillTimer(self.native.hwnd(), super::native::TIMER);
@@ -513,13 +516,12 @@ impl State {
     fn leak_resources(self: &Rc<Self>) {
         // Native resources and their callbacks may outlive all owner guards.
         crate::module::retain_module();
-        self.phase.set(Phase::Leaked);
         // A later WM_DESTROY or the final handle drop must not retry teardown.
         std::mem::forget(self.clone());
     }
     pub(super) fn stop(self: &Rc<Self>) {
         self.shared.request_close();
-        if self.in_callback.get() || !matches!(self.phase.get(), Phase::Opening | Phase::Live) {
+        if self.in_callback.get() || !self.session.active() {
             return;
         }
         self.dispose();

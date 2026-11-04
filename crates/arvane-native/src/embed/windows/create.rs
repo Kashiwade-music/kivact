@@ -1,13 +1,12 @@
 //! Role: Validates the Win32 parent and creates the child window on its GUI thread.
 
 use super::native::{COMMAND, MAX_DIMENSION, Native};
-use super::state::{Phase, ScaleSource, State};
+use super::state::{ScaleSource, State};
 use crate::embed::child::{Handle, Shared};
 use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
 use std::num::NonZeroIsize;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use windows_sys::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, GetWindowThreadProcessId, IsWindow, PostMessageW, SW_SHOWNOACTIVATE,
@@ -90,7 +89,7 @@ pub(in crate::embed) fn open(
     let native = Arc::new(Native {
         hwnd,
         ui_thread: std::thread::current().id(),
-        wake_pending: AtomicBool::new(false),
+        wake_pending: super::native::WakeCoalescer::default(),
     });
     let state = Rc::new(State::new(
         shared.clone(),
@@ -113,11 +112,13 @@ pub(in crate::embed) fn open(
     let opening = Opening::new(state.clone(), hwnd);
     // SAFETY: opt in only our newly created child to shell drop messages.
     unsafe { windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd, 1) };
-    state.uia.replace(Some(super::bridge::adapter(
-        hwnd,
-        state.a11y.clone(),
-        state.waker(),
-    )));
+    state
+        .uia
+        .replace(super::state::Uia::Active(super::bridge::adapter(
+            hwnd,
+            state.a11y.clone(),
+            state.waker(),
+        )));
     if options.scale.is_none() {
         let actual = super::dpi::scale(hwnd);
         if actual != scale {
@@ -165,7 +166,7 @@ pub(in crate::embed) fn open(
     // Initialize UIA before visibility: showing a window can ask for its provider.
     // SAFETY: show only this live child, retaining the host's activation.
     unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
-    state.phase.set(Phase::Live);
+    state.session.opened();
     // Post queued start-time work: no host callback is entered during open.
     // SAFETY: the live child HWND belongs to this thread.
     unsafe {
@@ -199,12 +200,17 @@ fn module() -> Result<isize, ShellError> {
     }
 }
 
+enum OpeningGuard {
+    Armed,
+    Disarmed,
+}
+
 /// Destroys a child whose opening did not finish: on an `Err` return and on
 /// unwind. The window procedure is detached first, so no App code runs again.
 struct Opening {
     state: Rc<State>,
     hwnd: isize,
-    armed: bool,
+    guard: OpeningGuard,
 }
 
 impl Opening {
@@ -212,17 +218,17 @@ impl Opening {
         Self {
             state,
             hwnd,
-            armed: true,
+            guard: OpeningGuard::Armed,
         }
     }
     fn disarm(mut self) {
-        self.armed = false;
+        self.guard = OpeningGuard::Disarmed;
     }
 }
 
 impl Drop for Opening {
     fn drop(&mut self) {
-        if !self.armed {
+        if matches!(self.guard, OpeningGuard::Disarmed) {
             return;
         }
         super::a11y::disconnect(&self.state);

@@ -7,10 +7,12 @@
     reason = "handler and effect closures are stored as boxed trait objects throughout"
 )]
 
+mod machine;
 mod motion;
 mod reactive;
 mod task;
 
+pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
     Animatable, Animated, Easing, FrameInfo, FrameLoop, FrameRate, MotionEnv, MotionState,
     MotionStats, Repeat, Spring, Transition, animated, frame_loop,

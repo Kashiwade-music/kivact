@@ -13,6 +13,7 @@
 //! rest of the window's life.
 
 use super::conn::Native;
+use super::event::WindowFocus;
 use arvane_shell::{ShellError, ShellEvent};
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -46,12 +47,18 @@ pub(super) struct Ime {
     xim: Xim,
     app: App,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ImeAllowance {
+    Disallowed,
+    Allowed,
+}
+
 /// What the App asked for and what goes back to the window loop; kept across XIM's life.
 struct App {
     window: u32,
     locale: String,
-    allowed: bool,
-    focused: bool,
+    allowed: ImeAllowance,
+    focused: WindowFocus,
     spot: xim::Point,
     events: Vec<ShellEvent>,
     returned: Vec<KeyPressEvent>,
@@ -60,14 +67,42 @@ struct App {
 enum Xim {
     /// No XIM server, or XIM was given up: keys go to Keyboard.
     Off,
-    On(Box<Connection>),
+    On(Box<XimConnection>),
 }
-struct Connection {
+// Transport establishment is separate from opening the input method and its context.
+enum Connection {
+    Handshake {
+        protocol_window: u32,
+        server_window: Option<u32>,
+    },
+    Established {
+        protocol_window: u32,
+        server_window: u32,
+    },
+}
+impl Connection {
+    fn protocol_window(&self) -> u32 {
+        match self {
+            Self::Handshake {
+                protocol_window, ..
+            }
+            | Self::Established {
+                protocol_window, ..
+            } => *protocol_window,
+        }
+    }
+    fn server_window(&self) -> Option<u32> {
+        match self {
+            Self::Handshake { server_window, .. } => *server_window,
+            Self::Established { server_window, .. } => Some(*server_window),
+        }
+    }
+}
+struct XimConnection {
     client: ClientConnection,
     protocol: u32,
     xconnect: u32,
-    protocol_window: Option<u32>,
-    server_window: Option<u32>,
+    phase: Connection,
     pending: VecDeque<(KeyPressEvent, bool)>,
     flight: Option<Flight>,
     session: Session,
@@ -147,8 +182,8 @@ impl Ime {
             app: App {
                 window: native.id.get(),
                 locale: locale(),
-                allowed: false,
-                focused: false,
+                allowed: ImeAllowance::Disallowed,
+                focused: WindowFocus::Blurred,
                 spot: xim::Point { x: 0, y: 0 },
                 events: Vec::new(),
                 returned: Vec::new(),
@@ -167,7 +202,7 @@ impl Ime {
         self.app
             .events
             .push(ShellEvent::Ime(kivact_types::ImeInput::End));
-        let Connection {
+        let XimConnection {
             flight, pending, ..
         } = *connection;
         if let Some(Flight::Live { event, .. }) = flight
@@ -186,7 +221,7 @@ impl Ime {
             return;
         };
         if error.error_kind == x11rb::protocol::ErrorKind::Window
-            && connection.server_window == Some(error.bad_value)
+            && connection.phase.server_window() == Some(error.bad_value)
         {
             self.degrade("XIM server window is gone");
         }
@@ -206,7 +241,7 @@ impl Ime {
         };
         let observe = connection.flight.is_some()
             && matches!(event, Event::ClientMessage(message)
-            if Some(message.window) == connection.protocol_window);
+            if message.window == connection.phase.protocol_window());
         let (reply, filtered) = match feed(connection, &mut self.app, event, observe) {
             Ok(parts) => parts,
             Err(error) => {
@@ -219,10 +254,21 @@ impl Ime {
             return filtered;
         }
         if filtered && let Event::ClientMessage(message) = event {
-            connection.protocol_window = Some(message.window);
-            if message.type_ == connection.xconnect && message.format == 32 {
-                connection.server_window = Some(message.data.as_data32()[0]);
-            }
+            let server_window = if message.type_ == connection.xconnect && message.format == 32 {
+                Some(message.data.as_data32()[0])
+            } else {
+                connection.phase.server_window()
+            };
+            connection.phase = match server_window {
+                Some(server_window) => Connection::Established {
+                    protocol_window: message.window,
+                    server_window,
+                },
+                server_window => Connection::Handshake {
+                    protocol_window: message.window,
+                    server_window,
+                },
+            };
         }
         // A canceled request's delayed output must not edit the newly focused input.
         if matches!(connection.flight, Some(Flight::Canceled { .. })) {
@@ -251,7 +297,10 @@ impl Ime {
         let Xim::On(connection) = &mut self.xim else {
             return false;
         };
-        if connection.session.context.ids().is_none() || !self.app.allowed || !self.app.focused {
+        if connection.session.context.ids().is_none()
+            || self.app.allowed == ImeAllowance::Disallowed
+            || self.app.focused == WindowFocus::Blurred
+        {
             return false;
         }
         let mask = if down { 1 } else { 2 };
@@ -282,11 +331,10 @@ impl Ime {
             let Some((event, down)) = connection.pending.pop_front() else {
                 return;
             };
-            let ids = connection
-                .session
-                .context
-                .ids()
-                .filter(|_| self.app.allowed && self.app.focused);
+            let ids = connection.session.context.ids().filter(|_| {
+                self.app.allowed == ImeAllowance::Allowed
+                    && self.app.focused == WindowFocus::Focused
+            });
             let Some((im, ic)) = ids else {
                 connection.pending.clear();
                 return;
@@ -381,10 +429,15 @@ impl Ime {
         )
     }
     pub(super) fn focus(&mut self, focused: bool) {
+        let focused = if focused {
+            WindowFocus::Focused
+        } else {
+            WindowFocus::Blurred
+        };
         if self.app.focused == focused {
             return;
         }
-        if !focused {
+        if focused == WindowFocus::Blurred {
             self.cancel_pending();
         }
         self.app.focused = focused;
@@ -393,10 +446,15 @@ impl Ime {
     // Never fails: a broken server is degraded away. The window's shared call
     // site still takes a Result.
     pub(super) fn allow(&mut self, allowed: bool) -> Result<(), ShellError> {
+        let allowed = if allowed {
+            ImeAllowance::Allowed
+        } else {
+            ImeAllowance::Disallowed
+        };
         if self.app.allowed == allowed {
             return Ok(());
         }
-        if !allowed {
+        if allowed == ImeAllowance::Disallowed {
             self.cancel_pending();
         }
         self.app.allowed = allowed;
@@ -410,7 +468,8 @@ impl Ime {
         let Some((im, ic)) = connection.session.context.ids() else {
             return;
         };
-        let on = self.app.allowed && self.app.focused;
+        let on =
+            self.app.allowed == ImeAllowance::Allowed && self.app.focused == WindowFocus::Focused;
         if !on {
             connection.session.preedit.clear();
             self.app
@@ -478,7 +537,7 @@ fn same_key(a: &KeyPressEvent, b: &KeyPressEvent) -> bool {
 }
 /// Hand one X event to the client; the observed SyncReply (if any) and whether the client took it.
 fn feed(
-    connection: &mut Connection,
+    connection: &mut XimConnection,
     app: &mut App,
     event: &Event,
     observe: bool,
@@ -496,7 +555,7 @@ fn feed(
     Ok((reply, filtered))
 }
 /// The connection with its protocol atoms, or `None` when no server is announced.
-fn connect(native: &Native) -> Result<Option<Connection>, ShellError> {
+fn connect(native: &Native) -> Result<Option<XimConnection>, ShellError> {
     let connection = native.connection.clone();
     let root = connection.setup().roots[native.screen as usize].root;
     let servers = connection
@@ -534,12 +593,15 @@ fn connect(native: &Native) -> Result<Option<Connection>, ShellError> {
     };
     let protocol = atom(b"_XIM_PROTOCOL")?;
     let xconnect = atom(b"_XIM_XCONNECT")?;
-    Ok(Some(Connection {
+    Ok(Some(XimConnection {
         client,
         protocol,
         xconnect,
-        protocol_window: None,
-        server_window: None,
+        phase: Connection::Handshake {
+            // Zero is not an X window; no protocol message has been observed yet.
+            protocol_window: 0,
+            server_window: None,
+        },
         pending: VecDeque::new(),
         flight: None,
         session: Session {
@@ -636,7 +698,7 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         ic: u16,
     ) -> Result<(), ClientError> {
         self.session.context = Context::Ready { im, ic };
-        if self.app.allowed && self.app.focused {
+        if self.app.allowed == ImeAllowance::Allowed && self.app.focused == WindowFocus::Focused {
             client.set_focus(im, ic)?;
         }
         Ok(())

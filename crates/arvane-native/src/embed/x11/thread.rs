@@ -1,18 +1,16 @@
 //! Role: Starts, runs and closes an embedded X11 UI thread.
-
 use super::conn::Native;
 use super::event::Input;
 use super::keyboard::Keyboard;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use super::poll::Waiter;
-use super::window::Window;
+use super::window::{ChildRedraw, Window};
 use crate::embed::child::{ChildPort, Command, Handle, Shared};
 use crate::embed::session::Session;
 use arvane_shell::{
     ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker,
     ShellWindow,
 };
-use std::sync::atomic::Ordering;
 use std::sync::{Arc, mpsc};
 use std::thread::JoinHandle;
 use x11rb::connection::Connection;
@@ -162,9 +160,9 @@ fn run(
         hooks.on_resize_request,
         waker(&backend),
     )?;
-    let mut session = Session::new(shared.clone());
+    let session = window.session.clone();
     session.start(make, &mut window, waker(&backend));
-    window.opening = false;
+    session.opened();
     let result = if let Some(error) = shared.failure() {
         let _ = ready.send(Err(error.clone()));
         Err(error)
@@ -173,7 +171,7 @@ fn run(
     } else if ready.send(Ok(())).is_err() {
         Ok(())
     } else {
-        event_loop(&mut session, &mut window, Input::new(keyboard), waiter)
+        event_loop(&session, &mut window, Input::new(keyboard), waiter)
     };
     if let Err(error) = &result {
         shared.fail(error.clone());
@@ -189,11 +187,11 @@ fn run(
 }
 
 fn closed(window: &Window) -> bool {
-    window.shared.stopped() || !window.native.exists.load(Ordering::Acquire)
+    window.shared.stopped() || !window.native.exists.is_alive()
 }
 
 fn event_loop(
-    session: &mut Session,
+    session: &Session,
     window: &mut Window,
     mut input: Input,
     waiter: Waiter,
@@ -231,14 +229,14 @@ fn event_loop(
             // An unchecked request on our window (focus) can fail after the host
             // destroyed the parent; that is a close, not an error.
             if matches!(&event, x11rb::protocol::Event::Error(e) if super::error::gone(e, id)) {
-                window.native.exists.store(false, Ordering::Release);
+                window.native.exists.end();
                 window.shared.request_close();
                 return Ok(());
             }
             let destroyed = matches!(&event, x11rb::protocol::Event::DestroyNotify(e)
                 if e.window == id);
             if destroyed {
-                window.native.exists.store(false, Ordering::Release);
+                window.native.exists.end();
                 window.shared.request_close();
                 // Parent destruction is an external close. Delivering it as
                 // CloseRequested would turn the App's ordinary close response
@@ -298,7 +296,7 @@ fn event_loop(
                 return Ok(());
             }
         }
-        if window.redraw.replace(false) {
+        if window.redraw.replace(ChildRedraw::Clean) == ChildRedraw::Needed {
             session.deliver(ShellEvent::Redraw, window);
         }
         if closed(window) {
@@ -317,7 +315,7 @@ fn event_loop(
         if closed(window) {
             return Ok(());
         }
-        if window.redraw.get() {
+        if window.redraw.get() == ChildRedraw::Needed {
             continue;
         }
         // Checked X requests made by commands or callbacks may have queued
