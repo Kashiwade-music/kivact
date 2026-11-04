@@ -31,7 +31,7 @@ macro_rules! radius_from {
     )*};
 }
 
-radius_from!(i32, u32, f64, f64);
+radius_from!(i32, u32, f32, f64);
 
 impl<X: Into<Length>, Y: Into<Length>> From<(X, Y)> for CornerRadius {
     fn from((x, y): (X, Y)) -> Self {

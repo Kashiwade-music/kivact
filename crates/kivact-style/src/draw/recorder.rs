@@ -1,7 +1,7 @@
 //! Role: The `Draw` recorder: its state, transform and the `Recording` it yields.
 
 use crate::color::Color;
-use crate::geometry::{Point, Size};
+use crate::geometry::Size;
 use crate::paint::{Paint, fill_layer};
 use crate::theme::value::Theme;
 use kivact_types as p;

@@ -164,8 +164,14 @@ impl Path {
     }
     pub(crate) fn wire(&self) -> p::DrawingShape {
         p::DrawingShape::Path {
-            cmds: self.cmds.clone(),
-            even_odd: self.even_odd,
+            path: p::PathData {
+                cmds: self.cmds.clone(),
+            },
+            rule: if self.even_odd {
+                p::FillRule::EvenOdd
+            } else {
+                p::FillRule::NonZero
+            },
         }
     }
 }
