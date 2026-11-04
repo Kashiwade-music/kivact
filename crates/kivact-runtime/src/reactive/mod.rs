@@ -4,7 +4,7 @@
 //! graph, owners, turn), the public handle types, the setup functions
 //! (`signal`, `memo`, `effect`, `effect_on`, `context`, ...), errors, the trace
 //! ring, `IntoValue` and per-App extensions. The runtime knows no host:
-//! its driver (the client) supplies the clock and runs the turns.
+//! the host advances its clock and runs the turns.
 //!
 //! The API has three audiences:
 //! - applications and component authors, through the `kivact` facade: the
@@ -13,7 +13,7 @@
 //! - the layers above (view, task, motion, style): [`Owner`] and [`Owned`]
 //!   for owners and the objects stored under them, [`Trigger`], [`Prop`],
 //!   [`keyed`], [`pure`], [`require_setup`] and [`require_effectful`];
-//! - the host that runs an App's turns: [`Runtime`] and [`Driver`].
+//! - the host that runs an App's turns: [`Runtime`] and [`Host`].
 //!
 //! [`Runtime`] is defined in `data`; each module adds the methods of one
 //! concern: `registry` (the thread-local App registry and handle lookup),
@@ -34,7 +34,7 @@ mod ext;
 mod frame;
 mod graph;
 mod handles;
-mod host;
+pub(crate) mod host;
 mod identity;
 pub mod keyed;
 mod mounts;
@@ -53,13 +53,13 @@ mod trigger;
 mod turn;
 
 pub use data::{
-    Binding, Callback, Driver, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
+    Binding, Callback, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
     TraceRun, TraceWrite, Turn, TurnRecord, UiThreadOnly, Value, Var,
 };
 pub use driver::clock_now;
 pub use error::{ErrorKind, HandlerResult, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
-pub use host::{Mounts, Pending, TurnRecorder};
+pub use host::{ExitState, Host, Pending, Stage, ThreadWaker, TurnGuard, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
 pub use props::{IntoReactive, IntoText, IntoValue, Prop, Reactive};

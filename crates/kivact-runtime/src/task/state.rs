@@ -51,7 +51,7 @@ pub(crate) struct TaskCell {
 }
 
 /// Everything the task subsystem keeps per App, driven by the host that runs
-/// the App's turns: it installs the state (`new`), wakes on `set_waker`,
+/// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
 /// down at exit. Fields drop in declaration order (executor first, the pool
 /// last).
@@ -77,9 +77,9 @@ pub struct TaskState {
 impl TaskState {
     /// Empty state to install as a runtime extension; `blocking_threads` sizes
     /// the blocking pool when it is created (`None`: `min(4, CPUs)`).
-    pub fn new(blocking_threads: Option<usize>) -> Self {
+    pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
         TaskState {
-            exec: Executor::new(),
+            exec: Executor::new(waker),
             time: RefCell::new(TimeState::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
@@ -94,12 +94,6 @@ impl TaskState {
     #[inline]
     pub fn of(rt: &Runtime) -> &TaskState {
         rt.ext::<TaskState>()
-    }
-
-    /// Call `waker` (from any thread) when a future becomes ready, so the host
-    /// runs a turn. The waker should only schedule that turn.
-    pub fn set_waker(&self, waker: Arc<dyn Fn() + Send + Sync>) {
-        self.exec.set_waker(waker);
     }
 
     /// Whether a spawned future is ready to be polled (the next turn has

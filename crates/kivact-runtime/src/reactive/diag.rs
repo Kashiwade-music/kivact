@@ -204,7 +204,7 @@ impl Runtime {
     }
 
     /// Start recording a turn that delivers `events` host events.
-    pub(crate) fn begin_turn(&self, events: usize) {
+    pub(crate) fn begin_turn_record(&self, events: usize) {
         self.diag.borrow_mut().begin_turn(events);
     }
 

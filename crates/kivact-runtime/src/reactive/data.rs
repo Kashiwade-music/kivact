@@ -57,21 +57,21 @@ pub struct Runtime {
     pub(crate) scratch: RefCell<Vec<(Key, Color)>>,
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<u64>,
-    pub(crate) root_owner: Cell<Option<Key>>,
-    /// Per-App state of higher subsystems (view, task, motion, host),
-    /// installed at creation and dropped in installation order.
-    pub(crate) ext: Extensions,
-    /// `on_mount` callbacks waiting for the driver's acknowledgement.
-    pub(crate) mounts: RefCell<Vec<PendingMount>>,
-    /// What drives the turns: the App's clock and turn requests (set once
-    /// by the client).
-    pub(crate) driver: OnceCell<Rc<dyn Driver>>,
+    pub(crate) root: Key,
+    pub(crate) ext: OnceCell<Extensions>,
+    /// Last stamp remains meaningful after every acknowledged callback was removed.
+    pub(crate) mount_revision: Cell<kivact_types::Revision>,
+    pub(crate) unstamped: RefCell<Vec<Mount>>,
+    pub(crate) awaiting: RefCell<VecDeque<(kivact_types::Revision, Mount)>>,
+    pub(crate) host: Rc<dyn crate::reactive::host::Host>,
+    pub(crate) state: Cell<crate::reactive::host::TurnState>,
+    pub(crate) exit: Cell<crate::reactive::host::ExitState>,
+    pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
-    pub(crate) turn_requested: Cell<bool>,
     /// The Render/Internal effect whose run is executing: the origin of the
     /// props it sets (diagnostics `why`).
     pub(crate) writer: Cell<Option<Key>>,
@@ -407,25 +407,14 @@ pub(crate) struct Diag {
     pub(crate) total_errors: u64,
 }
 
-/// What drives the turns of a runtime (implemented by the client).
-pub trait Driver {
-    /// The App's clock in nanoseconds; it never goes back.
-    fn now_ns(&self) -> u64;
-    /// Run a turn soon (called once per request; may be called from inside
-    /// a turn, before the driver cleared the previous request).
-    fn request_turn(&self);
-}
-
 /// The per-App extension values, at most one per type.
 #[derive(Default)]
 pub struct Extensions(pub(crate) Vec<(TypeId, Box<dyn Any>)>);
 
 /// An `on_mount` callback waiting for the driver's acknowledgement.
-pub(crate) struct PendingMount {
+pub(crate) struct Mount {
     /// The owner it runs for (skipped once that owner is gone).
     pub(crate) owner: Key,
-    /// The token it waits for; `None` until the driver stamps it.
-    pub(crate) token: Option<u64>,
     pub(crate) run: Box<dyn FnOnce()>,
 }
 

@@ -16,11 +16,7 @@ use std::collections::VecDeque;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 
-use crate::OwnerId;
-
-/// Wakes the driver of the App's turns when a future becomes ready; called
-/// from any thread (a worker of the blocking pool, an I/O thread).
-pub(crate) type ReadyWaker = Arc<dyn Fn() + Send + Sync>;
+use crate::{OwnerId, ThreadWaker};
 
 /// A runnable task; the metadata is the owner the task runs for.
 pub(crate) type Runnable = async_task::Runnable<Option<OwnerId>>;
@@ -28,10 +24,10 @@ pub(crate) type Runnable = async_task::Runnable<Option<OwnerId>>;
 /// The handle of a spawned task (dropping it cancels the future).
 pub(crate) type RawTask = async_task::Task<(), Option<OwnerId>>;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct Shared {
     queue: Arc<Mutex<VecDeque<Runnable>>>,
-    waker: Arc<Mutex<Option<ReadyWaker>>>,
+    waker: ThreadWaker,
 }
 
 pub(crate) struct Executor {
@@ -44,16 +40,14 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 impl Executor {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(waker: ThreadWaker) -> Self {
         Executor {
-            shared: Shared::default(),
+            shared: Shared {
+                queue: Arc::new(Mutex::new(VecDeque::new())),
+                waker,
+            },
         }
     }
-
-    pub(crate) fn set_waker(&self, w: ReadyWaker) {
-        *lock(&self.shared.waker) = Some(w);
-    }
-
     /// Spawn `fut`; its polls run for `owner` (see the module doc).
     pub(crate) fn spawn(
         &self,
@@ -63,10 +57,7 @@ impl Executor {
         let shared = self.shared.clone();
         let schedule = move |r: Runnable| {
             lock(&shared.queue).push_back(r);
-            let w = lock(&shared.waker).clone();
-            if let Some(w) = w {
-                w();
-            }
+            shared.waker.wake();
         };
         let (runnable, task) = async_task::Builder::new()
             .metadata(owner)

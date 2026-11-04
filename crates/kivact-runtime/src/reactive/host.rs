@@ -1,15 +1,9 @@
-//! Role: The host's view of a runtime: creation, turns, mounts and reports.
-//!
-//! A host (the client of one App) creates the runtime with its driver,
-//! runs the turns ([`Runtime::stabilize`], [`Runtime::run_user_effects`]),
-//! acknowledges what the setup created ([`Mounts`]), records the turn trace
-//! ([`TurnRecorder`]) and shuts the runtime down. Everything here is
-//! host-neutral: the runtime knows no window, engine or clock source.
+//! Role: Host wake boundary, turn stages and reactive turn operations.
 
 use std::panic::Location;
 use std::rc::Rc;
 
-use crate::reactive::data::{Driver, Extensions, NodeInfo, Runtime};
+use crate::reactive::data::{NodeInfo, Runtime};
 use crate::reactive::error::UiError;
 use crate::reactive::{AppId, NodeId, Owner, OwnerId};
 
@@ -26,34 +20,79 @@ pub struct Pending {
     pub turn_requested: bool,
 }
 
-/// The `on_mount` callbacks of a runtime ([`Runtime::mounts`]). The host
-/// hands out opaque tokens that only grow (the client uses the revision of
-/// the batch that carries the new nodes) and acknowledges them once the
-/// nodes are applied.
-pub struct Mounts<'a> {
-    rt: &'a Runtime,
+/// The host wake boundary of an App.
+pub trait Host: 'static {
+    /// Request a turn soon on the Quiet to WakeSent edge.
+    fn wake(&self);
 }
-
-/// Records one turn of the trace ring, from [`Runtime::turn`] until it is
-/// finished ([`TurnRecorder::finish`]) or dropped; its duration is the wall
-/// time in between. What is recorded between turns goes to the next turn.
-#[must_use = "the turn is recorded when its TurnRecorder is finished or dropped"]
-pub struct TurnRecorder<'a> {
-    rt: &'a Runtime,
-    started: std::time::Instant,
-    ops: usize,
-}
-
-impl Runtime {
-    /// Create and register the runtime of a new App with the per-App
-    /// `extensions` of the layers above and the `driver` that runs its
-    /// turns. App identities are never reused.
-    pub fn new(extensions: Extensions, driver: Rc<dyn Driver>) -> Rc<Runtime> {
-        let rt = Runtime::register(extensions);
-        rt.set_driver(driver);
-        rt
+/// A wake usable from any thread.
+#[derive(Clone)]
+pub struct ThreadWaker(std::sync::Arc<dyn Fn() + Send + Sync>);
+impl ThreadWaker {
+    /// Create a wake callback usable from any thread.
+    pub fn new(f: impl Fn() + Send + Sync + 'static) -> Self {
+        Self(std::sync::Arc::new(f))
     }
-
+    /// Invoke the wake callback.
+    pub fn wake(&self) {
+        (self.0)();
+    }
+}
+/// The operation currently performed in a turn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stage {
+    /// App setup.
+    Setup,
+    /// Turn entry.
+    Begin,
+    /// Deferred error reports.
+    Reports,
+    /// Host event delivery.
+    Dispatch,
+    /// Tasks, timers and drains.
+    Async,
+    /// Engine write commit.
+    Commit,
+    /// Acknowledged mount callbacks.
+    Mounts,
+    /// User effect execution.
+    UserEffects,
+    /// Turn output and scheduling.
+    Output,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TurnState {
+    Quiet,
+    WakeSent,
+    Running(Stage),
+}
+/// The App's exit drain status.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExitState {
+    /// No exit was requested.
+    Running,
+    /// Queued actions drain until the deadline in nanoseconds.
+    Draining {
+        /// Drain deadline in nanoseconds.
+        deadline: u64,
+    },
+    /// The host may exit.
+    Exited,
+}
+/// Scheduling result of a completed turn.
+pub struct TurnReport {
+    /// Earliest timer or drain deadline in nanoseconds.
+    pub next_deadline: Option<u64>,
+    /// Current exit status.
+    pub exit: ExitState,
+}
+/// A running turn and its trace record.
+#[must_use]
+pub struct TurnGuard<'a> {
+    pub(crate) rt: &'a Runtime,
+    pub(crate) started: std::time::Instant,
+}
+impl Runtime {
     /// Unregister the App: every handle of it becomes `WrongApp` (or
     /// `Disposed`), and the runtime is dropped when the last `Rc` goes.
     pub fn shutdown(&self) {
@@ -78,14 +117,6 @@ impl Runtime {
         self.id
     }
 
-    /// Create the App's root owner, created at `at`, and record it
-    /// ([`Runtime::root`]).
-    pub fn create_root(&self, at: &'static Location<'static>) -> Owner {
-        let key = self.create_owner(None, at);
-        self.root_owner.set(Some(key));
-        Owner::from_key(self.id, key)
-    }
-
     /// The handle of owner `id` of this App (an identity
     /// [`Owner::id`] gave out, carried where a handle cannot go, such as the
     /// metadata of a task queued across threads). Nothing is validated until
@@ -94,38 +125,44 @@ impl Runtime {
         Owner::from_key(self.id, id.0)
     }
 
-    /// The App's root owner, once created.
-    pub fn root(&self) -> Option<Owner> {
-        self.root_owner
-            .get()
-            .map(|key| Owner::from_key(self.id, key))
+    /// The App's root owner.
+    pub fn root(&self) -> Owner {
+        Owner::from_key(self.id, self.root)
     }
-
-    /// What is queued now.
+    /// Snapshot of queued reactive work.
     pub fn pending(&self) -> Pending {
         Pending {
             user: self.has_user_effects(),
             render: self.has_render_effects(),
             later: self.has_later_reports(),
-            turn_requested: self.turn_requested(),
+            turn_requested: self.state.get() == TurnState::WakeSent,
         }
     }
-
-    /// The `on_mount` callbacks.
-    pub fn mounts(&self) -> Mounts<'_> {
-        Mounts { rt: self }
-    }
-
-    /// Start recording a turn that delivers `events` host events.
-    pub fn turn(&self, events: usize) -> TurnRecorder<'_> {
-        self.begin_turn(events);
-        TurnRecorder {
+    #[track_caller]
+    fn begin(&self, stage: Stage) -> TurnGuard<'_> {
+        assert!(
+            !matches!(self.state.get(), TurnState::Running(_)),
+            "kivact misuse: invariant: turns cannot be nested at {}",
+            Location::caller()
+        );
+        self.state.set(TurnState::Running(stage));
+        TurnGuard {
             rt: self,
             started: std::time::Instant::now(),
-            ops: 0,
         }
     }
-
+    #[track_caller]
+    /// Begin the setup turn; turns cannot be nested.
+    pub fn begin_setup(&self) -> TurnGuard<'_> {
+        self.begin(Stage::Setup)
+    }
+    #[track_caller]
+    /// Begin a turn containing the given number of host events.
+    pub fn begin_turn(&self, events: usize) -> TurnGuard<'_> {
+        let turn = self.begin(Stage::Begin);
+        self.begin_turn_record(events);
+        turn
+    }
     /// Route `err` to the nearest error boundary of `owner`, or, without an
     /// owner or a boundary, to the App's default sink (`tracing` and
     /// [`Runtime::errors`]).
@@ -164,47 +201,53 @@ impl Runtime {
 
     /// Drop the queued user effects (after a cycle was detected) and return
     /// them.
+    /// Abandon queued user effects after a cycle.
     pub fn abandon_user_effects(&self) -> Vec<NodeId> {
         self.abandon_user_queue().into_iter().map(NodeId).collect()
     }
 }
 
-impl Mounts<'_> {
-    /// Make every queued callback without a token wait for `token`; returns
-    /// whether any did.
-    pub fn defer_until(&self, token: u64) -> bool {
-        self.rt.defer_mounts_until(token)
+impl TurnGuard<'_> {
+    /// Record the active turn stage.
+    pub fn stage(&self, stage: Stage) {
+        self.rt.state.set(TurnState::Running(stage));
     }
-
-    /// The host acknowledged every token up to `token`: run the callbacks
-    /// waiting for one of them, in queue order, for owners that are still
-    /// there. Each runs in a handler of its owner; a panic propagates.
-    pub fn run_acked(&self, token: u64) {
-        self.rt.run_mounts_acked(token);
-    }
-
-    /// Whether a callback waits for a token up to `token`.
-    pub fn due(&self, token: u64) -> bool {
-        self.rt.mounts_due(token)
-    }
-}
-
-impl TurnRecorder<'_> {
-    /// Record what started work in this turn (`"timer"`, an event, ...).
+    /// Record a cause in the turn trace.
     pub fn cause(&self, cause: String) {
         self.rt.record_cause(cause);
     }
-
-    /// Finish the record with the number of writes committed in the turn and
-    /// push it into the ring ([`Runtime::turns`]).
-    pub fn finish(mut self, ops: usize) {
-        self.ops = ops;
+    /// Run render and internal effects until stable.
+    pub fn stabilize(&self) {
+        self.rt.stabilize();
     }
-}
-
-impl Drop for TurnRecorder<'_> {
-    fn drop(&mut self) {
-        let duration_ns = self.started.elapsed().as_nanos() as u64;
-        self.rt.end_turn(self.ops, duration_ns);
+    /// Deliver the initial snapshot of deferred reports.
+    pub fn deliver_reports(&self) {
+        self.stage(Stage::Reports);
+        self.rt.deliver_later();
+    }
+    /// Run the initial snapshot of acknowledged mount callbacks.
+    pub fn run_mounts(&self, acked: kivact_types::Revision) {
+        self.stage(Stage::Mounts);
+        self.rt.run_mounts_acked(acked);
+    }
+    #[track_caller]
+    /// Stamp pending mount callbacks during Commit.
+    pub fn stamp_mounts(&self, revision: kivact_types::Revision) {
+        assert_eq!(
+            self.rt.state.get(),
+            TurnState::Running(Stage::Commit),
+            "kivact misuse: invariant: mount stamps require Commit at {}",
+            Location::caller()
+        );
+        self.rt.stamp_mounts(revision);
+    }
+    /// Run one round of queued user effects.
+    pub fn run_user_effects(&self) -> bool {
+        self.stage(Stage::UserEffects);
+        self.rt.run_user_effects()
+    }
+    /// Abandon queued user effects after a cycle.
+    pub fn abandon_user_effects(&self) -> Vec<NodeId> {
+        self.rt.abandon_user_effects()
     }
 }
