@@ -338,3 +338,77 @@ fn drag_track_velocity_reports_pixels_per_ms() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn drag_source_with_samples_once_at_the_accepted_press() {
+    use std::cell::Cell;
+    let calls = Rc::new(Cell::new(0));
+    let updates = Rc::new(RefCell::new(Vec::new()));
+    let sampled = calls.clone();
+    let seen = updates.clone();
+    let (screen, (payload, disabled)) = mount_with(real_window(), move || {
+        let payload = signal(3);
+        let disabled = signal(false);
+        let started = seen.clone();
+        let moved = seen.clone();
+        let ended = seen.clone();
+        let source = use_drag(DragCoordinates::Window)
+            .slop(10)
+            .disabled(disabled)
+            .on_start(move |update: DragUpdate<i32>| started.borrow_mut().push(update.payload))
+            .on_update(move |update: DragUpdate<i32>| moved.borrow_mut().push(update.payload))
+            .on_end(move |update: DragUpdate<i32>| ended.borrow_mut().push(update.payload))
+            .source_with(move || {
+                sampled.set(sampled.get() + 1);
+                payload.get_untracked()
+            });
+        (
+            (payload, disabled),
+            node()
+                .test_id("stepper")
+                .name("Drag snapshot")
+                .focusable(true)
+                .style(style().size(100, 100))
+                .part(source),
+        )
+    });
+    assert_eq!(calls.get(), 0, "setup must not sample the payload");
+    let at = center(&screen);
+    screen.mouse_move(at.x, at.y);
+    disabled.set(true);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_up(MouseButton::Primary);
+    disabled.set(false);
+    screen.mouse_down(MouseButton::Secondary);
+    screen.mouse_up(MouseButton::Secondary);
+    assert_eq!(calls.get(), 0, "rejected presses must not call the factory");
+
+    screen.mouse_down(MouseButton::Primary);
+    assert_eq!(calls.get(), 1, "a pending press samples immediately");
+    payload.set(7);
+    screen.mouse_move(at.x + 5.0, at.y);
+    assert!(updates.borrow().is_empty());
+    screen.mouse_move(at.x + 15.0, at.y);
+    screen.mouse_move(at.x + 25.0, at.y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        *updates.borrow(),
+        [3, 3, 3, 3],
+        "start, moves and end share the press-time snapshot"
+    );
+    assert_eq!(calls.get(), 1, "moves and release never resample");
+
+    updates.borrow_mut().clear();
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    payload.set(9);
+    screen.mouse_move(at.x + 15.0, at.y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        *updates.borrow(),
+        [7, 7, 7],
+        "the next gesture takes a new snapshot"
+    );
+    assert_eq!(calls.get(), 2);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

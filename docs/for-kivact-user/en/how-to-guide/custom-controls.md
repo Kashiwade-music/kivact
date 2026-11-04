@@ -371,6 +371,8 @@ or `Cancel` when the user presses Escape (the value goes back to where it starte
 
 A drag starts at the press by default. Add `.slop(10)` to wait until movement exceeds 10 logical pixels, and `.axis_lock()` to keep its delta on the first movement axis after that threshold. Add `.track_velocity()` to read `DragUpdate.velocity` in logical pixels per millisecond over the latest 100 ms; without it, velocity is zero. Pending presses that end before the threshold produce no start, update, end or edit callbacks. These are setup options on the existing drag handle.
 
+Use `.source_with(move || value.get_untracked())` when the payload must snapshot live application data at the accepted press. The factory runs once, including when the press first enters the pending slop state. All updates retain that snapshot; the next accepted press samples again. `.source(payload)` keeps fixed setup data.
+
 ```rust,test_harness
 use std::cell::RefCell;
 use std::rc::Rc;

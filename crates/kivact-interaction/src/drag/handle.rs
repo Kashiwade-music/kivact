@@ -747,6 +747,22 @@ impl<T: Clone + 'static> DragApi<T> {
     /// passes on goes in a part attached after the source. Setup only.
     #[track_caller]
     pub fn source(self, payload: T) -> Part<DragState> {
+        self.source_with(move || payload.clone())
+    }
+
+    /// Create a source whose payload is sampled once when a press is accepted.
+    ///
+    /// The factory runs after the pointer, button, disabled state and idle
+    /// session checks succeed, before entering the pending or active state.
+    /// Its result is the frozen payload of every update in that gesture;
+    /// movement and release never call the factory again. A later accepted
+    /// press takes a fresh snapshot. With slop, the snapshot is taken at the
+    /// press, before the movement threshold is exceeded.
+    ///
+    /// Use [`source`](Self::source) for fixed setup data. All capture,
+    /// cancellation and disabled behavior is the same. Setup only.
+    #[track_caller]
+    pub fn source_with(self, payload: impl Fn() -> T + 'static) -> Part<DragState> {
         let id = self.sources.update(Generation::next);
         let active_source = self.active_source;
         let input = part(move |input| DragState {
@@ -825,7 +841,7 @@ impl<T: Clone + 'static> DragApi<T> {
     fn observe(
         self,
         id: Generation,
-        payload: &T,
+        payload: &dyn Fn() -> T,
         event: PointerEvent,
         source_disabled: bool,
     ) -> Option<Step<T>> {
@@ -852,7 +868,7 @@ impl<T: Clone + 'static> DragApi<T> {
                 pointer: event.id(),
                 button,
                 pos,
-                payload: payload.clone(),
+                payload: payload(),
             };
             self.session.send(machine::Event::Begin(
                 Active {
