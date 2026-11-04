@@ -61,12 +61,26 @@ pub(super) struct QueuedToast {
     pub id: ToastId,
     pub toast: Toast,
     pub options: ToastOptions,
-    pub focus: Option<ToastFocus>,
+    pub focus: FocusAttachment,
 }
 
 impl PartialEq for QueuedToast {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id && self.focus == other.focus
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum FocusAttachment {
+    Detached,
+    Attached(ToastFocus),
+}
+impl FocusAttachment {
+    fn attached(self) -> Option<ToastFocus> {
+        match self {
+            Self::Detached => None,
+            Self::Attached(focus) => Some(focus),
+        }
     }
 }
 
@@ -116,6 +130,7 @@ impl ToastOptions {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ToastId(Generation);
 
+// xtask-allow(state-fields): Immutable public notification content and independent optional presentation, never lifecycle state.
 /// The content of one notification: what it says, how urgent it is, how long
 /// it stays and an optional action.
 ///
@@ -388,7 +403,7 @@ impl Toaster {
             id,
             toast,
             options,
-            focus: None,
+            focus: FocusAttachment::Detached,
         }));
         id
     }
@@ -411,6 +426,7 @@ impl Toaster {
             return;
         };
         let previous = focus
+            .attached()
             .filter(|focus| focus.within.get_untracked())
             .and_then(|focus| focus.state.state().get_untracked().return_to());
         self.column.send(ColumnEvent::Remove(id, reason, previous));
@@ -466,9 +482,14 @@ impl Toaster {
             || FocusMachine,
             |_, effect| match effect {},
         );
-        self.column
-            .send(ColumnEvent::Focus(id, Some(ToastFocus { within, state })));
-        on_cleanup(move || self.column.send(ColumnEvent::Focus(id, None)));
+        self.column.send(ColumnEvent::Focus(
+            id,
+            FocusAttachment::Attached(ToastFocus { within, state }),
+        ));
+        on_cleanup(move || {
+            self.column
+                .send(ColumnEvent::Focus(id, FocusAttachment::Detached))
+        });
         effect(move || state.send(FocusEvent::Observe(within.get(), owner.focused_node())));
     }
 }

@@ -1,5 +1,5 @@
 //! Role: Compute pointer corridor transitions and progress deadlines.
-use super::api::Edge;
+use super::geometry::Edge;
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::state::{Machine as MachineTrait, Step};
 use std::time::Duration;
@@ -12,7 +12,15 @@ pub(super) enum Corridor {
 #[derive(Clone, PartialEq)]
 pub(super) struct State {
     pub corridor: Corridor,
-    pub sample: Option<Point>,
+    pub sample_cache: PointerSampleCache,
+}
+/// Last input sample, retained across the Holding variant to compare forward progress.
+#[derive(Clone, PartialEq)]
+pub(super) struct PointerSampleCache(pub Point);
+impl Default for PointerSampleCache {
+    fn default() -> Self {
+        Self(Point::new(0.0, 0.0))
+    }
 }
 pub(super) enum Event {
     Sample {
@@ -41,13 +49,13 @@ impl MachineTrait for Machine {
         else {
             return Step::to(State {
                 corridor: Corridor::Idle,
-                sample: state.sample,
+                sample_cache: state.sample_cache.clone(),
             });
         };
         let idle = || {
             Step::to(State {
                 corridor: Corridor::Idle,
-                sample: at,
+                sample_cache: PointerSampleCache(at.unwrap_or(state.sample_cache.0)),
             })
             .cancel(Event::Expire)
         };
@@ -60,7 +68,7 @@ impl MachineTrait for Machine {
                     origin: at,
                     previous: at,
                 },
-                sample: Some(at),
+                sample_cache: PointerSampleCache(at),
             })
             .cancel(Event::Expire);
         }
@@ -70,7 +78,7 @@ impl MachineTrait for Machine {
         let (origin, previous) = match state.corridor {
             Corridor::Idle => return idle(),
             Corridor::Tracking { origin, previous } => (origin, previous),
-            Corridor::Holding { origin } => (origin, state.sample.unwrap_or(origin)),
+            Corridor::Holding { origin } => (origin, state.sample_cache.0),
         };
         let Some(edge) = Edge::facing(origin, surface) else {
             return idle();
@@ -83,7 +91,7 @@ impl MachineTrait for Machine {
         }
         Step::to(State {
             corridor: Corridor::Holding { origin },
-            sample: Some(at),
+            sample_cache: PointerSampleCache(at),
         })
         .after(self.timeout, Event::Expire)
         .with(Effect::Progress)

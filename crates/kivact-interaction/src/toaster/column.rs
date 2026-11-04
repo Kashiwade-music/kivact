@@ -1,5 +1,5 @@
 //! Role: Own the notification queue, visibility limit and independent hold identities.
-use super::api::{DismissHandler, QueuedToast, ToastFocus, ToastId};
+use super::api::{DismissHandler, FocusAttachment, QueuedToast, ToastId};
 use kivact_core::custom::Generation;
 use kivact_core::custom::NodeToken;
 use kivact_core::state::{Machine as MachineTrait, Step};
@@ -34,7 +34,7 @@ pub(super) enum Event {
     Remove(ToastId, DismissReason, Option<NodeToken>),
     Limit(usize),
     Hold(HoldId, bool),
-    Focus(ToastId, Option<ToastFocus>),
+    Focus(ToastId, FocusAttachment),
 }
 pub(super) enum Effect {
     Dismiss {
