@@ -266,6 +266,8 @@ impl Writer {
                     .register_font(&mut self.engine.borrow_mut(), &font);
                 if matches!(result, PlatformResult::Fonts(_)) {
                     m.fonts_added();
+                    let fonts = m.assets.borrow().fonts();
+                    m.update_env(|env, _| env.fonts = fonts);
                 }
                 m.push(HostEvent::EffectResult { request, result });
             }

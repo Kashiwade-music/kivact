@@ -11,7 +11,8 @@ impl ArvaneTestHost {
         if std::env::var_os("KIVACT_SELF_CHECK").is_some_and(|value| value == "0") {
             return Vec::new();
         }
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let mut model = host.model.borrow_mut();
         let mut engine = host.engine.borrow_mut();
         let mut errors = model.layout_self_check(&mut engine);

@@ -1,6 +1,6 @@
-//! Role: Frame ticks, smooth scrolls, env and surface changes, and the next deadline.
+//! Role: Deliver frame ticks, smooth scrolling and environment changes.
 
-use super::state::{Clock, SmoothScroll};
+use super::state::{Clock, SmoothScroll, TickHistory};
 use crate::contract::HostEvent;
 use crate::model::Model;
 use kivact_types::{Environment, MotionClock, NodeId, Point};
@@ -17,20 +17,15 @@ impl Model {
     ) {
         self.frame.smooth_scrolls.remove(&id);
         if smooth && !self.frame.reduced_motion() {
-            self.frame.smooth_scrolls.insert(
-                id,
-                SmoothScroll {
-                    start,
-                    target,
-                    began: None,
-                },
-            );
-            let next = self
-                .frame
-                .last_frame
-                .unwrap_or(0)
-                .saturating_add(self.frame.period_ns());
-            self.frame.frames.push(next);
+            self.frame
+                .smooth_scrolls
+                .insert(id, SmoothScroll::Scheduled { start, target });
+            let last = match self.frame.last_frame {
+                TickHistory::NeverTicked => 0,
+                TickHistory::Ticked { last_ns } => last_ns,
+            };
+            let next = last.saturating_add(self.frame.period_ns());
+            self.frame.frames.0.insert(next);
         } else {
             self.set_scroll(id, target);
         }
@@ -48,7 +43,6 @@ impl Model {
             }
         };
         self.frame.env = env;
-        self.frame.surface_active = surface_active;
     }
 
     /// Change the environment the client sees with `change`; when the
@@ -56,9 +50,9 @@ impl Model {
     /// drawability also pauses or resumes the frame clocks.
     pub(crate) fn update_env(&mut self, change: impl FnOnce(&mut Environment, &mut bool)) {
         let mut env = self.frame.env.clone();
-        let mut surface_active = self.frame.surface_active;
+        let mut surface_active = self.frame.surface_active();
         change(&mut env, &mut surface_active);
-        if env == self.frame.env && surface_active == self.frame.surface_active {
+        if env == self.frame.env && surface_active == self.frame.surface_active() {
             return;
         }
         match (self.frame.clock, surface_active) {
@@ -82,12 +76,6 @@ impl Model {
         }
         self.a11y.invalidate();
         self.frame.env = env.clone();
-        self.frame.surface_active = surface_active;
-        debug_assert_eq!(
-            self.frame.clock == Clock::Running,
-            self.frame.surface_active,
-            "invariant: the frame clock stops exactly while nothing can be drawn"
-        );
         self.push(HostEvent::EnvChanged {
             environment: env,
             surface_active,
@@ -104,9 +92,9 @@ impl Model {
     /// is asked for.
     pub(in crate::model) fn retarget_frame(&mut self) {
         if self.retarget_states(self.frame.now, self.frame.reduced_motion())
-            && self.frame.frames.is_empty()
+            && self.frame.frames.0.is_empty()
         {
-            self.frame.frames.push(self.frame.now);
+            self.frame.frames.0.insert(self.frame.now);
         }
     }
 
@@ -126,16 +114,30 @@ impl Model {
         };
         let period = self.frame.period_ns();
         let stamp = if now - due < period / 4 { due } else { now };
-        self.frame.frames.retain(|t| *t > now);
+        self.frame.frames.0.retain(|t| *t > now);
         self.changes.restack |= self.motion.is_active();
         if self.step_states(stamp, self.frame.reduced_motion()) {
-            self.frame.frames.push(stamp.saturating_add(period));
+            self.frame.frames.0.insert(stamp.saturating_add(period));
         }
         self.sync();
         if !self.frame.smooth_scrolls.is_empty() {
             let mut scrolls = std::mem::take(&mut self.frame.smooth_scrolls);
             scrolls.retain(|id, scroll| {
-                let began = *scroll.began.get_or_insert(stamp);
+                let (start, target, began) = match *scroll {
+                    SmoothScroll::Scheduled { start, target } => {
+                        *scroll = SmoothScroll::Running {
+                            start,
+                            target,
+                            began_ns: stamp,
+                        };
+                        (start, target, stamp)
+                    }
+                    SmoothScroll::Running {
+                        start,
+                        target,
+                        began_ns,
+                    } => (start, target, began_ns),
+                };
                 let t = if self.frame.reduced_motion() {
                     1.0
                 } else {
@@ -145,19 +147,19 @@ impl Model {
                 self.set_scroll(
                     *id,
                     Point {
-                        x: scroll.start.x + (scroll.target.x - scroll.start.x) * eased,
-                        y: scroll.start.y + (scroll.target.y - scroll.start.y) * eased,
+                        x: start.x + (target.x - start.x) * eased,
+                        y: start.y + (target.y - start.y) * eased,
                     },
                 );
                 t < 1.0 && self.node(*id).is_some()
             });
             if !scrolls.is_empty() {
-                self.frame.frames.push(stamp.saturating_add(period));
+                self.frame.frames.0.insert(stamp.saturating_add(period));
                 self.frame.smooth_scrolls = scrolls;
             }
             self.sync();
         }
-        self.frame.last_frame = Some(stamp);
+        self.frame.last_frame = TickHistory::Ticked { last_ns: stamp };
         self.push(HostEvent::FrameTick {
             now_ns: stamp,
             estimated_present_ns: stamp.saturating_add(period),
@@ -177,8 +179,8 @@ impl Model {
     /// 16 666 666 or 16 666 667 ns) nor by a late wake of the shell; an
     /// earlier request waits for the period's end.
     pub(crate) fn frame_deadline(&self) -> Option<u64> {
-        let requested = self.frame.frames.iter().min().copied()?;
-        let Some(last) = self.frame.last_frame else {
+        let requested = self.frame.frames.0.first().copied()?;
+        let TickHistory::Ticked { last_ns: last } = self.frame.last_frame else {
             return Some(requested);
         };
         let period = self.frame.period_ns();

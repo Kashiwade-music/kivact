@@ -1,14 +1,29 @@
-//! Role: The frame group's state: clocks, frame requests, smooth scrolls and drawability.
+//! Role: Own frame requests, motion clocks and smooth scroll progress.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kivact_types::{Environment, MotionClock, NodeId, Point, ThemeHint};
 
 /// One active programmatic scroll; allocated only while animating.
-pub(super) struct SmoothScroll {
-    pub(super) start: Point,
-    pub(super) target: Point,
-    pub(super) began: Option<u64>,
+pub(super) enum SmoothScroll {
+    Scheduled {
+        start: Point,
+        target: Point,
+    },
+    Running {
+        start: Point,
+        target: Point,
+        began_ns: u64,
+    },
+}
+
+#[derive(Default)]
+pub(super) struct FrameRequests(pub(super) BTreeSet<u64>);
+
+#[derive(Clone, Copy)]
+pub(super) enum TickHistory {
+    NeverTicked,
+    Ticked { last_ns: u64 },
 }
 
 /// Whether the frame clock runs.
@@ -29,13 +44,12 @@ pub(crate) struct Frame {
     pub(super) clock: Clock,
     /// The stops that ended, as the client sees them in each tick.
     pub(super) motion: MotionClock,
-    pub(super) frames: Vec<u64>,
+    pub(super) frames: FrameRequests,
     pub(super) smooth_scrolls: BTreeMap<NodeId, SmoothScroll>,
-    pub(super) last_frame: Option<u64>,
+    pub(super) last_frame: TickHistory,
     /// The environment as the client last saw it: the one source of the
     /// display period, reduced motion and drawability.
     pub(super) env: Environment,
-    pub(super) surface_active: bool,
 }
 
 impl Default for Frame {
@@ -44,11 +58,10 @@ impl Default for Frame {
             now: 0,
             clock: Clock::Running,
             motion: MotionClock::default(),
-            frames: vec![],
+            frames: FrameRequests::default(),
             smooth_scrolls: BTreeMap::new(),
-            last_frame: None,
+            last_frame: TickHistory::NeverTicked,
             env: Environment::default(),
-            surface_active: true,
         }
     }
 }
@@ -61,7 +74,6 @@ impl Frame {
 
     /// The theme the environment starts with (light unless a test driver
     /// starts dark); `Model::start_env` keeps it.
-    #[cfg(feature = "testing")]
     pub(crate) fn start_theme(&mut self, theme: ThemeHint) {
         self.env.theme_hint = theme;
     }
@@ -83,12 +95,12 @@ impl Frame {
 
     /// Whether there is a surface to draw on.
     pub(crate) fn surface_active(&self) -> bool {
-        self.surface_active
+        matches!(self.clock, Clock::Running)
     }
 
     /// Ask for a tick at or after `at_ns`.
     pub(crate) fn request(&mut self, at_ns: u64) {
-        self.frames.push(at_ns);
+        self.frames.0.insert(at_ns);
     }
 
     /// Stop every smooth scroll where it is (the user took over).

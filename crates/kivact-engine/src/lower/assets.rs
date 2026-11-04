@@ -47,6 +47,7 @@ use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size}
 /// UI-thread resource owner with image and font diagnostic deduplication.
 /// Owner keys are supplied by the caller; this manager never traverses a tree.
 pub(crate) struct ArvaneAssets {
+    fonts: kivact_types::cell::Generation,
     store: AssetStore,
     revision: u64,
     /// Families of the registered font files, in registration order (for
@@ -64,6 +65,7 @@ impl ArvaneAssets {
     /// Own an image store with empty font-registration and report histories.
     pub(crate) fn new(store: AssetStore) -> Self {
         ArvaneAssets {
+            fonts: kivact_types::cell::Generation::default(),
             store,
             revision: 0,
             registered: Vec::new(),
@@ -71,6 +73,10 @@ impl ArvaneAssets {
             reported_families: HashSet::new(),
             pending: Vec::new(),
         }
+    }
+
+    pub(crate) fn fonts(&self) -> kivact_types::cell::Generation {
+        self.fonts
     }
 
     pub(crate) fn revision(&self) -> u64 {
@@ -98,13 +104,6 @@ impl ArvaneAssets {
         self.reported_images.shrink_to_fit();
         self.reported_families.shrink_to_fit();
         self.pending.shrink_to_fit();
-    }
-
-    /// Replace only the image store, preserving font and diagnostic histories.
-    /// The previous store is dropped here, just as with an owned assignment.
-    pub(crate) fn replace_store(&mut self, store: AssetStore) {
-        self.store = store;
-        self.changed();
     }
 
     /// Consume the store's failure queue without touching evictions or reports.
@@ -257,6 +256,7 @@ impl ArvaneAssets {
                 self.registered.push(family.clone());
             }
         }
+        self.fonts.next();
         self.changed();
         PlatformResult::Fonts(file.families().to_vec())
     }

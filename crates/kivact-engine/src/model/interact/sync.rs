@@ -34,7 +34,6 @@ use crate::contract::{HostEvent, NodeType};
 use crate::lower::AssetEvent;
 use crate::model::Model;
 use crate::model::changes::{Dirty, Geometry};
-use arvane::asset::AssetStore;
 use kivact_types::{NodeId, Size};
 
 impl Model {
@@ -66,12 +65,6 @@ impl Model {
     /// Whether the next [`Model::layout`] has work to do.
     pub(crate) fn needs_layout(&self) -> bool {
         self.changes.needs_layout
-    }
-
-    /// Load images with `store` from now on (the shell's waker exists only
-    /// once the window does; nothing is loaded before).
-    pub(crate) fn set_store(&mut self, store: AssetStore) {
-        self.assets.get_mut().replace_store(store);
     }
 
     pub(crate) fn invalidate_paint(&mut self) {
