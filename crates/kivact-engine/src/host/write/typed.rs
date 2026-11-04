@@ -287,6 +287,10 @@ props! {
     LineColors: set_line_colors(v: kivact_editing::LineColors)
         => field(Some(v), |p| Some(&mut editing(p)?.colors)),
         mut = Mut::NONE;
+    /// Replace document-range decorations.
+    Decorations: set_decorations(v: Vec<kivact_editing::RangeDecoration>)
+        => field(Some(v), |p| Some(&mut editing(p)?.decorations)),
+        mut = Mut::NONE;
     /// Replace the node's password when its value differs.
     Password: set_password(v: bool)
         => field(Some(v), |p| Some(&mut editing(p)?.password)),

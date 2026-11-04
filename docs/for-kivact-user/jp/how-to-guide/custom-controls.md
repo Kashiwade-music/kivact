@@ -609,3 +609,24 @@ fn copy_button(text: impl IntoValue<String>) -> impl Component {
 - [キャンバスで描く](canvas.md): region と、描画レイヤーで使う描画の語彙。
 - [アプリをテストする](testing.md): 上のテストのように、ロール、キー、フォーカスを確かめる方法。
 - `cargo doc -p kivact-interaction --open` ですべてのコントローラーと Part、`cargo doc -p kivact --open` で `kivact::custom`。
+
+
+### native の編集する文字に描き足す
+
+`TextEditing::line_styles(content, f)` は文字の形や編集の動作を変えずに、行の見た目を設定します。
+関数は content、改行を除いた行、前の行が残した状態を受け取り、`(Vec<StyledRange>, 次の状態)`
+を返します。`kivact::style::StyledRange` の範囲は行内の UTF-8 byte です。
+`color`、`background`、`decoration` で文字色、背景、下線などを設定します。
+`TextDecoration` は theme の色、文字の長さ、`TextDecorationStyle` を受け取ります。
+
+文書全体の byte 範囲には `TextEditing::decorations(content, f)` を使い、
+`kivact::custom::Decoration` を返します。種類は `Background`、`Outline`、
+`Underline(TextDecorationStyle)` です。content と theme の変更に追従します。
+password の値と placeholder にはこれらを描きません。
+
+編集する node には子（`custom::inline_view` を含む）、`draw`、`draw_over` を付けられます。
+描画 layer は native の文字、選択、caret の上に重なります。
+`Node::draw_with_layout` は canvas 座標の `custom::TextLayout` も受け取ります。
+行の箱、caret、選択の矩形、`hit_test` を使い、文字、選択、配置の変更に追従できます。
+`NodeRefExt::text_layout` の単独の問い合わせは window 座標で、指定した行だけを整形します。
+caret と `hit_test` の offset は Unicode scalar 数、見た目の範囲は UTF-8 byte 数です。

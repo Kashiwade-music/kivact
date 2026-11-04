@@ -31,6 +31,7 @@ kivact-ui = ["kivact"]
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-types; pure layout belongs to kivact-layout.
 kivact-engine = ["kivact-core", "kivact-test"]
+# Editing transports resolved line paints and document decorations; authored StyledRange/TextDecoration belong to style.
 kivact-editing = ["kivact-style", "kivact-engine", "kivact-core"]
 kivact-layout = ["kivact-engine"]
 

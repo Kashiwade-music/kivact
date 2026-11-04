@@ -22,6 +22,7 @@ pub(super) fn text_changed(
     if !admitted(rt, host_event, "text", node) {
         return;
     }
+    notify_geometry(rt, node);
     let phase = handler(rt, node, |h| h.edit_phase.clone());
     let committed = session.marked().is_none();
     if committed && let Some(observer) = &phase {
@@ -56,6 +57,7 @@ pub(super) fn selection_changed(
     if !admitted(rt, host_event, "selection", node) {
         return;
     }
+    notify_geometry(rt, node);
     if let Some(h) = handler(rt, node, |h| h.selection.clone()) {
         let session = session.clone();
         run_handler(rt, node_owner(rt, node), || h.call(session));
@@ -77,4 +79,13 @@ pub(super) fn focus_changed(
 
 pub(super) fn focus_result(rt: &Runtime, request: RequestId, result: Result<(), String>) {
     crate::view::requests::on_focus_result(rt, request.0, result);
+}
+
+fn notify_geometry(rt: &Runtime, node: NodeId) {
+    let observation = ViewState::tree(rt)
+        .get(node)
+        .and_then(|node| node.observation);
+    if let Some(observation) = observation {
+        observation.editing_revision.notify();
+    }
 }

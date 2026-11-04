@@ -247,13 +247,12 @@ impl IntoView for Node {
             {
                 n.at = None;
             }
+            for child in children {
+                let child = mount(child, cx);
+                cx.append(id, child);
+            }
             match content {
-                Content::Box => {
-                    for c in children {
-                        let n = mount(c, cx);
-                        cx.append(id, n);
-                    }
-                }
+                Content::Box => {}
                 Content::Plain(content) => cx.bind(id, content, PropValue::Content, loc),
                 Content::Rich(spans) => super::text_binding::bind_rich(cx, id, spans, loc),
                 Content::Image(src) => cx.bind(id, src, PropValue::Image, loc),
@@ -274,7 +273,7 @@ fn drop_misused(
     at: &'static Location<'static>,
 ) -> Vec<View> {
     let mut misused: Vec<&str> = Vec::new();
-    let is_box = kind == NodeType::Box && common.text_editing.is_none();
+    let is_box = kind == NodeType::Box || common.text_editing.is_some();
     if !is_box && children.iter().any(|c| !c.is_empty()) {
         misused.push("child");
     }

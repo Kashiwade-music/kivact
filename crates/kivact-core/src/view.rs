@@ -24,6 +24,7 @@ pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
 pub(crate) mod node;
+mod node_draw;
 mod node_modifiers;
 pub(crate) mod node_ref;
 pub(crate) mod overlays;

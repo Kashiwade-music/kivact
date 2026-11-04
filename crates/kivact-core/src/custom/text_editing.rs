@@ -10,8 +10,8 @@
 //! `max_length` and `placeholder` bind to the one editing payload: whether a
 //! node edits is this payload, not its kind, and a Box, a Text and an Image
 //! take the same path. The author decides the Part's focusability, role and
-//! name. An editor is a native leaf: children and custom drawing are
-//! `Unsupported`, and an editing attachment on a canvas region is reported
+//! name. An editor accepts inline children and custom draw layers.
+//! An editing attachment on a canvas region is reported
 //! as `Unsupported` and ignored. When several Parts are combined, the last
 //! editing setting wins.
 //!
@@ -48,7 +48,7 @@
 //! [`NodeRefExt::text_layout`]: crate::custom::NodeRefExt::text_layout
 
 use crate::view::editing_data::{
-    EditorProps, HighlightAt, TextEditEvent, TextEditing, TextHighlight,
+    Decoration, DecorationKind, EditorProps, HighlightAt, TextEditEvent, TextEditing,
 };
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};
@@ -57,7 +57,7 @@ use kivact_engine::api::PropValue;
 use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
 use kivact_runtime::{IntoText, IntoValue, Prop as InputProp};
-use kivact_style::Theme;
+use kivact_style::{StyledRange, Theme};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -111,14 +111,14 @@ impl TextEditing {
         self
     }
 
-    /// Color the glyphs of each line with `f(&content, line, state)`.
+    /// Style each line with `f(&content, line, state)`.
     ///
     /// `f` gets one line at a time (without its line break) and the state
     /// the line before left (`S::default()` for the first line), and
-    /// returns byte ranges in the line with their colors and the state the
+    /// returns byte ranges with glyph color, background and decoration, and the state the
     /// line leaves: a token that spans lines (a block comment, a string)
     /// carries over in the state. Overlapping and out-of-line ranges are
-    /// cut, and text outside every range keeps the text color. Colors only
+    /// cut, and text outside every range keeps the text color. Styles only
     /// change how the glyphs are drawn, never the shaping, the caret or
     /// the selection.
     ///
@@ -132,16 +132,65 @@ impl TextEditing {
     /// subscribes nothing). A new `content`, or a new theme for token
     /// colors, colors the lines again. A panic in `f` propagates and ends
     /// the App. A password editor and its placeholder are not
-    /// colored. A later call replaces an earlier one.
-    pub fn highlight<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
+    /// styled. A later call replaces an earlier one.
+    pub fn line_styles<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
-        T: kivact_runtime::PropValue,
+        T: Clone + PartialEq + 'static,
         S: PartialEq + Default + 'static,
-        F: Fn(&T, &str, &S) -> (Vec<TextHighlight>, S) + 'static,
+        F: Fn(&T, &str, &S) -> (Vec<StyledRange>, S) + 'static,
     {
         let src = content.into_prop();
         let f = Rc::new(f);
         self.props.highlight = Some(Box::new(move |cx| bind_highlight(cx, src, f)));
+        self
+    }
+
+    /// Paint document UTF-8 byte ranges with underlines, outlines or backgrounds.
+    /// The content and theme are tracked; ranges are clamped to char boundaries.
+    pub fn decorations<T: Clone + PartialEq + 'static>(
+        mut self,
+        content: impl IntoValue<T>,
+        f: impl Fn(&T) -> Vec<Decoration> + 'static,
+    ) -> Self {
+        let source = content.into_prop();
+        let f = Rc::new(f);
+        self.props.decorations = Some(Box::new(move |cx| {
+            let weak = Rc::downgrade(&cx.rt);
+            cx.owner.effect(
+                EffectKind::Render,
+                move || {
+                    let content = source.get();
+                    let theme = cx.theme.map_or_else(Theme::default, |theme| theme.get());
+                    let ranges = kivact_runtime::pure(|| kivact_runtime::untrack(|| f(&content)));
+                    let decorations = ranges
+                        .into_iter()
+                        .map(|r| kivact_editing::RangeDecoration {
+                            range: r.range,
+                            color: r.color.resolve(&theme),
+                            kind: match r.kind {
+                                DecorationKind::Underline(style) => {
+                                    kivact_editing::RangeDecorationKind::Underline(style)
+                                }
+                                DecorationKind::Outline => {
+                                    kivact_editing::RangeDecorationKind::Outline
+                                }
+                                DecorationKind::Background => {
+                                    kivact_editing::RangeDecorationKind::Background
+                                }
+                            },
+                        })
+                        .collect();
+                    if let Some(rt) = weak.upgrade() {
+                        ViewState::tree_mut(&rt).update(
+                            cx.id,
+                            PropValue::Decorations(decorations),
+                            rt.running_effect(),
+                        );
+                    }
+                },
+                cx.at,
+            );
+        }));
         self
     }
 
@@ -157,6 +206,7 @@ impl TextEditing {
             props: EditorProps {
                 behavior: None,
                 highlight: None,
+                decorations: None,
                 forward_keys: None,
                 value: InputProp::computed(Rc::new(move || Rc::<str>::from(value.get()))),
                 multiline: false,
@@ -252,7 +302,7 @@ impl crate::view::Node {
     /// Add native editing to this attachment's node.
     ///
     /// Combining Parts keeps the last editing attachment. Regions report
-    /// `Unsupported` and ignore it; an editing node remains a native leaf.
+    /// `Unsupported` and ignore it; editing nodes support draw layers and inline children.
     pub fn text_editing(mut self, editing: crate::view::editing_data::TextEditing) -> Self {
         self.common.text_editing = Some(Box::new(editing));
         self
@@ -264,9 +314,9 @@ impl crate::view::Node {
 /// the last (like a primitive's measure function).
 fn bind_highlight<T, S, F>(cx: HighlightAt, src: InputProp<T>, f: Rc<F>)
 where
-    T: kivact_runtime::PropValue,
+    T: Clone + PartialEq + 'static,
     S: PartialEq + Default + 'static,
-    F: Fn(&T, &str, &S) -> (Vec<TextHighlight>, S) + 'static,
+    F: Fn(&T, &str, &S) -> (Vec<StyledRange>, S) + 'static,
 {
     let HighlightAt {
         rt,
@@ -298,7 +348,14 @@ where
                 (
                     ranges
                         .into_iter()
-                        .map(|r| (r.range, r.color.resolve(theme)))
+                        .map(|r| kivact_editing::LineStyle {
+                            range: r.range,
+                            color: r.color.map(|c| c.resolve(theme)),
+                            background: r.background.map(|c| c.resolve(theme)),
+                            decoration: r
+                                .decoration
+                                .map(|d| kivact_style::internal::compile_text_decoration(d, theme)),
+                        })
                         .collect(),
                     LineState::new(output),
                 )

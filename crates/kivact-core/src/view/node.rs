@@ -490,6 +490,8 @@ impl NodeBuilder for Node {
 pub trait Component: crate::view::descriptor::IntoView + NodeBuilder {}
 impl<T: crate::view::descriptor::IntoView + NodeBuilder> Component for T {}
 
+pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)>;
+
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
 /// Modifiers shared by every element builder.
@@ -537,6 +539,7 @@ pub(crate) struct Common {
     pub draw: Option<DrawFn>,
     /// Draw layer over the children.
     pub draw_over: Option<DrawFn>,
+    pub draw_with_layout: Option<LayoutDrawFn>,
     /// Size hints for layout.
     pub intrinsic: Option<IntrinsicSize>,
     /// How an image fills its box (image nodes only).

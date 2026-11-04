@@ -190,7 +190,9 @@ impl Model {
         if !step.own {
             return;
         }
-        if let Some(scene) = &n.scenes()[0] {
+        if host.editors[n.index.0].is_none()
+            && let Some(scene) = &n.scenes()[0]
+        {
             self.paint_scene(id, 0, scene, canvas, &tint, engine, out);
         }
         match n.kind() {
@@ -199,7 +201,10 @@ impl Model {
                 .map(|editor| editor.editor.state())
                 .is_some() =>
             {
-                self.paint_input(id, bounds, step.clip, &tint, engine, out)
+                self.paint_input(id, bounds, step.clip, &tint, engine, out);
+                if let Some(scene) = &n.scenes()[0] {
+                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out);
+                }
             }
             NodeType::Text => {
                 let layout = host.computed_layout(id).unwrap_or_default();

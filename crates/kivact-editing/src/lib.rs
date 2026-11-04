@@ -60,6 +60,6 @@ pub use edit_state::{EditState, Taken};
 pub use editor::Editor;
 pub use geometry::{TextGeometry, caret_at};
 pub use journal::{Incoming, Journal};
-pub use line_colors::{LineColors, LineState};
+pub use line_colors::{LineColors, LineState, LineStyle, RangeDecoration, RangeDecorationKind};
 pub use session::TextSession;
 pub use text_layout::{EditCaret, EditLine, TextLayout};

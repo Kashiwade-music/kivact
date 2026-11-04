@@ -119,51 +119,7 @@ fn lines(
             height: (line.rect.height * device).round().max(1.0) / device,
         };
         let paint = kivact_types::render::Paint::Solid(colors.decorations.unwrap_or(line.color));
-        use kivact_types::scene::Shape;
-        use kivact_types::{FillRule, LineCap, PathCmd, Stroke, TextDecorationStyle};
-        if line.style == TextDecorationStyle::Solid {
-            out.push(D::Rect { rect, fill: paint });
-            continue;
-        }
-        let width = rect.height;
-        let y = rect.y + width / 2.0;
-        let mut cmds = vec![PathCmd::MoveTo(Point::new(rect.x, y))];
-        let mut stroke = Stroke::new(width);
-        match line.style {
-            TextDecorationStyle::Dashed => stroke.dash = vec![3.0 * width, 3.0 * width],
-            TextDecorationStyle::Dotted => {
-                stroke.cap = LineCap::Round;
-                stroke.dash = vec![0.0, 2.0 * width];
-            }
-            TextDecorationStyle::Wavy => {
-                let mut x = rect.x;
-                let end = rect.x + rect.width;
-                let mut direction = 1.0;
-                while x < end {
-                    let next = (x + 4.0 * width).min(end);
-                    let step = next - x;
-                    cmds.push(PathCmd::CubicTo(
-                        Point::new(x + step / 3.0, y + direction * width * 2.0),
-                        Point::new(x + step * 2.0 / 3.0, y + direction * width * 2.0),
-                        Point::new(next, y),
-                    ));
-                    x = next;
-                    direction = -direction;
-                }
-            }
-            TextDecorationStyle::Solid => {}
-        }
-        if line.style != TextDecorationStyle::Wavy {
-            cmds.push(PathCmd::LineTo(Point::new(rect.x + rect.width, y)));
-        }
-        out.push(D::StrokeShape {
-            shape: Shape::Path {
-                cmds,
-                rule: FillRule::NonZero,
-            },
-            stroke,
-            paint,
-        });
+        decoration(out, rect, paint, line.style);
     }
 }
 
@@ -277,4 +233,58 @@ pub(crate) fn shape_inline_run(
     engine
         .shape_inline(run.text.as_str(), &style, max_width, boxes)
         .ok()
+}
+
+/// Paint one resolved decoration band, retaining its pattern.
+pub(crate) fn decoration(
+    out: &mut crate::lower::SceneOut,
+    rect: Rect,
+    paint: kivact_types::render::Paint,
+    style: kivact_types::TextDecorationStyle,
+) {
+    use kivact_types::scene::Shape;
+    use kivact_types::{FillRule, LineCap, PathCmd, Stroke, TextDecorationStyle};
+    if style == TextDecorationStyle::Solid {
+        out.push(D::Rect { rect, fill: paint });
+        return;
+    }
+    let width = rect.height;
+    let y = rect.y + width / 2.0;
+    let mut cmds = vec![PathCmd::MoveTo(Point::new(rect.x, y))];
+    let mut stroke = Stroke::new(width);
+    match style {
+        TextDecorationStyle::Dashed => stroke.dash = vec![3.0 * width, 3.0 * width],
+        TextDecorationStyle::Dotted => {
+            stroke.cap = LineCap::Round;
+            stroke.dash = vec![0.0, 2.0 * width];
+        }
+        TextDecorationStyle::Wavy => {
+            let mut x = rect.x;
+            let end = rect.x + rect.width;
+            let mut direction = 1.0;
+            while x < end {
+                let next = (x + 4.0 * width).min(end);
+                let step = next - x;
+                cmds.push(PathCmd::CubicTo(
+                    Point::new(x + step / 3.0, y + direction * width * 2.0),
+                    Point::new(x + step * 2.0 / 3.0, y + direction * width * 2.0),
+                    Point::new(next, y),
+                ));
+                x = next;
+                direction = -direction;
+            }
+        }
+        TextDecorationStyle::Solid => {}
+    }
+    if style != TextDecorationStyle::Wavy {
+        cmds.push(PathCmd::LineTo(Point::new(rect.x + rect.width, y)));
+    }
+    out.push(D::StrokeShape {
+        shape: Shape::Path {
+            cmds,
+            rule: FillRule::NonZero,
+        },
+        stroke,
+        paint,
+    });
 }

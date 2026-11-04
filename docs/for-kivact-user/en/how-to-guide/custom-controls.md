@@ -695,3 +695,27 @@ fits your control.
 - [Test your app](testing.md) to check roles, keys and focus the way the tests above do.
 - `cargo doc -p kivact-interaction --open` for every controller and its Parts, and
   `cargo doc -p kivact --open` for `kivact::custom`.
+
+
+### Paint native editing text
+
+`TextEditing::line_styles(content, f)` styles each line without changing its
+shaping or editing behavior. The callback receives the content, a line without
+its break, and the previous line's state; return `(Vec<StyledRange>, next_state)`.
+`StyledRange` lives in `kivact::style`; its UTF-8 byte range is relative to that
+line. Its optional `color`, `background` and `decoration` override paint.
+`TextDecoration` accepts theme colors, text lengths and `TextDecorationStyle`.
+
+Use `TextEditing::decorations(content, f)` for document byte ranges. Return
+`kivact::custom::Decoration` values with `Background`, `Outline`, or
+`Underline(TextDecorationStyle)` kinds. Reactive content and theme changes update
+the paint. Password values and placeholders omit range styling.
+
+An editing node accepts children (including `custom::inline_view`), `draw`, and
+`draw_over`. These layers paint over the native text, selection and caret.
+`Node::draw_with_layout` also receives `custom::TextLayout` in canvas coordinates:
+its requested line boxes, caret stops, selection rectangles and `hit_test` query.
+The callback updates after text, selection and geometry changes. Standalone
+`NodeRefExt::text_layout` queries keep window coordinates and only shape the
+requested lines. Caret offsets and `hit_test` results count Unicode scalars;
+style and decoration ranges count UTF-8 bytes.
