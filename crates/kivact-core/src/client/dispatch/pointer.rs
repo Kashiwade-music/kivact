@@ -72,6 +72,7 @@ pub(super) fn pointer(
             ))
     {
         let handled = run_handler(rt, node_owner(rt, id), || h.deliver(e));
+        requests::clear_pointer_releases(rt);
         if handled != Some(Handled::No) {
             return;
         }

@@ -58,11 +58,27 @@ fn capture_action(event: &PointerEvent, capture: bool) {
         return;
     }
     if let Some(runtime) = kivact_runtime::Runtime::current() {
+        let before = ViewState::tree(&runtime)
+            .reader()
+            .pointer_capture(event.id());
         ViewState::tree(&runtime).engine().set_pointer_capture(
             event.origin().node,
             event.id(),
             capture,
         );
+        if !capture
+            && before == Some(event.origin().node)
+            && ViewState::tree(&runtime)
+                .reader()
+                .pointer_capture(event.id())
+                != before
+        {
+            crate::view::requests::request_pointer_release(
+                &runtime,
+                event.origin().node,
+                event.id(),
+            );
+        }
     }
 }
 
@@ -213,11 +229,6 @@ pub(super) fn route(
 ) -> EventHandlers<PointerEvent> {
     EventHandlers::router(move |event: PointerEvent| {
         let root = &registry.root;
-        let capture_before = root.runtime.upgrade().and_then(|runtime| {
-            ViewState::tree(&runtime)
-                .reader()
-                .pointer_capture(event.id())
-        });
         let mut transitions = Vec::new();
         let (target, deliver_raw, finish_fallback) = {
             let mut gestures = registry.gestures.borrow_mut();
@@ -410,15 +421,10 @@ pub(super) fn route(
             }
             Ok(handled)
         })();
-        // A handler can release engine capture before Up returns to this node.
-        // Only reconcile capture changed by this callback: queued input may have
-        // already released engine capture before its Down is dispatched.
-        if capture_before == Some(registry.node)
-            && let Some(runtime) = root.runtime.upgrade()
-            && ViewState::tree(&runtime)
-                .reader()
-                .pointer_capture(event.id())
-                != Some(registry.node)
+        // Cleanup follows defaults even if one callback both captures and releases.
+        // Queued input's final Up does not create an explicit release request.
+        if let Some(runtime) = root.runtime.upgrade()
+            && crate::view::requests::take_pointer_release(&runtime, registry.node, event.id())
         {
             let released = {
                 let mut gestures = registry.gestures.borrow_mut();
