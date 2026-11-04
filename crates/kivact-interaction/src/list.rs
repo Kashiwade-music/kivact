@@ -65,6 +65,7 @@
 mod data;
 mod handle;
 mod input;
+mod machine;
 mod order;
 mod parts;
 mod selection;

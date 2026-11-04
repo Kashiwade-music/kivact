@@ -290,5 +290,6 @@ impl ListOptions {
 pub struct ListItemState {
     pub input: PartState,
     pub selected: bool,
+    // xtask-allow(state-fields): Public derived part output, independent of selection.
     pub active: bool,
 }

@@ -17,7 +17,7 @@ pub use host::RuntimeConfig;
 pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
     Animatable, Animated, Easing, FrameInfo, FrameLoop, FrameRate, MotionEnv, MotionState,
-    MotionStats, Repeat, Spring, Transition, animated, frame_loop,
+    MotionStats, Repeat, Retarget, Spring, Transition, animated, frame_loop,
 };
 pub use reactive::{
     AppId, Binding, Callback, EffectKind, ErrorKind, ExitState, Extensions, Handled, Handler,

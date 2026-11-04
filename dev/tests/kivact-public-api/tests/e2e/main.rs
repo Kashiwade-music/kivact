@@ -10,7 +10,10 @@ mod theme_conformance;
 
 mod apg_combobox;
 mod apg_listbox;
+mod apg_radio_group;
+mod apg_tabs;
 mod apg_tooltip;
+mod apg_tree_view;
 mod assets;
 mod async_tests;
 mod canvas;

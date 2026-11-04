@@ -371,6 +371,8 @@ pub struct LayoutProps {
     /// Axis collapsed during removal.
     pub exit_size: Option<crate::Orientation>,
     /// Timing shared by presence size changes.
+    /// Animate layout changes through the visual transform.
+    pub layout_transition: Option<crate::motion::Transition>,
     pub size_transition: Option<crate::motion::Transition>,
     /// Main-axis direction of the flex container.
     pub direction: FlexDirection,
@@ -441,6 +443,7 @@ impl Default for LayoutProps {
             enter_size: None,
             exit_size: None,
             size_transition: None,
+            layout_transition: None,
             direction: FlexDirection::Column,
             align_items: None,
             align_self: None,
