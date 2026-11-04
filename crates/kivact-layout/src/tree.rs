@@ -2,7 +2,7 @@
 //!
 //! The layout pass implements taffy's custom tree traits on `LayoutPass`,
 //! which exists only while one root is computed: it shares the borrow of
-//! the `LayoutTree` and borrows `LeafMeasure` and the layout columns mutably,
+//! the `LayoutTree` and borrows `LeafMeasurer` and the layout columns mutably,
 //! and no copy of the tree or shared measuring context outlives it. Each root
 //! computation splits the columns once: the styles as a shared slice, the
 //! caches and the geometry as mutable slices, indexed directly.
@@ -38,7 +38,7 @@ use crate::calcs::Calcs;
 use crate::style::node::{NodeStyle, TStyle};
 use crate::traversal::{Entry, Traversal, entry, taffy_id, viewport};
 use crate::{
-    Flow, GeometryChange, GeometryChangeKind, LayoutState, LayoutTree, LeafMeasure, NodeLayout,
+    Flow, GeometryChange, GeometryChangeKind, LayoutState, LayoutTree, LeafMeasurer, NodeLayout,
     NodeLayoutColumns, NodeLayoutState, NodeLayoutValues,
 };
 use kivact_wire::{AvailableSpace, Baseline, MeasureRequest, NodeId, Point, Rect, Size};
@@ -60,7 +60,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     final_layout: &'a mut [Option<Layout>],
     geometry_changed: &'a mut Vec<GeometryChange>,
     performed: &'a mut [Option<LayoutInput>],
-    measure: &'a mut dyn LeafMeasure,
+    measure: &'a mut dyn LeafMeasurer,
 }
 
 impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
@@ -482,7 +482,7 @@ impl NodeLayoutColumns {
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
-        measure: &mut dyn LeafMeasure,
+        measure: &mut dyn LeafMeasurer,
     ) {
         while let Some(id) = state.relayout.pop() {
             let Some(slot) = tree.index_of(id) else {
@@ -517,7 +517,7 @@ impl NodeLayoutColumns {
         &mut self,
         tree: &Tree,
         state: &LayoutState,
-        measure: &mut dyn LeafMeasure,
+        measure: &mut dyn LeafMeasurer,
         f: impl FnOnce(&mut LayoutPass<'_, Tree>) -> R,
     ) -> R {
         let NodeLayoutColumns {
@@ -565,7 +565,7 @@ impl NodeLayoutColumns {
         tree: &Tree,
         state: &mut LayoutState,
         available: Size,
-        measure: &mut dyn LeafMeasure,
+        measure: &mut dyn LeafMeasurer,
     ) {
         self.values.geometry_changed.clear();
         state.fixed_cursor.set(None);
@@ -594,7 +594,7 @@ impl NodeLayoutColumns {
         id: NodeId,
         available: Size,
         limit: Option<Size>,
-        measure: &mut dyn LeafMeasure,
+        measure: &mut dyn LeafMeasurer,
     ) {
         let slot = tree.index_of(id).expect("invariant: overlay exists");
         let overlay = taffy_id(slot);
@@ -649,7 +649,7 @@ impl NodeLayoutColumns {
         root: TId,
         available: Size,
         fill: bool,
-        measure: &mut dyn LeafMeasure,
+        measure: &mut dyn LeafMeasurer,
     ) {
         if fill {
             let values = &mut self.values;

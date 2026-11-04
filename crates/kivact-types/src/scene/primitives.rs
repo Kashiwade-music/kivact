@@ -1,5 +1,4 @@
-//! Role: Fill rules, stroke styles and border styles.
-//! Plain data usable on any thread.
+//! Role: Pure fill, border and stroke primitives shared with renderers.
 
 /// Which points a self-intersecting or nested outline encloses.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

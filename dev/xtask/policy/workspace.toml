@@ -23,16 +23,15 @@ kivact-interaction = ["kivact", "kivact-ui"]
 kivact-ui = ["kivact"]
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
-# App::run, Offscreen and the test driver share this bridge.
+# App::run, OffscreenRenderer and the test driver share the engine API.
 # Embedded handles are Send + Sync. A panic of an embedded App is kept in a
 # PanicSlot and resumed by the embedder's next call; nothing turns it into a
 # diagnostic.
 # Detach facts flow task -> core and asset/native -> arvane -> engine/embed.
 # Only arvane-native retains the code module; task and asset contain no unsafe.
-# Shared values belong to kivact-wire; pure layout belongs to kivact-layout.
+# Shared values belong to kivact-types; pure layout belongs to kivact-layout.
 kivact-engine = ["kivact-core"]
-kivact-editing = ["kivact-style", "kivact-wire", "kivact-text", "kivact-engine", "kivact-core"]
-kivact-wire = ["kivact-lower", "kivact-layout", "kivact-engine", "kivact-motion", "kivact-style", "kivact-core"]
+kivact-editing = ["kivact-style", "kivact-text", "kivact-engine", "kivact-core"]
 kivact-lower = ["kivact-text", "kivact-engine"]
 kivact-text = ["kivact-engine"]
 kivact-layout = ["kivact-engine"]
@@ -42,9 +41,6 @@ kivact-layout = ["kivact-engine"]
 arvane = ["kivact-lower", "kivact-text", "kivact-engine"]
 # GPU texture 共有の中立な kivact-gpu-share は UI を知らず、import と export の契約を共有する
 # （visible_to は書かない。誰でも依存できる）。
-kivact-types = [
-    "arvane*", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-engine", "kivact-reactive", "kivact-gpu-share", "gpu-interop-producer",
-]
 arvane-shell = ["arvane", "arvane-native"]
 # Linux embedded native services own XCB/XIM, AT-SPI and desktop services;
 # callbacks queue through arvane-shell and never depend back on the engine.
@@ -224,50 +220,46 @@ except = [
     "model::interact::sync -> paint::state",
 ]
 [module_rules.kivact-engine.uses]
-tree = []
-mutation = []
-frame_log = []
-measure = ["tree"]
-model = ["tree", "measure", "mutation"]
-layout = ["tree"]
-text_measure = ["tree", "measure", "model"]
-paint = ["tree", "measure", "mutation", "model", "text_measure"]
-a11y = ["tree", "measure", "mutation", "model"]
-check = ["tree", "measure", "mutation", "model", "paint", "a11y"]
-host = ["tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log"]
-offscreen = ["text_measure"]
+contract = []
+tree = ["contract"]
+mutation = ["contract", "tree"]
+frame_log = ["contract"]
+measure = ["contract", "tree"]
+model = ["contract", "tree", "measure", "mutation"]
+text_measure = ["contract", "tree", "measure", "model"]
+paint = ["contract", "tree", "measure", "mutation", "model", "text_measure"]
+a11y = ["contract", "tree", "measure", "mutation", "model"]
+check = ["contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
+host = ["contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log"]
+offscreen = ["contract", "text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
-bridge = ["host", "offscreen", "text_measure", "mutation"]
-native = ["host", "offscreen", "bridge"]
+api = ["contract", "host", "offscreen", "text_measure", "mutation"]
+embed = ["contract", "host", "api"]
+testing = ["contract", "host", "offscreen", "api"]
 
 # kivact-types: 語彙（root の module）は host と Arvane の protocol に依存しない。`protocol` を key にして
 # 語彙の全 module を許すのは、protocol から語彙への向きだけを許す（`protocol` が key でないと、語彙から
 # protocol への参照は検査されない）ため。
 [module_rules.kivact-types.uses]
 asset = []
-cursor = []
-effect = []
+check = ["geometry", "ids", "semantics"]
+color = []
+env = ["geometry"]
 geometry = []
-gpu_interop = []
-image = []
-input = []
-layout = []
+gpu = []
+ids = []
+input = ["geometry"]
+layout = ["geometry", "ids"]
 motion = []
-paint = []
-platform = ["input"]
-semantics = []
-semantics_text = ["geometry"]
-shape = []
-style = []
-text = ["geometry"]
-protocol = [
-    "asset", "cursor", "effect", "geometry", "gpu_interop", "image", "input", "layout", "motion",
-    "paint", "platform", "semantics", "semantics_text", "shape", "style", "text",
-]
+paint = ["asset", "color", "geometry", "layout", "motion", "protocol", "scene"]
+platform = ["asset", "geometry"]
+scene = ["asset", "color", "geometry", "gpu", "ids", "paint", "protocol", "semantics", "text"]
+semantics = ["geometry", "ids", "semantics_text"]
+semantics_text = ["geometry", "ids"]
+text = ["color", "geometry", "paint", "protocol"]
+text_shaping = ["protocol", "scene", "text"]
+protocol = ["asset", "check", "color", "env", "geometry", "gpu", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
 
-# ----- Google Rust Style Guide の機械的に検査できる部分（vendor/xtask-core の README「Style checks」）。
-# 例外は Google の指針自体が認める場合（意図した prelude、FFI の境界の defense in depth など）だけに書き、
-# reason にその設計上の事実を書く。件数を減らすための例外は書かない。
 [style]
 enabled = true
 extra_rules = [
@@ -284,12 +276,12 @@ disabled_rules = ["missing-docs"]
 # non-exhaustive（extra_rules に入れていない）も同じ理由で今は検査しない。互換を残さない初期開発版では
 # semver の利点がなく、workspace の中の match から網羅性の検査を奪うだけになる。API が落ち着いたら
 # extra_rules に戻す。下の api_packages はそのときの対象。
-# 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-wire と kivact_types::protocol は workspace 内の protocol。
+# 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-types と kivact_types::protocol は workspace 内の protocol。
 # facade（kivact）から届く crate と、五つの公式キット。
 api_packages = [
     "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
     "kivact-motion", "kivact-reactive", "kivact-style", "kivact-task", "kivact-types", "kivact-ui",
-    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-wire",
+    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft",
 ]
 # 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
 options_structs = [
@@ -300,7 +292,7 @@ options_structs = [
     "arvane-shell::ShellOptions",
     "kivact-core::platform::FileDialog",
     "kivact-core::test::RenderOptions",
-    "kivact-engine::HostOptions",
+    "kivact-engine::api::HostOptions",
     "kivact-engine::embed::EmbedOptions",
     "kivact-engine::testing::TestHostOptions",
     "kivact-interaction::Delays",
@@ -404,31 +396,31 @@ reason = "Glue: the binary entry only wires xtask-core's run to this workspace's
 # Foundation checks start disabled for existing packages; new packages are checked automatically.
 
 [state_fields]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
 record_types = ["ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
 value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check"]
 
 [effect_writes]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 
 [api_shape]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 
 [canonical_path]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 
 [name_collision]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 
 [kit_literal_color]
 skip = ["kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog"]
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
 
 [os_branch]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
-allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/kivact-types/src/gpu_interop.rs", "crates/arvane-asset/", "crates/arvane-text/"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
 
 [structural_options]
-skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-wire", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
+skip = ["kivact", "kivact-core", "kivact-public-api-tests", "kivact-reactive", "kivact-i18n", "kivact-task", "kivact-motion", "kivact-style", "kivact-interaction", "kivact-ui", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-lower", "kivact-text", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 list = []

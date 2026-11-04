@@ -298,3 +298,20 @@ pub struct SharedTextures {
     /// The fence Arvane signals when it is done with frames.
     pub release: SharedHandle,
 }
+
+/// How the window answered an import of shared textures
+/// (`HostEvent::ExternalImported`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExternalImport {
+    /// Imported into the device of this generation
+    /// (`GpuAdapter::generation`).
+    Ready { generation: u64 },
+    /// The window has no device that can import (it draws on the CPU, its
+    /// device is not ready, or the platform has none): Arvane's
+    /// `ErrorKind::Unavailable`, with its message.
+    Unavailable(String),
+    /// The textures do not fit what they say or the window's device, or
+    /// the device failed (Arvane's `Content` and `Backend`), with its
+    /// message.
+    Failed(String),
+}

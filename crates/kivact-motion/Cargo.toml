@@ -9,7 +9,7 @@ description = "Kivact internal crate: frame loops, animated values and transitio
 
 [dependencies]
 kivact-reactive = { path = "../kivact-reactive", version = "0.1.0" }
-kivact-wire = { path = "../kivact-wire", version = "0.1.0" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 
 [dev-dependencies]
 # Doctests show what users write (`use kivact::prelude::*`). Dev-dependency

@@ -11,7 +11,6 @@ description = "Kivact internal engine: retained UI state, interaction, scene gen
 kivact-text = { path = "../kivact-text", version = "0.1.0" }
 kivact-layout = { path = "../kivact-layout", version = "0.1.0" }
 kivact-lower = { path = "../kivact-lower", version = "0.1.0" }
-kivact-wire = { path = "../kivact-wire", version = "0.1.0" }
 kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
 arvane = { path = "../arvane", version = "0.1.0" }

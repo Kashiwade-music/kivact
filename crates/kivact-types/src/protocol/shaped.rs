@@ -1,9 +1,9 @@
 //! Role: Shaped text: glyph runs, lines, decoration and highlight rects.
 
+use crate::color::Rgba;
 use crate::geometry::{Rect, Size};
 use crate::semantics_text::TextCaret;
-use crate::style::Rgba;
-use crate::text::DecorationLines;
+use crate::text::primitives::DecorationLines;
 use std::ops::Range;
 use std::sync::Arc;
 

@@ -10,8 +10,10 @@ pub use crate::host::{Boundary, Client, HostWaker};
 
 pub use crate::host::write::typed::{Prop, PropValue};
 pub use crate::host::write::{Reader, Writer};
-pub use crate::offscreen::{Offscreen, OffscreenError, OffscreenImage};
+pub use crate::offscreen::{OffscreenError, OffscreenImage, OffscreenRenderer};
 
 pub use crate::text_measure::TextMeasurer;
 
 pub use crate::mutation::WriteStats;
+
+pub use crate::host::options::HostOptions;

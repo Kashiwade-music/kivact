@@ -1815,7 +1815,7 @@ dependencies = [
  "kivact-reactive",
  "kivact-style",
  "kivact-task",
- "kivact-wire",
+ "kivact-types",
  "tracing",
 ]
 
@@ -1850,7 +1850,6 @@ dependencies = [
  "kivact-lower",
  "kivact-text",
  "kivact-types",
- "kivact-wire",
  "png 0.18.1",
 ]
 
@@ -1919,7 +1918,7 @@ dependencies = [
 name = "kivact-layout"
 version = "0.1.0"
 dependencies = [
- "kivact-wire",
+ "kivact-types",
  "taffy",
 ]
 
@@ -1929,7 +1928,6 @@ version = "0.1.0"
 dependencies = [
  "arvane",
  "kivact-types",
- "kivact-wire",
 ]
 
 [[package]]
@@ -1938,7 +1936,7 @@ version = "0.1.0"
 dependencies = [
  "kivact",
  "kivact-reactive",
- "kivact-wire",
+ "kivact-types",
 ]
 
 [[package]]
@@ -1973,7 +1971,7 @@ dependencies = [
  "kivact-editing",
  "kivact-motion",
  "kivact-reactive",
- "kivact-wire",
+ "kivact-types",
  "kurbo",
 ]
 
@@ -2092,14 +2090,6 @@ version = "0.1.0"
 dependencies = [
  "kivact",
  "kivact-ui-soft",
-]
-
-[[package]]
-name = "kivact-wire"
-version = "0.1.0"
-dependencies = [
- "kivact-editing",
- "kivact-types",
 ]
 
 [[package]]

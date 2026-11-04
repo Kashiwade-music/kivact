@@ -1,115 +1,10 @@
-//! Role: Events and results from the engine to the client.
-//! Events arrive in production order through one queue, handed to each
-//! turn. Kivact publicly re-exports the input keys, modifier state, mouse
-//! buttons, pointer phases and kinds, and file drag phases.
-
+//! Role: Engine client events contracts.
+use kivact_types::{
+    A11yRequest, ExternalImport, FilePhase, HostEnv, ImeEvent, Key, KeyCode, KeyPhase, LayoutRule,
+    LifecycleEvent, Modifiers, MotionClock, NodeId, PlatformResult, Point, PointerEvent, PointerId,
+    Rect, RegionId, RequestId, Revision, Size,
+};
 use std::path::PathBuf;
-
-use super::check::LayoutRule;
-use super::ids::{NodeId, RequestId, Revision};
-use super::motion::MotionClock;
-use super::semantics::A11yRequest;
-use super::{ImeEvent, LifecycleEvent, Point, Rect, RegionId, Size};
-
-pub use kivact_types::{FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerId, PointerKind};
-
-pub use kivact_types::{ButtonPress, PointerButtons, PointerPhase};
-
-/// Pointer event with node-local position. The host owns hit testing and
-/// capture: while a pointer holds a button (a touch or pen is in contact),
-/// its events go to the node that got its `Down`. The mouse is pointer 1;
-/// each touch or pen contact has its own id while it lasts and presses as
-/// the primary button. `is_primary` is Pointer Events' `isPrimary`: the
-/// mouse, and the first touch or pen contact while no other of its kind is
-/// in contact.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PointerEvent {
-    /// The mouse's is 1; each touch or pen contact has its own.
-    pub id: PointerId,
-    /// Transition represented by this pointer event; a `Down` or `Up` carries
-    /// its button and click count.
-    pub phase: PointerPhase,
-    /// Where the pointer is, in the node's untransformed local coordinates.
-    pub pos: Point,
-    /// The same point in the window (logical pixels).
-    pub window_pos: Point,
-    /// Buttons held after this event, independent of its changed button.
-    pub buttons: PointerButtons,
-    /// Modifier keys held for the event.
-    pub modifiers: Modifiers,
-    /// Mouse, touch or pen.
-    pub kind: PointerKind,
-    /// Pressure from 0 to 1, when the device reports it.
-    pub pressure: Option<f32>,
-    /// Pen tilt from vertical in degrees, when reported by the device.
-    pub tilt: Option<(f32, f32)>,
-    /// Whether this is the primary active pointer of its kind.
-    pub is_primary: bool,
-}
-
-/// System preference for a light or dark color scheme.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum ThemeHint {
-    #[default]
-    Light,
-    Dark,
-}
-
-/// The window's environment as the client sees it: the whole value, at
-/// start (`HostInfo::env`) and again whenever any of it changes
-/// (`HostEvent::EnvChanged`). The host keeps one and sends a new one only
-/// when it differs from the last it sent.
-#[derive(Clone, Debug, PartialEq)]
-pub struct HostEnv {
-    /// Physical pixels per logical pixel.
-    pub scale: f32,
-    /// The system asks for reduced motion.
-    pub reduced_motion: bool,
-    /// Light at start; the host follows the system's theme from its first
-    /// change.
-    pub theme_hint: ThemeHint,
-    /// Display refresh period (ns); used for `FrameRate::Display`.
-    pub frame_period_ns: u64,
-    /// The part of each window edge (logical pixels) system UI may cover
-    /// (a notch, a status bar); zero on desktops. The host makes a negative
-    /// or non-finite side zero.
-    pub safe_area: crate::Insets,
-    /// The window's size in logical pixels.
-    pub window: Size,
-    /// The system's language and region as a BCP 47 tag (`"ja-JP"`), or
-    /// `None` where the host cannot tell.
-    pub locale: Option<String>,
-    /// The window is borderless fullscreen.
-    pub fullscreen: bool,
-    /// Frames can be drawn: the application is in the foreground and the
-    /// window has a surface and is not empty. While it is `false` no frame
-    /// ticks are sent.
-    pub surface_active: bool,
-}
-
-/// Result of a platform request; cancellation is represented by an absent path.
-#[derive(Clone, Debug, PartialEq)]
-pub enum PlatformResult {
-    Done,
-    Text(String),
-    Path(Option<PathBuf>),
-    Paths(Option<Vec<PathBuf>>),
-    Failed(String),
-    Unsupported,
-    /// The family names of a registered font file (`RegisterFont`).
-    Fonts(Vec<String>),
-}
-
-/// A key's press or release (`HostEvent::Key`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KeyPhase {
-    /// The key went down. `repeat`: the system repeats a held key. `text`:
-    /// the text the press produces (a character or a space), `None` for other
-    /// keys.
-    Down { repeat: bool, text: Option<String> },
-    /// The key was released.
-    Up,
-}
 
 /// What the engine tells the client. Every kind goes into one ordered
 /// queue, in the order produced (never one list per kind), handed whole to
@@ -319,21 +214,4 @@ pub enum HostEvent {
     /// starts with `None`; the host sends the first adapter when the
     /// device is ready.
     GpuAdapterChanged(Option<kivact_types::GpuAdapter>),
-}
-
-/// How the window answered an import of shared textures
-/// (`HostEvent::ExternalImported`).
-#[derive(Clone, Debug, PartialEq)]
-pub enum ExternalImport {
-    /// Imported into the device of this generation
-    /// (`GpuAdapter::generation`).
-    Ready { generation: u64 },
-    /// The window has no device that can import (it draws on the CPU, its
-    /// device is not ready, or the platform has none): Arvane's
-    /// `ErrorKind::Unavailable`, with its message.
-    Unavailable(String),
-    /// The textures do not fit what they say or the window's device, or
-    /// the device failed (Arvane's `Content` and `Backend`), with its
-    /// message.
-    Failed(String),
 }

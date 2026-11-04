@@ -2,8 +2,9 @@
 //!
 //! Positions are logical window pixels, times nanoseconds.
 
+use crate::geometry::Insets;
 use crate::geometry::Point;
-use crate::platform::{Insets, PointerButtons, PointerId, PointerKind, PointerPhase};
+use crate::input::{PointerButtons, PointerId, PointerKind, PointerPhase};
 
 /// One event of the mouse, a touch or a pen, as a window delivers it
 /// (Pointer Events' `PointerEvent`). The wheel is reported apart.

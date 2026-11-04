@@ -9,7 +9,8 @@
 //! everything below it, so changing it changes one node.
 
 use super::transform::Transform;
-use crate::geometry::{Point, Rect, SemanticsId};
+use crate::geometry::{Point, Rect};
+use crate::ids::SemanticsId;
 use crate::semantics::{
     A11yAction, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role, SortDirection,
 };

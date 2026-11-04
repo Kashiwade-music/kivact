@@ -1,7 +1,7 @@
 //! Role: Color matrices (CSS filter functions as 4×5 matrices).
 //! Plain data usable on any thread.
 
-use crate::style::Rgba;
+use crate::color::Rgba;
 
 /// A 4×5 color matrix over straight-alpha colors with components in
 /// `0.0..=1.0`: each output component is a row times `(r, g, b, a, 1)`,

@@ -84,6 +84,8 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 
 [`crates/`](crates) にあるその他の crate は `kivact` の内部実装（反応の核、engine、レイアウト、テキスト、ネイティブホストの Arvane）で、直接使うものではありません。[`architecture/`](architecture) には生成した依存関係の図があります。
 
+共有の値は `kivact-types`、クライアントの callback と node の契約は `kivact-engine::contract`、engine の handle の公開入口は `kivact-engine::api` に置きます。
+
 ## `kivact` の Cargo feature
 
 | Feature | 既定 | 説明 |

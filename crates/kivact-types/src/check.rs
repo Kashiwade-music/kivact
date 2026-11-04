@@ -1,12 +1,5 @@
-//! Role: Layout constraint checking.
-//!
-//! The layout check: what it looks for ([`LayoutCheck`]), the defects it
-//! finds ([`LayoutFinding`], [`LayoutRule`]) and the warning the engine
-//! sends in debug builds (`HostEvent::LayoutWarning`).
-
-use super::Rect;
-use super::ids::NodeId;
-use super::semantics::Role;
+//! Role: Shared check values.
+use crate::{NodeId, Rect, Role};
 
 /// The box a text must stay inside.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

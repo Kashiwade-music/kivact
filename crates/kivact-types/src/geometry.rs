@@ -1,11 +1,6 @@
 //! Role: Logical-pixel geometry.
 //! Half-open rectangles keep adjacent hit regions disjoint.
 
-/// Stable host-assigned accessibility node identity; usable on any thread.
-/// Arvane treats it as an opaque key with no knowledge of the host's tree.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SemanticsId(pub u64);
-
 /// Position in logical pixels; usable on any thread.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Point {
@@ -150,15 +145,40 @@ impl Rect {
     }
 }
 
-/// Size hints for boxes whose size does not come from children.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub struct IntrinsicSize {
-    pub min: Option<Size>,
-    pub preferred: Option<Size>,
-    pub max: Option<Size>,
+/// Distances from a window's edges, in logical pixels.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Insets {
+    /// From the top edge.
+    pub top: f32,
+    /// From the right edge.
+    pub right: f32,
+    /// From the bottom edge.
+    pub bottom: f32,
+    /// From the left edge.
+    pub left: f32,
 }
 
-/// Identity of a hit/semantics region inside one node's scene. Unique within
-/// that node only.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct RegionId(pub u64);
+/// Values for the physical top, right, bottom and left edges.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Edges<T> {
+    /// Top edge.
+    pub top: T,
+    /// Right edge.
+    pub right: T,
+    /// Bottom edge.
+    pub bottom: T,
+    /// Left edge.
+    pub left: T,
+}
+
+impl<T: Copy> Edges<T> {
+    /// Use the same value on every edge.
+    pub fn all(v: T) -> Self {
+        Edges {
+            top: v,
+            right: v,
+            bottom: v,
+            left: v,
+        }
+    }
+}

@@ -1,6 +1,6 @@
 //! Role: Normal recorded-measurement revalidation and independent result reconciliation.
 
-use crate::borrowed_tree::{LayoutTree, LeafMeasure};
+use crate::borrowed_tree::{LayoutTree, LeafMeasurer};
 use crate::columns::NodeLayoutColumns;
 use crate::pass_state::LayoutState;
 use kivact_wire::NodeId;
@@ -45,7 +45,7 @@ impl NodeLayoutColumns {
     /// No result is copied back.
     /// `slot` must be live and allocated in this instance's domain, and `id` must
     /// identify that same node. The measurer must describe its current content.
-    pub fn remeasures_same(&self, slot: usize, id: NodeId, measure: &mut dyn LeafMeasure) -> bool {
+    pub fn remeasures_same(&self, slot: usize, id: NodeId, measure: &mut dyn LeafMeasurer) -> bool {
         let record = &self.states[slot + 1].measured;
         !record.incomplete
             && record
@@ -61,7 +61,7 @@ impl NodeLayoutColumns {
     pub fn compare_measurements(
         &self,
         tree: &dyn LayoutTree,
-        measure: &mut dyn LeafMeasure,
+        measure: &mut dyn LeafMeasurer,
     ) -> Vec<LayoutDifference> {
         let mut errors = Vec::new();
         for slot in 0..self.states.len().saturating_sub(1) {

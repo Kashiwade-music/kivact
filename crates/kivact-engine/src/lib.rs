@@ -3,13 +3,13 @@
 //! The client writes typed node properties directly into one retained tree.
 //! The engine lays out that tree and runs it in an Arvane window.
 //!
-//! - `bridge`: owned [`bridge::Writer`] and [`bridge::Reader`] handles,
-//!   concrete [`bridge::Client`] callbacks and wakers.
+//! - `api`: owned [`api::Writer`] and [`api::Reader`] handles,
+//!   concrete [`api::Client`] callbacks and wakers.
 //! - `model`: the single model (nodes, pending changes, one state group
 //!   per concern), tree mutations, focus and Tab order, modal confinement,
 //!   pointer input, text editing, state styles, semantics and the event queue.
 //! - `tree`: authoritative structural topology and passive typed properties.
-//! - `layout`: the normal borrowed-tree trait adapter to kivact-layout.
+//! - `tree::layout_adapter`: the normal borrowed-tree adapter to kivact-layout.
 //! - `measure`: resource measurement and retained editor payloads.
 //! - `model::interact`: derived synchronization, geometry and visual processing.
 //! - `paint`: the culled paint list and tree-aware frame assembly.
@@ -20,7 +20,7 @@
 //!   (one table of props), concrete client callbacks and the production
 //!   test driver.
 //!
-//! Protocol values and pure motion live in `kivact-wire`; value lowering,
+//! Protocol values and pure motion live in `kivact-types`; value lowering,
 //! local scene adaptation and resources live in `kivact-lower`; retained
 //! hard lines and lazy text queries live in `kivact-text`. Borrowed-tree
 //! computation and derived layout column types live in `kivact-layout`;
@@ -32,9 +32,9 @@
 //! Arvane owns rendering, presentation, GPU fallback and surface recovery.
 //! No `arvane-*` crate depends on a Kivact crate.
 //!
-//! Public are [`run_native`], [`native`] (its [`HostOptions`], also
-//! re-exported here), [`bridge`] (the owned handles,
-//! the client callbacks, `Offscreen`, `TextMeasurer` and
+//! Public are [`run_native`], [`api::HostOptions`], [`contract`] (client contracts),
+//! [`api`] (the owned handles,
+//! the client callbacks, `OffscreenRenderer`, `TextMeasurer` and
 //! `Prop`), and `testing` with the
 //! feature `testing`; everything else is `pub(crate)`. Geometry integration,
 //! hit testing, scrolling and scenes share the model's positions. The model
@@ -60,16 +60,15 @@
 pub mod embed;
 
 mod a11y;
-pub mod bridge;
+pub mod api;
 #[cfg(any(debug_assertions, feature = "testing"))]
 mod check;
+pub mod contract;
 mod frame_log;
 mod host;
-mod layout;
 mod measure;
 mod model;
 mod mutation;
-pub mod native;
 mod offscreen;
 mod paint;
 mod text_measure;
@@ -78,7 +77,6 @@ mod tree;
 pub use host::run_native;
 #[cfg(feature = "testing")]
 pub use host::testing;
-pub use native::HostOptions;
 
 pub(crate) use frame_log::{FrameLog, FrameTimes};
 pub(crate) use model::keys::KeyResult;

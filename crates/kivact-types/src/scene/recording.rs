@@ -1,16 +1,67 @@
-//! Role: Draw scenes (canvas and per-node draw layers) and hit/semantics regions.
-//!
-//! Coordinates are node-local logical pixels. Push/pop commands preserve
-//! transform and compositing scopes until the engine lowers them to Arvane.
-//! The rarer commands keep their values in a box (`Shape`, `PushLayer`), so
-//! they do not grow the command a scene of plain rects is made of.
+//! Role: Authored draw records and their geometry and text payloads.
+use crate::protocol::shape::PathCmd;
+use crate::scene::primitives::Stroke;
+use crate::{
+    A11yAction, BlendMode, ClipShape, Corners, Fill, FillLayer, FilterOp, FontFeature, LineHeight,
+    Point, Rect, RegionId, Rgba, Role, TextDecoration,
+};
 
-use super::RegionId;
-use super::paint::Fill;
-use super::semantics::{A11yAction, Role};
-use super::text::{FontFeature, LineHeight, TextDecoration};
-use super::values::Rgba;
-use super::{Point, Rect};
+/// Resolved geometry for clipping or painting in logical coordinates.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DrawingShape {
+    Basic { shape: ClipShape, rect: Rect },
+    Path { cmds: Vec<PathCmd>, even_odd: bool },
+    Rounded { rect: Rect, corners: Corners },
+}
+
+/// Compositing scope applied to enclosed scene commands.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DrawingLayer {
+    /// Optional clipping geometry for the layer.
+    pub clip: Option<DrawingShape>,
+    /// Logical bounds of the compositing layer.
+    pub area: Rect,
+    /// Layer opacity multiplier; one is opaque.
+    pub opacity: f32,
+    /// Compositing operation against the backdrop.
+    pub blend: BlendMode,
+    /// Filters applied in order to the layer.
+    pub filter: Vec<FilterOp>,
+    /// Optional paint layer used as an alpha mask.
+    pub mask: Option<FillLayer>,
+}
+
+/// A resolved shape and its fill or optional stroked outline.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShapePaint {
+    /// Geometry to fill or stroke.
+    pub shape: DrawingShape,
+    /// Fill used for the shape or its stroke.
+    pub paint: Fill,
+    /// Stroke parameters; absent paints the filled interior.
+    pub stroke: Option<Stroke>,
+}
+
+/// Straight-alpha RGBA8 pixels a scene draws as they are (no decode, no
+/// asset store). Compared by size and `Arc` identity, never by content, so
+/// a new `Arc` every frame costs one comparison.
+#[derive(Clone, Debug)]
+pub struct Pixels {
+    /// Pixel width of the buffer.
+    pub width: u32,
+    /// Pixel height of the buffer.
+    pub height: u32,
+    /// Tightly packed RGBA8 bytes, width times height times four.
+    pub rgba: std::sync::Arc<[u8]>,
+}
+
+impl PartialEq for Pixels {
+    fn eq(&self, other: &Self) -> bool {
+        self.width == other.width
+            && self.height == other.height
+            && std::sync::Arc::ptr_eq(&self.rgba, &other.rgba)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextRun {
@@ -33,7 +84,7 @@ pub struct TextRun {
     /// Extra space after every space, in px.
     pub word_spacing: f32,
     /// Pair kerning.
-    pub kerning: super::FontKerning,
+    pub kerning: crate::FontKerning,
     /// OpenType features.
     pub features: Vec<FontFeature>,
     /// Lines drawn with it (`em` lengths are of `font_size`).
@@ -43,7 +94,7 @@ pub struct TextRun {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SceneCmd {
     Pixels {
-        image: super::Pixels,
+        image: crate::Pixels,
         rect: Rect,
         source: Option<Rect>,
         opacity: f32,
@@ -52,21 +103,21 @@ pub enum SceneCmd {
     /// A frame of an image an external render engine shares, drawn like `Pixels` on the GPU of the
     /// window it was imported into; nothing elsewhere (Arvane's `DrawCommand::External`).
     External {
-        frame: kivact_types::ExternalFrame,
+        frame: crate::ExternalFrame,
         rect: Rect,
         source: Option<Rect>,
         opacity: f32,
         pixelated: bool,
     },
     ImagePart {
-        source: super::Asset,
+        source: crate::Asset,
         rect: Rect,
         crop: Option<Rect>,
         opacity: f32,
         pixelated: bool,
     },
-    Shape(Box<super::ShapePaint>),
-    PushLayer(Box<super::DrawingLayer>),
+    Shape(Box<crate::ShapePaint>),
+    PushLayer(Box<crate::DrawingLayer>),
     PopLayer,
     PushTransform([f32; 6]),
     PopTransform,
@@ -96,12 +147,12 @@ pub enum SceneCmd {
     /// drawn exactly as shaped: its glyph runs and decorations at `origin`
     /// in `color`, with no shaping again.
     Paragraph {
-        shaped: std::sync::Arc<kivact_types::protocol::ShapedText>,
+        shaped: std::sync::Arc<crate::protocol::ShapedText>,
         origin: Point,
         color: Rgba,
     },
     Image {
-        source: kivact_types::Asset,
+        source: crate::Asset,
         rect: Rect,
     },
     PushClip(Rect),
@@ -116,20 +167,20 @@ pub struct Region {
     pub focus_order: u32,
     pub focusable: bool,
     /// Native pointer focus destination; never changes activation identity.
-    pub focus_on_press: Option<super::FocusTarget>,
+    pub focus_on_press: Option<crate::FocusTarget>,
     pub disabled: bool,
     pub hidden: bool,
     pub description: Option<String>,
     /// Checked state of the region (`None`: not a toggle).
-    pub checked: Option<super::CheckedState>,
+    pub checked: Option<crate::CheckedState>,
     /// Selection state.
     pub selected: bool,
     /// Disclosure state (`None`: not expandable).
     pub expanded: Option<bool>,
     /// The region's value is invalid.
     pub invalid: bool,
-    pub properties: Option<Box<super::SemanticsProperties>>,
-    pub shape: Option<super::DrawingShape>,
+    pub properties: Option<Box<crate::SemanticsProperties>>,
+    pub shape: Option<crate::DrawingShape>,
     pub transform: [f32; 6],
     pub local_rect: Rect,
     pub id: RegionId,

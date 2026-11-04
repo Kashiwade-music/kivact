@@ -4,9 +4,9 @@
 use super::color::ColorMatrix;
 use super::paint::Paint;
 use super::shape::{RoundedRect, Shape};
-use crate::effect::BlendMode;
+use crate::color::Rgba;
 use crate::geometry::{Point, Rect};
-use crate::style::Rgba;
+use crate::paint::BlendMode;
 
 /// A filter a layer's content goes through before it is clipped, masked
 /// and composited.

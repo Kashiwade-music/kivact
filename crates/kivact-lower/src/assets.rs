@@ -26,7 +26,7 @@
 //!   again at that size.
 //! - An image that cannot be read draws nothing, and a family that is not
 //!   installed draws in the system UI font; each sends one
-//!   `HostEvent::AssetFailed` (the client reports it located at the node's
+//!   `AssetEvent::AssetFailed` (the client reports it located at the node's
 //!   creation, to the default sink only). The failure of a scene's image or
 //!   of a background image is not reported.
 //! - A font file is registered at once, while its write is applied
@@ -40,8 +40,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::AssetEvent;
 use arvane::asset::{AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font};
-use kivact_wire::{Asset, ComputedText, HostEvent, NodeId, PlatformResult, Rgba, Size};
+use kivact_types::{Asset, ComputedText, NodeId, PlatformResult, Rgba, Size};
 
 /// UI-thread resource owner with image and font diagnostic deduplication.
 /// Owner keys are supplied by the caller; this manager never traverses a tree.
@@ -56,7 +57,7 @@ pub struct ArvaneAssets {
     /// Missing families already reported (lowercase).
     reported_families: HashSet<String>,
     /// Reports found during a layout pass (missing families).
-    pending: Vec<HostEvent>,
+    pending: Vec<AssetEvent>,
 }
 
 impl ArvaneAssets {
@@ -192,7 +193,7 @@ impl ArvaneAssets {
 
     /// The report for `Image` node `id` showing `asset` (the source in the
     /// store) when it failed and was not reported for this node yet.
-    pub fn check_image(&mut self, id: NodeId, asset: &Asset) -> Option<HostEvent> {
+    pub fn check_image(&mut self, id: NodeId, asset: &Asset) -> Option<AssetEvent> {
         if self
             .reported_images
             .get(&id)
@@ -203,7 +204,7 @@ impl ArvaneAssets {
         match self.store.peek(asset) {
             Some(ImageState::Failed(e)) if self.reported_images.get(&id) != Some(asset) => {
                 self.reported_images.insert(id, asset.clone());
-                Some(HostEvent::AssetFailed {
+                Some(AssetEvent::AssetFailed {
                     node: id,
                     message: e.message().to_owned(),
                 })
@@ -256,7 +257,7 @@ impl ArvaneAssets {
                 [] => "none".to_owned(),
                 r => r.join(", "),
             };
-            self.pending.push(HostEvent::AssetFailed {
+            self.pending.push(AssetEvent::AssetFailed {
                 node: id,
                 message: format!(
                     "font family `{name}` is not installed; the system UI font is used \
@@ -267,7 +268,7 @@ impl ArvaneAssets {
     }
 
     /// The reports found during the last layout pass.
-    pub fn take_pending(&mut self) -> Vec<HostEvent> {
+    pub fn take_pending(&mut self) -> Vec<AssetEvent> {
         std::mem::take(&mut self.pending)
     }
 }

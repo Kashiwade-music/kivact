@@ -1,8 +1,8 @@
 //! Role: Rich text and text styles a host hands Arvane to shape.
 //! Plain data usable on any thread.
 
-use crate::style::Rgba;
-use crate::text::{
+use crate::color::Rgba;
+use crate::text::primitives::{
     DecorationLines, FontKerning, LineHeight, TextAlign, TextOverflow, TextTransform,
 };
 use std::ops::Range;

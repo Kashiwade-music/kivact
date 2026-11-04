@@ -6,7 +6,7 @@
 //! [`Shape::contains`] hit-tests, so what is drawn and what is hit agree.
 
 use crate::geometry::{Point, Rect};
-use crate::shape::FillRule;
+use crate::scene::primitives::FillRule;
 
 /// Portable path segment, usable on any thread.
 #[derive(Clone, Copy, Debug, PartialEq)]

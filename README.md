@@ -100,6 +100,9 @@ The other crates under [`crates/`](crates) are implementation details of
 and are not meant to be used directly. [`architecture/`](architecture)
 contains the generated dependency graphs.
 
+Shared values live in `kivact-types`; `kivact-engine::contract` defines the
+client callbacks and node contracts, and `kivact-engine::api` exposes its handles.
+
 ## Cargo features of `kivact`
 
 | Feature | Default | Description |

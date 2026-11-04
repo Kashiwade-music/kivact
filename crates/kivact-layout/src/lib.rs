@@ -1,7 +1,7 @@
 //! Role: Borrowed-tree layout computation and derived geometry.
 //!
 //! Taffy computes flex and grid layout from an integration's borrowed
-//! [`LayoutTree`] and [`LeafMeasure`]. The integration owns authoritative
+//! [`LayoutTree`] and [`LeafMeasurer`]. The integration owns authoritative
 //! identities, topology and resources; this crate owns derived columns,
 //! measurement records, caches and rounded geometry observations.
 //!
@@ -47,7 +47,7 @@ mod style;
 mod traversal;
 mod tree;
 
-pub use borrowed_tree::{Flow, LayoutTree, LeafMeasure};
+pub use borrowed_tree::{Flow, LayoutTree, LeafMeasurer};
 pub(crate) use columns::{ChildCursor, Counted, NodeLayoutState, NodeLayoutValues};
 pub use columns::{
     GeometryChange, GeometryChangeKind, GeometryChanges, NodeLayout, NodeLayoutColumns,

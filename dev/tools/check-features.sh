@@ -9,6 +9,7 @@
 #
 # Usage: dev/tools/check-features.sh
 #
+# Shared values live in kivact-types; engine client contracts live in kivact-engine.
 # Each entry is `crate/feature`. The facade (`kivact`, `kivact-ui`) is built
 # with only that feature turned on; the first failure stops the run with a
 # non-zero status.

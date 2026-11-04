@@ -31,3 +31,6 @@ pub use scene_cache::SceneCache;
 pub use scene_out::SceneOut;
 pub mod scene_shape;
 pub mod shape;
+
+mod asset_event;
+pub use asset_event::AssetEvent;

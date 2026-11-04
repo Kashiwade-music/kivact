@@ -1,22 +1,16 @@
-//! Role: Text layout protocol.
-//!
-//! Text style props: what a node's text style sets ([`TextProps`]), the
-//! text style a text is laid out and drawn with ([`ComputedText`]: each
-//! property inherited on its own, as CSS's inherited properties), and the
-//! spans of rich text ([`TextSpan`], the `TextSpans` prop of a `Text` node
-//! whose `Content` is the spans' text joined).
-
+//! Role: Declared and computed text properties and authored text content.
+use crate::text::primitives::{FontKerning, LineHeight, TextAlign, TextOverflow, TextTransform};
+use crate::{Fill, FontFeature, Rgba, TextWrap};
 use std::ops::Range;
 
-use super::paint::Fill;
-use super::values::Rgba;
-
-pub use kivact_types::protocol::TextWrap;
-
-pub use kivact_types::TextAlign;
-
-/// Pair kerning (CSS `font-kerning`).
-pub use kivact_types::FontKerning;
+/// Owned text content and optional per-span styling.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct TextData {
+    /// Owned text displayed by this node.
+    pub content: Option<String>,
+    /// Per-range overrides over the node text.
+    pub spans: Option<Vec<TextSpan>>,
+}
 
 /// A text length: px, or a multiple of the font size of the text it
 /// applies to (CSS `em`).
@@ -44,16 +38,14 @@ impl TextLen {
 
 /// The distance between the baselines of a text's lines (CSS
 /// `line-height`).
-pub use kivact_types::LineHeight;
 
 /// An OpenType feature setting: a four byte tag and its value.
-pub use kivact_types::protocol::FontFeature;
 
 /// Lines drawn with text (CSS `text-decoration`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
     /// The lines to draw.
-    pub lines: kivact_types::DecorationLines,
+    pub lines: crate::DecorationLines,
     /// `None`: the text's color.
     pub color: Option<Rgba>,
     /// `None`: the font's.
@@ -64,10 +56,8 @@ pub struct TextDecoration {
 }
 
 /// What text that does not fit shows (CSS `text-overflow`).
-pub use kivact_types::TextOverflow;
 
 /// Case conversion when shaping (CSS `text-transform`).
-pub use kivact_types::TextTransform;
 
 /// A shadow of text (CSS `text-shadow`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -108,7 +98,7 @@ pub struct TextProps {
     pub features: Option<Vec<FontFeature>>,
     /// CSS `font-variant-numeric: tabular-nums`: `tnum` after the features.
     pub tabular_nums: Option<bool>,
-    pub decoration_lines: Option<kivact_types::DecorationLines>,
+    pub decoration_lines: Option<crate::DecorationLines>,
     pub decoration_color: Option<Rgba>,
     pub decoration_thickness: Option<TextLen>,
     pub underline_offset: Option<TextLen>,
@@ -287,7 +277,7 @@ impl TextMore {
         kerning: FontKerning::Auto,
         features: Vec::new(),
         decoration: TextDecoration {
-            lines: kivact_types::DecorationLines::NONE,
+            lines: crate::DecorationLines::NONE,
             color: None,
             thickness: None,
             underline_offset: TextLen::Px(0.0),

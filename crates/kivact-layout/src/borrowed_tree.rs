@@ -55,7 +55,7 @@ pub trait LayoutTree {
 /// The columns are lent mutably for the whole computation, so a measurer cannot
 /// reach them. Record revalidation requires retained measurement records to
 /// stay unchanged until it returns.
-pub trait LeafMeasure {
+pub trait LeafMeasurer {
     /// Measure the logical node under logical-pixel constraints, including baseline.
     fn measure(&mut self, id: kivact_wire::NodeId, request: MeasureRequest) -> LeafSize;
 }

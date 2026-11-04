@@ -8,10 +8,10 @@ use super::paint::Paint;
 use super::shape::{PathCmd, Shape};
 use super::shaped::GlyphRun;
 use super::transform::Transform;
+use crate::color::Rgba;
 use crate::geometry::{Point, Rect};
-use crate::gpu_interop::ExternalFrame;
-use crate::shape::Stroke;
-use crate::style::Rgba;
+use crate::gpu::ExternalFrame;
+use crate::scene::Stroke;
 use std::sync::Arc;
 
 /// Portable drawing operation, usable on any thread.

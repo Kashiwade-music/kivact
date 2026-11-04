@@ -1,4 +1,5 @@
 //! Role: Portable keyboard, modifier, button, file drag and IME values.
+use crate::Point;
 
 use std::ops::Range;
 
@@ -342,4 +343,161 @@ pub enum ImeEvent {
     Selection(Range<usize>),
     /// The IME session ended without a commit: the composition is gone.
     End,
+}
+
+/// Pointer event with node-local position. The host owns hit testing and
+/// capture: while a pointer holds a button (a touch or pen is in contact),
+/// its events go to the node that got its `Down`. The mouse is pointer 1;
+/// each touch or pen contact has its own id while it lasts and presses as
+/// the primary button. `is_primary` is Pointer Events' `isPrimary`: the
+/// mouse, and the first touch or pen contact while no other of its kind is
+/// in contact.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PointerEvent {
+    /// The mouse's is 1; each touch or pen contact has its own.
+    pub id: PointerId,
+    /// Transition represented by this pointer event; a `Down` or `Up` carries
+    /// its button and click count.
+    pub phase: PointerPhase,
+    /// Where the pointer is, in the node's untransformed local coordinates.
+    pub pos: Point,
+    /// The same point in the window (logical pixels).
+    pub window_pos: Point,
+    /// Buttons held after this event, independent of its changed button.
+    pub buttons: PointerButtons,
+    /// Modifier keys held for the event.
+    pub modifiers: Modifiers,
+    /// Mouse, touch or pen.
+    pub kind: PointerKind,
+    /// Pressure from 0 to 1, when the device reports it.
+    pub pressure: Option<f32>,
+    /// Pen tilt from vertical in degrees, when reported by the device.
+    pub tilt: Option<(f32, f32)>,
+    /// Whether this is the primary active pointer of its kind.
+    pub is_primary: bool,
+}
+
+/// A key's press or release (`HostEvent::Key`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyPhase {
+    /// The key went down. `repeat`: the system repeats a held key. `text`:
+    /// the text the press produces (a character or a space), `None` for other
+    /// keys.
+    Down { repeat: bool, text: Option<String> },
+    /// The key was released.
+    Up,
+}
+
+/// Identifies one pointer: the mouse ([`PointerId::MOUSE`]), or one touch
+/// or pen contact for as long as it lasts (from its `Down` to its `Up` or
+/// `Cancel`). A new contact gets a new id; a window never reuses one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PointerId(pub u64);
+
+impl PointerId {
+    /// The mouse (and anything the platform reports as one, such as a
+    /// touchpad).
+    pub const MOUSE: PointerId = PointerId(1);
+}
+
+/// What kind of device a pointer is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum PointerKind {
+    /// A mouse or touchpad: it hovers, has buttons and a wheel.
+    #[default]
+    Mouse,
+    /// A finger on a touch screen: it exists only while in contact.
+    Touch,
+    /// A pen (stylus) on a digitizer, while in contact.
+    Pen,
+}
+
+/// The button a `Down` pressed or an `Up` released, and which click of a
+/// multi-click the press is. A touch or pen contact presses
+/// [`MouseButton::Primary`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ButtonPress {
+    /// The button.
+    pub button: MouseButton,
+    /// Which click of a multi-click the press is: 1 a single click, 2 a
+    /// double click, ..; never 0. An `Up` has the count of the press it
+    /// ends. The window counts it from the system's double-click time and
+    /// distance (per axis) from the last press of the same button; a
+    /// contact's taps count the same way from the last contact's `Down`.
+    pub clicks: u8,
+}
+
+/// The phase of a pointer event (Pointer Events' `pointerdown` ..
+/// `pointerleave`), shared by the window's input and the events a node's
+/// listener receives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PointerPhase {
+    /// A button was pressed, or a touch or pen contact began.
+    Down(ButtonPress),
+    /// The pointer moved, with or without buttons held.
+    Move,
+    /// A button was released, or a contact ended normally (lifted).
+    Up(ButtonPress),
+    /// The gesture ended without a release the application should act on
+    /// (the window lost focus with buttons held, the platform took a
+    /// contact over for a gesture or rejected a palm).
+    Cancel,
+    /// The pointer entered a listener. A window does not report it; the
+    /// host synthesizes it when the pointer moves onto a listener.
+    Enter,
+    /// The pointer left a listener, or the mouse left the window. Held
+    /// buttons keep their capture.
+    Leave,
+}
+
+impl PointerPhase {
+    /// The press of a `Down` or the release of an `Up`; `None` for the other
+    /// phases.
+    pub fn press(self) -> Option<ButtonPress> {
+        match self {
+            Self::Down(press) | Self::Up(press) => Some(press),
+            Self::Move | Self::Cancel | Self::Enter | Self::Leave => None,
+        }
+    }
+}
+
+/// The set of mouse buttons held (Pointer Events' `buttons`). A touch or
+/// pen contact holds [`MouseButton::Primary`]
+/// while in contact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PointerButtons(u8);
+
+impl PointerButtons {
+    /// No button is held.
+    pub const NONE: Self = Self(0);
+
+    /// Whether `button` is held.
+    pub const fn contains(self, button: MouseButton) -> bool {
+        self.0 & Self::bit(button) != 0
+    }
+
+    /// This set with `button` held (`held`) or released.
+    #[must_use]
+    pub const fn with(self, button: MouseButton, held: bool) -> Self {
+        if held {
+            Self(self.0 | Self::bit(button))
+        } else {
+            Self(self.0 & !Self::bit(button))
+        }
+    }
+
+    /// Whether no button is held.
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    const fn bit(button: MouseButton) -> u8 {
+        match button {
+            MouseButton::Primary => 1,
+            MouseButton::Secondary => 2,
+            MouseButton::Middle => 4,
+            MouseButton::Back => 8,
+            MouseButton::Forward => 16,
+        }
+    }
 }

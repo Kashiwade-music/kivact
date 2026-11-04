@@ -9,7 +9,7 @@
 //! CPU rasterizer alone, at a raster scale of 1, from a transparent start;
 //! the rasterizer's premultiplied pixels are turned back into straight
 //! alpha. The size limit is the rasterizer's frame budget, the one windows
-//! are held to ([`Offscreen::accepts_size`]); the caller checks it before it
+//! are held to ([`OffscreenRenderer::accepts_size`]); the caller checks it before it
 //! draws anything. Encoding, the timing of frames and cancelling between
 //! them are the caller's.
 //!
@@ -21,12 +21,12 @@
 //!   first failure of a command that was actually drawn. Commands the
 //!   painting dropped (values that cannot be drawn) come first, as
 //!   [`OffscreenError::Dropped`] with their count. A font that cannot be registered gives its message
-//!   ([`Offscreen::font`]).
+//!   ([`OffscreenRenderer::font`]).
 //! - Resources complete inside the call (the asset store is inline), and an
 //!   error leaves the output usable for the next frame.
 //! - The output is straight-alpha RGBA8 in its own allocation; the output
 //!   owns the assets and the text engine, which its thread keeps. An
-//!   [`Offscreen`] is not `Send`; dropping it releases its caches.
+//!   [`OffscreenRenderer`] is not `Send`; dropping it releases its caches.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -39,7 +39,7 @@ use kivact_wire::{Asset, ComputedText, PlatformResult, Rect, Scene};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
-pub struct Offscreen {
+pub struct OffscreenRenderer {
     assets: RefCell<ArvaneAssets>,
     scene_cache: RefCell<kivact_lower::SceneCache>,
     engine: Rc<RefCell<arvane::Engine>>,
@@ -64,7 +64,7 @@ pub struct OffscreenImage {
     pub rgba: Vec<u8>,
 }
 
-impl Default for Offscreen {
+impl Default for OffscreenRenderer {
     fn default() -> Self {
         Self {
             assets: RefCell::new(ArvaneAssets::new(arvane::asset::AssetStore::inline())),
@@ -75,7 +75,7 @@ impl Default for Offscreen {
     }
 }
 
-impl Offscreen {
+impl OffscreenRenderer {
     /// Release rebuildable scene, text, unused asset and validation caches.
     /// Embedders call this explicitly: independent outputs do not subscribe
     /// to window memory events. Registered fonts and returned images remain valid.

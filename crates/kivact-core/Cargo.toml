@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Core view, control, reactive and platform contracts for Kivact"
 
 [dependencies]
-kivact-wire = { path = "../kivact-wire", version = "0.1.0" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
 # The engine: the retained tree, layout, input, painting and accessibility
 # in Arvane windows.

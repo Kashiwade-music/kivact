@@ -1,12 +1,6 @@
-//! Role: Environment values at start and the result of a client turn.
-
+//! Role: Engine client host contracts.
+use kivact_types::{Capabilities, HostEnv};
 use std::fmt;
-
-use super::events::HostEnv;
-
-/// What the window's backend can do, as Arvane reports it
-/// (`Window::capabilities`).
-pub use kivact_types::Capabilities;
 
 /// What the client is given at start: the window's environment as the
 /// host read it (`Window::environment`). Later changes arrive as

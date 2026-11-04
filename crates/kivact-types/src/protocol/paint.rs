@@ -3,9 +3,9 @@
 
 use super::color::ColorMatrix;
 use super::image::ImageData;
+use crate::color::Rgba;
 use crate::geometry::{Point, Rect};
 use crate::paint::Extend;
-use crate::style::Rgba;
 
 /// A paint for fills and strokes.
 ///

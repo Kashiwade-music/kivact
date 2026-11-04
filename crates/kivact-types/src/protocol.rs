@@ -11,7 +11,7 @@ mod image;
 mod paint;
 mod scene;
 mod semantics;
-mod shape;
+pub(crate) mod shape;
 mod shaped;
 mod text;
 mod transform;
