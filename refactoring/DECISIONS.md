@@ -123,3 +123,4 @@
 | 2026-11-05 | N-F4 / N-F6 | IntoChildren が typed root を消去する | typed child/recipe は private 構築文脈を読み、任意 View は wrapper で配置・clip。公開 View mutation や独自 child trait は作らない。 |
 | 2026-11-05 | N-F6 / N-F1 | slot config と factory equality | StepIndicator は plain slot enum。既存 Toast の public field 比較には Callback app/key と ViewFn shared-factory identity を使い、Value 化だけの偽 equality や識別子は足さない。 |
 | 2026-11-05 | N-F1-props / N-F4 | core の表示入力が固定値のまま残る | Scroll axes/Overlay 配置は core が reactive に更新し root を保つ。Sidebar side と HoverCard delay は明示の構築 geometry/timing policy として 10.6 に追加。 |
+| 2026-11-05 | fix-G3-8 | Prop theme は Rc/owner-bound Value を含み Send でない | 固定 theme と canonical Send startup data を UI thread に渡す。embedded reactive theme は root factory の provide_theme、caller-side reactive App theme は明示 Unsupported。Clone と run/test reactive 評価を保ち unsafe/snapshot を避ける。 |

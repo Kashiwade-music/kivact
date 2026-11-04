@@ -1420,6 +1420,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
   6. `#[derive(Clone)] pub enum ActionOutcome<T> { Succeeded(T), Failed(UiError) }`。`Action::on_complete` は既存の完了通知をこの値で渡し、キャンセル時には従来どおり通知しない。
   7. `Node::accessible_disabled`・`accessible_invalid`・`accessible_expanded` は `Option<Value<bool>>`。`TextEditing::new` は `impl IntoText` を受け、Rc への変換は private な使用境界だけで行う。
   8. Scroll.axes と Overlay の placement/align/offset/viewport_margin は IntoValue の表示入力にし実 node を保って更新する。既存 Toast equality のため Callback は app/key identity の PartialEq/Eq、ViewFn は共有 factory identity の PartialEq を持つ。
+  9. embed の startup は固定 Theme と Send な private 設定を UI thread に送り、そこで AppOptions を組み立てる。caller-side reactive App theme は明示の Unsupported とし、embedded root factory 内の provide_theme を案内する。AppOptions の Clone と設定の正本一つ、run/test の reactive 評価は保つ。
 - **unit の確認**: `cargo fmt` だけ（build 不可でよい）。
 - **規模**: L。
 - **並列**: N-F2〜N-F6 と同時（crate が別）。

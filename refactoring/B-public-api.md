@@ -29,6 +29,8 @@
 
 `App` は `kivact_core::launch::AppOptions`（field は全部 private。facade は再公開しない。`blocking_threads` は `Option<usize>`、font は `(Asset, &'static Location)` の列で持つ）を一つ持ち、各メソッドは `AppOptions` の同名のメソッドを呼ぶ（`AppOptions::theme` も `impl IntoValue<Theme>` を受ける）。`fonts(iter)` は作らない（`font` を繰り返し呼ぶ。`test::RenderOptions::fonts(TestFonts)` と名前が衝突するため）。
 
+embed は UI thread へ startup 設定を送るので App theme は固定値だけを渡す。caller thread の reactive theme を渡した場合は `UiError::Unsupported`（値を snapshot して捨てたり unsafe Send にしない）。embedded の動的 theme は Send root factory の中で `provide_theme` を使う。run/test の App.theme は引き続き root owner の下で reactive に評価する。
+
 ### `kivact::state`
 
 | 種類 | item |

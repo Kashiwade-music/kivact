@@ -1781,6 +1781,7 @@ facade から届く型の公開の `f32` の field は全部 `f64` にする（�
 
 - `Theme::get::<T>()` を `Theme::ext::<T>()` と改名する（`use_theme().get().ext::<X>()` と読める）。`Ext<T>` は `ThemeRef<T>` と改名する（`NodeExt` などの `Ext` と紛れないように）。
 - `App::theme(impl IntoValue<Theme>)` は reactive な値を受け、root の owner の下で評価する。OS の light・dark に追従するのは `App::new(..).theme(move || basic::theme(platform::theme_hint().get().into()))` と書く（`ThemeHint` から `ThemeMode` への `From`）。17.18 節の `ThemeMode::System` は作らない。
+- embed は UI thread に startup を送るため固定 App theme のみ転送する。caller-side の reactive Prop は Unsupported として明示し、embedded root factory 内で provide_theme を作る。private Send startup data と Prop theme を分けて所有し、同じ設定を二重保持しない。unsafe Send や dynamic theme の暗黙 snapshot は使わない。
 - 別の kit の theme の下で kit の variant を使ったら、中核の既定の recipe で描き、`ReportOnce` の diagnostic を一度出す。
 
 ### 18.12 改名と語の統一
