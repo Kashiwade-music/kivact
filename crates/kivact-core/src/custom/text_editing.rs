@@ -164,7 +164,7 @@ impl TextEditing {
 
     /// Accept hard line breaks in the edited value.
     pub fn multiline(mut self) -> Self {
-        self.props.multiline = value;
+        self.props.multiline = true;
         self
     }
 
@@ -178,7 +178,7 @@ impl TextEditing {
     /// value in a `String` binding needs it; one that applies the changes
     /// to its own copy does not.
     pub fn report_text(mut self) -> Self {
-        self.props.report_text = value;
+        self.props.report_text = true;
         self
     }
     /// Draw masked text and omit its value from platform text snapshots.

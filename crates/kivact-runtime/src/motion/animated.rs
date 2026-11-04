@@ -286,7 +286,7 @@ impl<T: Animatable> Animated<T> {
 }
 
 impl<T: Animatable> Animated<T> {
-    fn cell(&self, at: &'static Location<'static>) -> Rc<AnimCell<T>> {
+    fn cell(&self, _at: &'static Location<'static>) -> Rc<AnimCell<T>> {
         self.cell.get()
     }
 

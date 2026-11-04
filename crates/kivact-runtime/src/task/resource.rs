@@ -94,7 +94,7 @@ where
 }
 
 impl<T: Clone + 'static> Resource<T> {
-    fn cell(&self, at: &'static Location<'static>) -> Rc<ResourceCell<T>> {
+    fn cell(&self, _at: &'static Location<'static>) -> Rc<ResourceCell<T>> {
         self.handle.get()
     }
 

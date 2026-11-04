@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
-use kivact_runtime::Trigger;
+use kivact_runtime::Notifier;
 use kivact_style::CompiledStyle;
 
 /// What a node's first write decided, for the style and draw stages.
@@ -20,5 +20,5 @@ pub(super) struct NodeFacts {
 #[derive(Clone)]
 pub(crate) struct LocalPaintSource {
     pub(super) value: Rc<RefCell<Option<CompiledStyle>>>,
-    pub(super) revision: Trigger,
+    pub(super) revision: Notifier,
 }

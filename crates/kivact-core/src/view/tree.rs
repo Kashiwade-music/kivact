@@ -17,7 +17,7 @@ use kivact_types::{DrawList, IdMap, NodeId, Rect, Size};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
-use kivact_runtime::{Handler, NodeId as EffectId, Owner, Signal, Trigger};
+use kivact_runtime::{Handler, NodeId as EffectId, Notifier, Owner, Signal};
 use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
@@ -223,7 +223,7 @@ pub(crate) struct NodeObservation {
     pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::geometry::Point>,
-    pub(crate) scene_revision: Trigger,
+    pub(crate) scene_revision: Notifier,
 }
 
 /// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
@@ -306,8 +306,8 @@ pub(crate) struct ViewNodes {
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
     /// Choice candidate invalidation; only Hidden changes notify it.
-    visibility_revision: Trigger,
-    live_region_revision: Trigger,
+    visibility_revision: Notifier,
+    live_region_revision: Notifier,
 }
 
 impl ViewNodes {
@@ -328,8 +328,8 @@ impl ViewNodes {
                 TextEditsInFlight(IdMap::default()),
             )),
             leaving: IdMap::default(),
-            visibility_revision: owner.trigger(Location::caller()),
-            live_region_revision: owner.trigger(Location::caller()),
+            visibility_revision: owner.notifier(Location::caller()),
+            live_region_revision: owner.notifier(Location::caller()),
         }
     }
 
@@ -387,13 +387,13 @@ impl ViewNodes {
 
     /// A value-less visibility notification owned by the App root, created
     /// for choice controllers tracking ancestor visibility.
-    pub(crate) fn visibility_revision(&mut self, at: &'static Location<'static>) -> Trigger {
+    pub(crate) fn visibility_revision(&mut self, at: &'static Location<'static>) -> Notifier {
         let _ = at;
         self.visibility_revision
     }
 
     /// Track changes to live-region ancestry.
-    pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Trigger {
+    pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Notifier {
         let _ = at;
         self.live_region_revision
     }
@@ -412,7 +412,7 @@ impl ViewNodes {
             rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             text_truncated: node.owner.signal(false, at),
             scroll: node.owner.signal(crate::geometry::Point::default(), at),
-            scene_revision: node.owner.trigger(at),
+            scene_revision: node.owner.notifier(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
         let rect = observation.rect;

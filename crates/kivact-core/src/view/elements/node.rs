@@ -23,12 +23,12 @@ use std::panic::Location;
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 
-use crate::state::{IntoText, IntoValue};
+use crate::state::IntoValue;
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::mount::mount_host;
-use crate::view::node::{Content, Node, NodeBuilder};
+use crate::view::node::{Content, Node};
 use crate::view::state::ViewState;
 use crate::view::{IntoView, Role, View};
 use kivact_runtime::Prop as InputProp;

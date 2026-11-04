@@ -42,7 +42,7 @@ use crate::view::mount::mount_host_with;
 use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::state::ViewState;
 use kivact_runtime::{
-    EffectKind, ErrorKind, IntoValue, Owner, Prop as InputProp, Runtime, Signal, Trigger, UiError,
+    EffectKind, ErrorKind, IntoValue, Notifier, Owner, Prop as InputProp, Runtime, Signal, UiError,
     Value, untrack,
 };
 use kivact_types::Role;
@@ -242,7 +242,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
             let at = common.at.unwrap_or(at);
             // What the host reported (`None` before the first report).
             let viewport: Signal<Option<Viewport>> = cx.owner.signal(None, at);
-            let measured_version = cx.owner.trigger(at);
+            let measured_version = cx.owner.notifier(at);
             common.handlers.observe_scroll(move |s| {
                 viewport.set(Some(Viewport {
                     offset: s.offset.y,
@@ -274,7 +274,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
                 seek: Seek::Idle,
                 held: HeldState {
                     value: Held::Nothing,
-                    changed: cx.owner.trigger(at),
+                    changed: cx.owner.notifier(at),
                 },
             }));
             // Which row holds the focus changes rarely: only then does the
@@ -608,7 +608,7 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
     state: &Rc<RefCell<VState<K, T>>>,
     visible: Vec<(K, Option<T>, f64, Option<f64>)>,
     row: &RowFn<K, T>,
-    measured_version: Trigger,
+    measured_version: Notifier,
     at: &'static Location<'static>,
 ) {
     let keep: std::collections::HashSet<K> = visible.iter().map(|(k, ..)| k.clone()).collect();
@@ -747,7 +747,7 @@ enum Held<K> {
 }
 struct HeldState<K> {
     value: Held<K>,
-    changed: kivact_runtime::Trigger,
+    changed: kivact_runtime::Notifier,
 }
 impl<K: PartialEq> HeldState<K> {
     fn key(&self) -> Option<&K> {

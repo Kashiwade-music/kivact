@@ -6,7 +6,7 @@ use std::panic::Location;
 use std::rc::{Rc, Weak};
 
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{Owner, Runtime, Trigger};
+use kivact_runtime::{Notifier, Owner, Runtime};
 use kivact_types::cell::{Generation, ReportOnceSet};
 use kivact_types::{IntrinsicSize, NodeId};
 
@@ -232,8 +232,8 @@ pub(crate) struct Registry {
     pub(super) root: Rc<Target>,
     pub(super) at: &'static Location<'static>,
     pub(super) state: RefCell<State>,
-    pub(super) revision: Trigger,
-    pub(super) changed: Trigger,
+    pub(super) revision: Notifier,
+    pub(super) changed: Notifier,
     pub(super) phase: Cell<RegistryPhase>,
     /// The pointer gestures on the node and its regions (`mount::part_pointer`).
     pub(super) gestures: RefCell<Gestures>,

@@ -67,7 +67,7 @@ impl NodeRef {
 
 impl NodeRef {
     /// The runtime and state of this ref; located `WrongApp` and `Disposed`.
-    pub(crate) fn state(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
+    pub(crate) fn state(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
         let s = self.state.get();
         let rt = Runtime::get(self.app).expect("invariant: a resolved handle's App is registered");
         (rt, s)

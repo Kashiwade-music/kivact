@@ -471,16 +471,6 @@ impl<E: 'static> Callback<E> {
         }
     }
 
-    /// Run a deferred notification only while its callback owner still exists.
-    #[doc(hidden)]
-    pub(crate) fn call_if_alive(&self, e: E) {
-        if let Ok((rt, cb)) = self.lookup(Location::caller())
-            && let Err(err) = Self::invoke(&rt, &cb, e)
-        {
-            rt.route(Some(cb.owner), err);
-        }
-    }
-
     /// Call and return the result; a disposed callback or one of another
     /// App is an `Err`, not a panic.
     #[track_caller]
@@ -650,6 +640,7 @@ impl<T: 'static> From<Signal<T>> for Value<T> {
     note = "pass a Signal or Binding of the edited type; an f64 control needs `signal(40.0)`"
 )]
 pub trait IntoBinding<T: 'static>: super::sealed::IntoBindingSeal {
+    /// Convert this writable value into a binding.
     fn into_binding(self) -> Binding<T>;
 }
 impl<T: 'static> super::sealed::IntoBindingSeal for Signal<T> {}
