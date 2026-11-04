@@ -107,7 +107,7 @@ pub(crate) fn lane_cells(
                     .position(|l| l.id == lane.get().id)
                     .unwrap_or(0)
             });
-            let total = cells.iter().map(|(width, _)| (*width)).sum::<f64>();
+            let total = cells.iter().map(|(width, _)| *width).sum::<f64>();
             let mut offset = 0.0;
             let mut views = Vec::new();
             for (width, render) in cells.iter().filter(|(width, _)| *width > 0.0) {

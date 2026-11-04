@@ -18,7 +18,7 @@ pub(crate) fn item_rect<T: TimeItem>(
     let x = SIDEBAR + (item.time() * zoom) + pan.x;
     let y = RULER + row as f64 * height;
     Some(if bar {
-        Rect::new(x, y + 3.0, (item.duration() * zoom), height - 7.0)
+        Rect::new(x, y + 3.0, item.duration() * zoom, height - 7.0)
     } else {
         Rect::new(x - 4.0, y + (height - 8.0) * 0.5, 8.0, 8.0)
     })

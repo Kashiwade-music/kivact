@@ -220,7 +220,7 @@ fn motion(state: State, pos: Point) {
         Drag::Clips => {
             let start = state.press.origin();
             if let Some(Snapshot::Clips(initial)) = state.initial() {
-                let dx = ((pos.x - start.x) / scale);
+                let dx = (pos.x - start.x) / scale;
                 // The pressed clip snaps and the others keep their spacing to it.
                 let primary = match state.press.pressed() {
                     Some(Target::Item(id)) => initial.iter().find(|v| v.0 == id),
@@ -251,7 +251,7 @@ fn motion(state: State, pos: Point) {
             if let Some(Snapshot::Clips(initial)) = state.initial()
                 && let Some(v) = initial.iter().find(|v| v.0 == id)
             {
-                let dx = ((pos.x - state.press.origin().x) / scale);
+                let dx = (pos.x - state.press.origin().x) / scale;
                 let available = if right {
                     (state.length.get() - v.1).max(0.0)
                 } else {

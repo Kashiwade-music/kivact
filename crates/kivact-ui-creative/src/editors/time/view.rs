@@ -261,7 +261,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             Some(menu) => menu(
                 root.on_a11y_event(A11yAction::ShowMenu, move |event| {
                     state.cancel();
-                    state.context_request(event.region());
+                    state.context_request(event.region);
                 }),
                 state.context.into_value(),
             ),

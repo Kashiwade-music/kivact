@@ -39,9 +39,9 @@ pub fn color_from_hsv(hue: f64, saturation: f64, value: f64, alpha: f64) -> Colo
         _ => (c, 0.0, x),
     };
     Color::from_rgba_f64(
-        (r + m),
-        (g + m),
-        (b + m),
+        r + m,
+        g + m,
+        b + m,
         if alpha.is_finite() {
             alpha.clamp(0.0, 1.0)
         } else {

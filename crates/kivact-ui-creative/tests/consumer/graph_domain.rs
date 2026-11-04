@@ -95,8 +95,8 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     let second = screen.get_by_role(Role::Button, "Position key 8");
     let a = first.rect().unwrap().center();
     let b = second.rect().unwrap().center();
-    assert!(near((b.x - a.x), 300.0, 1e-5));
-    assert!(near((a.y - b.y), 180.0, 1e-5));
+    assert!(near(b.x - a.x, 300.0, 1e-5));
+    assert!(near(a.y - b.y, 180.0, 1e-5));
     first.a11y(A11yAction::Select);
     assert_eq!(m.selection.get_untracked(), [1]);
     first.press_key(Key::ArrowRight);

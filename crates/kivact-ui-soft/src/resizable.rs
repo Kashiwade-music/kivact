@@ -292,14 +292,14 @@ impl IntoView for ResizeHandle {
             let scalar = {
                 let get = state.clone();
                 let set = state.clone();
-                binding(move || (get.size()), move |value| set.resize(value))
+                binding(move || get.size(), move |value| set.resize(value))
             };
             let range = {
                 let state = state.clone();
                 move || {
                     let (min, max) = state.limits();
                     let lower = if state.config.collapsible { 0.0 } else { min };
-                    ScalarRange::new((lower), (max)).expect("valid resize range")
+                    ScalarRange::new(lower, max).expect("valid resize range")
                 }
             };
             let mut behavior = use_splitter(scalar, range, axis)

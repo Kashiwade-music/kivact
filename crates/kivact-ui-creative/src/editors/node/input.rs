@@ -40,7 +40,7 @@ fn moved(state: State, point: Point) {
             index,
             slot,
         }) => {
-            let dx = (point.x - start.x);
+            let dx = point.x - start.x;
             if dx == 0.0 && !state.edit.is_active() {
                 return;
             }
@@ -400,7 +400,7 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
         }
         Key::Enter => {
             if let Some(target @ Target::Socket(..)) = event
-                .region
+                .region()
                 .and_then(|region| state.scene.get_untracked().ok()?.target(region).copied())
             {
                 state.invoke(target, false);
