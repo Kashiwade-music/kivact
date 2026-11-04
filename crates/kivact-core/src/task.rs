@@ -15,3 +15,6 @@ pub use kivact_runtime::{
 #[cfg(feature = "tokio")]
 pub use kivact_runtime::on_tokio;
 pub use kivact_runtime::{AsyncSource, Retry};
+// xtask-allow(internal-contract): Standard async views consume sealed source publication identities.
+#[doc(hidden)]
+pub use kivact_runtime::AsyncSnapshot;

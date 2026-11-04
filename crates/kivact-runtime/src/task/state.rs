@@ -89,7 +89,7 @@ pub(crate) struct TaskCell {
 /// last).
 pub struct TaskState {
     #[cfg(feature = "tokio")]
-    pub(super) tokio: RefCell<Option<tokio::runtime::Runtime>>,
+    pub(super) tokio: RefCell<super::tokio_bridge::TokioState>,
     /// The UI-thread executor of spawned futures and action queue workers.
     pub(super) exec: Executor,
     /// Pending host-clock timers.
@@ -114,7 +114,7 @@ impl TaskState {
     pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
         TaskState {
             #[cfg(feature = "tokio")]
-            tokio: RefCell::new(None),
+            tokio: RefCell::new(super::tokio_bridge::TokioState::NotStarted),
             exec: Executor::new(waker),
             time: RefCell::new(Scheduler::default()),
             blocking_threads,
@@ -170,9 +170,7 @@ impl TaskState {
     /// Stop the blocking pool, waiting up to two seconds per worker.
     pub fn shutdown(&self) {
         #[cfg(feature = "tokio")]
-        if let Some(runtime) = self.tokio.borrow_mut().take() {
-            runtime.shutdown_background();
-        }
+        self.tokio.borrow_mut().shutdown();
         let pool = self.pool.replace(PoolState::ShutDown);
         if let PoolState::Running(p) = pool {
             p.shutdown();

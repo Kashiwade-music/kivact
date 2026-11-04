@@ -2,6 +2,7 @@
 
 use crate::{ErrorKind, UiError};
 use std::panic::Location;
+use std::rc::Rc;
 
 /// State of a [`Resource`](super::Resource) request or an
 /// [`Action`](super::Action) run.
@@ -61,20 +62,21 @@ pub(crate) fn cancelled(at: &'static Location<'static>) -> UiError {
 
 /// The only publication path for resource and action state.
 pub(crate) struct AsyncCell<T: 'static> {
-    pub(super) state: crate::Signal<AsyncState<T>>,
+    pub(super) state: crate::Signal<Rc<AsyncState<T>>>,
     pub(super) latest: crate::Signal<Option<T>>,
 }
 impl<T: Clone + 'static> AsyncCell<T> {
     pub(super) fn new(owner: crate::Owner, at: &'static Location<'static>) -> Self {
         let cell = Self {
-            state: owner.signal(AsyncState::Idle, at),
+            state: owner.signal(Rc::new(AsyncState::Idle), at),
             latest: owner.signal(None, at),
         };
         cell.reset();
         cell
     }
     pub(super) fn start(&self) {
-        self.state.update(|state| *state = AsyncState::Pending);
+        self.state
+            .update(|state| *state = Rc::new(AsyncState::Pending));
     }
     pub(super) fn finish(&self, result: Result<T, UiError>) {
         let next = match result {
@@ -84,9 +86,10 @@ impl<T: Clone + 'static> AsyncCell<T> {
             }
             Err(error) => AsyncState::Failed(error),
         };
-        self.state.update(|state| *state = next);
+        self.state.update(|state| *state = Rc::new(next));
     }
     pub(super) fn reset(&self) {
-        self.state.update(|state| *state = AsyncState::Idle);
+        self.state
+            .update(|state| *state = Rc::new(AsyncState::Idle));
     }
 }

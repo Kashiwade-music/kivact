@@ -53,6 +53,9 @@ pub use state::{TaskState, TaskStats};
 pub use time::{sleep, timeout};
 
 pub use async_source::{AsyncSource, Retry};
+// xtask-allow(internal-contract): Standard async views consume sealed source publication identities.
+#[doc(hidden)]
+pub use async_source::AsyncSnapshot;
 mod async_source;
 #[cfg(feature = "tokio")]
 mod tokio_bridge;

@@ -13,15 +13,7 @@ pub fn on_tokio<T: Send + 'static>(
     let runtime = crate::Runtime::current().expect("invariant: on_tokio is called inside an App");
     crate::require_effectful("on_tokio");
     let state = TaskState::of(&runtime);
-    let mut tokio = state.tokio.borrow_mut();
-    let executor = tokio.get_or_insert_with(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("kivact-tokio")
-            .build()
-            .expect("invariant: the App can create its Tokio runtime")
-    });
-    TokioFuture(executor.spawn(fut))
+    TokioFuture(state.tokio.borrow_mut().spawn(fut))
 }
 struct TokioFuture<T>(tokio::task::JoinHandle<T>);
 impl<T> Future for TokioFuture<T> {
@@ -42,5 +34,39 @@ impl<T> Future for TokioFuture<T> {
 impl<T> Drop for TokioFuture<T> {
     fn drop(&mut self) {
         self.0.abort();
+    }
+}
+
+/// Lifecycle of the App's single Tokio executor.
+pub(super) enum TokioState {
+    NotStarted,
+    Running(tokio::runtime::Runtime),
+    Closed,
+}
+impl TokioState {
+    fn spawn<T: Send + 'static>(
+        &mut self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> tokio::task::JoinHandle<T> {
+        if matches!(self, Self::NotStarted) {
+            *self = Self::Running(
+                tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .thread_name("kivact-tokio")
+                    .build()
+                    .expect("invariant: the App can create its Tokio runtime"),
+            );
+        }
+        match self {
+            Self::Running(runtime) => runtime.spawn(future),
+            Self::NotStarted | Self::Closed => {
+                panic!("invariant: Tokio tasks start before App shutdown")
+            }
+        }
+    }
+    pub(super) fn shutdown(&mut self) {
+        if let Self::Running(runtime) = std::mem::replace(self, Self::Closed) {
+            runtime.shutdown_background();
+        }
     }
 }
