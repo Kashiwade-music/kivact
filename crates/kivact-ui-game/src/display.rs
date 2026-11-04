@@ -251,7 +251,13 @@ impl IntoView for Kpi {
         let revealed = reveal_once(node_ref);
         let value = Animated::from(
             0.,
-            move || if revealed.get() { target } else { 0. },
+            move || {
+                if matches!(revealed.get(), Reveal::Done) {
+                    target
+                } else {
+                    0.
+                }
+            },
             Transition::tween(900, Easing::CubicBezier(0.2, 0.7, 0.2, 1.)),
         );
         let value_row = row((
@@ -402,7 +408,7 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
     let animated = Animated::from(
         0.,
         move || {
-            if revealed.get() {
+            if matches!(revealed.get(), Reveal::Done) {
                 value.get().clamp(0., 100.)
             } else {
                 0.
@@ -457,16 +463,22 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
     })
 }
 
-fn reveal_once(node: NodeRef) -> Signal<bool> {
-    let revealed = signal(false);
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Reveal {
+    Pending,
+    Done,
+}
+
+fn reveal_once(node: NodeRef) -> Signal<Reveal> {
+    let revealed = signal(Reveal::Pending);
     effect(move || {
-        if !revealed.get_untracked()
+        if matches!(revealed.get_untracked(), Reveal::Pending)
             && let Some(rect) = node.rect().get()
         {
             let height = platform::window_size().height;
             let visible = (rect.y + rect.height).min(height) - rect.y.max(0.);
             if visible >= rect.height * 0.3 {
-                revealed.set(true);
+                revealed.set(Reveal::Done);
             }
         }
     });
