@@ -8,11 +8,12 @@ use kivact_core::state::{IntoText, callback};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{
-    HandlerResult, IntoView, Orientation, ReadingDirection, View, use_direction,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{ScalarRange, use_splitter};
 
+// xtask-allow(state-fields): Setup-only NodeBuilder options; optional panes and observer are independent construction inputs.
 /// Two panes and a handle between them, created by [`splitter`].
 pub struct Splitter {
     root: Node,
@@ -161,8 +162,9 @@ impl IntoView for Splitter {
         } else {
             Orientation::Horizontal
         };
+        let primary = node_ref();
         let handle = with_recipe_style(
-            node().part(part).name(name),
+            node().part(part).name(name).controls(primary),
             |r| r.splitter_recipes().handle_recipe(),
             &variants,
             move || AxisState {
@@ -171,11 +173,16 @@ impl IntoView for Splitter {
                 size: ControlSize::Medium,
             },
         );
-        let leading = node().child(start).style(move || {
-            let px = size.get();
-            let s = style().shrink(0).min_width(0).min_height(0);
-            if vertical { s.height(px) } else { s.width(px) }
-        });
+        let leading = node()
+            .role(Role::Group)
+            .node_ref(primary)
+            .name(name)
+            .child(start)
+            .style(move || {
+                let px = size.get();
+                let s = style().shrink(0).min_width(0).min_height(0);
+                if vertical { s.height(px) } else { s.width(px) }
+            });
         let trailing = node()
             .child(end)
             .style(style().grow(1).basis(0).min_width(0).min_height(0));
