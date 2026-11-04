@@ -200,14 +200,14 @@ impl NodeTree {
     /// the modal scope.
     pub(crate) fn shown(&self, id: NodeId) -> bool {
         self.attached_where(id, |n| {
-            !n.hidden() && !matches!(n.presence, NodePresence::Leaving(_))
+            !n.hidden() && !n.visibility_hidden() && !matches!(n.presence, NodePresence::Leaving(_))
         })
     }
 
     /// Attached to the root, and neither `id` nor an ancestor is hidden:
     /// what is drawn (a leaving subtree is drawn until its exit ends).
     pub(crate) fn drawn(&self, id: NodeId) -> bool {
-        self.attached_where(id, |n| !n.hidden())
+        self.attached_where(id, |n| !n.hidden() && !n.visibility_hidden())
     }
 
     /// Attached to the root, hidden or not.

@@ -89,7 +89,7 @@ pub(super) fn ink(
     {
         return kept.rect;
     }
-    let rect = (!n.hidden()).then(|| {
+    let rect = host.tree().drawn(id).then(|| {
         let look = Look::now(host, id, n);
         let mut rect = reach(host, id, n, layout, &look);
         if !n.clips() {

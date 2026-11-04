@@ -334,7 +334,7 @@ impl Model {
             let Some(child) = tree.get(id) else {
                 continue;
             };
-            if child.hidden() {
+            if child.hidden() || child.visibility_hidden() {
                 continue;
             }
             if semantic_role(child, self.editors[child.index.0].is_some()).is_none()
