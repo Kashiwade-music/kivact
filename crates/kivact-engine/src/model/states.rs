@@ -1,4 +1,4 @@
-//! Role: State styles: a node's base paint plus the deltas of its current states.
+//! Role: Resolve paint and text styles for current interaction states.
 //!
 //! State styles (`StateStyles`): the paint a host draws a node with, its
 //! base paint with the deltas of the states it is in. The core resolves
@@ -39,7 +39,7 @@ use kivact_types::{ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, Stat
 
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::Presence;
+use crate::tree::node::NodePresence;
 
 fn merge(p: &mut PaintProps, d: &PaintDelta) {
     if let Some(b) = &d.background {
@@ -119,7 +119,7 @@ impl Model {
             s.enter.as_ref().filter(|_| entering),
             s.exit
                 .as_ref()
-                .filter(|_| node.presence == Presence::Leaving),
+                .filter(|_| matches!(node.presence, NodePresence::Leaving(_))),
         ]
         .into_iter()
         .flatten()

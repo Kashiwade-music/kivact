@@ -3,14 +3,43 @@
 use crate::contract::NodeType;
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::Presence;
+use crate::tree::node::{LeavingRole, NodePresence, Notify};
 use kivact_types::{Dimension, Edges, NodeId, Position};
 
 impl Model {
+    /// Update authoritative presence and its scheduling indexes together.
+    pub(crate) fn transition_presence(&mut self, id: NodeId, presence: NodePresence) {
+        self.presence.arriving.remove(&id);
+        self.presence.leaving.remove(&id);
+        if let Some(node) = self.tree.get_mut(id) {
+            let presence = match (node.presence, presence) {
+                (
+                    NodePresence::Leaving(LeavingRole::Root {
+                        notify: Notify::OnComplete,
+                    }),
+                    NodePresence::Leaving(LeavingRole::Root { .. }),
+                ) => NodePresence::Leaving(LeavingRole::Root {
+                    notify: Notify::OnComplete,
+                }),
+                (_, presence) => presence,
+            };
+            node.presence = presence;
+            match presence {
+                NodePresence::Arriving => {
+                    self.presence.arriving.insert(id);
+                }
+                NodePresence::Leaving(LeavingRole::Root { .. }) => {
+                    self.presence.leaving.insert(id);
+                }
+                NodePresence::Mounted | NodePresence::Leaving(LeavingRole::Descendant) => {}
+            }
+        }
+    }
+
     /// `id` was created: it enters at the first commit that finds it
     /// attached.
     pub(crate) fn arrive(&mut self, id: NodeId) {
-        self.presence.arriving.insert(id);
+        self.transition_presence(id, NodePresence::Arriving);
     }
 
     /// Capture the nodes attached since the last commit at their enter
@@ -19,7 +48,7 @@ impl Model {
         if self.presence.arriving.is_empty() {
             return;
         }
-        let arriving = std::mem::take(&mut self.presence.arriving);
+        let arriving: Vec<_> = self.presence.arriving.iter().copied().collect();
         for id in arriving {
             let enters = self
                 .tree
@@ -27,12 +56,13 @@ impl Model {
                 .and_then(|n| n.states())
                 .is_some_and(|s| s.enter.is_some());
             if !enters {
+                self.transition_presence(id, NodePresence::Mounted);
                 continue;
             }
             if !self.tree.attached(id) {
-                self.presence.arriving.insert(id);
                 continue;
             }
+            self.transition_presence(id, NodePresence::Mounted);
             if self.transition_shown(id, |s| s.enter.is_some()) {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
@@ -61,7 +91,7 @@ impl Model {
 
     /// Start the exit of the subtree kivact removes at `id`: `false` when
     /// nothing in it has an exit to show, and the subtree goes at once.
-    pub(crate) fn begin_exit(&mut self, id: NodeId, pop_layout: bool) -> bool {
+    pub(crate) fn begin_exit(&mut self, id: NodeId, pop_layout: bool, notify: Notify) -> bool {
         if !self.tree.drawn(id) {
             return false;
         }
@@ -88,14 +118,20 @@ impl Model {
         }
         for x in &subtree {
             self.tree.set_observed(*x, false);
-            if let Some(n) = self.tree.get_mut(*x) {
-                n.presence = Presence::Leaving;
-            }
+            let role = if *x == id {
+                LeavingRole::Root { notify }
+            } else if let Some(NodePresence::Leaving(role @ LeavingRole::Root { .. })) =
+                self.tree.get(*x).map(|n| n.presence)
+            {
+                role
+            } else {
+                LeavingRole::Descendant
+            };
+            self.transition_presence(*x, NodePresence::Leaving(role));
         }
         if pop_layout {
             self.pop_exit_layout(id);
         }
-        self.presence.leaving.insert(id);
         self.changes.a11y_subtrees.insert(id);
         self.changes.restack = true;
         self.revalidate_hover();
@@ -175,9 +211,10 @@ impl Model {
             })
             .collect();
         for root in done {
-            self.presence.leaving.remove(&root);
             if self.tree.contains(root) {
                 self.remove_now(root);
+            } else {
+                self.transition_presence(root, NodePresence::Mounted);
             }
         }
     }

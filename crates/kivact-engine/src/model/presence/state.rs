@@ -1,4 +1,4 @@
-//! Role: The presence group's state: nodes awaiting their entrance and leaving subtrees.
+//! Role: Track scheduling indexes for node entrance and exit transitions.
 
 use std::collections::BTreeSet;
 
@@ -10,5 +10,4 @@ use kivact_types::NodeId;
 pub(crate) struct Presences {
     pub(super) arriving: BTreeSet<NodeId>,
     pub(super) leaving: BTreeSet<NodeId>,
-    pub(crate) notify_exit: BTreeSet<NodeId>,
 }

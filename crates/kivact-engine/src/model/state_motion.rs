@@ -12,8 +12,8 @@
 //!
 //! Invariants:
 //! - A state change captures the displayed value first
-//!   (`Model::prepare_state_motion`, `AnimPhase::Captured`); sync retargets
-//!   the captures once (`AnimPhase::Running`); frames step only running
+//!   (`Model::prepare_state_motion`, `StateAnimPhase::Captured`); sync retargets
+//!   the captures once (`StateAnimPhase::Running`); frames step only running
 //!   ones.
 //! - Under reduced motion a decorative transition ends at once; a
 //!   transition whose target is what is shown ends without a frame.

@@ -34,18 +34,33 @@ pub(crate) struct HostNode {
     /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
     pub(crate) shift: Point,
     /// Whether it shows its enter or exit paint (`model::presence`).
-    pub(crate) presence: Presence,
+    pub(crate) presence: NodePresence,
 }
 
 /// Where a node is between its mount and its removal, for its enter and
 /// exit paint (`StateStyles::enter`, `StateStyles::exit`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum Presence {
+pub(crate) enum NodePresence {
+    Arriving,
     #[default]
     Mounted,
     /// Removed by kivact and kept, with its subtree, until its exit paint
     /// is reached: drawn, but neither hit, focused nor exposed.
-    Leaving,
+    Leaving(LeavingRole),
+}
+
+/// A leaving subtree root owns the requested completion notification.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LeavingRole {
+    Root { notify: Notify },
+    Descendant,
+}
+
+/// Whether physical removal reports exit completion.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Notify {
+    Silent,
+    OnComplete,
 }
 
 /// What a node's paint and layout say about where it is: read from its
@@ -93,7 +108,7 @@ impl HostNode {
             sent_scroll: None,
             place: Place::default(),
             shift: Point::default(),
-            presence: Presence::Mounted,
+            presence: NodePresence::Mounted,
         };
         node.update_place();
         node

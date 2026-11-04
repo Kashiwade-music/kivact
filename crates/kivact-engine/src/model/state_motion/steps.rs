@@ -1,6 +1,6 @@
 //! Role: Prepare, retarget, step and shift the transitions of state styles.
 
-use super::state::{AnimPhase, StateAnimation};
+use super::state::{ColorChannels, StateAnimPhase, StateAnimation};
 use crate::model::Model;
 use kivact_types::motion::SpringRun;
 use kivact_types::{NodeId, PaintProps, PaintVec};
@@ -18,7 +18,7 @@ impl Model {
 
     fn capture_state_motion(&mut self, id: NodeId, entering: bool) {
         if let Some(a) = self.motion.0.get_mut(&id) {
-            a.phase = AnimPhase::Captured;
+            a.phase = StateAnimPhase::Captured;
             return;
         }
         let Some(transition) = self
@@ -47,6 +47,8 @@ impl Model {
         let mut current = PaintVec::of(&paint).components().to_vec();
         current.extend_from_slice(&[c.r, c.g, c.b, c.a]);
         let len = current.len();
+        let mut colors = ColorChannels::default();
+        colors.set(ColorChannels::TEXT, colors_text);
         let a = StateAnimation {
             transition,
             target: paint,
@@ -55,9 +57,8 @@ impl Model {
                 velocity: vec![0.0; len],
                 ..SpringRun::default()
             },
-            colors_text,
-            colors_base_text: false,
-            phase: AnimPhase::Captured,
+            colors,
+            phase: StateAnimPhase::Captured,
         };
         self.motion.0.insert(id, a);
     }
@@ -72,7 +73,7 @@ impl Model {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            if !matches!(a.phase, AnimPhase::Captured) {
+            if !matches!(a.phase, StateAnimPhase::Captured) {
                 return true;
             }
             let target = self.target_paint(*id);
@@ -80,13 +81,18 @@ impl Model {
                 return false;
             };
             a.transition = timing;
-            a.colors_text |= self
-                .tree
-                .get(*id)
-                .and_then(|n| n.states())
-                .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
+            let colors_text = a.colors.contains(ColorChannels::TEXT)
+                || self
+                    .tree
+                    .get(*id)
+                    .and_then(|n| n.states())
+                    .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
             let c = self.text_color(*id);
-            a.colors_base_text = !a.colors_text && c != a.current_color();
+            a.colors.set(ColorChannels::TEXT, colors_text);
+            a.colors.set(
+                ColorChannels::BASE_TEXT,
+                !colors_text && c != a.current_color(),
+            );
             let mut to = PaintVec::of(&target).components().to_vec();
             to.extend_from_slice(&[c.r, c.g, c.b, c.a]);
             if to == a.current || (reduced && a.transition.decorative) {
@@ -98,7 +104,7 @@ impl Model {
                     !a.current_paint().transform.is_none() || !a.target.transform.is_none();
             }
             a.spring.restart(now);
-            a.phase = AnimPhase::Running {
+            a.phase = StateAnimPhase::Running {
                 from: a.current.clone(),
                 to,
                 start: now,
@@ -127,7 +133,7 @@ impl Model {
                 phase,
                 ..
             } = a;
-            let AnimPhase::Running { from, to, start } = phase else {
+            let StateAnimPhase::Running { from, to, start } = phase else {
                 return true;
             };
             let done = if reduced && transition.decorative {
@@ -150,14 +156,14 @@ impl Model {
         });
         let active = animations
             .values()
-            .any(|a| matches!(a.phase, AnimPhase::Running { .. }));
+            .any(|a| matches!(a.phase, StateAnimPhase::Running { .. }));
         self.motion.0 = animations;
         active
     }
 
     pub(crate) fn shift_state_times(&mut self, paused: u64, now: u64) {
         for a in self.motion.0.values_mut() {
-            if let AnimPhase::Running { start, .. } = &mut a.phase {
+            if let StateAnimPhase::Running { start, .. } = &mut a.phase {
                 *start = if *start <= paused {
                     start.saturating_add(now.saturating_sub(paused))
                 } else {

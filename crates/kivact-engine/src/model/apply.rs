@@ -30,6 +30,7 @@ use std::sync::Arc;
 
 use crate::contract::{HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
+use crate::tree::node::{LeavingRole, NodePresence, Notify};
 use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revision};
 
 use crate::model::Model;
@@ -403,10 +404,13 @@ impl Model {
     /// Remove `id` and its whole subtree: at once, or once the exits in it
     /// end (`model::presence`).
     pub(crate) fn remove(&mut self, id: NodeId, pop_layout: bool, notify: bool) {
-        if notify && self.tree.contains(id) {
-            self.presence.notify_exit.insert(id);
-        }
-        if !self.begin_exit(id, pop_layout) {
+        let notify = if notify {
+            Notify::OnComplete
+        } else {
+            Notify::Silent
+        };
+        if !self.begin_exit(id, pop_layout, notify) {
+            self.transition_presence(id, NodePresence::Leaving(LeavingRole::Root { notify }));
             self.remove_now(id);
         }
     }
@@ -427,8 +431,26 @@ impl Model {
         }
         self.changes.outdate_viewport();
         self.changes.layout_changed = true;
+        let notify: Vec<_> = self
+            .tree
+            .subtree(id)
+            .into_iter()
+            .filter(|gone| {
+                self.tree.get(*gone).is_some_and(|node| {
+                    matches!(
+                        node.presence,
+                        NodePresence::Leaving(LeavingRole::Root {
+                            notify: Notify::OnComplete
+                        })
+                    )
+                })
+            })
+            .collect();
+        for gone in self.tree.subtree(id) {
+            self.transition_presence(gone, NodePresence::Mounted);
+        }
         for gone in self.remove_slots(id) {
-            if self.presence.notify_exit.remove(&gone) {
+            if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
             }
             self.changes.a11y_removed.insert(gone);

@@ -1,8 +1,8 @@
-//! Role: The node tree: root, overlays, structural queries and writes over the store.
+//! Role: Own retained node structure and answer ancestry and visibility queries.
 
 use super::store::NodeStore;
 use crate::contract::NodeType;
-use crate::tree::node::{HostNode, NodeIndex, Place, Presence};
+use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place};
 use kivact_types::NodeId;
 use std::collections::BTreeSet;
 
@@ -134,7 +134,9 @@ impl NodeTree {
     /// leaving: what takes part in hit testing, focus, accessibility and
     /// the modal scope.
     pub(crate) fn shown(&self, id: NodeId) -> bool {
-        self.attached_where(id, |n| !n.hidden() && n.presence != Presence::Leaving)
+        self.attached_where(id, |n| {
+            !n.hidden() && !matches!(n.presence, NodePresence::Leaving(_))
+        })
     }
 
     /// Attached to the root, and neither `id` nor an ancestor is hidden:
@@ -167,7 +169,7 @@ impl NodeTree {
     pub(crate) fn live(&self, id: NodeId) -> bool {
         self.nodes
             .get(&id)
-            .is_some_and(|n| n.presence != Presence::Leaving)
+            .is_some_and(|n| !matches!(n.presence, NodePresence::Leaving(_)))
     }
 
     fn attached_where(&self, mut id: NodeId, keep: impl Fn(&HostNode) -> bool) -> bool {

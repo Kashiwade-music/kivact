@@ -1,4 +1,4 @@
-//! Role: Layout pass, rects, hit testing, scrolling and layout reports for the tree.
+//! Role: Resolve pointer hits, canvas regions and current hover geometry.
 //!
 //! Geometry of the node tree: the layout pass (with the host's text
 //! measurement), window rects, overlay origins, hit testing, scroll
@@ -45,7 +45,7 @@ use kivact_types::{NodeId, OverlayAt, Point, Rect};
 
 use crate::measure::leaf::Measure;
 use crate::model::Model;
-use crate::tree::node::Presence;
+use crate::tree::node::NodePresence;
 
 impl Model {
     /// Lay the tree out if anything changed since the last pass, scroll
@@ -367,7 +367,7 @@ impl Model {
     /// own space.
     fn hit_node(&self, id: NodeId, origin: Point, p: Point) -> Option<NodeId> {
         let n = self.tree.get(id)?;
-        if n.hidden() || !n.hit_testable() || n.presence == Presence::Leaving {
+        if n.hidden() || !n.hit_testable() || matches!(n.presence, NodePresence::Leaving(_)) {
             return None;
         }
         let size = self.computed_layout(id)?.size;
