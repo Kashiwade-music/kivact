@@ -295,6 +295,16 @@ impl PopupApi {
         self.settings.get().anchor.unwrap_or(self.own_anchor)
     }
 
+    pub(crate) fn anchor_value(self) -> Value<NodeRef> {
+        memo(move || {
+            self.settings
+                .value()
+                .get()
+                .anchor
+                .unwrap_or(self.own_anchor)
+        })
+    }
+
     pub(crate) fn open_binding(self) -> Binding<bool> {
         self.disclosure.open
     }
@@ -476,7 +486,7 @@ impl PopupApi {
         let open = self.is_open();
         let anchor_starts = self.settings.get().anchor_starts_focus_range;
         effect(move || {
-            if !open.get() {
+            if !open.get() || self.settings.get().modal {
                 return;
             }
             let focused = owner.focused_node();

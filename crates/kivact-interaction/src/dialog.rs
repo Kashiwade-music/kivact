@@ -88,7 +88,7 @@ enum DialogOptionsMode {
     Modal,
     AlertModal,
     Drawer,
-    Popover { anchor: NodeRef },
+    Popover { anchor: Value<NodeRef> },
 }
 
 /// Copy handle for a dialog, a drawer or a popover, without a look.
@@ -146,7 +146,7 @@ enum DialogOptionsMode {
 pub struct DialogApi {
     popup: PopupApi,
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    mode: OptionsCell<DialogOptionsMode>,
+    mode: DialogOptionsMode,
     settings: OptionsCell<DialogOptions>,
     title: NodeRef,
     description: NodeRef,
@@ -161,14 +161,14 @@ pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: Dialog
     DialogApi {
         popup,
         content_state: kivact_core::state::signal(None),
-        mode: OptionsCell::new(match kind {
+        mode: match kind {
             DialogMode::Modal => DialogOptionsMode::Modal,
             DialogMode::AlertModal => DialogOptionsMode::AlertModal,
             DialogMode::Drawer(_) => DialogOptionsMode::Drawer,
             DialogMode::Popover => DialogOptionsMode::Popover {
-                anchor: popup.anchor_ref(),
+                anchor: popup.anchor_value(),
             },
-        }),
+        },
         settings: OptionsCell::new(DialogOptions::default()),
         title: node_ref(),
         description: node_ref(),
@@ -213,11 +213,7 @@ impl DialogApi {
     /// an anchor or a trigger; the other kinds ignore it. Setup only.
     pub fn anchor(self, anchor: NodeRef) -> Self {
         self.popup.anchor(anchor);
-        self.mode.update(|mode| {
-            if let DialogOptionsMode::Popover { anchor: target } = mode {
-                *target = anchor;
-            }
-        });
+
         self
     }
 
@@ -236,20 +232,17 @@ impl DialogApi {
     }
 
     fn popover(self) -> bool {
-        matches!(self.mode.get(), DialogOptionsMode::Popover { .. })
+        matches!(self.mode, DialogOptionsMode::Popover { .. })
     }
 
     fn rules(self) -> DismissOn {
-        self.settings
-            .get()
-            .dismiss
-            .unwrap_or(match self.mode.get() {
-                DialogOptionsMode::AlertModal => DismissOn {
-                    outside: false,
-                    ..DismissOn::default()
-                },
-                _ => DismissOn::default(),
-            })
+        self.settings.get().dismiss.unwrap_or(match self.mode {
+            DialogOptionsMode::AlertModal => DismissOn {
+                outside: false,
+                ..DismissOn::default()
+            },
+            _ => DismissOn::default(),
+        })
     }
 
     fn close(self, reason: PopupCloseReason) {
@@ -303,7 +296,7 @@ impl DialogApi {
                 surface.modal()
             };
             surface
-                .role(match self.mode.get() {
+                .role(match self.mode {
                     DialogOptionsMode::AlertModal => Role::AlertDialog,
                     _ => Role::Dialog,
                 })
@@ -321,8 +314,8 @@ impl DialogApi {
             // focus goes back to the anchor. A modal gets this from the
             // overlay's own cleanup.
             self.popup.set_opening_policy(FocusReturn {
-                target: FocusReturnTarget::Anchor(match self.mode.get() {
-                    DialogOptionsMode::Popover { anchor } => anchor,
+                target: FocusReturnTarget::Anchor(match self.mode {
+                    DialogOptionsMode::Popover { anchor } => anchor.get_untracked(),
                     _ => unreachable!("invariant: only popovers install anchor restoration"),
                 }),
                 on: ReasonSet::DISMISS
