@@ -7,7 +7,7 @@
 //! Invariants:
 //! - The checks of these values stay on the host side of the boundary: a
 //!   line height must be positive and finite (else `Normal`; Arvane gets
-//!   one of its three values), colors pass through `sanitize::color`,
+//!   one of its three values), colors use `Rgba::sanitize`,
 //!   a safe area's negative or non-finite side
 //!   is zero, a non-positive font size is Arvane's default.
 //! - Text lengths in `em` are resolved here against the font size (each
@@ -21,7 +21,6 @@
 //!   against its own size, its colors drawn through the node's tint, its
 //!   family resolved like a text's, and a background as a highlight band.
 use kivact_types as types;
-use kivact_types::Rgba::sanitize;
 
 /// Arvane's line height for a protocol one: unset and invalid values
 /// (not finite, not above zero) are `Normal`.
@@ -38,11 +37,6 @@ fn finite(v: f64) -> f64 {
     if v.is_finite() { v } else { 0.0 }
 }
 
-/// A decoration of text of `font_size` (its em lengths resolved).
-pub(crate) fn decoration(mut d: types::TextDecoration, _font_size: f64) -> types::TextDecoration {
-    d.color = d.color.map(color);
-    d
-}
 /// The spans of a rich text of `base` style (`font_size`: its resolved
 /// size) as Arvane spans: em lengths resolved against each span's size,
 /// colors drawn through `tint`, families resolved by `family`; a span
@@ -75,10 +69,7 @@ pub fn spans(
                     features: s.features.clone(),
                     decoration: s.decoration.map(|d| {
                         let color = d.color.map(&tint);
-                        kivact_types::TextDecoration {
-                            color,
-                            ..decoration(d, size)
-                        }
+                        kivact_types::TextDecoration { color, ..d }
                     }),
                     highlight: s.background.is_some(),
                 },

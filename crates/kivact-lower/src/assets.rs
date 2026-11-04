@@ -228,12 +228,20 @@ impl ArvaneAssets {
     pub fn register_font(&mut self, engine: &mut arvane::Engine, asset: &Asset) -> PlatformResult {
         let file = match load_font(asset) {
             Ok(file) => file,
-            Err(e) => return PlatformResult::Failed(e.message().to_owned()),
+            Err(e) => {
+                return PlatformResult::Failed(kivact_types::Failure::new(
+                    kivact_types::FailureKind::Resource,
+                    e.message(),
+                ));
+            }
         };
         if let Err(e) = engine.register_font(file.bytes().to_shared()) {
-            return PlatformResult::Failed(format!(
-                "the text system did not accept the font file ({}): {e}",
-                file.families().join(", ")
+            return PlatformResult::Failed(kivact_types::Failure::new(
+                kivact_types::FailureKind::Resource,
+                format!(
+                    "the text system did not accept the font file ({}): {e}",
+                    file.families().join(", ")
+                ),
             ));
         }
         for family in file.families() {

@@ -45,7 +45,7 @@ use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
-use kivact_types::{Environment, LifecycleEvent, Point, PointerKind, PointerPhase, ThemeHint};
+use kivact_types::{LifecycleEvent, PointerKind, PointerPhase};
 impl arvane::Handler for Host {
     fn start(
         &mut self,
@@ -183,7 +183,7 @@ impl Host {
                             }
                             self.last_frame = LastFrame::Settled;
                         }
-                        Err(error) => return Err(ShellError::new(error.to_string())),
+                        Err(error) => return Err(ShellError::Failed(error)),
                     }
                 }
             }
@@ -302,7 +302,7 @@ impl Host {
                 model.modifiers = input.modifiers;
                 let result = match input.phase {
                     kivact_types::KeyPhase::Up => {
-                        model.key_up(input.key, input.code);
+                        model.key_up(input.key, input.code, input.pointer);
                         KeyResult::Reported
                     }
                     kivact_types::KeyPhase::Down { repeat, text } => model.key(
@@ -311,6 +311,7 @@ impl Host {
                         input.code,
                         repeat,
                         text,
+                        input.pointer,
                         &mut self.engine.borrow_mut(),
                     ),
                 };

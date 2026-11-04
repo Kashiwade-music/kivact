@@ -42,7 +42,7 @@ impl Context<'_> {
                             self.raster.get(),
                         );
                     }
-                    Err(error) => self.fail(error.into()),
+                    Err(error) => self.fail(error),
                 }
                 true
             }

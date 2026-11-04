@@ -6,7 +6,7 @@ use crate::model::Model;
 use crate::model::edit::state::ImeUpdate;
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
-use kivact_types::{FileDialog, PlatformRequest, PlatformResult};
+use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -62,7 +62,7 @@ pub(crate) struct Host {
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
-    pub(super) environment: kivact_types::render::Environment,
+    pub(super) environment: kivact_types::Environment,
     pub(super) reduced_motion_override: Option<bool>,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes. Independent of `phase`.
@@ -199,7 +199,7 @@ impl Host {
                         Ok(()) => ExternalImport::Ready {
                             generation: window.gpu_adapter().map_or(0, |a| a.generation),
                         },
-                        Err(e) if e.kind() == arvane::ErrorKind::Unavailable => {
+                        Err(e) if e.kind == kivact_types::FailureKind::Unavailable => {
                             ExternalImport::Unavailable(e.to_string())
                         }
                         Err(e) => ExternalImport::Failed(e.to_string()),
@@ -230,7 +230,7 @@ impl Host {
         &mut self,
         window: &mut W,
         started: Instant,
-    ) -> Result<Presented, arvane::Error> {
+    ) -> Result<Presented, kivact_types::Failure> {
         let mut model = self.model.borrow_mut();
         model.scroll_inputs(&mut self.engine.borrow_mut());
         let plan = window.frame_plan();

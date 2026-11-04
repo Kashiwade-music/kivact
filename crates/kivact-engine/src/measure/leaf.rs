@@ -428,7 +428,7 @@ impl kivact_types::TextShaper for LeafText<'_> {
         &self,
         run: &kivact_types::TextRun,
         max_width: Option<f64>,
-    ) -> Option<std::sync::Arc<kivact_types::scene::ShapedText>> {
+    ) -> Option<std::sync::Arc<kivact_types::render::ShapedText>> {
         let inherited = self.inherited(run);
         kivact_lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
     }

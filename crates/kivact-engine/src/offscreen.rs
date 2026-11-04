@@ -104,12 +104,15 @@ impl OffscreenRenderer {
     }
 
     /// Register a font file now, returning its families, or why it failed.
-    pub fn font(&mut self, asset: &Asset) -> Result<Vec<String>, String> {
+    pub fn font(&mut self, asset: &Asset) -> Result<Vec<String>, kivact_types::Failure> {
         let mut engine = self.engine.borrow_mut();
         match self.assets.get_mut().register_font(&mut engine, asset) {
             PlatformResult::Fonts(families) => Ok(families),
             PlatformResult::Failed(message) => Err(message),
-            _ => Err("the font was not registered".to_owned()),
+            _ => Err(kivact_types::Failure::new(
+                kivact_types::FailureKind::Resource,
+                "the font was not registered",
+            )),
         }
     }
 
@@ -158,7 +161,7 @@ impl OffscreenRenderer {
         let mut frame = self
             .rasterizer
             .render(&lowered, size.0, size.1)
-            .map_err(|e| OffscreenError::Failed(e.into()))?;
+            .map_err(OffscreenError::Failed)?;
         // PNG and Draw::pixels are straight alpha; Arvane's frame is
         // premultiplied.
         kivact_types::color::unpremultiply(&mut frame.rgba);

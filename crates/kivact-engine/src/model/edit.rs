@@ -39,7 +39,7 @@
 //!   or the geometry changed since the last time. The offsets the IME
 //!   answers with are in the text it was last given, which starts at
 //!   `ImeGiven::Input::start` in the value.
-//! - The range the IME takes for reconversion (`ShellEvent::ImeSelection`,
+//! - The range the IME takes for reconversion (`ImeInput::Selection`,
 //!   [`Model::ime_select`]) becomes the selection, which the composition
 //!   that follows replaces. It is ignored while composing, and in a
 //!   password or read-only input.

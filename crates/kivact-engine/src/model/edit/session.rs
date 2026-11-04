@@ -126,10 +126,7 @@ impl Model {
                 ..arvane::ShellImeText::default()
             }
         } else {
-            let units = |byte: usize| {
-                let byte = kivact_types::text_utf::floor_char_boundary(&session.text, byte);
-                session.text[..byte].encode_utf16().count()
-            };
+            let units = |byte: usize| kivact_types::text_utf::utf16_offset(&session.text, byte);
             let (start, end) = (units(session.selection.start), units(session.selection.end));
             arvane::ShellImeText {
                 password: false,

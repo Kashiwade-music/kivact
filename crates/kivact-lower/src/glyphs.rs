@@ -34,7 +34,7 @@ pub struct Colors {
 /// order (see the module invariants), colored by `colors`.
 pub fn push_text(
     out: &mut crate::SceneOut,
-    shaped: &kivact_types::scene::ShapedText,
+    shaped: &kivact_types::render::ShapedText,
     origin: Point,
     colors: &Colors,
     shadows: &[TextShadow],
@@ -78,7 +78,7 @@ pub fn push_text(
 /// The glyph runs of `shaped` at `origin`, in `color` when given.
 fn glyphs(
     out: &mut crate::SceneOut,
-    shaped: &kivact_types::scene::ShapedText,
+    shaped: &kivact_types::render::ShapedText,
     origin: Point,
     color: Option<Rgba>,
 ) {
@@ -97,7 +97,7 @@ fn glyphs(
 /// renderers align).
 fn lines(
     out: &mut crate::SceneOut,
-    shaped: &kivact_types::scene::ShapedText,
+    shaped: &kivact_types::render::ShapedText,
     origin: Point,
     colors: &Colors,
     through: bool,
@@ -175,7 +175,10 @@ pub(crate) fn run_style(
         },
         kerning: run.kerning,
         features: run.features.clone(),
-        decoration: crate::conversion::decoration(run.decoration, run.font_size),
+        decoration: kivact_types::TextDecoration {
+            color: run.decoration.color.map(kivact_types::Rgba::sanitize),
+            ..run.decoration
+        },
         ..Default::default()
     }
 }
@@ -210,7 +213,7 @@ pub fn shape_run(
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
     max_width: Option<f64>,
-) -> Option<std::sync::Arc<kivact_types::scene::ShapedText>> {
+) -> Option<std::sync::Arc<kivact_types::render::ShapedText>> {
     let style = run_style(engine, run, inherited);
     if !(style.font_size.is_finite() && style.font_size > 0.0) {
         return None;

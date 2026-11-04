@@ -267,12 +267,7 @@ impl Model {
                     let space = PointerSpace::new(self.pointer.state.track(id).at, engine);
                     self.end_contact(id, &space);
                 }
-                let primary = !self
-                    .pointer
-                    .state
-                    .tracks
-                    .values()
-                    .any(|t| t.source.kind == input.kind);
+                let primary = input.is_primary;
                 self.begin_pointer(
                     PointerSource {
                         time_ns: input.time_ns,
@@ -344,7 +339,7 @@ impl Model {
         let delta = input.delta;
         self.modifiers = input.modifiers;
         self.pointer.state.mouse = Some(input.position);
-        let at = self.mouse_at();
+        let at = input.position;
         let hit = self.hit(at);
         let space = PointerSpace::new(at, engine);
         self.handle_wheel(hit, delta, self.modifiers, &space);

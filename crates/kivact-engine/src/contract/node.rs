@@ -1,8 +1,8 @@
 //! Role: Engine client node contracts.
 use super::measure::LeafMeasure;
 use kivact_types::{
-    A11yAction, CheckedState, EditLineLayout, FocusTarget, ImageData, IntrinsicSize, Key,
-    LayoutProps, Orientation, OverlayProps, PaintProps, Role, StateStyles, TextData, TextStyle,
+    EditLineLayout, FocusTarget, ImageData, IntrinsicSize, Key, LayoutProps, Orientation,
+    OverlayProps, PaintProps, StateStyles, TextData, TextStyle,
 };
 
 /// The kind of a host node: these five only. Native text editing is not a

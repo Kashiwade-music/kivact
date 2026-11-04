@@ -69,7 +69,7 @@ pub(crate) struct Kept {
     pub(crate) colors: Option<Colored>,
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
-    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::scene::ShapedText>)>,
+    pub(crate) painted: Option<(kivact_types::Rgba, Arc<kivact_types::render::ShapedText>)>,
     /// Its text run's identity, once it has one.
     pub(crate) run_id: Option<u64>,
     /// Its text run and where it was placed.
@@ -84,7 +84,7 @@ pub(crate) enum Shape {
     /// The shaper could not shape it: it is laid out as an empty line.
     Failed,
     /// Shaped.
-    Done(Arc<kivact_types::scene::ShapedText>),
+    Done(Arc<kivact_types::render::ShapedText>),
 }
 
 impl Shape {
@@ -97,7 +97,7 @@ impl Shape {
     }
 
     /// Its shaped text, when shaped.
-    pub(crate) fn shaped(&self) -> Option<&Arc<kivact_types::scene::ShapedText>> {
+    pub(crate) fn shaped(&self) -> Option<&Arc<kivact_types::render::ShapedText>> {
         match self {
             Shape::Done(shaped) => Some(shaped),
             Shape::Pending | Shape::Failed => None,

@@ -32,7 +32,7 @@ impl SceneCache {
         &mut self,
         scene: &Arc<DrawList>,
         inherited: Option<&ComputedTextStyle>,
-        raster: u32,
+        raster: u64,
         tint: &Tint,
     ) -> Option<Arc<Entry>> {
         self.entries.retain(|entry| entry.scene.strong_count() != 0);
@@ -66,7 +66,7 @@ pub(crate) struct Entry {
     pub(crate) scene: Weak<DrawList>,
     pub(crate) len: usize,
     pub(crate) inherited: Option<ComputedTextStyle>,
-    pub(crate) raster: u32,
+    pub(crate) raster: u64,
     pub(crate) tint: Tint,
     pub(crate) lowered: kivact_types::render::RenderScene,
     pub(crate) max_depth: usize,

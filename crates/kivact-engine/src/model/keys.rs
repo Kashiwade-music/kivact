@@ -121,6 +121,7 @@ impl Model {
         code: KeyCode,
         repeat: bool,
         text: Option<String>,
+        pointer: Option<kivact_types::Point>,
         engine: &mut arvane::Engine,
     ) -> KeyResult {
         let text = text.filter(|t| !t.is_empty() && !t.chars().any(char::is_control));
@@ -132,6 +133,7 @@ impl Model {
             modifiers,
             repeat,
             text.as_deref(),
+            pointer,
             engine,
         );
         if let KeyResult::Text(text) = &result {
@@ -148,14 +150,12 @@ impl Model {
     }
 
     /// A key release, reported to the focused node.
-    pub(crate) fn key_up(&mut self, key: Key, code: KeyCode) {
+    pub(crate) fn key_up(&mut self, key: Key, code: KeyCode, pointer: Option<kivact_types::Point>) {
         let node = self.focused();
         self.push(HostEvent::Key(crate::contract::Routed {
             target: node.map(|f| f.node),
             region: node.and_then(|f| f.region),
-            local: self
-                .pointer
-                .mouse()
+            local: pointer
                 .zip(node.map(|f| f.node))
                 .map(|(point, node)| self.to_local(node, point))
                 .unwrap_or_default(),
@@ -166,7 +166,7 @@ impl Model {
                 code,
                 phase: KeyPhase::Up,
                 modifiers: self.modifiers,
-                pointer: self.pointer.mouse(),
+                pointer,
             },
         }));
     }
@@ -297,6 +297,7 @@ impl Model {
         modifiers: Modifiers,
         repeat: bool,
         text: Option<&str>,
+        pointer: Option<kivact_types::Point>,
         engine: &mut arvane::Engine,
     ) -> KeyResult {
         let key = shortcut_key(key, physical, modifiers);
@@ -413,9 +414,7 @@ impl Model {
         self.push(HostEvent::Key(crate::contract::Routed {
             target: self.focused().map(|f| f.node),
             region: self.focused().and_then(|f| f.region),
-            local: self
-                .pointer
-                .mouse()
+            local: pointer
                 .zip(self.focused().map(|f| f.node))
                 .map(|(point, node)| self.to_local(node, point))
                 .unwrap_or_default(),
@@ -426,7 +425,7 @@ impl Model {
                 code,
                 phase: KeyPhase::Down { repeat, text },
                 modifiers: modifiers,
-                pointer: self.pointer.mouse(),
+                pointer,
             },
         }));
         KeyResult::Reported

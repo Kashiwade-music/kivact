@@ -153,7 +153,7 @@ impl Model {
 /// color.
 fn push_runs(
     out: &mut kivact_lower::SceneOut,
-    shaped: Option<&kivact_types::scene::ShapedText>,
+    shaped: Option<&kivact_types::render::ShapedText>,
     x: f64,
     y: f64,
     color: impl Fn(kivact_types::Rgba) -> kivact_types::Rgba,

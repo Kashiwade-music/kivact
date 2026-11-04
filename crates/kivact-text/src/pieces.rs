@@ -56,18 +56,18 @@ fn fragments(text: &str) -> Vec<Range<usize>> {
 /// end on one baseline into one line.
 pub(super) fn shape_long(
     text: &str,
-    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::scene::ShapedText>>,
-) -> Option<Arc<kivact_types::scene::ShapedText>> {
+    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::render::ShapedText>>,
+) -> Option<Arc<kivact_types::render::ShapedText>> {
     let pieces = fragments(text);
     if pieces.len() == 1 {
         return shape(0..text.len());
     }
-    let shaped: Vec<(Range<usize>, kivact_types::scene::ShapedText)> = pieces
+    let shaped: Vec<(Range<usize>, kivact_types::render::ShapedText)> = pieces
         .into_iter()
         .map(|range| Some((range.clone(), Arc::unwrap_or_clone(shape(range)?))))
         .collect::<Option<_>>()?;
     let baseline = shaped.iter().map(|(_, s)| s.baseline).fold(0.0, f64::max);
-    let mut out = kivact_types::scene::ShapedText {
+    let mut out = kivact_types::render::ShapedText {
         baseline,
         ..Default::default()
     };

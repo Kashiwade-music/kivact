@@ -1,10 +1,9 @@
 //! Role: Engine client events contracts.
 use kivact_types::{
-    A11yRequest, Environment, ExternalImport, FilePhase, ImeInput, Key, KeyCode, KeyPhase,
-    LayoutRule, LifecycleEvent, Modifiers, MotionClock, NodeId, PlatformResult, Point, PointerId,
-    PointerSample, Rect, RegionId, RequestId, Revision, Size,
+    A11yRequest, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent, Modifiers,
+    MotionClock, NodeId, PlatformResult, Point, PointerId, Rect, RegionId, RequestId, Revision,
+    Size,
 };
-use std::path::PathBuf;
 
 /// What the engine tells the client. Every kind goes into one ordered
 /// queue, in the order produced (never one list per kind), handed whole to

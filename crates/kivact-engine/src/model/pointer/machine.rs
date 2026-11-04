@@ -34,7 +34,8 @@ impl Model {
             target: Some(node),
             region,
             local: pos,
-            captured: self.pointer.state.track(pointer).capture() == Some(node),
+            captured: matches!(phase, PointerPhase::Up(_) | PointerPhase::Cancel)
+                || self.pointer.state.track(pointer).capture() == Some(node),
             activation: None,
             input: PointerSample {
                 id: source.id,

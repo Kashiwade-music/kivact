@@ -51,7 +51,7 @@ fn corners(c: &mut Corners) {
     }
 }
 
-/// A fill layer's lengths made finite (colors are clamped by `color`).
+/// A fill layer's lengths made finite (colors use `Rgba::sanitize`).
 pub(crate) fn fill_layer(l: &mut FillLayer) {
     l.position.iter_mut().for_each(len);
     if let FillSize::Explicit(w, h) = &mut l.size {

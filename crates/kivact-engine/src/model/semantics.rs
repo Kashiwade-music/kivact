@@ -138,7 +138,7 @@ impl Model {
             .and_then(|n| n.region(region))
             .filter(|r| !r.semantics.disabled && !r.semantics.hidden)
             .map(|r| {
-                let mut actions = r.semantics.actions.clone();
+                let mut actions = r.semantics.actions.clone().unwrap_or_default();
                 if r.semantics.focusable && !actions.contains(&A11yAction::Focus) {
                     actions.push(A11yAction::Focus);
                 }

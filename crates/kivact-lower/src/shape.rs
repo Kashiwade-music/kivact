@@ -24,7 +24,7 @@
 use kivact_types::{Border, ClipShape, Corners, Edges, Len, PaintProps, Point, Rect};
 
 use kivact_types::FillRule;
-use kivact_types::render::{Radius, RoundedRect, Shape};
+use kivact_types::scene::{Radius, RoundedRect, Shape};
 
 /// A box's outline: a plain rect, circular corners (drawn with Arvane's
 /// rounded-rect commands, as before elliptical corners existed) or
