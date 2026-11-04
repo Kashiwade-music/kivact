@@ -339,6 +339,7 @@ where
         behavior,
         row_metadata,
         column_metadata,
+        navigation: super::navigation::NavigationCache::new(),
         filters: typed_column_filters.map(|values| super::filters::Filters {
             values,
             ui: filter_ui,

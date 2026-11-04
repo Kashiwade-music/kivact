@@ -13,6 +13,7 @@ mod filters;
 mod group_state;
 mod grouped;
 mod metadata;
+mod navigation;
 mod row_status;
 mod rows;
 mod runtime;

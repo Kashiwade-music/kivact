@@ -38,7 +38,7 @@ pub(super) const ACTIONS: usize = usize::MAX - 4;
 
 /// Native grouping keeps every cell's controls out of the page Tab sequence.
 /// Enter/F2 enters its controls; Escape restores cell navigation.
-fn content_navigation(root: Node, content: View, enabled: bool) -> Node {
+pub(super) fn content_navigation(root: Node, content: View, enabled: bool) -> Node {
     navigation_content(root, content, enabled, true)
 }
 fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> Node {
@@ -74,6 +74,7 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
+    pub(super) navigation: super::navigation::NavigationCache<K>,
     pub(super) row_metadata: Value<super::metadata::Rows<K>>,
     pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
     pub(super) filters: Option<super::filters::Filters>,
@@ -163,6 +164,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Clone for Grid<R, K> {
         Self {
             tree: self.tree,
             behavior: self.behavior,
+            navigation: self.navigation.clone(),
             row_metadata: self.row_metadata,
             column_metadata: self.column_metadata,
             filters: self.filters,
@@ -194,6 +196,25 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Clone for Grid<R, K> {
 }
 
 impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
+    fn navigation_cell(&self, root: Node, key: K, column: usize) -> Node {
+        if !matches!(self.focus, TableFocus::Cells(_)) {
+            return root;
+        }
+        let root = self
+            .navigation
+            .bind(root, super::navigation::Target::Cell(key.clone(), column));
+        let navigation = self.navigation.clone();
+        let rows = self.row_metadata;
+        root.on_key(move |event| navigation.from_cell(&key, &event, rows))
+    }
+    fn navigation_header(&self, root: Node, column: usize) -> Node {
+        if matches!(self.focus, TableFocus::Cells(_)) {
+            self.navigation
+                .bind(root, super::navigation::Target::Header(column))
+        } else {
+            root
+        }
+    }
     fn column_index(&self, key: usize) -> Value<u32> {
         let metadata = self.column_metadata;
         memo(move || metadata.with(|metadata| metadata.1.get(&key).copied().unwrap_or(0)))
@@ -355,7 +376,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
 ) -> View {
     let check = grid.checks().map(|selection| {
         let (root, content) = super::chrome::select_page(selection, grid.keys, &grid.variants);
-        let root = root.column_index(grid.column_index(CHECK));
+        let root = grid.navigation_header(root.column_index(grid.column_index(CHECK)), CHECK);
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(CHECK))
         } else {
@@ -364,7 +385,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
         content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
     });
     let actions = grid.actions.as_ref().map(|(width, _)| {
-        let root = node().column_index(grid.column_index(ACTIONS));
+        let root = grid.navigation_header(node().column_index(grid.column_index(ACTIONS)), ACTIONS);
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(ACTIONS))
         } else {
@@ -382,7 +403,10 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
             .collect::<Vec<_>>()
     });
     let disclosure = (grid.details.is_some() && grid.expanded_rows.is_some()).then(|| {
-        let root = expansion_cell().column_index(grid.column_index(DETAILS));
+        let root = grid.navigation_header(
+            expansion_cell().column_index(grid.column_index(DETAILS)),
+            DETAILS,
+        );
         let root = if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(DETAILS))
         } else {
@@ -392,9 +416,12 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
             .name(kivact_core::i18n::message("data_table.details", "Details"))
     });
     let index = grid.indexed.map(|_| {
-        let root = index_cell(Role::ColumnHeader, text("#"))
-            .name("#")
-            .column_index(grid.column_index(INDEX));
+        let root = grid.navigation_header(
+            index_cell(Role::ColumnHeader, text("#"))
+                .name("#")
+                .column_index(grid.column_index(INDEX)),
+            INDEX,
+        );
         if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(INDEX))
         } else {
@@ -402,7 +429,10 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
         }
     });
     let status = grid.row_status.as_ref().map(|_| {
-        let root = super::row_status::header().column_index(grid.column_index(STATUS));
+        let root = grid.navigation_header(
+            super::row_status::header().column_index(grid.column_index(STATUS)),
+            STATUS,
+        );
         if matches!(grid.focus, TableFocus::Cells(_)) {
             root.part(grid.behavior.header(STATUS))
         } else {
@@ -458,10 +488,16 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     let filter = grid
         .filters
         .map(|filters| filters.control(index, field, title, filter_anchor));
-    let mut header = node()
+    let header = node()
         .part(part)
         .name(title)
         .column_index(grid.column_index(index));
+    let mut header = if matches!(grid.focus, TableFocus::Cells(_)) {
+        grid.navigation
+            .bind(header, super::navigation::Target::Header(index))
+    } else {
+        header
+    };
     if let Some(anchor) = filter_anchor {
         header = header.node_ref(anchor);
     }
@@ -558,6 +594,7 @@ where
     } else {
         root
     };
+    let root = grid.navigation_cell(root, id.clone(), CHECK);
     let root = with_recipe_style(
         root,
         |r| r.data_table_recipes().check_recipe(),
@@ -640,6 +677,7 @@ where
         } else {
             root
         };
+        let root = grid.navigation_cell(root, id.clone(), ACTIONS);
         content_navigation(
             root.style(
                 style()
@@ -675,6 +713,7 @@ where
                     .with(|positions| positions.get(&id).map(usize::to_string).unwrap_or_default())
             }),
         );
+        let root = grid.navigation_cell(root, cell_key.clone(), INDEX);
         if matches!(grid.focus, TableFocus::Cells(_)) {
             root.column_index(grid.column_index(INDEX))
                 .part(grid.behavior.cell(cell_key, INDEX))
@@ -699,6 +738,7 @@ where
         } else {
             root
         };
+        let root = grid.navigation_cell(root, id.clone(), STATUS);
         content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
     });
     let metadata = grid.row_metadata;
@@ -824,10 +864,11 @@ fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
         .role(role)
         .column_index(grid.column_index(DETAILS));
     let root = if matches!(grid.focus, TableFocus::Cells(_)) {
-        root.part(grid.behavior.cell(cell_key, DETAILS))
+        root.part(grid.behavior.cell(cell_key.clone(), DETAILS))
     } else {
         root
     };
+    let root = grid.navigation_cell(root, cell_key.clone(), DETAILS);
     (
         content_navigation(
             root,
@@ -907,6 +948,7 @@ where
     .style(grid.width(index, numeric))
     .style(grid.sticky_style(index, false, Some(state), tint))
     .child(grid.sticky_shadow(index));
+    let cell = grid.navigation_cell(cell, id.clone(), index);
     let cell = content_navigation(cell, content, matches!(grid.focus, TableFocus::Cells(_)));
     if checked {
         cell.on_pointer(keep_selection).into_view()

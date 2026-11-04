@@ -57,12 +57,11 @@ fn row_status_has_a_named_tooltip_and_a_logical_leading_lane() {
         failed.press_key(Key::Escape);
         assert!(screen.query_by_role(Role::Tooltip, "Failed").is_none());
 
-        for _ in 0..8 {
-            if waiting.is_focused() {
-                break;
-            }
-            screen.press_tab(false);
-        }
+        // Escape leaves the marker after dismissing its tooltip; grid navigation
+        // reaches the next status cell and F2 enters that marker.
+        screen.press_key(Key::Escape);
+        screen.press_key(Key::ArrowDown);
+        screen.press_key(Key::F(2));
         assert!(waiting.is_focused());
         screen.advance(Duration::from_millis(1000));
         screen.get_by_role(Role::Tooltip, "Waiting");

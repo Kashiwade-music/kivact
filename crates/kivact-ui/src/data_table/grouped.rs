@@ -202,6 +202,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
             base.left(0).padding_left(4)
         }
     });
+    let navigation_label = label.clone();
     let disclosure = button(name)
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
@@ -233,15 +234,29 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     } else {
         Role::GridCell
     };
+    let cell = node()
+        .role(cell_role)
+        .column_index(1)
+        .style(style().grow(1));
+    let cell = if matches!(grid.focus, TableFocus::Cells(_)) {
+        let cell = grid.navigation.bind(
+            cell.focusable(true).name(navigation_label.clone()),
+            super::navigation::Target::Group(navigation_label.clone()),
+        );
+        let navigation = grid.navigation.clone();
+        let rows = grid.row_metadata;
+        let columns = grid.column_metadata;
+        let cell = cell
+            .on_key(move |event| navigation.from_group(&navigation_label, &event, rows, columns));
+        rows::content_navigation(cell, disclosure.into_view(), true)
+    } else {
+        cell.child(disclosure)
+    };
     with_recipe_style(
-        row(node()
-            .role(cell_role)
-            .column_index(1)
-            .style(style().grow(1))
-            .child(disclosure))
-        .role(Role::Row)
-        .row_index(row_index)
-        .name(row_name),
+        row(cell)
+            .role(Role::Row)
+            .row_index(row_index)
+            .name(row_name),
         |recipes| recipes.data_table_recipes().group_header_recipe(),
         &grid.variants,
         move || state.get(),
