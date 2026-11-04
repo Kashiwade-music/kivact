@@ -1,16 +1,13 @@
 //! Role: DataTableApi state shares the row list, sort, widths and the cell registry.
 
 use super::data::{Header, SortOrder, TableFocus};
-use super::sort;
 use crate::Selection;
 use crate::options_cell::OptionsCell;
 use crate::policy::scalar::ScalarRange;
 use crate::roving::{Observation, Roving};
 use crate::{ListApi, ListItem, ListOptions, use_list};
-use kivact_core::custom::{Owned, Owner};
-use kivact_core::state::{
-    Binding, IntoBinding, MachineHandle, Signal, Value, effect, machine, memo, signal,
-};
+use kivact_core::custom::{NodeRefExt, Owned, Owner};
+use kivact_core::state::{Binding, IntoBinding, Signal, Value, effect, memo, signal};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,6 +15,12 @@ use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
 type MultiSort<C> = Binding<Vec<(C, SortOrder)>>;
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(super) enum Target<K, C> {
+    Header(C),
+    Cell(K, C),
+}
 
 #[derive(Clone)]
 pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
@@ -29,6 +32,7 @@ pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_cor
 }
 
 pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
+    // xtask-allow(state-fields): Optional mounted-part drawing observation, independent of behavior phase.
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) header_states:
         Signal<std::collections::HashMap<C, Value<super::data::TableHeaderState>>>,
@@ -46,13 +50,15 @@ pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::I
     pub(super) selection: Selection<K>,
     /// The keyboard pattern; fixed by `use_data_table`.
     pub(super) focus: TableFocus,
-    pub(super) sorting: MachineHandle<sort::Machine<C>>,
     pub(super) options: OptionsCell<DataTableOptions<K, C>>,
     headers: RefCell<HashMap<C, NodeRef>>,
     /// The mounted cells, the cell the keyboard or pointer last moved to and
     /// the focus bookkeeping.
-    pub(super) roving: Roving<(K, C)>,
+    pub(super) roving: Roving<Target<K, C>>,
+    // xtask-allow(state-fields): Pure projection of canonical order and registry, not a stored focus request.
+    pub(super) tab_stop: Value<Option<Target<K, C>>>,
     /// The cell holding the tab stop.
+    // xtask-allow(state-fields): Pure projection of the canonical order, selection, and mounted registry.
     pub(super) active: Value<Option<(K, C)>>,
 }
 
@@ -74,18 +80,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
             10.0,
         ),
     });
-    let sorting = machine(
-        sort::Sort::Unsorted,
-        || sort::Machine::new(),
-        move |_, keys| {
-            let options = options.get();
-            if let Some(binding) = options.multi_sort {
-                binding.set(keys);
-            } else {
-                options.sort.set(keys.into_iter().next());
-            }
-        },
-    );
     let settings = options.value();
     let items = memo(move || {
         let label = settings.with(|options| options.label.clone());
@@ -120,13 +114,13 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         })
     });
     let widths = signal(starting.get_untracked());
-    let roving = Roving::<(K, C)>::new();
+    let roving = Roving::<Target<K, C>>::new();
     let requested = roving.requested;
     let registry = roving.clone();
-    let active = memo(move || {
+    let tab_stop = memo(move || {
         keys.try_get()?;
         registry.track();
-        let available = |cell: &(K, C)| {
+        let available = |cell: &Target<K, C>| {
             registry.with_members(|cells| cells.get(cell).is_some_and(|entry| entry.available()))
         };
         if let Some(cell) = requested.get().filter(|cell| available(cell)) {
@@ -136,7 +130,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
             columns.with(|columns| {
                 columns
                     .iter()
-                    .map(|column| (key.clone(), column.key.clone()))
+                    .map(|column| Target::Cell(key.clone(), column.key.clone()))
                     .find(|cell| available(cell))
             })
         };
@@ -148,6 +142,20 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
                         .find_map(&first_in)
                 })
                 .or_else(|| keys.iter().find_map(first_in))
+                .or_else(|| {
+                    columns.with(|columns| {
+                        columns
+                            .iter()
+                            .map(|column| Target::Header(column.key.clone()))
+                            .find(|header| available(header))
+                    })
+                })
+        })
+    });
+    let active = memo(move || {
+        tab_stop.get().and_then(|target| match target {
+            Target::Cell(key, column) => Some((key, column)),
+            Target::Header(_) => None,
         })
     });
     options.update(|options| options.widths = widths.into_binding());
@@ -164,10 +172,10 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         selection,
         focus,
         options,
-        sorting,
         headers: RefCell::new(HashMap::new()),
         roving,
         active,
+        tab_stop,
     });
     let stored = owner.store("DataTableApi", state.clone());
     effect(move || {
@@ -181,9 +189,22 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
 /// Follow focus that reaches a cell by other means, and give the focus of a
 /// removed cell to the tab stop.
 fn reconcile<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(state: &State<K, C>) {
-    let active = state.active.get();
+    let active = state.tab_stop.get();
     let observation = Observation {
-        current: state.owner.focused_node(),
+        current: {
+            let focused = state.owner.focused_node();
+            state
+                .roving
+                .with_members(|members| {
+                    members
+                        .values()
+                        .find(|member| {
+                            member.node.holds_focus() || member.node.holds_focus_within()
+                        })
+                        .and_then(|member| member.node.mounted_node())
+                })
+                .or(focused)
+        },
         active: active.as_ref(),
         adopt: true,
         // A focused cell counts as the cell's focus whatever its constraints.
@@ -222,15 +243,28 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> State<K, C>
 
     /// The mounted, available node of a cell.
     pub(super) fn target(&self, cell: &(K, C)) -> Option<NodeRef> {
-        self.roving.target(cell, |_| true)
+        self.roving
+            .target(&Target::Cell(cell.0.clone(), cell.1.clone()), |_| true)
     }
 
+    pub(super) fn focus_header(&self, column: C) -> bool {
+        let target = Target::Header(column);
+        let Some(node) = self.roving.target(&target, |_| true) else {
+            return false;
+        };
+        self.roving.requested.set(Some(target));
+        node.focus();
+        node.scroll_into_view();
+        true
+    }
     /// Move the tab stop to a cell and focus it.
     pub(super) fn focus_cell(&self, cell: (K, C)) -> bool {
         let Some(node) = self.target(&cell) else {
             return false;
         };
-        self.roving.requested.set(Some(cell));
+        self.roving
+            .requested
+            .set(Some(Target::Cell(cell.0, cell.1)));
         node.focus();
         node.scroll_into_view();
         true

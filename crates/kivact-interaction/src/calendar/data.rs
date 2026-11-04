@@ -17,6 +17,7 @@ pub enum CalendarSpan {
     None,
 }
 
+// xtask-allow(state-fields): Public drawing projection of input, selection, range geometry, and policy availability.
 /// The reactive drawing state of a [`cell`](super::CalendarGridApi::cell).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CalendarDayState {

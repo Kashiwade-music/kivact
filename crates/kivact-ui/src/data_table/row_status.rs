@@ -3,10 +3,11 @@ use crate::tooltip;
 use kivact_core::i18n::message;
 use kivact_core::state::Value;
 use kivact_core::style::{Align, Color, Icon, Justify, style, use_theme};
+use kivact_core::view::{IntoView, Role, View, dynamic};
 use kivact_core::view::{Node, icon, node};
-use kivact_core::view::{Role, View, dynamic};
 use kivact_interaction::Tone;
 
+// xtask-allow(state-fields): Immutable presentation descriptor; optional icon and color are independent overrides.
 /// A status announced by name and shown in the table's leading lane.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RowStatus {
@@ -63,10 +64,11 @@ pub(super) fn header() -> Node {
         .name(message(paint.header_key, "Row status"))
 }
 
-pub(super) fn cell(status: Value<Option<RowStatus>>) -> Node {
-    lane()
-        .role(Role::GridCell)
-        .child(dynamic(status, |status| status.map(marker)))
+pub(super) fn cell(status: Value<Option<RowStatus>>, role: Role) -> (Node, View) {
+    (
+        lane().role(role),
+        dynamic(status, |status| status.map(marker)).into_view(),
+    )
 }
 
 fn marker(status: RowStatus) -> View {

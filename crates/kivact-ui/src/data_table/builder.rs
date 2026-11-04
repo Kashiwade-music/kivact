@@ -398,7 +398,9 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// A last column, `width` logical pixels wide, of each row's actions
     /// (`actions` of the row), usually a row menu. Its header shows no title
     /// and is named by the message `data_table.actions` ("Actions"). The
-    /// actions are not grid cells: Tab reaches them like other controls.
+    /// In cell focus mode, the actions occupy one grid cell. Enter or F2
+    /// enters its controls and Escape returns to cell navigation. In table
+    /// or row focus mode the controls keep their normal Tab stops.
     pub fn row_actions<V: IntoView>(
         mut self,
         width: f64,

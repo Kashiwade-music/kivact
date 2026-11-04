@@ -6,9 +6,7 @@ use crate::policy::grid::GridMove;
 use crate::roving::{Observation, Roving};
 use kivact_core::custom::{Owned, Owner};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
-use kivact_core::state::{
-    Binding, IntoValue, MachineHandle, Signal, Value, effect, machine, memo, signal,
-};
+use kivact_core::state::{Binding, MachineHandle, Signal, Value, effect, machine, memo, signal};
 use kivact_core::view::{Handled, Key, KeyEvent};
 use std::rc::Rc;
 
@@ -23,6 +21,7 @@ pub(super) enum Choice {
 }
 
 pub(super) struct State {
+    // xtask-allow(state-fields): Optional mounted-part drawing observation, independent of behavior phase.
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) cell_states:
         Signal<std::collections::HashMap<CalendarDate, Value<super::data::CalendarDayState>>>,
@@ -38,6 +37,7 @@ pub(super) struct State {
     /// the focus bookkeeping.
     pub(super) roving: Roving<CalendarDate>,
     /// The day that holds the tab stop.
+    // xtask-allow(state-fields): Pure projection of the canonical order, selection, and mounted registry.
     pub(super) active: Value<Option<CalendarDate>>,
 }
 
@@ -70,15 +70,20 @@ pub(super) fn create(
         let locale = kivact_core::i18n::use_locale();
         memo(move || locale.get().first_day_of_week())
     });
-    let month_value = month.into_value();
-    let active = memo(move || {
-        month_value.try_get()?;
-        registry.track();
+    let days = memo(move || {
         let first = month.get();
-        let shown =
-            |day: &CalendarDate| (0..count as i32).contains(&first.months_until(day.month_of()));
+        (0..count as i32)
+            .map(|m| first.add_months(m))
+            .flat_map(|month| {
+                (0..i32::from(month.days())).map(move |d| month.first_day().add_days(d))
+            })
+            .collect::<Vec<_>>()
+    });
+    let active = memo(move || {
+        let days = days.try_get()?;
+        registry.track();
         let available = |day: &CalendarDate| {
-            shown(day)
+            days.contains(day)
                 && !disabled(*day)
                 && registry
                     .with_members(|members| members.get(day).is_some_and(|entry| entry.available()))
@@ -91,14 +96,7 @@ pub(super) fn create(
             .into_iter()
             .flatten()
             .find(|day| available(day))
-            .or_else(|| {
-                (0..count as i32)
-                    .map(|m| first.add_months(m))
-                    .flat_map(|month| {
-                        (0..i32::from(month.days())).map(move |d| month.first_day().add_days(d))
-                    })
-                    .find(|day| available(day))
-            })
+            .or_else(|| days.iter().copied().find(|day| available(day)))
     });
     let state = Rc::new(State {
         grid_state: signal(None),

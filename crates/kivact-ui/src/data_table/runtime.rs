@@ -150,13 +150,37 @@ where
     } else {
         shown
     };
+    let accessory_columns = [
+        (row_status.is_some(), rows::STATUS, "Row status"),
+        (row_index.is_some(), rows::INDEX, "#"),
+        (selection.is_some(), rows::CHECK, "Select rows"),
+        (
+            details.is_some() && expanded_rows.is_some(),
+            rows::DETAILS,
+            "Details",
+        ),
+    ];
+    let action_column = actions.is_some();
+    let navigation_columns = memo(move || {
+        let mut navigation = Vec::new();
+        for (present, key, label) in accessory_columns {
+            if present {
+                navigation.push(kivact_interaction::ColumnDef::new(key, label));
+            }
+        }
+        navigation.extend(shown.get());
+        if action_column {
+            navigation.push(kivact_interaction::ColumnDef::new(rows::ACTIONS, "Actions"));
+        }
+        navigation
+    });
     let table_key = key.clone();
     // Without the caller's selection, nothing is selected.
     let chosen = selection.unwrap_or_else(|| binding(Vec::new, |_| ()));
     let mut behavior = use_data_table(
         display,
         move |row| table_key(row),
-        shown,
+        navigation_columns,
         Selection::Multiple(chosen),
         focus,
     );

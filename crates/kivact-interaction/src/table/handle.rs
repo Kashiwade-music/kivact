@@ -2,13 +2,15 @@
 
 use super::data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
 use super::model::ColumnDef;
-use super::state::State;
+use super::state::{State, Target};
 use super::{cells, sort as sorting, state};
 use crate::Selection;
 use crate::axis::check_list_axis;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
+use crate::roving::Member;
 use crate::{ListGesture, ListMode, SplitterState, use_splitter};
 use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Owner};
 use kivact_core::custom::{Owned, Part, PartState, part, raise, require_setup};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, binding, memo, var};
@@ -34,7 +36,7 @@ use std::rc::Rc;
 ///
 /// [`TableFocus`] chooses the keyboard pattern. With
 /// [`Cells`](TableFocus::Cells) (the default, an ARIA data grid) one cell is
-/// the tab stop and the arrows, Home, End, Ctrl+Home and Ctrl+End move it
+/// the tab stop and the arrows, PageUp, PageDown, Home, End, Ctrl+Home and Ctrl+End move it
 /// ([`GridMove`](crate::GridMove)); Space selects its row, Ctrl+Space
 /// toggles it, Shift+ArrowUp/Down extend the selection and Ctrl+A or Cmd+A
 /// selects every row. With [`Rows`](TableFocus::Rows) the rows are the items
@@ -340,7 +342,8 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 Role::Grid
             });
             if matches!(state.focus, TableFocus::Cells(_)) {
-                host.multiselectable(matches!(state.selection, Selection::Multiple(_)))
+                host.roving_focus(Orientation::Horizontal)
+                    .multiselectable(matches!(state.selection, Selection::Multiple(_)))
             } else {
                 host
             }
@@ -407,7 +410,6 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 [("rank", rank.to_string()), ("total", total.to_string())]
             },
         );
-        let sorting = state.sorting;
         let activate = move |extend: bool| {
             if !sortable.get() {
                 return;
@@ -417,14 +419,30 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 || sort.get_untracked().get_untracked().into_iter().collect(),
                 |binding| binding.get_untracked(),
             );
-            sorting.send(sorting::Event {
+            let next = sorting::Sort::activate(sorting::Event {
                 current: sorting::Sort::from_keys(keys),
                 column: key.get(),
                 extend,
                 multiple: multiple.is_some(),
-            });
+            })
+            .keys();
+            if let Some(binding) = multiple {
+                binding.set(next);
+            } else {
+                sort.get_untracked().set(next.into_iter().next());
+            }
         };
         let focused = reference.focused();
+        let tab_stop = state.tab_stop;
+        let focus_mode = state.focus;
+        let header_key = key;
+        let focusable = memo(move || {
+            (sortable.get() || matches!(focus_mode, TableFocus::Cells(_)))
+                && (!matches!(focus_mode, TableFocus::Cells(_))
+                    || tab_stop.get() == Some(Target::Header(header_key.get())))
+        });
+        let keyboard = state.clone();
+        let mounted = state.clone();
         let input = part(move |input| TableHeaderState {
             input,
             sort: direction.get(),
@@ -460,7 +478,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                         .get()
                         .map_or(SortDirection::None, SortDirection::from)
                 })
-                .focusable(sortable)
+                .focusable(focusable)
                 .description(move || {
                     if rank.get().is_some() {
                         priority.get()
@@ -469,7 +487,86 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                     }
                 })
                 .on_press(move || activate(modifiers().get().shift))
+                .on_attach(move |mount| {
+                    if !matches!(mounted.focus, TableFocus::Cells(_)) {
+                        return;
+                    }
+                    let owner = Owner::current();
+                    if Owner::root() != mounted.root {
+                        owner.report(
+                            ErrorKind::WrongApp,
+                            "DataTableApi header belongs to another App",
+                        );
+                        return;
+                    }
+                    let target = Target::Header(key.get());
+                    let node = mount.node;
+                    mounted.roving.insert(
+                        target.clone(),
+                        Member {
+                            node,
+                            eligible: mount.eligible,
+                            disabled: mount.disabled,
+                            hidden: mount.hidden,
+                        },
+                    );
+                    let token = node.mounted_node();
+                    let weak = Rc::downgrade(&mounted);
+                    owner.on_cleanup(move || {
+                        if let Some(state) = weak.upgrade() {
+                            let focused = token.is_some() && state.owner.focused_node() == token;
+                            if state.roving.remove(&target, node) && focused {
+                                state.roving.restore_from.set(token);
+                            }
+                        }
+                    });
+                })
                 .on_key(move |event: KeyEvent| {
+                    if matches!(keyboard.focus, TableFocus::Cells(_)) && focused.get_untracked() {
+                        let column = key.get();
+                        let columns = keyboard.columns.with(|columns| {
+                            columns
+                                .iter()
+                                .map(|column| column.key.clone())
+                                .collect::<Vec<_>>()
+                        });
+                        if let Some(index) = columns.iter().position(|key| *key == column) {
+                            let destination = match event.key() {
+                                Key::ArrowLeft => Some(index.saturating_sub(1)),
+                                Key::ArrowRight => Some((index + 1).min(columns.len() - 1)),
+                                Key::Home => Some(0),
+                                Key::End if !event.modifiers().ctrl && !event.modifiers().meta => {
+                                    Some(columns.len() - 1)
+                                }
+                                _ => None,
+                            };
+                            if let Some(destination) = destination {
+                                keyboard.focus_header(columns[destination].clone());
+                                return Handled::Yes;
+                            }
+                        }
+                        let rows = keyboard.keys.get_untracked();
+                        let row = match event.key() {
+                            Key::ArrowDown => rows.first(),
+                            Key::PageDown => rows.get(9).or_else(|| rows.last()),
+                            Key::End if event.modifiers().ctrl || event.modifiers().meta => {
+                                rows.last()
+                            }
+                            _ => None,
+                        };
+                        if let Some(row) = row {
+                            let column = if event.key() == Key::End {
+                                keyboard
+                                    .columns
+                                    .with(|columns| columns.last().map(|column| column.key.clone()))
+                                    .unwrap_or(column)
+                            } else {
+                                column
+                            };
+                            keyboard.focus_cell((row.clone(), column));
+                            return Handled::Yes;
+                        }
+                    }
                     let modifiers = event.modifiers();
                     if !event.repeat()
                         && modifiers.shift

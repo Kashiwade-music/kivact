@@ -1,7 +1,6 @@
 //! Role: Compute ordered sort transitions while caller bindings remain authoritative.
 use super::data::SortOrder;
-use kivact_core::state::{ItemKey, Machine as MachineTrait, Step};
-use std::marker::PhantomData;
+use kivact_core::state::ItemKey;
 
 #[derive(Clone, PartialEq)]
 pub(super) enum Sort<C> {
@@ -29,17 +28,8 @@ pub(super) struct Event<C> {
     pub(super) extend: bool,
     pub(super) multiple: bool,
 }
-pub(super) struct Machine<C>(PhantomData<C>);
-impl<C> Machine<C> {
-    pub(super) fn new() -> Self {
-        Self(PhantomData)
-    }
-}
-impl<C: ItemKey> MachineTrait for Machine<C> {
-    type State = Sort<C>;
-    type Event = Event<C>;
-    type Effect = Vec<(C, SortOrder)>;
-    fn transition(&self, _: &Sort<C>, event: Event<C>) -> Step<Sort<C>, Event<C>, Self::Effect> {
+impl<C: ItemKey> Sort<C> {
+    pub(super) fn activate(event: Event<C>) -> Self {
         let mut keys = event.current.keys();
         let index = keys.iter().position(|(key, _)| *key == event.column);
         let next = match index.map(|index| keys[index].1) {
@@ -60,6 +50,6 @@ impl<C: ItemKey> MachineTrait for Machine<C> {
         } else if let Some(next) = next {
             keys.push((event.column, next));
         }
-        Step::to(Sort::from_keys(keys.clone())).with(keys)
+        Sort::from_keys(keys)
     }
 }
