@@ -6,7 +6,7 @@
 use super::Path;
 use crate::geometry::{Point, Rect, Size};
 use crate::transform::Transform;
-use kivact_types::{PathCmd, Point as WirePoint};
+use kivact_types::{FillRule, PathCmd, Point as WirePoint, Stroke};
 use kurbo::{Arc, BezPath, ParamCurve, ParamCurveExtrema, PathEl, Point as KPoint, SvgArc, Vec2};
 use std::f64::consts::TAU;
 
@@ -42,6 +42,50 @@ fn cubics(arc: Arc, out: &mut Vec<PathCmd>, current: &mut Option<KPoint>) {
 }
 
 impl Path {
+    /// Test the fill of flattened (0.1 px tolerance) contours with `rule`.
+    /// Open contours are implicitly closed; points on an edge are inside.
+    pub fn contains(&self, p: Point, rule: FillRule) -> bool {
+        if !p.x.is_finite() || !p.y.is_finite() {
+            return false;
+        }
+        let mut winding: i64 = 0;
+        for contour in self.flattened(0.1) {
+            let points = &contour.points;
+            if points.len() < 2 {
+                continue;
+            }
+            for (a, b) in points
+                .iter()
+                .zip(points.iter().cycle().skip(1))
+                .take(points.len())
+            {
+                let cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+                if cross == 0.0
+                    && p.x >= a.x.min(b.x)
+                    && p.x <= a.x.max(b.x)
+                    && p.y >= a.y.min(b.y)
+                    && p.y <= a.y.max(b.y)
+                {
+                    return true;
+                }
+                if a.y <= p.y && b.y > p.y && cross > 0.0 {
+                    winding += 1;
+                }
+                if a.y > p.y && b.y <= p.y && cross < 0.0 {
+                    winding -= 1;
+                }
+            }
+        }
+        match rule {
+            FillRule::NonZero => winding != 0,
+            FillRule::EvenOdd => winding % 2 != 0,
+        }
+    }
+    /// Test the filled outline of `stroke`, including its caps, joins and dashes.
+    pub fn stroke_contains(&self, p: Point, stroke: &Stroke) -> bool {
+        self.stroke_outline(stroke).contains(p, FillRule::NonZero)
+    }
+
     /// Approximate each contour with line segments in logical pixels.
     ///
     /// `tolerance` controls the flattening error; non-positive or non-finite
