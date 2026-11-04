@@ -22,7 +22,7 @@
 //! - No new global state: only the existing App registry and frame stack.
 
 use std::any::{TypeId, type_name};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -32,7 +32,7 @@ use crate::reactive::data::{
 };
 use crate::reactive::error::{ErrorKind, HandlerResult, misuse_at};
 use crate::reactive::props::IntoValue;
-use crate::reactive::registry::{current_runtime, try_runtime};
+use crate::reactive::registry::current_runtime;
 use crate::reactive::scope::{owner_scope, setup_scope};
 
 /// A writable reactive value (Solid `createSignal`). Setup only.
@@ -165,31 +165,9 @@ pub fn effect(f: impl Fn() + 'static) {
 #[track_caller]
 pub fn effect_on<T: Clone + 'static>(source: impl IntoValue<T>, f: impl Fn(&T) + 'static) {
     let at = Location::caller();
-    let (rt, owner) = setup_scope("effect_on", at);
+    setup_scope("effect_on", at);
     let source = source.into_prop();
-    let app = rt.id();
-    let first = Cell::new(true);
-    rt.create_effect(
-        owner,
-        EffectKind::User,
-        Box::new(move || {
-            let Some(rt) = try_runtime(app) else { return };
-            // Cleared before `source` runs: an initial run that fails still
-            // counts as the initial value, so the next change is delivered.
-            let initial = first.replace(false);
-            // The source only computes a value: pure (and tracked).
-            let value = {
-                let _pure = rt.pure_section();
-                source.get()
-            };
-            if initial {
-                return;
-            }
-            let _untracked = rt.untracked_frame();
-            f(&value);
-        }),
-        at,
-    );
+    crate::reactive::watch(move || source.get(), EffectKind::User, f);
 }
 
 /// Register a cleanup (Solid `onCleanup`): during setup it runs when the

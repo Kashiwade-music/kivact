@@ -39,7 +39,6 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
-            writer: Cell::new(None),
             stab_epoch: Cell::new(0),
         }
     }

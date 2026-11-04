@@ -4,7 +4,7 @@
 //! the next key. Unread key nodes are pruned as the key set grows.
 
 use crate::reactive::AppId;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -17,18 +17,26 @@ use crate::reactive::data::{EffectKind, Runtime};
 use crate::reactive::registry::{runtime, try_runtime};
 
 /// What the selector's effect and its readers share.
-struct SelectorKeys<K> {
-    current: RefCell<Option<K>>,
-    nodes: RefCell<HashMap<K, Key>>,
+struct SelectorCache<K> {
+    current: Option<K>,
+    nodes: HashMap<K, Key>,
+    prune: PruneSchedule,
 }
-
+struct PruneSchedule {
+    at: usize,
+}
+impl PruneSchedule {
+    fn due(&self, len: usize) -> bool {
+        len >= self.at
+    }
+    fn retained(&mut self, len: usize) {
+        self.at = (len * 2).max(SELECTOR_PRUNE_MIN);
+    }
+}
 pub(crate) struct SelectorState<K> {
     owner: Key,
-    /// The internal effect following the source.
     effect: Key,
-    keys: Rc<SelectorKeys<K>>,
-    /// Key count at which unread key nodes are pruned next (doubles).
-    prune_at: Cell<usize>,
+    cache: Rc<RefCell<SelectorCache<K>>>,
 }
 
 const SELECTOR_PRUNE_MIN: usize = 64;
@@ -54,28 +62,32 @@ pub(crate) fn create_selector<K: Eq + Hash + Clone + 'static>(
     src: Prop<Option<K>>,
     at: &'static Location<'static>,
 ) -> Selector<K> {
-    let keys = Rc::new(SelectorKeys::<K> {
-        current: RefCell::new(None),
-        nodes: RefCell::new(HashMap::new()),
-    });
+    let cache = Rc::new(RefCell::new(SelectorCache::<K> {
+        current: None,
+        nodes: HashMap::new(),
+        prune: PruneSchedule {
+            at: SELECTOR_PRUNE_MIN,
+        },
+    }));
     let app = rt.id;
-    let weak = Rc::downgrade(&keys);
+    let weak = Rc::downgrade(&cache);
     let effect = rt.create_effect(
         owner,
         EffectKind::Internal,
         Box::new(move || {
-            let Some(keys) = weak.upgrade() else { return };
+            let Some(cache) = weak.upgrade() else { return };
             let Some(rt) = try_runtime(app) else { return };
             let next = {
                 let _pure = rt.pure_section();
                 src.get()
             };
-            let prev = keys.current.replace(next.clone());
+            let prev = std::mem::replace(&mut cache.borrow_mut().current, next.clone());
             if prev == next {
                 return;
             }
             let targets: Vec<Key> = {
-                let nodes = keys.nodes.borrow();
+                let cache = cache.borrow();
+                let nodes = &cache.nodes;
                 [prev, next]
                     .iter()
                     .flatten()
@@ -92,8 +104,7 @@ pub(crate) fn create_selector<K: Eq + Hash + Clone + 'static>(
     let state = Rc::new(SelectorState {
         owner,
         effect,
-        keys,
-        prune_at: Cell::new(SELECTOR_PRUNE_MIN),
+        cache,
     });
     let key = rt.insert_object(owner, state, None, at);
     Selector {
@@ -130,23 +141,23 @@ impl<K: Eq + Hash + Clone + 'static> Selector<K> {
         if rt.needs_run(state.effect) {
             rt.run_effect(state.effect);
         }
-        let existing = state.keys.nodes.borrow().get(k).copied();
+        let existing = state.cache.borrow().nodes.get(k).copied();
         let node = match existing.filter(|n| rt.node_alive(*n)) {
             Some(n) => n,
             None => {
                 let n = rt.create_source(state.owner, (), at);
-                let len = state.keys.nodes.borrow().len();
-                if len >= state.prune_at.get() {
+                let len = state.cache.borrow().nodes.len();
+                if state.cache.borrow().prune.due(len) {
                     self.prune(&rt, &state);
-                    let left = state.keys.nodes.borrow().len();
-                    state.prune_at.set((left * 2).max(SELECTOR_PRUNE_MIN));
+                    let left = state.cache.borrow().nodes.len();
+                    state.cache.borrow_mut().prune.retained(left);
                 }
-                state.keys.nodes.borrow_mut().insert(k.clone(), n);
+                state.cache.borrow_mut().nodes.insert(k.clone(), n);
                 n
             }
         };
         rt.read_node(node, true, at);
-        state.keys.current.borrow().as_ref() == Some(k)
+        state.cache.borrow().current.as_ref() == Some(k)
     }
 
     /// Remove key nodes nobody reads any more (bounded growth). Keys read by
@@ -160,7 +171,8 @@ impl<K: Eq + Hash + Clone + 'static> Selector<K> {
             .flat_map(|collector| collector.deps.iter().copied())
             .collect();
         let dead: Vec<(K, Key)> = {
-            let keys = state.keys.nodes.borrow();
+            let cache = state.cache.borrow();
+            let keys = &cache.nodes;
             let g = rt.graph.borrow();
             keys.iter()
                 .filter(|(_, n)| {
@@ -170,7 +182,7 @@ impl<K: Eq + Hash + Clone + 'static> Selector<K> {
                 .collect()
         };
         for (k, n) in dead {
-            state.keys.nodes.borrow_mut().remove(&k);
+            state.cache.borrow_mut().nodes.remove(&k);
             let removed = rt.remove_owned_node(n);
             drop(removed);
         }

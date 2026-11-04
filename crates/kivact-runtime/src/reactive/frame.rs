@@ -5,7 +5,7 @@
 //! or callback contexts suspend tracking without releasing outer collectors.
 use crate::reactive::AppId;
 use crate::reactive::arena::Key;
-use crate::reactive::data::{Collector, Ctx, FrameGuard, Runtime};
+use crate::reactive::data::{Collector, CollectorSlot, Frame, FrameGuard, FrameKind, Runtime};
 use crate::reactive::error::{ErrorKind, misuse_at};
 use crate::reactive::execution::{enter_app, executing_app, leave_app};
 use crate::reactive::registry::current_runtime;
@@ -13,12 +13,12 @@ use std::panic::Location;
 
 impl Runtime {
     #[inline]
-    fn context(&self) -> Ctx {
+    fn context(&self) -> Frame {
         self.frames.borrow().last().copied().unwrap_or_default()
     }
 
     #[inline]
-    fn push_frame(&self, context: Ctx) -> FrameGuard<'_> {
+    fn push_frame(&self, context: Frame) -> FrameGuard<'_> {
         let mut frames = self.frames.borrow_mut();
         frames.push(context);
         FrameGuard {
@@ -30,10 +30,10 @@ impl Runtime {
     }
 
     pub(crate) fn setup_frame(&self, owner: Key) -> FrameGuard<'_> {
-        self.push_frame(Ctx {
+        self.push_frame(Frame {
             owner: Some(owner),
-            setup: Some(owner),
-            ..Ctx::default()
+            kind: FrameKind::Setup(owner),
+            ..Frame::default()
         })
     }
 
@@ -46,7 +46,7 @@ impl Runtime {
     ) -> FrameGuard<'_> {
         let slot = {
             let mut collectors = self.collectors.borrow_mut();
-            let slot = collectors.len();
+            let slot = CollectorSlot(collectors.len());
             collectors.push(Collector {
                 node,
                 deps: Vec::new(),
@@ -54,11 +54,21 @@ impl Runtime {
             });
             slot
         };
-        let mut guard = self.push_frame(Ctx {
+        let mut guard = self.push_frame(Frame {
             owner: Some(owner),
-            setup: None,
+            kind: FrameKind::Computation { node, effect },
             pure,
-            effect: effect.then_some(node),
+            writer: if effect
+                && !matches!(
+                    self.graph.borrow().get(node).map(|n| n.kind()),
+                    Some(crate::reactive::Kind::Effect(
+                        crate::reactive::EffectKind::User
+                    ))
+                ) {
+                Some(node)
+            } else {
+                self.context().writer
+            },
             tracking: Some(slot),
         });
         guard.collector = Some(slot);
@@ -66,21 +76,21 @@ impl Runtime {
     }
 
     pub(crate) fn pure_section(&self) -> FrameGuard<'_> {
-        self.push_frame(Ctx {
+        self.push_frame(Frame {
             pure: true,
             ..self.context()
         })
     }
 
     pub(crate) fn untracked_frame(&self) -> FrameGuard<'_> {
-        self.push_frame(Ctx {
+        self.push_frame(Frame {
             tracking: None,
             ..self.context()
         })
     }
 
     pub(crate) fn callback_frame(&self, owner: Key) -> FrameGuard<'_> {
-        self.push_frame(Ctx {
+        self.push_frame(Frame {
             owner: Some(owner),
             tracking: None,
             ..self.context()
@@ -88,22 +98,32 @@ impl Runtime {
     }
 
     pub(crate) fn handler_frame(&self, owner: Option<Key>) -> FrameGuard<'_> {
-        self.push_frame(Ctx {
+        self.push_frame(Frame {
             owner,
-            ..Ctx::default()
+            ..Frame::default()
         })
     }
 
     pub(crate) fn current_owner(&self) -> Option<Key> {
         let context = self.context();
-        context.owner.or(context.setup)
+        context.owner
     }
     pub(crate) fn setup_owner(&self) -> Option<Key> {
-        self.context().setup
+        match self.context().kind {
+            FrameKind::Setup(owner) => Some(owner),
+            _ => None,
+        }
     }
     pub(crate) fn current_effect(&self) -> Option<Key> {
-        self.context().effect
+        match self.context().kind {
+            FrameKind::Computation { node, effect: true } => Some(node),
+            _ => None,
+        }
     }
+    pub(crate) fn current_writer(&self) -> Option<Key> {
+        self.context().writer
+    }
+
     pub(crate) fn is_pure(&self) -> bool {
         self.context().pure
     }
@@ -114,7 +134,7 @@ impl Runtime {
             return;
         };
         let mut collectors = self.collectors.borrow_mut();
-        let collector = &mut collectors[slot];
+        let collector = &mut collectors[slot.0];
         if collector.node == node {
             return;
         }
@@ -172,7 +192,7 @@ impl FrameGuard<'_> {
         let Some(slot) = self.collector else {
             return Vec::new();
         };
-        std::mem::take(&mut self.rt.collectors.borrow_mut()[slot].deps)
+        std::mem::take(&mut self.rt.collectors.borrow_mut()[slot.0].deps)
     }
 }
 impl Drop for FrameGuard<'_> {
@@ -182,10 +202,10 @@ impl Drop for FrameGuard<'_> {
             let mut collectors = self.rt.collectors.borrow_mut();
             debug_assert_eq!(
                 collectors.len(),
-                slot + 1,
+                slot.0 + 1,
                 "invariant: frame guards drop in LIFO order"
             );
-            collectors.truncate(slot);
+            collectors.truncate(slot.0);
         }
         let mut frames = self.rt.frames.borrow_mut();
         debug_assert_eq!(
