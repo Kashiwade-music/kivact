@@ -154,7 +154,7 @@ impl IntoView for DateRangeInput {
             max_span,
         } = self;
         let disabled = root.accessible_disabled();
-        let disabled = memo(move || disabled.as_ref().is_some_and(|read| read()));
+        let disabled = memo(move || disabled.as_ref().is_some_and(|read| read.get()));
         let open = signal(false);
         let announcement = signal(String::new());
         let chosen = message("soft.calendar.range_chosen", "Date range selected");
@@ -288,17 +288,20 @@ impl IntoView for DateRangeInput {
                                     .into_view()
                             })
                             .collect::<Vec<_>>();
-                        Some(column(buttons).role(Role::Group).name(preset_label).style(
-                            move || {
-                                let t = tokens();
-                                let s = style().min_width(140).padding(12).gap(4);
-                                if rtl {
-                                    s.border_left(1, t.colors.border_emphasized)
-                                } else {
-                                    s.border_right(1, t.colors.border_emphasized)
-                                }
-                            },
-                        ))
+                        Some(
+                            column(buttons)
+                                .with_node(move |node| node.role(Role::Group))
+                                .name(preset_label)
+                                .style(move || {
+                                    let t = tokens();
+                                    let s = style().min_width(140).padding(12).gap(4);
+                                    if rtl {
+                                        s.border_left(1, t.colors.border_emphasized)
+                                    } else {
+                                        s.border_right(1, t.colors.border_emphasized)
+                                    }
+                                }),
+                        )
                     },
                 );
                 row((sidebar, calendar))

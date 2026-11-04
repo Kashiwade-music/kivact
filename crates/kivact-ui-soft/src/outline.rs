@@ -92,10 +92,12 @@ pub struct Outline {
 
 pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
     Outline {
-        root: node().role(Role::Navigation).name(kivact::i18n::message(
-            "soft.outline.label",
-            "Table of contents",
-        )),
+        root: node()
+            .with_node(move |node| node.role(Role::Navigation))
+            .name(kivact::i18n::message(
+                "soft.outline.label",
+                "Table of contents",
+            )),
         items: items.into_value(),
         active: None,
         density: (OutlineDensity::Default).into_value(),
@@ -236,7 +238,7 @@ impl Navigation {
             active.set(Some(item.id.clone()));
         }
         let target = item.target;
-        let reduced_motion = kivact::platform::reduced_motion().get();
+        let is_motion_reduced = kivact::platform::is_motion_reduced().get();
         if self.scroll_on_press {
             if let Some(viewport) = self.viewport {
                 if let (Some(viewport_rect), Some(target_rect)) =
@@ -250,7 +252,7 @@ impl Navigation {
                     };
                     viewport.scroll_to(
                         point,
-                        if reduced_motion {
+                        if is_motion_reduced {
                             ScrollBehavior::Instant
                         } else {
                             ScrollBehavior::Smooth
@@ -261,7 +263,7 @@ impl Navigation {
                 target.scroll_into_view();
             }
         }
-        if self.scroll_on_press && self.viewport.is_some() && !reduced_motion {
+        if self.scroll_on_press && self.viewport.is_some() && !is_motion_reduced {
             self.pending.send(ScrollEvent::Begin(item.id.clone()));
         } else if let Some(end) = self.end {
             end.call(item.id.clone());
@@ -338,10 +340,12 @@ impl IntoView for Outline {
                     }
                 });
             }
-            root.base_style(style().direction(Direction::Column).width(pct(100)))
-                .child(dynamic(items, move |items| {
-                    outline_list(items, active, density.get(), navigation)
-                }))
+            root.with_node(move |node| {
+                node.base_style(style().direction(Direction::Column).width(pct(100)))
+            })
+            .child(dynamic(items, move |items| {
+                outline_list(items, active, density.get(), navigation)
+            }))
         })
     }
 }
@@ -369,7 +373,7 @@ fn outline_list(
     let t = tokens();
     let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard);
     let height = animated(
-        move || indicator_rect.map_or(0.0, |(_, height)| height),
+        move || indicator_rect.get().map_or(0.0, |(_, height)| height),
         transition.clone(),
     );
     let track = node()
@@ -420,7 +424,7 @@ fn outline_list(
             };
             let label = item.label.clone();
             let link = node()
-                .role(Role::Link)
+                .with_node(move |node| node.role(Role::Link))
                 .name(label.clone())
                 .node_ref(reference)
                 .focusable(focusable)
@@ -440,14 +444,16 @@ fn outline_list(
                 })
                 .style(move || outline_row(level, density, selected.get()))
                 .child(text(label).style(style().single_line()));
-            node().role(Role::ListItem).child(link)
+            node()
+                .with_node(move |node| node.role(Role::ListItem))
+                .child(link)
         })
         .collect::<Vec<_>>();
     row((
         track,
         column(rows)
             .node_ref(list)
-            .role(Role::List)
+            .with_node(move |node| node.role(Role::List))
             .style(|| style().gap(tokens().spacing.s0_5).grow(1).min_width(0)),
     ))
     .style(|| {

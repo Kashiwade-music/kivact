@@ -32,6 +32,7 @@ use kivact::style::style;
 use kivact::view::DismissReason;
 use kivact::view::IntoView;
 use kivact::view::IntoViewFn;
+use kivact::view::NodeBuilder;
 use kivact::view::NodeRef;
 use kivact::view::Placement;
 use kivact::view::Role;
@@ -264,7 +265,7 @@ impl IntoView for BottomSheet {
                     dragged.set(None);
                 });
             let handle = node()
-                .part(drag.source(()))
+                .with_node(move |node| node.part(drag.source(())))
                 .child(node().style(|| {
                     let p = tokens();
                     style().size(36, 4).radius(2).background(p.colors.border)
@@ -320,7 +321,7 @@ impl IntoView for BottomSheet {
             });
             let scrim = modal.then(|| {
                 node()
-                    .role(Role::Generic)
+                    .with_node(move |node| node.role(Role::Generic))
                     .style(move || {
                         let p = tokens();
                         let (full, detents) = scrim_detents();
@@ -364,13 +365,18 @@ impl IntoView for BottomSheet {
             });
             let layer = overlay(node_ref(), Placement::Center, frame).viewport_margin(0.0);
             if modal {
-                layer.part(behavior.content()).name(self.label).into_view()
+                layer
+                    .with_node(move |node| node.part(behavior.content()))
+                    .name(self.label)
+                    .into_view()
             } else {
                 layer
-                    .role(if purpose == DialogPurpose::Required {
-                        Role::AlertDialog
-                    } else {
-                        Role::Dialog
+                    .with_node(move |node| {
+                        node.role(if purpose == DialogPurpose::Required {
+                            Role::AlertDialog
+                        } else {
+                            Role::Dialog
+                        })
                     })
                     .name(self.label)
                     .on_dismiss(move |reason| {

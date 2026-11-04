@@ -157,26 +157,28 @@ impl IntoView for ChatMessage {
                     Align::Start
                 }),
         );
-        root.role(Role::Article)
-            .base_style(
-                style()
-                    .direction(if user {
-                        Direction::RowReverse
-                    } else {
-                        Direction::Row
-                    })
-                    .justify_content(if system {
-                        Justify::Center
-                    } else {
-                        Justify::Start
-                    })
-                    .align_items(Align::Start)
-                    .gap(match density.get() {
-                        ChatDensity::Compact => 6,
-                        ChatDensity::Balanced => 8,
-                        ChatDensity::Spacious => 12,
-                    }),
-            )
+        root.with_node(move |node| node.role(Role::Article))
+            .with_node(move |node| {
+                node.base_style(
+                    style()
+                        .direction(if user {
+                            Direction::RowReverse
+                        } else {
+                            Direction::Row
+                        })
+                        .justify_content(if system {
+                            Justify::Center
+                        } else {
+                            Justify::Start
+                        })
+                        .align_items(Align::Start)
+                        .gap(match density.get() {
+                            ChatDensity::Compact => 6,
+                            ChatDensity::Balanced => 8,
+                            ChatDensity::Spacious => 12,
+                        }),
+                )
+            })
             .child((avatar, content))
             .into_view()
     }
@@ -338,16 +340,18 @@ impl IntoView for ChatBubble {
         });
         let metadata =
             metadata.map(|metadata| node().style(style().padding_x(inline)).child(metadata));
-        root.base_style(
-            style()
-                .direction(Direction::Column)
-                .min_width(0)
-                .align_items(if sender.get() == ChatSender::User {
-                    Align::End
-                } else {
-                    Align::Start
-                }),
-        )
+        root.with_node(move |node| {
+            node.base_style(
+                style()
+                    .direction(Direction::Column)
+                    .min_width(0)
+                    .align_items(if sender.get() == ChatSender::User {
+                        Align::End
+                    } else {
+                        Align::Start
+                    }),
+            )
+        })
         .child((name, bubble, metadata))
         .into_view()
     }
@@ -448,19 +452,21 @@ impl IntoView for ChatMetadata {
                 .into_view(),
             );
         }
-        root.base_style(move || {
-            style()
-                .direction(if sender.get() == ChatSender::User {
-                    Direction::RowReverse
-                } else {
-                    Direction::Row
-                })
-                .align_items(Align::Center)
-                .gap(4)
-                .margin_top(4)
-                .font_size(12)
-                .line_height(20.0 / 12.0)
-                .color(tokens().colors.text_secondary)
+        root.with_node(move |node| {
+            node.base_style(move || {
+                style()
+                    .direction(if sender.get() == ChatSender::User {
+                        Direction::RowReverse
+                    } else {
+                        Direction::Row
+                    })
+                    .align_items(Align::Center)
+                    .gap(4)
+                    .margin_top(4)
+                    .font_size(12)
+                    .line_height(20.0 / 12.0)
+                    .color(tokens().colors.text_secondary)
+            })
         })
         .child(segments)
         .into_view()
@@ -517,16 +523,18 @@ impl IntoView for ChatSystemMessage {
             })
         };
         self.root
-            .base_style(move || {
-                style()
-                    .direction(Direction::Row)
-                    .padding_y(4)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .gap(if divider { 12 } else { 6 })
-                    .font_size(12)
-                    .line_height(20.0 / 12.0)
-                    .color(tokens().colors.text_secondary)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    style()
+                        .direction(Direction::Row)
+                        .padding_y(4)
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .gap(if divider { 12 } else { 6 })
+                        .font_size(12)
+                        .line_height(20.0 / 12.0)
+                        .color(tokens().colors.text_secondary)
+                })
             })
             .child((line(), self.icon, text(self.text), line()))
             .into_view()
@@ -623,29 +631,38 @@ impl IntoView for ChatMessageList {
             gap,
             align,
         } = self;
-        root.role(Role::Log)
+        root.with_node(move |node| node.role(Role::Log))
             .live_region(LiveRegion::Polite)
-            .busy(move || streaming || loading_top.get())
-            .base_style(move || {
-                style()
-                    .direction(Direction::Column)
-                    .grow(1)
-                    .justify_content(if align.get() == ChatListAlign::Bottom {
-                        Justify::End
-                    } else {
-                        Justify::Start
-                    })
-                    .padding_y(density.get().gap())
-                    .padding_x(density.get().gap().max(12))
-                    .gap(gap.map_or_else(|| density.get().gap() as f64, |gap| gap.get().max(0.0)))
+            .busy(move || streaming.get() || loading_top.get())
+            .with_node(move |node| {
+                node.base_style(move || {
+                    style()
+                        .direction(Direction::Column)
+                        .grow(1)
+                        .justify_content(if align.get() == ChatListAlign::Bottom {
+                            Justify::End
+                        } else {
+                            Justify::Start
+                        })
+                        .padding_y(density.get().gap())
+                        .padding_x(density.get().gap().max(12))
+                        .gap(
+                            gap.map_or_else(
+                                || density.get().gap() as f64,
+                                |gap| gap.get().max(0.0),
+                            ),
+                        )
+                })
             })
             .child((
                 show(loading_top, || {
-                    text("Loading earlier messages…").role(Role::Status)
+                    text("Loading earlier messages…").with_node(move |node| node.role(Role::Status))
                 }),
                 messages,
-                empty.map(|empty| show(is_empty, empty)),
-                show(streaming, || text("Responding…").role(Role::Status)),
+                empty.map(|empty| show(is_empty, move || empty.call(()))),
+                show(streaming, || {
+                    text("Responding…").with_node(move |node| node.role(Role::Status))
+                }),
             ))
             .into_view()
     }
@@ -715,7 +732,7 @@ pub fn chat_scroll_button(
     let press: Callback<()> = press.into();
     let visible = visible.into_value();
     node()
-        .role(Role::Button)
+        .with_node(move |node| node.role(Role::Button))
         .focusable(true)
         .name(message(
             "soft.chat_layout_scroll_button.scroll_to_bottom",
@@ -723,19 +740,21 @@ pub fn chat_scroll_button(
         ))
         .on_press(press)
         .hidden(move || !visible.get())
-        .base_style(move || {
-            let p = tokens();
-            style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .size(36, 36)
-                .radius(18)
-                .background(p.colors.bg_surface)
-                .border(1, p.colors.border)
-                .color(p.colors.text_primary)
-                .hover(style().background(p.colors.accent_muted))
-                .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+        .with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .size(36, 36)
+                    .radius(18)
+                    .background(p.colors.bg_surface)
+                    .border(1, p.colors.border)
+                    .color(p.colors.text_primary)
+                    .hover(style().background(p.colors.accent_muted))
+                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            })
         })
         .child(text("↓"))
 }
@@ -784,12 +803,14 @@ impl IntoView for ChatLayout {
                     .justify_content(Justify::Center),
             )
         });
-        root.base_style(
-            style()
-                .direction(Direction::Column)
-                .min_height(0)
-                .min_width(0),
-        )
+        root.with_node(move |node| {
+            node.base_style(
+                style()
+                    .direction(Direction::Column)
+                    .min_height(0)
+                    .min_width(0),
+            )
+        })
         .child((area, composer))
         .into_view()
     }

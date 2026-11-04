@@ -1,5 +1,6 @@
 //! Role: Style the standard dialog kinds and share overlay paint helpers.
 use crate::Tokens;
+use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
 use kivact::motion::Transition;
 use kivact::style::Align;
@@ -15,7 +16,6 @@ use kivact::style::style;
 use kivact::ui::DialogRecipes;
 use kivact::ui::DialogState;
 use kivact::ui::Look;
-use kivact::ui::Side;
 
 const DIALOG_WIDTH: f64 = 400.0;
 const DIALOG_MAX_HEIGHT_PERCENT: f64 = 75.0;
@@ -128,28 +128,28 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
     }
 }
 
-fn drawer(base: Style, p: &Tokens, side: Side) -> Style {
+fn drawer(base: Style, p: &Tokens, side: Edge) -> Style {
     let width = p.sizes.border_width;
     let color = p.colors.border;
     let base = base.radius(p.radius.none);
     let (base, hidden) = match side {
-        Side::Right => (
+        Edge::Right => (
             base.width(DIALOG_WIDTH)
                 .max_width(pct(100))
                 .border_left(width, color),
             style().translate_x(pct(100)),
         ),
-        Side::Left => (
+        Edge::Left => (
             base.width(DIALOG_WIDTH)
                 .max_width(pct(100))
                 .border_right(width, color),
             style().translate_x(pct(-100)),
         ),
-        Side::Top => (
+        Edge::Top => (
             base.max_height(pct(100)).border_bottom(width, color),
             style().translate_y(pct(-100)),
         ),
-        Side::Bottom => (
+        Edge::Bottom => (
             base.max_height(pct(100)).border_top(width, color),
             style().translate_y(pct(100)),
         ),

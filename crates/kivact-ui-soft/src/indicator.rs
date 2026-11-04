@@ -133,24 +133,29 @@ impl IntoView for Indicator {
             Kind::Check => {
                 let custom = self.children.is_some();
                 self.root
-                    .base_style(move || {
-                        let t = tokens();
-                        let state = look();
-                        let side = if custom || state.checked.is_checked() {
-                            16
-                        } else {
-                            0
-                        };
-                        style().size(side, side).clip(true).shrink(0).color(
-                            if state.input.disabled {
-                                t.colors.icon_disabled
+                    .with_node(move |node| {
+                        node.base_style(move || {
+                            let t = tokens();
+                            let state = look();
+                            let side = if custom || state.checked.is_checked() {
+                                16
                             } else {
-                                t.colors.accent
-                            },
-                        )
+                                0
+                            };
+                            style().size(side, side).clip(true).shrink(0).color(
+                                if state.input.disabled {
+                                    t.colors.icon_disabled
+                                } else {
+                                    t.colors.accent
+                                },
+                            )
+                        })
                     })
                     .child(self.children)
-                    .child((!custom).then(|| show(move || checked.is_checked(), || icon("check"))))
+                    .child(
+                        (!custom)
+                            .then(|| show(move || checked.get().is_checked(), || icon("check"))),
+                    )
                     .into_view()
             }
             kind => {
@@ -183,25 +188,27 @@ impl IntoView for Indicator {
                     Kind::Check => unreachable!("check handled separately"),
                 });
                 self.root
-                    .base_style(move || {
-                        let t = tokens();
-                        let look = look();
-                        let mut base = checkbox_surface(&use_theme().get(), &look)
-                            .position(Position::Relative)
-                            .left(0)
-                            .right(0)
-                            .top(0)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center);
-                        if matches!(kind, Kind::Radio) {
-                            base = base.radius(t.radius.full);
-                        }
-                        if look.input.disabled {
-                            base = base
-                                .opacity(t.sizes.disabled_opacity)
-                                .border_color(t.colors.border);
-                        }
-                        base
+                    .with_node(move |node| {
+                        node.base_style(move || {
+                            let t = tokens();
+                            let look = look();
+                            let mut base = checkbox_surface(&use_theme().get(), &look)
+                                .position(Position::Relative)
+                                .left(0)
+                                .right(0)
+                                .top(0)
+                                .align_items(Align::Center)
+                                .justify_content(Justify::Center);
+                            if matches!(kind, Kind::Radio) {
+                                base = base.radius(t.radius.full);
+                            }
+                            if look.input.disabled {
+                                base = base
+                                    .opacity(t.sizes.disabled_opacity)
+                                    .border_color(t.colors.border);
+                            }
+                            base
+                        })
                     })
                     .child(mark)
                     .into_view()

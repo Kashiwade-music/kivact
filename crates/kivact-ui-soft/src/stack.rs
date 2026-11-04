@@ -308,16 +308,18 @@ impl Stack {
         self
     }
     pub fn axis(mut self, axis: CenterAxis) -> Self {
-        self.justify = if axis == CenterAxis::Vertical {
+        self.justify = (if axis == CenterAxis::Vertical {
             Justify::Start
         } else {
             Justify::Center
-        };
-        self.align = if axis == CenterAxis::Horizontal {
+        })
+        .into_value();
+        self.align = (if axis == CenterAxis::Horizontal {
             Align::Stretch
         } else {
             Align::Center
-        };
+        })
+        .into_value();
         self
     }
     pub fn inline(mut self, inline: bool) -> Self {
@@ -365,20 +367,22 @@ impl IntoView for Stack {
         } else {
             (vertical, horizontal)
         };
-        let root = root.base_style(move || {
-            let direction = match (direction.get(), rtl()) {
-                (Direction::Row, true) => Direction::RowReverse,
-                (Direction::RowReverse, true) => Direction::Row,
-                _ => direction.get(),
-            };
-            padding.resolve(0.0).apply(
-                style()
-                    .direction(direction)
-                    .gap(gap.get().px())
-                    .align_items(cross.map_or(align.get(), StackAlign::cross))
-                    .justify_content(main.map_or(justify.get(), StackAlign::main))
-                    .wrap(wrap == StackWrap::Wrap),
-            )
+        let root = root.with_node(move |node| {
+            node.base_style(move || {
+                let direction = match (direction.get(), rtl()) {
+                    (Direction::Row, true) => Direction::RowReverse,
+                    (Direction::RowReverse, true) => Direction::Row,
+                    _ => direction.get(),
+                };
+                padding.resolve(0.0).apply(
+                    style()
+                        .direction(direction)
+                        .gap(gap.get().px())
+                        .align_items(cross.map_or(align.get(), StackAlign::cross))
+                        .justify_content(main.map_or(justify.get(), StackAlign::main))
+                        .wrap(wrap == StackWrap::Wrap),
+                )
+            })
         });
         if scrollable.get() {
             stack_scroll(
@@ -456,7 +460,9 @@ impl IntoView for StackItem {
             StackItemSize::Fill => style().grow(1).shrink(1),
             StackItemSize::Static => style().grow(0).shrink(0),
         };
-        let root = self.root.base_style(sizing.min_width(0).min_height(0));
+        let root = self
+            .root
+            .with_node(move |node| node.base_style(sizing.min_width(0).min_height(0)));
         if self.scrollable.get() {
             stack_scroll(root, ScrollAxes::Vertical)
         } else {

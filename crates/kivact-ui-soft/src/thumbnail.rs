@@ -65,7 +65,7 @@ pub struct Thumbnail {
 /// Create an image attachment preview.
 pub fn thumbnail() -> Thumbnail {
     Thumbnail {
-        root: node().role(Role::Group),
+        root: node().with_node(move |node| node.role(Role::Group)),
         source: None,
         alt: None,
         label: None,
@@ -143,14 +143,15 @@ impl IntoView for Thumbnail {
             reveal,
         } = self;
         let fallback = message("soft.thumbnail.fallback_name", "Thumbnail");
-        let accessible = move || match (label.map(|value| value), alt.map(|value| value)) {
-            (Some(label), Some(alt)) if !label.is_empty() && !alt.is_empty() => {
-                format!("{label} — {alt}")
-            }
-            (Some(label), _) if !label.is_empty() => label,
-            (_, Some(alt)) if !alt.is_empty() => alt,
-            _ => fallback.get(),
-        };
+        let accessible =
+            move || match (label.map(|value| value.get()), alt.map(|value| value.get())) {
+                (Some(label), Some(alt)) if !label.is_empty() && !alt.is_empty() => {
+                    format!("{label} — {alt}")
+                }
+                (Some(label), _) if !label.is_empty() => label,
+                (_, Some(alt)) if !alt.is_empty() => alt,
+                _ => fallback.get(),
+            };
         let reference = node_ref();
         let hovered = reference.hovered();
         let focus_within = reference.focus_within();
@@ -162,13 +163,15 @@ impl IntoView for Thumbnail {
                 [("name", accessible())]
             });
 
+            let interaction = kivact::custom::part(|input| input);
             let state = interaction.state();
             node()
-                .role(Role::Button)
+                .with_node(move |node| node.part(interaction))
+                .with_node(move |node| node.role(Role::Button))
                 .name(label)
                 .focusable(true)
                 .focusable_when_disabled(true)
-                .disabled(move || loading || disabled.get())
+                .disabled(move || loading.get() || disabled.get())
                 .on_press(action)
                 .style(|| {
                     let p = tokens();
@@ -207,7 +210,9 @@ impl IntoView for Thumbnail {
                         .position(Position::Absolute)
                         .top(p.spacing.s1)
                         .opacity(
-                            if reveal.get() == RemoveReveal::Always || hovered || focus_within.get()
+                            if reveal.get() == RemoveReveal::Always
+                                || hovered.get()
+                                || focus_within.get()
                             {
                                 1.0
                             } else {
@@ -269,16 +274,18 @@ impl IntoView for Thumbnail {
             .child(remove);
         let root = root
             .name(accessible)
-            .base_style(move || {
-                style()
-                    .position(Position::Relative)
-                    .width(SIDE)
-                    .shrink(0)
-                    .opacity(if disabled.get() {
-                        tokens().sizes.disabled_opacity
-                    } else {
-                        1.0
-                    })
+            .with_node(move |node| {
+                node.base_style(move || {
+                    style()
+                        .position(Position::Relative)
+                        .width(SIDE)
+                        .shrink(0)
+                        .opacity(if disabled.get() {
+                            tokens().sizes.disabled_opacity
+                        } else {
+                            1.0
+                        })
+                })
             })
             .child(frame)
             .child(announce);
@@ -361,7 +368,7 @@ fn thumbnail_media(
                 })
                 .child(node().style(move || {
                     fill().background(tokens().colors.skeleton).opacity(
-                        if kivact::platform::reduced_motion().get() {
+                        if kivact::platform::is_motion_reduced().get() {
                             0.25
                         } else {
                             0.25 + ((pulse.get() - 0.25) / 0.075).floor() * 0.075
@@ -374,7 +381,7 @@ fn thumbnail_media(
 }
 
 fn upload_overlay() -> Node {
-    let duration = if kivact::platform::reduced_motion().get() {
+    let duration = if kivact::platform::is_motion_reduced().get() {
         3000
     } else {
         tokens().motion.slow_min
@@ -384,7 +391,7 @@ fn upload_overlay() -> Node {
         360.0,
         Transition::tween(duration as f64, Easing::Linear)
             .repeat(Repeat::Forever)
-            .decorative(false),
+            .essential(),
     );
     node()
         .hit_testable(false)

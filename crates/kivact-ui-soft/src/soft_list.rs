@@ -185,7 +185,7 @@ impl Item {
 
     pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
         let press: Callback<()> = press.into();
-        self.on_press = Some(kivact::view::callback(move |_| press.call(())));
+        self.on_press = Some(kivact::state::callback(move |_| press.call(())));
         self
     }
 
@@ -243,12 +243,12 @@ impl Item {
         };
         let description_ref = node_ref();
         let mut attached_root = root
-            .role(role)
+            .with_node(move |node| node.role(role))
             .name(label)
             .disabled(disabled)
             .selected(selected);
         if description.is_some() || description_view.is_some() {
-            attached_root = attached_root.described_by(description_ref);
+            attached_root = attached_root.with_node(move |node| node.described_by(description_ref));
         }
         if let Some(target) = delegate {
             attached_root = attached_root.on_press(move || target.activate());
@@ -292,51 +292,59 @@ impl Item {
                 style()
                     .grow(1)
                     .min_width(0)
-                    .direction(match layout {
+                    .direction(match layout.get() {
                         ItemLayout::Stacked => Direction::Column,
                         ItemLayout::Inline => Direction::Row,
                     })
-                    .gap(if layout == ItemLayout::Inline { 8 } else { 0 }),
+                    .gap(if layout.get() == ItemLayout::Inline {
+                        8
+                    } else {
+                        0
+                    }),
             )
             .child((
                 label,
                 description.map(|content| node().node_ref(description_ref).child(content)),
             ));
         attached_root
-            .base_style(move || {
-                let p = tokens();
-                let mut row = style()
-                    .direction(Direction::Row)
-                    .min_width(0)
-                    .padding_x(12)
-                    .padding_y(density.padding())
-                    .gap(8)
-                    .radius(p.radius.element)
-                    .align_items(if align == ItemAlign::Center {
-                        Align::Center
-                    } else {
-                        Align::Start
-                    });
-                if selected.get() {
-                    row = row.background(p.colors.accent_muted);
-                } else if highlighted.get() {
-                    row = row.background(p.colors.overlay_hover);
-                }
-                if actionable {
-                    row = row
-                        .cursor(Cursor::Pointer)
-                        .hover(style().background(p.colors.overlay_hover))
-                        .pressed(style().background(p.colors.overlay_pressed))
-                        .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
-                        .transition(
-                            kivact::style::TransitionProp::Paint,
-                            kivact::motion::Transition::tween(
-                                p.motion.fast as f64,
-                                p.motion.ease_standard,
-                            ),
-                        );
-                }
-                row
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let p = tokens();
+                    let mut row = style()
+                        .direction(Direction::Row)
+                        .min_width(0)
+                        .padding_x(12)
+                        .padding_y(density.get().padding())
+                        .gap(8)
+                        .radius(p.radius.element)
+                        .align_items(if align.get() == ItemAlign::Center {
+                            Align::Center
+                        } else {
+                            Align::Start
+                        });
+                    if selected.get() {
+                        row = row.background(p.colors.accent_muted);
+                    } else if highlighted.get() {
+                        row = row.background(p.colors.overlay_hover);
+                    }
+                    if actionable {
+                        row = row
+                            .cursor(Cursor::Pointer)
+                            .hover(style().background(p.colors.overlay_hover))
+                            .pressed(style().background(p.colors.overlay_pressed))
+                            .focus_visible(
+                                style().ring(p.sizes.focus_ring_width, p.colors.focus_ring),
+                            )
+                            .transition(
+                                kivact::style::TransitionProp::Paint,
+                                kivact::motion::Transition::tween(
+                                    p.motion.fast as f64,
+                                    p.motion.ease_standard,
+                                ),
+                            );
+                    }
+                    row
+                })
             })
             .child((
                 marker.map(|content| content),
@@ -512,9 +520,9 @@ impl<C: IntoChildren> IntoView for List<C> {
             start,
         };
         let header_ref = node_ref();
-        let mut root = root.role(Role::List);
+        let mut root = root.with_node(move |node| node.role(Role::List));
         if header.is_some() {
-            root = root.labelled_by(header_ref);
+            root = root.with_node(move |node| node.labelled_by(header_ref));
         }
         let rows = match items {
             ListRows::Static(items) => {
@@ -537,10 +545,12 @@ impl<C: IntoChildren> IntoView for List<C> {
         };
         column((
             header.map(|content| node().node_ref(header_ref).child(content)),
-            root.base_style(move || {
-                style()
-                    .direction(Direction::Column)
-                    .gap(if dividers.get() { 0 } else { 2 })
+            root.with_node(move |node| {
+                node.base_style(move || {
+                    style()
+                        .direction(Direction::Column)
+                        .gap(if dividers.get() { 0 } else { 2 })
+                })
             })
             .child(rows),
         ))

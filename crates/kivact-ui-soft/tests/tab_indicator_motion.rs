@@ -17,7 +17,6 @@ fn selection_crossfades_both_indicators_in_place() {
                 RenderOptions::from_env()
                     .theme(kivact_ui_soft::theme(ThemeMode::Light))
                     .reduced_motion()
-                    .get()
             } else {
                 RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
             },

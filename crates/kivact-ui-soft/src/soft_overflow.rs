@@ -330,14 +330,16 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                     .child(indicator.call(hidden))
             },
         );
-        let root = root.node_ref(own).base_style(move || {
-            style()
-                .direction(Direction::Row)
-                .gap(gap.get())
-                .wrap(max_rows.get() > 1)
-                .align_items(Align::Center)
-                .min_width(0)
-                .overflow(Overflow::Hidden)
+        let root = root.node_ref(own).with_node(move |node| {
+            node.base_style(move || {
+                style()
+                    .direction(Direction::Row)
+                    .gap(gap.get())
+                    .wrap(max_rows.get() > 1)
+                    .align_items(Align::Center)
+                    .min_width(0)
+                    .overflow(Overflow::Hidden)
+            })
         });
         match collapse_from.get() {
             CollapseFrom::Start => root.child((marker, rows)),

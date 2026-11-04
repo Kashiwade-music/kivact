@@ -57,19 +57,21 @@ impl IntoView for Blockquote {
             content,
             cite,
         } = self;
-        root.base_style(|| {
-            let p = tokens();
-            let look = style()
-                .direction(Direction::Column)
-                .min_width(0)
-                .color(p.colors.text_secondary);
-            if use_direction().get() == ReadingDirection::Rtl {
-                look.border_right(p.spacing.s0_5, p.colors.border_emphasized)
-                    .padding_right(p.spacing.s4)
-            } else {
-                look.border_left(p.spacing.s0_5, p.colors.border_emphasized)
-                    .padding_left(p.spacing.s4)
-            }
+        root.with_node(move |node| {
+            node.base_style(|| {
+                let p = tokens();
+                let look = style()
+                    .direction(Direction::Column)
+                    .min_width(0)
+                    .color(p.colors.text_secondary);
+                if use_direction().get() == ReadingDirection::Rtl {
+                    look.border_right(p.spacing.s0_5, p.colors.border_emphasized)
+                        .padding_right(p.spacing.s4)
+                } else {
+                    look.border_left(p.spacing.s0_5, p.colors.border_emphasized)
+                        .padding_left(p.spacing.s4)
+                }
+            })
         })
         .child(content)
         .child(cite.map(|value| {

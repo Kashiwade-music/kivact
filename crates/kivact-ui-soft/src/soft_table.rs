@@ -45,22 +45,24 @@ impl TableAlign {
 
 pub fn table(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
-        .role(Role::Table)
-        .base_style(style().width(pct(100)).min_width(0))
+        .with_node(move |node| node.role(Role::Table))
+        .with_node(move |node| node.base_style(style().width(pct(100)).min_width(0)))
 }
 
 pub fn table_header(children: impl IntoView) -> impl kivact::view::Component {
-    column(children).role(Role::RowGroup)
+    column(children).with_node(move |node| node.role(Role::RowGroup))
 }
 
 pub fn table_body(children: impl IntoView) -> impl kivact::view::Component {
-    column(children).role(Role::RowGroup)
+    column(children).with_node(move |node| node.role(Role::RowGroup))
 }
 
 pub fn table_footer(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
-        .role(Role::RowGroup)
-        .base_style(move || style().background(tokens().colors.bg_muted))
+        .with_node(move |node| node.role(Role::RowGroup))
+        .with_node(move |node| {
+            node.base_style(move || style().background(tokens().colors.bg_muted))
+        })
 }
 
 pub struct TableRow {
@@ -72,7 +74,7 @@ pub struct TableRow {
 
 pub fn table_row(children: impl IntoView) -> TableRow {
     TableRow {
-        root: row(children).role(Role::Row),
+        root: row(children).with_node(move |node| node.role(Role::Row)),
         dividers: (true).into_value(),
         hover: (false).into_value(),
         striped: (false).into_value(),
@@ -114,22 +116,24 @@ impl IntoView for TableRow {
             hover,
             striped,
         } = self;
-        root.base_style(move || {
-            let p = tokens();
-            let mut row = style()
-                .width(pct(100))
-                .min_width(0)
-                .selected(style().background(p.colors.accent_muted));
-            if dividers.get() {
-                row = row.border_bottom(1, p.colors.border);
-            }
-            if hover.get() {
-                row = row.hover(style().background(p.colors.overlay_hover));
-            }
-            if striped.get() {
-                row = row.background(p.colors.bg_muted);
-            }
-            row
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let mut row = style()
+                    .width(pct(100))
+                    .min_width(0)
+                    .selected(style().background(p.colors.accent_muted));
+                if dividers.get() {
+                    row = row.border_bottom(1, p.colors.border);
+                }
+                if hover.get() {
+                    row = row.hover(style().background(p.colors.overlay_hover));
+                }
+                if striped.get() {
+                    row = row.background(p.colors.bg_muted);
+                }
+                row
+            })
         })
         .into_view()
     }
@@ -149,7 +153,7 @@ pub struct TableCell {
 
 pub fn table_cell(content: impl IntoView) -> TableCell {
     TableCell {
-        root: node().role(Role::Cell),
+        root: node().with_node(move |node| node.role(Role::Cell)),
         content: content.into_view(),
         header: false,
         width: None,
@@ -163,7 +167,9 @@ pub fn table_cell(content: impl IntoView) -> TableCell {
 
 pub fn table_head(content: impl IntoView) -> TableCell {
     let mut cell = table_cell(content);
-    cell.root = cell.root.role(Role::ColumnHeader);
+    cell.root = cell
+        .root
+        .with_node(move |node| node.role(Role::ColumnHeader));
     cell.header = true;
     cell
 }
@@ -216,28 +222,30 @@ impl IntoView for TableCell {
             vertical_align,
             divider,
         } = self;
-        root.base_style(move || {
-            let p = tokens();
-            let mut cell = style()
-                .direction(Direction::Row)
-                .justify_content(align.get().justify())
-                .align_items(vertical_align.get())
-                .min_width(0)
-                .padding_y(density.get().padding())
-                .padding_x(density.get().padding() + 4)
-                .font_size(14)
-                .line_height(20.0 / 14.0)
-                .color(p.colors.text_primary);
-            if header {
-                cell = cell.weight(600);
-            }
-            if divider.get() {
-                cell = cell.border_right(1, p.colors.border);
-            }
-            match width {
-                Some(width) => cell.width(width.get()).shrink(0),
-                None => cell.basis(0).grow(f64::from(span)).shrink(1),
-            }
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let mut cell = style()
+                    .direction(Direction::Row)
+                    .justify_content(align.get().justify())
+                    .align_items(vertical_align.get())
+                    .min_width(0)
+                    .padding_y(density.get().padding())
+                    .padding_x(density.get().padding() + 4)
+                    .font_size(14)
+                    .line_height(20.0 / 14.0)
+                    .color(p.colors.text_primary);
+                if header {
+                    cell = cell.weight(600);
+                }
+                if divider.get() {
+                    cell = cell.border_right(1, p.colors.border);
+                }
+                match width {
+                    Some(width) => cell.width(width.get()).shrink(0),
+                    None => cell.basis(0).grow(f64::from(span)).shrink(1),
+                }
+            })
         })
         .child(content)
         .into_view()
@@ -258,7 +266,9 @@ pub fn table_selection_toolbar<K: PropValue>(
     selection: impl IntoBinding<Vec<K>>,
 ) -> TableSelectionToolbar<K> {
     TableSelectionToolbar {
-        root: node().role(Role::Toolbar).name("Bulk actions"),
+        root: node()
+            .with_node(move |node| node.role(Role::Toolbar))
+            .name("Bulk actions"),
         selection: selection.into_binding(),
         clear_label: "Unselect All".into_text_value(),
         selection_label: None,
@@ -298,23 +308,25 @@ fn toolbar_button(
 ) -> Node {
     let label = label.into_text_value();
     node()
-        .role(Role::Button)
+        .with_node(move |node| node.role(Role::Button))
         .focusable(true)
         .name(label)
         .disabled(disabled)
         .on_press(action)
-        .base_style(move || {
-            let p = tokens();
-            style()
-                .direction(Direction::Row)
-                .justify_content(Justify::Center)
-                .align_items(Align::Center)
-                .min_height(28)
-                .padding_x(8)
-                .radius(p.radius.element)
-                .color(p.colors.text_primary)
-                .hover(style().background(p.colors.overlay_hover))
-                .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+        .with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                style()
+                    .direction(Direction::Row)
+                    .justify_content(Justify::Center)
+                    .align_items(Align::Center)
+                    .min_height(28)
+                    .padding_x(8)
+                    .radius(p.radius.element)
+                    .color(p.colors.text_primary)
+                    .hover(style().background(p.colors.overlay_hover))
+                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            })
         })
         .child(text(label))
 }
@@ -330,23 +342,25 @@ impl<K: PropValue> IntoView for TableSelectionToolbar<K> {
         } = self;
         let count = kivact::state::memo(move || selection.with(Vec::len));
         let count_label = match selection_label {
-            Some(render) => render(count),
+            Some(render) => render.call(count),
             None => text(move || format!("{} selected", count.get())).into_view(),
         };
         let clear = toolbar_button(clear_label, false, move || selection.set(Vec::new()));
         root.hidden(move || count.get() == 0)
-            .base_style(move || {
-                let p = tokens();
-                style()
-                    .direction(Direction::Row)
-                    .align_items(Align::Center)
-                    .padding_x(8)
-                    .padding_y(4)
-                    .gap(8)
-                    .radius(p.radius.element)
-                    .background(p.colors.bg_muted)
-                    .font_size(14)
-                    .color(p.colors.text_primary)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let p = tokens();
+                    style()
+                        .direction(Direction::Row)
+                        .align_items(Align::Center)
+                        .padding_x(8)
+                        .padding_y(4)
+                        .gap(8)
+                        .radius(p.radius.element)
+                        .background(p.colors.bg_muted)
+                        .font_size(14)
+                        .color(p.colors.text_primary)
+                })
             })
             .child((count_label, clear, node().style(style().grow(1)), actions))
             .into_view()
@@ -380,26 +394,30 @@ pub fn table_pagination(
         format!("Page {current} of {}", page_count.get().max(1))
     });
     row((previous, page_label, next))
-        .role(Role::Navigation)
+        .with_node(move |node| node.role(Role::Navigation))
         .name("Table pagination")
-        .base_style(move || {
-            style()
-                .justify_content(Justify::Center)
-                .align_items(Align::Center)
-                .gap(8)
-                .margin_top(8)
-                .font_size(12)
-                .color(tokens().colors.text_secondary)
+        .with_node(move |node| {
+            node.base_style(move || {
+                style()
+                    .justify_content(Justify::Center)
+                    .align_items(Align::Center)
+                    .gap(8)
+                    .margin_top(8)
+                    .font_size(12)
+                    .color(tokens().colors.text_secondary)
+            })
         })
 }
 
 pub fn table_row_index(index: impl IntoValue<usize>) -> impl kivact::view::Component {
     let index = index.into_value();
-    text(move || index.to_string()).base_style(move || {
-        style()
-            .font_size(12)
-            .text_align(kivact::style::TextAlign::End)
-            .color(tokens().colors.text_secondary)
+    text(move || index.get().to_string()).with_node(move |node| {
+        node.base_style(move || {
+            style()
+                .font_size(12)
+                .text_align(kivact::style::TextAlign::End)
+                .color(tokens().colors.text_secondary)
+        })
     })
 }
 
@@ -417,16 +435,21 @@ pub fn table_row_status(
     tone: impl IntoValue<RowStatusTone>,
 ) -> impl kivact::view::Component {
     let tone = tone.into_value();
-    node().role(Role::Image).name(label).base_style(move || {
-        let p = tokens();
-        let color = match tone.get() {
-            RowStatusTone::Neutral => p.colors.icon_secondary,
-            RowStatusTone::Success => p.colors.text_success,
-            RowStatusTone::Warning => p.colors.text_warning,
-            RowStatusTone::Error => p.colors.text_error,
-        };
-        style().size(8, 8).radius(4).background(color)
-    })
+    node()
+        .with_node(move |node| node.role(Role::Image))
+        .name(label)
+        .with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let color = match tone.get() {
+                    RowStatusTone::Neutral => p.colors.icon_secondary,
+                    RowStatusTone::Success => p.colors.text_success,
+                    RowStatusTone::Warning => p.colors.text_warning,
+                    RowStatusTone::Error => p.colors.text_error,
+                };
+                style().size(8, 8).radius(4).background(color)
+            })
+        })
 }
 
 kivact::state::constant_value!(RowStatusTone, TableAlign);

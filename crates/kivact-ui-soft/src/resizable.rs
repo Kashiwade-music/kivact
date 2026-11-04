@@ -4,6 +4,7 @@ use crate::tokens;
 use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::motion::Transition;
+use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::view::Node;
@@ -325,7 +326,7 @@ impl IntoView for ResizeHandle {
                     ScalarRange::new(lower, max).expect("valid resize range")
                 }
             };
-            let mut behavior = use_splitter(scalar, range, axis.get())
+            let mut behavior = use_splitter(scalar, range, axis)
                 .key_step(10.0)
                 .expect("positive key step");
             if reversed.get() {
@@ -339,12 +340,12 @@ impl IntoView for ResizeHandle {
             let visual = handle.state();
             let key_state = state.clone();
             let root = root
-                .part(handle)
+                .with_node(move |node| node.part(handle))
                 .on_key(move |event: KeyEvent| {
                     if disabled.as_ref().is_some_and(|disabled| disabled.get())
-                        || event.modifiers().get().ctrl
-                        || event.modifiers().get().alt
-                        || event.modifiers().get().meta
+                        || event.modifiers().ctrl
+                        || event.modifiers().alt
+                        || event.modifiers().meta
                     {
                         return Handled::No;
                     }
@@ -372,46 +373,48 @@ impl IntoView for ResizeHandle {
                         }
                         _ => return Handled::No,
                     };
-                    key_state.keyboard_resize(forward != mirror, event.modifiers().get().shift);
+                    key_state.keyboard_resize(forward != mirror, event.modifiers().shift);
                     Handled::Yes
                 })
-                .base_style(move || {
-                    let t = tokens();
-                    let base = style()
-                        .direction(Direction::Column)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .align_self(Align::Stretch)
-                        .shrink(0)
-                        .cursor(if vertical {
-                            Cursor::NsResize
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        let base = style()
+                            .direction(Direction::Column)
+                            .align_items(Align::Center)
+                            .justify_content(Justify::Center)
+                            .align_self(Align::Stretch)
+                            .shrink(0)
+                            .cursor(if vertical {
+                                Cursor::NsResize
+                            } else {
+                                Cursor::EwResize
+                            })
+                            .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                        let hit = t.spacing.s4;
+                        if overlay.get() {
+                            let base = base.position(Position::Absolute).z_index(2);
+                            if vertical {
+                                base.left(0).right(0).bottom(0).height(hit)
+                            } else if rtl() {
+                                base.top(0).bottom(0).left(0).width(hit)
+                            } else {
+                                base.top(0).bottom(0).right(0).width(hit)
+                            }
                         } else {
-                            Cursor::EwResize
-                        })
-                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                    let hit = t.spacing.s4;
-                    if overlay.get() {
-                        let base = base.position(Position::Absolute).z_index(2);
-                        if vertical {
-                            base.left(0).right(0).bottom(0).height(hit)
-                        } else if rtl() {
-                            base.top(0).bottom(0).left(0).width(hit)
-                        } else {
-                            base.top(0).bottom(0).right(0).width(hit)
+                            let line = if divider.get() {
+                                t.sizes.border_width
+                            } else {
+                                0.0
+                            };
+                            let extra = (hit - line) / -2.0;
+                            if vertical {
+                                base.height(hit).margin_y(extra)
+                            } else {
+                                base.width(hit).margin_x(extra)
+                            }
                         }
-                    } else {
-                        let line = if divider.get() {
-                            t.sizes.border_width
-                        } else {
-                            0.0
-                        };
-                        let extra = (hit - line) / -2.0;
-                        if vertical {
-                            base.height(hit).margin_y(extra)
-                        } else {
-                            base.width(hit).margin_x(extra)
-                        }
-                    }
+                    })
                 });
             let rule = node().style(move || {
                 let t = tokens();

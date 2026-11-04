@@ -73,7 +73,9 @@ pub struct Toolbar {
 #[track_caller]
 pub fn toolbar(label: impl IntoText) -> Toolbar {
     Toolbar {
-        root: node().role(Role::Toolbar).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::Toolbar))
+            .name(label),
         start: None,
         center: None,
         end: None,
@@ -207,7 +209,7 @@ impl IntoView for Toolbar {
                     } else {
                         base
                     };
-                    row(slot).base_style(base)
+                    row(slot).with_node(move |node| node.base_style(base))
                 })
             };
             let start = make(
@@ -254,46 +256,48 @@ impl IntoView for Toolbar {
                     }
                     Handled::No
                 })
-                .base_style(move || {
-                    let t = tokens();
-                    let c = &t.colors;
-                    let fill = match variant {
-                        SectionVariant::Section => c.bg_surface,
-                        SectionVariant::Transparent => Color::TRANSPARENT,
-                        SectionVariant::Muted => c.bg_muted,
-                    };
-                    let mut base = style()
-                        .background(fill)
-                        .padding(12)
-                        .width(pct(100))
-                        .min_height(height + 24)
-                        .direction(direction)
-                        .align_items(if vertical {
-                            Align::Stretch
-                        } else {
-                            Align::Center
-                        });
-                    if has_center && !vertical {
-                        base = base
-                            .display(kivact::style::Display::Grid)
-                            .grid_template_columns((
-                                Track::minmax(0, Track::fr(1)),
-                                Length::Auto,
-                                Track::minmax(0, Track::fr(1)),
-                            ));
-                    } else {
-                        base = base.justify_content(Justify::SpaceBetween);
-                    }
-                    for edge in &dividers {
-                        base = match edge {
-                            Edge::Top => base.border_top(1, c.border),
-                            Edge::Bottom => base.border_bottom(1, c.border),
-                            Edge::Start if !rtl => base.border_left(1, c.border),
-                            Edge::End if rtl => base.border_left(1, c.border),
-                            _ => base.border_right(1, c.border),
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = tokens();
+                        let c = &t.colors;
+                        let fill = match variant {
+                            SectionVariant::Section => c.bg_surface,
+                            SectionVariant::Transparent => Color::TRANSPARENT,
+                            SectionVariant::Muted => c.bg_muted,
                         };
-                    }
-                    base
+                        let mut base = style()
+                            .background(fill)
+                            .padding(12)
+                            .width(pct(100))
+                            .min_height(height + 24)
+                            .direction(direction)
+                            .align_items(if vertical {
+                                Align::Stretch
+                            } else {
+                                Align::Center
+                            });
+                        if has_center && !vertical {
+                            base = base
+                                .display(kivact::style::Display::Grid)
+                                .grid_template_columns((
+                                    Track::minmax(0, Track::fr(1)),
+                                    Length::Auto,
+                                    Track::minmax(0, Track::fr(1)),
+                                ));
+                        } else {
+                            base = base.justify_content(Justify::SpaceBetween);
+                        }
+                        for edge in &dividers {
+                            base = match edge {
+                                Edge::Top => base.border_top(1, c.border),
+                                Edge::Bottom => base.border_bottom(1, c.border),
+                                Edge::Start if !rtl => base.border_left(1, c.border),
+                                Edge::End if rtl => base.border_left(1, c.border),
+                                _ => base.border_right(1, c.border),
+                            };
+                        }
+                        base
+                    })
                 });
             root.child((start, center, end, hint))
         })

@@ -31,7 +31,7 @@ fn soft_disabled_menu_item_can_explain_why_but_cannot_activate() {
                     MenuEntry::item("open", "Open"),
                     MenuEntry::item("remove", "Remove")
                         .disabled(true)
-                        .disabled_reason("Only the owner can remove this"),
+                        .with_disabled_reason("Only the owner can remove this"),
                     MenuEntry::item("copy", "Copy"),
                 ],
             )
@@ -86,7 +86,7 @@ fn ordinary_theme_still_skips_disabled_menu_entries() {
             vec![
                 MenuEntry::item("remove", "Remove")
                     .disabled(true)
-                    .disabled_reason("Owner only"),
+                    .with_disabled_reason("Owner only"),
                 MenuEntry::item("copy", "Copy"),
             ],
         )

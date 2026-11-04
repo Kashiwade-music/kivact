@@ -45,10 +45,12 @@ pub struct Breadcrumbs {
 
 pub fn breadcrumbs(items: impl IntoIterator<Item = BreadcrumbItem>) -> Breadcrumbs {
     Breadcrumbs {
-        root: node().role(Role::Navigation).name(kivact::i18n::message(
-            "soft.breadcrumbs.label",
-            "Breadcrumb",
-        )),
+        root: node()
+            .with_node(move |node| node.role(Role::Navigation))
+            .name(kivact::i18n::message(
+                "soft.breadcrumbs.label",
+                "Breadcrumb",
+            )),
         items: items.into_iter().collect(),
         variant: (BreadcrumbsVariant::Default).into_value(),
         separator: None,
@@ -101,7 +103,7 @@ impl IntoView for Breadcrumbs {
                         })
                     };
                     row((separator, item.build(variant.get(), current)))
-                        .role(Role::ListItem)
+                        .with_node(move |node| node.role(Role::ListItem))
                         .style(|| {
                             let t = tokens();
                             style()
@@ -111,22 +113,26 @@ impl IntoView for Breadcrumbs {
                         })
                 })
                 .collect::<Vec<_>>();
-            root.child(row(children).role(Role::List).style(move || {
-                let t = tokens();
-                let text = if variant.get() == BreadcrumbsVariant::Default {
-                    t.typography.body
-                } else {
-                    t.typography.supporting
-                };
-                style()
-                    .direction(logical_row())
-                    .wrap(true)
-                    .align_items(Align::Center)
-                    .gap(t.spacing.s1)
-                    .font_size(text.size_px)
-                    .line_height(text.line_height_px / text.size_px)
-                    .color(t.colors.text_secondary)
-            }))
+            root.child(
+                row(children)
+                    .with_node(move |node| node.role(Role::List))
+                    .style(move || {
+                        let t = tokens();
+                        let text = if variant.get() == BreadcrumbsVariant::Default {
+                            t.typography.body
+                        } else {
+                            t.typography.supporting
+                        };
+                        style()
+                            .direction(logical_row())
+                            .wrap(true)
+                            .align_items(Align::Center)
+                            .gap(t.spacing.s1)
+                            .font_size(text.size_px)
+                            .line_height(text.line_height_px / text.size_px)
+                            .color(t.colors.text_secondary)
+                    }),
+            )
         })
     }
 }
@@ -197,38 +203,40 @@ impl BreadcrumbItem {
         let hovered = hover_ref.hovered();
         let title = text(label);
         let title = if current {
-            title.current_item(Some(kivact::view::CurrentItem::Page))
+            title.with_node(move |node| node.current_item(Some(kivact::view::CurrentItem::Page)))
         } else {
             title
         };
         let content = root
             .node_ref(hover_ref)
-            .base_style(move || {
-                let t = tokens();
-                let base = style()
-                    .direction(logical_row())
-                    .align_items(Align::Center)
-                    .gap(t.spacing.s1);
-                if actionable {
-                    let base = base
-                        .padding_y(t.spacing.s1)
-                        .cursor(Cursor::Pointer)
-                        .color(t.colors.text_secondary)
-                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                    if hovered.get() {
-                        base.text_decoration(TextDecorationLine::UNDERLINE)
-                    } else {
-                        base
-                    }
-                } else {
-                    base.weight(t.typography.weight_semibold).color(
-                        if variant == BreadcrumbsVariant::Default {
-                            t.colors.text_primary
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let base = style()
+                        .direction(logical_row())
+                        .align_items(Align::Center)
+                        .gap(t.spacing.s1);
+                    if actionable {
+                        let base = base
+                            .padding_y(t.spacing.s1)
+                            .cursor(Cursor::Pointer)
+                            .color(t.colors.text_secondary)
+                            .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                        if hovered.get() {
+                            base.text_decoration(TextDecorationLine::UNDERLINE)
                         } else {
-                            t.colors.text_secondary
-                        },
-                    )
-                }
+                            base
+                        }
+                    } else {
+                        base.weight(t.typography.weight_semibold).color(
+                            if variant == BreadcrumbsVariant::Default {
+                                t.colors.text_primary
+                            } else {
+                                t.colors.text_secondary
+                            },
+                        )
+                    }
+                })
             })
             .child((
                 leading,
@@ -247,7 +255,7 @@ impl BreadcrumbItem {
                 .into_view()
         } else if let Some(action) = action {
             content
-                .role(Role::Link)
+                .with_node(move |node| node.role(Role::Link))
                 .name(label)
                 .focusable(true)
                 .on_press(move || action.call(()))

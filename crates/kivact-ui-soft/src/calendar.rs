@@ -63,12 +63,16 @@ pub struct Calendar {
 
 fn new(selection: CalendarSelection) -> Calendar {
     Calendar {
-        root: node().role(Role::Group).base_style(
-            style()
-                .padding(12)
-                .width(Length::MaxContent)
-                .max_width(pct(100)),
-        ),
+        root: node()
+            .with_node(move |node| node.role(Role::Group))
+            .with_node(move |node| {
+                node.base_style(
+                    style()
+                        .padding(12)
+                        .width(Length::MaxContent)
+                        .max_width(pct(100)),
+                )
+            }),
         selection,
         month: None,
         displayed_month: None,
@@ -161,7 +165,7 @@ impl Calendar {
 
     pub(super) fn gate_disabled(mut self, off: kivact::state::Value<bool>) -> Self {
         let disabled = self.disabled;
-        self.disabled = Rc::new(move |date| off || disabled(date));
+        self.disabled = Rc::new(move |date| off.get() || disabled(date));
         self
     }
 
@@ -256,7 +260,7 @@ const WEEKDAYS: [(&str, &str); 7] = [
 
 pub(super) fn calendar_status(message: impl kivact::state::IntoText) -> Node {
     text(message)
-        .role(Role::Status)
+        .with_node(move |node| node.role(Role::Status))
         .live_region(LiveRegion::Polite)
         .hit_testable(false)
         .style(style().position(Position::Absolute).size(1, 1).opacity(0.0))
@@ -477,13 +481,13 @@ impl IntoView for Calendar {
                                     .variant(ButtonVariant::Ghost)
                                     .hide_label(true)
                                     .icon(icon(back))
-                                    .part(grid.previous_month())
+                                    .with_node(move |node| node.part(grid.previous_month()))
                                     .disabled(min.is_some_and(|min| month <= min.month_of()));
                             let next = button(message("soft.calendar.next", "Next month"))
                                 .variant(ButtonVariant::Ghost)
                                 .hide_label(true)
                                 .icon(icon(forward))
-                                .part(grid.next_month())
+                                .with_node(move |node| node.part(grid.next_month()))
                                 .disabled(max.is_some_and(|max| {
                                     month.add_months(count as i32 - 1) >= max.month_of()
                                 }));
@@ -517,7 +521,9 @@ impl IntoView for Calendar {
                                             let (key, label) = WEEKDAYS
                                                 [first.days_after(i).days_since(Weekday::Monday)];
                                             node()
-                                                .role(Role::ColumnHeader)
+                                                .with_node(move |node| {
+                                                    node.role(Role::ColumnHeader)
+                                                })
                                                 .child(text(message(key, label)))
                                                 .style(move || {
                                                     style()
@@ -531,7 +537,7 @@ impl IntoView for Calendar {
                                                 .into_view()
                                         })
                                         .collect::<Vec<_>>())
-                                    .part(grid.row())
+                                    .with_node(move |node| node.part(grid.row()))
                                     .style(if touch && rtl {
                                         style().direction(Direction::RowReverse)
                                     } else {
@@ -641,7 +647,7 @@ impl IntoView for Calendar {
                                                         }
                                                     });
                                                     let mut day = node()
-                                                        .part(part)
+                                                        .with_node(move |node| node.part(part))
                                                         .on_pointer(move |event: PointerEvent| {
                                                             if let Some(swipe) = swipe
                                                                 && event.kind()
@@ -777,7 +783,7 @@ impl IntoView for Calendar {
                                                         .into_view()
                                                 })
                                                 .collect::<Vec<_>>())
-                                            .part(grid.row())
+                                            .with_node(move |node| node.part(grid.row()))
                                             .style(if touch && rtl {
                                                 style().direction(Direction::RowReverse)
                                             } else {
@@ -819,7 +825,7 @@ impl IntoView for Calendar {
                                         .on_pointer(move |event: PointerEvent| {
                                             swipe.map_or(Handled::No, |swipe| swipe.pointer(event))
                                         })
-                                        .part(grid.grid())
+                                        .with_node(move |node| node.part(grid.grid()))
                                         .name(title(month))
                                         .into_view()
                                 })

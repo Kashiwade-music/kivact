@@ -14,6 +14,7 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::button;
 use kivact::ui::dialog;
 use kivact::view::IntoView;
+use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::column;
 use kivact::view::node_ref;

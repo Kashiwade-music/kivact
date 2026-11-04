@@ -3,7 +3,7 @@ use crate::Tokens;
 use kivact::geometry::Rect;
 use kivact::interaction::Tone;
 use kivact::motion::Easing;
-use kivact::platform::reduced_motion;
+use kivact::platform::is_motion_reduced;
 use kivact::style::Color;
 use kivact::style::Cursor;
 use kivact::style::Overflow;
@@ -116,7 +116,7 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
         let (start, length, ink) = if indeterminate {
             const BAND: f64 = 0.4;
             let phase = phase.get();
-            if reduced_motion().get() {
+            if is_motion_reduced().get() {
                 // The 4000 ms cycle alternates two 2000 ms opacity passes.
                 let down_and_back = 1.0 - (2.0 * phase - 1.0).abs();
                 let opacity = 1.0 - 0.16 * ease.apply(down_and_back);

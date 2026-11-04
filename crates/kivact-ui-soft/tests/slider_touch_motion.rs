@@ -18,7 +18,6 @@ fn options(reduced_motion: bool) -> RenderOptions {
         RenderOptions::from_env()
             .theme(kivact_ui_soft::theme(ThemeMode::Light))
             .reduced_motion()
-            .get()
     } else {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
     }

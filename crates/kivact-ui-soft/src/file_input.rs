@@ -122,7 +122,7 @@ impl IntoView for FileInput {
             dropzone,
         } = self;
         let disabled = root.accessible_disabled();
-        let disabled = memo(move || disabled.as_ref().is_some_and(|disabled| disabled()));
+        let disabled = memo(move || disabled.as_ref().is_some_and(|disabled| disabled.get()));
         let pending = signal(false);
         let dragging = signal(false);
         let status = signal(None::<String>);
@@ -183,10 +183,10 @@ impl IntoView for FileInput {
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("upload"))
-            .disabled(move || disabled || pending.get())
+            .disabled(move || disabled.get() || pending.get())
             .invalid(move || status.get().is_some())
             .node_ref(trigger_ref)
-            .described_by(alert_ref)
+            .with_node(move |node| node.described_by(alert_ref))
             .child(text(move || {
                 if name.get().is_empty() {
                     label.get()
@@ -239,7 +239,7 @@ impl IntoView for FileInput {
                     .variant(ButtonVariant::Ghost)
                     .hide_label(true)
                     .icon(icon("x"))
-                    .disabled(move || disabled || pending.get())
+                    .disabled(move || disabled.get() || pending.get())
                     .on_press(move || {
                         value.set(Vec::new());
                         status.set(None);
@@ -283,7 +283,7 @@ impl IntoView for FileInput {
             move || {
                 text(move || status.get().unwrap_or_default())
                     .node_ref(alert_ref)
-                    .role(Role::Alert)
+                    .with_node(move |node| node.role(Role::Alert))
                     .style(move || style().font_size(12).color(tokens().colors.text_error))
             },
         );

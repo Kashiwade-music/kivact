@@ -45,7 +45,9 @@ pub fn date_time_input(
 ) -> DateTimeInput {
     let label = label.into_text_value();
     DateTimeInput {
-        root: node().role(Role::Group).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::Group))
+            .name(label),
         label,
         value: value.into_binding(),
         presentation: DatePresentation::Adaptive,
@@ -83,7 +85,7 @@ impl IntoView for DateTimeInput {
             presentation,
         } = self;
         let date = binding(
-            move || value.map(|date_time| date_time.date),
+            move || value.get().map(|date_time| date_time.date),
             move |date: Option<CalendarDate>| {
                 let current = value.get_untracked();
                 value.set(date.map(|date| {
@@ -97,7 +99,7 @@ impl IntoView for DateTimeInput {
             },
         );
         let time = binding(
-            move || value.map(|date_time| date_time.time),
+            move || value.get().map(|date_time| date_time.time),
             move |time: Option<TimeOfDay>| {
                 if let Some(current) = value.get_untracked() {
                     value.set(time.map(|time| DateTime { time, ..current }));
@@ -111,7 +113,7 @@ impl IntoView for DateTimeInput {
             let time_panel = signal(false);
             let draft_time = signal(None::<TimeOfDay>);
             let sheet_time = binding(
-                move || time.or_else(|| draft_time),
+                move || time.get().or_else(|| draft_time.get()),
                 move |next| {
                     if value.get_untracked().is_some() {
                         time.set(next);

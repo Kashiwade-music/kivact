@@ -80,7 +80,7 @@ pub struct Pagination {
 pub fn pagination(page: impl IntoBinding<u32>) -> Pagination {
     Pagination {
         root: node()
-            .role(Role::Navigation)
+            .with_node(move |node| node.role(Role::Navigation))
             .name(message("soft.pagination.label", "Pagination")),
         page: page.into_binding(),
         page_size: None,
@@ -249,7 +249,7 @@ impl IntoView for Pagination {
                 },
             );
             let live = node()
-                .role(Role::Status)
+                .with_node(move |node| node.role(Role::Status))
                 .live_region(LiveRegion::Polite)
                 .style(
                     style()
@@ -518,7 +518,11 @@ fn page_button(model: Model, page: u32, size: ControlSize) -> impl IntoView {
         .size(size)
         .disabled(model.disabled)
         .with_node(move |node| node.selected(move || model.page() == page))
-        .current_item(move || (model.page() == page).then_some(kivact::view::CurrentItem::Page))
+        .with_node(move |node| {
+            node.current_item(move || {
+                (model.page() == page).then_some(kivact::view::CurrentItem::Page)
+            })
+        })
         .style(move || {
             if model.page() == page {
                 style().background(tokens().colors.neutral)
@@ -601,7 +605,7 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
             let refs = refs.clone();
             let reference = refs[(page - 1) as usize];
             node()
-                .role(Role::Button)
+                .with_node(move |node| node.role(Role::Button))
                 .node_ref(reference)
                 .name(message_with(
                     "soft.pagination.go_to_page",
@@ -609,8 +613,10 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
                     move || [("page", page.to_string())],
                 ))
                 .with_node(move |node| node.selected(move || model.page() == page))
-                .current_item(move || {
-                    (model.page() == page).then_some(kivact::view::CurrentItem::Page)
+                .with_node(move |node| {
+                    node.current_item(move || {
+                        (model.page() == page).then_some(kivact::view::CurrentItem::Page)
+                    })
                 })
                 .focusable(move || !model.disabled.get() && model.page() == page)
                 .disabled(model.disabled)
@@ -660,7 +666,7 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
         })
         .collect::<Vec<_>>();
     row(children)
-        .role(Role::Group)
+        .with_node(move |node| node.role(Role::Group))
         .name(message(
             "soft.pagination.page_indicators",
             "Page indicators",

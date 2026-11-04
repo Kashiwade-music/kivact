@@ -140,7 +140,7 @@ impl IntoView for DateInput {
         let invalid = signal(false);
         let opened_from_input = signal(false);
         let input_ref = node_ref();
-        let formatted = memo(move || value.map(|date| date.to_string()).unwrap_or_default());
+        let formatted = memo(move || value.get().map(|date| date.to_string()).unwrap_or_default());
         let draft = signal(formatted.get_untracked());
         kivact::state::effect(move || {
             draft.set(formatted.get());
@@ -148,13 +148,13 @@ impl IntoView for DateInput {
         });
         let input = text_input(label, draft)
             .placeholder("YYYY-MM-DD")
-            .with_node(move |node| node.expanded(open))
+            .with_node(move |node| node.with_node(move |node| node.expanded(open)))
             .forward_keys(vec![Key::ArrowDown])
             .on_key(move |event: KeyEvent| {
                 if event.key() == Key::ArrowDown
-                    && !event.modifiers().get().ctrl
-                    && !event.modifiers().get().meta
-                    && !event.modifiers().get().shift
+                    && !event.modifiers().ctrl
+                    && !event.modifiers().meta
+                    && !event.modifiers().shift
                     && !open.get_untracked()
                 {
                     opened_from_input.set(true);
@@ -190,7 +190,7 @@ impl IntoView for DateInput {
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("calendar"))
-            .with_node(move |node| node.expanded(open))
+            .with_node(move |node| node.with_node(move |node| node.expanded(open)))
             .on_press(move || {
                 opened_from_input.set(false);
                 open.set(!open.get_untracked());

@@ -142,6 +142,6 @@ fn indicator(theme: &Theme, s: &Look<PopupState>) -> Style {
         .rotate(if s.open { 180 } else { 0 })
         .transition(
             TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard).decorative(false),
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard).essential(),
         )
 }

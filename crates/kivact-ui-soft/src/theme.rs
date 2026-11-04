@@ -2,6 +2,7 @@
 use std::time::Duration;
 
 use crate::tokens::Tokens;
+use kivact::geometry::Edge;
 use kivact::interaction::DisabledMenuFocus;
 use kivact::interaction::MenuPress;
 use kivact::interaction::SubmenuTiming;
@@ -19,7 +20,6 @@ use kivact::ui::ProgressMotion;
 use kivact::ui::SliderTouchMotion;
 use kivact::ui::ToastRowMotion;
 use kivact::ui::ToastSwipe;
-use kivact::ui::ToastSwipeEdge;
 use kivact::ui::ToggleLabelReservation;
 use kivact::view::OverlayViewport;
 
@@ -94,7 +94,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
             reveal_fade_ms: tokens.motion.fast,
         })
         .with(ToastSwipe::Enabled {
-            edge: ToastSwipeEdge::Bottom,
+            edge: Edge::Bottom,
             transition: Transition::tween(tokens.motion.fast as f64, tokens.motion.ease_standard),
         })
         .with(ToastRowMotion {

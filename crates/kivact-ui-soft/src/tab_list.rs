@@ -334,10 +334,7 @@ impl FocusTrack {
     }
 
     fn key(&self, index: usize, event: KeyEvent) -> Handled {
-        if event.modifiers().get().alt
-            || event.modifiers().get().ctrl
-            || event.modifiers().get().meta
-        {
+        if event.modifiers().alt || event.modifiers().ctrl || event.modifiers().meta {
             return Handled::No;
         }
         let len = self.members.len();
@@ -499,12 +496,17 @@ impl<K: ItemKey> IntoView for TabList<K> {
                             });
                             let selected_icon = selected_icon
                                 .map(|icon| tab_glyph(icon, look.size, move || !selected.get()));
-                            let title = (!label_hidden).then(|| stable_label(label, selected));
+                            let title =
+                                (!label_hidden.get()).then(|| stable_label(label, selected));
                             let mut root = root
                                 .node_ref(reference)
                                 .name(label)
                                 .disabled(disabled)
-                                .base_style(move || tab_style(look, selected.get(), disabled.get()))
+                                .with_node(move |node| {
+                                    node.base_style(move || {
+                                        tab_style(look, selected.get(), disabled.get())
+                                    })
+                                })
                                 .child((
                                     standard_icon,
                                     selected_icon,
@@ -513,12 +515,12 @@ impl<K: ItemKey> IntoView for TabList<K> {
                                     indicator(look, selected, false),
                                 ));
                             if let Some(behavior) = behavior {
-                                root = root.part(behavior.item(key));
+                                root = root.with_node(move |node| node.part(behavior.item(key)));
                             } else {
                                 let state = focus.clone();
                                 let keys = focus.clone();
                                 root = root
-                                    .role(Role::Button)
+                                    .with_node(move |node| node.role(Role::Button))
                                     .with_node(move |node| node.selected(selected))
                                     .focusable(move || state.focusable(index))
                                     .on_key(move |event| keys.key(index, event))
@@ -529,7 +531,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
                                     });
                             }
                             if let Some(panel) = panel {
-                                root = root.controls(panel);
+                                root = root.with_node(move |node| node.controls(panel));
                             }
                             root.into_view()
                         }
@@ -559,9 +561,13 @@ impl<K: ItemKey> IntoView for TabList<K> {
                 base
             });
             let strip = if let Some(behavior) = behavior {
-                strip.part(behavior.list()).name(label)
+                strip
+                    .with_node(move |node| node.part(behavior.list()))
+                    .name(label)
             } else {
-                strip.role(Role::Navigation).name(label)
+                strip
+                    .with_node(move |node| node.role(Role::Navigation))
+                    .name(label)
             };
             let strip = if scrollable {
                 let state = use_scroll_overflow(viewport_ref, strip_ref);
@@ -628,14 +634,16 @@ impl<K: ItemKey> IntoView for TabList<K> {
                 dynamic(binding, move |key| {
                     let panel = node().child(content.call(key.clone()));
                     if let Some(behavior) = behavior {
-                        panel.part(behavior.panel(key))
+                        panel.with_node(move |node| node.part(behavior.panel(key)))
                     } else {
                         panel
                     }
                 })
             });
-            root.base_style(style().direction(Direction::Column).min_width(0))
-                .child((strip, panel))
+            root.with_node(move |node| {
+                node.base_style(style().direction(Direction::Column).min_width(0))
+            })
+            .child((strip, panel))
         })
     }
 }
@@ -689,12 +697,14 @@ fn tab_height(size: ControlSize) -> f64 {
 
 fn stable_label(label: Value<String>, selected: Value<bool>) -> Node {
     stack((
-        text(label).role(Role::Generic).style(|| {
-            style()
-                .opacity(0.0)
-                .weight(tokens().typography.weight_semibold)
-                .text_wrap(false)
-        }),
+        text(label)
+            .with_node(move |node| node.role(Role::Generic))
+            .style(|| {
+                style()
+                    .opacity(0.0)
+                    .weight(tokens().typography.weight_semibold)
+                    .text_wrap(false)
+            }),
         text(label).style(move || {
             let t = tokens();
             style()
@@ -778,7 +788,7 @@ fn tab_scroll_arrow(
                 let delta = rect.width * if physical_right { 0.8 } else { -0.8 };
                 viewport.scroll_by(
                     Point { x: delta, y: 0.0 },
-                    if kivact::platform::reduced_motion().get() {
+                    if kivact::platform::is_motion_reduced().get() {
                         ScrollBehavior::Instant
                     } else {
                         ScrollBehavior::Smooth
@@ -828,7 +838,7 @@ fn tab_menu_view<K: ItemKey>(
         options_for_label
             .iter()
             .find(|option| option.key == selected)
-            .map_or_else(|| label, |option| option.label)
+            .map_or_else(|| label.get(), |option| option.label.get())
     });
     let behavior = use_menu(move || {
         let selected = binding.get();
@@ -846,12 +856,13 @@ fn tab_menu_view<K: ItemKey>(
         move |index: usize| binding.set(options[index].key.clone())
     });
     let part = behavior.trigger();
-    let anchor = part.node_ref();
+    let anchor = node_ref();
     let selected = focus.members[index].selected;
     let open = behavior.is_open();
     let state = focus.clone();
     let trigger = root
-        .part(part)
+        .with_node(move |node| node.part(part))
+        .node_ref(anchor)
         .node_ref(focus.members[index].reference)
         .name(shown_label)
         .focusable(move || state.focusable(index))
@@ -862,7 +873,7 @@ fn tab_menu_view<K: ItemKey>(
                 focus.key(index, event)
             }
         })
-        .base_style(move || tab_style(look, selected.get(), false))
+        .with_node(move |node| node.base_style(move || tab_style(look, selected.get(), false)))
         .child((
             stable_label(shown_label, selected),
             icon("chevron-down").style(move || {
@@ -901,7 +912,7 @@ fn tab_menu_view<K: ItemKey>(
                     text(option.label).style(style().grow(1).single_line()),
                     check,
                 ))
-                .part(part)
+                .with_node(move |node| node.part(part))
                 .style(move || {
                     let t = tokens();
                     let role = t.typography.body;
@@ -952,7 +963,7 @@ fn tab_menu_view<K: ItemKey>(
         });
         overlay(anchor, Placement::Below, panel)
             .offset(4)
-            .part(behavior.content())
+            .with_node(move |node| node.part(behavior.content()))
             .name(label)
     });
     (trigger, menu).into_view()

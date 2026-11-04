@@ -134,7 +134,9 @@ impl IntoView for AvatarStatusDot {
             });
             on_cleanup(move || cx.label.set(None));
         } else if let Some(label) = label {
-            root = root.role(Role::Image).name(label);
+            root = root
+                .with_node(move |node| node.role(Role::Image))
+                .name(label);
         }
         let field = side - 2.0 * border;
         let glyph = if let Some(icon) = icon.filter(|_| icon_side > 0.0) {
@@ -165,24 +167,26 @@ impl IntoView for AvatarStatusDot {
                 _ => None,
             }
         };
-        root.base_style(move || {
-            let p = tokens();
-            let (fill, ink) = match status {
-                AvatarStatus::Success => (p.colors.success, p.colors.on_success),
-                AvatarStatus::Neutral => (p.colors.bg_surface, p.colors.text_secondary),
-                AvatarStatus::Error => (p.colors.error, p.colors.on_error),
-                AvatarStatus::Custom { fill, ink } => (fill, ink),
-            };
-            style()
-                .size(side, side)
-                .shrink(0)
-                .radius(p.radius.full)
-                .border(border, p.colors.bg_surface)
-                .background(fill)
-                .color(ink)
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let (fill, ink) = match status {
+                    AvatarStatus::Success => (p.colors.success, p.colors.on_success),
+                    AvatarStatus::Neutral => (p.colors.bg_surface, p.colors.text_secondary),
+                    AvatarStatus::Error => (p.colors.error, p.colors.on_error),
+                    AvatarStatus::Custom { fill, ink } => (fill, ink),
+                };
+                style()
+                    .size(side, side)
+                    .shrink(0)
+                    .radius(p.radius.full)
+                    .border(border, p.colors.bg_surface)
+                    .background(fill)
+                    .color(ink)
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+            })
         })
         .child(glyph)
         .into_view()

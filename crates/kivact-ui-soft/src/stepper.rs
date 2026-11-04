@@ -104,7 +104,9 @@ pub struct Step {
 pub fn step(index: usize, label: impl IntoText) -> Step {
     let label = label.into_text_value();
     Step {
-        root: node().role(Role::ListItem).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::ListItem))
+            .name(label),
         index,
         label,
         description: None,
@@ -282,7 +284,7 @@ impl IntoView for Stepper {
                 .collect::<Vec<_>>()
                 .into();
             let list = node()
-                .role(Role::List)
+                .with_node(move |node| node.role(Role::List))
                 .style(move || {
                     let t = tokens();
                     style()
@@ -360,10 +362,12 @@ impl IntoView for Stepper {
                 })
             });
             root.node_ref(root_ref)
-                .base_style(|| {
-                    style()
-                        .direction(Direction::Column)
-                        .gap(tokens().spacing.s2)
+                .with_node(move |node| {
+                    node.base_style(|| {
+                        style()
+                            .direction(Direction::Column)
+                            .gap(tokens().spacing.s2)
+                    })
                 })
                 .child((list, summary))
         })
@@ -388,7 +392,7 @@ impl Summary {
             description: step.description,
             disabled: step.disabled,
             indicator: step.indicator.clone(),
-            status: step.status,
+            status: step.status.get(),
         }
     }
 }
@@ -501,7 +505,7 @@ impl Step {
                 disabled.get(),
             )
         });
-        let optional = optional.then(|| {
+        let optional = optional.get().then(|| {
             text(message("soft.stepper.optional", "• Optional")).style(|| {
                 style()
                     .color(tokens().colors.text_secondary)
@@ -561,7 +565,7 @@ impl Step {
         });
         let labels = if let Some(action) = cx.action {
             labels
-                .role(Role::Button)
+                .with_node(move |node| node.role(Role::Button))
                 .name(label)
                 .focusable(move || !disabled.get())
                 .disabled(disabled)
@@ -602,17 +606,23 @@ impl Step {
             .hidden(cx.compact)
             .style(style().grow(1).min_width(0));
         let track = track.map(|track| track.hidden(cx.compact));
-        root.base_style(move || {
-            let t = tokens();
-            let base = style().min_width(0).gap(t.spacing.s0_5);
-            if cx.vertical {
-                base.direction(logical_row()).align_items(Align::Stretch)
-            } else {
-                base.direction(Direction::Column).grow(1).basis(0)
-            }
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let t = tokens();
+                let base = style().min_width(0).gap(t.spacing.s0_5);
+                if cx.vertical {
+                    base.direction(logical_row()).align_items(Align::Stretch)
+                } else {
+                    base.direction(Direction::Column).grow(1).basis(0)
+                }
+            })
         })
         .with_node(move |node| node.selected(move || cx.active.get() == index))
-        .current_item(move || (cx.active.get() == index).then_some(kivact::view::CurrentItem::Step))
+        .with_node(move |node| {
+            node.current_item(move || {
+                (cx.active.get() == index).then_some(kivact::view::CurrentItem::Step)
+            })
+        })
         .child((bar, track, body))
     }
 }

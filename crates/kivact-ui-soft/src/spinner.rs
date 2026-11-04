@@ -57,7 +57,7 @@ pub struct Spinner {
 #[track_caller]
 pub fn spinner() -> Spinner {
     Spinner {
-        root: node().role(Role::Status),
+        root: node().with_node(move |node| node.role(Role::Status)),
         size: (SpinnerSize::Md).into_value(),
         shade: (SpinnerShade::Default).into_value(),
         label: None,
@@ -143,7 +143,7 @@ impl IntoView for Spinner {
                     (ink, ink.with_alpha(0.3))
                 }
             };
-            let cycle = if kivact::platform::reduced_motion().get() {
+            let cycle = if kivact::platform::is_motion_reduced().get() {
                 3000.0
             } else {
                 t.motion.slow_min as f64
@@ -165,13 +165,15 @@ impl IntoView for Spinner {
             })
         });
         self.root
-            .base_style(
-                style()
-                    .direction(Direction::Column)
-                    .align_items(Align::Center)
-                    .gap(8)
-                    .shrink(0),
-            )
+            .with_node(move |node| {
+                node.base_style(
+                    style()
+                        .direction(Direction::Column)
+                        .align_items(Align::Center)
+                        .gap(8)
+                        .shrink(0),
+                )
+            })
             .child(glyph)
             .child(self.label.map(|label| {
                 node()

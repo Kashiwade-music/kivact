@@ -63,21 +63,23 @@ impl IntoView for Code {
             color,
             size_inherit,
         } = self;
-        root.base_style(move || {
-            let p = tokens();
-            let mut look = style()
-                .font_family(p.typography.family_code)
-                .background(p.colors.bg_muted)
-                .padding_x(p.spacing.s1)
-                .radius(p.radius.inner);
-            if !size_inherit.get() {
-                look = look.font_size(p.typography.code.size_px);
-            }
-            match color.get() {
-                CodeColor::Primary => look.color(p.colors.text_primary),
-                CodeColor::Secondary => look.color(p.colors.text_secondary),
-                CodeColor::Inherit => look,
-            }
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let p = tokens();
+                let mut look = style()
+                    .font_family(p.typography.family_code)
+                    .background(p.colors.bg_muted)
+                    .padding_x(p.spacing.s1)
+                    .radius(p.radius.inner);
+                if !size_inherit.get() {
+                    look = look.font_size(p.typography.code.size_px);
+                }
+                match color.get() {
+                    CodeColor::Primary => look.color(p.colors.text_primary),
+                    CodeColor::Secondary => look.color(p.colors.text_secondary),
+                    CodeColor::Inherit => look,
+                }
+            })
         })
         .into_view()
     }

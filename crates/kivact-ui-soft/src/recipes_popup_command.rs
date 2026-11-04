@@ -25,7 +25,7 @@ pub(crate) fn command_palette(r: CommandPaletteRecipes) -> CommandPaletteRecipes
         .panel(|_| panel)
         .search(|_| search)
         .search_icon(|_| |t: &Theme, _: &Look<PartState>| icon_box(&t.ext::<Tokens>()))
-        .project(|_| field)
+        .field(|_| field)
         .list(|_| {
             |t: &Theme, _: &Look<PartState>| {
                 let p = t.ext::<Tokens>();

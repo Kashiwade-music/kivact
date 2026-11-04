@@ -40,7 +40,6 @@ use kivact::view::Role;
 use kivact::view::View;
 use kivact::view::node_ref;
 use kivact::view::show;
-use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ShellVariant {
@@ -109,7 +108,7 @@ impl MobileNavConfig {
         self
     }
     pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.content = Some(Rc::new(move || content.into_view()));
+        self.content = Some(content.into_view_fn());
         self
     }
     pub fn breakpoint(mut self, breakpoint: impl Into<Option<Breakpoint>>) -> Self {
@@ -132,7 +131,7 @@ impl Default for MobileNavMode {
 
 impl MobileNavMode {
     pub fn custom<V: IntoView>(content: impl IntoViewFn<V>) -> Self {
-        Self::Custom(Rc::new(move || content.into_view()))
+        Self::Custom(content.into_view_fn())
     }
 }
 
@@ -265,7 +264,7 @@ impl IntoView for AppShell {
                 let label =
                     kivact::i18n::message("soft.app_shell.skip_to_content", "Skip to content");
                 let skip = node()
-                    .role(Role::Link)
+                    .with_node(move |node| node.role(Role::Link))
                     .name(label)
                     .focusable(true)
                     .node_ref(skip_ref)
@@ -426,7 +425,7 @@ impl IntoView for AppShell {
                 let padding_px = padding.get().px();
                 let inset = ContainerInset::uniform(padding_px);
                 let content = provide(inset, move || {
-                    provide(LayoutInset::from_padding(inset), content)
+                    provide(LayoutInset::from_padding(inset), move || content)
                 });
                 let contents = column(content).style(move || {
                     let mut base = style().padding(padding_px);
@@ -439,14 +438,14 @@ impl IntoView for AppShell {
                 });
                 let main = if height.get() == ShellHeight::Fill {
                     scrollable_area(main_name, contents)
-                        .role(Role::Main)
+                        .with_node(move |node| node.role(Role::Main))
                         .node_ref(main_ref)
                         .force_focusable(skip_requested.into_value())
                         .style(main_style)
                         .into_view()
                 } else {
                     node()
-                        .role(Role::Main)
+                        .with_node(move |node| node.role(Role::Main))
                         .name(main_name)
                         .node_ref(main_ref)
                         .focusable(skip_requested)
@@ -469,7 +468,7 @@ impl IntoView for AppShell {
                     move || enabled && mobile.is_mobile(),
                     move || {
                         if let Some(custom) = &custom {
-                            return custom();
+                            return custom.call(());
                         }
                         let content = config.content.clone();
                         let top = top.clone();
@@ -503,18 +502,20 @@ impl IntoView for AppShell {
                 };
                 (skip, body, drawer)
             });
-            root.base_style(move || {
-                let viewport = kivact::platform::window_size().get().height;
-                let base = style()
-                    .position(Position::Relative)
-                    .direction(Direction::Column)
-                    .clip(true)
-                    .background(shell_background(variant.get()));
-                if viewport > 0.0 {
-                    base.height(viewport)
-                } else {
-                    base.height(pct(100))
-                }
+            root.with_node(move |node| {
+                node.base_style(move || {
+                    let viewport = kivact::platform::window_size().get().height;
+                    let base = style()
+                        .position(Position::Relative)
+                        .direction(Direction::Column)
+                        .clip(true)
+                        .background(shell_background(variant.get()));
+                    if viewport > 0.0 {
+                        base.height(viewport)
+                    } else {
+                        base.height(pct(100))
+                    }
+                })
             })
             .child(shell)
         })

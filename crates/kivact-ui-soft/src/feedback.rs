@@ -84,44 +84,46 @@ impl IntoView for Badge {
     fn into_view(self) -> View {
         let variant = self.variant.get();
         self.root
-            .base_style(move || {
-                let t = tokens();
-                let c = &t.colors;
-                let (fill, ink) = match variant {
-                    BadgeVariant::Info => (c.info, c.on_info),
-                    BadgeVariant::Success => (c.success, c.on_success),
-                    BadgeVariant::Warning => (c.warning, c.on_warning),
-                    BadgeVariant::Error => (c.error, c.on_error),
-                    _ => {
-                        let hue = match variant {
-                            BadgeVariant::Blue => c.hue.blue,
-                            BadgeVariant::Cyan => c.hue.cyan,
-                            BadgeVariant::Green => c.hue.green,
-                            BadgeVariant::Orange => c.hue.orange,
-                            BadgeVariant::Pink => c.hue.pink,
-                            BadgeVariant::Purple => c.hue.purple,
-                            BadgeVariant::Red => c.hue.red,
-                            BadgeVariant::Teal => c.hue.teal,
-                            BadgeVariant::Yellow => c.hue.yellow,
-                            _ => c.hue.gray,
-                        };
-                        (hue.bg, hue.text)
-                    }
-                };
-                style()
-                    .min_height(t.sizes.badge_height)
-                    .min_width(0)
-                    .max_width(pct(100))
-                    .radius(t.radius.full)
-                    .padding_x(t.spacing.s2)
-                    .gap(t.spacing.s1)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .background(fill)
-                    .color(ink)
-                    .font_size(12)
-                    .line_height(20.0 / 12.0)
-                    .weight(500)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let c = &t.colors;
+                    let (fill, ink) = match variant {
+                        BadgeVariant::Info => (c.info, c.on_info),
+                        BadgeVariant::Success => (c.success, c.on_success),
+                        BadgeVariant::Warning => (c.warning, c.on_warning),
+                        BadgeVariant::Error => (c.error, c.on_error),
+                        _ => {
+                            let hue = match variant {
+                                BadgeVariant::Blue => c.hue.blue,
+                                BadgeVariant::Cyan => c.hue.cyan,
+                                BadgeVariant::Green => c.hue.green,
+                                BadgeVariant::Orange => c.hue.orange,
+                                BadgeVariant::Pink => c.hue.pink,
+                                BadgeVariant::Purple => c.hue.purple,
+                                BadgeVariant::Red => c.hue.red,
+                                BadgeVariant::Teal => c.hue.teal,
+                                BadgeVariant::Yellow => c.hue.yellow,
+                                _ => c.hue.gray,
+                            };
+                            (hue.bg, hue.text)
+                        }
+                    };
+                    style()
+                        .min_height(t.sizes.badge_height)
+                        .min_width(0)
+                        .max_width(pct(100))
+                        .radius(t.radius.full)
+                        .padding_x(t.spacing.s2)
+                        .gap(t.spacing.s1)
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .background(fill)
+                        .color(ink)
+                        .font_size(12)
+                        .line_height(20.0 / 12.0)
+                        .weight(500)
+                })
             })
             .child(self.icon.map(|icon| icon_box(icon, 12.0)))
             .child(text(self.label).style(style().min_width(0).text_wrap(false).line_clamp(1)))
@@ -193,25 +195,27 @@ impl IntoView for Skeleton {
                 .alternate(),
         );
         self.root
-            .base_style(move || {
-                let t = tokens();
-                let radius = match radius {
-                    SkeletonRadius::None | SkeletonRadius::R0 => 0.0,
-                    SkeletonRadius::R1 => t.radius.inner,
-                    SkeletonRadius::R2 => t.radius.element,
-                    SkeletonRadius::R3 | SkeletonRadius::R4 => t.radius.container,
-                    SkeletonRadius::Rounded => t.radius.full,
-                };
-                let opacity = if kivact::platform::reduced_motion().get() {
-                    0.25
-                } else {
-                    pulse.get().min(0.925)
-                };
-                style()
-                    .size(pct(100), pct(100))
-                    .radius(radius)
-                    .background(t.colors.skeleton)
-                    .opacity(opacity)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let radius = match radius {
+                        SkeletonRadius::None | SkeletonRadius::R0 => 0.0,
+                        SkeletonRadius::R1 => t.radius.inner,
+                        SkeletonRadius::R2 => t.radius.element,
+                        SkeletonRadius::R3 | SkeletonRadius::R4 => t.radius.container,
+                        SkeletonRadius::Rounded => t.radius.full,
+                    };
+                    let opacity = if kivact::platform::is_motion_reduced().get() {
+                        0.25
+                    } else {
+                        pulse.get().min(0.925)
+                    };
+                    style()
+                        .size(pct(100), pct(100))
+                        .radius(radius)
+                        .background(t.colors.skeleton)
+                        .opacity(opacity)
+                })
             })
             .into_view()
     }
@@ -238,7 +242,9 @@ pub struct StatusDot {
 #[track_caller]
 pub fn status_dot(variant: StatusDotVariant, label: impl IntoText) -> StatusDot {
     StatusDot {
-        root: row(()).role(Role::Image).name(label),
+        root: row(())
+            .with_node(move |node| node.role(Role::Image))
+            .name(label),
         variant,
         icon: None,
         pulsing: (false).into_value(),
@@ -277,30 +283,32 @@ impl IntoView for StatusDot {
             )
         });
         self.root
-            .base_style(move || {
-                let t = tokens();
-                let c = &t.colors;
-                let (fill, ink) = match variant {
-                    StatusDotVariant::Success => (c.success, c.on_success),
-                    StatusDotVariant::Warning => (c.warning, c.on_warning),
-                    StatusDotVariant::Error => (c.error, c.on_error),
-                    StatusDotVariant::Accent => (c.accent, c.on_accent),
-                    StatusDotVariant::Neutral => (c.icon_secondary, c.bg_surface),
-                };
-                let opacity = if kivact::platform::reduced_motion().get() {
-                    1.0
-                } else {
-                    pulse.as_ref().map_or(1.0, Animated::get)
-                };
-                style()
-                    .size(8, 8)
-                    .shrink(0)
-                    .radius(t.radius.full)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .background(fill)
-                    .color(ink)
-                    .opacity(opacity)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let t = tokens();
+                    let c = &t.colors;
+                    let (fill, ink) = match variant {
+                        StatusDotVariant::Success => (c.success, c.on_success),
+                        StatusDotVariant::Warning => (c.warning, c.on_warning),
+                        StatusDotVariant::Error => (c.error, c.on_error),
+                        StatusDotVariant::Accent => (c.accent, c.on_accent),
+                        StatusDotVariant::Neutral => (c.icon_secondary, c.bg_surface),
+                    };
+                    let opacity = if kivact::platform::is_motion_reduced().get() {
+                        1.0
+                    } else {
+                        pulse.as_ref().map_or(1.0, Animated::get)
+                    };
+                    style()
+                        .size(8, 8)
+                        .shrink(0)
+                        .radius(t.radius.full)
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .background(fill)
+                        .color(ink)
+                        .opacity(opacity)
+                })
             })
             .child(self.icon.map(|icon| icon_box(icon, 8.0)))
             .into_view()

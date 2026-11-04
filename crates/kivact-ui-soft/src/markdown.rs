@@ -238,7 +238,7 @@ impl IntoView for Markdown {
                 source.get(),
                 sources.get(),
                 streaming.get(),
-                tokens(),
+                tokens().to_owned(),
                 (
                     inline.get(),
                     render_props.0.get(),
@@ -249,18 +249,20 @@ impl IntoView for Markdown {
                 ),
             )
         });
-        root.base_style(move || {
-            let look = style().direction(Direction::Column).min_width(0);
-            if inline.get() {
-                return look;
-            }
-            let p = tokens();
-            let body = p.typography.body;
-            look.width(pct(100))
-                .font_family(body.family)
-                .font_size(body.size_px)
-                .line_height(body.line_height_px / body.size_px)
-                .color(p.colors.text_primary)
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let look = style().direction(Direction::Column).min_width(0);
+                if inline.get() {
+                    return look;
+                }
+                let p = tokens();
+                let body = p.typography.body;
+                look.width(pct(100))
+                    .font_family(body.family)
+                    .font_size(body.size_px)
+                    .line_height(body.line_height_px / body.size_px)
+                    .color(p.colors.text_primary)
+            })
         })
         .child(dynamic(input, move |(source, sources, streaming, _, _)| {
             let source = if streaming {
@@ -378,7 +380,7 @@ impl Renderer<'_> {
             Block::Paragraph(source) => self.inline(source, false, true),
             Block::Quote(blocks) => {
                 let content = self.blocks(blocks, depth + 1).into_view();
-                blockquote(move || content).into_view()
+                blockquote(content).into_view()
             }
             Block::Code(language, source) => {
                 let (language, diff) = if *language == "diff" {
@@ -487,7 +489,7 @@ impl Renderer<'_> {
             .map(|item| {
                 let marker = match (item.checked, item.number) {
                     (Some(checked), _) => text(if checked { "☑" } else { "☐" })
-                        .role(Role::CheckBox)
+                        .with_node(move |node| node.role(Role::CheckBox))
                         .checked(checked),
                     (None, Some(number)) => {
                         text(format!("{number}.")).style(style().tabular_nums())
@@ -508,7 +510,7 @@ impl Renderer<'_> {
                     self.blocks(&item.blocks, depth + 1)
                         .style(style().grow(1).min_width(0)),
                 ))
-                .role(Role::ListItem)
+                .with_node(move |node| node.role(Role::ListItem))
                 .style(|| {
                     style()
                         .align_items(Align::Start)
@@ -518,7 +520,7 @@ impl Renderer<'_> {
             })
             .collect::<Vec<_>>();
         let list = column(items)
-            .role(Role::List)
+            .with_node(move |node| node.role(Role::List))
             .style(|| style().gap(tokens().spacing.s0_5));
         if all_tasks {
             list.name(message("soft.markdown.task_list", "Task list"))
@@ -759,7 +761,7 @@ impl Renderer<'_> {
         });
         if let Some(action) = self.options.on_link.clone() {
             link = link
-                .role(Role::Link)
+                .with_node(move |node| node.role(Role::Link))
                 .focusable(true)
                 .on_press(move || action.call(url.clone()));
         }
@@ -864,7 +866,7 @@ fn styled_span(source: &str, marks: Marks, p: &crate::Tokens) -> Span {
         span = span.weight(p.typography.weight_semibold);
     }
     if marks.italic {
-        span = span.italic(true);
+        span = span.italic();
     }
     if marks.deleted {
         span = span

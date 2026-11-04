@@ -5,6 +5,7 @@ use kivact::interaction::use_dialog;
 use kivact::motion::Easing;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
+use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::icon;
 use kivact::view::image;
@@ -184,7 +185,7 @@ impl IntoView for Lightbox {
                                 )
                         });
                     let photo = if zoom {
-                        let drag_start = kivact::var((0.0f64, 0.0f64));
+                        let drag_start = kivact::state::var((0.0f64, 0.0f64));
                         let drag = kivact::interaction::use_drag::<()>(
                             kivact::interaction::DragCoordinates::Window,
                         )
@@ -197,15 +198,17 @@ impl IntoView for Lightbox {
                                 }
                             },
                         );
-                        photo.part(drag.source(())).on_pointer(move |event| {
-                            if let kivact::view::PointerPhase::Up(press) = event.phase()
-                                && press.clicks == 2
-                                && press.button == kivact::view::MouseButton::Primary
-                            {
-                                set_zoom(!zoomed.get());
-                            }
-                            Handled::No
-                        })
+                        photo
+                            .with_node(move |node| node.part(drag.source(())))
+                            .on_pointer(move |event| {
+                                if let kivact::view::PointerPhase::Up(press) = event.phase()
+                                    && press.clicks == 2
+                                    && press.button == kivact::view::MouseButton::Primary
+                                {
+                                    set_zoom(!zoomed.get());
+                                }
+                                Handled::No
+                            })
                     } else {
                         photo
                     };
@@ -230,7 +233,7 @@ impl IntoView for Lightbox {
                             String::new()
                         }
                     })
-                    .role(Role::Status)
+                    .with_node(move |node| node.role(Role::Status))
                     .live_region(LiveRegion::Polite)
                     .style(move || {
                         body_text(&tokens())
@@ -282,7 +285,7 @@ impl IntoView for Lightbox {
                 },
             );
             let backdrop = node()
-                .role(Role::Generic)
+                .with_node(move |node| node.role(Role::Generic))
                 .style(|| scrim(&tokens()).position(Position::Absolute))
                 .on_press(move || open.set(false));
             let frame = column((backdrop, content, close, zoom_control, controls))
@@ -320,7 +323,7 @@ impl IntoView for Lightbox {
                 });
             (overlay(node_ref(), Placement::Center, frame)
                 .viewport_margin(0.0)
-                .part(behavior.content())
+                .with_node(move |node| node.part(behavior.content()))
                 .name(label),)
         })
         .into_view()

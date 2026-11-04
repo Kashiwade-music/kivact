@@ -208,7 +208,7 @@ impl IntoView for Avatar {
                 Role::Button
             };
             if let Some(action) = open.or(press) {
-                root = root.role(role).on_press(action);
+                root = root.with_node(move |node| node.role(role)).on_press(action);
             }
             root = if let Some(group) = group {
                 group.register(root)
@@ -217,7 +217,7 @@ impl IntoView for Avatar {
             };
         } else {
             if meaningful(alt).is_some() || meaningful(name).is_some() || status.is_some() {
-                root = root.role(Role::Image);
+                root = root.with_node(move |node| node.role(Role::Image));
             }
             root = root.focusable(!grouped && tooltip_label.is_some());
         }
@@ -241,25 +241,27 @@ impl IntoView for Avatar {
                         side,
                         label: status_label,
                     },
-                    status,
+                    move || status,
                 ))
         });
         let root = root
             .name(accessible)
-            .base_style(move || {
-                let mut look = style()
-                    .position(Position::Relative)
-                    .shrink(0)
-                    .radius(shape.radius());
-                look = if grouped {
-                    group_frame(look, side, rtl).size(side + 4.0, side + 4.0)
-                } else {
-                    look.size(side, side)
-                };
-                if interactive {
-                    look = look.cursor(Cursor::Pointer);
-                }
-                avatar_focus(look)
+            .with_node(move |node| {
+                node.base_style(move || {
+                    let mut look = style()
+                        .position(Position::Relative)
+                        .shrink(0)
+                        .radius(shape.radius());
+                    look = if grouped {
+                        group_frame(look, side, rtl).size(side + 4.0, side + 4.0)
+                    } else {
+                        look.size(side, side)
+                    };
+                    if interactive {
+                        look = look.cursor(Cursor::Pointer);
+                    }
+                    avatar_focus(look)
+                })
             })
             .child(content)
             .child(status);

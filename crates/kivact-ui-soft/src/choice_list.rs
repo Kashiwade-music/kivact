@@ -40,7 +40,9 @@ pub fn checkbox_list<K: ItemKey>(
     value: impl IntoBinding<Vec<K>>,
 ) -> CheckboxList<K> {
     CheckboxList {
-        root: node().role(Role::Group).name(label),
+        root: node()
+            .with_node(move |node| node.role(Role::Group))
+            .name(label),
         options: options.into_value(),
         value: value.into_binding(),
     }
@@ -69,7 +71,7 @@ impl<K: ItemKey> IntoView for CheckboxList<K> {
             value,
         } = self;
         let disabled = root.accessible_disabled();
-        let off = memo(move || disabled.as_ref().is_some_and(|disabled| disabled()));
+        let off = memo(move || disabled.as_ref().is_some_and(|disabled| disabled.get()));
         let rows = for_each(
             options,
             |item| item.key().clone(),
@@ -95,7 +97,7 @@ impl<K: ItemKey> IntoView for CheckboxList<K> {
                 );
                 let label = memo(move || item.get().label());
                 let desc = memo(move || item.get().description());
-                let disabled = memo(move || off || item.get().is_disabled());
+                let disabled = memo(move || off.get() || item.get().is_disabled());
                 checkbox_row(label, desc, checked, disabled)
             },
         );
@@ -133,7 +135,7 @@ fn checkbox_row(
         .node_ref(control_ref)
         .description(move || description.get().unwrap_or_default());
     row((control, column((text(label), details))))
-        .role(Role::Generic)
+        .with_node(move |node| node.role(Role::Generic))
         .on_press(move || {
             if !disabled.get_untracked() {
                 control_ref.activate();

@@ -93,26 +93,32 @@ impl IntoView for AspectRatio {
                 .align_items(Align::Stretch)
                 .justify_items(Align::Stretch);
         }
-        root.base_style(move || {
-            let ratio = ratio.get();
-            let base = style()
-                .position(Position::Relative)
-                .width(pct(100))
-                .aspect_ratio(if ratio.is_finite() && ratio > 0.0 {
-                    ratio
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let ratio = ratio.get();
+                let base = style()
+                    .position(Position::Relative)
+                    .width(pct(100))
+                    .aspect_ratio(if ratio.is_finite() && ratio > 0.0 {
+                        ratio
+                    } else {
+                        1.0
+                    })
+                    .clip(true)
+                    .shrink(0)
+                    .min_height(0);
+                if shape.get() == RatioShape::Ellipse {
+                    base.radius(pct(50))
                 } else {
-                    1.0
-                })
-                .clip(true)
-                .shrink(0)
-                .min_height(0);
-            if shape.get() == RatioShape::Ellipse {
-                base.radius(pct(50))
-            } else {
-                base
-            }
+                    base
+                }
+            })
         })
-        .child(node().base_style(slot).child(children))
+        .child(
+            node()
+                .with_node(move |node| node.base_style(slot))
+                .child(children),
+        )
         .into_view()
     }
 }

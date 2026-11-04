@@ -46,7 +46,9 @@ impl Heading {
     /// Override the level reported to assistive technology.
     pub fn accessibility_level(self, level: impl IntoValue<u32>) -> Self {
         let level = level.into_value();
-        self.with_node(move |node| node.level(move || level.get().clamp(1, 6)))
+        self.with_node(move |node| {
+            node.with_node(move |node| node.level(move || level.get().clamp(1, 6)))
+        })
     }
 
     /// Set the color.

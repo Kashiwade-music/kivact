@@ -37,7 +37,7 @@ pub struct Divider {
 
 pub fn divider() -> Divider {
     Divider {
-        root: node().role(Role::Separator),
+        root: node().with_node(move |node| node.role(Role::Separator)),
         orientation: (Orientation::Horizontal).into_value(),
         variant: (DividerVariant::Subtle).into_value(),
         label: None,
@@ -88,27 +88,29 @@ impl IntoView for Divider {
         } = self;
         provide((), move || {
             let vertical = orientation.get() == Orientation::Vertical;
-            let mut root = root.orientation(orientation.get()).base_style(move || {
-                let inset = try_use_context::<ContainerInset>()
-                    .map(|value| value.get())
-                    .unwrap_or_default();
-                let mut base = style()
-                    .shrink(0)
-                    .align_self(Align::Stretch)
-                    .align_items(Align::Center);
-                if vertical {
-                    base = base.direction(Direction::Column);
-                    if full_bleed.get() {
-                        base = base.margin_top(-inset.top).margin_bottom(-inset.bottom);
+            let mut root = root.orientation(orientation.get()).with_node(move |node| {
+                node.base_style(move || {
+                    let inset = try_use_context::<ContainerInset>()
+                        .map(|value| value.get())
+                        .unwrap_or_default();
+                    let mut base = style()
+                        .shrink(0)
+                        .align_self(Align::Stretch)
+                        .align_items(Align::Center);
+                    if vertical {
+                        base = base.direction(Direction::Column);
+                        if full_bleed.get() {
+                            base = base.margin_top(-inset.top).margin_bottom(-inset.bottom);
+                        }
+                    } else {
+                        base = base.direction(Direction::Row);
+                        if full_bleed.get() {
+                            let (left, right) = inset.sides();
+                            base = base.margin_left(-left).margin_right(-right);
+                        }
                     }
-                } else {
-                    base = base.direction(Direction::Row);
-                    if full_bleed.get() {
-                        let (left, right) = inset.sides();
-                        base = base.margin_left(-left).margin_right(-right);
-                    }
-                }
-                base
+                    base
+                })
             });
             let rule = || {
                 node().style(move || {
@@ -129,7 +131,7 @@ impl IntoView for Divider {
             if let Some(label) = label {
                 let label_ref = node_ref();
                 root = root
-                    .labelled_by(label_ref)
+                    .with_node(move |node| node.labelled_by(label_ref))
                     .child(
                         node()
                             .node_ref(label_ref)

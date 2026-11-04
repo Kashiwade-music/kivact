@@ -127,7 +127,7 @@ impl MonthSwipe {
             let next = current.add_months(pages).clamp(self.min, self.max);
             if current != next {
                 self.entering
-                    .set(if kivact::platform::reduced_motion().get() {
+                    .set(if kivact::platform::is_motion_reduced().get() {
                         0.0
                     } else {
                         pages.signum() as f64 * self.sign * 44.0

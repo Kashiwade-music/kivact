@@ -14,7 +14,9 @@ use kivact::motion::Spring;
 use kivact::motion::Transition;
 use kivact::motion::animated;
 use kivact::state::Binding;
+use kivact::state::IntoBinding;
 use kivact::state::IntoText;
+use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::binding;
@@ -35,6 +37,7 @@ use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::KeyEvent;
 use kivact::view::Node;
+use kivact::view::NodeBuilder;
 use kivact::view::NodeRef;
 use kivact::view::PointerEvent;
 use kivact::view::PointerId;
@@ -82,8 +85,8 @@ pub(super) fn trigger(
         .variant(ButtonVariant::Ghost)
         .icon(icon(glyph))
         .child(text(shown))
-        .role(Role::ComboBox)
-        .with_node(move |node| node.expanded(open))
+        .with_node(move |node| node.role(Role::ComboBox))
+        .with_node(move |node| node.with_node(move |node| node.expanded(open)))
         .node_ref(target)
         .on_press(press)
         .on_key(move |event: KeyEvent| {
@@ -177,7 +180,7 @@ pub(super) fn date_panel(
     let caption = button(month_label)
         .variant(ButtonVariant::Ghost)
         .trailing(icon("chevron-down"))
-        .with_node(move |node| node.expanded(wheels))
+        .with_node(move |node| node.with_node(move |node| node.expanded(wheels)))
         .on_press(move || wheels.set(!wheels.get_untracked()))
         .style(style().height(36).font_size(17).weight(600));
     let panel = dynamic(
@@ -373,7 +376,7 @@ fn wheel(
         }),
     );
     let settle = move |from: f64| {
-        if kivact::platform::reduced_motion().get() {
+        if kivact::platform::is_motion_reduced().get() {
             offset.jump_to(0.0);
         } else {
             offset.jump_to(from.clamp(-112.0, 112.0));
@@ -428,7 +431,7 @@ fn wheel(
                         } else {
                             t.colors.text_primary
                         });
-                    if kivact::platform::reduced_motion().get() {
+                    if kivact::platform::is_motion_reduced().get() {
                         base
                     } else {
                         let scale = 1.0 - 0.14 * falloff;
@@ -440,7 +443,7 @@ fn wheel(
     node()
         .child(band)
         .child(rows)
-        .role(Role::SpinButton)
+        .with_node(move |node| node.role(Role::SpinButton))
         .name(label)
         .focusable(true)
         .value_min(f64::from(min))
@@ -450,10 +453,7 @@ fn wheel(
         .a11y_action(A11yAction::Increment, move |_| step(1))
         .a11y_action(A11yAction::Decrement, move |_| step(-1))
         .on_key(move |event: KeyEvent| {
-            if event.modifiers().get().ctrl
-                || event.modifiers().get().meta
-                || event.modifiers().get().alt
-            {
+            if event.modifiers().ctrl || event.modifiers().meta || event.modifiers().alt {
                 return Handled::No;
             }
             match event.key() {

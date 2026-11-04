@@ -292,9 +292,10 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
             open.set(true);
         });
         let input_part = list.input();
-        let input_ref = input_part.node_ref();
+        let input_ref = node_ref();
         let touch = touch_tap(input_ref);
         let input = text_input(label, edit)
+            .node_ref(input_ref)
             .placeholder(placeholder)
             .disabled(disabled)
             .forward_keys(move || {
@@ -304,11 +305,11 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                 }
                 keys
             })
-            .part(input_part)
-            .expanded(open)
+            .with_node(move |node| node.part(input_part))
+            .with_node(move |node| node.expanded(open))
             .on_key(move |event: KeyEvent| {
                 if event.key() == Key::Backspace
-                    && event.modifiers().get() == Modifiers::default()
+                    && event.modifiers() == Modifiers::default()
                     && query.get_untracked().is_empty()
                     && !disabled.get_untracked()
                     && let Some(chips) = chips
@@ -365,7 +366,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                         .hide_label(true)
                         .icon(kivact::view::icon("x"))
                         .disabled(disabled)
-                        .focus_on_press(input_ref)
+                        .with_node(move |node| node.focus_on_press(input_ref))
                         .on_press(move || {
                             values.set(
                                 values
@@ -394,7 +395,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
         });
         let field = row((tokens_view, input))
             .node_ref(anchor)
-            .focus_on_press(input_ref)
+            .with_node(move |node| node.focus_on_press(input_ref))
             .style(move || {
                 let t = tokens();
                 let s = frame(
@@ -430,23 +431,26 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                         let key = key.clone();
                         move || label_of(options, &key)
                     });
-                    node().part(item).child(text(text_value)).style(move || {
-                        let t = tokens();
-                        let s = text_style(
-                            style()
-                                .min_height(32)
-                                .padding_x(8)
-                                .padding_y(6)
-                                .radius(t.radius.element),
-                            t.typography.body,
-                            t.colors.text_primary,
-                        );
-                        if state.get().active {
-                            s.background(t.colors.overlay_hover)
-                        } else {
-                            s
-                        }
-                    })
+                    node()
+                        .with_node(move |node| node.part(item))
+                        .child(text(text_value))
+                        .style(move || {
+                            let t = tokens();
+                            let s = text_style(
+                                style()
+                                    .min_height(32)
+                                    .padding_x(8)
+                                    .padding_y(6)
+                                    .radius(t.radius.element),
+                                t.typography.body,
+                                t.colors.text_primary,
+                            );
+                            if state.get().active {
+                                s.background(t.colors.overlay_hover)
+                            } else {
+                                s
+                            }
+                        })
                 },
             );
             let no_results = memo(move || list.visible().with(Vec::is_empty));
@@ -459,7 +463,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
             };
             column((
                 scroll(column(rows))
-                    .part(list.content())
+                    .with_node(move |node| node.part(list.content()))
                     .name(label)
                     .style(style().max_height(292)),
                 show(no_results, move || {
@@ -489,7 +493,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                 .on_dismiss(move |_| open.set(false))
         });
         let sheet = (presentation != SelectorPresentation::Popover).then(|| {
-            let shown = binding(memo(move || open && sheet_open), move |shown| {
+            let shown = binding(memo(move || open.get() && sheet_open.get()), move |shown| {
                 if !shown {
                     open.set(false);
                 }
@@ -502,7 +506,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                         .forward_keys(|| {
                             vec![Key::ArrowUp, Key::ArrowDown, Key::Enter, Key::Escape]
                         })
-                        .part(sheet_list.input())
+                        .with_node(move |node| node.part(sheet_list.input()))
                         .style(style().margin_x(8)),
                     surface(sheet_list, true),
                 ))
