@@ -571,10 +571,10 @@ impl Runtime {
                 };
                 // A running subscriber is pulling this memo right now and
                 // reads the new value; do not re-mark it.
-                if c.state.mark(Staleness::Dirty) {
-                    if let Some((kind, seq)) = queue {
-                        sched.push(&mut c.state, kind, seq, s);
-                    }
+                if c.state.mark(Staleness::Dirty)
+                    && let Some((kind, seq)) = queue
+                {
+                    sched.push(&mut c.state, kind, seq, s);
                 }
             }
         }
