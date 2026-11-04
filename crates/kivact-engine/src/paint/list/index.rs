@@ -23,6 +23,7 @@ use crate::model::Model;
 use crate::paint::state::{Axis, ChildIndex, Extent, Indexed};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
+use kivact_types::cell::Generation;
 use kivact_types::{NodeId, Rect};
 
 use super::ink::{grow, ink, overlaps};
@@ -38,7 +39,7 @@ impl Indexed {
         id: NodeId,
         n: Option<&HostNode>,
         layout: NodeLayout,
-        generation: u64,
+        generation: Generation,
         order: usize,
     ) -> Self {
         let extent = match n.and_then(|n| ink(host, id, n, &layout, generation)) {
@@ -93,8 +94,8 @@ impl ChildIndex {
     pub(super) fn build(
         host: &Model,
         children: impl ExactSizeIterator<Item = NodeId>,
-        pass: u64,
-        generation: u64,
+        pass: Generation,
+        generation: Generation,
     ) -> Self {
         let layouts = host;
         let entries = children
@@ -132,7 +133,7 @@ impl ChildIndex {
 
     /// Bring the entries up to layout pass `pass` and the touched children
     /// (inks of generation `generation`).
-    pub(super) fn refresh(&mut self, host: &Model, pass: u64, generation: u64) {
+    pub(super) fn refresh(&mut self, host: &Model, pass: Generation, generation: Generation) {
         let relaid = pass != self.pass;
         if !relaid && self.touched.is_empty() {
             return;

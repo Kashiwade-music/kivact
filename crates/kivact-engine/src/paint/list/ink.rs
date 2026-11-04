@@ -6,6 +6,7 @@ use crate::model::transform::map_rect;
 use crate::paint::state::{Ink, Look};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
+use kivact_types::cell::Generation;
 use kivact_types::{DrawCmd, DrawList, NodeId, Point, Rect};
 
 /// The extent of what reaches everywhere (finite, so unions keep it).
@@ -79,7 +80,7 @@ pub(super) fn ink(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-    generation: u64,
+    generation: Generation,
 ) -> Option<Rect> {
     if let Some(kept) = host.paint.ink[n.index.0].get()
         && kept.generation == generation

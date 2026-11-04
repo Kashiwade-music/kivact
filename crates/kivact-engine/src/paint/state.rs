@@ -7,14 +7,31 @@
 //! and its ink, indexed by structural slot beside the model's
 //! placement (`Place`); none copies the
 //! typed props into a general record of facts. While there is no surface
-//! no redraw is asked for (`Host::paint_due`); `needs_redraw` stays set
+//! no redraw is asked for (`Host::paint_due`); `Redraw::Needed` stays set
 //! and the restored surface draws the frame.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
+use kivact_types::cell::Generation;
 use kivact_types::render::ColorMatrix;
 use kivact_types::{Edges, NodeId, Point, Rect, Size};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Redraw {
+    Clean,
+    Needed,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(super) enum ListState {
+    #[default]
+    Stale,
+    Built {
+        size: Size,
+        scale: f64,
+    },
+}
 
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
@@ -27,7 +44,7 @@ pub(crate) struct PaintState {
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
     pub(super) list: PaintList,
-    pub(super) needs_redraw: bool,
+    pub(super) redraw: Redraw,
 }
 
 impl PaintState {
@@ -42,7 +59,7 @@ impl PaintState {
             dropped_reported: RefCell::default(),
             dropped_draws: RefCell::default(),
             list: PaintList::new(),
-            needs_redraw: true,
+            redraw: Redraw::Needed,
         }
     }
 
@@ -53,12 +70,12 @@ impl PaintState {
 
     /// Whether the next frame must be drawn.
     pub(crate) fn needs_redraw(&self) -> bool {
-        self.needs_redraw
+        self.redraw == Redraw::Needed
     }
 
     /// The frame was drawn.
     pub(crate) fn drawn(&mut self) {
-        self.needs_redraw = false;
+        self.redraw = Redraw::Clean;
     }
 
     /// Forget what was kept for the nodes `live` says are gone.
@@ -107,7 +124,7 @@ pub(crate) struct Ink {
     pub(super) rect: Option<Rect>,
     pub(super) size: Size,
     pub(super) content: Size,
-    pub(super) generation: u64,
+    pub(super) generation: Generation,
 }
 
 /// How one listed node is drawn.
@@ -167,16 +184,14 @@ pub(crate) struct PaintList {
     /// How far the farthest-reaching backdrop filter seen reads around its
     /// box (the viewport grows by it).
     pub(super) backdrop_reach: f64,
-    /// Rebuild before the next frame.
-    pub(super) stale: bool,
-    /// The window size and raster scale it was culled for.
-    pub(super) built_for: Option<(Size, f64)>,
+    /// Whether the list is reusable for its window size and raster scale.
+    pub(super) state: ListState,
     /// The child indices of the containers with many children.
     pub(super) indices: HashMap<NodeId, ChildIndex>,
     /// Layout passes so far (the indices' geometry is from one of them).
-    pub(super) pass: u64,
+    pub(super) pass: Generation,
     /// The generation of the nodes' inks: an ink of another is forgotten.
-    pub(super) ink_gen: u64,
+    pub(super) ink_gen: Generation,
 }
 
 /// What one child can draw on, relative to its layout location.
@@ -225,7 +240,7 @@ pub(crate) struct ChildIndex {
     /// The entries of the sticky children.
     pub(super) sticky: Vec<usize>,
     /// The layout pass the entries' geometry is from.
-    pub(super) pass: u64,
+    pub(super) pass: Generation,
     /// Children whose own drawing changed since.
     pub(super) touched: Vec<NodeId>,
 }

@@ -24,7 +24,6 @@ impl Model {
             .map(|(id, node)| (*id, self.paint.ink[node.index.0].take()))
             .collect();
         self.paint.list = PaintList {
-            stale: true,
             backdrop_reach: retained.backdrop_reach,
             pass: retained.pass,
             ink_gen: retained.ink_gen,
