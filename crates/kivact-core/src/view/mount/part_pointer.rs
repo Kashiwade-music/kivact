@@ -213,6 +213,11 @@ pub(super) fn route(
 ) -> EventHandlers<PointerEvent> {
     EventHandlers::router(move |event: PointerEvent| {
         let root = &registry.root;
+        let capture_before = root.runtime.upgrade().and_then(|runtime| {
+            ViewState::tree(&runtime)
+                .reader()
+                .pointer_capture(event.id())
+        });
         let mut transitions = Vec::new();
         let (target, deliver_raw, finish_fallback) = {
             let mut gestures = registry.gestures.borrow_mut();
@@ -406,8 +411,10 @@ pub(super) fn route(
             Ok(handled)
         })();
         // A handler can release engine capture before Up returns to this node.
-        // Drop the part's implicit retention with it, so a later press starts fresh.
-        if let Some(runtime) = root.runtime.upgrade()
+        // Only reconcile capture changed by this callback: queued input may have
+        // already released engine capture before its Down is dispatched.
+        if capture_before == Some(registry.node)
+            && let Some(runtime) = root.runtime.upgrade()
             && ViewState::tree(&runtime)
                 .reader()
                 .pointer_capture(event.id())
