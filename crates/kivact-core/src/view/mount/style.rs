@@ -128,7 +128,7 @@ pub(crate) fn bind_style(
                     selected: selected.as_ref().is_some_and(|f| f()),
                     root: kind == NodeType::Root,
                 };
-                s.compile(theme, state)
+                kivact_style::internal::compile_style(&s, theme, state)
             })
         });
         let has_paint = resolved.has_retained_paint();

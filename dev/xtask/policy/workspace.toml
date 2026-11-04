@@ -116,12 +116,15 @@ prelude = [
     "diagnostics", "client", "primitive",
 ]
 
-# kivact-i18n の module。`context` は locale と messages の値を読む。
+# kivact-i18n contains pure locale values and ICU formatting calculations.
 [module_rules.kivact-i18n.uses]
 date = ["locale"]
+format = ["date"]
+interpolate = []
 locale = []
-messages = []
-context = ["locale", "messages"]
+messages = ["format"]
+numbers = ["format", "locale"]
+regional = ["date", "format", "locale"]
 
 [module_rules.kivact-runtime.uses]
 machine = ["reactive", "task"]

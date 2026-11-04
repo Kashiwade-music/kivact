@@ -165,7 +165,7 @@ pub(crate) fn resolve(spans: &[Span], theme: &Theme) -> (String, Vec<p::TextSpan
     for span in spans {
         let start = text.len();
         text.push_str(&span.text);
-        let compiled = span.style.compile(theme);
+        let compiled = kivact_style::internal::compile_span_style(&span.style, theme);
         dropped += compiled.unsupported;
         let style = compiled.props;
         if style == p::SpanProps::default() {

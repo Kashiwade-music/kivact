@@ -66,7 +66,7 @@ use kivact_types as p;
 
 use super::color::Color;
 use super::effect::Shadow;
-use super::paint::{Paint, fill_layer};
+use super::paint::Paint;
 use super::theme::value::Theme;
 
 /// A text length: px (a number: `letter_spacing(1)`) or a multiple of the
@@ -350,7 +350,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
 /// The text properties of one span of rich text; each one is optional and an
 /// unset one is the paragraph's. A span's decoration lines and features
 /// replace the paragraph's. The `Span` builders of `kivact::control` fill
-/// it, and [`SpanStyle::compile`] turns it into the engine's form.
+/// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
     /// Font size in logical px.
@@ -385,53 +385,10 @@ pub struct SpanStyle {
     pub background: Option<Paint>,
 }
 
-/// A [`SpanStyle`] in the engine's form, made by [`SpanStyle::compile`].
+/// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].
 pub struct CompiledSpanStyle {
     /// The properties the span sets (an unset one stays unset).
     pub props: p::SpanProps,
     /// Font feature tags dropped because they are not four ASCII characters.
     pub unsupported: u32,
-}
-
-impl SpanStyle {
-    /// Compile the properties that are set, resolving colors and the
-    /// background against `theme`.
-    pub fn compile(&self, theme: &Theme) -> CompiledSpanStyle {
-        let mut unsupported = 0;
-        let features = (self.features.is_some() || self.tabular_nums.is_some()).then(|| {
-            let (features, lost) =
-                features(self.features.as_deref(), self.tabular_nums == Some(true));
-            unsupported += lost;
-            features
-        });
-        let decorated = self.decoration_line.is_some()
-            || self.decoration_color.is_some()
-            || self.decoration_thickness.is_some()
-            || self.underline_offset.is_some();
-        let props = p::SpanProps {
-            font_size: self.font_size,
-            weight: self.weight,
-            color: self.color.map(|c| c.resolve(theme)),
-            family: self.family.clone(),
-            italic: self.italic,
-            letter_spacing: self.letter_spacing.map(TextLength::to_wire),
-            word_spacing: self.word_spacing.map(TextLength::to_wire),
-            kerning: self.kerning,
-            features,
-            decoration: decorated.then(|| {
-                decoration(
-                    self.decoration_line,
-                    self.decoration_color,
-                    self.decoration_thickness,
-                    self.underline_offset,
-                    theme,
-                )
-            }),
-            background: self.background.as_ref().map(|paint| match paint.solid() {
-                Some(c) => p::Fill::Solid(c.resolve(theme)),
-                None => p::Fill::Layers(vec![fill_layer(paint, theme)]),
-            }),
-        };
-        CompiledSpanStyle { props, unsupported }
-    }
 }

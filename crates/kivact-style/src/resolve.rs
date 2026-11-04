@@ -44,7 +44,7 @@ use super::theme::value::Theme;
 use super::transform::Transform;
 
 /// A [`Style`] compiled against a theme: the engine's node props and the
-/// diagnostics of the compilation, made by [`Style::compile`].
+/// diagnostics of the compilation, made by [`crate::internal::compile_style`].
 ///
 /// The retained base paint callback (`Style::paint`) is not a node prop. It
 /// runs while the node's drawing is recorded: ask [`has_retained_paint`]
@@ -197,7 +197,7 @@ fn text(s: &Style, theme: &Theme) -> (TextStyle, u32) {
 }
 
 /// How a node takes part in the theme's defaults for interactive elements,
-/// the input of [`Style::compile`] next to the style and the theme.
+/// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Interactive {
     /// The node is a focus stop (focusable, or a native editor): it gets
@@ -240,20 +240,10 @@ fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
     }
 }
 
-impl Style {
-    /// Compile this style against `theme` into the engine's node props, the
-    /// diagnostics of the compilation and the retained base paint. `state`
-    /// says which state styles and theme defaults apply; its `root` adds the
-    /// theme's text defaults that every node inherits.
-    pub fn compile(&self, theme: &Theme, state: Interactive) -> CompiledStyle {
-        compile(self, theme, state)
-    }
-}
-
 /// Compile a style for a node. `disabled`/`selected` variants are merged
 /// here; hover/pressed/focus/focus-visible become host-evaluated state
 /// deltas.
-fn compile(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
+pub fn compile_style(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
     let retained_paint = s.local_paint.clone();
     let mut s = s.clone();
     let unsupported_in_states = unsupported_in_states(&s);

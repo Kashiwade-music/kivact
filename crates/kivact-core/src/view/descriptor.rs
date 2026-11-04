@@ -90,7 +90,7 @@ impl Mcx<'_> {
 
     /// The theme visible from this owner.
     pub(crate) fn theme(&self) -> Option<Value<Theme>> {
-        Theme::of(self.owner)
+        kivact_style::internal::theme_of(self.owner)
     }
 }
 
