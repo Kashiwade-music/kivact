@@ -12,6 +12,9 @@ pub(crate) fn prepare(
         toml::from_str(&text).map_err(|error| located(error.to_string()))?;
     let rules = crate::module_rules::Rules::parse(table.remove("module_rules"))
         .map_err(|error| located(format!("module_rules: {error}")))?;
+    for rule in crate::check_cli::RULES {
+        table.remove(&rule.replace('-', "_"));
+    }
     let core = toml::to_string(&table).map_err(|error| error.to_string())?;
     let mut analysis = xtask_core::Policy::from_toml(&core)
         .map_err(located)?
