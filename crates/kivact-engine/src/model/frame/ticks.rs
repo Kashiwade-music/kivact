@@ -37,6 +37,12 @@ impl Model {
     }
 
     pub(crate) fn start_scroll_fling(&mut self, id: NodeId, velocity: Point) {
+        if self.frame.reduced_motion()
+            || velocity.x.hypot(velocity.y) < self.frame.env.pointer.fling_min_velocity
+        {
+            self.settle_scroll_snap(id);
+            return;
+        }
         self.frame.smooth_scrolls.insert(
             id,
             SmoothScroll::Fling {

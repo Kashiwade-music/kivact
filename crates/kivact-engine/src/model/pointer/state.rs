@@ -167,6 +167,7 @@ pub(crate) struct TouchTarget {
 /// A touch that may start a native scroll once it leaves the slop.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct TouchCandidate {
+    pub(super) time_ns: u64,
     pub(super) start: Point,
     pub(super) target: TouchTarget,
 }

@@ -58,6 +58,7 @@ impl Model {
             track.gesture = TouchGesture::Pending {
                 route,
                 candidate: TouchCandidate {
+                    time_ns: track.source.time_ns,
                     start: at,
                     target: TouchTarget {
                         from,
@@ -113,7 +114,8 @@ impl Model {
                     samples: {
                         let mut samples =
                             kivact_types::DragVelocity::new(std::time::Duration::from_millis(100));
-                        samples.reset(track.source.time_ns, at);
+                        samples.reset(candidate.time_ns, candidate.start);
+                        samples.record(track.source.time_ns, at);
                         samples
                     },
                     scroller: target,
