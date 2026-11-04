@@ -25,7 +25,7 @@ pub struct Draw {
     pub(super) measurer: Option<Rc<dyn p::TextShaper>>,
 }
 
-/// What one [`Draw::record`] made.
+/// What one [`crate::internal::record`] made.
 pub struct Recording {
     /// The commands and the regions, in drawing order.
     pub scene: DrawList,
@@ -38,26 +38,6 @@ pub struct Recording {
 }
 
 impl Draw {
-    /// Record one draw layer of a node of `size` under `theme`: run `f` on a
-    /// fresh painter and return what it drew. Inside `f`, first install
-    /// [`set_text_measurer`](Draw::set_text_measurer) and
-    /// [`declare_regions`](Draw::declare_regions), then run the
-    /// application's drawing, then the retained style paint
-    /// ([`CompiledStyle::paint_retained`](super::CompiledStyle::paint_retained)).
-    /// A panic in `f` propagates.
-    pub fn record(size: Size, theme: &Theme, f: impl FnOnce(&mut Draw)) -> Recording {
-        let mut draw = Draw::new(theme.clone(), size);
-        f(&mut draw);
-        Recording {
-            scene: DrawList {
-                cmds: draw.cmds,
-                regions: draw.regions,
-            },
-            unsupported: draw.unsupported,
-            region_errors: draw.region_errors,
-        }
-    }
-
     /// Measure and shape text with `shaper` from now on (`measure_text`, the
     /// placement of aligned text, `layout_paragraph`). It must shape a run
     /// the way the engine draws it, with the text style the drawing
@@ -121,4 +101,24 @@ pub struct RegionSemantics {
     pub focus_order: u32,
     /// Optional press focus destination.
     pub focus_on_press: Option<p::FocusTarget>,
+}
+
+/// Record one draw layer of a node of `size` under `theme`: run `f` on a
+/// fresh painter and return what it drew. Inside `f`, first install
+/// [`set_text_measurer`](Draw::set_text_measurer) and
+/// [`declare_regions`](Draw::declare_regions), then run the
+/// application's drawing, then the retained style paint
+/// ([`CompiledStyle::paint_retained`](crate::CompiledStyle::paint_retained)).
+/// A panic in `f` propagates.
+pub fn record(size: Size, theme: &Theme, f: impl FnOnce(&mut Draw)) -> Recording {
+    let mut draw = Draw::new(theme.clone(), size);
+    f(&mut draw);
+    Recording {
+        scene: DrawList {
+            cmds: draw.cmds,
+            regions: draw.regions,
+        },
+        unsupported: draw.unsupported,
+        region_errors: draw.region_errors,
+    }
 }

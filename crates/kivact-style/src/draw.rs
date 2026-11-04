@@ -57,7 +57,7 @@ mod image;
 mod layer;
 mod local_paint;
 mod paragraph;
-mod recorder;
+pub(crate) mod recorder;
 mod regions;
 mod shapes;
 mod text_run;

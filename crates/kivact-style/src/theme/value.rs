@@ -440,25 +440,22 @@ struct ThemeCtx(Value<Theme>);
 
 kivact_runtime::constant_value!(Theme);
 
-impl Theme {
-    /// Provide `theme` to `owner`'s subtree, replacing any inherited theme.
-    /// The value stays reactive: readers below `owner` track it.
-    ///
-    /// The App's root and `kivact::view::provide_theme` use it;
-    /// [`current_theme`] and [`Theme::of`] read the nearest one above the
-    /// caller.
-    pub fn install(owner: Owner, theme: Value<Theme>) {
-        owner.provide(ThemeCtx(theme));
-    }
+/// Provide `theme` to `owner`'s subtree, replacing any inherited theme.
+/// The value stays reactive: readers below `owner` track it.
+///
+/// The App's root and `kivact::view::provide_theme` use it;
+/// [`current_theme`] and [`theme_of`] read the nearest one above the
+/// caller.
+pub fn install_theme(owner: Owner, theme: Value<Theme>) {
+    owner.provide(ThemeCtx(theme));
+}
 
-    /// The theme provided to `owner`'s subtree by the nearest [`install`]
-    /// above it, if any (the App's root always provides one). The value is
-    /// not read here: reading it tracks the current computation.
-    ///
-    /// [`install`]: Theme::install
-    pub fn of(owner: Owner) -> Option<Value<Theme>> {
-        owner.context::<ThemeCtx>().map(|c| c.0)
-    }
+/// The theme provided to `owner`'s subtree by the nearest [`install_theme`]
+/// above it, if any (the App's root always provides one). The value is
+/// not read here: reading it tracks the current computation.
+///
+pub fn theme_of(owner: Owner) -> Option<Value<Theme>> {
+    owner.context::<ThemeCtx>().map(|c| c.0)
 }
 
 /// The theme in effect for the nearest owner (setup, handler, task or
@@ -468,7 +465,7 @@ impl Theme {
 #[track_caller]
 pub fn current_theme() -> Theme {
     let owner = Owner::ambient("current_theme", std::panic::Location::caller());
-    match Theme::of(owner) {
+    match theme_of(owner) {
         Some(s) => s.get(),
         None => Theme::default(),
     }
@@ -522,14 +519,14 @@ impl<T: ThemeColor> Themed for T {
     }
 }
 
-/// Every distinct [`ThemeColor`] value stored so far; a `Repr::Themed`
-/// indexes it. Values are never removed.
+/// A non-shrinking interning table with one entry per distinct `ThemeColor`
+/// value. A Copy `Color` indexes it without carrying a theme.
 static THEMED: Mutex<Vec<&'static dyn Themed>> = Mutex::new(Vec::new());
 
 fn themed_index<T: ThemeColor>(value: T) -> u32 {
     let mut table = THEMED
         .lock()
-        .expect("THEMED lock poisoned: a panic already happened");
+        .expect("invariant: the THEMED interning lock is not poisoned");
     let known = table
         .iter()
         .position(|v| v.value().downcast_ref::<T>() == Some(&value));
@@ -542,7 +539,7 @@ fn themed_index<T: ThemeColor>(value: T) -> u32 {
 fn themed_value(index: u32) -> &'static dyn Themed {
     let table = THEMED
         .lock()
-        .expect("THEMED lock poisoned: a panic already happened");
+        .expect("invariant: the THEMED interning lock is not poisoned");
     table[index as usize]
 }
 

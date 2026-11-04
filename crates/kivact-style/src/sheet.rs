@@ -8,7 +8,7 @@
 //! the list of its `.style(..)` layers. A layer that uses the theme reads
 //! `current_theme()` in its closure (tracked). Each node has one style
 //! effect: it reads the theme and the disabled and selected states, merges
-//! the layers in order and resolves them with `Style::compile` into the
+//! the layers in order and resolves them with `crate::internal::compile_style` into the
 //! engine's typed props. The theme switching re-resolves the paint and
 //! remounts nothing.
 //!
@@ -931,14 +931,6 @@ impl Style {
         self
     }
 
-    /// Make this a scroll container along `axes`: content overflowing a
-    /// scrolling axis scrolls, the other axis clips (the base style of the
-    /// `scroll(..)` container).
-    pub fn with_scroll_axes(mut self, axes: ScrollAxes) -> Style {
-        self.scroll_axes = Some(axes);
-        self
-    }
-
     /// Paint locally after the node's drawing and before its children.
     /// Recipes and themes use this layer; callers use the node's `draw` layer
     /// so style merging retains the recipe's paint.
@@ -1315,4 +1307,12 @@ impl Style {
     pub fn place_items(self, a: Align) -> Self {
         self.align_items(a).justify_items(a)
     }
+}
+
+/// Make this a scroll container along `axes`: content overflowing a
+/// scrolling axis scrolls, the other axis clips (the base style of the
+/// `scroll(..)` container).
+pub fn with_scroll_axes(mut style: Style, axes: ScrollAxes) -> Style {
+    style.scroll_axes = Some(axes);
+    style
 }

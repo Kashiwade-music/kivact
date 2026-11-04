@@ -146,7 +146,7 @@ pub(super) fn resolve(
                 Some(Prop::value(constraints.focusable)),
             )
         };
-    // A focus stop gets the theme's focus ring and disabled look (`Style::compile`).
+    // A focus stop gets the theme's focus ring and disabled look (`kivact_style::internal::compile_style`).
     let focus_stop =
         focusable.as_ref().is_some_and(|f| f.fixed() != Some(false)) || editing.is_some();
     let local_paint =

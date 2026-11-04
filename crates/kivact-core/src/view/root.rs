@@ -56,10 +56,10 @@ pub(crate) fn mount_root(
         }
     };
     let theme: Signal<Theme> = owner.signal(theme, at);
-    Theme::install(owner, theme.into_value());
-    kivact_i18n::install_locale(owner, locale);
+    kivact_style::internal::install_theme(owner, theme.into_value());
+    crate::view::boundary::install_locale(owner, locale);
     let messages: Signal<Messages> = owner.signal(app_messages, at);
-    kivact_i18n::install_messages(owner, messages.into_value());
+    crate::view::boundary::install_messages(owner, messages.into_value());
     let root = ViewState::tree(rt).root;
     let style = NodeStyle {
         layers: vec![Rc::new(|| {

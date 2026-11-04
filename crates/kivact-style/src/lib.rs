@@ -5,11 +5,10 @@
 //! paints, shapes, strokes, filters, blending and transforms that styles
 //! share with it (they live in `effect`, `paint`, `draw` and `transform`).
 //! Each value converts itself into the engine's form next to its definition (a
-//! color in the theme it resolves against). The host side is [`Style::compile`]
-//! (a whole `Style` into node props), [`draw::Draw::record`] (a drawing into a
-//! scene), [`draw::text_run`], [`SpanStyle::compile`] and
-//! [`Theme::install`] / [`Theme::of`]. This crate owns no node tree, engine,
-//! window or renderer; the `kivact-core` facade re-exports the names users call.
+//! color in the theme it resolves against). The core host uses the hidden
+//! `internal` bridge to compile styles, provide themes and record drawing.
+//! This crate owns no node tree, engine, window or renderer; core exports
+//! the names users call.
 
 #![forbid(unsafe_code)]
 
@@ -20,6 +19,8 @@ pub mod effect;
 pub mod geometry;
 mod grid;
 mod icon;
+#[doc(hidden)]
+pub mod internal;
 mod length;
 pub mod paint;
 pub(crate) mod path;
