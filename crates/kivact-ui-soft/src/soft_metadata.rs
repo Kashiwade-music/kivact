@@ -338,7 +338,7 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                         }
                     };
                     let disclosure = use_disclosure(open);
-                    let trigger = node()
+                    node()
                         .hidden(move || !has_extra.get())
                         .with_node(move |node| node.part(disclosure.trigger()))
                         .name(label)
@@ -357,8 +357,7 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                                     )
                             })
                         })
-                        .child(text(label));
-                    trigger
+                        .child(text(label))
                 };
                 (main, disclosure)
             },

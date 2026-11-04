@@ -738,7 +738,7 @@ impl Renderer<'_> {
         let next = self.numbers.len() as u32 + 1;
         let number = *self.numbers.entry(id.to_owned()).or_insert(next);
         let cite = citation(number, source.clone()).variant(self.options.citation_style.get());
-        Some(if let Some(action) = self.options.on_link.clone() {
+        Some(if let Some(action) = self.options.on_link {
             cite.on_open(move |url| {
                 if safe_url(url) {
                     action.call(url.to_owned());
@@ -759,7 +759,7 @@ impl Renderer<'_> {
                 .color(tokens().colors.text_accent)
                 .text_decoration(TextDecorationLine::UNDERLINE)
         });
-        if let Some(action) = self.options.on_link.clone() {
+        if let Some(action) = self.options.on_link {
             link = link
                 .with_node(move |node| node.role(Role::Link))
                 .focusable(true)

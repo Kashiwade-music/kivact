@@ -573,7 +573,7 @@ where
     let items = items.into_value();
     ChatMessageList {
         root: node(),
-        messages: for_each(items, key, move |item| render(item)).into_view(),
+        messages: for_each(items, key, render).into_view(),
         empty: None,
         is_empty: memo(move || items.with(Vec::is_empty)),
         loading_top: false.into_value(),

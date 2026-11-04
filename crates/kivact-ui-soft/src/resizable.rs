@@ -333,7 +333,7 @@ impl IntoView for ResizeHandle {
                 behavior = behavior.pointer_scale(-1.0);
             }
             let disabled = root.accessible_disabled();
-            if let Some(disabled) = disabled.clone() {
+            if let Some(disabled) = disabled {
                 behavior = behavior.disabled(move || disabled.get());
             }
             let handle = behavior.handle();

@@ -326,7 +326,7 @@ impl IntoView for Timestamp {
                 clock.send(TimestampEvent::Refresh);
             }
         });
-        let full_zone = zone.clone();
+        let full_zone = zone;
         let full = move || {
             calendar_text(
                 value.get(),
