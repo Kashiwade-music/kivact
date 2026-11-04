@@ -1,30 +1,29 @@
 //! Role: Catalog page of Sheet: the standard dialog attached to a side of the window.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
-use kivact::ui::Side;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
         slug: "sheet",
         name: "Sheet",
-        description: "画面の端から出てくるモーダルのパネルです。標準の kivact::ui::dialog を DialogKind::Drawer(Side) にすると、このテーマでは sheet.tsx の見た目で描きます。題名、説明、本文、フッターを持ち、Escape、閉じるボタン、背景の押下で閉じます。",
-        usage: "use kivact::ui::Side;\nuse kivact::prelude::*;\nuse kivact::ui::DialogKind;\nuse kivact_ui_basic as basic;",
+        description: "画面の端から出てくるモーダルのパネルです。標準の kivact::ui::dialog を DialogMode::Drawer(Side) にすると、このテーマでは sheet.tsx の見た目で描きます。題名、説明、本文、フッターを持ち、Escape、閉じるボタン、背景の押下で閉じます。",
+        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
         source: include_str!("sheet.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
                 "default",
                 "Default",
-                "DialogKind::Drawer(Side::Right) で右端に付けます。content と footer には、開くたびに呼ばれる関数を渡します。",
+                "DialogMode::Drawer(kivact::geometry::Edge::Right) で右端に付けます。content と footer には、開くたびに呼ばれる関数を渡します。",
                 default,
             ),
             Example::new(
                 "side",
                 "Side",
-                "DialogKind::Drawer に kivact::ui::Side を渡して、Top、Right、Bottom、Left のどの端に付けるかを選びます。",
+                "DialogMode::Drawer に kivact::geometry::Edge を渡して、Top、Right、Bottom、Left のどの端に付けるかを選びます。",
                 side,
             ),
             Example::new(
@@ -47,7 +46,7 @@ fn default() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Edit profile", open)
-            .kind(DialogKind::Drawer(Side::Right))
+            .mode(DialogMode::Drawer(kivact::geometry::Edge::Right))
             .description("Make changes to your profile here. Click save when you're done.")
             .content(move || {
                 column((
@@ -79,10 +78,10 @@ fn default() -> impl IntoView {
 // example: side
 fn side() -> impl IntoView {
     let sides = [
-        ("Top", Side::Top),
-        ("Right", Side::Right),
-        ("Bottom", Side::Bottom),
-        ("Left", Side::Left),
+        ("Top", kivact::geometry::Edge::Top),
+        ("Right", kivact::geometry::Edge::Right),
+        ("Bottom", kivact::geometry::Edge::Bottom),
+        ("Left", kivact::geometry::Edge::Left),
     ];
     row(Vec::from(sides.map(|(label, side)| {
         let open = signal(false);
@@ -91,7 +90,7 @@ fn side() -> impl IntoView {
                 .variant(ButtonVariant::Outline)
                 .on_press(move || open.set(true)),
             dialog(format!("{label} sheet"), open)
-                .kind(DialogKind::Drawer(side))
+                .mode(DialogMode::Drawer(side))
                 .description("This sheet is attached to one edge of the window.")
                 .content(|| basic::muted("Press Escape or the close button to dismiss it.")),
         ))
@@ -108,7 +107,7 @@ fn no_close_button() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Terms of service", open)
-            .kind(DialogKind::Drawer(Side::Right))
+            .mode(DialogMode::Drawer(kivact::geometry::Edge::Right))
             .closable(false)
             .description("Please read the terms before you continue.")
             .footer(move || {

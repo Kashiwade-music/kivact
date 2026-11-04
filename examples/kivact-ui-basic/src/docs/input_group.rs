@@ -45,7 +45,7 @@ pub(crate) fn page() -> Page {
 fn icon() -> impl IntoView {
     let query = signal(String::new());
     basic::input_group(basic::input_group_input("Search", query).placeholder("Search..."))
-        .start(kivact::control::icon("search"))
+        .start(kivact::view::icon("search"))
         .end(basic::input_group_text("12 results"))
         .style(style().width(320))
 }
@@ -58,7 +58,7 @@ fn button_addon() -> impl IntoView {
     basic::input_group(basic::input_group_input("Link", url))
         .end(
             basic::input_group_button("Copy")
-                .icon(kivact::control::icon(if copied.get() {
+                .icon(kivact::view::icon(if copied.get() {
                     "check"
                 } else {
                     "copy"
@@ -73,7 +73,7 @@ fn button_addon() -> impl IntoView {
 fn textarea() -> impl IntoView {
     let body = signal(String::new());
     basic::input_group(basic::input_group_textarea("Message", body).placeholder("Write a message"))
-        .block_end(move || basic::input_group_text("0 / 280"))
+        .block_end(basic::input_group_text("0 / 280"))
         .style(style().width(320))
 }
 // end example
@@ -82,7 +82,7 @@ fn textarea() -> impl IntoView {
 fn invalid() -> impl IntoView {
     let value = signal(String::from("not an email"));
     basic::input_group(basic::input_group_input("Email", value))
-        .start(kivact::control::icon("mail"))
+        .start(kivact::view::icon("mail"))
         .invalid(true)
         .style(style().width(320))
 }

@@ -1,8 +1,9 @@
 //! Role: Catalog page of Dropdown Menu: items, checkboxes, radio group and submenu.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::view::{OverlayAlign, Placement};
+use kivact::view::OverlayAlign;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
@@ -10,7 +11,7 @@ pub(crate) fn page() -> Page {
         slug: "dropdown-menu",
         name: "Dropdown Menu",
         description: "ボタンから開く、操作の一覧メニューです。標準の kivact::ui::menu を Lyra の見た目で描きます。矢印キー、Home、End、先頭の文字の入力で項目を移動し、Enter か Space で選びます。見出しと区切りには移動しません。",
-        usage: "use kivact::prelude::*;\nuse kivact::view::{OverlayAlign, Placement};",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::view::{OverlayAlign, Placement};",
         source: include_str!("dropdown_menu.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -48,23 +49,22 @@ fn basic() -> impl IntoView {
     let entries = vec![
         MenuEntry::heading("My Account"),
         MenuEntry::item("profile", "Profile")
-            .icon("user")
-            .shortcut("Ctrl+P"),
-        MenuEntry::item("billing", "Billing").icon("credit-card"),
+            .with_icon("user")
+            .with_shortcut("Ctrl+P"),
+        MenuEntry::item("billing", "Billing").with_icon("credit-card"),
         MenuEntry::item("settings", "Settings")
-            .icon("settings")
+            .with_icon("settings")
             .disabled(true),
         MenuEntry::separator(),
         MenuEntry::item("logout", "Log out")
-            .icon("log-out")
+            .with_icon("log-out")
             .destructive(true),
     ];
     column((
-        menu("Open", entries, move |key: &'static str| {
-            picked.set(format!("Chosen: {key}"))
-        })
-        .at_least_trigger_width(true)
-        .attach(button("Open").variant(ButtonVariant::Outline)),
+        menu("Open", entries)
+            .on_activate(move |key: &'static str| picked.set(format!("Chosen: {key}")))
+            .at_least_anchor_width()
+            .attach(button("Open").variant(ButtonVariant::Outline)),
         basic::muted(picked),
     ))
     .style(style().gap(12).align_items(Align::Center))
@@ -83,12 +83,13 @@ fn checkboxes() -> impl IntoView {
             MenuEntry::checkbox("activity", "Activity Bar", activity.get()).keep_open(true),
         ]
     };
-    menu("Appearance", entries, move |key: &'static str| match key {
-        "status" => status.update(|on| *on = !*on),
-        _ => activity.update(|on| *on = !*on),
-    })
-    .at_least_trigger_width(true)
-    .attach(button("Appearance").variant(ButtonVariant::Outline))
+    menu("Appearance", entries)
+        .on_activate(move |key: &'static str| match key {
+            "status" => status.update(|on| *on = !*on),
+            _ => activity.update(|on| *on = !*on),
+        })
+        .at_least_anchor_width()
+        .attach(button("Appearance").variant(ButtonVariant::Outline))
 }
 // end example
 
@@ -106,11 +107,10 @@ fn radio_group() -> impl IntoView {
             radio("right", "Right"),
         ]
     };
-    menu("Position", entries, move |key: &'static str| {
-        position.set(key)
-    })
-    .at_least_trigger_width(true)
-    .attach(button("Position").variant(ButtonVariant::Outline))
+    menu("Position", entries)
+        .on_activate(move |key: &'static str| position.set(key))
+        .at_least_anchor_width()
+        .attach(button("Position").variant(ButtonVariant::Outline))
 }
 // end example
 
@@ -118,8 +118,8 @@ fn radio_group() -> impl IntoView {
 fn submenu() -> impl IntoView {
     let entries = vec![
         MenuEntry::item("new", "New File")
-            .icon("file")
-            .shortcut("Ctrl+N"),
+            .with_icon("file")
+            .with_shortcut("Ctrl+N"),
         MenuEntry::submenu(
             "share",
             "Share",
@@ -130,14 +130,15 @@ fn submenu() -> impl IntoView {
                 MenuEntry::item("copy", "Copy link"),
             ],
         )
-        .icon("share"),
+        .with_icon("share"),
         MenuEntry::separator(),
         MenuEntry::item("print", "Print"),
     ];
-    menu("File", entries, |_key: &'static str| {})
+    menu("File", entries)
+        .on_activate(|_key: &'static str| {})
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
-        .at_least_trigger_width(true)
+        .at_least_anchor_width()
         .attach(button("File").variant(ButtonVariant::Outline))
 }
 // end example

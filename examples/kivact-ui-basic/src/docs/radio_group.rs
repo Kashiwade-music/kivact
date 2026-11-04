@@ -54,9 +54,9 @@ fn basic() -> impl IntoView {
 // example: description
 fn description() -> impl IntoView {
     let options = vec![
-        ListItem::new("default", "Default").description("Standard spacing."),
+        ListItem::new("default", "Default").with_description("Standard spacing."),
         ListItem::new("comfortable", "Comfortable"),
-        ListItem::new("compact", "Compact").description("Fits more on screen."),
+        ListItem::new("compact", "Compact").with_description("Fits more on screen."),
     ];
     radio_group("Density", options, signal(Some("default")))
 }

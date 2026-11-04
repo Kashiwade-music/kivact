@@ -2,16 +2,18 @@
 
 use super::common::section;
 use kivact::draw::linear_gradient;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
 use kivact::prelude::{
     ColorToken, Node, NodeBuilder, column, dynamic, for_each, node, rgb, row, scroll, show, signal,
     text,
 };
-use kivact::style::current_theme;
+use kivact::state::callback;
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::task::spawn;
 use kivact::view::IntoView;
-use kivact::view::{ScrollBehavior, callback, node_ref};
+use kivact::view::{ScrollBehavior, node_ref};
 use kivact_ui_pop as ui;
 use std::time::Duration;
 
@@ -87,8 +89,8 @@ pub(super) fn messaging() -> Node {
         ui::thread(initials, name)
             .preview(preview)
             .unread(move || unread.with(|counts| counts[i]))
-            .selected(move || active.get() == i)
-            .portrait(move || {
+            .with_node(|node| node.selected(move || active.get() == i))
+            .portrait({
                 ui::avatar(initials)
                     .size(32)
                     .hue([205.0, 330.0, 45.0, 160.0][i])
@@ -112,7 +114,7 @@ pub(super) fn messaging() -> Node {
             kivact::ui::button("新規トーク")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("pencil"))
+                .icon(kivact::view::icon("pencil"))
                 .style(style().color(Color::WHITE)),
         ))
         .style(
@@ -164,8 +166,8 @@ pub(super) fn messaging() -> Node {
                     text("返信を選択")
                         .style(style().font_size(12).weight(500).padding_left(4))
                         .style(move || {
-                            let t = &current_theme();
-                            style().color(t.get::<ui::Tokens>().hue(ui::Hue::Pink).1)
+                            let t = &use_theme().get();
+                            style().color(t.ext::<ui::Tokens>().hue(ui::Hue::Pink).1)
                         }),
                     kivact::ui::button("もちろん、一緒に食べよう")
                         .variant(kivact::ui::ButtonVariant::Secondary)
@@ -193,8 +195,8 @@ pub(super) fn messaging() -> Node {
                         .radius(8),
                 )
                 .style(move || {
-                    let t = &current_theme();
-                    let p = t.get::<ui::Tokens>();
+                    let t = &use_theme().get();
+                    let p = t.ext::<ui::Tokens>();
                     style()
                         .background(p.hue(ui::Hue::Pink).0)
                         .border(1, p.pink.mix_in(Color::TRANSPARENT, 0.7, t))
@@ -203,10 +205,10 @@ pub(super) fn messaging() -> Node {
             for_each(
                 messages,
                 |entry| entry.id,
-                move |_, entry| {
+                move |entry| {
                     // Scroll only the conversation after its new row has been laid out.
                     // A reply in an off-screen chapter must not scroll the page.
-                    kivact::on_mount(move || {
+                    kivact::state::on_mount(move || {
                         spawn(async move {
                             kivact::task::sleep(Duration::from_millis(1)).await;
                             chat_scroll
@@ -229,7 +231,7 @@ pub(super) fn messaging() -> Node {
         ))
         .style(style().gap(14).padding_x(20).padding_y(18)),
     )
-    .node_ref(chat_scroll)
+    .with_node(|node| node.node_ref(chat_scroll))
     .style(style().grow(1).min_height(0))
     .draw(|d, s| {
         for x in (0..s.width as usize).step_by(18) {
@@ -253,11 +255,11 @@ pub(super) fn messaging() -> Node {
             kivact::ui::button("トークを検索")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("search")),
+                .icon(kivact::view::icon("search")),
             kivact::ui::button("トーク操作")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("dots-vertical")),
+                .icon(kivact::view::icon("dots-vertical")),
         ))
         .style(
             style()
@@ -272,7 +274,7 @@ pub(super) fn messaging() -> Node {
             kivact::ui::button("添付")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("paperclip")),
+                .icon(kivact::view::icon("paperclip")),
             kivact::ui::text_input("メッセージを入力", draft)
                 .placeholder("メッセージを入力…")
                 .on_submit(move || send.call(draft.get_untracked()))
@@ -280,12 +282,12 @@ pub(super) fn messaging() -> Node {
             kivact::ui::button("スタンプ")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("mood-smile"))
+                .icon(kivact::view::icon("mood-smile"))
                 .on_press(move || send.call("★".into())),
             kivact::ui::button("送信")
                 .variant(kivact_ui_pop::ButtonTone::Pink)
                 .size(kivact::ui::ControlSize::Small)
-                .icon(kivact::control::icon("send"))
+                .icon(kivact::view::icon("send"))
                 .on_press(move || send.call(draft.get())),
         ))
         .style(

@@ -2,15 +2,15 @@
 
 use super::common::{cards, line, list, specimen, suppress_search_shortcut, wide};
 use super::state::Demo;
-use kivact::control::{rich_text, span};
+use kivact::interaction::{MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
     ColorToken, IntoView, Node, NodeBuilder, Role, column, node, rgb, row, signal, spacer, text,
 };
+use kivact::state::{binding, memo};
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
-use kivact::ui::{MenuEntry, Toast, Tone, toaster};
-use kivact::{binding, memo};
+use kivact::view::{rich_text, span};
 use kivact_ui_game as g;
 use std::time::Duration;
 
@@ -26,7 +26,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "システムバナー",
                 g::banner(
                     "NOTICE",
-                    kivact::ui::Tone::Warning,
+                    kivact::interaction::Tone::Warning,
                     row((
                         g::mono("T-41:20:00").style(style().color(rgb(0x9fb7d2))),
                         kivact::ui::button("詳細")
@@ -43,7 +43,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
                     ))
                     .style(style().gap(14).align_items(Align::Center)),
                 )
-                .content(move || rich_text(vec![
+                .content( rich_text(vec![
                     span("計画メンテナンス:").weight(700).color(rgb(0xffc928)),
                     span(" 10/05 (日) 02:00–04:00 JST に API が読み取り専用になります。"),
                 ])),
@@ -53,16 +53,16 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "インラインアラート",
                 list((
                     kivact::view::show(info, move || {
-                        g::alert("新しいバージョンがあります").description("v2.5.0 で監査ログのエクスポートが追加されました。").tone(kivact::ui::Tone::Info)
+                        g::alert("新しいバージョンがあります").description("v2.5.0 で監査ログのエクスポートが追加されました。").tone(kivact::interaction::Tone::Info)
                         .on_dismiss(move || info.set(false))
                     }),
                     kivact::view::show(success, move || {
-                        g::alert("バックアップ完了").description("2.4GB · 所要 3 分 12 秒").tone(kivact::ui::Tone::Success)
+                        g::alert("バックアップ完了").description("2.4GB · 所要 3 分 12 秒").tone(kivact::interaction::Tone::Success)
                         .on_dismiss(move || success.set(false))
                     }),
                     kivact::view::show(warning, move || {
-                        g::alert("証明書の期限が近づいています").description("*.ops.example.internal — 残り 9 日").tone(kivact::ui::Tone::Warning)
-                        .actions(move || {
+                        g::alert("証明書の期限が近づいています").description("*.ops.example.internal — 残り 9 日").tone(kivact::interaction::Tone::Warning)
+                        .actions( {
                             row((
                                 kivact::ui::button("更新する")
                                     .variant(kivact_ui_game::Slant)
@@ -84,7 +84,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
                         .on_dismiss(move || warning.set(false))
                     }),
                     kivact::view::show(danger, move || {
-                        g::alert("決済連携に失敗しました").description("ERR_UPSTREAM_502 · 3 回再試行後に停止").tone(kivact::ui::Tone::Danger)
+                        g::alert("決済連携に失敗しました").description("ERR_UPSTREAM_502 · 3 回再試行後に停止").tone(kivact::interaction::Tone::Danger)
                         .on_dismiss(move || danger.set(false))
                     }),
                 )),
@@ -143,14 +143,14 @@ pub(super) fn feedback(scene: Demo) -> Node {
             specimen(
                 "FBK-05",
                 "空状態",
-                g::empty_state("NO RECORDS").description("条件に一致する案件はありません。フィルタを解除するか、新しい案件を登録してください。").content(move || line((
+                g::empty_state("NO RECORDS").description("条件に一致する案件はありません。フィルタを解除するか、新しい案件を登録してください。").content( line((
                         kivact::ui::button("フィルタ解除")
                             .variant(kivact_ui_game::Slant)
                             .size(kivact::ui::ControlSize::Small)
                             .variant(kivact::ui::ButtonVariant::Ghost),
                         kivact::ui::button("新規登録")
                             .variant(kivact_ui_game::Slant)
-                            .icon(kivact::control::icon("plus"))
+                            .icon(kivact::view::icon("plus"))
                             .size(kivact::ui::ControlSize::Small)
                             .on_press(move || scene.create.set(true)),
                     ))),
@@ -169,42 +169,34 @@ pub(super) fn overlays(scene: Demo) -> Node {
                 "OVL-01",
                 "ドロップダウンメニュー",
                 line((
-                    kivact::ui::menu(
-                        "アクション ▾",
-                        move || {
-                            vec![
-                                MenuEntry::item("rename", "名前を変更").shortcut("F2"),
-                                MenuEntry::item("copy", "複製").shortcut("Ctrl+D"),
-                                MenuEntry::item("window", "新しいウィンドウで開く"),
-                                MenuEntry::separator(),
-                                MenuEntry::checkbox("pinned", "詳細列を表示", pinned.get()),
-                                MenuEntry::checkbox(
-                                    "archived",
-                                    "アーカイブを含める",
-                                    archived.get(),
-                                ),
-                                MenuEntry::separator(),
-                                MenuEntry::item("delete", "削除…").shortcut("Del"),
-                            ]
-                        },
-                        move |key: &'static str| match key {
-                            "rename" => scene.create.set(true),
-                            "copy" => {
-                                spawn(platform::copy_text("OPS-2041"));
-                            }
-                            "window" => scene.drawer.set(true),
-                            "pinned" => pinned.update(|on| *on = !*on),
-                            "archived" => archived.update(|on| *on = !*on),
-                            "delete" => scene.delete.set(true),
-                            _ => {}
-                        },
-                    )
+                    kivact::ui::menu("アクション ▾", move || {
+                        vec![
+                            MenuEntry::item("rename", "名前を変更").with_shortcut("F2"),
+                            MenuEntry::item("copy", "複製").with_shortcut("Ctrl+D"),
+                            MenuEntry::item("window", "新しいウィンドウで開く"),
+                            MenuEntry::separator(),
+                            MenuEntry::checkbox("pinned", "詳細列を表示", pinned.get()),
+                            MenuEntry::checkbox("archived", "アーカイブを含める", archived.get()),
+                            MenuEntry::separator(),
+                            MenuEntry::item("delete", "削除…").with_shortcut("Del"),
+                        ]
+                    })
+                    .on_activate(move |key: &'static str| match key {
+                        "rename" => scene.create.set(true),
+                        "copy" => {
+                            spawn(platform::copy_text("OPS-2041"));
+                        }
+                        "window" => scene.drawer.set(true),
+                        "pinned" => pinned.update(|on| *on = !*on),
+                        "archived" => archived.update(|on| *on = !*on),
+                        "delete" => scene.delete.set(true),
+                        _ => {}
+                    })
                     .offset(0.)
                     .attach(
                         kivact::ui::button("アクション ▾")
                             .variant(kivact_ui_game::Slant)
-                            .variant(kivact::ui::ButtonVariant::Secondary)
-                            .into_node(),
+                            .variant(kivact::ui::ButtonVariant::Secondary),
                     ),
                     g::icon_menu(
                         "その他",
@@ -226,12 +218,12 @@ pub(super) fn overlays(scene: Demo) -> Node {
                 line((
                     kivact::ui::button("フォームダイアログ")
                         .variant(kivact_ui_game::Slant)
-                        .icon(kivact::control::icon("plus"))
+                        .icon(kivact::view::icon("plus"))
                         .test_id("game-create-open")
                         .on_press(move || scene.create.set(true)),
                     kivact::ui::button("確認ダイアログ")
                         .variant(kivact_ui_game::Slant)
-                        .icon(kivact::control::icon("alert-triangle"))
+                        .icon(kivact::view::icon("alert-triangle"))
                         .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || scene.delete.set(true)),
                 )),
@@ -247,7 +239,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                         .on_press(move || scene.drawer.set(true)),
                     kivact::ui::button("コマンドパレット")
                         .variant(kivact_ui_game::Slant)
-                        .icon(kivact::control::icon("command"))
+                        .icon(kivact::view::icon("command"))
                         .variant(kivact_ui_game::ButtonTone::Dark)
                         .on_press(move || scene.palette.set(true)),
                 )),
@@ -263,7 +255,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                         .attach(
                             g::tool_button("保存")
                                 .test_id("game-tooltip-save")
-                                .icon(kivact::control::icon("device-floppy"))
+                                .icon(kivact::view::icon("device-floppy"))
                                 .hide_label(true),
                         ),
                     kivact::ui::tooltip("再読み込み")
@@ -272,7 +264,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                         .offset(6.)
                         .attach(
                             g::tool_button("再読み込み")
-                                .icon(kivact::control::icon("refresh"))
+                                .icon(kivact::view::icon("refresh"))
                                 .hide_label(true),
                         ),
                     kivact::ui::tooltip("権限: 管理者のみ")
@@ -283,7 +275,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                             kivact::ui::button("ロック中")
                                 .variant(kivact_ui_game::Slant)
                                 .size(kivact::ui::ControlSize::Small)
-                                .icon(kivact::control::icon("lock"))
+                                .icon(kivact::view::icon("lock"))
                                 .variant(kivact::ui::ButtonVariant::Secondary),
                         ),
                 )),
@@ -292,7 +284,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                 "OVL-05",
                 "ユーザーポップオーバー",
                 (kivact::ui::dialog("ユーザー詳細", user_open)
-                    .kind(kivact::ui::DialogKind::Popover)
+                    .mode(kivact::interaction::DialogMode::Popover)
                     .content(move || {
                         list((
                             row((
@@ -307,7 +299,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                             row((
                                 text("ステータス").style(style().color(ColorToken::TextMuted)),
                                 spacer(),
-                                g::badge("Online", kivact::ui::Tone::Success),
+                                g::badge("Online", kivact::interaction::Tone::Success),
                             )),
                             row((
                                 text("担当中").style(style().color(ColorToken::TextMuted)),
@@ -330,7 +322,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
                                     g::avatar("MS")
                                         .size(32.)
                                         .color(rgb(0x0a62c2))
-                                        .online(Some(kivact::ui::Tone::Success)),
+                                        .online(Some(kivact::interaction::Tone::Success)),
                                     column((
                                         text("真柴 ソウ").style(style().weight(700)),
                                         text("クリックで詳細").style(
@@ -349,7 +341,7 @@ pub(super) fn overlays(scene: Demo) -> Node {
 pub(super) fn create_dialog(scene: Demo) -> impl IntoView {
     let title = signal(String::new());
     // A dialog opens empty each time, however it was closed.
-    kivact::effect(move || {
+    kivact::state::effect(move || {
         if !scene.create.get() {
             title.set(String::new());
         }
@@ -412,17 +404,17 @@ pub(super) fn create_dialog(scene: Demo) -> impl IntoView {
 }
 pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
     let confirmation = signal(String::new());
-    kivact::effect(move || {
+    kivact::state::effect(move || {
         if !scene.delete.get() {
             confirmation.set(String::new());
         }
     });
     // An irreversible question: an outside press does not answer it.
-    kivact::ui::dialog("案件を削除", scene.delete).kind(kivact::ui::DialogKind::AlertModal)
+    kivact::ui::dialog("案件を削除", scene.delete).mode(kivact::interaction::DialogMode::AlertModal)
         .content(move || {
             list((
                 row((
-                    node().child(kivact::control::icon("alert-triangle").style(style().size(24, 24))).style(style().size(44, 44).align_items(Align::Center).justify_content(Justify::Center).background(rgb(0xfde4e8)).color(ColorToken::Danger)),
+                    node().child(kivact::view::icon("alert-triangle").style(style().size(24, 24))).style(style().size(44, 44).align_items(Align::Center).justify_content(Justify::Center).background(rgb(0xfde4e8)).color(ColorToken::Danger)),
                     column((
                         text("選択した案件を削除します。").style(style().weight(700)),
                         text("関連するタスクと添付ファイルも削除され、元に戻せません。確認のため DELETE と入力してください。").style(style().color(ColorToken::TextMuted).font_size(13)),
@@ -437,7 +429,7 @@ pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .on_press(move || scene.delete.set(false)),
                 kivact::ui::button("削除する").variant(kivact_ui_game::Slant)
-                    .icon(kivact::control::icon("trash"))
+                    .icon(kivact::view::icon("trash"))
                     .variant(kivact::ui::ButtonVariant::Danger)
                     .disabled(move || confirmation.get() != "DELETE")
                     .on_press(move || {
@@ -455,15 +447,18 @@ pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
 pub(super) fn drawer_body() -> Node {
     list((
         g::property_list(vec![
-            ("Status".into(), g::badge("RUNNING", kivact::ui::Tone::Info)),
-            ("Owner".into(), text("整備部 / 真柴")),
-            ("Due".into(), g::mono("2026-10-10")),
+            (
+                "Status".into(),
+                g::badge("RUNNING", kivact::interaction::Tone::Info).into_view(),
+            ),
+            ("Owner".into(), text("整備部 / 真柴").into_view()),
+            ("Due".into(), g::mono("2026-10-10").into_view()),
         ]),
         row((
             text("進捗").style(style().width(46).font_size(12)),
             kivact::ui::progress(Some(0.68))
                 .name("案件の進捗")
-                .variant(kivact::ui::Tone::Info)
+                .variant(kivact::interaction::Tone::Info)
                 .variant(g::Striped)
                 .moving(true)
                 .style(style().grow(1)),
@@ -471,16 +466,16 @@ pub(super) fn drawer_body() -> Node {
         ))
         .style(style().gap(10).align_items(Align::Center)),
         g::activity(vec![
-            g::ActivityEntry::new("09:40", "作業を開始", kivact::ui::Tone::Info),
+            g::ActivityEntry::new("09:40", "作業を開始", kivact::interaction::Tone::Info),
             g::ActivityEntry::new(
                 "08:30",
                 rich_text(vec![span("真柴").weight(700), span(" が承認")]),
-                kivact::ui::Tone::Success,
+                kivact::interaction::Tone::Success,
             ),
         ]),
     ))
 }
-pub(super) fn layout() -> Node {
+pub(super) fn layout() -> impl kivact::view::Component {
     let document = signal("OPS-2042.md".to_owned());
     let document_title = signal("第 3 区画 定期点検".to_owned());
     let selection = binding(
@@ -522,14 +517,14 @@ pub(super) fn layout() -> Node {
     let document_body = list((
         g::mono(move || document.get().trim_end_matches(".md").to_uppercase()).style(style().color(ColorToken::Accent)),
         text(document_title).test_id("game-document-title").style(style().font_size(18).weight(900)),
-        line((g::badge("RUNNING", kivact::ui::Tone::Info), g::tag_badge("整備部", kivact::ui::Tone::Neutral, g::BadgeVariant::Plain), g::mono("updated 09:38").style(style().color(ColorToken::TextMuted)))),
+        line((g::badge("RUNNING", kivact::interaction::Tone::Info), g::tag_badge("整備部", kivact::interaction::Tone::Neutral, g::BadgeVariant::Plain), g::mono("updated 09:38").style(style().color(ColorToken::TextMuted)))),
         text("点検対象は配電盤 12 基、冷却ユニット 4 基。前回点検で指摘された 2 件の是正状況を確認し、結果を監査ログへ記録する。作業時間帯は 10:00–15:00 を予定。")
             .style(style().font_size(12.5).color(ColorToken::TextMuted).line_height(1.75)),
         node().style(style().padding_x(12).padding_y(10).background(rgb(0x0c1f36)).border_left(3, rgb(0x2ec4f0)))
             .child(g::mono("# checklist.yaml\ntargets:\n  - id: \"PB-01..PB-12\"\n    mode: inspect\n  - id: \"CU-01..CU-04\"\n    mode: thermal").style(style().font_size(11.5).line_height(1.7).color(rgb(0xcfe0f2)))),
     )).style(style().padding_y(18).padding_x(22));
     let inspector = column((
-        kivact::ui::disclosure("基本", signal(true), move || {
+        kivact::ui::disclosure("基本", signal(true)).content(move || {
             list((
                 inspector_row(
                     "件名",
@@ -558,7 +553,7 @@ pub(super) fn layout() -> Node {
             ))
             .style(style().padding(10).gap(8))
         }),
-        kivact::ui::disclosure("表示", signal(true), move || {
+        kivact::ui::disclosure("表示", signal(true)).content(move || {
             list((
                 inspector_row(
                     "アクセント",
@@ -575,7 +570,7 @@ pub(super) fn layout() -> Node {
             ))
             .style(style().padding(10).gap(8))
         }),
-        kivact::ui::disclosure("詳細", signal(false), || {
+        kivact::ui::disclosure("詳細", signal(false)).content(|| {
             g::property_list(vec![
                 ("TYPE".into(), "Markdown"),
                 ("STATUS".into(), "Saved"),

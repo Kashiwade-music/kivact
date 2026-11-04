@@ -1,4 +1,5 @@
 //! Role: Catalog page of Collapsible: a trigger that shows and hides a region.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +11,7 @@ pub(crate) fn page() -> Page {
         slug: "collapsible",
         name: "Collapsible",
         description: "トリガーで領域を開閉する、見た目を持たない部品です。collapsible(open).content(..).attach(trigger) と書き、attach に渡したボタンが開閉のボタン（expanded 状態を持つ）になり、内容は開いている間だけ作られます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
         source: include_str!("collapsible.rs"),
         align: PreviewAlign::Start,
         examples: vec![

@@ -1,16 +1,17 @@
 //! Role: Source catalogue sections built from the public component library.
+use kivact::state::IntoValue;
 
 use super::common::{card, cards_grid, columns, muted, section, third, wrap};
+use kivact::interaction::ListItem;
 use kivact::prelude::{
     ColorToken, Node, NodeBuilder, Signal, column, node, rgb, row, signal, text,
 };
+use kivact::state::{Callback, Value};
 use kivact::style::Direction;
 use kivact::style::GridPlacement;
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
-use kivact::ui::ListItem;
 use kivact::view::Orientation;
-use kivact::{Callback, Value};
 use kivact_ui_pop as ui;
 use std::time::Duration;
 
@@ -200,9 +201,9 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     .style(style().gap(8)),
                     columns(
                         (
-                            ui::progress_ring(72.0, "出席率", ui::Hue::Blue),
-                            ui::progress_ring(45.0, "予算消化", ui::Hue::Yellow),
-                            ui::progress_ring(91.0, "達成率", ui::Hue::Mint),
+                            ui::progress_ring(72.0, "出席率", ui::Hue::Blue.into_value()),
+                            ui::progress_ring(45.0, "予算消化", ui::Hue::Yellow.into_value()),
+                            ui::progress_ring(91.0, "達成率", ui::Hue::Mint.into_value()),
                         ),
                         3,
                     ),
@@ -215,7 +216,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     kivact::ui::button("すべて表示")
                         .size(kivact::ui::ControlSize::Small)
                         .variant(kivact::ui::ButtonVariant::Ghost)
-                        .trailing_icon(kivact::control::icon("chevron-right")),
+                        .trailing(kivact::view::icon("chevron-right")),
                 ))
                 .style(style().align_items(Align::Center).margin_bottom(16)),
                 columns(
@@ -225,13 +226,13 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .subtitle("更新：10/02 22:14 · ミナト")
                                 .icon("file-text")
                                 .tone(ui::Hue::Blue)
-                                .trailing(move || {
+                                .trailing({
                                     row((
-                                        ui::badge("承認済").hue(ui::Hue::Mint),
+                                        ui::badge("承認済").hue(ui::Hue::Mint.into_value()),
                                         kivact::ui::button("報告書メニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
-                                            .icon(kivact::control::icon("dots-vertical")),
+                                            .icon(kivact::view::icon("dots-vertical")),
                                     ))
                                     .style(style().gap(8))
                                 }),
@@ -239,13 +240,13 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .subtitle("更新：10/02 18:40 · ユズ")
                                 .icon("coin")
                                 .tone(ui::Hue::Gray)
-                                .trailing(move || {
+                                .trailing({
                                     row((
-                                        ui::badge("レビュー待ち").hue(ui::Hue::Yellow),
+                                        ui::badge("レビュー待ち").hue(ui::Hue::Yellow.into_value()),
                                         kivact::ui::button("申請メニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
-                                            .icon(kivact::control::icon("dots-vertical")),
+                                            .icon(kivact::view::icon("dots-vertical")),
                                     ))
                                     .style(style().gap(8))
                                 }),
@@ -253,13 +254,13 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .subtitle("更新：10/01 09:03 · ハルカ")
                                 .icon("heart")
                                 .tone(ui::Hue::Gray)
-                                .trailing(move || {
+                                .trailing({
                                     row((
                                         ui::badge("下書き").hue(ui::Hue::Gray),
                                         kivact::ui::button("シフトメニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
-                                            .icon(kivact::control::icon("dots-vertical")),
+                                            .icon(kivact::view::icon("dots-vertical")),
                                     ))
                                     .style(style().gap(8))
                                 }),
@@ -278,7 +279,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     kivact::ui::button("依頼IDをコピー")
                                         .variant(kivact::ui::ButtonVariant::Ghost)
                                         .hide_label(true)
-                                        .icon(kivact::control::icon("copy"))
+                                        .icon(kivact::view::icon("copy"))
                                         .on_press(move || {
                                             spawn(kivact::platform::copy_text("REQ-2026-1003"));
                                             notify.call((
@@ -302,7 +303,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                             ui::key_value(
                                 "エリア",
                                 row((
-                                    kivact::control::icon("map-pin"),
+                                    kivact::view::icon("map-pin"),
                                     text("中央区 外郭地区 第7ブロック"),
                                 ))
                                 .style(style().gap(6)),
@@ -651,7 +652,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                     .compare(|a, b| a.bond.cmp(&b.bond))
                     .cell(|s| {
                         row((
-                            kivact::control::icon("heart").style(style().color(rgb(0xf2559a))),
+                            kivact::view::icon("heart").style(style().color(rgb(0xf2559a))),
                             text(s.bond.to_string()),
                             kivact::ui::progress(Some(f64::from(s.bond) / 30.0))
                                 .name("絆")
@@ -679,7 +680,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
             kivact::ui::button("生徒詳細を開く")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("dots-vertical"))
+                .icon(kivact::view::icon("dots-vertical"))
                 .test_id(format!("pop-student-detail-{}", s.id))
                 .on_press(move || {
                     drawer_title.set(name.clone());
@@ -699,7 +700,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                     ListItem::new("standby", "待機"),
                     ListItem::new("rest", "休息"),
                 ],
-                kivact::binding(status, move |next| {
+                kivact::state::binding(status, move |next| {
                     status.set(next);
                     page.set(0);
                 }),
@@ -710,7 +711,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                 kivact::ui::button("TSV")
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .size(kivact::ui::ControlSize::Small)
-                    .icon(kivact::control::icon("download"))
+                    .icon(kivact::view::icon("download"))
                     .on_press(move || {
                         let lines = visible()
                             .into_iter()
@@ -734,14 +735,14 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                         kivact::task::spawn(kivact::platform::copy_text(lines));
                     }),
                 kivact::ui::button("生徒を追加")
-                    .icon(kivact::control::icon("user-plus"))
+                    .icon(kivact::view::icon("user-plus"))
                     .size(kivact::ui::ControlSize::Small)
                     .on_press(move || sheet.set(true)),
             ))
             .style(style().gap(8));
             let search = kivact::ui::text_input(
                 kivact::i18n::message("pop.table.search", "Search table"),
-                kivact::binding(query, move |text: String| {
+                kivact::state::binding(query, move |text: String| {
                     query.set(text);
                     page.set(0);
                 }),
@@ -753,7 +754,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
             .style(style().width(260));
             let picked = context
                 .selection
-                .map(|selection| kivact::view::IntoValue::into_value(selection));
+                .map(|selection| kivact::state::IntoValue::into_value(selection));
             let selected =
                 kivact::i18n::message_with("pop.table.selected", "{count} selected", move || {
                     [(
@@ -804,7 +805,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                     move |index, _| {
                         kivact::ui::button((index + 1).to_string())
                             .variant(kivact::ui::ButtonVariant::Ghost)
-                            .selected(move || current() == index)
+                            .with_node(|node| node.selected(move || current() == index))
                             .style(
                                 style().size(30, 30).selected(
                                     style()

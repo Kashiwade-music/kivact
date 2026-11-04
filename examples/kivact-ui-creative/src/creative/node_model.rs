@@ -1,8 +1,8 @@
 //! Role: Application node graph constraints and edit reduction.
 use super::editor_images as images;
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
+use kivact::state::{Signal, signal};
 use kivact::style::rgb;
-use kivact::{Signal, signal};
 use kivact_ui_creative as ui;
 const IMAGE_TYPE: &str = "Image";
 const SCALAR_TYPE: &str = "Scalar";

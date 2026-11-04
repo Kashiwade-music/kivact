@@ -1,7 +1,7 @@
 //! Role: Frame an interactive catalog specimen and show its source.
-use kivact::control::{Node, NodeBuilder, column, text};
 use kivact::style::style;
 use kivact::view::IntoView;
+use kivact::view::{Node, column, text};
 
 pub(super) fn specimen(title: &str, view: impl IntoView, source: &'static str) -> Node {
     let tokens = kivact_ui_soft::tokens();

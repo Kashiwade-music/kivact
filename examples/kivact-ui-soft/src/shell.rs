@@ -3,12 +3,13 @@ use crate::look::canvas;
 use crate::model::CatalogState;
 use crate::page::page_view;
 use crate::pages::pages;
-use kivact::control::{Node, NodeBuilder, column, row, scroll, spacer, text};
-use kivact::platform::{reduced_motion, set_reduced_motion};
+use kivact::platform::{is_motion_reduced, set_reduced_motion};
+use kivact::style::provide_theme;
 use kivact::style::{Align, ColorToken, Justify, ThemeMode, style};
 use kivact::task::spawn;
 use kivact::ui::{ButtonVariant, button, text_input};
-use kivact::view::{IntoView, dynamic, provide_theme};
+use kivact::view::{IntoView, dynamic};
+use kivact::view::{Node, NodeBuilder, column, row, scroll, spacer, text};
 
 /// Mount the catalog with the light appearance.
 pub fn catalog() -> impl IntoView {
@@ -58,10 +59,10 @@ fn top_bar(state: CatalogState) -> Node {
             .on_press(move || state.dark.update(|dark| *dark = !*dark)),
         button("Reduce motion")
             .variant(ButtonVariant::Ghost)
-            .selected(reduced_motion)
+            .with_node(|node| node.selected(is_motion_reduced()))
             .test_id("catalog-motion")
             .on_press(|| {
-                spawn(set_reduced_motion(Some(!reduced_motion())));
+                spawn(set_reduced_motion(Some(!is_motion_reduced().get())));
             }),
     ))
     .style(
@@ -100,7 +101,7 @@ fn navigation(state: CatalogState) -> Node {
                         button(page.name)
                             .test_id(page.slug)
                             .variant(ButtonVariant::Ghost)
-                            .selected(move || state.selected.get() == index)
+                            .with_node(|node| node.selected(move || state.selected.get() == index))
                             .style(move || {
                                 let base = style().justify_content(Justify::Start);
                                 if state.selected.get() == index {

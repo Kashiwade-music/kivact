@@ -4,10 +4,9 @@
 //! Public-driver state checks for the complete Pop catalogue.
 #![warn(redundant_imports)]
 
-use kivact::draw::Point;
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
-use kivact::view::{Modifiers, MouseButton};
+use kivact::view::MouseButton;
 use kivact_ui_pop_catalog::{catalog, fonts, locale, messages};
 use std::time::Duration;
 
@@ -169,7 +168,7 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     chapter(&screen, "forms");
     evidence(&screen, "pop-state-forms-light");
     let email = screen.get_by_role(Role::TextBox, "メールアドレス");
-    assert!(email.invalid());
+    assert!(email.is_invalid());
     assert_eq!(
         email
             .described_by()

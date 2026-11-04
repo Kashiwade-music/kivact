@@ -1,22 +1,24 @@
 //! Role: Media pool and asset browser for creative application.
+use kivact::state::IntoBinding;
 
 use super::common::{col, keyed_options, line, note};
-use kivact::draw::{Point, Rect};
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
+use kivact::interaction::ListItem;
 use kivact::interaction::{
-    ListGesture, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection, use_list,
+    ListGesture, ListOptions, ListRangeMode, ListRangeOptions, Selection, use_list,
 };
 use kivact::prelude::{
     IntoView, NodeBuilder, ScrollAxes, for_each, grid, node, rgb, row, scroll, show, signal,
     spacer, text,
 };
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::IntoValue;
 use kivact::style::hsl;
+use kivact::style::use_theme;
 use kivact::style::{Align, style};
 use kivact::style::{Overflow, Track};
-use kivact::ui::ListItem;
 use kivact::view::{A11yAction, Handled};
-use kivact::view::{ButtonPress, IntoValue, MouseButton, PointerPhase};
+use kivact::view::{ButtonPress, MouseButton, PointerPhase};
 use kivact_ui_creative as ui;
 
 pub(super) fn media() -> impl IntoView {
@@ -50,13 +52,13 @@ pub(super) fn media() -> impl IntoView {
                     .collect::<Vec<_>>()
             })
         },
-        ListSelection::Multiple(selected.into()),
-        ListPolicy {
-            range: ListRangePolicy {
+        Selection::Multiple(selected.into_binding()),
+        ListOptions {
+            range: ListRangeOptions {
                 shift: ListRangeMode::Add,
-                ..ListRangePolicy::default()
+                ..ListRangeOptions::default()
             },
-            ..ListPolicy::default()
+            ..ListOptions::default()
         },
     );
     let pick = move |id: u64, shift: bool, ctrl: bool| {
@@ -88,7 +90,7 @@ pub(super) fn media() -> impl IntoView {
                 .style(style().width(200)),
             spacer(),
             ui::value_slider("Size", tile_size)
-                .range(80.0, 260.0)
+                .range(80.0..=260.0)
                 .step(1.0)
                 .precision(0)
                 .reset_to(120.0)
@@ -141,7 +143,7 @@ pub(super) fn media() -> impl IntoView {
                         }
                         if c == 1 {
                             return row((
-                                kivact::control::icon("aperture"),
+                                kivact::view::icon("aperture"),
                                 text(move || item.get().cells[1].clone()),
                             ))
                             .style(style().gap(5).align_items(Align::Center))
@@ -150,11 +152,11 @@ pub(super) fn media() -> impl IntoView {
                         text(move || item.get().cells.get(c).cloned().unwrap_or_default())
                             .style(style().font_family("Geist Mono").font_size(11))
                             .style(move || {
-                                let t = &current_theme();
+                                let t = &use_theme().get();
                                 style().color(if c == 8 {
-                                    t.get::<ui::Tokens>().accent
+                                    t.ext::<ui::Tokens>().accent
                                 } else {
-                                    t.get::<ui::Tokens>().muted
+                                    t.ext::<ui::Tokens>().muted
                                 })
                             })
                             .into_view()
@@ -170,7 +172,8 @@ pub(super) fn media() -> impl IntoView {
                 let tiles = for_each(
                     shown,
                     |r| r.id,
-                    move |id, item| {
+                    move |item| {
+                        let id = item.get().id;
                         let scrub = signal(None::<f64>);
                         let preview = node()
                             .style(
@@ -208,7 +211,7 @@ pub(super) fn media() -> impl IntoView {
                                         Point::new(x, 0.0),
                                         Point::new(x, s.height),
                                         2.0,
-                                        d.theme().get::<ui::Tokens>().accent,
+                                        d.theme().ext::<ui::Tokens>().accent,
                                     );
                                 }
                             })
@@ -235,8 +238,10 @@ pub(super) fn media() -> impl IntoView {
                             move || format!("{} · {}", item.get().cells[4], item.get().cells[6]),
                             preview,
                         )
-                        .selected(move || selected.with(|s| s.contains(&id)))
-                        .on_a11y(A11yAction::Select, move || pick(id, false, false))
+                        .with_node(|node| node.selected(move || selected.with(|s| s.contains(&id))))
+                        .with_node(|node| {
+                            node.a11y_action(A11yAction::Select, move |_| pick(id, false, false))
+                        })
                         .on_pointer(move |event| {
                             if matches!(
                                 event.phase(),

@@ -1,13 +1,14 @@
 //! Role: Demonstrate the action, feedback and choice recipes in the Soft catalog.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column, icon, row};
-use kivact::signal;
+use kivact::interaction::ListItem;
+use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{
-    ButtonVariant, ControlSize, ListItem, button, checkbox, progress, radio_group, range_slider,
-    slider, switch, toggle,
+    ButtonVariant, ControlSize, button, checkbox, progress, radio_group, range_slider, slider,
+    switch, toggle_button,
 };
 use kivact::view::Orientation;
+use kivact::view::{Node, NodeBuilder, column, icon, row};
 use kivact_ui_soft::{
     button_group, check_indicator, radio_indicator, segmented_control, toggle_button_group,
     toolbar, toolbar_item,
@@ -45,8 +46,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "toolbar" => specimen(
             "Keyboard navigation between tools",
             toolbar("Editing")
-                .start(|| toolbar_item(button("Undo")))
-                .end(|| toolbar_item(button("Redo"))),
+                .start((toolbar_item(button("Undo")),))
+                .end((toolbar_item(button("Redo")),)),
             "toolbar(\"Editing\").start(|| toolbar_item(button(\"Undo\")))",
         ),
         "indicator" => specimen(
@@ -74,12 +75,12 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "toggle-button" => specimen(
             "Off, on and disabled",
             row((
-                toggle("Pin", signal(false)),
-                toggle("Follow", signal(true)),
-                toggle("Lock", signal(false)).disabled(true),
+                toggle_button("Pin", signal(false)),
+                toggle_button("Follow", signal(true)),
+                toggle_button("Lock", signal(false)).disabled(true),
             ))
             .style(style().gap(8)),
-            "toggle(\"Follow\", signal(true))",
+            "toggle_button(\"Follow\", signal(true))",
         ),
         "checkbox-input" => specimen(
             "Unchecked, checked, mixed and disabled",
@@ -162,10 +163,10 @@ fn buttons() -> Node {
                 button("Medium").size(ControlSize::Medium),
                 button("Large").size(ControlSize::Large),
                 button("Unavailable").disabled(true),
-                button("Saving").loading(true),
+                button("Saving").busy(true),
             ))
             .style(style().gap(8).wrap(true)),
-            "button(\"Small\").size(ControlSize::Small)\nbutton(\"Saving\").loading(true)",
+            "button(\"Small\").size(ControlSize::Small)\nbutton(\"Saving\").busy(true)",
         ),
     ))
     .style(style().gap(12))

@@ -1,4 +1,5 @@
 //! Role: Catalog page of Dialog: default, form, no close button and confirmation.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "dialog",
         name: "Dialog",
         description: "ページの上に重ねて表示するモーダルです。標準の kivact::ui::dialog に Lyra の見た目を当てたもので、フォーカスの閉じ込めと Escape での閉じる動作は標準の部品が行います。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("dialog.rs"),
         align: PreviewAlign::Center,
         examples: vec![

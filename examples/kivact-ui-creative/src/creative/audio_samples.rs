@@ -4,12 +4,13 @@ use crate::creative::audio_values::TransportState;
 use super::audio_values::{level, smpte};
 use super::common::{bind, col, line, note, spec, specs};
 use super::controls::chip;
-use kivact::Binding;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::Point;
+use kivact::geometry::Rect;
 use kivact::prelude::{
     ColorToken, IntoText, IntoView, Node, NodeBuilder, Orientation, Signal, column, effect, grid,
     node, rgb, row, signal, spacer, text,
 };
+use kivact::state::Binding;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact_ui_creative as ui;
@@ -19,16 +20,16 @@ pub(super) fn transport_section(state: Signal<TransportState>) -> impl IntoView 
     specs((
         spec("Transport Panel","トランスポート",col((
             row((
-                kivact::ui::button("To Start").hide_label(true).icon(kivact::control::icon("start")).variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.frame=0.0)),
+                kivact::ui::button("To Start").hide_label(true).icon(kivact::view::icon("start")).variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.frame=0.0)),
                 kivact::ui::button("◀◀").name("Rewind").variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.frame=(s.frame-48.0).max(0.0))),
                 kivact::ui::button("▶▶").name("Forward").variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.frame+=48.0)),
                 kivact::ui::button("▶|").name("To End").variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.frame=s.loop_end)),
-                kivact::ui::toggle("", bind(move||state.get().cycling,move|v|state.update(|s|s.cycling=v))).icon(kivact::control::icon("repeat")).name("Cycle"),
-                kivact::ui::button("Stop").hide_label(true).icon(kivact::control::icon("stop")).variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.playing=false)),
-                kivact::ui::button("Play").hide_label(true).icon(kivact::control::icon("play")).variant(kivact::ui::ButtonVariant::Ghost).selected(move||state.get().playing).on_press(move||state.update(|s|s.playing = !s.playing)),
-                kivact::ui::button("Record").hide_label(true).icon(kivact::control::icon("record")).variant(kivact::ui::ButtonVariant::Ghost).style(style().color(rgb(0xff5c6c))).selected(move||state.get().recording).on_press(move||state.update(|s|s.recording = !s.recording)),
+                kivact::ui::toggle_button("", bind(move||state.get().cycling,move|v|state.update(|s|s.cycling=v))).icon(kivact::view::icon("repeat")).name("Cycle"),
+                kivact::ui::button("Stop").hide_label(true).icon(kivact::view::icon("stop")).variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.playing=false)),
+                kivact::ui::button("Play").hide_label(true).icon(kivact::view::icon("play")).variant(kivact::ui::ButtonVariant::Ghost).with_node(|node| node.selected(move||state.get().playing)).on_press(move||state.update(|s|s.playing = !s.playing)),
+                kivact::ui::button("Record").hide_label(true).icon(kivact::view::icon("record")).variant(kivact::ui::ButtonVariant::Ghost).style(style().color(rgb(0xff5c6c))).with_node(|node| node.selected(move||state.get().recording)).on_press(move||state.update(|s|s.recording = !s.recording)),
             )).style(style().height(34).gap(2).padding(3).radius(10)).style( style().background(ui::Color::Canvas)),
-            line((kivact::ui::toggle("♬", signal(false)).name("Metronome"),kivact::ui::toggle("⇥", signal(false)).name("Pre-roll"),kivact::ui::toggle("↦", signal(false)).name("Punch In"),kivact::ui::toggle("↔", signal(false)).name("Follow"))).style(style().height(30).width(pct(100)).radius(9)).style( style().background(ui::Color::Canvas)),
+            line((kivact::ui::toggle_button("♬", signal(false)).name("Metronome"),kivact::ui::toggle_button("⇥", signal(false)).name("Pre-roll"),kivact::ui::toggle_button("↦", signal(false)).name("Punch In"),kivact::ui::toggle_button("↔", signal(false)).name("Follow"))).style(style().height(30).width(pct(100)).radius(9)).style( style().background(ui::Color::Canvas)),
             note("Space 再生／停止、Home 先頭、, . で1フレーム移動。全エディタの再生ヘッドが同期します。"),
         ))).style(style().min_height(245)),
         spec("LCD Time Display","タイム表示",col((
@@ -51,7 +52,7 @@ pub(super) fn transport_section(state: Signal<TransportState>) -> impl IntoView 
         )).style(style().gap(5))),
     ))
 }
-fn lcd_note(value: impl IntoText) -> kivact::control::Node {
+fn lcd_note(value: impl IntoText) -> kivact::view::Node {
     note(value).style(
         style()
             .font_size(9.5)
@@ -66,7 +67,7 @@ fn locator(tag: &str, label: &str, value: Binding<f64>) -> Node {
         ui::number(label.to_owned(), value)
             .timecode(24)
             .label_visible(false)
-            .range(0.0, 100000.0)
+            .range(0.0..=100000.0)
             .style(style().width(0).grow(1)),
     ))
     .style(style().gap(8))
@@ -81,37 +82,37 @@ pub(super) fn knobs() -> impl IntoView {
             col((
                 line((
                     ui::knob("Gain", signal(0.0))
-                        .range(-24.0, 24.0)
+                        .range(-24.0..=24.0)
                         .precision(1)
                         .unit(" dB")
                         .bipolar(true)
                         .accent_color(rgb(0x9b9ea8)),
                     ui::knob("Pan", signal(0.0))
-                        .range(-100.0, 100.0)
+                        .range(-100.0..=100.0)
                         .step(1.0)
                         .precision(0)
                         .bipolar(true)
                         .accent_color(rgb(0x5aa9ff)),
                     ui::knob("Freq", signal(1.2))
-                        .range(0.02, 20.0)
+                        .range(0.02..=20.0)
                         .reset_to(1.0)
                         .logarithmic(true)
                         .precision(2)
                         .unit(" kHz")
                         .accent_color(rgb(0x34d399)),
                     ui::knob("Q", signal(0.71))
-                        .range(0.1, 18.0)
+                        .range(0.1..=18.0)
                         .reset_to(0.71)
                         .logarithmic(true)
                         .precision(2)
                         .accent_color(rgb(0x9b9ea8)),
                     ui::knob("Drive", signal(35.0))
-                        .range(0.0, 100.0)
+                        .range(0.0..=100.0)
                         .precision(0)
                         .unit(" %")
                         .accent_color(rgb(0xff5c6c)),
                     ui::knob("Mix", signal(100.0))
-                        .range(0.0, 100.0)
+                        .range(0.0..=100.0)
                         .reset_to(100.0)
                         .precision(0)
                         .unit(" %"),
@@ -120,38 +121,38 @@ pub(super) fn knobs() -> impl IntoView {
                 line((
                     note("EQ BAND").style(style().font_size(10.5).width(52)),
                     ui::knob("Lo", signal(80.0))
-                        .range(20.0, 2000.0)
+                        .range(20.0..=2000.0)
                         .logarithmic(true)
                         .precision(0)
                         .unit(" Hz")
                         .accent_color(rgb(0x34d399))
                         .style(style().size(40, 80)),
                     ui::knob("G", signal(3.0))
-                        .range(-24.0, 24.0)
+                        .range(-24.0..=24.0)
                         .precision(1)
                         .bipolar(true)
                         .style(style().size(40, 80)),
                     ui::knob("Mid", signal(1.5))
-                        .range(0.02, 20.0)
+                        .range(0.02..=20.0)
                         .logarithmic(true)
                         .precision(2)
                         .unit(" kHz")
                         .accent_color(rgb(0x34d399))
                         .style(style().size(40, 80)),
                     ui::knob("G", signal(-2.5))
-                        .range(-24.0, 24.0)
+                        .range(-24.0..=24.0)
                         .precision(1)
                         .bipolar(true)
                         .style(style().size(40, 80)),
                     ui::knob("Hi", signal(8.0))
-                        .range(0.02, 20.0)
+                        .range(0.02..=20.0)
                         .logarithmic(true)
                         .precision(2)
                         .unit(" kHz")
                         .accent_color(rgb(0x34d399))
                         .style(style().size(40, 80)),
                     ui::knob("G", signal(1.5))
-                        .range(-24.0, 24.0)
+                        .range(-24.0..=24.0)
                         .precision(1)
                         .bipolar(true)
                         .style(style().size(40, 80)),
@@ -165,7 +166,7 @@ pub(super) fn knobs() -> impl IntoView {
             "Channel Fader",
             "フェーダー",
             row((
-                ui::fader("Volume", signal(0.0)).range(-60.0, 6.0),
+                ui::fader("Volume", signal(0.0)).range(-60.0..=6.0),
                 ui::meter("Fader Peak", 0.65).style(style().size(20, 180)),
                 col((
                     note("VOLUME").style(style().font_size(10)),
@@ -188,7 +189,7 @@ pub(super) fn knobs() -> impl IntoView {
                 )),
                 ui::fader("Crossfade", signal(0.0))
                     .orientation(Orientation::Horizontal)
-                    .range(-1.0, 1.0)
+                    .range(-1.0..=1.0)
                     .precision(2)
                     .style(style().width(pct(100))),
                 row((
@@ -199,12 +200,12 @@ pub(super) fn knobs() -> impl IntoView {
                 ui::range("In Out", range),
                 lcd_note("SEND LEVEL"),
                 ui::value_slider("FX 1 · Reverb", signal(-12.0))
-                    .range(-60.0, 6.0)
+                    .range(-60.0..=6.0)
                     .precision(1)
                     .unit(" dB")
                     .style(style().width(pct(100))),
                 ui::value_slider("FX 2 · Delay", signal(-24.0))
-                    .range(-60.0, 6.0)
+                    .range(-60.0..=6.0)
                     .precision(1)
                     .unit(" dB")
                     .style(style().width(pct(100))),
@@ -317,7 +318,7 @@ pub(super) fn meters(state: Signal<TransportState>) -> impl IntoView {
                                 Point::new(0.0, s.height * i as f64 / 4.0),
                                 Point::new(s.width, s.height * i as f64 / 4.0),
                                 1.0,
-                                d.theme().get::<ui::Tokens>().hair,
+                                d.theme().ext::<ui::Tokens>().hair,
                             );
                         }
                         d.line(

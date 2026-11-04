@@ -1,12 +1,11 @@
 //! Role: Demonstrate the standard anchored layers, dialogs and notifications.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, row, text};
+use kivact::interaction::{Command, DialogMode, MenuEntry, Toast, toaster};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, signal};
 use kivact::style::style;
-use kivact::ui::{
-    ButtonVariant, Command, DialogKind, MenuEntry, Side, Toast, button, command_palette, dialog,
-    menu, toast_region, toaster, tooltip,
-};
-use kivact::{Binding, signal};
+use kivact::ui::{ButtonVariant, button, command_palette, dialog, menu, toast_region, tooltip};
+use kivact::view::{Node, NodeBuilder, row, text};
 use kivact_ui_soft::{
     LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, dialog_header, drawer_header,
     hover_card, lightbox, media_overlay,
@@ -14,7 +13,7 @@ use kivact_ui_soft::{
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
-        "dialog" => dialog_example(DialogKind::Modal, "Open dialog", "Modal"),
+        "dialog" => dialog_example(DialogMode::Modal, "Open dialog", "Modal"),
         "alert-dialog" => {
             let open = signal(false);
             specimen(
@@ -27,7 +26,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 "alert_dialog(title, description, open).action(\"Delete\", delete_file)",
             )
         }
-        "drawer" => dialog_example(DialogKind::Drawer(Side::Right), "Open drawer", "Drawer"),
+        "drawer" => dialog_example(
+            DialogMode::Drawer(kivact::geometry::Edge::Right),
+            "Open drawer",
+            "Drawer",
+        ),
         "dialog-header" => specimen(
             "Title and description",
             dialog_header("Document settings").subtitle("Manage access to the document."),
@@ -52,7 +55,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         }
         "bottom-sheet-switcher" => {
             let step = signal(None);
-            let selected: Binding<Option<u8>> = step.into();
+            let selected: Binding<Option<u8>> = step.into_binding();
             specimen(
                 "Two sheet steps",
                 (
@@ -65,7 +68,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 "bottom_sheet_flow(\"Review notes\", step, 1).content(review)",
             )
         }
-        "popover" | "layer" => dialog_example(DialogKind::Popover, "Open popover", "Popover"),
+        "popover" | "layer" => dialog_example(DialogMode::Popover, "Open popover", "Popover"),
         "hover-card" => specimen(
             "Preview on hover",
             hover_card(|| text("Workspace member")).attach(button("Avery Morgan")),
@@ -105,8 +108,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     MenuEntry::item("duplicate", "Duplicate"),
                     MenuEntry::item("archive", "Archive").disabled(true),
                 ],
-                |_| {},
             )
+            .on_activate(|_| {})
             .attach(button("Actions")),
             "menu(\"Actions\", entries, on_pick).attach(button(\"Actions\"))",
         ),
@@ -118,8 +121,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                     MenuEntry::item("inspect", "Inspect"),
                     MenuEntry::item("copy", "Copy"),
                 ],
-                |_| {},
             )
+            .on_activate(|_| {})
             .attach_context(button("Document")),
             "menu(\"Document actions\", entries, on_pick).attach_context(button(\"Document\"))",
         ),
@@ -130,15 +133,15 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 (
                     button("Open commands").on_press(move || open.set(true)),
                     command_palette(
-                        open,
                         vec![
-                            Command::new("open", "Open file").group("File"),
-                            Command::new("save", "Save file").group("File"),
+                            Command::new("open", "Open file").with_group("File"),
+                            Command::new("save", "Save file").with_group("File"),
                         ],
-                        |_| {},
-                    ),
+                        open,
+                    )
+                    .on_activate(|_| {}),
                 ),
-                "command_palette(open, commands, on_run)",
+                "command_palette(commands, open).on_activate(on_run)",
             )
         }
         "toast" => {
@@ -171,18 +174,20 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
     })
 }
 
-fn dialog_example(kind: DialogKind, trigger: &'static str, name: &'static str) -> Node {
+fn dialog_example(kind: DialogMode, trigger: &'static str, name: &'static str) -> Node {
     let open = signal(false);
     let source = match kind {
-        DialogKind::AlertModal => "dialog(title, open).kind(DialogKind::AlertModal)",
-        DialogKind::Drawer(_) => "dialog(title, open).kind(DialogKind::Drawer(Side::Right))",
-        DialogKind::Popover => "dialog(title, open).kind(DialogKind::Popover)",
-        _ => "dialog(title, open).kind(DialogKind::Modal)",
+        DialogMode::AlertModal => "dialog(title, open).mode(DialogMode::AlertModal)",
+        DialogMode::Drawer(_) => {
+            "dialog(title, open).mode(DialogMode::Drawer(kivact::geometry::Edge::Right))"
+        }
+        DialogMode::Popover => "dialog(title, open).mode(DialogMode::Popover)",
+        _ => "dialog(title, open).mode(DialogMode::Modal)",
     };
     specimen(
         name,
         dialog(trigger, open)
-            .kind(kind)
+            .mode(kind)
             .content(|| text("Review the details before continuing."))
             .footer(move || {
                 row((

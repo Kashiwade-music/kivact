@@ -1,8 +1,7 @@
 //! Role: Render the catalog application mission model and demo cards.
 use kivact::draw::{Shape, linear_gradient};
-use kivact::i18n::message;
 use kivact::prelude::*;
-use kivact::style::{Color, Direction, Position, current_theme};
+use kivact::style::{Direction, Position};
 use kivact_ui_pop::{self as ui, Hue, Tokens, badge, panel};
 /// All mission content is public data; fetching, rewards and locking belong to the application.
 #[derive(Clone, Debug, PartialEq)]
@@ -27,11 +26,7 @@ pub(super) struct Mission {
     pub locked: bool,
 }
 #[track_caller]
-pub(super) fn mission_card<F, R>(mission: Mission, action: F) -> Node
-where
-    F: Fn() -> R + 'static,
-    R: kivact::view::HandlerResult,
-{
+pub(super) fn mission_card(mission: Mission, action: impl Into<Callback<()>>) -> impl Component {
     let hue = mission.hue;
     let locked = mission.locked;
     let progress_label = or_message(mission.progress_label, "mission.progress", "Progress");
@@ -39,8 +34,8 @@ where
     panel((
         node()
             .style(move || {
-                let t = &current_theme();
-                let p = t.get::<Tokens>();
+                let t = &use_theme().get();
+                let p = t.ext::<Tokens>();
                 style()
                     .height(104)
                     .background(linear_gradient(120).colors([
@@ -77,13 +72,13 @@ where
                 for i in 0..((size.width / 16.0) as usize + 10) {
                     let x = i as f64 * 16.0 - 80.0;
                     draw.line(
-                        kivact::draw::Point::new(x, size.height),
-                        kivact::draw::Point::new(x + size.height * 0.47, 0.0),
+                        kivact::geometry::Point::new(x, size.height),
+                        kivact::geometry::Point::new(x + size.height * 0.47, 0.0),
                         2.0,
                         stripe,
                     );
                 }
-                let center = kivact::draw::Point::new(size.width - 40.0, 20.0);
+                let center = kivact::geometry::Point::new(size.width - 40.0, 20.0);
                 let halo = kivact::draw::Path::new()
                     .arc(center, 70, 0, 360, false)
                     .close();

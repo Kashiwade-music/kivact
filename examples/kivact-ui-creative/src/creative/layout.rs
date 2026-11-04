@@ -1,11 +1,12 @@
 //! Role: Layout and property panel for creative application.
 use crate::creative::audio_values::TransportState;
+use kivact::state::IntoBinding;
 
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::chip;
 use super::controls::num;
 use super::controls::slide;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::{
     IntoView, Key, Node, NodeBuilder, Orientation, Signal, column, dynamic, grid, node, rgb, row,
     scroll, signal, spacer, text,
@@ -26,9 +27,9 @@ pub(super) fn properties() -> impl IntoView {
                 .map(|(i, glyph)| {
                     kivact::ui::button(format!("Inspector {i}"))
                         .hide_label(true)
-                        .icon(kivact::control::icon(glyph))
+                        .icon(kivact::view::icon(glyph))
                         .variant(kivact::ui::ButtonVariant::Ghost)
-                        .selected(move || tab.get() == i)
+                        .with_node(|node| node.selected(move || tab.get() == i))
                         .on_press(move || tab.set(i))
                 })
                 .collect::<Vec<_>>(),
@@ -120,31 +121,35 @@ pub(super) fn properties() -> impl IntoView {
             "パネル操作",
             col((
                 note("ヘッダーをクリックで開閉。内部値を保持したまま折りたたみます。"),
-                kivact::ui::disclosure("Viewport Display", signal(true), move || {
-                    col((
-                        kivact::ui::checkbox("Name", signal(false)),
-                        kivact::ui::checkbox("Axes", signal(true)),
-                        kivact::ui::checkbox("Wireframe", signal(false)),
-                        ui::property_row(
-                            "Display As",
-                            kivact::ui::select(
-                                "Selection",
-                                keyed_options([
-                                    ("textured", "Textured"),
-                                    ("solid", "Solid"),
-                                    ("wire", "Wire"),
-                                ]),
-                                signal(Some("textured".to_owned())),
+                kivact::ui::disclosure("Viewport Display", signal(true))
+                    .content(move || {
+                        col((
+                            kivact::ui::checkbox("Name", signal(false)),
+                            kivact::ui::checkbox("Axes", signal(true)),
+                            kivact::ui::checkbox("Wireframe", signal(false)),
+                            ui::property_row(
+                                "Display As",
+                                kivact::ui::select(
+                                    "Selection",
+                                    keyed_options([
+                                        ("textured", "Textured"),
+                                        ("solid", "Solid"),
+                                        ("wire", "Wire"),
+                                    ]),
+                                    signal(Some("textured".to_owned())),
+                                )
+                                .placeholder(""),
+                            ),
+                            ui::property_row(
+                                "Color",
+                                ui::color_popup("Viewport color", display_color),
                             )
-                            .placeholder(""),
-                        ),
-                        ui::property_row("Color", ui::color_popup("Viewport color", display_color))
                             .test_id("creative-property-display-color"),
-                    ))
-                })
-                .keep_mounted(true),
+                        ))
+                    })
+                    .keep_mounted(),
                 ui::notice(
-                    kivact::ui::Tone::Info,
+                    kivact::interaction::Tone::Info,
                     "Property Editing",
                     "ドラッグ・ホイール・直接入力・キー操作で編集。",
                 ),
@@ -195,12 +200,12 @@ pub(super) fn docking() -> impl IntoView {
         )
         .into_view(),
         "text" => kivact::ui::split(
+            editor_sizes,
             (
                 kivact::ui::text_area("Document source", document)
                     .style(style().width(pct(100)).height(pct(100))),
                 ui::panel("Console", console_view(output, command)).style(style().height(pct(100))),
             ),
-            editor_sizes,
         )
         .orientation(Orientation::Vertical)
         .min_size(0.15)
@@ -265,7 +270,7 @@ pub(super) fn docking() -> impl IntoView {
         ("shot-010", "Shot_010 ●"),
         ("titles", "Titles"),
     ]));
-    let next_document = kivact::var(5_u64);
+    let next_document = kivact::state::var(5_u64);
     col((
         dock.style(style().margin(6)),
         specs((
@@ -310,7 +315,7 @@ pub(super) fn docking() -> impl IntoView {
                     ),
                     kivact::ui::button("New Composition")
                         .hide_label(true)
-                        .icon(kivact::control::icon("plus"))
+                        .icon(kivact::view::icon("plus"))
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .on_press(move || {
                             let id = next_document.with(|id| *id);
@@ -320,7 +325,7 @@ pub(super) fn docking() -> impl IntoView {
                             next_document.set(next);
                             let key = format!("created-document-{id}");
                             tabs.update(|items| {
-                                items.push(kivact::ui::ListItem::new(
+                                items.push(kivact::interaction::ListItem::new(
                                     key.clone(),
                                     format!("Untitled {id}"),
                                 ));
@@ -398,7 +403,7 @@ fn effects_panel() -> Node {
                 super::layout_reducers::outliner(
                     effects,
                     ui::OutlinerState {
-                        expanded: (signal(vec![2, 5])).into(),
+                        expanded: (signal(vec![2, 5])).into_binding(),
                         ..ui::OutlinerState::new(Vec::new())
                     },
                 )
@@ -469,10 +474,10 @@ pub(super) fn outliner() -> impl IntoView {
     ]);
     specs((
         col((
-            row((kivact::ui::select("Outliner mode", keyed_options([("scene", "▧"), ("kivact-file", "Kivact File")]), mode).placeholder("").name("Outliner mode").style(style().width(32).padding(0)),kivact::ui::text_input("Search Outliner", filter).placeholder("Search").style(style().grow(1)),kivact::ui::button("Outliner filter").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("filter")),kivact::ui::button("Rename selected").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::control::icon("folder")).on_press(move||renaming.set(selected.with(|v|v.first().copied())))))
+            row((kivact::ui::select("Outliner mode", keyed_options([("scene", "▧"), ("kivact-file", "Kivact File")]), mode).placeholder("").name("Outliner mode").style(style().width(32).padding(0)),kivact::ui::text_input("Search Outliner", filter).placeholder("Search").style(style().grow(1)),kivact::ui::button("Outliner filter").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("filter")),kivact::ui::button("Rename selected").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("folder")).on_press(move||renaming.set(selected.with(|v|v.first().copied())))))
                 .style(style().height(40).padding_x(8).gap(6)),
             scroll(dynamic(mode,move|mode|{
-                super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, ui::OutlinerState { expanded: (signal(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] })).into(), selection: selected.into(), renaming: renaming.into()}).filter(filter).test_id("creative-scene-outliner")
+                super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, ui::OutlinerState { expanded: (signal(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] })).into_binding(), selection: selected.into_binding(), renaming: renaming.into_binding()}).filter(filter).test_id("creative-scene-outliner")
             })).style(style().height(338).min_height(0)),
         )).style(style().gap(0).grid_column(GridPlacement::span(2)).height(380)),
         spec("Interaction","操作",col((
@@ -543,9 +548,9 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
             kivact::ui::text_input("Layer search", query)
                 .placeholder("Search layers")
                 .style(style().width(180)),
-            kivact::ui::toggle("Shy", signal(false)),
-            kivact::ui::toggle("Collapse", signal(false)),
-            kivact::ui::toggle("Motion Blur", signal(false)),
+            kivact::ui::toggle_button("Shy", signal(false)),
+            kivact::ui::toggle_button("Collapse", signal(false)),
+            kivact::ui::toggle_button("Motion Blur", signal(false)),
         )),
         super::common::text_table(
             &[
@@ -568,7 +573,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
             match column {
                 0 | 2 => row((0..if column == 0 { 4 } else { 8 })
                     .map(move |index| {
-                        kivact::ui::toggle(
+                        kivact::ui::toggle_button(
                             "",
                             bind(
                                 move || {
@@ -621,7 +626,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
                     kivact::ui::button(format!("Expand layer {id}"))
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .hide_label(true)
-                        .icon(kivact::control::icon("chevron-right"))
+                        .icon(kivact::view::icon("chevron-right"))
                         .style(style().size(16, 16).padding(0))
                         .style(move || {
                             style().rotate(if opened.with(|v| v.contains(&id)) {
@@ -639,7 +644,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
                                 }
                             })
                         }),
-                    kivact::control::icon("stack"),
+                    kivact::view::icon("stack"),
                     text(move || item.get().cells[1].clone()),
                 ))
                 .style(style().gap(6))
@@ -651,7 +656,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
                         move |v| ranges.update(|rs| rs[(id - 1) as usize] = v),
                     ),
                 )
-                .limits(0.0, 240.0)
+                .limits(0.0..=240.0)
                 .interval(item.get_untracked().color.unwrap_or(Color::WHITE))
                 .movable(true)
                 .disabled(move || flags.get()[(id - 1) as usize][3])
@@ -665,7 +670,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
                     };
                     let options = labels
                         .into_iter()
-                        .map(|label| kivact::ui::ListItem::new(label.to_owned(), label))
+                        .map(|label| kivact::interaction::ListItem::new(label.to_owned(), label))
                         .collect::<Vec<_>>();
                     kivact::ui::select(
                         "Selection",
@@ -706,7 +711,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
             .style(style().padding_left(168).gap(4).padding_bottom(8))
             .into_view()
         })
-        .on_reorder(move |(id, destination)| super::layout_reducers::reorder(rows, id, destination))
+        .on_reorder(move |change| super::layout_reducers::reorder(rows, change.key, change.to))
         .name("Layer Stack table"),
     ))
     .style(style().padding(8))
@@ -746,13 +751,14 @@ fn layer_property(
                     });
                 }
             });
-            let field = ui::number(format!("Layer {id} {label} {i}"), written)
-                .range(
-                    if label == "Opacity" { 0.0 } else { -65536.0 },
-                    if label == "Opacity" { 100.0 } else { 65536.0 },
-                )
-                .precision(1)
-                .unit(unit.to_owned());
+            let field =
+                ui::number(format!("Layer {id} {label} {i}"), written)
+                    .range(
+                        (if label == "Opacity" { 0.0 } else { -65536.0 })
+                            ..=(if label == "Opacity" { 100.0 } else { 65536.0 }),
+                    )
+                    .precision(1)
+                    .unit(unit.to_owned());
             field.label_visible(false).style(
                 style()
                     .width(60)
@@ -763,7 +769,7 @@ fn layer_property(
         })
         .collect::<Vec<_>>();
     row((
-        kivact::ui::toggle(
+        kivact::ui::toggle_button(
             "◴",
             bind(watch, move |on| {
                 watch.set(on);
@@ -787,7 +793,7 @@ fn layer_property(
         node()
             .style(style().height(22).width(260).shrink(0))
             .draw(move |d, s| {
-                let p = d.theme().get::<ui::Tokens>();
+                let p = d.theme().ext::<ui::Tokens>();
                 d.line(Point::new(0.0, 0.0), Point::new(0.0, s.height), 1.0, p.dim);
                 for frame in keys.get() {
                     let x = frame / 240.0 * s.width;

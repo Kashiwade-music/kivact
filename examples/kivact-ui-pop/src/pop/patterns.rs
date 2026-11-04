@@ -1,17 +1,17 @@
 //! Role: Source catalogue sections built from the public component library.
 
 use super::common::{card, cards_grid, half, muted, section, third, wrap};
-use kivact::Callback;
-use kivact::control::{rich_text, span as text_span};
 use kivact::i18n::{CalendarDate, Weekday};
+use kivact::interaction::MenuEntry;
 use kivact::prelude::{
     ColorToken, IntoView, Node, NodeBuilder, Signal, column, dynamic, rgb, row, show, signal, text,
 };
+use kivact::state::Callback;
 use kivact::style::GridPlacement;
 use kivact::style::TextDecorationLine;
 use kivact::style::{Align, Justify, pct, style};
-use kivact::ui::MenuEntry;
 use kivact::view::Placement;
+use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;
 
 pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
@@ -30,12 +30,12 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                         move || {
                             ui::alert("メンテナンスのお知らせ")
                                 .description("10/08 02:00〜06:00 の間、一部機能が利用できません。")
-                                .tone(kivact::ui::Tone::Info)
-                                .actions(move || {
+                                .tone(kivact::interaction::Tone::Info)
+                                .actions({
                                     kivact::ui::button("お知らせを閉じる")
                                         .variant(kivact::ui::ButtonVariant::Ghost)
                                         .hide_label(true)
-                                        .icon(kivact::control::icon("x"))
+                                        .icon(kivact::view::icon("x"))
                                         .style(style().size(28, 28).margin_top(-4).margin_right(-8))
                                         .on_press(move || dismissed_info.set(true))
                                 })
@@ -46,12 +46,12 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                         move || {
                             ui::alert("作戦成功！")
                                 .description("報酬が受取ボックスに送られました。")
-                                .tone(kivact::ui::Tone::Success)
-                                .actions(move || {
+                                .tone(kivact::interaction::Tone::Success)
+                                .actions({
                                     kivact::ui::button("成功通知を閉じる")
                                         .variant(kivact::ui::ButtonVariant::Ghost)
                                         .hide_label(true)
-                                        .icon(kivact::control::icon("x"))
+                                        .icon(kivact::view::icon("x"))
                                         .style(style().size(28, 28).margin_top(-4).margin_right(-8))
                                         .on_press(move || dismissed_success.set(true))
                                 })
@@ -59,11 +59,11 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     ),
                     ui::alert("活動ポイントが残りわずかです")
                         .description("あと 12 で上限に達します。今すぐ使う")
-                        .tone(kivact::ui::Tone::Warning),
+                        .tone(kivact::interaction::Tone::Warning),
                     ui::alert("同期に失敗しました")
                         .description("通信状態を確認してから再試行してください。")
-                        .tone(kivact::ui::Tone::Danger)
-                        .actions(move || {
+                        .tone(kivact::interaction::Tone::Danger)
+                        .actions({
                             kivact::ui::button("再試行")
                                 .size(kivact::ui::ControlSize::Small)
                                 .variant(kivact::ui::ButtonVariant::Secondary)
@@ -99,7 +99,7 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 } else {
                                     kivact_ui_pop::ButtonTone::Soft
                                 })
-                                .icon(kivact::control::icon(match s {
+                                .icon(kivact::view::icon(match s {
                                     "成功" => "circle-check",
                                     "情報" => "info-circle",
                                     "警告" => "alert-triangle",
@@ -170,10 +170,10 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
             ui::panel(
                 ui::empty_state("まだ依頼がありません")
                     .description("新しい依頼を作成して、生徒たちに仕事をお願いしましょう。")
-                    .content(move || {
+                    .content({
                         wrap((
                             kivact::ui::button("依頼を作成")
-                                .icon(kivact::control::icon("plus"))
+                                .icon(kivact::view::icon("plus"))
                                 .on_press(move || {
                                     notify.call((
                                         ui::Hue::Mint,
@@ -206,13 +206,13 @@ pub(super) fn overlays(
             third(card(
                 "ダイアログ",
                 column((
-                    kivact::ui::button("確認ダイアログ").icon(kivact::control::icon("sword")).on_press(move || confirm.set(true)),
-                    kivact::ui::button("フォームダイアログ").icon(kivact::control::icon("pencil"))
+                    kivact::ui::button("確認ダイアログ").icon(kivact::view::icon("sword")).on_press(move || confirm.set(true)),
+                    kivact::ui::button("フォームダイアログ").icon(kivact::view::icon("pencil"))
                         .variant(kivact::ui::ButtonVariant::Secondary).on_press(move || form.set(true)),
-                    kivact::ui::button("ドロワーを開く").icon(kivact::control::icon("layout-sidebar-left-collapse"))
+                    kivact::ui::button("ドロワーを開く").icon(kivact::view::icon("layout-sidebar-left-collapse"))
                         .variant(kivact_ui_pop::ButtonTone::Soft)
                         .on_press(move || sheet.set(true)),
-                    kivact::ui::button("コマンドパレット　 Ctrl K").icon(kivact::control::icon("command"))
+                    kivact::ui::button("コマンドパレット　 Ctrl K").icon(kivact::view::icon("command"))
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .on_press(move || command.set(true)),
                 ))
@@ -221,17 +221,13 @@ pub(super) fn overlays(
             third(card(
                 "ドロップダウン・ポップオーバー",
                 wrap((
-                    kivact::ui::menu(
-                        "アクション",
-                        vec![
-                            MenuEntry::item("rename", "名前を変更").shortcut("F2"),
-                            MenuEntry::item("copy", "複製").shortcut("Ctrl D"),
+                    kivact::ui::menu("アクション", vec![
+                            MenuEntry::item("rename", "名前を変更").with_shortcut("F2"),
+                            MenuEntry::item("copy", "複製").with_shortcut("Ctrl D"),
                             MenuEntry::item("archive", "アーカイブ"),
                             MenuEntry::item("delete", "削除"),
-                        ],
-                        |_: &'static str| {},
-                    ),
-                    kivact::ui::dialog("ヘイローとは？", popover_open).kind(kivact::ui::DialogKind::Popover).content(move || {
+                        ]).on_activate(|_: &'static str| {}),
+                    kivact::ui::dialog("ヘイローとは？", popover_open).mode(kivact::interaction::DialogMode::Popover).content(move || {
                             column((
                             crate::pop::loader::halo_loader(),
                             muted("キャラクターの頭上に浮かぶ光輪。このUIではアバターやローダーの装飾モチーフとして使っています。"),
@@ -272,8 +268,8 @@ pub(super) fn navigation(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 )
                 .notes(vec!["10/01".into(), "10/02".into(), "進行中".into(), "—".into()]),
                 wrap((
-                    kivact::ui::button("戻る").variant(kivact::ui::ButtonVariant::Secondary).size(kivact::ui::ControlSize::Small).icon(kivact::control::icon("chevron-left")).test_id("pop-step-prev").disabled(move || current.get() == 0).on_press(move || current.update(|v| *v = v.saturating_sub(1))),
-                    kivact::ui::button("次へ").size(kivact::ui::ControlSize::Small).icon(kivact::control::icon("chevron-right")).test_id("pop-step-next").disabled(move || current.get() == 4).on_press(move || {
+                    kivact::ui::button("戻る").variant(kivact::ui::ButtonVariant::Secondary).size(kivact::ui::ControlSize::Small).icon(kivact::view::icon("chevron-left")).test_id("pop-step-prev").disabled(move || current.get() == 0).on_press(move || current.update(|v| *v = v.saturating_sub(1))),
+                    kivact::ui::button("次へ").size(kivact::ui::ControlSize::Small).icon(kivact::view::icon("chevron-right")).test_id("pop-step-next").disabled(move || current.get() == 4).on_press(move || {
                         current.update(|value| *value = (*value + 1).min(4));
                         if current.get() == 4 {
                             notify.call((ui::Hue::Mint, "すべての工程が完了しました".into(), "おつかれさまでした、先生！".into()));
@@ -282,14 +278,14 @@ pub(super) fn navigation(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 )),
                 text("アコーディオン").style(style().margin_top(4).font_size(15).weight(600)),
                 column((
-                    kivact::ui::disclosure("依頼の受け方は？", signal(true), || muted("ダッシュボードの「依頼」から内容を確認し、担当する生徒を選んで受注します。")),
-                    kivact::ui::disclosure("活動ポイントの回復速度", signal(false), || muted("6分ごとに1ポイント回復します。上限を超えた分は受取ボックスに保管されます。")),
-                    kivact::ui::disclosure("データのエクスポート", signal(false), || muted("テーブル右上の「CSV」からいつでも出力できます。")),
+                    kivact::ui::disclosure("依頼の受け方は？", signal(true)).content(|| muted("ダッシュボードの「依頼」から内容を確認し、担当する生徒を選んで受注します。")),
+                    kivact::ui::disclosure("活動ポイントの回復速度", signal(false)).content(|| muted("6分ごとに1ポイント回復します。上限を超えた分は受取ボックスに保管されます。")),
+                    kivact::ui::disclosure("データのエクスポート", signal(false)).content(|| muted("テーブル右上の「CSV」からいつでも出力できます。")),
                 )),
             )).style(style().gap(16))).style(style().grid_column(GridPlacement::span(7))),
             card("アクティビティ", column((
                 ui::timeline_item("ミナト が作戦 REQ-1003 に出撃しました").detail("").timestamp("10分前").icon("sword").tone(ui::Hue::Blue)
-                    .title_content(move || rich_text([
+                    .title_content( rich_text([
                         text_span("ミナト").weight(500).color(ColorToken::Text),
                         text_span(" が作戦 "),
                         text_span("REQ-1003").weight(500).color(ColorToken::Accent)
@@ -298,13 +294,13 @@ pub(super) fn navigation(notify: Callback<(ui::Hue, String, String)>) -> Node {
                         text_span(" に出撃しました"),
                     ])),
                 ui::timeline_item("ハルカ が報告書を提出しました").detail("").timestamp("1時間前").icon("circle-check").tone(ui::Hue::Gray)
-                    .title_content(move || activity_title("ハルカ", " が報告書を提出しました")),
+                    .title_content( activity_title("ハルカ", " が報告書を提出しました")),
                 ui::timeline_item("ユズ の予算申請が承認されました").detail("弾薬補給 ¥120,000 × 4件").timestamp("3時間前").icon("coin").tone(ui::Hue::Gray)
-                    .title_content(move || activity_title("ユズ", " の予算申請が承認されました")),
+                    .title_content( activity_title("ユズ", " の予算申請が承認されました")),
                 ui::timeline_item("アリサ の絆ランクが 15 に上がりました").detail("").timestamp("昨日").icon("heart").tone(ui::Hue::Gray)
-                    .title_content(move || activity_title("アリサ", " の絆ランクが 15 に上がりました")),
+                    .title_content( activity_title("アリサ", " の絆ランクが 15 に上がりました")),
                 ui::timeline_item("コハル が部活に加入しました").detail("").timestamp("2日前").icon("user-plus").tone(ui::Hue::Gray)
-                    .title_content(move || activity_title("コハル", " が部活に加入しました")).style(style().padding_bottom(0)),
+                    .title_content( activity_title("コハル", " が部活に加入しました")).style(style().padding_bottom(0)),
             ))).style(style().grid_column(GridPlacement::span(5))),
         )),
     )
@@ -442,7 +438,7 @@ pub(super) fn schedule() -> Node {
                         })
                         .style(style().font_size(15).weight(600).grow(1)),
                         kivact::ui::button("予定を追加")
-                            .icon(kivact::control::icon("plus"))
+                            .icon(kivact::view::icon("plus"))
                             .size(kivact::ui::ControlSize::Small)
                             .variant(kivact_ui_pop::ButtonTone::Soft),
                     ))
@@ -461,8 +457,8 @@ pub(super) fn schedule() -> Node {
                                     .tone(hue)
                                     .period(if time < "12:00" { "AM" } else { "PM" })
                                     .on_details(move || {
-                                        kivact::ui::toaster().push(
-                                            kivact::ui::Toast::new(title)
+                                        kivact::interaction::toaster().push(
+                                            kivact::interaction::Toast::new(title)
                                                 .tone(super::common::tone_of(hue))
                                                 .body(subtitle),
                                         );
@@ -474,7 +470,7 @@ pub(super) fn schedule() -> Node {
                             column(items).style(style().gap(8))
                         } else {
                             row((
-                                kivact::control::icon("calendar"),
+                                kivact::view::icon("calendar"),
                                 muted("予定はありません。ゆっくり休みましょう。"),
                             ))
                             .style(

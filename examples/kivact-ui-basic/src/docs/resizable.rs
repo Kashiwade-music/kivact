@@ -50,7 +50,7 @@ fn horizontal() -> impl IntoView {
             .child(basic::large(label.to_string()))
     }
     let sizes = signal(vec![0.25f64, 0.75]);
-    split(vec![panel("One"), panel("Two")], sizes).style(
+    split(sizes, vec![panel("One"), panel("Two")]).style(
         style()
             .width(420)
             .height(160)
@@ -74,7 +74,7 @@ fn vertical() -> impl IntoView {
             .child(basic::large(label.to_string()))
     }
     let sizes = signal(vec![0.3f64, 0.7]);
-    split(vec![panel("Header"), panel("Content")], sizes)
+    split(sizes, vec![panel("Header"), panel("Content")])
         .orientation(Orientation::Vertical)
         .style(
             style()
@@ -102,8 +102,8 @@ fn handle() -> impl IntoView {
     let sizes = signal(vec![0.25f64, 0.5, 0.25]);
     column((
         split(
-            vec![panel("Sidebar"), panel("Content"), panel("Inspector")],
             sizes,
+            vec![panel("Sidebar"), panel("Content"), panel("Inspector")],
         )
         .grip(true)
         .min_size(0.15)

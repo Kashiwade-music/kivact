@@ -4,7 +4,7 @@
 //! The game's visible source states, exercised through the public consumer driver.
 #![warn(redundant_imports)]
 
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{CheckedState, Key, Modifiers, Role, SortDirection};
 use kivact_ui_game_catalog::{catalog, fonts, locale, messages};
@@ -183,7 +183,7 @@ fn game_input_mixed_selection_and_pointer_slider_change_real_values() {
     assert_eq!(input.value().as_deref(), Some("第 4 区画 点検"));
     let code = screen.get_by_role(Role::TextBox, "管理コード");
     fill(code, "OPS-2041");
-    assert!(!code.invalid());
+    assert!(!code.is_invalid());
     code.press_key_with(
         Key::Char('a'),
         Modifiers {
@@ -192,7 +192,7 @@ fn game_input_mixed_selection_and_pointer_slider_change_real_values() {
         },
     );
     code.press_key(Key::Backspace);
-    assert!(code.invalid());
+    assert!(code.is_invalid());
     evidence(&screen, "game-input-focus");
     chapter(&screen, "selection");
     let all = screen.get_by_role(Role::CheckBox, "全権限");

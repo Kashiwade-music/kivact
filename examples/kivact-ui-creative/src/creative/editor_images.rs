@@ -29,7 +29,7 @@ pub(super) fn gradient(width: u32, height: u32, mode: usize, grid: bool) -> Pixe
 pub(super) fn worker_gradient() -> Signal<Option<Pixels>> {
     let image = signal(None);
     let (tx, rx) = async_channel::bounded(2);
-    let scale = kivact::platform::scale_factor();
+    let scale = kivact::platform::scale_factor().get();
     let width = (320.0 * scale).ceil().max(1.0) as u32;
     let height = (180.0 * scale).ceil().max(1.0) as u32;
     std::thread::spawn(move || {

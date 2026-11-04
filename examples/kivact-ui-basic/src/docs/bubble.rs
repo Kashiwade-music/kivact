@@ -71,7 +71,7 @@ fn reactions() -> impl IntoView {
     basic::bubble_group((
         basic::bubble("Shipped the release!")
             .variant(basic::BubbleVariant::Muted)
-            .reactions(move || {
+            .reactions({
                 row((text("👀"), text("🚀"), text("+2")))
                     .role(Role::Image)
                     .name("Reactions: eyes, rocket, and 2 more")
@@ -79,7 +79,7 @@ fn reactions() -> impl IntoView {
         basic::bubble("Tests passed on the first try.")
             .align(basic::BubbleAlign::End)
             .reactions_side(basic::BubbleReactionsSide::Top)
-            .reactions(move || {
+            .reactions({
                 row((text("🎉"), text("👏")))
                     .role(Role::Image)
                     .name("Reactions: party popper, clapping hands")

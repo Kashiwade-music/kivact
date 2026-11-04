@@ -1,10 +1,9 @@
 //! Role: Render catalog pages and interactions through the standard test backend.
 //! The tests open each page from the component list, check the page structure,
-//! the example previews and code, the theme toggle, the search and the copy button.
+//! the example previews and code, the theme toggle_button, the search and the copy button.
 #![warn(redundant_imports)]
 
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
 use kivact::test::{LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact_ui_basic_catalog::{catalog_with_mode, fonts, pages};
 use std::time::Duration;

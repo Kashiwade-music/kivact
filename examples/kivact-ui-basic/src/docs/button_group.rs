@@ -1,4 +1,5 @@
 //! Role: Catalog page of Button Group: horizontal, vertical, separator and text.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "button-group",
         name: "Button Group",
         description: "関連するボタンを隣り合わせにまとめる部品です。2 つ目からの子は前の子と接する枠線を消すので、境界の線は 1 本になります。子を 1 つずつ整えるため、button_group には 1 つの view ではなく、子の tuple（種類が違ってもよい）か Vec を渡します。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("button_group.rs"),
         align: PreviewAlign::Center,
         examples: vec![

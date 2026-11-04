@@ -1,4 +1,5 @@
 //! Role: Catalog page of Kbd: key caps, groups and use inside a button.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "kbd",
         name: "Kbd",
         description: "キーボードのキーやショートカットを表示する小さなキーキャップです。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("kbd.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -62,10 +63,10 @@ fn in_button() -> impl IntoView {
     row((
         button("Accept")
             .variant(ButtonVariant::Outline)
-            .trailing_icon(basic::kbd("⏎")),
+            .trailing(basic::kbd("⏎")),
         button("Cancel")
             .variant(ButtonVariant::Outline)
-            .trailing_icon(basic::kbd("Esc")),
+            .trailing(basic::kbd("Esc")),
     ))
     .style(style().gap(8))
 }

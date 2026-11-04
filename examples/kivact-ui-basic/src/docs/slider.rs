@@ -1,8 +1,8 @@
 //! Role: Catalog page of Slider: single, range, step and vertical.
 
 use crate::model::{Example, Page, PreviewAlign};
+use kivact::interaction::ScalarRange;
 use kivact::prelude::*;
-use kivact::ui::ScalarRange;
 use kivact::ui::range_slider;
 use kivact_ui_basic as basic;
 

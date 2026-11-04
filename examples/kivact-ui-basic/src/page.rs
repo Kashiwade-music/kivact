@@ -1,9 +1,8 @@
 //! Role: Render one documentation page: header, usage and example panels with code.
 
 use crate::model::{Example, Page, PreviewAlign};
-use kivact::control::Scroll;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
+use kivact::view::Scroll;
 use kivact_ui_basic as basic;
 
 /// The scrolling page of `page`; a new page starts at the top.
@@ -40,7 +39,7 @@ fn content(page: &'static Page) -> Node {
     )
 }
 
-fn breadcrumb(name: &'static str) -> Node {
+fn breadcrumb(name: &'static str) -> impl kivact::view::Component {
     basic::breadcrumb_content((
         basic::breadcrumb_link("コンポーネント"),
         basic::breadcrumb_separator(),

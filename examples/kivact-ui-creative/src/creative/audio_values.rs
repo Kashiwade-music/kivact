@@ -1,10 +1,10 @@
 //! Role: Audio time formatting and level calculations for catalog views.
 
-use kivact::Signal;
-use kivact::effect;
 use kivact::motion::{FrameRate, frame_loop};
-use kivact::view::IntoValue;
-use kivact::{Binding, binding};
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::effect;
+use kivact::state::{Binding, binding};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Debug, PartialEq)]

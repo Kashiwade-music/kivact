@@ -1,9 +1,9 @@
 //! Role: Demonstrate the Soft calendar and controlled date and time fields.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column};
 use kivact::i18n::{CalendarDate, DateRange};
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::style;
+use kivact::view::{Node, column};
 use kivact_ui_soft::{
     DatePresentation, DateRangePreset, DateTime, TimeOfDay, calendar, date_input, date_range_input,
     date_time_input, time_input,

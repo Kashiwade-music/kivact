@@ -1,5 +1,6 @@
 //! Role: Arrangement and timeline UI for the creative application.
 use crate::creative::audio_values::TransportState;
+use kivact::state::IntoBinding;
 
 use super::common::{bind, col, keyed_options, line, note, separator};
 
@@ -64,14 +65,14 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
                 kivact::ui::button(format!("Timeline {label}"))
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .hide_label(true)
-                    .icon(kivact::control::icon(icon))
-                    .selected(move || tool.get() == kind)
+                    .icon(kivact::view::icon(icon))
+                    .with_node(|node| node.selected(move || tool.get() == kind))
                     .on_press(move || tool.set(kind))
             })
             .collect::<Vec<_>>())
             .style(style().gap(2)),
             separator(),
-            kivact::ui::toggle("Snap", snap).icon(kivact::control::icon("magnet")),
+            kivact::ui::toggle_button("Snap", snap).icon(kivact::view::icon("magnet")),
             kivact::ui::select(
                 "Timeline grid",
                 keyed_options([
@@ -88,7 +89,7 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
             separator(),
             note("Zoom"),
             ui::value_slider("Timeline zoom", zoom)
-                .range(8.0, 80.0)
+                .range(8.0..=80.0)
                 .step(1.0)
                 .precision(0)
                 .unit(" px/beat")
@@ -106,9 +107,9 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
             clips,
             tracks,
             ui::ArrangementState {
-                selection: selected.into(),
-                zoom: zoom.into(),
-                tool: tool.into(),
+                selection: selected.into_binding(),
+                zoom: zoom.into_binding(),
+                tool: tool.into_binding(),
                 playhead: bind(
                     move || state.get().frame / 12.0,
                     move |v| state.update(|s| s.frame = v * 12.0),

@@ -69,8 +69,8 @@ fn bar() -> impl IntoView {
     ];
     basic::card()
         .header(basic::card_header("Bar Chart").description("January - June 2024"))
-        .content(move || basic::chart(config, data))
-        .footer(move || text("Showing total visitors for the last 6 months"))
+        .content(basic::chart(config, data))
+        .footer(text("Showing total visitors for the last 6 months"))
         .style(style().width(560))
 }
 // end example
@@ -94,7 +94,7 @@ fn horizontal() -> impl IntoView {
         .height(200.0);
     basic::card()
         .header(basic::card_header("Horizontal Stacked").description("Visitors by device"))
-        .content(move || chart)
+        .content(chart)
         .style(style().width(560))
 }
 // end example
@@ -115,7 +115,7 @@ fn line() -> impl IntoView {
     ];
     basic::card()
         .header(basic::card_header("Line Chart").description("January - June 2024"))
-        .content(move || basic::chart(config, data).kind(basic::ChartKind::Line))
+        .content(basic::chart(config, data).kind(basic::ChartKind::Line))
         .style(style().width(560))
 }
 // end example
@@ -142,7 +142,7 @@ fn area() -> impl IntoView {
         .height(160.0);
     basic::card()
         .header(basic::card_header("Area Chart").description("Last 6 months"))
-        .content(move || chart)
+        .content(chart)
         .style(style().width(560))
 }
 // end example

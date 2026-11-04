@@ -3,9 +3,8 @@
 use crate::docs::PAGES;
 use crate::look::tokens;
 use crate::page::page_view;
-use kivact::interaction::{ListPolicy, ListSelection, use_list};
+use kivact::interaction::{ListOptions, use_list};
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
 use kivact_ui_basic as basic;
 
 /// The theme text family: Inter for Latin, Noto Sans JP for Japanese.
@@ -34,7 +33,7 @@ pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
         };
         theme.with_text(text)
     };
-    kivact::view::provide_theme(theme, move || {
+    kivact::style::provide_theme(theme, move || {
         let start = PAGES
             .iter()
             .position(|page| page.slug == "button")
@@ -51,7 +50,7 @@ pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
                 .style(style().grow(1).min_width(0).height(pct(100))),
             ))
             .style(style().grow(1).min_height(0)),
-            kivact::ui::toast_region(kivact::ui::toaster()).hold_all_on_hover(true),
+            kivact::ui::toast_region(kivact::interaction::toaster()).hold_all_on_hover(true),
         ))
         .style(
             style()
@@ -109,13 +108,14 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
     .into_value();
     let nav = use_list(
         items,
-        ListSelection::Single(selected.into()),
-        ListPolicy::default(),
+        Selection::Single(selected.into_binding()),
+        ListOptions::default(),
     );
     let rows = for_each(
         items,
         |item| *item.key(),
-        move |key, item| {
+        move |item| {
+            let key = *item.get().key();
             let part = nav.item(key);
             let state = part.state();
             row(text(move || item.get().label()).style(style().single_line()))

@@ -4,7 +4,7 @@
 //! Public-driver interaction and visual evidence for the complete Creative catalog.
 #![warn(redundant_imports)]
 
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_creative_catalog::{catalog, fonts};

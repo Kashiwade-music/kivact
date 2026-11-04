@@ -14,18 +14,20 @@ use super::patterns::feedback;
 use super::patterns::navigation;
 use super::patterns::overlays;
 use super::patterns::schedule;
-use kivact::draw::Point;
 use kivact::draw::{LineCap, LineJoin, Stroke, linear_gradient};
+use kivact::geometry::Point;
 use kivact::i18n::CalendarDate;
+use kivact::interaction::{Command, ListItem, Toast, toaster};
 use kivact::prelude::{
     ColorToken, IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, column, effect, node, rgb,
     row, scroll, signal, text,
 };
+use kivact::state::callback;
 use kivact::style::{Align, Color, Justify, pct, rgba, style};
 use kivact::task::spawn;
-use kivact::ui::{Command, ListItem, Toast, command_palette, toaster};
+use kivact::ui::command_palette;
 use kivact::view::ScrollBehavior;
-use kivact::view::{Handled, KeyEvent, callback, node_ref};
+use kivact::view::{Handled, KeyEvent, node_ref};
 use kivact_ui_pop as ui;
 use std::rc::Rc;
 use std::time::Duration;
@@ -111,14 +113,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             .body(body)
             .duration(Some(Duration::from_millis(4200)));
         if toast.title.contains("報酬") {
-            toast = toast.icon(|| kivact::control::icon("gift"));
+            toast = toast.icon(|| kivact::view::icon("gift"));
         }
         if toast.title.contains("作戦開始") {
-            toast = toast.icon(|| kivact::control::icon("sword"));
+            toast = toast.icon(|| kivact::view::icon("sword"));
         }
         if toast.title == "コピーしました" {
             toast = toast
-                .icon(|| kivact::control::icon("copy"))
+                .icon(|| kivact::view::icon("copy"))
                 .duration(Some(Duration::from_millis(2200)));
         }
         toaster().push(toast);
@@ -143,7 +145,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         .into_iter()
         .enumerate()
         .map(|(i, view)| {
-            view.node_ref(refs[i])
+            view.with_node(|node| node.node_ref(refs[i]))
                 .test_id(format!("pop-section-{}", SECTIONS[i].0))
                 .style(style().margin_bottom(48))
         })
@@ -207,7 +209,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             );
             nodes.push(
                 row((
-                    kivact::control::icon(*glyph).style(move || {
+                    kivact::view::icon(*glyph).style(move || {
                         style().color(if selected.get() == i {
                             ColorToken::Accent
                         } else {
@@ -221,7 +223,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .name(*title)
                 .test_id(format!("pop-nav-{}", SECTIONS[i].0))
                 .focusable(true)
-                .selected(move || selected.get() == i)
+                .with_node(|node| node.selected(move || selected.get() == i))
                 .style(
                     style()
                         .height(32)
@@ -328,7 +330,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                         .style(style().font_size(12).color(ColorToken::TextMuted)),
                 ))
                 .style(style().grow(1)),
-                kivact::control::icon("logout"),
+                kivact::view::icon("logout"),
             ))
             .style(style().padding(8).gap(10).align_items(Align::Center)),
         ))
@@ -384,14 +386,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .map(|item| item.to_string())
                 .collect::<Vec<_>>(),
         ),
-        kivact::control::icon("chevron-right").style(style().color(ColorToken::TextMuted)),
+        kivact::view::icon("chevron-right").style(style().color(ColorToken::TextMuted)),
         text(move || SECTIONS[selected.get()].1.to_string())
             .test_id("pop-current-section")
             .style(style().grow(1).weight(500)),
         kivact::ui::button("コンポーネントを検索…　 Ctrl K")
             .variant(kivact::ui::ButtonVariant::Secondary)
             .size(kivact::ui::ControlSize::Small)
-            .icon(kivact::control::icon("search"))
+            .icon(kivact::view::icon("search"))
             .style(
                 style()
                     .width(300)
@@ -403,18 +405,20 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         kivact::ui::button("テーマ切替")
             .variant(kivact::ui::ButtonVariant::Ghost)
             .hide_label(true)
-            .icon(kivact::control::icon("moon"))
+            .icon(kivact::view::icon("moon"))
             .test_id("pop-theme-toggle")
             .on_press(move || dark.update(|v| *v = !*v)),
         ui::notification_menu(
             kivact::ui::button("通知")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
-                .icon(kivact::control::icon("bell"))
+                .icon(kivact::view::icon("bell"))
                 .test_id("pop-notifications"),
             notices,
-            move || notices.update(|items| items.iter_mut().for_each(|item| item.unread = false)),
         )
+        .on_mark_read(move || {
+            notices.update(|items| items.iter_mut().for_each(|item| item.unread = false))
+        })
         .style(style().width(36)),
         ui::avatar("SN").size(32),
     ))
@@ -441,7 +445,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .color(ColorToken::TextMuted),
         ),
     ))
-    .node_ref(content_ref)
+    .with_node(|node| node.node_ref(content_ref))
     .style(
         style()
             .width(pct(100))
@@ -455,7 +459,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         column((
             topbar,
             scroll(column(content).style(style().align_items(Align::Center)))
-                .node_ref(scroll_ref)
+                .with_node(|node| node.node_ref(scroll_ref))
                 .test_id("pop-content-scroll")
                 .style(style().grow(1).min_height(0))
                 .draw(|draw, size| {
@@ -486,32 +490,32 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         .enumerate()
         .map(|(i, (id, title, _))| {
             Command::new(PaletteCommand::Section(i), *title)
-                .group("移動")
-                .hint(format!("#{id}"))
-                .icon(SECTIONS[i].2)
+                .with_group("移動")
+                .with_hint(format!("#{id}"))
+                .with_icon(SECTIONS[i].2)
         })
         .collect::<Vec<_>>();
     commands.extend([
         Command::new(PaletteCommand::Theme, "テーマを切り替え")
-            .group("アクション")
-            .hint("ライト / ダーク")
-            .icon("moon"),
+            .with_group("アクション")
+            .with_hint("ライト / ダーク")
+            .with_icon("moon"),
         Command::new(PaletteCommand::Create, "新しい依頼を作成")
-            .group("アクション")
-            .hint("ダイアログ")
-            .icon("plus"),
+            .with_group("アクション")
+            .with_hint("ダイアログ")
+            .with_icon("plus"),
         Command::new(PaletteCommand::Start, "作戦を開始")
-            .group("アクション")
-            .hint("確認")
-            .icon("sword"),
+            .with_group("アクション")
+            .with_hint("確認")
+            .with_icon("sword"),
         Command::new(PaletteCommand::Profile, "生徒プロフィールを表示")
-            .group("アクション")
-            .hint("ドロワー")
-            .icon("user"),
+            .with_group("アクション")
+            .with_hint("ドロワー")
+            .with_icon("user"),
         Command::new(PaletteCommand::Reward, "報酬を受け取る")
-            .group("アクション")
-            .hint("トースト")
-            .icon("gift"),
+            .with_group("アクション")
+            .with_hint("トースト")
+            .with_icon("gift"),
     ]);
     let run_command = callback(move |command| match command {
         PaletteCommand::Section(i) => {
@@ -534,7 +538,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             "クレジット ×12,000 / 活動報告書 ×2".into(),
         )),
     });
-    kivact::view::provide_theme(theme, move || {
+    kivact::style::provide_theme(theme, move || {
         column((
             body,
             kivact::ui::toast_region(toaster()),
@@ -653,7 +657,9 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                     .style(style().gap(8).justify_content(Justify::End))
                 }),
             kivact::ui::dialog(drawer_title, sheet)
-                .kind(kivact::ui::DialogKind::Drawer(kivact::ui::Side::Right))
+                .mode(kivact::interaction::DialogMode::Drawer(
+                    kivact::geometry::Edge::Right,
+                ))
                 .content(move || {
                     column((
                         row((
@@ -718,10 +724,11 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                     ))
                     .style(style().gap(8))
                 }),
-            command_palette(command, commands, move |value| run_command.try_call(value))
+            command_palette(commands, command)
+                .on_activate(move |value| run_command.try_call(value))
                 .close_on(is_palette_shortcut)
-                .footer(|| {
-                    kivact::control::text(kivact::i18n::message(
+                .footer({
+                    kivact::view::text(kivact::i18n::message(
                         "palette.hint",
                         "↑↓ 移動   Enter 実行   Esc 閉じる",
                     ))
@@ -750,7 +757,7 @@ fn is_palette_shortcut(key: &KeyEvent) -> bool {
         && matches!(key.key(), Key::Char(character) if character.eq_ignore_ascii_case(&'k'))
 }
 
-fn overview(action: impl Fn() + 'static, command: Signal<bool>) -> Node {
+fn overview(action: impl Into<kivact::state::Callback<()>>, command: Signal<bool>) -> Node {
     let stats = [
         ("在籍生徒", "124", "+6 今週"),
         ("進行中の依頼", "18", "3件 期限間近"),
@@ -783,9 +790,9 @@ fn overview(action: impl Fn() + 'static, command: Signal<bool>) -> Node {
         )
     })
     .collect::<Vec<_>>();
-    let heading = kivact::control::rich_text(vec![
-        kivact::control::span("おかえりなさい、"),
-        kivact::control::span("先生。").background(
+    let heading = kivact::view::rich_text(vec![
+        kivact::view::span("おかえりなさい、"),
+        kivact::view::span("先生。").background(
             linear_gradient(180)
                 .stop(Color::TRANSPARENT, pct(62))
                 .stop(rgba(0xffdc3c, 0.6), pct(62)),
@@ -799,5 +806,5 @@ fn overview(action: impl Fn() + 'static, command: Signal<bool>) -> Node {
             .weight(700)
             .line_height(1.3),
     );
-    column((hero(heading, "今日も生徒たちが待っています。やわらかく、明るく、迷わない——\nブルーアーカイブ風のネイティブSaaS UIコンポーネント集です。", (kivact::ui::button("作戦を開始").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Accent).variant(kivact_ui_pop::Slant).icon(kivact::control::icon("player-play")).on_press(action), kivact::ui::button("コマンドパレット").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Glass).icon(kivact::control::icon("command")).on_press(move || command.set(true))), stats), columns((ui::stat_card("アクティブ生徒", "1,284").trend("↗ 8.2%").icon("users").points(vec![2., 4., 3., 5., 4., 7., 6., 9., 8., 11.]).tone(ui::Hue::Mint), ui::stat_card("依頼完了率", "96.4%").trend("↗ 3.1%").icon("circle-check").points(vec![3., 4., 3., 6., 5., 7., 6., 9., 8., 11.]).tone(ui::Hue::Mint), ui::stat_card("週間支出", "¥2.4M").trend("↘ 1.4%").icon("coin").points(vec![10., 8., 9., 5., 7., 4., 5., 3., 4., 2.]).tone(ui::Hue::Red), ui::stat_card("平均絆ランク", "18.6").trend("↗ 12%").icon("heart").points(vec![2., 3., 5., 4., 7., 9., 8., 12., 14., 17.]).tone(ui::Hue::Mint)), 4))).style(style().gap(16))
+    column((hero(heading, "今日も生徒たちが待っています。やわらかく、明るく、迷わない——\nブルーアーカイブ風のネイティブSaaS UIコンポーネント集です。", (kivact::ui::button("作戦を開始").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Accent).variant(kivact_ui_pop::Slant).icon(kivact::view::icon("player-play")).on_press(action), kivact::ui::button("コマンドパレット").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Glass).icon(kivact::view::icon("command")).on_press(move || command.set(true))), stats), columns((ui::stat_card("アクティブ生徒", "1,284").trend("↗ 8.2%").icon("users").points(vec![2., 4., 3., 5., 4., 7., 6., 9., 8., 11.]).tone(ui::Hue::Mint), ui::stat_card("依頼完了率", "96.4%").trend("↗ 3.1%").icon("circle-check").points(vec![3., 4., 3., 6., 5., 7., 6., 9., 8., 11.]).tone(ui::Hue::Mint), ui::stat_card("週間支出", "¥2.4M").trend("↘ 1.4%").icon("coin").points(vec![10., 8., 9., 5., 7., 4., 5., 3., 4., 2.]).tone(ui::Hue::Red), ui::stat_card("平均絆ランク", "18.6").trend("↗ 12%").icon("heart").points(vec![2., 3., 5., 4., 7., 9., 8., 12., 14., 17.]).tone(ui::Hue::Mint)), 4))).style(style().gap(16))
 }

@@ -1,7 +1,7 @@
 //! Role: Demonstrate Soft badges, placeholders and status indicators.
 use super::specimen::specimen;
-use kivact::control::{Node, NodeBuilder, column, row, text};
 use kivact::style::{Align, style};
+use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     BadgeVariant, BannerStatus, SkeletonRadius, SpinnerShade, SpinnerSize, StatusDotVariant,
     TokenColor, badge, banner, skeleton, spinner, status_dot, token,
