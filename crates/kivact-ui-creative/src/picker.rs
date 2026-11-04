@@ -14,7 +14,8 @@ use kivact::interaction::{
     ComboboxApi, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
 };
 use kivact::state::{
-    Callback, Signal, Value, Var, binding, effect, memo, on_cleanup, signal, untrack, var,
+    Callback, Machine, MachineHandle, Step, Value, Var, binding, effect, machine, memo, on_cleanup,
+    signal, untrack, var,
 };
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Icon, pct, style};
@@ -56,15 +57,20 @@ pub struct PickerItem<K> {
     pub key: K,
     /// What the row says; also its accessible name.
     pub label: Reactive<String>,
+    // xtask-allow(state-fields): Optional immutable item description.
     /// The heading of the run of rows this one belongs to. Rows with no
     /// section have no heading.
     pub section: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Optional immutable item description.
     /// A line of detail after the label; also the row's accessible description.
     pub description: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Optional immutable shortcut hint.
     /// A shortcut hint at the end of the row. It does not bind a key.
     pub shortcut: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Optional immutable icon.
     /// An icon before the label: a name in the theme's icon set or an image.
     pub icon: Option<Icon>,
+    // xtask-allow(state-fields): Independent item availability input.
     /// A disabled item stays in the list but is never active and cannot be
     /// picked.
     pub enabled: bool,
@@ -177,8 +183,11 @@ struct Parts<K: 'static> {
     items: Value<Vec<PickerItem<K>>>,
     columns: Rc<Vec<Column<K>>>,
     placeholder: Value<String>,
+    // xtask-allow(state-fields): Optional immutable application callback.
     pick: Option<Callback<K>>,
+    // xtask-allow(state-fields): Optional immutable application callback.
     preview: Option<Callback<Option<K>>>,
+    // xtask-allow(state-fields): Optional immutable application callback.
     cancel: Option<Callback<()>>,
 }
 
@@ -391,6 +400,89 @@ fn available_column<K>(
         })
 }
 
+fn column_availability<K>(lists: &[Vec<PickerItem<K>>], query: &str) -> Vec<bool> {
+    lists
+        .iter()
+        .map(|list| list.iter().any(|item| item.enabled && accepts(query, item)))
+        .collect()
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PickerColumn {
+    Empty,
+    Active(usize),
+}
+impl PickerColumn {
+    fn index(self) -> Option<usize> {
+        match self {
+            Self::Empty => None,
+            Self::Active(index) => Some(index),
+        }
+    }
+}
+enum ColumnEvent<K> {
+    QueryChanged(Vec<bool>),
+    ItemsChanged(Vec<bool>),
+    Move(i32, Vec<bool>),
+    Activate(usize),
+    Preview(Option<(usize, K)>),
+    Pick(usize, K),
+}
+enum ColumnEffect<K> {
+    Preview(Option<K>),
+    Pick(K),
+}
+struct ColumnMachine<K>(std::marker::PhantomData<K>);
+impl<K: kivact::state::ItemKey> Machine for ColumnMachine<K> {
+    type State = PickerColumn;
+    type Event = ColumnEvent<K>;
+    type Effect = ColumnEffect<K>;
+    fn transition(
+        &self,
+        state: &PickerColumn,
+        event: ColumnEvent<K>,
+    ) -> Step<PickerColumn, ColumnEvent<K>, ColumnEffect<K>> {
+        let (available, movement) = match event {
+            ColumnEvent::Preview(item) => {
+                return Step::stay().with(ColumnEffect::Preview(
+                    item.and_then(|(index, key)| (state.index() == Some(index)).then_some(key)),
+                ));
+            }
+            ColumnEvent::Pick(index, key) => {
+                return if state.index() == Some(index) {
+                    Step::stay().with(ColumnEffect::Pick(key))
+                } else {
+                    Step::stay()
+                };
+            }
+            ColumnEvent::Activate(index) => return Step::to(PickerColumn::Active(index)),
+            ColumnEvent::QueryChanged(available) | ColumnEvent::ItemsChanged(available) => {
+                (available, None)
+            }
+            ColumnEvent::Move(direction, available) => (available, Some(direction)),
+        };
+        let count = available.len();
+        let current = state.index().unwrap_or(0);
+        let (start, direction) = movement.map_or((current, 1), |direction| {
+            (
+                (current + if direction > 0 { 1 } else { count - 1 }) % count,
+                direction,
+            )
+        });
+        let next = (0..count)
+            .map(|offset| {
+                if direction > 0 {
+                    (start + offset) % count
+                } else {
+                    (start + count - offset) % count
+                }
+            })
+            .find(|index| available[*index])
+            .map_or(PickerColumn::Empty, PickerColumn::Active);
+        Step::to(next)
+    }
+}
+
 /// A run of neighbouring items with the same section.
 #[derive(Clone, PartialEq)]
 struct Run<K> {
@@ -417,8 +509,11 @@ enum PickerPhase<K> {
 /// What the picker reports to the application, once per opening.
 struct Outcomes<K: kivact::state::PropValue> {
     phase: Var<PickerPhase<K>>,
+    // xtask-allow(state-fields): Optional immutable application callback.
     pick: Option<Callback<K>>,
+    // xtask-allow(state-fields): Optional immutable application callback.
     preview: Option<Callback<Option<K>>>,
+    // xtask-allow(state-fields): Optional immutable application callback.
     cancel: Option<Callback<()>>,
 }
 
@@ -478,7 +573,8 @@ struct Session<K: kivact::state::ItemKey> {
     combo: ComboboxApi<K>,
     outcomes: Outcomes<K>,
     field: NodeRef,
-    column: Option<Signal<Option<usize>>>,
+    // xtask-allow(state-fields): Optional multi-column setup capability.
+    column: Option<MachineHandle<ColumnMachine<K>>>,
 }
 
 impl<K: kivact::state::ItemKey> Clone for Session<K> {
@@ -514,7 +610,6 @@ impl<K: kivact::state::ItemKey> Parts<K> {
         });
         let items =
             memo(move || lists.with(|lists| lists.iter().flatten().cloned().collect::<Vec<_>>()));
-        let active_column = signal(Some(0usize));
         let empty = message("creative.picker.empty", "No matches");
         let outcomes = Outcomes {
             phase: var(PickerPhase::Open { previewed: None }),
@@ -531,16 +626,32 @@ impl<K: kivact::state::ItemKey> Parts<K> {
                     .collect::<Vec<_>>()
             })
         });
+        let columns = machine(
+            PickerColumn::Active(0),
+            || ColumnMachine(std::marker::PhantomData),
+            move |_, effect| match effect {
+                ColumnEffect::Preview(key) => outcomes.preview(key),
+                ColumnEffect::Pick(key) => {
+                    outcomes.settle(PickerOutcome::Picked(key));
+                    popup.close(PopupCloseReason::Selection);
+                }
+            },
+        );
+        let active_column = columns.state();
         let chosen = signal(None::<K>);
         let value = binding(chosen, move |key: Option<K>| {
             let Some(key) = key else { return };
-            outcomes.settle(PickerOutcome::Picked(key));
-            popup.close(PopupCloseReason::Selection);
+            if let Some(index) = lists.with_untracked(|all| {
+                all.iter()
+                    .position(|list| list.iter().any(|item| item.key == key))
+            }) {
+                columns.send(ColumnEvent::Pick(index, key));
+            }
         });
         let combo = use_combobox(options, Selection::Single(value)).filter(move |query, option| {
             let query = query.trim().to_lowercase();
             lists.with(|all| {
-                available_column(all, &query, active_column.get().unwrap_or(0), 1)
+                available_column(all, &query, active_column.get().index().unwrap_or(0), 1)
                     .and_then(|column| {
                         all[column]
                             .iter()
@@ -554,12 +665,14 @@ impl<K: kivact::state::ItemKey> Parts<K> {
         if multiple {
             effect(move || {
                 let query = query.get().trim().to_lowercase();
-                let next = lists.with(|all| {
-                    available_column(all, &query, active_column.get_untracked().unwrap_or(0), 1)
+                let available = lists.with_untracked(|all| column_availability(all, &query));
+                columns.send(ColumnEvent::QueryChanged(available));
+            });
+            effect(move || {
+                let available = lists.with(|all| {
+                    column_availability(all, &query.get_untracked().trim().to_lowercase())
                 });
-                if next != active_column.get_untracked() {
-                    active_column.set(next);
-                }
+                columns.send(ColumnEvent::ItemsChanged(available));
             });
         }
         let shown = memo(move || {
@@ -580,17 +693,24 @@ impl<K: kivact::state::ItemKey> Parts<K> {
             combo,
             outcomes,
             field,
-            column: multiple.then_some(active_column),
+            column: multiple.then_some(columns),
         };
         let active = session.active;
         // The preview follows the active row.
         effect(move || {
             let key = active.get();
-            untrack(|| session.outcomes.preview(key));
+            let item = key.and_then(|key| {
+                lists
+                    .with_untracked(|all| {
+                        all.iter()
+                            .position(|list| list.iter().any(|item| item.key == key))
+                    })
+                    .map(|index| (index, key))
+            });
+            untrack(|| columns.send(ColumnEvent::Preview(item)));
         });
         // Closing without a pick is a cancel.
         on_cleanup(move || session.outcomes.settle(PickerOutcome::Canceled));
-        let count = titles.len();
         let search = search_field(session, placeholder, move |event| {
             if !multiple
                 || event.modifiers().ctrl
@@ -605,15 +725,10 @@ impl<K: kivact::state::ItemKey> Parts<K> {
                 Key::ArrowLeft => -1,
                 _ => return Handled::No,
             };
-            let query = query.get_untracked().trim().to_lowercase();
-            let current = active_column.get_untracked().unwrap_or(0);
-            let start = if direction > 0 {
-                (current + 1) % count
-            } else {
-                (current + count - 1) % count
-            };
-            active_column
-                .set(lists.with_untracked(|all| available_column(all, &query, start, direction)));
+            let available = lists.with_untracked(|all| {
+                column_availability(all, &query.get_untracked().trim().to_lowercase())
+            });
+            columns.send(ColumnEvent::Move(direction, available));
             Handled::Yes
         });
         let list = if multiple {
@@ -824,7 +939,7 @@ fn item_row<K: kivact::state::ItemKey>(
     ))
     .on_press(move || {
         if let Some(column) = session.column {
-            column.set(Some(index));
+            column.send(ColumnEvent::Activate(index));
         }
     })
     .part(part)
@@ -852,7 +967,7 @@ fn item_row<K: kivact::state::ItemKey>(
                 )
                 && let Some(column) = session.column
             {
-                column.set(Some(index));
+                column.send(ColumnEvent::Activate(index));
             }
             if matches!(event.phase(), PointerPhase::Down(_)) && disabled.get() {
                 session.field.focus();
