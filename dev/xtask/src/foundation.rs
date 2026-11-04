@@ -64,9 +64,14 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
     if !RULES.iter().any(|rule| active(rule)) {
         return Ok(Vec::new());
     }
-    let public_needed = ["api-shape", "canonical-path", "name-collision"]
-        .iter()
-        .any(|rule| active(rule));
+    let public_needed = [
+        "api-shape",
+        "canonical-path",
+        "name-collision",
+        "structural-options",
+    ]
+    .iter()
+    .any(|rule| active(rule));
     let surface = crate::public_surface::build_for(&sources, public_needed);
     let mut builders = BTreeSet::new();
     let enums: BTreeSet<String> = sources
@@ -148,7 +153,7 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
                 }
                 "os-branch" => crate::os_branch::check(source, settings, &mut errors),
                 "structural-options" => {
-                    crate::structural_options::check(source, settings, &mut errors)
+                    crate::structural_options::check(source, settings, &surface, &mut errors)
                 }
                 _ => unreachable!("invariant: RULES contains only implemented checks"),
             }

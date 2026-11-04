@@ -124,6 +124,7 @@ impl Owner {
     /// Register cleanup under this owner. While the owner is being
     /// disposed, `f` runs at once.
     #[track_caller]
+    // xtask-allow(api-shape): Lifecycle cleanup is a one-shot registration, not a repeatable event handler.
     pub fn on_cleanup(self, f: impl FnOnce() + 'static) {
         self.registration("Owner::on_cleanup");
         self.0.on_cleanup(f);

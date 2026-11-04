@@ -9,5 +9,6 @@ pub use kivact_runtime::{
     selector, signal, try_use_context, untrack, use_context, var,
 };
 
+// xtask-allow(internal-contract): Macro expansion support only; users consume IntoValue, not its representation.
 #[doc(hidden)]
 pub mod __private;

@@ -69,7 +69,7 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
                 bindings.push(Binding {
                     target: path.clone(),
                     path,
-                    public,
+                    public: public && !internal_item(source, item),
                     origin: (source.package.clone(), source.module.clone(), item.span()),
                 });
             }
@@ -169,6 +169,13 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
     });
     crate::public_type_edges::extend(&mut surface.reachable, edges);
     surface
+}
+fn internal_item(source: &Source, item: &syn::Item) -> bool {
+    let attrs = match item {
+        syn::Item::Mod(item) => &item.attrs,
+        _ => return false,
+    };
+    source.internal_contract(attrs, item.span())
 }
 fn resolve(path: &str, aliases: &BTreeMap<String, String>) -> String {
     let mut current = path.to_owned();
@@ -412,6 +419,39 @@ mod tests {
         let surface = super::build(&sources);
         assert!(surface.reachable.contains("kivact::hidden::Alias"));
         assert!(surface.reachable.contains("kivact::hidden::Color"));
+    }
+    #[test]
+    fn only_explicit_hidden_contract_edges_leave_the_user_surface() {
+        let sources = [
+            source(
+                "",
+                "pub struct Widget; mod hidden;\n// xtask-allow(internal-contract): Macro implementation support.\n#[doc(hidden)] pub mod __private;\n",
+            ),
+            source(
+                "hidden",
+                "pub struct Visible { pub x: f32 } pub struct Internal { pub x: f32 } pub struct StillPublic { pub x: f32 }",
+            ),
+            source("__private", "pub struct MacroSupport { pub x: f32 }"),
+            source(
+                "methods",
+                "use crate::Widget; impl Widget {\n// xtask-allow(internal-contract): Cross-crate mounting bridge.\n#[doc(hidden)] pub fn bridge(&self) -> crate::hidden::Internal { loop {} }\n#[doc(hidden)] pub fn visible(&self) -> crate::hidden::Visible { loop {} }\n// xtask-allow(internal-contract): Missing hidden attribute is not an internal contract.\npub fn still_public(&self) -> crate::hidden::StillPublic { loop {} } }",
+            ),
+        ];
+        let surface = super::build(&sources);
+        assert!(surface.reachable.contains("kivact::hidden::Visible"));
+        assert!(surface.reachable.contains("kivact::hidden::StillPublic"));
+        assert!(!surface.reachable.contains("kivact::hidden::Internal"));
+        assert!(
+            !surface
+                .reachable
+                .contains("kivact::__private::MacroSupport")
+        );
+        assert!(!surface.exports.contains_key("kivact::__private"));
+        let mut errors = Vec::new();
+        for source in &sources {
+            crate::api_shape::check(source, &surface, &mut errors);
+        }
+        assert_eq!(errors.len(), 2);
     }
     #[test]
     fn growing_alias_cycles_terminate() {

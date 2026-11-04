@@ -72,10 +72,9 @@ pub trait NodeRefExt {
     /// Call outside pure computations. Selection is preserved and clamped;
     /// active composition delays synchronization. Application writes may update
     /// disabled or read-only editors. Unbound references and regions do nothing.
-    /// The same `Rc` given again changes nothing unless the text was
-    /// edited since; another one is compared with the text once.
+    /// Text equal to the mounted value leaves the editor unchanged.
     #[track_caller]
-    fn set_edit_value(&self, value: impl Into<Rc<str>>);
+    fn set_edit_value(&self, value: impl Into<String>);
 
     /// Copy the mounted node's editing state, text included, without
     /// subscribing. Changes made to the copy are recorded: given back with
@@ -150,8 +149,8 @@ pub trait NodeRefExt {
 
 impl NodeRefExt for NodeRef {
     #[track_caller]
-    fn set_edit_value(&self, value: impl Into<Rc<str>>) {
-        let value = value.into();
+    fn set_edit_value(&self, value: impl Into<String>) {
+        let value: Rc<str> = value.into().into();
         let Some(rt) = Runtime::get(self.app) else {
             return;
         };
