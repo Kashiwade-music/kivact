@@ -1,7 +1,7 @@
 //! Role: Options of a test host: fonts, window, scale and clock.
 
 use arvane::test_display::WindowMode;
-use kivact_wire::ThemeHint;
+use kivact_types::ThemeHint;
 use std::sync::Arc;
 
 /// The bundled default test font: Arvane's test font (Tuffy, public
@@ -58,7 +58,7 @@ pub struct TestHostOptions {
     /// How the window's GPU device is made, as a native window's
     /// (`HostOptions::gpu_preference`). Used with feature `gpu-interop`;
     /// ignored without it.
-    pub gpu_preference: kivact_wire::GpuPreference,
+    pub gpu_preference: kivact_types::GpuPreference,
 }
 
 impl Default for TestHostOptions {

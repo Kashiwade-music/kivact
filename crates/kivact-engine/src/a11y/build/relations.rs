@@ -1,13 +1,13 @@
 //! Role: Drop relations the published tree cannot carry.
 
 use crate::model::Model;
-use kivact_wire as wire;
+use kivact_types as types;
 
 impl Model {
     /// Validate relationships after resolving node and region platform identities.
     pub(super) fn validate_relations(
         &self,
-        source: wire::FocusTarget,
+        source: types::FocusTarget,
         props: &mut kivact_types::protocol::SemanticsProperties,
     ) {
         // A relation names nodes the platform tree has: one that is
@@ -42,7 +42,7 @@ impl Model {
             {
                 return false;
             }
-            let inside = |ancestor: wire::FocusTarget| match ancestor.region {
+            let inside = |ancestor: types::FocusTarget| match ancestor.region {
                 Some(_) => target == ancestor,
                 None => self.tree().is_in_subtree(target.node, ancestor.node),
             };

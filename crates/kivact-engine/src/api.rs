@@ -1,4 +1,4 @@
-//! Role: The concrete synchronous bridge between the client and the engine.
+//! Role: Re-export engine handles used by the core client.
 //!
 //! The host supplies owned write access at startup and invokes callbacks
 //! without holding model borrows. Every later call is a turn on a laid-out

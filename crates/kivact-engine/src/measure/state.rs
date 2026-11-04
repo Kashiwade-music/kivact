@@ -6,7 +6,7 @@
 //! them may have changed (a `TextStyle` write on the node or an ancestor, a
 //! move to another parent, a reused slot). The entry is shared (`Rc`), so
 //! a reader keeps it without copying the style's family and features.
-use kivact_wire::{ComputedText, Size};
+use kivact_types::{ComputedText, Size};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

@@ -30,7 +30,7 @@ use std::sync::Arc;
 
 use crate::model::Model;
 use crate::model::interact::text_geometry::{caret_rect, input_scroll, text_line};
-use kivact_wire::{NodeId, Point, Rect};
+use kivact_types::{NodeId, Point, Rect};
 
 use kivact_types::{SemanticsText, SemanticsTextRun};
 
@@ -105,7 +105,7 @@ impl Model {
         authored: &SemanticsText,
         bounds: Rect,
     ) -> Option<SemanticsText> {
-        kivact_wire::check_text(authored).ok()?;
+        kivact_types::check_text(authored).ok()?;
         let (dx, dy) = (bounds.x, bounds.y);
         let runs: Vec<Arc<SemanticsTextRun>> = authored
             .runs

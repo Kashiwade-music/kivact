@@ -6,7 +6,7 @@ use crate::context::Context;
 use crate::effects::Tint;
 use crate::scene_cache::Entry;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{ComputedText, Rect, Scene};
+use kivact_types::{ComputedText, Rect, Scene};
 use std::sync::Arc;
 
 impl Context<'_> {
@@ -24,7 +24,7 @@ impl Context<'_> {
         let cacheable = !scene
             .cmds
             .iter()
-            .any(|cmd| matches!(cmd, kivact_wire::SceneCmd::External { .. }));
+            .any(|cmd| matches!(cmd, kivact_types::SceneCmd::External { .. }));
         #[cfg(not(feature = "gpu-interop"))]
         let cacheable = true;
         if !cacheable || !origin.x.is_finite() || !origin.y.is_finite() {

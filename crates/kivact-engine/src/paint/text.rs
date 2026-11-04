@@ -5,7 +5,7 @@ use kivact_lower::context::Context;
 use kivact_lower::effects::Tint;
 use kivact_lower::glyphs::{Colors, push_text};
 use kivact_lower::shape::BoxShape;
-use kivact_wire::{Fill, FillLayer, NodeId, Point, Rect, Scene};
+use kivact_types::{Fill, FillLayer, NodeId, Point, Rect, Scene};
 
 impl Model {
     /// The window's painting context: its assets and raster scale. A
@@ -52,7 +52,7 @@ impl Model {
         let inherited = scene
             .cmds
             .iter()
-            .any(|cmd| matches!(cmd, kivact_wire::SceneCmd::Text(run) if kivact_lower::glyphs::inherits(run)))
+            .any(|cmd| matches!(cmd, kivact_types::SceneCmd::Text(run) if kivact_lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
         let context = self.painting();
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);

@@ -38,11 +38,11 @@ use super::context::Context;
 use crate::effects::Tint;
 use crate::shape::BoxShape;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{
+use kivact_types::{
     CoordinateGradient, CoordinateShape, Fill, FillImage, FillLayer, FillSize, Gradient,
-    GradientExtend, GradientKind, RadialExtent,
+    GradientKind, RadialExtent,
 };
-use kivact_wire::{Rgba, Size};
+use kivact_types::{Rgba, Size};
 
 use kivact_types::protocol::{GradientShape, Pattern, PatternSource};
 use kivact_types::{Extend, Point, Rect};
@@ -694,7 +694,7 @@ pub(crate) fn coordinate(
     g: &CoordinateGradient,
     origin: Point,
 ) -> Option<kivact_types::protocol::Paint> {
-    let at = |p: kivact_wire::Point| Point {
+    let at = |p: kivact_types::Point| Point {
         x: origin.x + p.x,
         y: origin.y + p.y,
     };
@@ -732,7 +732,7 @@ pub(crate) fn coordinate(
                 start_deg,
                 end_deg: start_deg + 360.0,
             },
-            GradientExtend::Repeat,
+            Extend::Repeat,
         ),
     };
     let paint = kivact_types::protocol::Paint::Gradient(kivact_types::protocol::Gradient {

@@ -3,7 +3,7 @@
 use crate::model::Model;
 use crate::{is_list_role, semantic_role};
 use arvane as a;
-use kivact_wire as wire;
+use kivact_types as types;
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Model {
@@ -11,7 +11,7 @@ impl Model {
     /// shown and focusable.
     pub(super) fn semantics_focus(
         &self,
-        clipped: &BTreeSet<wire::NodeId>,
+        clipped: &BTreeSet<types::NodeId>,
     ) -> Option<kivact_types::SemanticsId> {
         let f = self.focused()?;
         self.exposed(f.node)?;
@@ -30,13 +30,13 @@ impl Model {
     }
 
     /// Attached to the root (an overlay through its parent).
-    pub(super) fn attached(&self, id: wire::NodeId) -> bool {
+    pub(super) fn attached(&self, id: types::NodeId) -> bool {
         self.tree().chain(Some(id)).last().copied() == self.tree().root()
     }
 
     /// The scroll offsets of the ancestors of `id`, summed.
-    pub(super) fn scroll_above(&self, id: wire::NodeId) -> wire::Point {
-        let mut out = wire::Point::default();
+    pub(super) fn scroll_above(&self, id: types::NodeId) -> types::Point {
+        let mut out = types::Point::default();
         // From the root down, summed in the order a whole build sums them.
         for x in self.tree().chain(Some(id)).into_iter().skip(1).rev() {
             let s = self.node(x).map(|n| n.scroll()).unwrap_or_default();
@@ -46,11 +46,11 @@ impl Model {
         out
     }
 
-    fn hidden(&self, id: wire::NodeId, clipped: &BTreeSet<wire::NodeId>) -> bool {
+    fn hidden(&self, id: types::NodeId, clipped: &BTreeSet<types::NodeId>) -> bool {
         !self.tree().shown(id) || clipped.contains(&id)
     }
 
-    fn focusable(&self, id: wire::NodeId, hidden: bool) -> bool {
+    fn focusable(&self, id: types::NodeId, hidden: bool) -> bool {
         !hidden && self.is_tab_stop(id) && self.in_scope(id)
     }
 
@@ -59,9 +59,9 @@ impl Model {
     /// into `regions`.
     pub(super) fn build_node(
         &mut self,
-        id: wire::NodeId,
-        offset: wire::Point,
-        clipped: &BTreeSet<wire::NodeId>,
+        id: types::NodeId,
+        offset: types::Point,
+        clipped: &BTreeSet<types::NodeId>,
         out: &mut Vec<kivact_types::protocol::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
         engine: &mut a::Engine,
@@ -71,7 +71,7 @@ impl Model {
         };
         let hidden = self.hidden(id, clipped);
         let rect = self.rect(id).unwrap_or_default();
-        let bounds = wire::Rect {
+        let bounds = types::Rect {
             x: rect.x + offset.x,
             y: rect.y + offset.y,
             ..rect
@@ -127,7 +127,7 @@ impl Model {
         }
         if let Some(props) = &mut extras {
             self.validate_relations(
-                wire::FocusTarget {
+                types::FocusTarget {
                     node: id,
                     region: None,
                 },
@@ -209,7 +209,7 @@ impl Model {
             }
             if let Some(props) = &mut props {
                 self.validate_relations(
-                    wire::FocusTarget {
+                    types::FocusTarget {
                         node: id,
                         region: Some(region_id),
                     },
@@ -255,19 +255,19 @@ impl Model {
     /// transforms).
     fn a11y_transform(
         &self,
-        id: wire::NodeId,
+        id: types::NodeId,
         layer: bool,
-        bounds: wire::Rect,
-        offset: wire::Point,
+        bounds: types::Rect,
+        offset: types::Point,
     ) -> kivact_types::protocol::Transform {
         let host = &self;
         let own = host.transform_at(id, bounds);
         if !layer {
             return own.unwrap_or(kivact_types::protocol::Transform::IDENTITY);
         }
-        let ancestors: Vec<wire::NodeId> =
+        let ancestors: Vec<types::NodeId> =
             host.tree().chain(Some(id)).into_iter().skip(1).collect();
-        let transformed = |x: &wire::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
+        let transformed = |x: &types::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
         if !ancestors.iter().any(transformed) {
             return own.unwrap_or(kivact_types::protocol::Transform::IDENTITY);
         }
@@ -278,7 +278,7 @@ impl Model {
             let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
             let above = self.scroll_above(*x);
             let r = host.rect(*x).unwrap_or_default();
-            let content = wire::Rect {
+            let content = types::Rect {
                 x: r.x + above.x,
                 y: r.y + above.y,
                 ..r
@@ -304,7 +304,7 @@ impl Model {
 
     /// Rows of every clipping list-like container that lie entirely
     /// outside it while neither neighbouring row reaches into it.
-    pub(super) fn clipped_rows(&self) -> BTreeSet<wire::NodeId> {
+    pub(super) fn clipped_rows(&self) -> BTreeSet<types::NodeId> {
         let mut clipped = BTreeSet::new();
         for (list, _) in self.tree().iter() {
             if let Some((_, c)) = self.list_rows(list) {
@@ -319,7 +319,10 @@ impl Model {
     /// neighbouring row reaches into it. Containers without a role between
     /// the list and its rows are transparent; rows holding the focus stay
     /// exposed.
-    fn list_rows(&self, list: wire::NodeId) -> Option<(Vec<wire::NodeId>, BTreeSet<wire::NodeId>)> {
+    fn list_rows(
+        &self,
+        list: types::NodeId,
+    ) -> Option<(Vec<types::NodeId>, BTreeSet<types::NodeId>)> {
         let tree = self.tree();
         let n = tree.get(list)?;
         if !is_clipping_list(n, self.editors[n.index.0].is_some()) || !tree.shown(list) {
@@ -365,14 +368,14 @@ impl Model {
 /// targets resolved by `resolve` (one the platform tree cannot name is
 /// left out; `validate_relations` in `build` drops the rest it must not
 /// publish). Level and position count from 1, as in ARIA: `0` is "not
-/// set" and is not published (for a client building the wire itself too).
+/// set" and is not published (for a client building the shared itself too).
 /// A set size of `0` is published, an empty set. A position past the set's
 /// size is not a valid pair: only the size is published, so assistive
 /// technology never gets an invalid pair. The other values pass through as
 /// they are.
 pub(super) fn properties(
-    p: &wire::SemanticsProperties,
-    resolve: impl Fn(wire::FocusTarget) -> Option<kivact_types::SemanticsId>,
+    p: &types::SemanticsProperties,
+    resolve: impl Fn(types::FocusTarget) -> Option<kivact_types::SemanticsId>,
 ) -> kivact_types::protocol::SemanticsProperties {
     // Level and position are counted from 1, so 0 means "not set". A position
     // past the set's size is not a valid pair: the size is published, the
@@ -421,7 +424,7 @@ fn is_clipping_list(n: &crate::tree::node::HostNode, editor_present: bool) -> bo
 /// its children (no scene regions), bounds, scroll, transform and
 /// visibility.
 pub(super) fn structural(
-    id: wire::NodeId,
+    id: types::NodeId,
     children: Vec<kivact_types::SemanticsId>,
     bounds: kivact_types::Rect,
     scroll: kivact_types::Point,
@@ -450,7 +453,7 @@ pub(super) fn structural(
     }
 }
 
-pub(super) fn drawable(r: wire::Rect) -> bool {
+pub(super) fn drawable(r: types::Rect) -> bool {
     [r.x, r.y, r.width, r.height, r.x + r.width, r.y + r.height]
         .iter()
         .all(|v| v.is_finite())
@@ -459,6 +462,6 @@ pub(super) fn drawable(r: wire::Rect) -> bool {
 }
 
 /// Positive-area intersection, as AccessKit tests bounding boxes.
-fn overlaps(a: wire::Rect, b: wire::Rect) -> bool {
+fn overlaps(a: types::Rect, b: types::Rect) -> bool {
     a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }

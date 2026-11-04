@@ -1,8 +1,9 @@
 //! Role: Frame ticks, smooth scrolls, env and surface changes, and the next deadline.
 
 use super::state::{Clock, SmoothScroll};
+use crate::contract::HostEvent;
 use crate::model::Model;
-use kivact_wire::{HostEnv, HostEvent, MotionClock, NodeId, Point};
+use kivact_types::{HostEnv, MotionClock, NodeId, Point};
 
 impl Model {
     /// Scroll `id` from `start` to `target` over the next frames (at once

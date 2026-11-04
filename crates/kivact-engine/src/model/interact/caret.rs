@@ -1,6 +1,6 @@
 //! Role: Project the focused editor caret after scrolling its text.
 use crate::model::Model;
-use kivact_wire::Rect;
+use kivact_types::Rect;
 impl Model {
     /// After client turns: the IME caret area of the focused text input
     /// in the window, as drawn (its text scrolled to the caret first).

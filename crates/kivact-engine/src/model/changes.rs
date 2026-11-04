@@ -35,7 +35,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 /// The kinds of per-node pending work, as a small bit set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

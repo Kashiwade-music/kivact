@@ -4,7 +4,7 @@ use crate::model::Model;
 use crate::model::interact::visual;
 use crate::model::semantics::semantic_role;
 use crate::tree::node::HostNode;
-use kivact_wire::{Edges, Fill, FillImage, LayoutCheck, NodeId, Rect};
+use kivact_types::{Edges, Fill, FillImage, LayoutCheck, NodeId, Rect};
 
 /// The ancestors of `id`, nearest first, up to and including the first
 /// overlay or fixed box (none for such a box itself).

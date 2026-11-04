@@ -1,8 +1,9 @@
 //! Role: Focus processing: tab stops, Tab order, focus requests and automatic moves.
 
 use super::state::Focused;
+use crate::contract::{HostEvent, RovingFocus};
 use crate::model::Model;
-use kivact_wire::{FocusTarget, HostEvent, NodeId, RovingFocus};
+use kivact_types::{FocusTarget, NodeId};
 use std::collections::HashSet;
 
 impl Model {

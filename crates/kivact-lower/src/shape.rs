@@ -21,7 +21,7 @@
 //!   are those of the node's base paint: a state style that changes its
 //!   corners or clip path changes how it is drawn, not where it is hit.
 
-use kivact_wire::{Border, ClipShape, Corners, Edges, Len, PaintProps, Point, Rect};
+use kivact_types::{Border, ClipShape, Corners, Edges, Len, PaintProps, Point, Rect};
 
 use kivact_types::FillRule;
 use kivact_types::protocol::{Radius, RoundedRect, Shape};

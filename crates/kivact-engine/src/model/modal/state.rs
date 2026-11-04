@@ -6,7 +6,7 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-use kivact_wire::{NodeId, PointerId, RegionId};
+use kivact_types::{NodeId, PointerId, RegionId};
 
 /// A primary gesture taken over by a node or a canvas region.
 #[derive(Clone, Copy)]

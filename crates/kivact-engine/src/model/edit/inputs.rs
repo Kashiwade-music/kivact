@@ -1,5 +1,6 @@
 //! Role: Text inputs' native editors: edit states, controlled values, sessions and lines.
 
+use crate::contract::HostEvent;
 use crate::measure::editor::EditorNode;
 #[cfg(all(debug_assertions, feature = "testing"))]
 use crate::measure::input::RefreshedLines;
@@ -9,7 +10,7 @@ use kivact_editing::{EditState, Editor, Taken, TextSession};
 use kivact_text::EditLines;
 #[cfg(all(debug_assertions, feature = "testing"))]
 use kivact_text::{RefreshError, RefreshMode};
-use kivact_wire::{HostEvent, NodeId};
+use kivact_types::NodeId;
 use std::cell::RefMut;
 use std::rc::Rc;
 

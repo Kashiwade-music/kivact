@@ -2,10 +2,11 @@
 
 use super::space::PointerSpace;
 use super::state::{Gesture, PointerSource, Press, Route, Track};
+use crate::contract::HostEvent;
 use crate::model::Model;
-use kivact_wire::{
-    A11yAction, ButtonPress, FocusTarget, HostEvent, Modifiers, MouseButton, NodeId, Point,
-    PointerButtons, PointerEvent, PointerId, PointerPhase, RegionId,
+use kivact_types::{
+    A11yAction, ButtonPress, FocusTarget, Modifiers, MouseButton, NodeId, Point, PointerButtons,
+    PointerEvent, PointerId, PointerPhase, RegionId,
 };
 
 /// Which of a pointer's two chains a change is about.
@@ -288,7 +289,7 @@ impl Model {
                 .then(|| {
                     let pos = space.local(self, h);
                     let region = space.region(self, h, pos)?;
-                    let target = kivact_wire::FocusTarget {
+                    let target = kivact_types::FocusTarget {
                         node: h,
                         region: Some(region),
                     };
@@ -297,7 +298,7 @@ impl Model {
                 .flatten();
             region.or_else(|| {
                 self.ancestor_where(h, |n| n.focusable(self.editors[n.index.0].is_some()))
-                    .map(|node| kivact_wire::FocusTarget { node, region: None })
+                    .map(|node| kivact_types::FocusTarget { node, region: None })
             })
         });
         let focus = hit

@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use kivact_wire::{ComputedText, InlineBox, ShapedInlineText, TextMetrics, TextRun, TextShaper};
+use kivact_types::{ComputedText, InlineBox, ShapedInlineText, TextMetrics, TextRun, TextShaper};
 
 /// Text measurement for one drawing callback, independent of any node: the
 /// shared text engine and the text style the drawn runs inherit. A run

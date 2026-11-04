@@ -28,11 +28,9 @@
 
 use std::sync::Arc;
 
+use crate::contract::{HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
-use kivact_wire::{
-    ElementTransform, HostEvent, NodeId, NodeKind, NodeProperties, NodeType, Point, RequestId,
-    Revision, Scene, SceneLayer,
-};
+use kivact_types::{ElementTransform, NodeId, Point, RequestId, Revision, Scene};
 
 use crate::model::Model;
 use crate::model::changes::Dirty;
@@ -97,7 +95,7 @@ impl Model {
     /// Focus `id` on kivact's request and report the result.
     pub(crate) fn focus_request(
         &mut self,
-        id: kivact_wire::FocusTarget,
+        id: kivact_types::FocusTarget,
         request: RequestId,
         visible: bool,
     ) {

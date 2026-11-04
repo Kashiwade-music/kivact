@@ -11,7 +11,7 @@
 //!
 //! `Measure` is one concrete type that calls each kind of leaf's measuring
 //! directly (text, text input, image, a measured box's closure). A borrowed
-//! `EngineMeasure` adapter implements layout's independent `LeafMeasure`.
+//! `EngineMeasure` adapter implements layout's independent `LeafMeasurer`.
 //! What it keeps between passes it keeps in the nodes (`HostNode::extents`
 //! for measured text only, in a box, and the image's natural size), which
 //! the model's semantics never read.
@@ -60,7 +60,7 @@
 //!   size; the node's layout record keeps
 //!   its sizes until a new `Measure` prop (new content) arrives, which is
 //!   measured again only under the recorded requests first
-//!   ([`Measure::measures_same`]). The closure (`wire::LeafMeasure`, equal
+//!   ([`Measure::measures_same`]). The closure (`crate::contract::LeafMeasure`, equal
 //!   when it is the same `Rc`) runs synchronously in the layout pass with
 //!   the model borrowed; the text measurer it is lent borrows the Arvane
 //!   engine of the pass, never the tree or a reader again, and its runs
@@ -78,9 +78,10 @@
 //!   (`HostNode::natural`), so `Model::poll_assets` measures again only
 //!   the images whose natural size changed.
 
+use crate::contract::NodeType;
 use crate::tree::NodeTree;
-use kivact_wire::{AvailableSpace, MeasureRequest};
-use kivact_wire::{Baseline, LeafSize, NodeId, NodeType, Size};
+use kivact_types::{AvailableSpace, MeasureRequest};
+use kivact_types::{Baseline, LeafSize, NodeId, Size};
 
 use crate::measure::editor::EditorNode;
 use crate::measure::state::{MeasureColumns, TextExtents};
@@ -102,7 +103,7 @@ pub(crate) struct EngineMeasure<'a, 'm> {
     pub(crate) measure: &'a mut Measure<'m>,
 }
 
-impl kivact_layout::LeafMeasure for EngineMeasure<'_, '_> {
+impl kivact_layout::LeafMeasurer for EngineMeasure<'_, '_> {
     fn measure(&mut self, id: NodeId, request: MeasureRequest) -> LeafSize {
         self.measure.measure(self.tree, id, request)
     }
@@ -321,7 +322,7 @@ impl Measure<'_> {
                     columns: self.cache,
                     id,
                 };
-                leaf_size(n, request, kivact_wire::LeafTextMeasurer::new(&text))
+                leaf_size(n, request, crate::contract::LeafTextMeasurer::new(&text))
             }
         }
     }
@@ -366,7 +367,7 @@ impl Measure<'_> {
 /// allocation), their families resolved; colors are not measured.
 pub(crate) fn rich_spans(
     engine: &mut arvane::Engine,
-    spans: &[kivact_wire::TextSpan],
+    spans: &[kivact_types::TextSpan],
     style: &kivact_types::protocol::TextStyle,
 ) -> Vec<kivact_types::protocol::TextSpan> {
     if spans.is_empty() {
@@ -384,7 +385,7 @@ pub(crate) fn rich_spans(
 fn leaf_size(
     n: &crate::tree::node::HostNode,
     request: MeasureRequest,
-    text: kivact_wire::LeafTextMeasurer<'_>,
+    text: crate::contract::LeafTextMeasurer<'_>,
 ) -> LeafSize {
     if let Some(measure) = n.measure() {
         return measure.measure(request, text);
@@ -401,14 +402,14 @@ fn leaf_size(
 /// inherited ones, computed when a run needs them).
 struct LeafText<'a> {
     engine: std::cell::RefCell<&'a mut arvane::Engine>,
-    inherited: std::cell::OnceCell<std::rc::Rc<kivact_wire::ComputedText>>,
+    inherited: std::cell::OnceCell<std::rc::Rc<kivact_types::ComputedText>>,
     tree: &'a NodeTree,
     columns: &'a MeasureColumns,
     id: NodeId,
 }
 
 impl LeafText<'_> {
-    fn inherited(&self, run: &kivact_wire::TextRun) -> Option<&kivact_wire::ComputedText> {
+    fn inherited(&self, run: &kivact_types::TextRun) -> Option<&kivact_types::ComputedText> {
         kivact_lower::glyphs::inherits(run).then(|| {
             &**self
                 .inherited
@@ -417,15 +418,15 @@ impl LeafText<'_> {
     }
 }
 
-impl kivact_wire::TextShaper for LeafText<'_> {
-    fn measure(&self, run: &kivact_wire::TextRun) -> kivact_wire::TextMetrics {
+impl kivact_types::TextShaper for LeafText<'_> {
+    fn measure(&self, run: &kivact_types::TextRun) -> kivact_types::TextMetrics {
         let inherited = self.inherited(run);
         kivact_lower::glyphs::measure_run(&mut self.engine.borrow_mut(), run, inherited)
     }
 
     fn shape(
         &self,
-        run: &kivact_wire::TextRun,
+        run: &kivact_types::TextRun,
         max_width: Option<f32>,
     ) -> Option<std::sync::Arc<kivact_types::protocol::ShapedText>> {
         let inherited = self.inherited(run);
@@ -434,10 +435,10 @@ impl kivact_wire::TextShaper for LeafText<'_> {
 
     fn shape_inline(
         &self,
-        run: &kivact_wire::TextRun,
+        run: &kivact_types::TextRun,
         max_width: Option<f32>,
-        boxes: &[kivact_wire::InlineBox],
-    ) -> Option<kivact_wire::ShapedInlineText> {
+        boxes: &[kivact_types::InlineBox],
+    ) -> Option<kivact_types::ShapedInlineText> {
         let inherited = self.inherited(run);
         kivact_lower::glyphs::shape_inline_run(
             &mut self.engine.borrow_mut(),

@@ -51,7 +51,7 @@
 //! overlay). A transformed node is hit by its base paint's corners and
 //! clip path, as every node is.
 
-use kivact_wire::{ElementTransform, NodeId, Point, Rect, Size};
+use kivact_types::{ElementTransform, NodeId, Point, Rect, Size};
 
 use crate::model::Model;
 use crate::tree::node::HostNode;

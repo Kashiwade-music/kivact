@@ -1,7 +1,7 @@
 //! Role: Bounded retained local scene payloads and resource dependency data.
 use crate::effects::Tint;
 use arvane::asset::{PixelSize, Region};
-use kivact_wire::{Asset, ComputedText, Rgba, Scene, Size};
+use kivact_types::{Asset, ComputedText, Rgba, Scene, Size};
 use std::sync::{Arc, Weak};
 
 /// Rebuildable local-scene lowering owned by one host or offscreen renderer.

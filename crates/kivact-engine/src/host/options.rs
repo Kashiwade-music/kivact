@@ -1,5 +1,5 @@
 //! Role: Passive initial native window settings consumed by the host.
-use kivact_wire::Size;
+use kivact_types::Size;
 
 /// Initial native window settings, after the application validates them.
 #[derive(Clone, Copy, Debug, Default)]
@@ -11,5 +11,5 @@ pub struct HostOptions {
     pub window_size: Option<Size>,
     /// How the window's GPU device is made (`Shell::gpu_preference`). Used
     /// with feature `gpu-interop`; ignored without it.
-    pub gpu_preference: kivact_wire::GpuPreference,
+    pub gpu_preference: kivact_types::GpuPreference,
 }

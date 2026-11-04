@@ -4,9 +4,10 @@ use super::client::Client;
 use super::options::HostOptions;
 use super::pump::{Host, LastFrame, Phase};
 use crate::FrameLog;
+use crate::contract::HostError;
 use crate::model::Model;
 use arvane::{RendererChange, Shell, ShellOptions};
-use kivact_wire::{HostError, Size};
+use kivact_types::Size;
 use std::cell::RefCell;
 use std::rc::Rc;
 

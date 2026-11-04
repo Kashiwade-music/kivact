@@ -1,4 +1,4 @@
-//! Role: Semantic conversion of wire values to neutral text and geometry.
+//! Role: Semantic conversion of shared values to neutral text and geometry.
 //!
 //! Shared kivact-types values pass through unchanged. Only contracts whose
 //! representations differ are resolved here: safe areas, text lengths,
@@ -21,12 +21,12 @@
 //!   against its own size, its colors drawn through the node's tint, its
 //!   family resolved like a text's, and a background as a highlight band.
 use crate::sanitize::color;
-use kivact_wire as wire;
+use kivact_types as types;
 
 /// Insets (a safe area); non-finite or negative ones become zero.
-pub fn insets(a: kivact_types::Insets) -> wire::Insets {
+pub fn insets(a: kivact_types::Insets) -> types::Insets {
     let side = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
-    wire::Insets {
+    types::Insets {
         top: side(a.top),
         right: side(a.right),
         bottom: side(a.bottom),
@@ -36,15 +36,15 @@ pub fn insets(a: kivact_types::Insets) -> wire::Insets {
 
 /// Arvane's line height for a protocol one: unset and invalid values
 /// (not finite, not above zero) are `Normal`.
-pub(crate) fn line_height(p: Option<wire::LineHeight>) -> kivact_types::LineHeight {
+pub(crate) fn line_height(p: Option<types::LineHeight>) -> kivact_types::LineHeight {
     let positive = |v: f32| v.is_finite() && v > 0.0;
     match p {
-        Some(wire::LineHeight::Scale(v)) if positive(v) => kivact_types::LineHeight::Scale(v),
-        Some(wire::LineHeight::Px(v)) if positive(v) => kivact_types::LineHeight::Px(v),
+        Some(types::LineHeight::Scale(v)) if positive(v) => kivact_types::LineHeight::Scale(v),
+        Some(types::LineHeight::Px(v)) if positive(v) => kivact_types::LineHeight::Px(v),
         _ => kivact_types::LineHeight::Normal,
     }
 }
-pub(crate) fn text(p: &wire::ComputedText) -> kivact_types::protocol::TextStyle {
+pub(crate) fn text(p: &types::ComputedText) -> kivact_types::protocol::TextStyle {
     let positive = |v: f32| v.is_finite() && v > 0.0;
     let font_size = if positive(p.font_size) {
         p.font_size
@@ -83,7 +83,7 @@ fn finite(v: f32) -> f32 {
 
 /// A decoration of text of `font_size` (its em lengths resolved).
 pub(crate) fn decoration(
-    d: wire::TextDecoration,
+    d: types::TextDecoration,
     font_size: f32,
 ) -> kivact_types::protocol::TextDecoration {
     kivact_types::protocol::TextDecoration {
@@ -101,9 +101,9 @@ pub(crate) fn decoration(
 /// colors drawn through `tint`, families resolved by `family`; a span
 /// with a background is highlighted.
 pub fn spans(
-    spans: &[wire::TextSpan],
+    spans: &[types::TextSpan],
     font_size: f32,
-    tint: impl Fn(wire::Rgba) -> kivact_types::Rgba,
+    tint: impl Fn(types::Rgba) -> kivact_types::Rgba,
     mut family: impl FnMut(&str) -> Option<String>,
 ) -> Vec<kivact_types::protocol::TextSpan> {
     spans

@@ -1,13 +1,13 @@
 //! Role: Map engine nodes and canvas regions to native accessibility identities and back.
 
 use crate::model::Model;
-use kivact_wire as wire;
+use kivact_types as types;
 
 impl Model {
     /// Resolve existing focus identities into the platform accessibility tree.
     pub(super) fn semantic_target(
         &self,
-        target: wire::FocusTarget,
+        target: types::FocusTarget,
     ) -> Option<kivact_types::SemanticsId> {
         self.node(target.node)?;
         match target.region {
@@ -26,29 +26,32 @@ impl Model {
     pub(super) fn semantic_identity(
         &self,
         target: kivact_types::SemanticsId,
-    ) -> Option<wire::FocusTarget> {
+    ) -> Option<types::FocusTarget> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
-            Some(wire::FocusTarget {
+            Some(types::FocusTarget {
                 node: *node,
                 region: Some(*region),
             })
         } else {
-            self.node(wire::NodeId(target.0))?;
-            Some(wire::FocusTarget {
-                node: wire::NodeId(target.0),
+            self.node(types::NodeId(target.0))?;
+            Some(types::FocusTarget {
+                node: types::NodeId(target.0),
                 region: None,
             })
         }
     }
 
-    pub(super) fn semantic_owner(&self, target: kivact_types::SemanticsId) -> Option<wire::NodeId> {
+    pub(super) fn semantic_owner(
+        &self,
+        target: kivact_types::SemanticsId,
+    ) -> Option<types::NodeId> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
             Some(*node)
         } else {
-            self.node(wire::NodeId(target.0))
-                .map(|_| wire::NodeId(target.0))
+            self.node(types::NodeId(target.0))
+                .map(|_| types::NodeId(target.0))
         }
     }
 
@@ -71,9 +74,9 @@ impl Model {
         }
     }
 
-    pub(super) fn region_identity(&mut self, owner: wire::NodeId, region: wire::RegionId) -> u64 {
+    pub(super) fn region_identity(&mut self, owner: types::NodeId, region: types::RegionId) -> u64 {
         if let Some(&id) = self.a11y.region_ids.get(&(owner, region))
-            && !self.tree().contains(wire::NodeId(id))
+            && !self.tree().contains(types::NodeId(id))
         {
             return id;
         }

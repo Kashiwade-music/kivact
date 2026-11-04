@@ -1,7 +1,7 @@
 //! Role: The focus group's state: the focus target with its modality and pending reveal.
 
 use crate::tree::NodeTree;
-use kivact_wire::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, NodeId};
 use std::collections::HashMap;
 
 /// The keyboard focus.

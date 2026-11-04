@@ -23,7 +23,7 @@ use crate::model::Model;
 use crate::paint::state::{Axis, ChildIndex, Extent, Indexed};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
-use kivact_wire::{NodeId, Rect};
+use kivact_types::{NodeId, Rect};
 
 use super::ink::{grow, ink, overlaps};
 

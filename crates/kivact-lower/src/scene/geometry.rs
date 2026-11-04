@@ -4,7 +4,7 @@ use crate::context::Context;
 use crate::sanitize;
 use crate::shape::BoxShape;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{DrawingShape, Fill, Point, Rect, SceneCmd};
+use kivact_types::{DrawingShape, Fill, Point, Rect, SceneCmd};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;

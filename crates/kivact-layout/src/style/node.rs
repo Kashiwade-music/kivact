@@ -23,7 +23,7 @@ use taffy::{
     Size,
 };
 
-use kivact_wire::{GridLine, GridPos};
+use kivact_types::{GridLine, GridPos};
 
 /// A full taffy style (named grid lines are never used): a grid
 /// container's (`NodeStyle::grid`).

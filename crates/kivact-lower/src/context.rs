@@ -34,7 +34,7 @@
 //!   `HostEvent::DrawDropped { node, count }`, and the layer reports again
 //!   only after it painted once without dropping one.
 
-use kivact_wire::Size;
+use kivact_types::Size;
 use std::cell::{Cell, RefCell};
 
 use crate::assets::ArvaneAssets;

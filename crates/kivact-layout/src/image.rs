@@ -17,7 +17,7 @@
 //!   loads). Without a usable ratio (none, or an empty side) it is the
 //!   reference size's.
 
-use kivact_wire::{Dimension, IntrinsicSize, LayoutProps, MeasureRequest, Size};
+use kivact_types::{Dimension, IntrinsicSize, LayoutProps, MeasureRequest, Size};
 
 /// The content size of an image node from the dimensions its style sets
 /// (`width`, `height`), its optional intrinsic size hint and its natural

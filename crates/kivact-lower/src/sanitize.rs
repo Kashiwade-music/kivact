@@ -5,7 +5,7 @@
 //! complete scene: Arvane rendering validation is the final boundary.
 
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{
+use kivact_types::{
     ClipShape, CoordinateShape, Corners, Fill, FillImage, FillLayer, FillSize, GradientKind, Len,
     PaintProps, Point, RadialExtent, Rect, Rgba,
 };

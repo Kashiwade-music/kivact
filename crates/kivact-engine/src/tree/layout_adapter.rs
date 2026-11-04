@@ -1,9 +1,10 @@
 //! Role: Adapts the authoritative engine tree and resource measurer to layout.
 
+use crate::contract::NodeType;
 use crate::tree::NodeTree;
 use crate::tree::node::NodeIndex;
 use kivact_layout::{Flow, LayoutTree};
-use kivact_wire::{LayoutProps, NodeId, NodeType, OverlayAt, OverlayFit};
+use kivact_types::{LayoutProps, NodeId, OverlayAt, OverlayFit};
 
 impl LayoutTree for NodeTree {
     #[inline]

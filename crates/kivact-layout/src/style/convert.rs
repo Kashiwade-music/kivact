@@ -12,12 +12,12 @@ use taffy::{
 
 use crate::calcs::CalcAlloc;
 use crate::style::node::{NodeStyle, TStyle};
-use kivact_wire::{
-    Align, Breadth, Dimension, FlexDirection, GridContainer, GridFlow, GridTrack, Justify,
-    LayoutProps, Overflow, Position, Repeat, TrackSize,
+use kivact_types::{
+    Align, Breadth, Dimension, FlexDirection, GridContainer, GridFlow, GridRepeat, GridTrack,
+    Justify, LayoutProps, Overflow, Position, TrackSize,
 };
 
-/// Converts `wire` lengths, making calc handles.
+/// Converts `shared` lengths, making calc handles.
 struct Lengths<'a, 'b> {
     alloc: &'a mut CalcAlloc<'b>,
 }
@@ -247,9 +247,9 @@ impl Lengths<'_, '_> {
             GridTrack::Repeat(count, tracks) => {
                 GridTemplateComponent::Repeat(GridTemplateRepetition {
                     count: match count {
-                        Repeat::Count(n) => RepetitionCount::Count((*n).max(1)),
-                        Repeat::AutoFill => RepetitionCount::AutoFill,
-                        Repeat::AutoFit => RepetitionCount::AutoFit,
+                        GridRepeat::Count(n) => RepetitionCount::Count((*n).max(1)),
+                        GridRepeat::AutoFill => RepetitionCount::AutoFill,
+                        GridRepeat::AutoFit => RepetitionCount::AutoFit,
                     },
                     tracks: tracks.iter().map(|s| self.track(*s)).collect(),
                     line_names: Vec::new(),

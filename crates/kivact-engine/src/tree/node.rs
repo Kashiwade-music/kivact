@@ -7,10 +7,10 @@
 
 use std::sync::Arc;
 
-use kivact_wire::{
-    A11yAction, LayoutProps, NodeKind, NodeProperties, NodeType, Overflow, OverlayProps,
-    PaintProps, Point, Position, Rect, Region, RegionId, Role, Scene, SceneLayer, Size,
-    StateStyles, TextProps,
+use crate::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_types::{
+    A11yAction, LayoutProps, Overflow, OverlayProps, PaintProps, Point, Position, Rect, Region,
+    RegionId, Role, Scene, Size, StateStyles, TextProps,
 };
 
 /// A stable position in the sole node store, used only by retained links.
@@ -118,38 +118,38 @@ impl HostNode {
         self.place.fixed = position == Some(Position::Fixed);
     }
 
-    pub(crate) fn semantics(&self) -> Option<&kivact_wire::NodeSemantics> {
+    pub(crate) fn semantics(&self) -> Option<&crate::contract::NodeSemantics> {
         self.properties.semantics.as_deref()
     }
-    pub(crate) fn text_data(&self) -> Option<&kivact_wire::TextData> {
+    pub(crate) fn text_data(&self) -> Option<&kivact_types::TextData> {
         match &self.properties.kind {
             NodeKind::Text(data) => Some(data),
             _ => None,
         }
     }
-    pub(crate) fn input_data(&self) -> Option<&kivact_wire::EditingData> {
+    pub(crate) fn input_data(&self) -> Option<&crate::contract::EditingData> {
         self.properties.editing.as_deref()
     }
-    pub(crate) fn image_data(&self) -> Option<&kivact_wire::ImageData> {
+    pub(crate) fn image_data(&self) -> Option<&kivact_types::ImageData> {
         match &self.properties.kind {
             NodeKind::Image(data) => Some(data),
             _ => None,
         }
     }
-    pub(crate) fn intrinsic(&self) -> Option<&kivact_wire::IntrinsicSize> {
+    pub(crate) fn intrinsic(&self) -> Option<&kivact_types::IntrinsicSize> {
         match &self.properties.kind {
             NodeKind::Box(data) => data.intrinsic.as_ref(),
             NodeKind::Image(data) => data.intrinsic.as_ref(),
             _ => None,
         }
     }
-    pub(crate) fn measure(&self) -> Option<&kivact_wire::LeafMeasure> {
+    pub(crate) fn measure(&self) -> Option<&crate::contract::LeafMeasure> {
         match &self.properties.kind {
             NodeKind::Box(data) => data.measure.as_ref(),
             _ => None,
         }
     }
-    pub(crate) fn image(&self) -> Option<&kivact_wire::Asset> {
+    pub(crate) fn image(&self) -> Option<&kivact_types::Asset> {
         self.image_data()?.image.as_ref()
     }
 
@@ -179,7 +179,7 @@ impl HostNode {
     pub(crate) fn content(&self) -> Option<&str> {
         self.text_data()?.content.as_deref()
     }
-    pub(crate) fn spans(&self) -> &[kivact_wire::TextSpan] {
+    pub(crate) fn spans(&self) -> &[kivact_types::TextSpan] {
         self.text_data()
             .and_then(|d| d.spans.as_deref())
             .unwrap_or(&[])
@@ -273,13 +273,13 @@ impl HostNode {
         self.input_data().and_then(|s| s.multiline).unwrap_or(false)
     }
 
-    pub(crate) fn edit_line_layout(&self) -> kivact_wire::EditLineLayout {
+    pub(crate) fn edit_line_layout(&self) -> kivact_types::EditLineLayout {
         if self.multiline() {
             self.input_data()
                 .and_then(|s| s.line_layout)
                 .unwrap_or_default()
         } else {
-            kivact_wire::EditLineLayout::default()
+            kivact_types::EditLineLayout::default()
         }
     }
 
@@ -294,11 +294,11 @@ impl HostNode {
     }
 
     /// The declared native pointer focus destination, if currently bound.
-    pub(crate) fn focus_on_press(&self) -> Option<kivact_wire::FocusTarget> {
+    pub(crate) fn focus_on_press(&self) -> Option<kivact_types::FocusTarget> {
         self.properties.input.focus_on_press
     }
 
-    pub(crate) fn roving_focus(&self) -> Option<kivact_wire::RovingFocus> {
+    pub(crate) fn roving_focus(&self) -> Option<crate::contract::RovingFocus> {
         self.properties.input.roving_focus
     }
 

@@ -2,8 +2,8 @@
 
 use super::state::{AnimPhase, StateAnimation};
 use crate::model::Model;
-use kivact_wire::motion::SpringRun;
-use kivact_wire::{NodeId, PaintProps, PaintVec};
+use kivact_types::motion::SpringRun;
+use kivact_types::{NodeId, PaintProps, PaintVec};
 
 impl Model {
     /// Capture the displayed value before the host changes a state.

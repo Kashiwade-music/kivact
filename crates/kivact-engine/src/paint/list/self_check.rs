@@ -109,9 +109,9 @@ impl Model {
 fn ink_value(
     ink: Ink,
 ) -> (
-    Option<kivact_wire::Rect>,
-    kivact_wire::Size,
-    kivact_wire::Size,
+    Option<kivact_types::Rect>,
+    kivact_types::Size,
+    kivact_types::Size,
 ) {
     (ink.rect, ink.size, ink.content)
 }

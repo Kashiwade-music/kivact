@@ -40,7 +40,8 @@
 //! - Reports go out in id order: every changed scroll container's
 //!   `ScrollChanged`, then every changed observed node's `LayoutChanged`.
 
-use kivact_wire::{HostEvent, NodeId, NodeType, OverlayAt, Point, Rect};
+use crate::contract::{HostEvent, NodeType};
+use kivact_types::{NodeId, OverlayAt, Point, Rect};
 
 use crate::measure::leaf::Measure;
 use crate::model::Model;
@@ -146,7 +147,7 @@ impl Model {
         &mut self,
         engine: &mut arvane::Engine,
         id: NodeId,
-        limit: Option<kivact_wire::Size>,
+        limit: Option<kivact_types::Size>,
     ) {
         let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
         let mut leaves = crate::measure::leaf::EngineMeasure {

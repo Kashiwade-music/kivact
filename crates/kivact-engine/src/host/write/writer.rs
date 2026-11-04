@@ -1,11 +1,12 @@
 //! Role: `Writer`: the turn's write API onto the engine's tree.
 
 use super::reader::Reader;
+use crate::contract::{HostEvent, NodeKind, SceneLayer};
 use crate::model::Model;
 use crate::mutation::WriteStats;
-use kivact_wire::{
-    HostEvent, NodeId, NodeKind, PlatformRequest, PlatformResult, Point, PointerId, RegionId,
-    RequestId, Revision, Scene, SceneLayer, Size,
+use kivact_types::{
+    NodeId, PlatformRequest, PlatformResult, Point, PointerId, RegionId, RequestId, Revision,
+    Scene, Size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -146,7 +147,7 @@ impl Writer {
 
     /// Focus `id`; the result is reported with `request`
     /// (`HostEvent::FocusResult`).
-    pub fn focus(&self, id: kivact_wire::FocusTarget, request: RequestId, visible: bool) {
+    pub fn focus(&self, id: kivact_types::FocusTarget, request: RequestId, visible: bool) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         m.writes.command(Some(id.node));
@@ -288,8 +289,8 @@ impl Writer {
     #[cfg(feature = "gpu-interop")]
     pub fn import_external(
         &self,
-        image: kivact_wire::ExternalImageId,
-        textures: kivact_wire::SharedTextures,
+        image: kivact_types::ExternalImageId,
+        textures: kivact_types::SharedTextures,
     ) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
@@ -302,7 +303,7 @@ impl Writer {
     /// (`Window::drop_external_image`), after the turn; nothing when it is
     /// not imported.
     #[cfg(feature = "gpu-interop")]
-    pub fn drop_external(&self, image: kivact_wire::ExternalImageId) {
+    pub fn drop_external(&self, image: kivact_types::ExternalImageId) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         m.writes.command(None);

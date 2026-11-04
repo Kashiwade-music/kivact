@@ -2,13 +2,13 @@
 
 use super::boxes::{Axes, ancestors, clips, padding_box, reach, visual_parent};
 use super::shaped_lines::shape;
+#[cfg(feature = "testing")]
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::interact::visual;
 use crate::model::semantics::semantic_role;
 use crate::tree::node::HostNode;
-#[cfg(feature = "testing")]
-use kivact_wire::NodeType;
-use kivact_wire::{
+use kivact_types::{
     Align, FlexDirection, Justify, LayoutCheck, LayoutFinding, LayoutLimit, LayoutProps,
     LayoutRule, NodeId, Position, Rect,
 };

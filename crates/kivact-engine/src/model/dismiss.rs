@@ -14,7 +14,8 @@
 //!   is delivered. Only the overlay list is scanned; the tree is walked
 //!   only when several overlays are dismissed at once.
 
-use kivact_wire::{A11yRequest, DismissReason, HostEvent, NodeId};
+use crate::contract::HostEvent;
+use kivact_types::{A11yRequest, DismissReason, NodeId};
 
 use crate::model::Model;
 

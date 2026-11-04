@@ -1,11 +1,12 @@
 //! Role: The `Host` and its pump: shell events, turns, layout, effects and presenting.
 
 use super::client::{Boundary, Client};
+use crate::contract::HostEvent;
 use crate::model::Model;
 use crate::model::edit::state::ImeUpdate;
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
-use kivact_wire::{FileDialogRequest, HostEvent, PlatformRequest, PlatformResult};
+use kivact_types::{FileDialogRequest, PlatformRequest, PlatformResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -77,7 +78,7 @@ pub(crate) struct Host {
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
     #[cfg(feature = "gpu-interop")]
-    pub(super) adapter: Option<kivact_wire::GpuAdapter>,
+    pub(super) adapter: Option<kivact_types::GpuAdapter>,
 }
 
 impl Host {
@@ -198,7 +199,7 @@ impl Host {
     #[cfg(feature = "gpu-interop")]
     pub(super) fn externals<W: Window>(&mut self, window: &mut W) {
         use crate::model::ExternalWrite;
-        use kivact_wire::ExternalImport;
+        use kivact_types::ExternalImport;
         let writes = std::mem::take(&mut self.model.borrow_mut().external_writes);
         for write in writes {
             match write {

@@ -15,7 +15,7 @@
 //!   least 18 px, and sits along its track as far as the clamped offset
 //!   is of the scroll range.
 use crate::model::Model;
-use kivact_wire::{NodeId, Point, Rect, ScrollbarProps};
+use kivact_types::{NodeId, Point, Rect, ScrollbarProps};
 #[derive(Clone, Copy)]
 pub(crate) struct Bar {
     pub(crate) track: Rect,

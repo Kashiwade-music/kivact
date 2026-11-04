@@ -43,7 +43,7 @@
 use std::ops::Range;
 
 use crate::model::Model;
-use kivact_wire::{NodeId, Point, Rect};
+use kivact_types::{NodeId, Point, Rect};
 
 use crate::model::interact::visual;
 use crate::model::transform::map_rect;
@@ -57,7 +57,7 @@ pub(crate) fn shape_static_text(
     id: NodeId,
     engine: &mut arvane::Engine,
     area_width: f32,
-) -> Option<std::sync::Arc<kivact_wire::ShapedText>> {
+) -> Option<std::sync::Arc<kivact_types::ShapedText>> {
     let node = host.node(id)?;
     let mut style = kivact_lower::assets::text_style(engine, &host.text_props(id));
     style.color = kivact_types::protocol::TextStyle::default().color;
@@ -80,7 +80,7 @@ pub(crate) fn shape_static_text(
 pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: NodeId) -> bool {
     if !host
         .node(id)
-        .is_some_and(|node| node.kind() == kivact_wire::NodeType::Text)
+        .is_some_and(|node| node.kind() == crate::contract::NodeType::Text)
     {
         return false;
     }

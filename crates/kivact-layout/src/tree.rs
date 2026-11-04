@@ -41,7 +41,7 @@ use crate::{
     Flow, GeometryChange, GeometryChangeKind, LayoutState, LayoutTree, LeafMeasurer, NodeLayout,
     NodeLayoutColumns, NodeLayoutState, NodeLayoutValues,
 };
-use kivact_wire::{AvailableSpace, Baseline, MeasureRequest, NodeId, Point, Rect, Size};
+use kivact_types::{AvailableSpace, Baseline, MeasureRequest, NodeId, Point, Rect, Size};
 use taffy::{
     CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
     LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,

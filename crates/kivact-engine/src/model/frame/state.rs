@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use kivact_wire::{HostEnv, Insets, MotionClock, NodeId, Point, Size, ThemeHint};
+use kivact_types::{HostEnv, Insets, MotionClock, NodeId, Point, Size, ThemeHint};
 
 /// One active programmatic scroll; allocated only while animating.
 pub(super) struct SmoothScroll {

@@ -1,12 +1,13 @@
 //! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
+use crate::contract::HostEvent;
 use crate::mutation::Writes;
 use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
 use arvane::asset::AssetStore;
-use kivact_wire::{HostEvent, Modifiers, NodeId, PlatformRequest, RequestId, Revision, Size};
+use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Revision, Size};
 
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
@@ -50,8 +51,8 @@ pub(crate) struct Model {
 /// owns them (it is not `Clone`).
 #[cfg(feature = "gpu-interop")]
 pub(crate) enum ExternalWrite {
-    Import(kivact_wire::ExternalImageId, kivact_wire::SharedTextures),
-    Drop(kivact_wire::ExternalImageId),
+    Import(kivact_types::ExternalImageId, kivact_types::SharedTextures),
+    Drop(kivact_types::ExternalImageId),
 }
 
 impl Model {

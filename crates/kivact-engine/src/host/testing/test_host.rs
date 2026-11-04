@@ -2,16 +2,14 @@
 
 use super::test_frame::TestFrame;
 use super::test_options::{TestFonts, TestHostOptions, default_font};
+use crate::contract::{HostError, HostEvent, NodeProperties, NodeType};
 use crate::host::pump::Host;
 use crate::host::{Client, HostWaker};
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{Renderer, ShellControl, ShellError, ShellEvent, ShellImeText, Window as _};
 use kivact_types::protocol::{PointerInput, SemanticsTree};
 use kivact_types::{Cursor, Insets, Point};
-use kivact_wire::{
-    HostError, HostEvent, LayoutCheck, LayoutFinding, NodeId, NodeProperties, NodeType, Rect,
-    RegionId, Scene, Size, ThemeHint,
-};
+use kivact_types::{LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Scene, Size, ThemeHint};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -499,7 +497,7 @@ impl ArvaneTestHost {
     }
 
     /// The node with the keyboard focus.
-    pub fn focused(&self) -> Option<kivact_wire::FocusTarget> {
+    pub fn focused(&self) -> Option<kivact_types::FocusTarget> {
         self.host.model.borrow().focused()
     }
 

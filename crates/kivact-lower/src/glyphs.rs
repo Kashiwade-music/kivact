@@ -19,8 +19,8 @@
 
 use crate::effects::Tint;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{ComputedText, Rect, TextMetrics, TextRun, TextShadow};
-use kivact_wire::{Point, Rgba};
+use kivact_types::{ComputedText, Rect, TextMetrics, TextRun, TextShadow};
+use kivact_types::{Point, Rgba};
 
 /// How a shaped text is colored as it is drawn.
 pub struct Colors {
@@ -225,8 +225,8 @@ pub fn shape_inline_run(
     run: &TextRun,
     inherited: Option<&ComputedText>,
     max_width: Option<f32>,
-    boxes: &[kivact_wire::InlineBox],
-) -> Option<kivact_wire::ShapedInlineText> {
+    boxes: &[kivact_types::InlineBox],
+) -> Option<kivact_types::ShapedInlineText> {
     let style = run_style(engine, run, inherited);
     engine
         .shape_inline(run.text.as_str(), &style, max_width, boxes)

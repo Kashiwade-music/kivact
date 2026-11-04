@@ -2,7 +2,7 @@
 use crate::SceneOut;
 use crate::effects::Tint;
 use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{ComputedText, Rect};
+use kivact_types::{ComputedText, Rect};
 /// A group a local scene opened in the output and has not closed yet.
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Frame {

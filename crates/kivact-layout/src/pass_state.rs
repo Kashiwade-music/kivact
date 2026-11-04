@@ -29,10 +29,10 @@ pub struct LayoutState {
     /// The shared generation of derived child traversal cursors.
     pub(crate) epoch: Epoch,
     /// The last indexed fixed child; this is a traversal cursor only.
-    pub(crate) fixed_cursor: Cell<Option<(usize, kivact_wire::NodeId)>>,
+    pub(crate) fixed_cursor: Cell<Option<(usize, kivact_types::NodeId)>>,
     /// Parents of absolute boxes whose layout was invalidated: each is laid
     /// out again on its own before the roots (`tree`).
-    pub(crate) relayout: Vec<kivact_wire::NodeId>,
+    pub(crate) relayout: Vec<kivact_types::NodeId>,
 }
 
 impl Default for LayoutState {
