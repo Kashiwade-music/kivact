@@ -107,6 +107,7 @@ fn layout(s: &Style) -> LayoutProps {
     LayoutProps {
         enter_size: s.enter_size,
         exit_size: s.exit_size,
+        layout_transition: s.layout_transition.clone(),
         size_transition: s
             .transitions
             .iter()
@@ -449,6 +450,7 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         enter,
         exit,
         transitions,
+        layout_transition,
         duplicates: _,
     } = s;
     let sides = Sides::default();
@@ -531,6 +533,7 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
     add(enter.is_some(), "enter");
     add(exit.is_some(), "exit");
     add(!transitions.is_empty(), "transition");
+    add(layout_transition.is_some(), "layout_transition");
     out
 }
 

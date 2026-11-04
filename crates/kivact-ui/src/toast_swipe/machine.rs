@@ -197,6 +197,7 @@ pub(super) fn edge_sign(edge: Edge) -> f64 {
 mod tests {
     //! Role: Check swipe intent and dismissal thresholds.
     use super::{Intent, intent, qualifies};
+    use kivact_core::geometry::Point;
 
     #[test]
     fn intent_and_flick_thresholds_match_the_edge() {

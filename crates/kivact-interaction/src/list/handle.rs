@@ -90,7 +90,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
             policy.mode == state.mode,
             "invariant: a list's mode is fixed by use_list"
         );
-        state.policy.set(policy);
+        state.policy.update(|value| *value = policy);
     }
     /// Set the Select-policy Page Up/Down distance; values below one count as one.
     /// Setup only.
@@ -98,7 +98,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub fn page_size(self, rows: impl IntoValue<usize>) -> Self {
         let state = self.state();
         require_setup("ListApi::page_size");
-        state.page.set(rows.into_value());
+        state
+            .options
+            .update(|options| options.page = rows.into_value());
         self
     }
     /// Prefer another enabled key when the current logical item disappears.
@@ -107,7 +109,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub fn leave_to(self, f: impl Fn(&K) -> Option<K> + 'static) -> Self {
         let state = self.state();
         require_setup("ListApi::leave_to");
-        *state.leave.borrow_mut() = Some(Rc::new(f));
+        state
+            .options
+            .update(|options| options.leave = Some(Rc::new(f)));
         self
     }
     /// Scroll through the caller and permit pending focus on unmounted keys.
@@ -116,7 +120,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub fn scroll_with<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
         let state = self.state();
         require_setup("ListApi::scroll_with");
-        *state.scroll.borrow_mut() = Some(callback(f));
+        state
+            .options
+            .update(|options| options.scroll = Some(callback(f)));
         self
     }
     /// Share an authoritative range anchor with other list instances.
@@ -126,7 +132,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         let state = self.state();
         require_setup("ListApi::anchor");
         let anchor = anchor.into_binding();
-        state.anchor.update(|current| *current = anchor);
+        state.options.update(|options| options.anchor = anchor);
         self
     }
     /// Read the authoritative selection as zero, one or several keys.
@@ -174,7 +180,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
             Selection::Single(binding) => binding.set(None),
             Selection::Multiple(binding) => binding.set(Vec::new()),
         }
-        state.anchor.get_untracked().set(None);
+        state.options.get().anchor.set(None);
     }
     /// Select enabled logical keys in order for Multiple, leaving its anchor unchanged.
     #[track_caller]
@@ -195,8 +201,8 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub fn selectable(self, test: impl Fn(&K) -> bool + 'static) -> Self {
         require_setup("ListApi::selectable");
         self.state()
-            .selectable
-            .update(|current| *current = Some(std::rc::Rc::new(test)));
+            .options
+            .update(|options| options.selectable = Some(Rc::new(test)));
         self
     }
 
@@ -238,8 +244,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
 
     pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {
         let enabled = enabled.into_value();
-        let retained = self.state().retained_focus;
-        kivact_core::state::effect(move || retained.set(enabled.get()));
+        self.state()
+            .options
+            .update(|options| options.retained_focus = enabled);
     }
 
     pub(crate) fn active_ref(self) -> Option<kivact_core::view::NodeRef> {
@@ -295,7 +302,12 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     }
     #[track_caller]
     pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
-        self.state().roving.requested.bind(highlight);
+        let state = self.state();
+        state.roving.requested.bind(highlight);
+        // Composite owners decide when their shared highlight resets.
+        state
+            .options
+            .update(|options| options.reset_on_exit = false);
         self
     }
     #[track_caller]

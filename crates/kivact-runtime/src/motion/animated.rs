@@ -20,6 +20,7 @@ pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,
     pub(crate) value: Signal<T>,
     pub(crate) transition: Transition,
+    timing: RefCell<Transition>,
     pub(crate) from: RefCell<Vec<f64>>,
     pub(crate) to: RefCell<Vec<f64>>,
     pub(crate) current: RefCell<Vec<f64>>,
@@ -115,6 +116,17 @@ impl<T: Animatable> AnimCell<T> {
         if *self.to.borrow() == to && !matches!(phase, AnimPhase::Idle | AnimPhase::Completed) {
             return;
         }
+        let timing = if matches!(phase, AnimPhase::Running { .. } | AnimPhase::Paused { .. }) {
+            self.timing.borrow().retargeted(
+                &self.from.borrow(),
+                &self.to.borrow(),
+                &self.current.borrow(),
+                &to,
+            )
+        } else {
+            self.transition.clone()
+        };
+        *self.timing.borrow_mut() = timing;
         *self.from.borrow_mut() = self.current.borrow().clone();
         *self.to.borrow_mut() = to;
         {
@@ -175,7 +187,7 @@ impl<T: Animatable> Anim for AnimCell<T> {
             return;
         };
         let mut current = self.current.borrow().clone();
-        let done = self.transition.step(
+        let done = self.timing.borrow().step(
             &self.from.borrow(),
             &self.to.borrow(),
             start_ns,
@@ -239,6 +251,7 @@ impl<T: Animatable> Animated<T> {
         let cell = Rc::new(AnimCell {
             owner,
             value,
+            timing: RefCell::new(transition.clone()),
             transition,
             from: RefCell::new(c.clone()),
             to: RefCell::new(c.clone()),

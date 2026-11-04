@@ -53,8 +53,8 @@ pub use layout::{
     OverlayProps, Placement, Position, ScrollAxes, TrackSize, Visibility,
 };
 pub use motion::{
-    Easing, Kind, MotionClock, PlayDirection, Repeat, Spring, SpringRun, StepPosition, Transition,
-    lerp,
+    Easing, Kind, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun, StepPosition,
+    Transition, lerp,
 };
 pub use paint::{
     BlendMode, Border, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners,

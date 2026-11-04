@@ -86,7 +86,7 @@ pub(super) fn key<K: kivact_core::state::ItemKey>(
     event: KeyEvent,
     command: Option<Key>,
 ) -> Handled {
-    if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
+    if (!state.retains_focus() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
     let command = command.unwrap_or_else(|| event.key());
@@ -158,7 +158,7 @@ pub(super) fn key_typeahead<K: kivact_core::state::ItemKey>(
     event: &KeyEvent,
     consume_unmatched: bool,
 ) -> Handled {
-    if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
+    if (!state.retains_focus() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
     let modifiers = event.modifiers();
@@ -201,7 +201,7 @@ fn destination<K: kivact_core::state::ItemKey>(
         let at = from
             .and_then(|from| keys.iter().position(|key| key == from))
             .unwrap_or(0);
-        let distance = state.page.get().get_untracked().max(1);
+        let distance = state.options.get().page.get_untracked().max(1);
         let index = if forward {
             at.saturating_add(distance).min(last)
         } else {
