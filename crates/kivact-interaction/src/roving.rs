@@ -11,6 +11,8 @@
 //!
 //! No registry borrow is held while a node is asked to take the focus.
 
+mod requested;
+
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -63,7 +65,7 @@ pub(crate) struct Roving<Id: kivact_core::state::ItemKey> {
     /// Notified by every insertion and removal of a member.
     changed: Signal<()>,
     /// The member the keyboard or pointer last moved to.
-    pub(crate) requested: Signal<Option<Id>>,
+    pub(crate) requested: requested::Requested<Id>,
     /// The focus as last seen by `reconcile`.
     observed: Rc<Cell<Option<NodeToken>>>,
     /// A focused member was removed; the tab stop takes the focus once it settles.
@@ -77,7 +79,7 @@ impl<Id: kivact_core::state::ItemKey> Roving<Id> {
         Self {
             members: Rc::new(RefCell::new(HashMap::new())),
             changed: signal(()),
-            requested: signal(None),
+            requested: requested::Requested::new(),
             observed: Rc::new(Cell::new(None)),
             restore_from: Rc::new(Cell::new(None)),
         }
