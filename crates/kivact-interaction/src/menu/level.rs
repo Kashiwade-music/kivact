@@ -21,18 +21,22 @@ pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {
+    // xtask-allow(state-fields): Mounted view registry, never used to repair behavior state.
     pub(super) content_state: Signal<Option<Value<PopupState>>>,
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
     pub(super) depth: usize,
     /// The keys of the submenu items that lead to this level.
     pub(super) prefix: Value<Vec<K>>,
+    // xtask-allow(state-fields): Read-only projection of session topology, not a separate open state.
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
     group: ListApi<K>,
     anchors: Signal<Vec<(K, Rect)>>,
+    // xtask-allow(state-fields): Read-only corridor-machine observation.
     aiming: Value<bool>,
     timing: SubmenuTiming,
+    // xtask-allow(state-fields): Independent structural theme option captured during setup.
     retain_disabled_focus: bool,
 }
 
@@ -424,7 +428,10 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 member
             };
             if submenu {
-                member.expanded(expanded).selected(expanded)
+                member
+                    .has_popup(Some(kivact_core::view::PopupKind::Menu))
+                    .expanded(expanded)
+                    .selected(expanded)
             } else {
                 member
             }
@@ -451,6 +458,14 @@ fn on_key<K: kivact_core::state::ItemKey>(
             session.close_level(depth);
             Handled::Yes
         }
+        Key::ArrowLeft => {
+            if let Some(navigate) = session.menubar.get() {
+                navigate.call(false);
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        }
         Key::ArrowRight => {
             let Some(key) = session.focused_at(depth) else {
                 return Handled::No;
@@ -464,6 +479,9 @@ fn on_key<K: kivact_core::state::ItemKey>(
             });
             if opens {
                 session.open_submenu(depth, key);
+                Handled::Yes
+            } else if let Some(navigate) = session.menubar.get() {
+                navigate.call(true);
                 Handled::Yes
             } else {
                 Handled::No

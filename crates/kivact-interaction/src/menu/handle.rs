@@ -9,8 +9,8 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
+use kivact_core::state::{Callback, Value, memo};
 use kivact_core::state::{IntoValue, callback};
-use kivact_core::state::{Value, memo};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
@@ -131,6 +131,10 @@ pub fn use_menu<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> MenuApi<K> {
+    pub(crate) fn menubar_navigation(self, navigate: Callback<bool>) {
+        self.session.menubar.set(Some(navigate));
+    }
+
     /// Drawing state of the mounted trigger.
     pub fn trigger_state(self) -> Value<PopupState> {
         self.session.popup.trigger_state()
@@ -267,6 +271,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 trigger
             };
             trigger
+                .has_popup(Some(kivact_core::view::PopupKind::Menu))
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.ctrl || m.alt || m.meta {

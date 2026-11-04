@@ -80,6 +80,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         let this = Self {
             entries,
             choose: kivact_core::state::var(choose),
+            menubar: kivact_core::state::var(None),
             popup,
             anchor,
             opened,
@@ -183,11 +184,6 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         self.request(depth + 1, Edge::First);
     }
 
-    /// Close every level deeper than `depth`.
-    pub(super) fn close_below(&self, depth: usize) {
-        self.machine.send(SessionEvent::Truncate(depth));
-    }
-
     /// Close the level at `depth` (not the top level) and focus the item that
     /// opened it.
     pub(super) fn close_level(&self, depth: usize) {
@@ -221,6 +217,7 @@ pub(super) enum MenuSession<K> {
 }
 #[derive(Clone, PartialEq)]
 pub(super) struct SessionLevel<K> {
+    // xtask-allow(state-fields): Approved SM-I08 parent identity, independent of the level highlight.
     parent: Option<K>,
     highlight: Option<K>,
     submenu: Submenu<K>,
