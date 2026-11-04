@@ -98,6 +98,12 @@ impl From<u32> for TextLength {
     }
 }
 
+impl From<f32> for TextLength {
+    fn from(value: f32) -> Self {
+        Self::Px(f64::from(value))
+    }
+}
+
 impl From<f64> for TextLength {
     fn from(v: f64) -> Self {
         TextLength::Px(v)

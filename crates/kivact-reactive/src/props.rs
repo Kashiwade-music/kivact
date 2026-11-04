@@ -505,6 +505,7 @@ constant_value!(
     (),
     String,
     bool,
+    f32,
     f64,
     i8,
     i16,

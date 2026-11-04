@@ -12,6 +12,16 @@ pub trait Animatable: Clone + 'static {
     fn from_components(c: &[f64]) -> Self;
 }
 
+impl Animatable for f32 {
+    const COMPONENTS: usize = 1;
+    fn to_components(&self, out: &mut Vec<f64>) {
+        out.push(f64::from(*self));
+    }
+    fn from_components(components: &[f64]) -> Self {
+        components.first().copied().unwrap_or_default() as f32
+    }
+}
+
 impl Animatable for f64 {
     const COMPONENTS: usize = 1;
     fn to_components(&self, out: &mut Vec<f64>) {

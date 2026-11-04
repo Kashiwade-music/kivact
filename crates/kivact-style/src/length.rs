@@ -77,6 +77,12 @@ impl From<u32> for Length {
     }
 }
 
+impl From<f32> for Length {
+    fn from(value: f32) -> Self {
+        Self::Px(f64::from(value))
+    }
+}
+
 impl From<f64> for Length {
     fn from(v: f64) -> Self {
         Length::Px(v)
@@ -174,6 +180,12 @@ impl kivact_reactive::IntoValue<Length> for u32 {
 }
 
 impl kivact_reactive::IntoValue<Length> for f64 {
+    fn into_prop(self) -> kivact_reactive::Prop<Length> {
+        kivact_reactive::Prop::constant(Length::from(self))
+    }
+}
+
+impl kivact_reactive::IntoValue<Length> for f32 {
     fn into_prop(self) -> kivact_reactive::Prop<Length> {
         kivact_reactive::Prop::constant(Length::from(self))
     }

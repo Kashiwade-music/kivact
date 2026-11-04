@@ -142,7 +142,7 @@ macro_rules! track_from_number {
     )*};
 }
 
-track_from_number!(i32, u32, f64, f64);
+track_from_number!(i32, u32, f32, f64);
 
 /// A grid's track list (CSS `grid-template-columns: 248px 1fr`): one
 /// [`Track`], a tuple of them (`(248, Track::fr(1))`) or a `Vec`. The
@@ -160,7 +160,7 @@ macro_rules! one_track {
     )*};
 }
 
-one_track!(Track, Length, i32, u32, f64, f64);
+one_track!(Track, Length, i32, u32, f32, f64);
 
 impl From<Vec<Track>> for Tracks {
     fn from(v: Vec<Track>) -> Self {
