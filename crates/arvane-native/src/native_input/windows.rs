@@ -639,9 +639,14 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
 /// Read the documented per-user app color mode; missing settings use light.
 pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
     use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
-    let key =
-        windows_sys::core::w!("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
-    let name = windows_sys::core::w!("AppsUseLightTheme");
+    let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let name = "AppsUseLightTheme"
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
     let mut light = 1u32;
     let mut size = std::mem::size_of_val(&light) as u32;
     // SAFETY: the terminated UTF-16 names live through the call; the DWORD filter
@@ -649,8 +654,8 @@ pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
     let result = unsafe {
         RegGetValueW(
             HKEY_CURRENT_USER,
-            key,
-            name,
+            key.as_ptr(),
+            name.as_ptr(),
             RRF_RT_REG_DWORD,
             std::ptr::null_mut(),
             (&raw mut light).cast(),
