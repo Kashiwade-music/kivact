@@ -1,6 +1,6 @@
 //! Role: The `TextEditApi` handle: native editing options and the control part.
 
-use super::draft::{self, Draft};
+use super::draft::{self, DraftOptions};
 use super::policy::text_edit_policy;
 use crate::options_cell::OptionsCell;
 use kivact_core::ErrorKind;
@@ -303,7 +303,7 @@ impl TextEditApi {
             }
             let (control, input_draft) = if let Some(commit) = data.options.get().draft_commit {
                 let (control, installed) = draft::install(
-                    Draft {
+                    DraftOptions {
                         commit,
                         on_edit: data.options.get().draft_edit,
                         return_focus: data.options.get().return_focus,

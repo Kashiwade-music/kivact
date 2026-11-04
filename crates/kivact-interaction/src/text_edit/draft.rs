@@ -16,7 +16,7 @@ use std::rc::Rc;
 /// What `text_input(..).draft(..)` adds to a field, kept until the field is
 /// built.
 #[derive(Clone)]
-pub(crate) struct Draft {
+pub(crate) struct DraftOptions {
     pub(crate) commit: Callback<String>,
     pub(crate) session: Option<EditSession<String>>,
     pub(crate) on_edit: Option<Callback<EditPhase>>,
@@ -78,7 +78,11 @@ pub(crate) struct Installed {
 
 /// Draft the field bound to `value`, whose validity `invalid` reads. Setup
 /// only.
-pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> (Node, Installed) {
+pub(crate) fn install(
+    draft: DraftOptions,
+    value: Binding<String>,
+    mut node: Node,
+) -> (Node, Installed) {
     let invalid = node
         .accessible_invalid()
         .unwrap_or_else(|| false.into_value());

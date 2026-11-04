@@ -44,6 +44,7 @@ impl Machine for ProgressMotionInput {
     }
 }
 
+// xtask-allow(state-fields): NodeBuilder options describe the requested progress appearance; motion is owned by ProgressMotionPhase.
 /// A bar of the share done, created by [`progress`].
 pub struct Progress {
     root: Node,
