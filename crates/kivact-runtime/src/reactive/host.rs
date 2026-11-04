@@ -159,7 +159,7 @@ impl Runtime {
     /// origin of the properties it sets (diagnostics).
     #[inline]
     pub fn running_effect(&self) -> Option<NodeId> {
-        self.writer.get().map(NodeId)
+        self.current_writer().map(NodeId)
     }
 
     /// Drop the queued user effects (after a cycle was detected) and return

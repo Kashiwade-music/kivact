@@ -29,7 +29,6 @@ impl Runtime {
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
             turn_requested: Cell::new(false),
-            writer: Cell::new(None),
             stab_epoch: Cell::new(0),
         }
     }

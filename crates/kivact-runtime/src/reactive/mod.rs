@@ -33,6 +33,7 @@ mod execution;
 mod ext;
 mod frame;
 mod graph;
+mod handler;
 mod handles;
 mod host;
 mod identity;
@@ -59,6 +60,8 @@ pub use data::{
 pub use driver::clock_now;
 pub use error::{ErrorKind, HandlerResult, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
+pub(crate) use graph::watch;
+pub use handler::{Handled, Handler};
 pub use host::{Mounts, Pending, TurnRecorder};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};

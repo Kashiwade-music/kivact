@@ -38,7 +38,9 @@ use std::rc::Rc;
 
 use super::arena::Tomb;
 use crate::reactive::arena::Key;
-use crate::reactive::data::{ConstEntry, EffectKind, Kind, NodeData, OwnerEntry, Runtime};
+use crate::reactive::data::{
+    ConstEntry, EffectKind, Kind, NodeData, OwnerEntry, OwnerPhase, Runtime,
+};
 use crate::reactive::error::{ErrorKind, UiError, misuse_at, new_error};
 
 /// Rounds a disposal releases what its members registered while being
@@ -75,7 +77,11 @@ impl Runtime {
             contexts: Vec::new(),
             on_error: None,
             created_at: at,
-            disposing: false,
+            phase: if state == OwnerState::Live {
+                OwnerPhase::Live
+            } else {
+                OwnerPhase::Disposing { round: 0 }
+            },
         });
         if state != OwnerState::Live {
             let disposed_by = parent.and_then(|p| match owners.get(p) {
@@ -104,7 +110,7 @@ impl Runtime {
 
     pub(crate) fn owner_state(&self, key: Key) -> OwnerState {
         match self.owners.borrow().get(key) {
-            Some(o) if o.disposing => OwnerState::Disposing,
+            Some(o) if matches!(o.phase, OwnerPhase::Disposing { .. }) => OwnerState::Disposing,
             Some(_) => OwnerState::Live,
             None => OwnerState::Gone,
         }
@@ -127,7 +133,7 @@ impl Runtime {
     /// handler frame of the owner.
     pub(crate) fn add_cleanup(&self, owner: Key, f: Box<dyn FnOnce()>) {
         let f = match self.owners.borrow_mut().get_mut(owner) {
-            Some(o) if !o.disposing => {
+            Some(o) if o.phase == OwnerPhase::Live => {
                 o.cleanups.push(f);
                 return;
             }
@@ -138,7 +144,7 @@ impl Runtime {
     }
 
     pub(crate) fn add_effect_cleanup(&self, effect: Key, f: Box<dyn FnOnce()>) {
-        if let Some(NodeData::Effect(e)) =
+        if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
             self.graph.borrow_mut().get_mut(effect).map(|n| &mut n.data)
         {
             e.cleanups.push(f);
@@ -213,7 +219,7 @@ impl Runtime {
             let mut owners = self.owners.borrow_mut();
             for k in &order {
                 if let Some(o) = owners.get_mut(*k) {
-                    o.disposing = true;
+                    o.phase = OwnerPhase::Disposing { round: 0 };
                 }
             }
         }
@@ -262,7 +268,11 @@ impl Runtime {
         let mut graveyard: Vec<Box<dyn Any>> = Vec::new();
         // Releasing members may register more (cleanups, `on_dispose`
         // hooks): release those too, in bounded rounds.
-        for round in 0.. {
+        loop {
+            let round = match self.owners.borrow().get(key).map(|o| o.phase) {
+                Some(OwnerPhase::Disposing { round }) => round,
+                _ => return,
+            };
             let (nodes, objects, consts) = match self.owners.borrow_mut().get_mut(key) {
                 Some(o) => (
                     std::mem::take(&mut o.nodes),
@@ -274,7 +284,7 @@ impl Runtime {
             if nodes.is_empty() && objects.is_empty() && consts.is_empty() {
                 break;
             }
-            if round == RELEASE_ROUNDS {
+            if usize::from(round) == RELEASE_ROUNDS {
                 self.default_sink(new_error(
                     ErrorKind::Cycle {
                         path: vec![created_at],
@@ -294,6 +304,9 @@ impl Runtime {
                 return;
             }
             self.dispose_members(key, created_at, nodes, objects, consts, &mut graveyard);
+            if let Some(o) = self.owners.borrow_mut().get_mut(key) {
+                o.phase = OwnerPhase::Disposing { round: round + 1 };
+            }
         }
         let removed = self.remove_disposed_owner(key, created_at);
         drop(removed);
@@ -372,7 +385,9 @@ impl Runtime {
                 .borrow_mut()
                 .get_mut(n)
                 .and_then(|r| match &mut r.data {
-                    NodeData::Effect(e) => Some(std::mem::take(&mut e.cleanups)),
+                    NodeData::Effect(e) | NodeData::Watcher(e) => {
+                        Some(std::mem::take(&mut e.cleanups))
+                    }
                     _ => None,
                 });
             if let Some(cleanups) = cleanups.filter(|c| !c.is_empty()) {

@@ -41,50 +41,7 @@ pub struct A11yEvent {
     pub region: Option<RegionId>,
 }
 
-/// What a key/pointer/wheel callback did with its event.
-///
-/// Like a React (DOM) handler: `Yes` is `stopPropagation()` together with
-/// `preventDefault()`, `No` does neither, and `PreventDefault` is
-/// `preventDefault()` alone. The default actions are the framework's, run
-/// once after the whole chain when no callback prevented them:
-///
-/// - key press: Enter/Space activates the focused control or region, and
-///   an Escape dismisses the topmost overlay offering `Dismiss`. Tab focus
-///   moves and native editing happen in the host before the callbacks and
-///   are not affected. Key releases have no default action.
-/// - wheel: the scroll container around the listener scrolls on.
-/// - pointer and file: none. The host has already moved the focus and
-///   taken the capture when the callbacks run, and a click's activation is
-///   a separate Activate, so `PreventDefault` behaves as `No` there.
-///
-/// Use `PreventDefault` when a component reacts to a key but an ancestor's
-/// shortcut must still see it, for example a pan surface that tracks a
-/// held Space without activating the focused control.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Handled {
-    /// Consumed: later callbacks and ancestors do not see the event, and
-    /// no default action runs.
-    Yes,
-    /// Not handled: the event continues to later callbacks and ancestors,
-    /// then to its default action.
-    No,
-    /// The event continues to later callbacks and ancestors exactly as with
-    /// `No`, but its default action does not run. A later `Yes` still stops
-    /// it; a later `No` does not undo the prevention.
-    PreventDefault,
-}
-
-impl Handled {
-    /// The answer of a chain where `self` and then `next` saw the event:
-    /// `Yes` wins, and a prevented default stays prevented.
-    pub(crate) fn and(self, next: Handled) -> Handled {
-        match (self, next) {
-            (Handled::Yes, _) | (_, Handled::Yes) => Handled::Yes,
-            (Handled::PreventDefault, _) | (_, Handled::PreventDefault) => Handled::PreventDefault,
-            (Handled::No, Handled::No) => Handled::No,
-        }
-    }
-}
+pub use kivact_runtime::Handled;
 
 impl crate::sealed::KeyHandlerResultSeal for () {}
 impl crate::sealed::KeyHandlerResultSeal for Handled {}

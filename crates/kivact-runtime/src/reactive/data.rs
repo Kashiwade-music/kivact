@@ -51,10 +51,10 @@ pub struct Runtime {
     pub(crate) objects: RefCell<Arena<Object>>,
     /// Constant values (`Value::Const`): no node, no notification.
     pub(crate) consts: RefCell<Arena<ConstEntry>>,
-    pub(crate) frames: RefCell<Vec<Ctx>>,
+    pub(crate) frames: RefCell<Vec<Frame>>,
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
-    pub(crate) scratch: RefCell<Vec<(Key, Color)>>,
+    pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<u64>,
     pub(crate) root_owner: Cell<Option<Key>>,
@@ -72,18 +72,67 @@ pub struct Runtime {
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
     pub(crate) turn_requested: Cell<bool>,
-    /// The Render/Internal effect whose run is executing: the origin of the
-    /// props it sets (diagnostics `why`).
-    pub(crate) writer: Cell<Option<Key>>,
     /// Stabilisation pass counter (per-effect cycle limit).
     pub(crate) stab_epoch: Cell<u64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Color {
-    Clean = 0,
-    Check = 1,
-    Dirty = 2,
+pub(crate) enum Staleness {
+    Check,
+    Dirty,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CompState {
+    Clean,
+    Stale(Staleness),
+    Queued(Staleness),
+    Running,
+}
+impl CompState {
+    pub(crate) fn staleness(self) -> Option<Staleness> {
+        match self {
+            Self::Stale(s) | Self::Queued(s) => Some(s),
+            _ => None,
+        }
+    }
+    pub(crate) fn mark(&mut self, stale: Staleness) -> bool {
+        match *self {
+            Self::Running => false,
+            Self::Clean => {
+                *self = Self::Stale(stale);
+                true
+            }
+            Self::Stale(old) if old < stale => {
+                *self = Self::Stale(stale);
+                true
+            }
+            Self::Queued(old) if old < stale => {
+                *self = Self::Queued(stale);
+                true
+            }
+            _ => false,
+        }
+    }
+}
+#[derive(Default)]
+pub(crate) struct PassRuns {
+    epoch: u64,
+    runs: u16,
+}
+pub(crate) struct CycleDetected;
+impl PassRuns {
+    pub(crate) fn note_run(&mut self, epoch: u64) -> Result<(), CycleDetected> {
+        if self.epoch != epoch {
+            self.epoch = epoch;
+            self.runs = 0;
+        }
+        self.runs = self.runs.saturating_add(1);
+        if usize::from(self.runs) > crate::reactive::turn::CYCLE_LIMIT {
+            Err(CycleDetected)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// When an effect runs and whether it may write.
@@ -152,6 +201,7 @@ pub(crate) enum NodeData {
     Memo(MemoNode),
     /// An effect.
     Effect(EffectNode),
+    Watcher(EffectNode),
 }
 
 pub(crate) struct SourceNode {
@@ -177,8 +227,7 @@ pub(crate) struct EffectNode {
     pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
     /// Stabilisation pass (epoch) and the runs of this effect within it
     /// (per-effect cycle limit; a User effect never stabilises).
-    pub(crate) stab_epoch: u64,
-    pub(crate) stab_runs: u32,
+    pub(crate) pass_runs: PassRuns,
 }
 
 /// The part of a memo or an effect that computes.
@@ -186,9 +235,7 @@ pub(crate) struct Computation {
     pub(crate) compute: Rc<dyn Compute>,
     /// (source, index of this node in source.subs), in read order.
     pub(crate) deps: Vec<(Key, u32)>,
-    pub(crate) state: Color,
-    /// The computation is on the stack (a memo read now is a `Cycle`).
-    pub(crate) running: bool,
+    pub(crate) state: CompState,
 }
 
 impl Computation {
@@ -197,8 +244,7 @@ impl Computation {
         Computation {
             compute,
             deps: Vec::new(),
-            state: Color::Dirty,
-            running: false,
+            state: CompState::Stale(Staleness::Dirty),
         }
     }
 }
@@ -209,7 +255,7 @@ impl RNode {
         match &self.data {
             NodeData::Source(_) => Kind::Source,
             NodeData::Memo(_) => Kind::Memo,
-            NodeData::Effect(e) => Kind::Effect(e.kind),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Kind::Effect(e.kind),
         }
     }
 
@@ -218,7 +264,7 @@ impl RNode {
         match &self.data {
             NodeData::Source(s) => &s.subs,
             NodeData::Memo(m) => &m.subs,
-            NodeData::Effect(_) => &[],
+            NodeData::Effect(_) | NodeData::Watcher(_) => &[],
         }
     }
 
@@ -226,7 +272,7 @@ impl RNode {
         match &mut self.data {
             NodeData::Source(s) => Some(&mut s.subs),
             NodeData::Memo(m) => Some(&mut m.subs),
-            NodeData::Effect(_) => None,
+            NodeData::Effect(_) | NodeData::Watcher(_) => None,
         }
     }
 
@@ -235,7 +281,7 @@ impl RNode {
         match &self.data {
             NodeData::Source(_) => None,
             NodeData::Memo(m) => Some(&m.run),
-            NodeData::Effect(e) => Some(&e.run),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&e.run),
         }
     }
 
@@ -243,7 +289,7 @@ impl RNode {
         match &mut self.data {
             NodeData::Source(_) => None,
             NodeData::Memo(m) => Some(&mut m.run),
-            NodeData::Effect(e) => Some(&mut e.run),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&mut e.run),
         }
     }
 
@@ -271,6 +317,7 @@ pub struct NodeInfo {
     pub deps: Vec<NodeId>,
 }
 
+// xtask-allow(state-fields): Parent identity and the optional error handler are independent owner configuration; lifecycle is held only by OwnerPhase.
 pub(crate) struct OwnerEntry {
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
@@ -287,7 +334,13 @@ pub(crate) struct OwnerEntry {
     pub(crate) created_at: &'static Location<'static>,
     /// Disposal has started: registrations are released by the disposal
     /// (`owner.rs`).
-    pub(crate) disposing: bool,
+    pub(crate) phase: OwnerPhase,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OwnerPhase {
+    Live,
+    Disposing { round: u8 },
 }
 
 /// A constant value of an owner (`Value::Const`): released with its owner.
@@ -306,14 +359,28 @@ pub(crate) struct Object {
     pub(crate) created_at: &'static Location<'static>,
 }
 
+// xtask-allow(state-fields): Owner, tracking, purity and writer are independent execution facts inherited across copied frames (design 19.19).
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
-pub(crate) struct Ctx {
+pub(crate) struct Frame {
     pub(crate) owner: Option<Key>,
-    pub(crate) setup: Option<Key>,
+    pub(crate) kind: FrameKind,
     pub(crate) pure: bool,
-    pub(crate) effect: Option<Key>,
-    pub(crate) tracking: Option<usize>,
+    pub(crate) writer: Option<Key>,
+    pub(crate) tracking: Option<CollectorSlot>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct CollectorSlot(pub(super) usize);
+#[derive(Clone, Copy, Default)]
+pub(crate) enum FrameKind {
+    #[default]
+    Handler,
+    Setup(Key),
+    Computation {
+        node: Key,
+        effect: bool,
+    },
 }
 
 /// Dependencies of one active computation, retained while it is suspended.
@@ -328,7 +395,7 @@ pub(crate) struct FrameGuard<'a> {
     pub(crate) rt: &'a Runtime,
     pub(crate) depth: usize,
     pub(crate) outer_app: AppId,
-    pub(crate) collector: Option<usize>,
+    pub(crate) collector: Option<CollectorSlot>,
 }
 
 /// Queued effects by creation order: being in a set is being queued.
