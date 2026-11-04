@@ -24,6 +24,7 @@ entries=(
   kivact/embed
   kivact/gpu
   kivact/gpu-interop
+  kivact/tokio
   kivact/test
   arvane-render/gpu
   arvane-render/gpu-interop

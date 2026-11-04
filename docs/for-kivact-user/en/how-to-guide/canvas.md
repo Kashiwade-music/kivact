@@ -531,3 +531,5 @@ current binding when polled and fails if its owner has been disposed.
 - [Share GPU textures with a canvas](gpu-texture-sharing.md): frames from a GPU renderer without a read-back.
 - [Test your app](testing.md): find regions by role, compare screenshots.
 - API reference: `cargo doc -p kivact --open`, then `kivact::draw` and `kivact::view::canvas`.
+
+Call `event.capture()` inside a pointer handler to keep subsequent events for that pointer at the node, including when it moves outside. `event.release_capture()` returns subsequent events to hit testing. Explicit capture can begin while hovering without a button held; it ends on the final button release, cancellation, or node removal. Presses still capture implicitly by default.

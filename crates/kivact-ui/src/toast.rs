@@ -96,22 +96,24 @@ impl IntoView for ToastRegion {
             hold_all,
         } = self;
         let polite = toaster.visible(false);
-        let row_motion = use_theme()
-            .get()
-            .ext::<crate::UiTokens>()
-            .toast
-            .row_motion
-            .clone();
         let (rows, groups) = (variants.clone(), variants.clone());
         let group = move |assertive: bool, live: LiveRegion| {
             let rows = rows.clone();
             let shown = toaster.visible(assertive);
+            let row_variants = rows.clone();
             let build = move |id| toast(toaster, id, &rows);
-            let items = if let Some(transition) = row_motion.transition.clone() {
-                super::toast_rows::animate(shown, transition, row_motion.gap, build)
-            } else {
-                for_each(shown, |id| *id, move |id| build(id.get_untracked()))
-            };
+            let items = for_each(
+                shown,
+                |id| *id,
+                move |id| {
+                    with_recipe_style(
+                        column(build(id.get_untracked())),
+                        |r| r.toast_recipes().row_recipe(),
+                        &row_variants,
+                        kivact_core::custom::PartState::default,
+                    )
+                },
+            );
             let part = toaster.region(live);
             let input = part.state();
             with_recipe_style(

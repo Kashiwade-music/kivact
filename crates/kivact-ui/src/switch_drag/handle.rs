@@ -1,8 +1,6 @@
 //! Role: Attach a switch gesture machine and publish its recipe projection.
-use super::{
-    geometry::Geometry,
-    machine::{self, Event, State, SwitchGesture},
-};
+use super::geometry::Geometry;
+use super::machine::{self, Event, State, SwitchGesture};
 use crate::values::{ControlSize, SwitchDragState};
 use kivact_core::custom::{Part, clock_now};
 use kivact_core::state::{Binding, Value, machine, memo};

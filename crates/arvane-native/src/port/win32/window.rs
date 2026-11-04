@@ -34,6 +34,7 @@ pub(super) fn environment(state: &State) -> kivact_types::Environment {
             height: f64::from(state.shared.size().1) / scale,
         },
         frame_period_ns: frame_period(state.native.hwnd()),
+        theme_hint: crate::native_input::theme_hint(),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
         pointer: kivact_types::PointerSettings {
@@ -327,6 +328,7 @@ impl State {
             input: crate::native_input::state::NativeInput::new(
                 kivact_types::Environment {
                     scale_factor: shared.scale(),
+                    theme_hint: crate::native_input::theme_hint(),
                     reduced_motion: crate::native_input::reduced_motion(),
                     pointer: crate::native_input::pointer_settings(shared.scale()),
                     locale: crate::native_input::locale::system_locale(),

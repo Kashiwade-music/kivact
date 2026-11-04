@@ -28,6 +28,8 @@ pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
     let rtl = use_direction().get() == ReadingDirection::Rtl;
     let indent = t.space().md + row.level.saturating_sub(1) as f64 * 16.0;
     style()
+        .enter_size(kivact_core::view::Orientation::Vertical)
+        .exit_size(kivact_core::view::Orientation::Vertical)
         .direction(if rtl {
             Direction::RowReverse
         } else {

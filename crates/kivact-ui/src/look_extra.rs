@@ -282,6 +282,8 @@ pub(super) fn disclosure_indicator(_: &Theme, state: &DisclosureState) -> Style 
 /// A disclosure's content under the trigger.
 pub(super) fn disclosure_content(t: &Theme, _: &DisclosureState) -> Style {
     style()
+        .enter_size(kivact_core::view::Orientation::Vertical)
+        .exit_size(kivact_core::view::Orientation::Vertical)
         .direction(Direction::Column)
         .padding_bottom(t.space().md)
         .color(ColorToken::TextMuted)

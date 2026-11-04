@@ -4571,7 +4571,7 @@ Field 共通の input container spec（`Field/inputStyles.stylex.ts:32-81`、Fie
    - RTL: ペインは右から並ぶ（`insetInlineStart`）、scrollLeft は負方向（`rowAtScrollOffset` / `scrollOffsetForRow` が符号を正規化）。
 5. Motion:
    - puck: `background-color, color, border-color` 125ms、timing 未指定（CSS 既定 `ease` = cubic-bezier(0.25, 0.1, 0.25, 1)）。
-   - ページング: ブラウザのスクロール（指: ネイティブ慣性 + mandatory snap。`scroll-snap-stop` 無しなので強いフリックで複数月進む）。矢印/キー/Reset: `scrollTo({behavior:'smooth'})`（時間はブラウザ依存: UNRESOLVED。Kivact では `ScrollBehavior::Smooth` = 240ms を使う）。OVERSCAN を超える遠距離ジャンプ（wheels など）はアニメ無しで即移動。
+   - ページング: ブラウザのスクロール（指: ネイティブ慣性 + mandatory snap。`scroll-snap-stop` 無しなので強いフリックで複数月進む）。矢印/キー/Reset: `scrollTo({behavior:'smooth'})`（時間はブラウザ依存: UNRESOLVED。Kivact では `ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)` = 240ms を使う）。OVERSCAN を超える遠距離ジャンプ（wheels など）はアニメ無しで即移動。
    - settle 補正（`:607-645`）: スクロール停止（21.13 の useScrollSettle: `scrollend` または最後の scroll から 220ms 静止＋指が離れている）後、1 フレーム後に再サンプルし、0.5px 以上動いていれば何もしない（まだ移動中）。steer 中なら steer 先、そうでなければ最寄りペインへ。ずれが 1px 以上なら smooth で補正。
    - re-center 中は 1 フレームだけ snap を無効化（WebKit の再スナップ暴走対策; 指操作中は無効化しない）。
    - reduced motion（`:481-520`）: smooth 指定のステップは移動せず、coarse pointer では **opacity 1→0→1 のディップ 200ms、easing cubic-bezier(0.42, 0, 0.58, 1)**、中間（100ms）で瞬間移動。fine pointer では即時。次のステップは進行中のディップを置き換える。
@@ -4649,7 +4649,7 @@ Field 共通の input container spec（`Field/inputStyles.stylex.ts:32-81`、Fie
    - `usePointerDragScroll`: mouse の主ボタンのみ。`DRAG_SLOP = 4px`、`SETTLE_FALLBACK_MS = 260`。pointerdown は stopPropagation（シートのドラッグに渡さない、ただしキャプチャはスロップ超過後）、ドラッグ中 snap 無効・user-select none、解放で最寄り行へ smooth、`scrollend` または 260ms で snap 復帰、ドラッグ直後の click を 1 回キャプチャ段階で抑止。
    - `useOwnScrollGesture(axis)`: `'all'`（ホイール）は touchstart で即確保（stopPropagation）。`'inline'`（月スクローラー）は `AXIS_LOCK_SLOP = 6px` 超えの最初の move で `dy ≤ dx × VERTICAL_DOMINANCE(2)` なら確保（≈63.4°まで横扱い）、それ以外はシートへ。確保したのに要素が 1px もパンしなかった場合、横移動 `≥ SWIPE_DISTANCE(32px)` なら `onSwipe(direction)`（左へ動かした = +1）。preventDefault はしない（passive）。touchend/cancel は伝播させる。
 4. Visual spec: 3 の幾何値。
-5. Motion: 3 の時間定数。ブラウザの smooth スクロール時間は UNRESOLVED（Kivact の `ScrollBehavior::Smooth` 240ms で代替）。reduced motion のディップ: 200ms、cubic-bezier(0.42, 0, 0.58, 1)（`motion/uikit/timing.ts` `reducedMotionCrossFade`）、coarse またはタッチリリース時のみ、fine は即時（`motion/reducedMotion.ts:79-104`）。
+5. Motion: 3 の時間定数。ブラウザの smooth スクロール時間は UNRESOLVED（Kivact の `ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)` 240ms で代替）。reduced motion のディップ: 200ms、cubic-bezier(0.42, 0, 0.58, 1)（`motion/uikit/timing.ts` `reducedMotionCrossFade`）、coarse またはタッチリリース時のみ、fine は即時（`motion/reducedMotion.ts:79-104`）。
 6. Behaviour & a11y: 3 の通り。iOS 固有の回避（scrollend 無し、snap index 再スナップ、momentum の不規則イベント）は Kivact の自前物理（21.10/21.11 案 A）では不要になる。ただし「指が触れている間・慣性中はコミットしない」「プログラム移動のエコーを報告しない（steer）」「親シートとジェスチャーを軸で分け合う」という**意味論は維持**すること。
 7. Kivact 実装方針: ジェスチャーは `kivact::interaction::use_drag`（`DragPhase`, `DragUpdate` から位置と時間を取り速度を計算; 時刻は `kivact::primitive::clock_now`）。シート側（BottomSheet/drawer）とは、同じドラッグを両方が取らないよう kit 内で「子が確保したら親は無視」のフラグ（コンテキスト）を共有する（DOM の stopPropagation の代わり）。アニメは `kivact::motion::{animated, Transition, Spring, Easing}`。
 8. 受け入れ確認: 21.10 / 21.11 の項目に含まれる。単体テスト: `month_index` 往復、`row_at_scroll_offset` の RTL 符号、`pane_window` の端、`nearest_enabled_index` の同距離タイブレーク。

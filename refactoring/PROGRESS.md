@@ -125,26 +125,26 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | I-0 | merged | c9cf306 | public17/Soft20 passed、check/state-fields 0 |
 | I-1 | merged | d94dd0a | public20/Soft9/dialog6 passed、check/state-fields 0 |
 | I-2a | merged | ac88c15 | public15/Soft6 passed、shared binding と caller 統合 check 0 |
-| I-2b | doing | 01e28b9 | machine 統合済み、最終 APG/host focus は固定 gate 待ち |
+| I-2b | merged | d92cae4 | APG/menu10・Soft3 passed、check/state-fields0 |
 | I-3 | merged | c0691c5 | public19 passed、check/state-fields 0 |
-| I-4a | doing | | |
-| I-4b | doing | | |
-| I-5a | todo | | |
-| I-5b | todo | | |
-| I-6 | todo | | |
-| U-1 | doing | | |
-| U-2 | todo | | |
-| I-7 | todo | | |
+| I-4a | merged | a64fe5a | public26/Soft4 passed、check/state-fields0 |
+| I-4b | merged | afc0a71 | APG grid8・Soft7 passed、check/state-fields0 |
+| I-5a | merged | 1156889 | public19/slider4/Soft8 passed、check/state-fields0 |
+| I-5b | doing | | |
+| I-6 | merged | cca5c70 | public7/Soft2、固定follow2 passed、check/state-fields0 |
+| U-1 | merged | 0c87c70 | public12/Soft6 passed、check/state-fields0 |
+| U-2 | doing | | |
+| I-7 | doing | | |
 | T-1 | merged | 6771046 | text_editing10 passed、check/fmt 0 |
-| T-2 | doing | ba8d6b1 | public proof7 passed、merge 待ち |
+| T-2 | merged | 9130a41 | 公開API editor証明7 passed、check0 |
 | G-1a | merged | 1685f3e | canvas8 passed、workspace check/fmt 0 |
-| G-1b | todo | | |
-| G-2 | todo | | |
+| G-1b | merged | b36cb40 | engine/core check0、固定canvas10 passed |
+| G-2 | merged | bec641a | pointer6 passed、engine/core check/fmt0 |
 | G-3 | todo | | |
 | G-4a | merged | 586a75c | style_paint6 passed、check/fmt 0 |
-| G-4b | todo | | |
-| G-4c | todo | | |
-| G-5 | todo | | |
+| G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
+| G-4c | doing | | |
+| G-5 | doing | | |
 | K-0 | todo | | |
 | K-1a | todo | | |
 | K-1b | todo | | |
@@ -183,3 +183,4 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G4-10 | merged | f1b0340 | private module namespace 分離、check0 |
 | fix-G4-11 | merged | a2946b2 | press-time factory、check0/E2E1 passed |
 | fix-G4-12 | merged | 291e2de | Generation/active payload、check0/E2E1 passed |
+| fix-G4-13 | merged | 507ea44 | 元のgrouped-table試験1/list11 passed、check/state-fields0 |

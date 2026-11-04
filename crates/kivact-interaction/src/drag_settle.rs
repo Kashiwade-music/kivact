@@ -36,15 +36,7 @@ pub fn project_release(position: impl Into<f64>, velocity: impl Into<f64>, decay
     position + velocity * (decay.as_secs_f64() * 1000.0)
 }
 
-/// Index of the closest stop. Ties select the first stop in the slice.
-pub fn nearest_snap(position: impl Into<f64>, stops: &[f64]) -> Option<usize> {
-    let position = position.into();
-    stops
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| (*a - position).abs().total_cmp(&(*b - position).abs()))
-        .map(|(index, _)| index)
-}
+pub use kivact_types::nearest_snap;
 
 /// Ease toward the closest stop inside a radius using quadratic falloff.
 pub fn pull_to_snap(position: impl Into<f64>, stops: &[f64], radius: impl Into<f64>) -> f64 {

@@ -106,3 +106,110 @@ fn touch_scroll_chains_to_the_outer_container_at_the_inner_boundary() {
     screen.contact_up(finger);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn fling_decelerates_and_stops() {
+    use std::time::Duration;
+    let (screen, offset) = mount(|| {
+        let reference = node_ref();
+        (
+            reference.scroll_offset(),
+            scroll(node().style(style().height(5000).shrink(0.0)))
+                .node_ref(reference)
+                .test_id("fling")
+                .style(style().size(200, 160)),
+        )
+    });
+    screen.set_pointer_settings(kivact::platform::PointerSettings {
+        fling_deceleration: 0.98,
+        ..Default::default()
+    });
+    let bounds = screen.get_by_test_id("fling").rect().unwrap();
+    let finger = screen.contact_down(PointerKind::Touch, bounds.x + 40.0, bounds.y + 130.0);
+    screen.contact_move(finger, bounds.x + 40.0, bounds.y + 110.0);
+    screen.advance(Duration::from_millis(20));
+    screen.contact_move(finger, bounds.x + 40.0, bounds.y + 70.0);
+    screen.contact_up(finger);
+    let released = offset.get().y;
+    screen.advance(Duration::from_millis(80));
+    let first = offset.get().y - released;
+    screen.advance(Duration::from_millis(80));
+    let second = offset.get().y - released - first;
+    assert!(first > 0.0 && second > 0.0 && second < first);
+    screen.advance(Duration::from_secs(3));
+    let stopped = offset.get();
+    screen.advance(Duration::from_secs(1));
+    assert_eq!(offset.get(), stopped);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn scroll_snap_settles_on_a_stop() {
+    use kivact::style::{Display, ScrollSnap};
+    use std::time::Duration;
+    let (screen, offset) = mount(|| {
+        let reference = node_ref();
+        (
+            reference.scroll_offset(),
+            scroll(
+                column((
+                    node().style(style().height(90).shrink(0.0)),
+                    node()
+                        .test_id("snap-child")
+                        .style(style().height(150).shrink(0.0)),
+                    node().style(style().height(300).shrink(0.0)),
+                ))
+                .style(style().display(Display::Contents)),
+            )
+            .node_ref(reference)
+            .test_id("snap")
+            .style(style().size(200, 100).scroll_snap(ScrollSnap::Start)),
+        )
+    });
+    let bounds = screen.get_by_test_id("snap").rect().unwrap();
+    let stop = screen.get_by_test_id("snap-child").rect().unwrap().y - bounds.y;
+    let finger = screen.contact_down(PointerKind::Touch, bounds.x + 40.0, bounds.y + 90.0);
+    screen.contact_move(finger, bounds.x + 40.0, bounds.y + 20.0);
+    screen.contact_up(finger);
+    screen.advance(Duration::from_secs(3));
+    assert!((offset.get().y - stop).abs() < 0.5);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn smooth_scroll_uses_the_easing() {
+    use kivact::geometry::Point;
+    use kivact::motion::Easing;
+    use kivact::view::ScrollBehavior;
+    use std::time::Duration;
+    let (screen, (slow, fast)) = mount(|| {
+        let (slow, fast) = (node_ref(), node_ref());
+        (
+            (slow.scroll_offset(), fast.scroll_offset()),
+            column((
+                button("Animate").on_press(move || {
+                    slow.scroll_to(
+                        Point::new(0.0, 300.0),
+                        ScrollBehavior::Smooth(Easing::EaseIn),
+                    );
+                    fast.scroll_to(
+                        Point::new(0.0, 300.0),
+                        ScrollBehavior::Smooth(Easing::EaseOut),
+                    );
+                }),
+                scroll(node().style(style().height(1000).shrink(0.0)))
+                    .node_ref(slow)
+                    .style(style().size(200, 100)),
+                scroll(node().style(style().height(1000).shrink(0.0)))
+                    .node_ref(fast)
+                    .style(style().size(200, 100)),
+            )),
+        )
+    });
+    screen.get_by_text("Animate").click();
+    screen.advance(Duration::from_millis(120));
+    assert!(slow.get().y > 0.0 && fast.get().y > slow.get().y);
+    screen.advance(Duration::from_secs(1));
+    assert_eq!(slow.get(), fast.get());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

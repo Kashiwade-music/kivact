@@ -20,6 +20,7 @@ kivact-style = { path = "../kivact-style", version = "0.1.0" }
 tracing = { workspace = true }
 
 [features]
+tokio = ["kivact-runtime/tokio"]
 embed = []
 gpu-interop = []
 

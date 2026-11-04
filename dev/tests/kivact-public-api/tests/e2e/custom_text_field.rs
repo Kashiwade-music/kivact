@@ -1,4 +1,4 @@
-//! Role: Prove a code editor can be built entirely from public custom and interaction APIs.
+//! Role: Exercise a text editor composed only from public APIs.
 
 use super::support::mount;
 use kivact::custom::{NodeRefExt, TextEditing, TextSession, inline_view};

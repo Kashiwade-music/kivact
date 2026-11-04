@@ -255,7 +255,7 @@ impl Navigation {
                         if is_motion_reduced {
                             ScrollBehavior::Instant
                         } else {
-                            ScrollBehavior::Smooth
+                            ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)
                         },
                     );
                 }

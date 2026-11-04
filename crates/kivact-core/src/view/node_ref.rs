@@ -335,7 +335,10 @@ impl NodeRef {
                 id,
                 point,
                 relative,
-                behavior == ScrollBehavior::Smooth,
+                match behavior {
+                    ScrollBehavior::Instant => None,
+                    ScrollBehavior::Smooth(easing) => Some(easing),
+                },
             );
             rt.request_turn();
         }
@@ -797,11 +800,11 @@ pub(crate) fn node_value(r: &NodeRef, at: &'static Location<'static>) -> Option<
 }
 
 /// How a requested scroll reaches its target.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ScrollBehavior {
     /// Apply immediately.
     #[default]
     Instant,
     /// Animate for 240 ms; user input cancels it.
-    Smooth,
+    Smooth(kivact_types::Easing),
 }

@@ -1,5 +1,5 @@
 //! Role: Store the held pointer, surfaces and row highlights of a menu.
-use super::press::machine::{Event, Highlight, Machine, PressGesture, State};
+use super::press_machine::{Event, Highlight, Machine, PressGesture, State};
 use kivact_core::geometry::Point;
 use kivact_core::state::{MachineHandle, Value, Var, machine, on_cleanup, var};
 use kivact_core::view::NodeRef;

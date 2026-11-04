@@ -342,7 +342,7 @@ pub fn catalog() -> impl IntoView {
                     PointerPhase::Move | PointerPhase::Enter | PointerPhase::Down(_)
                 ) {
                     pointer.set(e.window_pos());
-                    if pie.get().open {
+                    if matches!(pie.get(), ui::PieState::Open { .. }) {
                         let mut next = pie.get();
                         next.pointer(e.window_pos(), &pie_entries);
                         pie.set(next);
@@ -351,8 +351,19 @@ pub fn catalog() -> impl IntoView {
                 Handled::No
             })
             .on_key_up(move |e| {
-                if e.key() == Key::Char('z') && pie.get().held {
-                    if let Some(index) = pie.get().hot {
+                if e.key() == Key::Char('z')
+                    && matches!(
+                        pie.get(),
+                        ui::PieState::Open {
+                            mode: ui::PieMode::Held,
+                            ..
+                        }
+                    )
+                {
+                    if let ui::PieState::Open {
+                        hot: Some(index), ..
+                    } = pie.get()
+                    {
                         choose_pie(index);
                     }
                     pie.set(ui::PieState::default());
@@ -365,7 +376,7 @@ pub fn catalog() -> impl IntoView {
                     if !e.repeat()
                         && !e.modifiers().ctrl
                         && !e.modifiers().alt
-                        && !pie.get().open
+                        && matches!(pie.get(), ui::PieState::Closed)
                         && (pie_zone.hit_test(pointer.get())
                             || viewport_ref.hit_test(pointer.get())) =>
                 {
@@ -668,7 +679,7 @@ fn sidebar(
                     if let Some(rect) = rect.get() {
                         main_scroll.scroll_to(
                             Point::new(0.0, (main_offset.get().y + rect.y - 100.0).max(0.0)),
-                            kivact::view::ScrollBehavior::Smooth,
+                            kivact::view::ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
                         );
                     }
                 })

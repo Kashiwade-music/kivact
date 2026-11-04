@@ -26,8 +26,7 @@ pub struct Environment {
     pub scale_factor: f64,
     /// The system asks for reduced motion.
     pub reduced_motion: bool,
-    /// Light at start; the host follows the system's theme from its first
-    /// change.
+    /// The system's current app color mode; light when it cannot be queried.
     pub theme_hint: ThemeHint,
     /// Display refresh period (ns); used for `FrameRate::Display`.
     pub frame_period_ns: u64,

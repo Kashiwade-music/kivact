@@ -6,7 +6,6 @@ use std::time::Duration;
 use crate::{SpinnerShade, SpinnerSize, spinner, tokens};
 use kivact::custom::EditState;
 use kivact::i18n::{message, message_with};
-use kivact::interaction::use_content_reveal;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
 use kivact::state::Binding;
@@ -21,6 +20,7 @@ use kivact::state::memo;
 use kivact::state::signal;
 use kivact::style::Align;
 use kivact::style::Direction;
+use kivact::style::TransitionProp;
 use kivact::style::style;
 use kivact::view::Handled;
 use kivact::view::IntoView;
@@ -289,11 +289,6 @@ impl IntoView for ChatToolCalls {
         );
         let disclosure = use_disclosure(rows_open);
         let motion = tokens().motion;
-        let reveal = use_content_reveal(
-            disclosure.is_open(),
-            Transition::tween(motion.medium as f64, motion.ease_standard),
-        );
-        let disclosure = disclosure.leaving(move || reveal.leaving());
         let title = label.unwrap_or_else(|| {
             message_with(
                 "soft.chat.tool_calls.group_label",
@@ -342,73 +337,83 @@ impl IntoView for ChatToolCalls {
             .with_node(move |node| node.base_style(disclosure_style))
             .child((preview, heading, tool_chevron(open)));
         let rows_visible = rows_open.into_value();
-        let items = for_each(
-            calls,
-            |call| call.key.clone(),
-            move |call| {
-                let (summary, status) = tool_summary(call, rows_visible);
-                let error = text(message_with(
-                    "soft.chat.tool_calls.error",
-                    "Error: {message}",
-                    move || {
-                        [(
-                            "message",
-                            call.with(|call| call.error.clone().unwrap_or_default()),
-                        )]
-                    },
-                ))
-                .hidden(move || call.with(|call| call.error.is_none()))
-                .style(move || style().padding_left(22).color(tokens().colors.text_error));
-                let summary = if let Some(detail) = &detail {
-                    let expanded = signal(false);
-                    let disclosure = use_disclosure(expanded).disabled(move || !rows_visible.get());
-                    let detail_label = message_with(
-                        "soft.chat.tool_calls.detail",
-                        "Details for {name}",
-                        move || [("name", call.with(|call| call.name.clone()))],
-                    );
-                    let trigger_ref = node_ref();
-                    let trigger = node()
-                        .with_node(move |node| node.part(disclosure.trigger()))
-                        .name(detail_label)
-                        .description(status)
-                        .node_ref(trigger_ref)
-                        .with_node(move |node| node.base_style(disclosure_style))
-                        .child((summary.style(style().grow(1)), tool_chevron(expanded)));
-                    let content = node()
-                        .with_node(move |node| node.role(Role::Group))
-                        .name(detail_label)
-                        .with_node(move |node| node.part(disclosure.content()))
-                        .hidden(move || !rows_visible.get() || !expanded.get())
-                        .on_key(move |event: KeyEvent| {
-                            if event.key() == Key::Escape {
-                                expanded.set(false);
-                                trigger_ref.restore_focus();
-                                Handled::Yes
-                            } else {
-                                Handled::No
-                            }
-                        })
-                        .style(style().padding_left(22).padding_bottom(8))
-                        .child(detail.call(call));
-                    column((trigger, error, content))
-                } else {
-                    column((summary, error)).style(style().padding_x(6))
-                };
-                summary.with_node(move |node| node.role(Role::ListItem))
-            },
-        );
-        let measured = node_ref();
-        let items = column(items)
-            .with_node(move |node| node.role(Role::List))
-            .name(title)
-            .node_ref(measured)
-            .style(style().gap(2).shrink(0));
-        let items = column(items)
+        let items = show(disclosure.is_open(), move || {
+            let detail = detail.clone();
+            let items = for_each(
+                calls,
+                |call| call.key.clone(),
+                move |call| {
+                    let (summary, status) = tool_summary(call, rows_visible);
+                    let error = text(message_with(
+                        "soft.chat.tool_calls.error",
+                        "Error: {message}",
+                        move || {
+                            [(
+                                "message",
+                                call.with(|call| call.error.clone().unwrap_or_default()),
+                            )]
+                        },
+                    ))
+                    .hidden(move || call.with(|call| call.error.is_none()))
+                    .style(move || style().padding_left(22).color(tokens().colors.text_error));
+                    let summary = if let Some(detail) = &detail {
+                        let expanded = signal(false);
+                        let disclosure =
+                            use_disclosure(expanded).disabled(move || !rows_visible.get());
+                        let detail_label = message_with(
+                            "soft.chat.tool_calls.detail",
+                            "Details for {name}",
+                            move || [("name", call.with(|call| call.name.clone()))],
+                        );
+                        let trigger_ref = node_ref();
+                        let trigger = node()
+                            .with_node(move |node| node.part(disclosure.trigger()))
+                            .name(detail_label)
+                            .description(status)
+                            .node_ref(trigger_ref)
+                            .with_node(move |node| node.base_style(disclosure_style))
+                            .child((summary.style(style().grow(1)), tool_chevron(expanded)));
+                        let content = node()
+                            .with_node(move |node| node.role(Role::Group))
+                            .name(detail_label)
+                            .with_node(move |node| node.part(disclosure.content()))
+                            .hidden(move || !rows_visible.get() || !expanded.get())
+                            .on_key(move |event: KeyEvent| {
+                                if event.key() == Key::Escape {
+                                    expanded.set(false);
+                                    trigger_ref.restore_focus();
+                                    Handled::Yes
+                                } else {
+                                    Handled::No
+                                }
+                            })
+                            .style(style().padding_left(22).padding_bottom(8))
+                            .child(detail.call(call));
+                        column((trigger, error, content))
+                    } else {
+                        column((summary, error)).style(style().padding_x(6))
+                    };
+                    summary.with_node(move |node| node.role(Role::ListItem))
+                },
+            );
+            column(
+                column(items)
+                    .with_node(move |node| node.role(Role::List))
+                    .name(title)
+                    .style(style().gap(2).shrink(0)),
+            )
             .with_node(move |node| node.role(Role::Group))
             .with_node(move |node| node.part(disclosure.content()))
-            .style(style().clip(true))
-            .style(reveal.container_style(measured));
+            .style(
+                style()
+                    .enter_size(kivact::view::Orientation::Vertical)
+                    .exit_size(kivact::view::Orientation::Vertical)
+                    .transition(
+                        TransitionProp::Size,
+                        Transition::tween(motion.medium as f64, motion.ease_standard),
+                    ),
+            )
+        });
         root.hidden(move || calls.with(Vec::is_empty))
             .with_node(move |node| {
                 node.base_style(

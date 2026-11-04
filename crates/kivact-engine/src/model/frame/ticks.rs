@@ -13,13 +13,18 @@ impl Model {
         id: NodeId,
         start: Point,
         target: Point,
-        smooth: bool,
+        easing: Option<kivact_types::Easing>,
     ) {
         self.frame.smooth_scrolls.remove(&id);
-        if smooth && !self.frame.reduced_motion() {
-            self.frame
-                .smooth_scrolls
-                .insert(id, SmoothScroll::Scheduled { start, target });
+        if let Some(easing) = easing.filter(|_| !self.frame.reduced_motion()) {
+            self.frame.smooth_scrolls.insert(
+                id,
+                SmoothScroll::Scheduled {
+                    start,
+                    target,
+                    easing,
+                },
+            );
             let last = match self.frame.last_frame {
                 TickHistory::NeverTicked => 0,
                 TickHistory::Ticked { last_ns } => last_ns,
@@ -29,6 +34,26 @@ impl Model {
         } else {
             self.set_scroll(id, target);
         }
+    }
+
+    pub(crate) fn start_scroll_fling(&mut self, id: NodeId, velocity: Point) {
+        if self.frame.reduced_motion()
+            || velocity.x.hypot(velocity.y) < self.frame.env.pointer.fling_min_velocity
+        {
+            self.settle_scroll_snap(id);
+            return;
+        }
+        self.frame.smooth_scrolls.insert(
+            id,
+            SmoothScroll::Fling {
+                velocity,
+                last_ns: self.frame.now,
+            },
+        );
+        self.frame
+            .frames
+            .0
+            .insert(self.frame.now.saturating_add(self.frame.period_ns()));
     }
 
     /// The environment before the client starts (it gets it in `HostInfo`):
@@ -127,27 +152,69 @@ impl Model {
         if !self.frame.smooth_scrolls.is_empty() {
             let mut scrolls = std::mem::take(&mut self.frame.smooth_scrolls);
             scrolls.retain(|id, scroll| {
-                let (start, target, began) = match *scroll {
-                    SmoothScroll::Scheduled { start, target } => {
+                if let SmoothScroll::Fling { velocity, last_ns } = scroll {
+                    let dt = stamp.saturating_sub(*last_ns) as f64 / 1_000_000.0;
+                    *last_ns = stamp;
+                    let settings = self.frame.env.pointer;
+                    let decay = if settings.fling_deceleration.is_finite()
+                        && settings.fling_deceleration > 0.0
+                        && settings.fling_deceleration < 1.0
+                    {
+                        settings.fling_deceleration
+                    } else {
+                        0.998
+                    };
+                    let retention = decay.powf(dt);
+                    let distance = (retention - 1.0) / decay.ln();
+                    let Some(node) = self.node(*id) else {
+                        return false;
+                    };
+                    let at = node.scroll();
+                    let moved = self.set_scroll(
+                        *id,
+                        Point {
+                            x: at.x + velocity.x * distance,
+                            y: at.y + velocity.y * distance,
+                        },
+                    );
+                    velocity.x *= retention;
+                    velocity.y *= retention;
+                    let active = moved
+                        && !self.frame.reduced_motion()
+                        && velocity.x.hypot(velocity.y) >= settings.fling_min_velocity.max(0.001);
+                    if !active {
+                        self.settle_scroll_snap(*id);
+                    }
+                    return active;
+                }
+                let (start, target, began, easing) = match *scroll {
+                    SmoothScroll::Scheduled {
+                        start,
+                        target,
+                        easing,
+                    } => {
                         *scroll = SmoothScroll::Running {
                             start,
                             target,
+                            easing,
                             began_ns: stamp,
                         };
-                        (start, target, stamp)
+                        (start, target, stamp, easing)
                     }
+                    SmoothScroll::Fling { .. } => unreachable!("invariant: fling handled above"),
                     SmoothScroll::Running {
                         start,
                         target,
+                        easing,
                         began_ns,
-                    } => (start, target, began_ns),
+                    } => (start, target, began_ns, easing),
                 };
                 let t = if self.frame.reduced_motion() {
                     1.0
                 } else {
                     (stamp.saturating_sub(began) as f64 / 240_000_000.0).min(1.0)
                 };
-                let eased = 1.0 - (1.0 - t).powi(3);
+                let eased = easing.apply(t);
                 self.set_scroll(
                     *id,
                     Point {

@@ -1481,7 +1481,7 @@ CSS アニメーションはない。Timer は 1000ms ごとにテキストを�
   - `use_drag`（`kivact-interaction/src/drag.rs:293`）: slop なし、速度なし、軸ロックなし。
   - `PointerEvent` にタイムスタンプはない。
   - `PointerKind::{Mouse, Touch, Pen}` はイベント単位で取れる（`kivact-types/src/platform.rs:30`）。
-- **スムーズスクロール**: `NodeRef::scroll_to/scroll_by(.., ScrollBehavior::Smooth)` は固定 240ms（`node_ref.rs:229-234`）。
+- **スムーズスクロール**: `NodeRef::scroll_to/scroll_by(.., ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut))` は固定 240ms（`node_ref.rs:229-234`）。
 - **クリップ**: `clip_path(Shape)`（`Shape::inset` あり、`kivact-style/src/effect.rs`）。遷移では補間されない。
 
 ### 6.2 Astryx のプリミティブと Kivact の対応
@@ -1521,7 +1521,7 @@ CSS アニメーションはない。Timer は 1000ms ごとにテキストを�
 | View Transitions | なし（Astryx も使わない） | 不要 |
 | scroll-driven animation（Wheel のフォールオフ） | なし。スクロール位置を signal で読んで style を計算する | **一部対応**（自前） |
 | 3D 変換（Wheel の rotateX 52°、perspective 520px） | Transform は 2D（translate、rotate、skew、scale）。rotateX はない | **GAP**（scaleY と opacity で近似するか、見送る） |
-| smooth scroll | `ScrollBehavior::Smooth` は固定 240ms | **差異**（ブラウザも UA 依存なので許容） |
+| smooth scroll | `ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)` は固定 240ms | **差異**（ブラウザも UA 依存なので許容） |
 | アンカーポジショニングの top / height 遷移（Outline） | レイアウト遷移なし。インジケーターを absolute にし、`Animated<(f32,f32)>`（top, height）を spring または tween(95, std) で動かす | **一部対応**（`NodeRef::rect` が非同期で、遅れる可能性がある） |
 
 ### 6.3 実装上の具体指示
@@ -1557,6 +1557,6 @@ CSS アニメーションはない。Timer は 1000ms ごとにテキストを�
 7. MobileNav の backdrop は close（180ms）の時点で消えるため、パネル（300ms）より先に消える [推論]。
 8. BottomSheet は、settle 中に指が触れると表示位置ではなく settle 目標へジャンプする [推論]。
 9. Button の spinner 出現の CSS `ease`（timing function 未指定）は意図的かどうか不明。そのまま `ease` (0.25,0.1,0.25,1) を使う。
-10. TabList の `scroll-behavior: smooth` と Carousel、Outline の smooth スクロールは、時間・カーブとも UA 定義である。Kivact では `ScrollBehavior::Smooth`（240ms）で代用する。
+10. TabList の `scroll-behavior: smooth` と Carousel、Outline の smooth スクロールは、時間・カーブとも UA 定義である。Kivact では `ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)`（240ms）で代用する。
 11. layerAnimations は、配置フォールバックで反転しても方向を再計算しない（Astryx のバグの可能性）。そのまま再現する。
 12. UIKit の `springs.*` のうち未使用のもの（sheet, menu, alert, banner, segmentedThumb）を**使わない**。Astryx の現在の挙動は CSS である。
