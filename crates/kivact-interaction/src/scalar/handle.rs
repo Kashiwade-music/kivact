@@ -7,7 +7,7 @@ use super::track::{Grip, Target, fraction};
 use crate::axis::Axis;
 use crate::drag::DragApi;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use kivact_core::custom::{Part, PartState, part};
+use kivact_core::custom::{Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, memo};
 use kivact_core::view::EditPhase;
@@ -134,13 +134,20 @@ impl ScalarApi {
 
     /// Override the positive keyboard and accessibility increment without
     /// changing quantization. The default is the range's step, or 1 when the
-    /// range is continuous.
-    pub fn key_step(self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
-        let step = step.into();
-        if !step.is_finite() || step <= 0.0 {
+    /// range is continuous. Reactive steps are read for each action. An invalid
+    /// initial step returns an error; a later invalid step reports to the
+    /// configuring owner's error boundary and rejects the action without writing.
+    #[track_caller]
+    pub fn key_step(self, step: impl IntoValue<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into_value();
+        let initial = step.get_untracked();
+        if !initial.is_finite() || initial <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
-        self.edit.shared.key_step.set(Some(step));
+        self.edit
+            .shared
+            .key_step
+            .set(Some((step, Owner::current())));
         Ok(self)
     }
 
@@ -218,18 +225,26 @@ impl ScalarApi {
     #[track_caller]
     pub fn step_by(self, steps: impl Into<f64>) -> bool {
         let steps = steps.into();
-        self.ops.step_by(steps, self.current_key_step())
+        self.current_key_step()
+            .is_some_and(|step| self.ops.step_by(steps, step))
     }
 
     /// The keyboard increment: the one given to [`key_step`](Self::key_step),
     /// else the range's step, else 1.
-    fn current_key_step(self) -> f64 {
-        self.edit
-            .shared
-            .key_step
-            .get()
-            .or(self.ops.range.get_untracked().step())
-            .unwrap_or(1.0)
+    #[track_caller]
+    fn current_key_step(self) -> Option<f64> {
+        if let Some((value, owner)) = self.edit.shared.key_step.get() {
+            let step = value.get_untracked();
+            if !step.is_finite() || step <= 0.0 {
+                owner.report(
+                    kivact_core::ErrorKind::Message,
+                    ScalarRangeError::InvalidStep.to_string(),
+                );
+                return None;
+            }
+            return Some(step);
+        }
+        Some(self.ops.range.get_untracked().step().unwrap_or(1.0))
     }
 
     /// This scalar as a thumb the pointer moves.
@@ -375,7 +390,11 @@ impl ScalarApi {
                     }
                     let mirror = role == Role::Slider && shared.mirrored();
                     match self.ops.key_op(event.key(), mirror) {
-                        Some(op) if self.once(|| self.ops.apply(op, self.current_key_step())) => {
+                        Some(op)
+                            if self
+                                .current_key_step()
+                                .is_some_and(|step| self.once(|| self.ops.apply(op, step))) =>
+                        {
                             Handled::Yes
                         }
                         _ => Handled::No,
@@ -404,8 +423,8 @@ impl ScalarApi {
                         }
                         _ => true,
                     };
-                    if writes {
-                        self.once(|| self.ops.a11y(&event, self.current_key_step()));
+                    if writes && let Some(step) = self.current_key_step() {
+                        self.once(|| self.ops.a11y(&event, step));
                     }
                 });
             }

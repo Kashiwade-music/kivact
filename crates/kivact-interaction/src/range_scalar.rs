@@ -126,8 +126,8 @@ pub fn use_range_scalar(
 impl RangeScalarApi {
     /// Override the positive keyboard and accessibility increment of both
     /// thumbs, as [`ScalarApi::key_step`] does.
-    pub fn key_step(self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
-        let step = step.into();
+    pub fn key_step(self, step: impl IntoValue<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into_value();
         // Both ends share the setting.
         self.low.key_step(step)?;
         Ok(self)
