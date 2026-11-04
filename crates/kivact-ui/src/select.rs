@@ -35,7 +35,7 @@ pub struct Select<K: kivact_core::state::ItemKey> {
     placeholder: Option<Value<String>>,
     preview: Option<Callback<Option<K>>>,
     icon: Option<View>,
-    size: ControlSize,
+    size: Value<ControlSize>,
     option: Option<OptionContent<K>>,
     variants: Variants,
     arrow_open: Value<bool>,
@@ -64,7 +64,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
         placeholder: None,
         preview: None,
         icon: None,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         option: None,
         variants,
         arrow_open: false.into_value(),
@@ -137,8 +137,8 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
     /// The size (default [`ControlSize::Medium`]), given to the trigger
     /// recipe in [`SelectTriggerState::size`]; the recipe sizes the trigger
     /// by it.
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
     /// What each option row shows, built once per row from its item and
@@ -198,7 +198,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
                 input,
                 open,
                 placeholder,
-                size,
+                size: size.get(),
             }
         });
         self.root = with_base_recipe_style(
@@ -319,11 +319,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let body_variants = variants.clone();
         let build = Rc::new(move |sheet: bool| {
             let slot = slot.clone();
-            let rows = if sheet {
-                body_variants.with(SelectSheetOption(size))
-            } else {
-                body_variants.clone()
-            };
+            let rows = body_variants.clone();
             for_each(
                 options,
                 |item| item.key().clone(),
@@ -345,19 +341,23 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
                                 move || item.get().label(),
                                 move || item.get().description(),
                                 move |line| {
-                                    with_recipe_style(
+                                    with_option_style(
                                         line,
                                         |r| r.select_recipes().description_recipe(),
                                         &lines,
-                                        move || state.get(),
+                                        state,
+                                        size,
+                                        sheet,
                                     )
                                 },
                             ),
-                            with_recipe_style(
+                            with_option_style(
                                 node(),
                                 |r| r.select_recipes().check_recipe(),
                                 variants,
-                                move || state.get(),
+                                state,
+                                size,
+                                sheet,
                             )
                             .child(kivact_core::view::dynamic(
                                 move || state.get().selected,
@@ -366,11 +366,13 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
                         )
                             .into_view(),
                     };
-                    with_recipe_style(
+                    with_option_style(
                         node().part(part),
                         |r| r.select_recipes().option_recipe(),
                         variants,
-                        move || state.get(),
+                        state,
+                        size,
+                        sheet,
                     )
                     .child(content)
                 },
@@ -420,4 +422,25 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         });
         (trigger, surface, sheet).into_view()
     }
+}
+
+/// Apply sheet size variants during styling so live sizes preserve row identity.
+fn with_option_style(
+    root: Node,
+    pick: fn(&super::recipes::UiRecipes) -> &super::recipes::Recipe<ListItemState>,
+    variants: &Variants,
+    state: Value<ListItemState>,
+    size: Value<ControlSize>,
+    sheet: bool,
+) -> Node {
+    let variants = variants.clone();
+    root.style(move || {
+        let variants = if sheet {
+            variants.with(SelectSheetOption(size.get()))
+        } else {
+            variants.clone()
+        };
+        let theme = kivact_core::style::use_theme().get();
+        pick(&super::layer::recipes(&theme))(&theme, &variants.look(state.get()))
+    })
 }

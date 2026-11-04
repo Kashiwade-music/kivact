@@ -32,7 +32,7 @@ use super::variants::{Variant, Variants};
 pub struct TextInput {
     field: Node,
     editing: TextEditApi,
-    size: Rc<Cell<ControlSize>>,
+    size: Rc<Cell<kivact_core::state::Value<ControlSize>>>,
     invalid: Rc<OnceCell<kivact_core::state::Value<bool>>>,
     variants: Variants,
     multiline: bool,
@@ -79,7 +79,9 @@ fn create(
     value: Binding<String>,
     multiline: bool,
 ) -> TextInput {
-    let size = Rc::new(Cell::new(super::values::default_control_size()));
+    let size = Rc::new(Cell::new(
+        super::values::default_control_size().into_value(),
+    ));
     let read = size.clone();
     let invalid = Rc::new(OnceCell::<kivact_core::state::Value<bool>>::new());
     let read_invalid = invalid.clone();
@@ -104,7 +106,7 @@ fn create(
             &theme,
             &look.look(TextInputState {
                 input: input.get(),
-                size: read.get(),
+                size: read.get().get(),
                 invalid: read_invalid.get().is_some_and(|invalid| invalid.get()),
             }),
         )
@@ -173,8 +175,8 @@ impl TextInput {
     }
 
     /// The metrics (default [`ControlSize::Medium`]).
-    pub fn size(self, size: ControlSize) -> Self {
-        self.size.set(size);
+    pub fn size(self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size.set(size.into_value());
         self
     }
 

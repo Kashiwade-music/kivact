@@ -22,7 +22,7 @@ macro_rules! toggle_builder {
             state: Binding<bool>,
             mixed: Option<Value<bool>>,
             hide_label: Option<Value<bool>>,
-            size: ControlSize,
+            size: Value<ControlSize>,
             variants: Variants,
         }
 
@@ -34,15 +34,15 @@ macro_rules! toggle_builder {
                     state,
                     mixed: None,
                     hide_label: None,
-                    size: super::values::default_control_size(),
+                    size: super::values::default_control_size().into_value(),
                     variants: Variants::default(),
                 }
             }
 
             /// The size (default [`ControlSize::Medium`]), given to the
             /// recipe in its state; the recipe sizes the control by it.
-            pub fn size(mut self, size: ControlSize) -> Self {
-                self.size = size;
+            pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+                self.size = size.into_value();
                 self
             }
 
@@ -94,7 +94,7 @@ macro_rules! toggle_builder {
                 let part = control.map_state(move |state: ToggleState| CheckableState {
                     input: state.input,
                     checked: state.checked,
-                    size,
+                    size: size.get(),
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid.get()),
                     text,
                     switch_drag: drag.and_then(|drag| drag.get()),
@@ -148,7 +148,7 @@ use super::switch_drag::switch as switch_gesture;
 fn no_gesture(
     control: kivact_core::custom::Part<ToggleState>,
     _: Binding<bool>,
-    _: ControlSize,
+    _: Value<ControlSize>,
 ) -> (
     kivact_core::custom::Part<ToggleState>,
     super::switch_drag::Visual,
