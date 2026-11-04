@@ -19,15 +19,11 @@ mod sticky_paint;
 mod tree;
 mod types;
 
+pub use crate::data_table_tokens::{
+    DataTableRowStatusPaint, DataTableStickyPaint, DataTableTokens,
+};
 pub use builder::data_table;
 pub use filter_value::{FilterField, FilterUi};
 pub use group_state::DataTableGroupState;
-pub use row_status::{DataTableRowStatusPaint, RowStatus};
-pub use sticky_paint::DataTableStickyPaint;
+pub use row_status::RowStatus;
 pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent};
-
-pub(crate) mod tokens;
-pub use tokens::DataTableTokens;
-
-mod row_status_tokens;
-mod sticky_paint_tokens;

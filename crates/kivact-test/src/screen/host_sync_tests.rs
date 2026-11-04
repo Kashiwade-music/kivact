@@ -417,7 +417,7 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     );
     let screen = render(move || {
         let editing =
-            TextEditing::new("one line").highlight((), move |_: &(), _: &str, _: &State| {
+            TextEditing::new("one line").line_styles((), move |_: &(), _: &str, _: &State| {
                 let probe = Rc::new(Probe {
                     armed: Cell::new(false),
                     drops: d.clone(),

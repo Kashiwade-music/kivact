@@ -215,3 +215,200 @@ fn a_drag_during_an_edit_it_did_not_begin_leaves_that_edit_open() {
     assert_eq!(log.borrow().edits, [(Begin, 0.0), (Commit, 20.0)]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+fn configured_drag(
+    slop: f64,
+    lock: bool,
+    velocity: bool,
+) -> (Screen, Rc<RefCell<Vec<DragUpdate<()>>>>) {
+    let updates = Rc::new(RefCell::new(Vec::new()));
+    let seen = updates.clone();
+    let (screen, ()) = mount_with(real_window(), move || {
+        let started = seen.clone();
+        let moved = seen.clone();
+        let ended = seen.clone();
+        let mut drag = use_drag::<()>(DragCoordinates::Window).slop(slop);
+        if lock {
+            drag = drag.axis_lock();
+        }
+        if velocity {
+            drag = drag.track_velocity();
+        }
+        let source = drag
+            .on_start(move |update| started.borrow_mut().push(update))
+            .on_update(move |update| moved.borrow_mut().push(update))
+            .on_end(move |update| ended.borrow_mut().push(update))
+            .source(());
+        (
+            (),
+            node()
+                .test_id("stepper")
+                .name("Drag handle")
+                .focusable(true)
+                .style(style().size(100, 100))
+                .part(source),
+        )
+    });
+    (screen, updates)
+}
+
+#[test]
+fn drag_slop_waits_before_starting() {
+    let (screen, updates) = configured_drag(10.0, false, false);
+    let at = center(&screen);
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(at.x + 6.0, at.y + 8.0);
+    assert!(
+        updates.borrow().is_empty(),
+        "the threshold must be exceeded"
+    );
+    screen.mouse_up(MouseButton::Primary);
+    assert!(
+        updates.borrow().is_empty(),
+        "a pending press ends without callbacks"
+    );
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(at.x + 11.0, at.y);
+    assert_eq!(
+        updates
+            .borrow()
+            .iter()
+            .map(|update| update.phase)
+            .collect::<Vec<_>>(),
+        [DragPhase::Start, DragPhase::Move]
+    );
+    assert_eq!(updates.borrow()[1].delta, Point::new(11.0, 0.0));
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        updates.borrow().last().expect("end update").phase,
+        DragPhase::End
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn drag_axis_lock_keeps_the_first_axis() {
+    let (screen, updates) = configured_drag(10.0, true, false);
+    let at = center(&screen);
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(at.x + 12.0, at.y + 3.0);
+    screen.mouse_move(at.x + 14.0, at.y + 35.0);
+    screen.mouse_up(MouseButton::Primary);
+    let updates = updates.borrow();
+    assert_eq!(
+        updates.last().expect("end update").delta,
+        Point::new(14.0, 0.0)
+    );
+    assert!(updates.iter().all(|update| update.delta.y == 0.0));
+    assert!(
+        updates
+            .iter()
+            .all(|update| update.velocity == Point::new(0.0, 0.0)),
+        "velocity tracking is opt-in"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn drag_track_velocity_reports_pixels_per_ms() {
+    use std::time::Duration;
+    let (screen, updates) = configured_drag(0.0, false, true);
+    let at = center(&screen);
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.advance(Duration::from_millis(20));
+    screen.mouse_move(at.x + 20.0, at.y);
+    screen.advance(Duration::from_millis(20));
+    screen.mouse_move(at.x + 40.0, at.y);
+    let velocity = updates.borrow().last().expect("move update").velocity;
+    assert!(
+        (0.8..1.2).contains(&velocity.x),
+        "40 pixels over 40 ms: {velocity:?}"
+    );
+    assert_eq!(velocity.y, 0.0);
+    screen.advance(Duration::from_millis(150));
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        updates.borrow().last().expect("end update").velocity,
+        Point::new(0.0, 0.0),
+        "samples beyond the 100 ms window expire"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn drag_source_with_samples_once_at_the_accepted_press() {
+    use std::cell::Cell;
+    let calls = Rc::new(Cell::new(0));
+    let updates = Rc::new(RefCell::new(Vec::new()));
+    let sampled = calls.clone();
+    let seen = updates.clone();
+    let (screen, (payload, disabled)) = mount_with(real_window(), move || {
+        let payload = signal(3);
+        let disabled = signal(false);
+        let started = seen.clone();
+        let moved = seen.clone();
+        let ended = seen.clone();
+        let source = use_drag(DragCoordinates::Window)
+            .slop(10)
+            .disabled(disabled)
+            .on_start(move |update: DragUpdate<i32>| started.borrow_mut().push(update.payload))
+            .on_update(move |update: DragUpdate<i32>| moved.borrow_mut().push(update.payload))
+            .on_end(move |update: DragUpdate<i32>| ended.borrow_mut().push(update.payload))
+            .source_with(move || {
+                sampled.set(sampled.get() + 1);
+                payload.get_untracked()
+            });
+        (
+            (payload, disabled),
+            node()
+                .test_id("stepper")
+                .name("Drag snapshot")
+                .focusable(true)
+                .style(style().size(100, 100))
+                .part(source),
+        )
+    });
+    assert_eq!(calls.get(), 0, "setup must not sample the payload");
+    let at = center(&screen);
+    screen.mouse_move(at.x, at.y);
+    disabled.set(true);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_up(MouseButton::Primary);
+    disabled.set(false);
+    screen.mouse_down(MouseButton::Secondary);
+    screen.mouse_up(MouseButton::Secondary);
+    assert_eq!(calls.get(), 0, "rejected presses must not call the factory");
+
+    screen.mouse_down(MouseButton::Primary);
+    assert_eq!(calls.get(), 1, "a pending press samples immediately");
+    payload.set(7);
+    screen.mouse_move(at.x + 5.0, at.y);
+    assert!(updates.borrow().is_empty());
+    screen.mouse_move(at.x + 15.0, at.y);
+    screen.mouse_move(at.x + 25.0, at.y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        *updates.borrow(),
+        [3, 3, 3, 3],
+        "start, moves and end share the press-time snapshot"
+    );
+    assert_eq!(calls.get(), 1, "moves and release never resample");
+
+    updates.borrow_mut().clear();
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    payload.set(9);
+    screen.mouse_move(at.x + 15.0, at.y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        *updates.borrow(),
+        [7, 7, 7],
+        "the next gesture takes a new snapshot"
+    );
+    assert_eq!(calls.get(), 2);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

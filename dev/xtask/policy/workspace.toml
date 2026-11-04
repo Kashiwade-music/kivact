@@ -31,6 +31,7 @@ kivact-ui = ["kivact"]
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-types; pure layout belongs to kivact-layout.
 kivact-engine = ["kivact-core", "kivact-test"]
+# Editing transports resolved line paints and document decorations; authored StyledRange/TextDecoration belong to style.
 kivact-editing = ["kivact-style", "kivact-engine", "kivact-core"]
 kivact-layout = ["kivact-engine"]
 
@@ -426,6 +427,7 @@ allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/ar
 
 [structural_options]
 # Passive data values and collection records do not configure mounted UI structure.
+# Path geometry contracts: contains/stroke_contains, canvas arc_to, SVG svg_arc_to/parse_svg.
 record_types = ["CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span"]
 skip = ["kivact-public-api-tests", "kivact-ui-basic", "kivact-ui-pop", "kivact-ui-game", "kivact-ui-creative", "kivact-ui-soft", "kivact-engine", "kivact-editing", "kivact-layout", "kivact-docs", "kivact-template-basic", "kivact-example-counter", "kivact-example-form", "kivact-example-list", "kivact-example-async", "kivact-example-component", "kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog", "arvane", "kivact-types", "arvane-native", "arvane-shell", "arvane-virtual", "arvane-text", "arvane-render", "arvane-asset", "kivact-gpu-share", "gpu-interop-producer", "xtask"]
 list = [
@@ -433,6 +435,7 @@ list = [
     "ComboboxApi::mode", "Combobox::mode", "CarouselApi::mode", "Carousel::mode",
     "VirtualList::row_height", "ListApi::keep_focus", "Overlay::modal", "Node::modal", "Node::region_events",
     "VirtualList::release_offscreen_focus", "TextEditing::multiline", "TextEditing::report_text",
+    "DragApi::axis_lock", "DragApi::track_velocity",
     "DataTable::initially_expanded", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
     "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
     "Carousel::looping", "Dropzone::multiple", "Dropzone::pick_on_press",

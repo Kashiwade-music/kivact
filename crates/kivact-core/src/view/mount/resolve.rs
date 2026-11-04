@@ -92,6 +92,7 @@ pub(super) fn resolve(
         regions: declarations,
         draw: below,
         draw_over: over,
+        draw_with_layout,
         intrinsic,
         image_fit,
         monochrome,
@@ -176,13 +177,19 @@ pub(super) fn resolve(
                 revision: cx.owner.notifier(at),
             }
         });
-    let observe_layout = below.is_some() || over.is_some();
+    if draw_with_layout.is_some() && handlers.selection.is_none() {
+        handlers.selection = Some(kivact_runtime::Handler::from_fn(
+            |_: kivact_editing::TextSession| {},
+        ));
+    }
+    let observe_layout = below.is_some() || over.is_some() || draw_with_layout.is_some();
     let draw = (observe_layout || local_paint.is_some()).then(|| {
         let size = cx.owner.signal(Size::new(0.0, 0.0), at);
         handlers.observe_layout(move |_, s| size.set(s));
         DrawInput {
             below,
             over,
+            with_layout: draw_with_layout,
             local_paint: local_paint.clone(),
             regions: attached.as_ref().map(|a| a.regions.clone()),
             size,

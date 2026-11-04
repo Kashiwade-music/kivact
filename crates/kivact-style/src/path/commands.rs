@@ -1,8 +1,10 @@
 //! Role: The `Path` value and the commands that build it: lines, curves, arcs and shapes.
 
 use crate::geometry::{CornerRadius, Point, Rect};
+use kivact_runtime::UiError;
 use kivact_types as p;
 use kivact_types::FillRule;
+use svgtypes::{SimplePathSegment, SimplifyingPathParser};
 
 /// A reusable path, filled with `Draw::fill_path`, stroked with
 /// `Draw::stroke_path`, and used as a clip, a hit region or a style clip
@@ -96,8 +98,82 @@ impl Path {
         });
         self
     }
+    /// Parse SVG path data, including relative, repeated and smooth commands.
+    /// Invalid data returns an error without a partial path.
+    pub fn parse_svg(d: &str) -> Result<Path, UiError> {
+        let mut path = Self::new();
+        for segment in SimplifyingPathParser::from(d) {
+            path = match segment.map_err(UiError::from)? {
+                SimplePathSegment::MoveTo { x, y } => path.move_to(Point::new(x, y)),
+                SimplePathSegment::LineTo { x, y } => path.line_to(Point::new(x, y)),
+                SimplePathSegment::CurveTo {
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    x,
+                    y,
+                } => path.cubic_to(Point::new(x1, y1), Point::new(x2, y2), Point::new(x, y)),
+                SimplePathSegment::Quadratic { x1, y1, x, y } => {
+                    path.quad_to(Point::new(x1, y1), Point::new(x, y))
+                }
+                SimplePathSegment::ClosePath => path.close(),
+            };
+        }
+        if !path.cmds.is_empty() && path.bez().is_none() {
+            return Err(UiError::msg("SVG path contains non-finite coordinates"));
+        }
+        Ok(path)
+    }
+    /// Round the corner between the current point, `p1` and `p2`, as canvas arcTo.
+    /// An empty path moves to `p1`; zero radius or collinear points draw a line.
+    /// Negative or non-finite radii and non-finite points leave the path unchanged.
+    pub fn arc_to(self, p1: Point, p2: Point, radius: impl Into<f64>) -> Self {
+        let radius = radius.into();
+        if radius < 0.0
+            || ![radius, p1.x, p1.y, p2.x, p2.y]
+                .iter()
+                .all(|v| v.is_finite())
+        {
+            return self;
+        }
+        let mut current = None;
+        let mut start = Point::default();
+        for command in self.lowered() {
+            match command {
+                p::PathCmd::MoveTo(point) => {
+                    start = point;
+                    current = Some(point);
+                }
+                p::PathCmd::LineTo(point)
+                | p::PathCmd::QuadTo(_, point)
+                | p::PathCmd::CubicTo(_, _, point) => current = Some(point),
+                p::PathCmd::Close => current = Some(start),
+                p::PathCmd::Arc { .. } | p::PathCmd::ArcTo { .. } => {}
+            }
+        }
+        match current {
+            Some(p0) => self.corner_arc(p0, p1, p2, radius),
+            None => self.move_to(p1),
+        }
+    }
+    fn corner_arc(self, p0: Point, p1: Point, p2: Point, radius: f64) -> Self {
+        let (ax, ay, bx, by) = (p0.x - p1.x, p0.y - p1.y, p2.x - p1.x, p2.y - p1.y);
+        let (a, b) = (ax.hypot(ay), bx.hypot(by));
+        let cross = ax * by - ay * bx;
+        if radius == 0.0 || a == 0.0 || b == 0.0 || cross == 0.0 {
+            return self.line_to(p1);
+        }
+        let (ax, ay, bx, by) = (ax / a, ay / a, bx / b, by / b);
+        let dot = (ax * bx + ay * by).clamp(-1.0, 1.0);
+        let distance = radius * ((1.0 + dot) / (1.0 - dot)).sqrt();
+        let start = Point::new(p1.x + ax * distance, p1.y + ay * distance);
+        let end = Point::new(p1.x + bx * distance, p1.y + by * distance);
+        self.line_to(start)
+            .svg_arc_to((radius, radius), 0, false, cross < 0.0, end)
+    }
     /// SVG's elliptical `A` segment from the current point to `to`.
-    pub fn arc_to(
+    pub fn svg_arc_to(
         mut self,
         radii: (impl Into<f64>, impl Into<f64>),
         rotation: impl Into<f64>,
@@ -143,15 +219,15 @@ impl Path {
         self = self
             .move_to(Point::new(x + r[0].0, y))
             .line_to(Point::new(x + w - r[1].0, y))
-            .arc_to(r[1], 0, false, true, Point::new(x + w, y + r[1].1));
-        self = self.line_to(Point::new(x + w, y + h - r[2].1)).arc_to(
+            .svg_arc_to(r[1], 0, false, true, Point::new(x + w, y + r[1].1));
+        self = self.line_to(Point::new(x + w, y + h - r[2].1)).svg_arc_to(
             r[2],
             0,
             false,
             true,
             Point::new(x + w - r[2].0, y + h),
         );
-        self = self.line_to(Point::new(x + r[3].0, y + h)).arc_to(
+        self = self.line_to(Point::new(x + r[3].0, y + h)).svg_arc_to(
             r[3],
             0,
             false,
@@ -159,7 +235,7 @@ impl Path {
             Point::new(x, y + h - r[3].1),
         );
         self.line_to(Point::new(x, y + r[0].1))
-            .arc_to(r[0], 0, false, true, Point::new(x + r[0].0, y))
+            .svg_arc_to(r[0], 0, false, true, Point::new(x + r[0].0, y))
             .close()
     }
     pub(crate) fn wire(&self) -> p::DrawingShape {

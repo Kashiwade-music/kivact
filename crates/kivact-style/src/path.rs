@@ -1,7 +1,7 @@
 //! Role: Reusable canvas paths in the shared shape vocabulary.
 //!
 //! [`Path`] is the one reusable path builder: `move_to`, `line_to`,
-//! `quad_to`, `cubic_to`, centered `arc`, SVG `arc_to`, `ellipse`, `rect`,
+//! `quad_to`, `cubic_to`, centered `arc`, canvas `arc_to`, SVG `svg_arc_to`, `ellipse`, `rect`,
 //! `rounded_rect` with elliptical radii per corner, `close` and a
 //! [`FillRule`]. It is drawn with `fill_path` and `stroke_path`. Its
 //! operations use kurbo 0.13.1 (`ParamCurveArclen`, subsegments, strokes)

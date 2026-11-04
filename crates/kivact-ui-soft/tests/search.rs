@@ -41,7 +41,7 @@ fn debounces_and_discards_previous_suggestions() {
         )
     });
     assert!(calls.borrow().is_empty());
-    screen.get_by_role(Role::TextBox, "Search").click();
+    screen.get_by_role(Role::ComboBox, "Search").click();
     screen.type_text("a");
     screen.advance(Duration::from_millis(149));
     assert!(!calls.borrow().iter().any(|query| query == "a"));
@@ -56,7 +56,7 @@ fn debounces_and_discards_previous_suggestions() {
     assert_eq!(selected.get_untracked().as_deref(), Some("ab"));
     assert_eq!(
         screen
-            .get_by_role(Role::TextBox, "Search")
+            .get_by_role(Role::ComboBox, "Search")
             .value()
             .as_deref(),
         Some("Result ab")
@@ -80,19 +80,19 @@ fn tokenizer_keeps_remote_labels_and_excludes_selected_keys() {
                 }),
         )
     });
-    screen.get_by_role(Role::TextBox, "Members").click();
+    screen.get_by_role(Role::ComboBox, "Members").click();
     screen.get_by_role(Role::Option, "Ada").click();
     assert_eq!(selected.get_untracked(), vec!["ada"]);
     screen.get_by_text("Added Ada");
     screen.get_by_role(Role::Button, "Remove Ada");
-    screen.get_by_role(Role::TextBox, "Members").click();
+    screen.get_by_role(Role::ComboBox, "Members").click();
     assert!(screen.query_by_role(Role::Option, "Ada").is_none());
     screen.get_by_role(Role::Option, "Grace");
     screen.press_key(Key::Escape);
     screen.get_by_role(Role::Button, "Remove Ada").click();
     assert!(selected.get_untracked().is_empty());
     screen.get_by_text("Removed Ada");
-    let input = screen.get_by_role(Role::TextBox, "Members");
+    let input = screen.get_by_role(Role::ComboBox, "Members");
     input.click();
     screen.get_by_role(Role::Option, "Grace").click();
     assert_eq!(selected.get_untracked(), ["grace"]);

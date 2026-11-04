@@ -70,7 +70,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
         option: None,
         variants,
         arrow_open: false.into_value(),
-        keep_trigger_focus: false.into_value(),
+        keep_trigger_focus: true.into_value(),
         touch_sheet: None,
     }
 }

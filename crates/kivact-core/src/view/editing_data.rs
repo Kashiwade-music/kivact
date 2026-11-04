@@ -47,14 +47,20 @@ impl TextEditEvent {
     }
 }
 
-/// One colored byte range of a line of a native editor
-/// ([`TextEditing::highlight`]).
+/// A painted UTF-8 byte range in the entire editing document.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TextHighlight {
-    /// The UTF-8 byte range in the line, which excludes its line feed.
+pub struct Decoration {
     pub range: Range<usize>,
-    /// The glyphs' color.
+    pub kind: DecorationKind,
     pub color: kivact_style::Color,
+}
+
+/// How an editing document range is painted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecorationKind {
+    Underline(kivact_style::TextDecorationStyle),
+    Outline,
+    Background,
 }
 
 /// What a behavior attached with [`TextEditing::behavior`] runs.
@@ -77,8 +83,8 @@ pub(crate) type BindHighlight = Box<dyn FnOnce(HighlightAt)>;
 ///
 /// This supplies state, shaping, caret, selection and the platform IME session.
 /// The author supplies role, accessible name and focus policy on the Part.
-/// The resulting editor is a native leaf: children and custom drawing are
-/// unsupported. Canvas regions cannot carry an editing attachment.
+/// Inline children and draw layers can accompany its native text.
+/// Canvas regions cannot carry an editing attachment.
 pub struct TextEditing {
     pub(crate) props: EditorProps,
     pub(crate) on_edit: Option<kivact_runtime::Handler<TextEditEvent>>,
@@ -90,6 +96,7 @@ pub struct TextEditing {
 pub(crate) struct EditorProps {
     pub(crate) behavior: Option<Rc<Behavior>>,
     pub(crate) highlight: Option<BindHighlight>,
+    pub(crate) decorations: Option<BindHighlight>,
     pub(crate) forward_keys: Option<InputProp<Vec<kivact_types::Key>>>,
     pub(crate) value: InputProp<Rc<str>>,
     pub(crate) multiline: bool,

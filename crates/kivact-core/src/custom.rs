@@ -161,7 +161,7 @@ pub use text_shaping::{shape_inline_paragraph, shape_paragraph};
 
 mod text_editing;
 pub use crate::view::editing_data::{
-    TextChange, TextEditEvent, TextEditing, TextHighlight, TextSession,
+    Decoration, DecorationKind, TextChange, TextEditEvent, TextEditing, TextSession,
 };
 pub use kivact_editing::{
     EditCaret, EditContext, EditLine, EditOutcome, EditRequest, EditState, TextLayout,

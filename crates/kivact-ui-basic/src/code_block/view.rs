@@ -4,12 +4,11 @@ use super::lines::{CodeLine, CodeTone};
 use crate::theme_access::tokens;
 use crate::tokens::CodeColors;
 use crate::typography::MONO;
-use kivact::custom::{
-    EditContext, EditOutcome, EditRequest, EditState, TextEditing, TextHighlight, part,
-};
+use kivact::custom::{EditContext, EditOutcome, EditRequest, EditState, TextEditing, part};
 use kivact::interaction::{Delays, text_edit_policy, use_delayed};
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue};
+use kivact::style::StyledRange;
 use kivact::style::{Align, Color, Direction, Length, LineHeight, style};
 use kivact::ui::{ButtonVariant, ControlSize};
 use kivact::view::icon;
@@ -191,7 +190,7 @@ fn line_colors(
     (lines, colors): &(Vec<CodeLine>, CodeColors),
     text: &str,
     index: &usize,
-) -> (Vec<TextHighlight>, usize) {
+) -> (Vec<StyledRange>, usize) {
     let mut out = Vec::new();
     let mut at = 0;
     for span in lines.get(*index).map_or(&[][..], |line| &line.0) {
@@ -200,7 +199,12 @@ fn line_colors(
         if let Some(color) = tone_color(colors, span.tone)
             && !range.is_empty()
         {
-            out.push(TextHighlight { range, color });
+            out.push(StyledRange {
+                range,
+                color: Some(color),
+                background: None,
+                decoration: None,
+            });
         }
     }
     (out, index + 1)
@@ -263,7 +267,7 @@ fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: Value<CodeB
         .multiline()
         .read_only(true)
         .behavior(code_keys)
-        .highlight(move || (lines.get(), tokens().code.clone()), line_colors);
+        .line_styles(move || (lines.get(), tokens().code.clone()), line_colors);
     let control = kivact::custom::Part::new(part(|state| state).state(), move |node| {
         node.role(Role::TextBox)
             .focusable(true)

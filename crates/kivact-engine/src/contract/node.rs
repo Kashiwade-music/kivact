@@ -121,6 +121,8 @@ pub struct EditingData {
     pub behavior: Option<kivact_editing::EditBehavior>,
     /// Optional line coloring callback.
     pub colors: Option<kivact_editing::LineColors>,
+    /// Resolved document decorations.
+    pub decorations: Option<Vec<kivact_editing::RangeDecoration>>,
     /// Keys bypassing native editing and its behavior, forwarded to client handlers.
     pub forward_keys: Option<Vec<Key>>,
     /// Controlled document value; identity and revision govern host adoption.

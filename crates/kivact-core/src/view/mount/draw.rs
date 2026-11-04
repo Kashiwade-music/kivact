@@ -10,13 +10,14 @@ use kivact_types::NodeId;
 
 use super::facts::LocalPaintSource;
 use crate::view::descriptor::Mcx;
-use crate::view::element_data::{DrawFn, Registry};
+use crate::view::element_data::{DrawFn, LayoutDrawFn, Registry};
 use crate::view::state::ViewState;
 
 /// Stage 5's input: the draw layers, the style's local paint and the canvas regions.
 pub(super) struct DrawInput {
     pub(super) below: Option<DrawFn>,
     pub(super) over: Option<DrawFn>,
+    pub(super) with_layout: Option<LayoutDrawFn>,
     pub(super) local_paint: Option<LocalPaintSource>,
     pub(super) regions: Option<Rc<Registry>>,
     /// The node's layout size, written by the layout observer `resolve` installed.
@@ -31,16 +32,20 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
     let DrawInput {
         below,
         over,
+        with_layout,
         local_paint,
         regions,
         size,
     } = input;
     let theme = cx.theme();
-    for (layer, f, paint) in [
-        (SceneLayer::Draw, below, local_paint),
-        (SceneLayer::DrawOver, over, None),
+    let observation = with_layout
+        .as_ref()
+        .and_then(|_| ViewState::tree_mut(cx.rt).observe_node(id, at));
+    for (layer, f, paint, layout_fn) in [
+        (SceneLayer::Draw, below, local_paint, None),
+        (SceneLayer::DrawOver, over, None, with_layout),
     ] {
-        if f.is_none() && paint.is_none() {
+        if f.is_none() && paint.is_none() && layout_fn.is_none() {
             continue;
         }
         let region_paint = regions.clone();
@@ -53,6 +58,13 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             let measurer = weak
                 .upgrade()
                 .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
+            let layout = observation.and_then(|observation| {
+                observation.editing_revision.track();
+                observation.rect.get();
+                observation.scroll.get();
+                let rt = weak.upgrade()?;
+                ViewState::tree_mut(&rt).reader().editing_canvas_layout(id)
+            });
             let Recording {
                 scene,
                 unsupported: issues,
@@ -66,6 +78,9 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 }
                 if let Some(f) = &f {
                     f(d, sz);
+                }
+                if let (Some(f), Some(layout)) = (&layout_fn, &layout) {
+                    f(d, layout);
                 }
                 if let Some(source) = &paint {
                     source.revision.track();

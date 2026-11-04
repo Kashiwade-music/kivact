@@ -375,10 +375,13 @@ impl EditLines {
             let content = self.content(row).unwrap_or(start..start);
             let spans = spans
                 .iter()
-                .filter_map(|(span, color)| {
-                    let left = (start + span.start).max(content.start);
-                    let right = (start + span.end).min(content.end);
-                    (left < right).then(|| (left - content.start..right - content.start, *color))
+                .filter_map(|span| {
+                    let left = (start + span.range.start).max(content.start);
+                    let right = (start + span.range.end).min(content.end);
+                    (left < right).then(|| kivact_editing::LineStyle {
+                        range: left - content.start..right - content.start,
+                        ..span.clone()
+                    })
                 })
                 .collect();
             let line = self.line_mut(row).expect("invariant: colored rows exist");
@@ -440,11 +443,14 @@ impl EditLines {
             let spans: Vec<kivact_types::render::TextSpan> = colored
                 .spans
                 .iter()
-                .filter(|(range, _)| range.start < r.end && range.end > r.start)
-                .map(|(range, color)| kivact_types::render::TextSpan {
-                    range: range.start.max(r.start) - r.start..range.end.min(r.end) - r.start,
+                .filter(|style| style.range.start < r.end && style.range.end > r.start)
+                .map(|span| kivact_types::render::TextSpan {
+                    range: span.range.start.max(r.start) - r.start
+                        ..span.range.end.min(r.end) - r.start,
                     style: kivact_types::render::SpanStyle {
-                        color: Some(kivact_types::Rgba::sanitize(*color)),
+                        color: span.color.map(kivact_types::Rgba::sanitize),
+                        decoration: span.decoration,
+                        highlight: span.background.is_some(),
                         ..Default::default()
                     },
                 })

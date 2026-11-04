@@ -12,9 +12,8 @@
 //! anchor to the popup and shares its rule of leaving by Tab from both the
 //! anchor and the surface.
 //!
-//! [`DialogApi::content`] checks a popover's anchor when it opens: a
-//! missing anchor panics with the located misuse diagnostic (the location
-//! of the `content()` call). The initial focus (the given node, or
+//! A popover retains its required anchor in its structural options.
+//! The initial focus (the given node, or
 //! the surface's first focusable one through `focus_first_inside`) is
 //! requested after the mount through the core's restore path, which checks
 //! the target when the request is sent. A surface dismissal is admitted by
@@ -36,8 +35,10 @@ use kivact_core::geometry::Edge;
 
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Part, PartState, part, raise};
-use kivact_core::state::{Value, Var, effect, on_mount, signal, var};
-use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
+use kivact_core::state::{Value, on_mount};
+use kivact_core::view::{DismissReason, NodeRef, Role, node_ref};
+
+use crate::options_cell::OptionsCell;
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use super::popup::{PopupApi, PopupState, use_popup};
@@ -56,6 +57,7 @@ pub enum DialogMode {
     Popover,
 }
 
+// xtask-allow(state-fields): Independent dismissal options, not lifecycle state.
 /// Which requests close a [`DialogApi`]. Assistive technology's DismissOn always
 /// does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,9 +80,16 @@ impl Default for DismissOn {
 /// What the setters of a [`DialogApi`] store; read where they apply, so they
 /// work in any order.
 #[derive(Clone, Copy, Default)]
-struct DialogSettings {
+struct DialogOptions {
     dismiss: Option<DismissOn>,
-    initial_focus: Option<NodeRef>,
+}
+
+#[derive(Clone, Copy)]
+enum DialogOptionsMode {
+    Modal,
+    AlertModal,
+    Drawer,
+    Popover { anchor: Value<NodeRef> },
 }
 
 /// Copy handle for a dialog, a drawer or a popover, without a look.
@@ -138,11 +147,8 @@ struct DialogSettings {
 pub struct DialogApi {
     popup: PopupApi,
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    kind: DialogMode,
-    settings: Var<DialogSettings>,
-    /// Whether a popover has its anchor: a [`trigger`](Self::trigger) part
-    /// or an [`anchor`](Self::anchor).
-    anchored: Var<bool>,
+    mode: DialogOptionsMode,
+    settings: OptionsCell<DialogOptions>,
     title: NodeRef,
     description: NodeRef,
 }
@@ -150,12 +156,21 @@ pub struct DialogApi {
 /// Create a dialog of `kind`, shown while `open` is true. Setup only.
 #[track_caller]
 pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: DialogMode) -> DialogApi {
+    let popup = use_popup(open)
+        .modal(kind != DialogMode::Popover)
+        .focus_first();
     DialogApi {
-        popup: use_popup(open),
+        popup,
         content_state: kivact_core::state::signal(None),
-        kind,
-        settings: var(DialogSettings::default()),
-        anchored: var(false),
+        mode: match kind {
+            DialogMode::Modal => DialogOptionsMode::Modal,
+            DialogMode::AlertModal => DialogOptionsMode::AlertModal,
+            DialogMode::Drawer(_) => DialogOptionsMode::Drawer,
+            DialogMode::Popover => DialogOptionsMode::Popover {
+                anchor: popup.anchor_value(),
+            },
+        },
+        settings: OptionsCell::new(DialogOptions::default()),
         title: node_ref(),
         description: node_ref(),
     }
@@ -182,12 +197,7 @@ impl DialogApi {
     /// Put the focus on this node when the dialog opens, instead of the first
     /// focusable one. The content has to mount the node.
     pub fn initial_focus(self, target: NodeRef) -> Self {
-        if self.popover() {
-            self.popup.initial_focus(target);
-        } else {
-            self.settings
-                .update(|settings| settings.initial_focus = Some(target));
-        }
+        self.popup.initial_focus_restore(target);
         self
     }
 
@@ -204,7 +214,7 @@ impl DialogApi {
     /// an anchor or a trigger; the other kinds ignore it. Setup only.
     pub fn anchor(self, anchor: NodeRef) -> Self {
         self.popup.anchor(anchor);
-        self.anchored.set(true);
+
         self
     }
 
@@ -214,7 +224,6 @@ impl DialogApi {
     /// the focus goes back to it. Setup only.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
-        self.anchored.set(true);
         self.popup.trigger()
     }
 
@@ -224,19 +233,17 @@ impl DialogApi {
     }
 
     fn popover(self) -> bool {
-        self.kind == DialogMode::Popover
+        matches!(self.mode, DialogOptionsMode::Popover { .. })
     }
 
     fn rules(self) -> DismissOn {
-        self.settings
-            .with(|settings| settings.dismiss)
-            .unwrap_or(match self.kind {
-                DialogMode::AlertModal => DismissOn {
-                    outside: false,
-                    ..DismissOn::default()
-                },
-                _ => DismissOn::default(),
-            })
+        self.settings.get().dismiss.unwrap_or(match self.mode {
+            DialogOptionsMode::AlertModal => DismissOn {
+                outside: false,
+                ..DismissOn::default()
+            },
+            _ => DismissOn::default(),
+        })
     }
 
     fn close(self, reason: PopupCloseReason) {
@@ -279,26 +286,7 @@ impl DialogApi {
             DismissReason::Accessibility => true,
             DismissReason::Timeout => false,
         };
-        let open = self.popup.open_binding();
-        let surface = if self.popover() {
-            self.popup.content_with(allowed)
-        } else {
-            let input = part(self.state());
-            Part::new(input.state(), move |host| {
-                host.part(input)
-                    .node_ref(self.popup.content_ref())
-                    .a11y_action(A11yAction::Dismiss, move |event| {
-                        let A11yRequest::Dismiss(reason) = event.request else {
-                            unreachable!(
-                                "invariant: a dismissal action receives a dismissal request"
-                            )
-                        };
-                        if allowed(reason) {
-                            open.set(false);
-                        }
-                    })
-            })
-        };
+        let surface = self.popup.content_with(allowed);
         let part_state = surface.state();
         self.content_state.set(Some(part_state));
         Part::new(part_state, move |host| {
@@ -309,49 +297,43 @@ impl DialogApi {
                 surface.modal()
             };
             surface
-                .role(match self.kind {
-                    DialogMode::AlertModal => Role::AlertDialog,
+                .role(match self.mode {
+                    DialogOptionsMode::AlertModal => Role::AlertDialog,
                     _ => Role::Dialog,
                 })
                 .labelled_by(self.title)
                 .described_by(self.description)
-                .on_attach(move |mount| self.bind(mount.node))
+                .on_attach(move |_| self.bind())
         })
     }
 
     /// Per-opening focus: the start and, for a popover, the return. Setup
     /// only, under the mounted surface's owner.
-    fn bind(self, surface: NodeRef) {
-        if self.popover() && !self.anchored.get() {
-            raise(
-                ErrorKind::Message,
-                "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
-            );
+    fn bind(self) {
+        if let DialogOptionsMode::Popover { anchor } = self.mode {
+            on_mount(move || {
+                if anchor.get_untracked().mounted_node().is_none() {
+                    raise(
+                        ErrorKind::Message,
+                        "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
+                    );
+                }
+            });
         }
         if self.popover() {
             // Whatever closes a popover while the focus is inside it, the
             // focus goes back to the anchor. A modal gets this from the
             // overlay's own cleanup.
             self.popup.set_opening_policy(FocusReturn {
-                target: FocusReturnTarget::Anchor(self.popup.anchor_ref()),
+                target: FocusReturnTarget::Anchor(match self.mode {
+                    DialogOptionsMode::Popover { anchor } => anchor.get_untracked(),
+                    _ => unreachable!("invariant: only popovers install anchor restoration"),
+                }),
                 on: ReasonSet::DISMISS
                     .union(ReasonSet::PROGRAMMATIC)
                     .union(ReasonSet::UNMOUNT),
             });
         }
-        let mounted = signal(false);
-        on_mount(move || mounted.set(true));
-        let initial_focus = self.settings.with(|settings| settings.initial_focus);
-        effect(move || {
-            if !mounted.get() || !self.popup.is_open().get() {
-                return;
-            }
-            match initial_focus {
-                Some(target) if !self.popover() => target.restore_focus(),
-                Some(_) => {}
-                None => surface.focus_first_inside(),
-            }
-        });
     }
 
     /// The title: a level 2 heading the surface is `labelled_by`.

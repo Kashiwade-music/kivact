@@ -6,8 +6,8 @@ use super::{input, parts, state, typeahead};
 use crate::Selection;
 use crate::axis::check_list_axis;
 use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
-use kivact_core::state::{IntoValue, callback};
 use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoValue, callback};
 use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
 use std::rc::Rc;
 
