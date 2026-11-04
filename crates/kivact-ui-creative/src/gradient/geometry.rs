@@ -14,7 +14,7 @@ impl Ramp {
     }
     pub(super) fn hit(self, position: f64) -> Rect {
         Rect::new(
-            1.0 + (position_value(position) * self.width) as f64,
+            1.0 + (position_value(position) * self.width),
             24.0,
             14.0,
             20.0,
@@ -33,12 +33,7 @@ impl Ramp {
         draw.fill_rect(Rect::new(8.0, 0.0, self.width, 24.0), Color::TRANSPARENT);
         if let Some((_, first)) = sorted.first() {
             draw.fill_rect(
-                Rect::new(
-                    8.0,
-                    0.0,
-                    (position_value(first.position) * self.width) as f64,
-                    24.0,
-                ),
+                Rect::new(8.0, 0.0, position_value(first.position) * self.width, 24.0),
                 display(first.color),
             );
             for pair in sorted.windows(2) {
@@ -46,12 +41,7 @@ impl Ramp {
                 let b = position_value(pair[1].1.position);
                 if b > a {
                     draw.fill_rect(
-                        Rect::new(
-                            8.0 + (a * self.width) as f64,
-                            0.0,
-                            ((b - a) * self.width) as f64,
-                            24.0,
-                        ),
+                        Rect::new(8.0 + (a * self.width), 0.0, (b - a) * self.width, 24.0),
                         linear_gradient(90)
                             .colors([display(pair[0].1.color), display(pair[1].1.color)]),
                     );
@@ -60,12 +50,7 @@ impl Ramp {
             let (_, last) = sorted.last().expect("invariant: nonempty gradient");
             let at = position_value(last.position);
             draw.fill_rect(
-                Rect::new(
-                    8.0 + (at * self.width) as f64,
-                    0.0,
-                    ((1.0 - at) * self.width) as f64,
-                    24.0,
-                ),
+                Rect::new(8.0 + (at * self.width), 0.0, (1.0 - at) * self.width, 24.0),
                 display(last.color),
             );
         }

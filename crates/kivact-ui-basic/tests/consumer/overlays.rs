@@ -453,7 +453,8 @@ fn panel(dialog: &kivact::test::Element<'_>) -> kivact::draw::Rect {
 /// bundled test font's line box sits about 2 px off the centre of a 12 px
 /// label, which the real catalog fonts do not.
 fn layout_check() -> LayoutCheck {
-    let mut check = LayoutCheck::default();
-    check.center_tolerance = Some(3.0);
-    check
+    LayoutCheck {
+        center_tolerance: Some(3.0),
+        ..LayoutCheck::default()
+    }
 }

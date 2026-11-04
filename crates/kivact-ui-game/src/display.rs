@@ -285,7 +285,7 @@ impl IntoView for Kpi {
                         .map(|(i, y)| {
                             Point::new(
                                 i as f64 * s.width / values.len().saturating_sub(1).max(1) as f64,
-                                s.height * (1. - ((y - min) / span) as f64),
+                                s.height * (1. - ((y - min) / span)),
                             )
                         })
                         .collect();
@@ -441,7 +441,7 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
             &Stroke::new(8),
             d.theme().get::<Tokens>().surface_3,
         );
-        let end = -90. + animated.get() as f64 * 3.6;
+        let end = -90. + animated.get() * 3.6;
         if end > -90. {
             d.stroke_path(
                 &Path::new().arc(center, 36., -90., end, false),

@@ -46,7 +46,7 @@ impl Model {
                 .iter()
                 .enumerate()
                 .map(|(i, c)| Item {
-                    position: Point::new(c.start as f64, 60.0 + i as f64 * 60.0),
+                    position: Point::new(c.start, 60.0 + i as f64 * 60.0),
                 })
                 .collect(),
             Kind::DopeSheet => self
@@ -64,7 +64,7 @@ impl Model {
                 .iter()
                 .flat_map(|c| {
                     c.keys.iter().map(|k| Item {
-                        position: Point::new(k.time, -k.value as f64),
+                        position: Point::new(k.time, -k.value),
                     })
                 })
                 .collect(),

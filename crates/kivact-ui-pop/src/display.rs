@@ -167,7 +167,7 @@ impl Avatar {
     /// pixel number rather than a length: the initials, the halo and the
     /// online dot are drawn in proportion to it.
     pub fn size(mut self, size: impl Into<f64>) -> Self {
-        self.size = (size.into() as f64).max(16.0);
+        self.size = size.into().max(16.0);
         self
     }
     pub fn hue(mut self, hue: f64) -> Self {

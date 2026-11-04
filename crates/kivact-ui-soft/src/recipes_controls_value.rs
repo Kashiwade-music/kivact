@@ -113,7 +113,7 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
                 (-BAND + (1.0 + BAND) * ease.apply(phase), BAND, ink)
             }
         } else {
-            (0.0, shown.get().clamp(0.0, 1.0) as f64, ink)
+            (0.0, shown.get().clamp(0.0, 1.0), ink)
         };
         if length > 0.0 {
             let start = if rtl { 1.0 - start - length } else { start };

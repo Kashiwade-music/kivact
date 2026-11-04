@@ -44,7 +44,7 @@ pub(crate) fn paint_grid(
         Rect::new(0.0, RULER, SIDEBAR, (size.height - RULER).max(0.0)),
         p.header,
     );
-    ruler.draw(draw, size, SIDEBAR, zoom as f64, pan, RULER);
+    ruler.draw(draw, size, SIDEBAR, zoom, pan, RULER);
     for (index, lane) in lanes.iter().enumerate() {
         let rect = lane_rect(index, height);
         let y = rect.y;
