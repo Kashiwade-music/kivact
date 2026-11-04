@@ -12,6 +12,11 @@ kivact-types = { path = "../kivact-types", version = "0.1.0" }
 tracing = { workspace = true }
 async-task = "4.7.1"
 
+tokio = { version = "1.54.1", optional = true, features = ["rt-multi-thread", "net", "time"] }
+
+[features]
+tokio = ["dep:tokio"]
+
 [dev-dependencies]
 # Doctests demonstrate the public facade.
 kivact = { path = "../kivact" }

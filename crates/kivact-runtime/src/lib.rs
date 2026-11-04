@@ -34,3 +34,7 @@ pub use task::{
     DEFAULT_DRAIN_NS, Resource, Task, TaskState, TaskStats, action, blocking, resource, sleep,
     spawn, spawn_in, timeout,
 };
+
+#[cfg(feature = "tokio")]
+pub use task::on_tokio;
+pub use task::{AsyncSource, Retry};

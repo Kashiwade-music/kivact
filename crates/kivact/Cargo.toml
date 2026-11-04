@@ -18,6 +18,7 @@ kivact-ui = { path = "../kivact-ui", version = "0.1.0" }
 kivact-test = { path = "../kivact-test", version = "0.1.0", optional = true }
 
 [features]
+tokio = ["kivact-core/tokio"]
 default = ["gpu"]
 gpu = ["dep:arvane-render", "arvane-render/gpu"]
 gpu-interop = ["gpu", "arvane-render/gpu-interop", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]

@@ -51,3 +51,10 @@ pub use resource::{Resource, resource};
 pub use spawn::{Task, spawn, spawn_in};
 pub use state::{TaskState, TaskStats};
 pub use time::{sleep, timeout};
+
+pub use async_source::{AsyncSource, Retry};
+mod async_source;
+#[cfg(feature = "tokio")]
+mod tokio_bridge;
+#[cfg(feature = "tokio")]
+pub use tokio_bridge::on_tokio;
