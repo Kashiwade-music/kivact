@@ -668,13 +668,15 @@ impl<T: Clone + 'static> DragApi<T> {
         let part_state = input.state();
         self.observed.set(Some(part_state));
         let target = kivact_core::view::node_ref();
+        let caller_disabled = signal(None::<Value<bool>>);
+        let own_disabled = self.disabled.get_untracked();
+        let effective_disabled = memo(move || {
+            caller_disabled.with(|value| value.is_some_and(|value| value.get()))
+                || own_disabled.is_some_and(|value| value.get())
+        });
         Part::new(part_state, move |mut host| {
-            let caller_disabled = host.accessible_disabled();
-            let own_disabled = self.disabled.get_untracked();
-            self.disabled.set(Some(kivact_core::state::memo(move || {
-                caller_disabled.is_some_and(|value| value.get())
-                    || own_disabled.is_some_and(|value| value.get())
-            })));
+            caller_disabled.set(host.accessible_disabled());
+            self.disabled.set(Some(effective_disabled));
             host.part(input)
                 .node_ref(target)
                 .on_pointer(move |event: PointerEvent| -> kivact_core::Result<Handled> {
