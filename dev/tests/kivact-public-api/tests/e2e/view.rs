@@ -425,7 +425,7 @@ fn counter_example_end_to_end() {
 fn closure_child_updates_text() {
     let (screen, value) = mount(|| {
         let value = signal("first");
-        (value, node().child(move || text(value.get())))
+        (value, node().child(move || value.get()))
     });
     screen.get_by_text("first");
     value.set("second");

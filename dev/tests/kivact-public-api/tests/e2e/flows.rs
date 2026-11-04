@@ -381,10 +381,21 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
 fn for_each_row_binding_edits_the_item() {
     let (screen, items) = mount(|| {
         let items = signal(vec![(1u32, false), (2, false)]);
-        (items, column(for_each(items, |item| item.0, |item| {
-            button(move || format!("{}:{}", item.get().0, item.get().1))
-                .on_press(move || item.update(|item| item.1 = !item.1))
-        })))
+        (
+            items,
+            column(for_each(
+                items,
+                |item| item.0,
+                |item| {
+                    button(move || format!("{}:{}", item.get().0, item.get().1)).on_press(
+                        move || {
+                            let (key, checked) = item.get();
+                            item.set((key, !checked));
+                        },
+                    )
+                },
+            )),
+        )
     });
     screen.get_by_role(Role::Button, "2:false").click();
     assert_eq!(items.get(), vec![(1, false), (2, true)]);
