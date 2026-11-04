@@ -2,16 +2,39 @@
 use crate::calendar::{Calendar, calendar_range, calendar_status};
 use crate::recipes_field::frame;
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::custom::PartState;
 use kivact::i18n::{CalendarDate, DateRange, message};
-use kivact::primitive::{NodeExt, PartState};
-use kivact::style::{Align, Direction, Justify, Length, pct, style};
-use kivact::ui::{ButtonVariant, DialogKind, button, dialog};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, ReadingDirection, Role, View, current_direction, dynamic,
-    node_ref,
-};
-use kivact::{Binding, Value, memo, signal};
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::dynamic;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::text;
+use kivact::view::use_direction;
 use std::rc::Rc;
 
 /// A named range evaluated whenever its preset is rendered or activated.
@@ -47,25 +70,25 @@ pub struct DateRangeInput {
     min: Option<CalendarDate>,
     max: Option<CalendarDate>,
     constraints: Vec<DateConstraint>,
-    min_span: u32,
-    max_span: Option<u32>,
+    min_span: Value<u32>,
+    max_span: Value<Option<u32>>,
 }
 
 pub fn date_range_input(
     label: impl IntoText,
-    value: impl Into<Binding<Option<DateRange>>>,
+    value: impl IntoBinding<Option<DateRange>>,
 ) -> DateRangeInput {
     DateRangeInput {
         root: node(),
         label: label.into_text_value(),
-        value: value.into(),
+        value: value.into_binding(),
         configure: None,
         presets: None,
         min: None,
         max: None,
         constraints: Vec::new(),
-        min_span: 1,
-        max_span: None,
+        min_span: 1.into_value(),
+        max_span: None.into_value(),
     }
 }
 
@@ -92,13 +115,14 @@ impl DateRangeInput {
         self
     }
 
-    pub fn min_range_span(mut self, days: u32) -> Self {
-        self.min_span = days;
+    pub fn min_range_span(mut self, days: impl IntoValue<u32>) -> Self {
+        self.min_span = days.into_value();
         self
     }
 
-    pub fn max_range_span(mut self, days: u32) -> Self {
-        self.max_span = Some(days);
+    pub fn max_range_span(mut self, days: impl IntoValue<u32>) -> Self {
+        let days = days.into_value();
+        self.max_span = (move || Some(days.get())).into_value();
         self
     }
 
@@ -109,6 +133,7 @@ impl DateRangeInput {
 }
 
 impl NodeBuilder for DateRangeInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -163,7 +188,7 @@ impl IntoView for DateRangeInput {
                     })
             });
         let picker = dialog(label, open)
-            .kind(DialogKind::Popover)
+            .mode(DialogMode::Popover)
             .hide_title(true)
             .width(Length::Auto)
             .content(move || {
@@ -198,7 +223,7 @@ impl IntoView for DateRangeInput {
                     return calendar.into_view();
                 };
                 let validate = Rc::new(calendar.range_validator());
-                let rtl = current_direction() == ReadingDirection::Rtl;
+                let rtl = use_direction().get() == ReadingDirection::Rtl;
                 let preset_label = message("soft.date_range_input.presets", "Preset date ranges");
                 let sidebar = dynamic(
                     move || presets.get(),
@@ -221,7 +246,7 @@ impl IntoView for DateRangeInput {
                                 let validate = validate.clone();
                                 button(preset.label)
                                     .variant(ButtonVariant::Ghost)
-                                    .selected(current)
+                                    .with_node(move |node| node.selected(current))
                                     .disabled(move || !enabled.get())
                                     .on_press(move || {
                                         let range = (preset.get_range)();

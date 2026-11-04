@@ -1,9 +1,11 @@
 //! Role: Check that Soft tab indicators crossfade in place.
 
-use kivact::signal;
+use kivact::interaction::ListItem;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with_handle};
-use kivact::ui::{ListItem, tabs};
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::tabs;
 use kivact::view::Role;
 use std::time::Duration;
 
@@ -15,6 +17,7 @@ fn selection_crossfades_both_indicators_in_place() {
                 RenderOptions::from_env()
                     .theme(kivact_ui_soft::theme(ThemeMode::Light))
                     .reduced_motion()
+                    .get()
             } else {
                 RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
             },

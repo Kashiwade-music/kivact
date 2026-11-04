@@ -1,13 +1,15 @@
 //! Role: Display a parsed keyboard shortcut as a sequence of key caps.
 
 use crate::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, row, text};
 use kivact::i18n::{message, message_with};
-use kivact::memo;
-use kivact::style::{Align, Justify, style};
-use kivact::view::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::style;
 use kivact::view::Role;
+use kivact::view::row;
+use kivact::view::text;
 
 fn key(token: &str) -> (Value<String>, Value<String>) {
     let (glyph, label) = match token.to_ascii_lowercase().as_str() {
@@ -48,7 +50,7 @@ fn key(token: &str) -> (Value<String>, Value<String>) {
 
 /// Render a shortcut such as `mod+shift+p` as individual key caps.
 #[track_caller]
-pub fn kbd(shortcut: &str) -> Node {
+pub fn kbd(shortcut: &str) -> impl kivact::view::Component {
     let (caps, labels): (Vec<_>, Vec<_>) = shortcut
         .split('+')
         .map(str::trim)

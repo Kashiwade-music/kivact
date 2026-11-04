@@ -1,18 +1,40 @@
 //! Role: Neutral chat messages, lists, and scroll layout.
+use kivact::state::Callback;
+use kivact::view::IntoViewFn;
+use kivact::view::ViewFn;
 
-use std::hash::Hash;
+use kivact::state::ItemKey;
+use kivact::state::PropValue;
 
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact::i18n::message;
 use kivact::interaction::use_follow_end;
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Direction, Justify, Length, Position, pct, style};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, LiveRegion, NodeRef, Role, View, for_each,
-    node_ref, show,
-};
-use kivact::{Value, memo};
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::NodeRef;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::for_each;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::show;
+use kivact::view::text;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ChatDensity {
@@ -46,7 +68,7 @@ pub struct ChatMessage {
     avatar: Option<View>,
     metadata: Option<View>,
     name: Option<Value<String>>,
-    density: ChatDensity,
+    density: Value<ChatDensity>,
 }
 
 pub fn chat_message(sender: ChatSender, content: impl IntoView) -> ChatMessage {
@@ -57,24 +79,25 @@ pub fn chat_message(sender: ChatSender, content: impl IntoView) -> ChatMessage {
         avatar: None,
         metadata: None,
         name: None,
-        density: ChatDensity::Balanced,
+        density: (ChatDensity::Balanced).into_value(),
     }
 }
 
 impl NodeBuilder for ChatMessage {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl ChatMessage {
-    pub fn avatar<V: IntoView>(mut self, render: impl FnOnce() -> V) -> Self {
-        self.avatar = Some(render().into_view());
+    pub fn avatar(mut self, render: impl IntoView) -> Self {
+        self.avatar = Some(render.into_view());
         self
     }
 
-    pub fn metadata<V: IntoView>(mut self, render: impl FnOnce() -> V) -> Self {
-        self.metadata = Some(render().into_view());
+    pub fn metadata(mut self, render: impl IntoView) -> Self {
+        self.metadata = Some(render.into_view());
         self
     }
 
@@ -83,8 +106,8 @@ impl ChatMessage {
         self
     }
 
-    pub fn density(mut self, density: ChatDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<ChatDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
 }
@@ -121,7 +144,7 @@ impl IntoView for ChatMessage {
             style()
                 .min_width(0)
                 .max_width(pct(90))
-                .gap(match density {
+                .gap(match density.get() {
                     ChatDensity::Compact => 2,
                     ChatDensity::Balanced => 4,
                     ChatDensity::Spacious => 6,
@@ -148,7 +171,7 @@ impl IntoView for ChatMessage {
                         Justify::Start
                     })
                     .align_items(Align::Start)
-                    .gap(match density {
+                    .gap(match density.get() {
                         ChatDensity::Compact => 6,
                         ChatDensity::Balanced => 8,
                         ChatDensity::Spacious => 12,
@@ -176,11 +199,11 @@ pub enum BubbleGroup {
 pub struct ChatBubble {
     root: Node,
     content: View,
-    variant: BubbleVariant,
-    sender: ChatSender,
-    density: ChatDensity,
+    variant: Value<BubbleVariant>,
+    sender: Value<ChatSender>,
+    density: Value<ChatDensity>,
     group: Option<BubbleGroup>,
-    width: Option<Length>,
+    width: Option<Value<Length>>,
     name: Option<Value<String>>,
     metadata: Option<View>,
 }
@@ -189,9 +212,9 @@ pub fn chat_bubble(content: impl IntoView) -> ChatBubble {
     ChatBubble {
         root: node(),
         content: content.into_view(),
-        variant: BubbleVariant::Filled,
-        sender: ChatSender::Assistant,
-        density: ChatDensity::Balanced,
+        variant: (BubbleVariant::Filled).into_value(),
+        sender: (ChatSender::Assistant).into_value(),
+        density: (ChatDensity::Balanced).into_value(),
         group: None,
         width: None,
         name: None,
@@ -200,38 +223,39 @@ pub fn chat_bubble(content: impl IntoView) -> ChatBubble {
 }
 
 impl NodeBuilder for ChatBubble {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl ChatBubble {
-    pub fn variant(mut self, variant: BubbleVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<BubbleVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
-    pub fn sender(mut self, sender: ChatSender) -> Self {
-        self.sender = sender;
+    pub fn sender(mut self, sender: impl IntoValue<ChatSender>) -> Self {
+        self.sender = sender.into_value();
         self
     }
-    pub fn density(mut self, density: ChatDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<ChatDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
     pub fn group(mut self, group: BubbleGroup) -> Self {
         self.group = Some(group);
         self
     }
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        self.width = Some(width.into_value());
         self
     }
     pub fn name(mut self, name: impl IntoText) -> Self {
         self.name = Some(name.into_text_value());
         self
     }
-    pub fn metadata<V: IntoView>(mut self, metadata: impl FnOnce() -> V) -> Self {
-        self.metadata = Some(metadata().into_view());
+    pub fn metadata(mut self, metadata: impl IntoView) -> Self {
+        self.metadata = Some(metadata.into_view());
         self
     }
 }
@@ -249,9 +273,9 @@ impl IntoView for ChatBubble {
             name,
             metadata,
         } = self;
-        let rtl = kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
-        let right = (sender == ChatSender::User) != rtl;
-        let inline = if density == ChatDensity::Spacious {
+        let rtl = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
+        let right = (sender.get() == ChatSender::User) != rtl;
+        let inline = if density.get() == ChatDensity::Spacious {
             20
         } else {
             16
@@ -263,7 +287,7 @@ impl IntoView for ChatBubble {
                     .direction(Direction::Column)
                     .min_width(0)
                     .padding_x(inline)
-                    .radius(if density == ChatDensity::Compact {
+                    .radius(if density.get() == ChatDensity::Compact {
                         p.radius.container
                     } else {
                         28.0
@@ -272,13 +296,13 @@ impl IntoView for ChatBubble {
                     .line_height(20.0 / 14.0)
                     .color(p.colors.text_primary);
                 if let Some(width) = width {
-                    bubble = bubble.width(width);
+                    bubble = bubble.width(width.get());
                 } else {
                     bubble = bubble.max_width(pct(100));
                 }
-                if variant == BubbleVariant::Filled {
+                if variant.get() == BubbleVariant::Filled {
                     bubble = bubble.background(p.colors.neutral).padding_y(
-                        if density == ChatDensity::Spacious {
+                        if density.get() == ChatDensity::Spacious {
                             16
                         } else {
                             12
@@ -318,7 +342,7 @@ impl IntoView for ChatBubble {
             style()
                 .direction(Direction::Column)
                 .min_width(0)
-                .align_items(if sender == ChatSender::User {
+                .align_items(if sender.get() == ChatSender::User {
                     Align::End
                 } else {
                     Align::Start
@@ -343,7 +367,7 @@ pub struct ChatMetadata {
     timestamp: Option<Value<String>>,
     footer: Option<View>,
     status: Option<Value<MessageStatus>>,
-    sender: ChatSender,
+    sender: Value<ChatSender>,
 }
 
 pub fn chat_metadata() -> ChatMetadata {
@@ -352,11 +376,12 @@ pub fn chat_metadata() -> ChatMetadata {
         timestamp: None,
         footer: None,
         status: None,
-        sender: ChatSender::Assistant,
+        sender: (ChatSender::Assistant).into_value(),
     }
 }
 
 impl NodeBuilder for ChatMetadata {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -367,16 +392,16 @@ impl ChatMetadata {
         self.timestamp = Some(value.into_text_value());
         self
     }
-    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V) -> Self {
-        self.footer = Some(footer().into_view());
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
     pub fn status(mut self, status: impl IntoValue<MessageStatus>) -> Self {
         self.status = Some(status.into_value());
         self
     }
-    pub fn sender(mut self, sender: ChatSender) -> Self {
-        self.sender = sender;
+    pub fn sender(mut self, sender: impl IntoValue<ChatSender>) -> Self {
+        self.sender = sender.into_value();
         self
     }
 }
@@ -425,7 +450,7 @@ impl IntoView for ChatMetadata {
         }
         root.base_style(move || {
             style()
-                .direction(if sender == ChatSender::User {
+                .direction(if sender.get() == ChatSender::User {
                     Direction::RowReverse
                 } else {
                     Direction::Row
@@ -453,7 +478,7 @@ pub struct ChatSystemMessage {
     root: Node,
     text: Value<String>,
     icon: Option<View>,
-    variant: SystemMessageVariant,
+    variant: Value<SystemMessageVariant>,
 }
 
 pub fn chat_system_message(message: impl IntoText) -> ChatSystemMessage {
@@ -461,19 +486,20 @@ pub fn chat_system_message(message: impl IntoText) -> ChatSystemMessage {
         root: node(),
         text: message.into_text_value(),
         icon: None,
-        variant: SystemMessageVariant::Default,
+        variant: (SystemMessageVariant::Default).into_value(),
     }
 }
 
 impl NodeBuilder for ChatSystemMessage {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl ChatSystemMessage {
-    pub fn variant(mut self, variant: SystemMessageVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<SystemMessageVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
     pub fn icon(mut self, icon: impl IntoView) -> Self {
@@ -484,7 +510,7 @@ impl ChatSystemMessage {
 
 impl IntoView for ChatSystemMessage {
     fn into_view(self) -> View {
-        let divider = self.variant == SystemMessageVariant::Divider;
+        let divider = self.variant.get() == SystemMessageVariant::Divider;
         let line = || {
             divider.then(|| {
                 node().style(move || style().grow(1).height(1).background(tokens().colors.border))
@@ -517,13 +543,13 @@ pub enum ChatListAlign {
 pub struct ChatMessageList {
     root: Node,
     messages: View,
-    empty: Option<Box<dyn Fn() -> View>>,
+    empty: Option<ViewFn>,
     is_empty: Value<bool>,
     loading_top: Value<bool>,
     streaming: Value<bool>,
-    density: ChatDensity,
-    gap: Option<f64>,
-    align: ChatListAlign,
+    density: Value<ChatDensity>,
+    gap: Option<Value<f64>>,
+    align: Value<ChatListAlign>,
 }
 
 pub fn chat_message_list<T, K, V>(
@@ -532,33 +558,34 @@ pub fn chat_message_list<T, K, V>(
     render: impl Fn(Value<T>) -> V + 'static,
 ) -> ChatMessageList
 where
-    T: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    T: PropValue,
+    K: ItemKey,
     V: IntoView,
 {
     let items = items.into_value();
     ChatMessageList {
         root: node(),
-        messages: for_each(items, key, move |_, item| render(item)).into_view(),
+        messages: for_each(items, key, move |item| render(item)).into_view(),
         empty: None,
         is_empty: memo(move || items.with(Vec::is_empty)),
         loading_top: false.into_value(),
         streaming: false.into_value(),
-        density: ChatDensity::Balanced,
+        density: (ChatDensity::Balanced).into_value(),
         gap: None,
-        align: ChatListAlign::Bottom,
+        align: (ChatListAlign::Bottom).into_value(),
     }
 }
 
 impl NodeBuilder for ChatMessageList {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl ChatMessageList {
-    pub fn empty<V: IntoView>(mut self, empty: impl Fn() -> V + 'static) -> Self {
-        self.empty = Some(Box::new(move || empty().into_view()));
+    pub fn empty<V: IntoView>(mut self, empty: impl IntoViewFn<V>) -> Self {
+        self.empty = Some(empty.into_view_fn());
         self
     }
     pub fn loading_top(mut self, loading: impl IntoValue<bool>) -> Self {
@@ -569,16 +596,16 @@ impl ChatMessageList {
         self.streaming = streaming.into_value();
         self
     }
-    pub fn density(mut self, density: ChatDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<ChatDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
-    pub fn gap(mut self, gap: f64) -> Self {
-        self.gap = Some(gap.max(0.0));
+    pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
+        self.gap = Some(gap.into_value());
         self
     }
-    pub fn align(mut self, align: ChatListAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<ChatListAlign>) -> Self {
+        self.align = align.into_value();
         self
     }
 }
@@ -598,20 +625,20 @@ impl IntoView for ChatMessageList {
         } = self;
         root.role(Role::Log)
             .live_region(LiveRegion::Polite)
-            .busy(move || streaming.get() || loading_top.get())
-            .base_style(
+            .busy(move || streaming || loading_top.get())
+            .base_style(move || {
                 style()
                     .direction(Direction::Column)
                     .grow(1)
-                    .justify_content(if align == ChatListAlign::Bottom {
+                    .justify_content(if align.get() == ChatListAlign::Bottom {
                         Justify::End
                     } else {
                         Justify::Start
                     })
-                    .padding_y(density.gap())
-                    .padding_x(density.gap().max(12))
-                    .gap(gap.unwrap_or(density.gap() as f64)),
-            )
+                    .padding_y(density.get().gap())
+                    .padding_x(density.get().gap().max(12))
+                    .gap(gap.map_or_else(|| density.get().gap() as f64, |gap| gap.get().max(0.0)))
+            })
             .child((
                 show(loading_top, || {
                     text("Loading earlier messages…").role(Role::Status)
@@ -628,8 +655,8 @@ pub struct ChatLayout {
     root: Node,
     messages: View,
     composer: Option<View>,
-    density: ChatDensity,
-    scroll_button: bool,
+    density: Value<ChatDensity>,
+    scroll_button: Value<bool>,
     viewport: Option<NodeRef>,
     history_revision: Option<Value<u64>>,
 }
@@ -639,26 +666,27 @@ pub fn chat_layout(messages: impl IntoView) -> ChatLayout {
         root: node(),
         messages: messages.into_view(),
         composer: None,
-        density: ChatDensity::Balanced,
-        scroll_button: true,
+        density: (ChatDensity::Balanced).into_value(),
+        scroll_button: (true).into_value(),
         viewport: None,
         history_revision: None,
     }
 }
 
 impl NodeBuilder for ChatLayout {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl ChatLayout {
-    pub fn composer<V: IntoView>(mut self, composer: impl FnOnce() -> V) -> Self {
-        self.composer = Some(composer().into_view());
+    pub fn composer(mut self, composer: impl IntoView) -> Self {
+        self.composer = Some(composer.into_view());
         self
     }
-    pub fn density(mut self, density: ChatDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<ChatDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
     /// Share the viewport reference with application scrolling or observation.
@@ -674,28 +702,26 @@ impl ChatLayout {
         self
     }
 
-    pub fn scroll_button(mut self, show: bool) -> Self {
-        self.scroll_button = show;
+    pub fn scroll_button(mut self, show: impl IntoValue<bool>) -> Self {
+        self.scroll_button = show.into_value();
         self
     }
 }
 
-pub fn chat_scroll_button<R: HandlerResult>(
+pub fn chat_scroll_button(
     visible: impl IntoValue<bool>,
-    press: impl Fn() -> R + 'static,
-) -> Node {
+    press: impl Into<Callback<()>>,
+) -> impl kivact::view::Component {
+    let press: Callback<()> = press.into();
     let visible = visible.into_value();
     node()
-        .part(
-            part(|state| state)
-                .role(Role::Button)
-                .focusable(true)
-                .name(message(
-                    "soft.chat_layout_scroll_button.scroll_to_bottom",
-                    "Scroll to bottom",
-                ))
-                .on_press(press),
-        )
+        .role(Role::Button)
+        .focusable(true)
+        .name(message(
+            "soft.chat_layout_scroll_button.scroll_to_bottom",
+            "Scroll to bottom",
+        ))
+        .on_press(press)
         .hidden(move || !visible.get())
         .base_style(move || {
             let p = tokens();
@@ -739,7 +765,7 @@ impl IntoView for ChatLayout {
         )
         .node_ref(scroller)
         .style(style().grow(1).min_height(0).min_width(0));
-        let button = scroll_button.then(|| {
+        let button = scroll_button.get().then(|| {
             chat_scroll_button(can_jump, move || follow.jump_to_end())
                 .style(style().position(Position::Absolute).right(12).bottom(12))
         });
@@ -753,8 +779,8 @@ impl IntoView for ChatLayout {
         let composer = composer.map(|composer| {
             row(composer).style(
                 style()
-                    .padding_x(density.gap())
-                    .padding_bottom(density.gap())
+                    .padding_x(density.get().gap())
+                    .padding_bottom(density.get().gap())
                     .justify_content(Justify::Center),
             )
         });
@@ -768,3 +794,12 @@ impl IntoView for ChatLayout {
         .into_view()
     }
 }
+
+kivact::state::constant_value!(
+    BubbleVariant,
+    ChatDensity,
+    ChatListAlign,
+    ChatSender,
+    MessageStatus,
+    SystemMessageVariant
+);

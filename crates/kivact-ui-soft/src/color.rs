@@ -1,5 +1,7 @@
 //! Role: Define the Astryx Neutral palette for light and dark appearances.
-use kivact::style::{Color, rgb, rgba};
+use kivact::style::Color;
+use kivact::style::rgb;
+use kivact::style::rgba;
 
 /// Neutral surface, semantic, categorical, data and syntax colors.
 #[derive(Clone, Copy, Debug, PartialEq)]

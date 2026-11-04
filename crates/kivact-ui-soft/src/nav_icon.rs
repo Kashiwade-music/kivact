@@ -1,11 +1,14 @@
 //! Role: Display a round accent icon for navigation headings.
 use crate::tokens;
-use kivact::control::{Node, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Justify, pct, style};
+use kivact::view::node;
+
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
 use kivact::view::IntoView;
 
-pub fn nav_icon(icon: impl IntoView) -> Node {
+pub fn nav_icon(icon: impl IntoView) -> impl kivact::view::Component {
     node()
         .base_style(|| {
             let t = tokens();

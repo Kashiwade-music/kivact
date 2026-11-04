@@ -1,23 +1,28 @@
 //! Role: Verify Soft progress motion through the standard progress component.
 
-use kivact::control::NodeBuilder;
-use kivact::signal;
-use kivact::style::{Theme, ThemeMode, style};
-use kivact::test::{RenderOptions, render_with, render_with_handle};
-use kivact::ui::{ProgressMotion, progress};
+use kivact::state::signal;
+use kivact::style::Theme;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::test::render_with_handle;
+use kivact::ui::ProgressMotion;
+use kivact::ui::progress;
+use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use std::time::Duration;
 
 #[test]
 fn soft_progress_starts_at_its_value_and_animates_updates() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
-    let motion = theme.get::<ProgressMotion>();
+    let motion = theme.ext::<ProgressMotion>();
     assert!(!motion.animate_initial);
     assert_eq!(motion.determinate_ms, 300);
     assert_eq!(motion.period_ms, 1500);
     assert_eq!(motion.reduced_period_ms, Some(4000));
     assert_eq!(
-        *Theme::light().get::<ProgressMotion>(),
+        *Theme::light().ext::<ProgressMotion>(),
         ProgressMotion::default()
     );
     let (screen, value) = render_with_handle(RenderOptions::from_env().theme(theme), || {
@@ -48,7 +53,8 @@ fn reduced_motion_progress_pulses_in_place() {
     let screen = render_with(
         RenderOptions::from_env()
             .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .reduced_motion(),
+            .reduced_motion()
+            .get(),
         || {
             progress(None::<f64>)
                 .name("Preparing")

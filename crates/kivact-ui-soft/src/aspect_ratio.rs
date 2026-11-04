@@ -1,9 +1,17 @@
 //! Role: Keep content clipped to a specified aspect ratio.
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Justify, Position, pct, style};
-use kivact::view::{IntoValue, IntoView, View};
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+
+use kivact::state::IntoValue;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::View;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RatioShape {
@@ -25,8 +33,8 @@ pub struct AspectRatio {
     root: Node,
     children: View,
     ratio: Value<f64>,
-    shape: RatioShape,
-    fit: RatioFit,
+    shape: Value<RatioShape>,
+    fit: Value<RatioFit>,
 }
 
 /// A full-width box whose height follows the supplied width-to-height ratio.
@@ -35,23 +43,24 @@ pub fn aspect_ratio(ratio: impl IntoValue<f64>, children: impl IntoView) -> Aspe
         root: node(),
         children: children.into_view(),
         ratio: ratio.into_value(),
-        shape: RatioShape::Rectangle,
-        fit: RatioFit::Natural,
+        shape: (RatioShape::Rectangle).into_value(),
+        fit: (RatioFit::Natural).into_value(),
     }
 }
 
 impl AspectRatio {
-    pub fn shape(mut self, shape: RatioShape) -> Self {
-        self.shape = shape;
+    pub fn shape(mut self, shape: impl IntoValue<RatioShape>) -> Self {
+        self.shape = shape.into_value();
         self
     }
-    pub fn fit(mut self, fit: RatioFit) -> Self {
-        self.fit = fit;
+    pub fn fit(mut self, fit: impl IntoValue<RatioFit>) -> Self {
+        self.fit = fit.into_value();
         self
     }
 }
 
 impl NodeBuilder for AspectRatio {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -72,11 +81,11 @@ impl IntoView for AspectRatio {
             .right(0)
             .bottom(0)
             .left(0);
-        if fit == RatioFit::Center {
+        if fit.get() == RatioFit::Center {
             slot = slot
                 .align_items(Align::Center)
                 .justify_content(Justify::Center);
-        } else if matches!(fit, RatioFit::Cover | RatioFit::Contain) {
+        } else if matches!(fit.get(), RatioFit::Cover | RatioFit::Contain) {
             slot = slot
                 .display(kivact::style::Display::Grid)
                 .grid_template_rows(pct(100))
@@ -97,7 +106,7 @@ impl IntoView for AspectRatio {
                 .clip(true)
                 .shrink(0)
                 .min_height(0);
-            if shape == RatioShape::Ellipse {
+            if shape.get() == RatioShape::Ellipse {
                 base.radius(pct(50))
             } else {
                 base
@@ -107,3 +116,5 @@ impl IntoView for AspectRatio {
         .into_view()
     }
 }
+
+kivact::state::constant_value!(RatioFit, RatioShape);

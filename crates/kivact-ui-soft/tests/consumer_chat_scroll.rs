@@ -1,11 +1,18 @@
 //! Role: Verify follow-to-latest through the public chat layout.
 
-use kivact::control::{NodeBuilder, column, row, text};
-use kivact::signal;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, Screen, render_with};
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::Screen;
+use kivact::test::render_with;
 use kivact::ui::button;
-use kivact::view::{Role, node_ref};
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::column;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::text;
 use kivact_ui_soft as soft;
 
 fn offset(screen: &Screen) -> f64 {

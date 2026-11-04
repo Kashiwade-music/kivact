@@ -1,9 +1,16 @@
 //! Role: Verify Soft's animated rows preserve the standard toast lifecycle.
-use kivact::control::column;
+use kivact::interaction::Toast;
+use kivact::interaction::ToastOptions;
+use kivact::interaction::toaster;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::ui::{Toast, ToastOptions, button, toast_region, toaster};
-use kivact::view::{Key, Role};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::button;
+use kivact::ui::toast_region;
+use kivact::view::Key;
+use kivact::view::Role;
+use kivact::view::column;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -22,7 +29,7 @@ fn dismissing_a_toast_removes_its_controls_before_the_row_collapses() {
         let toasts = toaster();
         toasts.push(Toast::new("Earlier").duration(None));
         toasts.push_with(
-            Toast::new("Dismiss me").duration(None),
+            Toast::new("DismissOn me").duration(None),
             ToastOptions::default().on_hide(move || count.set(count.get() + 1)),
         );
         ((), column((button("Outside"), toast_region(toasts))))
@@ -38,12 +45,12 @@ fn dismissing_a_toast_removes_its_controls_before_the_row_collapses() {
     let expanded = earlier_y();
     screen.get_by_role(Role::Button, "Outside").focus();
     screen
-        .get_by_role(Role::Status, "Dismiss me")
+        .get_by_role(Role::Status, "DismissOn me")
         .get_by_role(Role::Button, "Close")
         .focus();
     screen.press_key(Key::Escape);
     assert_eq!(hidden.get(), 1);
-    assert!(screen.query_by_role(Role::Status, "Dismiss me").is_none());
+    assert!(screen.query_by_role(Role::Status, "DismissOn me").is_none());
     assert_eq!(screen.focused().unwrap().name(), "Outside");
     screen.advance(Duration::from_millis(48));
     let halfway = earlier_y();

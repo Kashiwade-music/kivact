@@ -1,10 +1,21 @@
 //! Role: Present an attached or detached field validation message.
 use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, icon, node, row, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, pct, style};
-use kivact::view::{IntoText, IntoView, LiveRegion, View};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::style::Align;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::View;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StatusKind {
@@ -24,9 +35,9 @@ pub struct FieldStatus {
     root: Node,
     kind: StatusKind,
     text: Value<String>,
-    variant: FieldStatusVariant,
-    overlap: f64,
-    announce: bool,
+    variant: Value<FieldStatusVariant>,
+    overlap: Value<f64>,
+    announce: Value<bool>,
 }
 
 pub fn field_status(kind: StatusKind, text: impl IntoText) -> FieldStatus {
@@ -34,30 +45,32 @@ pub fn field_status(kind: StatusKind, text: impl IntoText) -> FieldStatus {
         root: node(),
         kind,
         text: text.into_text_value(),
-        variant: FieldStatusVariant::Attached,
-        overlap: 16.0,
-        announce: true,
+        variant: (FieldStatusVariant::Attached).into_value(),
+        overlap: (16.0).into_value(),
+        announce: (true).into_value(),
     }
 }
 
 impl FieldStatus {
-    pub fn variant(mut self, variant: FieldStatusVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<FieldStatusVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
 
-    pub fn overlap(mut self, overlap: f64) -> Self {
-        self.overlap = overlap.max(0.0);
+    pub fn overlap(mut self, overlap: impl IntoValue<f64>) -> Self {
+        let overlap = overlap.into_value();
+        self.overlap = (move || overlap.get().max(0.0)).into_value();
         self
     }
 
-    pub fn announce(mut self, announce: bool) -> Self {
-        self.announce = announce;
+    pub fn announce(mut self, announce: impl IntoValue<bool>) -> Self {
+        self.announce = announce.into_value();
         self
     }
 }
 
 impl NodeBuilder for FieldStatus {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -73,7 +86,7 @@ impl IntoView for FieldStatus {
             overlap,
             announce,
         } = self;
-        if announce {
+        if announce.get() {
             root = root.live_region(if kind == StatusKind::Error {
                 LiveRegion::Assertive
             } else {
@@ -105,12 +118,12 @@ impl IntoView for FieldStatus {
                     .font_size(12)
                     .line_height(20.0 / 12.0)
                     .color(color);
-                match variant {
+                match variant.get() {
                     FieldStatusVariant::Attached => base
                         .background(background)
                         .radius(t.radius.element)
-                        .margin_top(-overlap)
-                        .padding_top(overlap + 8.0)
+                        .margin_top(-overlap.get())
+                        .padding_top(overlap.get() + 8.0)
                         .padding_bottom(8)
                         .padding_x(8),
                     FieldStatusVariant::Detached => base.padding_y(4),
@@ -120,3 +133,5 @@ impl IntoView for FieldStatus {
         .into_view()
     }
 }
+
+kivact::state::constant_value!(FieldStatusVariant);

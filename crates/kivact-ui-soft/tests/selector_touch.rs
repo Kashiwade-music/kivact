@@ -1,11 +1,17 @@
 //! Role: Verify touch and keyboard Selector presentations over one binding.
 
-use kivact::control::NodeBuilder;
-use kivact::signal;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, render_with_handle};
-use kivact::ui::{ListItem, text_input};
-use kivact::view::{Key, PointerKind, PopupKind, Role};
+use kivact::interaction::ListItem;
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::text_input;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::PointerKind;
+use kivact::view::PopupKind;
+use kivact::view::Role;
 use kivact_ui_soft::{
     SelectorPresentation, complex_selector_with_presentation, multi_selector, selector,
 };

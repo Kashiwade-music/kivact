@@ -1,12 +1,32 @@
 //! Role: Source-preserving Markdown editing and a formatted read-only preview.
 use crate::markdown::markdown;
-use kivact::control::{Node, NodeBuilder, column, node, row};
+use kivact::custom::TextSession;
 use kivact::i18n::message;
-use kivact::primitive::{NodeRefExt, TextSession};
-use kivact::style::{Align, style};
-use kivact::ui::{ButtonVariant, ControlSize, button, text_area};
-use kivact::view::{IntoText, IntoView, NodeRef, Role, View, dynamic, node_ref};
-use kivact::{Binding, Signal, Value, on_mount, signal};
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::on_mount;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::text_area;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::NodeRef;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::dynamic;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
 
 /// The original Markdown source is authoritative, including line endings and whitespace.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -31,13 +51,13 @@ impl RichDoc {
 }
 
 /// Render the supported Markdown blocks and inline marks.
-pub fn rich_text_view(source: impl IntoText) -> Node {
+pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Component {
     node().child(markdown(source.into_text_value()))
 }
 
 /// A toolbar for switching the Markdown editor between source and preview.
-pub fn rich_text_toolbar(preview: impl Into<Binding<bool>>) -> Node {
-    toolbar(preview.into(), None, None)
+pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::Component {
+    toolbar(preview.into_binding(), None, None)
 }
 
 fn toolbar(
@@ -49,9 +69,11 @@ fn toolbar(
         button(label)
             .variant(ButtonVariant::Ghost)
             .size(ControlSize::Small)
-            .selected(move || {
-                preview.get() == selected
-                    && (selected || blocks.is_none_or(|blocks| blocks.get() == block_mode))
+            .with_node(move |node| {
+                node.selected(move || {
+                    preview.get() == selected
+                        && (selected || blocks.is_none_or(|blocks| blocks.get() == block_mode))
+                })
             })
             .on_press(move || {
                 let changed = preview.get_untracked() != selected
@@ -72,7 +94,7 @@ fn toolbar(
             button(label)
                 .variant(ButtonVariant::Ghost)
                 .size(ControlSize::Small)
-                .disabled(move || preview.get() || composing.get() || editor.get().is_none())
+                .disabled(move || preview || composing || editor.get().is_none())
                 .on_press(move || {
                     if let Some(editor) = editor.get_untracked() {
                         format_selection(editor, marker);
@@ -177,38 +199,36 @@ pub struct RichTextEditor {
     root: Node,
     label: Value<String>,
     source: Binding<String>,
-    read_only: bool,
-    block_editing: bool,
+    read_only: Value<bool>,
+    block_editing: Value<bool>,
 }
 
-pub fn rich_text_editor(
-    label: impl IntoText,
-    source: impl Into<Binding<String>>,
-) -> RichTextEditor {
+pub fn rich_text_editor(label: impl IntoText, source: impl IntoBinding<String>) -> RichTextEditor {
     RichTextEditor {
         root: node(),
         label: label.into_text_value(),
-        source: source.into(),
-        read_only: false,
-        block_editing: false,
+        source: source.into_binding(),
+        read_only: (false).into_value(),
+        block_editing: (false).into_value(),
     }
 }
 
 impl RichTextEditor {
     /// Start in the wrapped block editor and offer Write and Preview modes.
     /// The Markdown binding remains authoritative in every mode.
-    pub fn block_editing(mut self, enabled: bool) -> Self {
-        self.block_editing = enabled;
+    pub fn block_editing(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.block_editing = enabled.into_value();
         self
     }
 
-    pub fn read_only(mut self, value: bool) -> Self {
-        self.read_only = value;
+    pub fn read_only(mut self, value: impl IntoValue<bool>) -> Self {
+        self.read_only = value.into_value();
         self
     }
 }
 
 impl NodeBuilder for RichTextEditor {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -223,12 +243,12 @@ impl IntoView for RichTextEditor {
             read_only,
             block_editing,
         } = self;
-        let previewing = signal(read_only);
+        let previewing = signal(read_only.get());
         let target = signal(None::<NodeRef>);
-        let blocks = block_editing.then(|| signal(true));
+        let blocks = block_editing.get().then(|| signal(true));
         let composing = signal(false);
         let surface = dynamic(
-            move || (previewing.get(), blocks.is_some_and(|blocks| blocks.get())),
+            move || (previewing, blocks.is_some_and(|blocks| blocks.get())),
             move |(previewing, blocks)| {
                 if previewing {
                     rich_text_view(move || source.get())
@@ -248,8 +268,8 @@ impl IntoView for RichTextEditor {
                 }
             },
         );
-        let toolbar =
-            (!read_only).then(|| toolbar(previewing.into(), Some((target, composing)), blocks));
+        let toolbar = (!read_only.get())
+            .then(|| toolbar(previewing.into(), Some((target, composing)), blocks));
         root.child(column((toolbar, surface)).style(style().gap(4)))
             .into_view()
     }

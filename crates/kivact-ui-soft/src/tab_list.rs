@@ -3,23 +3,65 @@ use crate::scrollable_area::use_scroll_overflow;
 use crate::side_nav::logical_row;
 use crate::stack::{ContainerInset, rtl};
 use crate::tokens;
-use kivact::control::{
-    Node, NodeBuilder, ScrollAxes, column, icon, node, row, scroll, stack, text,
-};
-use kivact::draw::{Point, linear_gradient};
-use kivact::interaction::{ListActivation, ListItem, use_menu, use_tabs};
+use kivact::draw::linear_gradient;
+use kivact::geometry::Point;
+use kivact::interaction::ListActivation;
+use kivact::interaction::ListItem;
+use kivact::interaction::use_menu;
+use kivact::interaction::use_tabs;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{
-    Align, Color, Direction, Justify, Length, Position, ScrollbarWidth, TransitionProp, pct, style,
-};
-use kivact::ui::{ButtonVariant, ControlSize, MenuEntry, button};
-use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, NodeRef, Placement, Role,
-    ScrollBehavior, View, dynamic, for_each, node_ref, overlay, provide, try_context,
-};
-use kivact::{Binding, Signal, Value, effect_on, memo, signal};
-use std::hash::Hash;
+use kivact::state::IntoBinding;
+use kivact::state::ItemKey;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ScrollAxes;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::stack;
+use kivact::view::text;
+
+use kivact::interaction::MenuEntry;
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::effect_on;
+use kivact::state::memo;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::Position;
+use kivact::style::ScrollbarWidth;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::NodeRef;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::ScrollBehavior;
+use kivact::view::View;
+use kivact::view::dynamic;
+use kivact::view::for_each;
+use kivact::view::node_ref;
+use kivact::view::overlay;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -43,15 +85,13 @@ pub enum TabOverflow {
     Visible,
 }
 
-type Slot = Rc<dyn Fn() -> View>;
-
 pub struct Tab<K> {
     root: Node,
     key: K,
     label: Value<String>,
     icon: Option<View>,
     selected_icon: Option<View>,
-    label_hidden: bool,
+    label_hidden: Value<bool>,
     end: Option<View>,
     disabled: Value<bool>,
     panel: Option<NodeRef>,
@@ -64,7 +104,7 @@ pub fn tab<K>(key: K, label: impl IntoText) -> Tab<K> {
         label: label.into_text_value(),
         icon: None,
         selected_icon: None,
-        label_hidden: false,
+        label_hidden: (false).into_value(),
         end: None,
         disabled: false.into_value(),
         panel: None,
@@ -80,12 +120,12 @@ impl<K> Tab<K> {
         self.selected_icon = Some(icon.into_view());
         self
     }
-    pub fn label_hidden(mut self, hidden: bool) -> Self {
-        self.label_hidden = hidden;
+    pub fn label_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
+        self.label_hidden = hidden.into_value();
         self
     }
-    pub fn end_content<V: IntoView>(mut self, end: impl FnOnce() -> V + 'static) -> Self {
-        self.end = Some(provide((), end));
+    pub fn end_content(mut self, end: impl IntoView) -> Self {
+        self.end = Some(provide((), move || end.into_view()));
         self
     }
     pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
@@ -99,6 +139,7 @@ impl<K> Tab<K> {
 }
 
 impl<K> NodeBuilder for Tab<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -108,7 +149,7 @@ impl<K> NodeBuilder for Tab<K> {
 pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
-    icon: Option<Slot>,
+    icon: Option<ViewFn>,
     disabled: bool,
 }
 
@@ -121,8 +162,8 @@ impl<K> TabMenuOption<K> {
             disabled: false,
         }
     }
-    pub fn icon<V: IntoView>(mut self, icon: impl Fn() -> V + 'static) -> Self {
-        self.icon = Some(Rc::new(move || icon().into_view()));
+    pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
+        self.icon = Some(icon.into_view_fn());
         self
     }
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -146,6 +187,7 @@ pub fn tab_menu<K>(label: impl IntoText, options: Vec<TabMenuOption<K>>) -> TabM
 }
 
 impl<K> NodeBuilder for TabMenu<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -175,40 +217,37 @@ struct Look {
     divider: bool,
 }
 
-pub struct TabList<K: Clone + Eq + Hash + 'static> {
+pub struct TabList<K: ItemKey> {
     root: Node,
     label: Value<String>,
     binding: Binding<K>,
     entries: Vec<TabEntry<K>>,
     look: Look,
-    pattern: TabPattern,
-    overflow: TabOverflow,
-    full_bleed: bool,
-    content: Option<Rc<dyn Fn(K) -> View>>,
+    pattern: Value<TabPattern>,
+    overflow: Value<TabOverflow>,
+    full_bleed: Value<bool>,
+    content: Option<kivact::view::ViewFn<K>>,
 }
 
-pub fn tab_list<K: Clone + Eq + Hash + 'static>(
-    name: impl IntoText,
-    binding: impl Into<Binding<K>>,
-) -> TabList<K> {
+pub fn tab_list<K: ItemKey>(name: impl IntoText, binding: impl IntoBinding<K>) -> TabList<K> {
     TabList {
         root: node(),
         label: name.into_text_value(),
-        binding: binding.into(),
+        binding: binding.into_binding(),
         entries: Vec::new(),
         look: Look {
             size: ControlSize::Medium,
             layout: TabLayout::Hug,
             divider: false,
         },
-        pattern: TabPattern::Navigation,
-        overflow: TabOverflow::Scroll,
-        full_bleed: false,
+        pattern: (TabPattern::Navigation).into_value(),
+        overflow: (TabOverflow::Scroll).into_value(),
+        full_bleed: (false).into_value(),
         content: None,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> TabList<K> {
+impl<K: ItemKey> TabList<K> {
     pub fn tabs(mut self, tabs: impl IntoIterator<Item = impl Into<TabEntry<K>>>) -> Self {
         self.entries.extend(tabs.into_iter().map(Into::into));
         self
@@ -233,25 +272,26 @@ impl<K: Clone + Eq + Hash + 'static> TabList<K> {
         self.look.divider = divider;
         self
     }
-    pub fn pattern(mut self, pattern: TabPattern) -> Self {
-        self.pattern = pattern;
+    pub fn pattern(mut self, pattern: impl IntoValue<TabPattern>) -> Self {
+        self.pattern = pattern.into_value();
         self
     }
-    pub fn overflow(mut self, overflow: TabOverflow) -> Self {
-        self.overflow = overflow;
+    pub fn overflow(mut self, overflow: impl IntoValue<TabOverflow>) -> Self {
+        self.overflow = overflow.into_value();
         self
     }
-    pub fn full_bleed(mut self, full_bleed: bool) -> Self {
-        self.full_bleed = full_bleed;
+    pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
+        self.full_bleed = full_bleed.into_value();
         self
     }
     pub fn content<V: IntoView>(mut self, panel: impl Fn(K) -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move |key| panel(key).into_view()));
+        self.content = Some(panel.into());
         self
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for TabList<K> {
+impl<K: ItemKey> NodeBuilder for TabList<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -294,7 +334,10 @@ impl FocusTrack {
     }
 
     fn key(&self, index: usize, event: KeyEvent) -> Handled {
-        if event.modifiers().alt || event.modifiers().ctrl || event.modifiers().meta {
+        if event.modifiers().get().alt
+            || event.modifiers().get().ctrl
+            || event.modifiers().get().meta
+        {
             return Handled::No;
         }
         let len = self.members.len();
@@ -334,7 +377,7 @@ impl FocusTrack {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
+impl<K: ItemKey> IntoView for TabList<K> {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -348,13 +391,15 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
             content,
         } = self;
         provide((), move || {
-            if pattern == TabPattern::Tabs {
+            if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }
             let strip_ref = node_ref();
             let viewport_ref = node_ref();
-            let inset = if full_bleed {
-                try_context::<ContainerInset>().unwrap_or_default()
+            let inset = if full_bleed.get() {
+                try_use_context::<ContainerInset>()
+                    .map(|value| value.get())
+                    .unwrap_or_default()
             } else {
                 ContainerInset::default()
             };
@@ -365,7 +410,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
                     TabEntry::Menu(_) => None,
                 })
                 .collect::<Vec<_>>();
-            let behavior = (pattern == TabPattern::Tabs).then(|| {
+            let behavior = (pattern.get() == TabPattern::Tabs).then(|| {
                 use_tabs(
                     move || {
                         options
@@ -411,7 +456,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
                 focused_within: strip_ref.focus_within(),
                 roving: signal(None),
             };
-            let scrollable = overflow == TabOverflow::Scroll;
+            let scrollable = overflow.get() == TabOverflow::Scroll;
             let children = entries
                 .into_iter()
                 .enumerate()
@@ -474,7 +519,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
                                 let keys = focus.clone();
                                 root = root
                                     .role(Role::Button)
-                                    .selected(selected)
+                                    .with_node(move |node| node.selected(selected))
                                     .focusable(move || state.focusable(index))
                                     .on_key(move |event| keys.key(index, event))
                                     .on_press(move || {
@@ -548,7 +593,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
                         }
                         base.mask(mask)
                     });
-                let arrows = if kivact::platform::capabilities().touch {
+                let arrows = if kivact::platform::capabilities().get().touch {
                     None
                 } else {
                     Some((
@@ -581,7 +626,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TabList<K> {
                 .child(strip);
             let panel = content.map(|content| {
                 dynamic(binding, move |key| {
-                    let panel = node().child(content(key.clone()));
+                    let panel = node().child(content.call(key.clone()));
                     if let Some(behavior) = behavior {
                         panel.part(behavior.panel(key))
                     } else {
@@ -733,7 +778,7 @@ fn tab_scroll_arrow(
                 let delta = rect.width * if physical_right { 0.8 } else { -0.8 };
                 viewport.scroll_by(
                     Point { x: delta, y: 0.0 },
-                    if kivact::platform::reduced_motion() {
+                    if kivact::platform::reduced_motion().get() {
                         ScrollBehavior::Instant
                     } else {
                         ScrollBehavior::Smooth
@@ -763,7 +808,7 @@ fn tab_scroll_arrow(
         })
 }
 
-fn tab_menu_view<K: Clone + Eq + Hash + 'static>(
+fn tab_menu_view<K: ItemKey>(
     menu: TabMenu<K>,
     binding: Binding<K>,
     look: Look,
@@ -783,29 +828,27 @@ fn tab_menu_view<K: Clone + Eq + Hash + 'static>(
         options_for_label
             .iter()
             .find(|option| option.key == selected)
-            .map_or_else(|| label.get(), |option| option.label.get())
+            .map_or_else(|| label, |option| option.label)
     });
-    let behavior = use_menu(
-        move || {
-            let selected = binding.get();
-            entries
-                .iter()
-                .enumerate()
-                .map(|(index, option)| {
-                    MenuEntry::radio(index, option.label, option.key == selected)
-                        .disabled(option.disabled)
-                })
-                .collect::<Vec<_>>()
-        },
-        {
-            let options = options.clone();
-            move |index: usize| binding.set(options[index].key.clone())
-        },
-    );
+    let behavior = use_menu(move || {
+        let selected = binding.get();
+        entries
+            .iter()
+            .enumerate()
+            .map(|(index, option)| {
+                MenuEntry::radio(index, option.label, option.key == selected)
+                    .disabled(option.disabled)
+            })
+            .collect::<Vec<_>>()
+    })
+    .on_activate({
+        let options = options.clone();
+        move |index: usize| binding.set(options[index].key.clone())
+    });
     let part = behavior.trigger();
     let anchor = part.node_ref();
     let selected = focus.members[index].selected;
-    let open = behavior.shown();
+    let open = behavior.is_open();
     let state = focus.clone();
     let trigger = root
         .part(part)
@@ -841,7 +884,7 @@ fn tab_menu_view<K: Clone + Eq + Hash + 'static>(
         let rows = for_each(
             behavior.entries(),
             |(id, _)| id.clone(),
-            move |_, entry| {
+            move |entry| {
                 let index = *entry.get().1.key().expect("radio item");
                 let part = behavior.item(index);
                 let state = part.state();
@@ -851,7 +894,7 @@ fn tab_menu_view<K: Clone + Eq + Hash + 'static>(
                 let icon = option
                     .icon
                     .as_ref()
-                    .map(|icon| tab_glyph(icon(), ControlSize::Medium, || false));
+                    .map(|icon| tab_glyph(icon.call(()), ControlSize::Medium, || false));
                 let check = icon_check().hidden(move || !selected.get());
                 row((
                     icon,
@@ -923,3 +966,5 @@ fn icon_check() -> Node {
             .color(t.colors.accent)
     })
 }
+
+kivact::state::constant_value!(TabOverflow, TabPattern);

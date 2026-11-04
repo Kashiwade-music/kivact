@@ -1,16 +1,44 @@
 //! Role: Display images in a modal gallery with captions and zoom.
 use crate::recipes_dialog::{body_text, scrim};
 use crate::theme_access::tokens;
-use kivact::control::NodeBuilder;
-use kivact::control::{column, icon, image, node, text};
 use kivact::interaction::use_dialog;
-use kivact::motion::{Easing, Transition};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Justify, Overflow, Position, Style, TransitionProp, pct, rgb, style};
-use kivact::ui::{ButtonVariant, DialogKind, button};
-use kivact::view::{Handled, Key, LiveRegion};
-use kivact::view::{IntoValue, IntoView, Placement, Role, View, node_ref, overlay, show};
-use kivact::{Asset, Binding, Signal, Value, signal};
+use kivact::motion::Easing;
+use kivact::motion::Transition;
+use kivact::state::IntoBinding;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::image;
+use kivact::view::node;
+use kivact::view::text;
+
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Overflow;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::rgb;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::view::Asset;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::LiveRegion;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::show;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LightboxMedia {
@@ -37,11 +65,11 @@ pub struct Lightbox {
 }
 
 pub fn lightbox(
-    open: impl Into<Binding<bool>>,
+    open: impl IntoBinding<bool>,
     media: impl IntoValue<Vec<LightboxMedia>>,
 ) -> Lightbox {
     Lightbox {
-        open: open.into(),
+        open: open.into_binding(),
         media: media.into_value(),
         index: None,
         zoom: false,
@@ -49,8 +77,8 @@ pub fn lightbox(
 }
 
 impl Lightbox {
-    pub fn index(mut self, index: impl Into<Binding<usize>>) -> Self {
-        self.index = Some(index.into());
+    pub fn index(mut self, index: impl IntoBinding<usize>) -> Self {
+        self.index = Some(index.into_binding());
         self
     }
 
@@ -102,10 +130,10 @@ impl IntoView for Lightbox {
     fn into_view(self) -> View {
         let open = self.open;
         let media = self.media;
-        let index = self.index.unwrap_or_else(|| signal(0).into());
+        let index = self.index.unwrap_or_else(|| signal(0).into_binding());
         let active = move || index.get().min(media.get().len().saturating_sub(1));
         let selected = move || media.get().get(active()).cloned();
-        let rtl = kivact::view::current_direction() == kivact::view::ReadingDirection::Rtl;
+        let rtl = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
         let fallback = kivact::i18n::message("soft.lightbox.media_viewer", "Media viewer");
         let label = move || {
             selected()
@@ -114,7 +142,7 @@ impl IntoView for Lightbox {
                 .unwrap_or_else(|| fallback.get())
         };
         let close_ref = node_ref();
-        let behavior = use_dialog(open, DialogKind::Modal).initial_focus(close_ref);
+        let behavior = use_dialog(open, DialogMode::Modal).initial_focus(close_ref);
         show(open, move || {
             let zoomed = signal(false);
             let pan = signal((0.0f64, 0.0f64));
@@ -226,7 +254,7 @@ impl IntoView for Lightbox {
                 .style(control_position().top(12).right(12));
             let zoom_control = zoom.then(|| {
                 icon_button("search", "soft.lightbox.zoom", "Zoom")
-                    .selected(zoomed)
+                    .with_node(move |node| node.selected(zoomed))
                     .on_press(move || set_zoom(!zoomed.get()))
                     .style(control_position().top(12).right(52))
             });
@@ -259,7 +287,7 @@ impl IntoView for Lightbox {
                 .on_press(move || open.set(false));
             let frame = column((backdrop, content, close, zoom_control, controls))
                 .style(|| {
-                    let viewport = kivact::platform::window_size();
+                    let viewport = kivact::platform::window_size().get();
                     style().size(viewport.width, viewport.height)
                 })
                 .on_key(move |event| {

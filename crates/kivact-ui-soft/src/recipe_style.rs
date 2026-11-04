@@ -1,7 +1,11 @@
 //! Role: Share Neutral transitions, outlines and composited control fills.
 use crate::Tokens;
 use kivact::motion::Transition;
-use kivact::style::{Color, Style, Theme, TransitionProp, style};
+use kivact::style::Color;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::TransitionProp;
+use kivact::style::style;
 
 pub(super) fn fast(t: &Tokens, base: Style) -> Style {
     base.transition(

@@ -1,17 +1,26 @@
 //! Role: Verify optional toggle label measurement through the Soft public theme.
 
-use kivact::control::{NodeBuilder, column, icon};
-use kivact::signal;
-use kivact::style::{Align, Theme, ThemeMode, style};
-use kivact::test::{RenderOptions, render_with, render_with_handle};
-use kivact::ui::{ToggleLabelReservation, toggle};
-use kivact::view::{CheckedState, Role};
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Theme;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::test::render_with_handle;
+use kivact::ui::ToggleLabelReservation;
+use kivact::ui::toggle_button;
+use kivact::view::CheckedState;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::column;
+use kivact::view::icon;
 
 #[test]
 fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
     assert_eq!(
-        *theme.get::<ToggleLabelReservation>(),
+        *theme.ext::<ToggleLabelReservation>(),
         ToggleLabelReservation::Reserve {
             weight: 600,
             size: 14.0,
@@ -21,8 +30,8 @@ fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
     let (screen, pressed) = render_with_handle(RenderOptions::from_env().theme(theme), || {
         let pressed = signal(false);
         let controls = column((
-            toggle("Highlight modified rows", pressed),
-            toggle("Icon toggle without a visible label", pressed)
+            toggle_button("Highlight modified rows", pressed),
+            toggle_button("Icon toggle without a visible label", pressed)
                 .icon(icon("check"))
                 .hide_label(true),
         ))
@@ -55,11 +64,11 @@ fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
 #[test]
 fn width_measurement_is_opt_in_and_follows_label_changes() {
     assert_eq!(
-        *Theme::light().get::<ToggleLabelReservation>(),
+        *Theme::light().ext::<ToggleLabelReservation>(),
         ToggleLabelReservation::Natural
     );
     let plain = render_with(RenderOptions::from_env(), || {
-        column(toggle("Label", signal(false))).style(style().align_items(Align::Start))
+        column(toggle_button("Label", signal(false))).style(style().align_items(Align::Start))
     });
     let natural = plain
         .get_by_role(Role::Button, "Label")
@@ -80,7 +89,8 @@ fn width_measurement_is_opt_in_and_follows_label_changes() {
             let label = signal("Label".to_owned());
             (
                 label,
-                column(toggle(label, signal(false))).style(style().align_items(Align::Start)),
+                column(toggle_button(label, signal(false)))
+                    .style(style().align_items(Align::Start)),
             )
         },
     );

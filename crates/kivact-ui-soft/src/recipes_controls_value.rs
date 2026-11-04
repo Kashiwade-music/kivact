@@ -1,12 +1,24 @@
 //! Role: Style Soft sliders and progress bars using their standard value parts.
 use crate::Tokens;
-use kivact::draw::Rect;
+use kivact::geometry::Rect;
 use kivact::interaction::Tone;
 use kivact::motion::Easing;
 use kivact::platform::reduced_motion;
-use kivact::style::{Color, Cursor, Overflow, Style, Theme, pct, style};
-use kivact::ui::{AxisState, Look, ProgressRecipes, ProgressState, SliderRecipes};
-use kivact::view::{Orientation, ReadingDirection, current_direction};
+use kivact::style::Color;
+use kivact::style::Cursor;
+use kivact::style::Overflow;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::AxisState;
+use kivact::ui::Look;
+use kivact::ui::ProgressRecipes;
+use kivact::ui::ProgressState;
+use kivact::ui::SliderRecipes;
+use kivact::view::Orientation;
+use kivact::view::ReadingDirection;
+use kivact::view::use_direction;
 
 use super::recipe_style::{fast, overlay, ring};
 
@@ -31,7 +43,7 @@ fn slider_band(t: &Tokens, s: &Look<AxisState>, ink: Color) -> Style {
 }
 
 fn track(theme: &Theme, s: &Look<AxisState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let base = slider_band(&t, s, t.colors.track)
         .cursor(Cursor::Pointer)
         .shrink(0)
@@ -49,12 +61,12 @@ fn track(theme: &Theme, s: &Look<AxisState>) -> Style {
 }
 
 fn range(theme: &Theme, s: &Look<AxisState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     slider_band(&t, s, t.colors.accent)
 }
 
 fn thumb(theme: &Theme, _: &Look<AxisState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let c = &t.colors;
     let side = t.spacing.s5;
     let base = style()
@@ -75,7 +87,7 @@ pub(super) fn progress(r: ProgressRecipes) -> ProgressRecipes {
 }
 
 fn progress_track(theme: &Theme, _: &Look<ProgressState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     style()
         .width(pct(100))
         .min_width(t.spacing.s12)
@@ -87,7 +99,7 @@ fn progress_track(theme: &Theme, _: &Look<ProgressState>) -> Style {
 }
 
 fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let c = &t.colors;
     let ink = match s.variant::<Tone>().copied() {
         Some(Tone::Success) => c.success,
@@ -98,13 +110,13 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
     };
     let (shown, phase) = (s.shown, s.phase);
     let indeterminate = s.value.is_none();
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     style().size(pct(100), pct(100)).paint(move |d, size| {
         let ease = Easing::CubicBezier(0.42, 0.0, 0.58, 1.0);
         let (start, length, ink) = if indeterminate {
             const BAND: f64 = 0.4;
             let phase = phase.get();
-            if reduced_motion() {
+            if reduced_motion().get() {
                 // The 4000 ms cycle alternates two 2000 ms opacity passes.
                 let down_and_back = 1.0 - (2.0 * phase - 1.0).abs();
                 let opacity = 1.0 - 0.16 * ease.apply(down_and_back);

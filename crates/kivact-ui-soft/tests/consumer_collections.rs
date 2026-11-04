@@ -3,12 +3,16 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::control::{NodeBuilder, column};
-use kivact::signal;
+use kivact::interaction::TreeNode;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{TreeNode, button};
-use kivact::view::{Key, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::button;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::column;
 use kivact_ui_soft as soft;
 
 fn options() -> RenderOptions {

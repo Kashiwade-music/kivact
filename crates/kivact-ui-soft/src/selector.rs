@@ -3,26 +3,49 @@ use crate::recipes_field::frame;
 use crate::selector_surface::{SelectorPresentation, sheet, touch_tap};
 use crate::theme_access::tokens;
 use crate::typeahead::Typeahead;
-use kivact::control::{Node, NodeBuilder, icon, scroll, text};
-use kivact::interaction::{ListItemState, ListSelection};
-use kivact::primitive::{NodeExt, PartState};
-use kivact::style::{Align, Direction, Length, style};
-use kivact::ui::{
-    ButtonVariant, ControlSize, DialogKind, ListItem, Select, Variant, button, dialog, select,
-};
-use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, PointerPhase, PopupKind, View, node_ref,
-};
-use kivact::{Binding, Value, binding, memo, signal};
-use std::hash::Hash;
-use std::rc::Rc;
+use kivact::custom::PartState;
+use kivact::interaction::DialogMode;
+use kivact::interaction::ListItem;
+use kivact::interaction::ListItemState;
+use kivact::interaction::Selection;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::ItemKey;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Length;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::Select;
+use kivact::ui::Variant;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::ui::select;
+use kivact::view::Handled;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::PointerPhase;
+use kivact::view::PopupKind;
+use kivact::view::View;
+use kivact::view::icon;
+use kivact::view::node_ref;
+use kivact::view::scroll;
+use kivact::view::text;
 
-pub struct Selector<K: Clone + Eq + Hash + 'static> {
+pub struct Selector<K: ItemKey> {
     inner: Select<K>,
     presentation: SelectorPresentation,
 }
 
-impl<K: Clone + Eq + Hash + 'static> Selector<K> {
+impl<K: ItemKey> Selector<K> {
     pub fn presentation(mut self, presentation: SelectorPresentation) -> Self {
         self.presentation = presentation;
         self
@@ -33,7 +56,7 @@ impl<K: Clone + Eq + Hash + 'static> Selector<K> {
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.inner = self.inner.size(size);
         self
     }
@@ -48,13 +71,13 @@ impl<K: Clone + Eq + Hash + 'static> Selector<K> {
         self
     }
 
-    pub fn open_on_arrow(mut self, enabled: bool) -> Self {
+    pub fn open_on_arrow(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.inner = self.inner.open_on_arrow(enabled);
         self
     }
 
-    pub fn retain_trigger_focus(mut self, enabled: bool) -> Self {
-        self.inner = self.inner.retain_trigger_focus(enabled);
+    pub fn retain_trigger_focus(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.inner = self.inner.keep_trigger_focus(enabled);
         self
     }
 
@@ -62,7 +85,7 @@ impl<K: Clone + Eq + Hash + 'static> Selector<K> {
         mut self,
         preview: impl Fn(Option<K>) -> R + 'static,
     ) -> Self {
-        self.inner = self.inner.on_preview(preview);
+        self.inner = self.inner.on_active_change(preview);
         self
     }
 
@@ -70,18 +93,19 @@ impl<K: Clone + Eq + Hash + 'static> Selector<K> {
         mut self,
         render: impl Fn(Value<ListItem<K>>, Value<ListItemState>) -> V + 'static,
     ) -> Self {
-        self.inner = self.inner.option(render);
+        self.inner = self.inner.item(render);
         self
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Selector<K> {
+impl<K: ItemKey> NodeBuilder for Selector<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.inner.node_mut()
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for Selector<K> {
+impl<K: ItemKey> IntoView for Selector<K> {
     fn into_view(self) -> View {
         let presentation = self.presentation;
         if presentation == SelectorPresentation::Popover {
@@ -90,34 +114,34 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Selector<K> {
         self.inner
             .touch_sheet(
                 move || presentation.uses_sheet(),
-                |label, open, trigger, list| sheet(label, open, trigger, move || list()),
+                |label, open, trigger, list| sheet(label, open, trigger, move || list.call(())),
             )
             .into_view()
     }
 }
 pub type MultiSelector<K> = Typeahead<K>;
 
-pub fn selector<K: Clone + Eq + Hash + 'static>(
+pub fn selector<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl IntoBinding<Option<K>>,
 ) -> Selector<K> {
     Selector {
         inner: select(label, options, value)
             .open_on_arrow(true)
-            .retain_trigger_focus(true)
+            .keep_trigger_focus(true)
             .has_popup(|| Some(PopupKind::ListBox)),
         presentation: SelectorPresentation::Popover,
     }
 }
 
-pub fn multi_selector<K: Clone + Eq + Hash + 'static>(
+pub fn multi_selector<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Vec<K>>>,
+    value: impl IntoBinding<Vec<K>>,
 ) -> MultiSelector<K> {
-    let value = value.into();
-    let mut field = Typeahead::new(label, options, ListSelection::Multiple(value));
+    let value = value.into_binding();
+    let mut field = Typeahead::new(label, options, Selection::Multiple(value));
     field.chips = Some(value);
     field
 }
@@ -125,7 +149,7 @@ pub fn multi_selector<K: Clone + Eq + Hash + 'static>(
 pub fn complex_selector<V: IntoView>(
     label: impl IntoText,
     value_label: impl IntoText,
-    content: impl Fn() -> V + 'static,
+    content: impl kivact::view::IntoViewFn<V>,
 ) -> View {
     complex_selector_with_presentation(label, value_label, SelectorPresentation::Popover, content)
 }
@@ -136,7 +160,7 @@ pub fn complex_selector_with_presentation<V: IntoView>(
     label: impl IntoText,
     value_label: impl IntoText,
     presentation: SelectorPresentation,
-    content: impl Fn() -> V + 'static,
+    content: impl kivact::view::IntoViewFn<V>,
 ) -> View {
     let label = label.into_text_value();
     let value_label = value_label.into_text_value();
@@ -149,8 +173,8 @@ pub fn complex_selector_with_presentation<V: IntoView>(
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
         .child(text(value_label))
-        .trailing_icon(icon("chevron-down"))
-        .expanded(open)
+        .trailing(icon("chevron-down"))
+        .with_node(move |node| node.expanded(open))
         .node_ref(target)
         .on_pointer(move |event| {
             if matches!(event.phase(), PointerPhase::Down(_)) {
@@ -174,7 +198,7 @@ pub fn complex_selector_with_presentation<V: IntoView>(
                 .align_items(Align::Center)
                 .gap(8)
         });
-    let content = Rc::new(content);
+    let content: kivact::view::ViewFn = content.into_view_fn();
     let popup_body = content.clone();
     let popup_open = binding(
         memo(move || open.get() && !sheet_open.get()),
@@ -186,20 +210,20 @@ pub fn complex_selector_with_presentation<V: IntoView>(
         },
     );
     let popup = dialog(label, popup_open)
-        .kind(DialogKind::Popover)
+        .mode(DialogMode::Popover)
         .hide_title(true)
         .width(Length::Auto)
-        .content(move || scroll(popup_body()).style(style().max_height(480).padding(12)))
+        .content(move || scroll(popup_body.call(())).style(style().max_height(480).padding(12)))
         .attach(trigger);
     let sheet = (presentation != SelectorPresentation::Popover).then(|| {
-        let shown = binding(memo(move || open.get() && sheet_open.get()), move |shown| {
+        let shown = binding(memo(move || open && sheet_open), move |shown| {
             if !shown {
                 open.set(false);
                 sheet_open.set(false);
             }
         });
         sheet(label, shown, target, move || {
-            scroll(content()).style(style().max_height(480).padding(12))
+            scroll(content.call(())).style(style().max_height(480).padding(12))
         })
     });
     (popup, sheet).into_view()

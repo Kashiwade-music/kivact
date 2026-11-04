@@ -4,10 +4,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with};
-use kivact::view::{Key, Modifiers, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::view::Key;
+use kivact::view::Modifiers;
+use kivact::view::Role;
 use kivact_ui_soft as soft;
 
 fn options() -> RenderOptions {

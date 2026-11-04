@@ -1,12 +1,34 @@
 //! Role: Compose named search filters with an explicit editor and remove controls.
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::message;
-use kivact::state::{Machine, Step, machine};
-use kivact::style::{Align, Length, style};
-use kivact::ui::{ButtonVariant, DialogKind, ListItem, button, dialog, select, text_input};
-use kivact::view::{IntoText, IntoValue, IntoView, View, for_each};
-use kivact::{Binding, Value, binding};
+use kivact::interaction::DialogMode;
+use kivact::interaction::ListItem;
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::ItemKey;
+use kivact::state::Machine;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::machine;
+use kivact::style::Align;
+use kivact::style::Length;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::ui::select;
+use kivact::ui::text_input;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
+use kivact::view::for_each;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
 use std::hash::Hash;
 
 /// A filter over a named field. Values are stored as text for caller-defined search backends.
@@ -24,33 +46,34 @@ pub enum SearchOperator {
     Contains,
 }
 
-pub struct PowerSearch<K: Clone + Eq + Hash + 'static> {
+pub struct PowerSearch<K: ItemKey> {
     root: Node,
     label: Value<String>,
     fields: Value<Vec<ListItem<K>>>,
     filters: Binding<Vec<SearchFilter<K>>>,
 }
 
-pub fn power_search<K: Clone + Eq + Hash + 'static>(
+pub fn power_search<K: ItemKey>(
     label: impl IntoText,
     fields: impl IntoValue<Vec<ListItem<K>>>,
-    filters: impl Into<Binding<Vec<SearchFilter<K>>>>,
+    filters: impl IntoBinding<Vec<SearchFilter<K>>>,
 ) -> PowerSearch<K> {
     PowerSearch {
         root: node(),
         label: label.into_text_value(),
         fields: fields.into_value(),
-        filters: filters.into(),
+        filters: filters.into_binding(),
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for PowerSearch<K> {
+impl<K: ItemKey> NodeBuilder for PowerSearch<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
+impl<K: ItemKey> IntoView for PowerSearch<K> {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -87,13 +110,15 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
             move || editor.get().draft().value,
             move |value| editor.send(SearchEvent::Value(value)),
         );
-        let entries =
-            kivact::memo(move || filters.with(|filters| (0..filters.len()).collect::<Vec<_>>()));
+        let entries = kivact::state::memo(move || {
+            filters.with(|filters| (0..filters.len()).collect::<Vec<_>>())
+        });
         let tokens_view = for_each(
             entries,
             |index| *index,
-            move |index, _| {
-                let name = kivact::memo(move || {
+            move |entry| {
+                let index = entry.get_untracked();
+                let name = kivact::state::memo(move || {
                     filters.with(|entries| {
                         entries
                             .get(index)
@@ -149,7 +174,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for PowerSearch<K> {
             .name(label)
             .child(row((tokens_view, add)).style(style().wrap(true).gap(4)));
         dialog(label, open)
-            .kind(DialogKind::Popover)
+            .mode(DialogMode::Popover)
             .hide_title(true)
             .width(Length::Auto)
             .content(move || {

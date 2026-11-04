@@ -1,10 +1,21 @@
 //! Role: Style the standard dialog kinds and share overlay paint helpers.
 use crate::Tokens;
+use kivact::interaction::DialogMode;
 use kivact::motion::Transition;
-use kivact::style::{
-    Align, Direction, Justify, Position, Style, Theme, TransitionProp, auto, pct, style,
-};
-use kivact::ui::{DialogKind, DialogRecipes, DialogState, Look, Side};
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::TransitionProp;
+use kivact::style::auto;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::DialogRecipes;
+use kivact::ui::DialogState;
+use kivact::ui::Look;
+use kivact::ui::Side;
 
 const DIALOG_WIDTH: f64 = 400.0;
 const DIALOG_MAX_HEIGHT_PERCENT: f64 = 75.0;
@@ -14,10 +25,10 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
     r.surface(|_| surface)
         .scrim(|_| {
             |t: &Theme, s: &Look<DialogState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let base = scrim(&p);
                 let hidden = style().opacity(0.0);
-                if matches!(s.kind, DialogKind::Drawer(_)) {
+                if matches!(s.kind, DialogMode::Drawer(_)) {
                     motion(base, &p, p.motion.medium)
                         .enter(hidden.clone())
                         .exit(hidden)
@@ -28,9 +39,9 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
         })
         .header(|_| {
             |t: &Theme, s: &Look<DialogState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let base = style().direction(Direction::Column);
-                if matches!(s.kind, DialogKind::Drawer(_)) {
+                if matches!(s.kind, DialogMode::Drawer(_)) {
                     base.padding(p.spacing.dialog_padding)
                 } else {
                     base
@@ -39,7 +50,7 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
         })
         .title(|_| {
             |t: &Theme, _: &Look<DialogState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let text = p.typography.heading2;
                 style()
                     .font_size(text.size_px)
@@ -50,9 +61,9 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
         })
         .description(|_| {
             |t: &Theme, s: &Look<DialogState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let base = style().color(p.colors.text_secondary);
-                if s.kind == DialogKind::AlertModal {
+                if s.kind == DialogMode::AlertModal {
                     base
                 } else {
                     base.font_size(p.typography.size_sm)
@@ -62,8 +73,8 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
         .body(|_| {
             |t: &Theme, s: &Look<DialogState>| {
                 let base = style().direction(Direction::Column).min_height(0);
-                if matches!(s.kind, DialogKind::Drawer(_)) {
-                    base.padding_x(t.get::<Tokens>().spacing.dialog_padding)
+                if matches!(s.kind, DialogMode::Drawer(_)) {
+                    base.padding_x(t.ext::<Tokens>().spacing.dialog_padding)
                 } else {
                     base
                 }
@@ -71,12 +82,12 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
         })
         .footer(|_| {
             |t: &Theme, s: &Look<DialogState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 let base = style()
                     .direction(Direction::Row)
                     .justify_content(Justify::End)
                     .gap(p.spacing.s2);
-                if matches!(s.kind, DialogKind::Drawer(_)) {
+                if matches!(s.kind, DialogMode::Drawer(_)) {
                     base.margin_top(auto()).padding(p.spacing.dialog_padding)
                 } else {
                     base
@@ -87,7 +98,7 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
 }
 
 fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let gutter = p.spacing.layer_viewport_gutter;
     let base = body_text(&p)
         .direction(Direction::Column)
@@ -95,7 +106,7 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
         .background(p.colors.bg_surface)
         .focus_visible(focus(&p));
     match s.kind {
-        DialogKind::Popover => anchored(
+        DialogMode::Popover => anchored(
             shadows(base.background(p.colors.bg_popover), &p.shadows.low)
                 .padding(p.spacing.section_padding)
                 .max_width(pct(100) - gutter * 2.0)
@@ -104,8 +115,8 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
             0.0,
             -p.spacing.s2,
         ),
-        DialogKind::Drawer(side) => drawer(shadows(base, &p.shadows.high), &p, side),
-        DialogKind::Modal | DialogKind::AlertModal => modal(
+        DialogMode::Drawer(side) => drawer(shadows(base, &p.shadows.high), &p, side),
+        DialogMode::Modal | DialogMode::AlertModal => modal(
             shadows(base, &p.shadows.high)
                 .width(DIALOG_WIDTH)
                 .max_width(pct(100) - gutter * 2.0)
@@ -150,7 +161,7 @@ fn drawer(base: Style, p: &Tokens, side: Side) -> Style {
 }
 
 fn close(t: &Theme, _: &Look<DialogState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .position(Position::Absolute)
         .top(p.spacing.s2)

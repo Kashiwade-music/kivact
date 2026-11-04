@@ -1,18 +1,51 @@
 //! Role: Edit source-preserving Markdown blocks using native wrapped text fields.
 use crate::rich_block_doc::{Block, Document, Kind};
 use crate::{markdown, tokens};
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
+use kivact::custom::EditContext;
+use kivact::custom::EditLineLayout;
+use kivact::custom::EditOutcome;
+use kivact::custom::EditRequest;
+use kivact::custom::EditState;
+use kivact::custom::TextEditing;
+use kivact::custom::TextHighlight;
+use kivact::custom::TextSession;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::text_edit_policy;
-use kivact::primitive::{
-    EditContext, EditLineLayout, EditOutcome, EditRequest, EditState, NodeRefExt, TextEditing,
-    TextHighlight, TextSession, part,
-};
-use kivact::state::{Machine, MachineHandle, Step, machine};
-use kivact::style::{Align, Justify, Style, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, button, checkbox};
-use kivact::view::{Handled, IntoView, Key, NodeRef, PointerPhase, Role, View, for_each, node_ref};
-use kivact::{Binding, Signal, Value, Var, binding, memo, on_cleanup, on_mount, var};
+use kivact::state::Binding;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Signal;
+use kivact::state::Step;
+use kivact::state::Value;
+use kivact::state::Var;
+use kivact::state::binding;
+use kivact::state::machine;
+use kivact::state::memo;
+use kivact::state::on_cleanup;
+use kivact::state::on_mount;
+use kivact::state::var;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Style;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::checkbox;
+use kivact::view::Handled;
+use kivact::view::Key;
+use kivact::view::Node;
+use kivact::view::NodeRef;
+use kivact::view::PointerPhase;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::for_each;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::text;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -58,7 +91,7 @@ pub(super) fn edit_blocks(
             composing.set(next_composing);
         },
     );
-    state.feed(move || source.get(), |_| BlockEvent::Source);
+    state.feed(move || source, |_| BlockEvent::Source);
     let document = memo(move || state.get().document);
     let editor = Editor {
         source,
@@ -69,7 +102,7 @@ pub(super) fn edit_blocks(
     let blocks = for_each(
         move || document.with(|doc| doc.blocks.clone()),
         |block| block.id,
-        move |id, block| editor.block(label, id, block),
+        move |block| editor.block(label, block.with_untracked(|block| block.id), block),
     );
     column(blocks)
         .role(Role::Group)
@@ -208,13 +241,10 @@ impl Editor {
         let style_kind = kind.clone();
         let field = node()
             .node_ref(reference)
-            .part(
-                part(|input| input)
-                    .role(Role::TextBox)
-                    .focusable(true)
-                    .name(name)
-                    .text_editing(editing),
-            )
+            .role(Role::TextBox)
+            .focusable(true)
+            .name(name)
+            .text_editing(editing)
             .style(move || editor_style(&style_kind, self.whole()))
             .on_pointer(move |event| {
                 if matches!(event.phase(), PointerPhase::Down(_)) {

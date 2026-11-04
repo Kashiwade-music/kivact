@@ -1,10 +1,15 @@
 //! Role: Verify Empty State speaks only after initial render and while eligible.
-use kivact::control::{NodeBuilder, column};
-use kivact::primitive::NodeExt;
-use kivact::signal;
+use kivact::view::NodeBuilder;
+use kivact::view::column;
+
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::view::{LiveRegion, Role, show};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::view::LiveRegion;
+use kivact::view::Role;
+use kivact::view::show;
 use kivact_ui_soft::empty_state;
 
 fn options() -> RenderOptions {

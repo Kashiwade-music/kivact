@@ -1,8 +1,16 @@
 //! Role: Verify the table status lane, accessible markers and shared tooltip behavior.
-use kivact::style::{ThemeMode, rgb};
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{DataColumn, RowStatus, Tone, data_table};
-use kivact::view::{Key, ReadingDirection, Role, provide_direction};
+use kivact::interaction::Tone;
+use kivact::style::ThemeMode;
+use kivact::style::rgb;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::DataColumn;
+use kivact::ui::RowStatus;
+use kivact::ui::data_table;
+use kivact::view::Key;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::provide_direction;
 use std::time::Duration;
 
 #[test]

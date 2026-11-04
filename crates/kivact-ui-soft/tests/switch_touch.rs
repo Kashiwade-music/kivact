@@ -1,10 +1,13 @@
 //! Role: Verify Soft switch pointer gestures.
-use kivact::binding;
-use kivact::signal;
+use kivact::state::binding;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with_handle};
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
 use kivact::ui::switch;
-use kivact::view::{Key, PointerKind, Role};
+use kivact::view::Key;
+use kivact::view::PointerKind;
+use kivact::view::Role;
 
 #[test]
 fn switch_touch_commits_once_and_vertical_or_cancelled_contacts_do_not_toggle() {

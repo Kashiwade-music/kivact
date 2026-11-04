@@ -2,75 +2,111 @@
 use crate::recipes_field::{frame, text as text_style};
 use crate::selector_surface::{SelectorPresentation, sheet, touch_tap};
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll, text};
+use kivact::Result;
+use kivact::custom::PartState;
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{ListSelection, announcer, use_combobox};
-use kivact::primitive::{NodeExt, PartState, part};
-use kivact::style::{Align, Color, pct, style};
-use kivact::task::{AsyncState, resource, sleep};
-use kivact::ui::{ListItem, text_input};
-use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, KeyEvent, LiveRegion, Modifiers, OverlayAlign,
-    Placement, PointerEvent, PointerPhase, View, for_each, node_ref, overlay, show,
-};
-use kivact::{Binding, Result, Value, binding, effect, effect_on, memo, signal};
+use kivact::interaction::IntoSelection;
+use kivact::interaction::ListItem;
+use kivact::interaction::Selection;
+use kivact::interaction::announcer;
+use kivact::interaction::use_combobox;
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::ItemKey;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::effect;
+use kivact::state::effect_on;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::task::AsyncState;
+use kivact::task::resource;
+use kivact::task::sleep;
+use kivact::ui::text_input;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::LiveRegion;
+use kivact::view::Modifiers;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::PointerEvent;
+use kivact::view::PointerPhase;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::for_each;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::show;
+use kivact::view::text;
 use std::cell::RefCell;
 use std::future::Future;
-use std::hash::Hash;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;
 
 type Search<K> = Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<Vec<ListItem<K>>>>>>>;
 
-pub struct Typeahead<K: Clone + Eq + Hash + 'static> {
+pub struct Typeahead<K: ItemKey> {
     pub(super) root: Node,
     pub(super) label: Value<String>,
     pub(super) options: Value<Vec<ListItem<K>>>,
-    pub(super) selection: ListSelection<K>,
+    pub(super) selection: Selection<K>,
     pub(super) chip_labels: Option<Value<Vec<ListItem<K>>>>,
     pub(super) chips: Option<Binding<Vec<K>>>,
     placeholder: Value<String>,
     empty: Value<String>,
     search: Option<Search<K>>,
-    debounce: Duration,
+    debounce: Value<Duration>,
     exclude_selected: bool,
     presentation: SelectorPresentation,
 }
 
-pub fn typeahead<K: Clone + Eq + Hash + 'static>(
+pub fn typeahead<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl Into<Binding<Option<K>>>,
+    selected: impl IntoBinding<Option<K>>,
 ) -> Typeahead<K> {
-    Typeahead::new(label, options, ListSelection::Single(selected.into()))
+    Typeahead::new(label, options, Selection::Single(selected.into_binding()))
 }
 
-pub fn base_typeahead<K: Clone + Eq + Hash + 'static>(
+pub fn base_typeahead<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl Into<Binding<Option<K>>>,
+    selected: impl IntoBinding<Option<K>>,
 ) -> Typeahead<K> {
     typeahead(label, options, selected)
 }
 
-impl<K: Clone + Eq + Hash + 'static> Typeahead<K> {
+impl<K: ItemKey> Typeahead<K> {
     pub(super) fn new(
         label: impl IntoText,
         options: impl IntoValue<Vec<ListItem<K>>>,
-        selection: ListSelection<K>,
+        selection: impl IntoSelection<K>,
     ) -> Self {
         Self {
             root: node(),
             label: label.into_text_value(),
             options: options.into_value(),
-            selection,
+            selection: selection.into_selection(),
             chip_labels: None,
             chips: None,
             placeholder: message("soft.typeahead.placeholder", "Search"),
             empty: message("soft.typeahead.empty", "No results found."),
             search: None,
-            debounce: Duration::from_millis(150),
+            debounce: Duration::from_millis(150).into_value(),
             exclude_selected: false,
             presentation: SelectorPresentation::Popover,
         }
@@ -89,8 +125,8 @@ impl<K: Clone + Eq + Hash + 'static> Typeahead<K> {
     }
 
     /// Delay between the last keystroke and starting an asynchronous search.
-    pub fn debounce(mut self, delay: Duration) -> Self {
-        self.debounce = delay;
+    pub fn debounce(mut self, delay: impl IntoValue<Duration>) -> Self {
+        self.debounce = delay.into_value();
         self
     }
 
@@ -116,13 +152,14 @@ impl<K: Clone + Eq + Hash + 'static> Typeahead<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Typeahead<K> {
+impl<K: ItemKey> NodeBuilder for Typeahead<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-fn label_of<K: Clone + Eq + Hash + 'static>(options: Value<Vec<ListItem<K>>>, key: &K) -> String {
+fn label_of<K: ItemKey>(options: Value<Vec<ListItem<K>>>, key: &K) -> String {
     options.with(|items| {
         items
             .iter()
@@ -132,7 +169,7 @@ fn label_of<K: Clone + Eq + Hash + 'static>(options: Value<Vec<ListItem<K>>>, ke
     })
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
+impl<K: ItemKey> IntoView for Typeahead<K> {
     fn into_view(self) -> View {
         let Self {
             mut root,
@@ -149,9 +186,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             presentation,
         } = self;
         let off = root.accessible_disabled();
-        let disabled = memo(move || off.as_ref().is_some_and(|off| off()));
+        let disabled = memo(move || off.as_ref().is_some_and(|off| off.get()));
         let single = match selection {
-            ListSelection::Single(value) if chips.is_none() => Some(value),
+            Selection::Single(value) if chips.is_none() => Some(value),
             _ => None,
         };
         let open = signal(false);
@@ -162,7 +199,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             let request = memo(move || {
                 (open.get() && !disabled.get()).then(|| {
                     if editing.get() {
-                        (typed.get(), debounce)
+                        (typed.get(), debounce.get())
                     } else {
                         (String::new(), Duration::ZERO)
                     }
@@ -271,7 +308,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             .expanded(open)
             .on_key(move |event: KeyEvent| {
                 if event.key() == Key::Backspace
-                    && event.modifiers() == Modifiers::default()
+                    && event.modifiers().get() == Modifiers::default()
                     && query.get_untracked().is_empty()
                     && !disabled.get_untracked()
                     && let Some(chips) = chips
@@ -317,7 +354,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             for_each(
                 values.into_value(),
                 |key| key.clone(),
-                move |key, _| {
+                move |entry| {
+                    let key = entry.get_untracked();
                     let shown = memo({
                         let key = key.clone();
                         move || label_of(chip_labels, &key)
@@ -325,9 +363,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                     let remove = kivact::ui::button(move || format!("Remove {}", shown.get()))
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .hide_label(true)
-                        .icon(kivact::control::icon("x"))
+                        .icon(kivact::view::icon("x"))
                         .disabled(disabled)
-                        .part(part(|s| s).focus_on_press(input_ref))
+                        .focus_on_press(input_ref)
                         .on_press(move || {
                             values.set(
                                 values
@@ -356,7 +394,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
         });
         let field = row((tokens_view, input))
             .node_ref(anchor)
-            .part(part(|s| s).focus_on_press(input_ref))
+            .focus_on_press(input_ref)
             .style(move || {
                 let t = tokens();
                 let s = frame(
@@ -380,11 +418,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                     s
                 }
             });
-        let surface = move |list: kivact::interaction::Combobox<K>, in_sheet: bool| {
+        let surface = move |list: kivact::interaction::ComboboxApi<K>, in_sheet: bool| {
             let rows = for_each(
                 list.visible(),
                 |key| key.clone(),
-                move |key, _| {
+                move |entry| {
+                    let key = entry.get_untracked();
                     let item = list.item(key.clone());
                     let state = item.state();
                     let text_value = memo({
@@ -446,11 +485,11 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             overlay(anchor, Placement::Below, surface(list, false))
                 .align(OverlayAlign::Start)
                 .offset(4)
-                .at_least_anchor_width(true)
+                .at_least_anchor_width()
                 .on_dismiss(move |_| open.set(false))
         });
         let sheet = (presentation != SelectorPresentation::Popover).then(|| {
-            let shown = binding(memo(move || open.get() && sheet_open.get()), move |shown| {
+            let shown = binding(memo(move || open && sheet_open), move |shown| {
                 if !shown {
                     open.set(false);
                 }
@@ -478,10 +517,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
     }
 }
 
-fn token_notices<K: Clone + Eq + Hash + 'static>(
-    selected: Binding<Vec<K>>,
-    labels: Value<Vec<ListItem<K>>>,
-) -> View {
+fn token_notices<K: ItemKey>(selected: Binding<Vec<K>>, labels: Value<Vec<ListItem<K>>>) -> View {
     let notices = announcer();
     let label = signal(String::new());
     let added = message_with("soft.tokenizer.token_added", "Added {label}", move || {

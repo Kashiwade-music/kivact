@@ -1,17 +1,51 @@
 //! Role: Render one-based pagination with Neutral controls and a moving page window.
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, icon, node, row, text};
 use kivact::i18n::{message, message_with};
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, Position, TransitionProp, style};
-use kivact::ui::{ButtonVariant, ControlSize, ListItem, button, select, text_input};
-use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, KeyEvent, LiveRegion, Role, View,
-    callback, dynamic, for_each, node_ref, provide, show,
-};
-use kivact::{Binding, Callback, Value, binding, effect_on, memo, signal};
+use kivact::state::IntoBinding;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::interaction::ListItem;
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::callback;
+use kivact::state::effect_on;
+use kivact::state::memo;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::select;
+use kivact::ui::text_input;
+use kivact::view::Handled;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::LiveRegion;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::dynamic;
+use kivact::view::for_each;
+use kivact::view::node_ref;
+use kivact::view::show;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -34,33 +68,33 @@ pub struct Pagination {
     total_pages: Option<Value<u32>>,
     has_more: Value<bool>,
     disabled: Value<bool>,
-    variant: PaginationVariant,
+    variant: Value<PaginationVariant>,
     page_label: Option<Value<String>>,
-    size: ControlSize,
-    first_last: Option<bool>,
-    step: u32,
-    siblings: u32,
+    size: Value<ControlSize>,
+    first_last: Option<Value<bool>>,
+    step: Value<u32>,
+    siblings: Value<u32>,
     on_change: Option<Callback<u32>>,
 }
 
-pub fn pagination(page: impl Into<Binding<u32>>) -> Pagination {
+pub fn pagination(page: impl IntoBinding<u32>) -> Pagination {
     Pagination {
         root: node()
             .role(Role::Navigation)
             .name(message("soft.pagination.label", "Pagination")),
-        page: page.into(),
+        page: page.into_binding(),
         page_size: None,
         size_options: Vec::new(),
         total_items: None,
         total_pages: None,
         has_more: false.into_value(),
         disabled: false.into_value(),
-        variant: PaginationVariant::Pages,
+        variant: (PaginationVariant::Pages).into_value(),
         page_label: None,
-        size: ControlSize::Medium,
+        size: (ControlSize::Medium).into_value(),
         first_last: None,
-        step: 1,
-        siblings: 1,
+        step: 1.into_value(),
+        siblings: 1.into_value(),
         on_change: None,
     }
 }
@@ -78,36 +112,37 @@ impl Pagination {
         self.has_more = value.into_value();
         self
     }
-    pub fn page_size(mut self, size: impl Into<Binding<u32>>) -> Self {
-        self.page_size = Some(size.into());
+    pub fn page_size(mut self, size: impl IntoBinding<u32>) -> Self {
+        self.page_size = Some(size.into_binding());
         self
     }
     pub fn page_size_options(mut self, values: Vec<u32>) -> Self {
         self.size_options = values;
         self
     }
-    pub fn variant(mut self, variant: PaginationVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<PaginationVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
     pub fn page_label(mut self, label: impl IntoText) -> Self {
         self.page_label = Some(label.into_text_value());
         self
     }
-    pub fn first_last(mut self, first_last: bool) -> Self {
-        self.first_last = Some(first_last);
+    pub fn first_last(mut self, first_last: impl IntoValue<bool>) -> Self {
+        self.first_last = Some(first_last.into_value());
         self
     }
-    pub fn step(mut self, step: u32) -> Self {
-        self.step = step.max(1);
+    pub fn step(mut self, step: impl IntoValue<u32>) -> Self {
+        let step = step.into_value();
+        self.step = (move || step.get().max(1)).into_value();
         self
     }
-    pub fn siblings(mut self, siblings: u32) -> Self {
-        self.siblings = siblings;
+    pub fn siblings(mut self, siblings: impl IntoValue<u32>) -> Self {
+        self.siblings = siblings.into_value();
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
     pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
@@ -121,6 +156,7 @@ impl Pagination {
 }
 
 impl NodeBuilder for Pagination {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -173,7 +209,7 @@ impl IntoView for Pagination {
             on_change,
         } = self;
         provide((), move || {
-            let page_size = page_size.unwrap_or_else(|| signal(10).into());
+            let page_size = page_size.unwrap_or_else(|| signal(10).into_binding());
             let total = memo(move || {
                 if let Some(items) = total_items {
                     let pages = items.get().div_ceil(u64::from(page_size.get().max(1)));
@@ -250,42 +286,47 @@ impl IntoView for Pagination {
                                 options,
                                 selected,
                             )
-                            .size(size)
+                            .size(size.get())
                             .disabled(disabled)
                             .style(style().width(80)),
                         )
                     };
-                    let show_edges = first_last.unwrap_or(variant == PaginationVariant::Input);
+                    let show_edges = first_last
+                        .map_or(variant.get() == PaginationVariant::Input, |value| {
+                            value.get()
+                        });
                     let first = show(
                         move || show_edges && total.get().is_some(),
-                        move || arrow(model, Arrow::First, size, step),
+                        move || arrow(model, Arrow::First, size.get(), step),
                     );
                     let last = show(
                         move || show_edges && total.get().is_some(),
-                        move || arrow(model, Arrow::Last, size, step),
+                        move || arrow(model, Arrow::Last, size.get(), step),
                     );
-                    let center = match variant {
+                    let center = match variant.get() {
                         PaginationVariant::Pages => for_each(
                             move || {
                                 model.total.get().map_or_else(Vec::new, |total| {
-                                    page_window(model.page(), total, siblings)
+                                    page_window(model.page(), total, siblings.get())
                                 })
                             },
                             |cell| *cell,
-                            move |_, cell| {
+                            move |cell| {
                                 let cell = cell.get();
                                 match cell {
-                                    Cell::Page(page) => page_button(model, page, size).into_view(),
+                                    Cell::Page(page) => {
+                                        page_button(model, page, size.get()).into_view()
+                                    }
                                     Cell::LeftGap | Cell::RightGap => row(text("…"))
                                         .style(move || {
                                             let t = tokens();
-                                            let dimension = dimension(size);
+                                            let dimension = dimension(size.get());
                                             style()
                                                 .min_width(dimension)
                                                 .height(dimension)
                                                 .justify_content(Justify::Center)
                                                 .align_items(Align::Center)
-                                                .font_size(if size == ControlSize::Small {
+                                                .font_size(if size.get() == ControlSize::Small {
                                                     12
                                                 } else {
                                                     14
@@ -343,7 +384,7 @@ impl IntoView for Pagination {
                         ),
                         PaginationVariant::Dots => dynamic(
                             move || total.get().unwrap_or_default(),
-                            move |total| dots(model, total, size),
+                            move |total| dots(model, total, size.get()),
                         ),
                         PaginationVariant::Input => dynamic(
                             move || total.get().unwrap_or(0),
@@ -361,7 +402,7 @@ impl IntoView for Pagination {
                                 });
                                 row((
                                     text(label).style(secondary),
-                                    page_input(model, total, size),
+                                    page_input(model, total, size.get()),
                                     suffix,
                                 ))
                                 .style(controls_style)
@@ -374,9 +415,9 @@ impl IntoView for Pagination {
                         size_selector,
                         row((
                             first,
-                            arrow(model, Arrow::Previous, size, step),
+                            arrow(model, Arrow::Previous, size.get(), step),
                             center,
-                            arrow(model, Arrow::Next, size, step),
+                            arrow(model, Arrow::Next, size.get(), step),
                             last,
                         ))
                         .style(controls_style),
@@ -476,7 +517,7 @@ fn page_button(model: Model, page: u32, size: ControlSize) -> impl IntoView {
         .variant(ButtonVariant::Ghost)
         .size(size)
         .disabled(model.disabled)
-        .selected(move || model.page() == page)
+        .with_node(move |node| node.selected(move || model.page() == page))
         .current_item(move || (model.page() == page).then_some(kivact::view::CurrentItem::Page))
         .style(move || {
             if model.page() == page {
@@ -496,7 +537,11 @@ enum Arrow {
     Last,
 }
 
-fn arrow(model: Model, which: Arrow, size: ControlSize, step: u32) -> impl IntoView {
+fn arrow(model: Model, which: Arrow, size: ControlSize, step: Value<u32>) -> impl IntoView {
+    kivact::view::dynamic(step, move |step| arrow_step(model, which, size, step))
+}
+
+fn arrow_step(model: Model, which: Arrow, size: ControlSize, step: u32) -> impl IntoView {
     let leading = matches!(which, Arrow::First | Arrow::Previous);
     let edges = matches!(which, Arrow::First | Arrow::Last);
     let label = match which {
@@ -563,7 +608,7 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
                     "Go to page {page}",
                     move || [("page", page.to_string())],
                 ))
-                .selected(move || model.page() == page)
+                .with_node(move |node| node.selected(move || model.page() == page))
                 .current_item(move || {
                     (model.page() == page).then_some(kivact::view::CurrentItem::Page)
                 })
@@ -710,3 +755,5 @@ mod tests {
         assert_eq!(page_window(1, 3, 1), [Page(1), Page(2), Page(3)]);
     }
 }
+
+kivact::state::constant_value!(PaginationVariant);

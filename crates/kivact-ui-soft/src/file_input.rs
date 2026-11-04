@@ -1,15 +1,38 @@
 //! Role: Select or drop native paths and validate them before publishing.
 use crate::recipes_field::frame;
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::custom::PartState;
 use kivact::i18n::message;
-use kivact::platform::{FileDialog, pick_files};
-use kivact::primitive::{NodeExt, PartState};
-use kivact::style::{Align, Justify, style};
+use kivact::platform::FileDialog;
+use kivact::platform::pick_files;
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::style;
 use kivact::task::spawn;
-use kivact::ui::{ButtonVariant, button};
-use kivact::view::{FileEvent, FilePhase, Handled, IntoText, IntoView, Role, View, node_ref, show};
-use kivact::{Binding, Value, memo, signal};
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::view::FileEvent;
+use kivact::view::FilePhase;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::show;
+use kivact::view::text;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -18,20 +41,20 @@ pub struct FileInput {
     label: Value<String>,
     value: Binding<Vec<PathBuf>>,
     extensions: Rc<Vec<String>>,
-    max_bytes: Option<u64>,
-    multiple: bool,
-    dropzone: bool,
+    max_bytes: Option<Value<u64>>,
+    multiple: Value<bool>,
+    dropzone: Value<bool>,
 }
 
-pub fn file_input(label: impl IntoText, value: impl Into<Binding<Vec<PathBuf>>>) -> FileInput {
+pub fn file_input(label: impl IntoText, value: impl IntoBinding<Vec<PathBuf>>) -> FileInput {
     FileInput {
         root: node(),
         label: label.into_text_value(),
-        value: value.into(),
+        value: value.into_binding(),
         extensions: Rc::default(),
         max_bytes: None,
-        multiple: false,
-        dropzone: false,
+        multiple: (false).into_value(),
+        dropzone: (false).into_value(),
     }
 }
 
@@ -52,23 +75,24 @@ impl FileInput {
         self
     }
 
-    pub fn max_bytes(mut self, max_bytes: u64) -> Self {
-        self.max_bytes = Some(max_bytes);
+    pub fn max_bytes(mut self, max_bytes: impl IntoValue<u64>) -> Self {
+        self.max_bytes = Some(max_bytes.into_value());
         self
     }
 
-    pub fn multiple(mut self, multiple: bool) -> Self {
-        self.multiple = multiple;
+    pub fn multiple(mut self, multiple: impl IntoValue<bool>) -> Self {
+        self.multiple = multiple.into_value();
         self
     }
 
-    pub fn dropzone(mut self, dropzone: bool) -> Self {
-        self.dropzone = dropzone;
+    pub fn dropzone(mut self, dropzone: impl IntoValue<bool>) -> Self {
+        self.dropzone = dropzone.into_value();
         self
     }
 }
 
 impl NodeBuilder for FileInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -114,7 +138,7 @@ impl IntoView for FileInput {
         let accept = Rc::new({
             let extensions = extensions.clone();
             move |files: Vec<PathBuf>| {
-                let error = if !multiple && files.len() > 1 {
+                let error = if !multiple.get() && files.len() > 1 {
                     Some(choose_one.get())
                 } else if files
                     .iter()
@@ -123,8 +147,9 @@ impl IntoView for FileInput {
                     Some(invalid_file.get())
                 } else if max_bytes.is_some_and(|max| {
                     files.iter().any(|file| {
-                        std::fs::metadata(file)
-                            .map_or(true, |metadata| !metadata.is_file() || metadata.len() > max)
+                        std::fs::metadata(file).map_or(true, |metadata| {
+                            !metadata.is_file() || metadata.len() > max.get()
+                        })
                     })
                 }) {
                     Some(too_large.get())
@@ -158,7 +183,7 @@ impl IntoView for FileInput {
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("upload"))
-            .disabled(move || disabled.get() || pending.get())
+            .disabled(move || disabled || pending.get())
             .invalid(move || status.get().is_some())
             .node_ref(trigger_ref)
             .described_by(alert_ref)
@@ -188,7 +213,7 @@ impl IntoView for FileInput {
                         ..FileDialog::default()
                     };
                     spawn(async move {
-                        let result = if multiple {
+                        let result = if multiple.get() {
                             pick_files(request).await
                         } else {
                             kivact::platform::pick_file(request)
@@ -214,7 +239,7 @@ impl IntoView for FileInput {
                     .variant(ButtonVariant::Ghost)
                     .hide_label(true)
                     .icon(icon("x"))
-                    .disabled(move || disabled.get() || pending.get())
+                    .disabled(move || disabled || pending.get())
                     .on_press(move || {
                         value.set(Vec::new());
                         status.set(None);
@@ -235,7 +260,7 @@ impl IntoView for FileInput {
                     status.get().is_some(),
                 )
                 .align_items(Align::Center)
-                .min_height(if dropzone { 96 } else { 32 });
+                .min_height(if dropzone.get() { 96 } else { 32 });
                 if dragging.get() || focus.get() {
                     s.border_color(t.colors.accent)
                         .shadow(t.shadows.input_focus_ring)
@@ -244,7 +269,7 @@ impl IntoView for FileInput {
                 }
             })
             .on_file(move |event: FileEvent| {
-                if !dropzone || disabled.get_untracked() || pending.get_untracked() {
+                if !dropzone.get() || disabled.get_untracked() || pending.get_untracked() {
                     return Handled::No;
                 }
                 dragging.set(matches!(event.phase, FilePhase::Enter | FilePhase::Over));

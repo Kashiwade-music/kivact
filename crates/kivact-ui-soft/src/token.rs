@@ -1,17 +1,33 @@
 //! Role: Neutral entity tokens with independently operable removal.
+use kivact::state::IntoValue;
 
 use crate::feedback::icon_box;
 use crate::recipe_style::{overlay, ring};
 use crate::{HueColors, Hues, tokens};
-use kivact::control::{Node, NodeBuilder, icon, row, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Cursor, Direction, Justify, current_theme, pct, style};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::style::use_theme;
 use kivact::ui::ControlSize;
-use kivact::view::{
-    HandlerResult, IntoText, IntoView, ReadingDirection, Role, View, callback, current_direction,
-    node_ref,
-};
-use kivact::{Callback, Value};
+use kivact::view::IntoView;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::use_direction;
 
 /// Decorative token palette.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -52,16 +68,16 @@ impl TokenColor {
 pub struct Token {
     root: Node,
     label: Value<String>,
-    size: ControlSize,
-    color: TokenColor,
+    size: Value<ControlSize>,
+    color: Value<TokenColor>,
     icon: Option<View>,
     end: Option<View>,
     press: Option<Callback<()>>,
     remove: Option<Callback<()>>,
     description: Option<Value<String>>,
-    label_hidden: bool,
-    disabled: bool,
-    as_link: bool,
+    label_hidden: Value<bool>,
+    disabled: Value<bool>,
+    as_link: Value<bool>,
 }
 
 #[track_caller]
@@ -69,27 +85,27 @@ pub fn token(label: impl IntoText) -> Token {
     Token {
         root: row(()),
         label: label.into_text_value(),
-        size: ControlSize::Medium,
-        color: TokenColor::Default,
+        size: (ControlSize::Medium).into_value(),
+        color: (TokenColor::Default).into_value(),
         icon: None,
         end: None,
         press: None,
         remove: None,
         description: None,
-        label_hidden: false,
-        disabled: false,
-        as_link: false,
+        label_hidden: (false).into_value(),
+        disabled: (false).into_value(),
+        as_link: (false).into_value(),
     }
 }
 
 impl Token {
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
-    pub fn color(mut self, color: TokenColor) -> Self {
-        self.color = color;
+    pub fn color(mut self, color: impl IntoValue<TokenColor>) -> Self {
+        self.color = color.into_value();
         self
     }
 
@@ -103,13 +119,15 @@ impl Token {
         self
     }
 
-    pub fn on_press<R: HandlerResult>(mut self, press: impl Fn() -> R + 'static) -> Self {
-        self.press = Some(callback(move |_| press()));
+    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.press = Some(callback(move |_| press.call(())));
         self
     }
 
-    pub fn on_remove<R: HandlerResult>(mut self, remove: impl Fn() -> R + 'static) -> Self {
-        self.remove = Some(callback(move |_| remove()));
+    pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
+        let remove: Callback<()> = remove.into();
+        self.remove = Some(callback(move |_| remove.call(())));
         self
     }
 
@@ -118,23 +136,24 @@ impl Token {
         self
     }
 
-    pub fn label_hidden(mut self, hidden: bool) -> Self {
-        self.label_hidden = hidden;
+    pub fn label_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
+        self.label_hidden = hidden.into_value();
         self
     }
 
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
+    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
+        self.disabled = disabled.into_value();
         self
     }
 
-    pub fn as_link(mut self, link: bool) -> Self {
-        self.as_link = link;
+    pub fn as_link(mut self, link: impl IntoValue<bool>) -> Self {
+        self.as_link = link.into_value();
         self
     }
 }
 
 impl NodeBuilder for Token {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -143,16 +162,16 @@ impl NodeBuilder for Token {
 impl IntoView for Token {
     fn into_view(self) -> View {
         let label = self.label;
-        let disabled = self.disabled;
-        let color = self.color;
+        let disabled = self.disabled.get();
+        let color = self.color.get();
         let main_ref = node_ref();
         let focus = main_ref.focus_visible();
-        let height = match self.size {
+        let height = match self.size.get() {
             ControlSize::ExtraSmall | ControlSize::Small => 20,
             ControlSize::Medium => 24,
             ControlSize::Large => 28,
         };
-        let direction = if current_direction() == ReadingDirection::Rtl {
+        let direction = if use_direction().get() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
@@ -177,7 +196,7 @@ impl IntoView for Token {
                     };
                 }
                 if interactive && !disabled {
-                    let theme = current_theme();
+                    let theme = use_theme().get();
                     let (fill, _) = color
                         .hue(&t.colors.hue)
                         .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
@@ -197,7 +216,7 @@ impl IntoView for Token {
             })
             .child(self.icon.map(|icon| icon_box(icon, 12.0)))
             .child(
-                (!self.label_hidden).then(|| {
+                (!self.label_hidden.get()).then(|| {
                     text(label).style(style().min_width(0).text_wrap(false).line_clamp(1))
                 }),
             )
@@ -205,7 +224,7 @@ impl IntoView for Token {
         if let Some(press) = self.press {
             main = main
                 .node_ref(main_ref)
-                .role(if self.as_link {
+                .role(if self.as_link.get() {
                     Role::Link
                 } else {
                     Role::Button
@@ -216,7 +235,7 @@ impl IntoView for Token {
             if let Some(description) = self.description {
                 main = main.description(description);
             }
-        } else if self.label_hidden {
+        } else if self.label_hidden.get() {
             main = main.name(label);
         }
         let remove = self.remove.map(|remove| {
@@ -281,3 +300,5 @@ impl IntoView for Token {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(TokenColor);

@@ -23,3 +23,5 @@ impl Elevation {
         shadows.iter().cloned().fold(base, Style::shadow)
     }
 }
+
+kivact::state::constant_value!(Elevation);

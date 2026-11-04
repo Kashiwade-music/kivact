@@ -1,19 +1,48 @@
 //! Role: Present a bottom-aligned sheet with draggable detents.
 use crate::recipes_dialog::{body_text, motion, shadows};
 use crate::theme_access::tokens;
-use kivact::control::NodeBuilder;
-use kivact::control::{column, node, scroll};
-use kivact::interaction::{
-    Dismiss, DragAxis, DragCoordinates, DragPhase, DragUpdate, DragVelocity, nearest_snap,
-    project_release, pull_to_snap, resist_overshoot, use_dialog, use_drag,
-};
-use kivact::primitive::{NodeExt, clock_now};
-use kivact::style::{Align, Justify, Overflow, Position, pct, style};
-use kivact::ui::DialogKind;
-use kivact::view::{
-    DismissReason, IntoText, IntoView, NodeRef, Placement, Role, View, node_ref, overlay, show,
-};
-use kivact::{Binding, binding, signal, var};
+use kivact::custom::clock_now;
+use kivact::interaction::DialogMode;
+use kivact::interaction::DismissOn;
+use kivact::interaction::DragAxis;
+use kivact::interaction::DragCoordinates;
+use kivact::interaction::DragPhase;
+use kivact::interaction::DragUpdate;
+use kivact::interaction::DragVelocity;
+use kivact::interaction::nearest_snap;
+use kivact::interaction::project_release;
+use kivact::interaction::pull_to_snap;
+use kivact::interaction::resist_overshoot;
+use kivact::interaction::use_dialog;
+use kivact::interaction::use_drag;
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::PropValue;
+use kivact::state::binding;
+use kivact::state::signal;
+use kivact::state::var;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Overflow;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::DismissReason;
+use kivact::view::IntoView;
+use kivact::view::IntoViewFn;
+use kivact::view::NodeRef;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::scroll;
+use kivact::view::show;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -51,33 +80,33 @@ pub enum DialogPurpose {
 }
 
 pub struct BottomSheet {
-    label: kivact::Value<String>,
+    label: kivact::state::Value<String>,
     open: Binding<bool>,
     purpose: DialogPurpose,
     height: SheetHeight,
     snap_points: Vec<SnapPoint>,
-    scrim: bool,
-    padding: f64,
+    scrim: kivact::state::Value<bool>,
+    padding: kivact::state::Value<f64>,
     final_focus: Option<NodeRef>,
-    content: Option<Rc<dyn Fn() -> View>>,
+    content: Option<ViewFn>,
 }
 
-pub fn bottom_sheet(label: impl IntoText, open: impl Into<Binding<bool>>) -> BottomSheet {
+pub fn bottom_sheet(label: impl IntoText, open: impl IntoBinding<bool>) -> BottomSheet {
     BottomSheet {
         label: label.into_text_value(),
-        open: open.into(),
+        open: open.into_binding(),
         purpose: DialogPurpose::Info,
         height: SheetHeight::Capped,
         snap_points: Vec::new(),
-        scrim: true,
-        padding: 16.0,
+        scrim: true.into_value(),
+        padding: 16.0.into_value(),
         final_focus: None,
         content: None,
     }
 }
 
 /// Opens one of several independent sheets from a shared step binding.
-pub fn bottom_sheet_flow<K: Clone + PartialEq + 'static>(
+pub fn bottom_sheet_flow<K: PropValue>(
     label: impl IntoText,
     step: Binding<Option<K>>,
     key: K,
@@ -114,13 +143,14 @@ impl BottomSheet {
         self
     }
 
-    pub fn scrim(mut self, scrim: bool) -> Self {
-        self.scrim = scrim;
+    pub fn scrim(mut self, scrim: impl IntoValue<bool>) -> Self {
+        self.scrim = scrim.into_value();
         self
     }
 
-    pub fn padding(mut self, step: u8) -> Self {
-        self.padding = f64::from(step) * 4.0;
+    pub fn padding(mut self, step: impl IntoValue<f64>) -> Self {
+        let step = step.into_value();
+        self.padding = (move || step.get() * 4.0).into_value();
         self
     }
 
@@ -129,8 +159,8 @@ impl BottomSheet {
         self
     }
 
-    pub fn content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move || content().into_view()));
+    pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.content = Some(content.into_view_fn());
         self
     }
 }
@@ -139,22 +169,22 @@ impl IntoView for BottomSheet {
     fn into_view(self) -> View {
         let open = self.open;
         let purpose = self.purpose;
-        let modal = self.scrim;
+        let modal = self.scrim.get();
         // The modal overlay automatically restores its opener. An explicit
         // target overrides that restoration after either kind of closure.
         if let Some(target) = self.final_focus {
-            kivact::effect_on(open, move |shown| {
+            kivact::state::effect_on(open, move |shown| {
                 if !shown {
                     target.restore_focus();
                 }
             });
         }
         let kind = if purpose == DialogPurpose::Required {
-            DialogKind::AlertModal
+            DialogMode::AlertModal
         } else {
-            DialogKind::Modal
+            DialogMode::Modal
         };
-        let dismiss = Dismiss {
+        let dismiss = DismissOn {
             escape: purpose != DialogPurpose::Required,
             outside: purpose == DialogPurpose::Info,
         };
@@ -168,7 +198,7 @@ impl IntoView for BottomSheet {
             let height = self.height;
             let points = self.snap_points.clone();
             let detents = Rc::new(move || {
-                let viewport = kivact::platform::window_size().height;
+                let viewport = kivact::platform::window_size().get().height;
                 let full =
                     sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
                 (full, offsets(full, viewport, &points))
@@ -249,16 +279,16 @@ impl IntoView for BottomSheet {
                         .align_items(Align::Center)
                         .justify_content(Justify::Center),
                 );
-            let body = column(self.content.as_ref().map(|content| content()))
+            let body = column(self.content.as_ref().map(|content| content.call(())))
                 .node_ref(body_ref)
-                .style(style().padding(self.padding));
+                .style(move || style().padding(self.padding.get()));
             let body = scroll(body)
                 .name(self.label)
                 .style(style().grow(1).min_height(0));
             let position_points = self.snap_points.clone();
             let panel = column((body, handle)).style(move || {
                 let p = tokens();
-                let viewport = kivact::platform::window_size().height;
+                let viewport = kivact::platform::window_size().get().height;
                 let full =
                     sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
                 let detents = offsets(full, viewport, &position_points);
@@ -326,7 +356,7 @@ impl IntoView for BottomSheet {
                     })
             });
             let frame = column((scrim, panel)).style(|| {
-                let viewport = kivact::platform::window_size();
+                let viewport = kivact::platform::window_size().get();
                 style()
                     .size(viewport.width, viewport.height)
                     .justify_content(Justify::End)

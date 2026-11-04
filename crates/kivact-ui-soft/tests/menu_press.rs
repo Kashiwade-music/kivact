@@ -4,10 +4,13 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
+use kivact::interaction::MenuEntry;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{MenuEntry, menu};
-use kivact::view::{MouseButton, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::menu;
+use kivact::view::MouseButton;
+use kivact::view::Role;
 
 #[test]
 fn soft_mouse_opens_on_press_and_drag_release_selects_once() {
@@ -22,12 +25,12 @@ fn soft_mouse_opens_on_press_and_drag_release_selects_once() {
                     MenuEntry::item("open", "Open"),
                     MenuEntry::item("copy", "Copy"),
                 ],
-                move |key| {
-                    let mut entries = report.take();
-                    entries.push(key);
-                    report.set(entries);
-                },
             )
+            .on_activate(move |key| {
+                let mut entries = report.take();
+                entries.push(key);
+                report.set(entries);
+            })
         },
     );
 

@@ -1,9 +1,14 @@
 //! Role: Verify column filtering through the standard data table public API.
-use kivact::control::{NodeBuilder, column, text};
-use kivact::signal;
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{DataColumn, button, data_table};
+use kivact::state::signal;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::DataColumn;
+use kivact::ui::button;
+use kivact::ui::data_table;
+use kivact::view::NodeBuilder;
 use kivact::view::Role;
+use kivact::view::column;
+use kivact::view::text;
 
 #[derive(Clone, PartialEq)]
 struct Entry {

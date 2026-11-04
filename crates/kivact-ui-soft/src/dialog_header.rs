@@ -1,11 +1,21 @@
 //! Role: Lay out Soft dialog and drawer headings.
 use crate::recipes_dialog::motion;
 use crate::theme_access::tokens;
-use kivact::control::NodeBuilder;
-use kivact::control::{Node, column, icon, row, text};
-use kivact::style::{Align, style};
-use kivact::ui::{ButtonVariant, button};
-use kivact::view::{IntoText, IntoView, Role, View};
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::style::Align;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::row;
+use kivact::view::text;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,7 +32,7 @@ pub struct DialogHeader {
     end: Option<View>,
     close: Option<Rc<dyn Fn()>>,
     compensation: Option<EdgeCompensation>,
-    divider: bool,
+    divider: kivact::state::Value<bool>,
 }
 
 pub fn dialog_header(title: impl IntoText) -> DialogHeader {
@@ -43,7 +53,7 @@ pub fn dialog_header(title: impl IntoText) -> DialogHeader {
         end: None,
         close: None,
         compensation: None,
-        divider: false,
+        divider: false.into_value(),
     }
 }
 
@@ -84,13 +94,14 @@ impl DialogHeader {
         self
     }
 
-    pub fn header_divider(mut self, divider: bool) -> Self {
-        self.divider = divider;
+    pub fn header_divider(mut self, divider: impl IntoValue<bool>) -> Self {
+        self.divider = divider.into_value();
         self
     }
 
-    pub fn on_close(mut self, close: impl Fn() + 'static) -> Self {
-        self.close = Some(Rc::new(close));
+    pub fn on_close(mut self, close: impl Into<Callback<()>>) -> Self {
+        let close: Callback<()> = close.into();
+        self.close = Some(Rc::new(move || close.call(())));
         self
     }
 
@@ -138,7 +149,7 @@ impl DialogHeader {
             .map(|start| row(start).style(style().gap(8).shrink(0)));
         row((start, title, end)).style(move || {
             let base = style().gap(12).align_items(Align::Start);
-            if self.divider {
+            if self.divider.get() {
                 base.border_bottom(1, tokens().colors.border)
             } else {
                 base
@@ -168,12 +179,13 @@ impl DrawerHeader {
         self
     }
 
-    pub fn header_divider(mut self, divider: bool) -> Self {
+    pub fn header_divider(mut self, divider: impl IntoValue<bool>) -> Self {
         self.0 = self.0.header_divider(divider);
         self
     }
 
-    pub fn on_close(mut self, close: impl Fn() + 'static) -> Self {
+    pub fn on_close(mut self, close: impl Into<Callback<()>>) -> Self {
+        let close: Callback<()> = close.into();
         self.0 = self.0.on_close(close);
         self
     }

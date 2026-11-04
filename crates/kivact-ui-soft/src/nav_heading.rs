@@ -2,28 +2,49 @@
 use crate::side_nav::logical_row;
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{Delays, use_hover_surface, use_menu};
+use kivact::interaction::Delays;
+use kivact::interaction::use_hover_surface;
+use kivact::interaction::use_menu;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Justify, TransitionProp, style};
-use kivact::ui::{ControlSize, MenuEntry};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, OverlayAlign, Placement, Role, View, callback,
-    for_each, node_ref, overlay, provide,
-};
-use kivact::{Callback, Value, effect_on};
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::interaction::MenuEntry;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::effect_on;
+use kivact::state::provide;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::TransitionProp;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::view::IntoView;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::for_each;
+use kivact::view::node_ref;
+use kivact::view::overlay;
 use std::rc::Rc;
 use std::time::Duration;
-
-type Slot = Rc<dyn Fn() -> View>;
 
 #[derive(Clone)]
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
     pub(crate) description: Option<Value<String>>,
-    pub(crate) icon: Option<Slot>,
+    pub(crate) icon: Option<ViewFn>,
     pub(crate) disabled: bool,
     pub(crate) action: Option<Callback<()>>,
 }
@@ -43,16 +64,17 @@ impl NavHeadingMenuItem {
         self.description = Some(description.into_text_value());
         self
     }
-    pub fn icon<V: IntoView>(mut self, icon: impl Fn() -> V + 'static) -> Self {
-        self.icon = Some(Rc::new(move || icon().into_view()));
+    pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
+        self.icon = Some(icon.into_view_fn());
         self
     }
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
 }
@@ -60,7 +82,7 @@ impl NavHeadingMenuItem {
 pub struct NavHeadingMenu {
     items: Rc<[NavHeadingMenuItem]>,
     size: ControlSize,
-    min_width: Option<f64>,
+    min_width: Option<kivact::state::Value<f64>>,
 }
 
 pub fn nav_heading_menu(items: impl IntoIterator<Item = NavHeadingMenuItem>) -> NavHeadingMenu {
@@ -76,8 +98,8 @@ impl NavHeadingMenu {
         self.size = size;
         self
     }
-    pub fn min_width(mut self, width: f64) -> Self {
-        self.min_width = Some(width);
+    pub fn min_width(mut self, width: impl IntoValue<f64>) -> Self {
+        self.min_width = Some(width.into_value());
         self
     }
 }
@@ -108,7 +130,7 @@ pub(crate) fn nav_menu_view(
         .map(|(index, item)| MenuEntry::item(index, item.label).disabled(item.disabled))
         .collect::<Vec<_>>();
     let actions = items.clone();
-    let behavior = use_menu(options, move |index| {
+    let behavior = use_menu(options).on_activate(move |index| {
         if let Some(action) = actions[index].action {
             action.call(());
         }
@@ -119,20 +141,20 @@ pub(crate) fn nav_menu_view(
     let delayed = use_hover_surface(
         anchor,
         panel_ref,
-        || !kivact::platform::capabilities().touch,
+        || !kivact::platform::capabilities().get().touch,
         delays,
     );
-    effect_on(delayed.shown(), move |open| {
+    effect_on(delayed.is_open(), move |open| {
         if *open {
             behavior.open();
         } else {
             behavior.close();
         }
     });
-    let opened = behavior.shown();
+    let opened = behavior.is_open();
     let trigger = trigger(opened).part(part);
     let heading = matches!(look, NavMenuLook::Heading);
-    let min_width = min_width.unwrap_or(if heading {
+    let default_min_width = if heading {
         match size {
             ControlSize::Small => 160.0,
             ControlSize::Large => 240.0,
@@ -140,13 +162,14 @@ pub(crate) fn nav_menu_view(
         }
     } else {
         280.0
-    });
+    };
+    let min_width = min_width.unwrap_or_else(|| default_min_width.into_value());
     let surface = behavior.show(move || {
         let items = items.clone();
         let rows = for_each(
             behavior.entries(),
             |(row, _)| row.clone(),
-            move |_, entry| {
+            move |entry| {
                 let key = *entry.get().1.key().expect("action item");
                 let part = behavior.item(key);
                 let state = part.state();
@@ -168,7 +191,7 @@ pub(crate) fn nav_menu_view(
                                     .background(t.colors.neutral)
                             }
                         })
-                        .child(slot())
+                        .child(slot.call(()))
                 });
                 let label = text(item.label).style(move || {
                     let t = tokens();
@@ -248,9 +271,9 @@ pub(crate) fn nav_menu_view(
                 let anchor_width = anchor.rect().get().map_or(0.0, |rect| rect.width);
                 popup_surface()
                     .min_width(if heading {
-                        min_width.max(anchor_width + t.spacing.s4)
+                        min_width.get().max(anchor_width + t.spacing.s4)
                     } else {
-                        min_width
+                        min_width.get()
                     })
                     .padding(t.spacing.s1)
                     .gap(if heading {
@@ -308,8 +331,8 @@ pub struct SideNavHeading {
     heading: Value<String>,
     superheading: Option<Value<String>>,
     subheading: Option<Value<String>>,
-    icon: Option<Slot>,
-    end: Option<Slot>,
+    icon: Option<ViewFn>,
+    end: Option<ViewFn>,
     menu: Option<NavHeadingMenu>,
     heading_action: Option<Callback<()>>,
     super_action: Option<Callback<()>>,
@@ -346,42 +369,40 @@ impl SideNavHeading {
         self.subheading = Some(heading.into_text_value());
         self
     }
-    pub fn icon<V: IntoView>(mut self, icon: impl Fn() -> V + 'static) -> Self {
-        self.icon = Some(Rc::new(move || icon().into_view()));
+    pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
+        self.icon = Some(icon.into_view_fn());
         self
     }
-    pub fn logo<V: IntoView>(self, logo: impl Fn() -> V + 'static) -> Self {
+    pub fn logo<V: IntoView>(self, logo: impl IntoViewFn<V>) -> Self {
         self.icon(logo)
     }
-    pub fn end_content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.end = Some(Rc::new(move || content().into_view()));
+    pub fn end_content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.end = Some(content.into_view_fn());
         self
     }
-    pub fn menu(mut self, menu: impl FnOnce() -> NavHeadingMenu) -> Self {
-        self.menu = Some(menu());
+    pub fn menu(mut self, menu: NavHeadingMenu) -> Self {
+        self.menu = Some(menu);
         self
     }
-    pub fn on_heading_press<R: HandlerResult>(mut self, press: impl Fn() -> R + 'static) -> Self {
-        self.heading_action = Some(callback(move |_| press()));
+    pub fn on_heading_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.heading_action = Some(callback(move |_| press.call(())));
         self
     }
-    pub fn on_superheading_press<R: HandlerResult>(
-        mut self,
-        press: impl Fn() -> R + 'static,
-    ) -> Self {
-        self.super_action = Some(callback(move |_| press()));
+    pub fn on_superheading_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.super_action = Some(callback(move |_| press.call(())));
         self
     }
-    pub fn on_subheading_press<R: HandlerResult>(
-        mut self,
-        press: impl Fn() -> R + 'static,
-    ) -> Self {
-        self.sub_action = Some(callback(move |_| press()));
+    pub fn on_subheading_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.sub_action = Some(callback(move |_| press.call(())));
         self
     }
 }
 
 impl NodeBuilder for SideNavHeading {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -433,9 +454,10 @@ impl IntoView for SideNavHeading {
                         }))
                 });
                 row((
-                    glyph.as_ref().map(|glyph| glyph()),
+                    glyph.as_ref().map(|glyph| glyph.call(())),
                     labels,
-                    end.as_ref().map(|end| node().hidden(rail).child(end())),
+                    end.as_ref()
+                        .map(|end| node().hidden(rail).child(end.call(()))),
                     chevron,
                 ))
                 .style(move || {

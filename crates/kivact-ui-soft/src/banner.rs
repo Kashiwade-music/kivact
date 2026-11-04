@@ -1,18 +1,43 @@
 //! Role: Neutral feedback banners with optional details and dismissal.
+use kivact::state::IntoValue;
+use kivact::view::IntoViewFn;
+use kivact::view::ViewFn;
 
 use crate::feedback::icon_box;
 use crate::{Elevation, tokens};
-use kivact::control::{Node, NodeBuilder, column, icon, row, text};
+use kivact::custom::Owner;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::primitive::{NodeExt, Owner};
-use kivact::style::{Align, Direction, Justify, TransitionProp, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, button, tooltip};
-use kivact::view::{
-    HandlerResult, IntoText, IntoView, ReadingDirection, View, callback, current_direction,
-    node_ref, show,
-};
-use kivact::{Binding, Callback, Value, effect, signal};
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::effect;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::tooltip;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::show;
+use kivact::view::text;
+use kivact::view::use_direction;
 
 /// Semantic tone of a feedback banner.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,12 +64,12 @@ pub struct Banner {
     description: Option<Value<String>>,
     icon: Option<View>,
     end: Option<View>,
-    content: Option<Box<dyn Fn() -> View>>,
-    container: BannerContainer,
-    elevation: Elevation,
-    collapsible: bool,
+    content: Option<ViewFn>,
+    container: Value<BannerContainer>,
+    elevation: Value<Elevation>,
+    collapsible: Value<bool>,
     open: Option<Binding<bool>>,
-    dismissable: bool,
+    dismissable: Value<bool>,
     dismiss: Option<Callback<()>>,
     dismiss_label: Option<Value<String>>,
 }
@@ -59,11 +84,11 @@ pub fn banner(status: BannerStatus, title: impl IntoText) -> Banner {
         icon: None,
         end: None,
         content: None,
-        container: BannerContainer::Card,
-        elevation: Elevation::None,
-        collapsible: true,
+        container: (BannerContainer::Card).into_value(),
+        elevation: (Elevation::None).into_value(),
+        collapsible: (true).into_value(),
         open: None,
-        dismissable: false,
+        dismissable: (false).into_value(),
         dismiss: None,
         dismiss_label: None,
     }
@@ -80,43 +105,44 @@ impl Banner {
         self
     }
 
-    pub fn end<V: IntoView>(mut self, end: impl FnOnce() -> V) -> Self {
-        self.end = Some(end().into_view());
+    pub fn end(mut self, end: impl IntoView) -> Self {
+        self.end = Some(end.into_view());
         self
     }
 
-    pub fn content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Box::new(move || content().into_view()));
+    pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.content = Some(content.into_view_fn());
         self
     }
 
-    pub fn container(mut self, container: BannerContainer) -> Self {
-        self.container = container;
+    pub fn container(mut self, container: impl IntoValue<BannerContainer>) -> Self {
+        self.container = container.into_value();
         self
     }
 
-    pub fn elevation(mut self, elevation: Elevation) -> Self {
-        self.elevation = elevation;
+    pub fn elevation(mut self, elevation: impl IntoValue<Elevation>) -> Self {
+        self.elevation = elevation.into_value();
         self
     }
 
-    pub fn collapsible(mut self, collapsible: bool) -> Self {
-        self.collapsible = collapsible;
+    pub fn collapsible(mut self, collapsible: impl IntoValue<bool>) -> Self {
+        self.collapsible = collapsible.into_value();
         self
     }
 
-    pub fn open(mut self, open: impl Into<Binding<bool>>) -> Self {
-        self.open = Some(open.into());
+    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
+        self.open = Some(open.into_binding());
         self
     }
 
-    pub fn dismissable(mut self, dismissable: bool) -> Self {
-        self.dismissable = dismissable;
+    pub fn dismissable(mut self, dismissable: impl IntoValue<bool>) -> Self {
+        self.dismissable = dismissable.into_value();
         self
     }
 
-    pub fn on_dismiss<R: HandlerResult>(mut self, dismiss: impl Fn() -> R + 'static) -> Self {
-        self.dismiss = Some(callback(move |_| dismiss()));
+    pub fn on_dismiss(mut self, dismiss: impl Into<Callback<()>>) -> Self {
+        let dismiss: Callback<()> = dismiss.into();
+        self.dismiss = Some(callback(move |_| dismiss.call(())));
         self
     }
 
@@ -127,6 +153,7 @@ impl Banner {
 }
 
 impl NodeBuilder for Banner {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -135,10 +162,10 @@ impl NodeBuilder for Banner {
 impl IntoView for Banner {
     fn into_view(self) -> View {
         let dismissed = signal(false);
-        let dismiss_focus = self.dismissable.then(|| {
+        let dismiss_focus = self.dismissable.get().then(|| {
             let reference = node_ref();
             let within = reference.focus_within();
-            let owner = Owner::current("banner");
+            let owner = Owner::current();
             let previous = signal(None);
             effect(move || {
                 let focused = owner.focused_node();
@@ -148,19 +175,19 @@ impl IntoView for Banner {
             });
             (reference, previous)
         });
-        let card = self.container == BannerContainer::Card;
+        let card = self.container.get() == BannerContainer::Card;
         let status = self.status;
         let has_details = self.content.is_some();
-        let disclosure = (has_details && self.collapsible)
-            .then(|| use_disclosure(self.open.unwrap_or_else(|| signal(false).into())));
-        let open = move || has_details && disclosure.is_none_or(|details| details.shown().get());
+        let disclosure = (has_details && self.collapsible.get())
+            .then(|| use_disclosure(self.open.unwrap_or_else(|| signal(false).into_binding())));
+        let open = move || has_details && disclosure.is_none_or(|details| details.is_open().get());
         let title = self.title;
-        let elevation = self.elevation;
+        let elevation = self.elevation.get();
         let has_end = self.end.is_some();
         let has_actions = has_end || self.dismissable || disclosure.is_some();
         let description = self.description;
         let has_description = description.is_some();
-        let direction = if current_direction() == ReadingDirection::Rtl {
+        let direction = if use_direction().get() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
@@ -179,7 +206,7 @@ impl IntoView for Banner {
             let expand = kivact::i18n::message("soft.banner.expand", "Expand");
             let collapse = kivact::i18n::message("soft.banner.collapse", "Collapse");
             let label = move || {
-                if details.shown().get() {
+                if details.is_open().get() {
                     collapse.get()
                 } else {
                     expand.get()
@@ -189,7 +216,7 @@ impl IntoView for Banner {
                 let t = tokens();
                 style()
                     .color(foreground())
-                    .rotate(if details.shown().get() { 180 } else { 0 })
+                    .rotate(if details.is_open().get() { 180 } else { 0 })
                     .transition(
                         TransitionProp::Paint,
                         Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
@@ -203,10 +230,10 @@ impl IntoView for Banner {
                 .part(details.trigger());
             tooltip(label).attach(control)
         });
-        let dismiss = self.dismissable.then(|| {
+        let dismiss = self.dismissable.get().then(|| {
             let label = self
                 .dismiss_label
-                .unwrap_or_else(|| kivact::i18n::message("soft.banner.dismiss", "Dismiss"));
+                .unwrap_or_else(|| kivact::i18n::message("soft.banner.dismiss", "DismissOn"));
             let name = self.dismiss_label.unwrap_or_else(|| {
                 kivact::i18n::message_with(
                     "soft.banner.dismiss_titled",
@@ -296,7 +323,7 @@ impl IntoView for Banner {
             });
         let content = self.content.map(|content| {
             show(open, move || {
-                let mut area = column(content()).base_style(move || {
+                let mut area = column(content.call(())).base_style(move || {
                     let t = tokens();
                     let radius = if card { t.radius.container } else { 0.0 };
                     style()
@@ -331,3 +358,5 @@ impl IntoView for Banner {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(BannerContainer);

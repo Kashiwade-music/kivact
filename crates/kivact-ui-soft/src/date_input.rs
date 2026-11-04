@@ -1,13 +1,33 @@
 //! Role: Typed date field and its attached calendar.
 use crate::calendar::{Calendar, calendar, calendar_status};
 use crate::date_touch::{self, DatePresentation};
-use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::{CalendarDate, message};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Length, style};
-use kivact::ui::{ButtonVariant, DialogKind, button, dialog, text_input};
-use kivact::view::{Handled, IntoText, IntoView, Key, KeyEvent, View, node_ref};
-use kivact::{Binding, Value, memo, signal};
+use kivact::state::IntoBinding;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Length;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::ui::text_input;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::View;
+use kivact::view::node_ref;
 use std::rc::Rc;
 
 pub struct DateInput {
@@ -21,12 +41,12 @@ pub struct DateInput {
 /// An editable date with an attached month calendar.
 pub fn date_input(
     label: impl IntoText,
-    value: impl Into<Binding<Option<CalendarDate>>>,
+    value: impl IntoBinding<Option<CalendarDate>>,
 ) -> DateInput {
     DateInput {
         root: node(),
         label: label.into_text_value(),
-        value: value.into(),
+        value: value.into_binding(),
         presentation: DatePresentation::Adaptive,
         configure: None,
     }
@@ -46,6 +66,7 @@ impl DateInput {
 }
 
 impl NodeBuilder for DateInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -119,21 +140,21 @@ impl IntoView for DateInput {
         let invalid = signal(false);
         let opened_from_input = signal(false);
         let input_ref = node_ref();
-        let formatted = memo(move || value.get().map(|date| date.to_string()).unwrap_or_default());
+        let formatted = memo(move || value.map(|date| date.to_string()).unwrap_or_default());
         let draft = signal(formatted.get_untracked());
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             draft.set(formatted.get());
             invalid.set(false);
         });
         let input = text_input(label, draft)
             .placeholder("YYYY-MM-DD")
-            .expanded(open)
+            .with_node(move |node| node.expanded(open))
             .forward_keys(vec![Key::ArrowDown])
             .on_key(move |event: KeyEvent| {
                 if event.key() == Key::ArrowDown
-                    && !event.modifiers().ctrl
-                    && !event.modifiers().meta
-                    && !event.modifiers().shift
+                    && !event.modifiers().get().ctrl
+                    && !event.modifiers().get().meta
+                    && !event.modifiers().get().shift
                     && !open.get_untracked()
                 {
                     opened_from_input.set(true);
@@ -148,7 +169,7 @@ impl IntoView for DateInput {
                     && !draft.get().trim().is_empty()
                     && parse_date(&draft.get()).is_none()
             })
-            .draft(move |text| {
+            .on_draft_commit(move |text| {
                 if text.trim().is_empty() {
                     value.set(None);
                     open.set(false);
@@ -169,19 +190,19 @@ impl IntoView for DateInput {
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("calendar"))
-            .expanded(open)
+            .with_node(move |node| node.expanded(open))
             .on_press(move || {
                 opened_from_input.set(false);
                 open.set(!open.get_untracked());
             });
         let trigger = row((toggle, input)).style(style().align_items(Align::Center).gap(4));
         let picker = dialog(label, open)
-            .kind(DialogKind::Popover)
+            .mode(DialogMode::Popover)
             .hide_title(true)
             .width(Length::Auto)
             .content(move || {
                 if opened_from_input.get_untracked() {
-                    kivact::on_mount(move || input_ref.focus());
+                    kivact::state::on_mount(move || input_ref.focus());
                 }
                 let calendar = calendar(value).on_commit(move || {
                     invalid.set(false);

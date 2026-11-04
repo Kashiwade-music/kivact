@@ -1,25 +1,48 @@
 //! Role: Composer controls for application-owned chat state.
 
+use kivact::state::IntoBinding;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{ChatDensity, tokens};
-use kivact::control::{Node, NodeBuilder, node, row, text};
+use kivact::custom::EditState;
 use kivact::i18n::message;
-use kivact::primitive::{EditState, NodeExt, NodeRefExt, part};
-use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::ui::{ControlSize, TextInput, text_area};
-use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, KeyEvent, Modifiers, Role, View,
-    callback, node_ref, show,
-};
-use kivact::{Binding, Callback, Value, signal};
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::ui::TextInput;
+use kivact::ui::text_area;
+use kivact::view::Handled;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::KeyEvent;
+use kivact::view::Modifiers;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::show;
+use kivact::view::text;
 
 fn composer_placeholder() -> Value<String> {
     message("soft.chat_composer.placeholder", "Type a message…")
 }
 
-pub fn chat_composer_input(label: impl IntoText, value: impl Into<Binding<String>>) -> TextInput {
+pub fn chat_composer_input(label: impl IntoText, value: impl IntoBinding<String>) -> TextInput {
     text_area(label, value)
         .rows(1..=8)
         .placeholder(composer_placeholder())
@@ -41,7 +64,7 @@ pub struct ChatSendButton {
     on_stop: Option<Callback<()>>,
     send_icon: Option<View>,
     stop_icon: Option<View>,
-    size: ControlSize,
+    size: Value<ControlSize>,
 }
 
 pub fn chat_send_button() -> ChatSendButton {
@@ -53,11 +76,12 @@ pub fn chat_send_button() -> ChatSendButton {
         on_stop: None,
         send_icon: None,
         stop_icon: None,
-        size: ControlSize::Medium,
+        size: (ControlSize::Medium).into_value(),
     }
 }
 
 impl NodeBuilder for ChatSendButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -72,12 +96,14 @@ impl ChatSendButton {
         self.disabled = disabled.into_value();
         self
     }
-    pub fn on_send<R: HandlerResult>(mut self, send: impl Fn() -> R + 'static) -> Self {
-        self.on_send = Some(callback(move |_| send()));
+    pub fn on_send(mut self, send: impl Into<Callback<()>>) -> Self {
+        let send: Callback<()> = send.into();
+        self.on_send = Some(callback(move |_| send.call(())));
         self
     }
-    pub fn on_stop<R: HandlerResult>(mut self, stop: impl Fn() -> R + 'static) -> Self {
-        self.on_stop = Some(callback(move |_| stop()));
+    pub fn on_stop(mut self, stop: impl Into<Callback<()>>) -> Self {
+        let stop: Callback<()> = stop.into();
+        self.on_stop = Some(callback(move |_| stop.call(())));
         self
     }
     pub fn send_icon(mut self, icon: impl IntoView) -> Self {
@@ -88,8 +114,8 @@ impl ChatSendButton {
         self.stop_icon = Some(icon.into_view());
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 }
@@ -115,7 +141,7 @@ impl IntoView for ChatSendButton {
             stop_icon,
             size,
         } = self;
-        let side = control_side(size);
+        let side = control_side(size.get());
         let send = node()
             .hidden(stop_shown)
             .child(send_icon.unwrap_or_else(|| text("↑").into_view()));
@@ -124,43 +150,40 @@ impl IntoView for ChatSendButton {
             .child(stop_icon.unwrap_or_else(|| text("■").into_view()));
         let send_label = message("soft.chat_send_button.send", "Send");
         let stop_label = message("soft.chat_send_button.stop", "Stop");
-        root.part(
-            part(|state| state)
-                .role(Role::Button)
-                .focusable(true)
-                .disabled(disabled)
-                .name(move || {
-                    if stop_shown.get() {
-                        stop_label.get()
-                    } else {
-                        send_label.get()
-                    }
-                })
-                .on_press(move || {
-                    let action = if stop_shown.get() { on_stop } else { on_send };
-                    if let Some(action) = action {
-                        action.call(());
-                    }
-                }),
-        )
-        .base_style(move || {
-            let p = tokens();
-            style()
-                .direction(Direction::Row)
-                .size(side, side)
-                .shrink(0)
-                .radius(side as f64 / 2.0)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .font_size(18)
-                .background(p.colors.accent)
-                .color(p.colors.on_accent)
-                .hover(style().background(p.colors.accent_hover))
-                .disabled(style().opacity(0.5))
-                .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
-        })
-        .child((send, stop))
-        .into_view()
+        root.role(Role::Button)
+            .focusable(true)
+            .disabled(disabled)
+            .name(move || {
+                if stop_shown.get() {
+                    stop_label.get()
+                } else {
+                    send_label.get()
+                }
+            })
+            .on_press(move || {
+                let action = if stop_shown.get() { on_stop } else { on_send };
+                if let Some(action) = action {
+                    action.call(());
+                }
+            })
+            .base_style(move || {
+                let p = tokens();
+                style()
+                    .direction(Direction::Row)
+                    .size(side, side)
+                    .shrink(0)
+                    .radius(side as f64 / 2.0)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .font_size(18)
+                    .background(p.colors.accent)
+                    .color(p.colors.on_accent)
+                    .hover(style().background(p.colors.accent_hover))
+                    .disabled(style().opacity(0.5))
+                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            })
+            .child((send, stop))
+            .into_view()
     }
 }
 
@@ -192,41 +215,42 @@ pub struct ChatComposer {
     stop_shown: Value<bool>,
     disabled: Value<bool>,
     placeholder: Value<String>,
-    density: ChatDensity,
-    elevation: ComposerElevation,
+    density: Value<ChatDensity>,
+    elevation: Value<ComposerElevation>,
     drawer: Option<View>,
     header_actions: Option<View>,
     header_context: Option<View>,
     footer_actions: Option<View>,
     send_actions: Option<View>,
     status: Value<Option<ComposerStatus>>,
-    status_position: ComposerStatusPosition,
-    history: bool,
+    status_position: Value<ComposerStatusPosition>,
+    history: Value<bool>,
 }
 
-pub fn chat_composer(value: impl Into<Binding<String>>) -> ChatComposer {
+pub fn chat_composer(value: impl IntoBinding<String>) -> ChatComposer {
     ChatComposer {
         root: node(),
-        value: value.into(),
+        value: value.into_binding(),
         on_submit: None,
         on_stop: None,
         stop_shown: false.into_value(),
         disabled: false.into_value(),
         placeholder: composer_placeholder(),
-        density: ChatDensity::Balanced,
-        elevation: ComposerElevation::Low,
+        density: (ChatDensity::Balanced).into_value(),
+        elevation: (ComposerElevation::Low).into_value(),
         drawer: None,
         header_actions: None,
         header_context: None,
         footer_actions: None,
         send_actions: None,
         status: None.into_value(),
-        status_position: ComposerStatusPosition::Bottom,
-        history: true,
+        status_position: (ComposerStatusPosition::Bottom).into_value(),
+        history: (true).into_value(),
     }
 }
 
 impl NodeBuilder for ChatComposer {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -237,8 +261,9 @@ impl ChatComposer {
         self.on_submit = Some(callback(submit));
         self
     }
-    pub fn on_stop<R: HandlerResult>(mut self, stop: impl Fn() -> R + 'static) -> Self {
-        self.on_stop = Some(callback(move |_| stop()));
+    pub fn on_stop(mut self, stop: impl Into<Callback<()>>) -> Self {
+        let stop: Callback<()> = stop.into();
+        self.on_stop = Some(callback(move |_| stop.call(())));
         self
     }
     pub fn stop_shown(mut self, shown: impl IntoValue<bool>) -> Self {
@@ -253,12 +278,12 @@ impl ChatComposer {
         self.placeholder = placeholder.into_text_value();
         self
     }
-    pub fn density(mut self, density: ChatDensity) -> Self {
-        self.density = density;
+    pub fn density(mut self, density: impl IntoValue<ChatDensity>) -> Self {
+        self.density = density.into_value();
         self
     }
-    pub fn elevation(mut self, elevation: ComposerElevation) -> Self {
-        self.elevation = elevation;
+    pub fn elevation(mut self, elevation: impl IntoValue<ComposerElevation>) -> Self {
+        self.elevation = elevation.into_value();
         self
     }
     pub fn status(mut self, status: impl IntoValue<Option<ComposerStatus>>) -> Self {
@@ -266,33 +291,33 @@ impl ChatComposer {
         self
     }
     /// Enable navigating submitted messages at the edges of the draft with Up and Down.
-    pub fn history(mut self, enabled: bool) -> Self {
-        self.history = enabled;
+    pub fn history(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.history = enabled.into_value();
         self
     }
 
-    pub fn status_position(mut self, position: ComposerStatusPosition) -> Self {
-        self.status_position = position;
+    pub fn status_position(mut self, position: impl IntoValue<ComposerStatusPosition>) -> Self {
+        self.status_position = position.into_value();
         self
     }
-    pub fn drawer<V: IntoView>(mut self, drawer: impl FnOnce() -> V) -> Self {
-        self.drawer = Some(drawer().into_view());
+    pub fn drawer(mut self, drawer: impl IntoView) -> Self {
+        self.drawer = Some(drawer.into_view());
         self
     }
-    pub fn header_actions<V: IntoView>(mut self, content: impl FnOnce() -> V) -> Self {
-        self.header_actions = Some(content().into_view());
+    pub fn header_actions(mut self, content: impl IntoView) -> Self {
+        self.header_actions = Some(content.into_view());
         self
     }
-    pub fn header_context<V: IntoView>(mut self, content: impl FnOnce() -> V) -> Self {
-        self.header_context = Some(content().into_view());
+    pub fn header_context(mut self, content: impl IntoView) -> Self {
+        self.header_context = Some(content.into_view());
         self
     }
-    pub fn footer_actions<V: IntoView>(mut self, content: impl FnOnce() -> V) -> Self {
-        self.footer_actions = Some(content().into_view());
+    pub fn footer_actions(mut self, content: impl IntoView) -> Self {
+        self.footer_actions = Some(content.into_view());
         self
     }
-    pub fn send_actions<V: IntoView>(mut self, content: impl FnOnce() -> V) -> Self {
-        self.send_actions = Some(content().into_view());
+    pub fn send_actions(mut self, content: impl IntoView) -> Self {
+        self.send_actions = Some(content.into_view());
         self
     }
 }
@@ -318,7 +343,9 @@ impl IntoView for ChatComposer {
             status_position,
             history,
         } = self;
-        let history = history.then(|| Rc::new(RefCell::new(ComposerHistory::default())));
+        let history = history
+            .get()
+            .then(|| Rc::new(RefCell::new(ComposerHistory::default())));
         let sent_history = history.clone();
         let send = callback(move |()| {
             if disabled.get_untracked() || stop_shown.get_untracked() {
@@ -345,10 +372,11 @@ impl IntoView for ChatComposer {
                 .node_ref(input_ref)
                 .forward_keys(vec![Key::Enter])
                 .on_key(move |event: KeyEvent| {
-                    if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
+                    if event.key() == Key::Enter && event.modifiers().get() == Modifiers::default()
+                    {
                         send.call(());
                         Handled::Yes
-                    } else if event.modifiers() == Modifiers::default()
+                    } else if event.modifiers().get() == Modifiers::default()
                         && matches!(event.key(), Key::ArrowUp | Key::ArrowDown)
                         && let Some(history) = &history
                         && let Some(editor) = input_ref.edit_state()
@@ -380,7 +408,7 @@ impl IntoView for ChatComposer {
                     stop.call(());
                 }
             })
-            .size(if density == ChatDensity::Compact {
+            .size(if density.get() == ChatDensity::Compact {
                 ControlSize::Small
             } else {
                 ControlSize::Medium
@@ -394,7 +422,7 @@ impl IntoView for ChatComposer {
             send_button,
         ))
         .style(style().gap(8).align_items(Align::Center));
-        let compact = density == ChatDensity::Compact;
+        let compact = density.get() == ChatDensity::Compact;
         let surface = node()
             .style(move || {
                 let p = tokens();
@@ -406,7 +434,7 @@ impl IntoView for ChatComposer {
                     .radius(if compact { 16 } else { 28 })
                     .background(p.colors.bg_surface)
                     .border(1, p.colors.border);
-                if elevation == ComposerElevation::Low {
+                if elevation.get() == ComposerElevation::Low {
                     for shadow in &p.shadows.low {
                         surface = surface.shadow(*shadow);
                     }
@@ -439,7 +467,7 @@ impl IntoView for ChatComposer {
             },
         );
         let root = root.base_style(style().direction(Direction::Column).width(pct(100)).gap(4));
-        match status_position {
+        match status_position.get() {
             ComposerStatusPosition::Top => root.child((status, drawer, surface)),
             ComposerStatusPosition::Bottom => root.child((drawer, surface, status)),
         }
@@ -503,6 +531,7 @@ pub fn chat_composer_drawer(content: impl IntoView) -> ChatComposerDrawer {
 }
 
 impl NodeBuilder for ChatComposerDrawer {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -517,12 +546,12 @@ impl ChatComposerDrawer {
         self.label = label.into_text_value();
         self
     }
-    pub fn collapsed(mut self, collapsed: impl Into<Binding<bool>>) -> Self {
-        self.collapsed = Some(collapsed.into());
+    pub fn collapsed(mut self, collapsed: impl IntoBinding<bool>) -> Self {
+        self.collapsed = Some(collapsed.into_binding());
         self
     }
-    pub fn collapsed_summary<V: IntoView>(mut self, summary: impl FnOnce() -> V) -> Self {
-        self.summary = Some(summary().into_view());
+    pub fn collapsed_summary(mut self, summary: impl IntoView) -> Self {
+        self.summary = Some(summary.into_view());
         self
     }
 }
@@ -552,18 +581,15 @@ impl IntoView for ChatComposerDrawer {
         let Some(count) = count else {
             return root.child(content).into_view();
         };
-        let collapsed = collapsed.unwrap_or_else(|| signal(false).into());
+        let collapsed = collapsed.unwrap_or_else(|| signal(false).into_binding());
         let controlled = node_ref();
         let button = node()
-            .part(
-                part(|state| state)
-                    .role(Role::Button)
-                    .focusable(true)
-                    .controls(controlled)
-                    .name(label)
-                    .expanded(move || !collapsed.get())
-                    .on_press(move || collapsed.set(!collapsed.get_untracked())),
-            )
+            .role(Role::Button)
+            .focusable(true)
+            .controls(controlled)
+            .name(label)
+            .with_node(move |node| node.expanded(move || !collapsed.get()))
+            .on_press(move || collapsed.set(!collapsed.get_untracked()))
             .base_style(move || {
                 let p = tokens();
                 style()
@@ -599,8 +625,8 @@ pub struct ChatDictationButton {
     root: Node,
     state: Value<DictationState>,
     on_toggle: Option<Callback<()>>,
-    size: ControlSize,
-    hide_when_unsupported: bool,
+    size: Value<ControlSize>,
+    hide_when_unsupported: Value<bool>,
     label: Value<String>,
 }
 
@@ -609,29 +635,31 @@ pub fn chat_dictation_button(state: impl IntoValue<DictationState>) -> ChatDicta
         root: node(),
         state: state.into_value(),
         on_toggle: None,
-        size: ControlSize::Medium,
-        hide_when_unsupported: true,
+        size: (ControlSize::Medium).into_value(),
+        hide_when_unsupported: (true).into_value(),
         label: message("soft.chat_dictation_button.label", "Dictation"),
     }
 }
 
 impl NodeBuilder for ChatDictationButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl ChatDictationButton {
-    pub fn on_toggle<R: HandlerResult>(mut self, toggle: impl Fn() -> R + 'static) -> Self {
-        self.on_toggle = Some(callback(move |_| toggle()));
+    pub fn on_toggle(mut self, toggle: impl Into<Callback<()>>) -> Self {
+        let toggle: Callback<()> = toggle.into();
+        self.on_toggle = Some(callback(move |_| toggle.call(())));
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
-    pub fn hide_when_unsupported(mut self, hide: bool) -> Self {
-        self.hide_when_unsupported = hide;
+    pub fn hide_when_unsupported(mut self, hide: impl IntoValue<bool>) -> Self {
+        self.hide_when_unsupported = hide.into_value();
         self
     }
     pub fn label(mut self, label: impl IntoText) -> Self {
@@ -650,7 +678,7 @@ impl IntoView for ChatDictationButton {
             hide_when_unsupported,
             label,
         } = self;
-        let side = control_side(size);
+        let side = control_side(size.get());
         let listening = move || state.with(|state| state.listening);
         let bars = (0..5)
             .map(|index| {
@@ -676,33 +704,32 @@ impl IntoView for ChatDictationButton {
         let waveform = row(bars)
             .hidden(move || !listening())
             .style(style().gap(2).align_items(Align::Center));
-        root.part(
-            part(|state| state)
-                .role(Role::Button)
-                .focusable(true)
-                .name(label)
-                .checked(listening)
-                .disabled(move || !state.with(|state| state.supported))
-                .on_press(move || {
-                    if let Some(toggle) = on_toggle {
-                        toggle.call(());
-                    }
-                }),
-        )
-        .hidden(move || hide_when_unsupported && !state.with(|state| state.supported))
-        .base_style(move || {
-            let p = tokens();
-            style()
-                .direction(Direction::Row)
-                .size(side, side)
-                .radius(side as f64 / 2.0)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .color(p.colors.text_primary)
-                .hover(style().background(p.colors.overlay_hover))
-                .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
-        })
-        .child((icon, waveform))
-        .into_view()
+        root.role(Role::Button)
+            .focusable(true)
+            .name(label)
+            .checked(listening)
+            .disabled(move || !state.with(|state| state.supported))
+            .on_press(move || {
+                if let Some(toggle) = on_toggle {
+                    toggle.call(());
+                }
+            })
+            .hidden(move || hide_when_unsupported && !state.with(|state| state.supported))
+            .base_style(move || {
+                let p = tokens();
+                style()
+                    .direction(Direction::Row)
+                    .size(side, side)
+                    .radius(side as f64 / 2.0)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .color(p.colors.text_primary)
+                    .hover(style().background(p.colors.overlay_hover))
+                    .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
+            })
+            .child((icon, waveform))
+            .into_view()
     }
 }
+
+kivact::state::constant_value!(ComposerElevation, ComposerStatusPosition);

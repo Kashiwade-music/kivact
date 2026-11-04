@@ -1,9 +1,16 @@
 //! Role: Expose noninteractive text to assistive technology without painting it.
 
-use kivact::control::{Node, NodeBuilder, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Color, Position, style};
-use kivact::view::{IntoText, IntoView, LiveRegion, NodeRef, View};
+use kivact::view::Node;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::style::Color;
+use kivact::style::Position;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::NodeRef;
+use kivact::view::View;
 
 /// Text available to assistive technology without a visible layout box.
 pub struct VisuallyHidden {

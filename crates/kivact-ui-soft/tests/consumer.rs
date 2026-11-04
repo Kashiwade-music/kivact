@@ -1,11 +1,16 @@
 //! Role: Verify the Soft theme through the public facade and kit APIs.
-use kivact::control::{NodeBuilder, column};
 use kivact::i18n::CalendarDate;
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with, render_with_handle};
-use kivact::ui::{ControlSize, button};
-use kivact::view::{Key, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::test::render_with_handle;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::column;
 use kivact_ui_soft::{
     BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, code_block, heading,
     icon, input_group_with, status_dot,
@@ -103,7 +108,7 @@ fn dismissing_a_banner_restores_the_previous_external_focus() {
     );
     let outside = screen.get_by_role(Role::Button, "Continue");
     outside.focus();
-    let dismiss = screen.get_by_role(Role::Button, "Dismiss Workspace updated");
+    let dismiss = screen.get_by_role(Role::Button, "DismissOn Workspace updated");
     dismiss.focus();
     dismiss.press_key(Key::Enter);
     assert!(outside.is_focused());

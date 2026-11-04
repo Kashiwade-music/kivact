@@ -1,9 +1,13 @@
 //! Role: Verify keyboard selection and date-range staging in Soft controls.
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with_handle};
-use kivact::view::{Key, LiveRegion, Modifiers, Role};
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::view::Key;
+use kivact::view::LiveRegion;
+use kivact::view::Modifiers;
+use kivact::view::Role;
 
 fn options() -> RenderOptions {
     RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))

@@ -1,12 +1,16 @@
 //! Role: Exercise the Soft slider's touch-specific edit and thumb motion.
 
-use kivact::control::NodeBuilder;
-use kivact::interaction::EditPhase;
-use kivact::signal;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, render_with_handle};
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
 use kivact::ui::slider;
-use kivact::view::{MouseButton, PointerKind, Role};
+use kivact::view::EditPhase;
+use kivact::view::MouseButton;
+use kivact::view::NodeBuilder;
+use kivact::view::PointerKind;
+use kivact::view::Role;
 use std::time::Duration;
 
 fn options(reduced_motion: bool) -> RenderOptions {
@@ -14,6 +18,7 @@ fn options(reduced_motion: bool) -> RenderOptions {
         RenderOptions::from_env()
             .theme(kivact_ui_soft::theme(ThemeMode::Light))
             .reduced_motion()
+            .get()
     } else {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
     }

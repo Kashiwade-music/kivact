@@ -1,9 +1,20 @@
 //! Role: Provide Neutral grid tracks and item spans.
 use crate::stack::Space;
-use kivact::control::{Node, NodeBuilder, grid as native_grid};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, GridPlacement, Track, pct, style};
-use kivact::view::{IntoView, View, node_ref, provide};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::grid as native_grid;
+
+use kivact::state::provide;
+use kivact::style::Align;
+use kivact::style::GridPlacement;
+use kivact::style::Track;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::View;
+use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum GridRepeat {
@@ -24,18 +35,18 @@ pub enum GridColumns {
 
 pub struct Grid {
     root: Node,
-    columns: GridColumns,
-    gap: Space,
-    row_gap: Option<Space>,
-    column_gap: Option<Space>,
-    row_height: Option<f64>,
+    columns: Value<GridColumns>,
+    gap: Value<Space>,
+    row_gap: Option<Value<Space>>,
+    column_gap: Option<Value<Space>>,
+    row_height: Option<Value<f64>>,
 }
 
 pub fn grid(children: impl IntoView) -> Grid {
     Grid {
         root: native_grid(children),
-        columns: GridColumns::Fixed(1),
-        gap: Space::S0,
+        columns: (GridColumns::Fixed(1)).into_value(),
+        gap: (Space::S0).into_value(),
         row_gap: None,
         column_gap: None,
         row_height: None,
@@ -43,24 +54,24 @@ pub fn grid(children: impl IntoView) -> Grid {
 }
 
 impl Grid {
-    pub fn columns(mut self, columns: GridColumns) -> Self {
-        self.columns = columns;
+    pub fn columns(mut self, columns: impl IntoValue<GridColumns>) -> Self {
+        self.columns = columns.into_value();
         self
     }
-    pub fn gap(mut self, gap: Space) -> Self {
-        self.gap = gap;
+    pub fn gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.gap = gap.into_value();
         self
     }
-    pub fn row_gap(mut self, gap: Space) -> Self {
-        self.row_gap = Some(gap);
+    pub fn row_gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.row_gap = Some(gap.into_value());
         self
     }
-    pub fn column_gap(mut self, gap: Space) -> Self {
-        self.column_gap = Some(gap);
+    pub fn column_gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.column_gap = Some(gap.into_value());
         self
     }
-    pub fn row_height(mut self, px: f64) -> Self {
-        self.row_height = Some(px);
+    pub fn row_height(mut self, px: impl IntoValue<f64>) -> Self {
+        self.row_height = Some(px.into_value());
         self
     }
     pub fn align(mut self, align: Align) -> Self {
@@ -74,6 +85,7 @@ impl Grid {
 }
 
 impl NodeBuilder for Grid {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -92,8 +104,8 @@ impl IntoView for Grid {
         provide((), move || {
             let reference = node_ref();
             root.node_ref(reference).base_style(move || {
-                let column_gap = column_gap.unwrap_or(gap).px();
-                let columns = match columns {
+                let column_gap = column_gap.map_or_else(|| gap.get(), |gap| gap.get()).px();
+                let columns = match columns.get() {
                     GridColumns::Fixed(count) => Track::repeat(count.max(1), Track::fr(1)),
                     GridColumns::Responsive {
                         mut min_width,
@@ -116,10 +128,10 @@ impl IntoView for Grid {
                 };
                 let mut base = style()
                     .grid_template_columns(columns)
-                    .row_gap(row_gap.unwrap_or(gap).px())
+                    .row_gap(row_gap.map_or_else(|| gap.get(), |gap| gap.get()).px())
                     .column_gap(column_gap);
                 if let Some(px) = row_height {
-                    base = base.grid_auto_rows(px);
+                    base = base.grid_auto_rows(px.get());
                 }
                 base
             })
@@ -167,6 +179,7 @@ impl GridSpan {
 }
 
 impl NodeBuilder for GridSpan {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -177,3 +190,5 @@ impl IntoView for GridSpan {
         self.root.into_view()
     }
 }
+
+kivact::state::constant_value!(GridColumns);

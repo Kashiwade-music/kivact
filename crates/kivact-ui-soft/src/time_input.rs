@@ -1,12 +1,25 @@
 //! Role: Typed wall-clock time, independent of time zone.
 use crate::date_touch::{self, DatePresentation};
 use crate::time_of_day::TimeOfDay;
-use kivact::control::{Node, NodeBuilder, icon, node, row};
 use kivact::i18n::message;
-use kivact::style::{Align, style};
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::style;
 use kivact::ui::text_input;
-use kivact::view::{IntoText, IntoView, View, node_ref};
-use kivact::{Binding, Value, memo, signal};
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
 
 fn parse_time(input: &str, seconds: bool) -> Option<TimeOfDay> {
     let lower = input.trim().to_ascii_lowercase();
@@ -52,16 +65,16 @@ pub struct TimeInput {
     label: Value<String>,
     presentation: DatePresentation,
     value: Binding<Option<TimeOfDay>>,
-    seconds: bool,
+    seconds: Value<bool>,
 }
 
-pub fn time_input(label: impl IntoText, value: impl Into<Binding<Option<TimeOfDay>>>) -> TimeInput {
+pub fn time_input(label: impl IntoText, value: impl IntoBinding<Option<TimeOfDay>>) -> TimeInput {
     TimeInput {
         root: node(),
         label: label.into_text_value(),
-        value: value.into(),
+        value: value.into_binding(),
         presentation: DatePresentation::Adaptive,
-        seconds: false,
+        seconds: (false).into_value(),
     }
 }
 
@@ -72,13 +85,14 @@ impl TimeInput {
         self
     }
 
-    pub fn show_seconds(mut self, show: bool) -> Self {
-        self.seconds = show;
+    pub fn show_seconds(mut self, show: impl IntoValue<bool>) -> Self {
+        self.seconds = show.into_value();
         self
     }
 }
 
 impl NodeBuilder for TimeInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -98,14 +112,14 @@ impl IntoView for TimeInput {
             let target = node_ref();
             let trigger = date_touch::trigger(
                 label,
-                move || date_touch::time_label(value.get(), seconds),
+                move || date_touch::time_label(value.get(), seconds.get()),
                 "clock",
                 open.into(),
                 target,
                 move || open.set(true),
             );
             let sheet = date_touch::sheet(label, open, Some(target), move || {
-                date_touch::time_panel(value, seconds)
+                date_touch::time_panel(value, seconds.get())
             });
             return root.child((trigger, sheet)).into_view();
         }
@@ -114,7 +128,7 @@ impl IntoView for TimeInput {
             value
                 .get()
                 .map(|time| {
-                    if seconds {
+                    if seconds.get() {
                         format!(
                             "{:02}:{:02}:{:02}",
                             time.hour(),
@@ -128,23 +142,23 @@ impl IntoView for TimeInput {
                 .unwrap_or_default()
         });
         let draft = signal(formatted.get_untracked());
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             draft.set(formatted.get());
             invalid.set(false);
         });
         let input = text_input(label, draft)
-            .placeholder(if seconds { "HH:MM:SS" } else { "HH:MM" })
+            .placeholder(if seconds.get() { "HH:MM:SS" } else { "HH:MM" })
             .invalid(move || {
                 invalid.get()
                     && !draft.get().trim().is_empty()
-                    && parse_time(&draft.get(), seconds).is_none()
+                    && parse_time(&draft.get(), seconds.get()).is_none()
             })
-            .draft(move |text| {
+            .on_draft_commit(move |text| {
                 if text.trim().is_empty() {
                     value.set(None);
                     invalid.set(false);
                     draft.set(String::new());
-                } else if let Some(time) = parse_time(&text, seconds) {
+                } else if let Some(time) = parse_time(&text, seconds.get()) {
                     value.set(Some(time));
                     invalid.set(false);
                     draft.set(formatted.get_untracked());

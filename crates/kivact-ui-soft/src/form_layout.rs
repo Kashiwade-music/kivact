@@ -1,10 +1,19 @@
 //! Role: Arrange fields with Neutral form spacing.
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, GridAutoFlow, Track, auto, style};
-use kivact::view::{IntoView, View, provide};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+
+use kivact::state::provide;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::GridAutoFlow;
+use kivact::style::Track;
+use kivact::style::auto;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::View;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FormDirection {
@@ -53,6 +62,7 @@ impl FormLayout {
 }
 
 impl NodeBuilder for FormLayout {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -74,7 +84,7 @@ impl IntoView for FormLayout {
                     .grid_auto_flow(GridAutoFlow::Column)
                     .grid_auto_columns(Track::fr(1)),
                 FormDirection::HorizontalLabels
-                    if kivact::platform::window_size().width > 480.0 =>
+                    if kivact::platform::window_size().get().width > 480.0 =>
                 {
                     base.display(kivact::style::Display::Grid)
                         .grid_template_columns((Track::from(auto()), Track::fr(1)))
@@ -96,11 +106,13 @@ pub fn form_row(label: impl IntoView, field: impl IntoView) -> impl IntoView {
     (
         node()
             .base_style(move || {
-                let cx = kivact::view::try_context::<FormLayoutCx>().unwrap_or_default();
+                let cx = kivact::state::try_use_context::<FormLayoutCx>()
+                    .map(|value| value.get())
+                    .unwrap_or_default();
                 let t = tokens();
                 let base = style();
                 if cx.direction == FormDirection::HorizontalLabels
-                    && kivact::platform::window_size().width > 480.0
+                    && kivact::platform::window_size().get().width > 480.0
                 {
                     let base = base.padding_top(t.sizes.border_width + t.spacing.s1);
                     if rtl() {

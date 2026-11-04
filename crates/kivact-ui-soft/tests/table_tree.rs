@@ -1,9 +1,12 @@
 //! Role: Exercise a hierarchy through the standard table in the Soft theme.
 use kivact::interaction::SortOrder;
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::ui::{DataColumn, data_table};
+use kivact::test::MirrorMode;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::ui::DataColumn;
+use kivact::ui::data_table;
 use kivact::view::CheckedState;
 use kivact::view::Role;
 

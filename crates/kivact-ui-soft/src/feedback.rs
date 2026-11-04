@@ -1,11 +1,25 @@
 //! Role: Render badges, loading placeholders, and status indicators.
 use crate::tokens;
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Justify, pct, style};
-use kivact::view::{IntoText, IntoView, Role, View};
+use kivact::motion::Animated;
+use kivact::motion::Easing;
+use kivact::motion::Repeat;
+use kivact::motion::Transition;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Role;
+use kivact::view::View;
 
 /// Semantic or decorative colors of a read-only badge.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -32,7 +46,7 @@ pub enum BadgeVariant {
 pub struct Badge {
     root: Node,
     label: Value<String>,
-    variant: BadgeVariant,
+    variant: Value<BadgeVariant>,
     icon: Option<View>,
 }
 
@@ -42,14 +56,14 @@ pub fn badge(label: impl IntoText) -> Badge {
     Badge {
         root: row(()).name(label),
         label,
-        variant: BadgeVariant::Neutral,
+        variant: (BadgeVariant::Neutral).into_value(),
         icon: None,
     }
 }
 
 impl Badge {
-    pub fn variant(mut self, variant: BadgeVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<BadgeVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
 
@@ -60,6 +74,7 @@ impl Badge {
 }
 
 impl NodeBuilder for Badge {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -67,7 +82,7 @@ impl NodeBuilder for Badge {
 
 impl IntoView for Badge {
     fn into_view(self) -> View {
-        let variant = self.variant;
+        let variant = self.variant.get();
         self.root
             .base_style(move || {
                 let t = tokens();
@@ -134,7 +149,7 @@ pub enum SkeletonRadius {
 /// Decorative loading placeholder.
 pub struct Skeleton {
     root: Node,
-    radius: SkeletonRadius,
+    radius: Value<SkeletonRadius>,
     index: usize,
 }
 
@@ -142,14 +157,14 @@ pub struct Skeleton {
 pub fn skeleton() -> Skeleton {
     Skeleton {
         root: node(),
-        radius: SkeletonRadius::R3,
+        radius: (SkeletonRadius::R3).into_value(),
         index: 0,
     }
 }
 
 impl Skeleton {
-    pub fn radius(mut self, radius: SkeletonRadius) -> Self {
-        self.radius = radius;
+    pub fn radius(mut self, radius: impl IntoValue<SkeletonRadius>) -> Self {
+        self.radius = radius.into_value();
         self
     }
 
@@ -160,6 +175,7 @@ impl Skeleton {
 }
 
 impl NodeBuilder for Skeleton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -167,7 +183,7 @@ impl NodeBuilder for Skeleton {
 
 impl IntoView for Skeleton {
     fn into_view(self) -> View {
-        let radius = self.radius;
+        let radius = self.radius.get();
         let pulse = Animated::from(
             0.25f64,
             1.0f64,
@@ -186,7 +202,7 @@ impl IntoView for Skeleton {
                     SkeletonRadius::R3 | SkeletonRadius::R4 => t.radius.container,
                     SkeletonRadius::Rounded => t.radius.full,
                 };
-                let opacity = if kivact::platform::reduced_motion() {
+                let opacity = if kivact::platform::reduced_motion().get() {
                     0.25
                 } else {
                     pulse.get().min(0.925)
@@ -216,7 +232,7 @@ pub struct StatusDot {
     root: Node,
     variant: StatusDotVariant,
     icon: Option<View>,
-    pulsing: bool,
+    pulsing: Value<bool>,
 }
 
 #[track_caller]
@@ -225,7 +241,7 @@ pub fn status_dot(variant: StatusDotVariant, label: impl IntoText) -> StatusDot 
         root: row(()).role(Role::Image).name(label),
         variant,
         icon: None,
-        pulsing: false,
+        pulsing: (false).into_value(),
     }
 }
 
@@ -235,13 +251,14 @@ impl StatusDot {
         self
     }
 
-    pub fn pulsing(mut self, pulsing: bool) -> Self {
-        self.pulsing = pulsing;
+    pub fn pulsing(mut self, pulsing: impl IntoValue<bool>) -> Self {
+        self.pulsing = pulsing.into_value();
         self
     }
 }
 
 impl NodeBuilder for StatusDot {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -250,7 +267,7 @@ impl NodeBuilder for StatusDot {
 impl IntoView for StatusDot {
     fn into_view(self) -> View {
         let variant = self.variant;
-        let pulse = self.pulsing.then(|| {
+        let pulse = self.pulsing.get().then(|| {
             Animated::from(
                 1.0f64,
                 0.5f64,
@@ -270,7 +287,7 @@ impl IntoView for StatusDot {
                     StatusDotVariant::Accent => (c.accent, c.on_accent),
                     StatusDotVariant::Neutral => (c.icon_secondary, c.bg_surface),
                 };
-                let opacity = if kivact::platform::reduced_motion() {
+                let opacity = if kivact::platform::reduced_motion().get() {
                     1.0
                 } else {
                     pulse.as_ref().map_or(1.0, Animated::get)
@@ -289,3 +306,5 @@ impl IntoView for StatusDot {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(BadgeVariant, SkeletonRadius);

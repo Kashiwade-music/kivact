@@ -1,46 +1,67 @@
 //! Role: Labelled rows of checkbox and radio options.
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, style};
-use kivact::ui::{ListItem, RadioGroup, checkbox, radio_group};
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, for_each, node_ref, show_some};
-use kivact::{Binding, Value, binding, memo};
-use std::hash::Hash;
+use kivact::state::IntoBinding;
+use kivact::state::ItemKey;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
 
-pub struct CheckboxList<K: Clone + Eq + Hash + 'static> {
+use kivact::interaction::ListItem;
+use kivact::state::Binding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::style;
+use kivact::ui::RadioGroup;
+use kivact::ui::checkbox;
+use kivact::ui::radio_group;
+use kivact::view::IntoView;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::for_each;
+use kivact::view::node_ref;
+use kivact::view::show_some;
+
+pub struct CheckboxList<K: ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     value: Binding<Vec<K>>,
 }
 
-pub fn checkbox_list<K: Clone + Eq + Hash + 'static>(
+pub fn checkbox_list<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Vec<K>>>,
+    value: impl IntoBinding<Vec<K>>,
 ) -> CheckboxList<K> {
     CheckboxList {
         root: node().role(Role::Group).name(label),
         options: options.into_value(),
-        value: value.into(),
+        value: value.into_binding(),
     }
 }
 
-pub fn radio_list<K: Clone + Eq + Hash + 'static>(
+pub fn radio_list<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
     radio_group(label, options, value)
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for CheckboxList<K> {
+impl<K: ItemKey> NodeBuilder for CheckboxList<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for CheckboxList<K> {
+impl<K: ItemKey> IntoView for CheckboxList<K> {
     fn into_view(self) -> View {
         let Self {
             mut root,
@@ -52,7 +73,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for CheckboxList<K> {
         let rows = for_each(
             options,
             |item| item.key().clone(),
-            move |key, item| {
+            move |item| {
+                let key = item.with_untracked(|item| item.key().clone());
                 let checked = binding(
                     {
                         let key = key.clone();
@@ -72,8 +94,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for CheckboxList<K> {
                     },
                 );
                 let label = memo(move || item.get().label());
-                let desc = memo(move || item.get().description_value());
-                let disabled = memo(move || off.get() || item.get().is_disabled());
+                let desc = memo(move || item.get().description());
+                let disabled = memo(move || off || item.get().is_disabled());
                 checkbox_row(label, desc, checked, disabled)
             },
         );
@@ -85,12 +107,12 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for CheckboxList<K> {
 pub fn checkbox_list_item(
     label: impl IntoText,
     description: impl IntoValue<Option<String>>,
-    checked: impl Into<Binding<bool>>,
+    checked: impl IntoBinding<bool>,
 ) -> Node {
     checkbox_row(
         label.into_text_value(),
         description.into_value(),
-        checked.into(),
+        checked.into_binding(),
         false.into_value(),
     )
 }

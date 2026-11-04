@@ -1,12 +1,19 @@
 //! Role: Share touch routing and sheet chrome among Soft selectors.
 use crate::{DialogPurpose, SheetHeight, bottom_sheet, heading};
-use kivact::control::{NodeBuilder, column};
-use kivact::draw::Point;
-use kivact::style::{pct, style};
-use kivact::view::{
-    IntoView, MouseButton, NodeRef, PointerEvent, PointerId, PointerKind, PointerPhase,
-};
-use kivact::{Binding, Value, var};
+use kivact::geometry::Point;
+use kivact::state::IntoBinding;
+use kivact::state::Value;
+use kivact::state::var;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::MouseButton;
+use kivact::view::NodeRef;
+use kivact::view::PointerEvent;
+use kivact::view::PointerId;
+use kivact::view::PointerKind;
+use kivact::view::PointerPhase;
+use kivact::view::column;
 
 /// How touch activation presents a Selector's list. Keyboard and mouse keep
 /// the anchored popup on every setting.
@@ -24,7 +31,7 @@ impl SelectorPresentation {
             Self::Popover => false,
             Self::BottomSheet => true,
             Self::Adaptive => {
-                let viewport = kivact::platform::window_size();
+                let viewport = kivact::platform::window_size().get();
                 viewport.width < 768.0 || viewport.height < 500.0
             }
         }
@@ -33,7 +40,7 @@ impl SelectorPresentation {
 
 pub(super) fn sheet<V: IntoView>(
     label: Value<String>,
-    open: impl Into<Binding<bool>>,
+    open: impl IntoBinding<bool>,
     trigger: NodeRef,
     body: impl Fn() -> V + 'static,
 ) -> impl IntoView {

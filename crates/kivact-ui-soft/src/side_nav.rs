@@ -6,24 +6,59 @@ use crate::resizable::{
 };
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 use kivact::i18n::{message, message_with};
-use kivact::interaction::{
-    Delays, use_content_reveal, use_dialog, use_disclosure, use_hover_surface,
-};
-use kivact::motion::{Spring, Transition, animated};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, Position, TransitionProp, auto, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, DialogKind, button, tooltip};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Placement, Role, View, callback, node_ref,
-    overlay, provide, show, try_context,
-};
-use kivact::{Binding, Callback, Value, binding, signal};
+use kivact::interaction::Delays;
+use kivact::interaction::use_content_reveal;
+use kivact::interaction::use_dialog;
+use kivact::interaction::use_disclosure;
+use kivact::interaction::use_hover_surface;
+use kivact::motion::Spring;
+use kivact::motion::Transition;
+use kivact::motion::animated;
+use kivact::state::IntoBinding;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::text;
+
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::callback;
+use kivact::state::provide;
+use kivact::state::signal;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::TransitionProp;
+use kivact::style::auto;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::tooltip;
+use kivact::view::IntoView;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::show;
 use std::rc::Rc;
 use std::time::Duration;
-
-type Slot = Rc<dyn Fn() -> View>;
 
 #[derive(Clone, Copy, Default)]
 struct SideNavCx {
@@ -33,7 +68,9 @@ struct SideNavCx {
 }
 
 fn nav_cx() -> SideNavCx {
-    try_context::<SideNavCx>().unwrap_or_default()
+    try_use_context::<SideNavCx>()
+        .map(|value| value.get())
+        .unwrap_or_default()
 }
 
 impl SideNavCx {
@@ -70,13 +107,13 @@ impl Default for SideNavResize {
 pub struct SideNav {
     root: Node,
     children: View,
-    header: Option<Slot>,
-    top: Option<Slot>,
-    footer: Option<Slot>,
-    icons: Option<Slot>,
+    header: Option<ViewFn>,
+    top: Option<ViewFn>,
+    footer: Option<ViewFn>,
+    icons: Option<ViewFn>,
     collapse: Option<SideNavCollapse>,
     resize: Option<SideNavResize>,
-    collapse_button: bool,
+    collapse_button: Value<bool>,
 }
 
 pub fn side_nav(children: impl IntoView) -> SideNav {
@@ -91,33 +128,33 @@ pub fn side_nav(children: impl IntoView) -> SideNav {
         icons: None,
         collapse: None,
         resize: None,
-        collapse_button: true,
+        collapse_button: (true).into_value(),
     }
 }
 
 impl SideNav {
-    pub fn header<V: IntoView>(mut self, header: impl Fn() -> V + 'static) -> Self {
-        self.header = Some(Rc::new(move || header().into_view()));
+    pub fn header<V: IntoView>(mut self, header: impl IntoViewFn<V>) -> Self {
+        self.header = Some(header.into_view_fn());
         self
     }
-    pub fn top_content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.top = Some(Rc::new(move || content().into_view()));
+    pub fn top_content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.top = Some(Rc::new(move || content.into_view()));
         self
     }
-    pub fn footer<V: IntoView>(mut self, footer: impl Fn() -> V + 'static) -> Self {
-        self.footer = Some(Rc::new(move || footer().into_view()));
+    pub fn footer<V: IntoView>(mut self, footer: impl IntoViewFn<V>) -> Self {
+        self.footer = Some(footer.into_view_fn());
         self
     }
-    pub fn footer_icons<V: IntoView>(mut self, icons: impl Fn() -> V + 'static) -> Self {
-        self.icons = Some(Rc::new(move || icons().into_view()));
+    pub fn footer_icons<V: IntoView>(mut self, icons: impl IntoViewFn<V>) -> Self {
+        self.icons = Some(icons.into_view_fn());
         self
     }
     pub fn collapsible(mut self, collapse: SideNavCollapse) -> Self {
         self.collapse = Some(collapse);
         self
     }
-    pub fn collapse_button(mut self, show: bool) -> Self {
-        self.collapse_button = show;
+    pub fn collapse_button(mut self, show: impl IntoValue<bool>) -> Self {
+        self.collapse_button = show.into_value();
         self
     }
     pub fn resizable(mut self, resize: SideNavResize) -> Self {
@@ -127,6 +164,7 @@ impl SideNav {
 }
 
 impl NodeBuilder for SideNav {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -165,7 +203,10 @@ impl IntoView for SideNav {
                             .align_items(Align::Center)
                             .justify_content(Justify::SpaceBetween)
                     })
-                    .child((header.map(|slot| slot()), icons.map(|slot| slot())));
+                    .child((
+                        header.map(|slot| slot.call(())),
+                        icons.map(|slot| slot.call(())),
+                    ));
             }
             let nav_ref = node_ref();
             let collapse = if mode == ShellNavMode::Desktop {
@@ -203,7 +244,7 @@ impl IntoView for SideNav {
                 ))
             } else {
                 collapse.map(|collapse| match collapse {
-                    SideNavCollapse::Uncontrolled { default } => signal(default).into(),
+                    SideNavCollapse::Uncontrolled { default } => signal(default).into_binding(),
                     SideNavCollapse::Controlled(collapsed) => collapsed,
                 })
             };
@@ -233,20 +274,23 @@ impl IntoView for SideNav {
             };
             let has_top = header.is_some() || top.is_some();
             let has_bottom =
-                footer.is_some() || icons.is_some() || collapse_button && collapsed.is_some();
+                footer.is_some() || icons.is_some() || collapse_button.get() && collapsed.is_some();
             let controls = provide(cx, move || {
-                let top =
-                    column((header.map(|slot| slot()), top.map(|slot| slot()))).style(move || {
-                        let t = tokens();
-                        let mut base = style().gap(t.spacing.s2).shrink(0);
-                        if has_top && mode == ShellNavMode::Desktop {
-                            base = base.padding(t.spacing.s2);
-                        }
-                        if cx.rail() {
-                            base = base.align_items(Align::Center);
-                        }
-                        base
-                    });
+                let top = column((
+                    header.map(|slot| slot.call(())),
+                    top.map(|slot| slot.call(())),
+                ))
+                .style(move || {
+                    let t = tokens();
+                    let mut base = style().gap(t.spacing.s2).shrink(0);
+                    if has_top && mode == ShellNavMode::Desktop {
+                        base = base.padding(t.spacing.s2);
+                    }
+                    if cx.rail() {
+                        base = base.align_items(Align::Center);
+                    }
+                    base
+                });
                 let items = column(children).style(move || {
                     let t = tokens();
                     let mut base = style().gap(t.spacing.s0_5);
@@ -274,9 +318,9 @@ impl IntoView for SideNav {
                 };
                 let bottom = has_bottom.then(|| {
                     let controls = row((
-                        (collapse_button && collapsed.is_some())
+                        (collapse_button.get() && collapsed.is_some())
                             .then(|| side_nav_collapse_button().size(ControlSize::Small)),
-                        icons.map(|slot| slot()),
+                        icons.map(|slot| slot.call(())),
                     ))
                     .style(move || {
                         style()
@@ -289,7 +333,7 @@ impl IntoView for SideNav {
                             .gap(tokens().spacing.s1)
                     });
                     column((
-                        footer.map(|slot| node().hidden(move || cx.rail()).child(slot())),
+                        footer.map(|slot| node().hidden(move || cx.rail()).child(slot.call(()))),
                         controls,
                     ))
                     .style(move || {
@@ -341,7 +385,7 @@ impl IntoView for SideNav {
 pub struct SideNavCollapseButton {
     root: Node,
     binding: Option<Binding<bool>>,
-    size: ControlSize,
+    size: Value<ControlSize>,
     label: Option<Value<String>>,
 }
 
@@ -349,18 +393,18 @@ pub fn side_nav_collapse_button() -> SideNavCollapseButton {
     SideNavCollapseButton {
         root: node(),
         binding: None,
-        size: ControlSize::Medium,
+        size: (ControlSize::Medium).into_value(),
         label: None,
     }
 }
 
 impl SideNavCollapseButton {
-    pub fn binding(mut self, collapsed: impl Into<Binding<bool>>) -> Self {
-        self.binding = Some(collapsed.into());
+    pub fn binding(mut self, collapsed: impl IntoBinding<bool>) -> Self {
+        self.binding = Some(collapsed.into_binding());
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
     pub fn label(mut self, label: impl IntoText) -> Self {
@@ -370,6 +414,7 @@ impl SideNavCollapseButton {
 }
 
 impl NodeBuilder for SideNavCollapseButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -407,7 +452,7 @@ impl IntoView for SideNavCollapseButton {
             .style(move || style().rotate(if collapsed.get() { 180 } else { 0 }));
             let trigger = button(move || label.map_or_else(title, |label| label.get()))
                 .variant(ButtonVariant::Ghost)
-                .size(size)
+                .size(size.get())
                 .icon(glyph)
                 .hide_label(label.is_none())
                 .expanded(move || !collapsed.get())
@@ -433,9 +478,9 @@ pub struct SideNavItem {
     disabled: Value<bool>,
     end: Option<View>,
     actions: Option<View>,
-    children: Option<Slot>,
-    collapse: ItemCollapse,
-    size: ControlSize,
+    children: Option<ViewFn>,
+    collapse: Value<ItemCollapse>,
+    size: Value<ControlSize>,
     action: Option<Callback<()>>,
 }
 
@@ -451,10 +496,11 @@ pub fn side_nav_item(label: impl IntoText) -> SideNavItem {
         end: None,
         actions: None,
         children: None,
-        collapse: ItemCollapse::Uncontrolled {
+        collapse: (ItemCollapse::Uncontrolled {
             default_collapsed: false,
-        },
-        size: ControlSize::Medium,
+        })
+        .into_value(),
+        size: (ControlSize::Medium).into_value(),
         action: None,
     }
 }
@@ -476,33 +522,35 @@ impl SideNavItem {
         self.disabled = disabled.into_value();
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
-    pub fn end_content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.end = Some(provide((), content));
+    pub fn end_content(mut self, content: impl IntoView) -> Self {
+        self.end = Some(provide((), move || content.into_view()));
         self
     }
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V + 'static) -> Self {
-        self.actions = Some(provide((), actions));
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(provide((), move || actions.into_view()));
         self
     }
-    pub fn children<V: IntoView>(mut self, children: impl Fn() -> V + 'static) -> Self {
-        self.children = Some(Rc::new(move || children().into_view()));
+    pub fn children<V: IntoView>(mut self, children: impl IntoViewFn<V>) -> Self {
+        self.children = Some(children.into_view_fn());
         self
     }
-    pub fn collapsible(mut self, collapse: ItemCollapse) -> Self {
-        self.collapse = collapse;
+    pub fn collapsible(mut self, collapse: impl IntoValue<ItemCollapse>) -> Self {
+        self.collapse = collapse.into_value();
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
 }
 
 impl NodeBuilder for SideNavItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -532,21 +580,21 @@ impl IntoView for SideNavItem {
             let child_slot = children.clone();
             let has_children = children.is_some();
             let mobile = use_app_shell_mobile();
-            let collapse = match collapse {
+            let collapse = match collapse.get() {
                 ItemCollapse::AlwaysOpen => None,
                 ItemCollapse::Uncontrolled { default_collapsed } => {
-                    Some(signal(default_collapsed).into())
+                    Some(signal(default_collapsed).into_binding())
                 }
                 ItemCollapse::Controlled(binding) => Some(binding),
             };
             let open = collapse.map(|collapse: Binding<bool>| {
-                binding(move || !collapse.get(), move |open| collapse.set(!open))
+                binding(move || !collapse, move |open| collapse.set(!open))
             });
             let (disclosure, reveal) = if let Some(open) = open.filter(|_| has_children) {
                 let disclosure = use_disclosure(open).disabled(disabled);
                 let motion = tokens().motion;
                 let reveal = use_content_reveal(
-                    disclosure.shown(),
+                    disclosure.is_open(),
                     Transition::tween(motion.medium as f64, motion.ease_standard),
                 );
                 (
@@ -571,7 +619,7 @@ impl IntoView for SideNavItem {
                 );
                 let pinned = signal(false);
                 Some(binding(
-                    move || cx.rail() && (pinned.get() || delayed.shown().get()),
+                    move || cx.rail() && (pinned || delayed.is_open().get()),
                     move |open| {
                         pinned.set(open);
                         if !open {
@@ -600,7 +648,7 @@ impl IntoView for SideNavItem {
                     let t = tokens();
                     style()
                         .size(t.spacing.s6, t.spacing.s6)
-                        .rotate(if disclosure.shown().get() { 180 } else { 0 })
+                        .rotate(if disclosure.is_open().get() { 180 } else { 0 })
                         .transition(
                             TransitionProp::Paint,
                             Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
@@ -617,7 +665,7 @@ impl IntoView for SideNavItem {
                             [("label", label.get())]
                         });
                     button(move || {
-                        if disclosure.shown().get() {
+                        if disclosure.is_open().get() {
                             collapse.get()
                         } else {
                             expand.get()
@@ -710,7 +758,13 @@ impl IntoView for SideNavItem {
                     .style(|| style().gap(tokens().spacing.s1))
             });
             let bar = row((primary, separate_chevron, actions)).style(move || {
-                side_row_style(size, cx.depth, cx.rail(), selected.get(), disabled.get())
+                side_row_style(
+                    size.get(),
+                    cx.depth,
+                    cx.rail(),
+                    selected.get(),
+                    disabled.get(),
+                )
             });
             let nested = show(
                 move || !cx.rail() && has_children && reveal.is_none_or(|reveal| reveal.present()),
@@ -721,7 +775,7 @@ impl IntoView for SideNavItem {
                         ..cx
                     };
                     provide(cx, move || {
-                        let group = column(child.map(|slot| slot()))
+                        let group = column(child.map(|slot| slot.call(())))
                             .style(|| style().gap(tokens().spacing.s0_5));
                         if let Some((disclosure, reveal)) = disclosure.zip(reveal) {
                             let measured = node_ref();
@@ -737,12 +791,12 @@ impl IntoView for SideNavItem {
                 },
             );
             let flyout = popup.zip(children).map(|(open, children)| {
-                let behavior = use_dialog(open, DialogKind::Popover).anchor(anchor);
+                let behavior = use_dialog(open, DialogMode::Popover).anchor(anchor);
                 let title =
                     message_with("soft.side_nav.item_submenu", "{label} submenu", move || {
                         [("label", label.get())]
                     });
-                show(behavior.shown(), move || {
+                show(behavior.is_open(), move || {
                     let children = children.clone();
                     let cx = SideNavCx {
                         popup: Some(open),
@@ -758,7 +812,7 @@ impl IntoView for SideNavItem {
                                 .weight(t.typography.weight_semibold)
                                 .color(t.colors.text_secondary)
                         }),
-                        provide(cx, move || children()),
+                        provide(cx, move || children.call(())),
                     ))
                     .node_ref(popup_ref)
                     .style(|| {
@@ -881,7 +935,7 @@ pub struct SideNavSection {
     subtitle: Option<Value<String>>,
     end: Option<View>,
     children: View,
-    header_hidden: bool,
+    header_hidden: Value<bool>,
 }
 
 pub fn side_nav_section(title: impl IntoText, children: impl IntoView) -> SideNavSection {
@@ -892,7 +946,7 @@ pub fn side_nav_section(title: impl IntoText, children: impl IntoView) -> SideNa
         subtitle: None,
         end: None,
         children: children.into_view(),
-        header_hidden: false,
+        header_hidden: (false).into_value(),
     }
 }
 
@@ -901,17 +955,18 @@ impl SideNavSection {
         self.subtitle = Some(subtitle.into_text_value());
         self
     }
-    pub fn end_content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.end = Some(provide((), content));
+    pub fn end_content(mut self, content: impl IntoView) -> Self {
+        self.end = Some(provide((), move || content.into_view()));
         self
     }
-    pub fn header_hidden(mut self, hidden: bool) -> Self {
-        self.header_hidden = hidden;
+    pub fn header_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
+        self.header_hidden = hidden.into_value();
         self
     }
 }
 
 impl NodeBuilder for SideNavSection {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -972,5 +1027,7 @@ impl IntoView for SideNavSection {
 
 pub(crate) fn nav_is_rail() -> Value<bool> {
     let cx = nav_cx();
-    kivact::memo(move || cx.rail())
+    kivact::state::memo(move || cx.rail())
 }
+
+kivact::state::constant_value!(ItemCollapse);

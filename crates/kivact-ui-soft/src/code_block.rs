@@ -1,19 +1,50 @@
 //! Role: Render syntax-highlighted code with line and copy controls.
 use crate::{IconSize, SyntaxColors, icon, tokens, visually_hidden};
-use kivact::control::{
-    Node, NodeBuilder, ScrollAxes, Span, column, node, rich_text, row, scroll, span, text,
-};
 use kivact::i18n::message;
-use kivact::interaction::{use_content_reveal, use_disclosure};
+use kivact::interaction::use_content_reveal;
+use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, Length, TextAlign, TransitionProp, pct, style};
-use kivact::task::{sleep, spawn};
-use kivact::ui::{ButtonVariant, ControlSize, button, tooltip};
-use kivact::view::{
-    IntoText, IntoValue, IntoView, LiveRegion, Role, View, dynamic, node_ref, show,
-};
-use kivact::{Signal, Value, binding, memo, signal};
+use kivact::state::Callback;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ScrollAxes;
+use kivact::view::Span;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::rich_text;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::span;
+use kivact::view::text;
+
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::TextAlign;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::task::sleep;
+use kivact::task::spawn;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::ui::tooltip;
+use kivact::view::IntoView;
+use kivact::view::LiveRegion;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::dynamic;
+use kivact::view::node_ref;
+use kivact::view::show;
 use std::cell::Cell;
 use std::ops::Range;
 use std::rc::Rc;
@@ -133,21 +164,21 @@ pub struct CodeBlock {
     code: Value<String>,
     language: CodeLanguageInput,
     title: Option<Value<String>>,
-    language_label: bool,
+    language_label: Value<bool>,
     line_numbers: Value<bool>,
     highlight_lines: Value<Vec<u32>>,
-    diff: bool,
-    copy_button: bool,
+    diff: Value<bool>,
+    copy_button: Value<bool>,
     on_copy: Option<Rc<dyn Fn()>>,
-    end_content: Option<Box<dyn FnOnce() -> View>>,
+    end_content: Option<View>,
     wrap: Value<bool>,
-    max_height: Option<Length>,
-    collapsible: bool,
-    collapsible_threshold: usize,
+    max_height: Option<Value<Length>>,
+    collapsible: Value<bool>,
+    collapsible_threshold: Value<usize>,
     expanded: Signal<bool>,
-    size: CodeBlockSize,
-    width: CodeBlockWidth,
-    container: CodeBlockContainer,
+    size: Value<CodeBlockSize>,
+    width: Value<CodeBlockWidth>,
+    container: Value<CodeBlockContainer>,
     syntax_theme: Option<SyntaxTheme>,
 }
 
@@ -158,21 +189,21 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
         code: code.into_value(),
         language: "plaintext".into(),
         title: None,
-        language_label: true,
+        language_label: (true).into_value(),
         line_numbers: false.into_value(),
         highlight_lines: Vec::new().into_value(),
-        diff: false,
-        copy_button: true,
+        diff: (false).into_value(),
+        copy_button: (true).into_value(),
         on_copy: None,
         end_content: None,
         wrap: false.into_value(),
         max_height: None,
-        collapsible: false,
-        collapsible_threshold: 10,
+        collapsible: (false).into_value(),
+        collapsible_threshold: 10.into_value(),
         expanded: signal(true),
-        size: CodeBlockSize::Md,
-        width: CodeBlockWidth::Fit,
-        container: CodeBlockContainer::Card,
+        size: (CodeBlockSize::Md).into_value(),
+        width: (CodeBlockWidth::Fit).into_value(),
+        container: (CodeBlockContainer::Card).into_value(),
         syntax_theme: None,
     }
 }
@@ -189,8 +220,8 @@ impl CodeBlock {
         self
     }
     /// Show or hide the language label.
-    pub fn language_label(mut self, value: bool) -> Self {
-        self.language_label = value;
+    pub fn language_label(mut self, value: impl IntoValue<bool>) -> Self {
+        self.language_label = value.into_value();
         self
     }
     /// Show the line-number gutter.
@@ -204,23 +235,24 @@ impl CodeBlock {
         self
     }
     /// Render unified-diff markings.
-    pub fn diff(mut self, value: bool) -> Self {
-        self.diff = value;
+    pub fn diff(mut self, value: impl IntoValue<bool>) -> Self {
+        self.diff = value.into_value();
         self
     }
     /// Show or hide the copy button.
-    pub fn copy_button(mut self, value: bool) -> Self {
-        self.copy_button = value;
+    pub fn copy_button(mut self, value: impl IntoValue<bool>) -> Self {
+        self.copy_button = value.into_value();
         self
     }
     /// Run a callback after a successful copy.
-    pub fn on_copy(mut self, value: impl Fn() + 'static) -> Self {
-        self.on_copy = Some(Rc::new(value));
+    pub fn on_copy(mut self, value: impl Into<Callback<()>>) -> Self {
+        let value: Callback<()> = value.into();
+        self.on_copy = Some(Rc::new(move || value.call(())));
         self
     }
     /// Add caller controls before the copy button.
-    pub fn end_content<V: IntoView>(mut self, value: impl FnOnce() -> V + 'static) -> Self {
-        self.end_content = Some(Box::new(move || value().into_view()));
+    pub fn end_content(mut self, value: impl IntoView) -> Self {
+        self.end_content = Some(value.into_view());
         self
     }
     /// Wrap long code lines.
@@ -229,18 +261,18 @@ impl CodeBlock {
         self
     }
     /// Limit the scrolling viewport's height.
-    pub fn max_height(mut self, value: impl Into<Length>) -> Self {
-        self.max_height = Some(value.into());
+    pub fn max_height(mut self, value: impl IntoValue<Length>) -> Self {
+        self.max_height = Some(value.into_value());
         self
     }
     /// Make a sufficiently long block collapsible.
-    pub fn collapsible(mut self, value: bool) -> Self {
-        self.collapsible = value;
+    pub fn collapsible(mut self, value: impl IntoValue<bool>) -> Self {
+        self.collapsible = value.into_value();
         self
     }
     /// Set the minimum number of lines for the collapse control.
-    pub fn collapsible_threshold(mut self, value: usize) -> Self {
-        self.collapsible_threshold = value;
+    pub fn collapsible_threshold(mut self, value: impl IntoValue<usize>) -> Self {
+        self.collapsible_threshold = value.into_value();
         self
     }
     /// Supply the expansion state.
@@ -249,18 +281,18 @@ impl CodeBlock {
         self
     }
     /// Set the size of the code text.
-    pub fn size(mut self, value: CodeBlockSize) -> Self {
-        self.size = value;
+    pub fn size(mut self, value: impl IntoValue<CodeBlockSize>) -> Self {
+        self.size = value.into_value();
         self
     }
     /// Set the width policy.
-    pub fn width(mut self, value: CodeBlockWidth) -> Self {
-        self.width = value;
+    pub fn width(mut self, value: impl IntoValue<CodeBlockWidth>) -> Self {
+        self.width = value.into_value();
         self
     }
     /// Select the card or section frame.
-    pub fn container(mut self, value: CodeBlockContainer) -> Self {
-        self.container = value;
+    pub fn container(mut self, value: impl IntoValue<CodeBlockContainer>) -> Self {
+        self.container = value.into_value();
         self
     }
     /// Override the syntax palette for this block.
@@ -271,6 +303,7 @@ impl CodeBlock {
 }
 
 impl NodeBuilder for CodeBlock {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -301,11 +334,11 @@ impl IntoView for CodeBlock {
             syntax_theme,
         } = self;
         let palette = memo(move || syntax_theme.unwrap_or_else(|| tokens().colors.syntax));
-        let lang = match (language.label(), diff) {
+        let lang = match (language.label(), diff.get()) {
             ("", false) => String::new(),
-            ("", true) => "diff".to_owned(),
+            ("", true) => "diff.get()".to_owned(),
             (label, false) => label.to_owned(),
-            (label, true) => format!("{label} diff"),
+            (label, true) => format!("{label} diff.get()"),
         };
         let fallback = message("soft.code_block.code", "Code");
         let viewport_label = if lang.is_empty() {
@@ -313,10 +346,10 @@ impl IntoView for CodeBlock {
         } else {
             lang.clone().into_value()
         };
-        let has_header = title.is_some() || (language_label && !lang.is_empty());
+        let has_header = title.is_some() || (language_label.get() && !lang.is_empty());
         let heading = memo(move || {
             let title = title.map(|value| value.get()).unwrap_or_default();
-            match (title.is_empty(), lang.is_empty() || !language_label) {
+            match (title.is_empty(), lang.is_empty() || !language_label.get()) {
                 (true, true) => String::new(),
                 (true, false) => lang.clone(),
                 (false, true) => title,
@@ -324,7 +357,9 @@ impl IntoView for CodeBlock {
             }
         });
         let can_collapse = memo(move || {
-            has_header && collapsible && code.get().lines().count() >= collapsible_threshold
+            has_header
+                && collapsible.get()
+                && code.get().lines().count() >= collapsible_threshold.get()
         });
         let disclosure = use_disclosure(binding(
             move || !can_collapse.get() || expanded.get(),
@@ -332,15 +367,17 @@ impl IntoView for CodeBlock {
         ));
         let motion = tokens().motion;
         let reveal = use_content_reveal(
-            disclosure.shown(),
+            disclosure.is_open(),
             Transition::tween(motion.medium as f64, motion.ease_standard),
         );
         let disclosure = disclosure.leaving(move || reveal.leaving());
         let copied = signal(false);
         let copied_label = message("soft.code_block.copied", "Copied");
         let controls = row((
-            end_content.map(|content| content()),
-            copy_button.then(|| copy_control(code, copied, copied_label, palette, on_copy)),
+            end_content,
+            copy_button
+                .get()
+                .then(|| copy_control(code, copied, copied_label, palette, on_copy)),
         ))
         .style(|| {
             style()
@@ -370,7 +407,8 @@ impl IntoView for CodeBlock {
                     }),
                     label,
                 ))
-                .part(disclosure.trigger().name(disclosure_label))
+                .part(disclosure.trigger())
+                .name(disclosure_label)
                 .style(|| style().gap(tokens().spacing.s1).align_items(Align::Center))
             } else {
                 label
@@ -393,8 +431,8 @@ impl IntoView for CodeBlock {
                     numbered,
                     &highlighted,
                     wrapped,
-                    diff,
-                    size,
+                    diff.get(),
+                    size.get(),
                     palette,
                 )
             });
@@ -405,7 +443,7 @@ impl IntoView for CodeBlock {
                     ScrollAxes::Both
                 })
                 .style(move || match max_height {
-                    Some(height) => style().max_height(height),
+                    Some(height) => style().max_height(height.get()),
                     None => style(),
                 })
         };
@@ -461,12 +499,12 @@ impl IntoView for CodeBlock {
                 .direction(Direction::Column)
                 .min_width(0)
                 .max_width(pct(100));
-            let look = match width {
+            let look = match width.get() {
                 CodeBlockWidth::Fit => look.align_self(Align::Start),
                 CodeBlockWidth::Fill => look.width(pct(100)),
                 CodeBlockWidth::Px(width) => look.width(width),
             };
-            if container == CodeBlockContainer::Card {
+            if container.get() == CodeBlockContainer::Card {
                 look.background(palette.get().background)
                     .border(p.sizes.border_width, p.colors.border)
                     .radius(p.radius.element)
@@ -778,3 +816,5 @@ fn scan(line: &str, language: &str) -> Vec<(Range<usize>, TokenKind)> {
     }
     tokens
 }
+
+kivact::state::constant_value!(CodeBlockContainer, CodeBlockSize, CodeBlockWidth);

@@ -1,12 +1,29 @@
 //! Role: Present a document source as an inline label or numbered citation.
 use crate::{IconSize, icon, tokens};
-use kivact::Asset;
-use kivact::control::{ImageFit, Node, NodeBuilder, image, node, text};
 use kivact::i18n::message_with;
 use kivact::motion::Transition;
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Cursor, Direction, Icon, Justify, TransitionProp, style};
-use kivact::view::{IntoView, ReadingDirection, Role, View, current_direction};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Icon;
+use kivact::style::Justify;
+use kivact::style::TransitionProp;
+use kivact::style::style;
+use kivact::view::Asset;
+use kivact::view::HandlerResult;
+use kivact::view::ImageFit;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::image;
+use kivact::view::node;
+use kivact::view::text;
+use kivact::view::use_direction;
 
 /// Source metadata used to label and open a citation.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -25,14 +42,14 @@ pub enum CitationVariant {
     Number,
 }
 
-type OpenSource = Box<dyn Fn(&str)>;
+type OpenSource = kivact::state::Callback<String>;
 
 /// A citation with an optional application-provided link action.
 pub struct Citation {
     root: Node,
     number: u32,
     source: CitationSource,
-    variant: CitationVariant,
+    variant: Value<CitationVariant>,
     open: Option<OpenSource>,
 }
 
@@ -42,25 +59,26 @@ pub fn citation(number: u32, source: CitationSource) -> Citation {
         root: node(),
         number,
         source,
-        variant: CitationVariant::default(),
+        variant: (CitationVariant::default()).into_value(),
         open: None,
     }
 }
 
 impl Citation {
     /// Select a label or a number.
-    pub fn variant(mut self, variant: CitationVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<CitationVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
     /// Pass the source URL to the application when activated.
-    pub fn on_open(mut self, action: impl Fn(&str) + 'static) -> Self {
-        self.open = Some(Box::new(action));
+    pub fn on_open<R: HandlerResult>(mut self, action: impl Fn(&str) -> R + 'static) -> Self {
+        self.open = Some(kivact::state::callback(move |value: String| action(&value)));
         self
     }
 }
 
 impl NodeBuilder for Citation {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -75,7 +93,7 @@ impl IntoView for Citation {
             variant,
             open,
         } = self;
-        let number_only = variant == CitationVariant::Number;
+        let number_only = variant.get() == CitationVariant::Number;
         let title = source.title.or_else(|| source.url.clone());
         let name = message_with("soft.citation.source", "Source {number}", move || {
             [("number", number.to_string())]
@@ -87,7 +105,7 @@ impl IntoView for Citation {
         } else {
             text(name)
         };
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let media = if number_only {
             None
         } else if let Some(asset) = source.image {
@@ -108,12 +126,10 @@ impl IntoView for Citation {
         let has_media = media.is_some();
         let interactive = source.url.is_some() && open.is_some();
         if let (Some(url), Some(open)) = (source.url, open) {
-            root = root.part(
-                part(|input| input)
-                    .role(Role::Link)
-                    .focusable(true)
-                    .on_press(move || open(&url)),
-            );
+            root = root
+                .role(Role::Link)
+                .focusable(true)
+                .on_press(move || open.call(url.clone()));
         }
         root.name(move || title.clone().unwrap_or_else(|| name.get()))
             .base_style(move || {
@@ -198,3 +214,5 @@ impl IntoView for Citation {
             .into_view()
     }
 }
+
+kivact::state::constant_value!(CitationVariant);

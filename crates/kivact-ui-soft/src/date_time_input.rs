@@ -3,11 +3,26 @@ use crate::date_input::date_input;
 use crate::date_touch::{self, DatePresentation};
 use crate::time_input::time_input;
 use crate::time_of_day::TimeOfDay;
-use kivact::control::{Node, NodeBuilder, node, row};
 use kivact::i18n::{CalendarDate, message};
-use kivact::style::{Align, style};
-use kivact::view::{IntoText, IntoView, Role, View, dynamic, node_ref};
-use kivact::{Binding, Value, binding, memo, signal};
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::dynamic;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::row;
 
 /// A local Gregorian date and wall-clock time.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -21,20 +36,20 @@ pub struct DateTimeInput {
     label: Value<String>,
     presentation: DatePresentation,
     value: Binding<Option<DateTime>>,
-    seconds: bool,
+    seconds: Value<bool>,
 }
 
 pub fn date_time_input(
     label: impl IntoText,
-    value: impl Into<Binding<Option<DateTime>>>,
+    value: impl IntoBinding<Option<DateTime>>,
 ) -> DateTimeInput {
     let label = label.into_text_value();
     DateTimeInput {
         root: node().role(Role::Group).name(label),
         label,
-        value: value.into(),
+        value: value.into_binding(),
         presentation: DatePresentation::Adaptive,
-        seconds: false,
+        seconds: (false).into_value(),
     }
 }
 
@@ -45,13 +60,14 @@ impl DateTimeInput {
         self
     }
 
-    pub fn show_seconds(mut self, show: bool) -> Self {
-        self.seconds = show;
+    pub fn show_seconds(mut self, show: impl IntoValue<bool>) -> Self {
+        self.seconds = show.into_value();
         self
     }
 }
 
 impl NodeBuilder for DateTimeInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -67,7 +83,7 @@ impl IntoView for DateTimeInput {
             presentation,
         } = self;
         let date = binding(
-            move || value.get().map(|date_time| date_time.date),
+            move || value.map(|date_time| date_time.date),
             move |date: Option<CalendarDate>| {
                 let current = value.get_untracked();
                 value.set(date.map(|date| {
@@ -81,7 +97,7 @@ impl IntoView for DateTimeInput {
             },
         );
         let time = binding(
-            move || value.get().map(|date_time| date_time.time),
+            move || value.map(|date_time| date_time.time),
             move |time: Option<TimeOfDay>| {
                 if let Some(current) = value.get_untracked() {
                     value.set(time.map(|time| DateTime { time, ..current }));
@@ -95,7 +111,7 @@ impl IntoView for DateTimeInput {
             let time_panel = signal(false);
             let draft_time = signal(None::<TimeOfDay>);
             let sheet_time = binding(
-                move || time.get().or_else(|| draft_time.get()),
+                move || time.or_else(|| draft_time),
                 move |next| {
                     if value.get_untracked().is_some() {
                         time.set(next);
@@ -131,7 +147,7 @@ impl IntoView for DateTimeInput {
             );
             let time_trigger = date_touch::trigger(
                 time_label,
-                move || date_touch::time_label(sheet_time.get(), seconds),
+                move || date_touch::time_label(sheet_time.get(), seconds.get()),
                 "clock",
                 time_open,
                 node_ref(),
@@ -155,25 +171,22 @@ impl IntoView for DateTimeInput {
                 None,
                 move || {
                     let date_tab = kivact::ui::button(date_label)
-                        .selected(move || !time_panel.get())
+                        .with_node(move |node| node.selected(move || !time_panel.get()))
                         .on_press(move || time_panel.set(false));
                     let time_tab = kivact::ui::button(time_label)
-                        .selected(time_panel)
+                        .with_node(move |node| node.selected(time_panel))
                         .on_press(move || time_panel.set(true));
                     let panel = dynamic(
                         move || time_panel.get(),
                         move |time_open| {
                             if time_open {
-                                date_touch::time_panel(sheet_time, seconds)
+                                date_touch::time_panel(sheet_time, seconds.get())
                             } else {
                                 date_touch::date_panel(sheet_date, None)
                             }
                         },
                     );
-                    kivact::control::column((
-                        row((date_tab, time_tab)).style(style().gap(8)),
-                        panel,
-                    ))
+                    kivact::view::column((row((date_tab, time_tab)).style(style().gap(8)), panel))
                 },
                 action_label,
                 move || {
@@ -194,7 +207,7 @@ impl IntoView for DateTimeInput {
                 date_input(date_label, date).presentation(DatePresentation::Desktop),
                 time_input(time_label, time)
                     .presentation(DatePresentation::Desktop)
-                    .show_seconds(seconds),
+                    .show_seconds(seconds.get()),
             ))
             .style(style().align_items(Align::Center).gap(8)),
         )

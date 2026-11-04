@@ -1,11 +1,15 @@
 //! Role: Verify async suggestion cancellation and token labels through the UI.
-use kivact::control::NodeBuilder;
-use kivact::style::{ThemeMode, style};
+use kivact::UiError;
+use kivact::interaction::ListItem;
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
 use kivact::task::sleep;
-use kivact::test::{RenderOptions, render_with_handle};
-use kivact::ui::ListItem;
-use kivact::view::{Key, Role};
-use kivact::{UiError, signal};
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;

@@ -1,10 +1,18 @@
 //! Role: Inline swipe ownership and month snapping for the touch calendar.
-use kivact::draw::Point;
+use kivact::custom::clock_now;
+use kivact::geometry::Point;
 use kivact::i18n::CalendarMonth;
 use kivact::interaction::DragVelocity;
-use kivact::primitive::clock_now;
-use kivact::view::{Handled, PointerEvent, PointerId, PointerKind, PointerPhase};
-use kivact::{Binding, Signal, Var, signal, var};
+use kivact::state::Binding;
+use kivact::state::Signal;
+use kivact::state::Var;
+use kivact::state::signal;
+use kivact::state::var;
+use kivact::view::Handled;
+use kivact::view::PointerEvent;
+use kivact::view::PointerId;
+use kivact::view::PointerKind;
+use kivact::view::PointerPhase;
 use std::time::Duration;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -118,11 +126,12 @@ impl MonthSwipe {
             let current = self.month.get_untracked();
             let next = current.add_months(pages).clamp(self.min, self.max);
             if current != next {
-                self.entering.set(if kivact::platform::reduced_motion() {
-                    0.0
-                } else {
-                    pages.signum() as f64 * self.sign * 44.0
-                });
+                self.entering
+                    .set(if kivact::platform::reduced_motion().get() {
+                        0.0
+                    } else {
+                        pages.signum() as f64 * self.sign * 44.0
+                    });
                 self.month.set(next);
             }
             self.finish();

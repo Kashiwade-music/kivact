@@ -1,10 +1,14 @@
 //! Role: Verify measured single-line ellipsis and line-clamp tooltips.
-use kivact::control::{NodeBuilder, column};
-use kivact::signal;
-use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, render_with_handle};
+use kivact::state::signal;
+use kivact::style::ThemeMode;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with_handle;
 use kivact::ui::button;
-use kivact::view::{Role, node_ref};
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::column;
+use kivact::view::node_ref;
 use kivact_ui_soft::{TruncateTooltip, text, theme};
 use std::time::Duration;
 

@@ -1,15 +1,43 @@
 //! Role: The Neutral segmented radio presentation.
+use kivact::state::Value;
 
-use std::hash::Hash;
+use kivact::state::IntoBinding;
+use kivact::state::ItemKey;
 
 use crate::Tokens;
 use crate::recipe_style::{fast, ring};
-use kivact::control::{Node, NodeBuilder, icon, row, text};
-use kivact::style::{Align, Color, Cursor, Direction, Justify, Style, Theme, pct, style};
+use kivact::interaction::ListItem;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::effect;
+use kivact::state::signal;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::CheckableState;
+use kivact::ui::ControlSize;
+use kivact::ui::Look;
+use kivact::ui::RadioGroup;
 use kivact::ui::Variant;
-use kivact::ui::{CheckState, ControlSize, ListItem, Look, RadioGroup, radio_group, tooltip};
-use kivact::view::{IntoText, IntoValue, IntoView, Orientation, View, node_ref, show};
-use kivact::{Binding, Signal, effect, signal};
+use kivact::ui::radio_group;
+use kivact::ui::tooltip;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Orientation;
+use kivact::view::View;
+use kivact::view::icon;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::show;
+use kivact::view::text;
 
 /// Apply the segmented appearance to a horizontal standard radio group.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -31,20 +59,20 @@ impl Variant for SegmentedLayout {}
 impl Variant for SegmentedIconOnly {}
 
 /// Neutral segmented radio group.
-pub struct SegmentedControl<K: Clone + Eq + Hash + 'static> {
+pub struct SegmentedControl<K: ItemKey> {
     radio: RadioGroup<K>,
-    size: ControlSize,
-    layout: SegmentedLayout,
-    icon_only: bool,
+    size: Value<ControlSize>,
+    layout: Value<SegmentedLayout>,
+    icon_only: Value<bool>,
     disabled: Signal<bool>,
-    disabled_reason: Option<kivact::Value<String>>,
+    disabled_reason: Option<kivact::state::Value<String>>,
 }
 
 #[track_caller]
-pub fn segmented_control<K: Clone + Eq + Hash + 'static>(
+pub fn segmented_control<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl IntoBinding<Option<K>>,
 ) -> SegmentedControl<K> {
     let disabled = signal(false);
     let options = options.into_value();
@@ -60,31 +88,31 @@ pub fn segmented_control<K: Clone + Eq + Hash + 'static>(
         radio: radio_group(label, options, value)
             .orientation(Orientation::Horizontal)
             .variant(Segmented),
-        size: ControlSize::Medium,
-        layout: SegmentedLayout::Hug,
-        icon_only: false,
+        size: (ControlSize::Medium).into_value(),
+        layout: (SegmentedLayout::Hug).into_value(),
+        icon_only: (false).into_value(),
         disabled,
         disabled_reason: None,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> SegmentedControl<K> {
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+impl<K: ItemKey> SegmentedControl<K> {
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
-    pub fn layout(mut self, layout: SegmentedLayout) -> Self {
-        self.layout = layout;
+    pub fn layout(mut self, layout: impl IntoValue<SegmentedLayout>) -> Self {
+        self.layout = layout.into_value();
         self
     }
 
-    pub fn icon_only(mut self, hide: bool) -> Self {
-        self.icon_only = hide;
+    pub fn icon_only(mut self, hide: impl IntoValue<bool>) -> Self {
+        self.icon_only = hide.into_value();
         self
     }
 
-    pub fn disabled(self, disabled: bool) -> Self {
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
         self.disabled.set(disabled);
         self
     }
@@ -95,23 +123,24 @@ impl<K: Clone + Eq + Hash + 'static> SegmentedControl<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for SegmentedControl<K> {
+impl<K: ItemKey> NodeBuilder for SegmentedControl<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.radio.node_mut()
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for SegmentedControl<K> {
+impl<K: ItemKey> IntoView for SegmentedControl<K> {
     fn into_view(self) -> View {
-        let icon_only = self.icon_only;
-        let size = self.size;
+        let icon_only = self.icon_only.get();
+        let size = self.size.get();
         let disabled = self.disabled.get_untracked();
         let focused = signal(None);
         let (hint_anchor, hint) = crate::toolbar::keyboard_hint(false, move || focused.get());
         let radio = self
             .radio
             .size(size)
-            .variant(self.layout)
+            .variant(self.layout.get())
             .item(move |item, state| {
                 let reference = node_ref();
                 effect(move || {
@@ -122,20 +151,15 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for SegmentedControl<K> {
                     }
                 });
                 let glyph = show(
-                    move || item.get().icon_value().is_some(),
+                    move || item.get().icon().is_some(),
                     move || {
                         let side = match size {
                             ControlSize::ExtraSmall | ControlSize::Small => 14,
                             ControlSize::Medium => 16,
                             ControlSize::Large => 18,
                         };
-                        icon(move || {
-                            item.get()
-                                .icon_value()
-                                .cloned()
-                                .unwrap_or_else(|| "".into())
-                        })
-                        .style(style().size(side, side).shrink(0))
+                        icon(move || item.icon().cloned().unwrap_or_else(|| "".into()))
+                            .style(style().size(side, side).shrink(0))
                     },
                 );
                 let label = (!icon_only).then(|| {
@@ -181,7 +205,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for SegmentedControl<K> {
 }
 
 pub(crate) fn track(theme: &Theme, look: &Look<Orientation>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let mut base = style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -199,8 +223,8 @@ pub(crate) fn track(theme: &Theme, look: &Look<Orientation>) -> Style {
     }
 }
 
-pub(crate) fn segment(theme: &Theme, look: &Look<CheckState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let c = &t.colors;
     let (height, padding, font) = match look.size {
         ControlSize::ExtraSmall | ControlSize::Small => (20, 8, 12),
@@ -239,3 +263,5 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckState>) -> Style {
     }
     fast(&t, base)
 }
+
+kivact::state::constant_value!(SegmentedLayout);

@@ -1,11 +1,20 @@
 //! Role: Verify that the Soft busy reveal uses the standard button's opt-in theme timing.
 
-use kivact::control::NodeBuilder;
-use kivact::signal;
-use kivact::style::{Position, Theme, ThemeMode, rgb, style};
-use kivact::test::{RenderOptions, render_with};
-use kivact::ui::{ButtonBusyMotion, UiRecipes, button, tooltip};
-use kivact::view::{Key, Role};
+use kivact::state::signal;
+use kivact::style::Position;
+use kivact::style::Theme;
+use kivact::style::ThemeMode;
+use kivact::style::rgb;
+use kivact::style::style;
+use kivact::test::RenderOptions;
+use kivact::test::render_with;
+use kivact::ui::ButtonBusyMotion;
+use kivact::ui::UiRecipes;
+use kivact::ui::button;
+use kivact::ui::tooltip;
+use kivact::view::Key;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
 use std::time::Duration;
 
 #[test]
@@ -14,13 +23,13 @@ fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let attempts = signal(0);
-            kivact::control::column((
+            kivact::view::column((
                 tooltip("Select an item first").attach(
                     button("Remove")
                         .disabled(true)
                         .on_press(move || attempts.update(|count| *count += 1)),
                 ),
-                kivact::control::text(move || format!("Attempts {}", attempts.get())),
+                kivact::view::text(move || format!("Attempts {}", attempts.get())),
             ))
         },
     );
@@ -40,17 +49,17 @@ fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
 #[test]
 fn soft_delays_the_spinner_but_disables_input_immediately() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
-    let timing = theme.get::<ButtonBusyMotion>();
+    let timing = theme.ext::<ButtonBusyMotion>();
     assert_eq!(timing.spin_ms, 525);
     assert_eq!(timing.reduced_spin_ms, 3000);
     assert_eq!(timing.reveal_delay_ms, 225);
     assert_eq!(timing.reveal_fade_ms, 125);
     assert_eq!(
-        *Theme::light().get::<ButtonBusyMotion>(),
+        *Theme::light().ext::<ButtonBusyMotion>(),
         ButtonBusyMotion::default()
     );
 
-    let recipes = (*theme.get::<UiRecipes>()).clone().button_busy(|_| {
+    let recipes = (*theme.ext::<UiRecipes>()).clone().button_busy(|_| {
         |_, _| {
             style()
                 .position(Position::Absolute)
@@ -61,7 +70,7 @@ fn soft_delays_the_spinner_but_disables_input_immediately() {
         }
     });
     let screen = render_with(RenderOptions::from_env().theme(theme.with(recipes)), || {
-        button("Loading example").loading(true)
+        button("Loading example").busy(true)
     });
     let red_is_visible = || screen.screenshot().pixels.contains(&0xff0000);
     assert!(

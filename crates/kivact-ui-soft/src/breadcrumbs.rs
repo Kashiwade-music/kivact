@@ -1,13 +1,33 @@
 //! Role: Render a named, wrapping Neutral breadcrumb trail.
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::control::{Node, NodeBuilder, icon, node, row, text};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Cursor, Direction, TextDecorationLine, style};
-use kivact::ui::{MenuEntry, menu};
-use kivact::view::{HandlerResult, IntoText, IntoView, Role, View, callback, node_ref, provide};
-use kivact::{Callback, Value};
-use std::rc::Rc;
+use kivact::state::IntoValue;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::text;
+
+use kivact::interaction::MenuEntry;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::provide;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::TextDecorationLine;
+use kivact::style::style;
+use kivact::ui::menu;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BreadcrumbsVariant {
@@ -19,8 +39,8 @@ pub enum BreadcrumbsVariant {
 pub struct Breadcrumbs {
     root: Node,
     items: Vec<BreadcrumbItem>,
-    variant: BreadcrumbsVariant,
-    separator: Option<Rc<dyn Fn() -> View>>,
+    variant: Value<BreadcrumbsVariant>,
+    separator: Option<ViewFn>,
 }
 
 pub fn breadcrumbs(items: impl IntoIterator<Item = BreadcrumbItem>) -> Breadcrumbs {
@@ -30,23 +50,24 @@ pub fn breadcrumbs(items: impl IntoIterator<Item = BreadcrumbItem>) -> Breadcrum
             "Breadcrumb",
         )),
         items: items.into_iter().collect(),
-        variant: BreadcrumbsVariant::Default,
+        variant: (BreadcrumbsVariant::Default).into_value(),
         separator: None,
     }
 }
 
 impl Breadcrumbs {
-    pub fn variant(mut self, variant: BreadcrumbsVariant) -> Self {
-        self.variant = variant;
+    pub fn variant(mut self, variant: impl IntoValue<BreadcrumbsVariant>) -> Self {
+        self.variant = variant.into_value();
         self
     }
-    pub fn separator<V: IntoView>(mut self, separator: impl Fn() -> V + 'static) -> Self {
-        self.separator = Some(Rc::new(move || separator().into_view()));
+    pub fn separator<V: IntoView>(mut self, separator: impl IntoViewFn<V>) -> Self {
+        self.separator = Some(separator.into_view_fn());
         self
     }
 }
 
 impl NodeBuilder for Breadcrumbs {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -72,14 +93,14 @@ impl IntoView for Breadcrumbs {
                         None
                     } else {
                         Some(if let Some(separator) = &separator {
-                            separator()
+                            separator.call(())
                         } else {
                             text("/")
                                 .style(|| style().scale_xy(if rtl() { -1.0 } else { 1.0 }, 1.0))
                                 .into_view()
                         })
                     };
-                    row((separator, item.build(variant, current)))
+                    row((separator, item.build(variant.get(), current)))
                         .role(Role::ListItem)
                         .style(|| {
                             let t = tokens();
@@ -92,7 +113,7 @@ impl IntoView for Breadcrumbs {
                 .collect::<Vec<_>>();
             root.child(row(children).role(Role::List).style(move || {
                 let t = tokens();
-                let text = if variant == BreadcrumbsVariant::Default {
+                let text = if variant.get() == BreadcrumbsVariant::Default {
                     t.typography.body
                 } else {
                     t.typography.supporting
@@ -142,8 +163,9 @@ impl BreadcrumbItem {
         self.icon = Some(icon.into_view());
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
     pub fn menu<R: HandlerResult>(
@@ -219,7 +241,8 @@ impl BreadcrumbItem {
                 }),
             ));
         if let Some((entries, select)) = popup {
-            menu(label, entries, move |key| select.call(key))
+            menu(label, entries)
+                .on_activate(move |key| select.call(key))
                 .attach(content)
                 .into_view()
         } else if let Some(action) = action {
@@ -236,6 +259,7 @@ impl BreadcrumbItem {
 }
 
 impl NodeBuilder for BreadcrumbItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -257,3 +281,5 @@ fn logical_row() -> Direction {
         Direction::Row
     }
 }
+
+kivact::state::constant_value!(BreadcrumbsVariant);
