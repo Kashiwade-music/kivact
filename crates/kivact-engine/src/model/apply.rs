@@ -482,7 +482,7 @@ impl Model {
             })
             .collect();
         for gone in self.tree.subtree(id) {
-            self.transition_presence(gone, NodePresence::Mounted);
+            self.forget_presence(gone);
         }
         for gone in self.remove_slots(id) {
             if notify.contains(&gone) {

@@ -248,6 +248,8 @@ pub(crate) struct TNode {
     pub(crate) exit_complete: Option<kivact_runtime::Callback<()>>,
     /// The graph sources node references read (`Tree::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
+    /// Created only when a reference observes this node's lifetime.
+    pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The effect that last set each dynamic prop (diagnostics::why).
     pub(crate) origins: Vec<(Prop, EffectId)>,
 }
@@ -266,6 +268,7 @@ impl TNode {
             exit_layout: Default::default(),
             exit_complete: None,
             observation: None,
+            presence: None,
             origins: Vec::new(),
         }
     }
@@ -419,6 +422,21 @@ impl Tree {
         handlers.observe_scroll(move |state| scroll.set(state.offset));
         node.observation = Some(observation);
         Some(observation)
+    }
+
+    /// Allocate one source per observed node, initialized from the engine.
+    pub(crate) fn presence(
+        &mut self,
+        id: NodeId,
+        at: &'static Location<'static>,
+    ) -> Option<Signal<kivact_types::Presence>> {
+        let initial = self.reader().presence(id);
+        let node = self.nodes.get_mut(&id)?;
+        Some(
+            *node
+                .presence
+                .get_or_insert_with(|| node.owner.signal(initial, at)),
+        )
     }
 
     /// Match the host's Hidden inheritance from current engine properties.

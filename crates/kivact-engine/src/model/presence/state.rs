@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use kivact_types::NodeId;
 
-/// The nodes between their creation and their first attached commit, and
+/// The nodes awaiting attachment or completing entrance motion, and
 /// the roots of the leaving subtrees.
 #[derive(Default)]
 pub(crate) struct Presences {

@@ -16,6 +16,7 @@ pub mod layout;
 pub mod motion;
 pub mod paint;
 pub mod platform;
+pub mod presence;
 pub mod process;
 pub mod render;
 pub mod scene;
@@ -62,6 +63,7 @@ pub use paint::{
     PaintVec, RadialExtent, Ring, ScrollbarDelta, ScrollbarProps, Shadow, StateStyles,
 };
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
+pub use presence::Presence;
 pub use render::{InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, TextLine};
 pub use scene::{
     BorderStyle, DrawCmd, DrawList, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin,

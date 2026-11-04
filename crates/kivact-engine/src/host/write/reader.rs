@@ -19,6 +19,15 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// The current display lifetime phase; missing nodes have left.
+    pub fn presence(&self, id: NodeId) -> kivact_types::Presence {
+        self.model
+            .borrow()
+            .tree()
+            .get(id)
+            .map_or(kivact_types::Presence::Leaving, |node| node.presence.into())
+    }
+
     /// Clone the one canonical semantics value stored for this node.
     pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
         self.model.borrow().tree().get(id)?.semantics().cloned()

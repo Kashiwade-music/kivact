@@ -1,16 +1,15 @@
 //! Role: Start entrance transitions and run exits before a node is removed.
 
-use crate::contract::NodeType;
+use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::{LeavingRole, NodePresence, Notify};
+use crate::tree::node::{ArrivalPhase, LeavingRole, NodePresence, Notify};
 use kivact_types::{Dimension, Edges, NodeId, Position};
 
 impl Model {
     /// Update authoritative presence and its scheduling indexes together.
     pub(crate) fn transition_presence(&mut self, id: NodeId, presence: NodePresence) {
-        self.presence.arriving.remove(&id);
-        self.presence.leaving.remove(&id);
+        self.forget_presence(id);
         if let Some(node) = self.tree.get_mut(id) {
             let presence = match (node.presence, presence) {
                 (
@@ -23,9 +22,17 @@ impl Model {
                 }),
                 (_, presence) => presence,
             };
+            let previous = kivact_types::Presence::from(node.presence);
             node.presence = presence;
+            let current = kivact_types::Presence::from(presence);
+            if previous != current {
+                self.events.push(HostEvent::PresenceChanged {
+                    node: id,
+                    presence: current,
+                });
+            }
             match presence {
-                NodePresence::Arriving => {
+                NodePresence::Arriving(_) => {
                     self.presence.arriving.insert(id);
                 }
                 NodePresence::Leaving(LeavingRole::Root { .. }) => {
@@ -36,10 +43,16 @@ impl Model {
         }
     }
 
+    /// Remove scheduling indexes when a node is physically destroyed.
+    pub(crate) fn forget_presence(&mut self, id: NodeId) {
+        self.presence.arriving.remove(&id);
+        self.presence.leaving.remove(&id);
+    }
+
     /// `id` was created: it enters at the first commit that finds it
     /// attached.
     pub(crate) fn arrive(&mut self, id: NodeId) {
-        self.transition_presence(id, NodePresence::Arriving);
+        self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Pending));
     }
 
     /// Capture the nodes attached since the last commit at their enter
@@ -48,7 +61,17 @@ impl Model {
         if self.presence.arriving.is_empty() {
             return;
         }
-        let arriving: Vec<_> = self.presence.arriving.iter().copied().collect();
+        let arriving: Vec<_> = self
+            .presence
+            .arriving
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.tree.get(*id).is_some_and(|node| {
+                    matches!(node.presence, NodePresence::Arriving(ArrivalPhase::Pending))
+                })
+            })
+            .collect();
         for id in arriving {
             let enters = self
                 .tree
@@ -62,13 +85,36 @@ impl Model {
             if !self.tree.attached(id) {
                 continue;
             }
-            self.transition_presence(id, NodePresence::Mounted);
             if self.transition_shown(id, |s| s.enter.is_some()) {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
+                self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Animating));
                 self.motion.forget(id);
                 self.prepare_entrance(id);
+            } else {
+                self.transition_presence(id, NodePresence::Mounted);
             }
+        }
+    }
+
+    /// Complete attached entrances once their captured motion settles.
+    pub(crate) fn finish_entrances(&mut self) {
+        let done: Vec<_> = self
+            .presence
+            .arriving
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.tree.get(*id).is_some_and(|node| {
+                    matches!(
+                        node.presence,
+                        NodePresence::Arriving(ArrivalPhase::Animating)
+                    )
+                }) && self.motion.get(*id).is_none()
+            })
+            .collect();
+        for id in done {
+            self.transition_presence(id, NodePresence::Mounted);
         }
     }
 
