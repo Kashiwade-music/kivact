@@ -154,23 +154,32 @@ fn revealed_rows<K: kivact_core::state::ItemKey>(
     transition: Transition,
     render: RowNode<K>,
 ) -> View {
-    for_each(
+    let host = kivact_core::view::node_ref();
+    let presence = host.presence();
+    let rows = for_each(
         tree.rows(),
         |row| (row.key.clone(), row.branch.has_children()),
         move |row| {
             let key = row.with_untracked(|row| row.key.clone());
             let part = tree.item_with_exit(key.clone());
-            column(render(key, row, part)).style(
-                style()
-                    .shrink(0)
-                    .padding_top(gap)
-                    .enter_size(Orientation::Vertical)
-                    .exit_size(Orientation::Vertical)
-                    .transition(TransitionProp::Size, transition.clone()),
-            )
+            // Existing rows are fully laid out on the tree's first frame.
+            // Rows added to a mounted tree reveal through engine presence.
+            let look = style()
+                .shrink(0)
+                .exit_size(Orientation::Vertical)
+                .transition(TransitionProp::Size, transition.clone());
+            let look = if presence.get_untracked() == kivact_core::view::Presence::Present {
+                look.enter_size(Orientation::Vertical)
+            } else {
+                look
+            };
+            column(render(key, row, part)).style(look)
         },
-    )
-    .into_view()
+    );
+    column(rows)
+        .node_ref(host)
+        .style(style().gap(gap))
+        .into_view()
 }
 
 impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
