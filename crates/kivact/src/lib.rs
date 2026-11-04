@@ -60,3 +60,4 @@ pub use kivact_test as test;
 
 /// Everyday names and standard UI functions used by the introductory guides.
 pub mod prelude;
+pub mod state;
