@@ -8,7 +8,7 @@
 use crate::support::mount_with;
 use kivact::interaction::{Tree, TreeBranch};
 use kivact::prelude::*;
-use kivact::test::{Element, RenderOptions, Screen, WindowMode};
+use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
 use kivact::ui::TreeNode;
 
 type FileNode = TreeNode<&'static str>;
@@ -21,7 +21,7 @@ struct Handles {
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

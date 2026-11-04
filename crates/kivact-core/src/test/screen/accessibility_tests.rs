@@ -2,7 +2,7 @@
 //! Rootless hosts cannot be constructed through the public App API.
 use kivact_engine::api::Client;
 use kivact_engine::contract::{NodeKind, TurnOutput};
-use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
+use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
 use kivact_types::{NodeId, Role};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -28,7 +28,7 @@ fn empty_real_empty_and_replaced_roots_publish_without_stale_nodes() {
         TestHostOptions {
             width: 320.0,
             height: 200.0,
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             ..Default::default()
         },
     )

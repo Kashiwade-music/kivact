@@ -17,18 +17,25 @@ pub enum TestFonts {
     System,
 }
 
-/// Whether the screen is shown in a real window ([`RenderOptions::window`]).
+/// Whether output is mirrored to a native window ([`RenderOptions::mirror`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum WindowMode {
-    /// A real window when one can be opened, else headless. The
-    /// environment variable `ARVANE_TEST_HEADLESS=1` makes it headless.
+pub enum MirrorMode {
+    /// Keep frames without opening a native mirror.
+    Off,
+    /// Open a mirror when a display is available.
     #[default]
     Auto,
-    /// A real window; failing to open one fails the test.
-    Real,
-    /// No window: frames are rendered and kept (pixel-identical), nothing
-    /// is shown.
-    Headless,
+    /// Fail if a native mirror cannot open.
+    Required,
+}
+impl MirrorMode {
+    fn from_env() -> Self {
+        match std::env::var("KIVACT_TEST_MIRROR").as_deref() {
+            Ok("off") => Self::Off,
+            Ok("required") => Self::Required,
+            _ => Self::Auto,
+        }
+    }
 }
 
 /// Options of [`super::render_with`].
@@ -62,7 +69,7 @@ pub struct RenderOptions {
     /// The fonts text is shaped with (default: the bundled font only).
     pub fonts: TestFonts,
     /// Real window or headless (default: real when possible).
-    pub window: WindowMode,
+    pub mirror: MirrorMode,
     /// Draw through the GPU surface and read its pixels back. Defaults to
     /// deterministic CPU rendering. An unavailable GPU fails mounting.
     pub gpu: bool,
@@ -90,7 +97,7 @@ impl Default for RenderOptions {
             height: 600.0,
             scale: 1.0,
             fonts: TestFonts::Bundled,
-            window: WindowMode::Auto,
+            mirror: MirrorMode::from_env(),
             gpu: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             title: None,
@@ -101,21 +108,10 @@ impl Default for RenderOptions {
 }
 
 impl RenderOptions {
-    /// Default options with explicit developer renderer/window preferences.
-    ///
-    /// `KIVACT_TEST_GPU=1` requests GPU rendering. `KIVACT_TEST_HEADLESS=1`
-    /// requests a headless screen; otherwise a real window is required.
-    /// Every other value leaves GPU rendering off and requires a real window.
-    /// Other options retain [`Default`]. Tests and CI should not set the
-    /// headless variable: it is a local developer opt-in only.
+    /// Read mirror policy and request GPU rendering with `KIVACT_TEST_GPU=1`.
     pub fn from_env() -> Self {
         Self {
             gpu: std::env::var("KIVACT_TEST_GPU").as_deref() == Ok("1"),
-            window: if std::env::var("KIVACT_TEST_HEADLESS").as_deref() == Ok("1") {
-                WindowMode::Headless
-            } else {
-                WindowMode::Real
-            },
             ..Self::default()
         }
     }

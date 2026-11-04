@@ -29,7 +29,7 @@ use gpu_interop_producer::{Producer, pattern};
 use kivact::draw::Pixels;
 use kivact::gpu_interop::{self, GpuAdapter, ShareLink, ShareMode, ShareRequest, ShareStatus};
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, WindowMode, gpu_unavailable};
+use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
 use kivact_ui_creative as ui;
 
 /// The frame's size, and the surface's.
@@ -160,7 +160,7 @@ fn gpu_surface() -> Result<Surface, String> {
         theme: ui::theme(kivact::style::ThemeMode::Dark),
         reduced_motion: true,
         gpu: true,
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     });
     if surface.adapter.get_untracked().is_none() {

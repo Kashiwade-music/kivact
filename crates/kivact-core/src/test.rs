@@ -3,7 +3,7 @@
 //! `render` mounts a root on the engine's in-process test driver: the
 //! production host with its real layout, text shaping, rendering and
 //! accessibility tree, shown in a real window (headless where none can
-//! open, or with `ARVANE_TEST_HEADLESS=1`), on a virtual clock. Queries by
+//! open, or with `KIVACT_TEST_MIRROR=off`), on a virtual clock. Queries by
 //! role read the accessibility tree the host publishes; interactions are
 //! real input (pointer, keys, IME, wheel, accessibility actions) checked
 //! for actionability. A failing test leaves its last frame and trees in
@@ -27,7 +27,7 @@
 //! - Drawing: the accessibility tree and the layout are updated every
 //!   turn, so queries and actions need no frame. A frame is drawn when it is
 //!   looked at (a screenshot, a failure, `KIVACT_TEST_HOLD_MS`);
-//!   `KIVACT_TEST_LIVE=1` draws one at every settle, to watch the window.
+//!   Every settle draws requested frames and publishes accessibility afterward.
 //! - Options: [`RenderOptions`] defaults to 800 × 600 at scale 1, the
 //!   bundled font only, a real window (headless when none opens), the CPU
 //!   and 60 Hz. The Cargo GPU feature only enables the capability; a test
@@ -87,7 +87,7 @@ mod options;
 mod render;
 mod screen;
 
-pub use options::{RenderOptions, TestFonts, WindowMode};
+pub use options::{MirrorMode, RenderOptions, TestFonts};
 pub use render::{gpu_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{

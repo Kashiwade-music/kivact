@@ -9,7 +9,7 @@ use kivact::primitive::NodeExt;
 use crate::support::mount_with;
 use kivact::interaction::{List, ListPolicy, ListSelection, use_list};
 use kivact::prelude::*;
-use kivact::test::{Element, RenderOptions, Screen, WindowMode};
+use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
 use kivact::ui::ListItem;
 use kivact::view::{KeyCode, Modifiers};
 
@@ -38,7 +38,7 @@ struct Handles {
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

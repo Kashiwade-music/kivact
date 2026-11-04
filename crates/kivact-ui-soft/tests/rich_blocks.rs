@@ -1,14 +1,14 @@
 //! Role: Verify block editing preserves source and native caret operations.
 use kivact::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::view::{Key, Role};
 use kivact_ui_soft::rich_text_editor;
 
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
-        window: WindowMode::Headless,
+        mirror: MirrorMode::Off,
         ..RenderOptions::default()
     }
 }

@@ -14,7 +14,7 @@ use kivact::draw::Point;
 use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::{Element, RenderOptions, Screen, WindowMode};
+use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
 use kivact::view::{A11yAction, Placement, overlay};
 use kivact::view::{Modifiers, MouseButton, overlay_at};
 
@@ -22,7 +22,7 @@ type Entry = MenuEntry<&'static str>;
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

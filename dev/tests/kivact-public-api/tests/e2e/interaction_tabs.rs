@@ -8,7 +8,7 @@ use std::rc::Rc;
 use crate::support::mount_with;
 use kivact::interaction::{TabsApi, use_tabs};
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions, Screen};
 use kivact::ui::{ListActivation, ListItem};
 use kivact::view::Orientation;
 
@@ -16,7 +16,7 @@ type Option_ = ListItem<&'static str>;
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

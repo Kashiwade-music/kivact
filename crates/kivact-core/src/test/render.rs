@@ -7,6 +7,9 @@ use crate::view::IntoView;
 /// Why a GPU test cannot start, or `None` when a hardware adapter is available.
 /// This probes availability without mounting a view or changing OS settings.
 pub fn gpu_unavailable() -> Option<String> {
+    if super::options::RenderOptions::default().mirror == super::options::MirrorMode::Off {
+        return Some("GPU presentation requires a native mirror (KIVACT_TEST_MIRROR=off)".into());
+    }
     kivact_engine::testing::gpu_unavailable()
 }
 

@@ -1,6 +1,6 @@
 //! Role: Real-window regressions for layer context entry.
 use crate::prelude::{Value, memo, signal, text};
-use crate::test::{RenderOptions, WindowMode, render_with, render_with_handle};
+use crate::test::{MirrorMode, RenderOptions, render_with, render_with_handle};
 use kivact_runtime::{pure, untrack};
 use std::cell::Cell;
 
@@ -9,7 +9,7 @@ use std::cell::Cell;
 fn pure_setup_rejects_writes_even_through_untrack() {
     render_with(
         RenderOptions {
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             ..RenderOptions::default()
         },
         || {
@@ -24,7 +24,7 @@ fn pure_setup_rejects_writes_even_through_untrack() {
 fn pure_section_inside_a_memo_keeps_tracking() {
     let (screen, (a, b, c)) = render_with_handle(
         RenderOptions {
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             ..RenderOptions::default()
         },
         || {
@@ -51,7 +51,7 @@ fn pure_section_inside_a_memo_keeps_tracking() {
 fn a_memo_cycle_through_copied_contexts_panics() {
     render_with(
         RenderOptions {
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             ..RenderOptions::default()
         },
         || {

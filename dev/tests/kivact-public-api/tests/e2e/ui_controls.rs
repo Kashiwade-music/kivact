@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use crate::support::mount_with;
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions};
 use kivact::ui::{EditPhase, ScalarRange, Toast, toaster};
 use kivact::ui::{range_slider, splitter, toast_region};
 use kivact::view::{A11yAction, MouseButton, Orientation};
@@ -21,7 +21,7 @@ type Log = Rc<RefCell<Vec<EditPhase>>>;
 
 fn options() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         reduced_motion: true,
         ..RenderOptions::from_env()
     }

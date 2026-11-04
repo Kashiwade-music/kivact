@@ -8,7 +8,7 @@
 use crate::support::mount_with;
 use kivact::interaction::{ScalarRange, SortOrder, TableFocus};
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions, Screen};
 use kivact::view::{A11yAction, Modifiers, MouseButton, SortDirection};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,7 +43,7 @@ fn columns() -> Vec<DataColumn<Person>> {
 
 fn options() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         reduced_motion: true,
         width: 720.0,
         height: 600.0,

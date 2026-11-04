@@ -1,7 +1,7 @@
 //! Role: Verify typed table filters commit transactionally in popovers.
 use kivact::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui::{DataColumn, FilterField, FilterUi, FilterValue, data_table};
 use kivact::view::{Key, Role};
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ type Score = (&'static str, u8);
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
-        window: WindowMode::Headless,
+        mirror: MirrorMode::Off,
         ..RenderOptions::default()
     }
 }

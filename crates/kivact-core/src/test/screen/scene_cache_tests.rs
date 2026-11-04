@@ -5,7 +5,7 @@
 use crate::client::{AppClient, AppConfig};
 use crate::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
 use crate::view::View;
-use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
+use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
 use kivact_runtime::Runtime;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextStyle};
@@ -28,7 +28,7 @@ fn host(
         TestHostOptions {
             width: 160.,
             height: 60.,
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             inline_assets,
             ..Default::default()
         },
@@ -203,7 +203,7 @@ fn retained_reporting_host(
             width: 160.,
             height: 60.,
             scale,
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             inline_assets,
             ..Default::default()
         },

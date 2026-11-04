@@ -22,10 +22,10 @@ mod proc;
 mod services;
 mod state;
 mod target;
-#[cfg(feature = "testing")]
+#[cfg(feature = "test")]
 mod test_parent;
 mod window;
-#[cfg(feature = "testing")]
+#[cfg(feature = "test")]
 pub use test_parent::TestParent;
 
 pub(super) use create::open;

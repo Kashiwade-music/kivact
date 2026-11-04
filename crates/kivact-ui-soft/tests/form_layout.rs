@@ -2,7 +2,7 @@
 use kivact::control::{NodeBuilder, text};
 use kivact::signal;
 use kivact::style::{ThemeMode, style};
-use kivact::test::{RenderOptions, WindowMode, render_with};
+use kivact::test::{MirrorMode, RenderOptions, render_with};
 use kivact::ui::text_input;
 use kivact::view::Role;
 use kivact_ui_soft::{FormDirection, form_layout, form_row, theme};
@@ -14,7 +14,7 @@ fn horizontal_labels_share_a_track_and_stack_at_480_pixels() {
             width: 620.0,
             height: 400.0,
             theme: theme(ThemeMode::Light),
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             ..RenderOptions::from_env()
         },
         || {

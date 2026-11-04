@@ -13,7 +13,7 @@ use kivact::draw::Point;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, EditSession, use_drag};
 use kivact::prelude::*;
 use kivact::primitive::part;
-use kivact::test::{RenderOptions, Screen, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions, Screen};
 use kivact::ui::EditPhase;
 use kivact::view::{Handled, KeyEvent, MouseButton};
 
@@ -30,7 +30,7 @@ type Shared = Rc<RefCell<Log>>;
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

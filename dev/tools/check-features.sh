@@ -26,7 +26,7 @@ entries=(
   kivact/embed
   arvane-render/gpu
   arvane-render/gpu-interop
-  arvane-native/testing
+  arvane-native/test
   arvane/gpu
   arvane/gpu-interop
   arvane-virtual/mirror

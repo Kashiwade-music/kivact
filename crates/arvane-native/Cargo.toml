@@ -37,8 +37,8 @@ windows-sys = { workspace = true, features = ["Win32_System_LibraryLoader", "Win
 [features]
 embed = []
 default = []
-# Real windows for tests on one process-wide UI thread (`test_display`).
-testing = []
+# Real windows for tests on one process-wide UI thread (`mirror`).
+test = []
 
 [lints]
 workspace = true
@@ -46,3 +46,7 @@ workspace = true
 
 
 
+
+[[test]]
+name = "smoke"
+required-features = ["test"]

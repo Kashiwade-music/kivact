@@ -35,7 +35,7 @@
 //!   `contact_move(contact, x, y)`, `contact_up(contact)` and
 //!   `contact_cancel(contact)` name a contact by the [`Contact`] that
 //!   `contact_down` returns, so several can be down at once. They go through
-//!   the test window's `VirtualWindow::contact` as platform contacts and get
+//!   the test window's `arvane_virtual::Script::contact` as platform contacts and get
 //!   pointer ids apart from the mouse's (from 2), as on a native window.
 //! - Surfaces and the App's lifecycle: `Screen::lose_surface` and
 //!   `restore_surface` (the surface destroyed, then its next generation),
@@ -329,7 +329,7 @@ impl Screen {
     }
 
     /// Report the contact as the platform does: the window maps the
-    /// platform's contact to a pointer of its own (`VirtualWindow::contact`).
+    /// platform's contact to a pointer of its own (`arvane_virtual::Script::contact`).
     fn send_contact(&self, phase: PointerPhase, contact: Contact, at: Point) {
         let mut host = self.host.borrow_mut();
         let modifiers = host.modifiers();

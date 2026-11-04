@@ -14,7 +14,7 @@ mod keyboard;
 mod notifier;
 mod poll;
 mod services;
-#[cfg(feature = "testing")]
+#[cfg(feature = "test")]
 pub(crate) mod test_parent;
 mod thread;
 mod window;

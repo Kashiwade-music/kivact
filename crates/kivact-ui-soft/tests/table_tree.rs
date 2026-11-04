@@ -2,7 +2,7 @@
 use kivact::interaction::SortOrder;
 use kivact::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui::{DataColumn, data_table};
 use kivact::view::CheckedState;
 use kivact::view::Role;
@@ -12,7 +12,7 @@ fn tree_rows_keep_table_roles_and_expand_before_paging() {
     let (screen, (expanded, page)) = render_with_handle(
         RenderOptions {
             theme: kivact_ui_soft::theme(ThemeMode::Light),
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             ..RenderOptions::default()
         },
         || {
