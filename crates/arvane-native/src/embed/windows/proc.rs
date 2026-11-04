@@ -132,12 +132,14 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             unsafe {
                 KillTimer(hwnd, super::native::TIMER);
             }
-            state.event(ShellEvent::Wake);
+            state.event(ShellEvent::Wake(arvane_shell::WakeReasons::CLIENT));
             0
         }
         super::native::WAKE => {
-            state.native.wake_pending.clear();
-            state.event(ShellEvent::Wake);
+            let reasons = state.native.wake_pending.take();
+            if !reasons.is_empty() {
+                state.event(ShellEvent::Wake(reasons));
+            }
             0
         }
         super::native::COMMAND => {

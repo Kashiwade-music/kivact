@@ -4,7 +4,7 @@
     reason = "xkbcommon exposes its owned state through C pointers"
 )]
 
-use arvane_shell::{ShellError, ShellEvent};
+use arvane_shell::{ModifierState, ShellError, ShellEvent};
 use kivact_types::{Key, KeyCode, Modifiers};
 use std::collections::HashSet;
 use std::ptr::{self, NonNull};
@@ -59,7 +59,7 @@ pub(super) struct Keyboard {
     map: Map,
     context: XkbContext,
     pressed: HashSet<u8>,
-    modifiers: Modifiers,
+    modifiers: ModifierState,
 }
 
 impl Keyboard {
@@ -99,7 +99,7 @@ impl Keyboard {
             map,
             context,
             pressed: HashSet::new(),
-            modifiers: Modifiers::default(),
+            modifiers: ModifierState::default(),
         })
     }
 
@@ -119,11 +119,8 @@ impl Keyboard {
     /// when it differs from what was last reported.
     pub(super) fn sync_modifiers(&mut self, mask: u16) -> Option<ShellEvent> {
         self.set_mask(mask);
-        let modifiers = self.modifiers();
-        (modifiers != self.modifiers).then(|| {
-            self.modifiers = modifiers;
-            ShellEvent::Modifiers(modifiers)
-        })
+        let modifiers = self.read_modifiers();
+        self.modifiers.update(modifiers)
     }
 
     fn set_mask(&mut self, mask: u16) {
@@ -143,6 +140,10 @@ impl Keyboard {
     }
 
     pub(super) fn modifiers(&self) -> Modifiers {
+        self.modifiers.current()
+    }
+
+    fn read_modifiers(&self) -> Modifiers {
         Modifiers {
             shift: self.active(c"Shift"),
             ctrl: self.active(c"Control"),
@@ -205,8 +206,8 @@ impl Keyboard {
         unsafe {
             (self.api.xkb_state_update_key)(self.map.state.raw.as_ptr(), detail.into(), direction)
         };
-        let modifiers = self.modifiers();
-        self.modifiers = modifiers;
+        let modifiers = self.read_modifiers();
+        let changed = self.modifiers.update(modifiers);
         let event = if down {
             ShellEvent::Key(kivact_types::KeyInput {
                 key,
@@ -224,7 +225,7 @@ impl Keyboard {
                 pointer: None,
             })
         };
-        vec![ShellEvent::Modifiers(modifiers), event]
+        changed.into_iter().chain(std::iter::once(event)).collect()
     }
 
     fn active(&self, name: &std::ffi::CStr) -> bool {
@@ -249,7 +250,7 @@ impl Keyboard {
     }
     pub(super) fn focus_lost(&mut self) {
         self.pressed.clear();
-        self.modifiers = Modifiers::default();
+        self.modifiers.update(Modifiers::default());
     }
 }
 

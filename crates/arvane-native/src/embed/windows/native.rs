@@ -2,7 +2,7 @@
 use crate::embed::child::{ChildPort, Shared};
 use std::num::NonZeroIsize;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread::ThreadId;
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -12,13 +12,14 @@ pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
 pub(super) const TIMER: usize = 1;
 #[derive(Default)]
-pub(super) struct WakeCoalescer(AtomicBool);
+pub(super) struct WakeCoalescer(AtomicU8);
 impl WakeCoalescer {
-    pub(super) fn request(&self) -> bool {
-        !self.0.swap(true, Ordering::AcqRel)
+    pub(super) fn request(&self, reasons: arvane_shell::WakeReasons) -> bool {
+        let bits = crate::wake::encode(reasons);
+        bits != 0 && self.0.fetch_or(bits, Ordering::AcqRel) == 0
     }
-    pub(super) fn clear(&self) {
-        self.0.store(false, Ordering::Release);
+    pub(super) fn take(&self) -> arvane_shell::WakeReasons {
+        crate::wake::decode(self.0.swap(0, Ordering::AcqRel))
     }
 }
 pub(super) struct Native {

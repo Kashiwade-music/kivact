@@ -78,8 +78,9 @@ use winit::window::Window;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
-use super::state::{ContactNote, NativeInput};
+use super::state::{ContactNote, NativeInput, Subclass as SubclassState};
 use arvane_shell::ShellImeText;
+use arvane_shell::WakeReasons;
 use kivact_types::PointerKind;
 
 /// The subclass id (one subclass per window).
@@ -89,7 +90,6 @@ const HEADER: usize = std::mem::size_of::<RECONVERTSTRING>();
 
 /// The installed subclass; dropping it removes the subclass if the window
 /// still has it.
-#[derive(Debug)]
 pub(crate) struct Subclass {
     hwnd: HWND,
     input: Rc<NativeInput>,
@@ -115,7 +115,7 @@ impl Subclass {
             drop(unsafe { Rc::from_raw(data) });
             return None;
         }
-        input.subclass_installed.set(true);
+        input.subclass_installed.set(SubclassState::Installed);
         Some(Subclass {
             hwnd,
             input: Rc::clone(input),
@@ -125,7 +125,12 @@ impl Subclass {
 
 impl Drop for Subclass {
     fn drop(&mut self) {
-        if self.input.subclass_installed.replace(false) {
+        if self
+            .input
+            .subclass_installed
+            .replace(SubclassState::NotInstalled)
+            == SubclassState::Installed
+        {
             release(self.hwnd, Rc::as_ptr(&self.input));
         }
     }
@@ -203,7 +208,7 @@ unsafe extern "system" fn subclass(
         WM_LBUTTONDOWN | WM_LBUTTONUP | WM_RBUTTONDOWN | WM_RBUTTONUP | WM_MBUTTONDOWN
         | WM_MBUTTONUP | WM_XBUTTONDOWN | WM_XBUTTONUP => {
             let p = point(lparam);
-            input.pointer.set(Some((f64::from(p.x), f64::from(p.y))));
+            input.pointer.put((f64::from(p.x), f64::from(p.y)));
         }
         WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
             // A wheel message carries a screen position.
@@ -211,16 +216,20 @@ unsafe extern "system" fn subclass(
             // SAFETY: `hwnd` is this procedure's live window; `p` is a
             // valid POINT for the call.
             let mapped = unsafe { ScreenToClient(hwnd, &mut p) } != 0;
-            input
-                .pointer
-                .set(mapped.then(|| (f64::from(p.x), f64::from(p.y))));
+            if mapped {
+                input.pointer.put((f64::from(p.x), f64::from(p.y)));
+            } else {
+                input.pointer.take();
+            }
         }
         WM_TIMER if wparam == FILE_TIMER => {
             let point = cursor_at(hwnd, input.scale.get());
-            if input.file_pointer.replace(point) != point
-                && let Some(waker) = input.waker.borrow().as_ref()
-            {
-                waker.wake();
+            let previous = input.file_pointer.take();
+            if let Some(point) = point {
+                input.file_pointer.put(point);
+            }
+            if previous != point {
+                input.wake.wake(WakeReasons::CLIENT);
             }
         }
         WM_SETTINGCHANGE => {
@@ -232,19 +241,20 @@ unsafe extern "system" fn subclass(
             let locale = super::locale::system_locale();
             changed |= input.locale.replace(locale.clone()) != locale;
             if changed {
-                input.env_changed.set(true);
-                if let Ok(waker) = input.waker.try_borrow()
-                    && let Some(waker) = waker.as_ref()
-                {
-                    waker.wake();
-                }
+                input.env_changed.put(());
+                input.wake.wake(WakeReasons::ENVIRONMENT);
             }
         }
         _ if cfg!(debug_assertions) && message == debug_dpi_message() => {
             debug_dpi_change(hwnd, wparam);
             return 0;
         }
-        WM_NCDESTROY if input.subclass_installed.replace(false) => {
+        WM_NCDESTROY
+            if input
+                .subclass_installed
+                .replace(SubclassState::NotInstalled)
+                == SubclassState::Installed =>
+        {
             // SAFETY: forwards the message down the chain, as every
             // subclass procedure must.
             let result = unsafe { DefSubclassProc(hwnd, message, wparam, lparam) };
@@ -385,7 +395,9 @@ pub(crate) fn ime_request(
                         kivact_types::text_utf::byte_offset_from_utf16(&text.text, end),
                     )
                 });
-            input.reconvert.set(range.or(input.reconvert.get()));
+            if let Some(range) = range {
+                input.reconvert.put(range);
+            }
             Some(LRESULT::from(range.is_some()))
         }
         IMR_QUERYCHARPOSITION => Some(LRESULT::from(char_position(

@@ -60,7 +60,7 @@ pub mod asset;
 pub use arvane_render::{MAX_SCENE_DEPTH, glyph_ink_bounds};
 pub use arvane_shell::{
     Accessibility, AccessibilityError, FileDialog, ShellControl, ShellError, ShellEvent,
-    ShellImeText, ShellOptions, ShellWaker,
+    ShellImeText, ShellOptions, ShellWaker, WakeReasons,
 };
 pub use engine::Engine;
 pub use error::{Failure, FailureKind};

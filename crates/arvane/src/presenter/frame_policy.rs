@@ -137,8 +137,10 @@ impl Presenter {
     /// ([`Presenter::prepare`] then).
     pub(crate) fn start_gpu(&mut self, waker: ShellWaker) {
         #[cfg(feature = "gpu")]
-        self.gpu
-            .start(std::sync::Arc::new(move || waker.wake()), &mut self.notes);
+        self.gpu.start(
+            std::sync::Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP)),
+            &mut self.notes,
+        );
         #[cfg(not(feature = "gpu"))]
         {
             let _ = waker;

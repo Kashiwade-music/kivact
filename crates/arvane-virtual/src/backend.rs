@@ -6,7 +6,7 @@ use crate::window::VirtualShell;
 pub use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use arvane_shell::{
     Accessibility, ShellControl, ShellError, ShellEvent, ShellHandler, ShellImeText, ShellWaker,
-    ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+    ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop, WakeReasons,
 };
 use kivact_types::render::SemanticsTree;
 use kivact_types::{Capabilities, Cursor, Environment, Modifiers, Point, Rect, Size, ThemeHint};
@@ -15,10 +15,7 @@ use std::collections::VecDeque;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::{Arc, Mutex};
 
 /// Backend whose input and clock are advanced explicitly.
 pub struct VirtualBackend {
@@ -118,8 +115,8 @@ impl SteppedBackend for VirtualBackend {
         let wake = Arc::clone(&running.woken);
         let result = running.handler.start(
             &mut *running.shell.borrow_mut(),
-            ShellWaker::new(move || {
-                wake.request();
+            ShellWaker::new(move |reasons| {
+                wake.request(reasons);
             }),
         );
         match result {
@@ -134,21 +131,34 @@ impl SteppedBackend for VirtualBackend {
                 return Err(error);
             }
         }
+        running.deliver(ShellEvent::AccessibilityActivated);
         Ok(Box::new(running))
     }
 }
-/// Latest-wins wake mailbox shared with background workers.
+/// Coalesced wake reasons shared with background workers.
 #[derive(Default)]
-struct WakePending(AtomicBool);
+struct WakePending(Mutex<WakeReasons>);
 impl WakePending {
-    fn request(&self) {
-        self.0.store(true, Ordering::Release);
+    fn request(&self, reasons: WakeReasons) {
+        self.0
+            .lock()
+            .expect("invariant: wake mailbox is not poisoned")
+            .insert(reasons);
     }
-    fn take(&self) {
-        self.0.store(false, Ordering::Release);
+    fn take(&self) -> WakeReasons {
+        std::mem::take(
+            &mut *self
+                .0
+                .lock()
+                .expect("invariant: wake mailbox is not poisoned"),
+        )
     }
     fn pending(&self) -> bool {
-        self.0.load(Ordering::Acquire)
+        !self
+            .0
+            .lock()
+            .expect("invariant: wake mailbox is not poisoned")
+            .is_empty()
     }
 }
 enum State {
@@ -209,8 +219,11 @@ impl SteppedLoop for Running {
                     }
                 },
                 Step::Wake => {
-                    self.woken.take();
-                    self.deliver(ShellEvent::Wake);
+                    let mut reasons = self.woken.take();
+                    if reasons.is_empty() {
+                        reasons.insert(WakeReasons::CLIENT);
+                    }
+                    self.deliver(ShellEvent::Wake(reasons));
                 }
                 Step::Redraw => {
                     let redraw = self.shell.borrow().redraw.replace(false);

@@ -35,7 +35,7 @@ impl accesskit::ActivationHandler for Activation {
         // a placeholder until that first (complete) update, or, after a
         // deactivation, the tree accepted before it until the application
         // (which stopped keeping it meanwhile) replaces it.
-        self.waker.wake();
+        self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         tree
     }
 }
@@ -51,13 +51,14 @@ impl accesskit::ActionHandler for Actions {
             return;
         };
         if self.shared.queue_action(node, asked) {
-            self.waker.wake();
+            self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         }
     }
 }
 
 struct Deactivation {
     shared: PlatformTree,
+    waker: ShellWaker,
 }
 
 impl accesskit::DeactivationHandler for Deactivation {
@@ -66,6 +67,7 @@ impl accesskit::DeactivationHandler for Deactivation {
     /// application stops building updates and nothing is remembered.
     fn deactivate_accessibility(&mut self) {
         self.shared.deactivate();
+        self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
     }
 }
 
@@ -111,10 +113,11 @@ impl NativeAccessibility {
             },
             Actions {
                 shared: shared.clone(),
-                waker,
+                waker: waker.clone(),
             },
             Deactivation {
                 shared: shared.clone(),
+                waker,
             },
         );
         Self {
@@ -204,7 +207,7 @@ pub(crate) fn convert_update(selection: PlatformUpdate<'_>) -> accesskit::TreeUp
     let tree = selection.tree();
     let mut update = conversion::update(
         tree.root(),
-        tree.focus(),
+        selection.focus(),
         selection.nodes(),
         selection.all_runs(),
     );

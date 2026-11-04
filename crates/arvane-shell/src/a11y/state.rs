@@ -25,7 +25,6 @@ use super::validation::check_values;
 /// node references always describe the same accepted revision.
 pub struct AcceptedTree {
     root: SemanticsId,
-    focus: Option<SemanticsId>,
     nodes: HashMap<SemanticsId, SemanticsNode>,
     parents: HashMap<SemanticsId, SemanticsId>,
     runs: Runs,
@@ -48,7 +47,6 @@ impl AcceptedTree {
         }
         AcceptedTree {
             root: tree.root,
-            focus: tree.focus,
             nodes: tree.nodes.iter().map(|n| (n.id, n.clone())).collect(),
             parents,
             runs: Runs::new(tree.nodes.iter()),
@@ -58,11 +56,6 @@ impl AcceptedTree {
     /// The identity of the one root.
     pub fn root(&self) -> SemanticsId {
         self.root
-    }
-
-    /// The focused node, when one is present.
-    pub fn focus(&self) -> Option<SemanticsId> {
-        self.focus
     }
 
     /// The accepted node with this identity, if present.
@@ -89,21 +82,20 @@ impl AcceptedTree {
     }
 
     /// The tree in parent-before-child order.
-    pub(crate) fn tree(&self) -> SemanticsTree {
+    pub(crate) fn tree(&self, focus: Option<SemanticsId>) -> SemanticsTree {
         SemanticsTree {
             root: self.root,
-            focus: self.focus,
+            focus,
             nodes: self.nodes().into_iter().cloned().collect(),
         }
     }
 
-    /// Apply the nodes of `update` (same root) that differ from the tree.
-    /// Returns the nodes that changed and the text runs they added
-    /// (`None`: neither a node nor the focus changed).
+    /// Apply and validate the nodes carried by `update` (same root).
+    /// Returns those nodes and the text runs they added.
     pub(crate) fn apply(
         &mut self,
         update: &SemanticsUpdate,
-    ) -> Result<Option<Applied>, AccessibilityError> {
+    ) -> Result<Applied, AccessibilityError> {
         let mut incoming: HashMap<SemanticsId, &SemanticsNode> = HashMap::new();
         for node in &update.nodes {
             if incoming.insert(node.id, node).is_some() {
@@ -111,11 +103,7 @@ impl AcceptedTree {
             }
             check_values(node)?;
         }
-        let changed: Vec<&SemanticsNode> = update
-            .nodes
-            .iter()
-            .filter(|n| self.nodes.get(&n.id) != Some(*n))
-            .collect();
+        let changed: Vec<&SemanticsNode> = update.nodes.iter().collect();
         let edits = self.reparent(&changed, &incoming)?;
         let parent = |id: SemanticsId| match edits.get(&id) {
             Some(p) => *p,
@@ -196,9 +184,6 @@ impl AcceptedTree {
                     && (incoming.contains_key(&id) || self.nodes.contains_key(&id))
             },
         )?;
-        if changed.is_empty() && update.focus == self.focus {
-            return Ok(None);
-        }
         self.runs.commit(&runs);
         // Commit.
         let mut orphans = Vec::new();
@@ -235,11 +220,10 @@ impl AcceptedTree {
                 }
             }
         }
-        self.focus = update.focus;
-        Ok(Some(Applied {
+        Ok(Applied {
             nodes: ids,
             runs: runs.added.into_iter().map(|(_, run)| run).collect(),
-        }))
+        })
     }
 
     /// Every node a relation (described by, controls, labelled by) names

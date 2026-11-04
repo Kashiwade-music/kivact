@@ -55,8 +55,13 @@ impl arvane::Handler for Host {
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
         let store_waker = waker.clone();
-        let store = arvane::asset::AssetStore::new(move || store_waker.wake());
-        self.begin(window, HostWaker::new(move || waker.wake()), store)
+        let store =
+            arvane::asset::AssetStore::new(move || store_waker.wake(arvane::WakeReasons::ASSETS));
+        self.begin(
+            window,
+            HostWaker::new(move || waker.wake(arvane::WakeReasons::CLIENT)),
+            store,
+        )
     }
     fn event(
         &mut self,
@@ -193,7 +198,7 @@ impl Host {
                     }
                 }
             }
-            ShellEvent::Wake => {
+            ShellEvent::Wake(_) => {
                 if let LastFrame::Skipped { retry_at_ns } = self.last_frame
                     && retry_at_ns <= window.now_ns()
                 {
@@ -337,6 +342,7 @@ impl Host {
                 kivact_types::ImeInput::End => self.model.borrow_mut().ime_disabled(),
             },
             ShellEvent::EnvironmentChanged => self.environment_changed(window),
+            ShellEvent::AccessibilityActivated | ShellEvent::AccessibilityDeactivated => {}
             ShellEvent::Accessibility { node, request } => {
                 self.model.borrow_mut().accessibility_action(node, request)
             }

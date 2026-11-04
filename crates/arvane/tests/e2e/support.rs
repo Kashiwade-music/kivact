@@ -267,7 +267,7 @@ impl Handler for Host {
         event: ShellEvent,
         window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
-        if event == ShellEvent::Wake {
+        if matches!(event, ShellEvent::Wake(_)) {
             let action = self.0.borrow_mut().action.take();
             if let Some(action) = action {
                 action(window);

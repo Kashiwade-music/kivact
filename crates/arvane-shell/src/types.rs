@@ -80,21 +80,50 @@ impl ShellControl {
 }
 /// Thread-safe worker wake handle. It owns no window state.
 #[derive(Clone)]
-pub struct ShellWaker(Arc<dyn Fn() + Send + Sync>);
+pub struct ShellWaker(Arc<dyn Fn(WakeReasons) + Send + Sync>);
 impl ShellWaker {
     /// Create a thread-safe wake handle for a backend's event loop.
     /// The callback must tolerate a loop that has already closed.
-    pub fn new(wake: impl Fn() + Send + Sync + 'static) -> Self {
+    pub fn new(wake: impl Fn(WakeReasons) + Send + Sync + 'static) -> Self {
         Self(Arc::new(wake))
     }
 
     /// Schedule a Wake event; a closed loop ignores further wakes.
-    pub fn wake(&self) {
-        (self.0)();
+    pub fn wake(&self, reasons: WakeReasons) {
+        (self.0)(reasons);
     }
 }
 impl std::fmt::Debug for ShellWaker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("ShellWaker")
+    }
+}
+
+/// Reasons coalesced into one event-loop wake.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WakeReasons(u8);
+impl WakeReasons {
+    /// Application work is ready.
+    pub const CLIENT: Self = Self(1);
+    /// Asset loading has progressed.
+    pub const ASSETS: Self = Self(2);
+    /// Assistive technology has queued work.
+    pub const A11Y_ACTIONS: Self = Self(4);
+    /// The platform environment has changed.
+    pub const ENVIRONMENT: Self = Self(8);
+    /// GPU initialization has progressed.
+    pub const GPU_STEP: Self = Self(16);
+
+    /// Whether every supplied reason is present.
+    pub fn contains(self, reasons: Self) -> bool {
+        self.0 & reasons.0 == reasons.0
+    }
+    /// Include the supplied reasons.
+    pub fn insert(&mut self, reasons: Self) {
+        self.0 |= reasons.0;
+    }
+    /// Whether no reason is present.
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
     }
 }
