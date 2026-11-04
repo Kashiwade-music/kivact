@@ -45,7 +45,7 @@ pub(crate) fn mount_branch(
     build: impl FnOnce() -> View,
 ) -> Branch {
     let node = mount_in(rt, owner, build);
-    ViewState::tree_mut(rt).insert(frag, node, None);
+    ViewState::tree(rt).engine().insert(frag, node, None);
     Branch { owner, node }
 }
 

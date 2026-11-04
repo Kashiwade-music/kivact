@@ -14,11 +14,6 @@ pub(super) struct Node {
     // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
     pub(super) at: Option<&'static Location<'static>>,
 }
-impl Node {
-    pub(super) fn is_host(&self) -> bool {
-        true
-    }
-}
 pub(super) struct Facts {
     reader: Reader,
     pub(super) root: NodeId,
@@ -55,6 +50,15 @@ impl Facts {
     }
     pub(super) fn get(&self, id: NodeId) -> Option<&Node> {
         self.nodes.get(&id)
+    }
+    pub(super) fn is_transparent(&self, id: NodeId) -> bool {
+        self.with_node(id, |node| {
+            node.is_some_and(|node| {
+                node.layout
+                    .as_ref()
+                    .is_some_and(|layout| layout.display == kivact_types::Display::Contents)
+            })
+        })
     }
     pub(super) fn reader(&self) -> Reader {
         self.reader.clone()

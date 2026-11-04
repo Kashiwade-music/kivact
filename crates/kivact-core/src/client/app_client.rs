@@ -619,9 +619,7 @@ impl Inspect<'_> {
         ViewState::tree(self.rt()).root
     }
     pub fn app_view(&self) -> Option<kivact_types::NodeId> {
-        ViewState::tree(self.rt())
-            .get(self.root())
-            .and_then(|n| n.children.first().copied())
+        self.reader().children(self.root()).first().copied()
     }
     pub fn located_at(&self, node: kivact_types::NodeId) -> Option<&'static Location<'static>> {
         ViewState::tree(self.rt()).get(node).and_then(|n| n.at)
@@ -689,75 +687,5 @@ impl Inspect<'_> {
     }
     pub fn motion_ticks(&self) -> u64 {
         kivact_runtime::MotionState::of(self.rt()).stats().ticks
-    }
-}
-
-#[cfg(debug_assertions)]
-impl Inspect<'_> {
-    pub fn check_trees(&self) -> Result<(), String> {
-        let tree = ViewState::tree(self.rt());
-        let reader = tree.reader();
-        let mut seen = std::collections::HashSet::new();
-        let mut stack = vec![tree.root];
-        let mut host_ids = std::collections::HashSet::new();
-        while let Some(id) = stack.pop() {
-            if !seen.insert(id) {
-                return Err(format!("core node {} is reachable twice", id.0));
-            }
-            let node = tree
-                .get(id)
-                .ok_or_else(|| format!("core child {} has no record", id.0))?;
-            stack.extend(node.children.iter().copied());
-            if !node.is_host() {
-                continue;
-            }
-            host_ids.insert(id);
-            let kind = reader.with_node(id, |n| n.map(|n| n.kind.node_type()));
-            if node.kind != kind {
-                return Err(format!("node {} kind {:?} vs {:?}", id.0, node.kind, kind));
-            }
-            let mut children = Vec::new();
-            let mut pending: Vec<_> = node.children.iter().rev().copied().collect();
-            while let Some(child) = pending.pop() {
-                let child_node = tree
-                    .get(child)
-                    .ok_or_else(|| format!("core child {} has no record", child.0))?;
-                if child_node.is_host() {
-                    children.push(child);
-                } else {
-                    pending.extend(child_node.children.iter().rev().copied());
-                }
-            }
-            if children != reader.children(id) {
-                return Err(format!(
-                    "node {} children {:?} vs {:?}",
-                    id.0,
-                    children,
-                    reader.children(id)
-                ));
-            }
-        }
-        if seen.len() != tree.len() {
-            return Err(format!(
-                "core tree holds {} records, {} reachable",
-                tree.len(),
-                seen.len()
-            ));
-        }
-        let mut engine_ids = std::collections::HashSet::new();
-        let mut stack = vec![tree.root];
-        while let Some(id) = stack.pop() {
-            if !engine_ids.insert(id) {
-                return Err(format!("engine node {} reachable twice", id.0));
-            }
-            stack.extend(reader.children(id));
-        }
-        if engine_ids != host_ids {
-            return Err(format!(
-                "core host nodes {:?} differ from engine {:?}",
-                host_ids, engine_ids
-            ));
-        }
-        Ok(())
     }
 }

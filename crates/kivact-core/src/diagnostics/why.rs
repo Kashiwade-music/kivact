@@ -95,7 +95,9 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
             Some(n) => {
                 let role = match tree.role(id) {
                     Some(r) => format!("{r:?}"),
-                    _ => format!("{:?}", n.kind),
+                    _ => tree.with_node(id, |node| {
+                        format!("{:?}", node.map(|node| node.kind.node_type()))
+                    }),
                 };
                 let name = match (tree.name(id), tree.content(id)) {
                     (Some(s), _) | (None, Some(s)) => s,

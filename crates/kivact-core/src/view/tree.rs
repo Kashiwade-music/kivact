@@ -1,34 +1,10 @@
 //! Role: Retain what only core knows about a node and write directly to the engine.
 //!
-//! Fragments belong only to core. Host nodes are created immediately, including
-//! detached list subtrees. Properties, scenes, layout rects, the test id and
-//! whether layout is observed live only in the engine and are read through
-//! its [`Reader`]; owners, handlers, call sites and the diagnostic origin of
-//! each prop belong to core.
-//!
-//! There is one tree: the props and scenes of a node live in the engine's
-//! tree only. The core tree ([`TNode`]) holds what the engine cannot: the
-//! structure with fragments (the engine links host nodes only), owners,
-//! handlers, creation sites and, per dynamic prop, the effect that wrote it
-//! (`Prop`, an enum the engine's setter table generates, so core never
-//! branches on strings). `Tree::update` takes that effect from
-//! `Runtime::running_effect`; no copy of a prop value or of the write sequence is
-//! kept.
-//!
-//! Invariants:
-//! - The owned `Writer` and the `Reader` share the engine's `Rc` and borrow
-//!   its model only while one of their calls runs. An effect writes in
-//!   place with a comparing setter (an equal write records nothing); the
-//!   engine's `Changes` and `Model::sync` derive the rest at commit.
-//! - The tree exists from the host's start (`ViewState::start`): its writer
-//!   and its root node are never missing.
-//! - While several native `TextChanged` events wait, core counts only the
-//!   undelivered edits per node, so an old controlled value never
-//!   overwrites a newer native edit; the batch's counts live in a
-//!   `TextEditsAhead` guard (`view::text_edits`).
-//! - Ordinary callbacks run after the engine borrow is released. The one
-//!   exception is a primitive's measure function, which runs no user
-//!   handler and drops no user value (see `crate::primitive`).
+//! Engine nodes, including transparent flow boxes, own all topology and props.
+//! CoreNodes retains only owner resources, handlers and diagnostic origins.
+//! ViewNodes owns the writer and host-wide bookkeeping, borrowing the model
+//! only during a Reader or Writer call. Removed user resources are dropped
+//! after this service's borrow ends.
 
 use std::panic::Location;
 use std::rc::Rc;
@@ -55,6 +31,7 @@ pub(crate) struct ScrollState {
 
 type SecondaryContextHandler = Handler<PointerEvent>;
 
+// xtask-allow(state-fields): independent optional handlers, one per event kind; absence means no subscription.
 /// Event handlers of one host node.
 ///
 /// The key, key release, pointer, wheel and file handlers are one layered
@@ -135,6 +112,7 @@ impl Handlers {
     }
 }
 
+// xtask-allow(state-fields): independent optional action defaults, composed independently by event kind.
 /// The activation, text and accessibility-action defaults of the parts
 /// attached to a node or a canvas region, composed in attachment order (an
 /// earlier part runs first, and its error stops the later ones). These kinds
@@ -201,6 +179,7 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
     actions
 }
 
+// xtask-allow(state-fields): independent observed engine facts, not a lifecycle phase.
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
@@ -210,7 +189,7 @@ pub(crate) struct NodeObservation {
     pub(crate) scene_revision: Trigger,
 }
 
-/// Records [`Tree::remove`] deleted. They hold the nodes' handlers, so
+/// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
 /// user values: the caller drops them after the tree borrow ends, as the
 /// runtime drops what a disposal released (G-01, design §4「arena と
 /// handle」).
@@ -221,7 +200,7 @@ pub(crate) struct Removed {
         dead_code,
         reason = "removed user records must drop after the tree borrow"
     )]
-    records: Vec<TNode>,
+    records: Vec<CoreNode>,
 }
 impl Removed {
     pub(crate) fn commit(self, rt: &kivact_runtime::Runtime) {
@@ -232,22 +211,13 @@ impl Removed {
     }
 }
 
+// xtask-allow(state-fields): independent core resources; each optional subscription or callback is allocated only when requested.
 /// One node of the retained tree (host node or fragment): only what the
 /// engine cannot hold. Everything the engine knows about a host node (its
 /// props, rect, test id, whether its layout is observed) is read through
-/// [`Tree::reader`].
-pub(crate) struct TNode {
-    /// `None` for fragments.
-    pub kind: Option<NodeType>,
+/// [`ViewNodes::reader`].
+pub(crate) struct CoreNode {
     pub(crate) references: Vec<Signal<crate::view::state::RefState>>,
-    /// Parent node, if attached. The engine links host nodes only; core
-    /// keeps its own links because fragments sit between them: where a
-    /// fragment's children go on the host (`top_hosts`, `next_host_after`)
-    /// and which subtree a fragment removes depend on them, and detached
-    /// subtrees (list rows not yet inserted) are linked here first.
-    pub parent: Option<NodeId>,
-    /// Child nodes in order, fragments included (see `parent`).
-    pub children: Vec<NodeId>,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
     /// Where the builder of a host node was called (`#[track_caller]` of
@@ -261,7 +231,7 @@ pub(crate) struct TNode {
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
-    /// The graph sources node references read (`Tree::observe_node`).
+    /// The graph sources node references read (`ViewNodes::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
     /// Created only when a reference observes this node's lifetime.
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
@@ -269,15 +239,11 @@ pub(crate) struct TNode {
     pub(crate) origins: Vec<(Prop, EffectId)>,
 }
 
-impl TNode {
-    /// A detached node of `owner` (`None`: a fragment), with no children,
-    /// handlers or origins yet.
-    fn new(kind: Option<NodeType>, owner: Owner) -> TNode {
-        TNode {
-            kind,
+impl CoreNode {
+    /// Metadata for a node of `owner`, without handlers or origins yet.
+    fn new(owner: Owner) -> CoreNode {
+        CoreNode {
             references: Vec::new(),
-            parent: None,
-            children: Vec::new(),
             owner,
             at: None,
             handlers: None,
@@ -288,16 +254,14 @@ impl TNode {
             origins: Vec::new(),
         }
     }
-
-    /// Whether the node is a host node (not a fragment).
-    pub(crate) fn is_host(&self) -> bool {
-        self.kind.is_some()
-    }
 }
 
+/// Metadata keyed by the authoritative engine node IDs.
+pub(crate) struct CoreNodes(IdMap<CoreNode>);
+
 /// Core metadata and direct access to the engine tree.
-pub(crate) struct Tree {
-    pub(crate) nodes: IdMap<TNode>,
+pub(crate) struct ViewNodes {
+    nodes: CoreNodes,
     next_id: u64,
     /// The root node (`NodeType::Root`), made with the tree; it lives as long as the App.
     pub root: NodeId,
@@ -309,17 +273,17 @@ pub(crate) struct Tree {
     live_region_revision: Trigger,
 }
 
-impl Tree {
+impl ViewNodes {
     /// The tree of an App the host started: `engine` writes the engine's
     /// tree, and the root node (`NodeType::Root`, of the root `owner`) is
     /// created in it.
     pub(crate) fn new(engine: Writer, owner: Owner) -> Self {
         let root = NodeId(1);
         let mut nodes = IdMap::default();
-        nodes.insert(root, TNode::new(Some(NodeType::Root), owner));
+        nodes.insert(root, CoreNode::new(owner));
         engine.create(root, NodeKind::new(NodeType::Root));
-        Tree {
-            nodes,
+        ViewNodes {
+            nodes: CoreNodes(nodes),
             next_id: 1,
             root,
             engine,
@@ -332,8 +296,9 @@ impl Tree {
         }
     }
 
-    fn root_node(&self) -> &TNode {
+    fn root_node(&self) -> &CoreNode {
         self.nodes
+            .0
             .get(&self.root)
             .expect("invariant: the root node lives as long as the App")
     }
@@ -346,38 +311,35 @@ impl Tree {
     /// Release excess metadata capacity without discarding live nodes,
     /// reactive handles, pending edits or user resources.
     pub(crate) fn release_capacity(&mut self) {
-        for node in self.nodes.values_mut() {
-            node.children.shrink_to_fit();
+        for node in self.nodes.0.values_mut() {
             node.origins.shrink_to_fit();
         }
-        self.nodes.shrink_to_fit();
+        self.nodes.0.shrink_to_fit();
         self.future_text_edits.borrow_mut().0.shrink_to_fit();
     }
 
-    /// A new node of `owner` (`None`: a fragment).
-    pub(crate) fn create(&mut self, kind: Option<NodeType>, owner: Owner) -> NodeId {
+    /// A new detached engine node and its owner metadata.
+    pub(crate) fn create(&mut self, kind: NodeType, owner: Owner) -> NodeId {
         self.next_id += 1;
         let id = NodeId(self.next_id);
-        self.nodes.insert(id, TNode::new(kind, owner));
-        if let Some(kind) = kind {
-            self.engine().create(id, NodeKind::new(kind));
-        }
+        self.nodes.0.insert(id, CoreNode::new(owner));
+        self.engine().create(id, NodeKind::new(kind));
         id
     }
 
     /// Node `id`, if it exists.
-    pub(crate) fn get(&self, id: NodeId) -> Option<&TNode> {
-        self.nodes.get(&id)
+    pub(crate) fn get(&self, id: NodeId) -> Option<&CoreNode> {
+        self.nodes.0.get(&id)
     }
 
     /// Node `id` for change, if it exists.
-    pub(crate) fn get_mut(&mut self, id: NodeId) -> Option<&mut TNode> {
-        self.nodes.get_mut(&id)
+    pub(crate) fn get_mut(&mut self, id: NodeId) -> Option<&mut CoreNode> {
+        self.nodes.0.get_mut(&id)
     }
 
     /// The handlers of node `id`, created on first use.
     pub(crate) fn handlers_mut(&mut self, id: NodeId) -> Option<&mut Handlers> {
-        let n = self.nodes.get_mut(&id)?;
+        let n = self.nodes.0.get_mut(&id)?;
         Some(n.handlers.get_or_insert_with(Default::default))
     }
 
@@ -405,7 +367,7 @@ impl Tree {
         id: NodeId,
         at: &'static Location<'static>,
     ) -> Option<NodeObservation> {
-        let node = self.nodes.get_mut(&id)?;
+        let node = self.nodes.0.get_mut(&id)?;
         if let Some(observation) = node.observation {
             return Some(observation);
         }
@@ -438,7 +400,7 @@ impl Tree {
         at: &'static Location<'static>,
     ) -> Option<Signal<kivact_types::Presence>> {
         let initial = self.reader().presence(id);
-        let node = self.nodes.get_mut(&id)?;
+        let node = self.nodes.0.get_mut(&id)?;
         Some(
             *node
                 .presence
@@ -450,7 +412,7 @@ impl Tree {
     /// Focusable and disabled remain node-local rules.
     pub(crate) fn is_visible(&self, mut id: NodeId) -> bool {
         loop {
-            let Some(node) = self.get(id) else {
+            let Some(_) = self.get(id) else {
                 return false;
             };
             if self.with_node(id, |node| {
@@ -458,7 +420,7 @@ impl Tree {
             }) {
                 return false;
             }
-            let Some(parent) = node.parent else {
+            let Some(parent) = self.reader().parent(id) else {
                 return true;
             };
             id = parent;
@@ -485,11 +447,11 @@ impl Tree {
     }
 
     pub(crate) fn is_in_live_region(&self, mut id: NodeId) -> bool {
-        while let Some(node) = self.get(id) {
+        while self.get(id).is_some() {
             if self.is_live_region(id) {
                 return true;
             }
-            let Some(parent) = node.parent else {
+            let Some(parent) = self.reader().parent(id) else {
                 return false;
             };
             id = parent;
@@ -564,7 +526,7 @@ impl Tree {
         writer: Option<EffectId>,
     ) -> bool {
         let prop = value.prop();
-        let Some(node) = self.nodes.get_mut(&id) else {
+        let Some(node) = self.nodes.0.get_mut(&id) else {
             return false;
         };
         if let Some(writer) = writer {
@@ -610,7 +572,7 @@ impl Tree {
     }
 
     pub(crate) fn set_observe(&mut self, id: NodeId, on: bool) {
-        if self.nodes.contains_key(&id) {
+        if self.nodes.0.contains_key(&id) {
             self.engine().observe_layout(id, on);
         }
     }
@@ -618,171 +580,59 @@ impl Tree {
     /// Whether node `id` has a record: it was created and not removed (it may be a
     /// detached list row not inserted yet).
     pub(crate) fn contains(&self, id: NodeId) -> bool {
-        self.nodes.contains_key(&id)
+        self.nodes.0.contains_key(&id)
     }
 
-    /// Nearest host ancestor (the node itself excluded).
-    pub(crate) fn host_parent(&self, id: NodeId) -> Option<NodeId> {
-        let mut cur = self.nodes.get(&id)?.parent;
-        while let Some(p) = cur {
-            let n = self.nodes.get(&p)?;
-            if n.is_host() {
-                return Some(p);
-            }
-            cur = n.parent;
-        }
-        None
-    }
-
-    /// Host nodes at the top of `id`'s subtree (itself if it is a host node).
-    pub(crate) fn top_hosts(&self, id: NodeId, out: &mut Vec<NodeId>) {
-        let Some(n) = self.nodes.get(&id) else { return };
-        if n.is_host() {
-            out.push(id);
-            return;
-        }
-        for c in &n.children {
-            self.top_hosts(*c, out);
-        }
-    }
-
-    /// The App's view: the first host node of what the App mounted below
-    /// the root (`None` while the App's view has no host node).
-    pub(crate) fn app_view(&self) -> Option<NodeId> {
-        self.root_node()
-            .children
-            .iter()
-            .find_map(|c| self.first_host(*c))
-    }
-
-    fn first_host(&self, id: NodeId) -> Option<NodeId> {
-        let n = self.nodes.get(&id)?;
-        if n.is_host() {
-            return Some(id);
-        }
-        n.children.iter().find_map(|c| self.first_host(*c))
-    }
-
-    /// First host node after `id` within its host parent (insert position).
-    pub(crate) fn next_host_after(&self, id: NodeId) -> Option<NodeId> {
-        let mut cur = id;
-        loop {
-            let parent = self.nodes.get(&cur)?.parent?;
-            let pn = self.nodes.get(&parent)?;
-            // Initial mounting appends children; avoid scanning the entire sibling
-            // list for its last child on every append.
-            if pn.children.last() == Some(&cur) {
-                if pn.is_host() {
-                    return None;
-                }
-                cur = parent;
-                continue;
-            }
-            let pos = pn.children.iter().position(|c| *c == cur)?;
-            if let Some(h) = pn.children[pos + 1..]
-                .iter()
-                .find_map(|c| self.first_host(*c))
-            {
-                return Some(h);
-            }
-            if pn.is_host() {
-                return None;
-            }
-            cur = parent;
-        }
-    }
-
-    /// Link `child` under `parent` at `index` (append if None), then attach
-    /// its top host nodes to their nearest host parent.
-    pub(crate) fn insert(&mut self, parent: NodeId, child: NodeId, index: Option<usize>) {
-        let Some(p) = self.nodes.get_mut(&parent) else {
-            return;
-        };
-        match index {
-            Some(i) if i < p.children.len() => p.children.insert(i, child),
-            _ => p.children.push(child),
-        }
-        if let Some(c) = self.nodes.get_mut(&child) {
-            c.parent = Some(parent);
-        }
-        self.attach_writes(child);
-    }
-
-    /// Attach the top host nodes of a newly linked subtree.
-    pub(crate) fn attach_writes(&mut self, child: NodeId) {
-        let before = self.next_host_after(child);
-        self.attach_writes_before(child, before);
-    }
-
-    /// Like `attach_writes` with a precomputed insertion point (lists).
-    pub(crate) fn attach_writes_before(&mut self, child: NodeId, before: Option<NodeId>) {
-        let Some(hp) = self.host_parent(child) else {
-            return;
-        };
-        let mut tops = Vec::new();
-        self.top_hosts(child, &mut tops);
-        for h in tops {
-            self.engine().insert(hp, h, before);
-        }
-    }
-
-    /// Move `child`'s top host nodes before `before`
-    /// (at the end when `None`); the tree links are not changed.
-    pub(crate) fn move_writes_before(&mut self, child: NodeId, before: Option<NodeId>) {
-        let mut tops = Vec::new();
-        self.top_hosts(child, &mut tops);
-        for h in tops {
-            self.engine().move_before(h, before);
-        }
-    }
-
-    /// Unlink and delete `id`'s subtree and its top engine nodes. The
-    /// deleted records come back, to be dropped once the tree is no longer
-    /// borrowed: their handlers hold user values whose `Drop` may use the
-    /// tree.
+    /// Remove metadata using the engine's logical subtree removal result.
     #[must_use = "drop the removed records after the tree borrow ends"]
     pub(crate) fn remove(&mut self, id: NodeId) -> Removed {
-        let Some(n) = self.nodes.get(&id) else {
+        if !self.contains(id) {
             return Removed {
                 ids: Vec::new(),
                 records: Vec::new(),
             };
+        }
+        let ids = self.remove_engine_subtree(id);
+        let mut records = Vec::new();
+        for id in &ids {
+            self.future_text_edits.borrow_mut().0.remove(id);
+            if let Some(record) = self.nodes.0.remove(id) {
+                for reference in &record.references {
+                    if reference
+                        .try_get_untracked()
+                        .and_then(crate::view::state::RefState::bound)
+                        .is_some_and(|bound| bound.node() == *id)
+                    {
+                        reference.set(crate::view::state::RefState::Detached);
+                    }
+                }
+                records.push(record);
+            }
+        }
+        Removed { ids, records }
+    }
+
+    /// Transparent boxes preserve each top-level child's exit policy. Retained
+    /// boxes wait for those child exits in the engine; core retains no links.
+    fn remove_engine_subtree(&mut self, id: NodeId) -> Vec<NodeId> {
+        let transparent = self.with_node(id, |node| {
+            node.is_some_and(|node| {
+                node.layout
+                    .as_ref()
+                    .is_some_and(|layout| layout.display == kivact_types::Display::Contents)
+            })
+        });
+        let children = if transparent {
+            self.reader().children(id)
+        } else {
+            Vec::new()
         };
-        let parent = n.parent;
-        let mut tops = Vec::new();
-        self.top_hosts(id, &mut tops);
-        for h in tops {
-            self.remove_host(h);
+        let mut descendants = Vec::new();
+        for child in children {
+            descendants.extend(self.remove_engine_subtree(child));
         }
-        if let Some(p) = parent.and_then(|p| self.nodes.get_mut(&p))
-            && let Some(pos) = p.children.iter().position(|c| *c == id)
-        {
-            p.children.remove(pos);
-        }
-        self.delete_records(id)
-    }
-
-    /// Remove a subtree whose parent link the caller rewrites itself (lists):
-    /// removes engine nodes and core records without an O(N) unlink. The
-    /// deleted records come back, as from [`Tree::remove`].
-    #[must_use = "drop the removed records after the tree borrow ends"]
-    pub(crate) fn remove_unlinked(&mut self, id: NodeId) -> Removed {
-        let mut tops = Vec::new();
-        self.top_hosts(id, &mut tops);
-        for h in tops {
-            self.remove_host(h);
-        }
-        self.delete_records(id)
-    }
-
-    /// First host node of a subtree (public to lists).
-    pub(crate) fn first_host_of(&self, id: NodeId) -> Option<NodeId> {
-        self.first_host(id)
-    }
-
-    fn remove_host(&mut self, id: NodeId) {
-        let Some(node) = self.nodes.get_mut(&id) else {
-            return;
+        let Some(node) = self.nodes.0.get_mut(&id) else {
+            return descendants;
         };
         let pop = node.exit_layout == crate::view::ExitLayout::Pop;
         let callback = node.exit_complete.take();
@@ -790,48 +640,25 @@ impl Tree {
         if notify {
             self.leaving.insert(id, Leaving { on_exit: callback });
         }
-        self.engine().remove_with_exit(id, pop, notify);
+        let removed = self.engine().remove_with_exit(id, pop, notify);
+        let mut ids = Vec::with_capacity(descendants.len() + removed.len());
+        let mut seen = std::collections::HashSet::new();
+        for node in removed
+            .first()
+            .copied()
+            .into_iter()
+            .chain(descendants)
+            .chain(removed)
+        {
+            if seen.insert(node) {
+                ids.push(node);
+            }
+        }
+        ids
     }
 
     pub(crate) fn take_exit_callback(&mut self, id: NodeId) -> Option<kivact_runtime::Handler<()>> {
         self.leaving.remove(&id).and_then(|leaving| leaving.on_exit)
-    }
-
-    /// Delete core bookkeeping after the engine subtree has been removed.
-    fn delete_records(&mut self, id: NodeId) -> Removed {
-        let mut removed = Vec::new();
-        let mut ids = Vec::new();
-        let mut stack = vec![id];
-        while let Some(x) = stack.pop() {
-            if let Some(mut n) = self.nodes.remove(&x) {
-                self.future_text_edits.borrow_mut().0.remove(&x);
-                ids.push(x);
-                stack.extend(n.children.drain(..).rev());
-                removed.push(n);
-            }
-        }
-        for (id, record) in ids.iter().zip(&removed) {
-            for reference in &record.references {
-                if reference
-                    .try_get_untracked()
-                    .and_then(crate::view::state::RefState::bound)
-                    .is_some_and(|bound| bound.node() == *id)
-                {
-                    reference.set(crate::view::state::RefState::Detached);
-                }
-            }
-        }
-        Removed {
-            ids,
-            records: removed,
-        }
-    }
-
-    /// Replace a fragment's child order; the caller updates engine attachments.
-    pub(crate) fn set_children(&mut self, parent: NodeId, children: Vec<NodeId>) {
-        if let Some(p) = self.nodes.get_mut(&parent) {
-            p.children = children;
-        }
     }
 
     /// Nearest ancestor-or-self host node with handlers matching `f`, not
@@ -840,27 +667,27 @@ impl Tree {
         &self,
         mut id: NodeId,
         stop: Option<NodeId>,
-        f: impl Fn(&TNode) -> Option<T>,
+        f: impl Fn(&CoreNode) -> Option<T>,
     ) -> Option<(NodeId, T)> {
         loop {
-            let n = self.nodes.get(&id)?;
+            let n = self.nodes.0.get(&id)?;
             if let Some(t) = f(n) {
                 return Some((id, t));
             }
             if Some(id) == stop {
                 return None;
             }
-            id = n.parent?;
+            id = self.reader().parent(id)?;
         }
     }
 
     /// Number of nodes (the Testing Library's `Stats`).
     pub(crate) fn len(&self) -> usize {
-        self.nodes.len()
+        self.nodes.0.len()
     }
 }
 
-impl Tree {
+impl ViewNodes {
     fn overlay_hidden(&self, id: NodeId) -> bool {
         self.with_node(id, |node| {
             node.is_some_and(|node| {
@@ -876,7 +703,7 @@ impl Tree {
             if node == ancestor {
                 return true;
             }
-            match self.nodes.get(&node).and_then(|n| n.parent) {
+            match self.reader().parent(node) {
                 Some(p) => node = p,
                 None => return false,
             }
@@ -917,8 +744,8 @@ impl Tree {
                 region: Some(region.id),
             });
         }
-        self.get(root)?
-            .children
+        self.reader()
+            .children(root)
             .iter()
             .find_map(|child| self.first_focus_target(*child))
     }

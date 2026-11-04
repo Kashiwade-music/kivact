@@ -473,7 +473,7 @@ fn focused_row<K: Eq + Hash + Clone + 'static, T: 'static>(
     let tree = ViewState::tree(rt);
     // The row wrapper is the child of the spacer on the way up.
     loop {
-        let parent = tree.get(wrapper)?.parent?;
+        let parent = tree.reader().parent(wrapper)?;
         if parent == spacer {
             break;
         }
@@ -679,11 +679,10 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
                         });
                     }
                 }
+                let fragment = cx.fragment();
                 let content = mount_in(rt, owner, || row(k.clone(), sig.into_value()));
-                cx.append(wrapper, content);
-                if let Some(n) = ViewState::tree_mut(rt).get_mut(wrapper) {
-                    n.parent = Some(spacer);
-                }
+                cx.append(fragment, content);
+                cx.append(wrapper, fragment);
                 order.push(wrapper);
                 fresh.push(true);
                 state.borrow_mut().rows.insert(
@@ -705,11 +704,8 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
 /// Tab order match the visual order. Kept rows move as little as
 /// possible (LIS of their old positions); new rows are inserted in place.
 fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]) {
-    let mut tree = ViewState::tree_mut(rt);
-    let old: Vec<NodeId> = tree
-        .get(spacer)
-        .map(|n| n.children.clone())
-        .unwrap_or_default();
+    let tree = ViewState::tree(rt);
+    let old = tree.reader().children(spacer);
     if old == order {
         return;
     }
@@ -732,7 +728,6 @@ fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]
         }
     }
     let live = tree.contains(spacer);
-    tree.set_children(spacer, order.clone());
     if !live {
         return;
     }
@@ -740,9 +735,9 @@ fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]
     for i in (0..order.len()).rev() {
         let w = order[i];
         if fresh[i] {
-            tree.attach_writes_before(w, next);
+            tree.engine().insert(spacer, w, next);
         } else if !stable[i] {
-            tree.move_writes_before(w, next);
+            tree.engine().move_before(w, next);
         }
         next = Some(w);
     }
