@@ -559,7 +559,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
 - **目的**: 設計書 4.1・6 章。`kivact-reactive`・`kivact-task`・`kivact-motion` を一つの crate にする。この unit は移すだけで、振る舞いも内部の形も変えない。
 - **手順**:
   1. `crates/kivact-runtime` を作り、三つの crate の `src` を module として移す（`git mv`）: reactive の file は `reactive/`、task は `task/`、motion は `motion/`。`handler`・`turn`・`time`・`machine`・`host` の module（設計書 4.4 節）は R-2・R-4・R-6 が作る。三つの crate の `lib.rs` の Role と公開を root にまとめる。`[module_rules.kivact-runtime.uses]` はこの unit では `reactive`・`task`・`motion` の三つだけを書き（`task = ["reactive"]`、`motion = ["reactive", "task"]`）、後の unit が module を足すたびに設計書 4.4 節の行を足す。
-  2. motion の純粋な計算が `kivact-types::motion`（V-1 で wire から移ったもの）を使っていることを確かめる。`kivact-motion/src/transition.rs:95` の `as_wire` は残す（N-1 で消す）。
+  2. motion の純粋な計算が `kivact-types::motion`（V-1 で wire から移ったもの）を使っていることを確かめる。V-6（18.16 節）で `Transition` は既に types の単一型の再公開となり、`as_wire` は削除済みなので、古い wrapper や変換メソッドを復活させない。
   3. 依存を直す: `kivact-style`・`kivact-i18n`・`kivact-core` が `kivact-runtime` に依存する。facade の `kivact::task`・`kivact::motion` などの再公開の path は変えない（core の再公開の module の中身だけ直す）。
   4. 0.9 節の一覧（三つの crate を消し、`kivact-runtime` を足す）。`visible_to` の `kivact-runtime` は `["kivact-style", "kivact-i18n", "kivact-core"]`。
 - **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）（runtime を使う全部）。
