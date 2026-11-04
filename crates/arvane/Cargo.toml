@@ -39,7 +39,7 @@ name = "e2e"
 path = "tests/e2e/main.rs"
 
 [dev-dependencies]
-arvane-native = { path = "../arvane-native", features = ["testing"] }
+arvane-native = { path = "../arvane-native", features = ["test"] }
 arvane-virtual = { path = "../arvane-virtual", features = ["mirror"] }
 
 [lints]

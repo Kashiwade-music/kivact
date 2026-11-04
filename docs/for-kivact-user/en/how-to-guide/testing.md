@@ -532,23 +532,21 @@ returns the folder.
 
 To look at the same data on a passing test, print `screen.accessibility_tree()`
 (what a screen reader sees) or `screen.debug()` (the retained tree), or save
-`screen.screenshot().save_png("frame.png")`. Two environment variables help
-while you debug: `KIVACT_TEST_LIVE=1` draws every step to the real window so you
-can watch, and `KIVACT_TEST_HOLD_MS=3000` keeps the window open for three
-seconds when a test ends.
+`screen.screenshot().save_png("frame.png")`. Every settle draws requested frames.
+`KIVACT_TEST_HOLD_MS=3000` keeps the mirror open for three seconds when a test ends.
 
 ## Run tests in CI
 
 Tests run with the normal `cargo test`. What differs from unit tests is the
 window:
 
-- **A desktop session gives real windows.** With the default options, a test
-  screen is shown in a real window when one can be opened, and is otherwise
-  rendered headless. Both draw the same pixels, so results do not depend on it.
-  `RenderOptions::from_env()` is stricter: it requires a real window, unless
-  `KIVACT_TEST_HEADLESS=1` is set, which is meant for a developer's own machine.
-  `window: WindowMode::Real` requires one explicitly, and `WindowMode::Headless`
-  never opens one.
+- **A desktop session gives real mirrors.** `RenderOptions::default()` and
+  `RenderOptions::from_env()` read `KIVACT_TEST_MIRROR`: `off` keeps frames without
+  a native window, `auto` opens a mirror when possible (the default), and `required`
+  fails if one cannot open. Set `mirror: MirrorMode::Off`, `MirrorMode::Auto`, or
+  `MirrorMode::Required` explicitly to override that preference.
+  `RenderOptions::from_env()` also reads `KIVACT_TEST_GPU=1`; GPU presentation
+  requires a native mirror. CPU rendering produces the same pixels in every mode.
 - **On a CI machine without a display** the default options fall back to
   headless, and everything above works. If you want real windows there (to
   exercise the whole windowing path), run the job inside a virtual display

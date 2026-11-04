@@ -98,7 +98,7 @@ impl Host {
     /// The first step of every entry after the shell's start (`handle`, the test
     /// driver's `inject`): the start is over, and the platform effects queued
     /// meanwhile are carried out.
-    pub(super) fn enter<W: Window>(&mut self, window: &mut W) {
+    pub(super) fn enter(&mut self, window: &mut Window<'_>) {
         if self.phase == Phase::Starting {
             self.phase = Phase::Running;
         }
@@ -106,10 +106,10 @@ impl Host {
     }
     /// Queue `event` and pump (the test driver's injection).
     #[cfg(feature = "testing")]
-    pub(super) fn inject<W: Window>(
+    pub(super) fn inject(
         &mut self,
         event: HostEvent,
-        window: &mut W,
+        window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
         if self.closing() {
             return Ok(ShellControl::Wait);
@@ -121,7 +121,7 @@ impl Host {
         self.model.borrow_mut().push(event);
         self.pump(window)
     }
-    pub(super) fn effects<W: Window>(&mut self, window: &mut W) {
+    pub(super) fn effects(&mut self, window: &mut Window<'_>) {
         if self.phase == Phase::Starting || self.closing() {
             return;
         }
@@ -188,7 +188,7 @@ impl Host {
     /// Hand the window the imports and drops of shared textures the turn
     /// wrote, in order; answer each import.
     #[cfg(feature = "gpu-interop")]
-    pub(super) fn externals<W: Window>(&mut self, window: &mut W) {
+    pub(super) fn externals(&mut self, window: &mut Window<'_>) {
         use crate::model::ExternalWrite;
         use kivact_types::ExternalImport;
         let writes = std::mem::take(&mut self.model.borrow_mut().external_writes);
@@ -214,7 +214,7 @@ impl Host {
     }
     /// Tell the client when the window's adapter changed.
     #[cfg(feature = "gpu-interop")]
-    fn adapter_changed<W: Window>(&mut self, window: &W) {
+    fn adapter_changed(&mut self, window: &Window<'_>) {
         let adapter = window.gpu_adapter();
         if adapter != self.adapter {
             self.adapter = adapter.clone();
@@ -226,9 +226,9 @@ impl Host {
     /// Draw and show one frame. `started` is when the redraw began (its
     /// layout included); the frame log gets the scene, raster and present
     /// spans of a frame shown.
-    pub(super) fn present<W: Window>(
+    pub(super) fn present(
         &mut self,
-        window: &mut W,
+        window: &mut Window<'_>,
         started: Instant,
     ) -> Result<Presented, kivact_types::Failure> {
         let mut model = self.model.borrow_mut();
@@ -262,11 +262,11 @@ impl Host {
     /// then its platform effects are answered and the tree laid out before
     /// anything else runs, so the next turn sees the effect results and the
     /// new geometry.
-    pub(super) fn turn<W: Window>(
+    pub(super) fn turn(
         &mut self,
         events: &[HostEvent],
         boundaries: &[Boundary],
-        window: &mut W,
+        window: &mut Window<'_>,
     ) -> Result<(), ShellError> {
         if self.closing() {
             return Ok(());
@@ -294,7 +294,7 @@ impl Host {
             .borrow_mut()
             .relayout(&mut self.engine.borrow_mut());
     }
-    pub(super) fn pump<W: Window>(&mut self, window: &mut W) -> Result<ShellControl, ShellError> {
+    pub(super) fn pump(&mut self, window: &mut Window<'_>) -> Result<ShellControl, ShellError> {
         if self.closing() {
             return Ok(ShellControl::Wait);
         }
@@ -388,7 +388,7 @@ impl Host {
         // technology after it (the redraw pumps again): after a layout pass
         // the update is O(nodes) on both sides of AccessKit, and the frame
         // need not wait for it.
-        let after_frame = self.paint_due() && window.defers_accessibility();
+        let after_frame = self.paint_due();
         if !after_frame {
             self.model
                 .borrow_mut()
@@ -400,7 +400,7 @@ impl Host {
     /// until the native queue is drained: a due wake runs it for every input
     /// that arrived meanwhile, so bursts (typing, drags) cost one turn,
     /// layout and frame instead of one each.
-    pub(super) fn defer<W: Window>(&mut self, window: &mut W) -> ShellControl {
+    pub(super) fn defer(&mut self, window: &mut Window<'_>) -> ShellControl {
         if self.paint_due() {
             window.request_redraw();
         }
@@ -418,7 +418,7 @@ impl Host {
     }
     /// Show the cursor the hover chain asks for (the model's rule),
     /// when it changed.
-    fn show_cursor<W: Window>(&mut self, window: &W) {
+    fn show_cursor(&mut self, window: &Window<'_>) {
         let mut model = self.model.borrow_mut();
         let cursor = model.cursor();
         if model.pointer.show(cursor) {
@@ -437,7 +437,7 @@ impl Host {
             LastFrame::Skipped { retry_at_ns } => Some(retry_at_ns),
         }
     }
-    fn control<W: Window>(&self, window: &W) -> ShellControl {
+    fn control(&self, window: &Window<'_>) -> ShellControl {
         let model = self.model.borrow();
         let frame_deadline = if model.frame.surface_active() {
             model.frame_deadline()

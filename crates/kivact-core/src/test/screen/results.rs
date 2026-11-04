@@ -55,11 +55,11 @@ impl Screenshot {
         }
     }
 
-    fn frame(&self) -> TestFrame<'_> {
+    fn frame(&self) -> TestFrame {
         TestFrame {
             width: self.width,
             height: self.height,
-            pixels: &self.pixels,
+            pixels: self.pixels.clone().into(),
         }
     }
 }

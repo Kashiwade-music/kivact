@@ -34,7 +34,7 @@ use kivact::gpu_interop::{
     SharedImage, SharedTextureFormat, SharedTextures,
 };
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, WindowMode, gpu_unavailable};
+use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
 
 use super::support::mount_with;
 
@@ -136,7 +136,7 @@ fn gpu_options(backend: GpuBackend) -> RenderOptions {
         width: (2 * W) as f64,
         height: (H + 40) as f64,
         gpu: true,
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         gpu_preference: GpuPreference {
             backend: Some(backend),
             ..GpuPreference::default()

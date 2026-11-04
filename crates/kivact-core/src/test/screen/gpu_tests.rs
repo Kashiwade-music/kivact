@@ -27,7 +27,7 @@ use super::support::button_box;
 use crate::control::canvas;
 use crate::draw::{Point, Rect};
 use crate::prelude::{IntoView, NodeBuilder, column, node, row, style, text};
-use crate::test::{RenderOptions, WindowMode};
+use crate::test::{MirrorMode, RenderOptions};
 use kivact_style::{Align, Color, Justify, pct, rgba};
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color
@@ -309,7 +309,7 @@ fn shot_of(gpu: bool, scene: fn() -> crate::view::View) -> (Screenshot, Option<R
         RenderOptions {
             width: 480.0,
             height: 360.0,
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             ..RenderOptions::default()
         },
         gpu,
@@ -363,7 +363,7 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
             RenderOptions {
                 width: 180.0,
                 height: 100.0,
-                window: WindowMode::Real,
+                mirror: MirrorMode::Required,
                 ..RenderOptions::default()
             },
             gpu,
@@ -543,7 +543,7 @@ fn gpu_frames_follow_a_scale_change() {
                 width: 480.0,
                 height: 360.0,
                 scale,
-                window: WindowMode::Real,
+                mirror: MirrorMode::Required,
                 ..RenderOptions::default()
             },
             gpu,

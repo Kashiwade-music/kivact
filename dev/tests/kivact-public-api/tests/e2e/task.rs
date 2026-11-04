@@ -260,10 +260,10 @@ fn queue_orders_coalesces_recovers_and_drains() {
     assert_eq!(fifo.state(), AsyncState::Pending);
     screen.advance(ms(15));
     screen.advance(ms(10)); // t = 25: run 2 failed at 20, run 3 running
-    assert!(
-        matches!(fifo.state(), AsyncState::Failed(_)),
-        "{:?}",
-        fifo.state()
+    assert_eq!(
+        fifo.state(),
+        AsyncState::Pending,
+        "queued work remains pending after a failed run"
     );
     assert_eq!(fifo.input(), Some(3), "the running run's input");
     screen.advance(ms(100));

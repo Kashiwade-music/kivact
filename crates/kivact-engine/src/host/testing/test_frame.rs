@@ -3,17 +3,17 @@
 use std::path::Path;
 
 /// A frame the host presented: 0x00RRGGBB pixels, row by row.
-#[derive(Clone, Copy, Debug)]
-pub struct TestFrame<'a> {
+#[derive(Clone, Debug)]
+pub struct TestFrame {
     /// Width in physical pixels.
     pub width: u32,
     /// Height in physical pixels.
     pub height: u32,
     /// `width × height` pixels.
-    pub pixels: &'a [u32],
+    pub pixels: std::sync::Arc<[u32]>,
 }
 
-impl TestFrame<'_> {
+impl TestFrame {
     /// The pixel at physical `(x, y)`.
     pub fn pixel(&self, x: u32, y: u32) -> Option<u32> {
         (x < self.width && y < self.height).then(|| self.pixels[(y * self.width + x) as usize])

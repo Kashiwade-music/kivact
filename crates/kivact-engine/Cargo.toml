@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Kivact internal engine: retained UI state, interaction, scene generation and the Arvane window bridge"
 
 [dependencies]
+arvane-virtual = { path = "../arvane-virtual", version = "0.1.0", optional = true }
 arvane-native = { path = "../arvane-native", version = "0.1.0" }
 unicode-segmentation.workspace = true
 kivact-layout = { path = "../kivact-layout", version = "0.1.0" }
@@ -30,7 +31,7 @@ gpu = ["arvane/gpu"]
 # the scene's external frames and the adapter the window reports.
 gpu-interop = ["gpu", "arvane/gpu-interop"]
 # The in-process test driver on real windows (`testing`).
-testing = ["dep:png"]
+testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png"]
 
 [[test]]
 name = "host_locale"

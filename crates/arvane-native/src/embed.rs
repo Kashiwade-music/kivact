@@ -8,9 +8,9 @@ use kivact_types::ParentWindow;
 mod windows;
 #[cfg(target_os = "linux")]
 mod x11;
-#[cfg(all(windows, feature = "testing"))]
+#[cfg(all(windows, feature = "test"))]
 pub use windows::TestParent;
-#[cfg(all(target_os = "linux", feature = "testing"))]
+#[cfg(all(target_os = "linux", feature = "test"))]
 pub use x11::test_parent::TestParent;
 /// Open a child of `parent`, constructing its handler on the native window's
 /// UI thread.

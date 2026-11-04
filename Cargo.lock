@@ -1854,6 +1854,7 @@ version = "0.1.0"
 dependencies = [
  "arvane",
  "arvane-native",
+ "arvane-virtual",
  "kivact-editing",
  "kivact-layout",
  "kivact-types",

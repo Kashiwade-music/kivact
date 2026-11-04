@@ -251,7 +251,7 @@ cargo test -p kivact-ui-creative --test consumer -- --test-threads=1
 
 `KIVACT_TEST_GPU=1` requests and asserts the GPU renderer for consumer tests;
 the default asserts the CPU renderer. Cargo must also enable the facade's `gpu`
-feature when requesting GPU. The tests use `WindowMode::Real`. Catalog evidence
+feature when requesting GPU. The tests use `MirrorMode::Required`. Catalog evidence
 uses `KIVACT_CATALOG_EVIDENCE=<directory>` and `KIVACT_CATALOG_GPU=1`.
 
 Tabler SVG

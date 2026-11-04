@@ -13,7 +13,7 @@ use crate::support::mount_with;
 use kivact::interaction::{RangeThumb, Scalar, ScalarState, use_range_scalar, use_scalar};
 use kivact::prelude::*;
 use kivact::style::Position;
-use kivact::test::{RenderOptions, Screen, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions, Screen};
 use kivact::ui::{EditPhase, ScalarRange};
 use kivact::view::{MouseButton, PointerKind};
 
@@ -29,7 +29,7 @@ const THUMB: f64 = 20.0;
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

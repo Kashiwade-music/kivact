@@ -13,9 +13,9 @@ impl Model {
     /// order; a parent's changed children detach removed descendants in the shell.
     /// Focus alone may send an empty delta. IDs can be allocated before acceptance,
     /// but hashes, clipping/dependency metadata and dirt commit only on acceptance.
-    pub(crate) fn accessibility<W: arvane::Window>(
+    pub(crate) fn accessibility(
         &mut self,
-        window: &mut W,
+        window: &mut arvane::Window<'_>,
         active: bool,
         engine: &mut arvane::Engine,
     ) {

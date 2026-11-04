@@ -303,13 +303,13 @@ fn scroll_to_brings_a_row_that_is_not_mounted_into_view() {
 #[test]
 fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus() {
     use kivact::interaction::{ListPolicy, ListSelection, use_list};
-    use kivact::test::{RenderOptions, WindowMode};
+    use kivact::test::{MirrorMode, RenderOptions};
     use kivact::ui::ListItem;
     use kivact::view::Key;
 
     let (screen, nav) = crate::support::mount_with(
         RenderOptions {
-            window: WindowMode::Real,
+            mirror: MirrorMode::Required,
             ..RenderOptions::from_env()
         },
         || {

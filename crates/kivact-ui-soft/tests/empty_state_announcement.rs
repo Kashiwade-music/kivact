@@ -3,14 +3,14 @@ use kivact::control::{NodeBuilder, column};
 use kivact::primitive::NodeExt;
 use kivact::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::view::{LiveRegion, Role, show};
 use kivact_ui_soft::empty_state;
 
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
-        window: WindowMode::Headless,
+        mirror: MirrorMode::Off,
         ..RenderOptions::default()
     }
 }

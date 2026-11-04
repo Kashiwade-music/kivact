@@ -10,14 +10,14 @@ use crate::support::mount_with;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::style::Cursor;
-use kivact::test::{RenderOptions, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions};
 use kivact::ui::ScalarRange;
 use kivact::view::{Handled, KeyEvent};
 use kivact::view::{MouseButton, Orientation};
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

@@ -1,4 +1,4 @@
-//! Role: Real windows for tests (feature `testing`).
+//! Role: Real windows for tests (feature `test`).
 //!
 //! A test process gets one display: a UI thread started on first use that
 //! owns the only winit event loop the process may ever create (winit

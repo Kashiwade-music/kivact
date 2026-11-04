@@ -1,7 +1,7 @@
 //! Role: Verify Soft's animated rows preserve the standard toast lifecycle.
 use kivact::control::column;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui::{Toast, ToastOptions, button, toast_region, toaster};
 use kivact::view::{Key, Role};
 use std::cell::Cell;
@@ -11,7 +11,7 @@ use std::time::Duration;
 fn options() -> RenderOptions {
     RenderOptions {
         theme: kivact_ui_soft::theme(ThemeMode::Light),
-        window: WindowMode::Headless,
+        mirror: MirrorMode::Off,
         ..RenderOptions::default()
     }
 }

@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact_engine::api::Client;
-use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
+use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
 
 use kivact_engine::contract::{HostEvent, TurnOutput};
 
@@ -44,7 +44,7 @@ fn start(locale: Option<&str>) -> (ArvaneTestHost, Rc<RefCell<Told>>) {
             },
         ),
         TestHostOptions {
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             locale: locale.map(str::to_owned),
             ..TestHostOptions::default()
         },

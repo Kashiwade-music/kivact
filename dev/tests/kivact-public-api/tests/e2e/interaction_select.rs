@@ -10,7 +10,7 @@ use std::hash::Hash;
 use crate::support::mount_with;
 use kivact::interaction::{SelectApi, use_select};
 use kivact::prelude::*;
-use kivact::test::{Element, RenderOptions, Screen, WindowMode};
+use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
 use kivact::ui::ListItem;
 use kivact::view::Modifiers;
 use kivact::view::{A11yAction, Placement, overlay};
@@ -19,7 +19,7 @@ type Opt = ListItem<&'static str>;
 
 fn real_window() -> RenderOptions {
     RenderOptions {
-        window: WindowMode::Real,
+        mirror: MirrorMode::Required,
         ..RenderOptions::from_env()
     }
 }

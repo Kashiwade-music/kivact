@@ -44,12 +44,12 @@ use crate::KeyResult;
 use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
 use arvane::Window;
-use arvane::{NativeWindow, Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
+use arvane::{Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_types::{KeyInput, KeyPhase, LifecycleEvent, PointerKind, PointerPhase};
 impl arvane::Handler for Host {
     fn start(
         &mut self,
-        window: &mut NativeWindow<'_>,
+        window: &mut Window<'_>,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
         let store_waker = waker.clone();
@@ -59,7 +59,7 @@ impl arvane::Handler for Host {
     fn event(
         &mut self,
         event: ShellEvent,
-        window: &mut NativeWindow<'_>,
+        window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
         self.handle(event, window)
     }
@@ -67,9 +67,9 @@ impl arvane::Handler for Host {
 impl Host {
     /// Start the client in `window`, loading images with `store`: the
     /// shell's start, and the test driver's.
-    pub(super) fn begin<W: Window>(
+    pub(super) fn begin(
         &mut self,
-        window: &mut W,
+        window: &mut Window<'_>,
         waker: HostWaker,
         store: arvane::asset::AssetStore,
     ) -> Result<ShellControl, ShellError> {
@@ -114,10 +114,10 @@ impl Host {
     }
     /// Handle one shell event in `window`: the shell's events, and the
     /// ones the test driver injects.
-    pub(super) fn handle<W: Window>(
+    pub(super) fn handle(
         &mut self,
         event: ShellEvent,
-        window: &mut W,
+        window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
         if self.closing() {
             return Ok(ShellControl::Wait);
@@ -348,7 +348,7 @@ impl Host {
     /// Whether frames can be drawn (`Environment::surface_active`; no frame
     /// ticks otherwise): the application is in the foreground, the window
     /// has a surface and is not empty (minimized).
-    fn drawable<W: Window>(&self, window: &W) -> bool {
+    fn drawable(&self, window: &Window<'_>) -> bool {
         let size = window.size();
         !self.suspended
             && window.surface_generation().is_some()
@@ -356,7 +356,7 @@ impl Host {
             && size.height > 0.0
     }
     /// Report whether frames can be drawn, when that changed.
-    fn report_drawable<W: Window>(&mut self, window: &W) {
+    fn report_drawable(&mut self, window: &Window<'_>) {
         let drawable = self.drawable(window);
         self.model.borrow_mut().set_surface(drawable);
     }
@@ -365,7 +365,7 @@ impl Host {
     /// the safe area, the locale) is reported in one `EnvChanged` when any
     /// of it did. The mouse settings are Arvane's own (it counts clicks and
     /// scales wheels).
-    fn environment_changed<W: Window>(&mut self, window: &W) {
+    fn environment_changed(&mut self, window: &Window<'_>) {
         let now = window.environment();
         let before = std::mem::replace(&mut self.environment, now.clone());
         let mut model = self.model.borrow_mut();

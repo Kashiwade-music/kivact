@@ -6,8 +6,8 @@
 //! artifacts, pooled windows and tests on parallel threads.
 //!
 //! Set `KIVACT_TEST_HOLD_MS` to keep each window open that long at the end
-//! of a test (to look at it, or to read it with UI Automation), and
-//! `KIVACT_TEST_LIVE=1` to draw every settle.
+//! of a test (to look at it, or to read it with UI Automation).
+//! Every settle draws requested frames.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -23,7 +23,7 @@ use super::model::Screen;
 use super::support::button_box;
 use crate::motion::FrameRate;
 use crate::prelude::{IntoView, NodeBuilder, Role, column, node, node_ref, row, show, style, text};
-use crate::test::{RenderOptions, WindowMode, render, render_with};
+use crate::test::{MirrorMode, RenderOptions, render, render_with};
 
 fn counter() -> impl IntoView {
     let count = signal(1);
@@ -41,11 +41,11 @@ fn counter() -> impl IntoView {
     .style(style().gap(8.0).padding(16.0))
 }
 
-fn small(window: WindowMode) -> RenderOptions {
+fn small(mirror: MirrorMode) -> RenderOptions {
     RenderOptions {
         width: 400.0,
         height: 300.0,
-        window,
+        mirror,
         ..RenderOptions::default()
     }
 }
@@ -53,7 +53,7 @@ fn small(window: WindowMode) -> RenderOptions {
 #[test]
 fn a_counter_is_clicked_typed_into_and_composed_in_a_real_window() {
     let t = Instant::now();
-    let screen = render_with(small(WindowMode::Auto), counter);
+    let screen = render_with(small(MirrorMode::Auto), counter);
     let mount_time = t.elapsed();
     let turns = screen.stats().turns;
     let t = Instant::now();
@@ -99,14 +99,14 @@ fn frames_are_deterministic_and_headless_frames_match_real_ones() {
         column(text("Hello, Kivact! 日本").style(style().font_size(20.0)))
             .style(style().padding(8.0))
     };
-    let a = render_with(small(WindowMode::Auto), label);
-    let b = render_with(small(WindowMode::Auto), label);
-    let c = render_with(small(WindowMode::Headless), label);
+    let a = render_with(small(MirrorMode::Auto), label);
+    let b = render_with(small(MirrorMode::Auto), label);
+    let c = render_with(small(MirrorMode::Off), label);
     assert!(!c.has_window());
     assert_eq!(a.screenshot().hash(), b.screenshot().hash());
     assert_eq!(a.screenshot().hash(), c.screenshot().hash());
     // Text is drawn: a frame without it differs.
-    let empty = render_with(small(WindowMode::Headless), || {
+    let empty = render_with(small(MirrorMode::Off), || {
         column(()).style(style().padding(8.0))
     });
     assert_ne!(a.screenshot().hash(), empty.screenshot().hash());
@@ -141,7 +141,7 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
         let screen = render_with(
             RenderOptions {
                 frame_period_ns: period,
-                ..small(WindowMode::Headless)
+                ..small(MirrorMode::Off)
             },
             move || {
                 s.set(Some(frame_loop(move |_: FrameInfo| c.set(c.get() + 1))));
@@ -170,7 +170,7 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
     let times: Rc<std::cell::RefCell<Vec<Duration>>> = Rc::default();
     let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
     let (t, s) = (times.clone(), slot.clone());
-    let screen = render_with(small(WindowMode::Headless), move || {
+    let screen = render_with(small(MirrorMode::Off), move || {
         s.set(Some(frame_loop(move |info: FrameInfo| {
             t.borrow_mut().push(info.now);
         })));
@@ -219,7 +219,7 @@ fn a_display_rate_loop_follows_the_window_to_a_faster_display() {
     let count = Rc::new(Cell::new(0u64));
     let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
     let (c, s) = (count.clone(), slot.clone());
-    let screen = render_with(small(WindowMode::Headless), move || {
+    let screen = render_with(small(MirrorMode::Off), move || {
         s.set(Some(frame_loop(move |_: FrameInfo| c.set(c.get() + 1))));
         text("frames")
     });
@@ -238,7 +238,7 @@ fn a_display_rate_loop_follows_the_window_to_a_faster_display() {
 
 #[test]
 fn a_minimized_window_asks_for_no_redraws_until_it_is_restored() {
-    let screen = render_with(small(WindowMode::Headless), counter);
+    let screen = render_with(small(MirrorMode::Off), counter);
     screen.with_host(|host| {
         host.redraw();
     });
@@ -258,7 +258,7 @@ fn a_minimized_window_asks_for_no_redraws_until_it_is_restored() {
 
 #[test]
 fn the_environment_and_platform_requests_are_the_tests() {
-    let screen = render_with(small(WindowMode::Auto), || {
+    let screen = render_with(small(MirrorMode::Auto), || {
         let status = signal("idle".to_string());
         column((
             text(move || format!("reduced motion: {}", platform::reduced_motion())),
@@ -397,11 +397,11 @@ fn failures_leave_artifacts_windows_are_pooled_and_tests_run_in_parallel() {
 #[test]
 #[ignore = "a measurement, not a check"]
 fn cost() {
-    let one = |window: WindowMode| {
+    let one = |mirror: MirrorMode| {
         let t = Instant::now();
         let screen: Screen = render_with(
             RenderOptions {
-                window,
+                mirror,
                 ..RenderOptions::default()
             },
             counter,
@@ -417,7 +417,7 @@ fn cost() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(600);
     let mut report = String::new();
-    for window in [WindowMode::Real, WindowMode::Headless] {
+    for window in [MirrorMode::Required, MirrorMode::Off] {
         one(window);
         for threads in [1, 8, 24] {
             let t = Instant::now();

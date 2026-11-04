@@ -84,7 +84,7 @@ impl NativeAccessibility {
 
     /// A bridge whose logical bounds are mapped to the window's pixels with
     /// `scale`, whatever the window's own scale factor.
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "test")]
     pub(crate) fn with_scale(
         event_loop: &ActiveEventLoop,
         window: &Window,
@@ -125,7 +125,7 @@ impl NativeAccessibility {
     }
 
     /// The window's tree, for a handle on another thread.
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "test")]
     pub(crate) fn platform_tree(&self) -> PlatformTree {
         self.shared.clone()
     }
@@ -193,7 +193,7 @@ impl NativeAccessibility {
     /// Forget the accepted tree (a pooled test window handed to a new
     /// test): the platform keeps showing what it was handed until the next
     /// tree, which is complete.
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "test")]
     pub(crate) fn forget(&mut self) {
         self.shared.forget();
     }

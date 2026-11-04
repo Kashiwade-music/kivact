@@ -2,7 +2,7 @@
 use kivact::control::column;
 use kivact::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui::{ListItem, button};
 use kivact::view::{Key, Modifiers, Role};
 
@@ -11,7 +11,7 @@ fn selector_highlights_without_moving_focus_or_committing_until_activation() {
     let (screen, selected) = render_with_handle(
         RenderOptions {
             theme: kivact_ui_soft::theme(ThemeMode::Light),
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             ..RenderOptions::default()
         },
         || {
@@ -93,7 +93,7 @@ fn selector_does_not_toggle_closed_on_open_enter_when_no_option_is_enabled() {
     let (screen, selected) = render_with_handle(
         RenderOptions {
             theme: kivact_ui_soft::theme(ThemeMode::Light),
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             ..RenderOptions::default()
         },
         || {

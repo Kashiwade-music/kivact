@@ -2,7 +2,7 @@
 use kivact::interaction::{ListActivation, ListPolicy, SortOrder, TableFocus};
 use kivact::signal;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, WindowMode, render_with_handle};
+use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui::{DataColumn, data_table};
 use kivact::view::{Key, Role};
 
@@ -18,7 +18,7 @@ fn group_disclosure_preserves_selection_and_pages_and_skips_collapsed_rows() {
     let (screen, (collapsed, selected, page, filter)) = render_with_handle(
         RenderOptions {
             theme: kivact_ui_soft::theme(ThemeMode::Light),
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             ..RenderOptions::default()
         },
         || {
@@ -124,7 +124,7 @@ fn remote_pages_group_the_supplied_rows_without_slicing_them_again() {
     let (screen, page) = render_with_handle(
         RenderOptions {
             theme: kivact_ui_soft::theme(ThemeMode::Light),
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             ..RenderOptions::default()
         },
         || {

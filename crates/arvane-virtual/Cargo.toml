@@ -14,7 +14,7 @@ arvane-native = { path = "../arvane-native", version = "0.1.0", optional = true 
 
 [features]
 default = []
-mirror = ["dep:arvane-native", "arvane-native/testing"]
+mirror = ["dep:arvane-native", "arvane-native/test"]
 
 [lints]
 workspace = true

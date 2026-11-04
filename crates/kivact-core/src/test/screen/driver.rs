@@ -1,8 +1,7 @@
 //! Role: Test window driver and event automation.
 //!
 //! Lifecycle and virtual time of a `Screen`: mounting on the Arvane test
-//! driver, settling (turns until nothing is due; a frame only under
-//! `KIVACT_TEST_LIVE=1`, else when one is looked at), advancing the virtual
+//! driver, settling turns and requested redraws, advancing the virtual
 //! clock, and waiting for conditions in virtual time.
 
 use std::cell::{Cell, RefCell};
@@ -10,13 +9,13 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use kivact_engine::testing::WindowMode as HostWindow;
 use kivact_engine::testing::{ArvaneTestHost, TestFonts as HostFonts, TestHostOptions};
+use kivact_engine::testing::{GpuMode, MirrorMode as HostWindow};
 use kivact_types as p;
 
 use super::model::{FIND_TIMEOUT, Record, Screen};
 use crate::client::{AppClient, AppConfig};
-use crate::test::options::{RenderOptions, TestFonts, WindowMode};
+use crate::test::options::{MirrorMode, RenderOptions, TestFonts};
 use crate::view::View;
 use kivact_runtime::TaskState;
 use kivact_style::asset::Asset;
@@ -65,10 +64,10 @@ impl Screen {
                 TestFonts::Only(fonts) => HostFonts::Only(fonts),
                 TestFonts::System => HostFonts::System,
             },
-            window: match options.window {
-                WindowMode::Auto => HostWindow::Auto,
-                WindowMode::Real => HostWindow::Real,
-                WindowMode::Headless => HostWindow::Headless,
+            mirror: match options.mirror {
+                MirrorMode::Auto => HostWindow::Auto,
+                MirrorMode::Required => HostWindow::Required,
+                MirrorMode::Off => HostWindow::Off,
             },
             title: options.title.unwrap_or_else(|| name.clone()),
             frame_period_ns: options.frame_period_ns,
@@ -80,7 +79,7 @@ impl Screen {
             reduced_motion: options.reduced_motion,
             locale: options.host_locale.clone(),
             inline_assets: true,
-            gpu,
+            gpu: if gpu { GpuMode::Required } else { GpuMode::Off },
             #[cfg(feature = "gpu-interop")]
             gpu_preference: options.gpu_preference,
             #[cfg(not(feature = "gpu-interop"))]
@@ -113,13 +112,6 @@ impl Screen {
         s
     }
 
-    /// Whether every settle draws the frame (`KIVACT_TEST_LIVE=1`: to watch
-    /// tests in their windows).
-    fn live() -> bool {
-        static LIVE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-        *LIVE.get_or_init(|| std::env::var_os("KIVACT_TEST_LIVE").is_some_and(|v| v != "0"))
-    }
-
     /// Work the core has without an event: a requested turn, ready tasks,
     /// queued effects.
     fn pending(&self) -> bool {
@@ -131,8 +123,7 @@ impl Screen {
     }
 
     /// Run turns until nothing is due (virtual time frozen). The host
-    /// publishes the accessibility tree after its turns; frames are drawn
-    /// when they are looked at ([`Screen::present`]).
+    /// publishes the accessibility tree after each requested frame.
     fn pump(&self) {
         for _ in 0..SETTLE_LIMIT {
             let mut host = self.host.borrow_mut();
@@ -146,6 +137,10 @@ impl Screen {
             }
             if host.due() || host.woken() || self.pending() {
                 host.wake();
+                continue;
+            }
+            if host.redraw_requested() {
+                host.redraw();
                 continue;
             }
             drop(host);
@@ -172,17 +167,6 @@ impl Screen {
         self.fail("the App never settles (turns keep being due)");
     }
 
-    /// Draw the frame the host asks for, as the OS's paint message would,
-    /// and settle what drawing reports.
-    pub(super) fn present(&self) {
-        for _ in 0..16 {
-            if !self.host.borrow_mut().redraw() {
-                return;
-            }
-            self.pump();
-        }
-    }
-
     /// Settle: run turns and wait (real time, ≤ 5 s) for blocking jobs.
     pub fn run_until_idle(&self) {
         self.pump();
@@ -200,9 +184,6 @@ impl Screen {
             self.pump();
         }
         self.pump();
-        if Self::live() {
-            self.present();
-        }
     }
 
     /// Advance the virtual clock by `d`, stopping at every deadline on the

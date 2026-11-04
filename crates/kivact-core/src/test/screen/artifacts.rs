@@ -67,7 +67,6 @@ impl Screen {
     /// The last frame the host presented (settling first).
     pub fn screenshot(&self) -> Screenshot {
         self.run_until_idle();
-        self.present();
         match self.frame_now() {
             Some(frame) => frame,
             None => self.fail("screenshot: no frame was drawn (the surface is lost)"),
@@ -251,7 +250,7 @@ impl Drop for Screen {
             .ok()
             .and_then(|v| v.parse().ok())
         {
-            self.present();
+            self.run_until_idle();
             if let Ok(host) = self.host.try_borrow() {
                 host.sync_window();
             }

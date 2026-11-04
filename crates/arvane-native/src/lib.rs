@@ -62,7 +62,7 @@ mod contacts;
 mod cpu;
 mod display;
 mod key_code;
-#[cfg(feature = "testing")]
+#[cfg(feature = "test")]
 pub mod mirror;
 mod module;
 mod native_input;

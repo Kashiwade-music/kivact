@@ -3,7 +3,7 @@
 //! `render` mounts a root on the engine's in-process test driver: the
 //! production host with its real layout, text shaping, rendering and
 //! accessibility tree, shown in a real window (headless where none can
-//! open, or with `ARVANE_TEST_HEADLESS=1`), on a virtual clock. Queries by
+//! open, or with `KIVACT_TEST_MIRROR=off`), on a virtual clock. Queries by
 //! role read the accessibility tree the host publishes; interactions are
 //! real input (pointer, keys, IME, wheel, accessibility actions) checked
 //! for actionability. A failing test leaves its last frame and trees in
@@ -24,16 +24,14 @@
 //!   thread). [`Screen::advance`] sets the clock to each next deadline and
 //!   settles; [`Screen::wait_for`] and the `find_by_*` queries step virtual
 //!   time one display frame at a time (5 s by default).
-//! - Drawing: the accessibility tree and the layout are updated every
-//!   turn, so queries and actions need no frame. A frame is drawn when it is
-//!   looked at (a screenshot, a failure, `KIVACT_TEST_HOLD_MS`);
-//!   `KIVACT_TEST_LIVE=1` draws one at every settle, to watch the window.
+//! - Drawing: every settle draws requested frames and then publishes the
+//!   accessibility tree, following the production redraw path.
 //! - Options: [`RenderOptions`] defaults to 800 × 600 at scale 1, the
 //!   bundled font only, a real window (headless when none opens), the CPU
 //!   and 60 Hz. The Cargo GPU feature only enables the capability; a test
 //!   picks how it draws with `gpu` (no API says which one drew).
-//!   [`RenderOptions::from_env`] keeps those defaults except for an explicit
-//!   developer GPU/headless preference and otherwise requires a real window.
+//!   The default reads `KIVACT_TEST_MIRROR` (`off`, `auto`, or `required`).
+//!   [`RenderOptions::from_env`] also reads `KIVACT_TEST_GPU=1`.
 //!   [`render_with_handle`] also returns values made by the root setup.
 //! - Diagnostics: a failure puts the query, every candidate, the focus, the
 //!   recent actions and turns, the errors, the published accessibility tree
@@ -87,7 +85,7 @@ mod options;
 mod render;
 mod screen;
 
-pub use options::{RenderOptions, TestFonts, WindowMode};
+pub use options::{MirrorMode, RenderOptions, TestFonts};
 pub use render::{gpu_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{
