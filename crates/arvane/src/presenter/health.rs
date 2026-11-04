@@ -1,5 +1,7 @@
 //! Role: What a window's surface did with the frames that reached it.
 
+use crate::presentation::Renderer;
+
 use std::num::{NonZeroU8, NonZeroU32};
 
 /// Surface failures in a row after which presenting is an error.
@@ -22,6 +24,12 @@ pub(super) enum FrameHealth {
     Losing { losses: NonZeroU8 },
 }
 
+pub(super) enum LossAction {
+    Recover,
+    FallbackToCpu,
+    Fail,
+}
+
 impl FrameHealth {
     /// A frame was shown.
     pub(super) fn shown(&mut self) {
@@ -40,14 +48,20 @@ impl FrameHealth {
         period_ns << (frames.get() - 1).min(MAX_BACKOFF)
     }
 
-    /// A frame lost the surface: whether it is the third loss in a row
-    /// (presenting fails then).
-    pub(super) fn lost(&mut self) -> bool {
+    /// Count a consecutive surface loss and choose recovery, CPU fallback,
+    /// or failure according to the renderer that lost it.
+    pub(super) fn lost(&mut self, renderer: Renderer) -> LossAction {
         let losses = match *self {
             Self::Losing { losses } => losses.saturating_add(1),
             Self::Healthy | Self::Skipping { .. } => NonZeroU8::MIN,
         };
         *self = Self::Losing { losses };
-        losses.get() >= LOSSES
+        if losses.get() >= LOSSES {
+            LossAction::Fail
+        } else if renderer == Renderer::Gpu && losses.get() == 2 {
+            LossAction::FallbackToCpu
+        } else {
+            LossAction::Recover
+        }
     }
 }

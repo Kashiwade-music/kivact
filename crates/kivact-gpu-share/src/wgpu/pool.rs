@@ -191,7 +191,7 @@ impl Target<'_> {
         // SAFETY: as above.
         let given = unsafe { pool.raw.give(acquired) };
         if given.is_err() {
-            pool.failed = true;
+            pool.health = PoolHealth::Broken;
         }
         given
     }
@@ -205,7 +205,7 @@ pub struct Pool {
     raw: ManuallyDrop<Raw>,
     textures: Vec<::wgpu::Texture>,
     /// A raw submission failed after wgpu's: the hand-off is broken.
-    failed: bool,
+    health: PoolHealth,
     /// Keeps the native device alive while the raw objects live.
     device: ::wgpu::Device,
 }
@@ -243,7 +243,7 @@ impl Pool {
         let pool = Self {
             raw: ManuallyDrop::new(raw),
             textures,
-            failed: false,
+            health: PoolHealth::Ok,
             device: device.clone(),
         };
         Ok((pool, shared))
@@ -260,7 +260,7 @@ impl Pool {
     /// finish, usually because it still waits for a release the window
     /// never gives.
     pub fn acquire(&mut self, timeout: Duration) -> Result<Target<'_>, Error> {
-        if self.failed {
+        if matches!(self.health, PoolHealth::Broken) {
             return Err(Error::Mismatch(
                 "a submission of the pool failed: make a new pool".into(),
             ));
@@ -337,4 +337,9 @@ impl Drop for Pool {
             }
         }
     }
+}
+
+enum PoolHealth {
+    Ok,
+    Broken,
 }

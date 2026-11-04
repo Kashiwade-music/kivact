@@ -1,11 +1,11 @@
 //! Role: Creates a GpuContext on a hardware adapter and reports device failures.
 
-use super::state::{FORMAT, Failure, GpuContext, GpuEnv};
+use super::state::{DeviceLost, FORMAT, GpuContext, GpuEnv, Offscreen};
 use crate::draw;
 use crate::error::RenderError;
 use kivact_types::Size;
 use kivact_types::render::RenderScene;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
 
 /// Glyph atlas pages at most (added as needed, `encode.rs`).
@@ -69,14 +69,14 @@ impl GpuContext {
             ..Default::default()
         };
         let (device, queue, interop) = open_device(&adapter, &desc).map_err(|e| failed(&e))?;
-        let failure = Failure::default();
+        let failure = Arc::new(DeviceLost::default());
         let lost = Arc::clone(&failure);
         device.set_device_lost_callback(move |reason, message| {
-            record(&lost, format!("device lost ({reason:?}): {message}"));
+            lost.record(format!("device lost ({reason:?}): {message}"));
         });
         let uncaptured = Arc::clone(&failure);
         device.on_uncaptured_error(Arc::new(move |error: wgpu::Error| {
-            record(&uncaptured, error.to_string());
+            uncaptured.record(error.to_string());
         }));
         let settings = RenderSettings {
             memory_settings: MemorySettings {
@@ -112,7 +112,7 @@ impl GpuContext {
             caches: draw::Caches::default(),
             images: super::state::Images::new(),
             failure,
-            offscreen: None,
+            offscreen: Offscreen::None,
         };
         // One small frame makes the renderer's first buffers here, not in
         // the first frame of a window.
@@ -127,7 +127,7 @@ impl GpuContext {
                 1.0,
             )
             .map_err(|e| failed(&e))?;
-        context.offscreen = None;
+        context.offscreen = Offscreen::None;
         Ok(context)
     }
 
@@ -147,10 +147,7 @@ impl GpuContext {
     /// The first device failure (validation error or device loss), if any:
     /// the context is unusable once one happened.
     pub fn failure(&self) -> Option<String> {
-        self.failure
-            .lock()
-            .expect("GPU failure lock poisoned: a panic already happened")
-            .clone()
+        self.failure.message()
     }
 
     /// Fail when the device reported a failure.
@@ -260,33 +257,5 @@ fn backend_order(env: &GpuEnv) -> Vec<wgpu::Backends> {
         vec![wgpu::Backends::VULKAN, wgpu::Backends::DX12]
     } else {
         vec![wgpu::Backends::PRIMARY]
-    }
-}
-
-fn record(failure: &Mutex<Option<String>>, message: String) {
-    failure
-        .lock()
-        .expect("GPU failure lock poisoned: a panic already happened")
-        .get_or_insert(message);
-}
-
-impl GpuContext {
-    /// Draw one frame (`draw`) between the external frames' hand-offs: the
-    /// frames `scene` names are made ready first, and every texture
-    /// acquired is given back after, whatever `draw` returned (steps 1-3
-    /// of the module documentation).
-    pub(super) fn with_external<R>(
-        &mut self,
-        scene: &RenderScene,
-        draw: impl FnOnce(&mut Self) -> Result<R, RenderError>,
-    ) -> Result<R, RenderError> {
-        let drawn = match self.external.begin(scene) {
-            Ok(()) => draw(self),
-            Err(error) => Err(error),
-        };
-        let ended = self.external.end();
-        let drawn = drawn?;
-        ended?;
-        Ok(drawn)
     }
 }

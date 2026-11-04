@@ -7,7 +7,7 @@
 //! the context (the window) it was imported into; a scene of another
 //! window that names its id draws nothing.
 //!
-//! A frame of the context ([`GpuContext::with_external`]):
+//! A frame of the context ([`ExternalPass`]):
 //! 1. For each frame the scene names, the ready fence is read on the CPU;
 //!    a frame not ready yet is waited for, all of them together at most
 //!    [`READY_WAIT`] from the frame's start. A frame still not ready, one
@@ -30,7 +30,7 @@
 //! - Used serially on the context's thread, around the context's own
 //!   submissions (the raw submissions need it).
 //! - Every texture acquired in a frame is released in the same frame
-//!   (`with_external`), whether the frame was submitted, skipped or
+//!   (`ExternalPass`), whether the frame was submitted, skipped or
 //!   failed; frames do not nest.
 
 use crate::error::RenderError;
@@ -70,9 +70,6 @@ pub(crate) struct Bound {
 pub(crate) struct External {
     #[cfg(feature = "gpu-interop")]
     images: HashMap<ExternalImageId, Image>,
-    /// The frame being drawn ([`GpuContext::with_external`]), while one is.
-    #[cfg(feature = "gpu-interop")]
-    frame: Option<Frame>,
     /// Frames not drawn, to be noted.
     #[cfg(feature = "gpu-interop")]
     missed: Vec<ExternalFrame>,
@@ -81,15 +78,14 @@ pub(crate) struct External {
 }
 
 /// What one frame of the context draws of the images.
-#[cfg(feature = "gpu-interop")]
 #[derive(Default)]
-struct Frame {
+pub(crate) struct Frame {
+    #[cfg(feature = "gpu-interop")]
     /// The frames drawable in it.
     bound: HashMap<ExternalFrame, Bound>,
     /// The textures acquired for it.
+    #[cfg(feature = "gpu-interop")]
     acquired: Vec<(ExternalImageId, usize)>,
-    /// Its draws were submitted.
-    submitted: bool,
 }
 
 /// One imported image.
@@ -108,29 +104,19 @@ struct Image {
     missed: Option<u64>,
 }
 
-impl External {
-    /// The frame `frame`, when the frame being drawn can draw it.
+impl Frame {
     pub(crate) fn bound(&self, frame: &ExternalFrame) -> Option<&Bound> {
         #[cfg(feature = "gpu-interop")]
-        return self.frame.as_ref()?.bound.get(frame);
+        return self.bound.get(frame);
         #[cfg(not(feature = "gpu-interop"))]
         {
             let _ = frame;
             None
         }
     }
+}
 
-    /// The frame being drawn was submitted (its draws reach the queue).
-    pub(crate) fn submitted(&mut self) {
-        #[cfg(feature = "gpu-interop")]
-        {
-            self.frame
-                .as_mut()
-                .expect("invariant: draws are submitted inside `GpuContext::with_external`")
-                .submitted = true;
-        }
-    }
-
+impl External {
     /// The frames not drawn since the last call (each noted once).
     pub(crate) fn take_missed(&mut self) -> Vec<ExternalFrame> {
         #[cfg(feature = "gpu-interop")]
@@ -140,14 +126,9 @@ impl External {
     }
 
     /// Make the frames `scene` names ready to draw (steps 1 and 2 of the
-    /// module documentation). Only [`GpuContext::with_external`] calls it.
+    /// module documentation). Only [`ExternalPass`] calls it.
     #[cfg(feature = "gpu-interop")]
-    pub(super) fn begin(&mut self, scene: &RenderScene) -> Result<(), RenderError> {
-        assert!(
-            self.frame.is_none(),
-            "invariant: frames of a context do not nest"
-        );
-        let open = self.frame.insert(Frame::default());
+    fn begin(&mut self, scene: &RenderScene, open: &mut Frame) -> Result<(), RenderError> {
         if self.images.is_empty() {
             return Ok(());
         }
@@ -215,12 +196,9 @@ impl External {
 
     /// Give the textures of the frame back and signal what it drew
     /// (step 3 of the module documentation). Only
-    /// [`GpuContext::with_external`] calls it.
+    /// [`ExternalPass`] calls it.
     #[cfg(feature = "gpu-interop")]
-    pub(super) fn end(&mut self) -> Result<(), RenderError> {
-        let Some(open) = self.frame.take() else {
-            return Ok(());
-        };
+    fn end(&mut self, open: Frame, submitted: Submission) -> Result<(), RenderError> {
         let mut result = Ok(());
         for (id, slot) in open.acquired {
             if let Some(image) = self.images.get_mut(&id)
@@ -229,7 +207,7 @@ impl External {
                 result = Err(RenderError::Backend(error.to_string()));
             }
         }
-        if !open.submitted {
+        if matches!(submitted, Submission::Abandoned) {
             return result;
         }
         // The smallest and largest value drawn, by image.
@@ -330,7 +308,6 @@ fn release_all(mut image: Image) {
 #[cfg(feature = "gpu-interop")]
 impl Drop for External {
     fn drop(&mut self) {
-        let _ = self.end();
         for (_, image) in self.images.drain() {
             release_all(image);
         }
@@ -340,12 +317,63 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    pub(super) fn begin(&mut self, _: &RenderScene) -> Result<(), RenderError> {
+    fn begin(&mut self, _: &RenderScene, _: &mut Frame) -> Result<(), RenderError> {
         Ok(())
     }
 
     /// No imports: nothing to give back.
-    pub(super) fn end(&mut self) -> Result<(), RenderError> {
+    fn end(&mut self, _: Frame, _: Submission) -> Result<(), RenderError> {
         Ok(())
+    }
+}
+
+/// Acquired external textures before the frame's queue submission.
+pub(crate) struct ExternalPass<'a> {
+    external: &'a mut External,
+    frame: Frame,
+}
+/// External textures whose draws reached the queue.
+pub(crate) struct Submitted<'a>(ExternalPass<'a>);
+#[derive(Clone, Copy)]
+enum Submission {
+    Abandoned,
+    Submitted,
+}
+impl<'a> ExternalPass<'a> {
+    pub(crate) fn begin(
+        external: &'a mut External,
+        scene: &RenderScene,
+    ) -> Result<Self, RenderError> {
+        let mut pass = Self {
+            external,
+            frame: Frame::default(),
+        };
+        pass.external.begin(scene, &mut pass.frame)?;
+        Ok(pass)
+    }
+    pub(crate) fn frame(&self) -> &Frame {
+        &self.frame
+    }
+    pub(crate) fn submit(self) -> Submitted<'a> {
+        Submitted(self)
+    }
+}
+impl Submitted<'_> {
+    pub(crate) fn finish(mut self) -> Result<(), RenderError> {
+        let frame = std::mem::take(&mut self.0.frame);
+        self.0.external.end(frame, Submission::Submitted)
+    }
+}
+impl Drop for ExternalPass<'_> {
+    fn drop(&mut self) {
+        let frame = std::mem::take(&mut self.frame);
+        let _ = self.external.end(frame, Submission::Abandoned);
+    }
+}
+
+impl Drop for Submitted<'_> {
+    fn drop(&mut self) {
+        let frame = std::mem::take(&mut self.0.frame);
+        let _ = self.0.external.end(frame, Submission::Submitted);
     }
 }
