@@ -32,19 +32,19 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | A-3 | merged | f4f17dc | 指定 5 crate/統合 workspace check 0、状態点検 1〜10 完了 |
 | A-4 | merged | 19f1a69 | 新 trait 前提の確認は A-1a/1b 合流で |
 | A-5 | merged | 9d59292 | 対象 4 package check 0、全体は A-1b 合流で |
-| A-6a | doing | | native port / key / cursor / CPU 提示 |
-| A-6b | todo | | |
+| A-6a | merged | 49a6fc3 | check/統合 workspace 0、E2E は統合 target で確認 |
+| A-6b | doing | | IME / DnD pipeline |
 | E-1 | merged | 3f3b930 | 初回 check 0、xtask 0、統合 check 0 |
-| E-2 | doing | | host / launch / close / frame |
-| E-3 | doing | | pointer / key target |
-| E-4 | doing | | IME / editor |
-| E-5a | doing | | Layout / settle |
+| E-2 | merged | 20439fd | check 0、lifecycle 3/environment 6/embed 8 passed |
+| E-3 | merged | 7fb10d4 | keyboard 5/pointer 16/hover 7 passed、統合 check 0 |
+| E-4 | merged | 27be7b0 | check 0、最終 text_editing 7 passed、統合 check 0 |
+| E-5a | merged | 22f1d5e | check 0、layout E2E 15 passed、既存 state-fields は HG |
 | E-5b | merged | 6fa0834 | check 0、motion E2E 10 passed、対象 state-fields 0 |
-| E-6 | doing | | 支援技術の公開と focus 状態 |
-| E-7 | todo | | |
-| E-8 | todo | | |
+| E-6 | merged | 40a0c11 | check/統合 workspace 0、関連 E2E 5 passed |
+| E-7 | merged | 82be6c5 | check/統合 workspace 0、drawable 判定統合済 |
+| E-8 | doing | | Contents の透明化と論理木 |
 | E-9a | todo | | |
-| E-9b | todo | | |
+| E-9b | doing | | presence の公開値と出現の寿命 |
 | X-1 | merged | 025199b | all/no-default check 0、feature 17 件 0 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |

@@ -2,6 +2,8 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | E-8 | workorder の Fragment variant 指定が設計19.29と矛盾する | 設計優先で Contents 箱だけを実装し、透明判定を一つにする。C-5と同じ形へ指示書を訂正。 |
+| 2026-11-05 | E-9b | 旧 Arriving は最初の commit で Mounted になり動作中 Entering を示せない | private ArrivalPhase Pending/Animating を Arriving payload に持ち、arriving は索引一つだけ。動作完了で Mounted に遷移。 |
 | 2026-11-05 | E-2 | Pending の所有値を Handler::start の mutable 借用から移す必要がある | Launch に実際の構築中状態 Starting を加える。dummy Client/Engine を作らず、再入は invariant 違反。Sent::get で前回の環境を読み挙動を維持。 |
 | 2026-11-05 | E-3 | secondary pointer も over で Enter/Leave/Move を配送する | Hover は primary の chain だけ、各 Track.over が hit target を一所有し secondary の既存配送を保つ。 |
 | 2026-11-05 | E-4 | paint/a11y/measure の共有読取りで damage を消費していた | 編集完了時に mutable editor から既存 EditLines cache へ damage を移譲。新 journal や二重保持なしに読み取り整形を維持。 |
