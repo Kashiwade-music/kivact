@@ -88,6 +88,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | N-D1 | merged | c938d63 | fmt 0、build 不可の定義段 |
 | N-D2 | merged | b0beeae | fmt 0、build 不可の定義段 |
 | N-F1 | merged | 909b7df | fmt 0、ambient/ThemeRef/Outcome/owner/test API |
+| N-F1-props | doing | | Scroll/Overlay の reactive props と既存 callback/factory equality |
 | N-F2 | doing | | interaction API の追従 |
 | N-F3 | merged | aba3e97 | fmt 0、Recipe/TreeRows/drafting、hover caller の追補待ち |
 | N-F4 | doing | | basic/pop/game API の追従 |

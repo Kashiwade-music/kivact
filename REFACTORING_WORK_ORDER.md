@@ -1419,6 +1419,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
   5. core の内部の試験の helper（`kivact-test` の中）を新しい API に直す。
   6. `#[derive(Clone)] pub enum ActionOutcome<T> { Succeeded(T), Failed(UiError) }`。`Action::on_complete` は既存の完了通知をこの値で渡し、キャンセル時には従来どおり通知しない。
   7. `Node::accessible_disabled`・`accessible_invalid`・`accessible_expanded` は `Option<Value<bool>>`。`TextEditing::new` は `impl IntoText` を受け、Rc への変換は private な使用境界だけで行う。
+  8. Scroll.axes と Overlay の placement/align/offset/viewport_margin は IntoValue の表示入力にし実 node を保って更新する。既存 Toast equality のため Callback は app/key identity の PartialEq/Eq、ViewFn は共有 factory identity の PartialEq を持つ。
 - **unit の確認**: `cargo fmt` だけ（build 不可でよい）。
 - **規模**: L。
 - **並列**: N-F2〜N-F6 と同時（crate が別）。

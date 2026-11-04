@@ -121,4 +121,5 @@
 | 2026-11-05 | N-F4 | Menu::behavior 削除後の menubar | basic menubar は既存 headless parts と basic recipes で描画し、menu の状態/key 処理を複製しない。getter や別の注入 API は足さない。 |
 | 2026-11-05 | N-F4 | 構造を選ぶ kit option と Calendar | Drawer side/Sidebar collapse mode/OTP format を 10.6 に明記。Calendar 表示入力は reactive、navigation/selection は再構築の外側で保持する。 |
 | 2026-11-05 | N-F4 / N-F6 | IntoChildren が typed root を消去する | typed child/recipe は private 構築文脈を読み、任意 View は wrapper で配置・clip。公開 View mutation や独自 child trait は作らない。 |
-| 2026-11-05 | N-F6 | Custom ViewFn は PartialEq を持たない | StepIndicator は slot の構築 enum とし、Value 化のためだけの ViewFn identity/equality は足さない。 |
+| 2026-11-05 | N-F6 / N-F1 | slot config と factory equality | StepIndicator は plain slot enum。既存 Toast の public field 比較には Callback app/key と ViewFn shared-factory identity を使い、Value 化だけの偽 equality や識別子は足さない。 |
+| 2026-11-05 | N-F1-props / N-F4 | core の表示入力が固定値のまま残る | Scroll axes/Overlay 配置は core が reactive に更新し root を保つ。Sidebar side と HoverCard delay は明示の構築 geometry/timing policy として 10.6 に追加。 |
